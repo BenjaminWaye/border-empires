@@ -1,0 +1,12 @@
+{
+  "name": "border-empires",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm --filter @border-empires/shared build && pnpm --parallel --filter @border-empires/server --filter @border-empires/client dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  }
+}
