@@ -1,0 +1,6 @@
+{
+  "framework": "vite",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @border-empires/client build",
+  "outputDirectory": "dist"
+}

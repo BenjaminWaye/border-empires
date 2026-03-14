@@ -10,7 +10,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
-  z.object({ type: z.literal("SET_TILE_COLOR"), color: z.string().regex(/^#[0-9a-fA-F]{6}$/) })
+  z.object({ type: z.literal("SET_TILE_COLOR"), color: z.string().regex(/^#[0-9a-fA-F]{6}$/) }),
+  z.object({ type: z.literal("BUILD_FORT"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

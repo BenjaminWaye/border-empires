@@ -23,7 +23,7 @@ export const ratingFromPointsLevel = (points: number, level: number): number => 
 
 export const underdogMultiplier = (attackerRating: number, defenderRating: number): number => {
   const diff = defenderRating - attackerRating;
-  return clamp(Math.exp(diff / UNDERDOG_K), 0.05, 8.0);
+  return clamp(Math.exp(diff / UNDERDOG_K), 0.01, 8.0);
 };
 
 export const pvpPointsReward = (baseTileValue: number, attackerRating: number, defenderRating: number): number => {

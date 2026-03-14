@@ -2,6 +2,9 @@ export type Terrain = "LAND" | "SEA" | "MOUNTAIN";
 export type ResourceType = "FARM" | "WOOD" | "IRON" | "GEMS";
 export type TileKey = `${number},${number}`;
 export type PlayerId = string;
+export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS";
+export type FortStatus = "under_construction" | "active";
+export type SeasonStatus = "active" | "archived";
 
 export interface Tile {
   x: number;
@@ -9,6 +12,10 @@ export interface Tile {
   terrain: Terrain;
   resource?: ResourceType;
   ownerId?: PlayerId;
+  clusterId?: string;
+  clusterType?: ClusterType;
+  dockId?: string;
+  fort?: { ownerId: PlayerId; status: FortStatus; completesAt?: number };
   lastChangedAt: number;
 }
 
@@ -17,6 +24,34 @@ export interface StatsMods {
   defense: number;
   income: number;
   vision: number;
+}
+
+export type MissionKind =
+  | "NEUTRAL_CAPTURES"
+  | "ENEMY_CAPTURES"
+  | "COMBAT_WINS"
+  | "TILES_HELD"
+  | "FARMS_HELD";
+
+export interface MissionState {
+  id: string;
+  kind: MissionKind;
+  name: string;
+  description: string;
+  unlockPoints: number;
+  target: number;
+  progress: number;
+  rewardPoints: number;
+  completed: boolean;
+  claimed: boolean;
+}
+
+export interface MissionStats {
+  neutralCaptures: number;
+  enemyCaptures: number;
+  combatWins: number;
+  maxTilesHeld: number;
+  maxFarmsHeld: number;
 }
 
 export interface Player {
@@ -29,6 +64,8 @@ export interface Player {
   mods: StatsMods;
   powerups: Record<string, number>;
   tileColor?: string;
+  missions: MissionState[];
+  missionStats: MissionStats;
   territoryTiles: Set<TileKey>;
   T: number;
   E: number;
@@ -48,4 +85,43 @@ export interface CombatLock {
   attackerId: PlayerId;
   defenderId?: PlayerId;
   resolvesAt: number;
+}
+
+export interface Season {
+  seasonId: string;
+  startAt: number;
+  endAt: number;
+  worldSeed: number;
+  techTreeConfigId: string;
+  status: SeasonStatus;
+}
+
+export interface ClusterBonusDefinition {
+  attackMult?: number;
+  defenseMult?: number;
+  incomeMult?: number;
+  visionMult?: number;
+}
+
+export interface Cluster {
+  clusterId: string;
+  clusterType: ClusterType;
+  controlThreshold: number;
+  bonusDefinition: ClusterBonusDefinition;
+}
+
+export interface Dock {
+  dockId: string;
+  tileKey: TileKey;
+  pairedDockId: string;
+  cooldownUntil: number;
+}
+
+export interface Fort {
+  fortId: string;
+  ownerId: PlayerId;
+  tileKey: TileKey;
+  status: FortStatus;
+  startedAt: number;
+  completesAt: number;
 }

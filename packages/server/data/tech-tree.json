@@ -1,0 +1,5155 @@
+{
+  "version": 1,
+  "techs": [
+    {
+      "id": "dominion-core",
+      "rootId": "dominion-core",
+      "name": "Dominion Doctrine Core",
+      "description": "Dominion Doctrine establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "attack": 1.05
+      }
+    },
+    {
+      "id": "dominion-n01",
+      "rootId": "dominion-core",
+      "requires": "dominion-core",
+      "name": "Dominion Doctrine Node 1",
+      "description": "Tier 2 protocol stabilizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n02",
+      "rootId": "dominion-core",
+      "requires": "dominion-n01",
+      "name": "Dominion Doctrine Node 2",
+      "description": "Tier 2 protocol amplifies assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n03",
+      "rootId": "dominion-core",
+      "requires": "dominion-n01",
+      "name": "Dominion Doctrine Node 3",
+      "description": "Tier 3 protocol reweaves border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n04",
+      "rootId": "dominion-core",
+      "requires": "dominion-n02",
+      "name": "Dominion Doctrine Node 4",
+      "description": "Tier 3 protocol hardens scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n05",
+      "rootId": "dominion-core",
+      "requires": "dominion-n02",
+      "name": "Dominion Doctrine Node 5",
+      "description": "Tier 3 protocol harmonizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n06",
+      "rootId": "dominion-core",
+      "requires": "dominion-n03",
+      "name": "Dominion Doctrine Node 6",
+      "description": "Tier 3 protocol channels siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n07",
+      "rootId": "dominion-core",
+      "requires": "dominion-n03",
+      "name": "Dominion Doctrine Node 7",
+      "description": "Tier 4 protocol synchronizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n08",
+      "rootId": "dominion-core",
+      "requires": "dominion-n04",
+      "name": "Dominion Doctrine Node 8",
+      "description": "Tier 4 protocol inscribes frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n09",
+      "rootId": "dominion-core",
+      "requires": "dominion-n04",
+      "name": "Dominion Doctrine Node 9",
+      "description": "Tier 4 protocol stabilizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n10",
+      "rootId": "dominion-core",
+      "requires": "dominion-n05",
+      "name": "Dominion Doctrine Node 10",
+      "description": "Tier 4 protocol amplifies assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-dominion",
+        "charges": 1
+      }
+    },
+    {
+      "id": "dominion-n11",
+      "rootId": "dominion-core",
+      "requires": "dominion-n05",
+      "name": "Dominion Doctrine Node 11",
+      "description": "Tier 4 protocol reweaves border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n12",
+      "rootId": "dominion-core",
+      "requires": "dominion-n06",
+      "name": "Dominion Doctrine Node 12",
+      "description": "Tier 4 protocol hardens scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n13",
+      "rootId": "dominion-core",
+      "requires": "dominion-n06",
+      "name": "Dominion Doctrine Node 13",
+      "description": "Tier 4 protocol harmonizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n14",
+      "rootId": "dominion-core",
+      "requires": "dominion-n07",
+      "name": "Dominion Doctrine Node 14",
+      "description": "Tier 4 protocol channels siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n15",
+      "rootId": "dominion-core",
+      "requires": "dominion-n07",
+      "name": "Dominion Doctrine Node 15",
+      "description": "Tier 5 protocol synchronizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n16",
+      "rootId": "dominion-core",
+      "requires": "dominion-n08",
+      "name": "Dominion Doctrine Node 16",
+      "description": "Tier 5 protocol inscribes frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n17",
+      "rootId": "dominion-core",
+      "requires": "dominion-n08",
+      "name": "Dominion Doctrine Node 17",
+      "description": "Tier 5 protocol stabilizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n18",
+      "rootId": "dominion-core",
+      "requires": "dominion-n09",
+      "name": "Dominion Doctrine Node 18",
+      "description": "Tier 5 protocol amplifies assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n19",
+      "rootId": "dominion-core",
+      "requires": "dominion-n09",
+      "name": "Dominion Doctrine Node 19",
+      "description": "Tier 5 protocol reweaves border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n20",
+      "rootId": "dominion-core",
+      "requires": "dominion-n10",
+      "name": "Dominion Doctrine Node 20",
+      "description": "Tier 5 protocol hardens scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-dominion",
+        "charges": 1
+      }
+    },
+    {
+      "id": "dominion-n21",
+      "rootId": "dominion-core",
+      "requires": "dominion-n10",
+      "name": "Dominion Doctrine Node 21",
+      "description": "Tier 5 protocol harmonizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n22",
+      "rootId": "dominion-core",
+      "requires": "dominion-n11",
+      "name": "Dominion Doctrine Node 22",
+      "description": "Tier 5 protocol channels siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n23",
+      "rootId": "dominion-core",
+      "requires": "dominion-n11",
+      "name": "Dominion Doctrine Node 23",
+      "description": "Tier 5 protocol synchronizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n24",
+      "rootId": "dominion-core",
+      "requires": "dominion-n12",
+      "name": "Dominion Doctrine Node 24",
+      "description": "Tier 5 protocol inscribes frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n25",
+      "rootId": "dominion-core",
+      "requires": "dominion-n12",
+      "name": "Dominion Doctrine Node 25",
+      "description": "Tier 5 protocol stabilizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n26",
+      "rootId": "dominion-core",
+      "requires": "dominion-n13",
+      "name": "Dominion Doctrine Node 26",
+      "description": "Tier 5 protocol amplifies assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n27",
+      "rootId": "dominion-core",
+      "requires": "dominion-n13",
+      "name": "Dominion Doctrine Node 27",
+      "description": "Tier 5 protocol reweaves border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n28",
+      "rootId": "dominion-core",
+      "requires": "dominion-n14",
+      "name": "Dominion Doctrine Node 28",
+      "description": "Tier 5 protocol hardens scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n29",
+      "rootId": "dominion-core",
+      "requires": "dominion-n14",
+      "name": "Dominion Doctrine Node 29",
+      "description": "Tier 5 protocol harmonizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n30",
+      "rootId": "dominion-core",
+      "requires": "dominion-n15",
+      "name": "Dominion Doctrine Node 30",
+      "description": "Tier 5 protocol channels siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-dominion",
+        "charges": 1
+      }
+    },
+    {
+      "id": "dominion-n31",
+      "rootId": "dominion-core",
+      "requires": "dominion-n15",
+      "name": "Dominion Doctrine Node 31",
+      "description": "Tier 6 protocol synchronizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n32",
+      "rootId": "dominion-core",
+      "requires": "dominion-n16",
+      "name": "Dominion Doctrine Node 32",
+      "description": "Tier 6 protocol inscribes frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n33",
+      "rootId": "dominion-core",
+      "requires": "dominion-n16",
+      "name": "Dominion Doctrine Node 33",
+      "description": "Tier 6 protocol stabilizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n34",
+      "rootId": "dominion-core",
+      "requires": "dominion-n17",
+      "name": "Dominion Doctrine Node 34",
+      "description": "Tier 6 protocol amplifies assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n35",
+      "rootId": "dominion-core",
+      "requires": "dominion-n17",
+      "name": "Dominion Doctrine Node 35",
+      "description": "Tier 6 protocol reweaves border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n36",
+      "rootId": "dominion-core",
+      "requires": "dominion-n18",
+      "name": "Dominion Doctrine Node 36",
+      "description": "Tier 6 protocol hardens scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n37",
+      "rootId": "dominion-core",
+      "requires": "dominion-n18",
+      "name": "Dominion Doctrine Node 37",
+      "description": "Tier 6 protocol harmonizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n38",
+      "rootId": "dominion-core",
+      "requires": "dominion-n19",
+      "name": "Dominion Doctrine Node 38",
+      "description": "Tier 6 protocol channels siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n39",
+      "rootId": "dominion-core",
+      "requires": "dominion-n19",
+      "name": "Dominion Doctrine Node 39",
+      "description": "Tier 6 protocol synchronizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n40",
+      "rootId": "dominion-core",
+      "requires": "dominion-n20",
+      "name": "Dominion Doctrine Node 40",
+      "description": "Tier 6 protocol inscribes frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-dominion",
+        "charges": 1
+      }
+    },
+    {
+      "id": "dominion-n41",
+      "rootId": "dominion-core",
+      "requires": "dominion-n20",
+      "name": "Dominion Doctrine Node 41",
+      "description": "Tier 6 protocol stabilizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n42",
+      "rootId": "dominion-core",
+      "requires": "dominion-n21",
+      "name": "Dominion Doctrine Node 42",
+      "description": "Tier 6 protocol amplifies assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n43",
+      "rootId": "dominion-core",
+      "requires": "dominion-n21",
+      "name": "Dominion Doctrine Node 43",
+      "description": "Tier 6 protocol reweaves border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n44",
+      "rootId": "dominion-core",
+      "requires": "dominion-n22",
+      "name": "Dominion Doctrine Node 44",
+      "description": "Tier 6 protocol hardens scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n45",
+      "rootId": "dominion-core",
+      "requires": "dominion-n22",
+      "name": "Dominion Doctrine Node 45",
+      "description": "Tier 6 protocol harmonizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "dominion-n46",
+      "rootId": "dominion-core",
+      "requires": "dominion-n23",
+      "name": "Dominion Doctrine Node 46",
+      "description": "Tier 6 protocol channels siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "dominion-n47",
+      "rootId": "dominion-core",
+      "requires": "dominion-n23",
+      "name": "Dominion Doctrine Node 47",
+      "description": "Tier 6 protocol synchronizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "dominion-n48",
+      "rootId": "dominion-core",
+      "requires": "dominion-n24",
+      "name": "Dominion Doctrine Node 48",
+      "description": "Tier 6 protocol inscribes frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "dominion-n49",
+      "rootId": "dominion-core",
+      "requires": "dominion-n24",
+      "name": "Dominion Doctrine Node 49",
+      "description": "Tier 6 protocol stabilizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-core",
+      "rootId": "aegis-core",
+      "name": "Aegis Bastion Core",
+      "description": "Aegis Bastion establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "defense": 1.05
+      }
+    },
+    {
+      "id": "aegis-n01",
+      "rootId": "aegis-core",
+      "requires": "aegis-core",
+      "name": "Aegis Bastion Node 1",
+      "description": "Tier 2 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n02",
+      "rootId": "aegis-core",
+      "requires": "aegis-n01",
+      "name": "Aegis Bastion Node 2",
+      "description": "Tier 2 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n03",
+      "rootId": "aegis-core",
+      "requires": "aegis-n01",
+      "name": "Aegis Bastion Node 3",
+      "description": "Tier 3 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n04",
+      "rootId": "aegis-core",
+      "requires": "aegis-n02",
+      "name": "Aegis Bastion Node 4",
+      "description": "Tier 3 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n05",
+      "rootId": "aegis-core",
+      "requires": "aegis-n02",
+      "name": "Aegis Bastion Node 5",
+      "description": "Tier 3 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n06",
+      "rootId": "aegis-core",
+      "requires": "aegis-n03",
+      "name": "Aegis Bastion Node 6",
+      "description": "Tier 3 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n07",
+      "rootId": "aegis-core",
+      "requires": "aegis-n03",
+      "name": "Aegis Bastion Node 7",
+      "description": "Tier 4 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n08",
+      "rootId": "aegis-core",
+      "requires": "aegis-n04",
+      "name": "Aegis Bastion Node 8",
+      "description": "Tier 4 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n09",
+      "rootId": "aegis-core",
+      "requires": "aegis-n04",
+      "name": "Aegis Bastion Node 9",
+      "description": "Tier 4 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n10",
+      "rootId": "aegis-core",
+      "requires": "aegis-n05",
+      "name": "Aegis Bastion Node 10",
+      "description": "Tier 4 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-aegis",
+        "charges": 1
+      }
+    },
+    {
+      "id": "aegis-n11",
+      "rootId": "aegis-core",
+      "requires": "aegis-n05",
+      "name": "Aegis Bastion Node 11",
+      "description": "Tier 4 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n12",
+      "rootId": "aegis-core",
+      "requires": "aegis-n06",
+      "name": "Aegis Bastion Node 12",
+      "description": "Tier 4 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n13",
+      "rootId": "aegis-core",
+      "requires": "aegis-n06",
+      "name": "Aegis Bastion Node 13",
+      "description": "Tier 4 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n14",
+      "rootId": "aegis-core",
+      "requires": "aegis-n07",
+      "name": "Aegis Bastion Node 14",
+      "description": "Tier 4 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n15",
+      "rootId": "aegis-core",
+      "requires": "aegis-n07",
+      "name": "Aegis Bastion Node 15",
+      "description": "Tier 5 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n16",
+      "rootId": "aegis-core",
+      "requires": "aegis-n08",
+      "name": "Aegis Bastion Node 16",
+      "description": "Tier 5 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n17",
+      "rootId": "aegis-core",
+      "requires": "aegis-n08",
+      "name": "Aegis Bastion Node 17",
+      "description": "Tier 5 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n18",
+      "rootId": "aegis-core",
+      "requires": "aegis-n09",
+      "name": "Aegis Bastion Node 18",
+      "description": "Tier 5 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n19",
+      "rootId": "aegis-core",
+      "requires": "aegis-n09",
+      "name": "Aegis Bastion Node 19",
+      "description": "Tier 5 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n20",
+      "rootId": "aegis-core",
+      "requires": "aegis-n10",
+      "name": "Aegis Bastion Node 20",
+      "description": "Tier 5 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-aegis",
+        "charges": 1
+      }
+    },
+    {
+      "id": "aegis-n21",
+      "rootId": "aegis-core",
+      "requires": "aegis-n10",
+      "name": "Aegis Bastion Node 21",
+      "description": "Tier 5 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n22",
+      "rootId": "aegis-core",
+      "requires": "aegis-n11",
+      "name": "Aegis Bastion Node 22",
+      "description": "Tier 5 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n23",
+      "rootId": "aegis-core",
+      "requires": "aegis-n11",
+      "name": "Aegis Bastion Node 23",
+      "description": "Tier 5 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n24",
+      "rootId": "aegis-core",
+      "requires": "aegis-n12",
+      "name": "Aegis Bastion Node 24",
+      "description": "Tier 5 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n25",
+      "rootId": "aegis-core",
+      "requires": "aegis-n12",
+      "name": "Aegis Bastion Node 25",
+      "description": "Tier 5 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n26",
+      "rootId": "aegis-core",
+      "requires": "aegis-n13",
+      "name": "Aegis Bastion Node 26",
+      "description": "Tier 5 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n27",
+      "rootId": "aegis-core",
+      "requires": "aegis-n13",
+      "name": "Aegis Bastion Node 27",
+      "description": "Tier 5 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n28",
+      "rootId": "aegis-core",
+      "requires": "aegis-n14",
+      "name": "Aegis Bastion Node 28",
+      "description": "Tier 5 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n29",
+      "rootId": "aegis-core",
+      "requires": "aegis-n14",
+      "name": "Aegis Bastion Node 29",
+      "description": "Tier 5 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n30",
+      "rootId": "aegis-core",
+      "requires": "aegis-n15",
+      "name": "Aegis Bastion Node 30",
+      "description": "Tier 5 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-aegis",
+        "charges": 1
+      }
+    },
+    {
+      "id": "aegis-n31",
+      "rootId": "aegis-core",
+      "requires": "aegis-n15",
+      "name": "Aegis Bastion Node 31",
+      "description": "Tier 6 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n32",
+      "rootId": "aegis-core",
+      "requires": "aegis-n16",
+      "name": "Aegis Bastion Node 32",
+      "description": "Tier 6 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n33",
+      "rootId": "aegis-core",
+      "requires": "aegis-n16",
+      "name": "Aegis Bastion Node 33",
+      "description": "Tier 6 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n34",
+      "rootId": "aegis-core",
+      "requires": "aegis-n17",
+      "name": "Aegis Bastion Node 34",
+      "description": "Tier 6 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n35",
+      "rootId": "aegis-core",
+      "requires": "aegis-n17",
+      "name": "Aegis Bastion Node 35",
+      "description": "Tier 6 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n36",
+      "rootId": "aegis-core",
+      "requires": "aegis-n18",
+      "name": "Aegis Bastion Node 36",
+      "description": "Tier 6 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n37",
+      "rootId": "aegis-core",
+      "requires": "aegis-n18",
+      "name": "Aegis Bastion Node 37",
+      "description": "Tier 6 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n38",
+      "rootId": "aegis-core",
+      "requires": "aegis-n19",
+      "name": "Aegis Bastion Node 38",
+      "description": "Tier 6 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n39",
+      "rootId": "aegis-core",
+      "requires": "aegis-n19",
+      "name": "Aegis Bastion Node 39",
+      "description": "Tier 6 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n40",
+      "rootId": "aegis-core",
+      "requires": "aegis-n20",
+      "name": "Aegis Bastion Node 40",
+      "description": "Tier 6 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-aegis",
+        "charges": 1
+      }
+    },
+    {
+      "id": "aegis-n41",
+      "rootId": "aegis-core",
+      "requires": "aegis-n20",
+      "name": "Aegis Bastion Node 41",
+      "description": "Tier 6 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n42",
+      "rootId": "aegis-core",
+      "requires": "aegis-n21",
+      "name": "Aegis Bastion Node 42",
+      "description": "Tier 6 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n43",
+      "rootId": "aegis-core",
+      "requires": "aegis-n21",
+      "name": "Aegis Bastion Node 43",
+      "description": "Tier 6 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n44",
+      "rootId": "aegis-core",
+      "requires": "aegis-n22",
+      "name": "Aegis Bastion Node 44",
+      "description": "Tier 6 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n45",
+      "rootId": "aegis-core",
+      "requires": "aegis-n22",
+      "name": "Aegis Bastion Node 45",
+      "description": "Tier 6 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "aegis-n46",
+      "rootId": "aegis-core",
+      "requires": "aegis-n23",
+      "name": "Aegis Bastion Node 46",
+      "description": "Tier 6 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "aegis-n47",
+      "rootId": "aegis-core",
+      "requires": "aegis-n23",
+      "name": "Aegis Bastion Node 47",
+      "description": "Tier 6 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "aegis-n48",
+      "rootId": "aegis-core",
+      "requires": "aegis-n24",
+      "name": "Aegis Bastion Node 48",
+      "description": "Tier 6 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "aegis-n49",
+      "rootId": "aegis-core",
+      "requires": "aegis-n24",
+      "name": "Aegis Bastion Node 49",
+      "description": "Tier 6 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-core",
+      "rootId": "mercantile-core",
+      "name": "Mercantile Compact Core",
+      "description": "Mercantile Compact establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "income": 1.05
+      }
+    },
+    {
+      "id": "mercantile-n01",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-core",
+      "name": "Mercantile Compact Node 1",
+      "description": "Tier 2 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n02",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n01",
+      "name": "Mercantile Compact Node 2",
+      "description": "Tier 2 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n03",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n01",
+      "name": "Mercantile Compact Node 3",
+      "description": "Tier 3 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n04",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n02",
+      "name": "Mercantile Compact Node 4",
+      "description": "Tier 3 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n05",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n02",
+      "name": "Mercantile Compact Node 5",
+      "description": "Tier 3 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n06",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n03",
+      "name": "Mercantile Compact Node 6",
+      "description": "Tier 3 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n07",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n03",
+      "name": "Mercantile Compact Node 7",
+      "description": "Tier 4 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n08",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n04",
+      "name": "Mercantile Compact Node 8",
+      "description": "Tier 4 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n09",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n04",
+      "name": "Mercantile Compact Node 9",
+      "description": "Tier 4 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n10",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n05",
+      "name": "Mercantile Compact Node 10",
+      "description": "Tier 4 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-mercantile",
+        "charges": 1
+      }
+    },
+    {
+      "id": "mercantile-n11",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n05",
+      "name": "Mercantile Compact Node 11",
+      "description": "Tier 4 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n12",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n06",
+      "name": "Mercantile Compact Node 12",
+      "description": "Tier 4 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n13",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n06",
+      "name": "Mercantile Compact Node 13",
+      "description": "Tier 4 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n14",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n07",
+      "name": "Mercantile Compact Node 14",
+      "description": "Tier 4 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n15",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n07",
+      "name": "Mercantile Compact Node 15",
+      "description": "Tier 5 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n16",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n08",
+      "name": "Mercantile Compact Node 16",
+      "description": "Tier 5 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n17",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n08",
+      "name": "Mercantile Compact Node 17",
+      "description": "Tier 5 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n18",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n09",
+      "name": "Mercantile Compact Node 18",
+      "description": "Tier 5 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n19",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n09",
+      "name": "Mercantile Compact Node 19",
+      "description": "Tier 5 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n20",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n10",
+      "name": "Mercantile Compact Node 20",
+      "description": "Tier 5 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-mercantile",
+        "charges": 1
+      }
+    },
+    {
+      "id": "mercantile-n21",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n10",
+      "name": "Mercantile Compact Node 21",
+      "description": "Tier 5 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n22",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n11",
+      "name": "Mercantile Compact Node 22",
+      "description": "Tier 5 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n23",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n11",
+      "name": "Mercantile Compact Node 23",
+      "description": "Tier 5 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n24",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n12",
+      "name": "Mercantile Compact Node 24",
+      "description": "Tier 5 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n25",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n12",
+      "name": "Mercantile Compact Node 25",
+      "description": "Tier 5 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n26",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n13",
+      "name": "Mercantile Compact Node 26",
+      "description": "Tier 5 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n27",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n13",
+      "name": "Mercantile Compact Node 27",
+      "description": "Tier 5 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n28",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n14",
+      "name": "Mercantile Compact Node 28",
+      "description": "Tier 5 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n29",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n14",
+      "name": "Mercantile Compact Node 29",
+      "description": "Tier 5 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n30",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n15",
+      "name": "Mercantile Compact Node 30",
+      "description": "Tier 5 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-mercantile",
+        "charges": 1
+      }
+    },
+    {
+      "id": "mercantile-n31",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n15",
+      "name": "Mercantile Compact Node 31",
+      "description": "Tier 6 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n32",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n16",
+      "name": "Mercantile Compact Node 32",
+      "description": "Tier 6 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n33",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n16",
+      "name": "Mercantile Compact Node 33",
+      "description": "Tier 6 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n34",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n17",
+      "name": "Mercantile Compact Node 34",
+      "description": "Tier 6 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n35",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n17",
+      "name": "Mercantile Compact Node 35",
+      "description": "Tier 6 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n36",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n18",
+      "name": "Mercantile Compact Node 36",
+      "description": "Tier 6 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n37",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n18",
+      "name": "Mercantile Compact Node 37",
+      "description": "Tier 6 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n38",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n19",
+      "name": "Mercantile Compact Node 38",
+      "description": "Tier 6 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n39",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n19",
+      "name": "Mercantile Compact Node 39",
+      "description": "Tier 6 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n40",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n20",
+      "name": "Mercantile Compact Node 40",
+      "description": "Tier 6 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-mercantile",
+        "charges": 1
+      }
+    },
+    {
+      "id": "mercantile-n41",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n20",
+      "name": "Mercantile Compact Node 41",
+      "description": "Tier 6 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n42",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n21",
+      "name": "Mercantile Compact Node 42",
+      "description": "Tier 6 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n43",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n21",
+      "name": "Mercantile Compact Node 43",
+      "description": "Tier 6 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n44",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n22",
+      "name": "Mercantile Compact Node 44",
+      "description": "Tier 6 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n45",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n22",
+      "name": "Mercantile Compact Node 45",
+      "description": "Tier 6 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n46",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n23",
+      "name": "Mercantile Compact Node 46",
+      "description": "Tier 6 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n47",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n23",
+      "name": "Mercantile Compact Node 47",
+      "description": "Tier 6 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "mercantile-n48",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n24",
+      "name": "Mercantile Compact Node 48",
+      "description": "Tier 6 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "mercantile-n49",
+      "rootId": "mercantile-core",
+      "requires": "mercantile-n24",
+      "name": "Mercantile Compact Node 49",
+      "description": "Tier 6 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-core",
+      "rootId": "oracle-core",
+      "name": "Oracle Lattice Core",
+      "description": "Oracle Lattice establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "vision": 1.08
+      }
+    },
+    {
+      "id": "oracle-n01",
+      "rootId": "oracle-core",
+      "requires": "oracle-core",
+      "name": "Oracle Lattice Node 1",
+      "description": "Tier 2 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n02",
+      "rootId": "oracle-core",
+      "requires": "oracle-n01",
+      "name": "Oracle Lattice Node 2",
+      "description": "Tier 2 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n03",
+      "rootId": "oracle-core",
+      "requires": "oracle-n01",
+      "name": "Oracle Lattice Node 3",
+      "description": "Tier 3 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n04",
+      "rootId": "oracle-core",
+      "requires": "oracle-n02",
+      "name": "Oracle Lattice Node 4",
+      "description": "Tier 3 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n05",
+      "rootId": "oracle-core",
+      "requires": "oracle-n02",
+      "name": "Oracle Lattice Node 5",
+      "description": "Tier 3 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n06",
+      "rootId": "oracle-core",
+      "requires": "oracle-n03",
+      "name": "Oracle Lattice Node 6",
+      "description": "Tier 3 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n07",
+      "rootId": "oracle-core",
+      "requires": "oracle-n03",
+      "name": "Oracle Lattice Node 7",
+      "description": "Tier 4 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n08",
+      "rootId": "oracle-core",
+      "requires": "oracle-n04",
+      "name": "Oracle Lattice Node 8",
+      "description": "Tier 4 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n09",
+      "rootId": "oracle-core",
+      "requires": "oracle-n04",
+      "name": "Oracle Lattice Node 9",
+      "description": "Tier 4 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n10",
+      "rootId": "oracle-core",
+      "requires": "oracle-n05",
+      "name": "Oracle Lattice Node 10",
+      "description": "Tier 4 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-oracle",
+        "charges": 1
+      }
+    },
+    {
+      "id": "oracle-n11",
+      "rootId": "oracle-core",
+      "requires": "oracle-n05",
+      "name": "Oracle Lattice Node 11",
+      "description": "Tier 4 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n12",
+      "rootId": "oracle-core",
+      "requires": "oracle-n06",
+      "name": "Oracle Lattice Node 12",
+      "description": "Tier 4 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n13",
+      "rootId": "oracle-core",
+      "requires": "oracle-n06",
+      "name": "Oracle Lattice Node 13",
+      "description": "Tier 4 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n14",
+      "rootId": "oracle-core",
+      "requires": "oracle-n07",
+      "name": "Oracle Lattice Node 14",
+      "description": "Tier 4 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n15",
+      "rootId": "oracle-core",
+      "requires": "oracle-n07",
+      "name": "Oracle Lattice Node 15",
+      "description": "Tier 5 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n16",
+      "rootId": "oracle-core",
+      "requires": "oracle-n08",
+      "name": "Oracle Lattice Node 16",
+      "description": "Tier 5 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n17",
+      "rootId": "oracle-core",
+      "requires": "oracle-n08",
+      "name": "Oracle Lattice Node 17",
+      "description": "Tier 5 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n18",
+      "rootId": "oracle-core",
+      "requires": "oracle-n09",
+      "name": "Oracle Lattice Node 18",
+      "description": "Tier 5 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n19",
+      "rootId": "oracle-core",
+      "requires": "oracle-n09",
+      "name": "Oracle Lattice Node 19",
+      "description": "Tier 5 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n20",
+      "rootId": "oracle-core",
+      "requires": "oracle-n10",
+      "name": "Oracle Lattice Node 20",
+      "description": "Tier 5 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-oracle",
+        "charges": 1
+      }
+    },
+    {
+      "id": "oracle-n21",
+      "rootId": "oracle-core",
+      "requires": "oracle-n10",
+      "name": "Oracle Lattice Node 21",
+      "description": "Tier 5 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n22",
+      "rootId": "oracle-core",
+      "requires": "oracle-n11",
+      "name": "Oracle Lattice Node 22",
+      "description": "Tier 5 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n23",
+      "rootId": "oracle-core",
+      "requires": "oracle-n11",
+      "name": "Oracle Lattice Node 23",
+      "description": "Tier 5 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n24",
+      "rootId": "oracle-core",
+      "requires": "oracle-n12",
+      "name": "Oracle Lattice Node 24",
+      "description": "Tier 5 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n25",
+      "rootId": "oracle-core",
+      "requires": "oracle-n12",
+      "name": "Oracle Lattice Node 25",
+      "description": "Tier 5 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n26",
+      "rootId": "oracle-core",
+      "requires": "oracle-n13",
+      "name": "Oracle Lattice Node 26",
+      "description": "Tier 5 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n27",
+      "rootId": "oracle-core",
+      "requires": "oracle-n13",
+      "name": "Oracle Lattice Node 27",
+      "description": "Tier 5 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n28",
+      "rootId": "oracle-core",
+      "requires": "oracle-n14",
+      "name": "Oracle Lattice Node 28",
+      "description": "Tier 5 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n29",
+      "rootId": "oracle-core",
+      "requires": "oracle-n14",
+      "name": "Oracle Lattice Node 29",
+      "description": "Tier 5 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n30",
+      "rootId": "oracle-core",
+      "requires": "oracle-n15",
+      "name": "Oracle Lattice Node 30",
+      "description": "Tier 5 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-oracle",
+        "charges": 1
+      }
+    },
+    {
+      "id": "oracle-n31",
+      "rootId": "oracle-core",
+      "requires": "oracle-n15",
+      "name": "Oracle Lattice Node 31",
+      "description": "Tier 6 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n32",
+      "rootId": "oracle-core",
+      "requires": "oracle-n16",
+      "name": "Oracle Lattice Node 32",
+      "description": "Tier 6 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n33",
+      "rootId": "oracle-core",
+      "requires": "oracle-n16",
+      "name": "Oracle Lattice Node 33",
+      "description": "Tier 6 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n34",
+      "rootId": "oracle-core",
+      "requires": "oracle-n17",
+      "name": "Oracle Lattice Node 34",
+      "description": "Tier 6 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n35",
+      "rootId": "oracle-core",
+      "requires": "oracle-n17",
+      "name": "Oracle Lattice Node 35",
+      "description": "Tier 6 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n36",
+      "rootId": "oracle-core",
+      "requires": "oracle-n18",
+      "name": "Oracle Lattice Node 36",
+      "description": "Tier 6 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n37",
+      "rootId": "oracle-core",
+      "requires": "oracle-n18",
+      "name": "Oracle Lattice Node 37",
+      "description": "Tier 6 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n38",
+      "rootId": "oracle-core",
+      "requires": "oracle-n19",
+      "name": "Oracle Lattice Node 38",
+      "description": "Tier 6 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n39",
+      "rootId": "oracle-core",
+      "requires": "oracle-n19",
+      "name": "Oracle Lattice Node 39",
+      "description": "Tier 6 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n40",
+      "rootId": "oracle-core",
+      "requires": "oracle-n20",
+      "name": "Oracle Lattice Node 40",
+      "description": "Tier 6 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-oracle",
+        "charges": 1
+      }
+    },
+    {
+      "id": "oracle-n41",
+      "rootId": "oracle-core",
+      "requires": "oracle-n20",
+      "name": "Oracle Lattice Node 41",
+      "description": "Tier 6 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n42",
+      "rootId": "oracle-core",
+      "requires": "oracle-n21",
+      "name": "Oracle Lattice Node 42",
+      "description": "Tier 6 protocol inscribes scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n43",
+      "rootId": "oracle-core",
+      "requires": "oracle-n21",
+      "name": "Oracle Lattice Node 43",
+      "description": "Tier 6 protocol stabilizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n44",
+      "rootId": "oracle-core",
+      "requires": "oracle-n22",
+      "name": "Oracle Lattice Node 44",
+      "description": "Tier 6 protocol amplifies siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n45",
+      "rootId": "oracle-core",
+      "requires": "oracle-n22",
+      "name": "Oracle Lattice Node 45",
+      "description": "Tier 6 protocol reweaves fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "oracle-n46",
+      "rootId": "oracle-core",
+      "requires": "oracle-n23",
+      "name": "Oracle Lattice Node 46",
+      "description": "Tier 6 protocol hardens frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "oracle-n47",
+      "rootId": "oracle-core",
+      "requires": "oracle-n23",
+      "name": "Oracle Lattice Node 47",
+      "description": "Tier 6 protocol harmonizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "oracle-n48",
+      "rootId": "oracle-core",
+      "requires": "oracle-n24",
+      "name": "Oracle Lattice Node 48",
+      "description": "Tier 6 protocol channels assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "oracle-n49",
+      "rootId": "oracle-core",
+      "requires": "oracle-n24",
+      "name": "Oracle Lattice Node 49",
+      "description": "Tier 6 protocol synchronizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-core",
+      "rootId": "forge-core",
+      "name": "Forge Assembly Core",
+      "description": "Forge Assembly establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "attack": 1.05
+      }
+    },
+    {
+      "id": "forge-n01",
+      "rootId": "forge-core",
+      "requires": "forge-core",
+      "name": "Forge Assembly Node 1",
+      "description": "Tier 2 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n02",
+      "rootId": "forge-core",
+      "requires": "forge-n01",
+      "name": "Forge Assembly Node 2",
+      "description": "Tier 2 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n03",
+      "rootId": "forge-core",
+      "requires": "forge-n01",
+      "name": "Forge Assembly Node 3",
+      "description": "Tier 3 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n04",
+      "rootId": "forge-core",
+      "requires": "forge-n02",
+      "name": "Forge Assembly Node 4",
+      "description": "Tier 3 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n05",
+      "rootId": "forge-core",
+      "requires": "forge-n02",
+      "name": "Forge Assembly Node 5",
+      "description": "Tier 3 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n06",
+      "rootId": "forge-core",
+      "requires": "forge-n03",
+      "name": "Forge Assembly Node 6",
+      "description": "Tier 3 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n07",
+      "rootId": "forge-core",
+      "requires": "forge-n03",
+      "name": "Forge Assembly Node 7",
+      "description": "Tier 4 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n08",
+      "rootId": "forge-core",
+      "requires": "forge-n04",
+      "name": "Forge Assembly Node 8",
+      "description": "Tier 4 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n09",
+      "rootId": "forge-core",
+      "requires": "forge-n04",
+      "name": "Forge Assembly Node 9",
+      "description": "Tier 4 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n10",
+      "rootId": "forge-core",
+      "requires": "forge-n05",
+      "name": "Forge Assembly Node 10",
+      "description": "Tier 4 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-forge",
+        "charges": 1
+      }
+    },
+    {
+      "id": "forge-n11",
+      "rootId": "forge-core",
+      "requires": "forge-n05",
+      "name": "Forge Assembly Node 11",
+      "description": "Tier 4 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n12",
+      "rootId": "forge-core",
+      "requires": "forge-n06",
+      "name": "Forge Assembly Node 12",
+      "description": "Tier 4 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n13",
+      "rootId": "forge-core",
+      "requires": "forge-n06",
+      "name": "Forge Assembly Node 13",
+      "description": "Tier 4 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n14",
+      "rootId": "forge-core",
+      "requires": "forge-n07",
+      "name": "Forge Assembly Node 14",
+      "description": "Tier 4 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n15",
+      "rootId": "forge-core",
+      "requires": "forge-n07",
+      "name": "Forge Assembly Node 15",
+      "description": "Tier 5 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n16",
+      "rootId": "forge-core",
+      "requires": "forge-n08",
+      "name": "Forge Assembly Node 16",
+      "description": "Tier 5 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n17",
+      "rootId": "forge-core",
+      "requires": "forge-n08",
+      "name": "Forge Assembly Node 17",
+      "description": "Tier 5 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n18",
+      "rootId": "forge-core",
+      "requires": "forge-n09",
+      "name": "Forge Assembly Node 18",
+      "description": "Tier 5 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n19",
+      "rootId": "forge-core",
+      "requires": "forge-n09",
+      "name": "Forge Assembly Node 19",
+      "description": "Tier 5 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n20",
+      "rootId": "forge-core",
+      "requires": "forge-n10",
+      "name": "Forge Assembly Node 20",
+      "description": "Tier 5 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-forge",
+        "charges": 1
+      }
+    },
+    {
+      "id": "forge-n21",
+      "rootId": "forge-core",
+      "requires": "forge-n10",
+      "name": "Forge Assembly Node 21",
+      "description": "Tier 5 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n22",
+      "rootId": "forge-core",
+      "requires": "forge-n11",
+      "name": "Forge Assembly Node 22",
+      "description": "Tier 5 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n23",
+      "rootId": "forge-core",
+      "requires": "forge-n11",
+      "name": "Forge Assembly Node 23",
+      "description": "Tier 5 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n24",
+      "rootId": "forge-core",
+      "requires": "forge-n12",
+      "name": "Forge Assembly Node 24",
+      "description": "Tier 5 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n25",
+      "rootId": "forge-core",
+      "requires": "forge-n12",
+      "name": "Forge Assembly Node 25",
+      "description": "Tier 5 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n26",
+      "rootId": "forge-core",
+      "requires": "forge-n13",
+      "name": "Forge Assembly Node 26",
+      "description": "Tier 5 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n27",
+      "rootId": "forge-core",
+      "requires": "forge-n13",
+      "name": "Forge Assembly Node 27",
+      "description": "Tier 5 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n28",
+      "rootId": "forge-core",
+      "requires": "forge-n14",
+      "name": "Forge Assembly Node 28",
+      "description": "Tier 5 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n29",
+      "rootId": "forge-core",
+      "requires": "forge-n14",
+      "name": "Forge Assembly Node 29",
+      "description": "Tier 5 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n30",
+      "rootId": "forge-core",
+      "requires": "forge-n15",
+      "name": "Forge Assembly Node 30",
+      "description": "Tier 5 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-forge",
+        "charges": 1
+      }
+    },
+    {
+      "id": "forge-n31",
+      "rootId": "forge-core",
+      "requires": "forge-n15",
+      "name": "Forge Assembly Node 31",
+      "description": "Tier 6 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n32",
+      "rootId": "forge-core",
+      "requires": "forge-n16",
+      "name": "Forge Assembly Node 32",
+      "description": "Tier 6 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n33",
+      "rootId": "forge-core",
+      "requires": "forge-n16",
+      "name": "Forge Assembly Node 33",
+      "description": "Tier 6 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n34",
+      "rootId": "forge-core",
+      "requires": "forge-n17",
+      "name": "Forge Assembly Node 34",
+      "description": "Tier 6 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n35",
+      "rootId": "forge-core",
+      "requires": "forge-n17",
+      "name": "Forge Assembly Node 35",
+      "description": "Tier 6 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n36",
+      "rootId": "forge-core",
+      "requires": "forge-n18",
+      "name": "Forge Assembly Node 36",
+      "description": "Tier 6 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n37",
+      "rootId": "forge-core",
+      "requires": "forge-n18",
+      "name": "Forge Assembly Node 37",
+      "description": "Tier 6 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n38",
+      "rootId": "forge-core",
+      "requires": "forge-n19",
+      "name": "Forge Assembly Node 38",
+      "description": "Tier 6 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n39",
+      "rootId": "forge-core",
+      "requires": "forge-n19",
+      "name": "Forge Assembly Node 39",
+      "description": "Tier 6 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n40",
+      "rootId": "forge-core",
+      "requires": "forge-n20",
+      "name": "Forge Assembly Node 40",
+      "description": "Tier 6 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-forge",
+        "charges": 1
+      }
+    },
+    {
+      "id": "forge-n41",
+      "rootId": "forge-core",
+      "requires": "forge-n20",
+      "name": "Forge Assembly Node 41",
+      "description": "Tier 6 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n42",
+      "rootId": "forge-core",
+      "requires": "forge-n21",
+      "name": "Forge Assembly Node 42",
+      "description": "Tier 6 protocol synchronizes resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n43",
+      "rootId": "forge-core",
+      "requires": "forge-n21",
+      "name": "Forge Assembly Node 43",
+      "description": "Tier 6 protocol inscribes assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n44",
+      "rootId": "forge-core",
+      "requires": "forge-n22",
+      "name": "Forge Assembly Node 44",
+      "description": "Tier 6 protocol stabilizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n45",
+      "rootId": "forge-core",
+      "requires": "forge-n22",
+      "name": "Forge Assembly Node 45",
+      "description": "Tier 6 protocol amplifies scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "forge-n46",
+      "rootId": "forge-core",
+      "requires": "forge-n23",
+      "name": "Forge Assembly Node 46",
+      "description": "Tier 6 protocol reweaves civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "forge-n47",
+      "rootId": "forge-core",
+      "requires": "forge-n23",
+      "name": "Forge Assembly Node 47",
+      "description": "Tier 6 protocol hardens siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "forge-n48",
+      "rootId": "forge-core",
+      "requires": "forge-n24",
+      "name": "Forge Assembly Node 48",
+      "description": "Tier 6 protocol harmonizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "forge-n49",
+      "rootId": "forge-core",
+      "requires": "forge-n24",
+      "name": "Forge Assembly Node 49",
+      "description": "Tier 6 protocol channels frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-core",
+      "rootId": "citadel-core",
+      "name": "Citadel Syndicate Core",
+      "description": "Citadel Syndicate establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "defense": 1.05
+      }
+    },
+    {
+      "id": "citadel-n01",
+      "rootId": "citadel-core",
+      "requires": "citadel-core",
+      "name": "Citadel Syndicate Node 1",
+      "description": "Tier 2 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n02",
+      "rootId": "citadel-core",
+      "requires": "citadel-n01",
+      "name": "Citadel Syndicate Node 2",
+      "description": "Tier 2 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n03",
+      "rootId": "citadel-core",
+      "requires": "citadel-n01",
+      "name": "Citadel Syndicate Node 3",
+      "description": "Tier 3 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n04",
+      "rootId": "citadel-core",
+      "requires": "citadel-n02",
+      "name": "Citadel Syndicate Node 4",
+      "description": "Tier 3 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n05",
+      "rootId": "citadel-core",
+      "requires": "citadel-n02",
+      "name": "Citadel Syndicate Node 5",
+      "description": "Tier 3 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n06",
+      "rootId": "citadel-core",
+      "requires": "citadel-n03",
+      "name": "Citadel Syndicate Node 6",
+      "description": "Tier 3 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n07",
+      "rootId": "citadel-core",
+      "requires": "citadel-n03",
+      "name": "Citadel Syndicate Node 7",
+      "description": "Tier 4 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n08",
+      "rootId": "citadel-core",
+      "requires": "citadel-n04",
+      "name": "Citadel Syndicate Node 8",
+      "description": "Tier 4 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n09",
+      "rootId": "citadel-core",
+      "requires": "citadel-n04",
+      "name": "Citadel Syndicate Node 9",
+      "description": "Tier 4 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n10",
+      "rootId": "citadel-core",
+      "requires": "citadel-n05",
+      "name": "Citadel Syndicate Node 10",
+      "description": "Tier 4 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-citadel",
+        "charges": 1
+      }
+    },
+    {
+      "id": "citadel-n11",
+      "rootId": "citadel-core",
+      "requires": "citadel-n05",
+      "name": "Citadel Syndicate Node 11",
+      "description": "Tier 4 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n12",
+      "rootId": "citadel-core",
+      "requires": "citadel-n06",
+      "name": "Citadel Syndicate Node 12",
+      "description": "Tier 4 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n13",
+      "rootId": "citadel-core",
+      "requires": "citadel-n06",
+      "name": "Citadel Syndicate Node 13",
+      "description": "Tier 4 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n14",
+      "rootId": "citadel-core",
+      "requires": "citadel-n07",
+      "name": "Citadel Syndicate Node 14",
+      "description": "Tier 4 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n15",
+      "rootId": "citadel-core",
+      "requires": "citadel-n07",
+      "name": "Citadel Syndicate Node 15",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n16",
+      "rootId": "citadel-core",
+      "requires": "citadel-n08",
+      "name": "Citadel Syndicate Node 16",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n17",
+      "rootId": "citadel-core",
+      "requires": "citadel-n08",
+      "name": "Citadel Syndicate Node 17",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n18",
+      "rootId": "citadel-core",
+      "requires": "citadel-n09",
+      "name": "Citadel Syndicate Node 18",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n19",
+      "rootId": "citadel-core",
+      "requires": "citadel-n09",
+      "name": "Citadel Syndicate Node 19",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n20",
+      "rootId": "citadel-core",
+      "requires": "citadel-n10",
+      "name": "Citadel Syndicate Node 20",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-citadel",
+        "charges": 1
+      }
+    },
+    {
+      "id": "citadel-n21",
+      "rootId": "citadel-core",
+      "requires": "citadel-n10",
+      "name": "Citadel Syndicate Node 21",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n22",
+      "rootId": "citadel-core",
+      "requires": "citadel-n11",
+      "name": "Citadel Syndicate Node 22",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n23",
+      "rootId": "citadel-core",
+      "requires": "citadel-n11",
+      "name": "Citadel Syndicate Node 23",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n24",
+      "rootId": "citadel-core",
+      "requires": "citadel-n12",
+      "name": "Citadel Syndicate Node 24",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n25",
+      "rootId": "citadel-core",
+      "requires": "citadel-n12",
+      "name": "Citadel Syndicate Node 25",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n26",
+      "rootId": "citadel-core",
+      "requires": "citadel-n13",
+      "name": "Citadel Syndicate Node 26",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n27",
+      "rootId": "citadel-core",
+      "requires": "citadel-n13",
+      "name": "Citadel Syndicate Node 27",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n28",
+      "rootId": "citadel-core",
+      "requires": "citadel-n14",
+      "name": "Citadel Syndicate Node 28",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n29",
+      "rootId": "citadel-core",
+      "requires": "citadel-n14",
+      "name": "Citadel Syndicate Node 29",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n30",
+      "rootId": "citadel-core",
+      "requires": "citadel-n15",
+      "name": "Citadel Syndicate Node 30",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-citadel",
+        "charges": 1
+      }
+    },
+    {
+      "id": "citadel-n31",
+      "rootId": "citadel-core",
+      "requires": "citadel-n15",
+      "name": "Citadel Syndicate Node 31",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n32",
+      "rootId": "citadel-core",
+      "requires": "citadel-n16",
+      "name": "Citadel Syndicate Node 32",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n33",
+      "rootId": "citadel-core",
+      "requires": "citadel-n16",
+      "name": "Citadel Syndicate Node 33",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n34",
+      "rootId": "citadel-core",
+      "requires": "citadel-n17",
+      "name": "Citadel Syndicate Node 34",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n35",
+      "rootId": "citadel-core",
+      "requires": "citadel-n17",
+      "name": "Citadel Syndicate Node 35",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n36",
+      "rootId": "citadel-core",
+      "requires": "citadel-n18",
+      "name": "Citadel Syndicate Node 36",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n37",
+      "rootId": "citadel-core",
+      "requires": "citadel-n18",
+      "name": "Citadel Syndicate Node 37",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n38",
+      "rootId": "citadel-core",
+      "requires": "citadel-n19",
+      "name": "Citadel Syndicate Node 38",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n39",
+      "rootId": "citadel-core",
+      "requires": "citadel-n19",
+      "name": "Citadel Syndicate Node 39",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n40",
+      "rootId": "citadel-core",
+      "requires": "citadel-n20",
+      "name": "Citadel Syndicate Node 40",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-citadel",
+        "charges": 1
+      }
+    },
+    {
+      "id": "citadel-n41",
+      "rootId": "citadel-core",
+      "requires": "citadel-n20",
+      "name": "Citadel Syndicate Node 41",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n42",
+      "rootId": "citadel-core",
+      "requires": "citadel-n21",
+      "name": "Citadel Syndicate Node 42",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n43",
+      "rootId": "citadel-core",
+      "requires": "citadel-n21",
+      "name": "Citadel Syndicate Node 43",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n44",
+      "rootId": "citadel-core",
+      "requires": "citadel-n22",
+      "name": "Citadel Syndicate Node 44",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n45",
+      "rootId": "citadel-core",
+      "requires": "citadel-n22",
+      "name": "Citadel Syndicate Node 45",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "citadel-n46",
+      "rootId": "citadel-core",
+      "requires": "citadel-n23",
+      "name": "Citadel Syndicate Node 46",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "citadel-n47",
+      "rootId": "citadel-core",
+      "requires": "citadel-n23",
+      "name": "Citadel Syndicate Node 47",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "citadel-n48",
+      "rootId": "citadel-core",
+      "requires": "citadel-n24",
+      "name": "Citadel Syndicate Node 48",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "citadel-n49",
+      "rootId": "citadel-core",
+      "requires": "citadel-n24",
+      "name": "Citadel Syndicate Node 49",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-core",
+      "rootId": "harvest-core",
+      "name": "Harvest Union Core",
+      "description": "Harvest Union establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "income": 1.05
+      }
+    },
+    {
+      "id": "harvest-n01",
+      "rootId": "harvest-core",
+      "requires": "harvest-core",
+      "name": "Harvest Union Node 1",
+      "description": "Tier 2 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n02",
+      "rootId": "harvest-core",
+      "requires": "harvest-n01",
+      "name": "Harvest Union Node 2",
+      "description": "Tier 2 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n03",
+      "rootId": "harvest-core",
+      "requires": "harvest-n01",
+      "name": "Harvest Union Node 3",
+      "description": "Tier 3 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n04",
+      "rootId": "harvest-core",
+      "requires": "harvest-n02",
+      "name": "Harvest Union Node 4",
+      "description": "Tier 3 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n05",
+      "rootId": "harvest-core",
+      "requires": "harvest-n02",
+      "name": "Harvest Union Node 5",
+      "description": "Tier 3 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n06",
+      "rootId": "harvest-core",
+      "requires": "harvest-n03",
+      "name": "Harvest Union Node 6",
+      "description": "Tier 3 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n07",
+      "rootId": "harvest-core",
+      "requires": "harvest-n03",
+      "name": "Harvest Union Node 7",
+      "description": "Tier 4 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n08",
+      "rootId": "harvest-core",
+      "requires": "harvest-n04",
+      "name": "Harvest Union Node 8",
+      "description": "Tier 4 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n09",
+      "rootId": "harvest-core",
+      "requires": "harvest-n04",
+      "name": "Harvest Union Node 9",
+      "description": "Tier 4 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n10",
+      "rootId": "harvest-core",
+      "requires": "harvest-n05",
+      "name": "Harvest Union Node 10",
+      "description": "Tier 4 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-harvest",
+        "charges": 1
+      }
+    },
+    {
+      "id": "harvest-n11",
+      "rootId": "harvest-core",
+      "requires": "harvest-n05",
+      "name": "Harvest Union Node 11",
+      "description": "Tier 4 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n12",
+      "rootId": "harvest-core",
+      "requires": "harvest-n06",
+      "name": "Harvest Union Node 12",
+      "description": "Tier 4 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n13",
+      "rootId": "harvest-core",
+      "requires": "harvest-n06",
+      "name": "Harvest Union Node 13",
+      "description": "Tier 4 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n14",
+      "rootId": "harvest-core",
+      "requires": "harvest-n07",
+      "name": "Harvest Union Node 14",
+      "description": "Tier 4 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n15",
+      "rootId": "harvest-core",
+      "requires": "harvest-n07",
+      "name": "Harvest Union Node 15",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n16",
+      "rootId": "harvest-core",
+      "requires": "harvest-n08",
+      "name": "Harvest Union Node 16",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n17",
+      "rootId": "harvest-core",
+      "requires": "harvest-n08",
+      "name": "Harvest Union Node 17",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n18",
+      "rootId": "harvest-core",
+      "requires": "harvest-n09",
+      "name": "Harvest Union Node 18",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n19",
+      "rootId": "harvest-core",
+      "requires": "harvest-n09",
+      "name": "Harvest Union Node 19",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n20",
+      "rootId": "harvest-core",
+      "requires": "harvest-n10",
+      "name": "Harvest Union Node 20",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-harvest",
+        "charges": 1
+      }
+    },
+    {
+      "id": "harvest-n21",
+      "rootId": "harvest-core",
+      "requires": "harvest-n10",
+      "name": "Harvest Union Node 21",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n22",
+      "rootId": "harvest-core",
+      "requires": "harvest-n11",
+      "name": "Harvest Union Node 22",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n23",
+      "rootId": "harvest-core",
+      "requires": "harvest-n11",
+      "name": "Harvest Union Node 23",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n24",
+      "rootId": "harvest-core",
+      "requires": "harvest-n12",
+      "name": "Harvest Union Node 24",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n25",
+      "rootId": "harvest-core",
+      "requires": "harvest-n12",
+      "name": "Harvest Union Node 25",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n26",
+      "rootId": "harvest-core",
+      "requires": "harvest-n13",
+      "name": "Harvest Union Node 26",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n27",
+      "rootId": "harvest-core",
+      "requires": "harvest-n13",
+      "name": "Harvest Union Node 27",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n28",
+      "rootId": "harvest-core",
+      "requires": "harvest-n14",
+      "name": "Harvest Union Node 28",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n29",
+      "rootId": "harvest-core",
+      "requires": "harvest-n14",
+      "name": "Harvest Union Node 29",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n30",
+      "rootId": "harvest-core",
+      "requires": "harvest-n15",
+      "name": "Harvest Union Node 30",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-harvest",
+        "charges": 1
+      }
+    },
+    {
+      "id": "harvest-n31",
+      "rootId": "harvest-core",
+      "requires": "harvest-n15",
+      "name": "Harvest Union Node 31",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n32",
+      "rootId": "harvest-core",
+      "requires": "harvest-n16",
+      "name": "Harvest Union Node 32",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n33",
+      "rootId": "harvest-core",
+      "requires": "harvest-n16",
+      "name": "Harvest Union Node 33",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n34",
+      "rootId": "harvest-core",
+      "requires": "harvest-n17",
+      "name": "Harvest Union Node 34",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n35",
+      "rootId": "harvest-core",
+      "requires": "harvest-n17",
+      "name": "Harvest Union Node 35",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n36",
+      "rootId": "harvest-core",
+      "requires": "harvest-n18",
+      "name": "Harvest Union Node 36",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n37",
+      "rootId": "harvest-core",
+      "requires": "harvest-n18",
+      "name": "Harvest Union Node 37",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n38",
+      "rootId": "harvest-core",
+      "requires": "harvest-n19",
+      "name": "Harvest Union Node 38",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n39",
+      "rootId": "harvest-core",
+      "requires": "harvest-n19",
+      "name": "Harvest Union Node 39",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n40",
+      "rootId": "harvest-core",
+      "requires": "harvest-n20",
+      "name": "Harvest Union Node 40",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-harvest",
+        "charges": 1
+      }
+    },
+    {
+      "id": "harvest-n41",
+      "rootId": "harvest-core",
+      "requires": "harvest-n20",
+      "name": "Harvest Union Node 41",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n42",
+      "rootId": "harvest-core",
+      "requires": "harvest-n21",
+      "name": "Harvest Union Node 42",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n43",
+      "rootId": "harvest-core",
+      "requires": "harvest-n21",
+      "name": "Harvest Union Node 43",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n44",
+      "rootId": "harvest-core",
+      "requires": "harvest-n22",
+      "name": "Harvest Union Node 44",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n45",
+      "rootId": "harvest-core",
+      "requires": "harvest-n22",
+      "name": "Harvest Union Node 45",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "harvest-n46",
+      "rootId": "harvest-core",
+      "requires": "harvest-n23",
+      "name": "Harvest Union Node 46",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "harvest-n47",
+      "rootId": "harvest-core",
+      "requires": "harvest-n23",
+      "name": "Harvest Union Node 47",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "harvest-n48",
+      "rootId": "harvest-core",
+      "requires": "harvest-n24",
+      "name": "Harvest Union Node 48",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "harvest-n49",
+      "rootId": "harvest-core",
+      "requires": "harvest-n24",
+      "name": "Harvest Union Node 49",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-core",
+      "rootId": "horizon-core",
+      "name": "Horizon Cartography Core",
+      "description": "Horizon Cartography establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "vision": 1.08
+      }
+    },
+    {
+      "id": "horizon-n01",
+      "rootId": "horizon-core",
+      "requires": "horizon-core",
+      "name": "Horizon Cartography Node 1",
+      "description": "Tier 2 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n02",
+      "rootId": "horizon-core",
+      "requires": "horizon-n01",
+      "name": "Horizon Cartography Node 2",
+      "description": "Tier 2 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n03",
+      "rootId": "horizon-core",
+      "requires": "horizon-n01",
+      "name": "Horizon Cartography Node 3",
+      "description": "Tier 3 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n04",
+      "rootId": "horizon-core",
+      "requires": "horizon-n02",
+      "name": "Horizon Cartography Node 4",
+      "description": "Tier 3 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n05",
+      "rootId": "horizon-core",
+      "requires": "horizon-n02",
+      "name": "Horizon Cartography Node 5",
+      "description": "Tier 3 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n06",
+      "rootId": "horizon-core",
+      "requires": "horizon-n03",
+      "name": "Horizon Cartography Node 6",
+      "description": "Tier 3 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n07",
+      "rootId": "horizon-core",
+      "requires": "horizon-n03",
+      "name": "Horizon Cartography Node 7",
+      "description": "Tier 4 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n08",
+      "rootId": "horizon-core",
+      "requires": "horizon-n04",
+      "name": "Horizon Cartography Node 8",
+      "description": "Tier 4 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n09",
+      "rootId": "horizon-core",
+      "requires": "horizon-n04",
+      "name": "Horizon Cartography Node 9",
+      "description": "Tier 4 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n10",
+      "rootId": "horizon-core",
+      "requires": "horizon-n05",
+      "name": "Horizon Cartography Node 10",
+      "description": "Tier 4 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-horizon",
+        "charges": 1
+      }
+    },
+    {
+      "id": "horizon-n11",
+      "rootId": "horizon-core",
+      "requires": "horizon-n05",
+      "name": "Horizon Cartography Node 11",
+      "description": "Tier 4 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n12",
+      "rootId": "horizon-core",
+      "requires": "horizon-n06",
+      "name": "Horizon Cartography Node 12",
+      "description": "Tier 4 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n13",
+      "rootId": "horizon-core",
+      "requires": "horizon-n06",
+      "name": "Horizon Cartography Node 13",
+      "description": "Tier 4 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n14",
+      "rootId": "horizon-core",
+      "requires": "horizon-n07",
+      "name": "Horizon Cartography Node 14",
+      "description": "Tier 4 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n15",
+      "rootId": "horizon-core",
+      "requires": "horizon-n07",
+      "name": "Horizon Cartography Node 15",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n16",
+      "rootId": "horizon-core",
+      "requires": "horizon-n08",
+      "name": "Horizon Cartography Node 16",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n17",
+      "rootId": "horizon-core",
+      "requires": "horizon-n08",
+      "name": "Horizon Cartography Node 17",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n18",
+      "rootId": "horizon-core",
+      "requires": "horizon-n09",
+      "name": "Horizon Cartography Node 18",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n19",
+      "rootId": "horizon-core",
+      "requires": "horizon-n09",
+      "name": "Horizon Cartography Node 19",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n20",
+      "rootId": "horizon-core",
+      "requires": "horizon-n10",
+      "name": "Horizon Cartography Node 20",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-horizon",
+        "charges": 1
+      }
+    },
+    {
+      "id": "horizon-n21",
+      "rootId": "horizon-core",
+      "requires": "horizon-n10",
+      "name": "Horizon Cartography Node 21",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n22",
+      "rootId": "horizon-core",
+      "requires": "horizon-n11",
+      "name": "Horizon Cartography Node 22",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n23",
+      "rootId": "horizon-core",
+      "requires": "horizon-n11",
+      "name": "Horizon Cartography Node 23",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n24",
+      "rootId": "horizon-core",
+      "requires": "horizon-n12",
+      "name": "Horizon Cartography Node 24",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n25",
+      "rootId": "horizon-core",
+      "requires": "horizon-n12",
+      "name": "Horizon Cartography Node 25",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n26",
+      "rootId": "horizon-core",
+      "requires": "horizon-n13",
+      "name": "Horizon Cartography Node 26",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n27",
+      "rootId": "horizon-core",
+      "requires": "horizon-n13",
+      "name": "Horizon Cartography Node 27",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n28",
+      "rootId": "horizon-core",
+      "requires": "horizon-n14",
+      "name": "Horizon Cartography Node 28",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n29",
+      "rootId": "horizon-core",
+      "requires": "horizon-n14",
+      "name": "Horizon Cartography Node 29",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n30",
+      "rootId": "horizon-core",
+      "requires": "horizon-n15",
+      "name": "Horizon Cartography Node 30",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-horizon",
+        "charges": 1
+      }
+    },
+    {
+      "id": "horizon-n31",
+      "rootId": "horizon-core",
+      "requires": "horizon-n15",
+      "name": "Horizon Cartography Node 31",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n32",
+      "rootId": "horizon-core",
+      "requires": "horizon-n16",
+      "name": "Horizon Cartography Node 32",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n33",
+      "rootId": "horizon-core",
+      "requires": "horizon-n16",
+      "name": "Horizon Cartography Node 33",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n34",
+      "rootId": "horizon-core",
+      "requires": "horizon-n17",
+      "name": "Horizon Cartography Node 34",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n35",
+      "rootId": "horizon-core",
+      "requires": "horizon-n17",
+      "name": "Horizon Cartography Node 35",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n36",
+      "rootId": "horizon-core",
+      "requires": "horizon-n18",
+      "name": "Horizon Cartography Node 36",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n37",
+      "rootId": "horizon-core",
+      "requires": "horizon-n18",
+      "name": "Horizon Cartography Node 37",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n38",
+      "rootId": "horizon-core",
+      "requires": "horizon-n19",
+      "name": "Horizon Cartography Node 38",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n39",
+      "rootId": "horizon-core",
+      "requires": "horizon-n19",
+      "name": "Horizon Cartography Node 39",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n40",
+      "rootId": "horizon-core",
+      "requires": "horizon-n20",
+      "name": "Horizon Cartography Node 40",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-horizon",
+        "charges": 1
+      }
+    },
+    {
+      "id": "horizon-n41",
+      "rootId": "horizon-core",
+      "requires": "horizon-n20",
+      "name": "Horizon Cartography Node 41",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n42",
+      "rootId": "horizon-core",
+      "requires": "horizon-n21",
+      "name": "Horizon Cartography Node 42",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n43",
+      "rootId": "horizon-core",
+      "requires": "horizon-n21",
+      "name": "Horizon Cartography Node 43",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n44",
+      "rootId": "horizon-core",
+      "requires": "horizon-n22",
+      "name": "Horizon Cartography Node 44",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n45",
+      "rootId": "horizon-core",
+      "requires": "horizon-n22",
+      "name": "Horizon Cartography Node 45",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "horizon-n46",
+      "rootId": "horizon-core",
+      "requires": "horizon-n23",
+      "name": "Horizon Cartography Node 46",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "horizon-n47",
+      "rootId": "horizon-core",
+      "requires": "horizon-n23",
+      "name": "Horizon Cartography Node 47",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "horizon-n48",
+      "rootId": "horizon-core",
+      "requires": "horizon-n24",
+      "name": "Horizon Cartography Node 48",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "horizon-n49",
+      "rootId": "horizon-core",
+      "requires": "horizon-n24",
+      "name": "Horizon Cartography Node 49",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-core",
+      "rootId": "tempest-core",
+      "name": "Tempest Vanguard Core",
+      "description": "Tempest Vanguard establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "attack": 1.05
+      }
+    },
+    {
+      "id": "tempest-n01",
+      "rootId": "tempest-core",
+      "requires": "tempest-core",
+      "name": "Tempest Vanguard Node 1",
+      "description": "Tier 2 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n02",
+      "rootId": "tempest-core",
+      "requires": "tempest-n01",
+      "name": "Tempest Vanguard Node 2",
+      "description": "Tier 2 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n03",
+      "rootId": "tempest-core",
+      "requires": "tempest-n01",
+      "name": "Tempest Vanguard Node 3",
+      "description": "Tier 3 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n04",
+      "rootId": "tempest-core",
+      "requires": "tempest-n02",
+      "name": "Tempest Vanguard Node 4",
+      "description": "Tier 3 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n05",
+      "rootId": "tempest-core",
+      "requires": "tempest-n02",
+      "name": "Tempest Vanguard Node 5",
+      "description": "Tier 3 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n06",
+      "rootId": "tempest-core",
+      "requires": "tempest-n03",
+      "name": "Tempest Vanguard Node 6",
+      "description": "Tier 3 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n07",
+      "rootId": "tempest-core",
+      "requires": "tempest-n03",
+      "name": "Tempest Vanguard Node 7",
+      "description": "Tier 4 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n08",
+      "rootId": "tempest-core",
+      "requires": "tempest-n04",
+      "name": "Tempest Vanguard Node 8",
+      "description": "Tier 4 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n09",
+      "rootId": "tempest-core",
+      "requires": "tempest-n04",
+      "name": "Tempest Vanguard Node 9",
+      "description": "Tier 4 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n10",
+      "rootId": "tempest-core",
+      "requires": "tempest-n05",
+      "name": "Tempest Vanguard Node 10",
+      "description": "Tier 4 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-tempest",
+        "charges": 1
+      }
+    },
+    {
+      "id": "tempest-n11",
+      "rootId": "tempest-core",
+      "requires": "tempest-n05",
+      "name": "Tempest Vanguard Node 11",
+      "description": "Tier 4 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n12",
+      "rootId": "tempest-core",
+      "requires": "tempest-n06",
+      "name": "Tempest Vanguard Node 12",
+      "description": "Tier 4 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n13",
+      "rootId": "tempest-core",
+      "requires": "tempest-n06",
+      "name": "Tempest Vanguard Node 13",
+      "description": "Tier 4 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n14",
+      "rootId": "tempest-core",
+      "requires": "tempest-n07",
+      "name": "Tempest Vanguard Node 14",
+      "description": "Tier 4 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n15",
+      "rootId": "tempest-core",
+      "requires": "tempest-n07",
+      "name": "Tempest Vanguard Node 15",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n16",
+      "rootId": "tempest-core",
+      "requires": "tempest-n08",
+      "name": "Tempest Vanguard Node 16",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n17",
+      "rootId": "tempest-core",
+      "requires": "tempest-n08",
+      "name": "Tempest Vanguard Node 17",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n18",
+      "rootId": "tempest-core",
+      "requires": "tempest-n09",
+      "name": "Tempest Vanguard Node 18",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n19",
+      "rootId": "tempest-core",
+      "requires": "tempest-n09",
+      "name": "Tempest Vanguard Node 19",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n20",
+      "rootId": "tempest-core",
+      "requires": "tempest-n10",
+      "name": "Tempest Vanguard Node 20",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-tempest",
+        "charges": 1
+      }
+    },
+    {
+      "id": "tempest-n21",
+      "rootId": "tempest-core",
+      "requires": "tempest-n10",
+      "name": "Tempest Vanguard Node 21",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n22",
+      "rootId": "tempest-core",
+      "requires": "tempest-n11",
+      "name": "Tempest Vanguard Node 22",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n23",
+      "rootId": "tempest-core",
+      "requires": "tempest-n11",
+      "name": "Tempest Vanguard Node 23",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n24",
+      "rootId": "tempest-core",
+      "requires": "tempest-n12",
+      "name": "Tempest Vanguard Node 24",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n25",
+      "rootId": "tempest-core",
+      "requires": "tempest-n12",
+      "name": "Tempest Vanguard Node 25",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n26",
+      "rootId": "tempest-core",
+      "requires": "tempest-n13",
+      "name": "Tempest Vanguard Node 26",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n27",
+      "rootId": "tempest-core",
+      "requires": "tempest-n13",
+      "name": "Tempest Vanguard Node 27",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n28",
+      "rootId": "tempest-core",
+      "requires": "tempest-n14",
+      "name": "Tempest Vanguard Node 28",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n29",
+      "rootId": "tempest-core",
+      "requires": "tempest-n14",
+      "name": "Tempest Vanguard Node 29",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n30",
+      "rootId": "tempest-core",
+      "requires": "tempest-n15",
+      "name": "Tempest Vanguard Node 30",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-tempest",
+        "charges": 1
+      }
+    },
+    {
+      "id": "tempest-n31",
+      "rootId": "tempest-core",
+      "requires": "tempest-n15",
+      "name": "Tempest Vanguard Node 31",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n32",
+      "rootId": "tempest-core",
+      "requires": "tempest-n16",
+      "name": "Tempest Vanguard Node 32",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n33",
+      "rootId": "tempest-core",
+      "requires": "tempest-n16",
+      "name": "Tempest Vanguard Node 33",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n34",
+      "rootId": "tempest-core",
+      "requires": "tempest-n17",
+      "name": "Tempest Vanguard Node 34",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n35",
+      "rootId": "tempest-core",
+      "requires": "tempest-n17",
+      "name": "Tempest Vanguard Node 35",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n36",
+      "rootId": "tempest-core",
+      "requires": "tempest-n18",
+      "name": "Tempest Vanguard Node 36",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n37",
+      "rootId": "tempest-core",
+      "requires": "tempest-n18",
+      "name": "Tempest Vanguard Node 37",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n38",
+      "rootId": "tempest-core",
+      "requires": "tempest-n19",
+      "name": "Tempest Vanguard Node 38",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n39",
+      "rootId": "tempest-core",
+      "requires": "tempest-n19",
+      "name": "Tempest Vanguard Node 39",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n40",
+      "rootId": "tempest-core",
+      "requires": "tempest-n20",
+      "name": "Tempest Vanguard Node 40",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-tempest",
+        "charges": 1
+      }
+    },
+    {
+      "id": "tempest-n41",
+      "rootId": "tempest-core",
+      "requires": "tempest-n20",
+      "name": "Tempest Vanguard Node 41",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n42",
+      "rootId": "tempest-core",
+      "requires": "tempest-n21",
+      "name": "Tempest Vanguard Node 42",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n43",
+      "rootId": "tempest-core",
+      "requires": "tempest-n21",
+      "name": "Tempest Vanguard Node 43",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n44",
+      "rootId": "tempest-core",
+      "requires": "tempest-n22",
+      "name": "Tempest Vanguard Node 44",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n45",
+      "rootId": "tempest-core",
+      "requires": "tempest-n22",
+      "name": "Tempest Vanguard Node 45",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "tempest-n46",
+      "rootId": "tempest-core",
+      "requires": "tempest-n23",
+      "name": "Tempest Vanguard Node 46",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "tempest-n47",
+      "rootId": "tempest-core",
+      "requires": "tempest-n23",
+      "name": "Tempest Vanguard Node 47",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "tempest-n48",
+      "rootId": "tempest-core",
+      "requires": "tempest-n24",
+      "name": "Tempest Vanguard Node 48",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "tempest-n49",
+      "rootId": "tempest-core",
+      "requires": "tempest-n24",
+      "name": "Tempest Vanguard Node 49",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-core",
+      "rootId": "bulwark-core",
+      "name": "Bulwark Covenant Core",
+      "description": "Bulwark Covenant establishes the branch doctrine and strategic identity.",
+      "mods": {
+        "defense": 1.05
+      }
+    },
+    {
+      "id": "bulwark-n01",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-core",
+      "name": "Bulwark Covenant Node 1",
+      "description": "Tier 2 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n02",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n01",
+      "name": "Bulwark Covenant Node 2",
+      "description": "Tier 2 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n03",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n01",
+      "name": "Bulwark Covenant Node 3",
+      "description": "Tier 3 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n04",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n02",
+      "name": "Bulwark Covenant Node 4",
+      "description": "Tier 3 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n05",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n02",
+      "name": "Bulwark Covenant Node 5",
+      "description": "Tier 3 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n06",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n03",
+      "name": "Bulwark Covenant Node 6",
+      "description": "Tier 3 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n07",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n03",
+      "name": "Bulwark Covenant Node 7",
+      "description": "Tier 4 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n08",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n04",
+      "name": "Bulwark Covenant Node 8",
+      "description": "Tier 4 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n09",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n04",
+      "name": "Bulwark Covenant Node 9",
+      "description": "Tier 4 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n10",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n05",
+      "name": "Bulwark Covenant Node 10",
+      "description": "Tier 4 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-bulwark",
+        "charges": 1
+      }
+    },
+    {
+      "id": "bulwark-n11",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n05",
+      "name": "Bulwark Covenant Node 11",
+      "description": "Tier 4 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n12",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n06",
+      "name": "Bulwark Covenant Node 12",
+      "description": "Tier 4 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n13",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n06",
+      "name": "Bulwark Covenant Node 13",
+      "description": "Tier 4 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n14",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n07",
+      "name": "Bulwark Covenant Node 14",
+      "description": "Tier 4 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n15",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n07",
+      "name": "Bulwark Covenant Node 15",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n16",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n08",
+      "name": "Bulwark Covenant Node 16",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n17",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n08",
+      "name": "Bulwark Covenant Node 17",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n18",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n09",
+      "name": "Bulwark Covenant Node 18",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n19",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n09",
+      "name": "Bulwark Covenant Node 19",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n20",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n10",
+      "name": "Bulwark Covenant Node 20",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-bulwark",
+        "charges": 1
+      }
+    },
+    {
+      "id": "bulwark-n21",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n10",
+      "name": "Bulwark Covenant Node 21",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n22",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n11",
+      "name": "Bulwark Covenant Node 22",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n23",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n11",
+      "name": "Bulwark Covenant Node 23",
+      "description": "Tier 5 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n24",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n12",
+      "name": "Bulwark Covenant Node 24",
+      "description": "Tier 5 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n25",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n12",
+      "name": "Bulwark Covenant Node 25",
+      "description": "Tier 5 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n26",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n13",
+      "name": "Bulwark Covenant Node 26",
+      "description": "Tier 5 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n27",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n13",
+      "name": "Bulwark Covenant Node 27",
+      "description": "Tier 5 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n28",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n14",
+      "name": "Bulwark Covenant Node 28",
+      "description": "Tier 5 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n29",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n14",
+      "name": "Bulwark Covenant Node 29",
+      "description": "Tier 5 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n30",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n15",
+      "name": "Bulwark Covenant Node 30",
+      "description": "Tier 5 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-bulwark",
+        "charges": 1
+      }
+    },
+    {
+      "id": "bulwark-n31",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n15",
+      "name": "Bulwark Covenant Node 31",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n32",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n16",
+      "name": "Bulwark Covenant Node 32",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n33",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n16",
+      "name": "Bulwark Covenant Node 33",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n34",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n17",
+      "name": "Bulwark Covenant Node 34",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n35",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n17",
+      "name": "Bulwark Covenant Node 35",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n36",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n18",
+      "name": "Bulwark Covenant Node 36",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n37",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n18",
+      "name": "Bulwark Covenant Node 37",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n38",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n19",
+      "name": "Bulwark Covenant Node 38",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n39",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n19",
+      "name": "Bulwark Covenant Node 39",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n40",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n20",
+      "name": "Bulwark Covenant Node 40",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.04
+      },
+      "grantsPowerup": {
+        "id": "pulse-bulwark",
+        "charges": 1
+      }
+    },
+    {
+      "id": "bulwark-n41",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n20",
+      "name": "Bulwark Covenant Node 41",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n42",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n21",
+      "name": "Bulwark Covenant Node 42",
+      "description": "Tier 6 protocol stabilizes fortification geometry with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n43",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n21",
+      "name": "Bulwark Covenant Node 43",
+      "description": "Tier 6 protocol amplifies frontier morale with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n44",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n22",
+      "name": "Bulwark Covenant Node 44",
+      "description": "Tier 6 protocol reweaves resource throughput with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n45",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n22",
+      "name": "Bulwark Covenant Node 45",
+      "description": "Tier 6 protocol hardens assault vectors with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n46",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n23",
+      "name": "Bulwark Covenant Node 46",
+      "description": "Tier 6 protocol harmonizes border logistics with calibrated doctrine feedback loops.",
+      "mods": {
+        "income": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n47",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n23",
+      "name": "Bulwark Covenant Node 47",
+      "description": "Tier 6 protocol channels scouting lattice with calibrated doctrine feedback loops.",
+      "mods": {
+        "vision": 1.02
+      }
+    },
+    {
+      "id": "bulwark-n48",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n24",
+      "name": "Bulwark Covenant Node 48",
+      "description": "Tier 6 protocol synchronizes civil endurance with calibrated doctrine feedback loops.",
+      "mods": {
+        "attack": 1.015
+      }
+    },
+    {
+      "id": "bulwark-n49",
+      "rootId": "bulwark-core",
+      "requires": "bulwark-n24",
+      "name": "Bulwark Covenant Node 49",
+      "description": "Tier 6 protocol inscribes siege cadence with calibrated doctrine feedback loops.",
+      "mods": {
+        "defense": 1.015
+      }
+    }
+  ]
+}

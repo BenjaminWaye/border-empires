@@ -1,5 +1,5 @@
-export const WORLD_WIDTH = 10_000;
-export const WORLD_HEIGHT = 10_000;
+export const WORLD_WIDTH = 1_000;
+export const WORLD_HEIGHT = 1_000;
 export const CHUNK_SIZE = 64;
 export const VISION_RADIUS = 4;
 export const COMBAT_LOCK_MS = 3_000;
@@ -18,3 +18,18 @@ export const PVP_REPEAT_WINDOW_MS = 10 * 60_000;
 export const PVP_REPEAT_FLOOR = 0.1;
 
 export const LEVEL_CURVE_C = 6;
+
+export const FORT_BUILD_MS = 60_000;
+export const FORT_BUILD_COST = 500;
+export const FORT_MAX_PER_PLAYER = 10;
+export const FORT_DEFENSE_MULT = 1.5;
+
+export const DOCK_DEFENSE_MULT = 1.5;
+export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
+export const DOCK_PAIRS_MIN = 25;
+export const DOCK_PAIRS_MAX = 60;
+
+export const CLUSTER_COUNT_MIN = 200;
+export const CLUSTER_COUNT_MAX = 400;
+
+export const SEASON_LENGTH_DAYS = 30;
