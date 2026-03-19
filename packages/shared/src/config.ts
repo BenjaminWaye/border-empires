@@ -1,11 +1,18 @@
-export const WORLD_WIDTH = 1_000;
-export const WORLD_HEIGHT = 1_000;
+export const WORLD_WIDTH = 450;
+export const WORLD_HEIGHT = 450;
 export const CHUNK_SIZE = 64;
 export const VISION_RADIUS = 4;
 export const COMBAT_LOCK_MS = 3_000;
+export const FRONTIER_CLAIM_COST = 1;
+export const FRONTIER_CLAIM_MS = 1_250;
+export const SETTLE_COST = 4;
+export const SETTLE_MS = 3_500;
 
 export const DEF_MULT_MIN = 0.6;
 export const DEF_MULT_MAX = 2.0;
+export const DEF_SIZE_PENALTY = 0.08;
+export const DEF_OVEREXPOSURE_PENALTY = 1.2;
+export const DEF_OVEREXPOSURE_SHARPNESS = 6;
 
 export const RATING_A = 1.0;
 export const RATING_B = 2.0;
@@ -17,19 +24,31 @@ export const STAMINA_REGEN_MS = 120_000;
 export const PVP_REPEAT_WINDOW_MS = 10 * 60_000;
 export const PVP_REPEAT_FLOOR = 0.1;
 
-export const LEVEL_CURVE_C = 6;
+export const LEVEL_CURVE_C = 2.2;
 
 export const FORT_BUILD_MS = 60_000;
-export const FORT_BUILD_COST = 500;
+export const FORT_BUILD_COST = 600;
 export const FORT_MAX_PER_PLAYER = 10;
-export const FORT_DEFENSE_MULT = 1.5;
+export const FORT_DEFENSE_MULT = 1.25;
+
+export const SIEGE_OUTPOST_BUILD_MS = 45_000;
+export const SIEGE_OUTPOST_BUILD_COST = 600;
+export const SIEGE_OUTPOST_MAX_PER_PLAYER = 10;
+export const SIEGE_OUTPOST_ATTACK_MULT = 1.25;
 
 export const DOCK_DEFENSE_MULT = 1.5;
 export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
-export const DOCK_PAIRS_MIN = 25;
-export const DOCK_PAIRS_MAX = 60;
+export const DOCK_PAIRS_MIN = 15;
+export const DOCK_PAIRS_MAX = 45;
 
-export const CLUSTER_COUNT_MIN = 200;
-export const CLUSTER_COUNT_MAX = 400;
+export const CLUSTER_COUNT_MIN = 260;
+export const CLUSTER_COUNT_MAX = 260;
 
 export const SEASON_LENGTH_DAYS = 30;
+
+export const BARBARIAN_ACTION_INTERVAL_MS = 15_000;
+export const BARBARIAN_MULTIPLY_THRESHOLD = 3;
+export const BARBARIAN_CLEAR_GOLD_REWARD = 5;
+export const BARBARIAN_ATTACK_POWER = 1.0;
+export const BARBARIAN_DEFENSE_POWER = 1.0;
+export const INITIAL_BARBARIAN_COUNT = 80;

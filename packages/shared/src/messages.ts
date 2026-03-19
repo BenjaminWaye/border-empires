@@ -6,13 +6,29 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("SUBSCRIBE_CHUNKS"), cx: z.number(), cy: z.number(), radius: z.number().int().min(0).max(8) }),
   z.object({ type: z.literal("EXPAND"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
   z.object({ type: z.literal("ATTACK"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), powerupId: z.string().optional() }),
+  z.object({ type: z.literal("ATTACK_PREVIEW"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("SET_TILE_COLOR"), color: z.string().regex(/^#[0-9a-fA-F]{6}$/) }),
   z.object({ type: z.literal("BUILD_FORT"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() })
+  z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("SETTLE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("RAPID_SETTLE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("BUILD_SIEGE_OUTPOST"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("DEFENSIVE_FORTIFY"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("SCOUT_PULSE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1) }),
+  z.object({ type: z.literal("STOP_REVEAL_EMPIRE"), targetPlayerId: z.string().min(1) }),
+  z.object({ type: z.literal("BREAKTHROUGH_ATTACK"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
+  z.object({ type: z.literal("CANCEL_SIEGE_OUTPOST_BUILD"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("CANCEL_CAPTURE" ) }),
+  z.object({ type: z.literal("UNCAPTURE_TILE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("COLLECT_TILE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("COLLECT_VISIBLE") }),
+  z.object({ type: z.literal("SET_FOG_DISABLED"), disabled: z.boolean() }),
+  z.object({ type: z.literal("CHOOSE_DOMAIN"), domainId: z.string().min(1) })
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

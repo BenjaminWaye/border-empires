@@ -1,0 +1,237 @@
+{
+  "version": 1,
+  "domains": [
+    {
+      "id": "frontier-doctrine",
+      "tier": 1,
+      "name": "Frontier Doctrine",
+      "description": "+25% settlement speed and temporary defense on new settlements.",
+      "requiresTechId": "toolmaking",
+      "cost": { "gold": 6000, "food": 120 },
+      "mods": {}
+    },
+    {
+      "id": "iron-bastions",
+      "tier": 1,
+      "name": "Iron Bastions",
+      "description": "Forts gain +20% defense and reduced build gold cost.",
+      "requiresTechId": "masonry",
+      "cost": { "gold": 6000, "iron": 120 },
+      "mods": { "defense": 1.06 }
+    },
+    {
+      "id": "supply-raiding",
+      "tier": 1,
+      "name": "Supply Raiding",
+      "description": "Siege outposts gain +20% attack.",
+      "requiresTechId": "leatherworking",
+      "cost": { "gold": 6000, "supply": 120 },
+      "mods": { "attack": 1.06 }
+    },
+    {
+      "id": "mercantile-charter",
+      "tier": 1,
+      "name": "Mercantile Charter",
+      "description": "Towns gain +15% output and +15% harvest cap.",
+      "requiresTechId": "trade",
+      "cost": { "gold": 6000, "crystal": 100 },
+      "mods": { "income": 1.08 }
+    },
+    {
+      "id": "farmers-compact",
+      "tier": 1,
+      "name": "Farmer's Compact",
+      "description": "Town food upkeep reduced.",
+      "requiresTechId": "agriculture",
+      "cost": { "gold": 6000, "food": 120 },
+      "mods": { "income": 1.04 }
+    },
+
+    {
+      "id": "frontier-bureau",
+      "tier": 2,
+      "name": "Frontier Bureau",
+      "description": "Settlement speed and settled food upkeep improvements.",
+      "requiresTechId": "road-building",
+      "cost": { "gold": 14000, "food": 220, "shard": 1 },
+      "mods": {}
+    },
+    {
+      "id": "stone-curtain",
+      "tier": 2,
+      "name": "Stone Curtain",
+      "description": "Settled tiles adjacent to forts gain defense.",
+      "requiresTechId": "fortification-doctrine",
+      "cost": { "gold": 14000, "iron": 220, "shard": 1 },
+      "mods": { "defense": 1.06 }
+    },
+    {
+      "id": "iron-vanguard",
+      "tier": 2,
+      "name": "Iron Vanguard",
+      "description": "Attack bonus vs settled tiles and forts.",
+      "requiresTechId": "iron-working",
+      "cost": { "gold": 14000, "iron": 240, "shard": 1 },
+      "mods": { "attack": 1.08 }
+    },
+    {
+      "id": "market-league",
+      "tier": 2,
+      "name": "Market League",
+      "description": "Towns gain output when fully fed.",
+      "requiresTechId": "ledger-keeping",
+      "cost": { "gold": 14000, "crystal": 200, "shard": 1 },
+      "mods": { "income": 1.08 }
+    },
+    {
+      "id": "crystal-network",
+      "tier": 2,
+      "name": "Crystal Network",
+      "description": "Empire Reveal upkeep reduced.",
+      "requiresTechId": "signal-fires",
+      "cost": { "gold": 14000, "crystal": 180, "shard": 1 },
+      "mods": { "vision": 1.03 },
+      "effects": { "revealUpkeepMult": 0.8 }
+    },
+
+    {
+      "id": "provincial-governors",
+      "tier": 3,
+      "name": "Provincial Governors",
+      "description": "Settled gold upkeep reduced and town cap increased.",
+      "requiresTechId": "civil-survey",
+      "cost": { "gold": 24000, "food": 320, "shard": 2 },
+      "mods": { "income": 1.06 }
+    },
+    {
+      "id": "war-foundries",
+      "tier": 3,
+      "name": "War Foundries",
+      "description": "Attack and outpost attack bonus.",
+      "requiresTechId": "standing-army",
+      "cost": { "gold": 24000, "iron": 340, "shard": 2 },
+      "mods": { "attack": 1.08 }
+    },
+    {
+      "id": "supply-state",
+      "tier": 3,
+      "name": "Supply State",
+      "description": "Outpost supply upkeep and settlement speed bonuses.",
+      "requiresTechId": "relay-roads",
+      "cost": { "gold": 24000, "supply": 320, "shard": 2 },
+      "mods": { "income": 1.04 }
+    },
+    {
+      "id": "merchant-houses",
+      "tier": 3,
+      "name": "Merchant Houses",
+      "description": "Town output and harvest cap bonuses.",
+      "requiresTechId": "coinage",
+      "cost": { "gold": 24000, "crystal": 260, "shard": 2 },
+      "mods": { "income": 1.1 }
+    },
+    {
+      "id": "field-stores",
+      "tier": 3,
+      "name": "Field Stores",
+      "description": "Town and settled food upkeep improvements.",
+      "requiresTechId": "granaries",
+      "cost": { "gold": 24000, "food": 340, "shard": 2 },
+      "mods": { "defense": 1.03 }
+    },
+
+    {
+      "id": "imperial-roads",
+      "tier": 4,
+      "name": "Imperial Roads",
+      "description": "Settlement speed and connected town output bonuses.",
+      "requiresTechId": "logistics",
+      "cost": { "gold": 40000, "supply": 500, "shard": 3 },
+      "mods": { "income": 1.08 }
+    },
+    {
+      "id": "fortress-realm",
+      "tier": 4,
+      "name": "Fortress Realm",
+      "description": "Fort defense and iron upkeep bonuses.",
+      "requiresTechId": "engineering",
+      "cost": { "gold": 42000, "iron": 540, "shard": 3 },
+      "mods": { "defense": 1.1 }
+    },
+    {
+      "id": "siege-state",
+      "tier": 4,
+      "name": "Siege State",
+      "description": "Siege outpost attack and fort assault bonuses.",
+      "requiresTechId": "arms-guilds",
+      "cost": { "gold": 42000, "supply": 520, "iron": 220, "shard": 3 },
+      "mods": { "attack": 1.1 }
+    },
+    {
+      "id": "treasury-state",
+      "tier": 4,
+      "name": "Treasury State",
+      "description": "Town output and upkeep bonuses.",
+      "requiresTechId": "banking",
+      "cost": { "gold": 40000, "crystal": 420, "food": 180, "shard": 3 },
+      "mods": { "income": 1.11 }
+    },
+    {
+      "id": "hidden-hand",
+      "tier": 4,
+      "name": "Hidden Hand",
+      "description": "Reveal upkeep reduced and can track 2 empires.",
+      "requiresTechId": "cryptography",
+      "cost": { "gold": 38000, "crystal": 420, "shard": 3 },
+      "mods": { "vision": 1.06 },
+      "effects": { "revealUpkeepMult": 0.8, "revealCapacityBonus": 1 }
+    },
+
+    {
+      "id": "imperial-expansion",
+      "tier": 5,
+      "name": "Imperial Expansion",
+      "description": "Settlement speed and temporary defense on new settlements.",
+      "requiresTechId": "frontier-administration",
+      "cost": { "gold": 65000, "food": 700, "shard": 5 },
+      "mods": { "defense": 1.06 }
+    },
+    {
+      "id": "iron-dominion",
+      "tier": 5,
+      "name": "Iron Dominion",
+      "description": "Global attack and anti-fort bonuses.",
+      "requiresTechId": "steel",
+      "cost": { "gold": 70000, "iron": 800, "shard": 5 },
+      "mods": { "attack": 1.15 }
+    },
+    {
+      "id": "enduring-realm",
+      "tier": 5,
+      "name": "Enduring Realm",
+      "description": "Settled upkeep reductions and town cap increase.",
+      "requiresTechId": "bureaucracy",
+      "cost": { "gold": 65000, "food": 650, "crystal": 260, "shard": 5 },
+      "mods": { "defense": 1.08, "income": 1.08 }
+    },
+    {
+      "id": "golden-hegemony",
+      "tier": 5,
+      "name": "Golden Hegemony",
+      "description": "Town output and gold upkeep bonuses.",
+      "requiresTechId": "central-banking",
+      "cost": { "gold": 70000, "crystal": 600, "food": 220, "shard": 5 },
+      "mods": { "income": 1.16 }
+    },
+    {
+      "id": "oracle-state",
+      "tier": 5,
+      "name": "Oracle State",
+      "description": "Reveal upkeep reduced and global vision increase.",
+      "requiresTechId": "grand-cartography",
+      "cost": { "gold": 60000, "crystal": 650, "shard": 5 },
+      "mods": { "vision": 1.12 },
+      "effects": { "revealUpkeepMult": 0.75, "revealCapacityBonus": 1 }
+    }
+  ]
+}

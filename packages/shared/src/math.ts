@@ -1,20 +1,20 @@
-import {
-  DEF_MULT_MAX,
-  DEF_MULT_MIN,
-  LEVEL_CURVE_C,
-  RATING_A,
-  RATING_B,
-  UNDERDOG_K
-} from "./config.js";
+import { LEVEL_CURVE_C, RATING_A, RATING_B, UNDERDOG_K } from "./config.js";
 
 const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));
 
 export const wrapX = (x: number, width: number): number => (x + width) % width;
 export const wrapY = (y: number, height: number): number => (y + height) % height;
 
+export const exposureRatio = (T: number, E: number): number => {
+  const safeT = Math.max(1, T);
+  const safeE = Math.max(0, E);
+  return safeE / (4 * safeT);
+};
+
 export const defensivenessMultiplier = (T: number, E: number): number => {
-  const defRaw = (4 * T) / Math.max(E, 1);
-  return clamp(defRaw, DEF_MULT_MIN, DEF_MULT_MAX);
+  // Defense efficiency is the inverse of exposure.
+  // 0.0 = fully exposed, 1.0 = fully enclosed.
+  return 1 - exposureRatio(T, E);
 };
 
 export const ratingFromPointsLevel = (points: number, level: number): number => {
