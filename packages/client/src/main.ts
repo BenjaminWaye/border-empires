@@ -598,6 +598,7 @@ const collectVisibleMobileBtn = document.querySelector<HTMLButtonElement>("#coll
 const refreshBtn = document.querySelector<HTMLButtonElement>("#refresh");
 const centerMeDesktopBtn = document.querySelector<HTMLButtonElement>("#center-me-desktop");
 const collectVisibleDesktopBtn = document.querySelector<HTMLButtonElement>("#collect-visible-desktop");
+const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 const fogToggleMobileBtn = document.querySelector<HTMLButtonElement>("#fog-toggle-mobile");
 const settleMobileBtn = document.querySelector<HTMLButtonElement>("#settle-mobile");
 const buildFortMobileBtn = document.querySelector<HTMLButtonElement>("#build-fort-mobile");
@@ -787,6 +788,7 @@ const state = {
   feed: [] as FeedEntry[],
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "error" | "warn" } | undefined,
+  collectVisibleCooldownUntil: 0,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     byTiles: [] as LeaderboardMetricEntry[],
@@ -1660,6 +1662,17 @@ const showCaptureAlert = (title: string, detail: string, tone: "error" | "warn" 
   state.captureAlert = { title, detail, until: Date.now() + 2200, tone };
 };
 
+const showCollectVisibleCooldownAlert = (): void => {
+  const remaining = state.collectVisibleCooldownUntil - Date.now();
+  if (remaining <= 0) return;
+  state.captureAlert = {
+    title: "Collect Visible Cooldown",
+    detail: `Retry in ${formatCooldownShort(remaining)}.`,
+    until: state.collectVisibleCooldownUntil,
+    tone: "warn"
+  };
+};
+
 const centerOnOwnedTile = (): void => {
   const own = [...state.tiles.values()].find((t) => t.ownerId === state.me);
   if (own) {
@@ -1966,6 +1979,13 @@ const renderCaptureProgress = (): void => {
     captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
     captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
   } else if (state.captureAlert && state.captureAlert.until > Date.now()) {
+    if (state.captureAlert.title === "Collect Visible Cooldown") {
+      const remaining = state.collectVisibleCooldownUntil - Date.now();
+      if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
+      else state.captureAlert = undefined;
+    }
+  }
+  if (state.captureAlert && state.captureAlert.until > Date.now()) {
     captureCardEl.dataset.state = state.captureAlert.tone;
     captureCardEl.style.display = "grid";
     captureWrapEl.style.display = "block";
@@ -2613,6 +2633,8 @@ const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
 };
 
 const renderHud = (): void => {
+  const collectVisibleCooldownRemaining = Math.max(0, state.collectVisibleCooldownUntil - Date.now());
+  const collectVisibleReady = collectVisibleCooldownRemaining <= 0;
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
   const pointsClass =
     Date.now() < state.goldAnimUntil ? (state.goldAnimDir > 0 ? " delta-up" : state.goldAnimDir < 0 ? " delta-down" : "") : "";
@@ -2626,6 +2648,14 @@ const renderHud = (): void => {
     ${strategicRibbonHtml()}
   `;
   fogToggleMobileBtn.textContent = `Fog ${state.fogDisabled ? "Off" : "On"}`;
+  collectVisibleDesktopBtn.disabled = !collectVisibleReady;
+  collectVisibleMobileBtn.disabled = !collectVisibleReady;
+  collectVisibleDesktopBtn.textContent = collectVisibleReady
+    ? "Collect Visible"
+    : `Collect ${formatCooldownShort(collectVisibleCooldownRemaining)}`;
+  collectVisibleMobileBtn.textContent = collectVisibleReady
+    ? "Collect Visible"
+    : `Collect ${formatCooldownShort(collectVisibleCooldownRemaining)}`;
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   panelActionButtons.forEach((btn) => {
@@ -3294,6 +3324,15 @@ const cancelOngoingCapture = (): void => {
   sendGameMessage({ type: "CANCEL_CAPTURE" });
 };
 const collectVisibleYield = (): void => {
+  const remaining = state.collectVisibleCooldownUntil - Date.now();
+  if (remaining > 0) {
+    showCollectVisibleCooldownAlert();
+    pushFeed(`Collect visible cooling down for ${formatCooldownShort(remaining)}.`, "info", "warn");
+    renderHud();
+    return;
+  }
+  state.collectVisibleCooldownUntil = Date.now() + COLLECT_VISIBLE_COOLDOWN_MS;
+  showCollectVisibleCooldownAlert();
   sendGameMessage({ type: "COLLECT_VISIBLE" });
 };
 const collectSelectedYield = (): void => {
@@ -5044,6 +5083,10 @@ ws.addEventListener("message", (ev) => {
     }
     if (errorCode === "COLLECT_EMPTY") {
       pushFeed(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
+    } else if (errorCode === "COLLECT_COOLDOWN") {
+      if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + COLLECT_VISIBLE_COOLDOWN_MS;
+      showCollectVisibleCooldownAlert();
+      pushFeed(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
     } else {
       pushFeed(explainActionFailure(errorCode, errorMessage), "error", "error");
     }
@@ -5814,6 +5857,7 @@ draw();
 renderHud();
 setInterval(renderCaptureProgress, 100);
 setInterval(() => {
+  if (state.collectVisibleCooldownUntil > Date.now()) renderHud();
   if (!state.actionInFlight) return;
   const started = state.actionStartedAt;
   if (!started) return;
