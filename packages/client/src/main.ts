@@ -801,13 +801,13 @@ const state = {
   techSection: "research" as "research" | "domains",
   techUiSelectedId: "" as string,
   techChoicesSig: "" as string,
-  actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
+  actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough" | "settle"; retries?: number }>,
   queuedTargetKeys: new Set<string>(),
   actionInFlight: false,
   combatStartAck: false,
   actionStartedAt: 0,
   actionTargetKey: "" as string,
-  actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } | undefined,
+  actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough" | "settle"; retries: number } | undefined,
   attackPreview: undefined as
     | {
         fromKey: string;
@@ -3011,7 +3011,7 @@ const explainActionFailure = (code: string, message: string): string => {
   return `Error ${code}: ${message}`;
 };
 
-const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean => {
+const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" | "settle" = "normal"): boolean => {
   const k = key(x, y);
   if (state.queuedTargetKeys.has(k)) return false;
   state.actionQueue.push({ x, y, mode, retries: 0 });
@@ -3106,6 +3106,22 @@ const queueSpecificTargets = (
 ): { queued: number; skipped: number; queuedKeys: string[] } =>
   buildFrontierQueue(targetKeys, (x, y) => enqueueTarget(x, y, mode));
 
+const startQueuedSettle = (x: number, y: number, retries: number): boolean => {
+  if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
+  const startAt = Date.now();
+  state.actionCurrent = { x, y, mode: "settle", retries };
+  state.actionInFlight = true;
+  state.combatStartAck = true;
+  state.actionStartedAt = startAt;
+  state.actionTargetKey = key(x, y);
+  state.capture = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y } };
+  state.attackPreview = undefined;
+  state.attackPreviewPendingKey = "";
+  state.selected = { x, y };
+  renderHud();
+  return true;
+};
+
 const processActionQueue = (): boolean => {
   if (state.actionInFlight || ws.readyState !== ws.OPEN || !state.authSessionReady) return false;
   const next = state.actionQueue.shift();
@@ -3113,6 +3129,13 @@ const processActionQueue = (): boolean => {
 
   const to = state.tiles.get(key(next.x, next.y));
   if (!to) return false;
+  if (next.mode === "settle") {
+    if (to.ownerId !== state.me || to.ownershipState !== "FRONTIER") {
+      state.queuedTargetKeys.delete(key(next.x, next.y));
+      return false;
+    }
+    return startQueuedSettle(to.x, to.y, next.retries ?? 0);
+  }
   if (to.ownerId === state.me) return false;
 
   let from = pickOriginForTarget(to.x, to.y);
@@ -3226,7 +3249,19 @@ const settleSelected = (): void => {
     renderHud();
     return;
   }
-  sendGameMessage({ type: "SETTLE", x: sel.x, y: sel.y });
+  const tile = state.tiles.get(key(sel.x, sel.y));
+  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
+    pushFeed("Selected tile is not one of your frontier tiles.", "error", "warn");
+    renderHud();
+    return;
+  }
+  if (!enqueueTarget(sel.x, sel.y, "settle")) {
+    pushFeed(`Settle already queued for (${sel.x}, ${sel.y}).`, "combat", "warn");
+    renderHud();
+    return;
+  }
+  processActionQueue();
+  pushFeed(`Settle queued at (${sel.x}, ${sel.y}).`, "combat", "info");
 };
 const buildSiegeOutpostOnSelected = (): void => {
   const sel = state.selected;
@@ -4113,7 +4148,12 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
           pushFeed("Cannot claim this tile yet. It must touch your territory and you need enough gold.", "combat", "warn");
         }
       } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-        sendGameMessage({ type: "SETTLE", x: selected.x, y: selected.y });
+        if (enqueueTarget(selected.x, selected.y, "settle")) {
+          processActionQueue();
+          pushFeed(`Settle queued at (${selected.x}, ${selected.y}).`, "combat", "info");
+        } else {
+          pushFeed(`Settle already queued for (${selected.x}, ${selected.y}).`, "combat", "warn");
+        }
       }
       state.autoSettleTargets.delete(k);
     }
@@ -4777,14 +4817,7 @@ ws.addEventListener("message", (ev) => {
     if (targetKey && state.autoSettleTargets.has(targetKey)) {
       const settledTile = state.tiles.get(targetKey);
       if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (sendGameMessage({ type: "SETTLE", x: settledTile.x, y: settledTile.y })) {
-          const startAt = Date.now();
-          state.capture = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x: settledTile.x, y: settledTile.y } };
-          state.actionInFlight = true;
-          state.combatStartAck = false;
-          state.actionStartedAt = startAt;
-          state.actionTargetKey = targetKey;
-          state.actionCurrent = { x: settledTile.x, y: settledTile.y, retries: 0 };
+        if (startQueuedSettle(settledTile.x, settledTile.y, 0)) {
           handedOffToSettle = true;
           pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
         }
