@@ -2061,7 +2061,7 @@ const recomputeTownNetworkForPlayer = (playerId: string): void => {
 };
 
 const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
-  const base = 0.05;
+  const base = 0.1;
   const tier = townPopulationTier(town.population);
   if (tier === "CITY") return base * 2;
   if (tier === "GREAT_CITY") return base * 4;
@@ -2124,13 +2124,7 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
     PASSIVE_INCOME_MULT *
     HARVEST_GOLD_RATE_MULT;
   const strategicResource = toStrategicResource(resource);
-  const strategicDaily =
-    strategicResource && resource
-      ? (strategicDailyFromResource[resource] ?? 0) *
-        activeResourceIncomeMult(ownerId, resource) *
-        sabotageMult *
-        economicStructureOutputMultAt(tileKey, ownerId)
-      : 0;
+  const strategicBaseDaily = strategicResource && resource ? (strategicDailyFromResource[resource] ?? 0) : 0;
   const fallbackGoldCap = TILE_YIELD_CAP_GOLD * effects.harvestCapMult;
   const fallbackResourceCap = TILE_YIELD_CAP_RESOURCE * effects.harvestCapMult;
   return {
@@ -2141,7 +2135,7 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
         : goldPerMinute > 0
           ? goldPerMinute * 60 * 8
           : fallbackGoldCap,
-    strategicEach: strategicDaily > 0 ? strategicDaily / 3 : fallbackResourceCap
+    strategicEach: strategicBaseDaily > 0 ? strategicBaseDaily / 3 : fallbackResourceCap
   };
 };
 
