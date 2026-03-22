@@ -789,6 +789,7 @@ const state = {
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "error" | "warn" } | undefined,
   collectVisibleCooldownUntil: 0,
+  pendingCollectVisibleKeys: new Set<string>(),
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     byTiles: [] as LeaderboardMetricEntry[],
@@ -1135,6 +1136,20 @@ const hasCollectableYield = (t: Tile | undefined): boolean => {
   if (!t?.yield) return false;
   if ((t.yield.gold ?? 0) > 0.01) return true;
   return Object.values(t.yield.strategic ?? {}).some((v) => Number(v) > 0.01);
+};
+
+const applyOptimisticVisibleCollect = (): number => {
+  state.pendingCollectVisibleKeys.clear();
+  let touched = 0;
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") continue;
+    if (tileVisibilityStateAt(tile.x, tile.y, tile) !== "visible") continue;
+    if (!hasCollectableYield(tile)) continue;
+    state.pendingCollectVisibleKeys.add(key(tile.x, tile.y));
+    tile.yield = { gold: 0, strategic: {} };
+    touched += 1;
+  }
+  return touched;
 };
 const isCoastalLand = (x: number, y: number): boolean => {
   if (terrainAt(x, y) !== "LAND") return false;
@@ -3332,7 +3347,9 @@ const collectVisibleYield = (): void => {
     return;
   }
   state.collectVisibleCooldownUntil = Date.now() + COLLECT_VISIBLE_COOLDOWN_MS;
+  applyOptimisticVisibleCollect();
   showCollectVisibleCooldownAlert();
+  renderHud();
   sendGameMessage({ type: "COLLECT_VISIBLE" });
 };
 const collectSelectedYield = (): void => {
@@ -4919,6 +4936,7 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "TILE_DELTA") {
     const updates = (msg.updates as Array<Tile>) ?? [];
     for (const update of updates) {
+      state.pendingCollectVisibleKeys.delete(key(update.x, update.y));
       const existing = state.tiles.get(key(update.x, update.y));
       const merged: Tile = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
       if (update.terrain) merged.terrain = update.terrain;
@@ -5042,6 +5060,7 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "ERROR") {
+    if ((msg.code as string | undefined)?.startsWith("COLLECT")) state.pendingCollectVisibleKeys.clear();
     const failedTargetKey = state.actionTargetKey;
     console.error("[server-error]", {
       code: msg.code,
@@ -5159,6 +5178,7 @@ ws.addEventListener("message", (ev) => {
     if (pid && visualStyle) state.playerVisualStyles.set(pid, visualStyle);
   }
   if (msg.type === "COLLECT_RESULT") {
+    state.pendingCollectVisibleKeys.clear();
     const gold = Number(msg.gold ?? 0);
     const strategic = (msg.strategic as Record<string, number> | undefined) ?? {};
     const strategicParts = Object.entries(strategic)
