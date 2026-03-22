@@ -1658,8 +1658,90 @@ const generateDocks = (seed: number): void => {
     dockId: `dock-${i}`,
     tileKey: key(s.x, s.y),
     pairedDockId: "",
+    connectedDockIds: [],
     cooldownUntil: 0
   }));
+
+  const representativeDockIndexByComponent = new Map<number, number>();
+  for (let i = 0; i < selected.length; i += 1) {
+    const componentId = selected[i]!.componentId;
+    if (!representativeDockIndexByComponent.has(componentId)) representativeDockIndexByComponent.set(componentId, i);
+  }
+  const componentIds = [...representativeDockIndexByComponent.keys()];
+
+  const edgeKeys = new Set<string>();
+  const addDockConnection = (aIdx: number, bIdx: number): void => {
+    if (aIdx === bIdx) return;
+    const a = docks[aIdx]!;
+    const b = docks[bIdx]!;
+    const edgeKey = a.dockId < b.dockId ? `${a.dockId}|${b.dockId}` : `${b.dockId}|${a.dockId}`;
+    if (edgeKeys.has(edgeKey)) return;
+    edgeKeys.add(edgeKey);
+    if (!a.connectedDockIds?.includes(b.dockId)) a.connectedDockIds = [...(a.connectedDockIds ?? []), b.dockId];
+    if (!b.connectedDockIds?.includes(a.dockId)) b.connectedDockIds = [...(b.connectedDockIds ?? []), a.dockId];
+    if (!a.pairedDockId) a.pairedDockId = b.dockId;
+    if (!b.pairedDockId) b.pairedDockId = a.dockId;
+  };
+
+  const componentSeaDistance = (aComponentId: number, bComponentId: number): number => {
+    const aIdx = representativeDockIndexByComponent.get(aComponentId);
+    const bIdx = representativeDockIndexByComponent.get(bComponentId);
+    if (aIdx === undefined || bIdx === undefined) return Number.POSITIVE_INFINITY;
+    const a = selected[aIdx]!;
+    const b = selected[bIdx]!;
+    const dx = Math.min(Math.abs(a.seaX - b.seaX), WORLD_WIDTH - Math.abs(a.seaX - b.seaX));
+    const dy = Math.min(Math.abs(a.seaY - b.seaY), WORLD_HEIGHT - Math.abs(a.seaY - b.seaY));
+    return dx + dy;
+  };
+
+  if (componentIds.length > 1) {
+    const visitedComponents = new Set<number>([componentIds[0]!]);
+    while (visitedComponents.size < componentIds.length) {
+      let bestFrom = -1;
+      let bestTo = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (const fromComponentId of visitedComponents) {
+        for (const toComponentId of componentIds) {
+          if (visitedComponents.has(toComponentId)) continue;
+          const dist = componentSeaDistance(fromComponentId, toComponentId);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestFrom = fromComponentId;
+            bestTo = toComponentId;
+          }
+        }
+      }
+      if (bestFrom < 0 || bestTo < 0) break;
+      addDockConnection(representativeDockIndexByComponent.get(bestFrom)!, representativeDockIndexByComponent.get(bestTo)!);
+      visitedComponents.add(bestTo);
+    }
+
+    if (componentIds.length > 2) {
+      for (const componentId of componentIds) {
+        let bestNeighbor = -1;
+        let bestDist = Number.POSITIVE_INFINITY;
+        for (const otherComponentId of componentIds) {
+          if (otherComponentId === componentId) continue;
+          const dist = componentSeaDistance(componentId, otherComponentId);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestNeighbor = otherComponentId;
+          }
+        }
+        if (bestNeighbor >= 0) {
+          addDockConnection(representativeDockIndexByComponent.get(componentId)!, representativeDockIndexByComponent.get(bestNeighbor)!);
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < selected.length; i += 1) {
+    const representativeIdx = representativeDockIndexByComponent.get(selected[i]!.componentId);
+    if (representativeIdx === undefined) continue;
+    const representative = docks[representativeIdx]!;
+    docks[i]!.connectedDockIds = [...(representative.connectedDockIds ?? [])];
+    if (!docks[i]!.pairedDockId && representative.pairedDockId) docks[i]!.pairedDockId = representative.pairedDockId;
+  }
 
   for (let i = 0; i < selected.length; i += 1) {
     const a = selected[i]!;
@@ -1677,38 +1759,11 @@ const generateDocks = (seed: number): void => {
         bestIdx = j;
       }
     }
-    if (bestIdx === -1) {
-      // Fallback: if all candidates ended up on one continent, keep local nearest to avoid empty pairing.
-      for (let j = 0; j < selected.length; j += 1) {
-        if (i === j) continue;
-        const b = selected[j]!;
-        const dx = Math.min(Math.abs(a.seaX - b.seaX), WORLD_WIDTH - Math.abs(a.seaX - b.seaX));
-        const dy = Math.min(Math.abs(a.seaY - b.seaY), WORLD_HEIGHT - Math.abs(a.seaY - b.seaY));
-        const dist = dx + dy;
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestIdx = j;
-        }
-      }
-    }
-    if (bestIdx === -1) continue;
-    docks[i]!.pairedDockId = docks[bestIdx]!.dockId;
+    if (bestIdx >= 0) addDockConnection(i, bestIdx);
   }
 
   for (const d of docks) {
-    if (!d.pairedDockId) continue;
-    d.connectedDockIds = [d.pairedDockId];
-  }
-  for (const d of docks) {
-    if (!d.pairedDockId) continue;
-    const paired = docks.find((candidate) => candidate.dockId === d.pairedDockId);
-    if (paired && (!paired.connectedDockIds || !paired.connectedDockIds.includes(d.dockId))) {
-      paired.connectedDockIds = [...(paired.connectedDockIds ?? []), d.dockId];
-    }
-  }
-
-  for (const d of docks) {
-    if (!d.pairedDockId) continue;
+    if (!d.pairedDockId && (!d.connectedDockIds || d.connectedDockIds.length === 0)) continue;
     docksByTile.set(d.tileKey, d);
     dockById.set(d.dockId, d);
   }
@@ -2232,18 +2287,26 @@ const regenerateStrategicWorld = (initialSeed: number): number => {
 const dockLinkedDestinations = (fromDock: Dock): Dock[] => {
   const out: Dock[] = [];
   const seen = new Set<string>();
-  const direct = dockById.get(fromDock.pairedDockId);
-  if (direct) {
-    out.push(direct);
-    seen.add(direct.dockId);
+  for (const dockId of fromDock.connectedDockIds ?? []) {
+    const linked = dockById.get(dockId);
+    if (!linked || seen.has(linked.dockId)) continue;
+    out.push(linked);
+    seen.add(linked.dockId);
   }
-  // Bidirectional hub travel: if other docks point to this dock, this dock can travel back to them.
-  for (const d of dockById.values()) {
-    if (d.dockId === fromDock.dockId) continue;
-    if (d.pairedDockId !== fromDock.dockId) continue;
-    if (seen.has(d.dockId)) continue;
-    out.push(d);
-    seen.add(d.dockId);
+  if (seen.size === 0 && fromDock.pairedDockId) {
+    const direct = dockById.get(fromDock.pairedDockId);
+    if (direct) {
+      out.push(direct);
+      seen.add(direct.dockId);
+    }
+    // Backward compatibility for older persisted worlds that only stored pairedDockId.
+    for (const d of dockById.values()) {
+      if (d.dockId === fromDock.dockId) continue;
+      if (d.pairedDockId !== fromDock.dockId) continue;
+      if (seen.has(d.dockId)) continue;
+      out.push(d);
+      seen.add(d.dockId);
+    }
   }
   return out;
 };
@@ -2439,12 +2502,19 @@ const chooseBarbarianTarget = (agent: BarbarianAgent): Tile | undefined => {
 
 const exportDockPairs = (): Array<{ ax: number; ay: number; bx: number; by: number }> => {
   const out: Array<{ ax: number; ay: number; bx: number; by: number }> = [];
+  const seen = new Set<string>();
   for (const d of dockById.values()) {
-    const pair = dockById.get(d.pairedDockId);
-    if (!pair) continue;
-    const [ax, ay] = parseKey(d.tileKey);
-    const [bx, by] = parseKey(pair.tileKey);
-    out.push({ ax, ay, bx, by });
+    const linkedDockIds = d.connectedDockIds?.length ? d.connectedDockIds : d.pairedDockId ? [d.pairedDockId] : [];
+    for (const dockId of linkedDockIds) {
+      const pair = dockById.get(dockId);
+      if (!pair) continue;
+      const edgeKey = d.dockId < pair.dockId ? `${d.dockId}|${pair.dockId}` : `${pair.dockId}|${d.dockId}`;
+      if (seen.has(edgeKey)) continue;
+      seen.add(edgeKey);
+      const [ax, ay] = parseKey(d.tileKey);
+      const [bx, by] = parseKey(pair.tileKey);
+      out.push({ ax, ay, bx, by });
+    }
   }
   return out;
 };
@@ -6251,16 +6321,22 @@ if (
 const hasCrossContinentDockPairs = (() => {
   const seen = new Set<string>();
   for (const d of dockById.values()) {
-    if (seen.has(d.dockId)) continue;
-    const pair = dockById.get(d.pairedDockId);
-    if (!pair) return false;
-    seen.add(d.dockId);
-    seen.add(pair.dockId);
-    const [ax, ay] = parseKey(d.tileKey);
-    const [bx, by] = parseKey(pair.tileKey);
-    const ac = continentIdAt(ax, ay);
-    const bc = continentIdAt(bx, by);
-    if (ac === undefined || bc === undefined || ac === bc) return false;
+    const linkedDockIds = d.connectedDockIds?.length ? d.connectedDockIds : d.pairedDockId ? [d.pairedDockId] : [];
+    for (const dockId of linkedDockIds) {
+      const pair = dockById.get(dockId);
+      if (!pair) return false;
+      const edgeKey = d.dockId < pair.dockId ? `${d.dockId}|${pair.dockId}` : `${pair.dockId}|${d.dockId}`;
+      if (seen.has(edgeKey)) continue;
+      seen.add(edgeKey);
+      const [ax, ay] = parseKey(d.tileKey);
+      const [bx, by] = parseKey(pair.tileKey);
+      const ac = continentIdAt(ax, ay);
+      const bc = continentIdAt(bx, by);
+      if (ac === undefined || bc === undefined || ac === bc) return false;
+    }
+  }
+  if (seen.size === 0) {
+    return false;
   }
   return dockById.size > 0;
 })();
