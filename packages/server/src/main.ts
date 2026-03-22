@@ -129,6 +129,7 @@ interface TownDefinition {
 }
 
 type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+const STRATEGIC_RESOURCE_KEYS: readonly StrategicResource[] = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
 
 interface TileYieldBuffer {
   gold: number;
@@ -1751,12 +1752,8 @@ const playerTile = (x: number, y: number): Tile => {
     strategicEach: TILE_YIELD_CAP_RESOURCE
   };
   if (yieldBuf && ownerId) {
-    const strategic = Object.fromEntries(
-      (Object.entries(yieldBuf.strategic) as Array<[StrategicResource, number]>)
-        .filter(([, v]) => v > 0)
-        .map(([r, v]) => [r, Number(v.toFixed(3))])
-    );
-    if (yieldBuf.gold > 0 || Object.keys(strategic).length > 0) {
+    const strategic = roundedPositiveStrategic(yieldBuf.strategic);
+    if (yieldBuf.gold > 0 || hasPositiveStrategicBuffer(yieldBuf.strategic)) {
       (tile as Tile & { yield?: { gold: number; strategic: Partial<Record<StrategicResource, number>> } }).yield = {
         gold: Number(yieldBuf.gold.toFixed(3)),
         strategic
@@ -1794,6 +1791,45 @@ const emptyTileYield = (): TileYieldBuffer => ({
   gold: 0,
   strategic: emptyStrategicStocks()
 });
+
+const hasPositiveStrategicBuffer = (strategic: Partial<Record<StrategicResource, number>>): boolean => {
+  for (const resource of STRATEGIC_RESOURCE_KEYS) {
+    if ((strategic[resource] ?? 0) > 0) return true;
+  }
+  return false;
+};
+
+const pruneEmptyTileYield = (tileKey: TileKey, y: TileYieldBuffer): void => {
+  if (y.gold > 0 || hasPositiveStrategicBuffer(y.strategic)) return;
+  tileYieldByTile.delete(tileKey);
+};
+
+const roundedPositiveStrategic = (strategic: Record<StrategicResource, number>): Partial<Record<StrategicResource, number>> => {
+  const out: Partial<Record<StrategicResource, number>> = {};
+  for (const resource of STRATEGIC_RESOURCE_KEYS) {
+    const value = strategic[resource] ?? 0;
+    if (value > 0) out[resource] = Number(value.toFixed(3));
+  }
+  return out;
+};
+
+const activeScoutPulsesForPlayer = (playerId: string, nowMs: number): ScoutPulse[] => {
+  const pulses = scoutPulsesByPlayer.get(playerId);
+  if (!pulses || pulses.length === 0) return [];
+  let writeIndex = 0;
+  for (let readIndex = 0; readIndex < pulses.length; readIndex += 1) {
+    const pulse = pulses[readIndex]!;
+    if (pulse.expiresAt <= nowMs) continue;
+    pulses[writeIndex] = pulse;
+    writeIndex += 1;
+  }
+  if (writeIndex !== pulses.length) pulses.length = writeIndex;
+  if (writeIndex === 0) {
+    scoutPulsesByPlayer.delete(playerId);
+    return [];
+  }
+  return pulses;
+};
 
 const getOrInitStrategicStocks = (playerId: string): Record<StrategicResource, number> => {
   let stock = strategicResourceStockByPlayer.get(playerId);
@@ -1841,9 +1877,6 @@ const emptyUpkeepDiagnostics = (): UpkeepDiagnostics => ({
   foodCoverage: 1
 });
 
-const settledTileKeysForPlayer = (player: Player): TileKey[] =>
-  [...player.territoryTiles].filter((tk) => ownershipStateByTile.get(tk) === "SETTLED");
-
 const consumeYieldStrategicForPlayer = (
   player: Player,
   resource: StrategicResource,
@@ -1853,7 +1886,8 @@ const consumeYieldStrategicForPlayer = (
   if (needed <= 0) return 0;
   let remaining = needed;
   let paid = 0;
-  for (const tk of settledTileKeysForPlayer(player)) {
+  for (const tk of player.territoryTiles) {
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
     if (remaining <= 0) break;
     const y = tileYieldByTile.get(tk);
     if (!y) continue;
@@ -1864,8 +1898,7 @@ const consumeYieldStrategicForPlayer = (
     remaining -= take;
     paid += take;
     touchedTileKeys.add(tk);
-    const hasRemaining = y.gold > 0 || (Object.values(y.strategic) as number[]).some((v) => v > 0);
-    if (!hasRemaining) tileYieldByTile.delete(tk);
+    pruneEmptyTileYield(tk, y);
   }
   return paid;
 };
@@ -1874,7 +1907,8 @@ const consumeYieldGoldForPlayer = (player: Player, needed: number, touchedTileKe
   if (needed <= 0) return 0;
   let remaining = needed;
   let paid = 0;
-  for (const tk of settledTileKeysForPlayer(player)) {
+  for (const tk of player.territoryTiles) {
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
     if (remaining <= 0) break;
     const y = tileYieldByTile.get(tk);
     if (!y) continue;
@@ -1885,8 +1919,7 @@ const consumeYieldGoldForPlayer = (player: Player, needed: number, touchedTileKe
     remaining -= take;
     paid += take;
     touchedTileKeys.add(tk);
-    const hasRemaining = y.gold > 0 || (Object.values(y.strategic) as number[]).some((v) => v > 0);
-    if (!hasRemaining) tileYieldByTile.delete(tk);
+    pruneEmptyTileYield(tk, y);
   }
   return paid;
 };
@@ -2073,9 +2106,7 @@ const visible = (p: Player, x: number, y: number): boolean => {
   if (DISABLE_FOG || fogDisabledByPlayer.get(p.id) === true) return true;
   const forced = forcedRevealTilesByPlayer.get(p.id);
   if (forced?.has(key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)))) return true;
-  const pulses = scoutPulsesByPlayer.get(p.id) ?? [];
-  const activePulses = pulses.filter((pulse) => pulse.expiresAt > now());
-  if (activePulses.length !== pulses.length) scoutPulsesByPlayer.set(p.id, activePulses);
+  const activePulses = activeScoutPulsesForPlayer(p.id, now());
   for (const pulse of activePulses) {
     const dx = Math.min(Math.abs(pulse.x - x), WORLD_WIDTH - Math.abs(pulse.x - x));
     const dy = Math.min(Math.abs(pulse.y - y), WORLD_HEIGHT - Math.abs(pulse.y - y));
@@ -2456,9 +2487,7 @@ const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
     }
   }
 
-  const pulses = scoutPulsesByPlayer.get(p.id) ?? [];
-  const activePulses = pulses.filter((pulse) => pulse.expiresAt > now());
-  if (activePulses.length !== pulses.length) scoutPulsesByPlayer.set(p.id, activePulses);
+  const activePulses = activeScoutPulsesForPlayer(p.id, now());
   for (const pulse of activePulses) {
     for (let dy = -SCOUT_PULSE_RADIUS; dy <= SCOUT_PULSE_RADIUS; dy += 1) {
       for (let dx = -SCOUT_PULSE_RADIUS; dx <= SCOUT_PULSE_RADIUS; dx += 1) {
@@ -4026,9 +4055,8 @@ registerInterval(() => {
       continue;
     }
     applyStaminaRegen(p);
-    const settledTiles = [...p.territoryTiles].filter((tk) => ownershipStateByTile.get(tk) === "SETTLED");
-    if (settledTiles.length > 0) {
-      for (const tk of settledTiles) {
+    for (const tk of p.territoryTiles) {
+      if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
         const [x, y] = parseKey(tk);
         const t = playerTile(x, y);
         if (t.ownerId !== p.id || t.terrain !== "LAND" || t.ownershipState !== "SETTLED") continue;
@@ -4047,9 +4075,8 @@ registerInterval(() => {
         if (town?.type === "ANCIENT") {
           strategic.SHARD = (strategic.SHARD ?? 0) + strategicResourceRates.SHARD * HARVEST_RESOURCE_RATE_MULT;
         }
-        const hasStrategic = (Object.values(strategic) as number[]).some((v) => v > 0);
+        const hasStrategic = hasPositiveStrategicBuffer(strategic);
         if (goldDelta > 0 || hasStrategic) addTileYield(tk, goldDelta, strategic);
-      }
     }
     const upkeepResult = applyUpkeepForPlayer(p);
     if (upkeepResult.touchedTileKeys.size > 0) {
