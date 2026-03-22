@@ -1843,67 +1843,54 @@ const townCapForOwner = (town: TownDefinition, ownerId: string | undefined): num
   return income * 60 * 8 * effects.townGoldCapMult * marketCapMultiplierAt(town.tileKey, ownerId) * granaryCapMultiplierAt(town.tileKey, ownerId);
 };
 
-const recomputeTownNetworkForPlayer = (playerId: string): void => {
-  const townKeys = new Set(ownedTownKeysForPlayer(playerId));
+const settledLandKeysForPlayer = (playerId: string): Set<TileKey> => {
   const settledLand = new Set<TileKey>();
   for (const tk of players.get(playerId)?.territoryTiles ?? []) {
     if (ownershipStateByTile.get(tk) === "SETTLED" && terrainAtRuntime(...parseKey(tk)) === "LAND") settledLand.add(tk);
   }
-  const visited = new Set<TileKey>();
-  for (const start of townKeys) {
-    if (visited.has(start)) continue;
-    const queue = [start];
-    const componentTowns: TileKey[] = [];
-    visited.add(start);
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (townKeys.has(current)) componentTowns.push(current);
-      const [cx, cy] = parseKey(current);
-      for (let dy = -1; dy <= 1; dy += 1) {
-        for (let dx = -1; dx <= 1; dx += 1) {
-          if (dx === 0 && dy === 0) continue;
-          const nextKey = key(wrapX(cx + dx, WORLD_WIDTH), wrapY(cy + dy, WORLD_HEIGHT));
-          if (!settledLand.has(nextKey) || visited.has(nextKey)) continue;
-          visited.add(nextKey);
-          queue.push(nextKey);
-        }
-      }
-    }
-    const connectedTownCount = Math.max(0, componentTowns.length - 1);
-    const connectedTownBonus = connectedTownBonusForOwner(connectedTownCount, playerId);
-    for (const townKey of componentTowns) {
-      const town = townsByTile.get(townKey);
-      if (!town) continue;
-      town.connectedTownCount = connectedTownCount;
-      town.connectedTownBonus = connectedTownBonus;
-    }
-  }
+  return settledLand;
 };
 
-const connectedTownKeysForTown = (playerId: string, originTownKey: TileKey): TileKey[] => {
-  const settledLand = new Set<TileKey>();
-  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
-    if (ownershipStateByTile.get(tk) === "SETTLED" && terrainAtRuntime(...parseKey(tk)) === "LAND") settledLand.add(tk);
-  }
+const directlyConnectedTownKeysForTown = (playerId: string, originTownKey: TileKey, settledLand = settledLandKeysForPlayer(playerId)): TileKey[] => {
   if (!settledLand.has(originTownKey)) return [];
+  const ownedTownKeySet = new Set(ownedTownKeysForPlayer(playerId));
   const queue = [originTownKey];
   const visited = new Set<TileKey>([originTownKey]);
-  const connectedTowns: TileKey[] = [];
+  const connectedTowns = new Set<TileKey>();
   while (queue.length > 0) {
     const current = queue.shift()!;
-    if (townsByTile.has(current) && current !== originTownKey) connectedTowns.push(current);
     const [cx, cy] = parseKey(current);
     for (let dy = -1; dy <= 1; dy += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
         if (dx === 0 && dy === 0) continue;
         const nextKey = key(wrapX(cx + dx, WORLD_WIDTH), wrapY(cy + dy, WORLD_HEIGHT));
         if (!settledLand.has(nextKey) || visited.has(nextKey)) continue;
+        if (ownedTownKeySet.has(nextKey) && nextKey !== originTownKey) {
+          connectedTowns.add(nextKey);
+          visited.add(nextKey);
+          continue;
+        }
         visited.add(nextKey);
         queue.push(nextKey);
       }
     }
   }
-  return connectedTowns;
+  return [...connectedTowns];
+};
+
+const recomputeTownNetworkForPlayer = (playerId: string): void => {
+  const settledLand = settledLandKeysForPlayer(playerId);
+  for (const townKey of ownedTownKeysForPlayer(playerId)) {
+    const town = townsByTile.get(townKey);
+    if (!town) continue;
+    const connectedTownCount = directlyConnectedTownKeysForTown(playerId, townKey, settledLand).length;
+    town.connectedTownCount = connectedTownCount;
+    town.connectedTownBonus = connectedTownBonusForOwner(connectedTownCount, playerId);
+  }
+};
+
+const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
+  return townPopulationTier(town.population) === "TOWN" ? 0.025 : 0.05;
 };
 
 const pausePopulationGrowthFromWar = (playerId: string): void => {
@@ -2476,7 +2463,7 @@ const playerTile = (x: number, y: number): Tile => {
     const support = owner ? townSupport(town.tileKey, owner) : { supportCurrent: 0, supportMax: 0 };
     const goldPerMinute = townIncomeForOwner(town, owner) * sabotageMultiplierAt(town.tileKey);
     const isFed = isTownFedForOwner(town.tileKey, owner);
-    const connectedTownKeys = owner ? connectedTownKeysForTown(owner, town.tileKey) : [];
+    const connectedTownKeys = owner ? directlyConnectedTownKeysForTown(owner, town.tileKey) : [];
     tile.town = {
       type: town.type,
       baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
@@ -2497,7 +2484,7 @@ const playerTile = (x: number, y: number): Tile => {
       marketActive: activeStructureAt(town.tileKey, owner, "MARKET") && isFed,
       hasGranary: ownedStructureAt(town.tileKey, owner, "GRANARY"),
       granaryActive: activeStructureAt(town.tileKey, owner, "GRANARY"),
-      foodUpkeepPerMinute: 0.025
+      foodUpkeepPerMinute: townFoodUpkeepPerMinute(town)
     };
   }
   if (fort) {
@@ -3031,7 +3018,7 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   crystal: number;
   gold: number;
 } => {
-  let townCount = 0;
+  let townFoodUpkeep = 0;
   let settledTileCount = 0;
   let fortCount = 0;
   let outpostCount = 0;
@@ -3039,7 +3026,8 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
     settledTileCount += 1;
-    if (townsByTile.has(tk)) townCount += 1;
+    const town = townsByTile.get(tk);
+    if (town) townFoodUpkeep += townFoodUpkeepPerMinute(town);
     const fort = fortsByTile.get(tk);
     if (fort?.ownerId === player.id && fort.status === "active") fortCount += 1;
     const siege = siegeOutpostsByTile.get(tk);
@@ -3050,8 +3038,8 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
   const effects = getPlayerEffectsForPlayer(player.id);
   return {
-    // 0.25 / 10 min per town.
-    food: townCount * 0.025 * effects.townFoodUpkeepMult,
+    // Base town upkeep is 0.25 / 10 min. City tier and above pay double.
+    food: townFoodUpkeep * effects.townFoodUpkeepMult,
     // 0.25 / 10 min per fort.
     iron: fortCount * 0.025 * effects.fortIronUpkeepMult,
     // 0.25 / 10 min per outpost.
