@@ -2268,6 +2268,7 @@ const techCurrentModsHtml = (): string => {
   const chips = [
     { label: "ATK", value: m.attack },
     { label: "DEF", value: m.defense },
+    { label: "INC", value: m.income },
     { label: "VIS", value: m.vision }
   ]
     .map(({ label, value }) => `<div class="tech-mod-chip"><span>${label}</span><strong>x${value.toFixed(2)}</strong></div>`)

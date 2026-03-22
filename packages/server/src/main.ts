@@ -1207,11 +1207,11 @@ const clusterTypeDefs: Array<{
   threshold: number;
   bonus: { attack?: number; defense?: number; income?: number; vision?: number };
 }> = [
-  { type: "FERTILE_PLAINS", resourceType: "FARM", threshold: 3, bonus: { income: 1.25 } },
-  { type: "IRON_HILLS", resourceType: "IRON", threshold: 3, bonus: { attack: 1.08 } },
-  { type: "CRYSTAL_BASIN", resourceType: "GEMS", threshold: 3, bonus: { vision: 1.08 } },
-  { type: "HORSE_STEPPES", resourceType: "FUR", threshold: 3, bonus: { attack: 1.05, defense: 1.03 } },
-  { type: "COASTAL_SHOALS", resourceType: "FISH", threshold: 3, bonus: { income: 1.2, vision: 1.03 } }
+  { type: "FERTILE_PLAINS", resourceType: "FARM", threshold: 3, bonus: {} },
+  { type: "IRON_HILLS", resourceType: "IRON", threshold: 3, bonus: {} },
+  { type: "CRYSTAL_BASIN", resourceType: "GEMS", threshold: 3, bonus: {} },
+  { type: "HORSE_STEPPES", resourceType: "FUR", threshold: 3, bonus: {} },
+  { type: "COASTAL_SHOALS", resourceType: "FISH", threshold: 3, bonus: {} }
 ];
 
 const clusterResourceType = (cluster: ClusterDefinition): ResourceType => {
@@ -1256,17 +1256,6 @@ const resetPlayerClusterMods = (player: Player): void => {
 
 const recomputeClusterBonusForPlayer = (player: Player): void => {
   resetPlayerClusterMods(player);
-  const controls = clusterControlledTilesByPlayer.get(player.id);
-  if (!controls) return;
-  for (const [cid, count] of controls) {
-    const cluster = clustersById.get(cid);
-    if (!cluster) continue;
-    if (count < cluster.controlThreshold) continue;
-    if (cluster.bonus.attack) player.mods.attack *= cluster.bonus.attack;
-    if (cluster.bonus.defense) player.mods.defense *= cluster.bonus.defense;
-    if (cluster.bonus.income) player.mods.income *= cluster.bonus.income;
-    if (cluster.bonus.vision) player.mods.vision *= cluster.bonus.vision;
-  }
 };
 
 const recomputeTechModsFromOwnedTechs = (player: Player): void => {
