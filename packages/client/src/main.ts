@@ -1050,6 +1050,14 @@ const displayTownGoldPerMinute = (tile: Tile): number => {
   return tile.town.goldPerMinute;
 };
 
+const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | undefined => {
+  if (tile.resource === "FARM" || tile.resource === "FISH") return "FOOD";
+  if (tile.resource === "IRON") return "IRON";
+  if (tile.resource === "GEMS") return "CRYSTAL";
+  if (tile.resource === "WOOD" || tile.resource === "FUR") return "SUPPLY";
+  return undefined;
+};
+
 const storedYieldSummary = (tile: Tile): string => {
   const parts: string[] = [];
   const gold = tile.yield?.gold ?? 0;
@@ -1059,7 +1067,12 @@ const storedYieldSummary = (tile: Tile): string => {
     parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${goldCap.toFixed(0)}`);
   }
   const strategicCap = tile.yieldCap?.strategicEach ?? 0;
-  for (const [resource, value] of Object.entries(tile.yield?.strategic ?? {})) {
+  const strategicEntries = new Map<string, number>(
+    Object.entries(tile.yield?.strategic ?? {}).map(([resource, value]) => [resource, Number(value)])
+  );
+  const primaryStrategic = strategicResourceKeyForTile(tile);
+  if (primaryStrategic && strategicCap > 0 && !strategicEntries.has(primaryStrategic)) strategicEntries.set(primaryStrategic, 0);
+  for (const [resource, value] of strategicEntries) {
     if (Number(value) <= 0.01 && strategicCap <= 0) continue;
     parts.push(`${resourceIconForKey(resource)} ${Number(value).toFixed(2)} / ${strategicCap.toFixed(1)}`);
   }
