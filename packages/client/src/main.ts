@@ -1087,9 +1087,7 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   if (tile.town) {
     townBits.push(`${prettyToken(tile.town.type)} town`);
     townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
-    townBits.push(
-      `Population ${Math.round(tile.town.population).toLocaleString()} (${prettyToken(tile.town.populationTier)}) (${displayTownGoldPerMinute(tile).toFixed(2)}/m)`
-    );
+    townBits.push(`Population ${Math.round(tile.town.population).toLocaleString()} (${prettyToken(tile.town.populationTier)})`);
     townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
     if (!tile.town.isFed) townBits.push("Unfed");
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
