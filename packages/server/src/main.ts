@@ -340,6 +340,7 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   settlementSpeedMult: 1,
   operationalTempoMult: 1,
   populationGrowthMult: 1,
+  firstThreeTownsPopulationGrowthMult: 1,
   populationCapFirst3TownsMult: 1,
   growthPauseDurationMult: 1,
   townFoodUpkeepMult: 1,
@@ -347,9 +348,13 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   settledGoldUpkeepMult: 1,
   townGoldOutputMult: 1,
   townGoldCapMult: 1,
+  goldCollectionEfficiencyMult: 1,
+  allGoldUpkeepMult: 1,
   marketIncomeBonusAdd: 0.5,
   marketCapBonusAdd: 0.5,
   granaryCapBonusAdd: 0.5,
+  marketBonusMult: 1,
+  granaryBonusMult: 1,
   populationIncomeMult: 1,
   connectedTownStepBonusAdd: 0,
   harvestCapMult: 1,
@@ -357,17 +362,22 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   fortDefenseMult: 1,
   fortIronUpkeepMult: 1,
   fortGoldUpkeepMult: 1,
+  settledDefenseNearFortMult: 1,
   outpostAttackMult: 1,
   outpostSupplyUpkeepMult: 1,
   outpostGoldUpkeepMult: 1,
+  outpostDeploymentSpeedMult: 1,
   revealUpkeepMult: 1,
   revealCapacityBonus: 0,
   visionRadiusBonus: 0,
+  sabotageCooldownMult: 1,
   dockGoldOutputMult: 1,
   dockGoldCapMult: 1,
   dockConnectionBonusPerLink: 0.5,
   dockRoutesVisible: false,
   marketCrystalUpkeepMult: 1,
+  observatoryProtectionRadiusBonus: 0,
+  observatoryVisionBonus: 0,
   settledDefenseMult: 1,
   attackVsSettledMult: 1,
   attackVsFortsMult: 1,
@@ -399,6 +409,7 @@ interface PlayerEffects {
   settlementSpeedMult: number;
   operationalTempoMult: number;
   populationGrowthMult: number;
+  firstThreeTownsPopulationGrowthMult: number;
   populationCapFirst3TownsMult: number;
   growthPauseDurationMult: number;
   townFoodUpkeepMult: number;
@@ -406,9 +417,13 @@ interface PlayerEffects {
   settledGoldUpkeepMult: number;
   townGoldOutputMult: number;
   townGoldCapMult: number;
+  goldCollectionEfficiencyMult: number;
+  allGoldUpkeepMult: number;
   marketIncomeBonusAdd: number;
   marketCapBonusAdd: number;
   granaryCapBonusAdd: number;
+  marketBonusMult: number;
+  granaryBonusMult: number;
   populationIncomeMult: number;
   connectedTownStepBonusAdd: number;
   harvestCapMult: number;
@@ -416,17 +431,22 @@ interface PlayerEffects {
   fortDefenseMult: number;
   fortIronUpkeepMult: number;
   fortGoldUpkeepMult: number;
+  settledDefenseNearFortMult: number;
   outpostAttackMult: number;
   outpostSupplyUpkeepMult: number;
   outpostGoldUpkeepMult: number;
+  outpostDeploymentSpeedMult: number;
   revealUpkeepMult: number;
   revealCapacityBonus: number;
   visionRadiusBonus: number;
+  sabotageCooldownMult: number;
   dockGoldOutputMult: number;
   dockGoldCapMult: number;
   dockConnectionBonusPerLink: number;
   dockRoutesVisible: boolean;
   marketCrystalUpkeepMult: number;
+  observatoryProtectionRadiusBonus: number;
+  observatoryVisionBonus: number;
   settledDefenseMult: number;
   attackVsSettledMult: number;
   attackVsFortsMult: number;
@@ -808,7 +828,7 @@ const currentIncomePerMinute = (player: Player): number => {
   const counts = getOrInitResourceCounts(player.id);
   let incomePerMinute = 0;
   for (const [r, c] of Object.entries(counts) as [ResourceType, number][]) {
-    incomePerMinute += c * resourceRate[r];
+    incomePerMinute += c * (resourceRate[r] ?? 0);
   }
   let ownedDockCount = 0;
   for (const d of docksByTile.values()) {
@@ -1915,6 +1935,8 @@ const ownedTownKeysForPlayer = (playerId: string): TileKey[] =>
     .sort((a, b) => a.townId.localeCompare(b.townId))
     .map((town) => town.tileKey);
 
+const firstThreeTownKeySetForPlayer = (playerId: string): Set<TileKey> => new Set(ownedTownKeysForPlayer(playerId).slice(0, 3));
+
 const townMaxPopulationForOwner = (town: TownDefinition, ownerId: string | undefined): number => {
   if (!ownerId) return POPULATION_MAX;
   const effects = getPlayerEffectsForPlayer(ownerId);
@@ -1945,19 +1967,19 @@ const isTownFedForOwner = (townKey: TileKey, ownerId: string | undefined): boole
 const marketIncomeMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
   if (!activeStructureAt(tileKey, ownerId, "MARKET") || !isTownFedForOwner(tileKey, ownerId)) return 1;
   const effects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
-  return 1 + effects.marketIncomeBonusAdd;
+  return 1 + effects.marketIncomeBonusAdd * effects.marketBonusMult;
 };
 
 const marketCapMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
   if (!activeStructureAt(tileKey, ownerId, "MARKET") || !isTownFedForOwner(tileKey, ownerId)) return 1;
   const effects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
-  return 1 + effects.marketCapBonusAdd;
+  return 1 + effects.marketCapBonusAdd * effects.marketBonusMult;
 };
 
 const granaryCapMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
   if (!activeStructureAt(tileKey, ownerId, "GRANARY")) return 1;
   const effects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
-  return 1 + effects.granaryCapBonusAdd;
+  return 1 + effects.granaryCapBonusAdd * effects.granaryBonusMult;
 };
 
 const dockConnectedOwnedSettledCount = (dock: Dock, ownerId: string | undefined): number => {
@@ -2082,6 +2104,8 @@ const updateTownPopulationForPlayer = (player: Player): Set<TileKey> => {
   const nowMs = now();
   const growthPausedUntil = growthPausedUntilByPlayer.get(player.id) ?? 0;
   const warFactor = nowMs < growthPausedUntil ? 0 : 1;
+  const effects = getPlayerEffectsForPlayer(player.id);
+  const firstThreeTownKeys = firstThreeTownKeySetForPlayer(player.id);
   for (const tk of ownedTownKeysForPlayer(player.id)) {
     const town = townsByTile.get(tk);
     if (!town) continue;
@@ -2089,10 +2113,11 @@ const updateTownPopulationForPlayer = (player: Player): Set<TileKey> => {
     town.lastGrowthTickAt = nowMs;
     town.maxPopulation = townMaxPopulationForOwner(town, player.id);
     if (!isTownFedForOwner(tk, player.id) || warFactor <= 0) continue;
+    const growthMult = effects.populationGrowthMult * (firstThreeTownKeys.has(tk) ? effects.firstThreeTownsPopulationGrowthMult : 1);
     const growth =
       town.population *
       POPULATION_GROWTH_BASE_RATE *
-      getPlayerEffectsForPlayer(player.id).populationGrowthMult *
+      growthMult *
       (1 - town.population / Math.max(1, town.maxPopulation)) *
       elapsedMinutes;
     if (growth <= 0) continue;
@@ -2115,9 +2140,9 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
   const dock = docksByTile.get(tileKey);
   const town = townsByTile.get(tileKey);
   const sabotageMult = sabotageMultiplierAt(tileKey);
-  const goldPerMinute =
+    const goldPerMinute =
     ((players.get(ownerId)?.capitalTileKey === tileKey ? BASE_GOLD_PER_MIN : 0) +
-      (resource ? resourceRate[resource] * sabotageMult : 0) +
+      (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
       (dock ? dockIncomeForOwner(dock, ownerId) : 0) +
       (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
     (players.get(ownerId)?.mods.income ?? 1) *
@@ -2728,7 +2753,7 @@ const playerTile = (x: number, y: number): Tile => {
     const sabotageMult = sabotageMultiplierAt(key(wx, wy));
     const goldPerMinuteFromTile =
       ((tile.capital ? BASE_GOLD_PER_MIN : 0) +
-        (resource ? resourceRate[resource] * sabotageMult : 0) +
+        (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
         (dock ? dockIncomeForOwner(dock, ownerId) : 0) +
         (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
       (players.get(ownerId)?.mods.income ?? 1) *
@@ -3092,7 +3117,11 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (effects.unlockRevealEmpire) next.unlockRevealEmpire = true;
     if (typeof effects.buildCapacityAdd === "number") next.buildCapacityAdd += effects.buildCapacityAdd;
     if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
+    if (typeof effects.operationalTempoMult === "number") next.operationalTempoMult *= effects.operationalTempoMult;
     if (typeof effects.populationGrowthMult === "number") next.populationGrowthMult *= effects.populationGrowthMult;
+    if (typeof effects.firstThreeTownsPopulationGrowthMult === "number") {
+      next.firstThreeTownsPopulationGrowthMult *= effects.firstThreeTownsPopulationGrowthMult;
+    }
     if (typeof effects.populationCapFirst3TownsMult === "number") next.populationCapFirst3TownsMult *= effects.populationCapFirst3TownsMult;
     if (typeof effects.growthPauseDurationMult === "number") next.growthPauseDurationMult *= effects.growthPauseDurationMult;
     if (typeof effects.townFoodUpkeepMult === "number") next.townFoodUpkeepMult *= effects.townFoodUpkeepMult;
@@ -3100,18 +3129,38 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.settledGoldUpkeepMult === "number") next.settledGoldUpkeepMult *= effects.settledGoldUpkeepMult;
     if (typeof effects.townGoldOutputMult === "number") next.townGoldOutputMult *= effects.townGoldOutputMult;
     if (typeof effects.townGoldCapMult === "number") next.townGoldCapMult *= effects.townGoldCapMult;
+    if (typeof effects.marketBonusMult === "number") next.marketBonusMult *= effects.marketBonusMult;
+    if (typeof effects.granaryBonusMult === "number") next.granaryBonusMult *= effects.granaryBonusMult;
+    if (typeof effects.goldCollectionEfficiencyMult === "number") {
+      next.goldCollectionEfficiencyMult *= effects.goldCollectionEfficiencyMult;
+    }
+    if (typeof effects.allGoldUpkeepMult === "number") next.allGoldUpkeepMult *= effects.allGoldUpkeepMult;
     if (typeof effects.connectedTownStepBonusAdd === "number") next.connectedTownStepBonusAdd += effects.connectedTownStepBonusAdd;
     if (typeof effects.harvestCapMult === "number") next.harvestCapMult *= effects.harvestCapMult;
     if (typeof effects.fortBuildGoldCostMult === "number") next.fortBuildGoldCostMult *= effects.fortBuildGoldCostMult;
     if (typeof effects.fortDefenseMult === "number") next.fortDefenseMult *= effects.fortDefenseMult;
     if (typeof effects.fortIronUpkeepMult === "number") next.fortIronUpkeepMult *= effects.fortIronUpkeepMult;
     if (typeof effects.fortGoldUpkeepMult === "number") next.fortGoldUpkeepMult *= effects.fortGoldUpkeepMult;
+    if (typeof effects.settledDefenseNearFortMult === "number") {
+      next.settledDefenseNearFortMult *= effects.settledDefenseNearFortMult;
+    }
     if (typeof effects.outpostAttackMult === "number") next.outpostAttackMult *= effects.outpostAttackMult;
     if (typeof effects.outpostSupplyUpkeepMult === "number") next.outpostSupplyUpkeepMult *= effects.outpostSupplyUpkeepMult;
     if (typeof effects.outpostGoldUpkeepMult === "number") next.outpostGoldUpkeepMult *= effects.outpostGoldUpkeepMult;
+    if (typeof effects.outpostDeploymentSpeedMult === "number") {
+      next.outpostDeploymentSpeedMult *= effects.outpostDeploymentSpeedMult;
+    }
     if (typeof effects.revealUpkeepMult === "number") next.revealUpkeepMult *= effects.revealUpkeepMult;
     if (typeof effects.revealCapacityBonus === "number") next.revealCapacityBonus += effects.revealCapacityBonus;
     if (typeof effects.visionRadiusBonus === "number") next.visionRadiusBonus += effects.visionRadiusBonus;
+    if (typeof effects.sabotageCooldownMult === "number") next.sabotageCooldownMult *= effects.sabotageCooldownMult;
+    if (typeof effects.dockGoldOutputMult === "number") next.dockGoldOutputMult *= effects.dockGoldOutputMult;
+    if (typeof effects.dockGoldCapMult === "number") next.dockGoldCapMult *= effects.dockGoldCapMult;
+    if (typeof effects.marketCrystalUpkeepMult === "number") next.marketCrystalUpkeepMult *= effects.marketCrystalUpkeepMult;
+    if (typeof effects.observatoryProtectionRadiusBonus === "number") {
+      next.observatoryProtectionRadiusBonus += effects.observatoryProtectionRadiusBonus;
+    }
+    if (typeof effects.observatoryVisionBonus === "number") next.observatoryVisionBonus += effects.observatoryVisionBonus;
     if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
     if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
     if (typeof effects.attackVsFortsMult === "number") next.attackVsFortsMult *= effects.attackVsFortsMult;
@@ -3129,7 +3178,8 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
 };
 
 const revealCapacityForPlayer = (player: Player): number => {
-  return playerHasTechIds(player, ABILITY_DEFS.reveal_empire.requiredTechIds) || getOrInitRevealTargets(player.id).size > 0 ? 1 : 0;
+  const base = playerHasTechIds(player, ABILITY_DEFS.reveal_empire.requiredTechIds) || getOrInitRevealTargets(player.id).size > 0 ? 1 : 0;
+  return base + getPlayerEffectsForPlayer(player.id).revealCapacityBonus;
 };
 
 const effectiveVisionRadiusForPlayer = (player: Player): number =>
@@ -3196,7 +3246,8 @@ const abilityOnCooldown = (playerId: string, abilityId: AbilityDefinition["id"])
 const startAbilityCooldown = (playerId: string, abilityId: AbilityDefinition["id"]): void => {
   const def = ABILITY_DEFS[abilityId];
   if (def.cooldownMs <= 0) return;
-  getAbilityCooldowns(playerId).set(abilityId, now() + def.cooldownMs);
+  const cooldownMult = abilityId === "sabotage" ? getPlayerEffectsForPlayer(playerId).sabotageCooldownMult : 1;
+  getAbilityCooldowns(playerId).set(abilityId, now() + Math.round(def.cooldownMs * cooldownMult));
 };
 
 const playerHasTechIds = (player: Player, techIds: string[]): boolean => techIds.every((id) => player.techIds.has(id));
@@ -3238,7 +3289,8 @@ const hostileObservatoryProtectingTile = (actor: Player, x: number, y: number): 
     if (observatory.ownerId === actor.id || actor.allies.has(observatory.ownerId)) continue;
     if (observatoryStatusForTile(observatory.ownerId, tk) !== "active") continue;
     const [ox, oy] = parseKey(tk);
-    if (chebyshevDistance(ox, oy, x, y) <= OBSERVATORY_PROTECTION_RADIUS) return tk;
+    const protectionRadius = OBSERVATORY_PROTECTION_RADIUS + getPlayerEffectsForPlayer(observatory.ownerId).observatoryProtectionRadiusBonus;
+    if (chebyshevDistance(ox, oy, x, y) <= protectionRadius) return tk;
   }
   return undefined;
 };
@@ -3331,7 +3383,7 @@ const upkeepPerMinuteForPlayer = (player: Player): {
     const siege = siegeOutpostsByTile.get(tk);
     if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
     const observatory = observatoriesByTile.get(tk);
-    if (observatory?.ownerId === player.id && observatory.status === "active") observatoryCount += 1;
+    if (observatory?.ownerId === player.id && observatory?.status === "active") observatoryCount += 1;
   }
   const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
   const effects = getPlayerEffectsForPlayer(player.id);
@@ -3345,7 +3397,11 @@ const upkeepPerMinuteForPlayer = (player: Player): {
     // 0.25 / 10 min for each active empire reveal.
     crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN,
     // 2 gold / 10 min per fort + 2 gold / 10 min per outpost + 1 gold / 10 min per 40 settled tiles.
-    gold: fortCount * 0.2 * effects.fortGoldUpkeepMult + outpostCount * 0.2 * effects.outpostGoldUpkeepMult + (settledTileCount / 40) * 0.1 * effects.settledGoldUpkeepMult
+    gold:
+      (fortCount * 0.2 * effects.fortGoldUpkeepMult +
+        outpostCount * 0.2 * effects.outpostGoldUpkeepMult +
+        (settledTileCount / 40) * 0.1 * effects.settledGoldUpkeepMult) *
+      effects.allGoldUpkeepMult
   };
 };
 
@@ -3445,8 +3501,9 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
             : structure.type === "MINE"
               ? MINE_GOLD_UPKEEP
               : GRANARY_GOLD_UPKEEP;
-      if (player.points >= upkeep) {
-        player.points = Math.max(0, player.points - upkeep);
+      const upkeepGold = upkeep * getPlayerEffectsForPlayer(player.id).allGoldUpkeepMult;
+      if (player.points >= upkeepGold) {
+        player.points = Math.max(0, player.points - upkeepGold);
         structure.isActive = true;
       } else {
         structure.isActive = false;
@@ -3618,7 +3675,17 @@ const attackMultiplierForTarget = (attackerId: string, target: Tile): number => 
 
 const settledDefenseMultiplierForTarget = (defenderId: string, target: Tile): number => {
   if (target.ownershipState !== "SETTLED") return 1;
-  return getPlayerEffectsForPlayer(defenderId).settledDefenseMult;
+  const effects = getPlayerEffectsForPlayer(defenderId);
+  let mult = effects.settledDefenseMult;
+  for (const [tk, fort] of fortsByTile) {
+    if (!fort || fort.ownerId !== defenderId || fort.status !== "active") continue;
+    const [fx, fy] = parseKey(tk);
+    if (chebyshevDistance(fx, fy, target.x, target.y) <= 1) {
+      mult *= effects.settledDefenseNearFortMult;
+      break;
+    }
+  }
+  return mult;
 };
 
 const incrementVendettaCount = (attackerId: string, targetId: string): void => {
@@ -3737,7 +3804,7 @@ const sendLocalVisionDeltaForPlayer = (playerId: string, centers: Array<{ x: num
   const p = players.get(playerId);
   const sub = chunkSubscriptionByPlayer.get(playerId);
   if (!ws || ws.readyState !== ws.OPEN || !p || !sub || centers.length === 0) return;
-  const radius = effectiveVisionRadiusForPlayer(p) + OBSERVATORY_VISION_BONUS;
+  const radius = effectiveVisionRadiusForPlayer(p) + OBSERVATORY_VISION_BONUS + getPlayerEffectsForPlayer(playerId).observatoryVisionBonus;
   const snapshot = visibilitySnapshotForPlayer(p);
   const seen = new Set<TileKey>();
   const updates: Tile[] = [];
@@ -3818,7 +3885,7 @@ const collectYieldFromTile = (
   const t = playerTile(x, yPos);
   if (t.ownerId !== player.id || t.terrain !== "LAND") return out;
   if (t.ownershipState !== "SETTLED") return out;
-  const gold = Math.floor(y.gold * 100) / 100;
+  const gold = Math.floor(y.gold * getPlayerEffectsForPlayer(player.id).goldCollectionEfficiencyMult * 100) / 100;
   if (gold > 0) {
     player.points += gold;
     out.gold = gold;
@@ -4158,6 +4225,18 @@ const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
     const [tx, ty] = parseKey(tk);
     for (let dy = -radius; dy <= radius; dy += 1) {
       for (let dx = -radius; dx <= radius; dx += 1) {
+        const vx = wrapX(tx + dx, WORLD_WIDTH);
+        const vy = wrapY(ty + dy, WORLD_HEIGHT);
+        visibleMask[tileIndex(vx, vy)] = 1;
+      }
+    }
+  }
+
+  const observatoryRadius = radius + OBSERVATORY_VISION_BONUS + getPlayerEffectsForPlayer(p.id).observatoryVisionBonus;
+  for (const tk of activeObservatoryTileKeysForPlayer(p.id)) {
+    const [tx, ty] = parseKey(tk);
+    for (let dy = -observatoryRadius; dy <= observatoryRadius; dy += 1) {
+      for (let dx = -observatoryRadius; dx <= observatoryRadius; dx += 1) {
         const vx = wrapX(tx + dx, WORLD_WIDTH);
         const vy = wrapY(ty + dy, WORLD_HEIGHT);
         visibleMask[tileIndex(vx, vy)] = 1;
@@ -5481,13 +5560,14 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
     return { ok: false, reason: "insufficient SUPPLY for siege outpost" };
   actor.points -= SIEGE_OUTPOST_BUILD_COST;
   recalcPlayerDerived(actor);
+  const buildMs = Math.round(SIEGE_OUTPOST_BUILD_MS / effects.outpostDeploymentSpeedMult);
   const siegeOutpost: SiegeOutpost = {
     siegeOutpostId: crypto.randomUUID(),
     ownerId: actor.id,
     tileKey: tk,
     status: "under_construction",
     startedAt: now(),
-    completesAt: now() + SIEGE_OUTPOST_BUILD_MS
+    completesAt: now() + buildMs
   };
   siegeOutpostsByTile.set(tk, siegeOutpost);
   recordTileStructureHistory(tk, "SIEGE_OUTPOST");
@@ -5503,7 +5583,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
     current.status = "active";
     siegeOutpostBuildTimers.delete(tk);
     updateOwnership(t.x, t.y, actor.id);
-  }, SIEGE_OUTPOST_BUILD_MS);
+  }, buildMs);
   siegeOutpostBuildTimers.set(tk, timer);
   return { ok: true };
 };
@@ -5594,20 +5674,22 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   if (oldOwner) {
     const p = players.get(oldOwner);
     if (p) {
+      const ownerId = oldOwner;
       p.territoryTiles.delete(k);
       const r = t.resource;
-      if (r) getOrInitResourceCounts(oldOwner)[r] -= 1;
-      if (clusterId) setClusterControlDelta(oldOwner, clusterId, -1);
+      if (r) getOrInitResourceCounts(ownerId)[r] = (getOrInitResourceCounts(ownerId)[r] ?? 0) - 1;
+      if (clusterId) setClusterControlDelta(ownerId, clusterId, -1);
     }
   }
 
   if (newOwner) {
     const p = players.get(newOwner);
     if (p) {
+      const ownerId = newOwner;
       p.territoryTiles.add(k);
       const r = t.resource;
-      if (r) getOrInitResourceCounts(newOwner)[r] += 1;
-      if (clusterId) setClusterControlDelta(newOwner, clusterId, 1);
+      if (r) getOrInitResourceCounts(ownerId)[r] = (getOrInitResourceCounts(ownerId)[r] ?? 0) + 1;
+      if (clusterId) setClusterControlDelta(ownerId, clusterId, 1);
     }
   }
 
@@ -5756,8 +5838,11 @@ const rebuildOwnershipDerivedState = (): void => {
     if (!ownershipStateByTile.has(tk)) ownershipStateByTile.set(tk, "SETTLED");
     p.territoryTiles.add(tk);
     p.T += 1;
-    if (t.resource) getOrInitResourceCounts(ownerId)[t.resource] += 1;
-    if (t.clusterId) setClusterControlDelta(ownerId, t.clusterId, 1);
+    const claimedOwnerId = ownerId;
+    if (t.resource) {
+      getOrInitResourceCounts(claimedOwnerId)[t.resource] = (getOrInitResourceCounts(claimedOwnerId)[t.resource] ?? 0) + 1;
+    }
+    if (t.clusterId) setClusterControlDelta(claimedOwnerId, t.clusterId, 1);
   }
 
   for (const p of players.values()) {
@@ -6330,7 +6415,7 @@ registerInterval(() => {
       const resource = applyClusterResources(x, y, resourceAt(x, y));
       if (!resource) continue;
       const sabotageMult = sabotageMultiplierAt(tk);
-      const goldDelta = resourceRate[resource] * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
+      const goldDelta = (resourceRate[resource] ?? 0) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
       const strategic: Partial<Record<StrategicResource, number>> = {};
       const sr = toStrategicResource(resource);
       if (sr) {

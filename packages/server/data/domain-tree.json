@@ -1,34 +1,320 @@
 {
-  "version": 2,
+  "version": 3,
   "domains": [
     {
-      "id": "urbanization",
+      "id": "frontier-doctrine",
       "tier": 1,
-      "name": "Urbanization",
-      "description": "Tall empire focus with stronger city growth and connected-core bonuses.",
-      "requiresTechId": "trade",
-      "cost": { "gold": 6000, "food": 120, "crystal": 80 },
+      "name": "Frontier Doctrine",
+      "description": "Expand faster and secure new land more safely.",
+      "requiresTechId": "toolmaking",
+      "cost": { "gold": 6000, "food": 120 },
       "effects": {
-        "populationGrowthMult": 1.5,
-        "populationCapFirst3TownsMult": 1.2,
-        "growthPauseDurationMult": 0.75,
-        "connectedTownStepBonusAdd": 0.1,
-        "buildCapacityAdd": -1
+        "settlementSpeedMult": 1.25,
+        "newSettlementDefenseMult": 1.15
       }
     },
     {
-      "id": "expansion",
+      "id": "iron-bastions",
       "tier": 1,
-      "name": "Expansion",
-      "description": "Wide empire focus with faster settlement and lighter upkeep pressure.",
-      "requiresTechId": "toolmaking",
-      "cost": { "gold": 6000, "food": 80, "supply": 120 },
+      "name": "Iron Bastions",
+      "description": "Forts become cheaper anchors for compact empires.",
+      "requiresTechId": "masonry",
+      "cost": { "gold": 6000, "iron": 120 },
       "effects": {
-        "buildCapacityAdd": 2,
-        "settlementSpeedMult": 1.25,
-        "settledGoldUpkeepMult": 0.8,
-        "populationGrowthMult": 0.75,
-        "growthPauseDurationMult": 0.5
+        "fortDefenseMult": 1.2,
+        "fortBuildGoldCostMult": 0.9
+      }
+    },
+    {
+      "id": "supply-raiding",
+      "tier": 1,
+      "name": "Supply Raiding",
+      "description": "Offensive empires hit harder from their outposts.",
+      "requiresTechId": "leatherworking",
+      "cost": { "gold": 6000, "supply": 120 },
+      "effects": {
+        "outpostAttackMult": 1.2
+      }
+    },
+    {
+      "id": "mercantile-charter",
+      "tier": 1,
+      "name": "Mercantile Charter",
+      "description": "Your first cities become the commercial heart of the realm.",
+      "requiresTechId": "trade",
+      "cost": { "gold": 6000, "crystal": 100 },
+      "effects": {
+        "firstThreeTownsPopulationGrowthMult": 1.15,
+        "marketBonusMult": 1.15
+      }
+    },
+    {
+      "id": "farmers-compact",
+      "tier": 1,
+      "name": "Farmer's Compact",
+      "description": "A stable food base supports both growth and peace.",
+      "requiresTechId": "agriculture",
+      "cost": { "gold": 6000, "food": 120 },
+      "effects": {
+        "townFoodUpkeepMult": 0.85,
+        "populationGrowthMult": 1.1
+      }
+    },
+    {
+      "id": "frontier-bureau",
+      "tier": 2,
+      "name": "Frontier Bureau",
+      "description": "Expansion becomes a coordinated state project.",
+      "requiresTechId": "logistics",
+      "cost": { "gold": 14000, "food": 220, "shard": 1 },
+      "effects": {
+        "settlementSpeedMult": 1.2,
+        "buildCapacityAdd": 1
+      }
+    },
+    {
+      "id": "stone-curtain",
+      "tier": 2,
+      "name": "Stone Curtain",
+      "description": "Fortified regions harden the land around them.",
+      "requiresTechId": "fortified-walls",
+      "cost": { "gold": 14000, "iron": 220, "shard": 1 },
+      "effects": {
+        "settledDefenseNearFortMult": 1.1
+      }
+    },
+    {
+      "id": "iron-vanguard",
+      "tier": 2,
+      "name": "Iron Vanguard",
+      "description": "Aggression is sharpened specifically against real territory.",
+      "requiresTechId": "bronze-working",
+      "cost": { "gold": 14000, "iron": 240, "shard": 1 },
+      "effects": {
+        "attackVsSettledMult": 1.12,
+        "attackVsFortsMult": 1.12
+      }
+    },
+    {
+      "id": "market-league",
+      "tier": 2,
+      "name": "Market League",
+      "description": "Connected cities become far more rewarding than isolated ones.",
+      "requiresTechId": "ledger-keeping",
+      "cost": { "gold": 14000, "crystal": 200, "shard": 1 },
+      "effects": {
+        "connectedTownStepBonusAdd": 0.1,
+        "marketBonusMult": 1.1
+      }
+    },
+    {
+      "id": "crystal-network",
+      "tier": 2,
+      "name": "Crystal Network",
+      "description": "Crystal intelligence begins with regional control, not omniscience.",
+      "requiresTechId": "signal-fires",
+      "cost": { "gold": 14000, "crystal": 180, "shard": 1 },
+      "effects": {
+        "observatoryProtectionRadiusBonus": 1
+      }
+    },
+    {
+      "id": "provincial-governors",
+      "tier": 3,
+      "name": "Provincial Governors",
+      "description": "Core cities become more efficient to run and easier to store wealth in.",
+      "requiresTechId": "coinage",
+      "cost": { "gold": 24000, "food": 320, "shard": 2 },
+      "effects": {
+        "settledGoldUpkeepMult": 0.85,
+        "townGoldCapMult": 1.1,
+        "firstThreeTownsPopulationGrowthMult": 1.1
+      }
+    },
+    {
+      "id": "war-foundries",
+      "tier": 3,
+      "name": "War Foundries",
+      "description": "Industrial war favors prepared states.",
+      "requiresTechId": "organized-supply",
+      "cost": { "gold": 24000, "iron": 340, "shard": 2 },
+      "mods": {
+        "attack": 1.1
+      },
+      "effects": {
+        "outpostAttackMult": 1.1,
+        "operationalTempoMult": 1.1
+      }
+    },
+    {
+      "id": "supply-state",
+      "tier": 3,
+      "name": "Supply State",
+      "description": "Your empire is always moving, always provisioning.",
+      "requiresTechId": "organized-supply",
+      "cost": { "gold": 24000, "supply": 320, "shard": 2 },
+      "effects": {
+        "outpostSupplyUpkeepMult": 0.8,
+        "settlementSpeedMult": 1.1,
+        "growthPauseDurationMult": 0.8
+      }
+    },
+    {
+      "id": "merchant-houses",
+      "tier": 3,
+      "name": "Merchant Houses",
+      "description": "Great urban cores and trade routes start compounding together.",
+      "requiresTechId": "coinage",
+      "cost": { "gold": 24000, "crystal": 260, "shard": 2 },
+      "effects": {
+        "marketBonusMult": 1.1,
+        "granaryBonusMult": 1.1,
+        "dockGoldCapMult": 1.1
+      }
+    },
+    {
+      "id": "field-stores",
+      "tier": 3,
+      "name": "Field Stores",
+      "description": "Food stability turns peace into growth.",
+      "requiresTechId": "pottery",
+      "cost": { "gold": 24000, "food": 340, "shard": 2 },
+      "effects": {
+        "townFoodUpkeepMult": 0.85,
+        "settledFoodUpkeepMult": 0.9,
+        "populationGrowthMult": 1.15
+      }
+    },
+    {
+      "id": "imperial-roads-domain",
+      "tier": 4,
+      "name": "Imperial Roads",
+      "description": "Administration and movement become one system.",
+      "requiresTechId": "imperial-roads",
+      "cost": { "gold": 40000, "supply": 500, "shard": 3 },
+      "effects": {
+        "settlementSpeedMult": 1.15,
+        "buildCapacityAdd": 1,
+        "outpostDeploymentSpeedMult": 1.1
+      }
+    },
+    {
+      "id": "fortress-realm",
+      "tier": 4,
+      "name": "Fortress Realm",
+      "description": "Forts become the skeleton of the realm.",
+      "requiresTechId": "steelworking",
+      "cost": { "gold": 42000, "iron": 540, "shard": 3 },
+      "effects": {
+        "fortDefenseMult": 1.25,
+        "fortIronUpkeepMult": 0.85
+      }
+    },
+    {
+      "id": "siege-state",
+      "tier": 4,
+      "name": "Siege State",
+      "description": "Outposts are no longer staging points, but weapons systems.",
+      "requiresTechId": "breach-doctrine",
+      "cost": { "gold": 42000, "iron": 220, "supply": 520, "shard": 3 },
+      "effects": {
+        "outpostAttackMult": 1.2,
+        "attackVsFortsMult": 1.1,
+        "operationalTempoMult": 1.1
+      }
+    },
+    {
+      "id": "treasury-state",
+      "tier": 4,
+      "name": "Treasury State",
+      "description": "Wealth is protected by discipline, not just scale.",
+      "requiresTechId": "banking",
+      "cost": { "gold": 40000, "food": 180, "crystal": 420, "shard": 3 },
+      "effects": {
+        "townGoldCapMult": 1.2,
+        "goldCollectionEfficiencyMult": 1.1,
+        "marketCrystalUpkeepMult": 0.9
+      }
+    },
+    {
+      "id": "hidden-hand",
+      "tier": 4,
+      "name": "Hidden Hand",
+      "description": "Precision intelligence becomes a strategic weapon.",
+      "requiresTechId": "cryptography",
+      "cost": { "gold": 38000, "crystal": 420, "shard": 3 },
+      "effects": {
+        "revealUpkeepMult": 0.8,
+        "sabotageCooldownMult": 0.8,
+        "revealCapacityBonus": 1
+      }
+    },
+    {
+      "id": "imperial-expansion",
+      "tier": 5,
+      "name": "Imperial Expansion",
+      "description": "A sprawling empire becomes easier to found and maintain.",
+      "requiresTechId": "civil-service",
+      "cost": { "gold": 65000, "food": 700, "shard": 5 },
+      "effects": {
+        "settlementSpeedMult": 1.2,
+        "newSettlementDefenseMult": 1.2,
+        "settledGoldUpkeepMult": 0.9
+      }
+    },
+    {
+      "id": "iron-dominion",
+      "tier": 5,
+      "name": "Iron Dominion",
+      "description": "Military force becomes your primary language.",
+      "requiresTechId": "steelworking",
+      "cost": { "gold": 70000, "iron": 800, "shard": 5 },
+      "mods": {
+        "attack": 1.18
+      },
+      "effects": {
+        "attackVsFortsMult": 1.12
+      }
+    },
+    {
+      "id": "enduring-realm",
+      "tier": 5,
+      "name": "Enduring Realm",
+      "description": "Compact empires survive by stability, not reach.",
+      "requiresTechId": "civil-service",
+      "cost": { "gold": 65000, "food": 650, "crystal": 260, "shard": 5 },
+      "effects": {
+        "settledFoodUpkeepMult": 0.85,
+        "settledGoldUpkeepMult": 0.85,
+        "townGoldCapMult": 1.1,
+        "growthPauseDurationMult": 0.85
+      }
+    },
+    {
+      "id": "golden-hegemony",
+      "tier": 5,
+      "name": "Golden Hegemony",
+      "description": "A few great cities and the right routes can fund an empire.",
+      "requiresTechId": "trade-empire",
+      "cost": { "gold": 70000, "food": 220, "crystal": 600, "shard": 5 },
+      "effects": {
+        "firstThreeTownsPopulationGrowthMult": 1.25,
+        "marketBonusMult": 1.1,
+        "dockGoldOutputMult": 1.1,
+        "allGoldUpkeepMult": 0.9
+      }
+    },
+    {
+      "id": "oracle-state",
+      "tier": 5,
+      "name": "Oracle State",
+      "description": "Information superiority becomes empire superiority.",
+      "requiresTechId": "grand-cartography",
+      "cost": { "gold": 60000, "crystal": 650, "shard": 5 },
+      "effects": {
+        "revealUpkeepMult": 0.75,
+        "visionRadiusBonus": 1,
+        "observatoryVisionBonus": 1
       }
     }
   ]

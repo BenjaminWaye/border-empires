@@ -9,7 +9,9 @@ export interface DomainEffects {
   unlockRevealEmpire?: boolean;
   buildCapacityAdd?: number;
   settlementSpeedMult?: number;
+  operationalTempoMult?: number;
   populationGrowthMult?: number;
+  firstThreeTownsPopulationGrowthMult?: number;
   populationCapFirst3TownsMult?: number;
   growthPauseDurationMult?: number;
   townFoodUpkeepMult?: number;
@@ -17,22 +19,34 @@ export interface DomainEffects {
   settledGoldUpkeepMult?: number;
   townGoldOutputMult?: number;
   townGoldCapMult?: number;
+  marketBonusMult?: number;
+  granaryBonusMult?: number;
   connectedTownStepBonusAdd?: number;
   harvestCapMult?: number;
+  goldCollectionEfficiencyMult?: number;
+  allGoldUpkeepMult?: number;
   fortBuildGoldCostMult?: number;
   fortDefenseMult?: number;
   fortIronUpkeepMult?: number;
+  settledDefenseNearFortMult?: number;
   fortGoldUpkeepMult?: number;
   outpostAttackMult?: number;
   outpostSupplyUpkeepMult?: number;
   outpostGoldUpkeepMult?: number;
+  outpostDeploymentSpeedMult?: number;
   revealUpkeepMult?: number;
   revealCapacityBonus?: number;
   visionRadiusBonus?: number;
+  observatoryProtectionRadiusBonus?: number;
+  observatoryVisionBonus?: number;
   settledDefenseMult?: number;
   attackVsSettledMult?: number;
   attackVsFortsMult?: number;
   newSettlementDefenseMult?: number;
+  dockGoldOutputMult?: number;
+  dockGoldCapMult?: number;
+  marketCrystalUpkeepMult?: number;
+  sabotageCooldownMult?: number;
   resourceOutputMult?: {
     farm?: number;
     fish?: number;
@@ -59,7 +73,9 @@ const DomainEffectsSchema = z
     unlockRevealEmpire: z.boolean().optional(),
     buildCapacityAdd: z.number().int().optional(),
     settlementSpeedMult: z.number().positive().optional(),
+    operationalTempoMult: z.number().positive().optional(),
     populationGrowthMult: z.number().positive().optional(),
+    firstThreeTownsPopulationGrowthMult: z.number().positive().optional(),
     populationCapFirst3TownsMult: z.number().positive().optional(),
     growthPauseDurationMult: z.number().positive().optional(),
     townFoodUpkeepMult: z.number().positive().optional(),
@@ -67,22 +83,34 @@ const DomainEffectsSchema = z
     settledGoldUpkeepMult: z.number().positive().optional(),
     townGoldOutputMult: z.number().positive().optional(),
     townGoldCapMult: z.number().positive().optional(),
+    marketBonusMult: z.number().positive().optional(),
+    granaryBonusMult: z.number().positive().optional(),
     connectedTownStepBonusAdd: z.number().nonnegative().optional(),
     harvestCapMult: z.number().positive().optional(),
+    goldCollectionEfficiencyMult: z.number().positive().optional(),
+    allGoldUpkeepMult: z.number().positive().optional(),
     fortBuildGoldCostMult: z.number().positive().optional(),
     fortDefenseMult: z.number().positive().optional(),
     fortIronUpkeepMult: z.number().positive().optional(),
+    settledDefenseNearFortMult: z.number().positive().optional(),
     fortGoldUpkeepMult: z.number().positive().optional(),
     outpostAttackMult: z.number().positive().optional(),
     outpostSupplyUpkeepMult: z.number().positive().optional(),
     outpostGoldUpkeepMult: z.number().positive().optional(),
+    outpostDeploymentSpeedMult: z.number().positive().optional(),
     revealUpkeepMult: z.number().positive().optional(),
     revealCapacityBonus: z.number().int().min(0).optional(),
     visionRadiusBonus: z.number().int().min(0).optional(),
+    observatoryProtectionRadiusBonus: z.number().int().min(0).optional(),
+    observatoryVisionBonus: z.number().int().min(0).optional(),
     settledDefenseMult: z.number().positive().optional(),
     attackVsSettledMult: z.number().positive().optional(),
     attackVsFortsMult: z.number().positive().optional(),
     newSettlementDefenseMult: z.number().positive().optional(),
+    dockGoldOutputMult: z.number().positive().optional(),
+    dockGoldCapMult: z.number().positive().optional(),
+    marketCrystalUpkeepMult: z.number().positive().optional(),
+    sabotageCooldownMult: z.number().positive().optional(),
     resourceOutputMult: z
       .object({
         farm: z.number().positive().optional(),
@@ -175,7 +203,11 @@ export const loadDomainTree = (cwd: string): LoadedDomainTree => {
       if (typeof d.effects.unlockRevealEmpire === "boolean") effects.unlockRevealEmpire = d.effects.unlockRevealEmpire;
       if (typeof d.effects.buildCapacityAdd === "number") effects.buildCapacityAdd = d.effects.buildCapacityAdd;
       if (typeof d.effects.settlementSpeedMult === "number") effects.settlementSpeedMult = d.effects.settlementSpeedMult;
+      if (typeof d.effects.operationalTempoMult === "number") effects.operationalTempoMult = d.effects.operationalTempoMult;
       if (typeof d.effects.populationGrowthMult === "number") effects.populationGrowthMult = d.effects.populationGrowthMult;
+      if (typeof d.effects.firstThreeTownsPopulationGrowthMult === "number") {
+        effects.firstThreeTownsPopulationGrowthMult = d.effects.firstThreeTownsPopulationGrowthMult;
+      }
       if (typeof d.effects.populationCapFirst3TownsMult === "number") effects.populationCapFirst3TownsMult = d.effects.populationCapFirst3TownsMult;
       if (typeof d.effects.growthPauseDurationMult === "number") effects.growthPauseDurationMult = d.effects.growthPauseDurationMult;
       if (typeof d.effects.townFoodUpkeepMult === "number") effects.townFoodUpkeepMult = d.effects.townFoodUpkeepMult;
@@ -183,22 +215,46 @@ export const loadDomainTree = (cwd: string): LoadedDomainTree => {
       if (typeof d.effects.settledGoldUpkeepMult === "number") effects.settledGoldUpkeepMult = d.effects.settledGoldUpkeepMult;
       if (typeof d.effects.townGoldOutputMult === "number") effects.townGoldOutputMult = d.effects.townGoldOutputMult;
       if (typeof d.effects.townGoldCapMult === "number") effects.townGoldCapMult = d.effects.townGoldCapMult;
+      if (typeof d.effects.marketBonusMult === "number") effects.marketBonusMult = d.effects.marketBonusMult;
+      if (typeof d.effects.granaryBonusMult === "number") effects.granaryBonusMult = d.effects.granaryBonusMult;
       if (typeof d.effects.connectedTownStepBonusAdd === "number") effects.connectedTownStepBonusAdd = d.effects.connectedTownStepBonusAdd;
       if (typeof d.effects.harvestCapMult === "number") effects.harvestCapMult = d.effects.harvestCapMult;
+      if (typeof d.effects.goldCollectionEfficiencyMult === "number") {
+        effects.goldCollectionEfficiencyMult = d.effects.goldCollectionEfficiencyMult;
+      }
+      if (typeof d.effects.allGoldUpkeepMult === "number") effects.allGoldUpkeepMult = d.effects.allGoldUpkeepMult;
       if (typeof d.effects.fortBuildGoldCostMult === "number") effects.fortBuildGoldCostMult = d.effects.fortBuildGoldCostMult;
       if (typeof d.effects.fortDefenseMult === "number") effects.fortDefenseMult = d.effects.fortDefenseMult;
       if (typeof d.effects.fortIronUpkeepMult === "number") effects.fortIronUpkeepMult = d.effects.fortIronUpkeepMult;
+      if (typeof d.effects.settledDefenseNearFortMult === "number") {
+        effects.settledDefenseNearFortMult = d.effects.settledDefenseNearFortMult;
+      }
       if (typeof d.effects.fortGoldUpkeepMult === "number") effects.fortGoldUpkeepMult = d.effects.fortGoldUpkeepMult;
       if (typeof d.effects.outpostAttackMult === "number") effects.outpostAttackMult = d.effects.outpostAttackMult;
       if (typeof d.effects.outpostSupplyUpkeepMult === "number") effects.outpostSupplyUpkeepMult = d.effects.outpostSupplyUpkeepMult;
       if (typeof d.effects.outpostGoldUpkeepMult === "number") effects.outpostGoldUpkeepMult = d.effects.outpostGoldUpkeepMult;
+      if (typeof d.effects.outpostDeploymentSpeedMult === "number") {
+        effects.outpostDeploymentSpeedMult = d.effects.outpostDeploymentSpeedMult;
+      }
       if (typeof d.effects.revealUpkeepMult === "number") effects.revealUpkeepMult = d.effects.revealUpkeepMult;
       if (typeof d.effects.revealCapacityBonus === "number") effects.revealCapacityBonus = d.effects.revealCapacityBonus;
       if (typeof d.effects.visionRadiusBonus === "number") effects.visionRadiusBonus = d.effects.visionRadiusBonus;
+      if (typeof d.effects.observatoryProtectionRadiusBonus === "number") {
+        effects.observatoryProtectionRadiusBonus = d.effects.observatoryProtectionRadiusBonus;
+      }
+      if (typeof d.effects.observatoryVisionBonus === "number") {
+        effects.observatoryVisionBonus = d.effects.observatoryVisionBonus;
+      }
       if (typeof d.effects.settledDefenseMult === "number") effects.settledDefenseMult = d.effects.settledDefenseMult;
       if (typeof d.effects.attackVsSettledMult === "number") effects.attackVsSettledMult = d.effects.attackVsSettledMult;
       if (typeof d.effects.attackVsFortsMult === "number") effects.attackVsFortsMult = d.effects.attackVsFortsMult;
       if (typeof d.effects.newSettlementDefenseMult === "number") effects.newSettlementDefenseMult = d.effects.newSettlementDefenseMult;
+      if (typeof d.effects.dockGoldOutputMult === "number") effects.dockGoldOutputMult = d.effects.dockGoldOutputMult;
+      if (typeof d.effects.dockGoldCapMult === "number") effects.dockGoldCapMult = d.effects.dockGoldCapMult;
+      if (typeof d.effects.marketCrystalUpkeepMult === "number") {
+        effects.marketCrystalUpkeepMult = d.effects.marketCrystalUpkeepMult;
+      }
+      if (typeof d.effects.sabotageCooldownMult === "number") effects.sabotageCooldownMult = d.effects.sabotageCooldownMult;
       if (d.effects.resourceOutputMult) {
         const resourceOutputMult: NonNullable<NonNullable<DomainDef["effects"]>["resourceOutputMult"]> = {};
         if (typeof d.effects.resourceOutputMult.farm === "number") resourceOutputMult.farm = d.effects.resourceOutputMult.farm;
