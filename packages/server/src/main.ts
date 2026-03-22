@@ -268,10 +268,7 @@ interface PlayerEffects {
 interface TelemetryCounters {
   frontierClaims: number;
   settlements: number;
-  rapidSettlements: number;
   breakthroughAttacks: number;
-  scoutPulses: number;
-  defensiveFortifies: number;
   techUnlocks: number;
 }
 
@@ -330,9 +327,6 @@ const FORT_BUILD_IRON_COST = 45;
 const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
 const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
 const BREAKTHROUGH_REQUIRED_TECH_ID = "iron-working";
-const SCOUT_PULSE_CRYSTAL_COST = 1;
-const SCOUT_PULSE_RADIUS = 8;
-const SCOUT_PULSE_MS = 25_000;
 const OBSERVATORY_BUILD_COST = 600;
 const OBSERVATORY_VISION_BONUS = 5;
 const OBSERVATORY_BUILD_CRYSTAL_COST = 45;
@@ -372,13 +366,7 @@ const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
 const TERRAIN_SHAPING_RANGE = 2;
 const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
-const RAPID_SETTLE_GOLD_COST = 3;
-const RAPID_SETTLE_FOOD_COST = 1;
-const RAPID_SETTLE_MS = 1_500;
 const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
-const DEFENSIVE_FORTIFY_SUPPLY_COST = 1;
-const DEFENSIVE_FORTIFY_MULT = 1.25;
-const DEFENSIVE_FORTIFY_MS = 45_000;
 const BREACH_SHOCK_MS = 180_000;
 const BREACH_SHOCK_DEF_MULT = 0.72;
 const DYNAMIC_MISSION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -733,16 +721,8 @@ interface PendingSettlement {
   ownerId: string;
   resolvesAt: number;
   goldCost: number;
-  foodCost: number;
-  rapid: boolean;
   cancelled: boolean;
   timeout?: NodeJS.Timeout;
-}
-interface ScoutPulse {
-  ownerId: string;
-  x: number;
-  y: number;
-  expiresAt: number;
 }
 interface UpkeepBreakdown {
   need: number;
@@ -757,11 +737,6 @@ interface UpkeepDiagnostics {
   crystal: UpkeepBreakdown;
   gold: UpkeepBreakdown;
   foodCoverage: number;
-}
-interface DefensiveFortify {
-  ownerId: string;
-  expiresAt: number;
-  consumed: boolean;
 }
 interface TileHistoryState {
   lastOwnerId?: string | null;
@@ -818,13 +793,11 @@ const clustersById = new Map<string, ClusterDefinition>();
 const clusterControlledTilesByPlayer = new Map<string, Map<string, number>>();
 const townsByTile = new Map<TileKey, TownDefinition>();
 const firstSpecialSiteCaptureClaimed = new Set<TileKey>();
-const scoutPulsesByPlayer = new Map<string, ScoutPulse[]>();
 const revealedEmpireTargetsByPlayer = new Map<string, Set<string>>();
 const sabotageByTile = new Map<TileKey, ActiveSabotage>();
 const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
 const victoryPressureById = new Map<VictoryPressureObjectiveId, VictoryPressureTracker>();
 const frontierSettlementsByPlayer = new Map<string, number[]>();
-const defensiveFortifyByTile = new Map<TileKey, DefensiveFortify>();
 const breachShockByTile = new Map<TileKey, { ownerId: string; expiresAt: number }>();
 const settlementDefenseByTile = new Map<TileKey, { ownerId: string; expiresAt: number; mult: number }>();
 const playerBaseMods = new Map<string, { attack: number; defense: number; income: number; vision: number }>();
@@ -833,10 +806,7 @@ const seasonArchives: SeasonArchiveEntry[] = [];
 const telemetryCounters: TelemetryCounters = {
   frontierClaims: 0,
   settlements: 0,
-  rapidSettlements: 0,
   breakthroughAttacks: 0,
-  scoutPulses: 0,
-  defensiveFortifies: 0,
   techUnlocks: 0
 };
 let activeSeason: Season = {
@@ -2040,8 +2010,6 @@ const clearWorldProgressForSeason = (): void => {
   economicStructuresByTile.clear();
   sabotageByTile.clear();
   abilityCooldownsByPlayer.clear();
-  defensiveFortifyByTile.clear();
-  scoutPulsesByPlayer.clear();
   revealedEmpireTargetsByPlayer.clear();
   breachShockByTile.clear();
   settlementDefenseByTile.clear();
@@ -3012,15 +2980,6 @@ const visible = (p: Player, x: number, y: number): boolean => {
   if (DISABLE_FOG || fogDisabledByPlayer.get(p.id) === true) return true;
   const forced = forcedRevealTilesByPlayer.get(p.id);
   if (forced?.has(key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)))) return true;
-  const pulses = scoutPulsesByPlayer.get(p.id) ?? [];
-  const activePulses = pulses.filter((pulse) => pulse.expiresAt > now());
-  if (activePulses.length !== pulses.length) scoutPulsesByPlayer.set(p.id, activePulses);
-  for (const pulse of activePulses) {
-    const dx = Math.min(Math.abs(pulse.x - x), WORLD_WIDTH - Math.abs(pulse.x - x));
-    const dy = Math.min(Math.abs(pulse.y - y), WORLD_HEIGHT - Math.abs(pulse.y - y));
-    if (dx <= SCOUT_PULSE_RADIUS && dy <= SCOUT_PULSE_RADIUS) return true;
-  }
-
   const revealTargets = revealedEmpireTargetsByPlayer.get(p.id);
   if (revealTargets && revealTargets.size > 0) {
     const t = playerTile(x, y);
@@ -3540,19 +3499,6 @@ const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
     for (const tk of forced) {
       const [fx, fy] = parseKey(tk);
       visibleIndexes.add(tileIndex(fx, fy));
-    }
-  }
-
-  const pulses = scoutPulsesByPlayer.get(p.id) ?? [];
-  const activePulses = pulses.filter((pulse) => pulse.expiresAt > now());
-  if (activePulses.length !== pulses.length) scoutPulsesByPlayer.set(p.id, activePulses);
-  for (const pulse of activePulses) {
-    for (let dy = -SCOUT_PULSE_RADIUS; dy <= SCOUT_PULSE_RADIUS; dy += 1) {
-      for (let dx = -SCOUT_PULSE_RADIUS; dx <= SCOUT_PULSE_RADIUS; dx += 1) {
-        const px = wrapX(pulse.x + dx, WORLD_WIDTH);
-        const py = wrapY(pulse.y + dy, WORLD_HEIGHT);
-        visibleIndexes.add(tileIndex(px, py));
-      }
     }
   }
 
@@ -4508,19 +4454,16 @@ const startSettlement = (
   actor: Player,
   x: number,
   y: number,
-  opts?: { goldCost?: number; settleMs?: number; foodCost?: number; rapid?: boolean }
+  opts?: { goldCost?: number; settleMs?: number }
 ): { ok: boolean; reason?: string; resolvesAt?: number } => {
   const goldCost = opts?.goldCost ?? SETTLE_COST;
   const effects = getPlayerEffectsForPlayer(actor.id);
   const settleMs = Math.max(250, Math.round((opts?.settleMs ?? SETTLE_MS) / effects.settlementSpeedMult));
-  const foodCost = opts?.foodCost ?? 0;
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "settlement requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "tile must be owned" };
   if (t.ownershipState !== "FRONTIER") return { ok: false, reason: "tile is already settled" };
   if (actor.points < goldCost) return { ok: false, reason: "insufficient gold to settle" };
-  const stocks = getOrInitStrategicStocks(actor.id);
-  if ((stocks.FOOD ?? 0) < foodCost) return { ok: false, reason: "insufficient FOOD for rapid settlement" };
   const tk = key(t.x, t.y);
   if (pendingSettlementsByTile.has(tk)) return { ok: false, reason: "tile already settling" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile is locked in combat" };
@@ -4531,8 +4474,6 @@ const startSettlement = (
     ownerId: actor.id,
     resolvesAt,
     goldCost,
-    foodCost,
-    rapid: opts?.rapid === true,
     cancelled: false
   };
   pendingSettlementsByTile.set(tk, pending);
@@ -4543,27 +4484,16 @@ const startSettlement = (
     if (!liveActor) return;
     const live = playerTile(t.x, t.y);
     if (live.ownerId !== liveActor.id || live.ownershipState !== "FRONTIER") return;
-    const liveStocks = getOrInitStrategicStocks(liveActor.id);
     if (liveActor.points < pending.goldCost) {
       sendToPlayer(liveActor.id, {
         type: "ERROR",
-        code: pending.rapid ? "RAPID_SETTLE_INVALID" : "SETTLE_INVALID",
+        code: "SETTLE_INVALID",
         message: "insufficient gold when settlement completed"
       });
       sendPlayerUpdate(liveActor, 0);
       return;
     }
-    if ((liveStocks.FOOD ?? 0) < pending.foodCost) {
-      sendToPlayer(liveActor.id, {
-        type: "ERROR",
-        code: "RAPID_SETTLE_INVALID",
-        message: "insufficient FOOD when rapid settlement completed"
-      });
-      sendPlayerUpdate(liveActor, 0);
-      return;
-    }
     liveActor.points -= pending.goldCost;
-    if (pending.foodCost > 0) liveStocks.FOOD -= pending.foodCost;
     recalcPlayerDerived(liveActor);
     updateOwnership(t.x, t.y, liveActor.id, "SETTLED");
     revealLinkedDocksForPlayer(liveActor.id, tk);
@@ -4579,37 +4509,9 @@ const startSettlement = (
       levelDelta: 0
     });
     sendPlayerUpdate(liveActor, 0);
-    if (pending.rapid) telemetryCounters.rapidSettlements += 1;
-    else telemetryCounters.settlements += 1;
+    telemetryCounters.settlements += 1;
   }, settleMs);
   return { ok: true, resolvesAt };
-};
-
-const tryDefensiveFortify = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
-  const t = playerTile(x, y);
-  if (t.terrain !== "LAND") return { ok: false, reason: "target must be land" };
-  if (t.ownerId !== actor.id) return { ok: false, reason: "target must be owned" };
-  if (t.ownershipState !== "SETTLED") return { ok: false, reason: "target must be settled" };
-  if (!consumeStrategicResource(actor, "SUPPLY", DEFENSIVE_FORTIFY_SUPPLY_COST)) {
-    return { ok: false, reason: "insufficient SUPPLY" };
-  }
-  defensiveFortifyByTile.set(key(t.x, t.y), { ownerId: actor.id, expiresAt: now() + DEFENSIVE_FORTIFY_MS, consumed: false });
-  telemetryCounters.defensiveFortifies += 1;
-  return { ok: true };
-};
-
-const tryScoutPulse = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
-  const t = playerTile(x, y);
-  if (t.ownerId !== actor.id) return { ok: false, reason: "target must be your tile" };
-  if (!visible(actor, t.x, t.y)) return { ok: false, reason: "target must be visible" };
-  if (!consumeStrategicResource(actor, "CRYSTAL", SCOUT_PULSE_CRYSTAL_COST)) {
-    return { ok: false, reason: "insufficient CRYSTAL" };
-  }
-  const pulses = scoutPulsesByPlayer.get(actor.id) ?? [];
-  pulses.push({ ownerId: actor.id, x: t.x, y: t.y, expiresAt: now() + SCOUT_PULSE_MS });
-  scoutPulsesByPlayer.set(actor.id, pulses);
-  telemetryCounters.scoutPulses += 1;
-  return { ok: true };
 };
 
 const hasRevealCapability = (player: Player): boolean => {
@@ -4632,11 +4534,6 @@ const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: b
   reveals.clear();
   reveals.add(targetPlayerId);
   return { ok: true };
-};
-
-const stopRevealEmpire = (actor: Player, targetPlayerId: string): boolean => {
-  const reveals = getOrInitRevealTargets(actor.id);
-  return reveals.delete(targetPlayerId);
 };
 
 const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
@@ -4905,7 +4802,6 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
       siegeOutpostsByTile.delete(k);
     }
     sabotageByTile.delete(k);
-    defensiveFortifyByTile.delete(k);
     breachShockByTile.delete(k);
     settlementDefenseByTile.delete(k);
     if (economic) {
@@ -5618,9 +5514,6 @@ registerInterval(() => {
   }
   for (const [tk, defense] of settlementDefenseByTile) {
     if (defense.expiresAt <= now()) settlementDefenseByTile.delete(tk);
-  }
-  for (const [tk, buff] of defensiveFortifyByTile) {
-    if (buff.expiresAt <= now() || buff.consumed) defensiveFortifyByTile.delete(tk);
   }
   for (const [id, req] of allianceRequests) {
     if (req.expiresAt < now()) allianceRequests.delete(id);
@@ -6691,17 +6584,11 @@ app.post("/admin/world/regenerate", async () => {
       const defMult = isBreakthroughAttack ? defMultRaw * BREAKTHROUGH_DEF_MULT_FACTOR : defMultRaw;
       const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
-      const fortified = defensiveFortifyByTile.get(tk);
-      const defensiveFortifyMult =
-        defender && fortified && fortified.ownerId === defender.id && fortified.expiresAt > now() && !fortified.consumed ? DEFENSIVE_FORTIFY_MULT : 1;
-      if (defender && fortified && fortified.ownerId === defender.id && fortified.expiresAt > now() && !fortified.consumed) {
-        fortified.consumed = true;
-      }
       const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
       const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
       const defEff = defenderIsBarbarian
         ? 10 * BARBARIAN_DEFENSE_POWER * dockMult * randomFactor()
-        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * defensiveFortifyMult * settledDefenseMult * newSettlementDefenseMult * randomFactor();
+        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * randomFactor();
       const p = combatWinChance(atkEffWithSiege, defEff);
       const win = Math.random() < p;
 
