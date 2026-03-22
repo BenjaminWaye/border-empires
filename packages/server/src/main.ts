@@ -2136,7 +2136,7 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
     };
   }
   const [x, y] = parseKey(tileKey);
-  const resource = resourceAt(x, y);
+  const resource = applyClusterResources(x, y, resourceAt(x, y));
   const dock = docksByTile.get(tileKey);
   const town = townsByTile.get(tileKey);
   const sabotageMult = sabotageMultiplierAt(tileKey);
