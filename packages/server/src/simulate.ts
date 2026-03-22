@@ -20,18 +20,27 @@ const DURATION_SEC = Number(process.env.DURATION_SEC ?? 120);
 const key = (x: number, y: number): string => `${x},${y}`;
 const wrapX = (x: number): number => (x + WORLD_WIDTH) % WORLD_WIDTH;
 const wrapY = (y: number): number => (y + WORLD_HEIGHT) % WORLD_HEIGHT;
-
-const neighbors = (x: number, y: number): Array<{ x: number; y: number }> => [
-  { x: wrapX(x), y: wrapY(y - 1) },
-  { x: wrapX(x + 1), y: wrapY(y) },
-  { x: wrapX(x), y: wrapY(y + 1) },
-  { x: wrapX(x - 1), y: wrapY(y) }
+const neighborOffsets: ReadonlyArray<readonly [dx: number, dy: number]> = [
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0]
 ];
 
 const bots: Bot[] = [];
 let actionsSent = 0;
 let actionErrors = 0;
 const pickRandom = <T>(arr: T[]): T | undefined => (arr.length ? arr[Math.floor(Math.random() * arr.length)] : undefined);
+const pickRandomOwnedTile = (bot: Bot): Tile | undefined => {
+  if (bot.owned.size === 0) return undefined;
+  const targetIndex = Math.floor(Math.random() * bot.owned.size);
+  let currentIndex = 0;
+  for (const tileKey of bot.owned) {
+    if (currentIndex === targetIndex) return bot.known.get(tileKey);
+    currentIndex += 1;
+  }
+  return undefined;
+};
 
 const subscribeAround = (bot: Bot, x: number, y: number): void => {
   const cx = Math.floor(x / CHUNK_SIZE);
@@ -96,14 +105,15 @@ for (let i = 0; i < BOTS; i += 1) bots.push(registerBot(i));
 
 const chooseAction = (bot: Bot): { from: Tile; to: Tile; kind: "EXPAND" | "ATTACK" } | undefined => {
   if (!bot.me) return undefined;
-  const ownedTiles = [...bot.owned].map((k) => bot.known.get(k)).filter((t): t is Tile => Boolean(t));
-  if (ownedTiles.length === 0) return undefined;
+  if (bot.owned.size === 0) return undefined;
 
   for (let i = 0; i < 20; i += 1) {
-    const from = pickRandom(ownedTiles);
+    const from = pickRandomOwnedTile(bot);
     if (!from) return undefined;
-    for (const n of neighbors(from.x, from.y)) {
-      const target = bot.known.get(key(n.x, n.y));
+    for (const [dx, dy] of neighborOffsets) {
+      const nx = wrapX(from.x + dx);
+      const ny = wrapY(from.y + dy);
+      const target = bot.known.get(key(nx, ny));
       if (!target || target.terrain !== "LAND") continue;
       if (!target.ownerId) return { from, to: target, kind: "EXPAND" };
       if (target.ownerId !== bot.me) return { from, to: target, kind: "ATTACK" };
@@ -116,12 +126,16 @@ const chooseAction = (bot: Bot): { from: Tile; to: Tile; kind: "EXPAND" | "ATTAC
 const intervalMs = Math.max(25, Math.floor(60_000 / ACTIONS_PER_MIN));
 const startedAt = Date.now();
 const actionTimer = setInterval(() => {
-  const active = bots.filter((b) => b.connected && b.me);
-  if (active.length === 0) return;
-  const bot = pickRandom(active);
-  if (!bot) return;
-  const action = chooseAction(bot);
-  if (!action) return;
+  let action: { from: Tile; to: Tile; kind: "EXPAND" | "ATTACK" } | undefined;
+  let bot: Bot | undefined;
+  for (let i = 0; i < bots.length; i += 1) {
+    const candidate = bots[Math.floor(Math.random() * bots.length)];
+    if (!candidate?.connected || !candidate.me) continue;
+    bot = candidate;
+    action = chooseAction(candidate);
+    if (action) break;
+  }
+  if (!bot || !action) return;
 
   bot.ws.send(
     JSON.stringify({

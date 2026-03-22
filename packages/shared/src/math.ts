@@ -1,9 +1,13 @@
 import { DEF_MULT_MAX, DEF_MULT_MIN, LEVEL_CURVE_C, RATING_A, RATING_B, UNDERDOG_K } from "./config.js";
 
 const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));
+const wrap = (value: number, size: number): number => {
+  const remainder = value % size;
+  return remainder < 0 ? remainder + size : remainder;
+};
 
-export const wrapX = (x: number, width: number): number => (x + width) % width;
-export const wrapY = (y: number, height: number): number => (y + height) % height;
+export const wrapX = (x: number, width: number): number => wrap(x, width);
+export const wrapY = (y: number, height: number): number => wrap(y, height);
 
 export const exposureWeightFromSides = (exposedSides: number): number => {
   const boundedSides = Math.max(0, Math.min(4, Math.round(exposedSides)));

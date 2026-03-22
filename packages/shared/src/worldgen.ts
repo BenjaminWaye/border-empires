@@ -3,12 +3,111 @@ import { wrapX, wrapY } from "./math.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
 
 let CURRENT_WORLD_SEED = 42;
+const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
+const UNSET_U8 = 255;
+const UNSET_I16 = -2;
+const TERRAIN_SEA = 0;
+const TERRAIN_LAND = 1;
+const TERRAIN_MOUNTAIN = 2;
+const BIOME_GRASS = 0;
+const BIOME_SAND = 1;
+const BIOME_COASTAL_SAND = 2;
+const BIOME_NONE = UNSET_U8;
+const GRASS_DARK = 0;
+const GRASS_LIGHT = 1;
+const GRASS_NONE = UNSET_U8;
+const REGION_FERTILE_PLAINS = 0;
+const REGION_DEEP_FOREST = 1;
+const REGION_BROKEN_HIGHLANDS = 2;
+const REGION_ANCIENT_HEARTLAND = 3;
+const REGION_CRYSTAL_WASTES = 4;
+const REGION_NONE = UNSET_U8;
+
+const terrainCache = new Uint8Array(WORLD_TILE_COUNT);
+const biomeCache = new Uint8Array(WORLD_TILE_COUNT);
+const grassShadeCache = new Uint8Array(WORLD_TILE_COUNT);
+const regionTypeCache = new Uint8Array(WORLD_TILE_COUNT);
+const biomeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
+const grassShadeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
+const regionTypeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
+const continentIndexCache = new Int16Array(WORLD_TILE_COUNT);
+const continentScoreCache = new Float32Array(WORLD_TILE_COUNT);
+
+const resetWorldCaches = (): void => {
+  terrainCache.fill(UNSET_U8);
+  biomeCache.fill(BIOME_NONE);
+  grassShadeCache.fill(GRASS_NONE);
+  regionTypeCache.fill(REGION_NONE);
+  biomeCacheReady.fill(0);
+  grassShadeCacheReady.fill(0);
+  regionTypeCacheReady.fill(0);
+  continentIndexCache.fill(UNSET_I16);
+  continentScoreCache.fill(Number.NaN);
+};
+
 export const setWorldSeed = (seed: number): void => {
   CURRENT_WORLD_SEED = Math.floor(seed);
+  resetWorldCaches();
 };
 export const getWorldSeed = (): number => CURRENT_WORLD_SEED;
 const worldSeed = (): number => CURRENT_WORLD_SEED;
 const TAU = Math.PI * 2;
+const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
+
+const encodeTerrain = (terrain: Terrain): number => {
+  if (terrain === "LAND") return TERRAIN_LAND;
+  if (terrain === "MOUNTAIN") return TERRAIN_MOUNTAIN;
+  return TERRAIN_SEA;
+};
+const decodeTerrain = (terrain: number): Terrain => {
+  if (terrain === TERRAIN_LAND) return "LAND";
+  if (terrain === TERRAIN_MOUNTAIN) return "MOUNTAIN";
+  return "SEA";
+};
+const terrainCodeAt = (x: number, y: number): number => {
+  const idx = worldIndex(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
+  const cached = terrainCache[idx] ?? UNSET_U8;
+  if (cached !== UNSET_U8) return cached;
+  return encodeTerrain(terrainAt(x, y));
+};
+const encodeBiome = (biome: LandBiome | undefined): number => {
+  if (biome === "GRASS") return BIOME_GRASS;
+  if (biome === "SAND") return BIOME_SAND;
+  if (biome === "COASTAL_SAND") return BIOME_COASTAL_SAND;
+  return BIOME_NONE;
+};
+const decodeBiome = (biome: number): LandBiome | undefined => {
+  if (biome === BIOME_GRASS) return "GRASS";
+  if (biome === BIOME_SAND) return "SAND";
+  if (biome === BIOME_COASTAL_SAND) return "COASTAL_SAND";
+  return undefined;
+};
+const encodeGrassShade = (shade: "LIGHT" | "DARK" | undefined): number => {
+  if (shade === "DARK") return GRASS_DARK;
+  if (shade === "LIGHT") return GRASS_LIGHT;
+  return GRASS_NONE;
+};
+const decodeGrassShade = (shade: number): "LIGHT" | "DARK" | undefined => {
+  if (shade === GRASS_DARK) return "DARK";
+  if (shade === GRASS_LIGHT) return "LIGHT";
+  return undefined;
+};
+const encodeRegionType = (region: RegionType | undefined): number => {
+  if (region === "FERTILE_PLAINS") return REGION_FERTILE_PLAINS;
+  if (region === "DEEP_FOREST") return REGION_DEEP_FOREST;
+  if (region === "BROKEN_HIGHLANDS") return REGION_BROKEN_HIGHLANDS;
+  if (region === "ANCIENT_HEARTLAND") return REGION_ANCIENT_HEARTLAND;
+  if (region === "CRYSTAL_WASTES") return REGION_CRYSTAL_WASTES;
+  return REGION_NONE;
+};
+const decodeRegionType = (region: number): RegionType | undefined => {
+  if (region === REGION_FERTILE_PLAINS) return "FERTILE_PLAINS";
+  if (region === REGION_DEEP_FOREST) return "DEEP_FOREST";
+  if (region === REGION_BROKEN_HIGHLANDS) return "BROKEN_HIGHLANDS";
+  if (region === REGION_ANCIENT_HEARTLAND) return "ANCIENT_HEARTLAND";
+  if (region === REGION_CRYSTAL_WASTES) return "CRYSTAL_WASTES";
+  return undefined;
+};
 
 const seeded01 = (x: number, y: number, seed: number): number => {
   const n = Math.sin((x * 12.9898 + y * 78.233 + seed * 43758.5453) % 100000) * 43758.5453123;
@@ -97,7 +196,7 @@ const continents = (): ContinentSeed[] => {
   return cachedContinents;
 };
 
-const continentScore = (x: number, y: number): { index: number; score: number } => {
+const computeContinentScore = (x: number, y: number): { index: number; score: number } => {
   let bestIdx = -1;
   let best = 0;
   const cs = continents();
@@ -130,6 +229,18 @@ const continentScore = (x: number, y: number): { index: number; score: number } 
     }
   }
   return { index: bestIdx, score: best };
+};
+const continentScore = (x: number, y: number): { index: number; score: number } => {
+  const idx = worldIndex(x, y);
+  const cachedScore = continentScoreCache[idx] ?? Number.NaN;
+  if (!Number.isNaN(cachedScore)) {
+    const cachedIndex = continentIndexCache[idx] ?? UNSET_I16;
+    return { index: cachedIndex === UNSET_I16 ? -1 : cachedIndex, score: cachedScore };
+  }
+  const computed = computeContinentScore(x, y);
+  continentScoreCache[idx] = computed.score;
+  continentIndexCache[idx] = computed.index;
+  return computed;
 };
 const continentField = (x: number, y: number): number => {
   const s = continentScore(x, y);
@@ -322,64 +433,101 @@ const isMountainCluster = (x: number, y: number): boolean => {
 export const terrainAt = (x: number, y: number): Terrain => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
+  const idx = worldIndex(wx, wy);
+  const cached = terrainCache[idx] ?? UNSET_U8;
+  if (cached !== UNSET_U8) return decodeTerrain(cached);
 
   const cField = continentField(wx, wy);
-  if (cField < 0.075) return "SEA";
+  if (cField < 0.075) {
+    terrainCache[idx] = TERRAIN_SEA;
+    return "SEA";
+  }
   // Keep clear ocean bands between the three continents.
-  if (cField < 0.12) return "SEA";
-  if (isOceanChannel(wx, wy)) return "SEA";
-  if (isRiver(wx, wy)) return "SEA";
-  if (isMicroRiver(wx, wy)) return "SEA";
-  if (isLake(wx, wy)) return "SEA";
+  if (cField < 0.12 || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) {
+    terrainCache[idx] = TERRAIN_SEA;
+    return "SEA";
+  }
 
-  if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) return "MOUNTAIN";
+  if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) {
+    terrainCache[idx] = TERRAIN_MOUNTAIN;
+    return "MOUNTAIN";
+  }
 
+  terrainCache[idx] = TERRAIN_LAND;
   return "LAND";
 };
 
 export const isCoastalLandAt = (x: number, y: number): boolean => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
-  if (terrainAt(wx, wy) !== "LAND") return false;
-  const n = [
-    terrainAt(wrapX(wx, WORLD_WIDTH), wrapY(wy - 1, WORLD_HEIGHT)),
-    terrainAt(wrapX(wx + 1, WORLD_WIDTH), wrapY(wy, WORLD_HEIGHT)),
-    terrainAt(wrapX(wx, WORLD_WIDTH), wrapY(wy + 1, WORLD_HEIGHT)),
-    terrainAt(wrapX(wx - 1, WORLD_WIDTH), wrapY(wy, WORLD_HEIGHT))
-  ];
-  return n.includes("SEA");
+  if (terrainCodeAt(wx, wy) !== TERRAIN_LAND) return false;
+  return (
+    terrainCodeAt(wx, wy - 1) === TERRAIN_SEA ||
+    terrainCodeAt(wx + 1, wy) === TERRAIN_SEA ||
+    terrainCodeAt(wx, wy + 1) === TERRAIN_SEA ||
+    terrainCodeAt(wx - 1, wy) === TERRAIN_SEA
+  );
 };
 
 export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
-  if (terrainAt(wx, wy) !== "LAND") return undefined;
-  if (isCoastalLandAt(wx, wy)) return "COASTAL_SAND";
-  const biome = valueNoise(wx, wy, 42, worldSeed() + 303);
-  return biome > 0.62 ? "SAND" : "GRASS";
+  const idx = worldIndex(wx, wy);
+  if (biomeCacheReady[idx] === 1) return decodeBiome(biomeCache[idx]!);
+  if (terrainCodeAt(wx, wy) !== TERRAIN_LAND) {
+    biomeCache[idx] = BIOME_NONE;
+    biomeCacheReady[idx] = 1;
+    return undefined;
+  }
+  const biome = isCoastalLandAt(wx, wy) ? "COASTAL_SAND" : valueNoise(wx, wy, 42, worldSeed() + 303) > 0.62 ? "SAND" : "GRASS";
+  biomeCache[idx] = encodeBiome(biome);
+  biomeCacheReady[idx] = 1;
+  return biome;
 };
 
 export const regionTypeAt = (x: number, y: number): RegionType | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
-  if (terrainAt(wx, wy) !== "LAND") return undefined;
+  const idx = worldIndex(wx, wy);
+  if (regionTypeCacheReady[idx] === 1) return decodeRegionType(regionTypeCache[idx]!);
+  if (terrainCodeAt(wx, wy) !== TERRAIN_LAND) {
+    regionTypeCache[idx] = REGION_NONE;
+    regionTypeCacheReady[idx] = 1;
+    return undefined;
+  }
   const a = valueNoise(wx, wy, 95, worldSeed() + 1403);
   const b = valueNoise(wx + 137, wy + 59, 64, worldSeed() + 1417);
   const c = valueNoise(wx - 83, wy + 191, 140, worldSeed() + 1429);
   const v = a * 0.5 + b * 0.3 + c * 0.2;
-  if (v < 0.2) return "FERTILE_PLAINS";
-  if (v < 0.4) return "DEEP_FOREST";
-  if (v < 0.6) return "BROKEN_HIGHLANDS";
-  if (v < 0.8) return "ANCIENT_HEARTLAND";
-  return "CRYSTAL_WASTES";
+  const region =
+    v < 0.2
+      ? "FERTILE_PLAINS"
+      : v < 0.4
+        ? "DEEP_FOREST"
+        : v < 0.6
+          ? "BROKEN_HIGHLANDS"
+          : v < 0.8
+            ? "ANCIENT_HEARTLAND"
+            : "CRYSTAL_WASTES";
+  regionTypeCache[idx] = encodeRegionType(region);
+  regionTypeCacheReady[idx] = 1;
+  return region;
 };
 
 export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
-  if (landBiomeAt(wx, wy) !== "GRASS") return undefined;
-  const v = valueNoise(wx, wy, 28, worldSeed() + 99);
-  return v < 0.46 ? "DARK" : "LIGHT";
+  const idx = worldIndex(wx, wy);
+  if (grassShadeCacheReady[idx] === 1) return decodeGrassShade(grassShadeCache[idx]!);
+  if (landBiomeAt(wx, wy) !== "GRASS") {
+    grassShadeCache[idx] = GRASS_NONE;
+    grassShadeCacheReady[idx] = 1;
+    return undefined;
+  }
+  const shade = valueNoise(wx, wy, 28, worldSeed() + 99) < 0.46 ? "DARK" : "LIGHT";
+  grassShadeCache[idx] = encodeGrassShade(shade);
+  grassShadeCacheReady[idx] = 1;
+  return shade;
 };
 
 export const resourceAt = (x: number, y: number): ResourceType | undefined => {
