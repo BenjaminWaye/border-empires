@@ -1082,27 +1082,24 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     tile.breachShockUntil && tile.breachShockUntil > Date.now() ? "Breach-shocked" : ""
   ].filter(Boolean);
   const townBits: string[] = [];
+  let upkeepLine = "";
   if (tile.town) {
     townBits.push(`${prettyToken(tile.town.type)} town`);
-    townBits.push(`${resourceIconForKey("GOLD")} ${displayTownGoldPerMinute(tile).toFixed(2)}/m`);
-    townBits.push(`Cap ${tile.town.cap.toFixed(0)}`);
     townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
-    townBits.push(`Population ${Math.round(tile.town.population).toLocaleString()} (${prettyToken(tile.town.populationTier)})`);
+    townBits.push(
+      `Population ${Math.round(tile.town.population).toLocaleString()} (${prettyToken(tile.town.populationTier)}) (${displayTownGoldPerMinute(tile).toFixed(2)}/m)`
+    );
     townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
-    if (tile.town.marketActive) townBits.push("Market active");
-    else if (tile.town.hasMarket) townBits.push("Market inactive");
-    if (tile.town.granaryActive) townBits.push("Granary active");
-    else if (tile.town.hasGranary) townBits.push("Granary inactive");
     if (!tile.town.isFed) townBits.push("Unfed");
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
-      townBits.push(`${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`);
+      upkeepLine = `Upkeep: ${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`;
     }
   }
   const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
     .filter(([, v]) => Number(v) > 0)
     .map(([r, v]) => `${resourceIconForKey(r)} ${Number(v).toFixed(1)}/day`);
   const prodInfo = (() => {
-    const gpm = tile.town ? 0 : tile.yieldRate?.goldPerMinute ?? 0;
+    const gpm = tile.yieldRate?.goldPerMinute ?? 0;
     const parts: string[] = [];
     if (gpm > 0) parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
     parts.push(...prodStrategic);
@@ -1128,7 +1125,8 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     <div class="hover-line">${topLine}</div>
     <div class="hover-subline">${metaLine}</div>
     ${extraLine ? `<div class="hover-subline">${extraLine}</div>` : ""}
-    ${prodInfo && townBits.length > 0 ? `<div class="hover-subline">Production ${prodInfo}</div>` : ""}
+    ${upkeepLine ? `<div class="hover-subline">${upkeepLine}</div>` : ""}
+    ${prodInfo ? `<div class="hover-subline">Production ${prodInfo}</div>` : ""}
     ${storedYield ? `<div class="hover-subline">Stored yield ${storedYield}</div>` : ""}
     ${structureLine ? `<div class="hover-subline">${structureLine}</div>` : ""}
     ${sabotageLine ? `<div class="hover-subline hover-accent">${sabotageLine}</div>` : ""}
