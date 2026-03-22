@@ -790,6 +790,10 @@ const state = {
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "error" | "warn" } | undefined,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
+  pendingCollectVisibleDelta: {
+    gold: 0,
+    strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
+  },
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     byTiles: [] as LeaderboardMetricEntry[],
@@ -1138,14 +1142,46 @@ const hasCollectableYield = (t: Tile | undefined): boolean => {
   return Object.values(t.yield.strategic ?? {}).some((v) => Number(v) > 0.01);
 };
 
+const clearPendingCollectVisibleDelta = (): void => {
+  state.pendingCollectVisibleDelta.gold = 0;
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    state.pendingCollectVisibleDelta.strategic[resource] = 0;
+  }
+};
+
+const revertOptimisticVisibleCollectDelta = (): void => {
+  const delta = state.pendingCollectVisibleDelta;
+  if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    const amount = delta.strategic[resource] ?? 0;
+    if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
+  }
+  clearPendingCollectVisibleDelta();
+};
+
 const applyOptimisticVisibleCollect = (): number => {
   state.pendingCollectVisibleKeys.clear();
+  clearPendingCollectVisibleDelta();
   let touched = 0;
   for (const tile of state.tiles.values()) {
     if (tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") continue;
     if (tileVisibilityStateAt(tile.x, tile.y, tile) !== "visible") continue;
     if (!hasCollectableYield(tile)) continue;
     state.pendingCollectVisibleKeys.add(key(tile.x, tile.y));
+    const gold = tile.yield?.gold ?? 0;
+    if (gold > 0) {
+      state.gold += gold;
+      state.pendingCollectVisibleDelta.gold += gold;
+      state.goldAnimUntil = Date.now() + 350;
+      state.goldAnimDir = 1;
+    }
+    for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+      const amount = Number(tile.yield?.strategic?.[resource] ?? 0);
+      if (amount <= 0) continue;
+      state.strategicResources[resource] += amount;
+      state.pendingCollectVisibleDelta.strategic[resource] += amount;
+      state.strategicAnim[resource] = { until: Date.now() + 350, dir: 1 };
+    }
     tile.yield = { gold: 0, strategic: {} };
     touched += 1;
   }
@@ -4785,6 +4821,7 @@ ws.addEventListener("message", (ev) => {
       (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
     state.upkeepLastTick =
       (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
+    clearPendingCollectVisibleDelta();
     if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
       pushFeed(
         `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Town income is reduced.`,
@@ -5060,7 +5097,10 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "ERROR") {
-    if ((msg.code as string | undefined)?.startsWith("COLLECT")) state.pendingCollectVisibleKeys.clear();
+    if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
+      state.pendingCollectVisibleKeys.clear();
+      revertOptimisticVisibleCollectDelta();
+    }
     const failedTargetKey = state.actionTargetKey;
     console.error("[server-error]", {
       code: msg.code,
@@ -5179,6 +5219,7 @@ ws.addEventListener("message", (ev) => {
   }
   if (msg.type === "COLLECT_RESULT") {
     state.pendingCollectVisibleKeys.clear();
+    if ((msg.mode as string | undefined) === "visible") clearPendingCollectVisibleDelta();
     const gold = Number(msg.gold ?? 0);
     const strategic = (msg.strategic as Record<string, number> | undefined) ?? {};
     const strategicParts = Object.entries(strategic)
