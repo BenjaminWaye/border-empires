@@ -5891,7 +5891,7 @@ setInterval(() => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     if (current && (current.retries ?? 0) < 3) {
-      const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
+      const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough" | "settle"; retries: number } = {
         x: current.x,
         y: current.y,
         retries: (current.retries ?? 0) + 1
