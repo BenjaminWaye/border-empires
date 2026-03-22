@@ -1890,7 +1890,12 @@ const recomputeTownNetworkForPlayer = (playerId: string): void => {
 };
 
 const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
-  return townPopulationTier(town.population) === "TOWN" ? 0.025 : 0.05;
+  const base = 0.025;
+  const tier = townPopulationTier(town.population);
+  if (tier === "CITY") return base * 2;
+  if (tier === "GREAT_CITY") return base * 4;
+  if (tier === "METROPOLIS") return base * 8;
+  return base;
 };
 
 const pausePopulationGrowthFromWar = (playerId: string): void => {
