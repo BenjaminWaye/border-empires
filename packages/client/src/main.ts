@@ -4782,8 +4782,7 @@ ws.addEventListener("message", (ev) => {
     syncAuthOverlay();
     renderHud();
   }
-  if (msg.type === "CHUNK_FULL") {
-    const tiles = msg.tilesMaskedByFog as Tile[];
+  const applyChunkTiles = (tiles: Tile[]): void => {
     state.chunkFullCount += 1;
     if (state.firstChunkAt === 0) state.firstChunkAt = Date.now();
     let sawVisibleTile = false;
@@ -4801,6 +4800,13 @@ ws.addEventListener("message", (ev) => {
       centerOnOwnedTile();
     }
     renderHud();
+  };
+  if (msg.type === "CHUNK_FULL") {
+    applyChunkTiles(msg.tilesMaskedByFog as Tile[]);
+  }
+  if (msg.type === "CHUNK_BATCH") {
+    const chunks = (msg.chunks as Array<{ cx: number; cy: number; tilesMaskedByFog: Tile[] }>) ?? [];
+    for (const chunk of chunks) applyChunkTiles(chunk.tilesMaskedByFog);
   }
   if (msg.type === "PLAYER_UPDATE") {
     const prevGold = state.gold;

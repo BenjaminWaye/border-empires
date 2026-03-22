@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import {
@@ -80,6 +80,16 @@ const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 const SNAPSHOT_DIR = path.resolve(process.cwd(), "snapshots");
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
+const snapshotTempFile = (): string => path.join(SNAPSHOT_DIR, `state.${process.pid}.tmp`);
+
+let appRef: FastifyInstance | undefined;
+const logRuntimeError = (message: string, err: unknown): void => {
+  if (appRef) {
+    appRef.log.error({ err }, message);
+    return;
+  }
+  console.error(message, err);
+};
 
 type Ws = import("ws").WebSocket;
 
@@ -92,6 +102,22 @@ interface AuthIdentity {
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
 const firebaseJwks = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
+const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
+  const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  if (
+    text.includes("fetch failed") ||
+    text.includes("ECONNREFUSED") ||
+    text.includes("ECONNRESET") ||
+    text.includes("ENOTFOUND") ||
+    text.includes("ETIMEDOUT") ||
+    text.includes("network")
+  ) {
+    return { code: "AUTH_UNAVAILABLE", message: "Authentication service temporarily unavailable." };
+  }
+  return { code: "AUTH_FAIL", message: "Firebase token verification failed." };
+};
+
+const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
 
 interface AllianceRequest {
   id: string;
@@ -123,6 +149,40 @@ type VictoryPressureObjectiveView = {
   conditionMet: boolean;
 };
 
+type LeaderboardOverallEntry = {
+  id: string;
+  name: string;
+  tiles: number;
+  incomePerMinute: number;
+  techs: number;
+  score: number;
+};
+
+type LeaderboardMetricEntry = {
+  id: string;
+  name: string;
+  value: number;
+};
+
+type LeaderboardSnapshotView = {
+  overall: LeaderboardOverallEntry[];
+  byTiles: LeaderboardMetricEntry[];
+  byIncome: LeaderboardMetricEntry[];
+  byTechs: LeaderboardMetricEntry[];
+};
+
+type PlayerCompetitionMetrics = {
+  playerId: string;
+  name: string;
+  tiles: number;
+  incomePerMinute: number;
+  techs: number;
+  controlledTowns: number;
+  activeForts: number;
+  activeSiegeOutposts: number;
+  frontierSettlements: number;
+};
+
 type VictoryPressureDefinition = {
   id: VictoryPressureObjectiveId;
   name: string;
@@ -151,6 +211,52 @@ interface SeasonArchiveEntry {
   mostTerritory: Array<{ playerId: string; name: string; value: number }>;
   mostPoints: Array<{ playerId: string; name: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; name: string; value: number }>;
+}
+
+interface SnapshotState {
+  world: { width: number; height: number };
+  players: Array<
+    Omit<Player, "techIds" | "domainIds" | "territoryTiles" | "allies"> & {
+      techIds: string[];
+      domainIds?: string[];
+      territoryTiles: TileKey[];
+      allies: string[];
+      missions?: MissionState[];
+      missionStats?: MissionStats;
+    }
+  >;
+  ownership: [TileKey, string][];
+  ownershipState?: [TileKey, OwnershipState][];
+  barbarianAgents?: BarbarianAgent[];
+  authIdentities?: AuthIdentity[];
+  resources: [string, Record<ResourceType, number>][];
+  strategicResources?: [string, Record<StrategicResource, number>][];
+  strategicResourceBuffer?: [string, Record<StrategicResource, number>][];
+  tileYield?: [TileKey, TileYieldBuffer][];
+  tileHistory?: [TileKey, TileHistoryState][];
+  terrainShapes?: [TileKey, TerrainShapeState][];
+  victoryPressure?: [VictoryPressureObjectiveId, VictoryPressureTracker][];
+  frontierSettlements?: [string, number[]][];
+  dynamicMissions?: [string, DynamicMissionDef[]][];
+  temporaryAttackBuffUntil?: [string, number][];
+  temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
+  forcedReveal?: [string, TileKey[]][];
+  revealedEmpireTargets?: [string, string[]][];
+  allianceRequests?: AllianceRequest[];
+  forts?: Fort[];
+  observatories?: Observatory[];
+  siegeOutposts?: SiegeOutpost[];
+  economicStructures?: EconomicStructure[];
+  sabotage?: ActiveSabotage[];
+  abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
+  docks?: Dock[];
+  towns?: TownDefinition[];
+  firstSpecialSiteCaptureClaimed?: TileKey[];
+  clusters?: ClusterDefinition[];
+  clusterTiles?: [TileKey, string][];
+  season?: Season;
+  seasonArchives?: SeasonArchiveEntry[];
+  seasonTechConfig?: Omit<SeasonalTechConfig, "activeNodeIds"> & { activeNodeIds: string[] };
 }
 
 interface ClusterDefinition {
@@ -202,6 +308,23 @@ interface ActiveSabotage {
 interface TileYieldBuffer {
   gold: number;
   strategic: Record<StrategicResource, number>;
+}
+
+interface RuntimeTileCore {
+  x: number;
+  y: number;
+  tileKey: TileKey;
+  terrain: Tile["terrain"];
+  ownerId: string | undefined;
+  ownershipState: OwnershipState | undefined;
+  resource: ResourceType | undefined;
+}
+
+interface PlayerEconomyIndex {
+  settledResourceTileKeys: Set<TileKey>;
+  settledDockTileKeys: Set<TileKey>;
+  settledTownTileKeys: Set<TileKey>;
+  ancientTownTileKeys: Set<TileKey>;
 }
 
 const emptyPlayerEffects = (): PlayerEffects => ({
@@ -738,13 +861,21 @@ const normalizedPlayerHandle = (name: string): string => {
   return cleaned.slice(0, 24);
 };
 
+const playerNameTaken = (candidate: string, excludePlayerId?: string): boolean => {
+  for (const player of players.values()) {
+    if (excludePlayerId && player.id === excludePlayerId) continue;
+    if (player.name === candidate) return true;
+  }
+  return false;
+};
+
 const uniquePlayerName = (uid: string, preferred: string): string => {
   const base = normalizedPlayerHandle(preferred);
   const existingIdentity = authIdentityByUid.get(uid);
   if (existingIdentity) return existingIdentity.name;
   let candidate = base;
   let suffix = 2;
-  while ([...players.values()].some((p) => p.name === candidate)) {
+  while (playerNameTaken(candidate)) {
     candidate = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}-${suffix}`;
     suffix += 1;
   }
@@ -755,7 +886,7 @@ const claimPlayerName = (playerId: string, preferred: string): string => {
   const base = normalizedPlayerHandle(preferred);
   let candidate = base;
   let suffix = 2;
-  while ([...players.values()].some((p) => p.id !== playerId && p.name === candidate)) {
+  while (playerNameTaken(candidate, playerId)) {
     candidate = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}-${suffix}`;
     suffix += 1;
   }
@@ -822,6 +953,7 @@ const repeatFights = new Map<string, number[]>();
 const resourceCountsByPlayer = new Map<string, Record<ResourceType, number>>();
 const strategicResourceStockByPlayer = new Map<string, Record<StrategicResource, number>>();
 const strategicResourceBufferByPlayer = new Map<string, Record<StrategicResource, number>>();
+const economyIndexByPlayer = new Map<string, PlayerEconomyIndex>();
 const foodUpkeepCoverageByPlayer = new Map<string, number>();
 const tileYieldByTile = new Map<TileKey, TileYieldBuffer>();
 const tileHistoryByTile = new Map<TileKey, TileHistoryState>();
@@ -833,6 +965,7 @@ const temporaryIncomeBuffUntilByPlayer = new Map<string, { until: number; resour
 const growthPausedUntilByPlayer = new Map<string, number>();
 const vendettaCaptureCountsByPlayer = new Map<string, Map<string, number>>();
 const forcedRevealTilesByPlayer = new Map<string, Set<TileKey>>();
+const cachedVisibilitySnapshotByPlayer = new Map<string, VisibilitySnapshot>();
 const allianceRequests = new Map<string, AllianceRequest>();
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
 const chunkSnapshotSentAtByPlayer = new Map<string, { cx: number; cy: number; radius: number; sentAt: number }>();
@@ -842,9 +975,11 @@ const fogDisabledByPlayer = new Map<string, boolean>();
 const fortsByTile = new Map<TileKey, Fort>();
 const fortBuildTimers = new Map<TileKey, NodeJS.Timeout>();
 const observatoriesByTile = new Map<TileKey, Observatory>();
+const observatoryTileKeysByPlayer = new Map<string, Set<TileKey>>();
 const siegeOutpostsByTile = new Map<TileKey, SiegeOutpost>();
 const siegeOutpostBuildTimers = new Map<TileKey, NodeJS.Timeout>();
 const economicStructuresByTile = new Map<TileKey, EconomicStructure>();
+const economicStructureTileKeysByPlayer = new Map<string, Set<TileKey>>();
 const docksByTile = new Map<TileKey, Dock>();
 const dockById = new Map<string, Dock>();
 const clusterByTile = new Map<TileKey, string>();
@@ -853,6 +988,7 @@ const clusterControlledTilesByPlayer = new Map<string, Map<string, number>>();
 const townsByTile = new Map<TileKey, TownDefinition>();
 const firstSpecialSiteCaptureClaimed = new Set<TileKey>();
 const revealedEmpireTargetsByPlayer = new Map<string, Set<string>>();
+const revealWatchersByTarget = new Map<string, Set<string>>();
 const sabotageByTile = new Map<TileKey, ActiveSabotage>();
 const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
 const victoryPressureById = new Map<VictoryPressureObjectiveId, VictoryPressureTracker>();
@@ -885,6 +1021,40 @@ let activeSeasonTechConfig: SeasonalTechConfig = {
 const pairKeyFor = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
 const ACTION_WINDOW_MS = 5_000;
 const ACTION_LIMIT = 12;
+const pruneActionTimes = (playerId: string, nowMs: number): number[] => {
+  const timestamps = actionTimestampsByPlayer.get(playerId);
+  if (!timestamps || timestamps.length === 0) return [];
+  let writeIndex = 0;
+  for (let readIndex = 0; readIndex < timestamps.length; readIndex += 1) {
+    const timestamp = timestamps[readIndex]!;
+    if (nowMs - timestamp > ACTION_WINDOW_MS) continue;
+    timestamps[writeIndex] = timestamp;
+    writeIndex += 1;
+  }
+  if (writeIndex !== timestamps.length) timestamps.length = writeIndex;
+  if (writeIndex === 0) {
+    actionTimestampsByPlayer.delete(playerId);
+    return [];
+  }
+  return timestamps;
+};
+const pruneRepeatFightEntries = (pairKey: string, nowMs: number): number[] => {
+  const entries = repeatFights.get(pairKey);
+  if (!entries || entries.length === 0) return [];
+  let writeIndex = 0;
+  for (let readIndex = 0; readIndex < entries.length; readIndex += 1) {
+    const timestamp = entries[readIndex]!;
+    if (nowMs - timestamp > PVP_REPEAT_WINDOW_MS) continue;
+    entries[writeIndex] = timestamp;
+    writeIndex += 1;
+  }
+  if (writeIndex !== entries.length) entries.length = writeIndex;
+  if (writeIndex === 0) {
+    repeatFights.delete(pairKey);
+    return [];
+  }
+  return entries;
+};
 const SEASONS_ENABLED = false;
 
 const seeded01 = (x: number, y: number, seed: number): number => {
@@ -1120,6 +1290,7 @@ const recomputeTechModsFromOwnedTechs = (player: Player): void => {
   playerBaseMods.set(player.id, rebuilt);
   recomputePlayerEffectsForPlayer(player);
   recomputeClusterBonusForPlayer(player);
+  markVisibilityDirty(player.id);
 };
 
 const setClusterControlDelta = (playerId: string, clusterId: string, delta: number): void => {
@@ -2301,6 +2472,11 @@ const clearWorldProgressForSeason = (): void => {
   allianceRequests.clear();
   repeatFights.clear();
   collectVisibleCooldownByPlayer.clear();
+  cachedVisibilitySnapshotByPlayer.clear();
+  revealWatchersByTarget.clear();
+  economyIndexByPlayer.clear();
+  observatoryTileKeysByPlayer.clear();
+  economicStructureTileKeysByPlayer.clear();
   for (const t of fortBuildTimers.values()) clearTimeout(t);
   fortBuildTimers.clear();
   fortsByTile.clear();
@@ -2342,11 +2518,12 @@ const clearWorldProgressForSeason = (): void => {
     resourceCountsByPlayer.set(p.id, { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0 });
     strategicResourceStockByPlayer.set(p.id, emptyStrategicStocks());
     strategicResourceBufferByPlayer.set(p.id, emptyStrategicStocks());
+    economyIndexByPlayer.set(p.id, emptyPlayerEconomyIndex());
     dynamicMissionsByPlayer.set(p.id, []);
     temporaryAttackBuffUntilByPlayer.delete(p.id);
     temporaryIncomeBuffUntilByPlayer.delete(p.id);
     forcedRevealTilesByPlayer.set(p.id, new Set<TileKey>());
-    revealedEmpireTargetsByPlayer.set(p.id, new Set<string>());
+    setRevealTargetsForPlayer(p.id, []);
     playerBaseMods.set(p.id, { attack: 1, defense: 1, income: 1, vision: 1 });
     playerEffectsByPlayer.set(p.id, emptyPlayerEffects());
     clusterControlledTilesByPlayer.set(p.id, new Map());
@@ -2422,6 +2599,17 @@ const regenerateWorldInPlace = (): void => {
       })
     );
   }
+};
+
+const runtimeTileCore = (x: number, y: number): RuntimeTileCore => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const tileKey = key(wx, wy);
+  const terrain = terrainAtRuntime(wx, wy);
+  const ownerId = ownership.get(tileKey);
+  const ownershipState = ownerId ? (ownershipStateByTile.get(tileKey) ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED")) : undefined;
+  const resource = terrain === "LAND" ? applyClusterResources(wx, wy, resourceAt(wx, wy)) : undefined;
+  return { x: wx, y: wy, tileKey, terrain, ownerId, ownershipState, resource };
 };
 
 const playerTile = (x: number, y: number): Tile => {
@@ -2583,6 +2771,13 @@ const playerTile = (x: number, y: number): Tile => {
   return tile;
 };
 
+const cardinalNeighborCores = (x: number, y: number): RuntimeTileCore[] => [
+  runtimeTileCore(x, y - 1),
+  runtimeTileCore(x + 1, y),
+  runtimeTileCore(x, y + 1),
+  runtimeTileCore(x - 1, y)
+];
+
 const isValidCapitalTile = (player: Player, tileKey: TileKey | undefined): tileKey is TileKey => {
   if (!tileKey) return false;
   return ownership.get(tileKey) === player.id && ownershipStateByTile.get(tileKey) === "SETTLED";
@@ -2652,6 +2847,68 @@ const emptyTileYield = (): TileYieldBuffer => ({
   gold: 0,
   strategic: emptyStrategicStocks()
 });
+
+const emptyPlayerEconomyIndex = (): PlayerEconomyIndex => ({
+  settledResourceTileKeys: new Set<TileKey>(),
+  settledDockTileKeys: new Set<TileKey>(),
+  settledTownTileKeys: new Set<TileKey>(),
+  ancientTownTileKeys: new Set<TileKey>()
+});
+
+const getOrInitEconomyIndex = (playerId: string): PlayerEconomyIndex => {
+  let index = economyIndexByPlayer.get(playerId);
+  if (!index) {
+    index = emptyPlayerEconomyIndex();
+    economyIndexByPlayer.set(playerId, index);
+  }
+  return index;
+};
+
+const getOrInitOwnedTileKeySet = (index: Map<string, Set<TileKey>>, playerId: string): Set<TileKey> => {
+  let set = index.get(playerId);
+  if (!set) {
+    set = new Set<TileKey>();
+    index.set(playerId, set);
+  }
+  return set;
+};
+
+const trackOwnedTileKey = (index: Map<string, Set<TileKey>>, playerId: string, tileKey: TileKey): void => {
+  getOrInitOwnedTileKeySet(index, playerId).add(tileKey);
+};
+
+const untrackOwnedTileKey = (index: Map<string, Set<TileKey>>, playerId: string, tileKey: TileKey): void => {
+  const set = index.get(playerId);
+  if (!set) return;
+  set.delete(tileKey);
+  if (set.size === 0) index.delete(playerId);
+};
+
+const rebuildEconomyIndexForPlayer = (playerId: string): void => {
+  const player = players.get(playerId);
+  if (!player) {
+    economyIndexByPlayer.delete(playerId);
+    return;
+  }
+  const index = getOrInitEconomyIndex(playerId);
+  index.settledResourceTileKeys.clear();
+  index.settledDockTileKeys.clear();
+  index.settledTownTileKeys.clear();
+  index.ancientTownTileKeys.clear();
+  for (const tileKey of player.territoryTiles) {
+    if (ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
+    const [x, y] = parseKey(tileKey);
+    if (terrainAtRuntime(x, y) !== "LAND") continue;
+    const resource = applyClusterResources(x, y, resourceAt(x, y));
+    if (resource) index.settledResourceTileKeys.add(tileKey);
+    if (docksByTile.has(tileKey)) index.settledDockTileKeys.add(tileKey);
+    const town = townsByTile.get(tileKey);
+    if (town) {
+      index.settledTownTileKeys.add(tileKey);
+      if (town.type === "ANCIENT") index.ancientTownTileKeys.add(tileKey);
+    }
+  }
+};
 
 const hasPositiveStrategicBuffer = (strategic: Partial<Record<StrategicResource, number>>): boolean => {
   for (const resource of STRATEGIC_RESOURCE_KEYS) {
@@ -2893,6 +3150,42 @@ const getOrInitRevealTargets = (playerId: string): Set<string> => {
   return set;
 };
 
+const markVisibilityDirty = (playerId: string): void => {
+  cachedVisibilitySnapshotByPlayer.delete(playerId);
+};
+
+const markVisibilityDirtyForPlayers = (playerIds: Iterable<string>): void => {
+  for (const playerId of playerIds) markVisibilityDirty(playerId);
+};
+
+const addRevealWatcher = (targetPlayerId: string, watcherPlayerId: string): void => {
+  let watchers = revealWatchersByTarget.get(targetPlayerId);
+  if (!watchers) {
+    watchers = new Set<string>();
+    revealWatchersByTarget.set(targetPlayerId, watchers);
+  }
+  watchers.add(watcherPlayerId);
+};
+
+const removeRevealWatcher = (targetPlayerId: string, watcherPlayerId: string): void => {
+  const watchers = revealWatchersByTarget.get(targetPlayerId);
+  if (!watchers) return;
+  watchers.delete(watcherPlayerId);
+  if (watchers.size === 0) revealWatchersByTarget.delete(targetPlayerId);
+};
+
+const setRevealTargetsForPlayer = (playerId: string, targetPlayerIds: Iterable<string>): Set<string> => {
+  const nextTargets = new Set<string>(targetPlayerIds);
+  const currentTargets = revealedEmpireTargetsByPlayer.get(playerId);
+  if (currentTargets) {
+    for (const targetPlayerId of currentTargets) removeRevealWatcher(targetPlayerId, playerId);
+  }
+  revealedEmpireTargetsByPlayer.set(playerId, nextTargets);
+  for (const targetPlayerId of nextTargets) addRevealWatcher(targetPlayerId, playerId);
+  markVisibilityDirty(playerId);
+  return nextTargets;
+};
+
 const getAbilityCooldowns = (playerId: string): Map<AbilityDefinition["id"], number> => {
   let byAbility = abilityCooldownsByPlayer.get(playerId);
   if (!byAbility) {
@@ -2924,20 +3217,26 @@ const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "active" 
 
 const activeObservatoryTileKeysForPlayer = (playerId: string): TileKey[] => {
   const out: TileKey[] = [];
-  for (const [tk, observatory] of observatoriesByTile) {
-    if (observatory.ownerId !== playerId) continue;
+  for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
     if (observatoryStatusForTile(playerId, tk) === "active") out.push(tk);
   }
   return out;
 };
 
 const syncObservatoriesForPlayer = (playerId: string, active: boolean): void => {
-  for (const [tk, observatory] of observatoriesByTile) {
-    if (observatory.ownerId !== playerId) continue;
+  let changed = false;
+  for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
+    const observatory = observatoriesByTile.get(tk);
+    if (!observatory) continue;
     const [x, y] = parseKey(tk);
     const t = playerTile(x, y);
-    observatory.status = active && t.ownerId === playerId && t.ownershipState === "SETTLED" ? "active" : "inactive";
+    const nextStatus = active && t.ownerId === playerId && t.ownershipState === "SETTLED" ? "active" : "inactive";
+    if (observatory.status !== nextStatus) {
+      observatory.status = nextStatus;
+      changed = true;
+    }
   }
+  if (changed) markVisibilityDirty(playerId);
 };
 
 const hostileObservatoryProtectingTile = (actor: Player, x: number, y: number): TileKey | undefined => {
@@ -3116,6 +3415,7 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
     isActive: true,
     nextUpkeepAt: now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS
   });
+  trackOwnedTileKey(economicStructureTileKeysByPlayer, actor.id, tk);
   recordTileStructureHistory(tk, structureType);
   return { ok: true };
 };
@@ -3123,8 +3423,9 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
 const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
   const touched = new Set<TileKey>();
   const stock = getOrInitStrategicStocks(player.id);
-  for (const [tk, structure] of economicStructuresByTile) {
-    if (structure.ownerId !== player.id) continue;
+  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
+    const structure = economicStructuresByTile.get(tk);
+    if (!structure) continue;
     const [x, y] = parseKey(tk);
     const tile = playerTile(x, y);
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") {
@@ -3263,14 +3564,19 @@ const revealLinkedDocksForPlayer = (playerId: string, tileKey: TileKey): void =>
   const dock = docksByTile.get(tileKey);
   if (!dock) return;
   const forced = getOrInitForcedReveal(playerId);
+  let changed = false;
   for (const linked of dockLinkedDestinations(dock)) {
     const [x, y] = parseKey(linked.tileKey);
     for (let dy = -1; dy <= 1; dy += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
-        forced.add(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)));
+        const revealTileKey = key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
+        if (forced.has(revealTileKey)) continue;
+        forced.add(revealTileKey);
+        changed = true;
       }
     }
   }
+  if (changed) markVisibilityDirty(playerId);
 };
 
 const activeResourceIncomeMult = (playerId: string, resource: ResourceType): number => {
@@ -3342,29 +3648,7 @@ const applyStaminaRegen = (p: Player): void => {
 };
 
 const visible = (p: Player, x: number, y: number): boolean => {
-  if (DISABLE_FOG || fogDisabledByPlayer.get(p.id) === true) return true;
-  const forced = forcedRevealTilesByPlayer.get(p.id);
-  if (forced?.has(key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)))) return true;
-  const revealTargets = revealedEmpireTargetsByPlayer.get(p.id);
-  if (revealTargets && revealTargets.size > 0) {
-    const t = playerTile(x, y);
-    if (t.ownerId && revealTargets.has(t.ownerId)) return true;
-  }
-  const radius = effectiveVisionRadiusForPlayer(p);
-  for (const k of p.territoryTiles) {
-    const [tx, ty] = parseKey(k);
-    const dx = Math.min(Math.abs(tx - x), WORLD_WIDTH - Math.abs(tx - x));
-    const dy = Math.min(Math.abs(ty - y), WORLD_HEIGHT - Math.abs(ty - y));
-    if (dx <= radius && dy <= radius) return true;
-  }
-  const observatoryRadius = radius + OBSERVATORY_VISION_BONUS;
-  for (const tk of activeObservatoryTileKeysForPlayer(p.id)) {
-    const [tx, ty] = parseKey(tk);
-    const dx = Math.min(Math.abs(tx - x), WORLD_WIDTH - Math.abs(tx - x));
-    const dy = Math.min(Math.abs(ty - y), WORLD_HEIGHT - Math.abs(ty - y));
-    if (dx <= observatoryRadius && dy <= observatoryRadius) return true;
-  }
-  return false;
+  return visibleInSnapshot(visibilitySnapshotForPlayer(p), wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
 };
 
 const recalcPlayerDerived = (p: Player): void => {
@@ -3445,8 +3729,8 @@ const fogTileForPlayer = (x: number, y: number): Tile => {
   return fogTile;
 };
 
-const visibleTileForPlayer = (p: Player, x: number, y: number): Tile => {
-  if (visible(p, x, y)) {
+const visibleTileForPlayer = (p: Player, x: number, y: number, snapshot?: VisibilitySnapshot): Tile => {
+  if ((snapshot ? visibleInSnapshot(snapshot, x, y) : visible(p, x, y))) {
     const tile = playerTile(x, y);
     tile.fogged = false;
     return tile;
@@ -3460,6 +3744,7 @@ const sendLocalVisionDeltaForPlayer = (playerId: string, centers: Array<{ x: num
   const sub = chunkSubscriptionByPlayer.get(playerId);
   if (!ws || ws.readyState !== ws.OPEN || !p || !sub || centers.length === 0) return;
   const radius = effectiveVisionRadiusForPlayer(p) + OBSERVATORY_VISION_BONUS;
+  const snapshot = visibilitySnapshotForPlayer(p);
   const seen = new Set<TileKey>();
   const updates: Tile[] = [];
   for (const center of centers) {
@@ -3471,7 +3756,7 @@ const sendLocalVisionDeltaForPlayer = (playerId: string, centers: Array<{ x: num
         const tk = key(x, y);
         if (seen.has(tk)) continue;
         seen.add(tk);
-        updates.push(visibleTileForPlayer(p, x, y));
+        updates.push(visibleTileForPlayer(p, x, y, snapshot));
       }
     }
   }
@@ -3485,6 +3770,7 @@ const broadcastLocalVisionDelta = (centers: Array<{ x: number; y: number }>): vo
 const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
   const ws = socketsByPlayer.get(p.id);
   if (!ws || ws.readyState !== ws.OPEN) return;
+  refreshGlobalStatusCache(false);
   const strategicStocks = getOrInitStrategicStocks(p.id);
   const strategicProduction = strategicProductionPerMinute(p);
   const upkeepDiag = lastUpkeepByPlayer.get(p.id) ?? emptyUpkeepDiagnostics();
@@ -3521,8 +3807,8 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       activeRevealTargets: [...getOrInitRevealTargets(p.id)],
       abilityCooldowns: Object.fromEntries(getAbilityCooldowns(p.id)),
       missions: missionPayload(p),
-      leaderboard: leaderboardSnapshot(p),
-      victoryPressure: currentVictoryPressureObjectives()
+      leaderboard: cachedLeaderboardSnapshot,
+      victoryPressure: cachedVictoryPressureObjectives
     })
   );
 };
@@ -3545,15 +3831,14 @@ const collectYieldFromTile = (
     y.gold = 0;
   }
   const stock = getOrInitStrategicStocks(player.id);
-  for (const r of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const r of STRATEGIC_RESOURCE_KEYS) {
     const amt = Math.floor((y.strategic[r] ?? 0) * 100) / 100;
     if (amt <= 0) continue;
     stock[r] += amt;
     out.strategic[r] = amt;
     y.strategic[r] = 0;
   }
-  const hasRemaining = y.gold > 0 || (Object.values(y.strategic) as number[]).some((v) => v > 0);
-  if (!hasRemaining) tileYieldByTile.delete(tk);
+  pruneEmptyTileYield(tk, y);
   return out;
 };
 
@@ -3566,12 +3851,12 @@ const collectVisibleYield = (
     const [x, y] = parseKey(tk);
     if (!visible(player, x, y)) continue;
     const got = collectYieldFromTile(player, tk);
-    const touched = got.gold > 0 || (Object.values(got.strategic) as number[]).some((v) => v > 0);
+    const touched = got.gold > 0 || hasPositiveStrategicBuffer(got.strategic);
     if (!touched) continue;
     out.tiles += 1;
     out.gold += got.gold;
     out.touchedTileKeys.push(tk);
-    for (const r of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) out.strategic[r] += got.strategic[r] ?? 0;
+    for (const r of STRATEGIC_RESOURCE_KEYS) out.strategic[r] += got.strategic[r] ?? 0;
   }
   if (out.gold > 0) recalcPlayerDerived(player);
   return out;
@@ -3684,7 +3969,7 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
     combatLocks.delete(targetKey);
     const live = barbarianAgents.get(agent.id);
     if (!live) return;
-    const liveTile = playerTile(live.x, live.y);
+    const liveTile = runtimeTileCore(live.x, live.y);
     if (liveTile.ownerId !== BARBARIAN_OWNER_ID || key(liveTile.x, liveTile.y) !== currentKey) return;
     const currentTarget = playerTile(target.x, target.y);
     if (!currentTarget.ownerId || currentTarget.ownerId === BARBARIAN_OWNER_ID) {
@@ -3783,15 +4068,10 @@ const recomputeExposure = (p: Player): void => {
   let Es = 0;
   for (const tileKey of p.territoryTiles) {
     const [x, y] = parseKey(tileKey);
-    const self = playerTile(x, y);
+    const self = runtimeTileCore(x, y);
     if (self.ownerId !== p.id || self.terrain !== "LAND") continue;
     T += 1;
-    const n = [
-      playerTile(x, y - 1),
-      playerTile(x + 1, y),
-      playerTile(x, y + 1),
-      playerTile(x - 1, y)
-    ];
+    const n = cardinalNeighborCores(x, y);
     let exposedSides = 0;
     for (const tile of n) {
       if (tile.terrain !== "LAND") continue;
@@ -3843,6 +4123,7 @@ const wrapChunkX = (cx: number): number => ((cx % chunkCountX) + chunkCountX) % 
 const wrapChunkY = (cy: number): number => ((cy % chunkCountY) + chunkCountY) % chunkCountY;
 const tileIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const CHUNK_SNAPSHOT_WARN_MS = 60;
+const CHUNK_SNAPSHOT_BATCH_SIZE = 4;
 const chunkDist = (a: number, b: number, mod: number): number => {
   const d = Math.abs(a - b);
   return Math.min(d, mod - d);
@@ -3850,20 +4131,20 @@ const chunkDist = (a: number, b: number, mod: number): number => {
 
 interface VisibilitySnapshot {
   allVisible: boolean;
-  visibleIndexes: Set<number>;
+  visibleMask: Uint8Array;
 }
 
 const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
   if (DISABLE_FOG || fogDisabledByPlayer.get(p.id) === true) {
-    return { allVisible: true, visibleIndexes: new Set<number>() };
+    return { allVisible: true, visibleMask: new Uint8Array(0) };
   }
 
-  const visibleIndexes = new Set<number>();
+  const visibleMask = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
   const forced = forcedRevealTilesByPlayer.get(p.id);
   if (forced) {
     for (const tk of forced) {
       const [fx, fy] = parseKey(tk);
-      visibleIndexes.add(tileIndex(fx, fy));
+      visibleMask[tileIndex(fx, fy)] = 1;
     }
   }
   const revealTargets = revealedEmpireTargetsByPlayer.get(p.id);
@@ -3873,7 +4154,7 @@ const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
       if (!target) continue;
       for (const tk of target.territoryTiles) {
         const [rx, ry] = parseKey(tk);
-        visibleIndexes.add(tileIndex(rx, ry));
+        visibleMask[tileIndex(rx, ry)] = 1;
       }
     }
   }
@@ -3885,26 +4166,45 @@ const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
       for (let dx = -radius; dx <= radius; dx += 1) {
         const vx = wrapX(tx + dx, WORLD_WIDTH);
         const vy = wrapY(ty + dy, WORLD_HEIGHT);
-        visibleIndexes.add(tileIndex(vx, vy));
+        visibleMask[tileIndex(vx, vy)] = 1;
       }
     }
   }
 
-  return { allVisible: false, visibleIndexes };
+  return { allVisible: false, visibleMask };
+};
+
+const visibilitySnapshotForPlayer = (player: Player): VisibilitySnapshot => {
+  const cached = cachedVisibilitySnapshotByPlayer.get(player.id);
+  if (cached) return cached;
+  const snapshot = buildVisibilitySnapshot(player);
+  cachedVisibilitySnapshotByPlayer.set(player.id, snapshot);
+  return snapshot;
 };
 
 const visibleInSnapshot = (snapshot: VisibilitySnapshot, x: number, y: number): boolean => {
   if (snapshot.allVisible) return true;
-  return snapshot.visibleIndexes.has(tileIndex(x, y));
+  return snapshot.visibleMask[tileIndex(x, y)] === 1;
 };
 
 const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: number; radius: number }): void => {
   const startedAt = now();
-  const snapshot = buildVisibilitySnapshot(actor);
-  const updates: Tile[] = [];
+  const snapshot = visibilitySnapshotForPlayer(actor);
+  const chunkBatch: Array<{ cx: number; cy: number; tilesMaskedByFog: Tile[] }> = [];
   const fallbackLastChangedAt = now();
   let chunkCount = 0;
   let tileCount = 0;
+
+  const flushChunkBatch = (): void => {
+    if (chunkBatch.length === 0) return;
+    if (chunkBatch.length === 1) {
+      const chunk = chunkBatch[0]!;
+      socket.send(JSON.stringify({ type: "CHUNK_FULL", cx: chunk.cx, cy: chunk.cy, tilesMaskedByFog: chunk.tilesMaskedByFog }));
+    } else {
+      socket.send(JSON.stringify({ type: "CHUNK_BATCH", chunks: chunkBatch }));
+    }
+    chunkBatch.length = 0;
+  };
 
   for (let cy = sub.cy - sub.radius; cy <= sub.cy + sub.radius; cy += 1) {
     for (let cx = sub.cx - sub.radius; cx <= sub.cx + sub.radius; cx += 1) {
@@ -3912,6 +4212,7 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
       const worldCy = wrapChunkY(cy);
       const startX = worldCx * CHUNK_SIZE;
       const startY = worldCy * CHUNK_SIZE;
+      const chunkTiles: Tile[] = [];
 
       for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
         for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
@@ -3922,7 +4223,7 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
           if (visibleInSnapshot(snapshot, wx, wy)) {
             const tile = playerTile(wx, wy);
             tile.fogged = false;
-            updates.push(tile);
+            chunkTiles.push(tile);
           } else {
             const fogTile: Tile = {
               x: wx,
@@ -3937,16 +4238,17 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
             if (dock) fogTile.dockId = dock.dockId;
             if (clusterId) fogTile.clusterId = clusterId;
             if (clusterType) fogTile.clusterType = clusterType;
-            updates.push(fogTile);
+            chunkTiles.push(fogTile);
           }
         }
       }
 
-      socket.send(JSON.stringify({ type: "CHUNK_FULL", cx: worldCx, cy: worldCy, tilesMaskedByFog: updates }));
-      updates.length = 0;
+      chunkBatch.push({ cx: worldCx, cy: worldCy, tilesMaskedByFog: chunkTiles });
       chunkCount += 1;
+      if (chunkBatch.length >= CHUNK_SNAPSHOT_BATCH_SIZE) flushChunkBatch();
     }
   }
+  flushChunkBatch();
 
   const elapsed = now() - startedAt;
   chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
@@ -4110,21 +4412,13 @@ const normalizePlayerProgressionState = (player: Player): void => {
   player.domainIds = new Set([...player.domainIds].filter((id) => domainById.has(id)));
 };
 
-const leaderboardSnapshot = (
-  _actor: Player,
-  limitTop = 5
-): {
-  overall: Array<{ id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number }>;
-  byTiles: Array<{ id: string; name: string; value: number }>;
-  byIncome: Array<{ id: string; name: string; value: number }>;
-  byTechs: Array<{ id: string; name: string; value: number }>;
-} => {
-  const rows = [...players.values()].map((p) => ({
-    id: p.id,
-    name: p.name,
-    tiles: p.T,
-    incomePerMinute: currentIncomePerMinute(p),
-    techs: p.techIds.size
+const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
+  const rows = collectPlayerCompetitionMetrics().map((metric) => ({
+    id: metric.playerId,
+    name: metric.name,
+    tiles: metric.tiles,
+    incomePerMinute: metric.incomePerMinute,
+    techs: metric.techs
   }));
   const overall = [...rows]
     .map((r) => ({ ...r, score: r.tiles * 1 + r.incomePerMinute * 3 + r.techs * 8 }))
@@ -4155,9 +4449,21 @@ const victoryPressureRewardLabel = (def: VictoryPressureDefinition): string => {
 };
 
 const trimFrontierSettlementsWindow = (playerId: string, nowMs = now()): number[] => {
-  const next = (frontierSettlementsByPlayer.get(playerId) ?? []).filter((ts) => nowMs - ts <= VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS);
-  frontierSettlementsByPlayer.set(playerId, next);
-  return next;
+  const timestamps = frontierSettlementsByPlayer.get(playerId);
+  if (!timestamps || timestamps.length === 0) return [];
+  let writeIndex = 0;
+  for (let readIndex = 0; readIndex < timestamps.length; readIndex += 1) {
+    const timestamp = timestamps[readIndex]!;
+    if (nowMs - timestamp > VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS) continue;
+    timestamps[writeIndex] = timestamp;
+    writeIndex += 1;
+  }
+  if (writeIndex !== timestamps.length) timestamps.length = writeIndex;
+  if (writeIndex === 0) {
+    frontierSettlementsByPlayer.delete(playerId);
+    return [];
+  }
+  return timestamps;
 };
 
 const recordFrontierSettlementForPressure = (playerId: string): void => {
@@ -4168,9 +4474,17 @@ const recordFrontierSettlementForPressure = (playerId: string): void => {
 
 const uniqueLeader = (entries: Array<{ playerId: string; value: number }>): { playerId?: string; value: number } => {
   if (entries.length === 0) return { value: 0 };
-  const sorted = [...entries].sort((a, b) => b.value - a.value);
-  const top = sorted[0]!;
-  const runnerUp = sorted[1];
+  let top = entries[0]!;
+  let runnerUp: { playerId: string; value: number } | undefined;
+  for (let i = 1; i < entries.length; i += 1) {
+    const entry = entries[i]!;
+    if (entry.value > top.value) {
+      runnerUp = top;
+      top = entry;
+      continue;
+    }
+    if (!runnerUp || entry.value > runnerUp.value) runnerUp = entry;
+  }
   if (top.value <= 0) return { value: top.value };
   if (runnerUp && runnerUp.value === top.value) return { value: top.value };
   return { playerId: top.playerId, value: top.value };
@@ -4202,6 +4516,51 @@ const countActiveSiegeOutposts = (playerId: string): number => {
   return count;
 };
 
+const collectPlayerCompetitionMetrics = (nowMs = now()): PlayerCompetitionMetrics[] => {
+  const townCounts = new Map<string, number>();
+  for (const tk of townsByTile.keys()) {
+    const ownerId = ownership.get(tk);
+    if (!ownerId) continue;
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
+    townCounts.set(ownerId, (townCounts.get(ownerId) ?? 0) + 1);
+  }
+
+  const fortCounts = new Map<string, number>();
+  for (const fort of fortsByTile.values()) {
+    if (fort.status !== "active") continue;
+    fortCounts.set(fort.ownerId, (fortCounts.get(fort.ownerId) ?? 0) + 1);
+  }
+
+  const siegeCounts = new Map<string, number>();
+  for (const siege of siegeOutpostsByTile.values()) {
+    if (siege.status !== "active") continue;
+    siegeCounts.set(siege.ownerId, (siegeCounts.get(siege.ownerId) ?? 0) + 1);
+  }
+
+  const metrics: PlayerCompetitionMetrics[] = [];
+  for (const player of players.values()) {
+    metrics.push({
+      playerId: player.id,
+      name: player.name,
+      tiles: player.T,
+      incomePerMinute: currentIncomePerMinute(player),
+      techs: player.techIds.size,
+      controlledTowns: townCounts.get(player.id) ?? 0,
+      activeForts: fortCounts.get(player.id) ?? 0,
+      activeSiegeOutposts: siegeCounts.get(player.id) ?? 0,
+      frontierSettlements: trimFrontierSettlementsWindow(player.id, nowMs).length
+    });
+  }
+  return metrics;
+};
+
+const uniqueLeaderFromMetrics = (
+  metrics: PlayerCompetitionMetrics[],
+  selectValue: (metric: PlayerCompetitionMetrics) => number
+): { playerId?: string; value: number } => {
+  return uniqueLeader(metrics.map((metric) => ({ playerId: metric.playerId, value: selectValue(metric) })));
+};
+
 const getVictoryPressureTracker = (id: VictoryPressureObjectiveId): VictoryPressureTracker => {
   let tracker = victoryPressureById.get(id);
   if (!tracker) {
@@ -4220,10 +4579,11 @@ const applyVictoryPressureReward = (playerId: string, def: VictoryPressureDefini
   recalcPlayerDerived(player);
 };
 
-const currentVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
+const computeVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
   const nowMs = now();
   const totalTownCount = Math.max(1, townsByTile.size);
   const townTarget = Math.max(1, Math.ceil(totalTownCount * 0.2));
+  const metrics = collectPlayerCompetitionMetrics(nowMs);
   return VICTORY_PRESSURE_DEFS.map((def) => {
     const tracker = getVictoryPressureTracker(def.id);
     let leaderPlayerId: string | undefined;
@@ -4233,37 +4593,35 @@ const currentVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
     let thresholdLabel = "";
 
     if (def.id === "TOWN_SUPREMACY") {
-      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countControlledTowns(p.id) })));
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.controlledTowns);
       leaderPlayerId = leader.playerId;
       leaderValue = leader.value;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= townTarget);
       progressLabel = `${leaderValue}/${townTarget} towns`;
       thresholdLabel = `Need ${townTarget} towns`;
     } else if (def.id === "ECONOMIC_DOMINANCE") {
-      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: currentIncomePerMinute(p) })));
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.incomePerMinute);
       leaderPlayerId = leader.playerId;
       leaderValue = leader.value;
       conditionMet = Boolean(leaderPlayerId && leaderValue > 0);
       progressLabel = `${leaderValue.toFixed(1)} gold/m`;
       thresholdLabel = "Hold sole top income";
     } else if (def.id === "FORTRESS_BELT") {
-      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countActiveForts(p.id) })));
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.activeForts);
       leaderPlayerId = leader.playerId;
       leaderValue = leader.value;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= 3);
       progressLabel = `${leaderValue}/3 forts`;
       thresholdLabel = "Need 3 active forts";
     } else if (def.id === "FORWARD_PRESSURE") {
-      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countActiveSiegeOutposts(p.id) })));
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.activeSiegeOutposts);
       leaderPlayerId = leader.playerId;
       leaderValue = leader.value;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= 3);
       progressLabel = `${leaderValue}/3 outposts`;
       thresholdLabel = "Need 3 active outposts";
     } else {
-      const leader = uniqueLeader(
-        [...players.values()].map((p) => ({ playerId: p.id, value: trimFrontierSettlementsWindow(p.id, nowMs).length }))
-      );
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.frontierSettlements);
       leaderPlayerId = leader.playerId;
       leaderValue = leader.value;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= VICTORY_PRESSURE_FRONTIER_REACH_TARGET);
@@ -4301,16 +4659,40 @@ const currentVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
   });
 };
 
+let cachedLeaderboardSnapshot: LeaderboardSnapshotView = { overall: [], byTiles: [], byIncome: [], byTechs: [] };
+let cachedVictoryPressureObjectives: VictoryPressureObjectiveView[] = [];
+let globalStatusCacheExpiresAt = 0;
+
+const refreshGlobalStatusCache = (force = false): void => {
+  const nowMs = now();
+  if (!force && nowMs < globalStatusCacheExpiresAt) return;
+  cachedLeaderboardSnapshot = computeLeaderboardSnapshot();
+  cachedVictoryPressureObjectives = computeVictoryPressureObjectives();
+  globalStatusCacheExpiresAt = nowMs + GLOBAL_STATUS_CACHE_TTL_MS;
+};
+
+const currentLeaderboardSnapshot = (): LeaderboardSnapshotView => {
+  refreshGlobalStatusCache(false);
+  return cachedLeaderboardSnapshot;
+};
+
+const currentVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
+  refreshGlobalStatusCache(false);
+  return cachedVictoryPressureObjectives;
+};
+
 const broadcastVictoryPressureUpdate = (announcement?: string): void => {
+  refreshGlobalStatusCache(true);
   broadcast({
     type: "VICTORY_PRESSURE_UPDATE",
-    objectives: currentVictoryPressureObjectives(),
+    objectives: cachedVictoryPressureObjectives,
     announcement
   });
 };
 
 const evaluateVictoryPressure = (): void => {
   const nowMs = now();
+  const metrics = collectPlayerCompetitionMetrics(nowMs);
   const announcements: string[] = [];
   const rewardedPlayers = new Set<string>();
 
@@ -4321,25 +4703,23 @@ const evaluateVictoryPressure = (): void => {
 
     if (def.id === "TOWN_SUPREMACY") {
       const target = Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * 0.2));
-      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countControlledTowns(p.id) })));
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.controlledTowns);
       leaderPlayerId = leader.playerId;
       conditionMet = Boolean(leaderPlayerId && leader.value >= target);
     } else if (def.id === "ECONOMIC_DOMINANCE") {
-      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: currentIncomePerMinute(p) })));
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.incomePerMinute);
       leaderPlayerId = leader.playerId;
       conditionMet = Boolean(leaderPlayerId && leader.value > 0);
     } else if (def.id === "FORTRESS_BELT") {
-      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countActiveForts(p.id) })));
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.activeForts);
       leaderPlayerId = leader.playerId;
       conditionMet = Boolean(leaderPlayerId && leader.value >= 3);
     } else if (def.id === "FORWARD_PRESSURE") {
-      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countActiveSiegeOutposts(p.id) })));
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.activeSiegeOutposts);
       leaderPlayerId = leader.playerId;
       conditionMet = Boolean(leaderPlayerId && leader.value >= 3);
     } else {
-      const leader = uniqueLeader(
-        [...players.values()].map((p) => ({ playerId: p.id, value: trimFrontierSettlementsWindow(p.id, nowMs).length }))
-      );
+      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.frontierSettlements);
       leaderPlayerId = leader.playerId;
       conditionMet = Boolean(leaderPlayerId && leader.value >= VICTORY_PRESSURE_FRONTIER_REACH_TARGET);
     }
@@ -4788,12 +5168,7 @@ const siegeOutpostCapacityForPlayer = (playerId: string): number => {
 };
 
 const isBorderTile = (x: number, y: number, ownerId: string): boolean => {
-  const n = [
-    playerTile(x, y - 1),
-    playerTile(x + 1, y),
-    playerTile(x, y + 1),
-    playerTile(x - 1, y)
-  ];
+  const n = cardinalNeighborCores(x, y);
   return n.some((t) => t.terrain === "LAND" && t.ownerId !== ownerId && !(t.ownerId && isAlly(ownerId, t.ownerId)));
 };
 
@@ -4852,7 +5227,7 @@ const startSettlement = (
     pendingSettlementsByTile.delete(tk);
     const liveActor = players.get(actor.id);
     if (!liveActor) return;
-    const live = playerTile(t.x, t.y);
+    const live = runtimeTileCore(t.x, t.y);
     if (live.ownerId !== liveActor.id || live.ownershipState !== "FRONTIER") return;
     if (liveActor.points < pending.goldCost) {
       sendToPlayer(liveActor.id, {
@@ -4901,8 +5276,7 @@ const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: b
   const stock = getOrInitStrategicStocks(actor.id);
   if ((stock.CRYSTAL ?? 0) < REVEAL_EMPIRE_ACTIVATION_COST) return { ok: false, reason: "insufficient crystal to activate reveal" };
   stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - REVEAL_EMPIRE_ACTIVATION_COST);
-  reveals.clear();
-  reveals.add(targetPlayerId);
+  setRevealTargetsForPlayer(actor.id, [targetPlayerId]);
   return { ok: true };
 };
 
@@ -4926,6 +5300,8 @@ const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean
     tileKey: tk,
     status: "active"
   });
+  trackOwnedTileKey(observatoryTileKeysByPlayer, actor.id, tk);
+  markVisibilityDirty(actor.id);
   recordTileStructureHistory(tk, "OBSERVATORY");
   return { ok: true };
 };
@@ -5079,7 +5455,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   const timer = setTimeout(() => {
     const current = fortsByTile.get(tk);
     if (!current) return;
-    const tileNow = playerTile(t.x, t.y);
+    const tileNow = runtimeTileCore(t.x, t.y);
     if (tileNow.ownerId !== actor.id) {
       fortsByTile.delete(tk);
       fortBuildTimers.delete(tk);
@@ -5124,7 +5500,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   const timer = setTimeout(() => {
     const current = siegeOutpostsByTile.get(tk);
     if (!current) return;
-    const tileNow = playerTile(t.x, t.y);
+    const tileNow = runtimeTileCore(t.x, t.y);
     if (tileNow.ownerId !== actor.id) {
       siegeOutpostsByTile.delete(tk);
       siegeOutpostBuildTimers.delete(tk);
@@ -5146,7 +5522,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   const affectedPlayers = new Set<string>();
   if (oldOwner) affectedPlayers.add(oldOwner);
   if (newOwner) affectedPlayers.add(newOwner);
-  for (const n of [playerTile(t.x, t.y - 1), playerTile(t.x + 1, t.y), playerTile(t.x, t.y + 1), playerTile(t.x - 1, t.y)]) {
+  for (const n of cardinalNeighborCores(t.x, t.y)) {
     if (n.ownerId) affectedPlayers.add(n.ownerId);
   }
 
@@ -5165,7 +5541,11 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
       cancelFortBuild(k);
       fortsByTile.delete(k);
     }
-    observatoriesByTile.delete(k);
+    const observatory = observatoriesByTile.get(k);
+    if (observatory) {
+      untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, k);
+      observatoriesByTile.delete(k);
+    }
     const economic = economicStructuresByTile.get(k);
     const siege = siegeOutpostsByTile.get(k);
     if (siege) {
@@ -5177,10 +5557,13 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     settlementDefenseByTile.delete(k);
     if (economic) {
       if (newOwner) {
+        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
         economic.ownerId = newOwner;
         economic.isActive = false;
         economic.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
+        trackOwnedTileKey(economicStructureTileKeysByPlayer, newOwner, k);
       } else {
+        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
         economicStructuresByTile.delete(k);
       }
     }
@@ -5195,8 +5578,16 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   } else {
     ownership.delete(k);
     ownershipStateByTile.delete(k);
-    observatoriesByTile.delete(k);
-    economicStructuresByTile.delete(k);
+    const observatory = observatoriesByTile.get(k);
+    if (observatory) {
+      untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, k);
+      observatoriesByTile.delete(k);
+    }
+    const economic = economicStructuresByTile.get(k);
+    if (economic) {
+      untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
+      economicStructuresByTile.delete(k);
+    }
     sabotageByTile.delete(k);
     breachShockByTile.delete(k);
     settlementDefenseByTile.delete(k);
@@ -5231,7 +5622,19 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     if (!p) continue;
     recomputeExposure(p);
     reconcileCapitalForPlayer(p);
+    rebuildEconomyIndexForPlayer(pid);
   }
+
+  const visibilityAffectedPlayers = new Set<string>();
+  if (oldOwner) {
+    visibilityAffectedPlayers.add(oldOwner);
+    for (const watcherPlayerId of revealWatchersByTarget.get(oldOwner) ?? []) visibilityAffectedPlayers.add(watcherPlayerId);
+  }
+  if (newOwner) {
+    visibilityAffectedPlayers.add(newOwner);
+    for (const watcherPlayerId of revealWatchersByTarget.get(newOwner) ?? []) visibilityAffectedPlayers.add(watcherPlayerId);
+  }
+  markVisibilityDirtyForPlayers(visibilityAffectedPlayers);
 
   sendVisibleTileDeltaAt(t.x, t.y);
 };
@@ -5420,9 +5823,10 @@ const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefine
     playerBaseMods.set(player.id, { attack: 1, defense: 1, income: 1, vision: 1 });
     strategicResourceStockByPlayer.set(player.id, emptyStrategicStocks());
     strategicResourceBufferByPlayer.set(player.id, emptyStrategicStocks());
+    economyIndexByPlayer.set(player.id, emptyPlayerEconomyIndex());
     dynamicMissionsByPlayer.set(player.id, []);
     forcedRevealTilesByPlayer.set(player.id, new Set<TileKey>());
-    revealedEmpireTargetsByPlayer.set(player.id, new Set<string>());
+    setRevealTargetsForPlayer(player.id, []);
     playerEffectsByPlayer.set(player.id, emptyPlayerEffects());
     spawnPlayer(player);
   }
@@ -5486,97 +5890,80 @@ const recordMountainShapeHistory = (tileKey: TileKey, kind: "created" | "removed
   if (kind === "removed") history.wasMountainRemovedByPlayer = true;
 };
 
-const saveSnapshot = (): void => {
-  fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
-  const payload = {
-    world: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
-    players: [...players.values()].map(serializePlayer),
-    ownership: [...ownership.entries()],
-    ownershipState: [...ownershipStateByTile.entries()],
-    barbarianAgents: [...barbarianAgents.values()],
-    authIdentities: [...authIdentityByUid.values()],
-    resources: [...resourceCountsByPlayer.entries()],
-    strategicResources: [...strategicResourceStockByPlayer.entries()],
-    strategicResourceBuffer: [...strategicResourceBufferByPlayer.entries()],
-    tileYield: [...tileYieldByTile.entries()],
-    tileHistory: [...tileHistoryByTile.entries()],
-    terrainShapes: [...terrainShapesByTile.entries()],
-    victoryPressure: [...victoryPressureById.entries()],
-    frontierSettlements: [...frontierSettlementsByPlayer.entries()],
-    dynamicMissions: [...dynamicMissionsByPlayer.entries()],
-    temporaryAttackBuffUntil: [...temporaryAttackBuffUntilByPlayer.entries()],
-    temporaryIncomeBuff: [...temporaryIncomeBuffUntilByPlayer.entries()],
-    forcedReveal: [...forcedRevealTilesByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
-    revealedEmpireTargets: [...revealedEmpireTargetsByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
-    allianceRequests: [...allianceRequests.values()],
-    forts: [...fortsByTile.values()],
-    observatories: [...observatoriesByTile.values()],
-    siegeOutposts: [...siegeOutpostsByTile.values()],
-    economicStructures: [...economicStructuresByTile.values()],
-    sabotage: [...sabotageByTile.values()],
-    abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
-    docks: [...dockById.values()],
-    towns: [...townsByTile.values()],
-    firstSpecialSiteCaptureClaimed: [...firstSpecialSiteCaptureClaimed],
-    clusters: [...clustersById.values()],
-    clusterTiles: [...clusterByTile.entries()],
-    season: activeSeason,
-    seasonArchives,
-    seasonTechConfig: {
-      ...activeSeasonTechConfig,
-      activeNodeIds: [...activeSeasonTechConfig.activeNodeIds]
-    }
-  };
-  fs.writeFileSync(SNAPSHOT_FILE, JSON.stringify(payload));
+const buildSnapshotState = (): SnapshotState => ({
+  world: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
+  players: [...players.values()].map(serializePlayer),
+  ownership: [...ownership.entries()],
+  ownershipState: [...ownershipStateByTile.entries()],
+  barbarianAgents: [...barbarianAgents.values()],
+  authIdentities: [...authIdentityByUid.values()],
+  resources: [...resourceCountsByPlayer.entries()],
+  strategicResources: [...strategicResourceStockByPlayer.entries()],
+  strategicResourceBuffer: [...strategicResourceBufferByPlayer.entries()],
+  tileYield: [...tileYieldByTile.entries()],
+  tileHistory: [...tileHistoryByTile.entries()],
+  terrainShapes: [...terrainShapesByTile.entries()],
+  victoryPressure: [...victoryPressureById.entries()],
+  frontierSettlements: [...frontierSettlementsByPlayer.entries()],
+  dynamicMissions: [...dynamicMissionsByPlayer.entries()],
+  temporaryAttackBuffUntil: [...temporaryAttackBuffUntilByPlayer.entries()],
+  temporaryIncomeBuff: [...temporaryIncomeBuffUntilByPlayer.entries()],
+  forcedReveal: [...forcedRevealTilesByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
+  revealedEmpireTargets: [...revealedEmpireTargetsByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
+  allianceRequests: [...allianceRequests.values()],
+  forts: [...fortsByTile.values()],
+  observatories: [...observatoriesByTile.values()],
+  siegeOutposts: [...siegeOutpostsByTile.values()],
+  economicStructures: [...economicStructuresByTile.values()],
+  sabotage: [...sabotageByTile.values()],
+  abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
+  docks: [...dockById.values()],
+  towns: [...townsByTile.values()],
+  firstSpecialSiteCaptureClaimed: [...firstSpecialSiteCaptureClaimed],
+  clusters: [...clustersById.values()],
+  clusterTiles: [...clusterByTile.entries()],
+  season: activeSeason,
+  seasonArchives,
+  seasonTechConfig: {
+    ...activeSeasonTechConfig,
+    activeNodeIds: [...activeSeasonTechConfig.activeNodeIds]
+  }
+});
+
+let snapshotSavePromise: Promise<void> = Promise.resolve();
+const saveSnapshot = async (): Promise<void> => {
+  const serialized = JSON.stringify(buildSnapshotState());
+  snapshotSavePromise = snapshotSavePromise
+    .catch(() => undefined)
+    .then(async () => {
+      await fs.promises.mkdir(SNAPSHOT_DIR, { recursive: true });
+      const tmpFile = snapshotTempFile();
+      await fs.promises.writeFile(tmpFile, serialized);
+      await fs.promises.rename(tmpFile, SNAPSHOT_FILE);
+    });
+  return snapshotSavePromise;
+};
+
+const saveSnapshotInBackground = (): void => {
+  void saveSnapshot().catch((err) => {
+    logRuntimeError("snapshot save failed", err);
+  });
 };
 
 const loadSnapshot = (): void => {
   if (!fs.existsSync(SNAPSHOT_FILE)) return;
-  const raw = JSON.parse(fs.readFileSync(SNAPSHOT_FILE, "utf8")) as {
-    world?: { width: number; height: number };
-    players: Array<
-      Omit<Player, "techIds" | "domainIds" | "territoryTiles" | "allies"> & {
-        techIds: string[];
-        domainIds?: string[];
-        territoryTiles: TileKey[];
-        allies: string[];
-        missions?: MissionState[];
-        missionStats?: MissionStats;
-      }
-    >;
-    ownership: [TileKey, string][];
-    ownershipState?: [TileKey, OwnershipState][];
-    barbarianAgents?: BarbarianAgent[];
-    authIdentities?: AuthIdentity[];
-    resources: [string, Record<ResourceType, number>][];
-    strategicResources?: [string, Record<StrategicResource, number>][];
-    strategicResourceBuffer?: [string, Record<StrategicResource, number>][];
-    tileYield?: [TileKey, TileYieldBuffer][];
-    tileHistory?: [TileKey, TileHistoryState][];
-    terrainShapes?: [TileKey, TerrainShapeState][];
-    victoryPressure?: [VictoryPressureObjectiveId, VictoryPressureTracker][];
-    frontierSettlements?: [string, number[]][];
-    dynamicMissions?: [string, DynamicMissionDef[]][];
-    temporaryAttackBuffUntil?: [string, number][];
-    temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
-    forcedReveal?: [string, TileKey[]][];
-    revealedEmpireTargets?: [string, string[]][];
-    allianceRequests?: AllianceRequest[];
-    forts?: Fort[];
-    observatories?: Observatory[];
-    siegeOutposts?: SiegeOutpost[];
-    economicStructures?: EconomicStructure[];
-    sabotage?: ActiveSabotage[];
-    abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
-    docks?: Dock[];
-    towns?: TownDefinition[];
-    firstSpecialSiteCaptureClaimed?: TileKey[];
-    clusters?: ClusterDefinition[];
-    clusterTiles?: [TileKey, string][];
-    season?: Season;
-    seasonArchives?: SeasonArchiveEntry[];
-    seasonTechConfig?: Omit<SeasonalTechConfig, "activeNodeIds"> & { activeNodeIds: string[] };
-  };
+  let raw: SnapshotState;
+  try {
+    raw = JSON.parse(fs.readFileSync(SNAPSHOT_FILE, "utf8")) as SnapshotState;
+  } catch (err) {
+    logRuntimeError("snapshot load failed", err);
+    try {
+      fs.renameSync(SNAPSHOT_FILE, `${SNAPSHOT_FILE}.corrupt-${Date.now()}`);
+    } catch (renameErr) {
+      logRuntimeError("failed to quarantine corrupt snapshot", renameErr);
+    }
+    return;
+  }
   if (!raw.world || raw.world.width !== WORLD_WIDTH || raw.world.height !== WORLD_HEIGHT) {
     return;
   }
@@ -5672,17 +6059,27 @@ const loadSnapshot = (): void => {
   for (const [pid, buff] of raw.temporaryIncomeBuff ?? []) {
     temporaryIncomeBuffUntilByPlayer.set(pid, buff);
   }
+  cachedVisibilitySnapshotByPlayer.clear();
+  revealWatchersByTarget.clear();
+  observatoryTileKeysByPlayer.clear();
+  economicStructureTileKeysByPlayer.clear();
   for (const [pid, tiles] of raw.forcedReveal ?? []) {
     forcedRevealTilesByPlayer.set(pid, new Set<TileKey>(tiles));
   }
   for (const [pid, targets] of raw.revealedEmpireTargets ?? []) {
-    revealedEmpireTargetsByPlayer.set(pid, new Set<string>(targets));
+    setRevealTargetsForPlayer(pid, targets);
   }
   for (const request of raw.allianceRequests ?? []) allianceRequests.set(request.id, request);
   for (const f of raw.forts ?? []) fortsByTile.set(f.tileKey, f);
-  for (const observatory of raw.observatories ?? []) observatoriesByTile.set(observatory.tileKey, observatory);
+  for (const observatory of raw.observatories ?? []) {
+    observatoriesByTile.set(observatory.tileKey, observatory);
+    trackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, observatory.tileKey);
+  }
   for (const s of raw.siegeOutposts ?? []) siegeOutpostsByTile.set(s.tileKey, s);
-  for (const structure of raw.economicStructures ?? []) economicStructuresByTile.set(structure.tileKey, structure);
+  for (const structure of raw.economicStructures ?? []) {
+    economicStructuresByTile.set(structure.tileKey, structure);
+    trackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, structure.tileKey);
+  }
   for (const sabotage of raw.sabotage ?? []) sabotageByTile.set(sabotage.targetTileKey, sabotage);
   for (const [pid, entries] of raw.abilityCooldowns ?? []) {
     abilityCooldownsByPlayer.set(pid, new Map(entries));
@@ -5805,7 +6202,8 @@ for (const p of players.values()) {
       vision: p.mods.vision
     });
   }
-  if (!revealedEmpireTargetsByPlayer.has(p.id)) revealedEmpireTargetsByPlayer.set(p.id, new Set<string>());
+  if (!revealedEmpireTargetsByPlayer.has(p.id)) setRevealTargetsForPlayer(p.id, []);
+  rebuildEconomyIndexForPlayer(p.id);
   if (!playerEffectsByPlayer.has(p.id)) recomputePlayerEffectsForPlayer(p);
 }
 rebuildOwnershipDerivedState();
@@ -5873,7 +6271,7 @@ let lastSnapshotAt = 0;
 registerInterval(() => {
   const nowMs = now();
   if (!hasOnlinePlayers() && nowMs - lastSnapshotAt < IDLE_SNAPSHOT_INTERVAL_MS) return;
-  saveSnapshot();
+  saveSnapshotInBackground();
   lastSnapshotAt = nowMs;
 }, 30_000);
 registerInterval(runBarbarianTick, 1_000);
@@ -5929,32 +6327,41 @@ registerInterval(() => {
     const populationTouched = updateTownPopulationForPlayer(p);
     const economicTouched = syncEconomicStructuresForPlayer(p);
     const capitalTileKey = isValidCapitalTile(p, p.capitalTileKey) ? p.capitalTileKey : undefined;
-    for (const tk of p.territoryTiles) {
-      if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-        const [x, y] = parseKey(tk);
-        const t = playerTile(x, y);
-        if (t.ownerId !== p.id || t.terrain !== "LAND" || t.ownershipState !== "SETTLED") continue;
-        let goldDelta = 0;
-        const sabotageMult = sabotageMultiplierAt(tk);
-        if (capitalTileKey === tk) goldDelta += BASE_GOLD_PER_MIN;
-        if (t.resource) goldDelta += resourceRate[t.resource] * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
-        const dock = docksByTile.get(tk);
-        if (dock) goldDelta += dockIncomeForOwner(dock, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
-        const town = townsByTile.get(tk);
-        if (town) goldDelta += townIncomeForOwner(town, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
-        const strategic: Partial<Record<StrategicResource, number>> = {};
-        const sr = toStrategicResource(t.resource);
-        if (sr) {
-          const mult = t.resource ? activeResourceIncomeMult(p.id, t.resource) : 1;
-          const daily = t.resource ? (strategicDailyFromResource[t.resource] ?? 0) : 0;
-          strategic[sr] = daily * mult * HARVEST_RESOURCE_RATE_MULT * sabotageMult;
-        }
-        if (town?.type === "ANCIENT") {
-          strategic.SHARD =
-            (strategic.SHARD ?? 0) + strategicResourceRates.SHARD * getPlayerEffectsForPlayer(p.id).resourceOutputMult.SHARD * HARVEST_RESOURCE_RATE_MULT;
-        }
-        const hasStrategic = hasPositiveStrategicBuffer(strategic);
-        if (goldDelta > 0 || hasStrategic) addTileYield(tk, goldDelta, strategic);
+    const economyIndex = getOrInitEconomyIndex(p.id);
+    if (capitalTileKey && ownershipStateByTile.get(capitalTileKey) === "SETTLED") {
+      addTileYield(capitalTileKey, BASE_GOLD_PER_MIN, undefined);
+    }
+    for (const tk of economyIndex.settledResourceTileKeys) {
+      const [x, y] = parseKey(tk);
+      const resource = applyClusterResources(x, y, resourceAt(x, y));
+      if (!resource) continue;
+      const sabotageMult = sabotageMultiplierAt(tk);
+      const goldDelta = resourceRate[resource] * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
+      const strategic: Partial<Record<StrategicResource, number>> = {};
+      const sr = toStrategicResource(resource);
+      if (sr) {
+        strategic[sr] = (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(p.id, resource) * HARVEST_RESOURCE_RATE_MULT * sabotageMult;
+      }
+      if (goldDelta > 0 || hasPositiveStrategicBuffer(strategic)) addTileYield(tk, goldDelta, strategic);
+    }
+    for (const tk of economyIndex.settledDockTileKeys) {
+      const dock = docksByTile.get(tk);
+      if (!dock) continue;
+      const goldDelta = dockIncomeForOwner(dock, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+      if (goldDelta > 0) addTileYield(tk, goldDelta, undefined);
+    }
+    for (const tk of economyIndex.settledTownTileKeys) {
+      const town = townsByTile.get(tk);
+      if (!town) continue;
+      const sabotageMult = sabotageMultiplierAt(tk);
+      let goldDelta = townIncomeForOwner(town, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
+      let strategic: Partial<Record<StrategicResource, number>> | undefined;
+      if (economyIndex.ancientTownTileKeys.has(tk)) {
+        strategic = {
+          SHARD: strategicResourceRates.SHARD * getPlayerEffectsForPlayer(p.id).resourceOutputMult.SHARD * HARVEST_RESOURCE_RATE_MULT
+        };
+      }
+      if (goldDelta > 0 || (strategic && hasPositiveStrategicBuffer(strategic))) addTileYield(tk, goldDelta, strategic);
     }
     const upkeepResult = applyUpkeepForPlayer(p);
     const touchedTileKeys = new Set<TileKey>([...populationTouched, ...economicTouched, ...upkeepResult.touchedTileKeys]);
@@ -5978,6 +6385,7 @@ if (SEASONS_ENABLED) {
 }
 
 const app = Fastify({ logger: true });
+appRef = app;
 await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
@@ -6017,11 +6425,12 @@ app.get("/admin/telemetry", async () => {
 app.post("/admin/season/rollover", async () => {
   if (!SEASONS_ENABLED) return { ok: false, disabled: true, message: "seasons temporarily disabled" };
   startNewSeason();
+  await saveSnapshot();
   return { ok: true, activeSeason };
 });
 app.post("/admin/world/regenerate", async () => {
   regenerateWorldInPlace();
-  saveSnapshot();
+  await saveSnapshot();
   return { ok: true, activeSeason, regenerated: true };
 });
 
@@ -6068,8 +6477,16 @@ app.post("/admin/world/regenerate", async () => {
           email: typeof verified.payload.email === "string" ? verified.payload.email : undefined,
           name: typeof verified.payload.name === "string" ? verified.payload.name : undefined
         };
-      } catch {
-        socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FAIL", message: "Firebase token verification failed." }));
+      } catch (err) {
+        const authError = classifyAuthError(err);
+        app.log.warn(
+          {
+            err,
+            authErrorCode: authError.code
+          },
+          "firebase token verification failed"
+        );
+        socket.send(JSON.stringify({ type: "ERROR", code: authError.code, message: authError.message }));
         return;
       }
       if (!decoded.uid) {
@@ -6154,7 +6571,7 @@ app.post("/admin/world/regenerate", async () => {
           domainCatalog: activeDomainCatalog(player),
           playerStyles: exportPlayerStyles(),
           missions: missionPayload(player),
-          leaderboard: leaderboardSnapshot(player),
+          leaderboard: currentLeaderboardSnapshot(),
           victoryPressure: currentVictoryPressureObjectives(),
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id)
         })
@@ -6244,7 +6661,7 @@ app.post("/admin/world/regenerate", async () => {
         socket.send(JSON.stringify({ type: "ERROR", code: "SABOTAGE_INVALID", message: out.reason }));
         return;
       }
-      const target = playerTile(msg.x, msg.y);
+      const target = runtimeTileCore(msg.x, msg.y);
       sendPlayerUpdate(actor, 0);
       refreshSubscribedViewForPlayer(actor.id);
       if (target.ownerId && target.ownerId !== actor.id) {
@@ -6391,7 +6808,7 @@ app.post("/admin/world/regenerate", async () => {
         return;
       }
       const got = collectYieldFromTile(actor, tk);
-      const touched = got.gold > 0 || (Object.values(got.strategic) as number[]).some((v) => v > 0);
+      const touched = got.gold > 0 || hasPositiveStrategicBuffer(got.strategic);
       if (!touched) {
         socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "yield is empty (upkeep may have consumed it)" }));
         return;
@@ -6424,7 +6841,7 @@ app.post("/admin/world/regenerate", async () => {
     }
 
     if (msg.type === "UNCAPTURE_TILE") {
-      const t = playerTile(msg.x, msg.y);
+      const t = runtimeTileCore(msg.x, msg.y);
       if (t.ownerId !== actor.id) {
         socket.send(JSON.stringify({ type: "ERROR", code: "UNCAPTURE_NOT_OWNER", message: "tile is not owned by you" }));
         return;
@@ -6697,13 +7114,14 @@ app.post("/admin/world/regenerate", async () => {
       "action request"
     );
 
-    const actionTimes = (actionTimestampsByPlayer.get(actor.id) ?? []).filter((t) => now() - t <= ACTION_WINDOW_MS);
+    const nowMs = now();
+    const actionTimes = pruneActionTimes(actor.id, nowMs);
     if (actionTimes.length >= ACTION_LIMIT) {
       app.log.info({ playerId: actor.id, action: msg.type }, "action rejected: rate limit");
       socket.send(JSON.stringify({ type: "ERROR", code: "RATE_LIMIT", message: "too many actions; slow down briefly" }));
       return;
     }
-    actionTimes.push(now());
+    actionTimes.push(nowMs);
     actionTimestampsByPlayer.set(actor.id, actionTimes);
 
     applyStaminaRegen(actor);
@@ -6998,8 +7416,9 @@ app.post("/admin/world/regenerate", async () => {
           const attackerRating = ratingFromPointsLevel(actor.points, actor.level);
           const defenderRating = ratingFromPointsLevel(defender.points, defender.level);
           const pairKey = pairKeyFor(actor.id, defender.id);
-          const entries = (repeatFights.get(pairKey) ?? []).filter((ts) => now() - ts <= PVP_REPEAT_WINDOW_MS);
-          entries.push(now());
+          const nowMs = now();
+          const entries = pruneRepeatFightEntries(pairKey, nowMs);
+          entries.push(nowMs);
           repeatFights.set(pairKey, entries);
           const repeatMult = Math.max(PVP_REPEAT_FLOOR, 0.5 ** (entries.length - 1));
           pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(to.resource), attackerRating, defenderRating) * repeatMult * PVP_REWARD_MULT;
@@ -7088,7 +7507,7 @@ app.post("/admin/world/regenerate", async () => {
       if (!hasOnlinePlayers()) {
         cancelAllBarbarianPendingCaptures();
         pauseVictoryPressureTimers();
-        saveSnapshot();
+        saveSnapshotInBackground();
         lastSnapshotAt = now();
       }
     }
@@ -7097,14 +7516,22 @@ app.post("/admin/world/regenerate", async () => {
 
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info({ signal }, "shutting down server");
+  let exitCode = 0;
   for (const interval of runtimeIntervals) clearInterval(interval);
   runtimeIntervals.length = 0;
   try {
+    await saveSnapshot();
+  } catch (err) {
+    exitCode = 1;
+    app.log.error({ err, signal }, "error saving snapshot during shutdown");
+  }
+  try {
     await app.close();
   } catch (err) {
+    exitCode = 1;
     app.log.error({ err, signal }, "error during shutdown");
   } finally {
-    process.exit(0);
+    process.exit(exitCode);
   }
 };
 
