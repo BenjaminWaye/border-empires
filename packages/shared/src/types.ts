@@ -7,9 +7,62 @@ export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "H
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
 export type FortStatus = "under_construction" | "active";
 export type SiegeOutpostStatus = "under_construction" | "active";
+export type ObservatoryStatus = "active" | "inactive";
 export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
 export type TownType = "MARKET" | "FARMING" | "ANCIENT";
+export type EmpireVisualTint = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
+export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
+export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
+export type EconomicStructureType = "FARMSTEAD" | "CAMP" | "MINE" | "MARKET";
+export type VictoryPressureObjectiveId =
+  | "TOWN_SUPREMACY"
+  | "ECONOMIC_DOMINANCE"
+  | "FORTRESS_BELT"
+  | "FORWARD_PRESSURE"
+  | "FRONTIER_REACH";
+
+export interface EmpireVisualStyle {
+  primaryOverlay: string;
+  secondaryTint: EmpireVisualTint;
+  borderStyle: EmpireBorderStyle;
+  structureAccent: EmpireStructureAccent;
+}
+
+export interface TileHistory {
+  lastOwnerId?: PlayerId | null;
+  previousOwners: PlayerId[];
+  captureCount: number;
+  lastCapturedAt?: number | null;
+  lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType | null;
+  structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType>;
+  wasMountainCreatedByPlayer?: boolean;
+  wasMountainRemovedByPlayer?: boolean;
+}
+
+export interface EconomicStructure {
+  id: string;
+  type: EconomicStructureType;
+  tileKey: TileKey;
+  ownerId: PlayerId;
+  isActive: boolean;
+  nextUpkeepAt: number;
+}
+
+export interface VictoryPressureObjectiveView {
+  id: VictoryPressureObjectiveId;
+  name: string;
+  description: string;
+  rewardLabel: string;
+  leaderPlayerId?: PlayerId;
+  leaderName: string;
+  progressLabel: string;
+  thresholdLabel: string;
+  holdDurationSeconds: number;
+  holdRemainingSeconds?: number;
+  statusLabel: string;
+  conditionMet: boolean;
+}
 
 export interface Tile {
   x: number;
@@ -19,6 +72,7 @@ export interface Tile {
   resource?: ResourceType;
   ownerId?: PlayerId;
   ownershipState?: OwnershipState;
+  capital?: boolean | undefined;
   breachShockUntil?: number;
   continentId?: number;
   clusterId?: string;
@@ -47,6 +101,10 @@ export interface Tile {
   };
   fort?: { ownerId: PlayerId; status: FortStatus; completesAt?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; completesAt?: number };
+  observatory?: { ownerId: PlayerId; status: ObservatoryStatus };
+  economicStructure?: { ownerId: PlayerId; type: EconomicStructureType; status: "active" | "inactive" };
+  sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };
+  history?: TileHistory;
   lastChangedAt: number;
 }
 
@@ -97,6 +155,7 @@ export interface MissionStats {
 export interface Player {
   id: PlayerId;
   name: string;
+  profileComplete?: boolean;
   points: number;
   level: number;
   techRootId?: string;
@@ -116,6 +175,7 @@ export interface Player {
   staminaUpdatedAt: number;
   allies: Set<PlayerId>;
   spawnOrigin?: TileKey;
+  capitalTileKey?: TileKey | undefined;
   spawnShieldUntil: number;
   isEliminated: boolean;
   respawnPending: boolean;
@@ -185,4 +245,24 @@ export interface SiegeOutpost {
   status: SiegeOutpostStatus;
   startedAt: number;
   completesAt: number;
+}
+
+export interface Observatory {
+  observatoryId: string;
+  ownerId: PlayerId;
+  tileKey: TileKey;
+  status: ObservatoryStatus;
+}
+
+export interface ActiveRevealEmpire {
+  casterPlayerId: string;
+  targetPlayerId: string;
+  isActive: boolean;
+}
+
+export interface ActiveSabotage {
+  targetTileKey: string;
+  casterPlayerId: string;
+  endsAt: number;
+  outputMultiplier: number;
 }

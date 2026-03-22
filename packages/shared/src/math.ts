@@ -1,9 +1,17 @@
-import { LEVEL_CURVE_C, RATING_A, RATING_B, UNDERDOG_K } from "./config.js";
+import { DEF_MULT_MAX, DEF_MULT_MIN, LEVEL_CURVE_C, RATING_A, RATING_B, UNDERDOG_K } from "./config.js";
 
 const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));
 
 export const wrapX = (x: number, width: number): number => (x + width) % width;
 export const wrapY = (y: number, height: number): number => (y + height) % height;
+
+export const exposureWeightFromSides = (exposedSides: number): number => {
+  const boundedSides = Math.max(0, Math.min(4, Math.round(exposedSides)));
+  if (boundedSides <= 1) return 0;
+  if (boundedSides === 2) return 1;
+  if (boundedSides === 3) return 2.5;
+  return 4;
+};
 
 export const exposureRatio = (T: number, E: number): number => {
   const safeT = Math.max(1, T);
@@ -12,9 +20,10 @@ export const exposureRatio = (T: number, E: number): number => {
 };
 
 export const defensivenessMultiplier = (T: number, E: number): number => {
-  // Defense efficiency is the inverse of exposure.
-  // 0.0 = fully exposed, 1.0 = fully enclosed.
-  return 1 - exposureRatio(T, E);
+  // Low exposure should reward compact empires with a strong defensive ceiling,
+  // while heavily exposed borders fall back to the configured floor.
+  const compactness = 1 - exposureRatio(T, E);
+  return clamp(1 + compactness * 1.05, DEF_MULT_MIN, DEF_MULT_MAX);
 };
 
 export const ratingFromPointsLevel = (points: number, level: number): number => {

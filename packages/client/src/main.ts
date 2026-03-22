@@ -1,9 +1,27 @@
 import "./style.css";
+import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
+import {
+  GoogleAuthProvider,
+  browserLocalPersistence,
+  createUserWithEmailAndPassword,
+  getAuth,
+  isSignInWithEmailLink,
+  onAuthStateChanged,
+  sendSignInLinkToEmail,
+  setPersistence,
+  signInWithEmailAndPassword,
+  signInWithEmailLink,
+  signInWithPopup,
+  signOut,
+  updateProfile,
+  type User
+} from "firebase/auth";
 import {
   CHUNK_SIZE,
   FORT_BUILD_COST,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
+  FRONTIER_CLAIM_COST,
   SETTLE_COST,
   SETTLE_MS,
   SIEGE_OUTPOST_ATTACK_MULT,
@@ -18,6 +36,10 @@ import {
   terrainAt
 } from "@border-empires/shared";
 
+const OBSERVATORY_BUILD_COST = 600;
+const OBSERVATORY_VISION_BONUS = 5;
+const OBSERVATORY_PROTECTION_RADIUS = 10;
+
 type Tile = {
   x: number;
   y: number;
@@ -26,6 +48,7 @@ type Tile = {
   resource?: string;
   ownerId?: string;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+  capital?: boolean;
   breachShockUntil?: number;
   clusterId?: string;
   clusterType?: string;
@@ -40,10 +63,30 @@ type Tile = {
     foodUpkeepPerMinute?: number;
   };
   fort?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
+  observatory?: { ownerId: string; status: "active" | "inactive" };
   siegeOutpost?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
+  economicStructure?: { ownerId: string; type: "FARMSTEAD" | "CAMP" | "MINE" | "MARKET"; status: "active" | "inactive" };
+  sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
+  history?: {
+    lastOwnerId?: string | null;
+    previousOwners: string[];
+    captureCount: number;
+    lastCapturedAt?: number | null;
+    lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | null;
+    structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET">;
+    wasMountainCreatedByPlayer?: boolean;
+    wasMountainRemovedByPlayer?: boolean;
+  };
   yield?: { gold?: number; strategic?: Record<string, number> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
+};
+
+type EmpireVisualStyle = {
+  primaryOverlay: string;
+  secondaryTint: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
+  borderStyle: "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
+  structureAccent: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
 };
 
 type AllianceRequest = {
@@ -56,11 +99,13 @@ type AllianceRequest = {
 type TechInfo = {
   id: string;
   name: string;
+  tier: number;
   rootId?: string;
   requires?: string;
   prereqIds?: string[];
   description: string;
   mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
+  effects?: Record<string, unknown>;
   requirements: {
     gold: number;
     resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
@@ -76,7 +121,7 @@ type DomainInfo = {
   description: string;
   requiresTechId: string;
   mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-  effects?: { revealUpkeepMult?: number; revealCapacityBonus?: number };
+  effects?: Record<string, unknown>;
   requirements: {
     gold: number;
     resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
@@ -86,6 +131,20 @@ type DomainInfo = {
 };
 type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number };
 type LeaderboardMetricEntry = { id: string; name: string; value: number };
+type VictoryPressureObjectiveView = {
+  id: "TOWN_SUPREMACY" | "ECONOMIC_DOMINANCE" | "FORTRESS_BELT" | "FORWARD_PRESSURE" | "FRONTIER_REACH";
+  name: string;
+  description: string;
+  rewardLabel: string;
+  leaderPlayerId?: string;
+  leaderName: string;
+  progressLabel: string;
+  thresholdLabel: string;
+  holdDurationSeconds: number;
+  holdRemainingSeconds?: number;
+  statusLabel: string;
+  conditionMet: boolean;
+};
 type MissionState = {
   id: string;
   name: string;
@@ -107,6 +166,7 @@ type FeedEntry = {
   at: number;
 };
 type DockPair = { ax: number; ay: number; bx: number; by: number };
+type CrystalTargetingAbility = "deep_strike" | "naval_infiltration" | "sabotage";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#game");
 const hud = document.querySelector<HTMLDivElement>("#hud");
@@ -132,8 +192,14 @@ hud.innerHTML = `
     <div id="selected"></div>
     <div id="hover"></div>
     <div class="row">
-      <button id="center-me-desktop" class="panel-btn">Center On My Tile</button>
-      <button id="collect-visible-desktop" class="panel-btn">Collect Visible</button>
+      <button id="center-me-desktop" class="panel-btn utility-btn" type="button">
+        <span class="utility-btn-icon" aria-hidden="true">◎</span>
+        <span class="utility-btn-copy"><strong>Center</strong><small>Jump to your banner</small></span>
+      </button>
+      <button id="collect-visible-desktop" class="panel-btn utility-btn utility-btn-collect" type="button">
+        <span class="utility-btn-icon" aria-hidden="true">✦</span>
+        <span class="utility-btn-copy"><strong>Collect</strong><small>Gather visible yield</small></span>
+      </button>
     </div>
   </div>
 
@@ -168,8 +234,114 @@ hud.innerHTML = `
     </div>
   </div>
 
+  <div id="auth-overlay">
+    <div id="auth-card">
+      <section class="auth-panel" data-mode="login">
+        <div class="auth-minimal-head">
+          <div class="auth-brand">
+            <span class="auth-brand-glyph" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M12 3 19 6v5c0 5.1-2.95 8.68-7 10-4.05-1.32-7-4.9-7-10V6l7-3Z" />
+              </svg>
+            </span>
+            <span class="auth-brand-text">Border Empires</span>
+          </div>
+          <p id="auth-copy">Sign in to reopen your empire.</p>
+        </div>
+        <div class="auth-panel-emblem" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"></polyline>
+            <line x1="13" x2="19" y1="19" y2="13"></line>
+            <line x1="16" x2="20" y1="16" y2="20"></line>
+            <line x1="19" x2="21" y1="21" y2="19"></line>
+            <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"></polyline>
+            <line x1="5" x2="9" y1="14" y2="18"></line>
+            <line x1="7" x2="4" y1="17" y2="20"></line>
+            <line x1="3" x2="5" y1="19" y2="21"></line>
+          </svg>
+        </div>
+        <div class="auth-panel-head">
+          <div class="auth-panel-title">Sign in to your empire</div>
+          <div class="auth-panel-subtitle">Choose your preferred method</div>
+        </div>
+        <div class="auth-login-state">
+          <button id="auth-google" class="panel-btn auth-google-btn auth-primary-sso">
+            <span class="auth-google-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.44a5.51 5.51 0 0 1-2.4 3.62v3.01h3.89c2.27-2.09 3.56-5.17 3.56-8.66Z"></path>
+                <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.89-3.01c-1.08.73-2.46 1.16-4.06 1.16-3.12 0-5.76-2.11-6.7-4.95H1.28v3.11A12 12 0 0 0 12 24Z"></path>
+                <path fill="#FBBC05" d="M5.3 14.29A7.2 7.2 0 0 1 4.93 12c0-.79.14-1.55.37-2.29V6.6H1.28A12 12 0 0 0 0 12c0 1.94.46 3.78 1.28 5.4l4.02-3.11Z"></path>
+                <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.58 1.79l3.43-3.43C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.6l4.02 3.11c.94-2.84 3.58-4.94 6.7-4.94Z"></path>
+              </svg>
+            </span>
+            <span>Continue with Google</span>
+          </button>
+          <div class="auth-divider"><span>Or</span></div>
+          <div class="auth-email-entry">
+            <span class="auth-email-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M4 6h16v12H4z" />
+                <path d="m5 7 7 6 7-6" />
+              </svg>
+            </span>
+            <input id="auth-email" type="email" placeholder="your@email.com" autocomplete="email" />
+          </div>
+          <button id="auth-email-link" class="panel-btn auth-email-cta">Continue with Email</button>
+        </div>
+        <div class="auth-confirmation-state">
+          <div class="auth-confirmation-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M4 6h16v12H4z" />
+              <path d="m5 7 7 6 7-6" />
+            </svg>
+          </div>
+          <div class="auth-confirmation-copy">
+            <h3>Check your email</h3>
+            <p>We've sent a magic link to <span id="auth-email-sent-address"></span></p>
+          </div>
+          <button id="auth-email-reset" type="button">Try a different email</button>
+        </div>
+        <div class="auth-onboarding-state">
+          <div class="auth-onboarding-head">
+            <div class="auth-panel-title">Found your first standard.</div>
+            <div class="auth-panel-subtitle">Choose the name and color other empires will remember.</div>
+          </div>
+          <input id="auth-profile-name" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" />
+          <div class="auth-color-block">
+            <div class="auth-color-label">Nation color</div>
+            <div id="auth-color-presets" class="auth-color-presets">
+              <button type="button" class="auth-color-swatch" data-color="#38b000" style="--swatch:#38b000"></button>
+              <button type="button" class="auth-color-swatch" data-color="#f59e0b" style="--swatch:#f59e0b"></button>
+              <button type="button" class="auth-color-swatch" data-color="#3b82f6" style="--swatch:#3b82f6"></button>
+              <button type="button" class="auth-color-swatch" data-color="#ef4444" style="--swatch:#ef4444"></button>
+              <button type="button" class="auth-color-swatch" data-color="#8b5cf6" style="--swatch:#8b5cf6"></button>
+              <button type="button" class="auth-color-swatch" data-color="#ec4899" style="--swatch:#ec4899"></button>
+            </div>
+            <label class="auth-color-custom">
+              <span>Custom</span>
+              <input id="auth-profile-color" type="color" value="#38b000" />
+            </label>
+          </div>
+          <button id="auth-profile-save" class="panel-btn auth-email-cta" type="button">Enter the map</button>
+        </div>
+        <div class="auth-legal">By continuing, you agree to our <a href="/terms.html" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a></div>
+        <div id="auth-status"></div>
+        <p class="auth-hint">No password needed. We'll send you a secure link.</p>
+        <div class="auth-legacy-controls" hidden>
+          <input id="auth-display-name" type="text" placeholder="Display name" autocomplete="nickname" />
+          <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" />
+          <div class="auth-actions">
+            <button id="auth-login" class="panel-btn">Log In</button>
+            <button id="auth-register" class="panel-btn">Create Account</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
   <div id="hold-build-menu" style="display:none;"></div>
   <div id="tile-action-menu" style="display:none;"></div>
+  <div id="targeting-overlay" style="display:none;"></div>
 
   <div id="mobile-nav">
     <button data-mobile-panel="core">Core</button>
@@ -180,20 +352,28 @@ hud.innerHTML = `
   </div>
 
   <div id="mobile-core" class="mobile-panel">
-    <div class="row">
-      <button id="center-me" class="panel-btn">Center On My Tile</button>
-      <button id="refresh" class="panel-btn">Refresh View</button>
-      <button id="fog-toggle-mobile" class="panel-btn">Fog: On</button>
+    <div id="mobile-core-help" class="card mobile-context-card"></div>
+    <div class="row mobile-utility-row">
+      <button id="center-me" class="panel-btn utility-btn utility-btn-mobile" type="button">
+        <span class="utility-btn-icon" aria-hidden="true">◎</span>
+        <span class="utility-btn-copy"><strong>Center</strong><small>Own tile</small></span>
+      </button>
+      <button id="collect-visible-mobile" class="panel-btn utility-btn utility-btn-collect utility-btn-mobile" type="button">
+        <span class="utility-btn-icon" aria-hidden="true">✦</span>
+        <span class="utility-btn-copy"><strong>Collect</strong><small>Visible yield</small></span>
+      </button>
+      <button id="refresh" class="panel-btn">Refresh</button>
+      <button id="fog-toggle-mobile" class="panel-btn">Fog On</button>
     </div>
-    <div class="row">
+    <div class="row mobile-style-row">
       <input id="tile-color" type="color" value="#38b000" />
-      <button id="set-color" class="panel-btn">Set My Tile Color</button>
+      <button id="set-color" class="panel-btn">Apply Tint</button>
     </div>
-    <div class="row">
-      <button id="settle-mobile" class="panel-btn">Settle Selected</button>
-      <button id="build-fort-mobile" class="panel-btn">Build Fort On Selected</button>
-      <button id="build-siege-mobile" class="panel-btn">Build Siege Outpost</button>
-      <button id="uncapture-mobile" class="panel-btn">Uncapture Selected</button>
+    <div class="row mobile-action-grid">
+      <button id="settle-mobile" class="panel-btn">Settle</button>
+      <button id="build-fort-mobile" class="panel-btn">Fort</button>
+      <button id="build-siege-mobile" class="panel-btn">Siege</button>
+      <button id="uncapture-mobile" class="panel-btn">Release</button>
     </div>
   </div>
 
@@ -205,19 +385,27 @@ hud.innerHTML = `
     <div id="side-panel-body">
       <section id="panel-missions" class="panel-body"></section>
       <section id="panel-tech" class="panel-body">
-        <div id="tech-summary-card" class="card"></div>
-        <div id="tech-current-mods"></div>
-        <div class="card tech-legacy-controls">
-          <div id="tech-points"></div>
-          <div class="row">
-            <select id="tech-pick"></select>
-            <button id="tech-choose" class="panel-btn">Choose</button>
-          </div>
-          <div id="tech-choice-details"></div>
+        <div class="tech-section-tabs">
+          <button class="tech-section-tab active" data-tech-section="research">Research</button>
+          <button class="tech-section-tab" data-tech-section="domains">Domains</button>
         </div>
-        <div id="tech-choices-grid"></div>
-        <div id="tech-detail-card"></div>
-        <div id="tech-owned"></div>
+        <div id="tech-research-section" class="tech-section-panel">
+          <div id="tech-current-mods"></div>
+          <div class="card tech-legacy-controls">
+            <div id="tech-points"></div>
+            <div class="row">
+              <select id="tech-pick"></select>
+              <button id="tech-choose" class="panel-btn">Choose</button>
+            </div>
+            <div id="tech-choice-details"></div>
+          </div>
+          <div id="tech-choices-grid"></div>
+          <div id="tech-detail-card"></div>
+          <div id="tech-owned"></div>
+        </div>
+        <div id="tech-domains-section" class="tech-section-panel" style="display:none">
+          <div id="tech-domains"></div>
+        </div>
       </section>
       <section id="panel-alliance" class="panel-body">
         <div class="row">
@@ -254,19 +442,27 @@ hud.innerHTML = `
     <div id="mobile-sheet-head">Panel</div>
     <section id="mobile-panel-missions" class="mobile-panel"></section>
     <section id="mobile-panel-tech" class="mobile-panel">
-      <div id="mobile-tech-summary-card" class="card"></div>
-      <div id="mobile-tech-current-mods"></div>
-      <div class="card tech-legacy-controls">
-        <div id="mobile-tech-points"></div>
-        <div class="row">
-          <select id="mobile-tech-pick"></select>
-          <button id="mobile-tech-choose" class="panel-btn">Choose</button>
-        </div>
-        <div id="mobile-tech-choice-details"></div>
+      <div class="tech-section-tabs">
+        <button class="tech-section-tab active" data-tech-section="research">Research</button>
+        <button class="tech-section-tab" data-tech-section="domains">Domains</button>
       </div>
-      <div id="mobile-tech-choices-grid"></div>
-      <div id="mobile-tech-detail-card"></div>
-      <div id="mobile-tech-owned"></div>
+      <div id="mobile-tech-research-section" class="tech-section-panel">
+        <div id="mobile-tech-current-mods"></div>
+        <div class="card tech-legacy-controls">
+          <div id="mobile-tech-points"></div>
+          <div class="row">
+            <select id="mobile-tech-pick"></select>
+            <button id="mobile-tech-choose" class="panel-btn">Choose</button>
+          </div>
+          <div id="mobile-tech-choice-details"></div>
+        </div>
+        <div id="mobile-tech-choices-grid"></div>
+        <div id="mobile-tech-detail-card"></div>
+        <div id="mobile-tech-owned"></div>
+      </div>
+      <div id="mobile-tech-domains-section" class="tech-section-panel" style="display:none">
+        <div id="mobile-tech-domains"></div>
+      </div>
     </section>
     <section id="mobile-panel-social" class="mobile-panel">
       <div class="row">
@@ -284,9 +480,7 @@ hud.innerHTML = `
       <div id="mobile-leaderboard"></div>
       <div id="mobile-feed"></div>
     </section>
-    <section id="mobile-panel-core" class="mobile-panel">
-      <div id="mobile-core-help"></div>
-    </section>
+    <section id="mobile-panel-core" class="mobile-panel"></section>
   </div>
 
 `;
@@ -310,8 +504,25 @@ const mapLoadingRowEl = document.querySelector<HTMLDivElement>("#map-loading-row
 const mapLoadingSpinnerEl = document.querySelector<HTMLDivElement>("#map-loading-spinner");
 const mapLoadingTitleEl = document.querySelector<HTMLDivElement>("#map-loading-title");
 const mapLoadingMetaEl = document.querySelector<HTMLDivElement>("#map-loading-meta");
+const authOverlayEl = document.querySelector<HTMLDivElement>("#auth-overlay");
+const authDisplayNameEl = document.querySelector<HTMLInputElement>("#auth-display-name");
+const authEmailEl = document.querySelector<HTMLInputElement>("#auth-email");
+const authPasswordEl = document.querySelector<HTMLInputElement>("#auth-password");
+const authLoginBtn = document.querySelector<HTMLButtonElement>("#auth-login");
+const authRegisterBtn = document.querySelector<HTMLButtonElement>("#auth-register");
+const authEmailLinkBtn = document.querySelector<HTMLButtonElement>("#auth-email-link");
+const authGoogleBtn = document.querySelector<HTMLButtonElement>("#auth-google");
+const authStatusEl = document.querySelector<HTMLDivElement>("#auth-status");
+const authPanelEl = document.querySelector<HTMLElement>(".auth-panel");
+const authEmailSentAddressEl = document.querySelector<HTMLSpanElement>("#auth-email-sent-address");
+const authEmailResetBtn = document.querySelector<HTMLButtonElement>("#auth-email-reset");
+const authProfileNameEl = document.querySelector<HTMLInputElement>("#auth-profile-name");
+const authProfileColorEl = document.querySelector<HTMLInputElement>("#auth-profile-color");
+const authProfileSaveBtn = document.querySelector<HTMLButtonElement>("#auth-profile-save");
+const authColorPresetButtons = document.querySelectorAll<HTMLButtonElement>("#auth-color-presets .auth-color-swatch");
 const holdBuildMenuEl = document.querySelector<HTMLDivElement>("#hold-build-menu");
 const tileActionMenuEl = document.querySelector<HTMLDivElement>("#tile-action-menu");
+const targetingOverlayEl = document.querySelector<HTMLDivElement>("#targeting-overlay");
 const sidePanelEl = document.querySelector<HTMLElement>("#side-panel");
 const sidePanelBodyEl = document.querySelector<HTMLDivElement>("#side-panel-body");
 const panelTitleEl = document.querySelector<HTMLHeadingElement>("#panel-title");
@@ -331,10 +542,10 @@ const feedEl = document.querySelector<HTMLDivElement>("#feed");
 const techPickEl = document.querySelector<HTMLSelectElement>("#tech-pick");
 const techPointsEl = document.querySelector<HTMLDivElement>("#tech-points");
 const techCurrentModsEl = document.querySelector<HTMLDivElement>("#tech-current-mods");
-const techSummaryCardEl = document.querySelector<HTMLDivElement>("#tech-summary-card");
 const techChoicesGridEl = document.querySelector<HTMLDivElement>("#tech-choices-grid");
 const techDetailCardEl = document.querySelector<HTMLDivElement>("#tech-detail-card");
 const techOwnedEl = document.querySelector<HTMLDivElement>("#tech-owned");
+const techDomainsEl = document.querySelector<HTMLDivElement>("#tech-domains");
 const techChoiceDetailsEl = document.querySelector<HTMLDivElement>("#tech-choice-details");
 const allianceTargetEl = document.querySelector<HTMLInputElement>("#alliance-target");
 const allianceBreakIdEl = document.querySelector<HTMLInputElement>("#alliance-break-id");
@@ -359,10 +570,10 @@ const mobileTechPickEl = document.querySelector<HTMLSelectElement>("#mobile-tech
 const mobileTechChooseBtn = document.querySelector<HTMLButtonElement>("#mobile-tech-choose");
 const mobileTechPointsEl = document.querySelector<HTMLDivElement>("#mobile-tech-points");
 const mobileTechCurrentModsEl = document.querySelector<HTMLDivElement>("#mobile-tech-current-mods");
-const mobileTechSummaryCardEl = document.querySelector<HTMLDivElement>("#mobile-tech-summary-card");
 const mobileTechChoicesGridEl = document.querySelector<HTMLDivElement>("#mobile-tech-choices-grid");
 const mobileTechDetailCardEl = document.querySelector<HTMLDivElement>("#mobile-tech-detail-card");
 const mobileTechOwnedEl = document.querySelector<HTMLDivElement>("#mobile-tech-owned");
+const mobileTechDomainsEl = document.querySelector<HTMLDivElement>("#mobile-tech-domains");
 const mobileTechChoiceDetailsEl = document.querySelector<HTMLDivElement>("#mobile-tech-choice-details");
 const mobileAllianceTargetEl = document.querySelector<HTMLInputElement>("#mobile-alliance-target");
 const mobileAllianceBreakIdEl = document.querySelector<HTMLInputElement>("#mobile-alliance-break-id");
@@ -371,6 +582,7 @@ const mobileAllianceBreakBtn = document.querySelector<HTMLButtonElement>("#mobil
 const mobileAllianceRequestsEl = document.querySelector<HTMLDivElement>("#mobile-alliance-requests");
 const mobileAlliesListEl = document.querySelector<HTMLDivElement>("#mobile-allies-list");
 const centerMeBtn = document.querySelector<HTMLButtonElement>("#center-me");
+const collectVisibleMobileBtn = document.querySelector<HTMLButtonElement>("#collect-visible-mobile");
 const refreshBtn = document.querySelector<HTMLButtonElement>("#refresh");
 const centerMeDesktopBtn = document.querySelector<HTMLButtonElement>("#center-me-desktop");
 const collectVisibleDesktopBtn = document.querySelector<HTMLButtonElement>("#collect-visible-desktop");
@@ -401,8 +613,24 @@ if (
   !mapLoadingSpinnerEl ||
   !mapLoadingTitleEl ||
   !mapLoadingMetaEl ||
+  !authOverlayEl ||
+  !authDisplayNameEl ||
+  !authEmailEl ||
+  !authPasswordEl ||
+  !authLoginBtn ||
+  !authRegisterBtn ||
+  !authEmailLinkBtn ||
+  !authGoogleBtn ||
+  !authStatusEl ||
+  !authPanelEl ||
+  !authEmailSentAddressEl ||
+  !authEmailResetBtn ||
+  !authProfileNameEl ||
+  !authProfileColorEl ||
+  !authProfileSaveBtn ||
   !holdBuildMenuEl ||
   !tileActionMenuEl ||
+  !targetingOverlayEl ||
   !sidePanelEl ||
   !sidePanelBodyEl ||
   !panelTitleEl ||
@@ -421,10 +649,10 @@ if (
   !techPickEl ||
   !techPointsEl ||
   !techCurrentModsEl ||
-  !techSummaryCardEl ||
   !techChoicesGridEl ||
   !techDetailCardEl ||
   !techOwnedEl ||
+  !techDomainsEl ||
   !techChoiceDetailsEl ||
   !allianceTargetEl ||
   !allianceBreakIdEl ||
@@ -449,10 +677,10 @@ if (
   !mobileTechChooseBtn ||
   !mobileTechPointsEl ||
   !mobileTechCurrentModsEl ||
-  !mobileTechSummaryCardEl ||
   !mobileTechChoicesGridEl ||
   !mobileTechDetailCardEl ||
   !mobileTechOwnedEl ||
+  !mobileTechDomainsEl ||
   !mobileTechChoiceDetailsEl ||
   !mobileAllianceTargetEl ||
   !mobileAllianceBreakIdEl ||
@@ -461,6 +689,7 @@ if (
   !mobileAllianceRequestsEl ||
   !mobileAlliesListEl ||
   !centerMeBtn ||
+  !collectVisibleMobileBtn ||
   !refreshBtn ||
   !centerMeDesktopBtn ||
   !collectVisibleDesktopBtn ||
@@ -479,6 +708,15 @@ const state = {
   me: "",
   meName: "",
   connection: "connecting" as "connecting" | "connected" | "initialized" | "disconnected",
+  authReady: false,
+  authSessionReady: false,
+  hasEverInitialized: false,
+  authBusy: false,
+  authRetrying: false,
+  authConfigured: false,
+  authUserLabel: "",
+  authError: "",
+  profileSetupRequired: false,
   gold: 0,
   level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
@@ -528,21 +766,27 @@ const state = {
   domainUiSelectedId: "" as string,
   revealCapacity: 1,
   activeRevealTargets: [] as string[],
+  abilityCooldowns: {} as Partial<Record<"deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain", number>>,
   revealTargetId: "" as string,
   allies: [] as string[],
   playerColors: new Map<string, string>(),
+  playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   incomingAllianceRequests: [] as AllianceRequest[],
   feed: [] as FeedEntry[],
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
+  captureAlert: undefined as { title: string; detail: string; until: number; tone: "error" | "warn" } | undefined,
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     byTiles: [] as LeaderboardMetricEntry[],
     byIncome: [] as LeaderboardMetricEntry[],
     byTechs: [] as LeaderboardMetricEntry[]
   },
+  victoryPressure: [] as VictoryPressureObjectiveView[],
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "missions" | "tech" | "social" | "intel",
   activePanel: null as "missions" | "tech" | "alliance" | "leaderboard" | "feed" | "settings" | null,
+  unreadAttackAlerts: 0,
+  techSection: "research" as "research" | "domains",
   techUiSelectedId: "" as string,
   techChoicesSig: "" as string,
   actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
@@ -559,6 +803,7 @@ const state = {
         valid: boolean;
         reason?: string;
         winChance?: number;
+        breakthroughWinChance?: number;
         atkEff?: number;
         defEff?: number;
         defenseEffPct?: number;
@@ -587,6 +832,12 @@ const state = {
     mode: "single" as "single" | "bulk",
     bulkKeys: [] as string[]
   },
+  crystalTargeting: {
+    active: false,
+    ability: "deep_strike" as CrystalTargetingAbility,
+    validTargets: new Set<string>(),
+    originByTarget: new Map<string, string>()
+  },
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
   chunkFullCount: 0
@@ -595,6 +846,31 @@ const state = {
 const miniMapCtx = miniMapEl.getContext("2d");
 if (!miniMapCtx) throw new Error("missing minimap context");
 const miniMapBase = document.createElement("canvas");
+
+const firebaseConfig = (() => {
+  const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
+  const authDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? "border-empires.firebaseapp.com";
+  const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
+  const appId = (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined) ?? "1:979056688511:web:d0af9a130d6eabacf36e4a";
+  if (!apiKey || !authDomain || !projectId || !appId) return undefined;
+  const config: FirebaseOptions = { apiKey, authDomain, projectId, appId };
+  const storageBucket = (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string | undefined) ?? "border-empires.firebasestorage.app";
+  const messagingSenderId = (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined) ?? "979056688511";
+  const measurementId = (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string | undefined) ?? "G-8FH65YL4QD";
+  if (storageBucket) config.storageBucket = storageBucket;
+  if (messagingSenderId) config.messagingSenderId = messagingSenderId;
+  if (measurementId) config.measurementId = measurementId;
+  return config;
+})();
+
+const firebaseApp = firebaseConfig ? (getApps()[0] ?? initializeApp(firebaseConfig)) : undefined;
+const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : undefined;
+const googleProvider = firebaseAuth ? new GoogleAuthProvider() : undefined;
+let authToken = "";
+let authUid = "";
+let authEmailLinkSentTo = "";
+let authEmailLinkPending = false;
+const EMAIL_LINK_STORAGE_KEY = "be_auth_email_link";
 miniMapBase.width = miniMapEl.width;
 miniMapBase.height = miniMapEl.height;
 const miniMapBaseCtx = miniMapBase.getContext("2d");
@@ -642,11 +918,232 @@ const hashString = (s: string): number => {
   return h >>> 0;
 };
 const ownerColor = (ownerId: string): string => {
-  if (ownerId === "barbarian") return "#0a0a0d";
+  if (ownerId === "barbarian") return "#2f3842";
   const h = hashString(ownerId) % 360;
   return `hsl(${h} 70% 48%)`;
 };
 const effectiveColor = (ownerId: string): string => state.playerColors.get(ownerId) ?? ownerColor(ownerId);
+const visualStyleForOwner = (ownerId: string): EmpireVisualStyle | undefined => state.playerVisualStyles.get(ownerId);
+const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => `${c}${c}`).join("") : clean;
+  const value = Number.parseInt(full, 16);
+  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
+};
+const rgbToHex = (r: number, g: number, b: number): string =>
+  `#${[r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`;
+const blendHex = (base: string, target: string, amount: number): string => {
+  if (!base.startsWith("#") || !target.startsWith("#")) return base;
+  const a = hexToRgb(base);
+  const b = hexToRgb(target);
+  return rgbToHex(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount, a.b + (b.b - a.b) * amount);
+};
+const tintTargetForStyle = (style: EmpireVisualStyle | undefined): string | undefined => {
+  if (!style) return undefined;
+  if (style.secondaryTint === "IRON") return "#3d4755";
+  if (style.secondaryTint === "SUPPLY") return "#6b4f2e";
+  if (style.secondaryTint === "FOOD") return "#718b42";
+  if (style.secondaryTint === "CRYSTAL") return "#4677b8";
+  return undefined;
+};
+const effectiveOverlayColor = (ownerId: string): string => {
+  const base = effectiveColor(ownerId);
+  const tint = tintTargetForStyle(visualStyleForOwner(ownerId));
+  return tint ? blendHex(base, tint, 0.24) : base;
+};
+const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): string => {
+  if (ownerId === "barbarian") return "rgba(95, 108, 122, 0.8)";
+  const style = visualStyleForOwner(ownerId);
+  if (!style) return stateName === "FRONTIER" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.55)";
+  if (style.borderStyle === "HEAVY") return "rgba(58, 66, 82, 0.9)";
+  if (style.borderStyle === "DASHED") return "rgba(198, 167, 112, 0.82)";
+  if (style.borderStyle === "SOFT") return "rgba(176, 221, 133, 0.88)";
+  if (style.borderStyle === "GLOW") return "rgba(126, 208, 255, 0.92)";
+  return stateName === "FRONTIER" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.55)";
+};
+const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): number => {
+  const style = visualStyleForOwner(ownerId);
+  if (!style) return stateName === "SETTLED" ? 2 : 1;
+  if (style.borderStyle === "HEAVY") return 3;
+  if (style.borderStyle === "GLOW") return 2.5;
+  if (style.borderStyle === "SOFT") return 2.25;
+  return stateName === "SETTLED" ? 2 : 1.5;
+};
+const structureAccentColor = (ownerId: string, fallback: string): string => {
+  const style = visualStyleForOwner(ownerId);
+  if (!style) return fallback;
+  if (style.structureAccent === "IRON") return "rgba(160, 176, 196, 0.96)";
+  if (style.structureAccent === "SUPPLY") return "rgba(232, 176, 94, 0.95)";
+  if (style.structureAccent === "FOOD") return "rgba(176, 233, 122, 0.95)";
+  if (style.structureAccent === "CRYSTAL") return "rgba(131, 221, 255, 0.95)";
+  return fallback;
+};
+const shortOwnerHistoryLabel = (ownerId?: string | null): string => {
+  if (!ownerId) return "Unknown";
+  if (ownerId === state.me) return "you";
+  if (ownerId === "barbarian") return "Barbarians";
+  return `Empire ${ownerId.slice(0, 8)}`;
+};
+const tileHistoryLines = (tile: Tile): string[] => {
+  const history = tile.history;
+  if (!history) return [];
+  const lines: string[] = [];
+  if (history.captureCount > 0) lines.push(`Captured ${history.captureCount} time${history.captureCount === 1 ? "" : "s"}`);
+  if (history.lastOwnerId) lines.push(`Last held by ${shortOwnerHistoryLabel(history.lastOwnerId)}`);
+  if (history.wasMountainCreatedByPlayer) lines.push("Artificial mountain");
+  if (history.wasMountainRemovedByPlayer) lines.push("Former mountain pass");
+  if (history.lastStructureType) {
+    const label =
+      history.lastStructureType === "FORT"
+        ? "Former Fort site"
+        : history.lastStructureType === "SIEGE_OUTPOST"
+          ? "Former Siege Outpost site"
+          : history.lastStructureType === "OBSERVATORY"
+            ? "Former Observatory site"
+            : history.lastStructureType === "FARMSTEAD"
+              ? "Former Farmstead site"
+              : history.lastStructureType === "CAMP"
+                ? "Former Camp site"
+                : history.lastStructureType === "MINE"
+                  ? "Former Mine site"
+                  : "Former Market site";
+    lines.push(label);
+  }
+  return lines;
+};
+const economicStructureIcon = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
+  if (type === "FARMSTEAD") return "▥";
+  if (type === "CAMP") return "⛺";
+  if (type === "MINE") return "⛏";
+  return "▣";
+};
+const economicStructureName = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
+  if (type === "FARMSTEAD") return "Farmstead";
+  if (type === "CAMP") return "Camp";
+  if (type === "MINE") return "Mine";
+  return "Market";
+};
+
+const aggregateOwnedTownEffects = (): { townGoldOutputMult: number; townGoldOutputIfFedMult: number } => {
+  let townGoldOutputMult = 1;
+  let townGoldOutputIfFedMult = 1;
+  for (const tech of state.techCatalog) {
+    if (!state.techIds.includes(tech.id) || !tech.effects) continue;
+    const direct = tech.effects as Record<string, unknown>;
+    if (typeof direct.townGoldOutputMult === "number") townGoldOutputMult *= direct.townGoldOutputMult;
+    if (typeof direct.townGoldOutputIfFedMult === "number") townGoldOutputIfFedMult *= direct.townGoldOutputIfFedMult;
+  }
+  for (const domain of state.domainCatalog) {
+    if (!state.domainIds.includes(domain.id) || !domain.effects) continue;
+    const direct = domain.effects as Record<string, unknown>;
+    if (typeof direct.townGoldOutputMult === "number") townGoldOutputMult *= direct.townGoldOutputMult;
+    if (typeof direct.townGoldOutputIfFedMult === "number") townGoldOutputIfFedMult *= direct.townGoldOutputIfFedMult;
+  }
+  return { townGoldOutputMult, townGoldOutputIfFedMult };
+};
+
+const projectedFoodCoverage = (): number => {
+  const need = state.upkeepPerMinute.food ?? 0;
+  if (need <= 0) return 1;
+  const stock = state.strategicResources.FOOD ?? 0;
+  if (stock > 0.001) return 1;
+  const production = state.strategicProductionPerMinute.FOOD ?? 0;
+  if (production <= 0) return 0;
+  return Math.max(state.upkeepLastTick.foodCoverage ?? 0, Math.min(1, production / need));
+};
+
+const displayTownGoldPerMinute = (tile: Tile): number => {
+  if (!tile.town) return 0;
+  if (tile.ownerId !== state.me) return tile.town.goldPerMinute;
+  const ratio = tile.town.supportMax <= 0 ? 1 : tile.town.supportCurrent / tile.town.supportMax;
+  const effects = aggregateOwnedTownEffects();
+  const coverage = projectedFoodCoverage();
+  let income = tile.town.baseGoldPerMinute * (0.35 + 0.65 * ratio) * coverage * effects.townGoldOutputMult;
+  if (coverage >= 0.999) {
+    income *= effects.townGoldOutputIfFedMult;
+    if (tile.economicStructure?.type === "MARKET" && tile.economicStructure.status === "active") income *= 1.5;
+  }
+  return income;
+};
+
+const storedYieldSummary = (tile: Tile): string => {
+  const parts: string[] = [];
+  const gold = tile.yield?.gold ?? 0;
+  const goldCap = tile.yieldCap?.gold ?? 0;
+  if (gold > 0.01 || goldCap > 0) {
+    parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${goldCap.toFixed(0)}`);
+  }
+  const strategicCap = tile.yieldCap?.strategicEach ?? 0;
+  for (const [resource, value] of Object.entries(tile.yield?.strategic ?? {})) {
+    if (Number(value) <= 0.01 && strategicCap <= 0) continue;
+    parts.push(`${resourceIconForKey(resource)} ${Number(value).toFixed(2)} / ${strategicCap.toFixed(1)}`);
+  }
+  return parts.join(" · ");
+};
+
+const inspectionHtmlForTile = (tile: Tile): string => {
+  const ownerLabel = tile.ownerId ? (tile.ownerId === state.me ? "you" : tile.ownerId.slice(0, 8)) : "neutral";
+  const tags = [
+    tile.ownershipState ? prettyToken(tile.ownershipState) : "",
+    tile.regionType ? prettyToken(tile.regionType) : "",
+    tile.clusterType ? prettyToken(tile.clusterType) : "",
+    tile.capital ? "Capital" : "",
+    tile.dockId ? "Dock" : "",
+    tile.fort ? `Fort ${prettyToken(tile.fort.status)}` : "",
+    tile.observatory ? `Observatory ${prettyToken(tile.observatory.status)}` : "",
+    tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} ${prettyToken(tile.economicStructure.status)}` : "",
+    hostileObservatoryProtectingTile(tile) ? "Protected Field" : "",
+    tile.siegeOutpost ? `Siege ${prettyToken(tile.siegeOutpost.status)}` : "",
+    tile.sabotage && tile.sabotage.endsAt > Date.now() ? `Sabotaged ${Math.ceil((tile.sabotage.endsAt - Date.now()) / 60000)}m` : "",
+    tile.breachShockUntil && tile.breachShockUntil > Date.now() ? "Breach-shocked" : ""
+  ].filter(Boolean);
+  const townBits: string[] = [];
+  if (tile.town) {
+    townBits.push(`${prettyToken(tile.town.type)} town`);
+    townBits.push(`${resourceIconForKey("GOLD")} ${displayTownGoldPerMinute(tile).toFixed(2)}/m`);
+    townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
+    if (typeof tile.town.foodUpkeepPerMinute === "number") {
+      townBits.push(`${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`);
+    }
+  }
+  const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
+    .filter(([, v]) => Number(v) > 0)
+    .map(([r, v]) => `${resourceIconForKey(r)} ${Number(v).toFixed(1)}/day`);
+  const prodInfo = (() => {
+    const gpm = tile.town ? 0 : tile.yieldRate?.goldPerMinute ?? 0;
+    const parts: string[] = [];
+    if (gpm > 0) parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
+    parts.push(...prodStrategic);
+    return parts.length > 0 ? parts.join("  ") : "";
+  })();
+  const historyLines = tileHistoryLines(tile);
+  const topLine = [
+    `<strong>${tile.x}, ${tile.y}</strong>`,
+    prettyToken(terrainLabel(tile.x, tile.y, tile.terrain)),
+    tile.resource ? prettyToken(resourceLabel(tile.resource)) : ""
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const metaLine = [`Owner ${ownerLabel}`, ...tags].filter(Boolean).join(" · ");
+  const extraLine = townBits.length > 0 ? townBits.join(" · ") : prodInfo;
+  const storedYield = storedYieldSummary(tile);
+  const sabotageLine =
+    tile.sabotage && tile.sabotage.endsAt > Date.now()
+      ? `Output ${Math.round(tile.sabotage.outputMultiplier * 100)}% until ${new Date(tile.sabotage.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+      : "";
+  const structureLine = tile.economicStructure && tile.economicStructure.status === "inactive" ? `Inactive - upkeep not paid` : "";
+  return `
+    <div class="hover-line">${topLine}</div>
+    <div class="hover-subline">${metaLine}</div>
+    ${extraLine ? `<div class="hover-subline">${extraLine}</div>` : ""}
+    ${prodInfo && townBits.length > 0 ? `<div class="hover-subline">Production ${prodInfo}</div>` : ""}
+    ${storedYield ? `<div class="hover-subline">Stored yield ${storedYield}</div>` : ""}
+    ${structureLine ? `<div class="hover-subline">${structureLine}</div>` : ""}
+    ${sabotageLine ? `<div class="hover-subline hover-accent">${sabotageLine}</div>` : ""}
+    ${historyLines.map((line) => `<div class="hover-subline">${line}</div>`).join("")}
+  `;
+};
+
 const hasCollectableYield = (t: Tile | undefined): boolean => {
   if (!t?.yield) return false;
   if ((t.yield.gold ?? 0) > 0.01) return true;
@@ -876,6 +1373,66 @@ const resourceLabel = (resource: string | undefined): string => {
   if (resource === "WOOD") return "WOOD";
   return resource ?? "";
 };
+const strategicLabel = (resource: string): string => {
+  if (resource === "FOOD") return "Food";
+  if (resource === "IRON") return "Iron";
+  if (resource === "CRYSTAL") return "Crystal";
+  if (resource === "SUPPLY") return "Supply";
+  if (resource === "SHARD") return "Shard";
+  return resource;
+};
+const resourceIconForKey = (resource: string): string => {
+  if (resource === "GOLD") return "◉";
+  if (resource === "FOOD") return "🍞";
+  if (resource === "IRON") return "⛏";
+  if (resource === "CRYSTAL") return "💎";
+  if (resource === "SUPPLY") return "🦊";
+  if (resource === "SHARD") return "✦";
+  return "•";
+};
+const yieldCapForResource = (tile: Tile, resource: string): number | undefined => {
+  if (!tile.yieldCap) return undefined;
+  if (resource === "GOLD") return tile.yieldCap.gold;
+  if (resource === "FOOD" || resource === "IRON" || resource === "CRYSTAL" || resource === "SUPPLY" || resource === "SHARD") {
+    return tile.yieldCap.strategicEach;
+  }
+  return undefined;
+};
+const formatYieldSummary = (tile: Tile): string => {
+  const parts: string[] = [];
+  const gold = tile.yield?.gold ?? 0;
+  const goldCap = yieldCapForResource(tile, "GOLD");
+  if (gold > 0.01 || (goldCap ?? 0) > 0) {
+    parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${(goldCap ?? 0).toFixed(1)}`);
+  }
+  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    const amount = Number(tile.yield?.strategic?.[key] ?? 0);
+    const cap = yieldCapForResource(tile, key);
+    if (amount <= 0.01 && (cap ?? 0) <= 0) continue;
+    parts.push(`${resourceIconForKey(key)} ${amount.toFixed(1)} / ${(cap ?? 0).toFixed(1)}`);
+  }
+  return parts.length > 0 ? `Yield: ${parts.join("  ")}` : "";
+};
+const formatUpkeepSummary = (upkeep: typeof state.upkeepPerMinute): string => {
+  const parts: string[] = [];
+  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${upkeep.food.toFixed(2)}/m`);
+  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeep.iron.toFixed(2)}/m`);
+  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeep.supply.toFixed(2)}/m`);
+  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
+  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
+  return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
+};
+const rateToneClass = (rate: number): string => {
+  if (rate > 0.001) return "positive";
+  if (rate < -0.001) return "negative";
+  return "neutral";
+};
+const prettyToken = (value: string): string =>
+  value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
   if (terrain !== "LAND") return terrain;
   const biome = landBiomeAt(x, y);
@@ -1114,6 +1671,10 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
   state.feed = state.feed.slice(0, 18);
 };
 
+const showCaptureAlert = (title: string, detail: string, tone: "error" | "warn" = "error"): void => {
+  state.captureAlert = { title, detail, until: Date.now() + 2200, tone };
+};
+
 const centerOnOwnedTile = (): void => {
   const own = [...state.tiles.values()].find((t) => t.ownerId === state.me);
   if (own) {
@@ -1127,8 +1688,9 @@ const centerOnOwnedTile = (): void => {
   }
 };
 
-const requestViewRefresh = (radius = 1, force = false): void => {
+const requestViewRefresh = (radius = 2, force = false): void => {
   if (ws.readyState !== ws.OPEN) return;
+  if (!state.authSessionReady) return;
   const cx = Math.floor(state.camX / CHUNK_SIZE);
   const cy = Math.floor(state.camY / CHUNK_SIZE);
   const elapsed = Date.now() - state.lastSubAt;
@@ -1150,6 +1712,7 @@ const requestViewRefresh = (radius = 1, force = false): void => {
 
 const maybeRefreshForCamera = (force = false): void => {
   if (ws.readyState !== ws.OPEN) return;
+  if (!state.authSessionReady) return;
   if (!force && (state.actionInFlight || state.capture || state.actionQueue.length > 0)) return;
   const cx = Math.floor(state.camX / CHUNK_SIZE);
   const cy = Math.floor(state.camY / CHUNK_SIZE);
@@ -1175,6 +1738,12 @@ const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof sta
   return "intel";
 };
 
+const viewportSize = (): { width: number; height: number } => {
+  const vv = window.visualViewport;
+  if (vv) return { width: Math.round(vv.width), height: Math.round(vv.height) };
+  return { width: window.innerWidth, height: window.innerHeight };
+};
+
 const setActivePanel = (panel: typeof state.activePanel): void => {
   if (state.activePanel === panel) {
     state.activePanel = null;
@@ -1182,8 +1751,10 @@ const setActivePanel = (panel: typeof state.activePanel): void => {
     return;
   }
   state.activePanel = panel;
+  if (panel === "feed") state.unreadAttackAlerts = 0;
   if (isMobile() && panel) {
     state.mobilePanel = panelToMobile(panel);
+    if (state.mobilePanel === "intel") state.unreadAttackAlerts = 0;
   }
   renderMobilePanels();
 };
@@ -1243,6 +1814,86 @@ const selectedTile = (): Tile | undefined => {
   if (!state.selected) return undefined;
   return state.tiles.get(key(state.selected.x, state.selected.y));
 };
+
+const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
+  if (holdActivated) {
+    holdActivated = false;
+    return;
+  }
+  if (suppressNextClick) {
+    suppressNextClick = false;
+    return;
+  }
+  hideHoldBuildMenu();
+  hideTileActionMenu();
+
+  const clicked = state.tiles.get(key(wx, wy));
+  const vis = tileVisibilityStateAt(wx, wy, clicked);
+  if (state.crystalTargeting.active) {
+    if (vis === "unexplored") {
+      renderHud();
+      return;
+    }
+    if (clicked) state.selected = { x: wx, y: wy };
+    if (clicked && executeCrystalTargeting(clicked)) {
+      renderHud();
+      return;
+    }
+    if (clicked && vis === "visible") {
+      pushFeed(`${crystalTargetingTitle(state.crystalTargeting.ability)} can only target highlighted tiles.`, "combat", "warn");
+    }
+    renderHud();
+    return;
+  }
+  if (vis === "unexplored") {
+    state.selected = undefined;
+    renderHud();
+    return;
+  }
+  if (vis === "fogged") {
+    state.selected = { x: wx, y: wy };
+    state.attackPreview = undefined;
+    state.attackPreviewPendingKey = "";
+    renderHud();
+    return;
+  }
+  if (!clicked) {
+    state.selected = { x: wx, y: wy };
+    state.attackPreview = undefined;
+    state.attackPreviewPendingKey = "";
+    renderHud();
+    return;
+  }
+
+  const to = clicked;
+  state.selected = { x: wx, y: wy };
+  const adjacentFromOwned = pickOriginForTarget(to.x, to.y);
+  const unreachableForeignClick =
+    to.terrain === "LAND" &&
+    !to.fogged &&
+    to.ownerId !== state.me &&
+    !isTileOwnedByAlly(to) &&
+    !adjacentFromOwned;
+  if (unreachableForeignClick) {
+    pushFeed("Target is not connected to your border.", "combat", "warn");
+    requestAttackPreviewForHover();
+    renderHud();
+    return;
+  }
+  if (to.terrain === "LAND" && !to.fogged && !to.ownerId && adjacentFromOwned) {
+    if (enqueueTarget(to.x, to.y, "normal")) {
+      processActionQueue();
+      pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
+    }
+    requestAttackPreviewForHover();
+    renderHud();
+    return;
+  }
+  openSingleTileActionMenu(to, clientX, clientY);
+  requestAttackPreviewForHover();
+  renderHud();
+};
+
 const isTownSupportNeighbor = (tx: number, ty: number, sx: number, sy: number): boolean => {
   const dx = Math.min(Math.abs(tx - sx), WORLD_WIDTH - Math.abs(tx - sx));
   const dy = Math.min(Math.abs(ty - sy), WORLD_HEIGHT - Math.abs(ty - sy));
@@ -1317,6 +1968,7 @@ const pickOriginForTarget = (tx: number, ty: number): Tile | undefined => {
 
 const renderCaptureProgress = (): void => {
   if (state.capture) {
+    captureCardEl.dataset.state = "progress";
     const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
     const elapsed = Date.now() - state.capture.startAt;
     const pct = Math.max(0, Math.min(1, elapsed / total));
@@ -1328,7 +1980,18 @@ const renderCaptureProgress = (): void => {
     captureTitleEl.textContent = "Capturing Territory...";
     captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
     captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
+  } else if (state.captureAlert && state.captureAlert.until > Date.now()) {
+    captureCardEl.dataset.state = state.captureAlert.tone;
+    captureCardEl.style.display = "grid";
+    captureWrapEl.style.display = "block";
+    captureCancelBtn.style.display = "none";
+    captureBarEl.style.width = "100%";
+    captureTitleEl.textContent = state.captureAlert.title;
+    captureTimeEl.textContent = "";
+    captureTargetEl.textContent = state.captureAlert.detail;
   } else {
+    delete captureCardEl.dataset.state;
+    state.captureAlert = undefined;
     captureCardEl.style.display = "none";
     captureWrapEl.style.display = "none";
     captureCancelBtn.style.display = "none";
@@ -1338,13 +2001,15 @@ const renderCaptureProgress = (): void => {
     captureTargetEl.textContent = "";
   }
 };
-const exposurePctFromTE = (t: number | undefined, e: number | undefined): number => {
+const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
-  return Math.max(0, Math.min(100, exposureRatio(t, e) * 100));
+  return Math.max(0, Math.min(100, (1 - exposureRatio(t, e)) * 100));
 };
 
 const missionCardsHtml = (): string =>
-  state.missions
+  state.missions.length === 0
+    ? `<article class="card"><p>Missions are paused for rebalance.</p></article>`
+    : state.missions
     .map((m) => {
       const pct = Math.min(100, Math.floor((m.progress / Math.max(1, m.target)) * 100));
       const status = m.claimed ? "Claimed" : m.completed ? "Completed" : `${m.progress}/${m.target}`;
@@ -1374,30 +2039,135 @@ const techOwnedHtml = (): string => {
   return state.techIds
     .map((id) => {
       const t = catalogById.get(id);
-      const mods = t
-        ? Object.entries(t.mods ?? {})
-            .map(([k, v]) => `${k} x${Number(v).toFixed(3)}`)
-            .join(" | ")
-        : "";
-      const power = t?.grantsPowerup ? ` | powerup ${t.grantsPowerup.id} +${t.grantsPowerup.charges}` : "";
-      return `<article class="card"><strong>${t?.name ?? id}</strong><p>${t?.description ?? id}</p><p>${mods || "No modifiers"}${power}</p></article>`;
+      return `<article class="card"><strong>${t?.name ?? id}</strong><p>${t?.description ?? id}</p><p>${t ? formatTechBenefitSummary(t) : id}</p></article>`;
     })
     .join("");
 };
 
+const domainOwnedHtml = (): string => {
+  if (state.domainIds.length === 0) return `<article class="card"><p>No domains selected yet.</p></article>`;
+  const catalogById = new Map(state.domainCatalog.map((d) => [d.id, d]));
+  return state.domainIds
+    .map((id) => {
+      const d = catalogById.get(id);
+      return `<article class="card"><strong>${d?.name ?? id}</strong><p>${d?.description ?? id}</p><p>${d ? formatDomainBenefitSummary(d) : id}</p></article>`;
+    })
+    .join("");
+};
+
+const effectSummaryLabel = (key: string, value: unknown): string | null => {
+  if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads";
+  if (key === "unlockCamp" && value === true) return "Unlocks camps";
+  if (key === "unlockMine" && value === true) return "Unlocks mines";
+  if (key === "unlockMarket" && value === true) return "Unlocks markets";
+  if (key === "unlockForts" && value === true) return "Unlocks forts";
+  if (key === "unlockObservatory" && value === true) return "Unlocks observatories";
+  if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
+  if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
+  if (key === "unlockNavalInfiltration" && value === true) return "Unlocks naval infiltration";
+  if (key === "unlockSabotage" && value === true) return "Unlocks sabotage";
+  if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain shaping";
+  if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
+  if (key === "dockGoldCapMult" && typeof value === "number") return `Dock cap +${Math.round((value - 1) * 100)}%`;
+  if (key === "marketCrystalUpkeepMult" && typeof value === "number") return `Market crystal upkeep -${Math.round((1 - value) * 100)}%`;
+  if (key === "resourceOutputMult" && value && typeof value === "object") {
+    const resourceOutput = value as Record<string, unknown>;
+    const labels: string[] = [];
+    if (typeof resourceOutput.farm === "number" && resourceOutput.farm !== 1) {
+      labels.push(`Farm output +${((resourceOutput.farm - 1) * 100).toFixed(0)}%`);
+    }
+    if (typeof resourceOutput.fish === "number" && resourceOutput.fish !== 1) {
+      labels.push(`Fish output +${((resourceOutput.fish - 1) * 100).toFixed(0)}%`);
+    }
+    if (typeof resourceOutput.iron === "number" && resourceOutput.iron !== 1) {
+      labels.push(`Iron output +${((resourceOutput.iron - 1) * 100).toFixed(0)}%`);
+    }
+    if (typeof resourceOutput.gems === "number" && resourceOutput.gems !== 1) {
+      labels.push(`Crystal output +${((resourceOutput.gems - 1) * 100).toFixed(0)}%`);
+    }
+    if (typeof resourceOutput.fur === "number" && resourceOutput.fur !== 1) {
+      labels.push(`Fur output +${((resourceOutput.fur - 1) * 100).toFixed(0)}%`);
+    }
+    if (typeof resourceOutput.wood === "number" && resourceOutput.wood !== 1) {
+      labels.push(`Wood output +${((resourceOutput.wood - 1) * 100).toFixed(0)}%`);
+    }
+    return labels.length > 0 ? labels.join(" | ") : null;
+  }
+  if (key === "settlementSpeedMult" && typeof value === "number") return `Settlement speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "settledFoodUpkeepMult" && typeof value === "number") return `Settled food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "settledGoldUpkeepMult" && typeof value === "number") return `Settled gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "townFoodUpkeepMult" && typeof value === "number") return `Town food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "townGoldOutputIfFedMult" && typeof value === "number") return `Fed town output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "townGoldCapMult" && typeof value === "number") return `Town cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "harvestCapMult" && typeof value === "number") return `Harvest cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "fortIronUpkeepMult" && typeof value === "number") return `Fort iron upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "fortGoldUpkeepMult" && typeof value === "number") return `Fort gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "outpostSupplyUpkeepMult" && typeof value === "number") return `Outpost supply upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
+  if (key === "visionRadiusBonus" && typeof value === "number") return `Vision radius +${value}`;
+  if (key === "settledDefenseMult" && typeof value === "number") return `Settled defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "attackVsSettledMult" && typeof value === "number") return `Attack vs settled ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "attackVsFortsMult" && typeof value === "number") return `Attack vs forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  return null;
+};
+
+const formatTechModifiers = (mods: TechInfo["mods"]): string[] => {
+  const lines: string[] = [];
+  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
+  return lines;
+};
+
+const formatTechBenefitSummary = (tech: TechInfo): string => {
+  const lines = formatTechModifiers(tech.mods);
+  if (tech.effects) {
+    for (const [key, value] of Object.entries(tech.effects)) {
+      const label = effectSummaryLabel(key, value);
+      if (label) lines.push(label);
+    }
+  }
+  if (tech.grantsPowerup) lines.push(`Powerup: ${tech.grantsPowerup.id} +${tech.grantsPowerup.charges}`);
+  return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
+};
+
+const formatDomainModifiers = (mods: DomainInfo["mods"]): string[] => {
+  const lines: string[] = [];
+  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
+  return lines;
+};
+
+const formatDomainBenefitSummary = (domain: DomainInfo): string => {
+  const lines = formatDomainModifiers(domain.mods);
+  if (domain.effects) {
+    for (const [key, value] of Object.entries(domain.effects)) {
+      const label = effectSummaryLabel(key, value);
+      if (label) lines.push(label);
+    }
+  }
+  return lines.length > 0 ? lines.join(" | ") : "Passive unlock";
+};
+
 const techCurrentModsHtml = (): string => {
   const m = state.mods;
-  const attackPct = ((m.attack - 1) * 100).toFixed(1);
-  const defensePct = ((m.defense - 1) * 100).toFixed(1);
-  const incomePct = ((m.income - 1) * 100).toFixed(1);
-  const visionPct = ((m.vision - 1) * 100).toFixed(1);
-  return `<article class="card">
-    <strong>Current Modifiers</strong>
-    <p><strong>Attack:</strong> x${m.attack.toFixed(3)} (${attackPct.startsWith("-") ? "" : "+"}${attackPct}%)</p>
-    <p><strong>Defense:</strong> x${m.defense.toFixed(3)} (${defensePct.startsWith("-") ? "" : "+"}${defensePct}%)</p>
-    <p><strong>Income:</strong> x${m.income.toFixed(3)} (${incomePct.startsWith("-") ? "" : "+"}${incomePct}%)</p>
-    <p><strong>Vision:</strong> x${m.vision.toFixed(3)} (${visionPct.startsWith("-") ? "" : "+"}${visionPct}%)</p>
-  </article>`;
+  const chips = [
+    { label: "ATK", value: m.attack },
+    { label: "DEF", value: m.defense },
+    { label: "VIS", value: m.vision }
+  ]
+    .map(({ label, value }) => `<div class="tech-mod-chip"><span>${label}</span><strong>x${value.toFixed(2)}</strong></div>`)
+    .join("");
+  return `<div class="tech-mod-strip">${chips}</div>`;
 };
 
 const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>): number => {
@@ -1416,14 +2186,25 @@ const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, num
   return tier;
 };
 
-const formatTechModifiers = (mods: TechInfo["mods"]): string => {
-  const lines: string[] = [];
-  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
-  return lines.length > 0 ? lines.join(" | ") : "No direct modifier";
-};
+const titleCaseFromId = (value: string): string =>
+  value
+    .split("-")
+    .map((part) => (part ? part[0]!.toUpperCase() + part.slice(1) : part))
+    .join(" ");
+
+const techNameList = (ids: string[]): string =>
+  ids
+    .map((id) => state.techCatalog.find((t) => t.id === id)?.name ?? titleCaseFromId(id))
+    .join(", ");
+
+const unlockedByTech = (techId: string): TechInfo[] =>
+  state.techCatalog
+    .filter((candidate) => {
+      const prereqs =
+        candidate.prereqIds && candidate.prereqIds.length > 0 ? candidate.prereqIds : candidate.requires ? [candidate.requires] : [];
+      return prereqs.includes(techId);
+    })
+    .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
 
 const formatTechCost = (t: TechInfo): string => {
   const checklist = t.requirements.checklist ?? [];
@@ -1461,7 +2242,7 @@ const renderTechChoiceGrid = (): string => {
               <strong>${t.name}</strong>
               <span class="tech-root">Tier ${techTier(t.id, byId, tierMemo)}</span>
             </div>
-            <p>${formatTechModifiers(t.mods)}</p>
+            <p>${formatTechBenefitSummary(t)}</p>
             <p class="tech-card-cost">${formatTechCost(t)}</p>
           </button>`;
         })
@@ -1480,39 +2261,24 @@ const renderTechDetailCard = (): string => {
     .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
     .join("");
   const prereqs = t.prereqIds && t.prereqIds.length > 0 ? t.prereqIds : t.requires ? [t.requires] : [];
+  const unlocks = unlockedByTech(t.id);
+  const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
   const canUnlock = t.requirements.canResearch;
+  const effectSummary = formatTechBenefitSummary(t);
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
       <div>
         <strong>${t.name}</strong>
-        <p class="muted">${prereqs.length > 0 ? `Requires ${prereqs.join(", ")}` : "Entry tech (no prerequisites)"}</p>
+        <p class="tech-detail-effect">${effectSummary}</p>
+        <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
       </div>
       <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${canUnlock ? "" : "disabled"}>${canUnlock ? "Unlock" : "Locked"}</button>
     </div>
-    <p>${t.description}</p>
-    <p><strong>Modifiers:</strong> ${formatTechModifiers(t.mods)}</p>
-    <p><strong>Cost:</strong> ${formatTechCost(t)}</p>
+    <p class="tech-detail-flavor">${t.description}</p>
+    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${next.tier})`).join(", ")}</p>` : ""}
     <p><strong>Requirements:</strong></p>
     <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
-    ${t.grantsPowerup ? `<p><strong>Powerup:</strong> ${t.grantsPowerup.id} (+${t.grantsPowerup.charges})</p>` : ""}
   </article>`;
-};
-
-const techSummaryHtml = (): string => {
-  const available = affordableTechChoicesCount();
-  return `<div class="tech-summary-row"><span>Available to unlock</span><strong>${available}</strong></div>
-  <div class="tech-summary-row"><span>Total choices</span><strong>${state.techChoices.length}</strong></div>
-  <div class="tech-summary-row"><span>Domains selected</span><strong>${state.domainIds.length}</strong></div>
-  <div class="tech-summary-row"><span>Reveal capacity</span><strong>${state.revealCapacity}</strong></div>`;
-};
-
-const formatDomainModifiers = (mods: DomainInfo["mods"]): string => {
-  const lines: string[] = [];
-  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
-  return lines.length > 0 ? lines.join(" | ") : "No direct modifier";
 };
 
 const formatDomainCost = (d: DomainInfo): string => {
@@ -1545,7 +2311,7 @@ const renderDomainChoiceGrid = (): string => {
               <strong>${d.name}</strong>
               <span class="tech-root">Domain T${d.tier}</span>
             </div>
-            <p>${formatDomainModifiers(d.mods)}</p>
+            <p>${formatDomainBenefitSummary(d)}</p>
             <p class="tech-card-cost">${formatDomainCost(d)}</p>
           </button>`;
         })
@@ -1563,48 +2329,20 @@ const renderDomainDetailCard = (): string => {
     .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
     .join("");
   const canUnlock = d.requirements.canResearch;
+  const requiresTechName = techNameList([d.requiresTechId]);
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
       <div>
         <strong>${d.name}</strong>
-        <p class="muted">Tier ${d.tier} · Requires ${d.requiresTechId}</p>
+        <p class="muted">Tier ${d.tier} · Requires ${requiresTechName}</p>
       </div>
       <button class="panel-btn domain-unlock-btn" data-domain-unlock="${d.id}" ${canUnlock ? "" : "disabled"}>${canUnlock ? "Unlock" : "Locked"}</button>
     </div>
     <p>${d.description}</p>
-    <p><strong>Modifiers:</strong> ${formatDomainModifiers(d.mods)}</p>
+    <p><strong>Benefits:</strong> ${formatDomainBenefitSummary(d)}</p>
     <p><strong>Cost:</strong> ${formatDomainCost(d)}</p>
     <p><strong>Requirements:</strong></p>
     <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
-  </article>`;
-};
-
-const renderRevealEmpireCard = (): string => {
-  const knownPlayers = state.leaderboard.overall
-    .filter((p) => p.id !== state.me)
-    .map((p) => ({ id: p.id, name: p.name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const options = knownPlayers.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
-  const activeLines =
-    state.activeRevealTargets.length > 0
-      ? state.activeRevealTargets
-          .map((id) => {
-            const p = state.leaderboard.overall.find((x) => x.id === id);
-            const label = p?.name ?? id;
-            return `<li>${label} <button class="panel-btn mini stop-reveal-btn" data-stop-reveal="${id}">Stop</button></li>`;
-          })
-          .join("")
-      : "<li>None</li>";
-  const disabled = knownPlayers.length === 0 || state.activeRevealTargets.length >= state.revealCapacity;
-  return `<article class="card">
-    <strong>Reveal Empire</strong>
-    <p class="muted">Consumes crystal upkeep while active. Revealed enemy tiles ignore fog.</p>
-    <div class="row">
-      <select id="reveal-target-pick">${options || '<option value=\"\">No targets</option>'}</select>
-      <button class="panel-btn" id="reveal-activate-btn" ${disabled ? "disabled" : ""}>Activate</button>
-    </div>
-    <p class="muted">Active ${state.activeRevealTargets.length}/${state.revealCapacity}</p>
-    <ul class="tech-req-list">${activeLines}</ul>
   </article>`;
 };
 
@@ -1656,7 +2394,28 @@ const leaderboardHtml = (): string => {
   const overallLine = (e: LeaderboardOverallEntry): string =>
     `${e.name} | score ${e.score.toFixed(1)} | tiles ${e.tiles} | income ${e.incomePerMinute.toFixed(1)} | tech ${e.techs}`;
   const metricLine = (e: LeaderboardMetricEntry): string => `${e.name} (${e.value.toFixed(1)})`;
+  const pressureCards =
+    state.victoryPressure.length > 0
+      ? `
+    <article class="card pressure-card">
+      <strong>Victory Pressure</strong>
+      ${state.victoryPressure
+        .map(
+          (objective) => `<div class="pressure-row">
+            <div class="pressure-head">
+              <span class="pressure-name">${objective.name}</span>
+              <span class="pressure-status ${objective.conditionMet ? "is-hot" : ""}">${objective.statusLabel}</span>
+            </div>
+            <div class="pressure-meta">${objective.description}</div>
+            <div class="pressure-meta">Leader: ${objective.leaderName} · ${objective.progressLabel}</div>
+            <div class="pressure-meta">${objective.thresholdLabel} · ${objective.rewardLabel}</div>
+          </div>`
+        )
+        .join("")}
+    </article>`
+      : "";
   return `
+    ${pressureCards}
     <article class="card">
       <strong>Overall</strong>
       ${state.leaderboard.overall.map((e, i) => `<div class="lb-row">${i + 1}. ${overallLine(e)}</div>`).join("")}
@@ -1735,151 +2494,219 @@ const strategicRibbonHtml = (): string => {
     source: string;
     className: string;
   }> = [
-    { key: "FOOD", icon: "♜", label: "Provisions", source: "From Farms + Fish", className: "res-food" },
-    { key: "IRON", icon: "⛰", label: "Iron", source: "From Iron nodes", className: "res-iron" },
-    { key: "CRYSTAL", icon: "◈", label: "Gems", source: "From Gem nodes", className: "res-crystal" },
-    { key: "SUPPLY", icon: "⬢", label: "Supply", source: "From Fur + Wood", className: "res-stone" },
-    { key: "SHARD", icon: "✦", label: "Relics", source: "From Ancient towns", className: "res-shard" }
+    { key: "FOOD", icon: "🍞", label: "Food", source: "From Farms + Fish", className: "res-food" },
+    { key: "IRON", icon: "⛏", label: "Iron", source: "From Iron nodes", className: "res-iron" },
+    { key: "CRYSTAL", icon: "💎", label: "Crystal", source: "From Gem nodes", className: "res-crystal" },
+    { key: "SUPPLY", icon: "🦊", label: "Supply", source: "From Fur + Wood", className: "res-stone" },
+    { key: "SHARD", icon: "✦", label: "Shard", source: "From Ancient towns", className: "res-shard" }
   ];
   return `<div class="resource-ribbon">${entries
     .map((e) => {
       const stock = state.strategicResources[e.key];
-      const prod = state.strategicProductionPerMinute[e.key];
-      const prodText = prod > 0 ? `+${prod.toFixed(1)}/m` : "0.0/m";
+      const upkeep =
+        e.key === "FOOD"
+          ? state.upkeepPerMinute.food
+          : e.key === "IRON"
+            ? state.upkeepPerMinute.iron
+            : e.key === "CRYSTAL"
+              ? state.upkeepPerMinute.crystal
+              : e.key === "SUPPLY"
+                ? state.upkeepPerMinute.supply
+                : 0;
+      const net = state.strategicProductionPerMinute[e.key] - upkeep;
+      const prodText = `${net > 0 ? "+" : ""}${net.toFixed(2)}/m`;
+      const rateClass = rateToneClass(net);
       const anim = state.strategicAnim[e.key];
       const deltaClass =
         nowMs < anim.until ? (anim.dir > 0 ? "delta-up" : anim.dir < 0 ? "delta-down" : "") : "";
       return `<div class="resource-pill ${e.className} ${deltaClass}" title="${e.label} · ${e.source}">
-        <span class="resource-icon">${e.icon}</span>
-        <span class="resource-value">${Number(stock).toFixed(1)}</span>
-        <span class="resource-rate">${prodText}</span>
+        <span class="resource-icon" aria-hidden="true">${e.icon}</span>
+        <span class="resource-value-row">
+          <span class="resource-value">${Number(stock).toFixed(1)}</span>
+          <span class="resource-rate ${rateClass}">${prodText}</span>
+        </span>
       </div>`;
     })
     .join("")}</div>`;
+};
+
+const setAuthStatus = (message: string, tone: "normal" | "error" = "normal"): void => {
+  state.authError = tone === "error" ? message : "";
+  authStatusEl.textContent = message;
+  authStatusEl.dataset.tone = tone;
+};
+
+const syncAuthPanelState = (): void => {
+  authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : authEmailLinkSentTo ? "sent" : "login";
+  authEmailSentAddressEl.textContent = authEmailLinkSentTo;
+  const activeColor = authProfileColorEl.value.toLowerCase();
+  authColorPresetButtons.forEach((btn) => {
+    btn.dataset.selected = btn.dataset.color?.toLowerCase() === activeColor ? "true" : "false";
+  });
+};
+
+const syncAuthOverlay = (): void => {
+  authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired ? "none" : "grid";
+  authLoginBtn.disabled = state.authBusy || !state.authConfigured;
+  authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
+  authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
+  authGoogleBtn.disabled = state.authBusy || !state.authConfigured;
+  authEmailEl.disabled = state.authBusy || !state.authConfigured;
+  authPasswordEl.disabled = state.authBusy || !state.authConfigured;
+  authDisplayNameEl.disabled = state.authBusy || !state.authConfigured;
+  authEmailResetBtn.disabled = state.authBusy;
+  authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
+  authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
+  authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
+  syncAuthPanelState();
+  if (!state.authConfigured) {
+    setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");
+  } else if (state.profileSetupRequired && !state.authBusy && !state.authError) {
+    setAuthStatus("One last step before the campaign begins.");
+  } else if (!state.authReady && !state.authBusy && !state.authError) {
+    setAuthStatus("");
+  }
+};
+
+const authLabelForUser = (user: User): string => user.displayName?.trim() || user.email?.trim() || "Authenticated user";
+
+const seedProfileSetupFields = (name?: string, color?: string): void => {
+  const cleanedName = (name ?? "").trim();
+  if (cleanedName) authProfileNameEl.value = cleanedName.slice(0, 24);
+  if (color && /^#[0-9a-fA-F]{6}$/.test(color)) authProfileColorEl.value = color;
+  syncAuthPanelState();
+};
+
+const authenticateSocket = async (forceRefresh = false): Promise<void> => {
+  if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN) return;
+  authToken = await firebaseAuth.currentUser.getIdToken(forceRefresh);
+  authUid = firebaseAuth.currentUser.uid;
+  ws.send(JSON.stringify({ type: "AUTH", token: authToken }));
+};
+
+const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
+  if (!firebaseAuth) return;
+  const email = emailRaw.trim();
+  if (!email) {
+    setAuthStatus("Enter the email address that received the sign-in link.", "error");
+    syncAuthOverlay();
+    return;
+  }
+  state.authBusy = true;
+  setAuthStatus("Completing email link sign-in...");
+  syncAuthOverlay();
+  try {
+    await signInWithEmailLink(firebaseAuth, email, window.location.href);
+    authEmailLinkPending = false;
+    authEmailLinkSentTo = "";
+    window.localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.search = "";
+    cleanUrl.hash = "";
+    window.history.replaceState({}, document.title, cleanUrl.toString());
+  } catch (error) {
+    setAuthStatus(error instanceof Error ? error.message : "Email link sign-in failed.", "error");
+  } finally {
+    state.authBusy = false;
+    syncAuthOverlay();
+  }
 };
 
 const renderHud = (): void => {
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
   const pointsClass =
     Date.now() < state.goldAnimUntil ? (state.goldAnimDir > 0 ? " delta-up" : state.goldAnimDir < 0 ? " delta-down" : "") : "";
+  const netGoldPerMinute = state.incomePerMinute - state.upkeepPerMinute.gold;
+  const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
+  const goldRateClass = rateToneClass(netGoldPerMinute);
   statsChipsEl.innerHTML = `
     <div class="stat-chip ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
-    <div class="stat-chip${pointsClass}"><span>Gold</span><strong>${state.gold.toFixed(1)}</strong></div>
-    <div class="stat-chip"><span>Income/min</span><strong>${state.incomePerMinute.toFixed(1)}</strong></div>
-    <div class="stat-chip"><span>Exposure</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
+    <div class="stat-chip stat-chip-gold${pointsClass}"><span>Gold</span><strong>${state.gold.toFixed(1)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></div>
+    <div class="stat-chip"><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
     ${strategicRibbonHtml()}
   `;
-  fogToggleMobileBtn.textContent = `Fog: ${state.fogDisabled ? "Off" : "On"}`;
+  fogToggleMobileBtn.textContent = `Fog ${state.fogDisabled ? "Off" : "On"}`;
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
+  const attackAlertUnread = state.unreadAttackAlerts > 0;
   panelActionButtons.forEach((btn) => {
-    if (btn.dataset.panel !== "tech") return;
-    btn.innerHTML = techReady
-      ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
-      : '<span class="tab-icon">⚡</span>';
+    if (btn.dataset.panel === "tech") {
+      btn.innerHTML = techReady
+        ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
+        : '<span class="tab-icon">⚡</span>';
+      return;
+    }
+    if (btn.dataset.panel === "feed") {
+      btn.innerHTML = attackAlertUnread
+        ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
+        : '<span class="tab-icon">🔔</span>';
+    }
   });
   const techMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='tech']");
   if (techMobileBtn) techMobileBtn.innerHTML = techReady ? 'Tech <span class="tech-ready-dot" aria-label="upgrade available"></span>' : "Tech";
+  const intelMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='intel']");
+  if (intelMobileBtn) intelMobileBtn.innerHTML = attackAlertUnread ? 'Intel <span class="attack-alert-dot" aria-label="under attack">🔥</span>' : "Intel";
+
+  if (state.crystalTargeting.active) {
+    const ability = state.crystalTargeting.ability;
+    const selectedKey = state.selected ? key(state.selected.x, state.selected.y) : "";
+    const selectedOriginKey = selectedKey ? state.crystalTargeting.originByTarget.get(selectedKey) : undefined;
+    const selectedOrigin = selectedOriginKey ? parseKey(selectedOriginKey) : undefined;
+    const validCount = state.crystalTargeting.validTargets.size;
+    const detail =
+      ability === "deep_strike"
+        ? "Pick an enemy tile exactly 2 tiles deep. Mountain barriers block the strike."
+        : ability === "naval_infiltration"
+          ? "Pick an enemy land tile across up to 4 sea tiles. First landing strike is weaker."
+          : "Pick an enemy town or resource tile to cut output by 50% for 45 minutes.";
+    const status = selectedOrigin
+      ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`
+      : `Valid targets in view: ${validCount}`;
+    targetingOverlayEl.innerHTML = `
+      <div class="targeting-card tone-${crystalTargetingTone(ability)}">
+        <div class="targeting-kicker">Crystal Action Armed</div>
+        <div class="targeting-title">${crystalTargetingTitle(ability)}</div>
+        <div class="targeting-detail">${detail}</div>
+        <div class="targeting-status">${status}</div>
+        <button id="targeting-cancel" class="targeting-cancel-btn" type="button">Cancel</button>
+      </div>
+    `;
+    targetingOverlayEl.style.display = "block";
+    const cancelBtn = targetingOverlayEl.querySelector<HTMLButtonElement>("#targeting-cancel");
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        clearCrystalTargeting();
+        renderHud();
+      };
+    }
+  } else {
+    targetingOverlayEl.style.display = "none";
+    targetingOverlayEl.innerHTML = "";
+  }
 
   const selected = selectedTile();
   if (!selected) {
-    selectedEl.textContent = "Click a tile for actions. Yellow pulse dot on your settled tile means collectable yield.";
+    selectedEl.innerHTML = `<div class="hover-line"><strong>No tile selected</strong></div><div class="hover-subline">Click a tile for actions. Yellow pulse dot on your settled tile means collectable yield.</div>`;
   } else {
     const selectedVisibility = tileVisibilityStateAt(selected.x, selected.y, selected);
     if (selectedVisibility === "unexplored") {
-      selectedEl.textContent = `Selected (${selected.x}, ${selected.y}) [UNEXPLORED]`;
+      selectedEl.innerHTML = `<div class="hover-line"><strong>${selected.x}, ${selected.y}</strong> Unexplored</div>`;
     } else if (selectedVisibility === "fogged") {
-      selectedEl.textContent = `Selected (${selected.x}, ${selected.y}) [FOGGED · LAST SEEN]`;
+      selectedEl.innerHTML = `<div class="hover-line"><strong>${selected.x}, ${selected.y}</strong> Fogged</div><div class="hover-subline">Last seen only.</div>`;
     } else {
-    const townText = selected.town
-      ? ` | Town ${selected.town.type} support ${selected.town.supportCurrent}/${selected.town.supportMax} income ${selected.town.goldPerMinute.toFixed(1)}/${selected.town.baseGoldPerMinute.toFixed(1)}`
-      : "";
-    const upkeepText =
-      selected.ownerId === state.me
-        ? ` | upkeep/m food ${state.upkeepPerMinute.food.toFixed(2)} (cov ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%) iron ${state.upkeepPerMinute.iron.toFixed(2)} supply ${state.upkeepPerMinute.supply.toFixed(2)} crystal ${state.upkeepPerMinute.crystal.toFixed(2)} gold ${state.upkeepPerMinute.gold.toFixed(2)}`
-        : "";
-    selectedEl.textContent = `Selected (${selected.x}, ${selected.y}) ${
-      selected.ownerId === state.me ? "[YOURS]" : selected.ownerId ? `[ENEMY ${selected.ownerId.slice(0, 8)}]` : "[NEUTRAL]"
-    }${selected.ownershipState ? ` [${selected.ownershipState}]` : ""}${townText}${upkeepText}`;
+      selectedEl.innerHTML = inspectionHtmlForTile(selected);
     }
   }
-  const hovered = hoverTile();
-  if (!state.hover) {
-    hoverEl.textContent = "Hover tiles to inspect terrain, resource and owner.";
-  } else if (tileVisibilityStateAt(state.hover.x, state.hover.y, hovered) === "unexplored") {
-    hoverEl.textContent = `Hover (${state.hover.x}, ${state.hover.y}) | UNEXPLORED`;
-  } else if (!hovered || tileVisibilityStateAt(state.hover.x, state.hover.y, hovered) === "fogged") {
-    const terrain = hovered ? terrainLabel(hovered.x, hovered.y, hovered.terrain) : terrainLabel(state.hover.x, state.hover.y, terrainAt(state.hover.x, state.hover.y));
-    const ownerLabel = hovered?.ownerId ? (hovered.ownerId === state.me ? "you (last seen)" : `${hovered.ownerId.slice(0, 8)} (last seen)`) : "neutral (last seen)";
-    hoverEl.textContent = `Hover (${state.hover.x}, ${state.hover.y}) | FOGGED · LAST SEEN | ${terrain} | owner: ${ownerLabel}`;
-  } else {
-    const ownerLabel = hovered.ownerId ? (hovered.ownerId === state.me ? "you" : hovered.ownerId.slice(0, 8)) : "neutral";
-    const flags = [
-      hovered.regionType ? `region:${hovered.regionType}` : "",
-      hovered.clusterType ? `cluster:${hovered.clusterType}` : "",
-      hovered.dockId ? "dock" : "",
-      hovered.town ? `town:${hovered.town.type}` : "",
-      hovered.breachShockUntil && hovered.breachShockUntil > Date.now() ? "breach-shocked" : "",
-      hovered.fort ? `fort:${hovered.fort.status}` : "",
-      hovered.siegeOutpost ? `siege:${hovered.siegeOutpost.status}` : ""
-    ]
-      .filter(Boolean)
-      .join(" | ");
-    const preview = (() => {
-      if (!state.selected || !hovered.ownerId || hovered.ownerId === state.me) return "";
-      const fromKey = key(state.selected.x, state.selected.y);
-      const toKey = key(hovered.x, hovered.y);
-      if (!state.attackPreview || state.attackPreview.fromKey !== fromKey || state.attackPreview.toKey !== toKey) return "";
-      if (!state.attackPreview.valid) return ` | Est: ${state.attackPreview.reason ?? "invalid"}`;
-      if (typeof state.attackPreview.winChance === "number") {
-        const detail =
-          typeof state.attackPreview.atkEff === "number" && typeof state.attackPreview.defEff === "number"
-            ? ` (atk ${state.attackPreview.atkEff.toFixed(1)} vs def ${state.attackPreview.defEff.toFixed(1)}${
-                typeof state.attackPreview.defenseEffPct === "number" ? ` | def eff ${state.attackPreview.defenseEffPct.toFixed(0)}%` : ""
-              })`
-            : "";
-        return ` | Est win: ${(state.attackPreview.winChance * 100).toFixed(1)}%${detail}`;
-      }
-      return "";
-    })();
-    const townInfo = hovered.town
-      ? ` | town ${hovered.town.type} income ${hovered.town.goldPerMinute.toFixed(1)}/${hovered.town.baseGoldPerMinute.toFixed(1)} support ${hovered.town.supportCurrent}/${hovered.town.supportMax}${
-          typeof hovered.town.foodUpkeepPerMinute === "number" ? ` food upkeep ${hovered.town.foodUpkeepPerMinute.toFixed(3)}/m` : ""
-        }`
-      : "";
-    const y = (hovered as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
-    const yieldParts: string[] = [];
-    if ((y?.gold ?? 0) > 0.01) yieldParts.push(`${(y?.gold ?? 0).toFixed(1)} gold`);
-    for (const [r, v] of Object.entries(y?.strategic ?? {})) {
-      if (Number(v) > 0.01) yieldParts.push(`${Number(v).toFixed(1)} ${r}`);
-    }
-    const yieldInfo = yieldParts.length > 0 ? ` | yield: ${yieldParts.join(", ")}` : "";
-    const capInfo = hovered.yieldCap ? ` | cap: ${hovered.yieldCap.gold.toFixed(1)} gold + ${hovered.yieldCap.strategicEach.toFixed(1)} each strategic` : "";
-    const prodStrategic = Object.entries(hovered.yieldRate?.strategicPerDay ?? {})
-      .filter(([, v]) => Number(v) > 0)
-      .map(([r, v]) => `${Number(v).toFixed(1)} ${r}/day`);
-    const prodInfo = (() => {
-      const gpm = hovered.yieldRate?.goldPerMinute ?? 0;
-      const parts: string[] = [];
-      if (gpm > 0) parts.push(`${gpm.toFixed(2)} gold/m`);
-      parts.push(...prodStrategic);
-      if (parts.length > 0) return ` | production: ${parts.join(", ")}`;
-      if (hovered.resource === "FARM") return " | production(base): 72.0 FOOD/day";
-      if (hovered.resource === "FISH") return " | production(base): 48.0 FOOD/day";
-      if (hovered.resource === "IRON") return " | production(base): 60.0 IRON/day";
-      if (hovered.resource === "GEMS") return " | production(base): 36.0 CRYSTAL/day";
-      if (hovered.resource === "WOOD" || hovered.resource === "FUR") return " | production(base): 60.0 SUPPLY/day";
-      return "";
-    })();
-    const upkeepDrainInfo =
-      hovered.ownerId === state.me
-        ? ` | upkeep last tick: food y${state.upkeepLastTick.food.fromYield.toFixed(2)}+s${state.upkeepLastTick.food.fromStock.toFixed(2)} ir y${state.upkeepLastTick.iron.fromYield.toFixed(2)}+s${state.upkeepLastTick.iron.fromStock.toFixed(2)} sup y${state.upkeepLastTick.supply.fromYield.toFixed(2)}+s${state.upkeepLastTick.supply.fromStock.toFixed(2)} cry y${state.upkeepLastTick.crystal.fromYield.toFixed(2)}+s${state.upkeepLastTick.crystal.fromStock.toFixed(2)} gold y${state.upkeepLastTick.gold.fromYield.toFixed(2)}+w${state.upkeepLastTick.gold.fromStock.toFixed(2)}`
-        : "";
-    hoverEl.textContent = `Hover (${hovered.x}, ${hovered.y}) | ${terrainLabel(hovered.x, hovered.y, hovered.terrain)}${hovered.resource ? ` ${resourceLabel(hovered.resource)}` : ""} | owner: ${ownerLabel}${hovered.ownershipState ? ` | state:${hovered.ownershipState.toLowerCase()}` : ""}${flags ? ` | ${flags}` : ""}${townInfo}${yieldInfo}${capInfo}${prodInfo}${upkeepDrainInfo}${preview}`;
-  }
+  hoverEl.innerHTML = "";
+  hoverEl.style.display = "none";
+
+  mobileCoreHelpEl.innerHTML = `
+    <div class="mobile-context-block">
+      <div class="mobile-context-label">Tile</div>
+      <div class="mobile-context-value">${selectedEl.innerHTML || selectedEl.textContent || "No tile selected."}</div>
+    </div>
+  `;
 
   renderCaptureProgress();
-
-  mobileCoreHelpEl.textContent = `Connection ${state.connection.toUpperCase()} | Use one finger to pan and pinch to zoom.`;
   miniMapLabelEl.textContent = `Minimap (${state.camX}, ${state.camY})`;
   const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (loadingActive) {
@@ -1940,18 +2767,36 @@ const renderHud = (): void => {
   }
   techPointsEl.textContent = "Tech unlocks use gold + strategic resources";
   mobileTechPointsEl.textContent = "Tech unlocks use gold + strategic resources";
-  techSummaryCardEl.innerHTML = techSummaryHtml();
-  mobileTechSummaryCardEl.innerHTML = techSummaryHtml();
   techCurrentModsEl.innerHTML = techCurrentModsHtml();
   mobileTechCurrentModsEl.innerHTML = techCurrentModsHtml();
   techChoicesGridEl.innerHTML = renderTechChoiceGrid();
   mobileTechChoicesGridEl.innerHTML = renderTechChoiceGrid();
   techDetailCardEl.innerHTML = renderTechDetailCard();
   mobileTechDetailCardEl.innerHTML = renderTechDetailCard();
-  techOwnedEl.innerHTML = `${renderRevealEmpireCard()}${renderDomainChoiceGrid()}${renderDomainDetailCard()}${techOwnedHtml()}`;
-  mobileTechOwnedEl.innerHTML = `${renderRevealEmpireCard()}${renderDomainChoiceGrid()}${renderDomainDetailCard()}${techOwnedHtml()}`;
+  techOwnedEl.innerHTML = techOwnedHtml();
+  mobileTechOwnedEl.innerHTML = techOwnedHtml();
+  techDomainsEl.innerHTML = `${renderDomainChoiceGrid()}${renderDomainDetailCard()}${domainOwnedHtml()}`;
+  mobileTechDomainsEl.innerHTML = `${renderDomainChoiceGrid()}${renderDomainDetailCard()}${domainOwnedHtml()}`;
   techChoiceDetailsEl.innerHTML = renderTechChoiceDetails();
   mobileTechChoiceDetailsEl.innerHTML = renderTechChoiceDetails();
+  const techResearchSectionEl = document.querySelector<HTMLDivElement>("#tech-research-section");
+  const techDomainsSectionEl = document.querySelector<HTMLDivElement>("#tech-domains-section");
+  const mobileTechResearchSectionEl = document.querySelector<HTMLDivElement>("#mobile-tech-research-section");
+  const mobileTechDomainsSectionEl = document.querySelector<HTMLDivElement>("#mobile-tech-domains-section");
+  if (techResearchSectionEl) techResearchSectionEl.style.display = state.techSection === "research" ? "grid" : "none";
+  if (techDomainsSectionEl) techDomainsSectionEl.style.display = state.techSection === "domains" ? "grid" : "none";
+  if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = state.techSection === "research" ? "grid" : "none";
+  if (mobileTechDomainsSectionEl) mobileTechDomainsSectionEl.style.display = state.techSection === "domains" ? "grid" : "none";
+  const techSectionButtons = hud.querySelectorAll<HTMLButtonElement>("[data-tech-section]");
+  techSectionButtons.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.techSection === state.techSection);
+    btn.onclick = () => {
+      const section = btn.dataset.techSection;
+      if (section !== "research" && section !== "domains") return;
+      state.techSection = section;
+      renderHud();
+    };
+  });
   const selectedTech = state.techCatalog.find((t) => t.id === (techPickEl.value || mobileTechPickEl.value));
   const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch);
   techChooseBtn.disabled = !canPick;
@@ -1990,35 +2835,9 @@ const renderHud = (): void => {
     btn.onclick = () => {
       const id = btn.dataset.domainUnlock;
       if (!id) return;
-      ws.send(JSON.stringify({ type: "CHOOSE_DOMAIN", domainId: id }));
+      sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
     };
   });
-  const revealActivateBtn = hud.querySelector<HTMLButtonElement>("#reveal-activate-btn");
-  const revealPick = hud.querySelector<HTMLSelectElement>("#reveal-target-pick");
-  if (revealActivateBtn && revealPick) {
-    if (state.revealTargetId && Array.from(revealPick.options).some((o) => o.value === state.revealTargetId)) {
-      revealPick.value = state.revealTargetId;
-    } else {
-      state.revealTargetId = revealPick.value || "";
-    }
-    revealPick.onchange = () => {
-      state.revealTargetId = revealPick.value;
-    };
-    revealActivateBtn.onclick = () => {
-      const targetPlayerId = revealPick.value || state.revealTargetId;
-      if (!targetPlayerId) return;
-      ws.send(JSON.stringify({ type: "REVEAL_EMPIRE", targetPlayerId }));
-    };
-  }
-  const stopRevealButtons = hud.querySelectorAll<HTMLButtonElement>("[data-stop-reveal]");
-  stopRevealButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const targetPlayerId = btn.dataset.stopReveal;
-      if (!targetPlayerId) return;
-      ws.send(JSON.stringify({ type: "STOP_REVEAL_EMPIRE", targetPlayerId }));
-    };
-  });
-
   alliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml()}`;
   mobileAlliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml()}`;
   allianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml()}`;
@@ -2041,6 +2860,10 @@ const renderHud = (): void => {
         <span>${tileColorInput.value}</span>
       </div>
     </div>
+    <div class="card auth-settings-card">
+      <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
+      <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
+    </div>
   `;
 
   const acceptButtons = hud.querySelectorAll<HTMLButtonElement>(".accept-request");
@@ -2048,7 +2871,7 @@ const renderHud = (): void => {
     btn.onclick = () => {
       const id = btn.dataset.requestId;
       if (!id) return;
-      ws.send(JSON.stringify({ type: "ALLIANCE_ACCEPT", requestId: id }));
+      sendGameMessage({ type: "ALLIANCE_ACCEPT", requestId: id }, "Finish sign-in before responding to alliance requests.");
     };
   });
   const breakButtons = hud.querySelectorAll<HTMLButtonElement>(".break-ally");
@@ -2056,27 +2879,52 @@ const renderHud = (): void => {
     btn.onclick = () => {
       const id = btn.dataset.allyId;
       if (!id) return;
-      ws.send(JSON.stringify({ type: "ALLIANCE_BREAK", targetPlayerId: id }));
+      sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing alliances.");
     };
   });
 
+  const authLogoutBtn = document.querySelector<HTMLButtonElement>("#auth-logout");
+  if (authLogoutBtn) {
+    authLogoutBtn.onclick = async () => {
+      if (!firebaseAuth) return;
+      await signOut(firebaseAuth);
+      window.location.reload();
+    };
+  }
+
+  syncAuthOverlay();
   renderMobilePanels();
 };
 
 const resize = (): void => {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const { width, height } = viewportSize();
+  canvas.width = width;
+  canvas.height = height;
 };
 window.addEventListener("resize", resize);
+window.visualViewport?.addEventListener("resize", resize);
 resize();
-
-const token = localStorage.getItem("be_token") ?? prompt("Enter login as name:password") ?? "player:pass";
-localStorage.setItem("be_token", token);
 
 const defaultWsUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:3001/ws`;
 const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? defaultWsUrl;
 const ws = new WebSocket(wsUrl);
 let reconnectReloadTimer: number | undefined;
+const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
+  if (ws.readyState !== ws.OPEN) {
+    setAuthStatus(`Game server unavailable at ${wsUrl}.`, "error");
+    syncAuthOverlay();
+    return false;
+  }
+  if (state.authSessionReady) return true;
+  setAuthStatus(message, "error");
+  syncAuthOverlay();
+  return false;
+};
+const sendGameMessage = (payload: unknown, message?: string): boolean => {
+  if (!requireAuthedSession(message)) return false;
+  ws.send(JSON.stringify(payload));
+  return true;
+};
 const clearReconnectReloadTimer = (): void => {
   if (reconnectReloadTimer !== undefined) {
     window.clearTimeout(reconnectReloadTimer);
@@ -2084,23 +2932,24 @@ const clearReconnectReloadTimer = (): void => {
   }
 };
 const scheduleReconnectReload = (): void => {
+  if (!state.hasEverInitialized) return;
   if (reconnectReloadTimer !== undefined) return;
   reconnectReloadTimer = window.setTimeout(() => {
     reconnectReloadTimer = undefined;
     if (state.connection === "initialized" || state.connection === "connected") return;
     window.location.reload();
-  }, 2000);
+  }, 4000);
 };
 
 const sendAllianceRequest = (target: string): void => {
   const t = target.trim();
   if (!t) return;
-  ws.send(JSON.stringify({ type: "ALLIANCE_REQUEST", targetPlayerName: t }));
+  sendGameMessage({ type: "ALLIANCE_REQUEST", targetPlayerName: t }, "Finish sign-in before sending alliance requests.");
 };
 const breakAlliance = (target: string): void => {
   const t = target.trim();
   if (!t) return;
-  ws.send(JSON.stringify({ type: "ALLIANCE_BREAK", targetPlayerId: t }));
+  sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: t }, "Finish sign-in before breaking alliances.");
 };
 const currentTechPickId = (): string => {
   const byState = state.techUiSelectedId?.trim();
@@ -2128,9 +2977,38 @@ const chooseTech = (techIdRaw?: string): void => {
     pushFeed("Cannot choose tech while disconnected.", "tech", "error");
     return;
   }
+  if (!state.authSessionReady) {
+    setAuthStatus("Finish sign-in before choosing a technology.", "error");
+    syncAuthOverlay();
+    return;
+  }
   state.techUiSelectedId = techId;
   console.info("[tech] sending CHOOSE_TECH", { techId });
   ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
+};
+
+const explainActionFailure = (code: string, message: string): string => {
+  if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
+  if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
+  if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
+  if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build observatory: ${message}.`;
+  if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build siege outpost: ${message}.`;
+  if (code === "ECONOMIC_STRUCTURE_BUILD_INVALID") return `Cannot build structure: ${message}.`;
+  if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;
+  if (code === "SABOTAGE_INVALID") return `Cannot sabotage tile: ${message}.`;
+  if (code === "DEEP_STRIKE_INVALID") return `Cannot deep strike: ${message}.`;
+  if (code === "NAVAL_INFILTRATION_INVALID") return `Cannot launch naval infiltration: ${message}.`;
+  if (code === "CREATE_MOUNTAIN_INVALID") return `Cannot create mountain: ${message}.`;
+  if (code === "REMOVE_MOUNTAIN_INVALID") return `Cannot remove mountain: ${message}.`;
+  if (code === "NOT_ADJACENT") return "Action blocked: target must border your territory or a linked dock.";
+  if (code === "NOT_OWNER") return "Action blocked: you need to launch from one of your own tiles.";
+  if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
+  if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";
+  if (code === "SHIELDED") return "Action blocked: that empire is still under spawn protection.";
+  if (code === "ALLY_TARGET") return "Action blocked: you cannot attack an allied empire.";
+  if (code === "BREAKTHROUGH_TARGET_INVALID") return `Cannot launch breach attack: ${message}.`;
+  if (code === "EXPAND_TARGET_OWNED") return "Frontier claim failed: that tile is already owned.";
+  return `Error ${code}: ${message}`;
 };
 
 const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean => {
@@ -2228,21 +3106,21 @@ const queueSpecificTargets = (
 ): { queued: number; skipped: number; queuedKeys: string[] } =>
   buildFrontierQueue(targetKeys, (x, y) => enqueueTarget(x, y, mode));
 
-const processActionQueue = (): void => {
-  if (state.actionInFlight || state.capture || ws.readyState !== ws.OPEN) return;
+const processActionQueue = (): boolean => {
+  if (state.actionInFlight || ws.readyState !== ws.OPEN || !state.authSessionReady) return false;
   const next = state.actionQueue.shift();
-  if (!next) return;
+  if (!next) return false;
 
   const to = state.tiles.get(key(next.x, next.y));
-  if (!to) return;
-  if (to.ownerId === state.me) return;
+  if (!to) return false;
+  if (to.ownerId === state.me) return false;
 
   let from = pickOriginForTarget(to.x, to.y);
   const selectedFrom = state.selected ? state.tiles.get(key(state.selected.x, state.selected.y)) : undefined;
   if (!from && selectedFrom && selectedFrom.ownerId === state.me && isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y)) {
     from = selectedFrom;
   }
-  if (!from) return;
+  if (!from) return false;
 
   state.actionCurrent = {
     x: to.x,
@@ -2272,9 +3150,11 @@ const processActionQueue = (): void => {
   }
   state.selected = { x: to.x, y: to.y };
   renderHud();
+  return true;
 };
 const requestAttackPreviewForHover = (): void => {
   if (ws.readyState !== ws.OPEN) return;
+  if (!state.authSessionReady) return;
   if (state.actionInFlight || state.capture) return;
   if (!state.selected || !state.hover) return;
   const from = state.tiles.get(key(state.selected.x, state.selected.y));
@@ -2297,6 +3177,39 @@ const requestAttackPreviewForHover = (): void => {
   state.attackPreviewPendingKey = previewKey;
   ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
 };
+
+const requestAttackPreviewForTarget = (to: Tile): void => {
+  if (ws.readyState !== ws.OPEN) return;
+  if (!state.authSessionReady) return;
+  if (state.actionInFlight || state.capture) return;
+  if (!to.ownerId || to.ownerId === state.me || to.fogged) return;
+  const from = pickOriginForTarget(to.x, to.y);
+  if (!from || from.ownerId !== state.me) return;
+  const fromKey = key(from.x, from.y);
+  const toKey = key(to.x, to.y);
+  const previewKey = `${fromKey}->${toKey}`;
+  if (state.attackPreviewPendingKey === previewKey) return;
+  if (state.attackPreview && state.attackPreview.fromKey === fromKey && state.attackPreview.toKey === toKey) return;
+  const nowMs = Date.now();
+  if (nowMs - state.lastAttackPreviewAt < 120) return;
+  state.lastAttackPreviewAt = nowMs;
+  state.attackPreviewPendingKey = previewKey;
+  ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+};
+
+const attackPreviewDetailForTarget = (to: Tile, mode: "normal" | "breakthrough" = "normal"): string | undefined => {
+  const from = pickOriginForTarget(to.x, to.y);
+  if (!from) return undefined;
+  const fromKey = key(from.x, from.y);
+  const toKey = key(to.x, to.y);
+  if (!state.attackPreview || state.attackPreview.fromKey !== fromKey || state.attackPreview.toKey !== toKey) return undefined;
+  if (!state.attackPreview.valid) return state.attackPreview.reason ? `Attack ${state.attackPreview.reason}` : undefined;
+  if (mode === "breakthrough" && typeof state.attackPreview.breakthroughWinChance === "number") {
+    return `${Math.round(state.attackPreview.breakthroughWinChance * 100)}% breach win chance`;
+  }
+  if (typeof state.attackPreview.winChance === "number") return `${Math.round(state.attackPreview.winChance * 100)}% win chance`;
+  return undefined;
+};
 const buildFortOnSelected = (): void => {
   const sel = state.selected;
   if (!sel) {
@@ -2304,7 +3217,7 @@ const buildFortOnSelected = (): void => {
     renderHud();
     return;
   }
-  ws.send(JSON.stringify({ type: "BUILD_FORT", x: sel.x, y: sel.y }));
+  sendGameMessage({ type: "BUILD_FORT", x: sel.x, y: sel.y });
 };
 const settleSelected = (): void => {
   const sel = state.selected;
@@ -2313,34 +3226,7 @@ const settleSelected = (): void => {
     renderHud();
     return;
   }
-  ws.send(JSON.stringify({ type: "SETTLE", x: sel.x, y: sel.y }));
-};
-const rapidSettleSelected = (): void => {
-  const sel = state.selected;
-  if (!sel) {
-    pushFeed("Select a frontier tile first.", "error", "warn");
-    renderHud();
-    return;
-  }
-  ws.send(JSON.stringify({ type: "RAPID_SETTLE", x: sel.x, y: sel.y }));
-};
-const defensiveFortifySelected = (): void => {
-  const sel = state.selected;
-  if (!sel) {
-    pushFeed("Select a settled owned tile first.", "error", "warn");
-    renderHud();
-    return;
-  }
-  ws.send(JSON.stringify({ type: "DEFENSIVE_FORTIFY", x: sel.x, y: sel.y }));
-};
-const scoutPulseSelected = (): void => {
-  const sel = state.selected;
-  if (!sel) {
-    pushFeed("Select one of your visible tiles first.", "error", "warn");
-    renderHud();
-    return;
-  }
-  ws.send(JSON.stringify({ type: "SCOUT_PULSE", x: sel.x, y: sel.y }));
+  sendGameMessage({ type: "SETTLE", x: sel.x, y: sel.y });
 };
 const buildSiegeOutpostOnSelected = (): void => {
   const sel = state.selected;
@@ -2349,7 +3235,7 @@ const buildSiegeOutpostOnSelected = (): void => {
     renderHud();
     return;
   }
-  ws.send(JSON.stringify({ type: "BUILD_SIEGE_OUTPOST", x: sel.x, y: sel.y }));
+  sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x: sel.x, y: sel.y });
 };
 const uncaptureSelected = (): void => {
   const sel = state.selected;
@@ -2364,28 +3250,28 @@ const uncaptureSelected = (): void => {
     renderHud();
     return;
   }
-  ws.send(JSON.stringify({ type: "UNCAPTURE_TILE", x: sel.x, y: sel.y }));
+  sendGameMessage({ type: "UNCAPTURE_TILE", x: sel.x, y: sel.y });
 };
 const cancelOngoingCapture = (): void => {
   state.actionQueue.length = 0;
   state.queuedTargetKeys.clear();
   state.dragPreviewKeys.clear();
-  ws.send(JSON.stringify({ type: "CANCEL_CAPTURE" }));
+  sendGameMessage({ type: "CANCEL_CAPTURE" });
 };
 const collectVisibleYield = (): void => {
-  ws.send(JSON.stringify({ type: "COLLECT_VISIBLE" }));
+  sendGameMessage({ type: "COLLECT_VISIBLE" });
 };
 const collectSelectedYield = (): void => {
   const sel = state.selected;
   if (!sel) return;
-  ws.send(JSON.stringify({ type: "COLLECT_TILE", x: sel.x, y: sel.y }));
+  sendGameMessage({ type: "COLLECT_TILE", x: sel.x, y: sel.y });
 };
 const applyTileColor = (value: string): void => {
   if (!/^#[0-9a-fA-F]{6}$/.test(value)) return;
   tileColorInput.value = value;
   panelColorInput.value = value;
   panelColorTextInput.value = value;
-  ws.send(JSON.stringify({ type: "SET_TILE_COLOR", color: value }));
+  sendGameMessage({ type: "SET_TILE_COLOR", color: value }, "Finish sign-in before changing your nation color.");
 };
 
 const hideHoldBuildMenu = (): void => {
@@ -2405,51 +3291,667 @@ type TileActionDef = {
     | "settle_land"
     | "launch_attack"
     | "launch_breach_attack"
+    | "reveal_empire"
     | "collect_yield"
     | "build_fortification"
+    | "build_observatory"
+    | "build_farmstead"
+    | "build_camp"
+    | "build_mine"
+    | "build_market"
     | "abandon_territory"
-    | "build_siege_camp";
+    | "build_siege_camp"
+    | "deep_strike"
+    | "naval_infiltration"
+    | "sabotage_tile"
+    | "create_mountain"
+    | "remove_mountain";
   label: string;
   cost?: string;
+  detail?: string | undefined;
   disabled?: boolean;
+  disabledReason?: string;
+  targetKey?: string;
+  originKey?: string;
 };
 
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "settle_land") return "⌂";
   if (id === "launch_attack") return "⚔";
   if (id === "launch_breach_attack") return "✦";
+  if (id === "reveal_empire") return "◈";
   if (id === "collect_yield") return "⛃";
   if (id === "build_fortification") return "🛡";
+  if (id === "build_observatory") return "◉";
+  if (id === "build_farmstead") return "▥";
+  if (id === "build_camp") return "⛺";
+  if (id === "build_mine") return "⛏";
+  if (id === "build_market") return "▣";
   if (id === "abandon_territory") return "✕";
+  if (id === "deep_strike") return "✦";
+  if (id === "naval_infiltration") return "≈";
+  if (id === "sabotage_tile") return "☍";
+  if (id === "create_mountain") return "⛰";
+  if (id === "remove_mountain") return "⌵";
   return "⛺";
 };
 
 const isTileOwnedByAlly = (tile: Tile): boolean => Boolean(tile.ownerId && state.allies.includes(tile.ownerId));
 
+const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number => {
+  const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
+  const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
+  return Math.max(dx, dy);
+};
+
+const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => {
+  for (const candidate of state.tiles.values()) {
+    if (!candidate.observatory || candidate.observatory.status !== "active") continue;
+    if (!candidate.ownerId || candidate.ownerId === state.me || state.allies.includes(candidate.ownerId)) continue;
+    if (candidate.fogged) continue;
+    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= OBSERVATORY_PROTECTION_RADIUS) return candidate;
+  }
+  return undefined;
+};
+
+const abilityCooldownRemainingMs = (
+  abilityId: "deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain"
+): number =>
+  Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - Date.now());
+
+const formatCooldownShort = (ms: number): string => {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+};
+
+const hasRevealCapability = (): boolean => {
+  return state.techIds.includes("signal-fires") || state.activeRevealTargets.length > 0;
+};
+
+const hasDeepStrikeCapability = (): boolean => state.techIds.includes("siegecraft") && state.techIds.includes("logistics");
+const hasBreakthroughCapability = (): boolean => state.techIds.includes("iron-working");
+
+const hasNavalInfiltrationCapability = (): boolean => state.techIds.includes("navigation");
+
+const hasSabotageCapability = (): boolean => state.techIds.includes("cryptography");
+
+const hasTerrainShapingCapability = (): boolean => state.techIds.includes("terrain-engineering");
+
+const hasOwnedLandWithinClientRange = (x: number, y: number, range: number): boolean => {
+  for (const tile of state.tiles.values()) {
+    if (tile.fogged || tile.ownerId !== state.me || tile.terrain !== "LAND") continue;
+    if (chebyshevDistanceClient(tile.x, tile.y, x, y) <= range) return true;
+  }
+  return false;
+};
+
+const crystalTargetingTitle = (ability: CrystalTargetingAbility): string => {
+  if (ability === "deep_strike") return "Deep Strike";
+  if (ability === "naval_infiltration") return "Naval Infiltration";
+  return "Sabotage";
+};
+
+const crystalTargetingTone = (ability: CrystalTargetingAbility): "amber" | "cyan" | "red" => {
+  if (ability === "deep_strike") return "amber";
+  if (ability === "naval_infiltration") return "cyan";
+  return "red";
+};
+
+const clearCrystalTargeting = (): void => {
+  state.crystalTargeting.active = false;
+  state.crystalTargeting.validTargets.clear();
+  state.crystalTargeting.originByTarget.clear();
+};
+
+const lineStepsBetween = (ax: number, ay: number, bx: number, by: number): Array<{ x: number; y: number }> => {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  if (steps <= 1) return [];
+  const out: Array<{ x: number; y: number }> = [];
+  for (let i = 1; i < steps; i += 1) {
+    out.push({ x: wrapX(Math.round(ax + (dx * i) / steps)), y: wrapY(Math.round(ay + (dy * i) / steps)) });
+  }
+  return out;
+};
+
+const findDeepStrikeOriginForTarget = (target: Tile): Tile | undefined => {
+  let best: Tile | undefined;
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me || tile.terrain !== "LAND") continue;
+    const dx = Math.min(Math.abs(tile.x - target.x), WORLD_WIDTH - Math.abs(tile.x - target.x));
+    const dy = Math.min(Math.abs(tile.y - target.y), WORLD_HEIGHT - Math.abs(tile.y - target.y));
+    if (Math.max(dx, dy) < 2 || Math.max(dx, dy) > 2) continue;
+    const blocked = lineStepsBetween(tile.x, tile.y, target.x, target.y).some((step) => terrainAt(step.x, step.y) === "MOUNTAIN");
+    if (blocked) continue;
+    best = tile;
+    break;
+  }
+  return best;
+};
+
+const findNavalInfiltrationOriginForTarget = (target: Tile): Tile | undefined => {
+  let best: Tile | undefined;
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me || tile.terrain !== "LAND") continue;
+    const dx = Math.min(Math.abs(tile.x - target.x), WORLD_WIDTH - Math.abs(tile.x - target.x));
+    const dy = Math.min(Math.abs(tile.y - target.y), WORLD_HEIGHT - Math.abs(tile.y - target.y));
+    const distance = Math.max(dx, dy);
+    if (distance < 2 || distance > 4) continue;
+    const steps = lineStepsBetween(tile.x, tile.y, target.x, target.y);
+    if (steps.length === 0) continue;
+    const seaOnly = steps.every((step) => terrainAt(step.x, step.y) === "SEA");
+    if (!seaOnly) continue;
+    best = tile;
+    break;
+  }
+  return best;
+};
+
+const navalInfiltrationActionsForSeaTile = (tile: Tile): TileActionDef[] => {
+  if (tile.terrain !== "SEA" || tile.fogged) return [];
+  const out: TileActionDef[] = [];
+  const cooldown = abilityCooldownRemainingMs("naval_infiltration");
+  for (const candidate of state.tiles.values()) {
+    if (candidate.fogged || candidate.terrain !== "LAND") continue;
+    if (!candidate.ownerId || candidate.ownerId === state.me || isTileOwnedByAlly(candidate)) continue;
+    const origin = findNavalInfiltrationOriginForTarget(candidate);
+    if (!origin) continue;
+    const steps = lineStepsBetween(origin.x, origin.y, candidate.x, candidate.y);
+    if (!steps.some((step) => step.x === tile.x && step.y === tile.y)) continue;
+    const targetName = candidate.town
+      ? `${prettyToken(candidate.town.type)} Town`
+      : candidate.resource
+        ? prettyToken(resourceLabel(candidate.resource))
+        : `${terrainLabel(candidate.x, candidate.y, candidate.terrain)} Tile`;
+    const observatoryProtection = hostileObservatoryProtectingTile(candidate);
+    out.push({
+      id: "naval_infiltration",
+      label: `Naval Infiltration · ${targetName}`,
+      targetKey: key(candidate.x, candidate.y),
+      originKey: key(origin.x, origin.y),
+      ...tileActionAvailability(
+        hasNavalInfiltrationCapability() && !observatoryProtection && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
+        !hasNavalInfiltrationCapability()
+          ? "Requires Navigation"
+          : observatoryProtection
+            ? "Blocked by observatory field"
+          : cooldown > 0
+            ? `Cooldown ${formatCooldownShort(cooldown)}`
+            : "Need 30 CRYSTAL",
+        `Land at ${candidate.x}, ${candidate.y} • 30 CRYSTAL`
+      )
+    });
+  }
+  return out.slice(0, 6);
+};
+
+const computeCrystalTargets = (
+  ability: CrystalTargetingAbility
+): { validTargets: Set<string>; originByTarget: Map<string, string> } => {
+  const validTargets = new Set<string>();
+  const originByTarget = new Map<string, string>();
+  for (const tile of state.tiles.values()) {
+    if (tile.fogged || tile.terrain !== "LAND") continue;
+    if (!tile.ownerId || tile.ownerId === state.me || isTileOwnedByAlly(tile)) continue;
+    if (hostileObservatoryProtectingTile(tile)) continue;
+    if (ability === "deep_strike") {
+      const origin = findDeepStrikeOriginForTarget(tile);
+      if (!origin) continue;
+      validTargets.add(key(tile.x, tile.y));
+      originByTarget.set(key(tile.x, tile.y), key(origin.x, origin.y));
+      continue;
+    }
+    if (ability === "naval_infiltration") {
+      const origin = findNavalInfiltrationOriginForTarget(tile);
+      if (!origin) continue;
+      validTargets.add(key(tile.x, tile.y));
+      originByTarget.set(key(tile.x, tile.y), key(origin.x, origin.y));
+      continue;
+    }
+    if ((tile.resource || tile.town) && !tile.sabotage) validTargets.add(key(tile.x, tile.y));
+  }
+  return { validTargets, originByTarget };
+};
+
+const beginCrystalTargeting = (ability: CrystalTargetingAbility): void => {
+  if (ability === "deep_strike") {
+    const cooldown = abilityCooldownRemainingMs("deep_strike");
+    if (!hasDeepStrikeCapability()) {
+      pushFeed("Deep Strike requires Siegecraft and Logistics.", "combat", "warn");
+      return;
+    }
+    if ((state.strategicResources.CRYSTAL ?? 0) < 25) {
+      pushFeed("Deep Strike needs 25 CRYSTAL.", "combat", "warn");
+      return;
+    }
+    if (cooldown > 0) {
+      pushFeed(`Deep Strike cooling down for ${formatCooldownShort(cooldown)}.`, "combat", "warn");
+      return;
+    }
+  }
+  if (ability === "naval_infiltration") {
+    const cooldown = abilityCooldownRemainingMs("naval_infiltration");
+    if (!hasNavalInfiltrationCapability()) {
+      pushFeed("Naval Infiltration requires Navigation.", "combat", "warn");
+      return;
+    }
+    if ((state.strategicResources.CRYSTAL ?? 0) < 30) {
+      pushFeed("Naval Infiltration needs 30 CRYSTAL.", "combat", "warn");
+      return;
+    }
+    if (cooldown > 0) {
+      pushFeed(`Naval Infiltration cooling down for ${formatCooldownShort(cooldown)}.`, "combat", "warn");
+      return;
+    }
+  }
+  if (ability === "sabotage") {
+    const cooldown = abilityCooldownRemainingMs("sabotage");
+    if (!hasSabotageCapability()) {
+      pushFeed("Sabotage requires Cryptography.", "combat", "warn");
+      return;
+    }
+    if ((state.strategicResources.CRYSTAL ?? 0) < 20) {
+      pushFeed("Sabotage needs 20 CRYSTAL.", "combat", "warn");
+      return;
+    }
+    if (cooldown > 0) {
+      pushFeed(`Sabotage cooling down for ${formatCooldownShort(cooldown)}.`, "combat", "warn");
+      return;
+    }
+  }
+
+  const { validTargets, originByTarget } = computeCrystalTargets(ability);
+  if (validTargets.size === 0) {
+    const title = crystalTargetingTitle(ability);
+    pushFeed(`${title} has no valid targets in view.`, "combat", "warn");
+    return;
+  }
+  state.crystalTargeting.active = true;
+  state.crystalTargeting.ability = ability;
+  state.crystalTargeting.validTargets = validTargets;
+  state.crystalTargeting.originByTarget = originByTarget;
+  hideTileActionMenu();
+  hideHoldBuildMenu();
+  const current = selectedTile();
+  if (!current || !validTargets.has(key(current.x, current.y))) {
+    const first = [...validTargets][0];
+    if (first) state.selected = parseKey(first);
+  }
+  pushFeed(`${crystalTargetingTitle(ability)} armed. Tap a highlighted target tile.`, "combat", "info");
+  renderHud();
+};
+
+const executeCrystalTargeting = (tile: Tile): boolean => {
+  const targetKey = key(tile.x, tile.y);
+  if (!state.crystalTargeting.active || !state.crystalTargeting.validTargets.has(targetKey)) return false;
+  if (hostileObservatoryProtectingTile(tile)) {
+    pushFeed("Blocked by observatory field.", "combat", "warn");
+    return false;
+  }
+  if (!requireAuthedSession()) return false;
+  const ability = state.crystalTargeting.ability;
+  if (ability === "deep_strike") {
+    const originKey = state.crystalTargeting.originByTarget.get(targetKey);
+    if (!originKey) return false;
+    const origin = parseKey(originKey);
+    ws.send(JSON.stringify({ type: "DEEP_STRIKE_ATTACK", fromX: origin.x, fromY: origin.y, toX: tile.x, toY: tile.y }));
+  } else if (ability === "naval_infiltration") {
+    const originKey = state.crystalTargeting.originByTarget.get(targetKey);
+    if (!originKey) return false;
+    const origin = parseKey(originKey);
+    ws.send(JSON.stringify({ type: "NAVAL_INFILTRATION_ATTACK", fromX: origin.x, fromY: origin.y, toX: tile.x, toY: tile.y }));
+  } else {
+    ws.send(JSON.stringify({ type: "SABOTAGE_TILE", x: tile.x, y: tile.y }));
+  }
+  clearCrystalTargeting();
+  hideTileActionMenu();
+  return true;
+};
+
+const tileActionAvailability = (
+  enabled: boolean,
+  reason: string,
+  cost?: string
+): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => {
+  if (enabled) return cost ? { disabled: false, cost } : { disabled: false };
+  return { disabled: true, disabledReason: reason, cost: reason };
+};
+
+const isOwnedBorderTile = (x: number, y: number): boolean => {
+  const neighbors = [
+    state.tiles.get(key(wrapX(x), wrapY(y - 1))),
+    state.tiles.get(key(wrapX(x + 1), wrapY(y))),
+    state.tiles.get(key(wrapX(x), wrapY(y + 1))),
+    state.tiles.get(key(wrapX(x - 1), wrapY(y)))
+  ];
+  return neighbors.some((tile) => !tile || tile.ownerId !== state.me);
+};
+
 const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
-  if (tile.terrain !== "LAND" || tile.fogged) return [];
+  if (tile.fogged) return [];
+  if (tile.terrain === "SEA") return navalInfiltrationActionsForSeaTile(tile);
+  if (tile.terrain === "MOUNTAIN") {
+    const removeCooldown = abilityCooldownRemainingMs("remove_mountain");
+    const observatoryProtection = hostileObservatoryProtectingTile(tile);
+    return [
+      {
+        id: "remove_mountain",
+        label: "Remove Mountain",
+        ...tileActionAvailability(
+          hasTerrainShapingCapability() &&
+            !observatoryProtection &&
+            hasOwnedLandWithinClientRange(tile.x, tile.y, 2) &&
+            removeCooldown <= 0 &&
+            state.gold >= 8000 &&
+            (state.strategicResources.CRYSTAL ?? 0) >= 400,
+          !hasTerrainShapingCapability()
+            ? "Requires Terrain Engineering"
+            : observatoryProtection
+              ? "Blocked by observatory field"
+              : !hasOwnedLandWithinClientRange(tile.x, tile.y, 2)
+                ? "Must be within 2 tiles of your land"
+                : removeCooldown > 0
+                  ? `Cooldown ${formatCooldownShort(removeCooldown)}`
+                  : state.gold < 8000
+                    ? "Need 8000 gold"
+                    : "Need 400 CRYSTAL",
+          "8000 gold + 400 CRYSTAL"
+        )
+      }
+    ];
+  }
+  if (tile.terrain !== "LAND") return [];
+  const createMountainAction = (): TileActionDef => {
+    const createCooldown = abilityCooldownRemainingMs("create_mountain");
+    const observatoryProtection = hostileObservatoryProtectingTile(tile);
+    const hasRange = hasOwnedLandWithinClientRange(tile.x, tile.y, 2);
+    const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
+    return {
+      id: "create_mountain",
+      label: "Create Mountain",
+      ...tileActionAvailability(
+        hasTerrainShapingCapability() &&
+          !observatoryProtection &&
+          hasRange &&
+          !blockedBySite &&
+          createCooldown <= 0 &&
+          state.gold >= 8000 &&
+          (state.strategicResources.CRYSTAL ?? 0) >= 400,
+        !hasTerrainShapingCapability()
+          ? "Requires Terrain Engineering"
+          : observatoryProtection
+            ? "Blocked by observatory field"
+            : !hasRange
+              ? "Must be within 2 tiles of your land"
+              : blockedBySite
+                ? "Town, dock, or structure blocks terrain shaping"
+                : createCooldown > 0
+                  ? `Cooldown ${formatCooldownShort(createCooldown)}`
+                  : state.gold < 8000
+                    ? "Need 8000 gold"
+                    : "Need 400 CRYSTAL",
+        "8000 gold + 400 CRYSTAL"
+      )
+    };
+  };
   if (!tile.ownerId) {
-    return [{ id: "settle_land", label: "Settle Land", cost: `${SETTLE_COST} gold + timers` }];
+    const reachable = Boolean(pickOriginForTarget(tile.x, tile.y));
+    const hasGold = state.gold >= FRONTIER_CLAIM_COST;
+    return [
+      {
+        id: "settle_land",
+        label: "Settle Land",
+        ...tileActionAvailability(
+          reachable && hasGold,
+          !reachable ? "Must touch your territory" : `Need ${FRONTIER_CLAIM_COST} gold`,
+          `${SETTLE_COST} gold + timers`
+        )
+      },
+      createMountainAction()
+    ];
   }
   if (tile.ownerId === state.me) {
     const out: TileActionDef[] = [];
     const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
     const hasYield =
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
+    const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
-    if (tile.ownershipState === "FRONTIER") out.push({ id: "settle_land", label: "Settle Land", cost: `${SETTLE_COST} gold` });
-    if (tile.ownershipState === "SETTLED" && !tile.fort)
-      out.push({ id: "build_fortification", label: "Build Fortification", cost: `${FORT_BUILD_COST} gold + 45 IRON` });
-    if (tile.ownershipState === "SETTLED" && !tile.siegeOutpost)
-      out.push({ id: "build_siege_camp", label: "Build Siege Camp", cost: `${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY` });
+    if (tile.ownershipState === "FRONTIER")
+      out.push({
+        id: "settle_land",
+        label: "Settle Land",
+        ...tileActionAvailability(state.gold >= SETTLE_COST, `Need ${SETTLE_COST} gold`, `${SETTLE_COST} gold`)
+      });
+    if (tile.ownershipState === "SETTLED" && !tile.fort) {
+      const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
+      const hasTech = state.techIds.includes("masonry");
+      const hasGold = state.gold >= FORT_BUILD_COST;
+      const hasIron = (state.strategicResources.IRON ?? 0) >= 45;
+      out.push({
+        id: "build_fortification",
+        label: "Build Fortification",
+        ...tileActionAvailability(
+          hasTech && hasGold && hasIron && isBorderOrDock && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure,
+          !hasTech ? "Requires Masonry" : !isBorderOrDock ? "Needs border or dock tile" : tile.siegeOutpost || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${FORT_BUILD_COST} gold` : !hasIron ? "Need 45 IRON" : "Unavailable",
+          `${FORT_BUILD_COST} gold + 45 IRON`
+        )
+      });
+    }
+    if (tile.ownershipState === "SETTLED" && !tile.observatory) {
+      const hasTech = state.techIds.includes("cartography");
+      const hasGold = state.gold >= OBSERVATORY_BUILD_COST;
+      const hasCrystal = (state.strategicResources.CRYSTAL ?? 0) >= 45;
+      out.push({
+        id: "build_observatory",
+        label: "Build Observatory",
+        ...tileActionAvailability(
+          hasTech && hasGold && hasCrystal && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
+          !hasTech ? "Requires Cartography" : tile.fort || tile.siegeOutpost || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${OBSERVATORY_BUILD_COST} gold` : !hasCrystal ? "Need 45 CRYSTAL" : "Unavailable",
+          `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL`
+        )
+      });
+    }
+    if (tile.ownershipState === "SETTLED" && !tile.siegeOutpost) {
+      const hasTech = state.techIds.includes("leatherworking");
+      const hasGold = state.gold >= SIEGE_OUTPOST_BUILD_COST;
+      const hasSupply = (state.strategicResources.SUPPLY ?? 0) >= 45;
+      const onBorder = isOwnedBorderTile(tile.x, tile.y);
+      out.push({
+        id: "build_siege_camp",
+        label: "Build Siege Camp",
+        ...tileActionAvailability(
+          hasTech && hasGold && hasSupply && onBorder && !tile.fort && !tile.observatory && !tile.economicStructure,
+          !hasTech ? "Requires Leatherworking" : !onBorder ? "Needs border tile" : tile.fort || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${SIEGE_OUTPOST_BUILD_COST} gold` : !hasSupply ? "Need 45 SUPPLY" : "Unavailable",
+          `${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY`
+        )
+      });
+    }
+    if (tile.ownershipState === "SETTLED") {
+      if (tile.resource === "FARM" || tile.resource === "FISH") {
+        out.push({
+          id: "build_farmstead",
+          label: "Build Farmstead",
+          ...tileActionAvailability(
+            !hasBlockingStructure && state.techIds.includes("agriculture") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 20,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("agriculture") ? "Requires Agriculture" : state.gold < 400 ? "Need 400 gold" : "Need 20 FOOD",
+            "400 gold + 20 FOOD"
+          )
+        });
+      }
+      if (tile.resource === "WOOD" || tile.resource === "FUR") {
+        out.push({
+          id: "build_camp",
+          label: "Build Camp",
+          ...tileActionAvailability(
+            !hasBlockingStructure && state.techIds.includes("leatherworking") && state.gold >= 500 && (state.strategicResources.SUPPLY ?? 0) >= 30,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("leatherworking") ? "Requires Leatherworking" : state.gold < 500 ? "Need 500 gold" : "Need 30 SUPPLY",
+            "500 gold + 30 SUPPLY"
+          )
+        });
+      }
+      if (tile.resource === "IRON" || tile.resource === "GEMS") {
+        const matchingNeed = tile.resource === "IRON" ? "IRON" : "CRYSTAL";
+        out.push({
+          id: "build_mine",
+          label: "Build Mine",
+          ...tileActionAvailability(
+            !hasBlockingStructure && state.techIds.includes("mining") && state.gold >= 500 && (state.strategicResources[matchingNeed] ?? 0) >= 30,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("mining") ? "Requires Mining" : state.gold < 500 ? "Need 500 gold" : `Need 30 ${matchingNeed}`,
+            `500 gold + 30 ${matchingNeed}`
+          )
+        });
+      }
+      if (tile.town) {
+        out.push({
+          id: "build_market",
+          label: "Build Market",
+          ...tileActionAvailability(
+            !hasBlockingStructure && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("trade") ? "Requires Trade" : state.gold < 600 ? "Need 600 gold" : "Need 40 CRYSTAL",
+            "600 gold + 40 CRYSTAL"
+          )
+        });
+      }
+    }
+    out.push(createMountainAction());
     out.push({ id: "abandon_territory", label: "Abandon Territory" });
     return out;
   }
   if (isTileOwnedByAlly(tile)) return [];
-  return [
-    { id: "launch_attack", label: "Launch Attack" },
-    { id: "launch_breach_attack", label: "Launch Breach Attack", cost: "2 gold + 2 IRON" }
+  if (tile.ownerId === "barbarian") {
+    const previewDetail = attackPreviewDetailForTarget(tile);
+    const breachPreviewDetail = attackPreviewDetailForTarget(tile, "breakthrough");
+    return [
+      {
+        id: "launch_attack",
+        label: "Launch Attack",
+        ...(previewDetail ? { detail: previewDetail } : {}),
+        ...tileActionAvailability(Boolean(pickOriginForTarget(tile.x, tile.y)) && state.gold >= FRONTIER_CLAIM_COST, !pickOriginForTarget(tile.x, tile.y) ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`)
+      },
+      {
+        id: "launch_breach_attack",
+        label: "Launch Breach Attack",
+        ...(breachPreviewDetail ? { detail: breachPreviewDetail } : {}),
+        ...tileActionAvailability(
+          Boolean(pickOriginForTarget(tile.x, tile.y)) && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
+          !pickOriginForTarget(tile.x, tile.y)
+            ? "No bordering origin tile"
+            : !hasBreakthroughCapability()
+              ? "Requires Iron Working"
+              : state.gold < 2
+                ? "Need 2 gold"
+                : "Need 1 IRON",
+          "2 gold + 1 IRON"
+        )
+      },
+      createMountainAction()
+    ];
+  }
+  const reachable = Boolean(pickOriginForTarget(tile.x, tile.y));
+  const out: TileActionDef[] = [
+    {
+      id: "launch_attack",
+      label: "Launch Attack",
+      ...(attackPreviewDetailForTarget(tile) ? { detail: attackPreviewDetailForTarget(tile) } : {}),
+      ...tileActionAvailability(reachable && state.gold >= FRONTIER_CLAIM_COST, !reachable ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`)
+    },
+    {
+      id: "launch_breach_attack",
+      label: "Launch Breach Attack",
+      ...(attackPreviewDetailForTarget(tile, "breakthrough") ? { detail: attackPreviewDetailForTarget(tile, "breakthrough") } : {}),
+      ...tileActionAvailability(
+        reachable && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
+        !reachable ? "No bordering origin tile" : !hasBreakthroughCapability() ? "Requires Iron Working" : state.gold < 2 ? "Need 2 gold" : "Need 1 IRON",
+        "2 gold + 1 IRON"
+      )
+    }
   ];
+  const deepStrikeCooldown = abilityCooldownRemainingMs("deep_strike");
+  const deepStrikeOrigin = findDeepStrikeOriginForTarget(tile);
+  const observatoryProtection = hostileObservatoryProtectingTile(tile);
+  out.push({
+    id: "deep_strike",
+    label: "Deep Strike",
+    ...tileActionAvailability(
+      hasDeepStrikeCapability() && !observatoryProtection && Boolean(deepStrikeOrigin) && deepStrikeCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25,
+      !hasDeepStrikeCapability()
+        ? "Requires Siegecraft + Logistics"
+        : observatoryProtection
+          ? "Blocked by observatory field"
+        : !deepStrikeOrigin
+          ? "Need valid 2-tile origin"
+          : deepStrikeCooldown > 0
+            ? `Cooldown ${formatCooldownShort(deepStrikeCooldown)}`
+            : "Need 25 CRYSTAL",
+      "25 CRYSTAL • -10% ATK"
+    )
+  });
+  const navalCooldown = abilityCooldownRemainingMs("naval_infiltration");
+  const navalOrigin = findNavalInfiltrationOriginForTarget(tile);
+  out.push({
+    id: "naval_infiltration",
+    label: "Naval Infiltration",
+    ...tileActionAvailability(
+      hasNavalInfiltrationCapability() && !observatoryProtection && Boolean(navalOrigin) && navalCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
+      !hasNavalInfiltrationCapability()
+        ? "Requires Navigation"
+        : observatoryProtection
+          ? "Blocked by observatory field"
+        : !navalOrigin
+          ? "Need water crossing origin"
+          : navalCooldown > 0
+            ? `Cooldown ${formatCooldownShort(navalCooldown)}`
+            : "Need 30 CRYSTAL",
+      "30 CRYSTAL • -15% ATK"
+    )
+  });
+  if (tile.ownerId && !state.activeRevealTargets.includes(tile.ownerId)) {
+      const revealCost = 20;
+      const hasCapability = hasRevealCapability();
+      const hasCapacity = state.revealCapacity > 0 && state.activeRevealTargets.length < 1;
+      const hasCrystal = (state.strategicResources.CRYSTAL ?? 0) >= revealCost;
+      out.push({
+        id: "reveal_empire",
+        label: "Reveal Empire",
+        ...tileActionAvailability(
+          hasCapability && hasCapacity && hasCrystal,
+          !hasCapability ? "Requires reveal tech" : !hasCapacity ? "Reveal capacity full" : "Need crystal",
+          "20 CRYSTAL • 0.15 / 10m"
+        )
+      });
+    const sabotageCooldown = abilityCooldownRemainingMs("sabotage");
+    out.push({
+      id: "sabotage_tile",
+      label: "Sabotage",
+      ...tileActionAvailability(
+        hasSabotageCapability() &&
+          !observatoryProtection &&
+          sabotageCooldown <= 0 &&
+          (state.strategicResources.CRYSTAL ?? 0) >= 20 &&
+          Boolean(tile.resource || tile.town) &&
+          !tile.sabotage,
+        !hasSabotageCapability()
+          ? "Requires Cryptography"
+          : observatoryProtection
+            ? "Blocked by observatory field"
+          : tile.sabotage
+            ? "Already sabotaged"
+            : !(tile.resource || tile.town)
+              ? "Town or resource only"
+              : sabotageCooldown > 0
+                ? `Cooldown ${formatCooldownShort(sabotageCooldown)}`
+                : "Need 20 CRYSTAL",
+        "20 CRYSTAL • -50% for 45m"
+      )
+    });
+  }
+  out.push(createMountainAction());
+  return out;
 };
 
 const renderTileActionMenu = (title: string, subtitle: string, actions: TileActionDef[], clientX: number, clientY: number): void => {
@@ -2459,9 +3961,12 @@ const renderTileActionMenu = (title: string, subtitle: string, actions: TileActi
   }
   const rows = actions
     .map(
-      (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.disabled ? "disabled" : ""}>
+      (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
         <span class="tile-action-icon">${actionIcon(a.id)}</span>
-        <span class="tile-action-label">${a.label}</span>
+        <span class="tile-action-copy">
+          <span class="tile-action-label">${a.label}</span>
+          ${a.detail ? `<span class="tile-action-detail">${a.detail}</span>` : ""}
+        </span>
         ${a.cost ? `<span class="tile-action-cost">${a.cost}</span>` : ""}
       </button>`
     )
@@ -2474,19 +3979,21 @@ const renderTileActionMenu = (title: string, subtitle: string, actions: TileActi
         <div class="tile-action-subtitle">${subtitle}</div>
       </div>
       <div class="tile-action-list">${rows}</div>
-      <div class="tile-action-hint">Right-click or ESC to close</div>
+      <div class="tile-action-hint">${isMobile() ? "Tap outside to close" : "Right-click or ESC to close"}</div>
     </div>
   `;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const menuW = 330;
+  const { width: vw, height: vh } = viewportSize();
+  const menuW = Math.min(330, vw - 16);
   const menuH = 260;
   const left = Math.max(8, Math.min(vw - menuW - 8, clientX + 10));
   const top = Math.max(78, Math.min(vh - menuH - 8, clientY + 8));
+  tileActionMenuEl.style.width = `${menuW}px`;
   tileActionMenuEl.style.left = `${left}px`;
   tileActionMenuEl.style.top = `${top}px`;
   tileActionMenuEl.style.display = "block";
   state.tileActionMenu.visible = true;
+  state.tileActionMenu.x = clientX;
+  state.tileActionMenu.y = clientY;
   const closeBtn = tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
   if (closeBtn) closeBtn.onclick = () => hideTileActionMenu();
   const actionButtons = tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-action]");
@@ -2494,20 +4001,26 @@ const renderTileActionMenu = (title: string, subtitle: string, actions: TileActi
     btn.onclick = () => {
       const actionId = btn.dataset.action as TileActionDef["id"] | undefined;
       if (!actionId) return;
-      handleTileAction(actionId);
+      handleTileAction(actionId, btn.dataset.targetKey, btn.dataset.originKey);
     };
   });
 };
 
-const runAutoSettleChainForTarget = (x: number, y: number): void => {
-  state.autoSettleTargets.add(key(x, y));
-  enqueueTarget(x, y, "normal");
-  processActionQueue();
-};
-
 const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number): void => {
+  if (tile.ownerId && tile.ownerId !== state.me && !isTileOwnedByAlly(tile)) requestAttackPreviewForTarget(tile);
   const actions = menuActionsForSingleTile(tile);
-  const ownerLabel = !tile.ownerId ? "Unclaimed" : tile.ownerId === state.me ? "Owned" : isTileOwnedByAlly(tile) ? "Allied" : "Enemy";
+  const ownerLabel =
+    tile.terrain === "SEA"
+      ? actions.length > 0
+        ? "Crossing Route"
+        : "Open Sea"
+      : !tile.ownerId
+        ? "Unclaimed"
+        : tile.ownerId === state.me
+          ? "Owned"
+          : isTileOwnedByAlly(tile)
+            ? "Allied"
+            : "Enemy";
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
   renderTileActionMenu(`${terrainLabel(tile.x, tile.y, tile.terrain)} (${tile.x}, ${tile.y})`, ownerLabel, actions, clientX, clientY);
@@ -2537,7 +4050,11 @@ const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: 
   }
   if (enemyCount > 0) {
     actions.push({ id: "launch_attack", label: `Launch Attack (${enemyCount})` });
-    actions.push({ id: "launch_breach_attack", label: `Launch Breach Attack (${enemyCount})`, cost: "2 gold + 2 IRON each" });
+    actions.push({
+      id: "launch_breach_attack",
+      label: `Launch Breach Attack (${enemyCount})`,
+      cost: hasBreakthroughCapability() ? "2 gold + 1 IRON each" : "Requires Iron Working"
+    });
   }
   if (ownedYieldCount > 0) {
     actions.push({ id: "collect_yield", label: `Collect Yield (${ownedYieldCount})` });
@@ -2547,7 +4064,7 @@ const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: 
   renderTileActionMenu("Tile Selection", `${targetKeys.length} selected`, actions, clientX, clientY);
 };
 
-const handleTileAction = (actionId: TileActionDef["id"]): void => {
+const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string): void => {
   const selected = state.selected ? state.tiles.get(key(state.selected.x, state.selected.y)) : undefined;
   const bulkKeys = state.tileActionMenu.mode === "bulk" ? state.tileActionMenu.bulkKeys : [];
   const fromBulk = bulkKeys.length > 0;
@@ -2566,13 +4083,26 @@ const handleTileAction = (actionId: TileActionDef["id"]): void => {
       const out = queueSpecificTargets(neutralTargets, "normal");
       for (const k of out.queuedKeys) state.autoSettleTargets.add(k);
       if (out.queued > 0) processActionQueue();
-      pushFeed(`Queued ${out.queued} settle chains${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "info");
+      pushFeed(
+        out.queued > 0
+          ? `Queued ${out.queued} settle chains${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
+          : "No frontier claims queued. Targets must touch your territory and you need enough gold.",
+        "combat",
+        out.queued > 0 ? "info" : "warn"
+      );
     } else if (selected) {
       const k = key(selected.x, selected.y);
       if (!selected.ownerId) {
-        runAutoSettleChainForTarget(selected.x, selected.y);
+        const out = queueSpecificTargets([k], "normal");
+        if (out.queued > 0) {
+          state.autoSettleTargets.add(k);
+          processActionQueue();
+          pushFeed(`Queued settle chain at (${selected.x}, ${selected.y}).`, "combat", "info");
+        } else {
+          pushFeed("Cannot claim this tile yet. It must touch your territory and you need enough gold.", "combat", "warn");
+        }
       } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-        ws.send(JSON.stringify({ type: "SETTLE", x: selected.x, y: selected.y }));
+        sendGameMessage({ type: "SETTLE", x: selected.x, y: selected.y });
       }
       state.autoSettleTargets.delete(k);
     }
@@ -2587,7 +4117,13 @@ const handleTileAction = (actionId: TileActionDef["id"]): void => {
     const mode = actionId === "launch_breach_attack" ? "breakthrough" : "normal";
     const out = queueSpecificTargets(enemyTargets, mode);
     if (out.queued > 0) processActionQueue();
-    pushFeed(`Queued ${out.queued} attacks${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "warn");
+    pushFeed(
+      out.queued > 0
+        ? `Queued ${out.queued} attacks${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
+        : `Cannot launch ${mode === "breakthrough" ? "breakthrough " : ""}attack. Target needs a bordering origin tile and sufficient resources.`,
+      "combat",
+      out.queued > 0 ? "warn" : "error"
+    );
     hideTileActionMenu();
     return;
   }
@@ -2596,7 +4132,7 @@ const handleTileAction = (actionId: TileActionDef["id"]): void => {
     for (const k of targets) {
       const t = state.tiles.get(k);
       if (!t || t.ownerId !== state.me) continue;
-      ws.send(JSON.stringify({ type: "COLLECT_TILE", x: t.x, y: t.y }));
+      sendGameMessage({ type: "COLLECT_TILE", x: t.x, y: t.y });
       n += 1;
     }
     pushFeed(`Collecting from ${n} selected tiles.`, "info", "info");
@@ -2607,10 +4143,58 @@ const handleTileAction = (actionId: TileActionDef["id"]): void => {
     hideTileActionMenu();
     return;
   }
-  if (actionId === "collect_yield") ws.send(JSON.stringify({ type: "COLLECT_TILE", x: selected.x, y: selected.y }));
-  if (actionId === "build_fortification") ws.send(JSON.stringify({ type: "BUILD_FORT", x: selected.x, y: selected.y }));
-  if (actionId === "build_siege_camp") ws.send(JSON.stringify({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y }));
-  if (actionId === "abandon_territory") ws.send(JSON.stringify({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y }));
+  if (actionId === "collect_yield") sendGameMessage({ type: "COLLECT_TILE", x: selected.x, y: selected.y });
+  if (actionId === "build_fortification") sendGameMessage({ type: "BUILD_FORT", x: selected.x, y: selected.y });
+  if (actionId === "build_observatory") sendGameMessage({ type: "BUILD_OBSERVATORY", x: selected.x, y: selected.y });
+  if (actionId === "build_farmstead") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" });
+  if (actionId === "build_camp") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" });
+  if (actionId === "build_mine") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" });
+  if (actionId === "build_market") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" });
+  if (actionId === "build_siege_camp") sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y });
+  if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
+  if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
+  if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
+  if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+    sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId });
+  }
+  if (actionId === "deep_strike") {
+    if (hostileObservatoryProtectingTile(selected)) {
+      pushFeed("Blocked by observatory field.", "combat", "warn");
+      hideTileActionMenu();
+      return;
+    }
+    const origin = findDeepStrikeOriginForTarget(selected);
+    if (origin) {
+      sendGameMessage({ type: "DEEP_STRIKE_ATTACK", fromX: origin.x, fromY: origin.y, toX: selected.x, toY: selected.y });
+    }
+  }
+  if (actionId === "naval_infiltration") {
+    const targetTile = targetKeyOverride ? state.tiles.get(targetKeyOverride) : selected;
+    if (targetTile && hostileObservatoryProtectingTile(targetTile)) {
+      pushFeed("Blocked by observatory field.", "combat", "warn");
+      hideTileActionMenu();
+      return;
+    }
+    const origin = originKeyOverride
+      ? (() => {
+          const parsed = parseKey(originKeyOverride);
+          return state.tiles.get(originKeyOverride) ?? state.tiles.get(key(parsed.x, parsed.y));
+        })()
+      : targetTile
+        ? findNavalInfiltrationOriginForTarget(targetTile)
+        : undefined;
+    if (targetTile && origin) {
+      sendGameMessage({ type: "NAVAL_INFILTRATION_ATTACK", fromX: origin.x, fromY: origin.y, toX: targetTile.x, toY: targetTile.y });
+    }
+  }
+  if (actionId === "sabotage_tile") {
+    if (hostileObservatoryProtectingTile(selected)) {
+      pushFeed("Blocked by observatory field.", "combat", "warn");
+      hideTileActionMenu();
+      return;
+    }
+    sendGameMessage({ type: "SABOTAGE_TILE", x: selected.x, y: selected.y });
+  }
   hideTileActionMenu();
 };
 
@@ -2621,8 +4205,46 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     return;
   }
   state.selected = { x, y };
+  const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
   const canAffordFort = state.gold >= FORT_BUILD_COST;
   const canAffordSiege = state.gold >= SIEGE_OUTPOST_BUILD_COST;
+  const canAffordObservatory =
+    tile.ownershipState === "SETTLED" &&
+    !tile.fort &&
+    !tile.siegeOutpost &&
+    !tile.observatory &&
+    !tile.economicStructure &&
+    state.techIds.includes("cartography") &&
+    state.gold >= OBSERVATORY_BUILD_COST &&
+    (state.strategicResources.CRYSTAL ?? 0) >= 45;
+  const canBuildFarmstead =
+    tile.ownershipState === "SETTLED" &&
+    !hasBlockingStructure &&
+    (tile.resource === "FARM" || tile.resource === "FISH") &&
+    state.techIds.includes("agriculture") &&
+    state.gold >= 400 &&
+    (state.strategicResources.FOOD ?? 0) >= 20;
+  const canBuildCamp =
+    tile.ownershipState === "SETTLED" &&
+    !hasBlockingStructure &&
+    (tile.resource === "WOOD" || tile.resource === "FUR") &&
+    state.techIds.includes("leatherworking") &&
+    state.gold >= 500 &&
+    (state.strategicResources.SUPPLY ?? 0) >= 30;
+  const canBuildMine =
+    tile.ownershipState === "SETTLED" &&
+    !hasBlockingStructure &&
+    (tile.resource === "IRON" || tile.resource === "GEMS") &&
+    state.techIds.includes("mining") &&
+    state.gold >= 500 &&
+    (state.strategicResources[tile.resource === "IRON" ? "IRON" : "CRYSTAL"] ?? 0) >= 30;
+  const canBuildMarket =
+    tile.ownershipState === "SETTLED" &&
+    !hasBlockingStructure &&
+    Boolean(tile.town) &&
+    state.techIds.includes("trade") &&
+    state.gold >= 600 &&
+    (state.strategicResources.CRYSTAL ?? 0) >= 40;
   holdBuildMenuEl.innerHTML = `
     <div class="hold-menu-card">
       <div class="hold-menu-title">Build on (${x}, ${y})</div>
@@ -2630,21 +4252,29 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
         <span>Settle Tile</span>
         <small>${SETTLE_COST} gold • ${(SETTLE_MS / 1000).toFixed(1)}s • converts frontier to settled</small>
       </button>
-      <button class="hold-menu-btn" data-build="rapid-settle" ${tile.ownershipState === "FRONTIER" ? "" : "disabled"}>
-        <span>Rapid Settlement</span>
-        <small>3 gold + 1 FOOD • 1.5s • emergency consolidation</small>
-      </button>
-      <button class="hold-menu-btn" data-build="fortify" ${tile.ownershipState === "SETTLED" ? "" : "disabled"}>
-        <span>Defensive Fortify</span>
-        <small>1 SUPPLY • +25% defense on next defense (45s max)</small>
-      </button>
-      <button class="hold-menu-btn" data-build="scout-pulse">
-        <span>Scout Pulse</span>
-        <small>1 CRYSTAL • reveal around this tile for 25s</small>
-      </button>
       <button class="hold-menu-btn" data-build="fort" ${canAffordFort ? "" : "disabled"}>
         <span>Fort</span>
         <small>${FORT_BUILD_COST} gold + 45 IRON • ${(FORT_BUILD_MS / 1000).toFixed(0)}s • def x${FORT_DEFENSE_MULT.toFixed(2)}</small>
+      </button>
+      <button class="hold-menu-btn" data-build="observatory" ${canAffordObservatory ? "" : "disabled"}>
+        <span>Observatory</span>
+        <small>${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • +5 local vision • 0.25 / 10m</small>
+      </button>
+      <button class="hold-menu-btn" data-build="farmstead" ${canBuildFarmstead ? "" : "disabled"}>
+        <span>Farmstead</span>
+        <small>400 gold + 20 FOOD • +50% food output • 1 gold / 10m</small>
+      </button>
+      <button class="hold-menu-btn" data-build="camp" ${canBuildCamp ? "" : "disabled"}>
+        <span>Camp</span>
+        <small>500 gold + 30 SUPPLY • +50% supply output • 1.2 gold / 10m</small>
+      </button>
+      <button class="hold-menu-btn" data-build="mine" ${canBuildMine ? "" : "disabled"}>
+        <span>Mine</span>
+        <small>500 gold + 30 matching resource • +50% iron or crystal • 1.2 gold / 10m</small>
+      </button>
+      <button class="hold-menu-btn" data-build="market" ${canBuildMarket ? "" : "disabled"}>
+        <span>Market</span>
+        <small>600 gold + 40 CRYSTAL • +50% town gold if fed • 0.05 crystal / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="siege" ${canAffordSiege ? "" : "disabled"}>
         <span>Siege Outpost</span>
@@ -2653,55 +4283,69 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
       <div class="hold-menu-hint">Hold any owned land tile to open this menu.</div>
     </div>
   `;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const menuW = 290;
+  const { width: vw, height: vh } = viewportSize();
+  const menuW = Math.min(290, vw - 16);
   const menuH = 168;
   const left = Math.max(8, Math.min(vw - menuW - 8, clientX + 8));
   const top = Math.max(84, Math.min(vh - menuH - 8, clientY + 8));
+  holdBuildMenuEl.style.width = `${menuW}px`;
   holdBuildMenuEl.style.left = `${left}px`;
   holdBuildMenuEl.style.top = `${top}px`;
   holdBuildMenuEl.style.display = "block";
 
   const settleBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='settle']");
-  const rapidSettleBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='rapid-settle']");
-  const fortifyBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='fortify']");
-  const scoutPulseBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='scout-pulse']");
   const fortBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='fort']");
+  const observatoryBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='observatory']");
+  const farmsteadBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='farmstead']");
+  const campBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='camp']");
+  const mineBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='mine']");
+  const marketBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='market']");
   const siegeBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='siege']");
   if (settleBtn) {
     settleBtn.onclick = () => {
-      ws.send(JSON.stringify({ type: "SETTLE", x, y }));
+      sendGameMessage({ type: "SETTLE", x, y });
       hideHoldBuildMenu();
     };
   }
   if (fortBtn) {
     fortBtn.onclick = () => {
-      ws.send(JSON.stringify({ type: "BUILD_FORT", x, y }));
+      sendGameMessage({ type: "BUILD_FORT", x, y });
       hideHoldBuildMenu();
     };
   }
   if (siegeBtn) {
     siegeBtn.onclick = () => {
-      ws.send(JSON.stringify({ type: "BUILD_SIEGE_OUTPOST", x, y }));
+      sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x, y });
       hideHoldBuildMenu();
     };
   }
-  if (rapidSettleBtn) {
-    rapidSettleBtn.onclick = () => {
-      ws.send(JSON.stringify({ type: "RAPID_SETTLE", x, y }));
+  if (observatoryBtn) {
+    observatoryBtn.onclick = () => {
+      sendGameMessage({ type: "BUILD_OBSERVATORY", x, y });
       hideHoldBuildMenu();
     };
   }
-  if (fortifyBtn) {
-    fortifyBtn.onclick = () => {
-      ws.send(JSON.stringify({ type: "DEFENSIVE_FORTIFY", x, y }));
+  if (farmsteadBtn) {
+    farmsteadBtn.onclick = () => {
+      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "FARMSTEAD" });
       hideHoldBuildMenu();
     };
   }
-  if (scoutPulseBtn) {
-    scoutPulseBtn.onclick = () => {
-      ws.send(JSON.stringify({ type: "SCOUT_PULSE", x, y }));
+  if (campBtn) {
+    campBtn.onclick = () => {
+      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "CAMP" });
+      hideHoldBuildMenu();
+    };
+  }
+  if (mineBtn) {
+    mineBtn.onclick = () => {
+      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MINE" });
+      hideHoldBuildMenu();
+    };
+  }
+  if (marketBtn) {
+    marketBtn.onclick = () => {
+      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MARKET" });
       hideHoldBuildMenu();
     };
   }
@@ -2766,8 +4410,11 @@ collectVisibleDesktopBtn.onclick = () => {
 };
 
 refreshBtn.onclick = () => requestViewRefresh();
+collectVisibleMobileBtn.onclick = () => {
+  collectVisibleYield();
+};
 fogToggleMobileBtn.onclick = () => {
-  ws.send(JSON.stringify({ type: "SET_FOG_DISABLED", disabled: !state.fogDisabled }));
+  sendGameMessage({ type: "SET_FOG_DISABLED", disabled: !state.fogDisabled });
 };
 settleMobileBtn.onclick = () => settleSelected();
 buildFortMobileBtn.onclick = () => buildFortOnSelected();
@@ -2788,12 +4435,40 @@ panelActionButtons.forEach((btn) => {
   };
 });
 
+authColorPresetButtons.forEach((btn) => {
+  btn.onclick = () => {
+    const color = btn.dataset.color;
+    if (!color) return;
+    authProfileColorEl.value = color;
+    syncAuthPanelState();
+  };
+});
+
+authProfileColorEl.oninput = () => {
+  syncAuthPanelState();
+};
+
+authEmailEl.onkeydown = (event) => {
+  if (event.key === "Enter" && !state.profileSetupRequired) {
+    event.preventDefault();
+    authEmailLinkBtn.click();
+  }
+};
+
+authProfileNameEl.onkeydown = (event) => {
+  if (event.key === "Enter" && state.profileSetupRequired) {
+    event.preventDefault();
+    authProfileSaveBtn.click();
+  }
+};
+
 const mobileNavButtons = hud.querySelectorAll<HTMLButtonElement>("#mobile-nav button[data-mobile-panel]");
 mobileNavButtons.forEach((btn) => {
   btn.onclick = () => {
     const p = btn.dataset.mobilePanel as typeof state.mobilePanel | undefined;
     if (!p) return;
     state.mobilePanel = p;
+    if (p === "intel") state.unreadAttackAlerts = 0;
     renderHud();
   };
 });
@@ -2803,7 +4478,7 @@ ws.addEventListener("open", () => {
   if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
   clearReconnectReloadTimer();
   renderHud();
-  ws.send(JSON.stringify({ type: "AUTH", token }));
+  void authenticateSocket();
 });
 ws.addEventListener("close", () => {
   state.connection = "disconnected";
@@ -2813,6 +4488,10 @@ ws.addEventListener("close", () => {
   state.actionTargetKey = "";
   state.actionCurrent = undefined;
   pushFeed("Connection lost. Retrying...", "error", "warn");
+  if (state.authReady && !state.authSessionReady) {
+    state.authBusy = false;
+    setAuthStatus(`Signed into Firebase, but the game server is unavailable at ${wsUrl}.`, "error");
+  }
   scheduleReconnectReload();
   renderHud();
 });
@@ -2824,6 +4503,10 @@ ws.addEventListener("error", () => {
   state.actionTargetKey = "";
   state.actionCurrent = undefined;
   pushFeed("Server unreachable. Retrying...", "error", "warn");
+  if (state.authReady && !state.authSessionReady) {
+    state.authBusy = false;
+    setAuthStatus(`Signed into Firebase, but the game server is unavailable at ${wsUrl}.`, "error");
+  }
   scheduleReconnectReload();
   renderHud();
 });
@@ -2832,6 +4515,10 @@ ws.addEventListener("message", (ev) => {
   const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
   if (msg.type === "INIT") {
     state.connection = "initialized";
+    state.authSessionReady = true;
+    state.hasEverInitialized = true;
+    state.authBusy = false;
+    state.authRetrying = false;
     state.mapLoadStartedAt = Date.now();
     state.firstChunkAt = 0;
     state.chunkFullCount = 0;
@@ -2839,6 +4526,8 @@ ws.addEventListener("message", (ev) => {
     const p = msg.player as Record<string, unknown>;
     state.me = p.id as string;
     state.meName = p.name as string;
+    state.profileSetupRequired = Boolean(p.profileNeedsSetup);
+    setAuthStatus(`Signed in as ${state.authUserLabel || (p.name as string)}.`);
     state.gold = (p.gold as number | undefined) ?? (p.points as number);
     state.level = p.level as number;
     state.mods = (p.mods as typeof state.mods) ?? state.mods;
@@ -2852,7 +4541,7 @@ ws.addEventListener("message", (ev) => {
     state.exposureE = (p.E as number) ?? state.exposureE;
     state.settledT = (p.Ts as number) ?? state.settledT;
     state.settledE = (p.Es as number) ?? state.settledE;
-    state.defensibilityPct = exposurePctFromTE(
+    state.defensibilityPct = defensibilityPctFromTE(
       (p.Ts as number | undefined) ?? (p.T as number | undefined),
       (p.Es as number | undefined) ?? (p.E as number | undefined)
     );
@@ -2862,14 +4551,20 @@ ws.addEventListener("message", (ev) => {
     state.domainIds = (p.domainIds as string[]) ?? [];
     state.revealCapacity = (p.revealCapacity as number) ?? state.revealCapacity;
     state.activeRevealTargets = (p.activeRevealTargets as string[]) ?? state.activeRevealTargets;
+    state.abilityCooldowns =
+      (p.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
     state.allies = (p.allies as string[]) ?? [];
     const myTileColor = p.tileColor as string | undefined;
     if (myTileColor) {
       state.playerColors.set(state.me, myTileColor);
       tileColorInput.value = myTileColor;
     }
-    for (const s of ((msg.playerStyles as Array<{ id: string; tileColor?: string }>) ?? [])) {
+    const myVisualStyle = p.visualStyle as EmpireVisualStyle | undefined;
+    if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
+    seedProfileSetupFields((p.name as string) || state.authUserLabel, myTileColor ?? tileColorInput.value);
+    for (const s of ((msg.playerStyles as Array<{ id: string; tileColor?: string; visualStyle?: EmpireVisualStyle }>) ?? [])) {
       if (s.tileColor) state.playerColors.set(s.id, s.tileColor);
+      if (s.visualStyle) state.playerVisualStyles.set(s.id, s.visualStyle);
     }
     const homeTile = p.homeTile as { x: number; y: number } | undefined;
     if (homeTile) {
@@ -2891,6 +4586,10 @@ ws.addEventListener("message", (ev) => {
         byIncome: LeaderboardMetricEntry[];
         byTechs: LeaderboardMetricEntry[];
       }) ?? state.leaderboard;
+    state.victoryPressure = (msg.victoryPressure as VictoryPressureObjectiveView[] | undefined) ?? state.victoryPressure;
+    if (state.profileSetupRequired) {
+      setAuthStatus("Choose a display name and nation color to begin.");
+    }
     state.incomingAllianceRequests = (msg.allianceRequests as AllianceRequest[]) ?? [];
     const cfg = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
     const season = cfg.season;
@@ -2918,6 +4617,7 @@ ws.addEventListener("message", (ev) => {
       }
     }
     requestViewRefresh();
+    syncAuthOverlay();
     renderHud();
   }
   if (msg.type === "CHUNK_FULL") {
@@ -2944,6 +4644,10 @@ ws.addEventListener("message", (ev) => {
     const prevGold = state.gold;
     const prevStrategic = { ...state.strategicResources };
     state.gold = (msg.gold as number | undefined) ?? (msg.points as number);
+    if (typeof msg.name === "string") {
+      state.meName = msg.name;
+      authProfileNameEl.value = msg.name;
+    }
     state.level = msg.level as number;
     state.mods = (msg.mods as typeof state.mods) ?? state.mods;
     state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
@@ -2993,13 +4697,16 @@ ws.addEventListener("message", (ev) => {
     if (typeof (msg.E as number | undefined) === "number") state.exposureE = msg.E as number;
     if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
     if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
-    state.defensibilityPct = exposurePctFromTE(state.settledT, state.settledE);
+    state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
+    if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
     state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
     state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
     state.domainCatalog = (msg.domainCatalog as DomainInfo[]) ?? state.domainCatalog;
     state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
     state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
+    state.abilityCooldowns =
+      (msg.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
     state.missions = (msg.missions as MissionState[]) ?? state.missions;
     state.leaderboard =
       (msg.leaderboard as {
@@ -3008,6 +4715,16 @@ ws.addEventListener("message", (ev) => {
         byIncome: LeaderboardMetricEntry[];
         byTechs: LeaderboardMetricEntry[];
       }) ?? state.leaderboard;
+    state.victoryPressure = (msg.victoryPressure as VictoryPressureObjectiveView[] | undefined) ?? state.victoryPressure;
+    const myTileColor = msg.tileColor as string | undefined;
+    if (myTileColor) {
+      state.playerColors.set(state.me, myTileColor);
+      tileColorInput.value = myTileColor;
+      authProfileColorEl.value = myTileColor;
+    }
+    const myVisualStyle = msg.visualStyle as EmpireVisualStyle | undefined;
+    if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
+    syncAuthOverlay();
     renderHud();
   }
   if (msg.type === "COMBAT_RESULT") {
@@ -3026,26 +4743,39 @@ ws.addEventListener("message", (ev) => {
     pushFeed(`Combat winner: ${(msg.winnerId as string).slice(0, 8)}`, "combat", "success");
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const targetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : state.actionTargetKey;
+    let handedOffToSettle = false;
     if (targetKey && state.autoSettleTargets.has(targetKey)) {
       const settledTile = state.tiles.get(targetKey);
       if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        ws.send(JSON.stringify({ type: "SETTLE", x: settledTile.x, y: settledTile.y }));
-        pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+        if (sendGameMessage({ type: "SETTLE", x: settledTile.x, y: settledTile.y })) {
+          const startAt = Date.now();
+          state.capture = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x: settledTile.x, y: settledTile.y } };
+          state.actionInFlight = true;
+          state.combatStartAck = false;
+          state.actionStartedAt = startAt;
+          state.actionTargetKey = targetKey;
+          state.actionCurrent = { x: settledTile.x, y: settledTile.y, retries: 0 };
+          handedOffToSettle = true;
+          pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+        }
       }
       state.autoSettleTargets.delete(targetKey);
     }
-    state.capture = undefined;
-    state.actionInFlight = false;
-    requestViewRefresh(2, true);
-    state.combatStartAck = false;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    if (targetKey) state.queuedTargetKeys.delete(targetKey);
-    if (resolvedCurrentKey) state.queuedTargetKeys.delete(resolvedCurrentKey);
+    if (!handedOffToSettle) {
+      state.actionInFlight = false;
+      state.combatStartAck = false;
+      state.actionStartedAt = 0;
+      if (targetKey) state.queuedTargetKeys.delete(targetKey);
+      if (resolvedCurrentKey) state.queuedTargetKeys.delete(resolvedCurrentKey);
+      const startedNext = processActionQueue();
+      if (!startedNext) {
+        state.capture = undefined;
+        state.actionTargetKey = "";
+        state.actionCurrent = undefined;
+      }
+    }
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
-    processActionQueue();
     renderHud();
   }
   if (msg.type === "COMBAT_START") {
@@ -3056,6 +4786,14 @@ ws.addEventListener("message", (ev) => {
     state.actionInFlight = true;
     state.actionStartedAt = Date.now();
     state.actionTargetKey = key(target.x, target.y);
+    renderHud();
+  }
+  if (msg.type === "ATTACK_ALERT") {
+    const attackerName = (msg.attackerName as string | undefined) || (msg.attackerId as string | undefined) || "Unknown attacker";
+    const x = Number(msg.x ?? -1);
+    const y = Number(msg.y ?? -1);
+    state.unreadAttackAlerts += 1;
+    pushFeed(`Under attack: ${attackerName} is striking (${x}, ${y}).`, "combat", "error");
     renderHud();
   }
   if (msg.type === "COMBAT_CANCELLED") {
@@ -3090,6 +4828,10 @@ ws.addEventListener("message", (ev) => {
         if (update.ownershipState) merged.ownershipState = update.ownershipState;
         else delete merged.ownershipState;
       }
+      if ("capital" in update) {
+        if (update.capital) merged.capital = update.capital;
+        else delete merged.capital;
+      }
       if ("breachShockUntil" in update) {
         if (typeof update.breachShockUntil === "number") merged.breachShockUntil = update.breachShockUntil;
         else delete merged.breachShockUntil;
@@ -3103,8 +4845,20 @@ ws.addEventListener("message", (ev) => {
       if ("town" in update && !update.town) delete merged.town;
       if (update.fort !== undefined) merged.fort = update.fort;
       if (!update.fort) delete merged.fort;
+      if ("observatory" in update) {
+        if (update.observatory) merged.observatory = update.observatory;
+        else delete merged.observatory;
+      }
+      if ("economicStructure" in update) {
+        if (update.economicStructure) merged.economicStructure = update.economicStructure;
+        else delete merged.economicStructure;
+      }
       if (update.siegeOutpost !== undefined) merged.siegeOutpost = update.siegeOutpost;
       if (!update.siegeOutpost) delete merged.siegeOutpost;
+      if ("sabotage" in update) {
+        if (update.sabotage) merged.sabotage = update.sabotage;
+        else delete merged.sabotage;
+      }
       if ("yield" in update) {
         if (update.yield) merged.yield = update.yield;
         else delete merged.yield;
@@ -3116,6 +4870,10 @@ ws.addEventListener("message", (ev) => {
       if ("yieldCap" in update) {
         if (update.yieldCap) merged.yieldCap = update.yieldCap;
         else delete merged.yieldCap;
+      }
+      if ("history" in update) {
+        if (update.history) merged.history = update.history;
+        else delete merged.history;
       }
       state.tiles.set(key(update.x, update.y), merged);
       markDockDiscovered(merged);
@@ -3175,6 +4933,12 @@ ws.addEventListener("message", (ev) => {
     pushFeed(`Alliances updated (${state.allies.length})`, "alliance", "info");
     renderHud();
   }
+  if (msg.type === "VICTORY_PRESSURE_UPDATE") {
+    state.victoryPressure = (msg.objectives as VictoryPressureObjectiveView[]) ?? state.victoryPressure;
+    const announcement = msg.announcement as string | undefined;
+    if (announcement) pushFeed(announcement, "info", "warn");
+    renderHud();
+  }
   if (msg.type === "ERROR") {
     const failedTargetKey = state.actionTargetKey;
     console.error("[server-error]", {
@@ -3187,16 +4951,38 @@ ws.addEventListener("message", (ev) => {
       hover: state.hover
     });
     const errorCode = String(msg.code ?? "");
-    if (errorCode === "INSUFFICIENT_GOLD") {
-      pushFeed(
-        `Not enough gold. Frontier capture costs 1.0 gold (breakthrough costs 2.0 gold + 1 IRON). Current gold: ${state.gold.toFixed(1)}.`,
-        "error",
-        "warn"
-      );
-    } else if (errorCode === "COLLECT_EMPTY") {
-      pushFeed(`Nothing to collect on this tile yet: ${String(msg.message ?? "empty")}.`, "info", "warn");
+    const errorMessage = String(msg.message ?? "unknown failure");
+    if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE") {
+      state.authSessionReady = false;
+      if (errorCode === "AUTH_FAIL" && firebaseAuth?.currentUser && !state.authRetrying) {
+        state.authBusy = true;
+        state.authRetrying = true;
+        setAuthStatus("Refreshing Firebase session...");
+        syncAuthOverlay();
+        void authenticateSocket(true)
+          .catch(() => {
+            state.authBusy = false;
+            state.authRetrying = false;
+            setAuthStatus(errorMessage, "error");
+            syncAuthOverlay();
+          });
+        renderHud();
+        return;
+      }
+      state.authBusy = false;
+      state.authRetrying = false;
+      setAuthStatus(errorMessage, "error");
+      syncAuthOverlay();
+    }
+    if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
+      showCaptureAlert("Insufficient gold", errorMessage === "insufficient gold for frontier claim" ? "Frontier claim costs 1 gold." : "Attack cost not met.", "error");
+    } else if (errorCode === "SETTLE_INVALID" && failedTargetKey) {
+      showCaptureAlert("Action failed", errorMessage, "warn");
+    }
+    if (errorCode === "COLLECT_EMPTY") {
+      pushFeed(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
     } else {
-      pushFeed(`Error ${msg.code as string}: ${msg.message as string}`, "error", "error");
+      pushFeed(explainActionFailure(errorCode, errorMessage), "error", "error");
     }
     // LOCKED while we already have an in-flight action is expected occasionally due rapid queue overlap.
     if (errorCode === "LOCKED" && state.actionInFlight) {
@@ -3225,6 +5011,7 @@ ws.addEventListener("message", (ev) => {
       valid: boolean;
       reason?: string;
       winChance?: number;
+      breakthroughWinChance?: number;
       atkEff?: number;
       defEff?: number;
       defenseEffPct?: number;
@@ -3235,25 +5022,35 @@ ws.addEventListener("message", (ev) => {
     };
     const reason = msg.reason as string | undefined;
     const winChance = msg.winChance as number | undefined;
+    const breakthroughWinChance = msg.breakthroughWinChance as number | undefined;
     const atkEff = msg.atkEff as number | undefined;
     const defEff = msg.defEff as number | undefined;
     const defMult = msg.defMult as number | undefined;
     if (reason) preview.reason = reason;
     if (typeof winChance === "number") preview.winChance = winChance;
+    if (typeof breakthroughWinChance === "number") preview.breakthroughWinChance = breakthroughWinChance;
     if (typeof atkEff === "number") preview.atkEff = atkEff;
     if (typeof defEff === "number") preview.defEff = defEff;
     if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
     state.attackPreview = preview;
     state.attackPreviewPendingKey = "";
+    if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.selected) {
+      const selectedTile = state.tiles.get(key(state.selected.x, state.selected.y));
+      if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
+        openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y);
+      }
+    }
     renderHud();
   }
   if (msg.type === "PLAYER_STYLE") {
     const pid = msg.playerId as string;
     const color = msg.tileColor as string | undefined;
+    const visualStyle = msg.visualStyle as EmpireVisualStyle | undefined;
     if (pid && color) {
       state.playerColors.set(pid, color);
       if (pid === state.me) tileColorInput.value = color;
     }
+    if (pid && visualStyle) state.playerVisualStyles.set(pid, visualStyle);
   }
   if (msg.type === "COLLECT_RESULT") {
     const gold = Number(msg.gold ?? 0);
@@ -3301,12 +5098,197 @@ ws.addEventListener("message", (ev) => {
     requestViewRefresh();
     renderHud();
   }
-  if (msg.type === "SCOUT_PULSE_OK") {
-    pushFeed(`Scout pulse active at (${msg.x as number}, ${msg.y as number}).`, "info", "success");
-    requestViewRefresh();
-    renderHud();
-  }
 });
+
+state.authConfigured = Boolean(firebaseAuth);
+syncAuthOverlay();
+
+if (firebaseAuth) {
+  void setPersistence(firebaseAuth, browserLocalPersistence);
+  onAuthStateChanged(firebaseAuth, async (user) => {
+    if (!user) {
+      state.authReady = false;
+      state.authSessionReady = false;
+      state.authUserLabel = "";
+      state.profileSetupRequired = false;
+      authToken = "";
+      authUid = "";
+      state.authBusy = false;
+      state.authRetrying = false;
+      authProfileNameEl.value = "";
+      authProfileColorEl.value = "#38b000";
+      syncAuthOverlay();
+      return;
+    }
+    authEmailLinkSentTo = "";
+    state.authReady = true;
+    state.authSessionReady = false;
+    state.authBusy = true;
+    state.authRetrying = false;
+    state.authUserLabel = authLabelForUser(user);
+    seedProfileSetupFields(user.displayName ?? user.email?.split("@")[0] ?? "", authProfileColorEl.value);
+    setAuthStatus("Authorizing empire...");
+    syncAuthOverlay();
+    try {
+      authToken = await user.getIdToken(true);
+      authUid = user.uid;
+      setAuthStatus(`Authenticating ${state.authUserLabel}...`);
+      if (ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: "AUTH", token: authToken }));
+      } else {
+        state.authBusy = false;
+        setAuthStatus(`Google account connected. Game server unavailable at ${wsUrl}.`, "error");
+      }
+    } catch (error) {
+      state.authSessionReady = false;
+      state.authBusy = false;
+      setAuthStatus(error instanceof Error ? error.message : "Could not authorize this session.", "error");
+    } finally {
+      syncAuthOverlay();
+      renderHud();
+    }
+  });
+}
+
+const authEmailAndPassword = async (mode: "login" | "register"): Promise<void> => {
+  if (!firebaseAuth) return;
+  const email = authEmailEl.value.trim();
+  const password = authPasswordEl.value;
+  const displayName = authDisplayNameEl.value.trim();
+  if (!email || !password) {
+    setAuthStatus("Email and password are required.", "error");
+    syncAuthOverlay();
+    return;
+  }
+  if (mode === "register" && !displayName) {
+    setAuthStatus("Display name is required for new accounts.", "error");
+    syncAuthOverlay();
+    return;
+  }
+  state.authBusy = true;
+  setAuthStatus(mode === "login" ? "Signing in..." : "Creating account...");
+  syncAuthOverlay();
+  let authSucceeded = false;
+  try {
+    if (mode === "login") {
+      await signInWithEmailAndPassword(firebaseAuth, email, password);
+    } else {
+      const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+      if (displayName) await updateProfile(cred.user, { displayName });
+    }
+    authSucceeded = true;
+  } catch (error) {
+    setAuthStatus(error instanceof Error ? error.message : "Authentication failed.", "error");
+  } finally {
+    if (!authSucceeded) state.authBusy = false;
+    syncAuthOverlay();
+  }
+};
+
+authLoginBtn.onclick = () => {
+  void authEmailAndPassword("login");
+};
+
+authRegisterBtn.onclick = () => {
+  void authEmailAndPassword("register");
+};
+
+authGoogleBtn.onclick = async () => {
+  if (!firebaseAuth || !googleProvider) return;
+  authEmailLinkSentTo = "";
+  state.authBusy = true;
+  setAuthStatus("Opening Google sign-in...");
+  syncAuthOverlay();
+  let authSucceeded = false;
+  try {
+    await signInWithPopup(firebaseAuth, googleProvider);
+    authSucceeded = true;
+    setAuthStatus("Google sign-in complete. Authorizing empire...");
+  } catch (error) {
+    setAuthStatus(error instanceof Error ? error.message : "Google sign-in failed.", "error");
+  } finally {
+    if (!authSucceeded) state.authBusy = false;
+    syncAuthOverlay();
+  }
+};
+
+authEmailLinkBtn.onclick = async () => {
+  if (!firebaseAuth) return;
+  const email = authEmailEl.value.trim();
+  if (authEmailLinkPending && isSignInWithEmailLink(firebaseAuth, window.location.href)) {
+    await completeEmailLinkSignIn(email);
+    return;
+  }
+  if (!email) {
+    setAuthStatus("Enter your email first.", "error");
+    syncAuthOverlay();
+    return;
+  }
+  state.authBusy = true;
+  setAuthStatus("Sending sign-in link...");
+  syncAuthOverlay();
+  try {
+    await sendSignInLinkToEmail(firebaseAuth, email, {
+      url: window.location.href,
+      handleCodeInApp: true
+    });
+    window.localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
+    authEmailLinkSentTo = email;
+    setAuthStatus("");
+  } catch (error) {
+    authEmailLinkSentTo = "";
+    setAuthStatus(error instanceof Error ? error.message : "Could not send email link.", "error");
+  } finally {
+    state.authBusy = false;
+    syncAuthOverlay();
+  }
+};
+
+authEmailResetBtn.onclick = () => {
+  authEmailLinkSentTo = "";
+  setAuthStatus("");
+  authEmailEl.focus();
+  syncAuthOverlay();
+};
+
+authProfileSaveBtn.onclick = async () => {
+  if (!requireAuthedSession("Connection lost. Reconnect before finishing setup.")) {
+    syncAuthOverlay();
+    return;
+  }
+  const displayName = authProfileNameEl.value.trim();
+  if (displayName.length < 2) {
+    setAuthStatus("Display name must be at least 2 characters.", "error");
+    syncAuthOverlay();
+    return;
+  }
+  state.authBusy = true;
+  setAuthStatus("Raising your banner...");
+  syncAuthOverlay();
+  try {
+    ws.send(JSON.stringify({ type: "SET_PROFILE", displayName, color: authProfileColorEl.value }));
+    if (firebaseAuth?.currentUser && firebaseAuth.currentUser.displayName !== displayName) {
+      await updateProfile(firebaseAuth.currentUser, { displayName });
+    }
+  } catch (error) {
+    setAuthStatus(error instanceof Error ? error.message : "Could not save your empire profile.", "error");
+  } finally {
+    state.authBusy = false;
+    syncAuthOverlay();
+  }
+};
+
+if (firebaseAuth && isSignInWithEmailLink(firebaseAuth, window.location.href)) {
+  const storedEmail = window.localStorage.getItem(EMAIL_LINK_STORAGE_KEY) ?? authEmailEl.value.trim();
+  if (storedEmail) {
+    void completeEmailLinkSignIn(storedEmail);
+  } else {
+    authEmailLinkPending = true;
+    authEmailLinkSentTo = "";
+    setAuthStatus("Enter the email address that received the sign-in link, then press Continue with Email.");
+    syncAuthOverlay();
+  }
+}
 
 let lastDrawAt = 0;
 const draw = (): void => {
@@ -3329,11 +5311,18 @@ const draw = (): void => {
     dockEndpointKeys.add(key(pair.ax, pair.ay));
     dockEndpointKeys.add(key(pair.bx, pair.by));
   }
+  const crystalTargetingActive = state.crystalTargeting.active;
+  const crystalTone = crystalTargetingActive ? crystalTargetingTone(state.crystalTargeting.ability) : "amber";
   const queueIndex = new Map<string, number>();
+  let queueOffset = 0;
+  if (state.actionInFlight && state.actionTargetKey) {
+    queueIndex.set(state.actionTargetKey, 1);
+    queueOffset = 1;
+  }
   for (let i = 0; i < state.actionQueue.length; i += 1) {
     const q = state.actionQueue[i];
     if (!q) continue;
-    queueIndex.set(key(q.x, q.y), i + 1);
+    queueIndex.set(key(q.x, q.y), i + 1 + queueOffset);
   }
 
   for (let y = -halfH; y <= halfH; y += 1) {
@@ -3370,8 +5359,8 @@ const draw = (): void => {
 
       // Render ownership on top of land terrain so frontier tiles stay subtle and biome remains visible.
       if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
-        ctx.fillStyle = effectiveColor(t.ownerId);
-        ownerAlpha = t.ownershipState === "FRONTIER" ? 0.18 : 0.96;
+        ctx.fillStyle = effectiveOverlayColor(t.ownerId);
+        ownerAlpha = t.ownershipState === "FRONTIER" ? 0.2 : 0.92;
         if (typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now()) {
           ownerAlpha = Math.min(ownerAlpha, 0.62);
         }
@@ -3450,19 +5439,92 @@ const draw = (): void => {
       }
 
       if (t && vis === "visible" && t.fort) {
-        ctx.fillStyle = t.fort.status === "active" ? "rgba(239,71,111,0.8)" : "rgba(255,209,102,0.75)";
+        ctx.fillStyle = structureAccentColor(t.ownerId ?? "", t.fort.status === "active" ? "rgba(239,71,111,0.8)" : "rgba(255,209,102,0.75)");
         const dot = Math.max(3, Math.floor(size * 0.25));
         ctx.fillRect(px + size - dot - 2, py + 2, dot, dot);
       }
       if (t && vis === "visible" && t.siegeOutpost) {
-        ctx.fillStyle = t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)";
+        ctx.fillStyle = structureAccentColor(t.ownerId ?? "", t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)");
         const dot = Math.max(3, Math.floor(size * 0.25));
         ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
       }
+      if (t && vis === "visible" && t.observatory) {
+        ctx.strokeStyle = structureAccentColor(t.ownerId ?? "", t.observatory.status === "active" ? "rgba(122, 214, 255, 0.92)" : "rgba(122, 214, 255, 0.42)");
+        ctx.beginPath();
+        ctx.arc(px + size / 2, py + size / 2, Math.max(3, size * 0.22), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (t && vis === "visible" && t.economicStructure) {
+        const markerSize = Math.max(3, Math.floor(size * 0.2));
+        const active = t.economicStructure.status === "active";
+        if (t.economicStructure.type === "FARMSTEAD") {
+          ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)");
+          ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
+        } else if (t.economicStructure.type === "CAMP") {
+          ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(222, 174, 108, 0.95)" : "rgba(171, 134, 86, 0.74)");
+          ctx.beginPath();
+          ctx.moveTo(px + size / 2, py + 3);
+          ctx.lineTo(px + size - 4, py + markerSize + 4);
+          ctx.lineTo(px + 4, py + markerSize + 4);
+          ctx.closePath();
+          ctx.fill();
+        } else if (t.economicStructure.type === "MINE") {
+          ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(188, 197, 214, 0.96)" : "rgba(120, 130, 148, 0.74)");
+          ctx.fillRect(px + 2, py + 2, markerSize + 1, markerSize + 1);
+        } else {
+          ctx.strokeStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(255, 212, 111, 0.96)" : "rgba(191, 162, 102, 0.72)");
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
+          ctx.lineWidth = 1;
+        }
+      }
+      if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
+        ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
+        ctx.beginPath();
+        ctx.moveTo(px + 3, py + 3);
+        ctx.lineTo(px + size - 3, py + size - 3);
+        ctx.moveTo(px + size - 3, py + 3);
+        ctx.lineTo(px + 3, py + size - 3);
+        ctx.stroke();
+      }
 
-      if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState !== "FRONTIER") {
-        ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      if (crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
+        const fill =
+          crystalTone === "amber"
+            ? "rgba(255, 187, 72, 0.12)"
+            : crystalTone === "cyan"
+              ? "rgba(113, 223, 255, 0.13)"
+              : "rgba(255, 100, 100, 0.12)";
+        const stroke =
+          crystalTone === "amber"
+            ? "rgba(255, 201, 102, 0.88)"
+            : crystalTone === "cyan"
+              ? "rgba(116, 227, 255, 0.9)"
+              : "rgba(255, 110, 110, 0.88)";
+        ctx.fillStyle = fill;
+        ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+        ctx.lineWidth = 1;
+      }
+
+      if (t && vis === "visible" && t.ownerId && t.ownershipState !== "FRONTIER") {
+        ctx.strokeStyle =
+          t.ownerId === "barbarian"
+            ? "rgba(214, 222, 232, 0.45)"
+            : t.ownerId === state.me
+              ? borderColorForOwner(t.ownerId, t.ownershipState)
+              : isTileOwnedByAlly(t)
+                ? "rgba(255, 205, 92, 0.82)"
+                : borderColorForOwner(t.ownerId, t.ownershipState);
+        ctx.lineWidth = borderLineWidthForOwner(t.ownerId, t.ownershipState);
+        if (visualStyleForOwner(t.ownerId)?.borderStyle === "DASHED") ctx.setLineDash([4, 3]);
+        else if (visualStyleForOwner(t.ownerId)?.borderStyle === "SOFT") ctx.setLineDash([10, 6]);
+        else ctx.setLineDash([]);
         ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
+        ctx.setLineDash([]);
+        ctx.lineWidth = 1;
       }
 
       if (t && vis === "visible" && typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now() && t.ownerId) {
@@ -3529,6 +5591,93 @@ const draw = (): void => {
         }
         ctx.lineWidth = 1;
       }
+    }
+  }
+
+  const selectedWorld = selectedTile();
+  if (selectedWorld && selectedWorld.observatory) {
+    const selectedVisibility = tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
+    if (selectedVisibility === "visible") {
+      const center = worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
+      const ringRadius = OBSERVATORY_VISION_BONUS + 0.5;
+      const squareSize = ringRadius * 2 * size;
+      ctx.save();
+      ctx.strokeStyle =
+        selectedWorld.observatory.status === "active" ? "rgba(122, 214, 255, 0.55)" : "rgba(122, 214, 255, 0.28)";
+      ctx.fillStyle =
+        selectedWorld.observatory.status === "active" ? "rgba(122, 214, 255, 0.05)" : "rgba(122, 214, 255, 0.025)";
+      ctx.setLineDash([8, 6]);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
+      ctx.fillRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
+      ctx.restore();
+      if (selectedWorld.ownerId === state.me && selectedWorld.observatory.status === "active") {
+        const protectionRadius = OBSERVATORY_PROTECTION_RADIUS + 0.5;
+        const protectionSquareSize = protectionRadius * 2 * size;
+        ctx.save();
+        ctx.strokeStyle = "rgba(106, 180, 255, 0.35)";
+        ctx.fillStyle = "rgba(106, 180, 255, 0.02)";
+        ctx.setLineDash([14, 10]);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+          center.sx - protectionSquareSize / 2,
+          center.sy - protectionSquareSize / 2,
+          protectionSquareSize,
+          protectionSquareSize
+        );
+        ctx.fillRect(
+          center.sx - protectionSquareSize / 2,
+          center.sy - protectionSquareSize / 2,
+          protectionSquareSize,
+          protectionSquareSize
+        );
+        ctx.restore();
+      }
+    }
+  }
+
+  if (crystalTargetingActive) {
+    const hoveredKey = state.hover ? key(state.hover.x, state.hover.y) : "";
+    const selectedKey = state.selected ? key(state.selected.x, state.selected.y) : "";
+    const targetKey = state.crystalTargeting.validTargets.has(hoveredKey)
+      ? hoveredKey
+      : state.crystalTargeting.validTargets.has(selectedKey)
+        ? selectedKey
+        : "";
+    if (targetKey) {
+      const target = parseKey(targetKey);
+      const targetScreen = worldToScreen(target.x, target.y, size, halfW, halfH);
+      const originKey = state.crystalTargeting.originByTarget.get(targetKey);
+      if (originKey) {
+        const origin = parseKey(originKey);
+        const originScreen = worldToScreen(origin.x, origin.y, size, halfW, halfH);
+        ctx.save();
+        ctx.strokeStyle =
+          crystalTone === "amber"
+            ? "rgba(255, 205, 98, 0.92)"
+            : crystalTone === "cyan"
+              ? "rgba(116, 227, 255, 0.92)"
+              : "rgba(255, 110, 110, 0.92)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash(crystalTone === "cyan" ? [10, 6] : [7, 5]);
+        ctx.beginPath();
+        ctx.moveTo(originScreen.sx, originScreen.sy);
+        ctx.lineTo(targetScreen.sx, targetScreen.sy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeRect(originScreen.sx - size / 2 + 2, originScreen.sy - size / 2 + 2, size - 4, size - 4);
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.strokeStyle =
+        crystalTone === "amber"
+          ? "rgba(255, 219, 132, 1)"
+          : crystalTone === "cyan"
+            ? "rgba(153, 240, 255, 1)"
+            : "rgba(255, 144, 144, 1)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(targetScreen.sx - size / 2 + 1, targetScreen.sy - size / 2 + 1, size - 2, size - 2);
+      ctx.restore();
     }
   }
 
@@ -3655,23 +5804,32 @@ canvas.addEventListener("wheel", (ev) => {
 });
 
 window.addEventListener("keydown", (ev) => {
-  let moved = false;
-  if (ev.key === "ArrowUp") state.camY = wrapY(state.camY - 1);
-  if (ev.key === "ArrowDown") state.camY = wrapY(state.camY + 1);
-  if (ev.key === "ArrowLeft") state.camX = wrapX(state.camX - 1);
-  if (ev.key === "ArrowRight") state.camX = wrapX(state.camX + 1);
-  if (ev.key === "ArrowUp" || ev.key === "ArrowDown" || ev.key === "ArrowLeft" || ev.key === "ArrowRight") moved = true;
+  const target = ev.target as HTMLElement | null;
+  const tagName = target?.tagName;
+  const editing =
+    target?.isContentEditable ||
+    tagName === "INPUT" ||
+    tagName === "TEXTAREA" ||
+    tagName === "SELECT";
+  if (editing) return;
+
   if (ev.key === "Escape") {
     cancelOngoingCapture();
     hideHoldBuildMenu();
     hideTileActionMenu();
+    clearCrystalTargeting();
+    return;
   }
-  if (moved) maybeRefreshForCamera(true);
 
-  if (ev.key.toLowerCase() === "r") requestViewRefresh();
-  if (ev.key.toLowerCase() === "p") scoutPulseSelected();
-  if (ev.key.toLowerCase() === "f") defensiveFortifySelected();
-  if (ev.key.toLowerCase() === "t") rapidSettleSelected();
+  if (ev.key === "ArrowUp" || ev.key === "ArrowDown" || ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
+    ev.preventDefault();
+    const step = ev.shiftKey ? 8 : 3;
+    if (ev.key === "ArrowUp") state.camY = wrapY(state.camY - step);
+    if (ev.key === "ArrowDown") state.camY = wrapY(state.camY + step);
+    if (ev.key === "ArrowLeft") state.camX = wrapX(state.camX - step);
+    if (ev.key === "ArrowRight") state.camX = wrapX(state.camX + step);
+    maybeRefreshForCamera(true);
+  }
 });
 window.addEventListener("mousedown", (ev) => {
   const target = ev.target as Node | null;
@@ -3686,7 +5844,7 @@ setInterval(() => {
   if (state.connection !== "initialized") return;
   if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
   // Keep subscription alive, but do not spam full resubscribe.
-  if (Date.now() - state.lastSubAt > 20_000) requestViewRefresh(1, true);
+  if (Date.now() - state.lastSubAt > 20_000) requestViewRefresh(2, true);
 }, isMobile() ? 8_000 : 5_000);
 
 setInterval(() => {
@@ -3739,78 +5897,25 @@ miniMapEl.addEventListener(
 );
 
 canvas.addEventListener("click", (ev) => {
-  if (holdActivated) {
-    holdActivated = false;
-    return;
-  }
-  if (suppressNextClick) {
-    suppressNextClick = false;
-    return;
-  }
-  hideHoldBuildMenu();
-  hideTileActionMenu();
   const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
-
-  const clicked = state.tiles.get(key(wx, wy));
-  const vis = tileVisibilityStateAt(wx, wy, clicked);
-  if (vis === "unexplored") {
-    state.selected = undefined;
-    renderHud();
-    return;
-  }
-  if (vis === "fogged") {
-    state.selected = { x: wx, y: wy };
-    state.attackPreview = undefined;
-    state.attackPreviewPendingKey = "";
-    renderHud();
-    return;
-  }
-  if (!clicked) {
-    state.selected = { x: wx, y: wy };
-    state.attackPreview = undefined;
-    state.attackPreviewPendingKey = "";
-    renderHud();
-    return;
-  }
-
-  const to = clicked;
-  state.selected = { x: wx, y: wy };
-  const adjacentFromOwned = pickOriginForTarget(to.x, to.y);
-  const unreachableForeignClick =
-    to.terrain === "LAND" &&
-    !to.fogged &&
-    to.ownerId !== state.me &&
-    !isTileOwnedByAlly(to) &&
-    !adjacentFromOwned;
-  if (unreachableForeignClick) {
-    pushFeed("Target is not connected to your border.", "combat", "warn");
-    requestAttackPreviewForHover();
-    renderHud();
-    return;
-  }
-  if (to.terrain === "LAND" && !to.fogged && !to.ownerId && adjacentFromOwned) {
-    if (enqueueTarget(to.x, to.y, "normal")) {
-      processActionQueue();
-      pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
-    }
-    requestAttackPreviewForHover();
-    renderHud();
-    return;
-  }
-  openSingleTileActionMenu(to, ev.clientX, ev.clientY);
-  requestAttackPreviewForHover();
-  renderHud();
+  handleTileSelection(wx, wy, ev.clientX, ev.clientY);
 });
 
 let dragActive = false;
 let dragLastKey = "";
 let suppressNextClick = false;
 let boxSelectionEngaged = false;
+let boxSelectionMode = false;
+let mousePanStart: { x: number; y: number; camX: number; camY: number } | undefined;
+let mousePanMoved = false;
 let holdOpenTimer: number | undefined;
 let holdActivated = false;
 let touchHoldStart: { x: number; y: number } | undefined;
+let touchTapCandidate: { x: number; y: number } | undefined;
 const HOLD_OPEN_MS = 420;
 const HOLD_MOVE_CANCEL_PX = 10;
+const TOUCH_TAP_MAX_MOVE_PX = 12;
+const MOUSE_PAN_THRESHOLD_PX = 4;
 const clearHoldOpenTimer = (): void => {
   if (holdOpenTimer !== undefined) window.clearTimeout(holdOpenTimer);
   holdOpenTimer = undefined;
@@ -3832,17 +5937,46 @@ const scheduleHoldBuildMenu = (clientX: number, clientY: number, offsetX: number
 canvas.addEventListener("mousedown", (ev) => {
   if (ev.button !== 0) return;
   dragActive = true;
+  mousePanMoved = false;
+  boxSelectionMode = ev.shiftKey;
   boxSelectionEngaged = false;
   hideHoldBuildMenu();
+  mousePanStart = { x: ev.clientX, y: ev.clientY, camX: state.camX, camY: state.camY };
   const raw = worldTileRawFromPointer(ev.offsetX, ev.offsetY);
-  state.boxSelectStart = raw;
-  state.boxSelectCurrent = raw;
-  dragLastKey = key(wrapX(raw.gx), wrapY(raw.gy));
-  computeDragPreview();
-  scheduleHoldBuildMenu(ev.clientX, ev.clientY, ev.offsetX, ev.offsetY);
+  if (boxSelectionMode) {
+    state.boxSelectStart = raw;
+    state.boxSelectCurrent = raw;
+    dragLastKey = key(wrapX(raw.gx), wrapY(raw.gy));
+    computeDragPreview();
+  } else {
+    state.boxSelectStart = undefined;
+    state.boxSelectCurrent = undefined;
+    state.dragPreviewKeys.clear();
+    dragLastKey = "";
+  }
+  if (!boxSelectionMode) {
+    scheduleHoldBuildMenu(ev.clientX, ev.clientY, ev.offsetX, ev.offsetY);
+  } else {
+    clearHoldOpenTimer();
+  }
 });
 canvas.addEventListener("mousemove", (ev) => {
   if (!dragActive) return;
+  if (!boxSelectionMode && mousePanStart) {
+    const dx = ev.clientX - mousePanStart.x;
+    const dy = ev.clientY - mousePanStart.y;
+    if (Math.abs(dx) > MOUSE_PAN_THRESHOLD_PX || Math.abs(dy) > MOUSE_PAN_THRESHOLD_PX) {
+      clearHoldOpenTimer();
+      mousePanMoved = true;
+      suppressNextClick = true;
+    }
+    if (mousePanMoved) {
+      state.camX = wrapX(Math.round(mousePanStart.camX - dx / state.zoom));
+      state.camY = wrapY(Math.round(mousePanStart.camY - dy / state.zoom));
+      maybeRefreshForCamera(false);
+    }
+    return;
+  }
   const raw = worldTileRawFromPointer(ev.offsetX, ev.offsetY);
   const k = key(wrapX(raw.gx), wrapY(raw.gy));
   if (k === dragLastKey) return;
@@ -3854,7 +5988,7 @@ canvas.addEventListener("mousemove", (ev) => {
 });
 window.addEventListener("mouseup", (ev) => {
   clearHoldOpenTimer();
-  if (dragActive && boxSelectionEngaged) {
+  if (dragActive && boxSelectionMode && boxSelectionEngaged) {
     const dragKeys = [...state.dragPreviewKeys];
     if (dragKeys.length > 0) {
       const neutralKeys = dragKeys.filter((k) => {
@@ -3883,7 +6017,10 @@ window.addEventListener("mouseup", (ev) => {
     suppressNextClick = true;
   }
   dragActive = false;
+  boxSelectionMode = false;
   boxSelectionEngaged = false;
+  mousePanStart = undefined;
+  mousePanMoved = false;
   dragLastKey = "";
   state.boxSelectStart = undefined;
   state.boxSelectCurrent = undefined;
@@ -3910,6 +6047,7 @@ canvas.addEventListener(
       hideHoldBuildMenu();
       touchPanStart = { x: t.clientX, y: t.clientY, camX: state.camX, camY: state.camY };
       touchHoldStart = { x: t.clientX, y: t.clientY };
+      touchTapCandidate = { x: t.clientX, y: t.clientY };
       const rect = canvas.getBoundingClientRect();
       scheduleHoldBuildMenu(t.clientX, t.clientY, t.clientX - rect.left, t.clientY - rect.top);
       pinchStart = undefined;
@@ -3919,6 +6057,7 @@ canvas.addEventListener(
       if (!a || !b) return;
       clearHoldOpenTimer();
       touchHoldStart = undefined;
+      touchTapCandidate = undefined;
       const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       pinchStart = { distance: d, zoom: state.zoom };
       touchPanStart = undefined;
@@ -3936,6 +6075,7 @@ canvas.addEventListener(
       if (touchHoldStart) {
         const moved = Math.hypot(t.clientX - touchHoldStart.x, t.clientY - touchHoldStart.y);
         if (moved > HOLD_MOVE_CANCEL_PX) clearHoldOpenTimer();
+        if (moved > TOUCH_TAP_MAX_MOVE_PX) touchTapCandidate = undefined;
       }
       const dx = t.clientX - touchPanStart.x;
       const dy = t.clientY - touchPanStart.y;
@@ -3945,6 +6085,7 @@ canvas.addEventListener(
       return;
     }
     if (ev.touches.length === 2 && pinchStart) {
+      touchTapCandidate = undefined;
       const a = ev.touches[0];
       const b = ev.touches[1];
       if (!a || !b) return;
@@ -3959,8 +6100,17 @@ canvas.addEventListener(
 canvas.addEventListener(
   "touchend",
   () => {
+    if (touchTapCandidate && !holdActivated && !pinchStart) {
+      const rect = canvas.getBoundingClientRect();
+      const offsetX = touchTapCandidate.x - rect.left;
+      const offsetY = touchTapCandidate.y - rect.top;
+      const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+      suppressNextClick = true;
+      handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
+    }
     clearHoldOpenTimer();
     touchHoldStart = undefined;
+    touchTapCandidate = undefined;
     touchPanStart = undefined;
     pinchStart = undefined;
   },

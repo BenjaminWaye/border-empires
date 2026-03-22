@@ -31,6 +31,9 @@ export const FORT_BUILD_COST = 600;
 export const FORT_MAX_PER_PLAYER = 10;
 export const FORT_DEFENSE_MULT = 1.25;
 
+export const OBSERVATORY_BUILD_COST = 600;
+export const OBSERVATORY_VISION_BONUS = 5;
+
 export const SIEGE_OUTPOST_BUILD_MS = 45_000;
 export const SIEGE_OUTPOST_BUILD_COST = 600;
 export const SIEGE_OUTPOST_MAX_PER_PLAYER = 10;
@@ -41,8 +44,8 @@ export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
 export const DOCK_PAIRS_MIN = 15;
 export const DOCK_PAIRS_MAX = 45;
 
-export const CLUSTER_COUNT_MIN = 260;
-export const CLUSTER_COUNT_MAX = 260;
+export const CLUSTER_COUNT_MIN = 238;
+export const CLUSTER_COUNT_MAX = 238;
 
 export const SEASON_LENGTH_DAYS = 30;
 
@@ -50,5 +53,5 @@ export const BARBARIAN_ACTION_INTERVAL_MS = 15_000;
 export const BARBARIAN_MULTIPLY_THRESHOLD = 3;
 export const BARBARIAN_CLEAR_GOLD_REWARD = 5;
 export const BARBARIAN_ATTACK_POWER = 1.0;
-export const BARBARIAN_DEFENSE_POWER = 1.0;
+export const BARBARIAN_DEFENSE_POWER = 0.67;
 export const INITIAL_BARBARIAN_COUNT = 80;

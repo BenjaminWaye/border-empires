@@ -4,8 +4,54 @@ import { z } from "zod";
 
 export type StatsModKey = "attack" | "defense" | "income" | "vision";
 
+export interface TechEffects {
+  unlockFarmstead?: boolean;
+  unlockCamp?: boolean;
+  unlockMine?: boolean;
+  unlockMarket?: boolean;
+  unlockObservatory?: boolean;
+  unlockForts?: boolean;
+  unlockSiegeOutposts?: boolean;
+  unlockRevealEmpire?: boolean;
+  unlockNavalInfiltration?: boolean;
+  unlockSabotage?: boolean;
+  settlementSpeedMult?: number;
+  townFoodUpkeepMult?: number;
+  settledFoodUpkeepMult?: number;
+  settledGoldUpkeepMult?: number;
+  townGoldOutputMult?: number;
+  townGoldOutputIfFedMult?: number;
+  townGoldCapMult?: number;
+  harvestCapMult?: number;
+  fortDefenseMult?: number;
+  fortIronUpkeepMult?: number;
+  fortGoldUpkeepMult?: number;
+  outpostAttackMult?: number;
+  outpostSupplyUpkeepMult?: number;
+  outpostGoldUpkeepMult?: number;
+  revealUpkeepMult?: number;
+  revealCapacityBonus?: number;
+  visionRadiusBonus?: number;
+  dockGoldOutputMult?: number;
+  dockGoldCapMult?: number;
+  marketCrystalUpkeepMult?: number;
+  settledDefenseMult?: number;
+  attackVsSettledMult?: number;
+  attackVsFortsMult?: number;
+  newSettlementDefenseMult?: number;
+  resourceOutputMult?: {
+    farm?: number;
+    fish?: number;
+    iron?: number;
+    supply?: number;
+    crystal?: number;
+    shard?: number;
+  };
+}
+
 export interface TechDef {
   id: string;
+  tier?: number;
   rootId?: string;
   name: string;
   description: string;
@@ -21,11 +67,64 @@ export interface TechDef {
   };
   researchTimeSeconds?: number;
   mods?: Partial<Record<StatsModKey, number>>;
+  effects?: TechEffects;
   grantsPowerup?: { id: string; charges: number };
 }
 
+const TechEffectsSchema = z
+  .object({
+    unlockFarmstead: z.boolean().optional(),
+    unlockCamp: z.boolean().optional(),
+    unlockMine: z.boolean().optional(),
+    unlockMarket: z.boolean().optional(),
+    unlockForts: z.boolean().optional(),
+    unlockObservatory: z.boolean().optional(),
+    unlockSiegeOutposts: z.boolean().optional(),
+    unlockRevealEmpire: z.boolean().optional(),
+    unlockNavalInfiltration: z.boolean().optional(),
+    unlockSabotage: z.boolean().optional(),
+    settlementSpeedMult: z.number().positive().optional(),
+    townFoodUpkeepMult: z.number().positive().optional(),
+    settledFoodUpkeepMult: z.number().positive().optional(),
+    settledGoldUpkeepMult: z.number().positive().optional(),
+    townGoldOutputMult: z.number().positive().optional(),
+    townGoldOutputIfFedMult: z.number().positive().optional(),
+    townGoldCapMult: z.number().positive().optional(),
+    harvestCapMult: z.number().positive().optional(),
+    fortDefenseMult: z.number().positive().optional(),
+    fortIronUpkeepMult: z.number().positive().optional(),
+    fortGoldUpkeepMult: z.number().positive().optional(),
+    outpostAttackMult: z.number().positive().optional(),
+    outpostSupplyUpkeepMult: z.number().positive().optional(),
+    outpostGoldUpkeepMult: z.number().positive().optional(),
+    revealUpkeepMult: z.number().positive().optional(),
+    revealCapacityBonus: z.number().int().min(0).optional(),
+    visionRadiusBonus: z.number().int().min(0).optional(),
+    dockGoldOutputMult: z.number().positive().optional(),
+    dockGoldCapMult: z.number().positive().optional(),
+    marketCrystalUpkeepMult: z.number().positive().optional(),
+    settledDefenseMult: z.number().positive().optional(),
+    attackVsSettledMult: z.number().positive().optional(),
+    attackVsFortsMult: z.number().positive().optional(),
+    newSettlementDefenseMult: z.number().positive().optional(),
+    resourceOutputMult: z
+      .object({
+        farm: z.number().positive().optional(),
+        fish: z.number().positive().optional(),
+        iron: z.number().positive().optional(),
+        supply: z.number().positive().optional(),
+        crystal: z.number().positive().optional(),
+        shard: z.number().positive().optional()
+      })
+      .partial()
+      .optional()
+  })
+  .partial()
+  .optional();
+
 const TechSchema = z.object({
   id: z.string().min(1),
+  tier: z.number().int().min(1).max(6).optional(),
   rootId: z.string().min(1).optional(),
   name: z.string().min(1),
   description: z.string().min(1),
@@ -51,6 +150,7 @@ const TechSchema = z.object({
     })
     .partial()
     .optional(),
+  effects: TechEffectsSchema,
   grantsPowerup: z
     .object({
       id: z.string().min(1),
@@ -71,80 +171,13 @@ export interface LoadedTechTree {
   roots: string[];
 }
 
-const ROOT_LABELS: Record<string, { name: string; description: string; pool: string[] }> = {
-  "dominion-core": {
-    name: "Warfare Doctrine",
-    description: "Focuses on military pressure, border breakthrough, and combat momentum.",
-    pool: ["Bronze Working", "Iron Working", "Steel Forging", "Tactics", "Drill Formations", "Siegecraft", "Heavy Infantry", "Combined Arms"]
-  },
-  "aegis-core": {
-    name: "Defensive Engineering",
-    description: "Strengthens border holding, counter-attacks, and fortified fronts.",
-    pool: ["Masonry", "Fortification", "Watch Posts", "Shield Wall", "Bastion Design", "Counterbattery", "Defensive Depth", "Stone Keep"]
-  },
-  "mercantile-core": {
-    name: "Trade and Logistics",
-    description: "Improves sustained growth through supply, movement, and economic discipline.",
-    pool: ["Road Networks", "Caravans", "Market Charter", "Ledger Keeping", "Warehousing", "Supply Trains", "Customs", "Guild Contracts"]
-  },
-  "oracle-core": {
-    name: "Scholarship and Recon",
-    description: "Expands information advantage, strategic foresight, and coordinated planning.",
-    pool: ["Cartography", "Surveying", "Signal Towers", "Field Intelligence", "Codebooks", "Astronomy", "Early Warning", "Strategic Analysis"]
-  },
-  "forge-core": {
-    name: "Industry and Metallurgy",
-    description: "Builds durable war capacity through materials, tools, and production quality.",
-    pool: ["Smelting", "Alloying", "Toolmaking", "Foundries", "Gearworks", "Heat Treatment", "Industrial Standards", "Armory Workflow"]
-  },
-  "citadel-core": {
-    name: "Statecraft and Order",
-    description: "Improves cohesion through governance, civil structure, and strategic administration.",
-    pool: ["Civil Service", "Tax Reform", "Provincial Law", "Bureau Records", "Command Hierarchy", "Public Works", "Internal Security", "Administrative Reach"]
-  },
-  "harvest-core": {
-    name: "Agriculture and Provisioning",
-    description: "Strengthens food security and long-term expansion through reliable provisioning.",
-    pool: ["Irrigation", "Crop Rotation", "Seed Selection", "Granaries", "Plow Teams", "Soil Management", "Water Lifting", "Harvest Logistics"]
-  },
-  "horizon-core": {
-    name: "Mobility and Exploration",
-    description: "Favors maneuver, expansion speed, and flexible frontier operations.",
-    pool: ["Pathfinding", "Horseback Riding", "Wayfinding", "Field Camps", "Bridge Building", "Rapid Deployment", "Scouting Lines", "March Discipline"]
-  },
-  "tempest-core": {
-    name: "Skirmish and Tempo",
-    description: "Leans into pressure timing, opportunistic strikes, and battle rhythm control.",
-    pool: ["Light Cavalry", "Volley Timing", "Flanking Drills", "Shock Assault", "Battle Signals", "Rapid Muster", "Momentum Warfare", "Pursuit Doctrine"]
-  },
-  "bulwark-core": {
-    name: "Frontier Security",
-    description: "Specializes in chokepoints, territorial resilience, and sustained border defense.",
-    pool: ["Border Patrols", "Checkpoint Network", "Reserve Lines", "Hardpoint Defense", "Chokepoint Doctrine", "Fallback Positions", "Perimeter Drills", "Fort Garrison"]
-  }
-};
-
-const OFFENSE_FOCUSED_ROOTS = new Set(["dominion-core", "tempest-core", "horizon-core", "forge-core"]);
-
-const modText = (mods?: Partial<Record<StatsModKey, number>>): string => {
-  if (!mods) return "No direct stat modifier.";
-  const parts = Object.entries(mods).map(([k, v]) => `${k} x${Number(v).toFixed(3)}`);
-  return parts.length > 0 ? parts.join(" | ") : "No direct stat modifier.";
-};
-
 export const loadTechTree = (cwd: string): LoadedTechTree => {
-  const candidates = [
-    path.resolve(cwd, "data/tech-tree.json"),
-    path.resolve(cwd, "packages/server/data/tech-tree.json")
-  ];
+  const candidates = [path.resolve(cwd, "data/tech-tree.json"), path.resolve(cwd, "packages/server/data/tech-tree.json")];
   const filePath = candidates.find((p) => fs.existsSync(p));
-  if (!filePath) {
-    throw new Error(`tech-tree.json not found. tried: ${candidates.join(", ")}`);
-  }
-  const raw = JSON.parse(fs.readFileSync(filePath, "utf8"));
-  const parsed = TechFileSchema.parse(raw);
-  const techs = parsed.techs as TechDef[];
+  if (!filePath) throw new Error(`tech-tree.json not found. tried: ${candidates.join(", ")}`);
 
+  const parsed = TechFileSchema.parse(JSON.parse(fs.readFileSync(filePath, "utf8")));
+  const techs = parsed.techs as TechDef[];
   const techById = new Map<string, TechDef>();
   const childrenByTech = new Map<string, string[]>();
 
@@ -156,9 +189,7 @@ export const loadTechTree = (cwd: string): LoadedTechTree => {
   for (const tech of techs) {
     const parents = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
     for (const parentId of parents) {
-      if (!techById.has(parentId)) {
-        throw new Error(`Tech ${tech.id} references missing parent ${parentId}`);
-      }
+      if (!techById.has(parentId)) throw new Error(`Tech ${tech.id} references missing parent ${parentId}`);
       const children = childrenByTech.get(parentId) ?? [];
       children.push(tech.id);
       childrenByTech.set(parentId, children);
@@ -182,45 +213,6 @@ export const loadTechTree = (cwd: string): LoadedTechTree => {
   for (const rootId of roots) dfs(rootId);
   if (visited.size !== techs.length) {
     throw new Error(`Tech graph has cycle or disconnected component: visited ${visited.size} / ${techs.length}`);
-  }
-
-  // Enrich generated/generic content with recognizable names and clearer descriptions.
-  const byId = new Map(techs.map((t) => [t.id, t]));
-  const depthMemo = new Map<string, number>();
-  const depthOf = (id: string): number => {
-    const cached = depthMemo.get(id);
-    if (cached !== undefined) return cached;
-    const t = byId.get(id);
-    if (!t) return 0;
-    const parents = t.prereqIds && t.prereqIds.length > 0 ? t.prereqIds : t.requires ? [t.requires] : [];
-    const d = parents.length > 0 ? Math.max(...parents.map((p) => depthOf(p))) + 1 : 0;
-    depthMemo.set(id, d);
-    return d;
-  };
-  for (const tech of techs) {
-    if (tech.mods?.attack) {
-      const delta = Math.max(0, tech.mods.attack - 1);
-      const scale = tech.rootId && OFFENSE_FOCUSED_ROOTS.has(tech.rootId) ? 3.2 : 2.2;
-      tech.mods.attack = 1 + delta * scale;
-    }
-    if (tech.mods?.defense) {
-      const delta = Math.max(0, tech.mods.defense - 1);
-      tech.mods.defense = 1 + delta * 1.4;
-    }
-
-    const label = tech.rootId ? ROOT_LABELS[tech.rootId] : undefined;
-    if (!label) continue;
-    const depth = depthOf(tech.id);
-    if (!tech.requires) {
-      tech.name = label.name;
-      tech.description = `${label.description} ${modText(tech.mods)}`;
-      continue;
-    }
-    const m = tech.id.match(/-n(\d+)$/);
-    const idx = m ? Number(m[1]) : depth;
-    const baseName = label.pool[idx % label.pool.length] ?? `Doctrine Tier ${depth}`;
-    tech.name = `${baseName} (Tier ${Math.max(1, depth)})`;
-    tech.description = `${label.name}: ${baseName}. ${modText(tech.mods)}`;
   }
 
   return { techs, techById, childrenByTech, roots };

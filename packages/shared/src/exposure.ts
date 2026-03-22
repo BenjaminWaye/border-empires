@@ -1,5 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
-import { wrapX, wrapY } from "./math.js";
+import { exposureWeightFromSides, wrapX, wrapY } from "./math.js";
 import type { PlayerId, Terrain, Tile } from "./types.js";
 
 const neighbors = [
@@ -66,7 +66,7 @@ const localExposureForPlayer = (
     localTiles.push([wrapX(cx + dx, WORLD_WIDTH), wrapY(cy + dy, WORLD_HEIGHT)]);
   }
 
-  let exposed = 0;
+  let exposure = 0;
 
   for (const [tx, ty] of localTiles) {
     const terrain = tx === cx && ty === cy ? getTile(cx, cy).terrain : getTile(tx, ty).terrain;
@@ -75,16 +75,18 @@ const localExposureForPlayer = (
     const thisOwner = ownerFor(tx, ty, cx, cy, changedOwner, getTile);
     if (thisOwner !== playerId) continue;
 
+    let exposedSides = 0;
     for (const [dx, dy] of neighbors) {
       const nx = wrapX(tx + dx, WORLD_WIDTH);
       const ny = wrapY(ty + dy, WORLD_HEIGHT);
       const nt = getTile(nx, ny);
       const nOwner = ownerFor(nx, ny, cx, cy, changedOwner, getTile);
-      if (isExposedSide(playerId, nt.terrain, nOwner, isAlly)) exposed += 1;
+      if (isExposedSide(playerId, nt.terrain, nOwner, isAlly)) exposedSides += 1;
     }
+    exposure += exposureWeightFromSides(exposedSides);
   }
 
-  return exposed;
+  return exposure;
 };
 
 export const computeOwnershipChangeDelta = (
@@ -131,10 +133,12 @@ export const recomputeExposureForPlayer = (
   for (const tile of tiles) {
     if (tile.ownerId !== playerId) continue;
     T += 1;
+    let exposedSides = 0;
     for (const [dx, dy] of neighbors) {
       const n = getTile(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT));
-      if (isExposedSide(playerId, n.terrain, n.ownerId, isAlly)) E += 1;
+      if (isExposedSide(playerId, n.terrain, n.ownerId, isAlly)) exposedSides += 1;
     }
+    E += exposureWeightFromSides(exposedSides);
   }
   return { T, E };
 };

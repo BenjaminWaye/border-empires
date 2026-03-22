@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   combatWinChance,
   defensivenessMultiplier,
+  exposureWeightFromSides,
   pvpPointsReward,
   ratingFromPointsLevel,
   underdogMultiplier,
@@ -17,6 +18,14 @@ describe("wrap", () => {
 });
 
 describe("defensiveness", () => {
+  test("buckets exposure by exposed side count", () => {
+    expect(exposureWeightFromSides(0)).toBe(0);
+    expect(exposureWeightFromSides(1)).toBe(0);
+    expect(exposureWeightFromSides(2)).toBe(1);
+    expect(exposureWeightFromSides(3)).toBe(2.5);
+    expect(exposureWeightFromSides(4)).toBe(4);
+  });
+
   test("clamps multiplier", () => {
     expect(defensivenessMultiplier(1, 999)).toBe(0.6);
     expect(defensivenessMultiplier(10, 1)).toBe(2.0);

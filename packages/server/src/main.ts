@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import {
   BARBARIAN_ACTION_INTERVAL_MS,
@@ -45,6 +46,7 @@ import {
   resourceAt,
   setWorldSeed,
   continentIdAt,
+  exposureWeightFromSides,
   terrainAt,
   wrapX,
   wrapY,
@@ -62,10 +64,14 @@ import {
   type SiegeOutpost,
   type Dock,
   type BarbarianAgent,
+  type EconomicStructure,
+  type EconomicStructureType,
 } from "@border-empires/shared";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { z } from "zod";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
 
@@ -76,6 +82,16 @@ const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
 
 type Ws = import("ws").WebSocket;
 
+interface AuthIdentity {
+  uid: string;
+  playerId: string;
+  name: string;
+  email?: string | undefined;
+}
+
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
+const firebaseJwks = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
+
 interface AllianceRequest {
   id: string;
   fromPlayerId: string;
@@ -83,6 +99,38 @@ interface AllianceRequest {
   createdAt: number;
   expiresAt: number;
 }
+
+type VictoryPressureTracker = {
+  leaderPlayerId?: string;
+  holdStartedAt?: number;
+};
+
+type VictoryPressureObjectiveId = "TOWN_SUPREMACY" | "ECONOMIC_DOMINANCE" | "FORTRESS_BELT" | "FORWARD_PRESSURE" | "FRONTIER_REACH";
+
+type VictoryPressureObjectiveView = {
+  id: VictoryPressureObjectiveId;
+  name: string;
+  description: string;
+  rewardLabel: string;
+  leaderPlayerId?: string;
+  leaderName: string;
+  progressLabel: string;
+  thresholdLabel: string;
+  holdDurationSeconds: number;
+  holdRemainingSeconds?: number;
+  statusLabel: string;
+  conditionMet: boolean;
+};
+
+type VictoryPressureDefinition = {
+  id: VictoryPressureObjectiveId;
+  name: string;
+  description: string;
+  holdDurationSeconds: number;
+  rewardPoints?: number;
+  rewardGold?: number;
+  rewardShard?: number;
+};
 
 interface MissionDef {
   id: string;
@@ -130,10 +178,53 @@ interface TownDefinition {
 
 type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 
+interface Observatory {
+  observatoryId: string;
+  ownerId: string;
+  tileKey: TileKey;
+  status: "active" | "inactive";
+}
+
+interface ActiveSabotage {
+  targetTileKey: TileKey;
+  casterPlayerId: string;
+  endsAt: number;
+  outputMultiplier: number;
+}
+
 interface TileYieldBuffer {
   gold: number;
   strategic: Record<StrategicResource, number>;
 }
+
+const emptyPlayerEffects = (): PlayerEffects => ({
+  unlockForts: false,
+  unlockSiegeOutposts: false,
+  unlockRevealEmpire: false,
+  settlementSpeedMult: 1,
+  townFoodUpkeepMult: 1,
+  settledFoodUpkeepMult: 1,
+  settledGoldUpkeepMult: 1,
+  townGoldOutputMult: 1,
+  townGoldOutputIfFedMult: 1,
+  townGoldCapMult: 1,
+  harvestCapMult: 1,
+  fortBuildGoldCostMult: 1,
+  fortDefenseMult: 1,
+  fortIronUpkeepMult: 1,
+  fortGoldUpkeepMult: 1,
+  outpostAttackMult: 1,
+  outpostSupplyUpkeepMult: 1,
+  outpostGoldUpkeepMult: 1,
+  revealUpkeepMult: 1,
+  revealCapacityBonus: 0,
+  visionRadiusBonus: 0,
+  settledDefenseMult: 1,
+  attackVsSettledMult: 1,
+  attackVsFortsMult: 1,
+  newSettlementDefenseMult: 1,
+  resourceOutputMult: { FARM: 1, FISH: 1, IRON: 1, CRYSTAL: 1, SUPPLY: 1, SHARD: 1 }
+});
 
 interface TechRequirementChecklist {
   label: string;
@@ -145,6 +236,35 @@ interface DomainRequirementChecklist {
   met: boolean;
 }
 
+interface PlayerEffects {
+  unlockForts: boolean;
+  unlockSiegeOutposts: boolean;
+  unlockRevealEmpire: boolean;
+  settlementSpeedMult: number;
+  townFoodUpkeepMult: number;
+  settledFoodUpkeepMult: number;
+  settledGoldUpkeepMult: number;
+  townGoldOutputMult: number;
+  townGoldOutputIfFedMult: number;
+  townGoldCapMult: number;
+  harvestCapMult: number;
+  fortBuildGoldCostMult: number;
+  fortDefenseMult: number;
+  fortIronUpkeepMult: number;
+  fortGoldUpkeepMult: number;
+  outpostAttackMult: number;
+  outpostSupplyUpkeepMult: number;
+  outpostGoldUpkeepMult: number;
+  revealUpkeepMult: number;
+  revealCapacityBonus: number;
+  visionRadiusBonus: number;
+  settledDefenseMult: number;
+  attackVsSettledMult: number;
+  attackVsFortsMult: number;
+  newSettlementDefenseMult: number;
+  resourceOutputMult: { FARM: number; FISH: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number };
+}
+
 interface TelemetryCounters {
   frontierClaims: number;
   settlements: number;
@@ -153,6 +273,16 @@ interface TelemetryCounters {
   scoutPulses: number;
   defensiveFortifies: number;
   techUnlocks: number;
+}
+
+interface AbilityDefinition {
+  id: "reveal_empire" | "deep_strike" | "naval_infiltration" | "sabotage" | "create_mountain" | "remove_mountain";
+  name: string;
+  requiredTechIds: string[];
+  crystalCost: number;
+  cooldownMs: number;
+  upkeepCrystalPerMinute?: number;
+  durationMs?: number;
 }
 
 interface DynamicMissionDef {
@@ -180,14 +310,15 @@ const ALLIANCE_REQUEST_TTL_MS = 5 * 60_000;
 const PASSIVE_INCOME_MULT = 1.0;
 const BASE_GOLD_PER_MIN = 1;
 const FRONTIER_ACTION_GOLD_COST = 1;
-const HARVEST_GOLD_RATE_MULT = 0.18;
+const HARVEST_GOLD_RATE_MULT = 1;
 const HARVEST_RESOURCE_RATE_MULT = 1 / 1440;
 const TILE_YIELD_CAP_GOLD = 24;
 const TILE_YIELD_CAP_RESOURCE = 6;
 const OFFLINE_YIELD_ACCUM_MAX_MS = 12 * 60 * 60 * 1000;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+const IDLE_SNAPSHOT_INTERVAL_MS = 5 * 60_000;
 const FIRST_SPECIAL_SITE_CAPTURE_GOLD = 6;
-const STARTING_GOLD = 20;
+const STARTING_GOLD = 50;
 const MIN_ACTIVE_BARBARIAN_AGENTS = 80;
 const BARBARIAN_MAINTENANCE_INTERVAL_MS = 10_000;
 const BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS = 6;
@@ -198,13 +329,53 @@ const BREAKTHROUGH_IRON_COST = 1;
 const FORT_BUILD_IRON_COST = 45;
 const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
 const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
+const BREAKTHROUGH_REQUIRED_TECH_ID = "iron-working";
 const SCOUT_PULSE_CRYSTAL_COST = 1;
 const SCOUT_PULSE_RADIUS = 8;
 const SCOUT_PULSE_MS = 25_000;
-const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.025;
+const OBSERVATORY_BUILD_COST = 600;
+const OBSERVATORY_VISION_BONUS = 5;
+const OBSERVATORY_BUILD_CRYSTAL_COST = 45;
+const OBSERVATORY_UPKEEP_PER_MIN = 0.025;
+const OBSERVATORY_PROTECTION_RADIUS = 10;
+const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
+const FARMSTEAD_BUILD_GOLD_COST = 400;
+const FARMSTEAD_BUILD_FOOD_COST = 20;
+const FARMSTEAD_GOLD_UPKEEP = 0.1;
+const CAMP_BUILD_GOLD_COST = 500;
+const CAMP_BUILD_SUPPLY_COST = 30;
+const CAMP_GOLD_UPKEEP = 0.12;
+const MINE_BUILD_GOLD_COST = 500;
+const MINE_BUILD_RESOURCE_COST = 30;
+const MINE_GOLD_UPKEEP = 0.12;
+const MARKET_BUILD_GOLD_COST = 600;
+const MARKET_BUILD_CRYSTAL_COST = 40;
+const MARKET_CRYSTAL_UPKEEP = 0.005;
+const ECONOMIC_STRUCTURE_OUTPUT_MULT = 1.5;
+const REVEAL_EMPIRE_ACTIVATION_COST = 20;
+const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
+const DEEP_STRIKE_CRYSTAL_COST = 25;
+const DEEP_STRIKE_COOLDOWN_MS = 20 * 60_000;
+const DEEP_STRIKE_ATTACK_MULT = 0.9;
+const DEEP_STRIKE_MAX_DISTANCE = 2;
+const NAVAL_INFILTRATION_CRYSTAL_COST = 30;
+const NAVAL_INFILTRATION_COOLDOWN_MS = 30 * 60_000;
+const NAVAL_INFILTRATION_ATTACK_MULT = 0.85;
+const NAVAL_INFILTRATION_MAX_RANGE = 4;
+const SABOTAGE_CRYSTAL_COST = 20;
+const SABOTAGE_COOLDOWN_MS = 15 * 60_000;
+const SABOTAGE_DURATION_MS = 45 * 60_000;
+const SABOTAGE_OUTPUT_MULT = 0.5;
+const TERRAIN_SHAPING_GOLD_COST = 8000;
+const TERRAIN_SHAPING_CRYSTAL_COST = 400;
+const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
+const TERRAIN_SHAPING_RANGE = 2;
+const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
+const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
 const RAPID_SETTLE_GOLD_COST = 3;
 const RAPID_SETTLE_FOOD_COST = 1;
 const RAPID_SETTLE_MS = 1_500;
+const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
 const DEFENSIVE_FORTIFY_SUPPLY_COST = 1;
 const DEFENSIVE_FORTIFY_MULT = 1.25;
 const DEFENSIVE_FORTIFY_MS = 45_000;
@@ -215,6 +386,69 @@ const VENDETTA_ATTACK_BUFF_MULT = 1.15;
 const VENDETTA_ATTACK_BUFF_MS = 24 * 60 * 60 * 1000;
 const RESOURCE_CHAIN_BUFF_MS = 24 * 60 * 60 * 1000;
 const RESOURCE_CHAIN_MULT = 1.4;
+const VICTORY_PRESSURE_TOWN_SUPREMACY_HOLD_MS = 60 * 60_000;
+const VICTORY_PRESSURE_ECONOMIC_DOMINANCE_HOLD_MS = 45 * 60_000;
+const VICTORY_PRESSURE_FORTRESS_BELT_HOLD_MS = 45 * 60_000;
+const VICTORY_PRESSURE_FORWARD_PRESSURE_HOLD_MS = 45 * 60_000;
+const VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS = 2 * 60 * 60_000;
+const VICTORY_PRESSURE_FRONTIER_REACH_HOLD_MS = 30 * 60_000;
+const VICTORY_PRESSURE_FRONTIER_REACH_TARGET = 100;
+const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
+  {
+    id: "TOWN_SUPREMACY",
+    name: "Town Supremacy",
+    description: "Control 20% of all world towns and hold it.",
+    holdDurationSeconds: VICTORY_PRESSURE_TOWN_SUPREMACY_HOLD_MS / 1000,
+    rewardPoints: 2500,
+    rewardShard: 1
+  }
+];
+const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = {
+  reveal_empire: {
+    id: "reveal_empire",
+    name: "Reveal Empire",
+    requiredTechIds: ["signal-fires"],
+    crystalCost: REVEAL_EMPIRE_ACTIVATION_COST,
+    cooldownMs: 0,
+    upkeepCrystalPerMinute: REVEAL_EMPIRE_UPKEEP_PER_MIN
+  },
+  deep_strike: {
+    id: "deep_strike",
+    name: "Deep Strike",
+    requiredTechIds: ["siegecraft", "logistics"],
+    crystalCost: DEEP_STRIKE_CRYSTAL_COST,
+    cooldownMs: DEEP_STRIKE_COOLDOWN_MS
+  },
+  naval_infiltration: {
+    id: "naval_infiltration",
+    name: "Naval Infiltration",
+    requiredTechIds: ["navigation"],
+    crystalCost: NAVAL_INFILTRATION_CRYSTAL_COST,
+    cooldownMs: NAVAL_INFILTRATION_COOLDOWN_MS
+  },
+  sabotage: {
+    id: "sabotage",
+    name: "Sabotage",
+    requiredTechIds: ["cryptography"],
+    crystalCost: SABOTAGE_CRYSTAL_COST,
+    cooldownMs: SABOTAGE_COOLDOWN_MS,
+    durationMs: SABOTAGE_DURATION_MS
+  },
+  create_mountain: {
+    id: "create_mountain",
+    name: "Create Mountain",
+    requiredTechIds: ["terrain-engineering"],
+    crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
+    cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
+  },
+  remove_mountain: {
+    id: "remove_mountain",
+    name: "Remove Mountain",
+    requiredTechIds: ["terrain-engineering"],
+    crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
+    cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
+  }
+};
 const MISSION_DEFS: MissionDef[] = [
   {
     id: "frontier-scout",
@@ -415,9 +649,14 @@ const currentIncomePerMinute = (player: Player): number => {
   }
   incomePerMinute += ownedDockCount * DOCK_INCOME_PER_MIN;
   for (const town of townsByTile.values()) {
-    incomePerMinute += townIncomeForOwner(town, player.id);
+    incomePerMinute += townIncomeForOwner(town, player.id) * sabotageMultiplierAt(town.tileKey);
   }
-  return incomePerMinute * player.mods.income * PASSIVE_INCOME_MULT + BASE_GOLD_PER_MIN;
+  const hasCapital = Boolean(
+    player.capitalTileKey &&
+      ownership.get(player.capitalTileKey) === player.id &&
+      ownershipStateByTile.get(player.capitalTileKey) === "SETTLED"
+  );
+  return incomePerMinute * player.mods.income * PASSIVE_INCOME_MULT + (hasCapital ? BASE_GOLD_PER_MIN : 0);
 };
 
 const strategicProductionPerMinute = (player: Player): Record<StrategicResource, number> => {
@@ -431,22 +670,51 @@ const strategicProductionPerMinute = (player: Player): Record<StrategicResource,
     if (sr) {
       const mult = t.resource ? activeResourceIncomeMult(player.id, t.resource) : 1;
       const daily = t.resource ? (strategicDailyFromResource[t.resource] ?? 0) : 0;
-      out[sr] += (daily / 1440) * mult;
+      out[sr] += (daily / 1440) * mult * sabotageMultiplierAt(tk) * economicStructureOutputMultAt(tk, player.id);
     }
   }
   for (const town of townsByTile.values()) {
     const [x, y] = parseKey(town.tileKey);
     const t = playerTile(x, y);
     if (t.ownerId !== player.id || t.ownershipState !== "SETTLED") continue;
-    if (town.type === "ANCIENT") out.SHARD += strategicResourceRates.SHARD / 1440;
+    if (town.type === "ANCIENT") out.SHARD += (strategicResourceRates.SHARD * getPlayerEffectsForPlayer(player.id).resourceOutputMult.SHARD) / 1440;
   }
   return out;
 };
 
 const players = new Map<string, Player>();
-const passwordByName = new Map<string, string>();
-const tokenToPlayerId = new Map<string, string>();
+const authIdentityByUid = new Map<string, AuthIdentity>();
 const socketsByPlayer = new Map<string, Ws>();
+
+const normalizedPlayerHandle = (name: string): string => {
+  const cleaned = name.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "Empire";
+  return cleaned.slice(0, 24);
+};
+
+const uniquePlayerName = (uid: string, preferred: string): string => {
+  const base = normalizedPlayerHandle(preferred);
+  const existingIdentity = authIdentityByUid.get(uid);
+  if (existingIdentity) return existingIdentity.name;
+  let candidate = base;
+  let suffix = 2;
+  while ([...players.values()].some((p) => p.name === candidate)) {
+    candidate = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}-${suffix}`;
+    suffix += 1;
+  }
+  return candidate;
+};
+
+const claimPlayerName = (playerId: string, preferred: string): string => {
+  const base = normalizedPlayerHandle(preferred);
+  let candidate = base;
+  let suffix = 2;
+  while ([...players.values()].some((p) => p.id !== playerId && p.name === candidate)) {
+    candidate = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}-${suffix}`;
+    suffix += 1;
+  }
+  return candidate;
+};
 const ownership = new Map<TileKey, string>();
 const ownershipStateByTile = new Map<TileKey, OwnershipState>();
 const barbarianAgents = new Map<string, BarbarianAgent>();
@@ -464,6 +732,9 @@ interface PendingSettlement {
   tileKey: TileKey;
   ownerId: string;
   resolvesAt: number;
+  goldCost: number;
+  foodCost: number;
+  rapid: boolean;
   cancelled: boolean;
   timeout?: NodeJS.Timeout;
 }
@@ -492,6 +763,26 @@ interface DefensiveFortify {
   expiresAt: number;
   consumed: boolean;
 }
+interface TileHistoryState {
+  lastOwnerId?: string | null;
+  previousOwners: string[];
+  captureCount: number;
+  lastCapturedAt?: number | null;
+  lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType | null;
+  structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType>;
+  wasMountainCreatedByPlayer?: boolean;
+  wasMountainRemovedByPlayer?: boolean;
+}
+interface TerrainShapeState {
+  terrain: "LAND" | "MOUNTAIN";
+  createdByPlayer: boolean;
+}
+type EmpireVisualStyle = {
+  primaryOverlay: string;
+  secondaryTint: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
+  borderStyle: "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
+  structureAccent: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
+};
 const combatLocks = new Map<TileKey, PendingCapture>();
 const pendingSettlementsByTile = new Map<TileKey, PendingSettlement>();
 const repeatFights = new Map<string, number[]>();
@@ -500,6 +791,8 @@ const strategicResourceStockByPlayer = new Map<string, Record<StrategicResource,
 const strategicResourceBufferByPlayer = new Map<string, Record<StrategicResource, number>>();
 const foodUpkeepCoverageByPlayer = new Map<string, number>();
 const tileYieldByTile = new Map<TileKey, TileYieldBuffer>();
+const tileHistoryByTile = new Map<TileKey, TileHistoryState>();
+const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
 const lastUpkeepByPlayer = new Map<string, UpkeepDiagnostics>();
 const dynamicMissionsByPlayer = new Map<string, DynamicMissionDef[]>();
 const temporaryAttackBuffUntilByPlayer = new Map<string, number>();
@@ -514,8 +807,10 @@ const actionTimestampsByPlayer = new Map<string, number[]>();
 const fogDisabledByPlayer = new Map<string, boolean>();
 const fortsByTile = new Map<TileKey, Fort>();
 const fortBuildTimers = new Map<TileKey, NodeJS.Timeout>();
+const observatoriesByTile = new Map<TileKey, Observatory>();
 const siegeOutpostsByTile = new Map<TileKey, SiegeOutpost>();
 const siegeOutpostBuildTimers = new Map<TileKey, NodeJS.Timeout>();
+const economicStructuresByTile = new Map<TileKey, EconomicStructure>();
 const docksByTile = new Map<TileKey, Dock>();
 const dockById = new Map<string, Dock>();
 const clusterByTile = new Map<TileKey, string>();
@@ -525,10 +820,15 @@ const townsByTile = new Map<TileKey, TownDefinition>();
 const firstSpecialSiteCaptureClaimed = new Set<TileKey>();
 const scoutPulsesByPlayer = new Map<string, ScoutPulse[]>();
 const revealedEmpireTargetsByPlayer = new Map<string, Set<string>>();
+const sabotageByTile = new Map<TileKey, ActiveSabotage>();
+const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
+const victoryPressureById = new Map<VictoryPressureObjectiveId, VictoryPressureTracker>();
+const frontierSettlementsByPlayer = new Map<string, number[]>();
 const defensiveFortifyByTile = new Map<TileKey, DefensiveFortify>();
 const breachShockByTile = new Map<TileKey, { ownerId: string; expiresAt: number }>();
+const settlementDefenseByTile = new Map<TileKey, { ownerId: string; expiresAt: number; mult: number }>();
 const playerBaseMods = new Map<string, { attack: number; defense: number; income: number; vision: number }>();
-const domainEffectsByPlayer = new Map<string, { revealUpkeepMult: number; revealCapacityBonus: number }>();
+const playerEffectsByPlayer = new Map<string, PlayerEffects>();
 const seasonArchives: SeasonArchiveEntry[] = [];
 const telemetryCounters: TelemetryCounters = {
   frontierClaims: 0,
@@ -561,6 +861,34 @@ const SEASONS_ENABLED = false;
 const seeded01 = (x: number, y: number, seed: number): number => {
   const n = Math.sin((x * 12.9898 + y * 78.233 + seed * 43758.5453) % 100000) * 43758.5453123;
   return n - Math.floor(n);
+};
+
+const terrainAtRuntime = (x: number, y: number): "LAND" | "SEA" | "MOUNTAIN" => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  return terrainShapesByTile.get(key(wx, wy))?.terrain ?? terrainAt(wx, wy);
+};
+
+const terrainShapeWithinPlayerDensity = (x: number, y: number): boolean => {
+  let count = 0;
+  for (let dy = -PLAYER_MOUNTAIN_DENSITY_RADIUS; dy <= PLAYER_MOUNTAIN_DENSITY_RADIUS; dy += 1) {
+    for (let dx = -PLAYER_MOUNTAIN_DENSITY_RADIUS; dx <= PLAYER_MOUNTAIN_DENSITY_RADIUS; dx += 1) {
+      const tk = key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
+      const shape = terrainShapesByTile.get(tk);
+      if (shape?.terrain === "MOUNTAIN" && shape.createdByPlayer) count += 1;
+      if (count >= PLAYER_MOUNTAIN_DENSITY_LIMIT) return false;
+    }
+  }
+  return true;
+};
+
+const hasOwnedLandWithinRange = (playerId: string, x: number, y: number, range: number): boolean => {
+  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
+    const [tx, ty] = parseKey(tk);
+    if (terrainAtRuntime(tx, ty) !== "LAND") continue;
+    if (chebyshevDistance(tx, ty, x, y) <= range) return true;
+  }
+  return false;
 };
 
 const regionTypeAtLocal = (x: number, y: number): "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES" | undefined => {
@@ -690,6 +1018,15 @@ const chooseSeasonalTechConfig = (seed: number): SeasonalTechConfig => {
   };
 };
 
+const seasonTechConfigIsCompatible = (config: SeasonalTechConfig): boolean => {
+  if (config.rootNodeIds.length !== TECH_ROOTS.length) return false;
+  if (config.rootNodeIds.some((id) => !TECH_ROOTS.includes(id))) return false;
+  for (const id of config.activeNodeIds) {
+    if (!techById.has(id)) return false;
+  }
+  return true;
+};
+
 const resetPlayerClusterMods = (player: Player): void => {
   const base = playerBaseMods.get(player.id) ?? { attack: 1, defense: 1, income: 1, vision: 1 };
   player.mods.attack = base.attack;
@@ -752,7 +1089,7 @@ const recomputeTechModsFromOwnedTechs = (player: Player): void => {
   player.mods.income = rebuilt.income;
   player.mods.vision = rebuilt.vision;
   playerBaseMods.set(player.id, rebuilt);
-  recomputeDomainEffectsForPlayer(player);
+  recomputePlayerEffectsForPlayer(player);
   recomputeClusterBonusForPlayer(player);
 };
 
@@ -801,6 +1138,29 @@ const clusterRuleMatchRelaxed = (x: number, y: number, resource: ResourceType): 
   if (resource === "FARM") return biome === "GRASS";
   if (resource === "FUR") return biome === "GRASS";
   return false;
+};
+
+const resourcePlacementAllowed = (x: number, y: number, resource: ResourceType, relaxed = false): boolean =>
+  relaxed ? clusterRuleMatchRelaxed(x, y, resource) : clusterRuleMatch(x, y, resource);
+
+const nearestLandTiles = (
+  originX: number,
+  originY: number,
+  candidates: Array<{ x: number; y: number }>,
+  limit: number,
+  predicate?: (tile: { x: number; y: number }) => boolean
+): TileKey[] => {
+  return candidates
+    .filter((tile) => (predicate ? predicate(tile) : true))
+    .sort((a, b) => {
+      const adx = Math.min(Math.abs(a.x - originX), WORLD_WIDTH - Math.abs(a.x - originX));
+      const ady = Math.min(Math.abs(a.y - originY), WORLD_HEIGHT - Math.abs(a.y - originY));
+      const bdx = Math.min(Math.abs(b.x - originX), WORLD_WIDTH - Math.abs(b.x - originX));
+      const bdy = Math.min(Math.abs(b.y - originY), WORLD_HEIGHT - Math.abs(b.y - originY));
+      return adx + ady - (bdx + bdy);
+    })
+    .slice(0, limit)
+    .map((tile) => key(tile.x, tile.y));
 };
 
 const collectClusterTiles = (cx: number, cy: number, resource: ResourceType, count: number): TileKey[] => {
@@ -866,17 +1226,14 @@ const collectClusterTilesRelaxed = (cx: number, cy: number, resource: ResourceTy
 const generateClusters = (seed: number): void => {
   clusterByTile.clear();
   clustersById.clear();
-  const targetCount = CLUSTER_COUNT_MIN;
   const clusterTileCount = 8;
-  const clusterPlan: ResourceType[] = [];
-  for (let i = 0; i < targetCount; i += 1) {
-    const bucket = i % 5;
-    if (bucket === 0) clusterPlan.push("FARM");
-    else if (bucket === 1) clusterPlan.push("FUR");
-    else if (bucket === 2) clusterPlan.push("GEMS");
-    else if (bucket === 3) clusterPlan.push("IRON");
-    else clusterPlan.push("FISH");
-  }
+  const clusterPlan: ResourceType[] = [
+    ...Array.from({ length: 52 }, () => "FARM" as const),
+    ...Array.from({ length: 52 }, () => "FUR" as const),
+    ...Array.from({ length: 30 }, () => "GEMS" as const),
+    ...Array.from({ length: 52 }, () => "IRON" as const),
+    ...Array.from({ length: 52 }, () => "FISH" as const)
+  ];
 
   const defByResource = new Map<ResourceType, (typeof clusterTypeDefs)[number]>();
   for (const def of clusterTypeDefs) defByResource.set(def.resourceType, def);
@@ -949,7 +1306,8 @@ const applyClusterResources = (x: number, y: number, base: ResourceType | undefi
   if (!cid) return base;
   const c = clustersById.get(cid);
   if (!c) return base;
-  return clusterResourceType(c);
+  const resource = clusterResourceType(c);
+  return resourcePlacementAllowed(x, y, resource, false) ? resource : base;
 };
 
 type DockCandidate = { x: number; y: number; componentId: number; seaX: number; seaY: number };
@@ -1147,7 +1505,7 @@ const generateTowns = (seed: number): void => {
   townsByTile.clear();
   firstSpecialSiteCaptureClaimed.clear();
   const worldScale = (WORLD_WIDTH * WORLD_HEIGHT) / 1_000_000;
-  const target = Math.max(45, Math.floor(120 * worldScale));
+  const target = Math.max(70, Math.floor(180 * worldScale));
   const minSpacing = Math.max(5, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.018));
   const placed: Array<{ x: number; y: number }> = [];
   for (let i = 0; i < 120_000 && placed.length < target; i += 1) {
@@ -1164,6 +1522,79 @@ const generateTowns = (seed: number): void => {
     placed.push({ x, y });
     const tk = key(x, y);
     townsByTile.set(tk, { townId: `town-${townsByTile.size}`, tileKey: tk, type: townTypeAt(x, y) });
+  }
+};
+
+const ensureBaselineEconomyCoverage = (seed: number): void => {
+  const block = 30;
+  for (let by = 0; by < WORLD_HEIGHT; by += block) {
+    for (let bx = 0; bx < WORLD_WIDTH; bx += block) {
+      const land: Array<{ x: number; y: number }> = [];
+      let hasTown = false;
+      let hasFood = false;
+
+      for (let dy = 0; dy < block; dy += 1) {
+        for (let dx = 0; dx < block; dx += 1) {
+          const x = wrapX(bx + dx, WORLD_WIDTH);
+          const y = wrapY(by + dy, WORLD_HEIGHT);
+          if (terrainAt(x, y) !== "LAND") continue;
+          const tk = key(x, y);
+          land.push({ x, y });
+          if (townsByTile.has(tk)) hasTown = true;
+          const clusterId = clusterByTile.get(tk);
+          const cluster = clusterId ? clustersById.get(clusterId) : undefined;
+          if (cluster && (clusterResourceType(cluster) === "FARM" || clusterResourceType(cluster) === "FISH")) hasFood = true;
+        }
+      }
+
+      if (land.length === 0) continue;
+
+      if (!hasTown) {
+        const picked = land.find((tile) => !docksByTile.has(key(tile.x, tile.y)) && !clusterByTile.has(key(tile.x, tile.y)) && !townsByTile.has(key(tile.x, tile.y)));
+        if (picked) {
+          townsByTile.set(key(picked.x, picked.y), { townId: `town-${townsByTile.size}`, tileKey: key(picked.x, picked.y), type: townTypeAt(picked.x, picked.y) });
+        }
+      }
+
+      if (!hasFood) {
+        const center = land[Math.floor(seeded01(bx + 3, by + 7, seed + 9501) * land.length)]!;
+        const pickFoodTiles = (resource: ResourceType, relaxed: boolean): TileKey[] =>
+          nearestLandTiles(center.x, center.y, land, 8, (tile) => {
+            const tk = key(tile.x, tile.y);
+            if (clusterByTile.has(tk) || docksByTile.has(tk) || townsByTile.has(tk)) return false;
+            return resourcePlacementAllowed(tile.x, tile.y, resource, relaxed);
+          });
+        let resourceType: ResourceType | undefined;
+        let foodTiles = pickFoodTiles("FARM", false);
+        if (foodTiles.length >= 6) resourceType = "FARM";
+        else {
+          foodTiles = pickFoodTiles("FISH", false);
+          if (foodTiles.length >= 6) resourceType = "FISH";
+        }
+        if (!resourceType) {
+          foodTiles = pickFoodTiles("FARM", true);
+          if (foodTiles.length >= 6) resourceType = "FARM";
+          else {
+            foodTiles = pickFoodTiles("FISH", true);
+            if (foodTiles.length >= 6) resourceType = "FISH";
+          }
+        }
+        if (foodTiles.length >= 6) {
+          const clusterId = `cl-${clustersById.size}`;
+          clustersById.set(clusterId, {
+            clusterId,
+            clusterType: resourceType === "FISH" ? "COASTAL_SHOALS" : "FERTILE_PLAINS",
+            resourceType: resourceType ?? "FARM",
+            centerX: center.x,
+            centerY: center.y,
+            radius: 3,
+            controlThreshold: 3,
+            bonus: resourceType === "FISH" ? { income: 1.2, vision: 1.03 } : { income: 1.25 }
+          });
+          for (const tk of foodTiles) clusterByTile.set(tk, clusterId);
+        }
+      }
+    }
   }
 };
 
@@ -1228,7 +1659,48 @@ const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): 
   const { supportCurrent, supportMax } = townSupport(town.tileKey, ownerId);
   const ratio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
   const upkeepCoverage = foodUpkeepCoverageByPlayer.get(ownerId) ?? 1;
-  return base * (0.35 + 0.65 * ratio) * upkeepCoverage;
+  const effects = getPlayerEffectsForPlayer(ownerId);
+  let income = base * (0.35 + 0.65 * ratio) * upkeepCoverage * effects.townGoldOutputMult;
+  if (upkeepCoverage >= 0.999) income *= effects.townGoldOutputIfFedMult;
+  income *= marketOutputMultAt(town.tileKey, ownerId);
+  return income;
+};
+
+const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold: number; strategicEach: number } => {
+  const effects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
+  if (!ownerId) {
+    return {
+      gold: TILE_YIELD_CAP_GOLD * effects.harvestCapMult * effects.townGoldCapMult,
+      strategicEach: TILE_YIELD_CAP_RESOURCE * effects.harvestCapMult
+    };
+  }
+  const [x, y] = parseKey(tileKey);
+  const resource = resourceAt(x, y);
+  const dock = docksByTile.get(tileKey);
+  const town = townsByTile.get(tileKey);
+  const sabotageMult = sabotageMultiplierAt(tileKey);
+  const goldPerMinute =
+    ((players.get(ownerId)?.capitalTileKey === tileKey ? BASE_GOLD_PER_MIN : 0) +
+      (resource ? resourceRate[resource] * sabotageMult : 0) +
+      (dock ? DOCK_INCOME_PER_MIN : 0) +
+      (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
+    (players.get(ownerId)?.mods.income ?? 1) *
+    PASSIVE_INCOME_MULT *
+    HARVEST_GOLD_RATE_MULT;
+  const strategicResource = toStrategicResource(resource);
+  const strategicDaily =
+    strategicResource && resource
+      ? (strategicDailyFromResource[resource] ?? 0) *
+        activeResourceIncomeMult(ownerId, resource) *
+        sabotageMult *
+        economicStructureOutputMultAt(tileKey, ownerId)
+      : 0;
+  const fallbackGoldCap = TILE_YIELD_CAP_GOLD * effects.harvestCapMult * effects.townGoldCapMult;
+  const fallbackResourceCap = TILE_YIELD_CAP_RESOURCE * effects.harvestCapMult;
+  return {
+    gold: goldPerMinute > 0 ? goldPerMinute * 60 * 8 : fallbackGoldCap,
+    strategicEach: strategicDaily > 0 ? strategicDaily / 3 : fallbackResourceCap
+  };
 };
 
 const claimFirstSpecialSiteCaptureBonus = (player: Player, x: number, y: number): number => {
@@ -1288,6 +1760,7 @@ const regenerateStrategicWorld = (initialSeed: number): number => {
     generateClusters(seed);
     generateDocks(seed);
     generateTowns(seed);
+    ensureBaselineEconomyCoverage(seed);
     ensureInterestCoverage(seed);
     if (!worldLooksBland()) return seed;
     seed = Math.floor(seeded01(seed + i * 101, seed + i * 137, seed + 9001) * 1_000_000_000);
@@ -1336,11 +1809,15 @@ const findOwnedDockOriginForCrossing = (actor: Player, toX: number, toY: number)
   return undefined;
 };
 
-const cardinalNeighbors = (x: number, y: number): Tile[] => [
+const adjacentNeighbors = (x: number, y: number): Tile[] => [
   playerTile(x, y - 1),
   playerTile(x + 1, y),
   playerTile(x, y + 1),
-  playerTile(x - 1, y)
+  playerTile(x - 1, y),
+  playerTile(x - 1, y - 1),
+  playerTile(x + 1, y - 1),
+  playerTile(x + 1, y + 1),
+  playerTile(x - 1, y + 1)
 ];
 
 const isOccupiedPlayerTile = (tile: Tile): boolean => {
@@ -1353,13 +1830,18 @@ const isOccupiedPlayerTile = (tile: Tile): boolean => {
 const isValuableTile = (tile: Tile): boolean =>
   Boolean(tile.resource || tile.town || tile.fort || tile.siegeOutpost || tile.dockId);
 
+const isBarbarianPriorityValueTile = (tile: Tile): boolean =>
+  Boolean(tile.resource || tile.town || tile.siegeOutpost || tile.dockId);
+
 const getBarbarianTargetPriority = (tile: Tile): number | null => {
   if (tile.terrain !== "LAND") return null;
+  if (tile.fort) return null;
+  if (!tile.ownerId) return isBarbarianPriorityValueTile(tile) ? 5 : 6;
   if (!isOccupiedPlayerTile(tile)) return null;
   const state = tile.ownershipState ?? "SETTLED";
-  const valuable = isValuableTile(tile);
-  if (state === "FRONTIER") return valuable ? 1 : 2;
-  return valuable ? 3 : 4;
+  const highValue = isBarbarianPriorityValueTile(tile);
+  if (state === "FRONTIER") return highValue ? 1 : 2;
+  return highValue ? 3 : 4;
 };
 
 const removeBarbarianAgent = (agentId: string): void => {
@@ -1444,6 +1926,7 @@ const isValidBarbarianSpawnTile = (x: number, y: number): boolean => {
 };
 
 const maintainBarbarianPopulation = (): void => {
+  if (!hasOnlinePlayers()) return;
   const deficit = Math.max(0, MIN_ACTIVE_BARBARIAN_AGENTS - barbarianAgents.size);
   if (deficit <= 0) return;
   const wanted = Math.min(deficit, BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS);
@@ -1459,7 +1942,7 @@ const maintainBarbarianPopulation = (): void => {
     updateOwnership(x, y, BARBARIAN_OWNER_ID, "BARBARIAN");
     spawnBarbarianAgentAt(x, y, 0);
     spawned += 1;
-    console.info("barbarian event", { type: "SPAWN", reason: "maintenance", x, y, timestamp: now() });
+    logBarbarianEvent(`spawn maintenance @ ${x},${y}`);
   }
 };
 
@@ -1470,14 +1953,13 @@ const barbarianDefenseScore = (tile: Tile): number => {
   const defender = players.get(tile.ownerId);
   if (!defender) return 10;
   const tk = key(tile.x, tile.y);
-  const fortOnTarget = fortsByTile.get(tk);
-  const fortMult = fortOnTarget?.status === "active" && fortOnTarget.ownerId === defender.id ? FORT_DEFENSE_MULT : 1;
+  const fortMult = fortDefenseMultAt(defender.id, tk);
   const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
-  return 10 * defender.mods.defense * playerDefensiveness(defender) * fortMult * dockMult;
+  return 10 * defender.mods.defense * playerDefensiveness(defender) * fortMult * dockMult * settledDefenseMultiplierForTarget(defender.id, tile);
 };
 
 const chooseBarbarianTarget = (agent: BarbarianAgent): Tile | undefined => {
-  const candidates = cardinalNeighbors(agent.x, agent.y)
+  const candidates = adjacentNeighbors(agent.x, agent.y)
     .map((tile) => ({
       tile,
       priority: getBarbarianTargetPriority(tile),
@@ -1536,6 +2018,10 @@ const clearWorldProgressForSeason = (): void => {
   }
   pendingSettlementsByTile.clear();
   tileYieldByTile.clear();
+  tileHistoryByTile.clear();
+  terrainShapesByTile.clear();
+  victoryPressureById.clear();
+  frontierSettlementsByPlayer.clear();
   ownership.clear();
   ownershipStateByTile.clear();
   barbarianAgents.clear();
@@ -1547,13 +2033,19 @@ const clearWorldProgressForSeason = (): void => {
   for (const t of fortBuildTimers.values()) clearTimeout(t);
   fortBuildTimers.clear();
   fortsByTile.clear();
+  observatoriesByTile.clear();
   for (const t of siegeOutpostBuildTimers.values()) clearTimeout(t);
   siegeOutpostBuildTimers.clear();
   siegeOutpostsByTile.clear();
+  economicStructuresByTile.clear();
+  sabotageByTile.clear();
+  abilityCooldownsByPlayer.clear();
   defensiveFortifyByTile.clear();
   scoutPulsesByPlayer.clear();
   revealedEmpireTargetsByPlayer.clear();
   breachShockByTile.clear();
+  settlementDefenseByTile.clear();
+  victoryPressurePausedAt = undefined;
   for (const d of dockById.values()) d.cooldownUntil = 0;
   vendettaCaptureCountsByPlayer.clear();
   for (const p of players.values()) {
@@ -1587,7 +2079,7 @@ const clearWorldProgressForSeason = (): void => {
     forcedRevealTilesByPlayer.set(p.id, new Set<TileKey>());
     revealedEmpireTargetsByPlayer.set(p.id, new Set<string>());
     playerBaseMods.set(p.id, { attack: 1, defense: 1, income: 1, vision: 1 });
-    domainEffectsByPlayer.set(p.id, { revealUpkeepMult: 1, revealCapacityBonus: 0 });
+    playerEffectsByPlayer.set(p.id, emptyPlayerEffects());
     clusterControlledTilesByPlayer.set(p.id, new Map());
   }
 };
@@ -1645,6 +2137,8 @@ const regenerateWorldInPlace = (): void => {
   activeSeason.worldSeed = Math.floor(Math.random() * 1_000_000_000);
   activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
   setWorldSeed(activeSeason.worldSeed);
+  activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
+  activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   clearWorldProgressForSeason();
   for (const p of players.values()) spawnPlayer(p);
   spawnInitialBarbarians();
@@ -1664,18 +2158,22 @@ const regenerateWorldInPlace = (): void => {
 const playerTile = (x: number, y: number): Tile => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
-  const terrain = terrainAt(wx, wy);
-  const baseResource = resourceAt(wx, wy);
-  const resource = applyClusterResources(wx, wy, baseResource);
+  const tk = key(wx, wy);
+  const terrain = terrainAtRuntime(wx, wy);
+  const baseResource = terrain === "LAND" ? resourceAt(wx, wy) : undefined;
+  const resource = terrain === "LAND" ? applyClusterResources(wx, wy, baseResource) : undefined;
   const ownerId = ownership.get(key(wx, wy));
   const ownershipState = ownershipStateByTile.get(key(wx, wy));
-  const clusterId = clusterByTile.get(key(wx, wy));
+  const clusterId = clusterByTile.get(tk);
   const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
-  const dock = docksByTile.get(key(wx, wy));
-  const town = townsByTile.get(key(wx, wy));
-  const fort = fortsByTile.get(key(wx, wy));
-  const siegeOutpost = siegeOutpostsByTile.get(key(wx, wy));
-  const breachShock = breachShockByTile.get(key(wx, wy));
+  const dock = terrain === "LAND" ? docksByTile.get(tk) : undefined;
+  const town = terrain === "LAND" ? townsByTile.get(tk) : undefined;
+  const fort = terrain === "LAND" ? fortsByTile.get(tk) : undefined;
+  const observatory = terrain === "LAND" ? observatoriesByTile.get(tk) : undefined;
+  const siegeOutpost = terrain === "LAND" ? siegeOutpostsByTile.get(tk) : undefined;
+  const sabotage = sabotageByTile.get(tk);
+  const breachShock = breachShockByTile.get(tk);
+  const history = tileHistoryByTile.get(tk);
   const tile: Tile = {
     x: wx,
     y: wy,
@@ -1688,18 +2186,19 @@ const playerTile = (x: number, y: number): Tile => {
   if (ownerId) {
     tile.ownerId = ownerId;
     tile.ownershipState = ownershipState ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
+    if (ownerId !== BARBARIAN_OWNER_ID && players.get(ownerId)?.capitalTileKey === tk) tile.capital = true;
   }
   if (continentId !== undefined) tile.continentId = continentId;
-  if (regionType) (tile as Tile & { regionType?: string }).regionType = regionType;
-  if (clusterId) tile.clusterId = clusterId;
-  if (clusterType) tile.clusterType = clusterType;
+  if (terrain === "LAND" && regionType) (tile as Tile & { regionType?: string }).regionType = regionType;
+  if (terrain === "LAND" && clusterId) tile.clusterId = clusterId;
+  if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
   if (dock) tile.dockId = dock.dockId;
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
   if (town) {
     const owner = ownerId;
     const baseGoldPerMinute = townBaseIncomeByType[town.type];
     const support = owner ? townSupport(town.tileKey, owner) : { supportCurrent: 0, supportMax: 0 };
-    const goldPerMinute = townIncomeForOwner(town, owner);
+    const goldPerMinute = townIncomeForOwner(town, owner) * sabotageMultiplierAt(town.tileKey);
     tile.town = {
       type: town.type,
       baseGoldPerMinute,
@@ -1717,6 +2216,12 @@ const playerTile = (x: number, y: number): Tile => {
     if (fort.status === "under_construction") fortView.completesAt = fort.completesAt;
     tile.fort = fortView;
   }
+  if (observatory) {
+    tile.observatory = {
+      ownerId: observatory.ownerId,
+      status: observatoryStatusForTile(observatory.ownerId, observatory.tileKey)
+    };
+  }
   if (siegeOutpost) {
     const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
       ownerId: siegeOutpost.ownerId,
@@ -1725,10 +2230,41 @@ const playerTile = (x: number, y: number): Tile => {
     if (siegeOutpost.status === "under_construction") siegeView.completesAt = siegeOutpost.completesAt;
     tile.siegeOutpost = siegeView;
   }
+  if (sabotage && sabotage.endsAt > now()) {
+    tile.sabotage = {
+      ownerId: sabotage.casterPlayerId,
+      endsAt: sabotage.endsAt,
+      outputMultiplier: sabotage.outputMultiplier
+    };
+  }
+  const economicStructure = economicStructuresByTile.get(key(wx, wy));
+  if (economicStructure) {
+    tile.economicStructure = {
+      ownerId: economicStructure.ownerId,
+      type: economicStructure.type,
+      status: economicStructure.isActive ? "active" : "inactive"
+    };
+  }
+  if (history && (history.captureCount > 0 || history.structureHistory.length > 0 || history.lastStructureType)) {
+    const historyView: NonNullable<Tile["history"]> = {
+      previousOwners: [...history.previousOwners],
+      captureCount: history.captureCount,
+      structureHistory: [...history.structureHistory]
+    };
+    if (history.lastOwnerId !== undefined) historyView.lastOwnerId = history.lastOwnerId;
+    if (history.lastCapturedAt !== undefined) historyView.lastCapturedAt = history.lastCapturedAt;
+    if (history.lastStructureType !== undefined) historyView.lastStructureType = history.lastStructureType;
+    tile.history = historyView;
+  }
   const yieldBuf = tileYieldByTile.get(key(wx, wy));
+  const ownerEffects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
   if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
+    const sabotageMult = sabotageMultiplierAt(key(wx, wy));
     const goldPerMinuteFromTile =
-      ((resource ? resourceRate[resource] : 0) + (dock ? DOCK_INCOME_PER_MIN : 0) + (town ? townIncomeForOwner(town, ownerId) : 0)) *
+      ((tile.capital ? BASE_GOLD_PER_MIN : 0) +
+        (resource ? resourceRate[resource] * sabotageMult : 0) +
+        (dock ? DOCK_INCOME_PER_MIN : 0) +
+        (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
       (players.get(ownerId)?.mods.income ?? 1) *
       PASSIVE_INCOME_MULT *
       HARVEST_GOLD_RATE_MULT;
@@ -1736,20 +2272,21 @@ const playerTile = (x: number, y: number): Tile => {
     const sr = toStrategicResource(resource);
     if (sr && resource) {
       const mult = activeResourceIncomeMult(ownerId, resource);
-      strategicPerDay[sr] = (strategicDailyFromResource[resource] ?? 0) * mult;
+      strategicPerDay[sr] =
+        (strategicDailyFromResource[resource] ?? 0) *
+        mult *
+        sabotageMult *
+        economicStructureOutputMultAt(key(wx, wy), ownerId);
     }
     if (town?.type === "ANCIENT") {
-      strategicPerDay.SHARD = (strategicPerDay.SHARD ?? 0) + strategicResourceRates.SHARD;
+      strategicPerDay.SHARD = (strategicPerDay.SHARD ?? 0) + strategicResourceRates.SHARD * ownerEffects.resourceOutputMult.SHARD;
     }
     (tile as Tile & { yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResource, number>> } }).yieldRate = {
       goldPerMinute: Number(goldPerMinuteFromTile.toFixed(4)),
       strategicPerDay
     };
   }
-  (tile as Tile & { yieldCap?: { gold: number; strategicEach: number } }).yieldCap = {
-    gold: TILE_YIELD_CAP_GOLD,
-    strategicEach: TILE_YIELD_CAP_RESOURCE
-  };
+  (tile as Tile & { yieldCap?: { gold: number; strategicEach: number } }).yieldCap = tileYieldCapsFor(tk, ownerId);
   if (yieldBuf && ownerId) {
     const strategic = Object.fromEntries(
       (Object.entries(yieldBuf.strategic) as Array<[StrategicResource, number]>)
@@ -1764,6 +2301,47 @@ const playerTile = (x: number, y: number): Tile => {
     }
   }
   return tile;
+};
+
+const isValidCapitalTile = (player: Player, tileKey: TileKey | undefined): tileKey is TileKey => {
+  if (!tileKey) return false;
+  return ownership.get(tileKey) === player.id && ownershipStateByTile.get(tileKey) === "SETTLED";
+};
+
+const chooseCapitalTileKey = (player: Player): TileKey | undefined => {
+  if (isValidCapitalTile(player, player.spawnOrigin)) return player.spawnOrigin;
+  const settledTowns = [...townsByTile.keys()]
+    .filter((tk) => ownership.get(tk) === player.id && ownershipStateByTile.get(tk) === "SETTLED")
+    .sort();
+  if (settledTowns.length > 0) return settledTowns[0];
+  const settledTiles = [...player.territoryTiles].filter((tk) => ownershipStateByTile.get(tk) === "SETTLED").sort();
+  return settledTiles[0];
+};
+
+const sendVisibleTileDeltaAt = (x: number, y: number): void => {
+  for (const p of players.values()) {
+    if (!tileInSubscription(p.id, x, y)) continue;
+    if (!visible(p, x, y)) continue;
+    const current = playerTile(x, y);
+    current.fogged = false;
+    sendToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
+  }
+};
+
+const reconcileCapitalForPlayer = (player: Player): void => {
+  const previous = player.capitalTileKey;
+  const next = isValidCapitalTile(player, previous) ? previous : chooseCapitalTileKey(player);
+  if (previous === next) return;
+  if (next) player.capitalTileKey = next;
+  else delete player.capitalTileKey;
+  if (previous) {
+    const [x, y] = parseKey(previous);
+    sendVisibleTileDeltaAt(x, y);
+  }
+  if (next) {
+    const [x, y] = parseKey(next);
+    sendVisibleTileDeltaAt(x, y);
+  }
 };
 
 const getOrInitResourceCounts = (playerId: string): Record<ResourceType, number> => {
@@ -1891,31 +2469,98 @@ const consumeYieldGoldForPlayer = (player: Player, needed: number, touchedTileKe
   return paid;
 };
 
-const getDomainEffectsForPlayer = (playerId: string): { revealUpkeepMult: number; revealCapacityBonus: number } => {
-  const existing = domainEffectsByPlayer.get(playerId);
+const getPlayerEffectsForPlayer = (playerId: string): PlayerEffects => {
+  const existing = playerEffectsByPlayer.get(playerId);
   if (existing) return existing;
-  const base = { revealUpkeepMult: 1, revealCapacityBonus: 0 };
-  domainEffectsByPlayer.set(playerId, base);
+  const base = emptyPlayerEffects();
+  playerEffectsByPlayer.set(playerId, base);
   return base;
 };
 
-const recomputeDomainEffectsForPlayer = (player: Player): void => {
-  const next = { revealUpkeepMult: 1, revealCapacityBonus: 0 };
-  for (const id of player.domainIds) {
-    const d = domainById.get(id);
-    if (!d?.effects) continue;
-    if (typeof d.effects.revealUpkeepMult === "number") next.revealUpkeepMult *= d.effects.revealUpkeepMult;
-    if (typeof d.effects.revealCapacityBonus === "number") next.revealCapacityBonus += d.effects.revealCapacityBonus;
+const recomputePlayerEffectsForPlayer = (player: Player): void => {
+  const next = emptyPlayerEffects();
+  for (const id of player.techIds) {
+    const tech = techById.get(id);
+    const effects = tech?.effects;
+    if (!effects) continue;
+    if (effects.unlockForts) next.unlockForts = true;
+    if (effects.unlockSiegeOutposts) next.unlockSiegeOutposts = true;
+    if (effects.unlockRevealEmpire) next.unlockRevealEmpire = true;
+    if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
+    if (typeof effects.townFoodUpkeepMult === "number") next.townFoodUpkeepMult *= effects.townFoodUpkeepMult;
+    if (typeof effects.settledFoodUpkeepMult === "number") next.settledFoodUpkeepMult *= effects.settledFoodUpkeepMult;
+    if (typeof effects.settledGoldUpkeepMult === "number") next.settledGoldUpkeepMult *= effects.settledGoldUpkeepMult;
+    if (typeof effects.townGoldOutputMult === "number") next.townGoldOutputMult *= effects.townGoldOutputMult;
+    if (typeof effects.townGoldOutputIfFedMult === "number") next.townGoldOutputIfFedMult *= effects.townGoldOutputIfFedMult;
+    if (typeof effects.townGoldCapMult === "number") next.townGoldCapMult *= effects.townGoldCapMult;
+    if (typeof effects.harvestCapMult === "number") next.harvestCapMult *= effects.harvestCapMult;
+    if (typeof effects.fortDefenseMult === "number") next.fortDefenseMult *= effects.fortDefenseMult;
+    if (typeof effects.fortIronUpkeepMult === "number") next.fortIronUpkeepMult *= effects.fortIronUpkeepMult;
+    if (typeof effects.fortGoldUpkeepMult === "number") next.fortGoldUpkeepMult *= effects.fortGoldUpkeepMult;
+    if (typeof effects.outpostAttackMult === "number") next.outpostAttackMult *= effects.outpostAttackMult;
+    if (typeof effects.outpostSupplyUpkeepMult === "number") next.outpostSupplyUpkeepMult *= effects.outpostSupplyUpkeepMult;
+    if (typeof effects.outpostGoldUpkeepMult === "number") next.outpostGoldUpkeepMult *= effects.outpostGoldUpkeepMult;
+    if (typeof effects.revealUpkeepMult === "number") next.revealUpkeepMult *= effects.revealUpkeepMult;
+    if (typeof effects.revealCapacityBonus === "number") next.revealCapacityBonus += effects.revealCapacityBonus;
+    if (typeof effects.visionRadiusBonus === "number") next.visionRadiusBonus += effects.visionRadiusBonus;
+    if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
+    if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
+    if (typeof effects.attackVsFortsMult === "number") next.attackVsFortsMult *= effects.attackVsFortsMult;
+    if (typeof effects.newSettlementDefenseMult === "number") next.newSettlementDefenseMult *= effects.newSettlementDefenseMult;
+    if (effects.resourceOutputMult) {
+      if (typeof effects.resourceOutputMult.farm === "number") next.resourceOutputMult.FARM *= effects.resourceOutputMult.farm;
+      if (typeof effects.resourceOutputMult.fish === "number") next.resourceOutputMult.FISH *= effects.resourceOutputMult.fish;
+      if (typeof effects.resourceOutputMult.iron === "number") next.resourceOutputMult.IRON *= effects.resourceOutputMult.iron;
+      if (typeof effects.resourceOutputMult.supply === "number") next.resourceOutputMult.SUPPLY *= effects.resourceOutputMult.supply;
+      if (typeof effects.resourceOutputMult.crystal === "number") next.resourceOutputMult.CRYSTAL *= effects.resourceOutputMult.crystal;
+      if (typeof effects.resourceOutputMult.shard === "number") next.resourceOutputMult.SHARD *= effects.resourceOutputMult.shard;
+    }
   }
-  domainEffectsByPlayer.set(player.id, next);
+  for (const id of player.domainIds) {
+    const domain = domainById.get(id);
+    const effects = domain?.effects;
+    if (!effects) continue;
+    if (effects.unlockRevealEmpire) next.unlockRevealEmpire = true;
+    if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
+    if (typeof effects.townFoodUpkeepMult === "number") next.townFoodUpkeepMult *= effects.townFoodUpkeepMult;
+    if (typeof effects.settledFoodUpkeepMult === "number") next.settledFoodUpkeepMult *= effects.settledFoodUpkeepMult;
+    if (typeof effects.settledGoldUpkeepMult === "number") next.settledGoldUpkeepMult *= effects.settledGoldUpkeepMult;
+    if (typeof effects.townGoldOutputMult === "number") next.townGoldOutputMult *= effects.townGoldOutputMult;
+    if (typeof effects.townGoldOutputIfFedMult === "number") next.townGoldOutputIfFedMult *= effects.townGoldOutputIfFedMult;
+    if (typeof effects.townGoldCapMult === "number") next.townGoldCapMult *= effects.townGoldCapMult;
+    if (typeof effects.harvestCapMult === "number") next.harvestCapMult *= effects.harvestCapMult;
+    if (typeof effects.fortBuildGoldCostMult === "number") next.fortBuildGoldCostMult *= effects.fortBuildGoldCostMult;
+    if (typeof effects.fortDefenseMult === "number") next.fortDefenseMult *= effects.fortDefenseMult;
+    if (typeof effects.fortIronUpkeepMult === "number") next.fortIronUpkeepMult *= effects.fortIronUpkeepMult;
+    if (typeof effects.fortGoldUpkeepMult === "number") next.fortGoldUpkeepMult *= effects.fortGoldUpkeepMult;
+    if (typeof effects.outpostAttackMult === "number") next.outpostAttackMult *= effects.outpostAttackMult;
+    if (typeof effects.outpostSupplyUpkeepMult === "number") next.outpostSupplyUpkeepMult *= effects.outpostSupplyUpkeepMult;
+    if (typeof effects.outpostGoldUpkeepMult === "number") next.outpostGoldUpkeepMult *= effects.outpostGoldUpkeepMult;
+    if (typeof effects.revealUpkeepMult === "number") next.revealUpkeepMult *= effects.revealUpkeepMult;
+    if (typeof effects.revealCapacityBonus === "number") next.revealCapacityBonus += effects.revealCapacityBonus;
+    if (typeof effects.visionRadiusBonus === "number") next.visionRadiusBonus += effects.visionRadiusBonus;
+    if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
+    if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
+    if (typeof effects.attackVsFortsMult === "number") next.attackVsFortsMult *= effects.attackVsFortsMult;
+    if (typeof effects.newSettlementDefenseMult === "number") next.newSettlementDefenseMult *= effects.newSettlementDefenseMult;
+    if (effects.resourceOutputMult) {
+      if (typeof effects.resourceOutputMult.farm === "number") next.resourceOutputMult.FARM *= effects.resourceOutputMult.farm;
+      if (typeof effects.resourceOutputMult.fish === "number") next.resourceOutputMult.FISH *= effects.resourceOutputMult.fish;
+      if (typeof effects.resourceOutputMult.iron === "number") next.resourceOutputMult.IRON *= effects.resourceOutputMult.iron;
+      if (typeof effects.resourceOutputMult.supply === "number") next.resourceOutputMult.SUPPLY *= effects.resourceOutputMult.supply;
+      if (typeof effects.resourceOutputMult.crystal === "number") next.resourceOutputMult.CRYSTAL *= effects.resourceOutputMult.crystal;
+      if (typeof effects.resourceOutputMult.shard === "number") next.resourceOutputMult.SHARD *= effects.resourceOutputMult.shard;
+    }
+  }
+  playerEffectsByPlayer.set(player.id, next);
 };
 
 const revealCapacityForPlayer = (player: Player): number => {
-  let cap = 1;
-  if (player.techIds.has("grand-cartography")) cap += 1;
-  cap += getDomainEffectsForPlayer(player.id).revealCapacityBonus;
-  return Math.max(0, cap);
+  return playerHasTechIds(player, ABILITY_DEFS.reveal_empire.requiredTechIds) || getOrInitRevealTargets(player.id).size > 0 ? 1 : 0;
 };
+
+const effectiveVisionRadiusForPlayer = (player: Player): number =>
+  Math.max(1, Math.floor(VISION_RADIUS * player.mods.vision) + getPlayerEffectsForPlayer(player.id).visionRadiusBonus);
 
 const getOrInitRevealTargets = (playerId: string): Set<string> => {
   let set = revealedEmpireTargetsByPlayer.get(playerId);
@@ -1926,6 +2571,136 @@ const getOrInitRevealTargets = (playerId: string): Set<string> => {
   return set;
 };
 
+const getAbilityCooldowns = (playerId: string): Map<AbilityDefinition["id"], number> => {
+  let byAbility = abilityCooldownsByPlayer.get(playerId);
+  if (!byAbility) {
+    byAbility = new Map();
+    abilityCooldownsByPlayer.set(playerId, byAbility);
+  }
+  return byAbility;
+};
+
+const abilityReadyAt = (playerId: string, abilityId: AbilityDefinition["id"]): number => getAbilityCooldowns(playerId).get(abilityId) ?? 0;
+
+const abilityOnCooldown = (playerId: string, abilityId: AbilityDefinition["id"]): boolean => abilityReadyAt(playerId, abilityId) > now();
+
+const startAbilityCooldown = (playerId: string, abilityId: AbilityDefinition["id"]): void => {
+  const def = ABILITY_DEFS[abilityId];
+  if (def.cooldownMs <= 0) return;
+  getAbilityCooldowns(playerId).set(abilityId, now() + def.cooldownMs);
+};
+
+const playerHasTechIds = (player: Player, techIds: string[]): boolean => techIds.every((id) => player.techIds.has(id));
+
+const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "active" | "inactive" => {
+  const observatory = observatoriesByTile.get(tileKey);
+  if (!observatory || observatory.ownerId !== playerId) return "inactive";
+  const [x, y] = parseKey(tileKey);
+  const t = playerTile(x, y);
+  return t.ownerId === playerId && t.ownershipState === "SETTLED" ? observatory.status : "inactive";
+};
+
+const activeObservatoryTileKeysForPlayer = (playerId: string): TileKey[] => {
+  const out: TileKey[] = [];
+  for (const [tk, observatory] of observatoriesByTile) {
+    if (observatory.ownerId !== playerId) continue;
+    if (observatoryStatusForTile(playerId, tk) === "active") out.push(tk);
+  }
+  return out;
+};
+
+const syncObservatoriesForPlayer = (playerId: string, active: boolean): void => {
+  for (const [tk, observatory] of observatoriesByTile) {
+    if (observatory.ownerId !== playerId) continue;
+    const [x, y] = parseKey(tk);
+    const t = playerTile(x, y);
+    observatory.status = active && t.ownerId === playerId && t.ownershipState === "SETTLED" ? "active" : "inactive";
+  }
+};
+
+const hostileObservatoryProtectingTile = (actor: Player, x: number, y: number): TileKey | undefined => {
+  for (const [tk, observatory] of observatoriesByTile) {
+    if (observatory.ownerId === actor.id || actor.allies.has(observatory.ownerId)) continue;
+    if (observatoryStatusForTile(observatory.ownerId, tk) !== "active") continue;
+    const [ox, oy] = parseKey(tk);
+    if (chebyshevDistance(ox, oy, x, y) <= OBSERVATORY_PROTECTION_RADIUS) return tk;
+  }
+  return undefined;
+};
+
+const sabotageMultiplierAt = (tileKey: TileKey): number => {
+  const sabotage = sabotageByTile.get(tileKey);
+  if (!sabotage || sabotage.endsAt <= now()) {
+    if (sabotage) sabotageByTile.delete(tileKey);
+    return 1;
+  }
+  return sabotage.outputMultiplier;
+};
+
+const economicStructureForTile = (tileKey: TileKey): EconomicStructure | undefined => economicStructuresByTile.get(tileKey);
+
+const economicStructureUpkeepDue = (structure: EconomicStructure): boolean => structure.nextUpkeepAt <= now();
+
+const economicStructureResourceType = (resource: ResourceType | undefined): EconomicStructureType | undefined => {
+  if (resource === "FARM" || resource === "FISH") return "FARMSTEAD";
+  if (resource === "WOOD" || resource === "FUR") return "CAMP";
+  if (resource === "IRON" || resource === "GEMS") return "MINE";
+  return undefined;
+};
+
+const economicStructureOutputMultAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+  const structure = economicStructuresByTile.get(tileKey);
+  if (!structure || !ownerId || structure.ownerId !== ownerId || !structure.isActive) return 1;
+  return ECONOMIC_STRUCTURE_OUTPUT_MULT;
+};
+
+const marketOutputMultAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+  const structure = economicStructuresByTile.get(tileKey);
+  if (!structure || structure.type !== "MARKET" || !ownerId || structure.ownerId !== ownerId || !structure.isActive) return 1;
+  const upkeepCoverage = foodUpkeepCoverageByPlayer.get(ownerId) ?? 1;
+  return upkeepCoverage >= 0.999 ? ECONOMIC_STRUCTURE_OUTPUT_MULT : 1;
+};
+
+const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => {
+  const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
+  const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
+  return Math.max(dx, dy);
+};
+
+const lineTilesBetween = (ax: number, ay: number, bx: number, by: number): Array<{ x: number; y: number }> => {
+  const steps = chebyshevDistance(ax, ay, bx, by);
+  if (steps <= 1) return [];
+  const tiles: Array<{ x: number; y: number }> = [];
+  for (let i = 1; i < steps; i += 1) {
+    const ratio = i / steps;
+    const x = wrapX(Math.round(ax + (bx - ax) * ratio), WORLD_WIDTH);
+    const y = wrapY(Math.round(ay + (by - ay) * ratio), WORLD_HEIGHT);
+    tiles.push({ x, y });
+  }
+  return tiles;
+};
+
+const validDeepStrikeTarget = (from: Tile, to: Tile): boolean => {
+  if (from.ownerId === undefined) return false;
+  const distance = chebyshevDistance(from.x, from.y, to.x, to.y);
+  if (distance < 2 || distance > DEEP_STRIKE_MAX_DISTANCE) return false;
+  for (const step of lineTilesBetween(from.x, from.y, to.x, to.y)) {
+    if (terrainAtRuntime(step.x, step.y) === "MOUNTAIN") return false;
+  }
+  return true;
+};
+
+const validNavalInfiltrationTarget = (from: Tile, to: Tile): boolean => {
+  const distance = chebyshevDistance(from.x, from.y, to.x, to.y);
+  if (distance < 2 || distance > NAVAL_INFILTRATION_MAX_RANGE) return false;
+  const middle = lineTilesBetween(from.x, from.y, to.x, to.y);
+  if (middle.length === 0) return false;
+  if (!middle.some((step) => terrainAtRuntime(step.x, step.y) === "SEA")) return false;
+  if (middle.some((step) => terrainAtRuntime(step.x, step.y) === "MOUNTAIN")) return false;
+  if (middle.some((step) => terrainAtRuntime(step.x, step.y) === "LAND")) return false;
+  return to.terrain === "LAND";
+};
+
 const upkeepPerMinuteForPlayer = (player: Player): {
   food: number;
   iron: number;
@@ -1933,10 +2708,10 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   crystal: number;
   gold: number;
 } => {
-  const settledTiles = [...player.territoryTiles].filter((tk) => ownershipStateByTile.get(tk) === "SETTLED").length;
   let townCount = 0;
   let fortCount = 0;
   let outpostCount = 0;
+  let observatoryCount = 0;
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
     if (townsByTile.has(tk)) townCount += 1;
@@ -1944,25 +2719,120 @@ const upkeepPerMinuteForPlayer = (player: Player): {
     if (fort?.ownerId === player.id && fort.status === "active") fortCount += 1;
     const siege = siegeOutpostsByTile.get(tk);
     if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
+    const observatory = observatoriesByTile.get(tk);
+    if (observatory?.ownerId === player.id && observatory.status === "active") observatoryCount += 1;
   }
-  const activeRevealCount = getOrInitRevealTargets(player.id).size;
-  const revealUpkeepMult = getDomainEffectsForPlayer(player.id).revealUpkeepMult;
+  const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
+  const effects = getPlayerEffectsForPlayer(player.id);
   return {
-    // 0.25 / 10 min per town, and 0.25 / 10 min per 40 settled.
-    food: townCount * 0.025 + (settledTiles / 40) * 0.025,
+    // 0.25 / 10 min per town.
+    food: townCount * 0.025 * effects.townFoodUpkeepMult,
     // 0.25 / 10 min per fort.
-    iron: fortCount * 0.025,
+    iron: fortCount * 0.025 * effects.fortIronUpkeepMult,
     // 0.25 / 10 min per outpost.
-    supply: outpostCount * 0.025,
+    supply: outpostCount * 0.025 * effects.outpostSupplyUpkeepMult,
     // 0.25 / 10 min for each active empire reveal.
-    crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * revealUpkeepMult,
-    // 2 gold / 10 min per fort + 2 gold / 10 min per outpost + settled gold upkeep 1 / 10 min / 40 settled.
-    gold: fortCount * 0.2 + outpostCount * 0.2 + (settledTiles / 40) * 0.1
+    crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN,
+    // 2 gold / 10 min per fort + 2 gold / 10 min per outpost.
+    gold: fortCount * 0.2 * effects.fortGoldUpkeepMult + outpostCount * 0.2 * effects.outpostGoldUpkeepMult
   };
+};
+
+const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
+  if (t.terrain !== "LAND") return { ok: false, reason: "structure requires land tile" };
+  if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") return { ok: false, reason: "structure requires settled owned tile" };
+  const tk = key(t.x, t.y);
+  if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) {
+    return { ok: false, reason: "tile already has structure" };
+  }
+  if (structureType === "FARMSTEAD" && t.resource !== "FARM" && t.resource !== "FISH") return { ok: false, reason: "farmstead requires FARM or FISH tile" };
+  if (structureType === "CAMP" && t.resource !== "WOOD" && t.resource !== "FUR") return { ok: false, reason: "camp requires SUPPLY tile" };
+  if (structureType === "MINE" && t.resource !== "IRON" && t.resource !== "GEMS") return { ok: false, reason: "mine requires IRON or CRYSTAL tile" };
+  if (structureType === "MARKET" && !townsByTile.has(tk)) return { ok: false, reason: "market requires town tile" };
+  return { ok: true };
+};
+
+const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
+  const t = playerTile(x, y);
+  const tk = key(t.x, t.y);
+  const placed = canPlaceEconomicStructure(actor, t, structureType);
+  if (!placed.ok) return placed;
+
+  if (structureType === "FARMSTEAD" && !actor.techIds.has("agriculture")) return { ok: false, reason: "unlock farmsteads via Agriculture first" };
+  if (structureType === "CAMP" && !actor.techIds.has("leatherworking")) return { ok: false, reason: "unlock camps via Leatherworking first" };
+  if (structureType === "MINE" && !actor.techIds.has("mining")) return { ok: false, reason: "unlock mines via Mining first" };
+  if (structureType === "MARKET" && !actor.techIds.has("trade")) return { ok: false, reason: "unlock markets via Trade first" };
+
+  if (structureType === "FARMSTEAD") {
+    if (actor.points < FARMSTEAD_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for farmstead" };
+    if (!consumeStrategicResource(actor, "FOOD", FARMSTEAD_BUILD_FOOD_COST)) return { ok: false, reason: "insufficient FOOD for farmstead" };
+    actor.points -= FARMSTEAD_BUILD_GOLD_COST;
+  } else if (structureType === "CAMP") {
+    if (actor.points < CAMP_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for camp" };
+    if (!consumeStrategicResource(actor, "SUPPLY", CAMP_BUILD_SUPPLY_COST)) return { ok: false, reason: "insufficient SUPPLY for camp" };
+    actor.points -= CAMP_BUILD_GOLD_COST;
+  } else if (structureType === "MINE") {
+    if (actor.points < MINE_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for mine" };
+    const matching = t.resource === "IRON" ? "IRON" : "CRYSTAL";
+    if (!consumeStrategicResource(actor, matching, MINE_BUILD_RESOURCE_COST)) return { ok: false, reason: `insufficient ${matching} for mine` };
+    actor.points -= MINE_BUILD_GOLD_COST;
+  } else {
+    if (actor.points < MARKET_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for market" };
+    if (!consumeStrategicResource(actor, "CRYSTAL", MARKET_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for market" };
+    actor.points -= MARKET_BUILD_GOLD_COST;
+  }
+
+  recalcPlayerDerived(actor);
+  economicStructuresByTile.set(tk, {
+    id: crypto.randomUUID(),
+    type: structureType,
+    tileKey: tk,
+    ownerId: actor.id,
+    isActive: true,
+    nextUpkeepAt: now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS
+  });
+  recordTileStructureHistory(tk, structureType);
+  return { ok: true };
+};
+
+const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
+  const touched = new Set<TileKey>();
+  const stock = getOrInitStrategicStocks(player.id);
+  for (const [tk, structure] of economicStructuresByTile) {
+    if (structure.ownerId !== player.id) continue;
+    const [x, y] = parseKey(tk);
+    const tile = playerTile(x, y);
+    if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") {
+      structure.isActive = false;
+      touched.add(tk);
+      continue;
+    }
+    if (!economicStructureUpkeepDue(structure)) continue;
+    if (structure.type === "MARKET") {
+      if ((stock.CRYSTAL ?? 0) >= MARKET_CRYSTAL_UPKEEP) {
+        stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - MARKET_CRYSTAL_UPKEEP);
+        structure.isActive = true;
+      } else {
+        structure.isActive = false;
+      }
+    } else {
+      const upkeep = structure.type === "FARMSTEAD" ? FARMSTEAD_GOLD_UPKEEP : structure.type === "CAMP" ? CAMP_GOLD_UPKEEP : MINE_GOLD_UPKEEP;
+      if (player.points >= upkeep) {
+        player.points = Math.max(0, player.points - upkeep);
+        structure.isActive = true;
+      } else {
+        structure.isActive = false;
+      }
+    }
+    structure.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
+    touched.add(tk);
+  }
+  return touched;
 };
 
 const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> } => {
   const stock = getOrInitStrategicStocks(player.id);
+  syncObservatoriesForPlayer(player.id, true);
   const upkeep = upkeepPerMinuteForPlayer(player);
   const touchedTileKeys = new Set<TileKey>();
   const diag = emptyUpkeepDiagnostics();
@@ -1991,6 +2861,15 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
       activeReveals.clear();
       sendToPlayer(player.id, { type: "REVEAL_EMPIRE_UPDATE", activeTargets: [] });
     }
+    syncObservatoriesForPlayer(player.id, false);
+    for (const [tk, observatory] of observatoriesByTile) {
+      if (observatory.ownerId === player.id) touchedTileKeys.add(tk);
+    }
+  } else {
+    syncObservatoriesForPlayer(player.id, true);
+    for (const [tk, observatory] of observatoriesByTile) {
+      if (observatory.ownerId === player.id) touchedTileKeys.add(tk);
+    }
   }
 
   const goldNeed = Math.max(0, upkeep.gold);
@@ -2011,11 +2890,15 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
 
 const addTileYield = (tileKey: TileKey, goldDelta: number, strategicDelta?: Partial<Record<StrategicResource, number>>): void => {
   const y = getOrInitTileYield(tileKey);
-  if (goldDelta > 0) y.gold = Math.min(TILE_YIELD_CAP_GOLD, y.gold + goldDelta);
+  const ownerId = ownership.get(tileKey);
+  const caps = tileYieldCapsFor(tileKey, ownerId);
+  const goldCap = caps.gold;
+  const resourceCap = caps.strategicEach;
+  if (goldDelta > 0) y.gold = Math.min(goldCap, y.gold + goldDelta);
   if (strategicDelta) {
     for (const [r, v] of Object.entries(strategicDelta) as Array<[StrategicResource, number]>) {
       if (v <= 0) continue;
-      y.strategic[r] = Math.min(TILE_YIELD_CAP_RESOURCE, (y.strategic[r] ?? 0) + v);
+      y.strategic[r] = Math.min(resourceCap, (y.strategic[r] ?? 0) + v);
     }
   }
 };
@@ -2043,10 +2926,66 @@ const activeAttackBuffMult = (playerId: string): number => {
   return until > now() ? VENDETTA_ATTACK_BUFF_MULT : 1;
 };
 
+const revealLinkedDocksForPlayer = (playerId: string, tileKey: TileKey): void => {
+  const dock = docksByTile.get(tileKey);
+  if (!dock) return;
+  const forced = getOrInitForcedReveal(playerId);
+  for (const linked of dockLinkedDestinations(dock)) {
+    const [x, y] = parseKey(linked.tileKey);
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        forced.add(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)));
+      }
+    }
+  }
+};
+
 const activeResourceIncomeMult = (playerId: string, resource: ResourceType): number => {
+  const effects = getPlayerEffectsForPlayer(playerId);
+  const permanent =
+    resource === "FARM"
+      ? effects.resourceOutputMult.FARM
+      : resource === "FISH"
+        ? effects.resourceOutputMult.FISH
+        : resource === "IRON"
+          ? effects.resourceOutputMult.IRON
+          : resource === "GEMS"
+            ? effects.resourceOutputMult.CRYSTAL
+            : effects.resourceOutputMult.SUPPLY;
   const buff = temporaryIncomeBuffUntilByPlayer.get(playerId);
-  if (!buff || buff.until <= now()) return 1;
-  return buff.resources.includes(resource) ? RESOURCE_CHAIN_MULT : 1;
+  if (!buff || buff.until <= now()) return permanent;
+  return permanent * (buff.resources.includes(resource) ? RESOURCE_CHAIN_MULT : 1);
+};
+
+const fortDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
+  const fortOnTarget = fortsByTile.get(tileKey);
+  if (fortOnTarget?.status !== "active" || fortOnTarget.ownerId !== defenderId) return 1;
+  return FORT_DEFENSE_MULT * getPlayerEffectsForPlayer(defenderId).fortDefenseMult;
+};
+
+const settlementDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
+  const entry = settlementDefenseByTile.get(tileKey);
+  if (!entry || entry.ownerId !== defenderId || entry.expiresAt <= now()) return 1;
+  return entry.mult;
+};
+
+const outpostAttackMultAt = (attackerId: string, tileKey: TileKey): number => {
+  const siegeOnOrigin = siegeOutpostsByTile.get(tileKey);
+  if (siegeOnOrigin?.status !== "active" || siegeOnOrigin.ownerId !== attackerId) return 1;
+  return SIEGE_OUTPOST_ATTACK_MULT * getPlayerEffectsForPlayer(attackerId).outpostAttackMult;
+};
+
+const attackMultiplierForTarget = (attackerId: string, target: Tile): number => {
+  const effects = getPlayerEffectsForPlayer(attackerId);
+  let mult = 1;
+  if (target.ownershipState === "SETTLED") mult *= effects.attackVsSettledMult;
+  if (fortsByTile.get(key(target.x, target.y))?.status === "active") mult *= effects.attackVsFortsMult;
+  return mult;
+};
+
+const settledDefenseMultiplierForTarget = (defenderId: string, target: Tile): number => {
+  if (target.ownershipState !== "SETTLED") return 1;
+  return getPlayerEffectsForPlayer(defenderId).settledDefenseMult;
 };
 
 const incrementVendettaCount = (attackerId: string, targetId: string): void => {
@@ -2087,12 +3026,19 @@ const visible = (p: Player, x: number, y: number): boolean => {
     const t = playerTile(x, y);
     if (t.ownerId && revealTargets.has(t.ownerId)) return true;
   }
-  const radius = Math.max(1, Math.floor(VISION_RADIUS * p.mods.vision));
+  const radius = effectiveVisionRadiusForPlayer(p);
   for (const k of p.territoryTiles) {
     const [tx, ty] = parseKey(k);
     const dx = Math.min(Math.abs(tx - x), WORLD_WIDTH - Math.abs(tx - x));
     const dy = Math.min(Math.abs(ty - y), WORLD_HEIGHT - Math.abs(ty - y));
     if (dx <= radius && dy <= radius) return true;
+  }
+  const observatoryRadius = radius + OBSERVATORY_VISION_BONUS;
+  for (const tk of activeObservatoryTileKeysForPlayer(p.id)) {
+    const [tx, ty] = parseKey(tk);
+    const dx = Math.min(Math.abs(tx - x), WORLD_WIDTH - Math.abs(tx - x));
+    const dy = Math.min(Math.abs(ty - y), WORLD_HEIGHT - Math.abs(ty - y));
+    if (dx <= observatoryRadius && dy <= observatoryRadius) return true;
   }
   return false;
 };
@@ -2110,12 +3056,106 @@ const sendToPlayer = (playerId: string, payload: unknown): void => {
   if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload));
 };
 
+const onlineSocketCount = (): number => {
+  let count = 0;
+  for (const ws of socketsByPlayer.values()) {
+    if (ws.readyState === ws.OPEN) count += 1;
+  }
+  return count;
+};
+
+const hasOnlinePlayers = (): boolean => onlineSocketCount() > 0;
+let victoryPressurePausedAt: number | undefined;
+
+const pauseVictoryPressureTimers = (): void => {
+  if (victoryPressurePausedAt === undefined) victoryPressurePausedAt = now();
+};
+
+const resumeVictoryPressureTimers = (): void => {
+  if (victoryPressurePausedAt === undefined) return;
+  const delta = now() - victoryPressurePausedAt;
+  if (delta > 0) {
+    for (const tracker of victoryPressureById.values()) {
+      if (tracker.holdStartedAt) tracker.holdStartedAt += delta;
+    }
+  }
+  victoryPressurePausedAt = undefined;
+};
+
+const isVisibleToAnyOnlinePlayer = (x: number, y: number): boolean => {
+  for (const p of players.values()) {
+    const ws = socketsByPlayer.get(p.id);
+    if (!ws || ws.readyState !== ws.OPEN) continue;
+    if (visible(p, x, y)) return true;
+  }
+  return false;
+};
+
+const logBarbarianEvent = (message: string): void => {
+  app.log.info(`[barbarian] ${message}`);
+};
+
 const refreshSubscribedViewForPlayer = (playerId: string): void => {
   const ws = socketsByPlayer.get(playerId);
   const p = players.get(playerId);
   const sub = chunkSubscriptionByPlayer.get(playerId);
   if (!ws || ws.readyState !== ws.OPEN || !p || !sub) return;
   sendChunkSnapshot(ws, p, sub);
+};
+
+const fogTileForPlayer = (x: number, y: number): Tile => {
+  const tk = key(x, y);
+  const dock = docksByTile.get(tk);
+  const clusterId = clusterByTile.get(tk);
+  const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
+  const fogTile: Tile = {
+    x,
+    y,
+    terrain: terrainAtRuntime(x, y),
+    fogged: true,
+    lastChangedAt: now()
+  };
+  if (dock) fogTile.dockId = dock.dockId;
+  if (clusterId) fogTile.clusterId = clusterId;
+  if (clusterType) fogTile.clusterType = clusterType;
+  return fogTile;
+};
+
+const visibleTileForPlayer = (p: Player, x: number, y: number): Tile => {
+  if (visible(p, x, y)) {
+    const tile = playerTile(x, y);
+    tile.fogged = false;
+    return tile;
+  }
+  return fogTileForPlayer(x, y);
+};
+
+const sendLocalVisionDeltaForPlayer = (playerId: string, centers: Array<{ x: number; y: number }>): void => {
+  const ws = socketsByPlayer.get(playerId);
+  const p = players.get(playerId);
+  const sub = chunkSubscriptionByPlayer.get(playerId);
+  if (!ws || ws.readyState !== ws.OPEN || !p || !sub || centers.length === 0) return;
+  const radius = effectiveVisionRadiusForPlayer(p) + OBSERVATORY_VISION_BONUS;
+  const seen = new Set<TileKey>();
+  const updates: Tile[] = [];
+  for (const center of centers) {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        const x = wrapX(center.x + dx, WORLD_WIDTH);
+        const y = wrapY(center.y + dy, WORLD_HEIGHT);
+        if (!tileInSubscription(playerId, x, y)) continue;
+        const tk = key(x, y);
+        if (seen.has(tk)) continue;
+        seen.add(tk);
+        updates.push(visibleTileForPlayer(p, x, y));
+      }
+    }
+  }
+  if (updates.length > 0) sendToPlayer(playerId, { type: "TILE_DELTA", updates });
+};
+
+const broadcastLocalVisionDelta = (centers: Array<{ x: number; y: number }>): void => {
+  for (const playerId of socketsByPlayer.keys()) sendLocalVisionDeltaForPlayer(playerId, centers);
 };
 
 const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
@@ -2130,6 +3170,10 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       type: "PLAYER_UPDATE",
       gold: p.points,
       points: p.points,
+      name: p.name,
+      tileColor: p.tileColor,
+      visualStyle: empireStyleFromPlayer(p),
+      profileNeedsSetup: p.profileComplete !== true,
       level: p.level,
       mods: p.mods,
       incomePerMinute: currentIncomePerMinute(p),
@@ -2151,8 +3195,10 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       domainCatalog: activeDomainCatalog(p),
       revealCapacity: revealCapacityForPlayer(p),
       activeRevealTargets: [...getOrInitRevealTargets(p.id)],
+      abilityCooldowns: Object.fromEntries(getAbilityCooldowns(p.id)),
       missions: missionPayload(p),
-      leaderboard: leaderboardSnapshot(p)
+      leaderboard: leaderboardSnapshot(p),
+      victoryPressure: currentVictoryPressureObjectives()
     })
   );
 };
@@ -2190,34 +3236,18 @@ const collectYieldFromTile = (
 const collectVisibleYield = (
   player: Player
 ): { tiles: number; gold: number; strategic: Record<StrategicResource, number>; touchedTileKeys: TileKey[] } => {
-  const sub = chunkSubscriptionByPlayer.get(player.id);
   const out = { tiles: 0, gold: 0, strategic: emptyStrategicStocks(), touchedTileKeys: [] as TileKey[] };
-  if (!sub) return out;
-  const visited = new Set<TileKey>();
-  for (let cy = sub.cy - sub.radius; cy <= sub.cy + sub.radius; cy += 1) {
-    for (let cx = sub.cx - sub.radius; cx <= sub.cx + sub.radius; cx += 1) {
-      const worldCx = wrapChunkX(cx);
-      const worldCy = wrapChunkY(cy);
-      const startX = worldCx * CHUNK_SIZE;
-      const startY = worldCy * CHUNK_SIZE;
-      for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-        for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-          const wx = wrapX(x, WORLD_WIDTH);
-          const wy = wrapY(y, WORLD_HEIGHT);
-          if (!visible(player, wx, wy)) continue;
-          const tk = key(wx, wy);
-          if (visited.has(tk)) continue;
-          visited.add(tk);
-          const got = collectYieldFromTile(player, tk);
-          const touched = got.gold > 0 || (Object.values(got.strategic) as number[]).some((v) => v > 0);
-          if (!touched) continue;
-          out.tiles += 1;
-          out.gold += got.gold;
-          out.touchedTileKeys.push(tk);
-          for (const r of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) out.strategic[r] += got.strategic[r] ?? 0;
-        }
-      }
-    }
+  for (const tk of player.territoryTiles) {
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
+    const [x, y] = parseKey(tk);
+    if (!visible(player, x, y)) continue;
+    const got = collectYieldFromTile(player, tk);
+    const touched = got.gold > 0 || (Object.values(got.strategic) as number[]).some((v) => v > 0);
+    if (!touched) continue;
+    out.tiles += 1;
+    out.gold += got.gold;
+    out.touchedTileKeys.push(tk);
+    for (const r of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) out.strategic[r] += got.strategic[r] ?? 0;
   }
   if (out.gold > 0) recalcPlayerDerived(player);
   return out;
@@ -2247,6 +3277,15 @@ const cancelPendingCapture = (capture: PendingCapture): void => {
   combatLocks.delete(capture.target);
 };
 
+const cancelAllBarbarianPendingCaptures = (): void => {
+  const uniq = new Set<PendingCapture>();
+  for (const lock of combatLocks.values()) {
+    if (!lock.attackerId.startsWith(`${BARBARIAN_OWNER_ID}:`)) continue;
+    uniq.add(lock);
+  }
+  for (const capture of uniq) cancelPendingCapture(capture);
+};
+
 const runBarbarianAction = (agent: BarbarianAgent): void => {
   const currentTile = playerTile(agent.x, agent.y);
   const currentKey = key(currentTile.x, currentTile.y);
@@ -2272,7 +3311,20 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
     return;
   }
   const defenderId = target.ownerId;
-  if (!defenderId || defenderId === BARBARIAN_OWNER_ID) {
+  if (!defenderId) {
+    const oldX = agent.x;
+    const oldY = agent.y;
+    updateOwnership(target.x, target.y, BARBARIAN_OWNER_ID, "BARBARIAN");
+    updateOwnership(oldX, oldY, undefined);
+    agent.x = target.x;
+    agent.y = target.y;
+    agent.lastActionAt = now();
+    agent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
+    upsertBarbarianAgent(agent);
+    logBarbarianEvent(`expand ${agent.id} ${oldX},${oldY} -> ${target.x},${target.y}`);
+    return;
+  }
+  if (defenderId === BARBARIAN_OWNER_ID) {
     agent.lastActionAt = now();
     agent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
     return;
@@ -2287,9 +3339,23 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
   };
   combatLocks.set(currentKey, pending);
   combatLocks.set(targetKey, pending);
-  console.info("barbarian event", { type: "ATTACK_START", barbarianId: agent.id, x: currentTile.x, y: currentTile.y, targetX: target.x, targetY: target.y, timestamp: now() });
+  logBarbarianEvent(`attack-start ${agent.id} ${currentTile.x},${currentTile.y} -> ${target.x},${target.y}`);
+  if (defenderId && defenderId !== BARBARIAN_OWNER_ID) {
+    sendToPlayer(defenderId, {
+      type: "ATTACK_ALERT",
+      attackerId: BARBARIAN_OWNER_ID,
+      attackerName: "Barbarians",
+      x: target.x,
+      y: target.y,
+      resolvesAt: pending.resolvesAt
+    });
+  }
   pending.timeout = setTimeout(() => {
     if (pending.cancelled) return;
+    if (!hasOnlinePlayers()) {
+      cancelPendingCapture(pending);
+      return;
+    }
     combatLocks.delete(currentKey);
     combatLocks.delete(targetKey);
     const live = barbarianAgents.get(agent.id);
@@ -2312,26 +3378,32 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
     }
     const shock = breachShockByTile.get(targetKey);
     const shockMult = shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
-    const fortOnTarget = fortsByTile.get(targetKey);
-    const fortMult = fortOnTarget?.status === "active" && fortOnTarget.ownerId === defender.id ? FORT_DEFENSE_MULT : 1;
+    const fortMult = fortDefenseMultAt(defender.id, targetKey);
     const dockMult = docksByTile.has(targetKey) ? DOCK_DEFENSE_MULT : 1;
     const atkEff = 10 * BARBARIAN_ATTACK_POWER * randomFactor();
-    const defEff = 10 * BARBARIAN_DEFENSE_POWER * defender.mods.defense * playerDefensiveness(defender) * shockMult * fortMult * dockMult * randomFactor();
+    const defEff =
+      10 *
+      BARBARIAN_DEFENSE_POWER *
+      defender.mods.defense *
+      playerDefensiveness(defender) *
+      shockMult *
+      fortMult *
+      dockMult *
+      settledDefenseMultiplierForTarget(defender.id, currentTarget) *
+      settlementDefenseMultAt(defender.id, targetKey) *
+      randomFactor();
     const win = Math.random() < combatWinChance(atkEff, defEff);
     const progressBefore = live.progress;
     if (!win) {
       live.lastActionAt = now();
       live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
       upsertBarbarianAgent(live);
-      console.info("barbarian event", { type: "ATTACK_LOSS", barbarianId: live.id, x: live.x, y: live.y, targetX: target.x, targetY: target.y, timestamp: now() });
+      logBarbarianEvent(`attack-loss ${live.id} @ ${live.x},${live.y} vs ${target.x},${target.y}`);
       return;
     }
     const gain = getBarbarianProgressGain(currentTarget);
     live.progress += gain;
-    console.info(
-      "barbarian event",
-      { type: "PROGRESS_GAIN", barbarianId: live.id, x: live.x, y: live.y, targetX: target.x, targetY: target.y, progressBefore, progressAfter: live.progress, timestamp: now() },
-    );
+    logBarbarianEvent(`progress ${live.id} ${progressBefore} -> ${live.progress} at ${target.x},${target.y}`);
     const shouldMultiply = live.progress >= BARBARIAN_MULTIPLY_THRESHOLD;
     const oldX = live.x;
     const oldY = live.y;
@@ -2342,7 +3414,7 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
       updateOwnership(oldX, oldY, BARBARIAN_OWNER_ID, "BARBARIAN");
       spawnBarbarianAgentAt(oldX, oldY, 0);
       live.progress = 0;
-      console.info("barbarian event", { type: "MULTIPLY", barbarianId: live.id, x: live.x, y: live.y, targetX: target.x, targetY: target.y, timestamp: now() });
+      logBarbarianEvent(`multiply ${live.id} @ ${oldX},${oldY} after capture ${target.x},${target.y}`);
     } else {
       updateOwnership(oldX, oldY, undefined);
     }
@@ -2352,16 +3424,23 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
     recalcPlayerDerived(defender);
     updateMissionState(defender);
     resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
-    console.info("barbarian event", { type: "ATTACK_WIN", barbarianId: live.id, x: live.x, y: live.y, targetX: target.x, targetY: target.y, timestamp: now() });
+    logBarbarianEvent(`attack-win ${live.id} now @ ${live.x},${live.y} after ${target.x},${target.y}`);
   }, COMBAT_LOCK_MS);
 };
 
 const runBarbarianTick = (): void => {
+  if (!hasOnlinePlayers()) return;
   const current = [...barbarianAgents.values()];
   for (const agent of current) {
     const live = barbarianAgents.get(agent.id);
     if (!live) continue;
     if (now() < live.nextActionAt) continue;
+    if (!isVisibleToAnyOnlinePlayer(live.x, live.y)) {
+      live.lastActionAt = now();
+      live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
+      upsertBarbarianAgent(live);
+      continue;
+    }
     runBarbarianAction(live);
   }
 };
@@ -2389,21 +3468,25 @@ const recomputeExposure = (p: Player): void => {
       playerTile(x, y + 1),
       playerTile(x - 1, y)
     ];
+    let exposedSides = 0;
     for (const tile of n) {
       if (tile.terrain !== "LAND") continue;
       if (tile.ownerId === p.id) continue;
       if (tile.ownerId && p.allies.has(tile.ownerId)) continue;
-      E += 1;
+      exposedSides += 1;
     }
+    E += exposureWeightFromSides(exposedSides);
 
     if (self.ownershipState !== "SETTLED") continue;
     Ts += 1;
+    let settledExposedSides = 0;
     for (const tile of n) {
       if (tile.terrain !== "LAND") continue;
       const isSameOrAllied = tile.ownerId === p.id || Boolean(tile.ownerId && p.allies.has(tile.ownerId));
       if (isSameOrAllied && tile.ownershipState === "SETTLED") continue;
-      Es += 1;
+      settledExposedSides += 1;
     }
+    Es += exposureWeightFromSides(settledExposedSides);
   }
   p.T = T;
   p.E = E;
@@ -2418,9 +3501,13 @@ const broadcastAllianceUpdate = (a: Player, b: Player): void => {
   wb?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...b.allies] }));
 };
 
-const exportPlayerStyles = (): Array<{ id: string; name: string; tileColor?: string }> => {
+const exportPlayerStyles = (): Array<{ id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle }> => {
   return [...players.values()].map((p) => {
-    const out: { id: string; name: string; tileColor?: string } = { id: p.id, name: p.name };
+    const out: { id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle } = {
+      id: p.id,
+      name: p.name,
+      visualStyle: empireStyleFromPlayer(p)
+    };
     if (p.tileColor) out.tileColor = p.tileColor;
     return out;
   });
@@ -2481,7 +3568,7 @@ const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
     }
   }
 
-  const radius = Math.max(1, Math.floor(VISION_RADIUS * p.mods.vision));
+  const radius = effectiveVisionRadiusForPlayer(p);
   for (const tk of p.territoryTiles) {
     const [tx, ty] = parseKey(tk);
     for (let dy = -radius; dy <= radius; dy += 1) {
@@ -2530,7 +3617,7 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
             const fogTile: Tile = {
               x: wx,
               y: wy,
-              terrain: terrainAt(wx, wy),
+              terrain: terrainAtRuntime(wx, wy),
               fogged: true,
               lastChangedAt: fallbackLastChangedAt
             };
@@ -2660,117 +3747,13 @@ const applyDynamicMissionReward = (player: Player, mission: DynamicMissionDef): 
   mission.rewarded = true;
 };
 
-const maybeIssueVendettaMission = (player: Player, targetPlayerId: string): void => {
-  const missions = getOrInitDynamicMissions(player.id);
-  if (missions.some((m) => m.type === "VENDETTA" && m.expiresAt > now() && !m.rewarded)) return;
-  missions.push({
-    id: `dyn-vendetta-${now()}`,
-    type: "VENDETTA",
-    targetPlayerId,
-    expiresAt: now() + DYNAMIC_MISSION_MS,
-    completed: false,
-    rewarded: false
-  });
-};
+const maybeIssueVendettaMission = (_player: Player, _targetPlayerId: string): void => {};
 
-const maybeIssueDockMission = (player: Player): void => {
-  const missions = getOrInitDynamicMissions(player.id);
-  if (missions.some((m) => m.type === "DOCK_HUNT" && m.expiresAt > now() && !m.rewarded)) return;
-  if (ownedDockCount(player.id) > 0) return;
-  if (player.missionStats.neutralCaptures < 18) return;
-  missions.push({
-    id: `dyn-dock-${now()}`,
-    type: "DOCK_HUNT",
-    targetDockCount: 1,
-    expiresAt: now() + DYNAMIC_MISSION_MS,
-    completed: false,
-    rewarded: false
-  });
-};
+const maybeIssueDockMission = (_player: Player): void => {};
 
-const maybeIssueResourceMission = (player: Player, captured?: ResourceType): void => {
-  if (!captured) return;
-  const missions = getOrInitDynamicMissions(player.id);
-  if (missions.some((m) => m.type === "RESOURCE_CHAIN" && m.expiresAt > now() && !m.rewarded)) return;
-  const pool = (["FARM", "FISH", "IRON", "GEMS", "FUR", "WOOD"] as const).filter(
-    (r): r is ResourceType => r !== captured
-  );
-  if (pool.length < 2) return;
-  const a = pool[Math.floor(seeded01(now(), player.points, player.level + 17) * pool.length)]!;
-  const b = pool[Math.floor(seeded01(now() + 97, player.points + 41, player.level + 71) * pool.length)]!;
-  const pair: [ResourceType, ResourceType] = a === b ? [a, pool[(pool.indexOf(a) + 1) % pool.length]!] : [a, b];
-  missions.push({
-    id: `dyn-resource-${now()}`,
-    type: "RESOURCE_CHAIN",
-    focusResources: pair,
-    expiresAt: now() + DYNAMIC_MISSION_MS,
-    completed: false,
-    rewarded: false
-  });
-};
+const maybeIssueResourceMission = (_player: Player, _captured?: ResourceType): void => {};
 
-const dynamicMissionPayload = (player: Player): MissionState[] => {
-  const missions = getOrInitDynamicMissions(player.id);
-  const out: MissionState[] = [];
-  for (let i = missions.length - 1; i >= 0; i -= 1) {
-    const m = missions[i]!;
-    if (m.expiresAt <= now()) {
-      missions.splice(i, 1);
-      continue;
-    }
-    const { progress, target } = dynamicMissionProgress(player, m);
-    m.completed = progress >= target;
-    if (m.completed && !m.rewarded) applyDynamicMissionReward(player, m);
-    if (m.type === "VENDETTA") {
-      out.push({
-        id: m.id,
-        kind: "ENEMY_CAPTURES",
-        name: "War Council: Finish Them",
-        description: `After your recent victory, your people demand total defeat of that rival. Capture ${target} tiles from that empire before the week ends.`,
-        unlockPoints: 0,
-        target,
-        progress,
-        rewardPoints: 0,
-        rewardLabel: "Reward: +15% attack for 24h",
-        expiresAt: m.expiresAt,
-        completed: m.completed,
-        claimed: m.rewarded
-      });
-    } else if (m.type === "DOCK_HUNT") {
-      out.push({
-        id: m.id,
-        kind: "CONTINENTS_HELD",
-        name: "Expedition Charter",
-        description: "Your explorers ask for a sea bridge. Capture a dock this week to open new routes.",
-        unlockPoints: 0,
-        target,
-        progress,
-        rewardPoints: 0,
-        rewardLabel: "Reward: reveal 3 additional docks",
-        expiresAt: m.expiresAt,
-        completed: m.completed,
-        claimed: m.rewarded
-      });
-    } else {
-      const pair = m.focusResources ?? ["IRON", "GEMS"];
-      out.push({
-        id: m.id,
-        kind: "FARMS_HELD",
-        name: "Resource Fever",
-        description: `Your people want more supply: control 8 ${pair[0]} and 8 ${pair[1]} before expiry.`,
-        unlockPoints: 0,
-        target: 16,
-        progress,
-        rewardPoints: 0,
-        rewardLabel: `Reward: +40% ${pair[0]} & ${pair[1]} resource income for 24h`,
-        expiresAt: m.expiresAt,
-        completed: m.completed,
-        claimed: m.rewarded
-      });
-    }
-  }
-  return out;
-};
+const dynamicMissionPayload = (_player: Player): MissionState[] => [];
 
 const applyStaticMissionReward = (player: Player, mission: MissionState): void => {
   const stock = getOrInitStrategicStocks(player.id);
@@ -2789,49 +3772,9 @@ const applyStaticMissionReward = (player: Player, mission: MissionState): void =
   }
 };
 
-const syncMissionProgress = (player: Player): boolean => {
-  ensureMissionDefaults(player);
-  let changed = false;
-  for (const m of player.missions) {
-    const nextProgress = Math.min(m.target, missionProgressValue(player, m.kind));
-    if (nextProgress !== m.progress) {
-      m.progress = nextProgress;
-      changed = true;
-    }
-    if (!m.completed && m.progress >= m.target) {
-      m.completed = true;
-      changed = true;
-    }
-    if (m.completed && !m.claimed) {
-      m.claimed = true;
-      applyStaticMissionReward(player, m);
-      player.points += m.rewardPoints;
-      changed = true;
-    }
-  }
-  return changed;
-};
+const syncMissionProgress = (_player: Player): boolean => false;
 
-const unlockMissions = (player: Player): boolean => {
-  ensureMissionDefaults(player);
-  const existing = new Set(player.missions.map((m) => m.id));
-  const completed = new Set(player.missions.filter((m) => m.claimed || m.completed).map((m) => m.id));
-  let changed = false;
-  for (const def of MISSION_DEFS) {
-    if (existing.has(def.id)) continue;
-    if (player.points < def.unlockPoints) continue;
-    if (def.prerequisiteId && !completed.has(def.prerequisiteId)) continue;
-    const state: MissionState = {
-      ...def,
-      progress: Math.min(def.target, missionProgressValue(player, def.kind)),
-      completed: false,
-      claimed: false
-    };
-    player.missions.push(state);
-    changed = true;
-  }
-  return changed;
-};
+const unlockMissions = (_player: Player): boolean => false;
 
 const continentsHeldCount = (player: Player): number => {
   const set = new Set<number>();
@@ -2845,23 +3788,16 @@ const continentsHeldCount = (player: Player): number => {
 
 const updateMissionState = (player: Player): boolean => {
   ensureMissionDefaults(player);
-  const farms = getOrInitResourceCounts(player.id).FARM ?? 0;
-  player.missionStats.maxTilesHeld = Math.max(player.missionStats.maxTilesHeld, player.T);
-  player.missionStats.maxSettledTilesHeld = Math.max(player.missionStats.maxSettledTilesHeld, player.Ts);
-  player.missionStats.maxFarmsHeld = Math.max(player.missionStats.maxFarmsHeld, farms);
-  player.missionStats.maxContinentsHeld = Math.max(player.missionStats.maxContinentsHeld, continentsHeldCount(player));
-  player.missionStats.maxTechPicks = Math.max(player.missionStats.maxTechPicks, player.techIds.size);
-  const unlocked = unlockMissions(player);
-  const progressed = syncMissionProgress(player);
-  maybeIssueDockMission(player);
-  dynamicMissionPayload(player);
-  if (progressed) recalcPlayerDerived(player);
-  return unlocked || progressed;
+  player.missions = [];
+  dynamicMissionsByPlayer.delete(player.id);
+  return false;
 };
 
-const missionPayload = (player: Player): MissionState[] => {
-  ensureMissionDefaults(player);
-  return [...player.missions.map((m) => ({ ...m })), ...dynamicMissionPayload(player)];
+const missionPayload = (_player: Player): MissionState[] => [];
+
+const normalizePlayerProgressionState = (player: Player): void => {
+  player.techIds = new Set([...player.techIds].filter((id) => techById.has(id)));
+  player.domainIds = new Set([...player.domainIds].filter((id) => domainById.has(id)));
 };
 
 const leaderboardSnapshot = (
@@ -2900,26 +3836,246 @@ const leaderboardSnapshot = (
   return { overall, byTiles, byIncome, byTechs };
 };
 
+const victoryPressureRewardLabel = (def: VictoryPressureDefinition): string => {
+  const bits: string[] = [];
+  if (def.rewardPoints) bits.push(`+${def.rewardPoints} points`);
+  if (def.rewardGold) bits.push(`+${def.rewardGold} gold`);
+  if (def.rewardShard) bits.push(`+${def.rewardShard} shard`);
+  return bits.join(" · ");
+};
+
+const trimFrontierSettlementsWindow = (playerId: string, nowMs = now()): number[] => {
+  const next = (frontierSettlementsByPlayer.get(playerId) ?? []).filter((ts) => nowMs - ts <= VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS);
+  frontierSettlementsByPlayer.set(playerId, next);
+  return next;
+};
+
+const recordFrontierSettlementForPressure = (playerId: string): void => {
+  const next = trimFrontierSettlementsWindow(playerId);
+  next.push(now());
+  frontierSettlementsByPlayer.set(playerId, next);
+};
+
+const uniqueLeader = (entries: Array<{ playerId: string; value: number }>): { playerId?: string; value: number } => {
+  if (entries.length === 0) return { value: 0 };
+  const sorted = [...entries].sort((a, b) => b.value - a.value);
+  const top = sorted[0]!;
+  const runnerUp = sorted[1];
+  if (top.value <= 0) return { value: top.value };
+  if (runnerUp && runnerUp.value === top.value) return { value: top.value };
+  return { playerId: top.playerId, value: top.value };
+};
+
+const countControlledTowns = (playerId: string): number => {
+  let count = 0;
+  for (const tk of townsByTile.keys()) {
+    if (ownership.get(tk) !== playerId) continue;
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
+    count += 1;
+  }
+  return count;
+};
+
+const countActiveForts = (playerId: string): number => {
+  let count = 0;
+  for (const fort of fortsByTile.values()) {
+    if (fort.ownerId === playerId && fort.status === "active") count += 1;
+  }
+  return count;
+};
+
+const countActiveSiegeOutposts = (playerId: string): number => {
+  let count = 0;
+  for (const siege of siegeOutpostsByTile.values()) {
+    if (siege.ownerId === playerId && siege.status === "active") count += 1;
+  }
+  return count;
+};
+
+const getVictoryPressureTracker = (id: VictoryPressureObjectiveId): VictoryPressureTracker => {
+  let tracker = victoryPressureById.get(id);
+  if (!tracker) {
+    tracker = {};
+    victoryPressureById.set(id, tracker);
+  }
+  return tracker;
+};
+
+const applyVictoryPressureReward = (playerId: string, def: VictoryPressureDefinition): void => {
+  const player = players.get(playerId);
+  if (!player) return;
+  const stock = getOrInitStrategicStocks(playerId);
+  player.points += (def.rewardPoints ?? 0) + (def.rewardGold ?? 0);
+  if (def.rewardShard) stock.SHARD += def.rewardShard;
+  recalcPlayerDerived(player);
+};
+
+const currentVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
+  const nowMs = now();
+  const totalTownCount = Math.max(1, townsByTile.size);
+  const townTarget = Math.max(1, Math.ceil(totalTownCount * 0.2));
+  return VICTORY_PRESSURE_DEFS.map((def) => {
+    const tracker = getVictoryPressureTracker(def.id);
+    let leaderPlayerId: string | undefined;
+    let leaderValue = 0;
+    let conditionMet = false;
+    let progressLabel = "";
+    let thresholdLabel = "";
+
+    if (def.id === "TOWN_SUPREMACY") {
+      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countControlledTowns(p.id) })));
+      leaderPlayerId = leader.playerId;
+      leaderValue = leader.value;
+      conditionMet = Boolean(leaderPlayerId && leaderValue >= townTarget);
+      progressLabel = `${leaderValue}/${townTarget} towns`;
+      thresholdLabel = `Need ${townTarget} towns`;
+    } else if (def.id === "ECONOMIC_DOMINANCE") {
+      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: currentIncomePerMinute(p) })));
+      leaderPlayerId = leader.playerId;
+      leaderValue = leader.value;
+      conditionMet = Boolean(leaderPlayerId && leaderValue > 0);
+      progressLabel = `${leaderValue.toFixed(1)} gold/m`;
+      thresholdLabel = "Hold sole top income";
+    } else if (def.id === "FORTRESS_BELT") {
+      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countActiveForts(p.id) })));
+      leaderPlayerId = leader.playerId;
+      leaderValue = leader.value;
+      conditionMet = Boolean(leaderPlayerId && leaderValue >= 3);
+      progressLabel = `${leaderValue}/3 forts`;
+      thresholdLabel = "Need 3 active forts";
+    } else if (def.id === "FORWARD_PRESSURE") {
+      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countActiveSiegeOutposts(p.id) })));
+      leaderPlayerId = leader.playerId;
+      leaderValue = leader.value;
+      conditionMet = Boolean(leaderPlayerId && leaderValue >= 3);
+      progressLabel = `${leaderValue}/3 outposts`;
+      thresholdLabel = "Need 3 active outposts";
+    } else {
+      const leader = uniqueLeader(
+        [...players.values()].map((p) => ({ playerId: p.id, value: trimFrontierSettlementsWindow(p.id, nowMs).length }))
+      );
+      leaderPlayerId = leader.playerId;
+      leaderValue = leader.value;
+      conditionMet = Boolean(leaderPlayerId && leaderValue >= VICTORY_PRESSURE_FRONTIER_REACH_TARGET);
+      progressLabel = `${leaderValue}/${VICTORY_PRESSURE_FRONTIER_REACH_TARGET} settlements in 2h`;
+      thresholdLabel = "Need 100 settlements in 2h";
+    }
+
+    const leaderName = leaderPlayerId ? players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8) : leaderValue > 0 ? "Contested" : "No leader";
+    const holdRemainingSeconds =
+      conditionMet && tracker.leaderPlayerId === leaderPlayerId && tracker.holdStartedAt
+        ? Math.max(0, Math.ceil((tracker.holdStartedAt + def.holdDurationSeconds * 1000 - nowMs) / 1000))
+        : undefined;
+    const statusLabel = conditionMet
+      ? holdRemainingSeconds !== undefined
+        ? `Holding · ${Math.max(0, Math.ceil(holdRemainingSeconds / 60))}m left`
+        : "Threshold met"
+      : leaderValue > 0
+        ? "Pressure building"
+        : "No contender";
+    const view: VictoryPressureObjectiveView = {
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      rewardLabel: victoryPressureRewardLabel(def),
+      leaderName,
+      progressLabel,
+      thresholdLabel,
+      holdDurationSeconds: def.holdDurationSeconds,
+      statusLabel,
+      conditionMet
+    };
+    if (leaderPlayerId !== undefined) view.leaderPlayerId = leaderPlayerId;
+    if (holdRemainingSeconds !== undefined) view.holdRemainingSeconds = holdRemainingSeconds;
+    return view;
+  });
+};
+
+const broadcastVictoryPressureUpdate = (announcement?: string): void => {
+  broadcast({
+    type: "VICTORY_PRESSURE_UPDATE",
+    objectives: currentVictoryPressureObjectives(),
+    announcement
+  });
+};
+
+const evaluateVictoryPressure = (): void => {
+  const nowMs = now();
+  const announcements: string[] = [];
+  const rewardedPlayers = new Set<string>();
+
+  for (const def of VICTORY_PRESSURE_DEFS) {
+    const tracker = getVictoryPressureTracker(def.id);
+    let leaderPlayerId: string | undefined;
+    let conditionMet = false;
+
+    if (def.id === "TOWN_SUPREMACY") {
+      const target = Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * 0.2));
+      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countControlledTowns(p.id) })));
+      leaderPlayerId = leader.playerId;
+      conditionMet = Boolean(leaderPlayerId && leader.value >= target);
+    } else if (def.id === "ECONOMIC_DOMINANCE") {
+      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: currentIncomePerMinute(p) })));
+      leaderPlayerId = leader.playerId;
+      conditionMet = Boolean(leaderPlayerId && leader.value > 0);
+    } else if (def.id === "FORTRESS_BELT") {
+      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countActiveForts(p.id) })));
+      leaderPlayerId = leader.playerId;
+      conditionMet = Boolean(leaderPlayerId && leader.value >= 3);
+    } else if (def.id === "FORWARD_PRESSURE") {
+      const leader = uniqueLeader([...players.values()].map((p) => ({ playerId: p.id, value: countActiveSiegeOutposts(p.id) })));
+      leaderPlayerId = leader.playerId;
+      conditionMet = Boolean(leaderPlayerId && leader.value >= 3);
+    } else {
+      const leader = uniqueLeader(
+        [...players.values()].map((p) => ({ playerId: p.id, value: trimFrontierSettlementsWindow(p.id, nowMs).length }))
+      );
+      leaderPlayerId = leader.playerId;
+      conditionMet = Boolean(leaderPlayerId && leader.value >= VICTORY_PRESSURE_FRONTIER_REACH_TARGET);
+    }
+
+    if (!conditionMet || !leaderPlayerId) {
+      delete tracker.leaderPlayerId;
+      delete tracker.holdStartedAt;
+      continue;
+    }
+    if (tracker.leaderPlayerId !== leaderPlayerId) {
+      tracker.leaderPlayerId = leaderPlayerId;
+      tracker.holdStartedAt = nowMs;
+      continue;
+    }
+    if (!tracker.holdStartedAt) {
+      tracker.holdStartedAt = nowMs;
+      continue;
+    }
+    if (nowMs - tracker.holdStartedAt < def.holdDurationSeconds * 1000) continue;
+    applyVictoryPressureReward(leaderPlayerId, def);
+    rewardedPlayers.add(leaderPlayerId);
+    const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
+    announcements.push(`${leaderName} secured ${def.name}: ${victoryPressureRewardLabel(def)}.`);
+    delete tracker.leaderPlayerId;
+    delete tracker.holdStartedAt;
+  }
+
+  for (const playerId of rewardedPlayers) {
+    const player = players.get(playerId);
+    if (player) {
+      updateMissionState(player);
+      sendPlayerUpdate(player, 0);
+    }
+  }
+  broadcastVictoryPressureUpdate(announcements.join(" "));
+};
+
 const reachableTechs = (player: Player): string[] => {
-  const initial = new Set<string>();
-  if (player.techIds.size === 0) {
-    for (const rootId of activeSeasonTechConfig.rootNodeIds) {
-      if (!player.techIds.has(rootId)) initial.add(rootId);
-    }
-    return [...initial];
-  }
   const out: string[] = [];
-  for (const techId of player.techIds) {
-    for (const child of childrenByTech.get(techId) ?? []) {
-      if (!activeSeasonTechConfig.activeNodeIds.has(child)) continue;
-      if (player.techIds.has(child)) continue;
-      const childTech = techById.get(child);
-      if (!childTech) continue;
-      const prereqs = childTech.prereqIds && childTech.prereqIds.length > 0 ? childTech.prereqIds : childTech.requires ? [childTech.requires] : [];
-      if (prereqs.every((req) => player.techIds.has(req))) out.push(child);
-    }
+  for (const tech of TECHS) {
+    if (!activeSeasonTechConfig.activeNodeIds.has(tech.id)) continue;
+    if (player.techIds.has(tech.id)) continue;
+    const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+    if (prereqs.every((req) => player.techIds.has(req))) out.push(tech.id);
   }
-  return [...new Set(out)];
+  return out;
 };
 
 const techDepth = (id: string): number => {
@@ -3020,6 +4176,7 @@ const activeTechCatalog = (player?: Player): Array<{
   prereqIds?: string[];
   description: string;
   mods: Partial<Record<StatsModKey, number>>;
+  effects?: (typeof TECHS)[number]["effects"];
   requirements: {
     gold: number;
     resources: Partial<Record<StrategicResource, number>>;
@@ -3037,6 +4194,7 @@ const activeTechCatalog = (player?: Player): Array<{
       prereqIds?: string[];
       description: string;
       mods: Partial<Record<StatsModKey, number>>;
+      effects?: (typeof TECHS)[number]["effects"];
       requirements: {
         gold: number;
         resources: Partial<Record<StrategicResource, number>>;
@@ -3051,6 +4209,7 @@ const activeTechCatalog = (player?: Player): Array<{
       mods: t.mods ?? {},
       requirements: techRequirements(t)
     };
+    if (t.effects) out.effects = { ...t.effects };
     if (t.rootId) out.rootId = t.rootId;
     if (t.requires) out.requires = t.requires;
     if (t.prereqIds && t.prereqIds.length > 0) out.prereqIds = [...t.prereqIds];
@@ -3062,6 +4221,76 @@ const activeTechCatalog = (player?: Player): Array<{
     }
     return out;
   });
+};
+
+const IRON_DOMAIN_IDS = new Set(["iron-bastions", "stone-curtain", "iron-vanguard", "war-foundries", "fortress-realm", "iron-dominion"]);
+const SUPPLY_DOMAIN_IDS = new Set(["supply-raiding", "supply-state", "imperial-roads", "siege-state"]);
+const FOOD_DOMAIN_IDS = new Set(["frontier-doctrine", "farmers-compact", "frontier-bureau", "field-stores", "imperial-expansion", "enduring-realm", "provincial-governors"]);
+const CRYSTAL_DOMAIN_IDS = new Set(["mercantile-charter", "market-league", "crystal-network", "merchant-houses", "treasury-state", "hidden-hand", "golden-hegemony", "oracle-state"]);
+
+const IRON_TECH_IDS = new Set(["masonry", "iron-working", "fortification-doctrine", "heavy-masonry", "standing-army", "chainmail", "engineering", "steelworking", "steel", "military-academies", "arms-guilds"]);
+const SUPPLY_TECH_IDS = new Set(["leatherworking", "road-building", "siegecraft", "relay-roads", "logistics", "supply-trains"]);
+const FOOD_TECH_IDS = new Set(["agriculture", "irrigation", "granaries", "watermills", "state-granaries", "frontier-administration", "bureaucracy", "civil-survey", "animal-husbandry", "crop-rotation", "civil-service"]);
+const CRYSTAL_TECH_IDS = new Set([
+  "cartography",
+  "signal-fires",
+  "surveying",
+  "beacon-towers",
+  "cryptography",
+  "grand-cartography",
+  "banking",
+  "central-banking",
+  "trade",
+  "ledger-keeping",
+  "coinage",
+  "merchant-guilds",
+  "maritime-trade",
+  "port-infrastructure",
+  "global-trade-networks",
+  "trade-empire"
+]);
+
+const empireStyleFromPlayer = (player: Player): EmpireVisualStyle => {
+  const primaryOverlay = player.tileColor ?? colorFromId(player.id);
+  let secondaryTint: EmpireVisualStyle["secondaryTint"] = "BALANCED";
+
+  for (const id of player.domainIds) {
+    if (IRON_DOMAIN_IDS.has(id)) {
+      secondaryTint = "IRON";
+      break;
+    }
+    if (SUPPLY_DOMAIN_IDS.has(id)) {
+      secondaryTint = "SUPPLY";
+      break;
+    }
+    if (FOOD_DOMAIN_IDS.has(id)) {
+      secondaryTint = "FOOD";
+      break;
+    }
+    if (CRYSTAL_DOMAIN_IDS.has(id)) {
+      secondaryTint = "CRYSTAL";
+      break;
+    }
+  }
+
+  if (secondaryTint === "BALANCED") {
+    const scores = { IRON: 0, SUPPLY: 0, FOOD: 0, CRYSTAL: 0 } satisfies Record<Exclude<EmpireVisualStyle["secondaryTint"], "BALANCED">, number>;
+    for (const id of player.techIds) {
+      if (IRON_TECH_IDS.has(id)) scores.IRON += 1;
+      if (SUPPLY_TECH_IDS.has(id)) scores.SUPPLY += 1;
+      if (FOOD_TECH_IDS.has(id)) scores.FOOD += 1;
+      if (CRYSTAL_TECH_IDS.has(id)) scores.CRYSTAL += 1;
+    }
+    const ranked = (Object.entries(scores) as Array<[Exclude<EmpireVisualStyle["secondaryTint"], "BALANCED">, number]>)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    if ((ranked[0]?.[1] ?? 0) >= 2) secondaryTint = ranked[0]![0];
+  }
+
+  const borderStyle: EmpireVisualStyle["borderStyle"] =
+    secondaryTint === "IRON" ? "HEAVY" : secondaryTint === "SUPPLY" ? "DASHED" : secondaryTint === "FOOD" ? "SOFT" : secondaryTint === "CRYSTAL" ? "GLOW" : "SHARP";
+  const structureAccent: EmpireVisualStyle["structureAccent"] = secondaryTint === "BALANCED" ? "NEUTRAL" : secondaryTint;
+
+  return { primaryOverlay, secondaryTint, borderStyle, structureAccent };
 };
 
 const domainCostResources = (
@@ -3112,7 +4341,7 @@ const reachableDomains = (player: Player): string[] => {
   const targetTier = Math.min(5, tierMax + 1);
   const pickedAtTargetTier = [...player.domainIds].some((id) => domainById.get(id)?.tier === targetTier);
   if (pickedAtTargetTier) return [];
-  return DOMAINS.filter((d) => d.tier === targetTier && player.techIds.has(d.requiresTechId)).map((d) => d.id);
+  return DOMAINS.filter((d) => d.tier === targetTier).map((d) => d.id);
 };
 
 const activeDomainCatalog = (player?: Player): Array<{
@@ -3122,7 +4351,7 @@ const activeDomainCatalog = (player?: Player): Array<{
   description: string;
   requiresTechId: string;
   mods: Partial<Record<StatsModKey, number>>;
-  effects?: { revealUpkeepMult?: number; revealCapacityBonus?: number };
+  effects?: (typeof DOMAINS)[number]["effects"];
   requirements: {
     gold: number;
     resources: Partial<Record<StrategicResource, number>>;
@@ -3138,7 +4367,7 @@ const activeDomainCatalog = (player?: Player): Array<{
       description: string;
       requiresTechId: string;
       mods: Partial<Record<StatsModKey, number>>;
-      effects?: { revealUpkeepMult?: number; revealCapacityBonus?: number };
+      effects?: (typeof DOMAINS)[number]["effects"];
       requirements: {
         gold: number;
         resources: Partial<Record<StrategicResource, number>>;
@@ -3282,7 +4511,8 @@ const startSettlement = (
   opts?: { goldCost?: number; settleMs?: number; foodCost?: number; rapid?: boolean }
 ): { ok: boolean; reason?: string; resolvesAt?: number } => {
   const goldCost = opts?.goldCost ?? SETTLE_COST;
-  const settleMs = opts?.settleMs ?? SETTLE_MS;
+  const effects = getPlayerEffectsForPlayer(actor.id);
+  const settleMs = Math.max(250, Math.round((opts?.settleMs ?? SETTLE_MS) / effects.settlementSpeedMult));
   const foodCost = opts?.foodCost ?? 0;
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "settlement requires land tile" };
@@ -3295,32 +4525,61 @@ const startSettlement = (
   if (pendingSettlementsByTile.has(tk)) return { ok: false, reason: "tile already settling" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile is locked in combat" };
 
-  actor.points -= goldCost;
-  if (foodCost > 0) stocks.FOOD -= foodCost;
-  recalcPlayerDerived(actor);
   const resolvesAt = now() + settleMs;
   const pending: PendingSettlement = {
     tileKey: tk,
     ownerId: actor.id,
     resolvesAt,
+    goldCost,
+    foodCost,
+    rapid: opts?.rapid === true,
     cancelled: false
   };
   pendingSettlementsByTile.set(tk, pending);
   pending.timeout = setTimeout(() => {
     if (pending.cancelled) return;
     pendingSettlementsByTile.delete(tk);
+    const liveActor = players.get(actor.id);
+    if (!liveActor) return;
     const live = playerTile(t.x, t.y);
-    if (live.ownerId !== actor.id || live.ownershipState !== "FRONTIER") return;
-    updateOwnership(t.x, t.y, actor.id, "SETTLED");
-    sendToPlayer(actor.id, {
+    if (live.ownerId !== liveActor.id || live.ownershipState !== "FRONTIER") return;
+    const liveStocks = getOrInitStrategicStocks(liveActor.id);
+    if (liveActor.points < pending.goldCost) {
+      sendToPlayer(liveActor.id, {
+        type: "ERROR",
+        code: pending.rapid ? "RAPID_SETTLE_INVALID" : "SETTLE_INVALID",
+        message: "insufficient gold when settlement completed"
+      });
+      sendPlayerUpdate(liveActor, 0);
+      return;
+    }
+    if ((liveStocks.FOOD ?? 0) < pending.foodCost) {
+      sendToPlayer(liveActor.id, {
+        type: "ERROR",
+        code: "RAPID_SETTLE_INVALID",
+        message: "insufficient FOOD when rapid settlement completed"
+      });
+      sendPlayerUpdate(liveActor, 0);
+      return;
+    }
+    liveActor.points -= pending.goldCost;
+    if (pending.foodCost > 0) liveStocks.FOOD -= pending.foodCost;
+    recalcPlayerDerived(liveActor);
+    updateOwnership(t.x, t.y, liveActor.id, "SETTLED");
+    revealLinkedDocksForPlayer(liveActor.id, tk);
+    recordFrontierSettlementForPressure(liveActor.id);
+    if (effects.newSettlementDefenseMult > 1) {
+      settlementDefenseByTile.set(tk, { ownerId: liveActor.id, expiresAt: now() + NEW_SETTLEMENT_DEFENSE_MS, mult: effects.newSettlementDefenseMult });
+    }
+    sendToPlayer(liveActor.id, {
       type: "COMBAT_RESULT",
-      winnerId: actor.id,
-      changes: [{ x: t.x, y: t.y, ownerId: actor.id, ownershipState: "SETTLED" }],
+      winnerId: liveActor.id,
+      changes: [{ x: t.x, y: t.y, ownerId: liveActor.id, ownershipState: "SETTLED" }],
       pointsDelta: 0,
       levelDelta: 0
     });
-    sendPlayerUpdate(actor, 0);
-    if (opts?.rapid) telemetryCounters.rapidSettlements += 1;
+    sendPlayerUpdate(liveActor, 0);
+    if (pending.rapid) telemetryCounters.rapidSettlements += 1;
     else telemetryCounters.settlements += 1;
   }, settleMs);
   return { ok: true, resolvesAt };
@@ -3354,9 +4613,7 @@ const tryScoutPulse = (actor: Player, x: number, y: number): { ok: boolean; reas
 };
 
 const hasRevealCapability = (player: Player): boolean => {
-  if (player.domainIds.has("crystal-network") || player.domainIds.has("hidden-hand") || player.domainIds.has("oracle-state")) return true;
-  if (player.techIds.has("cryptography") || player.techIds.has("grand-cartography")) return true;
-  return false;
+  return playerHasTechIds(player, ABILITY_DEFS.reveal_empire.requiredTechIds) || getOrInitRevealTargets(player.id).size > 0;
 };
 
 const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: boolean; reason?: string } => {
@@ -3366,13 +4623,13 @@ const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: b
   if (!target) return { ok: false, reason: "target empire not found" };
   if (actor.allies.has(targetPlayerId)) return { ok: false, reason: "cannot reveal allied empire" };
   const reveals = getOrInitRevealTargets(actor.id);
+  if (abilityOnCooldown(actor.id, "reveal_empire")) return { ok: false, reason: "reveal empire is cooling down" };
   if (reveals.has(targetPlayerId)) return { ok: false, reason: "target already revealed" };
-  const capacity = revealCapacityForPlayer(actor);
-  if (reveals.size >= capacity) return { ok: false, reason: `reveal capacity reached (${capacity})` };
+  if (reveals.size >= 1) return { ok: false, reason: "only one revealed empire allowed" };
   const stock = getOrInitStrategicStocks(actor.id);
-  const upfrontCost = REVEAL_EMPIRE_UPKEEP_PER_MIN * getDomainEffectsForPlayer(actor.id).revealUpkeepMult;
-  if ((stock.CRYSTAL ?? 0) < upfrontCost) return { ok: false, reason: "insufficient crystal to activate reveal" };
-  stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - upfrontCost);
+  if ((stock.CRYSTAL ?? 0) < REVEAL_EMPIRE_ACTIVATION_COST) return { ok: false, reason: "insufficient crystal to activate reveal" };
+  stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - REVEAL_EMPIRE_ACTIVATION_COST);
+  reveals.clear();
   reveals.add(targetPlayerId);
   return { ok: true };
 };
@@ -3382,19 +4639,165 @@ const stopRevealEmpire = (actor: Player, targetPlayerId: string): boolean => {
   return reveals.delete(targetPlayerId);
 };
 
+const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!actor.techIds.has("cartography")) return { ok: false, reason: "unlock observatories via Cartography first" };
+  const t = playerTile(x, y);
+  if (t.terrain !== "LAND") return { ok: false, reason: "observatory requires land tile" };
+  if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") return { ok: false, reason: "observatory requires settled owned tile" };
+  const tk = key(t.x, t.y);
+  if (observatoriesByTile.has(tk)) return { ok: false, reason: "tile already has observatory" };
+  if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
+  if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
+  if (economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
+  if (actor.points < OBSERVATORY_BUILD_COST) return { ok: false, reason: "insufficient gold for observatory" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", OBSERVATORY_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for observatory" };
+  actor.points -= OBSERVATORY_BUILD_COST;
+  recalcPlayerDerived(actor);
+  observatoriesByTile.set(tk, {
+    observatoryId: crypto.randomUUID(),
+    ownerId: actor.id,
+    tileKey: tk,
+    status: "active"
+  });
+  recordTileStructureHistory(tk, "OBSERVATORY");
+  return { ok: true };
+};
+
+const trySabotageTile = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.sabotage.requiredTechIds)) return { ok: false, reason: "requires Cryptography" };
+  if (abilityOnCooldown(actor.id, "sabotage")) return { ok: false, reason: "sabotage is cooling down" };
+  const t = playerTile(x, y);
+  if (t.terrain !== "LAND") return { ok: false, reason: "sabotage requires land tile" };
+  if (!t.ownerId || t.ownerId === actor.id || actor.allies.has(t.ownerId)) return { ok: false, reason: "target enemy-controlled town or resource tile" };
+  if (!t.town && !t.resource) return { ok: false, reason: "target must be a town or resource tile" };
+  if (hostileObservatoryProtectingTile(actor, x, y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  const tk = key(t.x, t.y);
+  const current = sabotageByTile.get(tk);
+  if (current && current.endsAt > now()) return { ok: false, reason: "tile already sabotaged" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", SABOTAGE_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for sabotage" };
+  sabotageByTile.set(tk, {
+    targetTileKey: tk,
+    casterPlayerId: actor.id,
+    endsAt: now() + SABOTAGE_DURATION_MS,
+    outputMultiplier: SABOTAGE_OUTPUT_MULT
+  });
+  startAbilityCooldown(actor.id, "sabotage");
+  return { ok: true };
+};
+
+const terrainShapeWouldSealAdjacentOwnedLand = (x: number, y: number): boolean => {
+  const neighbors: Array<[number, number]> = [
+    [x, y - 1],
+    [x + 1, y],
+    [x, y + 1],
+    [x - 1, y]
+  ];
+  for (const [nxRaw, nyRaw] of neighbors) {
+    const nx = wrapX(nxRaw, WORLD_WIDTH);
+    const ny = wrapY(nyRaw, WORLD_HEIGHT);
+    const neighbor = playerTile(nx, ny);
+    if (!neighbor.ownerId || neighbor.terrain !== "LAND") continue;
+    const exits: Array<[number, number]> = [
+      [nx, ny - 1],
+      [nx + 1, ny],
+      [nx, ny + 1],
+      [nx - 1, ny]
+    ];
+    let hasLandExit = false;
+    for (const [exRaw, eyRaw] of exits) {
+      const ex = wrapX(exRaw, WORLD_WIDTH);
+      const ey = wrapY(eyRaw, WORLD_HEIGHT);
+      if (ex === wrapX(x, WORLD_WIDTH) && ey === wrapY(y, WORLD_HEIGHT)) continue;
+      if (terrainAtRuntime(ex, ey) === "LAND") {
+        hasLandExit = true;
+        break;
+      }
+    }
+    if (!hasLandExit) return true;
+  }
+  return false;
+};
+
+const tryCreateMountain = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.create_mountain.requiredTechIds)) return { ok: false, reason: "requires Terrain Engineering" };
+  if (abilityOnCooldown(actor.id, "create_mountain")) return { ok: false, reason: "create mountain is cooling down" };
+  const t = playerTile(x, y);
+  const tk = key(t.x, t.y);
+  if (t.terrain !== "LAND") return { ok: false, reason: "target must be land" };
+  if (!hasOwnedLandWithinRange(actor.id, t.x, t.y, TERRAIN_SHAPING_RANGE)) return { ok: false, reason: "target must be within 2 tiles of your land" };
+  if (combatLocks.has(tk)) return { ok: false, reason: "tile locked in combat" };
+  if (hostileObservatoryProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (townsByTile.has(tk)) return { ok: false, reason: "cannot create mountain on town tile" };
+  if (docksByTile.has(tk)) return { ok: false, reason: "cannot create mountain on dock tile" };
+  if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) {
+    return { ok: false, reason: "cannot create mountain on structured tile" };
+  }
+  if (!terrainShapeWithinPlayerDensity(t.x, t.y)) return { ok: false, reason: "too many created mountains nearby" };
+  if (terrainShapeWouldSealAdjacentOwnedLand(t.x, t.y)) return { ok: false, reason: "would seal a nearby owned tile" };
+  if (actor.points < TERRAIN_SHAPING_GOLD_COST) return { ok: false, reason: "insufficient gold for create mountain" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for create mountain" };
+
+  actor.points -= TERRAIN_SHAPING_GOLD_COST;
+  startAbilityCooldown(actor.id, "create_mountain");
+  const previousOwnerId = t.ownerId;
+  if (previousOwnerId) updateOwnership(t.x, t.y, undefined);
+  else tileYieldByTile.delete(tk);
+  terrainShapesByTile.set(tk, { terrain: "MOUNTAIN", createdByPlayer: true });
+  recordMountainShapeHistory(tk, "created");
+  recalcPlayerDerived(actor);
+  if (previousOwnerId && previousOwnerId !== actor.id) {
+    const previousOwner = players.get(previousOwnerId);
+    if (previousOwner) {
+      recalcPlayerDerived(previousOwner);
+      resolveEliminationIfNeeded(previousOwner, socketsByPlayer.has(previousOwner.id));
+      sendPlayerUpdate(previousOwner, 0);
+    }
+  }
+  resolveEliminationIfNeeded(actor, socketsByPlayer.has(actor.id));
+  return { ok: true };
+};
+
+const tryRemoveMountain = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.remove_mountain.requiredTechIds)) return { ok: false, reason: "requires Terrain Engineering" };
+  if (abilityOnCooldown(actor.id, "remove_mountain")) return { ok: false, reason: "remove mountain is cooling down" };
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const tk = key(wx, wy);
+  if (terrainAtRuntime(wx, wy) !== "MOUNTAIN") return { ok: false, reason: "target must be mountain" };
+  if (!hasOwnedLandWithinRange(actor.id, wx, wy, TERRAIN_SHAPING_RANGE)) return { ok: false, reason: "target must be within 2 tiles of your land" };
+  if (combatLocks.has(tk)) return { ok: false, reason: "tile locked in combat" };
+  if (hostileObservatoryProtectingTile(actor, wx, wy)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (actor.points < TERRAIN_SHAPING_GOLD_COST) return { ok: false, reason: "insufficient gold for remove mountain" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for remove mountain" };
+
+  actor.points -= TERRAIN_SHAPING_GOLD_COST;
+  startAbilityCooldown(actor.id, "remove_mountain");
+  const originalTerrain = terrainAt(wx, wy);
+  if (originalTerrain === "MOUNTAIN") terrainShapesByTile.set(tk, { terrain: "LAND", createdByPlayer: false });
+  else terrainShapesByTile.delete(tk);
+  tileYieldByTile.delete(tk);
+  recordMountainShapeHistory(tk, "removed");
+  recalcPlayerDerived(actor);
+  return { ok: true };
+};
+
 const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  const effects = getPlayerEffectsForPlayer(actor.id);
+  if (!effects.unlockForts) return { ok: false, reason: "unlock forts via Masonry first" };
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "fort requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "fort tile must be owned" };
   const tk = key(t.x, t.y);
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already fortified" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
+  if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
   const dock = docksByTile.get(tk);
   if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
   if (countPlayerForts(actor.id) >= FORT_MAX_PER_PLAYER) return { ok: false, reason: "fort cap reached" };
-  if (actor.points < FORT_BUILD_COST) return { ok: false, reason: "insufficient gold for fort" };
+  const goldCost = Math.ceil(FORT_BUILD_COST * effects.fortBuildGoldCostMult);
+  if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fort" };
   if (!consumeStrategicResource(actor, "IRON", FORT_BUILD_IRON_COST)) return { ok: false, reason: "insufficient IRON for fort" };
-  actor.points -= FORT_BUILD_COST;
+  actor.points -= goldCost;
   recalcPlayerDerived(actor);
   const fort: Fort = {
     fortId: crypto.randomUUID(),
@@ -3405,6 +4808,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
     completesAt: now() + FORT_BUILD_MS
   };
   fortsByTile.set(tk, fort);
+  recordTileStructureHistory(tk, "FORT");
   const timer = setTimeout(() => {
     const current = fortsByTile.get(tk);
     if (!current) return;
@@ -3423,12 +4827,15 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
 };
 
 const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  const effects = getPlayerEffectsForPlayer(actor.id);
+  if (!effects.unlockSiegeOutposts) return { ok: false, reason: "unlock siege outposts via Leatherworking first" };
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "siege outpost requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "siege outpost tile must be owned" };
   const tk = key(t.x, t.y);
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
+  if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
   if (!isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile" };
   if (countPlayerSiegeOutposts(actor.id) >= SIEGE_OUTPOST_MAX_PER_PLAYER) return { ok: false, reason: "siege outpost cap reached" };
   if (actor.points < SIEGE_OUTPOST_BUILD_COST) return { ok: false, reason: "insufficient gold for siege outpost" };
@@ -3445,6 +4852,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
     completesAt: now() + SIEGE_OUTPOST_BUILD_MS
   };
   siegeOutpostsByTile.set(tk, siegeOutpost);
+  recordTileStructureHistory(tk, "SIEGE_OUTPOST");
   const timer = setTimeout(() => {
     const current = siegeOutpostsByTile.get(tk);
     if (!current) return;
@@ -3489,13 +4897,26 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
       cancelFortBuild(k);
       fortsByTile.delete(k);
     }
+    observatoriesByTile.delete(k);
+    const economic = economicStructuresByTile.get(k);
     const siege = siegeOutpostsByTile.get(k);
     if (siege) {
       cancelSiegeOutpostBuild(k);
       siegeOutpostsByTile.delete(k);
     }
+    sabotageByTile.delete(k);
     defensiveFortifyByTile.delete(k);
     breachShockByTile.delete(k);
+    settlementDefenseByTile.delete(k);
+    if (economic) {
+      if (newOwner) {
+        economic.ownerId = newOwner;
+        economic.isActive = false;
+        economic.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
+      } else {
+        economicStructuresByTile.delete(k);
+      }
+    }
   }
 
   if (newOwner) {
@@ -3507,10 +4928,15 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   } else {
     ownership.delete(k);
     ownershipStateByTile.delete(k);
+    observatoriesByTile.delete(k);
+    economicStructuresByTile.delete(k);
+    sabotageByTile.delete(k);
     breachShockByTile.delete(k);
+    settlementDefenseByTile.delete(k);
   }
   if (oldOwner !== newOwner) {
     tileYieldByTile.delete(k);
+    if (oldOwner && newOwner) recordTileCaptureHistory(k, oldOwner, newOwner);
   }
 
   if (oldOwner) {
@@ -3537,21 +4963,36 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     const p = players.get(pid);
     if (!p) continue;
     recomputeExposure(p);
+    reconcileCapitalForPlayer(p);
   }
 
-  for (const p of players.values()) {
-    if (!tileInSubscription(p.id, t.x, t.y)) continue;
-    if (!visible(p, t.x, t.y)) continue;
-    const current = playerTile(t.x, t.y);
-    current.fogged = false;
-    sendToPlayer(p.id, {
-      type: "TILE_DELTA",
-      updates: [current]
-    });
-  }
+  sendVisibleTileDeltaAt(t.x, t.y);
 };
 
 const spawnPlayer = (p: Player): void => {
+  const hasNearbyTown = (x: number, y: number, radius: number): boolean => {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
+        if (townsByTile.has(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)))) return true;
+      }
+    }
+    return false;
+  };
+  const hasNearbyFood = (x: number, y: number, radius: number): boolean => {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
+        const tk = key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
+        const clusterId = clusterByTile.get(tk);
+        const cluster = clusterId ? clustersById.get(clusterId) : undefined;
+        if (!cluster) continue;
+        const resource = clusterResourceType(cluster);
+        if (resource === "FARM" || resource === "FISH") return true;
+      }
+    }
+    return false;
+  };
   const trySpawnAt = (x: number, y: number): boolean => {
     const t = playerTile(x, y);
     if (t.terrain !== "LAND") return false;
@@ -3559,12 +5000,24 @@ const spawnPlayer = (p: Player): void => {
     if (owner && owner !== BARBARIAN_OWNER_ID) return false;
     updateOwnership(x, y, p.id, "SETTLED");
     p.spawnOrigin = key(x, y);
+    p.capitalTileKey = key(x, y);
+    sendVisibleTileDeltaAt(x, y);
     p.spawnShieldUntil = now() + 120_000;
     p.isEliminated = false;
     p.respawnPending = false;
     app.log.info({ playerId: p.id, x, y }, "spawned player");
     return true;
   };
+
+  for (let i = 0; i < 8000; i += 1) {
+    const x = Math.floor(Math.random() * WORLD_WIDTH);
+    const y = Math.floor(Math.random() * WORLD_HEIGHT);
+    const t = playerTile(x, y);
+    if (t.terrain !== "LAND" || t.ownerId) continue;
+    if (!hasNearbyTown(x, y, 15)) continue;
+    if (!hasNearbyFood(x, y, 15)) continue;
+    if (trySpawnAt(x, y)) return;
+  }
 
   for (let i = 0; i < 5000; i += 1) {
     const x = Math.floor(Math.random() * WORLD_WIDTH);
@@ -3645,6 +5098,7 @@ const rebuildOwnershipDerivedState = (): void => {
 
   for (const p of players.values()) {
     recomputeExposure(p);
+    reconcileCapitalForPlayer(p);
     updateMissionState(p);
   }
   for (const agent of [...barbarianAgents.values()]) {
@@ -3664,6 +5118,107 @@ const playerHomeTile = (p: Player): { x: number; y: number } | undefined => {
   return { x, y };
 };
 
+const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefined => {
+  let player = players.get(identity.playerId);
+  if (!player) player = [...players.values()].find((p) => p.name === identity.name);
+  if (!player) {
+    player = {
+      id: crypto.randomUUID(),
+      name: identity.name,
+      profileComplete: false,
+      points: STARTING_GOLD,
+      level: 0,
+      techIds: new Set<string>(),
+      domainIds: new Set<string>(),
+      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+      powerups: {},
+      tileColor: colorFromId(identity.name),
+      missions: [],
+      missionStats: defaultMissionStats(),
+      territoryTiles: new Set<TileKey>(),
+      T: 0,
+      E: 0,
+      Ts: 0,
+      Es: 0,
+      stamina: STAMINA_MAX,
+      staminaUpdatedAt: now(),
+      allies: new Set<string>(),
+      spawnShieldUntil: now() + 120_000,
+      isEliminated: false,
+      respawnPending: false,
+      lastActiveAt: now()
+    };
+    players.set(player.id, player);
+    identity.playerId = player.id;
+    playerBaseMods.set(player.id, { attack: 1, defense: 1, income: 1, vision: 1 });
+    strategicResourceStockByPlayer.set(player.id, emptyStrategicStocks());
+    strategicResourceBufferByPlayer.set(player.id, emptyStrategicStocks());
+    dynamicMissionsByPlayer.set(player.id, []);
+    forcedRevealTilesByPlayer.set(player.id, new Set<TileKey>());
+    revealedEmpireTargetsByPlayer.set(player.id, new Set<string>());
+    playerEffectsByPlayer.set(player.id, emptyPlayerEffects());
+    spawnPlayer(player);
+  }
+  if (!player) return undefined;
+  if (!(player.domainIds instanceof Set)) {
+    (player as unknown as { domainIds: Set<string> }).domainIds = new Set<string>();
+  }
+  normalizePlayerProgressionState(player);
+  if (player.T <= 0 || player.territoryTiles.size === 0) {
+    spawnPlayer(player);
+  }
+  if (!player.tileColor) {
+    player.tileColor = colorFromId(player.id);
+  }
+  if (player.name !== identity.name) {
+    player.name = identity.name;
+  }
+  recomputePlayerEffectsForPlayer(player);
+  ensureMissionDefaults(player);
+  updateMissionState(player);
+  return player;
+};
+
+const getOrInitTileHistory = (tileKey: TileKey): TileHistoryState => {
+  let history = tileHistoryByTile.get(tileKey);
+  if (!history) {
+    history = {
+      previousOwners: [],
+      captureCount: 0,
+      structureHistory: []
+    };
+    tileHistoryByTile.set(tileKey, history);
+  }
+  return history;
+};
+
+const pushRollingUnique = (items: string[], value: string, cap: number): void => {
+  if (items[items.length - 1] !== value) items.push(value);
+  while (items.length > cap) items.shift();
+};
+
+const recordTileCaptureHistory = (tileKey: TileKey, oldOwner: string, newOwner: string): void => {
+  if (!oldOwner || !newOwner || oldOwner === newOwner) return;
+  const history = getOrInitTileHistory(tileKey);
+  history.lastOwnerId = oldOwner;
+  pushRollingUnique(history.previousOwners, oldOwner, 5);
+  history.captureCount += 1;
+  history.lastCapturedAt = now();
+};
+
+const recordTileStructureHistory = (tileKey: TileKey, structureType: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType): void => {
+  const history = getOrInitTileHistory(tileKey);
+  history.lastStructureType = structureType;
+  history.structureHistory.push(structureType);
+  while (history.structureHistory.length > 5) history.structureHistory.shift();
+};
+
+const recordMountainShapeHistory = (tileKey: TileKey, kind: "created" | "removed"): void => {
+  const history = getOrInitTileHistory(tileKey);
+  if (kind === "created") history.wasMountainCreatedByPlayer = true;
+  if (kind === "removed") history.wasMountainRemovedByPlayer = true;
+};
+
 const saveSnapshot = (): void => {
   fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
   const payload = {
@@ -3672,11 +5227,15 @@ const saveSnapshot = (): void => {
     ownership: [...ownership.entries()],
     ownershipState: [...ownershipStateByTile.entries()],
     barbarianAgents: [...barbarianAgents.values()],
-    passwords: [...passwordByName.entries()],
+    authIdentities: [...authIdentityByUid.values()],
     resources: [...resourceCountsByPlayer.entries()],
     strategicResources: [...strategicResourceStockByPlayer.entries()],
     strategicResourceBuffer: [...strategicResourceBufferByPlayer.entries()],
     tileYield: [...tileYieldByTile.entries()],
+    tileHistory: [...tileHistoryByTile.entries()],
+    terrainShapes: [...terrainShapesByTile.entries()],
+    victoryPressure: [...victoryPressureById.entries()],
+    frontierSettlements: [...frontierSettlementsByPlayer.entries()],
     dynamicMissions: [...dynamicMissionsByPlayer.entries()],
     temporaryAttackBuffUntil: [...temporaryAttackBuffUntilByPlayer.entries()],
     temporaryIncomeBuff: [...temporaryIncomeBuffUntilByPlayer.entries()],
@@ -3684,7 +5243,11 @@ const saveSnapshot = (): void => {
     revealedEmpireTargets: [...revealedEmpireTargetsByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
     allianceRequests: [...allianceRequests.values()],
     forts: [...fortsByTile.values()],
+    observatories: [...observatoriesByTile.values()],
     siegeOutposts: [...siegeOutpostsByTile.values()],
+    economicStructures: [...economicStructuresByTile.values()],
+    sabotage: [...sabotageByTile.values()],
+    abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
     docks: [...dockById.values()],
     towns: [...townsByTile.values()],
     firstSpecialSiteCaptureClaimed: [...firstSpecialSiteCaptureClaimed],
@@ -3717,11 +5280,15 @@ const loadSnapshot = (): void => {
     ownership: [TileKey, string][];
     ownershipState?: [TileKey, OwnershipState][];
     barbarianAgents?: BarbarianAgent[];
-    passwords: [string, string][];
+    authIdentities?: AuthIdentity[];
     resources: [string, Record<ResourceType, number>][];
     strategicResources?: [string, Record<StrategicResource, number>][];
     strategicResourceBuffer?: [string, Record<StrategicResource, number>][];
     tileYield?: [TileKey, TileYieldBuffer][];
+    tileHistory?: [TileKey, TileHistoryState][];
+    terrainShapes?: [TileKey, TerrainShapeState][];
+    victoryPressure?: [VictoryPressureObjectiveId, VictoryPressureTracker][];
+    frontierSettlements?: [string, number[]][];
     dynamicMissions?: [string, DynamicMissionDef[]][];
     temporaryAttackBuffUntil?: [string, number][];
     temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
@@ -3729,7 +5296,11 @@ const loadSnapshot = (): void => {
     revealedEmpireTargets?: [string, string[]][];
     allianceRequests?: AllianceRequest[];
     forts?: Fort[];
+    observatories?: Observatory[];
     siegeOutposts?: SiegeOutpost[];
+    economicStructures?: EconomicStructure[];
+    sabotage?: ActiveSabotage[];
+    abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
     docks?: Dock[];
     towns?: TownDefinition[];
     firstSpecialSiteCaptureClaimed?: TileKey[];
@@ -3756,7 +5327,7 @@ const loadSnapshot = (): void => {
   for (const agent of raw.barbarianAgents ?? []) {
     upsertBarbarianAgent(agent);
   }
-  for (const [n, p] of raw.passwords) passwordByName.set(n, p);
+  for (const identity of raw.authIdentities ?? []) authIdentityByUid.set(identity.uid, identity);
   for (const [pid, c] of raw.resources) {
     resourceCountsByPlayer.set(pid, {
       FARM: c.FARM ?? 0,
@@ -3776,6 +5347,31 @@ const loadSnapshot = (): void => {
       SUPPLY: c.SUPPLY ?? legacy.STONE ?? 0,
       SHARD: c.SHARD ?? 0
     });
+  }
+  for (const [tk, history] of raw.tileHistory ?? []) {
+    const normalized: TileHistoryState = {
+      previousOwners: [...(history.previousOwners ?? [])].slice(-5),
+      captureCount: history.captureCount ?? 0,
+      structureHistory: [...(history.structureHistory ?? [])].slice(-5)
+    };
+    if (history.lastOwnerId !== undefined) normalized.lastOwnerId = history.lastOwnerId;
+    if (history.lastCapturedAt !== undefined) normalized.lastCapturedAt = history.lastCapturedAt;
+    if (history.lastStructureType !== undefined) normalized.lastStructureType = history.lastStructureType;
+    if (history.wasMountainCreatedByPlayer !== undefined) normalized.wasMountainCreatedByPlayer = history.wasMountainCreatedByPlayer;
+    if (history.wasMountainRemovedByPlayer !== undefined) normalized.wasMountainRemovedByPlayer = history.wasMountainRemovedByPlayer;
+    tileHistoryByTile.set(tk, normalized);
+  }
+  for (const [tk, shape] of raw.terrainShapes ?? []) {
+    terrainShapesByTile.set(tk, shape);
+  }
+  for (const [objectiveId, tracker] of raw.victoryPressure ?? []) {
+    const normalized: VictoryPressureTracker = {};
+    if (tracker.leaderPlayerId !== undefined) normalized.leaderPlayerId = tracker.leaderPlayerId;
+    if (tracker.holdStartedAt !== undefined) normalized.holdStartedAt = tracker.holdStartedAt;
+    victoryPressureById.set(objectiveId, normalized);
+  }
+  for (const [playerId, timestamps] of raw.frontierSettlements ?? []) {
+    frontierSettlementsByPlayer.set(playerId, [...timestamps]);
   }
   for (const [pid, c] of raw.strategicResourceBuffer ?? []) {
     const legacy = c as Record<string, number>;
@@ -3817,7 +5413,13 @@ const loadSnapshot = (): void => {
   }
   for (const request of raw.allianceRequests ?? []) allianceRequests.set(request.id, request);
   for (const f of raw.forts ?? []) fortsByTile.set(f.tileKey, f);
+  for (const observatory of raw.observatories ?? []) observatoriesByTile.set(observatory.tileKey, observatory);
   for (const s of raw.siegeOutposts ?? []) siegeOutpostsByTile.set(s.tileKey, s);
+  for (const structure of raw.economicStructures ?? []) economicStructuresByTile.set(structure.tileKey, structure);
+  for (const sabotage of raw.sabotage ?? []) sabotageByTile.set(sabotage.targetTileKey, sabotage);
+  for (const [pid, entries] of raw.abilityCooldowns ?? []) {
+    abilityCooldownsByPlayer.set(pid, new Map(entries));
+  }
   for (const d of raw.docks ?? []) {
     docksByTile.set(d.tileKey, d);
     dockById.set(d.dockId, d);
@@ -3834,9 +5436,14 @@ const loadSnapshot = (): void => {
       activeNodeIds: new Set(raw.seasonTechConfig.activeNodeIds)
     };
   }
+  if (!seasonTechConfigIsCompatible(activeSeasonTechConfig)) {
+    activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
+    activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
+  }
   for (const p of raw.players) {
     const hydrated: Player = {
       ...p,
+      profileComplete: p.profileComplete ?? true,
       Ts: p.Ts ?? 0,
       Es: p.Es ?? 0,
       techIds: new Set(p.techIds),
@@ -3847,6 +5454,7 @@ const loadSnapshot = (): void => {
       missionStats: p.missionStats ?? defaultMissionStats()
     };
     ensureMissionDefaults(hydrated);
+    normalizePlayerProgressionState(hydrated);
     players.set(p.id, hydrated);
     playerBaseMods.set(hydrated.id, {
       attack: hydrated.mods.attack,
@@ -3854,7 +5462,7 @@ const loadSnapshot = (): void => {
       income: hydrated.mods.income,
       vision: hydrated.mods.vision
     });
-    recomputeDomainEffectsForPlayer(hydrated);
+    recomputePlayerEffectsForPlayer(hydrated);
   }
   if (barbarianAgents.size === 0) {
     for (const [tk, ownerId] of ownership.entries()) {
@@ -3931,7 +5539,7 @@ for (const p of players.values()) {
     });
   }
   if (!revealedEmpireTargetsByPlayer.has(p.id)) revealedEmpireTargetsByPlayer.set(p.id, new Set<string>());
-  if (!domainEffectsByPlayer.has(p.id)) recomputeDomainEffectsForPlayer(p);
+  if (!playerEffectsByPlayer.has(p.id)) recomputePlayerEffectsForPlayer(p);
 }
 rebuildOwnershipDerivedState();
 for (const p of players.values()) recomputeTechModsFromOwnedTechs(p);
@@ -3994,13 +5602,22 @@ const registerInterval = (fn: () => void, ms: number): void => {
   runtimeIntervals.push(setInterval(fn, ms));
 };
 
-registerInterval(saveSnapshot, 30_000);
+let lastSnapshotAt = 0;
+registerInterval(() => {
+  const nowMs = now();
+  if (!hasOnlinePlayers() && nowMs - lastSnapshotAt < IDLE_SNAPSHOT_INTERVAL_MS) return;
+  saveSnapshot();
+  lastSnapshotAt = nowMs;
+}, 30_000);
 registerInterval(runBarbarianTick, 1_000);
 registerInterval(maintainBarbarianPopulation, BARBARIAN_MAINTENANCE_INTERVAL_MS);
 
 registerInterval(() => {
   for (const [tk, shock] of breachShockByTile) {
     if (shock.expiresAt <= now()) breachShockByTile.delete(tk);
+  }
+  for (const [tk, defense] of settlementDefenseByTile) {
+    if (defense.expiresAt <= now()) settlementDefenseByTile.delete(tk);
   }
   for (const [tk, buff] of defensiveFortifyByTile) {
     if (buff.expiresAt <= now() || buff.consumed) defensiveFortifyByTile.delete(tk);
@@ -4014,46 +5631,70 @@ registerInterval(() => {
   for (const [pid, buff] of temporaryIncomeBuffUntilByPlayer) {
     if (buff.until <= now()) temporaryIncomeBuffUntilByPlayer.delete(pid);
   }
+  for (const [tk, sabotage] of sabotageByTile) {
+    if (sabotage.endsAt > now()) continue;
+    sabotageByTile.delete(tk);
+    const [sx, sy] = parseKey(tk);
+    for (const p of players.values()) {
+      if (!tileInSubscription(p.id, sx, sy)) continue;
+      if (!visible(p, sx, sy)) continue;
+      const current = playerTile(sx, sy);
+      current.fogged = false;
+      sendToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
+    }
+  }
+  for (const [pid, cooldowns] of abilityCooldownsByPlayer) {
+    for (const [abilityId, until] of cooldowns) {
+      if (until <= now()) cooldowns.delete(abilityId);
+    }
+    if (cooldowns.size === 0) abilityCooldownsByPlayer.delete(pid);
+  }
   for (const [pid, missions] of dynamicMissionsByPlayer) {
     dynamicMissionsByPlayer.set(
       pid,
       missions.filter((m) => m.expiresAt > now() || m.rewarded)
     );
   }
+  if (!hasOnlinePlayers()) return;
   for (const p of players.values()) {
     if (now() - p.lastActiveAt > OFFLINE_YIELD_ACCUM_MAX_MS) {
-      sendPlayerUpdate(p, 0);
       continue;
     }
     applyStaminaRegen(p);
+    const economicTouched = syncEconomicStructuresForPlayer(p);
     const settledTiles = [...p.territoryTiles].filter((tk) => ownershipStateByTile.get(tk) === "SETTLED");
+    const capitalTileKey = isValidCapitalTile(p, p.capitalTileKey) ? p.capitalTileKey : undefined;
     if (settledTiles.length > 0) {
       for (const tk of settledTiles) {
         const [x, y] = parseKey(tk);
         const t = playerTile(x, y);
         if (t.ownerId !== p.id || t.terrain !== "LAND" || t.ownershipState !== "SETTLED") continue;
         let goldDelta = 0;
-        if (t.resource) goldDelta += resourceRate[t.resource] * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+        const sabotageMult = sabotageMultiplierAt(tk);
+        if (capitalTileKey === tk) goldDelta += BASE_GOLD_PER_MIN;
+        if (t.resource) goldDelta += resourceRate[t.resource] * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
         if (docksByTile.has(tk)) goldDelta += DOCK_INCOME_PER_MIN * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
         const town = townsByTile.get(tk);
-        if (town) goldDelta += townIncomeForOwner(town, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+        if (town) goldDelta += townIncomeForOwner(town, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
         const strategic: Partial<Record<StrategicResource, number>> = {};
         const sr = toStrategicResource(t.resource);
         if (sr) {
           const mult = t.resource ? activeResourceIncomeMult(p.id, t.resource) : 1;
           const daily = t.resource ? (strategicDailyFromResource[t.resource] ?? 0) : 0;
-          strategic[sr] = (daily * mult) * HARVEST_RESOURCE_RATE_MULT;
+          strategic[sr] = daily * mult * HARVEST_RESOURCE_RATE_MULT * sabotageMult;
         }
         if (town?.type === "ANCIENT") {
-          strategic.SHARD = (strategic.SHARD ?? 0) + strategicResourceRates.SHARD * HARVEST_RESOURCE_RATE_MULT;
+          strategic.SHARD =
+            (strategic.SHARD ?? 0) + strategicResourceRates.SHARD * getPlayerEffectsForPlayer(p.id).resourceOutputMult.SHARD * HARVEST_RESOURCE_RATE_MULT;
         }
         const hasStrategic = (Object.values(strategic) as number[]).some((v) => v > 0);
         if (goldDelta > 0 || hasStrategic) addTileYield(tk, goldDelta, strategic);
       }
     }
     const upkeepResult = applyUpkeepForPlayer(p);
-    if (upkeepResult.touchedTileKeys.size > 0) {
-      const updates = [...upkeepResult.touchedTileKeys].map((tk) => {
+    const touchedTileKeys = new Set<TileKey>([...economicTouched, ...upkeepResult.touchedTileKeys]);
+    if (touchedTileKeys.size > 0) {
+      const updates = [...touchedTileKeys].map((tk) => {
         const [x, y] = parseKey(tk);
         return playerTile(x, y);
       });
@@ -4062,6 +5703,7 @@ registerInterval(() => {
     updateMissionState(p);
     sendPlayerUpdate(p, 0);
   }
+  evaluateVictoryPressure();
 }, 60_000);
 
 if (SEASONS_ENABLED) {
@@ -4071,6 +5713,7 @@ if (SEASONS_ENABLED) {
 }
 
 const app = Fastify({ logger: true });
+await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
 app.get("/health", async () => ({ ok: true }));
@@ -4099,7 +5742,7 @@ app.get("/admin/telemetry", async () => {
   return {
     ok: true,
     at: now(),
-    onlinePlayers: socketsByPlayer.size,
+    onlinePlayers: onlineSocketCount(),
     totalPlayers: players.size,
     activeTowns,
     avgTownSupportRatio: supportCount > 0 ? supportSum / supportCount : 0,
@@ -4132,7 +5775,7 @@ app.post("/admin/world/regenerate", async () => {
   }
   let authedPlayer: Player | undefined;
 
-  socket.on("message", (buf: import("ws").RawData) => {
+  socket.on("message", async (buf: import("ws").RawData) => {
     let raw: unknown;
     try {
       raw = JSON.parse(buf.toString());
@@ -4149,76 +5792,47 @@ app.post("/admin/world/regenerate", async () => {
     const msg = parsed.data as import("@border-empires/shared").ClientMessage;
 
     if (msg.type === "AUTH") {
-      const [name, password] = msg.token.split(":");
-      if (!name || !password) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FORMAT", message: "token must be name:password" }));
-        return;
-      }
-
-      const existing = passwordByName.get(name);
-      if (existing && existing !== password) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FAIL", message: "wrong password" }));
-        return;
-      }
-      if (!existing) passwordByName.set(name, password);
-
-      let player = [...players.values()].find((p) => p.name === name);
-      if (!player) {
-        player = {
-          id: crypto.randomUUID(),
-          name,
-          points: STARTING_GOLD,
-          level: 0,
-          techIds: new Set<string>(),
-          domainIds: new Set<string>(),
-          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-          powerups: {},
-          tileColor: colorFromId(name),
-          missions: [],
-          missionStats: defaultMissionStats(),
-          territoryTiles: new Set<TileKey>(),
-          T: 0,
-          E: 0,
-          Ts: 0,
-          Es: 0,
-          stamina: STAMINA_MAX,
-          staminaUpdatedAt: now(),
-          allies: new Set<string>(),
-          spawnShieldUntil: now() + 120_000,
-          isEliminated: false,
-          respawnPending: false,
-          lastActiveAt: now()
+      let decoded: { uid: string; email?: string | undefined; name?: string | undefined };
+      try {
+        const verified = await jwtVerify(msg.token, firebaseJwks, {
+          issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+          audience: FIREBASE_PROJECT_ID
+        });
+        decoded = {
+          uid: String(verified.payload.user_id ?? verified.payload.sub ?? ""),
+          email: typeof verified.payload.email === "string" ? verified.payload.email : undefined,
+          name: typeof verified.payload.name === "string" ? verified.payload.name : undefined
         };
-        players.set(player.id, player);
-        playerBaseMods.set(player.id, { attack: 1, defense: 1, income: 1, vision: 1 });
-        strategicResourceStockByPlayer.set(player.id, emptyStrategicStocks());
-        strategicResourceBufferByPlayer.set(player.id, emptyStrategicStocks());
-        dynamicMissionsByPlayer.set(player.id, []);
-        forcedRevealTilesByPlayer.set(player.id, new Set<TileKey>());
-        revealedEmpireTargetsByPlayer.set(player.id, new Set<string>());
-        domainEffectsByPlayer.set(player.id, { revealUpkeepMult: 1, revealCapacityBonus: 0 });
-        spawnPlayer(player);
+      } catch {
+        socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FAIL", message: "Firebase token verification failed." }));
+        return;
       }
-      if (!(player.domainIds instanceof Set)) {
-        (player as unknown as { domainIds: Set<string> }).domainIds = new Set<string>();
+      if (!decoded.uid) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FAIL", message: "Firebase token missing user id." }));
+        return;
       }
-      if (player.T <= 0 || player.territoryTiles.size === 0) {
-        spawnPlayer(player);
+      const preferredName = decoded.name || decoded.email?.split("@")[0] || `Empire-${decoded.uid.slice(0, 6)}`;
+      const existingIdentity = authIdentityByUid.get(decoded.uid);
+      const identity: AuthIdentity = existingIdentity ?? {
+        uid: decoded.uid,
+        playerId: "",
+        name: uniquePlayerName(decoded.uid, preferredName),
+        email: decoded.email
+      };
+      if (!existingIdentity) {
+        authIdentityByUid.set(decoded.uid, identity);
+      } else {
+        identity.email = decoded.email;
       }
-      if (!player.tileColor) {
-        player.tileColor = colorFromId(player.id);
-      }
-      recomputeDomainEffectsForPlayer(player);
-      ensureMissionDefaults(player);
-      updateMissionState(player);
+      const player = getOrCreatePlayerForIdentity(identity);
       if (!player) {
         socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FAIL", message: "player initialization failed" }));
         return;
       }
 
       authedPlayer = player;
-      tokenToPlayerId.set(msg.token, player.id);
       socketsByPlayer.set(player.id, socket);
+      resumeVictoryPressureTimers();
       const strategicStocks = getOrInitStrategicStocks(player.id);
       const strategicProduction = strategicProductionPerMinute(player);
       const dockPairs = exportDockPairs();
@@ -4228,6 +5842,7 @@ app.post("/admin/world/regenerate", async () => {
           player: {
             id: player.id,
             name: player.name,
+            profileNeedsSetup: player.profileComplete !== true,
             gold: player.points,
             points: player.points,
             level: player.level,
@@ -4245,10 +5860,12 @@ app.post("/admin/world/regenerate", async () => {
             domainIds: [...player.domainIds],
             allies: [...player.allies],
             tileColor: player.tileColor,
+            visualStyle: empireStyleFromPlayer(player),
             homeTile: playerHomeTile(player),
             availableTechPicks: availableTechPicks(player),
             revealCapacity: revealCapacityForPlayer(player),
-            activeRevealTargets: [...getOrInitRevealTargets(player.id)]
+            activeRevealTargets: [...getOrInitRevealTargets(player.id)],
+            abilityCooldowns: Object.fromEntries(getAbilityCooldowns(player.id))
           },
           config: {
             width: WORLD_WIDTH,
@@ -4273,6 +5890,7 @@ app.post("/admin/world/regenerate", async () => {
           playerStyles: exportPlayerStyles(),
           missions: missionPayload(player),
           leaderboard: leaderboardSnapshot(player),
+          victoryPressure: currentVictoryPressureObjectives(),
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id)
         })
       );
@@ -4293,7 +5911,28 @@ app.post("/admin/world/regenerate", async () => {
 
     if (msg.type === "SET_TILE_COLOR") {
       actor.tileColor = msg.color;
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor });
+      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
+      return;
+    }
+
+    if (msg.type === "SET_PROFILE") {
+      const displayName = normalizedPlayerHandle(msg.displayName);
+      if (displayName.length < 2) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "BAD_PROFILE", message: "Display name must be at least 2 characters." }));
+        return;
+      }
+      actor.name = claimPlayerName(actor.id, displayName);
+      actor.tileColor = msg.color;
+      actor.profileComplete = true;
+      for (const identity of authIdentityByUid.values()) {
+        if (identity.playerId === actor.id) {
+          identity.name = actor.name;
+          break;
+        }
+      }
+      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
+      sendPlayerUpdate(actor, 0);
+      refreshSubscribedViewForPlayer(actor.id);
       return;
     }
 
@@ -4318,44 +5957,6 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
-    if (msg.type === "RAPID_SETTLE") {
-      const out = startSettlement(actor, msg.x, msg.y, {
-        goldCost: RAPID_SETTLE_GOLD_COST,
-        settleMs: RAPID_SETTLE_MS,
-        foodCost: RAPID_SETTLE_FOOD_COST,
-        rapid: true
-      });
-      if (!out.ok) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "RAPID_SETTLE_INVALID", message: out.reason }));
-        return;
-      }
-      socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: msg.x, y: msg.y }, target: { x: msg.x, y: msg.y }, resolvesAt: out.resolvesAt }));
-      sendPlayerUpdate(actor, 0);
-      return;
-    }
-
-    if (msg.type === "DEFENSIVE_FORTIFY") {
-      const out = tryDefensiveFortify(actor, msg.x, msg.y);
-      if (!out.ok) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "DEFENSIVE_FORTIFY_INVALID", message: out.reason }));
-        return;
-      }
-      updateOwnership(msg.x, msg.y, actor.id);
-      sendPlayerUpdate(actor, 0);
-      return;
-    }
-
-    if (msg.type === "SCOUT_PULSE") {
-      const out = tryScoutPulse(actor, msg.x, msg.y);
-      if (!out.ok) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "SCOUT_PULSE_INVALID", message: out.reason }));
-        return;
-      }
-      socket.send(JSON.stringify({ type: "SCOUT_PULSE_OK", x: msg.x, y: msg.y, expiresAt: now() + SCOUT_PULSE_MS }));
-      sendPlayerUpdate(actor, 0);
-      return;
-    }
-
     if (msg.type === "REVEAL_EMPIRE") {
       const out = tryActivateRevealEmpire(actor, msg.targetPlayerId);
       if (!out.ok) {
@@ -4372,18 +5973,26 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
-    if (msg.type === "STOP_REVEAL_EMPIRE") {
-      if (!stopRevealEmpire(actor, msg.targetPlayerId)) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "REVEAL_EMPIRE_STOP_INVALID", message: "target is not actively revealed" }));
+    if (msg.type === "SABOTAGE_TILE") {
+      const out = trySabotageTile(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "SABOTAGE_INVALID", message: out.reason }));
         return;
       }
-      sendToPlayer(actor.id, {
-        type: "REVEAL_EMPIRE_UPDATE",
-        activeTargets: [...getOrInitRevealTargets(actor.id)],
-        revealCapacity: revealCapacityForPlayer(actor)
-      });
+      const target = playerTile(msg.x, msg.y);
       sendPlayerUpdate(actor, 0);
       refreshSubscribedViewForPlayer(actor.id);
+      if (target.ownerId && target.ownerId !== actor.id) {
+        sendToPlayer(target.ownerId, {
+          type: "ATTACK_ALERT",
+          attackerId: actor.id,
+          attackerName: `${actor.name} sabotage`,
+          x: target.x,
+          y: target.y,
+          resolvesAt: now() + SABOTAGE_DURATION_MS
+        });
+      }
+      if (target.ownerId) refreshSubscribedViewForPlayer(target.ownerId);
       return;
     }
 
@@ -4395,6 +6004,50 @@ app.post("/admin/world/regenerate", async () => {
       }
       updateOwnership(msg.x, msg.y, actor.id);
       sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "BUILD_OBSERVATORY") {
+      const out = tryBuildObservatory(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "OBSERVATORY_BUILD_INVALID", message: out.reason }));
+        return;
+      }
+      updateOwnership(msg.x, msg.y, actor.id);
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "BUILD_ECONOMIC_STRUCTURE") {
+      const out = tryBuildEconomicStructure(actor, msg.x, msg.y, msg.structureType);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "ECONOMIC_STRUCTURE_BUILD_INVALID", message: out.reason }));
+        return;
+      }
+      updateOwnership(msg.x, msg.y, actor.id);
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "CREATE_MOUNTAIN") {
+      const out = tryCreateMountain(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "CREATE_MOUNTAIN_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      broadcastLocalVisionDelta([{ x: wrapX(msg.x, WORLD_WIDTH), y: wrapY(msg.y, WORLD_HEIGHT) }]);
+      return;
+    }
+
+    if (msg.type === "REMOVE_MOUNTAIN") {
+      const out = tryRemoveMountain(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "REMOVE_MOUNTAIN_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      broadcastLocalVisionDelta([{ x: wrapX(msg.x, WORLD_WIDTH), y: wrapY(msg.y, WORLD_HEIGHT) }]);
       return;
     }
 
@@ -4553,6 +6206,7 @@ app.post("/admin/world/regenerate", async () => {
           activeRevealTargets: [...getOrInitRevealTargets(actor.id)]
         })
       );
+      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
       sendPlayerUpdate(actor, 0);
       return;
     }
@@ -4577,6 +6231,7 @@ app.post("/admin/world/regenerate", async () => {
           activeRevealTargets: [...getOrInitRevealTargets(actor.id)]
         })
       );
+      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
       sendPlayerUpdate(actor, 0);
       return;
     }
@@ -4720,18 +6375,23 @@ app.post("/admin/world/regenerate", async () => {
         return;
       }
 
+      const canBreakthrough =
+        actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID) &&
+        Boolean(to.ownerId && to.ownerId !== actor.id && to.ownerId !== BARBARIAN_OWNER_ID) &&
+        !actor.allies.has(to.ownerId ?? "");
       const shock = breachShockByTile.get(tk);
       const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
       const defMult = defender ? playerDefensiveness(defender) * shockMult : 1;
-      const fortOnTarget = fortsByTile.get(tk);
-      const fortMult = defender && fortOnTarget?.status === "active" && fortOnTarget.ownerId === defender.id ? FORT_DEFENSE_MULT : 1;
+      const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
-      const siegeOnOrigin = siegeOutpostsByTile.get(fk);
-      const siegeAtkMult = siegeOnOrigin?.status === "active" && siegeOnOrigin.ownerId === actor.id ? SIEGE_OUTPOST_ATTACK_MULT : 1;
-      const atkEff = 10 * actor.mods.attack * siegeAtkMult * activeAttackBuffMult(actor.id);
+      const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
+      const atkEff = 10 * actor.mods.attack * siegeAtkMult * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to);
+      const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
+      const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
       const defEff = defenderIsBarbarian
         ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
-        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult;
+        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult;
+      const breakthroughDefEff = defenderIsBarbarian ? defEff : defEff * BREAKTHROUGH_DEF_MULT_FACTOR;
       socket.send(
         JSON.stringify({
           type: "ATTACK_PREVIEW_RESULT",
@@ -4739,6 +6399,7 @@ app.post("/admin/world/regenerate", async () => {
           to: { x: to.x, y: to.y },
           valid: true,
           winChance: combatWinChance(atkEff, defEff),
+          breakthroughWinChance: canBreakthrough ? combatWinChance(atkEff, breakthroughDefEff) : undefined,
           atkEff,
           defEff,
           siegeAtkMult,
@@ -4750,7 +6411,13 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
-    if (msg.type !== "ATTACK" && msg.type !== "EXPAND" && msg.type !== "BREAKTHROUGH_ATTACK") return;
+    if (
+      msg.type !== "ATTACK" &&
+      msg.type !== "EXPAND" &&
+      msg.type !== "BREAKTHROUGH_ATTACK" &&
+      msg.type !== "DEEP_STRIKE_ATTACK" &&
+      msg.type !== "NAVAL_INFILTRATION_ATTACK"
+    ) return;
 
     app.log.info(
       {
@@ -4776,6 +6443,10 @@ app.post("/admin/world/regenerate", async () => {
 
     applyStaminaRegen(actor);
     const staminaCost = 0;
+    const isBreakthroughAttack = msg.type === "BREAKTHROUGH_ATTACK";
+    const isDeepStrikeAttack = msg.type === "DEEP_STRIKE_ATTACK";
+    const isNavalInfiltrationAttack = msg.type === "NAVAL_INFILTRATION_ATTACK";
+    const isSpecialCrystalAttack = isDeepStrikeAttack || isNavalInfiltrationAttack;
 
     let from = playerTile(msg.fromX, msg.fromY);
     const to = playerTile(msg.toX, msg.toY);
@@ -4785,20 +6456,74 @@ app.post("/admin/world/regenerate", async () => {
       socket.send(JSON.stringify({ type: "ERROR", code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" }));
       return;
     }
-    if (msg.type === "BREAKTHROUGH_ATTACK" && !to.ownerId) {
+    if (isBreakthroughAttack && !to.ownerId) {
       app.log.info({ playerId: actor.id, to: preTk }, "action rejected: breakthrough target not enemy");
       socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "breakthrough requires enemy tile" }));
       return;
     }
-    if (msg.type === "EXPAND" && actor.points < FRONTIER_ACTION_GOLD_COST) {
-      app.log.info({ playerId: actor.id, points: actor.points, required: FRONTIER_ACTION_GOLD_COST }, "action rejected: insufficient gold for expand");
-      socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for frontier claim" }));
+    if (isBreakthroughAttack && !actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID)) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Iron Working" }));
       return;
     }
-    if (msg.type === "BREAKTHROUGH_ATTACK" && actor.points < BREAKTHROUGH_GOLD_COST) {
+    if (isDeepStrikeAttack && (!to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId))) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "deep strike requires enemy tile" }));
+      return;
+    }
+    if (isNavalInfiltrationAttack && (!to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId))) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "naval infiltration requires enemy tile" }));
+      return;
+    }
+    if (isDeepStrikeAttack && hostileObservatoryProtectingTile(actor, to.x, to.y)) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "target is inside enemy observatory protection field" }));
+      return;
+    }
+    if (isNavalInfiltrationAttack && hostileObservatoryProtectingTile(actor, to.x, to.y)) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "landing tile is inside enemy observatory protection field" }));
+      return;
+    }
+    if ((msg.type === "EXPAND" || msg.type === "ATTACK") && actor.points < FRONTIER_ACTION_GOLD_COST) {
+      app.log.info({ playerId: actor.id, action: msg.type, points: actor.points, required: FRONTIER_ACTION_GOLD_COST }, "action rejected: insufficient gold");
+      socket.send(
+        JSON.stringify({
+          type: "ERROR",
+          code: "INSUFFICIENT_GOLD",
+          message: msg.type === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
+        })
+      );
+      return;
+    }
+    if (isBreakthroughAttack && actor.points < BREAKTHROUGH_GOLD_COST) {
       app.log.info({ playerId: actor.id, points: actor.points, required: BREAKTHROUGH_GOLD_COST }, "action rejected: insufficient gold for breakthrough");
       socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for breakthrough" }));
       return;
+    }
+    if (isDeepStrikeAttack) {
+      if (!playerHasTechIds(actor, ABILITY_DEFS.deep_strike.requiredTechIds)) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "requires Siegecraft and Logistics" }));
+        return;
+      }
+      if (abilityOnCooldown(actor.id, "deep_strike")) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "deep strike is cooling down" }));
+        return;
+      }
+      if ((getOrInitStrategicStocks(actor.id).CRYSTAL ?? 0) < DEEP_STRIKE_CRYSTAL_COST) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient CRYSTAL for deep strike" }));
+        return;
+      }
+    }
+    if (isNavalInfiltrationAttack) {
+      if (!playerHasTechIds(actor, ABILITY_DEFS.naval_infiltration.requiredTechIds)) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "requires Navigation" }));
+        return;
+      }
+      if (abilityOnCooldown(actor.id, "naval_infiltration")) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "naval infiltration is cooling down" }));
+        return;
+      }
+      if ((getOrInitStrategicStocks(actor.id).CRYSTAL ?? 0) < NAVAL_INFILTRATION_CRYSTAL_COST) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient CRYSTAL for naval infiltration" }));
+        return;
+      }
     }
     let fk = key(from.x, from.y);
     const tk = key(to.x, to.y);
@@ -4815,9 +6540,21 @@ app.post("/admin/world/regenerate", async () => {
         dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
       }
     }
-    if (!adjacent && !dockCrossing) {
+    const deepStrikeValid = isDeepStrikeAttack ? validDeepStrikeTarget(from, to) : false;
+    const navalInfiltrationValid = isNavalInfiltrationAttack ? validNavalInfiltrationTarget(from, to) : false;
+    if (!adjacent && !dockCrossing && !deepStrikeValid && !navalInfiltrationValid) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: not adjacent and not dock crossing");
-      socket.send(JSON.stringify({ type: "ERROR", code: "NOT_ADJACENT", message: "target must be adjacent or valid dock crossing" }));
+      socket.send(
+        JSON.stringify({
+          type: "ERROR",
+          code: isDeepStrikeAttack ? "DEEP_STRIKE_INVALID" : isNavalInfiltrationAttack ? "NAVAL_INFILTRATION_INVALID" : "NOT_ADJACENT",
+          message: isDeepStrikeAttack
+            ? "target must be within 2 tiles and not through mountains"
+            : isNavalInfiltrationAttack
+              ? "target must cross water and land within 4 tiles"
+              : "target must be adjacent or valid dock crossing"
+        })
+      );
       return;
     }
     if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) {
@@ -4851,7 +6588,7 @@ app.post("/admin/world/regenerate", async () => {
       socket.send(JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied tile" }));
       return;
     }
-    if (msg.type === "BREAKTHROUGH_ATTACK") {
+    if (isBreakthroughAttack) {
       if (!consumeStrategicResource(actor, "IRON", BREAKTHROUGH_IRON_COST)) {
         app.log.info({ playerId: actor.id }, "action rejected: insufficient IRON for breakthrough");
         socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient IRON for breakthrough" }));
@@ -4860,6 +6597,20 @@ app.post("/admin/world/regenerate", async () => {
       actor.points -= BREAKTHROUGH_GOLD_COST;
       recalcPlayerDerived(actor);
       telemetryCounters.breakthroughAttacks += 1;
+    }
+    if (isDeepStrikeAttack) {
+      if (!consumeStrategicResource(actor, "CRYSTAL", DEEP_STRIKE_CRYSTAL_COST)) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient CRYSTAL for deep strike" }));
+        return;
+      }
+      startAbilityCooldown(actor.id, "deep_strike");
+    }
+    if (isNavalInfiltrationAttack) {
+      if (!consumeStrategicResource(actor, "CRYSTAL", NAVAL_INFILTRATION_CRYSTAL_COST)) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient CRYSTAL for naval infiltration" }));
+        return;
+      }
+      startAbilityCooldown(actor.id, "naval_infiltration");
     }
     const resolvesAt = now() + (msg.type === "EXPAND" && !to.ownerId ? FRONTIER_CLAIM_MS : COMBAT_LOCK_MS);
     const pending: PendingCapture = {
@@ -4874,6 +6625,17 @@ app.post("/admin/world/regenerate", async () => {
     combatLocks.set(tk, pending);
     app.log.info({ playerId: actor.id, action: msg.type, from: fk, to: tk, resolvesAt }, "action accepted");
     socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, resolvesAt }));
+    if (isBreakthroughAttack || isDeepStrikeAttack || isNavalInfiltrationAttack) sendPlayerUpdate(actor, 0);
+    if (defender && !defenderIsBarbarian) {
+      sendToPlayer(defender.id, {
+        type: "ATTACK_ALERT",
+        attackerId: actor.id,
+        attackerName: actor.name,
+        x: to.x,
+        y: to.y,
+        resolvesAt
+      });
+    }
 
     pending.timeout = setTimeout(() => {
       if (pending.cancelled) return;
@@ -4902,7 +6664,8 @@ app.post("/admin/world/regenerate", async () => {
             levelDelta: 0
           })
         );
-        refreshSubscribedViewForPlayer(actor.id);
+        sendPlayerUpdate(actor, 0);
+        sendLocalVisionDeltaForPlayer(actor.id, [{ x: to.x, y: to.y }]);
         return;
       }
 
@@ -4911,18 +6674,22 @@ app.post("/admin/world/regenerate", async () => {
         return;
       }
 
+      if (msg.type === "ATTACK") {
+        actor.points -= FRONTIER_ACTION_GOLD_COST;
+        recalcPlayerDerived(actor);
+      }
       actor.stamina -= staminaCost;
 
-      const atkEff = 10 * actor.mods.attack * activeAttackBuffMult(actor.id) * randomFactor();
-      const siegeOnOrigin = siegeOutpostsByTile.get(fk);
-      const siegeAtkMult = siegeOnOrigin?.status === "active" && siegeOnOrigin.ownerId === actor.id ? SIEGE_OUTPOST_ATTACK_MULT : 1;
+      const specialAttackMult = isDeepStrikeAttack ? DEEP_STRIKE_ATTACK_MULT : isNavalInfiltrationAttack ? NAVAL_INFILTRATION_ATTACK_MULT : 1;
+      const atkEff =
+        10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to) * specialAttackMult * randomFactor();
+      const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
       const atkEffWithSiege = atkEff * siegeAtkMult;
       const shock = breachShockByTile.get(tk);
       const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
       const defMultRaw = defender ? playerDefensiveness(defender) * shockMult : 1;
-      const defMult = msg.type === "BREAKTHROUGH_ATTACK" ? defMultRaw * BREAKTHROUGH_DEF_MULT_FACTOR : defMultRaw;
-      const fortOnTarget = fortsByTile.get(tk);
-      const fortMult = defender && fortOnTarget?.status === "active" && fortOnTarget.ownerId === defender.id ? FORT_DEFENSE_MULT : 1;
+      const defMult = isBreakthroughAttack ? defMultRaw * BREAKTHROUGH_DEF_MULT_FACTOR : defMultRaw;
+      const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
       const fortified = defensiveFortifyByTile.get(tk);
       const defensiveFortifyMult =
@@ -4930,23 +6697,32 @@ app.post("/admin/world/regenerate", async () => {
       if (defender && fortified && fortified.ownerId === defender.id && fortified.expiresAt > now() && !fortified.consumed) {
         fortified.consumed = true;
       }
+      const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
+      const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
       const defEff = defenderIsBarbarian
         ? 10 * BARBARIAN_DEFENSE_POWER * dockMult * randomFactor()
-        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * defensiveFortifyMult * randomFactor();
+        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * defensiveFortifyMult * settledDefenseMult * newSettlementDefenseMult * randomFactor();
       const p = combatWinChance(atkEffWithSiege, defEff);
       const win = Math.random() < p;
 
       let pointsDelta = 0;
+      let resultChanges: Array<{
+        x: number;
+        y: number;
+        ownerId?: string;
+        ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+      }> = [];
       if (win) {
         const targetWasSettled = to.ownershipState === "SETTLED";
         updateOwnership(to.x, to.y, actor.id, "FRONTIER");
-        if (!defenderIsBarbarian && msg.type === "BREAKTHROUGH_ATTACK" && targetWasSettled && defender) {
+        resultChanges = [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }];
+        if (!defenderIsBarbarian && isBreakthroughAttack && targetWasSettled && defender) {
           applyBreachShockAround(to.x, to.y, defender.id);
         }
         if (defenderIsBarbarian) {
           pointsDelta = BARBARIAN_CLEAR_GOLD_REWARD;
           actor.points += pointsDelta;
-          app.log.info({ type: "CLEARED", playerId: actor.id, x: to.x, y: to.y, timestamp: now() }, "barbarian event");
+          logBarbarianEvent(`cleared by ${actor.id} @ ${to.x},${to.y}`);
         } else {
           actor.missionStats.enemyCaptures += 1;
         }
@@ -4969,9 +6745,35 @@ app.post("/admin/world/regenerate", async () => {
         }
       } else {
         if (defenderIsBarbarian) {
+          const barbarianAgentId = barbarianAgentByTileKey.get(tk);
+          const barbarianAgent = barbarianAgentId ? barbarianAgents.get(barbarianAgentId) : undefined;
+          if (barbarianAgent) {
+            const progressBefore = barbarianAgent.progress;
+            barbarianAgent.progress += getBarbarianProgressGain(from);
+            updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
+            barbarianAgent.x = from.x;
+            barbarianAgent.y = from.y;
+            barbarianAgent.lastActionAt = now();
+            barbarianAgent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
+            upsertBarbarianAgent(barbarianAgent);
+            updateOwnership(to.x, to.y, undefined);
+            resultChanges = [
+              { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
+              { x: to.x, y: to.y }
+            ];
+            logBarbarianEvent(`progress ${barbarianAgent.id} ${progressBefore} -> ${barbarianAgent.progress} on defense ${from.x},${from.y}`);
+          } else {
+            updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
+            updateOwnership(to.x, to.y, undefined);
+            resultChanges = [
+              { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
+              { x: to.x, y: to.y }
+            ];
+          }
           pointsDelta = 0;
         } else if (defender) {
           updateOwnership(from.x, from.y, defender.id, "FRONTIER");
+          resultChanges = [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" }];
           defender.missionStats.enemyCaptures += 1;
           defender.missionStats.combatWins += 1;
           incrementVendettaCount(defender.id, actor.id);
@@ -4995,18 +6797,15 @@ app.post("/admin/world/regenerate", async () => {
       socket.send(JSON.stringify({
         type: "COMBAT_RESULT",
         winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
-        changes: win
-          ? [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }]
-          : defenderIsBarbarian
-            ? []
-            : defender
-              ? [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" }]
-              : [],
+        changes: resultChanges,
         pointsDelta,
         levelDelta: 0
       }));
-      refreshSubscribedViewForPlayer(actor.id);
-      if (defender && !defenderIsBarbarian) refreshSubscribedViewForPlayer(defender.id);
+      sendPlayerUpdate(actor, 0);
+      if (defender && !defenderIsBarbarian) sendPlayerUpdate(defender, 0);
+      const changedCenters = resultChanges.map((change) => ({ x: change.x, y: change.y }));
+      sendLocalVisionDeltaForPlayer(actor.id, changedCenters);
+      if (defender && !defenderIsBarbarian) sendLocalVisionDeltaForPlayer(defender.id, changedCenters);
     }, resolvesAt - now());
   });
 
@@ -5024,6 +6823,12 @@ app.post("/admin/world/regenerate", async () => {
       chunkSnapshotSentAtByPlayer.delete(authedPlayer.id);
       actionTimestampsByPlayer.delete(authedPlayer.id);
       fogDisabledByPlayer.delete(authedPlayer.id);
+      if (!hasOnlinePlayers()) {
+        cancelAllBarbarianPendingCaptures();
+        pauseVictoryPressureTimers();
+        saveSnapshot();
+        lastSnapshotAt = now();
+      }
     }
   });
 });
