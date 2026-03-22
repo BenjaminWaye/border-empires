@@ -1,34 +1,35 @@
 {
-  "version": 1,
+  "version": 2,
   "domains": [
-    { "id": "frontier-doctrine", "tier": 1, "name": "Frontier Doctrine", "description": "+25% settlement speed. New settlements get a temporary defense buffer.", "requiresTechId": "toolmaking", "cost": { "gold": 6000, "food": 120 }, "effects": { "settlementSpeedMult": 1.25, "newSettlementDefenseMult": 1.15 } },
-    { "id": "iron-bastions", "tier": 1, "name": "Iron Bastions", "description": "Forts gain +20% defense and -10% build gold cost.", "requiresTechId": "masonry", "cost": { "gold": 6000, "iron": 120 }, "effects": { "fortDefenseMult": 1.2, "fortBuildGoldCostMult": 0.9 } },
-    { "id": "supply-raiding", "tier": 1, "name": "Supply Raiding", "description": "Siege outposts gain +20% attack.", "requiresTechId": "leatherworking", "cost": { "gold": 6000, "supply": 120 }, "effects": { "outpostAttackMult": 1.2 } },
-    { "id": "mercantile-charter", "tier": 1, "name": "Mercantile Charter", "description": "Towns gain +15% gold output and +15% harvest cap.", "requiresTechId": "trade", "cost": { "gold": 6000, "crystal": 100 }, "effects": { "townGoldOutputMult": 1.15, "harvestCapMult": 1.15 } },
-    { "id": "farmers-compact", "tier": 1, "name": "Farmer's Compact", "description": "Town food upkeep -15%.", "requiresTechId": "agriculture", "cost": { "gold": 6000, "food": 120 }, "effects": { "townFoodUpkeepMult": 0.85 } },
-
-    { "id": "frontier-bureau", "tier": 2, "name": "Frontier Bureau", "description": "+20% settlement speed and settled food upkeep -10%.", "requiresTechId": "road-building", "cost": { "gold": 14000, "food": 220, "shard": 1 }, "effects": { "settlementSpeedMult": 1.2, "settledFoodUpkeepMult": 0.9 } },
-    { "id": "stone-curtain", "tier": 2, "name": "Stone Curtain", "description": "Settled tiles gain additional defense near fortified regions.", "requiresTechId": "fortification-doctrine", "cost": { "gold": 14000, "iron": 220, "shard": 1 }, "effects": { "settledDefenseMult": 1.1 } },
-    { "id": "iron-vanguard", "tier": 2, "name": "Iron Vanguard", "description": "+12% attack vs settled tiles and forts.", "requiresTechId": "iron-working", "cost": { "gold": 14000, "iron": 240, "shard": 1 }, "effects": { "attackVsSettledMult": 1.12, "attackVsFortsMult": 1.12 } },
-    { "id": "market-league", "tier": 2, "name": "Market League", "description": "Towns gain +20% gold output if fully fed.", "requiresTechId": "ledger-keeping", "cost": { "gold": 14000, "crystal": 200, "shard": 1 }, "effects": { "townGoldOutputIfFedMult": 1.2 } },
-    { "id": "crystal-network", "tier": 2, "name": "Crystal Network", "description": "Empire Reveal upkeep -20%.", "requiresTechId": "signal-fires", "cost": { "gold": 14000, "crystal": 180, "shard": 1 }, "effects": { "unlockRevealEmpire": true, "revealUpkeepMult": 0.8 } },
-
-    { "id": "provincial-governors", "tier": 3, "name": "Provincial Governors", "description": "Settled gold upkeep -15% and town cap +10%.", "requiresTechId": "civil-survey", "cost": { "gold": 24000, "food": 320, "shard": 2 }, "effects": { "settledGoldUpkeepMult": 0.85, "townGoldCapMult": 1.1 } },
-    { "id": "war-foundries", "tier": 3, "name": "War Foundries", "description": "+10% attack and +10% outpost attack.", "requiresTechId": "standing-army", "cost": { "gold": 24000, "iron": 340, "shard": 2 }, "mods": { "attack": 1.1 }, "effects": { "outpostAttackMult": 1.1 } },
-    { "id": "supply-state", "tier": 3, "name": "Supply State", "description": "Outpost supply upkeep -20% and settlement speed +10%.", "requiresTechId": "relay-roads", "cost": { "gold": 24000, "supply": 320, "shard": 2 }, "effects": { "outpostSupplyUpkeepMult": 0.8, "settlementSpeedMult": 1.1 } },
-    { "id": "merchant-houses", "tier": 3, "name": "Merchant Houses", "description": "Town gold output +20% and harvest cap +10%.", "requiresTechId": "coinage", "cost": { "gold": 24000, "crystal": 260, "shard": 2 }, "effects": { "townGoldOutputMult": 1.2, "harvestCapMult": 1.1 } },
-    { "id": "field-stores", "tier": 3, "name": "Field Stores", "description": "Town food upkeep -15% and settled food upkeep -10%.", "requiresTechId": "granaries", "cost": { "gold": 24000, "food": 340, "shard": 2 }, "effects": { "townFoodUpkeepMult": 0.85, "settledFoodUpkeepMult": 0.9 } },
-
-    { "id": "imperial-roads", "tier": 4, "name": "Imperial Roads", "description": "+15% settlement speed and +10% town output.", "requiresTechId": "logistics", "cost": { "gold": 40000, "supply": 500, "shard": 3 }, "effects": { "settlementSpeedMult": 1.15, "townGoldOutputMult": 1.1 } },
-    { "id": "fortress-realm", "tier": 4, "name": "Fortress Realm", "description": "Fort defense +25% and fort iron upkeep -15% more.", "requiresTechId": "engineering", "cost": { "gold": 42000, "iron": 540, "shard": 3 }, "effects": { "fortDefenseMult": 1.25, "fortIronUpkeepMult": 0.85 } },
-    { "id": "siege-state", "tier": 4, "name": "Siege State", "description": "Siege outposts gain +20% attack and +10% vs forts.", "requiresTechId": "arms-guilds", "cost": { "gold": 42000, "supply": 520, "iron": 220, "shard": 3 }, "effects": { "outpostAttackMult": 1.2, "attackVsFortsMult": 1.1 } },
-    { "id": "treasury-state", "tier": 4, "name": "Treasury State", "description": "Town output +20% and fort/outpost gold upkeep -10%.", "requiresTechId": "banking", "cost": { "gold": 40000, "crystal": 420, "food": 180, "shard": 3 }, "effects": { "townGoldOutputMult": 1.2, "fortGoldUpkeepMult": 0.9, "outpostGoldUpkeepMult": 0.9 } },
-    { "id": "hidden-hand", "tier": 4, "name": "Hidden Hand", "description": "Reveal upkeep -20% more and may track 2 empires.", "requiresTechId": "cryptography", "cost": { "gold": 38000, "crystal": 420, "shard": 3 }, "effects": { "unlockRevealEmpire": true, "revealUpkeepMult": 0.8, "revealCapacityBonus": 1 } },
-
-    { "id": "imperial-expansion", "tier": 5, "name": "Imperial Expansion", "description": "+20% settlement speed and stronger temporary defense on new settlements.", "requiresTechId": "frontier-administration", "cost": { "gold": 65000, "food": 700, "shard": 5 }, "effects": { "settlementSpeedMult": 1.2, "newSettlementDefenseMult": 1.2 } },
-    { "id": "iron-dominion", "tier": 5, "name": "Iron Dominion", "description": "+18% attack globally and +12% vs forts.", "requiresTechId": "steel", "cost": { "gold": 70000, "iron": 800, "shard": 5 }, "mods": { "attack": 1.18 }, "effects": { "attackVsFortsMult": 1.12 } },
-    { "id": "enduring-realm", "tier": 5, "name": "Enduring Realm", "description": "Settled food upkeep -15%, settled gold upkeep -15%, town cap +10%.", "requiresTechId": "bureaucracy", "cost": { "gold": 65000, "food": 650, "crystal": 260, "shard": 5 }, "effects": { "settledFoodUpkeepMult": 0.85, "settledGoldUpkeepMult": 0.85, "townGoldCapMult": 1.1 } },
-    { "id": "golden-hegemony", "tier": 5, "name": "Golden Hegemony", "description": "Town output +25% and all gold upkeep -10%.", "requiresTechId": "central-banking", "cost": { "gold": 70000, "crystal": 600, "food": 220, "shard": 5 }, "effects": { "townGoldOutputMult": 1.25, "fortGoldUpkeepMult": 0.9, "outpostGoldUpkeepMult": 0.9, "settledGoldUpkeepMult": 0.9 } },
-    { "id": "oracle-state", "tier": 5, "name": "Oracle State", "description": "Reveal upkeep -25% more and global vision +1.", "requiresTechId": "grand-cartography", "cost": { "gold": 60000, "crystal": 650, "shard": 5 }, "effects": { "unlockRevealEmpire": true, "revealUpkeepMult": 0.75, "visionRadiusBonus": 1 } }
+    {
+      "id": "urbanization",
+      "tier": 1,
+      "name": "Urbanization",
+      "description": "Tall empire focus with stronger city growth and connected-core bonuses.",
+      "requiresTechId": "trade",
+      "cost": { "gold": 6000, "food": 120, "crystal": 80 },
+      "effects": {
+        "populationGrowthMult": 1.5,
+        "populationCapFirst3TownsMult": 1.2,
+        "growthPauseDurationMult": 0.75,
+        "connectedTownStepBonusAdd": 0.1,
+        "buildCapacityAdd": -1
+      }
+    },
+    {
+      "id": "expansion",
+      "tier": 1,
+      "name": "Expansion",
+      "description": "Wide empire focus with faster settlement and lighter upkeep pressure.",
+      "requiresTechId": "toolmaking",
+      "cost": { "gold": 6000, "food": 80, "supply": 120 },
+      "effects": {
+        "buildCapacityAdd": 2,
+        "settlementSpeedMult": 1.25,
+        "settledGoldUpkeepMult": 0.8,
+        "populationGrowthMult": 0.75,
+        "growthPauseDurationMult": 0.5
+      }
+    }
   ]
 }

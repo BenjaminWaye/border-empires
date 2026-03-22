@@ -60,20 +60,32 @@ type Tile = {
     supportCurrent: number;
     supportMax: number;
     goldPerMinute: number;
+    cap: number;
+    isFed: boolean;
+    population: number;
+    maxPopulation: number;
+    populationTier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+    connectedTownCount: number;
+    connectedTownBonus: number;
+    connectedTownNames?: string[];
+    hasMarket: boolean;
+    marketActive: boolean;
+    hasGranary: boolean;
+    granaryActive: boolean;
     foodUpkeepPerMinute?: number;
   };
   fort?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
   observatory?: { ownerId: string; status: "active" | "inactive" };
   siegeOutpost?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
-  economicStructure?: { ownerId: string; type: "FARMSTEAD" | "CAMP" | "MINE" | "MARKET"; status: "active" | "inactive" };
+  economicStructure?: { ownerId: string; type: "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY"; status: "active" | "inactive" };
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
   history?: {
     lastOwnerId?: string | null;
     previousOwners: string[];
     captureCount: number;
     lastCapturedAt?: number | null;
-    lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | null;
-    structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET">;
+    lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY" | null;
+    structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY">;
     wasMountainCreatedByPlayer?: boolean;
     wasMountainRemovedByPlayer?: boolean;
   };
@@ -1015,55 +1027,20 @@ const economicStructureIcon = (type: Tile["economicStructure"] extends infer T ?
   if (type === "FARMSTEAD") return "▥";
   if (type === "CAMP") return "⛺";
   if (type === "MINE") return "⛏";
+  if (type === "GRANARY") return "◫";
   return "▣";
 };
 const economicStructureName = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
   if (type === "FARMSTEAD") return "Farmstead";
   if (type === "CAMP") return "Camp";
   if (type === "MINE") return "Mine";
+  if (type === "GRANARY") return "Granary";
   return "Market";
-};
-
-const aggregateOwnedTownEffects = (): { townGoldOutputMult: number; townGoldOutputIfFedMult: number } => {
-  let townGoldOutputMult = 1;
-  let townGoldOutputIfFedMult = 1;
-  for (const tech of state.techCatalog) {
-    if (!state.techIds.includes(tech.id) || !tech.effects) continue;
-    const direct = tech.effects as Record<string, unknown>;
-    if (typeof direct.townGoldOutputMult === "number") townGoldOutputMult *= direct.townGoldOutputMult;
-    if (typeof direct.townGoldOutputIfFedMult === "number") townGoldOutputIfFedMult *= direct.townGoldOutputIfFedMult;
-  }
-  for (const domain of state.domainCatalog) {
-    if (!state.domainIds.includes(domain.id) || !domain.effects) continue;
-    const direct = domain.effects as Record<string, unknown>;
-    if (typeof direct.townGoldOutputMult === "number") townGoldOutputMult *= direct.townGoldOutputMult;
-    if (typeof direct.townGoldOutputIfFedMult === "number") townGoldOutputIfFedMult *= direct.townGoldOutputIfFedMult;
-  }
-  return { townGoldOutputMult, townGoldOutputIfFedMult };
-};
-
-const projectedFoodCoverage = (): number => {
-  const need = state.upkeepPerMinute.food ?? 0;
-  if (need <= 0) return 1;
-  const stock = state.strategicResources.FOOD ?? 0;
-  if (stock > 0.001) return 1;
-  const production = state.strategicProductionPerMinute.FOOD ?? 0;
-  if (production <= 0) return 0;
-  return Math.max(state.upkeepLastTick.foodCoverage ?? 0, Math.min(1, production / need));
 };
 
 const displayTownGoldPerMinute = (tile: Tile): number => {
   if (!tile.town) return 0;
-  if (tile.ownerId !== state.me) return tile.town.goldPerMinute;
-  const ratio = tile.town.supportMax <= 0 ? 1 : tile.town.supportCurrent / tile.town.supportMax;
-  const effects = aggregateOwnedTownEffects();
-  const coverage = projectedFoodCoverage();
-  let income = tile.town.baseGoldPerMinute * (0.35 + 0.65 * ratio) * coverage * effects.townGoldOutputMult;
-  if (coverage >= 0.999) {
-    income *= effects.townGoldOutputIfFedMult;
-    if (tile.economicStructure?.type === "MARKET" && tile.economicStructure.status === "active") income *= 1.5;
-  }
-  return income;
+  return tile.town.goldPerMinute;
 };
 
 const storedYieldSummary = (tile: Tile): string => {
@@ -1101,7 +1078,15 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   if (tile.town) {
     townBits.push(`${prettyToken(tile.town.type)} town`);
     townBits.push(`${resourceIconForKey("GOLD")} ${displayTownGoldPerMinute(tile).toFixed(2)}/m`);
+    townBits.push(`Cap ${tile.town.cap.toFixed(0)}`);
     townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
+    townBits.push(`Population ${Math.round(tile.town.population).toLocaleString()} (${prettyToken(tile.town.populationTier)})`);
+    townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
+    if (tile.town.marketActive) townBits.push("Market active");
+    else if (tile.town.hasMarket) townBits.push("Market inactive");
+    if (tile.town.granaryActive) townBits.push("Granary active");
+    else if (tile.town.hasGranary) townBits.push("Granary inactive");
+    if (!tile.town.isFed) townBits.push("Unfed");
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
       townBits.push(`${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`);
     }
@@ -2063,12 +2048,19 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockForts" && value === true) return "Unlocks forts";
   if (key === "unlockObservatory" && value === true) return "Unlocks observatories";
   if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
+  if (key === "unlockGranary" && value === true) return "Unlocks granaries";
+  if (key === "unlockRevealRegion" && value === true) return "Unlocks reveal region";
   if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
+  if (key === "unlockDeepStrike" && value === true) return "Unlocks deep strike";
   if (key === "unlockNavalInfiltration" && value === true) return "Unlocks naval infiltration";
   if (key === "unlockSabotage" && value === true) return "Unlocks sabotage";
+  if (key === "unlockMountainPass" && value === true) return "Unlocks mountain pass";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain shaping";
+  if (key === "unlockBreachAttack" && value === true) return "Unlocks breach attack";
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
   if (key === "dockGoldCapMult" && typeof value === "number") return `Dock cap +${Math.round((value - 1) * 100)}%`;
+  if (key === "dockConnectionBonusPerLink" && typeof value === "number") return `Dock route bonus ${Math.round(value * 100)}% per link`;
+  if (key === "dockRoutesVisible" && value === true) return "Shows dock routes";
   if (key === "marketCrystalUpkeepMult" && typeof value === "number") return `Market crystal upkeep -${Math.round((1 - value) * 100)}%`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
     const resourceOutput = value as Record<string, unknown>;
@@ -2082,14 +2074,14 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
     if (typeof resourceOutput.iron === "number" && resourceOutput.iron !== 1) {
       labels.push(`Iron output +${((resourceOutput.iron - 1) * 100).toFixed(0)}%`);
     }
-    if (typeof resourceOutput.gems === "number" && resourceOutput.gems !== 1) {
-      labels.push(`Crystal output +${((resourceOutput.gems - 1) * 100).toFixed(0)}%`);
+    if (typeof resourceOutput.crystal === "number" && resourceOutput.crystal !== 1) {
+      labels.push(`Crystal output +${((resourceOutput.crystal - 1) * 100).toFixed(0)}%`);
     }
-    if (typeof resourceOutput.fur === "number" && resourceOutput.fur !== 1) {
-      labels.push(`Fur output +${((resourceOutput.fur - 1) * 100).toFixed(0)}%`);
+    if (typeof resourceOutput.supply === "number" && resourceOutput.supply !== 1) {
+      labels.push(`Supply output +${((resourceOutput.supply - 1) * 100).toFixed(0)}%`);
     }
-    if (typeof resourceOutput.wood === "number" && resourceOutput.wood !== 1) {
-      labels.push(`Wood output +${((resourceOutput.wood - 1) * 100).toFixed(0)}%`);
+    if (typeof resourceOutput.shard === "number" && resourceOutput.shard !== 1) {
+      labels.push(`Shard output +${((resourceOutput.shard - 1) * 100).toFixed(0)}%`);
     }
     return labels.length > 0 ? labels.join(" | ") : null;
   }
@@ -2098,8 +2090,16 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "settledGoldUpkeepMult" && typeof value === "number") return `Settled gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "townFoodUpkeepMult" && typeof value === "number") return `Town food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "townGoldOutputIfFedMult" && typeof value === "number") return `Fed town output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "townGoldCapMult" && typeof value === "number") return `Town cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "marketIncomeBonusAdd" && typeof value === "number") return `Market income +${Math.round(value * 100)} pts`;
+  if (key === "marketCapBonusAdd" && typeof value === "number") return `Market cap +${Math.round(value * 100)} pts`;
+  if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary cap +${Math.round(value * 100)} pts`;
+  if (key === "populationGrowthMult" && typeof value === "number") return `Population growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "populationIncomeMult" && typeof value === "number") return `Population income ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "connectedTownStepBonusAdd" && typeof value === "number") return `Connected-city bonus +${Math.round(value * 100)} pts/step`;
+  if (key === "growthPauseDurationMult" && typeof value === "number") return `War growth pause ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "buildCapacityAdd" && typeof value === "number") return `Build capacity ${value >= 0 ? "+" : ""}${value}`;
+  if (key === "operationalTempoMult" && typeof value === "number") return `Operational tempo ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "harvestCapMult" && typeof value === "number") return `Harvest cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
@@ -3299,6 +3299,7 @@ type TileActionDef = {
     | "build_camp"
     | "build_mine"
     | "build_market"
+    | "build_granary"
     | "abandon_territory"
     | "build_siege_camp"
     | "deep_strike"
@@ -3327,6 +3328,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_camp") return "⛺";
   if (id === "build_mine") return "⛏";
   if (id === "build_market") return "▣";
+  if (id === "build_granary") return "◫";
   if (id === "abandon_territory") return "✕";
   if (id === "deep_strike") return "✦";
   if (id === "naval_infiltration") return "≈";
@@ -3368,11 +3370,11 @@ const formatCooldownShort = (ms: number): string => {
 };
 
 const hasRevealCapability = (): boolean => {
-  return state.techIds.includes("signal-fires") || state.activeRevealTargets.length > 0;
+  return state.techIds.includes("cryptography") || state.activeRevealTargets.length > 0;
 };
 
-const hasDeepStrikeCapability = (): boolean => state.techIds.includes("siegecraft") && state.techIds.includes("logistics");
-const hasBreakthroughCapability = (): boolean => state.techIds.includes("iron-working");
+const hasDeepStrikeCapability = (): boolean => state.techIds.includes("deep-operations");
+const hasBreakthroughCapability = (): boolean => state.techIds.includes("breach-doctrine");
 
 const hasNavalInfiltrationCapability = (): boolean => state.techIds.includes("navigation");
 
@@ -3521,7 +3523,7 @@ const beginCrystalTargeting = (ability: CrystalTargetingAbility): void => {
   if (ability === "deep_strike") {
     const cooldown = abilityCooldownRemainingMs("deep_strike");
     if (!hasDeepStrikeCapability()) {
-      pushFeed("Deep Strike requires Siegecraft and Logistics.", "combat", "warn");
+      pushFeed("Deep Strike requires Deep Operations.", "combat", "warn");
       return;
     }
     if ((state.strategicResources.CRYSTAL ?? 0) < 25) {
@@ -3816,6 +3818,15 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
             "600 gold + 40 CRYSTAL"
           )
         });
+        out.push({
+          id: "build_granary",
+          label: "Build Granary",
+          ...tileActionAvailability(
+            !hasBlockingStructure && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("pottery") ? "Requires Pottery" : state.gold < 400 ? "Need 400 gold" : "Need 40 FOOD",
+            "400 gold + 40 FOOD"
+          )
+        });
       }
     }
     out.push(createMountainAction());
@@ -3842,7 +3853,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           !pickOriginForTarget(tile.x, tile.y)
             ? "No bordering origin tile"
             : !hasBreakthroughCapability()
-              ? "Requires Iron Working"
+              ? "Requires Breach Doctrine"
               : state.gold < 2
                 ? "Need 2 gold"
                 : "Need 1 IRON",
@@ -3866,7 +3877,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       ...(attackPreviewDetailForTarget(tile, "breakthrough") ? { detail: attackPreviewDetailForTarget(tile, "breakthrough") } : {}),
       ...tileActionAvailability(
         reachable && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
-        !reachable ? "No bordering origin tile" : !hasBreakthroughCapability() ? "Requires Iron Working" : state.gold < 2 ? "Need 2 gold" : "Need 1 IRON",
+        !reachable ? "No bordering origin tile" : !hasBreakthroughCapability() ? "Requires Breach Doctrine" : state.gold < 2 ? "Need 2 gold" : "Need 1 IRON",
         "2 gold + 1 IRON"
       )
     }
@@ -3880,7 +3891,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     ...tileActionAvailability(
       hasDeepStrikeCapability() && !observatoryProtection && Boolean(deepStrikeOrigin) && deepStrikeCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25,
       !hasDeepStrikeCapability()
-        ? "Requires Siegecraft + Logistics"
+        ? "Requires Deep Operations"
         : observatoryProtection
           ? "Blocked by observatory field"
         : !deepStrikeOrigin
@@ -3920,7 +3931,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         label: "Reveal Empire",
         ...tileActionAvailability(
           hasCapability && hasCapacity && hasCrystal,
-          !hasCapability ? "Requires reveal tech" : !hasCapacity ? "Reveal capacity full" : "Need crystal",
+          !hasCapability ? "Requires Cryptography" : !hasCapacity ? "Reveal capacity full" : "Need crystal",
           "20 CRYSTAL • 0.15 / 10m"
         )
       });
@@ -4053,7 +4064,7 @@ const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: 
     actions.push({
       id: "launch_breach_attack",
       label: `Launch Breach Attack (${enemyCount})`,
-      cost: hasBreakthroughCapability() ? "2 gold + 1 IRON each" : "Requires Iron Working"
+      cost: hasBreakthroughCapability() ? "2 gold + 1 IRON each" : "Requires Breach Doctrine"
     });
   }
   if (ownedYieldCount > 0) {
@@ -4150,6 +4161,7 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
   if (actionId === "build_camp") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" });
   if (actionId === "build_mine") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" });
   if (actionId === "build_market") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" });
+  if (actionId === "build_granary") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" });
   if (actionId === "build_siege_camp") sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y });
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
@@ -4245,6 +4257,13 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.techIds.includes("trade") &&
     state.gold >= 600 &&
     (state.strategicResources.CRYSTAL ?? 0) >= 40;
+  const canBuildGranary =
+    tile.ownershipState === "SETTLED" &&
+    !hasBlockingStructure &&
+    Boolean(tile.town) &&
+    state.techIds.includes("pottery") &&
+    state.gold >= 400 &&
+    (state.strategicResources.FOOD ?? 0) >= 40;
   holdBuildMenuEl.innerHTML = `
     <div class="hold-menu-card">
       <div class="hold-menu-title">Build on (${x}, ${y})</div>
@@ -4276,6 +4295,10 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
         <span>Market</span>
         <small>600 gold + 40 CRYSTAL • +50% town gold if fed • 0.05 crystal / 10m</small>
       </button>
+      <button class="hold-menu-btn" data-build="granary" ${canBuildGranary ? "" : "disabled"}>
+        <span>Granary</span>
+        <small>400 gold + 40 FOOD • +50% town cap • 1 gold / 10m</small>
+      </button>
       <button class="hold-menu-btn" data-build="siege" ${canAffordSiege ? "" : "disabled"}>
         <span>Siege Outpost</span>
         <small>${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY • ${(SIEGE_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)} (from tile)</small>
@@ -4300,6 +4323,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   const campBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='camp']");
   const mineBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='mine']");
   const marketBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='market']");
+  const granaryBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='granary']");
   const siegeBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='siege']");
   if (settleBtn) {
     settleBtn.onclick = () => {
@@ -4346,6 +4370,12 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   if (marketBtn) {
     marketBtn.onclick = () => {
       sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MARKET" });
+      hideHoldBuildMenu();
+    };
+  }
+  if (granaryBtn) {
+    granaryBtn.onclick = () => {
+      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "GRANARY" });
       hideHoldBuildMenu();
     };
   }
