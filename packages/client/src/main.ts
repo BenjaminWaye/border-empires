@@ -3382,7 +3382,6 @@ const collectVisibleYield = (): void => {
   }
   state.collectVisibleCooldownUntil = Date.now() + COLLECT_VISIBLE_COOLDOWN_MS;
   applyOptimisticVisibleCollect();
-  showCollectVisibleCooldownAlert();
   renderHud();
   sendGameMessage({ type: "COLLECT_VISIBLE" });
 };
