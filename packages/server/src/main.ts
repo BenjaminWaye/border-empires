@@ -4786,6 +4786,14 @@ const countPlayerSiegeOutposts = (playerId: string): number => {
   return n;
 };
 
+const fortCapacityForPlayer = (playerId: string): number => {
+  return Math.max(1, FORT_MAX_PER_PLAYER + getPlayerEffectsForPlayer(playerId).buildCapacityAdd);
+};
+
+const siegeOutpostCapacityForPlayer = (playerId: string): number => {
+  return Math.max(1, SIEGE_OUTPOST_MAX_PER_PLAYER + getPlayerEffectsForPlayer(playerId).buildCapacityAdd);
+};
+
 const isBorderTile = (x: number, y: number, ownerId: string): boolean => {
   const n = [
     playerTile(x, y - 1),
@@ -5059,7 +5067,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
   const dock = docksByTile.get(tk);
   if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
-  if (countPlayerForts(actor.id) >= FORT_MAX_PER_PLAYER) return { ok: false, reason: "fort cap reached" };
+  if (countPlayerForts(actor.id) >= fortCapacityForPlayer(actor.id)) return { ok: false, reason: "fort cap reached" };
   const goldCost = Math.ceil(FORT_BUILD_COST * effects.fortBuildGoldCostMult);
   if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fort" };
   if (!consumeStrategicResource(actor, "IRON", FORT_BUILD_IRON_COST)) return { ok: false, reason: "insufficient IRON for fort" };
@@ -5103,7 +5111,8 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
   if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
   if (!isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile" };
-  if (countPlayerSiegeOutposts(actor.id) >= SIEGE_OUTPOST_MAX_PER_PLAYER) return { ok: false, reason: "siege outpost cap reached" };
+  if (countPlayerSiegeOutposts(actor.id) >= siegeOutpostCapacityForPlayer(actor.id))
+    return { ok: false, reason: "siege outpost cap reached" };
   if (actor.points < SIEGE_OUTPOST_BUILD_COST) return { ok: false, reason: "insufficient gold for siege outpost" };
   if (!consumeStrategicResource(actor, "SUPPLY", SIEGE_OUTPOST_BUILD_SUPPLY_COST))
     return { ok: false, reason: "insufficient SUPPLY for siege outpost" };
