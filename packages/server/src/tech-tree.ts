@@ -9,19 +9,34 @@ export interface TechEffects {
   unlockCamp?: boolean;
   unlockMine?: boolean;
   unlockMarket?: boolean;
+  unlockGranary?: boolean;
   unlockObservatory?: boolean;
   unlockForts?: boolean;
   unlockSiegeOutposts?: boolean;
+  unlockRevealRegion?: boolean;
   unlockRevealEmpire?: boolean;
+  unlockDeepStrike?: boolean;
   unlockNavalInfiltration?: boolean;
   unlockSabotage?: boolean;
+  unlockMountainPass?: boolean;
+  unlockTerrainShaping?: boolean;
+  unlockBreachAttack?: boolean;
   settlementSpeedMult?: number;
+  operationalTempoMult?: number;
+  populationGrowthMult?: number;
+  populationCapFirst3TownsMult?: number;
+  growthPauseDurationMult?: number;
   townFoodUpkeepMult?: number;
   settledFoodUpkeepMult?: number;
   settledGoldUpkeepMult?: number;
   townGoldOutputMult?: number;
-  townGoldOutputIfFedMult?: number;
   townGoldCapMult?: number;
+  marketIncomeBonusAdd?: number;
+  marketCapBonusAdd?: number;
+  granaryCapBonusAdd?: number;
+  granaryCapBonusAddPctPoints?: number;
+  populationIncomeMult?: number;
+  connectedTownStepBonusAdd?: number;
   harvestCapMult?: number;
   fortDefenseMult?: number;
   fortIronUpkeepMult?: number;
@@ -34,6 +49,8 @@ export interface TechEffects {
   visionRadiusBonus?: number;
   dockGoldOutputMult?: number;
   dockGoldCapMult?: number;
+  dockConnectionBonusPerLink?: number;
+  dockRoutesVisible?: boolean;
   marketCrystalUpkeepMult?: number;
   settledDefenseMult?: number;
   attackVsSettledMult?: number;
@@ -77,19 +94,34 @@ const TechEffectsSchema = z
     unlockCamp: z.boolean().optional(),
     unlockMine: z.boolean().optional(),
     unlockMarket: z.boolean().optional(),
+    unlockGranary: z.boolean().optional(),
     unlockForts: z.boolean().optional(),
     unlockObservatory: z.boolean().optional(),
     unlockSiegeOutposts: z.boolean().optional(),
+    unlockRevealRegion: z.boolean().optional(),
     unlockRevealEmpire: z.boolean().optional(),
+    unlockDeepStrike: z.boolean().optional(),
     unlockNavalInfiltration: z.boolean().optional(),
     unlockSabotage: z.boolean().optional(),
+    unlockMountainPass: z.boolean().optional(),
+    unlockTerrainShaping: z.boolean().optional(),
+    unlockBreachAttack: z.boolean().optional(),
     settlementSpeedMult: z.number().positive().optional(),
+    operationalTempoMult: z.number().positive().optional(),
+    populationGrowthMult: z.number().positive().optional(),
+    populationCapFirst3TownsMult: z.number().positive().optional(),
+    growthPauseDurationMult: z.number().positive().optional(),
     townFoodUpkeepMult: z.number().positive().optional(),
     settledFoodUpkeepMult: z.number().positive().optional(),
     settledGoldUpkeepMult: z.number().positive().optional(),
     townGoldOutputMult: z.number().positive().optional(),
-    townGoldOutputIfFedMult: z.number().positive().optional(),
     townGoldCapMult: z.number().positive().optional(),
+    marketIncomeBonusAdd: z.number().nonnegative().optional(),
+    marketCapBonusAdd: z.number().nonnegative().optional(),
+    granaryCapBonusAdd: z.number().nonnegative().optional(),
+    granaryCapBonusAddPctPoints: z.number().nonnegative().optional(),
+    populationIncomeMult: z.number().positive().optional(),
+    connectedTownStepBonusAdd: z.number().nonnegative().optional(),
     harvestCapMult: z.number().positive().optional(),
     fortDefenseMult: z.number().positive().optional(),
     fortIronUpkeepMult: z.number().positive().optional(),
@@ -102,6 +134,8 @@ const TechEffectsSchema = z
     visionRadiusBonus: z.number().int().min(0).optional(),
     dockGoldOutputMult: z.number().positive().optional(),
     dockGoldCapMult: z.number().positive().optional(),
+    dockConnectionBonusPerLink: z.number().nonnegative().optional(),
+    dockRoutesVisible: z.boolean().optional(),
     marketCrystalUpkeepMult: z.number().positive().optional(),
     settledDefenseMult: z.number().positive().optional(),
     attackVsSettledMult: z.number().positive().optional(),

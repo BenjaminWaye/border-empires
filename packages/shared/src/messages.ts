@@ -23,7 +23,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("BUILD_ECONOMIC_STRUCTURE"),
     x: z.number().int(),
     y: z.number().int(),
-    structureType: z.enum(["FARMSTEAD", "CAMP", "MINE", "MARKET"])
+    structureType: z.enum(["FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY"])
   }),
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("SETTLE"), x: z.number().int(), y: z.number().int() }),

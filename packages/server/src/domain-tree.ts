@@ -7,13 +7,17 @@ export type DomainResourceKey = "gold" | "food" | "iron" | "supply" | "crystal" 
 
 export interface DomainEffects {
   unlockRevealEmpire?: boolean;
+  buildCapacityAdd?: number;
   settlementSpeedMult?: number;
+  populationGrowthMult?: number;
+  populationCapFirst3TownsMult?: number;
+  growthPauseDurationMult?: number;
   townFoodUpkeepMult?: number;
   settledFoodUpkeepMult?: number;
   settledGoldUpkeepMult?: number;
   townGoldOutputMult?: number;
-  townGoldOutputIfFedMult?: number;
   townGoldCapMult?: number;
+  connectedTownStepBonusAdd?: number;
   harvestCapMult?: number;
   fortBuildGoldCostMult?: number;
   fortDefenseMult?: number;
@@ -53,13 +57,17 @@ export interface DomainDef {
 const DomainEffectsSchema = z
   .object({
     unlockRevealEmpire: z.boolean().optional(),
+    buildCapacityAdd: z.number().int().optional(),
     settlementSpeedMult: z.number().positive().optional(),
+    populationGrowthMult: z.number().positive().optional(),
+    populationCapFirst3TownsMult: z.number().positive().optional(),
+    growthPauseDurationMult: z.number().positive().optional(),
     townFoodUpkeepMult: z.number().positive().optional(),
     settledFoodUpkeepMult: z.number().positive().optional(),
     settledGoldUpkeepMult: z.number().positive().optional(),
     townGoldOutputMult: z.number().positive().optional(),
-    townGoldOutputIfFedMult: z.number().positive().optional(),
     townGoldCapMult: z.number().positive().optional(),
+    connectedTownStepBonusAdd: z.number().nonnegative().optional(),
     harvestCapMult: z.number().positive().optional(),
     fortBuildGoldCostMult: z.number().positive().optional(),
     fortDefenseMult: z.number().positive().optional(),
@@ -165,13 +173,17 @@ export const loadDomainTree = (cwd: string): LoadedDomainTree => {
     if (d.effects) {
       const effects: NonNullable<DomainDef["effects"]> = {};
       if (typeof d.effects.unlockRevealEmpire === "boolean") effects.unlockRevealEmpire = d.effects.unlockRevealEmpire;
+      if (typeof d.effects.buildCapacityAdd === "number") effects.buildCapacityAdd = d.effects.buildCapacityAdd;
       if (typeof d.effects.settlementSpeedMult === "number") effects.settlementSpeedMult = d.effects.settlementSpeedMult;
+      if (typeof d.effects.populationGrowthMult === "number") effects.populationGrowthMult = d.effects.populationGrowthMult;
+      if (typeof d.effects.populationCapFirst3TownsMult === "number") effects.populationCapFirst3TownsMult = d.effects.populationCapFirst3TownsMult;
+      if (typeof d.effects.growthPauseDurationMult === "number") effects.growthPauseDurationMult = d.effects.growthPauseDurationMult;
       if (typeof d.effects.townFoodUpkeepMult === "number") effects.townFoodUpkeepMult = d.effects.townFoodUpkeepMult;
       if (typeof d.effects.settledFoodUpkeepMult === "number") effects.settledFoodUpkeepMult = d.effects.settledFoodUpkeepMult;
       if (typeof d.effects.settledGoldUpkeepMult === "number") effects.settledGoldUpkeepMult = d.effects.settledGoldUpkeepMult;
       if (typeof d.effects.townGoldOutputMult === "number") effects.townGoldOutputMult = d.effects.townGoldOutputMult;
-      if (typeof d.effects.townGoldOutputIfFedMult === "number") effects.townGoldOutputIfFedMult = d.effects.townGoldOutputIfFedMult;
       if (typeof d.effects.townGoldCapMult === "number") effects.townGoldCapMult = d.effects.townGoldCapMult;
+      if (typeof d.effects.connectedTownStepBonusAdd === "number") effects.connectedTownStepBonusAdd = d.effects.connectedTownStepBonusAdd;
       if (typeof d.effects.harvestCapMult === "number") effects.harvestCapMult = d.effects.harvestCapMult;
       if (typeof d.effects.fortBuildGoldCostMult === "number") effects.fortBuildGoldCostMult = d.effects.fortBuildGoldCostMult;
       if (typeof d.effects.fortDefenseMult === "number") effects.fortDefenseMult = d.effects.fortDefenseMult;

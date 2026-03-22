@@ -14,7 +14,8 @@ export type TownType = "MARKET" | "FARMING" | "ANCIENT";
 export type EmpireVisualTint = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
 export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
 export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
-export type EconomicStructureType = "FARMSTEAD" | "CAMP" | "MINE" | "MARKET";
+export type EconomicStructureType = "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
+export type PopulationTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type VictoryPressureObjectiveId =
   | "TOWN_SUPREMACY"
   | "ECONOMIC_DOMINANCE"
@@ -85,6 +86,18 @@ export interface Tile {
     supportCurrent: number;
     supportMax: number;
     goldPerMinute: number;
+    cap: number;
+    isFed: boolean;
+    population: number;
+    maxPopulation: number;
+    populationTier: PopulationTier;
+    connectedTownCount: number;
+    connectedTownBonus: number;
+    connectedTownNames?: string[];
+    hasMarket: boolean;
+    marketActive: boolean;
+    hasGranary: boolean;
+    granaryActive: boolean;
     foodUpkeepPerMinute?: number;
   };
   yield?: {
@@ -217,6 +230,10 @@ export interface Dock {
   dockId: string;
   tileKey: TileKey;
   pairedDockId: string;
+  connectedDockIds?: string[];
+  baseGoldPerMinute?: number;
+  effectiveGoldPerMinute?: number;
+  cap?: number;
   cooldownUntil: number;
 }
 
