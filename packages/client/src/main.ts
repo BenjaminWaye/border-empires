@@ -2595,7 +2595,10 @@ const strategicRibbonHtml = (): string => {
                 ? state.upkeepPerMinute.supply
                 : 0;
       const net = state.strategicProductionPerMinute[e.key] - upkeep;
-      const prodText = `${net > 0 ? "+" : ""}${net.toFixed(2)}/m`;
+      const prodText =
+        e.key === "SHARD"
+          ? `${net * 1440 > 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day`
+          : `${net > 0 ? "+" : ""}${net.toFixed(2)}/m`;
       const rateClass = rateToneClass(net);
       const anim = state.strategicAnim[e.key];
       const deltaClass =
