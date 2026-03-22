@@ -3197,6 +3197,12 @@ const queueSpecificTargets = (
 ): { queued: number; skipped: number; queuedKeys: string[] } =>
   buildFrontierQueue(targetKeys, (x, y) => enqueueTarget(x, y, mode));
 
+const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
+  if (!targetKey) return;
+  const stillQueued = state.actionQueue.some((entry) => key(entry.x, entry.y) === targetKey);
+  if (!stillQueued) state.queuedTargetKeys.delete(targetKey);
+};
+
 const startQueuedSettle = (x: number, y: number, retries: number): boolean => {
   if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
   const startAt = Date.now();
@@ -4936,8 +4942,8 @@ ws.addEventListener("message", (ev) => {
       state.actionInFlight = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
-      if (targetKey) state.queuedTargetKeys.delete(targetKey);
-      if (resolvedCurrentKey) state.queuedTargetKeys.delete(resolvedCurrentKey);
+      if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
+      if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
       const startedNext = processActionQueue();
       if (!startedNext) {
         state.capture = undefined;
@@ -5176,7 +5182,7 @@ ws.addEventListener("message", (ev) => {
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
-    if (failedCurrentKey) state.queuedTargetKeys.delete(failedCurrentKey);
+    if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
     if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
     state.attackPreviewPendingKey = "";
     processActionQueue();
@@ -5946,11 +5952,11 @@ setInterval(() => {
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
-    if (current && (current.retries ?? 0) < 3) {
-      const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough" | "settle"; retries: number } = {
-        x: current.x,
-        y: current.y,
-        retries: (current.retries ?? 0) + 1
+      if (current && (current.retries ?? 0) < 3) {
+        const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough" | "settle"; retries: number } = {
+          x: current.x,
+          y: current.y,
+          retries: (current.retries ?? 0) + 1
       };
       if (current.mode) retryAction.mode = current.mode;
       state.actionQueue.unshift(retryAction);
@@ -5958,7 +5964,7 @@ setInterval(() => {
       pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
     } else {
       pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
-      if (current) state.queuedTargetKeys.delete(key(current.x, current.y));
+      if (current) dropQueuedTargetKeyIfAbsent(key(current.x, current.y));
     }
     processActionQueue();
     renderHud();
@@ -5974,7 +5980,7 @@ setInterval(() => {
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
-    if (timedOutCurrentKey) state.queuedTargetKeys.delete(timedOutCurrentKey);
+    if (timedOutCurrentKey) dropQueuedTargetKeyIfAbsent(timedOutCurrentKey);
     pushFeed("Combat result delayed locally; continuing queue.", "combat", "warn");
     processActionQueue();
     renderHud();
