@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import {
@@ -80,6 +80,16 @@ const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 const SNAPSHOT_DIR = path.resolve(process.cwd(), "snapshots");
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
+const snapshotTempFile = (): string => path.join(SNAPSHOT_DIR, `state.${process.pid}.tmp`);
+
+let appRef: FastifyInstance | undefined;
+const logRuntimeError = (message: string, err: unknown): void => {
+  if (appRef) {
+    appRef.log.error({ err }, message);
+    return;
+  }
+  console.error(message, err);
+};
 
 type Ws = import("ws").WebSocket;
 
@@ -92,6 +102,22 @@ interface AuthIdentity {
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
 const firebaseJwks = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
+const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
+  const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  if (
+    text.includes("fetch failed") ||
+    text.includes("ECONNREFUSED") ||
+    text.includes("ECONNRESET") ||
+    text.includes("ENOTFOUND") ||
+    text.includes("ETIMEDOUT") ||
+    text.includes("network")
+  ) {
+    return { code: "AUTH_UNAVAILABLE", message: "Authentication service temporarily unavailable." };
+  }
+  return { code: "AUTH_FAIL", message: "Firebase token verification failed." };
+};
+
+const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
 
 interface AllianceRequest {
   id: string;
@@ -123,6 +149,28 @@ type VictoryPressureObjectiveView = {
   conditionMet: boolean;
 };
 
+type LeaderboardOverallEntry = {
+  id: string;
+  name: string;
+  tiles: number;
+  incomePerMinute: number;
+  techs: number;
+  score: number;
+};
+
+type LeaderboardMetricEntry = {
+  id: string;
+  name: string;
+  value: number;
+};
+
+type LeaderboardSnapshotView = {
+  overall: LeaderboardOverallEntry[];
+  byTiles: LeaderboardMetricEntry[];
+  byIncome: LeaderboardMetricEntry[];
+  byTechs: LeaderboardMetricEntry[];
+};
+
 type VictoryPressureDefinition = {
   id: VictoryPressureObjectiveId;
   name: string;
@@ -151,6 +199,52 @@ interface SeasonArchiveEntry {
   mostTerritory: Array<{ playerId: string; name: string; value: number }>;
   mostPoints: Array<{ playerId: string; name: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; name: string; value: number }>;
+}
+
+interface SnapshotState {
+  world: { width: number; height: number };
+  players: Array<
+    Omit<Player, "techIds" | "domainIds" | "territoryTiles" | "allies"> & {
+      techIds: string[];
+      domainIds?: string[];
+      territoryTiles: TileKey[];
+      allies: string[];
+      missions?: MissionState[];
+      missionStats?: MissionStats;
+    }
+  >;
+  ownership: [TileKey, string][];
+  ownershipState?: [TileKey, OwnershipState][];
+  barbarianAgents?: BarbarianAgent[];
+  authIdentities?: AuthIdentity[];
+  resources: [string, Record<ResourceType, number>][];
+  strategicResources?: [string, Record<StrategicResource, number>][];
+  strategicResourceBuffer?: [string, Record<StrategicResource, number>][];
+  tileYield?: [TileKey, TileYieldBuffer][];
+  tileHistory?: [TileKey, TileHistoryState][];
+  terrainShapes?: [TileKey, TerrainShapeState][];
+  victoryPressure?: [VictoryPressureObjectiveId, VictoryPressureTracker][];
+  frontierSettlements?: [string, number[]][];
+  dynamicMissions?: [string, DynamicMissionDef[]][];
+  temporaryAttackBuffUntil?: [string, number][];
+  temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
+  forcedReveal?: [string, TileKey[]][];
+  revealedEmpireTargets?: [string, string[]][];
+  allianceRequests?: AllianceRequest[];
+  forts?: Fort[];
+  observatories?: Observatory[];
+  siegeOutposts?: SiegeOutpost[];
+  economicStructures?: EconomicStructure[];
+  sabotage?: ActiveSabotage[];
+  abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
+  docks?: Dock[];
+  towns?: TownDefinition[];
+  firstSpecialSiteCaptureClaimed?: TileKey[];
+  clusters?: ClusterDefinition[];
+  clusterTiles?: [TileKey, string][];
+  season?: Season;
+  seasonArchives?: SeasonArchiveEntry[];
+  seasonTechConfig?: Omit<SeasonalTechConfig, "activeNodeIds"> & { activeNodeIds: string[] };
 }
 
 interface ClusterDefinition {
@@ -738,13 +832,21 @@ const normalizedPlayerHandle = (name: string): string => {
   return cleaned.slice(0, 24);
 };
 
+const playerNameTaken = (candidate: string, excludePlayerId?: string): boolean => {
+  for (const player of players.values()) {
+    if (excludePlayerId && player.id === excludePlayerId) continue;
+    if (player.name === candidate) return true;
+  }
+  return false;
+};
+
 const uniquePlayerName = (uid: string, preferred: string): string => {
   const base = normalizedPlayerHandle(preferred);
   const existingIdentity = authIdentityByUid.get(uid);
   if (existingIdentity) return existingIdentity.name;
   let candidate = base;
   let suffix = 2;
-  while ([...players.values()].some((p) => p.name === candidate)) {
+  while (playerNameTaken(candidate)) {
     candidate = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}-${suffix}`;
     suffix += 1;
   }
@@ -755,7 +857,7 @@ const claimPlayerName = (playerId: string, preferred: string): string => {
   const base = normalizedPlayerHandle(preferred);
   let candidate = base;
   let suffix = 2;
-  while ([...players.values()].some((p) => p.id !== playerId && p.name === candidate)) {
+  while (playerNameTaken(candidate, playerId)) {
     candidate = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}-${suffix}`;
     suffix += 1;
   }
@@ -885,6 +987,40 @@ let activeSeasonTechConfig: SeasonalTechConfig = {
 const pairKeyFor = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
 const ACTION_WINDOW_MS = 5_000;
 const ACTION_LIMIT = 12;
+const pruneActionTimes = (playerId: string, nowMs: number): number[] => {
+  const timestamps = actionTimestampsByPlayer.get(playerId);
+  if (!timestamps || timestamps.length === 0) return [];
+  let writeIndex = 0;
+  for (let readIndex = 0; readIndex < timestamps.length; readIndex += 1) {
+    const timestamp = timestamps[readIndex]!;
+    if (nowMs - timestamp > ACTION_WINDOW_MS) continue;
+    timestamps[writeIndex] = timestamp;
+    writeIndex += 1;
+  }
+  if (writeIndex !== timestamps.length) timestamps.length = writeIndex;
+  if (writeIndex === 0) {
+    actionTimestampsByPlayer.delete(playerId);
+    return [];
+  }
+  return timestamps;
+};
+const pruneRepeatFightEntries = (pairKey: string, nowMs: number): number[] => {
+  const entries = repeatFights.get(pairKey);
+  if (!entries || entries.length === 0) return [];
+  let writeIndex = 0;
+  for (let readIndex = 0; readIndex < entries.length; readIndex += 1) {
+    const timestamp = entries[readIndex]!;
+    if (nowMs - timestamp > PVP_REPEAT_WINDOW_MS) continue;
+    entries[writeIndex] = timestamp;
+    writeIndex += 1;
+  }
+  if (writeIndex !== entries.length) entries.length = writeIndex;
+  if (writeIndex === 0) {
+    repeatFights.delete(pairKey);
+    return [];
+  }
+  return entries;
+};
 const SEASONS_ENABLED = false;
 
 const seeded01 = (x: number, y: number, seed: number): number => {
@@ -3492,6 +3628,7 @@ const broadcastLocalVisionDelta = (centers: Array<{ x: number; y: number }>): vo
 const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
   const ws = socketsByPlayer.get(p.id);
   if (!ws || ws.readyState !== ws.OPEN) return;
+  refreshGlobalStatusCache(false);
   const strategicStocks = getOrInitStrategicStocks(p.id);
   const strategicProduction = strategicProductionPerMinute(p);
   const upkeepDiag = lastUpkeepByPlayer.get(p.id) ?? emptyUpkeepDiagnostics();
@@ -3528,8 +3665,8 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       activeRevealTargets: [...getOrInitRevealTargets(p.id)],
       abilityCooldowns: Object.fromEntries(getAbilityCooldowns(p.id)),
       missions: missionPayload(p),
-      leaderboard: leaderboardSnapshot(p),
-      victoryPressure: currentVictoryPressureObjectives()
+      leaderboard: cachedLeaderboardSnapshot,
+      victoryPressure: cachedVictoryPressureObjectives
     })
   );
 };
@@ -3552,15 +3689,14 @@ const collectYieldFromTile = (
     y.gold = 0;
   }
   const stock = getOrInitStrategicStocks(player.id);
-  for (const r of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const r of STRATEGIC_RESOURCE_KEYS) {
     const amt = Math.floor((y.strategic[r] ?? 0) * 100) / 100;
     if (amt <= 0) continue;
     stock[r] += amt;
     out.strategic[r] = amt;
     y.strategic[r] = 0;
   }
-  const hasRemaining = y.gold > 0 || (Object.values(y.strategic) as number[]).some((v) => v > 0);
-  if (!hasRemaining) tileYieldByTile.delete(tk);
+  pruneEmptyTileYield(tk, y);
   return out;
 };
 
@@ -3573,12 +3709,12 @@ const collectVisibleYield = (
     const [x, y] = parseKey(tk);
     if (!visible(player, x, y)) continue;
     const got = collectYieldFromTile(player, tk);
-    const touched = got.gold > 0 || (Object.values(got.strategic) as number[]).some((v) => v > 0);
+    const touched = got.gold > 0 || hasPositiveStrategicBuffer(got.strategic);
     if (!touched) continue;
     out.tiles += 1;
     out.gold += got.gold;
     out.touchedTileKeys.push(tk);
-    for (const r of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) out.strategic[r] += got.strategic[r] ?? 0;
+    for (const r of STRATEGIC_RESOURCE_KEYS) out.strategic[r] += got.strategic[r] ?? 0;
   }
   if (out.gold > 0) recalcPlayerDerived(player);
   return out;
@@ -4117,15 +4253,7 @@ const normalizePlayerProgressionState = (player: Player): void => {
   player.domainIds = new Set([...player.domainIds].filter((id) => domainById.has(id)));
 };
 
-const leaderboardSnapshot = (
-  _actor: Player,
-  limitTop = 5
-): {
-  overall: Array<{ id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number }>;
-  byTiles: Array<{ id: string; name: string; value: number }>;
-  byIncome: Array<{ id: string; name: string; value: number }>;
-  byTechs: Array<{ id: string; name: string; value: number }>;
-} => {
+const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
   const rows = [...players.values()].map((p) => ({
     id: p.id,
     name: p.name,
@@ -4162,9 +4290,21 @@ const victoryPressureRewardLabel = (def: VictoryPressureDefinition): string => {
 };
 
 const trimFrontierSettlementsWindow = (playerId: string, nowMs = now()): number[] => {
-  const next = (frontierSettlementsByPlayer.get(playerId) ?? []).filter((ts) => nowMs - ts <= VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS);
-  frontierSettlementsByPlayer.set(playerId, next);
-  return next;
+  const timestamps = frontierSettlementsByPlayer.get(playerId);
+  if (!timestamps || timestamps.length === 0) return [];
+  let writeIndex = 0;
+  for (let readIndex = 0; readIndex < timestamps.length; readIndex += 1) {
+    const timestamp = timestamps[readIndex]!;
+    if (nowMs - timestamp > VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS) continue;
+    timestamps[writeIndex] = timestamp;
+    writeIndex += 1;
+  }
+  if (writeIndex !== timestamps.length) timestamps.length = writeIndex;
+  if (writeIndex === 0) {
+    frontierSettlementsByPlayer.delete(playerId);
+    return [];
+  }
+  return timestamps;
 };
 
 const recordFrontierSettlementForPressure = (playerId: string): void => {
@@ -4175,9 +4315,17 @@ const recordFrontierSettlementForPressure = (playerId: string): void => {
 
 const uniqueLeader = (entries: Array<{ playerId: string; value: number }>): { playerId?: string; value: number } => {
   if (entries.length === 0) return { value: 0 };
-  const sorted = [...entries].sort((a, b) => b.value - a.value);
-  const top = sorted[0]!;
-  const runnerUp = sorted[1];
+  let top = entries[0]!;
+  let runnerUp: { playerId: string; value: number } | undefined;
+  for (let i = 1; i < entries.length; i += 1) {
+    const entry = entries[i]!;
+    if (entry.value > top.value) {
+      runnerUp = top;
+      top = entry;
+      continue;
+    }
+    if (!runnerUp || entry.value > runnerUp.value) runnerUp = entry;
+  }
   if (top.value <= 0) return { value: top.value };
   if (runnerUp && runnerUp.value === top.value) return { value: top.value };
   return { playerId: top.playerId, value: top.value };
@@ -4227,7 +4375,7 @@ const applyVictoryPressureReward = (playerId: string, def: VictoryPressureDefini
   recalcPlayerDerived(player);
 };
 
-const currentVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
+const computeVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
   const nowMs = now();
   const totalTownCount = Math.max(1, townsByTile.size);
   const townTarget = Math.max(1, Math.ceil(totalTownCount * 0.2));
@@ -4308,10 +4456,33 @@ const currentVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
   });
 };
 
+let cachedLeaderboardSnapshot: LeaderboardSnapshotView = { overall: [], byTiles: [], byIncome: [], byTechs: [] };
+let cachedVictoryPressureObjectives: VictoryPressureObjectiveView[] = [];
+let globalStatusCacheExpiresAt = 0;
+
+const refreshGlobalStatusCache = (force = false): void => {
+  const nowMs = now();
+  if (!force && nowMs < globalStatusCacheExpiresAt) return;
+  cachedLeaderboardSnapshot = computeLeaderboardSnapshot();
+  cachedVictoryPressureObjectives = computeVictoryPressureObjectives();
+  globalStatusCacheExpiresAt = nowMs + GLOBAL_STATUS_CACHE_TTL_MS;
+};
+
+const currentLeaderboardSnapshot = (): LeaderboardSnapshotView => {
+  refreshGlobalStatusCache(false);
+  return cachedLeaderboardSnapshot;
+};
+
+const currentVictoryPressureObjectives = (): VictoryPressureObjectiveView[] => {
+  refreshGlobalStatusCache(false);
+  return cachedVictoryPressureObjectives;
+};
+
 const broadcastVictoryPressureUpdate = (announcement?: string): void => {
+  refreshGlobalStatusCache(true);
   broadcast({
     type: "VICTORY_PRESSURE_UPDATE",
-    objectives: currentVictoryPressureObjectives(),
+    objectives: cachedVictoryPressureObjectives,
     announcement
   });
 };
@@ -5493,97 +5664,80 @@ const recordMountainShapeHistory = (tileKey: TileKey, kind: "created" | "removed
   if (kind === "removed") history.wasMountainRemovedByPlayer = true;
 };
 
-const saveSnapshot = (): void => {
-  fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
-  const payload = {
-    world: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
-    players: [...players.values()].map(serializePlayer),
-    ownership: [...ownership.entries()],
-    ownershipState: [...ownershipStateByTile.entries()],
-    barbarianAgents: [...barbarianAgents.values()],
-    authIdentities: [...authIdentityByUid.values()],
-    resources: [...resourceCountsByPlayer.entries()],
-    strategicResources: [...strategicResourceStockByPlayer.entries()],
-    strategicResourceBuffer: [...strategicResourceBufferByPlayer.entries()],
-    tileYield: [...tileYieldByTile.entries()],
-    tileHistory: [...tileHistoryByTile.entries()],
-    terrainShapes: [...terrainShapesByTile.entries()],
-    victoryPressure: [...victoryPressureById.entries()],
-    frontierSettlements: [...frontierSettlementsByPlayer.entries()],
-    dynamicMissions: [...dynamicMissionsByPlayer.entries()],
-    temporaryAttackBuffUntil: [...temporaryAttackBuffUntilByPlayer.entries()],
-    temporaryIncomeBuff: [...temporaryIncomeBuffUntilByPlayer.entries()],
-    forcedReveal: [...forcedRevealTilesByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
-    revealedEmpireTargets: [...revealedEmpireTargetsByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
-    allianceRequests: [...allianceRequests.values()],
-    forts: [...fortsByTile.values()],
-    observatories: [...observatoriesByTile.values()],
-    siegeOutposts: [...siegeOutpostsByTile.values()],
-    economicStructures: [...economicStructuresByTile.values()],
-    sabotage: [...sabotageByTile.values()],
-    abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
-    docks: [...dockById.values()],
-    towns: [...townsByTile.values()],
-    firstSpecialSiteCaptureClaimed: [...firstSpecialSiteCaptureClaimed],
-    clusters: [...clustersById.values()],
-    clusterTiles: [...clusterByTile.entries()],
-    season: activeSeason,
-    seasonArchives,
-    seasonTechConfig: {
-      ...activeSeasonTechConfig,
-      activeNodeIds: [...activeSeasonTechConfig.activeNodeIds]
-    }
-  };
-  fs.writeFileSync(SNAPSHOT_FILE, JSON.stringify(payload));
+const buildSnapshotState = (): SnapshotState => ({
+  world: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
+  players: [...players.values()].map(serializePlayer),
+  ownership: [...ownership.entries()],
+  ownershipState: [...ownershipStateByTile.entries()],
+  barbarianAgents: [...barbarianAgents.values()],
+  authIdentities: [...authIdentityByUid.values()],
+  resources: [...resourceCountsByPlayer.entries()],
+  strategicResources: [...strategicResourceStockByPlayer.entries()],
+  strategicResourceBuffer: [...strategicResourceBufferByPlayer.entries()],
+  tileYield: [...tileYieldByTile.entries()],
+  tileHistory: [...tileHistoryByTile.entries()],
+  terrainShapes: [...terrainShapesByTile.entries()],
+  victoryPressure: [...victoryPressureById.entries()],
+  frontierSettlements: [...frontierSettlementsByPlayer.entries()],
+  dynamicMissions: [...dynamicMissionsByPlayer.entries()],
+  temporaryAttackBuffUntil: [...temporaryAttackBuffUntilByPlayer.entries()],
+  temporaryIncomeBuff: [...temporaryIncomeBuffUntilByPlayer.entries()],
+  forcedReveal: [...forcedRevealTilesByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
+  revealedEmpireTargets: [...revealedEmpireTargetsByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
+  allianceRequests: [...allianceRequests.values()],
+  forts: [...fortsByTile.values()],
+  observatories: [...observatoriesByTile.values()],
+  siegeOutposts: [...siegeOutpostsByTile.values()],
+  economicStructures: [...economicStructuresByTile.values()],
+  sabotage: [...sabotageByTile.values()],
+  abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
+  docks: [...dockById.values()],
+  towns: [...townsByTile.values()],
+  firstSpecialSiteCaptureClaimed: [...firstSpecialSiteCaptureClaimed],
+  clusters: [...clustersById.values()],
+  clusterTiles: [...clusterByTile.entries()],
+  season: activeSeason,
+  seasonArchives,
+  seasonTechConfig: {
+    ...activeSeasonTechConfig,
+    activeNodeIds: [...activeSeasonTechConfig.activeNodeIds]
+  }
+});
+
+let snapshotSavePromise: Promise<void> = Promise.resolve();
+const saveSnapshot = async (): Promise<void> => {
+  const serialized = JSON.stringify(buildSnapshotState());
+  snapshotSavePromise = snapshotSavePromise
+    .catch(() => undefined)
+    .then(async () => {
+      await fs.promises.mkdir(SNAPSHOT_DIR, { recursive: true });
+      const tmpFile = snapshotTempFile();
+      await fs.promises.writeFile(tmpFile, serialized);
+      await fs.promises.rename(tmpFile, SNAPSHOT_FILE);
+    });
+  return snapshotSavePromise;
+};
+
+const saveSnapshotInBackground = (): void => {
+  void saveSnapshot().catch((err) => {
+    logRuntimeError("snapshot save failed", err);
+  });
 };
 
 const loadSnapshot = (): void => {
   if (!fs.existsSync(SNAPSHOT_FILE)) return;
-  const raw = JSON.parse(fs.readFileSync(SNAPSHOT_FILE, "utf8")) as {
-    world?: { width: number; height: number };
-    players: Array<
-      Omit<Player, "techIds" | "domainIds" | "territoryTiles" | "allies"> & {
-        techIds: string[];
-        domainIds?: string[];
-        territoryTiles: TileKey[];
-        allies: string[];
-        missions?: MissionState[];
-        missionStats?: MissionStats;
-      }
-    >;
-    ownership: [TileKey, string][];
-    ownershipState?: [TileKey, OwnershipState][];
-    barbarianAgents?: BarbarianAgent[];
-    authIdentities?: AuthIdentity[];
-    resources: [string, Record<ResourceType, number>][];
-    strategicResources?: [string, Record<StrategicResource, number>][];
-    strategicResourceBuffer?: [string, Record<StrategicResource, number>][];
-    tileYield?: [TileKey, TileYieldBuffer][];
-    tileHistory?: [TileKey, TileHistoryState][];
-    terrainShapes?: [TileKey, TerrainShapeState][];
-    victoryPressure?: [VictoryPressureObjectiveId, VictoryPressureTracker][];
-    frontierSettlements?: [string, number[]][];
-    dynamicMissions?: [string, DynamicMissionDef[]][];
-    temporaryAttackBuffUntil?: [string, number][];
-    temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
-    forcedReveal?: [string, TileKey[]][];
-    revealedEmpireTargets?: [string, string[]][];
-    allianceRequests?: AllianceRequest[];
-    forts?: Fort[];
-    observatories?: Observatory[];
-    siegeOutposts?: SiegeOutpost[];
-    economicStructures?: EconomicStructure[];
-    sabotage?: ActiveSabotage[];
-    abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
-    docks?: Dock[];
-    towns?: TownDefinition[];
-    firstSpecialSiteCaptureClaimed?: TileKey[];
-    clusters?: ClusterDefinition[];
-    clusterTiles?: [TileKey, string][];
-    season?: Season;
-    seasonArchives?: SeasonArchiveEntry[];
-    seasonTechConfig?: Omit<SeasonalTechConfig, "activeNodeIds"> & { activeNodeIds: string[] };
-  };
+  let raw: SnapshotState;
+  try {
+    raw = JSON.parse(fs.readFileSync(SNAPSHOT_FILE, "utf8")) as SnapshotState;
+  } catch (err) {
+    logRuntimeError("snapshot load failed", err);
+    try {
+      fs.renameSync(SNAPSHOT_FILE, `${SNAPSHOT_FILE}.corrupt-${Date.now()}`);
+    } catch (renameErr) {
+      logRuntimeError("failed to quarantine corrupt snapshot", renameErr);
+    }
+    return;
+  }
   if (!raw.world || raw.world.width !== WORLD_WIDTH || raw.world.height !== WORLD_HEIGHT) {
     return;
   }
@@ -5880,7 +6034,7 @@ let lastSnapshotAt = 0;
 registerInterval(() => {
   const nowMs = now();
   if (!hasOnlinePlayers() && nowMs - lastSnapshotAt < IDLE_SNAPSHOT_INTERVAL_MS) return;
-  saveSnapshot();
+  saveSnapshotInBackground();
   lastSnapshotAt = nowMs;
 }, 30_000);
 registerInterval(runBarbarianTick, 1_000);
@@ -5985,6 +6139,7 @@ if (SEASONS_ENABLED) {
 }
 
 const app = Fastify({ logger: true });
+appRef = app;
 await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
@@ -6024,11 +6179,12 @@ app.get("/admin/telemetry", async () => {
 app.post("/admin/season/rollover", async () => {
   if (!SEASONS_ENABLED) return { ok: false, disabled: true, message: "seasons temporarily disabled" };
   startNewSeason();
+  await saveSnapshot();
   return { ok: true, activeSeason };
 });
 app.post("/admin/world/regenerate", async () => {
   regenerateWorldInPlace();
-  saveSnapshot();
+  await saveSnapshot();
   return { ok: true, activeSeason, regenerated: true };
 });
 
@@ -6075,8 +6231,16 @@ app.post("/admin/world/regenerate", async () => {
           email: typeof verified.payload.email === "string" ? verified.payload.email : undefined,
           name: typeof verified.payload.name === "string" ? verified.payload.name : undefined
         };
-      } catch {
-        socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FAIL", message: "Firebase token verification failed." }));
+      } catch (err) {
+        const authError = classifyAuthError(err);
+        app.log.warn(
+          {
+            err,
+            authErrorCode: authError.code
+          },
+          "firebase token verification failed"
+        );
+        socket.send(JSON.stringify({ type: "ERROR", code: authError.code, message: authError.message }));
         return;
       }
       if (!decoded.uid) {
@@ -6161,7 +6325,7 @@ app.post("/admin/world/regenerate", async () => {
           domainCatalog: activeDomainCatalog(player),
           playerStyles: exportPlayerStyles(),
           missions: missionPayload(player),
-          leaderboard: leaderboardSnapshot(player),
+          leaderboard: currentLeaderboardSnapshot(),
           victoryPressure: currentVictoryPressureObjectives(),
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id)
         })
@@ -6398,7 +6562,7 @@ app.post("/admin/world/regenerate", async () => {
         return;
       }
       const got = collectYieldFromTile(actor, tk);
-      const touched = got.gold > 0 || (Object.values(got.strategic) as number[]).some((v) => v > 0);
+      const touched = got.gold > 0 || hasPositiveStrategicBuffer(got.strategic);
       if (!touched) {
         socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "yield is empty (upkeep may have consumed it)" }));
         return;
@@ -6704,13 +6868,14 @@ app.post("/admin/world/regenerate", async () => {
       "action request"
     );
 
-    const actionTimes = (actionTimestampsByPlayer.get(actor.id) ?? []).filter((t) => now() - t <= ACTION_WINDOW_MS);
+    const nowMs = now();
+    const actionTimes = pruneActionTimes(actor.id, nowMs);
     if (actionTimes.length >= ACTION_LIMIT) {
       app.log.info({ playerId: actor.id, action: msg.type }, "action rejected: rate limit");
       socket.send(JSON.stringify({ type: "ERROR", code: "RATE_LIMIT", message: "too many actions; slow down briefly" }));
       return;
     }
-    actionTimes.push(now());
+    actionTimes.push(nowMs);
     actionTimestampsByPlayer.set(actor.id, actionTimes);
 
     applyStaminaRegen(actor);
@@ -7005,8 +7170,9 @@ app.post("/admin/world/regenerate", async () => {
           const attackerRating = ratingFromPointsLevel(actor.points, actor.level);
           const defenderRating = ratingFromPointsLevel(defender.points, defender.level);
           const pairKey = pairKeyFor(actor.id, defender.id);
-          const entries = (repeatFights.get(pairKey) ?? []).filter((ts) => now() - ts <= PVP_REPEAT_WINDOW_MS);
-          entries.push(now());
+          const nowMs = now();
+          const entries = pruneRepeatFightEntries(pairKey, nowMs);
+          entries.push(nowMs);
           repeatFights.set(pairKey, entries);
           const repeatMult = Math.max(PVP_REPEAT_FLOOR, 0.5 ** (entries.length - 1));
           pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(to.resource), attackerRating, defenderRating) * repeatMult * PVP_REWARD_MULT;
@@ -7095,7 +7261,7 @@ app.post("/admin/world/regenerate", async () => {
       if (!hasOnlinePlayers()) {
         cancelAllBarbarianPendingCaptures();
         pauseVictoryPressureTimers();
-        saveSnapshot();
+        saveSnapshotInBackground();
         lastSnapshotAt = now();
       }
     }
@@ -7104,14 +7270,22 @@ app.post("/admin/world/regenerate", async () => {
 
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info({ signal }, "shutting down server");
+  let exitCode = 0;
   for (const interval of runtimeIntervals) clearInterval(interval);
   runtimeIntervals.length = 0;
   try {
+    await saveSnapshot();
+  } catch (err) {
+    exitCode = 1;
+    app.log.error({ err, signal }, "error saving snapshot during shutdown");
+  }
+  try {
     await app.close();
   } catch (err) {
+    exitCode = 1;
     app.log.error({ err, signal }, "error during shutdown");
   } finally {
-    process.exit(0);
+    process.exit(exitCode);
   }
 };
 
