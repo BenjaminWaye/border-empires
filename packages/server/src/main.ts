@@ -3224,6 +3224,11 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.settledGoldUpkeepMult === "number") next.settledGoldUpkeepMult *= effects.settledGoldUpkeepMult;
     if (typeof effects.townGoldOutputMult === "number") next.townGoldOutputMult *= effects.townGoldOutputMult;
     if (typeof effects.townGoldCapMult === "number") next.townGoldCapMult *= effects.townGoldCapMult;
+    if (typeof effects.marketBonusMult === "number") {
+      next.marketIncomeBonusAdd *= effects.marketBonusMult;
+      next.marketCapBonusAdd *= effects.marketBonusMult;
+    }
+    if (typeof effects.granaryBonusMult === "number") next.granaryCapBonusAdd *= effects.granaryBonusMult;
     if (typeof effects.marketIncomeBonusAdd === "number") next.marketIncomeBonusAdd += effects.marketIncomeBonusAdd;
     if (typeof effects.marketCapBonusAdd === "number") next.marketCapBonusAdd += effects.marketCapBonusAdd;
     if (typeof effects.granaryCapBonusAdd === "number") next.granaryCapBonusAdd += effects.granaryCapBonusAdd;
@@ -3276,6 +3281,11 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.settledGoldUpkeepMult === "number") next.settledGoldUpkeepMult *= effects.settledGoldUpkeepMult;
     if (typeof effects.townGoldOutputMult === "number") next.townGoldOutputMult *= effects.townGoldOutputMult;
     if (typeof effects.townGoldCapMult === "number") next.townGoldCapMult *= effects.townGoldCapMult;
+    if (typeof effects.marketBonusMult === "number") {
+      next.marketIncomeBonusAdd *= effects.marketBonusMult;
+      next.marketCapBonusAdd *= effects.marketBonusMult;
+    }
+    if (typeof effects.granaryBonusMult === "number") next.granaryCapBonusAdd *= effects.granaryBonusMult;
     if (typeof effects.connectedTownStepBonusAdd === "number") next.connectedTownStepBonusAdd += effects.connectedTownStepBonusAdd;
     if (typeof effects.harvestCapMult === "number") next.harvestCapMult *= effects.harvestCapMult;
     if (typeof effects.fortBuildGoldCostMult === "number") next.fortBuildGoldCostMult *= effects.fortBuildGoldCostMult;
