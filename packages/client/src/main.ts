@@ -4994,6 +4994,8 @@ ws.addEventListener("message", (ev) => {
     if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
     state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
+    state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
+    state.techCatalog = (msg.techCatalog as TechInfo[]) ?? state.techCatalog;
     if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
     state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
     state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
