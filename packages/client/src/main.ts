@@ -5110,7 +5110,8 @@ ws.addEventListener("message", (ev) => {
     const existingCapture =
       state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
     const startAt = existingCapture?.startAt ?? Date.now();
-    state.capture = { startAt, resolvesAt: Math.max(resolvesAt, startAt + 100), target };
+    const effectiveResolvesAt = existingCapture?.resolvesAt ?? Math.max(resolvesAt, startAt + 100);
+    state.capture = { startAt, resolvesAt: effectiveResolvesAt, target };
     state.actionInFlight = true;
     if (!state.actionStartedAt) state.actionStartedAt = startAt;
     state.actionTargetKey = key(target.x, target.y);
