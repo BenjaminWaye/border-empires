@@ -1025,7 +1025,8 @@ const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipSta
 const sharesBorderTerritory = (tile: Tile, neighbor?: Tile): boolean => {
   if (!neighbor) return false;
   if (neighbor.fogged) return false;
-  return neighbor.ownerId === tile.ownerId;
+  if (neighbor.ownerId !== tile.ownerId) return false;
+  return neighbor.ownershipState === tile.ownershipState;
 };
 const drawExposedTileBorder = (tile: Tile, px: number, py: number, size: number): void => {
   const top = state.tiles.get(key(wrapX(tile.x), wrapY(tile.y - 1)));
