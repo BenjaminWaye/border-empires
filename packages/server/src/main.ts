@@ -4070,14 +4070,14 @@ const tryQueueBasicFrontierAction = (
   fromY: number,
   toX: number,
   toY: number
-): boolean => {
+): number | undefined => {
   applyStaminaRegen(actor);
   actor.lastActiveAt = now();
 
   let from = playerTile(fromX, fromY);
   const to = playerTile(toX, toY);
-  if (actionType === "EXPAND" && to.ownerId) return false;
-  if (actionType === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) return false;
+  if (actionType === "EXPAND" && to.ownerId) return undefined;
+  if (actionType === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) return undefined;
 
   let fk = key(from.x, from.y);
   const tk = key(to.x, to.y);
@@ -4094,16 +4094,16 @@ const tryQueueBasicFrontierAction = (
       dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
     }
   }
-  if (!adjacent && !dockCrossing) return false;
-  if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) return false;
-  if (from.ownerId !== actor.id || to.terrain !== "LAND") return false;
-  if (combatLocks.has(fk) || combatLocks.has(tk)) return false;
-  if (actor.points < FRONTIER_ACTION_GOLD_COST) return false;
+  if (!adjacent && !dockCrossing) return undefined;
+  if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) return undefined;
+  if (from.ownerId !== actor.id || to.terrain !== "LAND") return undefined;
+  if (combatLocks.has(fk) || combatLocks.has(tk)) return undefined;
+  if (actor.points < FRONTIER_ACTION_GOLD_COST) return undefined;
 
   const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
   const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
-  if (defender && actor.allies.has(defender.id)) return false;
-  if (defender && defender.spawnShieldUntil > now()) return false;
+  if (defender && actor.allies.has(defender.id)) return undefined;
+  if (defender && defender.spawnShieldUntil > now()) return undefined;
 
   if (actionType === "ATTACK" && to.ownerId && to.ownerId !== actor.id && !actor.allies.has(to.ownerId)) {
     pausePopulationGrowthFromWar(actor.id);
@@ -4221,7 +4221,7 @@ const tryQueueBasicFrontierAction = (
     if (defender && !defenderIsBarbarian) sendLocalVisionDeltaForPlayer(defender.id, changedCenters);
   }, resolvesAt - now());
 
-  return true;
+  return resolvesAt;
 };
 
 const chooseAiTech = (actor: Player): string | undefined => {
@@ -4438,9 +4438,11 @@ const executeUnifiedGameplayMessage = async (actor: Player, msg: ClientMessage, 
     msg.type === "ATTACK" ||
     msg.type === "EXPAND"
   ) {
-    const ok = tryQueueBasicFrontierAction(actor, msg.type, msg.fromX, msg.fromY, msg.toX, msg.toY);
-    if (!ok) {
+    const resolvesAt = tryQueueBasicFrontierAction(actor, msg.type, msg.fromX, msg.fromY, msg.toX, msg.toY);
+    if (resolvesAt === undefined) {
       socket.send(JSON.stringify({ type: "ERROR", code: "ACTION_INVALID", message: "action failed validation" }));
+    } else {
+      socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: msg.fromX, y: msg.fromY }, target: { x: msg.toX, y: msg.toY }, resolvesAt }));
     }
     return true;
   }
