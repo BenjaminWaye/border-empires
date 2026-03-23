@@ -2219,10 +2219,14 @@ const updateTownPopulationForPlayer = (player: Player): Set<TileKey> => {
     town.lastGrowthTickAt = nowMs;
     town.maxPopulation = townMaxPopulationForOwner(town, player.id);
     if (!isTownFedForOwner(tk, player.id) || warFactor <= 0) continue;
+    const firstThreeTownKeys = firstThreeTownKeySetForPlayer(player.id);
+    const growthMult =
+      getPlayerEffectsForPlayer(player.id).populationGrowthMult *
+      (firstThreeTownKeys.has(town.tileKey) ? getPlayerEffectsForPlayer(player.id).firstThreeTownsPopulationGrowthMult : 1);
     const growth =
       town.population *
       POPULATION_GROWTH_BASE_RATE *
-      getPlayerEffectsForPlayer(player.id).populationGrowthMult *
+      growthMult *
       (1 - town.population / Math.max(1, town.maxPopulation)) *
       elapsedMinutes;
     if (growth <= 0) continue;
