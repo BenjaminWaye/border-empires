@@ -64,6 +64,7 @@ type Tile = {
     isFed: boolean;
     population: number;
     maxPopulation: number;
+    populationGrowthPerMinute?: number;
     populationTier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     connectedTownCount: number;
     connectedTownBonus: number;
@@ -1166,9 +1167,15 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   const townBits: string[] = [];
   let upkeepLine = "";
   if (tile.town) {
+    const growthPct =
+      tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
+        ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
+        : 0;
     townBits.push(`${prettyToken(tile.town.type)} town`);
     townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
-    townBits.push(`Population ${Math.round(tile.town.population).toLocaleString()} (${prettyToken(tile.town.populationTier)})`);
+    townBits.push(
+      `Population ${Math.round(tile.town.population).toLocaleString()} (${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(0)}%) (${prettyToken(tile.town.populationTier)})`
+    );
     townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
     if (!tile.town.isFed) townBits.push("Unfed");
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
