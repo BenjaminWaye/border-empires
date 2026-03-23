@@ -1527,8 +1527,8 @@ body {
 
 .tech-mod-card {
   display: grid;
-  gap: 12px;
-  padding: 16px 18px;
+  gap: 10px;
+  padding: 13px 15px;
   border-radius: 18px;
   border: 1px solid rgba(136, 159, 191, 0.22);
   background: linear-gradient(180deg, rgba(9, 20, 35, 0.96), rgba(12, 22, 38, 0.88));
@@ -1539,37 +1539,38 @@ body {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .tech-mod-card-title {
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(198, 212, 232, 0.72);
 }
 
 .tech-mod-card-hint {
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(146, 170, 201, 0.72);
 }
 
 .tech-mod-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 14px;
+  gap: 8px 12px;
 }
 
 .tech-mod-chip {
   display: grid;
-  gap: 6px;
-  padding: 10px 2px 8px;
+  gap: 4px;
+  padding: 8px 2px 6px;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.02);
   text-align: left;
   box-shadow: none;
   position: relative;
+  cursor: pointer;
 }
 
 .tech-mod-chip::after {
@@ -1580,13 +1581,8 @@ body {
   background: rgba(118, 140, 169, 0.18);
 }
 
-.tech-mod-chip:hover,
-.tech-mod-chip:focus-visible {
-  background: rgba(255, 255, 255, 0.02);
-}
-
 .tech-mod-chip.selected {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .tech-mod-chip.selected::after {
@@ -1597,14 +1593,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .tech-mod-chip-label {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-size: 18px;
+  gap: 9px;
+  font-size: 16px;
   font-weight: 500;
   color: rgba(231, 239, 249, 0.92);
 }
@@ -1613,13 +1609,13 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  font-size: 16px;
+  width: 16px;
+  font-size: 15px;
   line-height: 1;
 }
 
 .tech-mod-chip strong {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #f3f8ff;
 }
@@ -1628,8 +1624,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 11px;
+  gap: 10px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(151, 174, 201, 0.68);
@@ -2399,11 +2395,11 @@ h4 {
   }
 
   .tech-mod-chip {
-    padding: 8px 0 7px;
+    padding: 7px 0 6px;
   }
 
   .tech-mod-card {
-    padding: 14px;
+    padding: 12px;
   }
 
   .tech-mod-card-head {
@@ -2417,7 +2413,7 @@ h4 {
 
   .tech-mod-chip-label,
   .tech-mod-chip strong {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .tech-mod-chip-meta {
