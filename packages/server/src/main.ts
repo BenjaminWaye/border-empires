@@ -329,6 +329,7 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   settlementSpeedMult: 1,
   operationalTempoMult: 1,
   populationGrowthMult: 1,
+  firstThreeTownsPopulationGrowthMult: 1,
   populationCapFirst3TownsMult: 1,
   growthPauseDurationMult: 1,
   townFoodUpkeepMult: 1,
@@ -388,6 +389,7 @@ interface PlayerEffects {
   settlementSpeedMult: number;
   operationalTempoMult: number;
   populationGrowthMult: number;
+  firstThreeTownsPopulationGrowthMult: number;
   populationCapFirst3TownsMult: number;
   growthPauseDurationMult: number;
   townFoodUpkeepMult: number;
@@ -2005,6 +2007,10 @@ const ownedTownKeysForPlayer = (playerId: string): TileKey[] =>
     .sort((a, b) => a.townId.localeCompare(b.townId))
     .map((town) => town.tileKey);
 
+const firstThreeTownKeySetForPlayer = (playerId: string): Set<TileKey> => {
+  return new Set(ownedTownKeysForPlayer(playerId).slice(0, 3));
+};
+
 const townMaxPopulationForOwner = (town: TownDefinition, ownerId: string | undefined): number => {
   if (!ownerId) return POPULATION_MAX;
   const effects = getPlayerEffectsForPlayer(ownerId);
@@ -3160,6 +3166,9 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
     if (typeof effects.operationalTempoMult === "number") next.operationalTempoMult *= effects.operationalTempoMult;
     if (typeof effects.populationGrowthMult === "number") next.populationGrowthMult *= effects.populationGrowthMult;
+    if (typeof effects.firstThreeTownsPopulationGrowthMult === "number") {
+      next.firstThreeTownsPopulationGrowthMult *= effects.firstThreeTownsPopulationGrowthMult;
+    }
     if (typeof effects.populationCapFirst3TownsMult === "number") next.populationCapFirst3TownsMult *= effects.populationCapFirst3TownsMult;
     if (typeof effects.growthPauseDurationMult === "number") next.growthPauseDurationMult *= effects.growthPauseDurationMult;
     if (typeof effects.townFoodUpkeepMult === "number") next.townFoodUpkeepMult *= effects.townFoodUpkeepMult;
@@ -3209,6 +3218,9 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.buildCapacityAdd === "number") next.buildCapacityAdd += effects.buildCapacityAdd;
     if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
     if (typeof effects.populationGrowthMult === "number") next.populationGrowthMult *= effects.populationGrowthMult;
+    if (typeof effects.firstThreeTownsPopulationGrowthMult === "number") {
+      next.firstThreeTownsPopulationGrowthMult *= effects.firstThreeTownsPopulationGrowthMult;
+    }
     if (typeof effects.populationCapFirst3TownsMult === "number") next.populationCapFirst3TownsMult *= effects.populationCapFirst3TownsMult;
     if (typeof effects.growthPauseDurationMult === "number") next.growthPauseDurationMult *= effects.growthPauseDurationMult;
     if (typeof effects.townFoodUpkeepMult === "number") next.townFoodUpkeepMult *= effects.townFoodUpkeepMult;
