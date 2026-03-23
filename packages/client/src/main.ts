@@ -4376,11 +4376,10 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
         return t && t.terrain === "LAND" && !t.ownerId;
       });
       const out = queueSpecificTargets(neutralTargets, "normal");
-      for (const k of out.queuedKeys) state.autoSettleTargets.add(k);
       if (out.queued > 0) processActionQueue();
       pushFeed(
         out.queued > 0
-          ? `Queued ${out.queued} settle chains${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
+          ? `Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
           : "No frontier claims queued. Targets must touch your territory and you need enough gold.",
         "combat",
         out.queued > 0 ? "info" : "warn"
@@ -4390,9 +4389,8 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
       if (!selected.ownerId) {
         const out = queueSpecificTargets([k], "normal");
         if (out.queued > 0) {
-          state.autoSettleTargets.add(k);
           processActionQueue();
-          pushFeed(`Queued settle chain at (${selected.x}, ${selected.y}).`, "combat", "info");
+          pushFeed(`Queued frontier capture at (${selected.x}, ${selected.y}).`, "combat", "info");
         } else {
           pushFeed("Cannot claim this tile yet. It must touch your territory and you need enough gold.", "combat", "warn");
         }
