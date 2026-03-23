@@ -1573,6 +1573,14 @@ body {
   cursor: pointer;
 }
 
+.tech-mod-chip.panel-btn {
+  border: 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(231, 239, 249, 0.92);
+  box-shadow: none;
+}
+
 .tech-mod-chip::after {
   content: "";
   position: absolute;
@@ -1582,6 +1590,10 @@ body {
 }
 
 .tech-mod-chip.selected {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.tech-mod-chip.panel-btn.selected {
   background: rgba(255, 255, 255, 0.045);
 }
 
