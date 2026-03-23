@@ -146,6 +146,8 @@ export interface AiEmpireGoapState {
   hasWeakEnemyBorder: boolean;
   needsSettlement: boolean;
   underThreat: boolean;
+  economyWeak: boolean;
+  needsFortifiedAnchor: boolean;
   canBuildFort: boolean;
   canBuildEconomy: boolean;
   goldHealthy: boolean;
@@ -284,7 +286,8 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       goldHealthy: true
     },
     effects: {
-      underThreat: false
+      underThreat: false,
+      needsFortifiedAnchor: false
     },
     meta: {
       goalIds: ["fortify_capital"],
@@ -299,7 +302,9 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       goldHealthy: true,
       underThreat: false
     },
-    effects: {},
+    effects: {
+      economyWeak: false
+    },
     meta: {
       goalIds: ["grow_income"],
       description: "Improve recurring income on secure territory."
@@ -324,7 +329,12 @@ export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
   {
     id: "fortify_capital",
     priority: 9,
-    desired: { underThreat: false }
+    desired: { underThreat: false, needsFortifiedAnchor: false }
+  },
+  {
+    id: "grow_income",
+    priority: 10,
+    desired: { economyWeak: false }
   },
   {
     id: "recover_resources",
@@ -359,10 +369,12 @@ export const goalsForVictoryPath = (victoryPath?: AiSeasonVictoryPathId): GoapGo
     if (victoryPath === "TOWN_CONTROL") {
       if (goal.id === "expand_frontier") priority += 3;
       if (goal.id === "harass_enemy_border") priority += 2;
+      if (goal.id === "grow_income") priority += 2;
       if (goal.id === "fortify_capital") priority += 1;
     } else if (victoryPath === "SETTLED_TERRITORY") {
       if (goal.id === "expand_frontier") priority += 2;
       if (goal.id === "settle_interior") priority += 4;
+      if (goal.id === "grow_income") priority += 1;
       if (goal.id === "recover_resources") priority += 1;
     } else if (victoryPath === "ECONOMIC_HEGEMONY") {
       if (goal.id === "grow_income") priority += 4;
