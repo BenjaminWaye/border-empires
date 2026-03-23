@@ -5107,9 +5107,12 @@ ws.addEventListener("message", (ev) => {
     const target = msg.target as { x: number; y: number };
     const resolvesAt = msg.resolvesAt as number;
     state.combatStartAck = true;
-    state.capture = { startAt: Date.now(), resolvesAt: Math.max(resolvesAt, Date.now() + 100), target };
+    const existingCapture =
+      state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
+    const startAt = existingCapture?.startAt ?? Date.now();
+    state.capture = { startAt, resolvesAt: Math.max(resolvesAt, startAt + 100), target };
     state.actionInFlight = true;
-    state.actionStartedAt = Date.now();
+    if (!state.actionStartedAt) state.actionStartedAt = startAt;
     state.actionTargetKey = key(target.x, target.y);
     renderHud();
   }
