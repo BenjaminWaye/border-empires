@@ -32,6 +32,8 @@ export interface TechEffects {
   settledGoldUpkeepMult?: number;
   townGoldOutputMult?: number;
   townGoldCapMult?: number;
+  marketBonusMult?: number;
+  granaryBonusMult?: number;
   marketIncomeBonusAdd?: number;
   marketCapBonusAdd?: number;
   granaryCapBonusAdd?: number;
@@ -118,6 +120,8 @@ const TechEffectsSchema = z
     settledGoldUpkeepMult: z.number().positive().optional(),
     townGoldOutputMult: z.number().positive().optional(),
     townGoldCapMult: z.number().positive().optional(),
+    marketBonusMult: z.number().positive().optional(),
+    granaryBonusMult: z.number().positive().optional(),
     marketIncomeBonusAdd: z.number().nonnegative().optional(),
     marketCapBonusAdd: z.number().nonnegative().optional(),
     granaryCapBonusAdd: z.number().nonnegative().optional(),
