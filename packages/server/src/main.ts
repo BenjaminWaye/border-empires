@@ -256,7 +256,6 @@ interface ClusterDefinition {
   centerY: number;
   radius: number;
   controlThreshold: number;
-  bonus: { attack?: number; defense?: number; income?: number; vision?: number };
 }
 
 interface SeasonalTechConfig {
@@ -1244,13 +1243,12 @@ const clusterTypeDefs: Array<{
   type: ClusterType;
   resourceType: ResourceType;
   threshold: number;
-  bonus: { attack?: number; defense?: number; income?: number; vision?: number };
 }> = [
-  { type: "FERTILE_PLAINS", resourceType: "FARM", threshold: 3, bonus: { income: 1.25 } },
-  { type: "IRON_HILLS", resourceType: "IRON", threshold: 3, bonus: { attack: 1.08 } },
-  { type: "CRYSTAL_BASIN", resourceType: "GEMS", threshold: 3, bonus: { vision: 1.08 } },
-  { type: "HORSE_STEPPES", resourceType: "FUR", threshold: 3, bonus: { attack: 1.05, defense: 1.03 } },
-  { type: "COASTAL_SHOALS", resourceType: "FISH", threshold: 3, bonus: { income: 1.2, vision: 1.03 } }
+  { type: "FERTILE_PLAINS", resourceType: "FARM", threshold: 3 },
+  { type: "IRON_HILLS", resourceType: "IRON", threshold: 3 },
+  { type: "CRYSTAL_BASIN", resourceType: "GEMS", threshold: 3 },
+  { type: "HORSE_STEPPES", resourceType: "FUR", threshold: 3 },
+  { type: "COASTAL_SHOALS", resourceType: "FISH", threshold: 3 }
 ];
 
 const clusterResourceType = (cluster: ClusterDefinition): ResourceType => {
@@ -1285,27 +1283,8 @@ const seasonTechConfigIsCompatible = (config: SeasonalTechConfig): boolean => {
   return true;
 };
 
-const resetPlayerClusterMods = (player: Player): void => {
-  const base = playerBaseMods.get(player.id) ?? { attack: 1, defense: 1, income: 1, vision: 1 };
-  player.mods.attack = base.attack;
-  player.mods.defense = base.defense;
-  player.mods.income = base.income;
-  player.mods.vision = base.vision;
-};
-
 const recomputeClusterBonusForPlayer = (player: Player): void => {
-  resetPlayerClusterMods(player);
-  const controls = clusterControlledTilesByPlayer.get(player.id);
-  if (!controls) return;
-  for (const [cid, count] of controls) {
-    const cluster = clustersById.get(cid);
-    if (!cluster) continue;
-    if (count < cluster.controlThreshold) continue;
-    if (cluster.bonus.attack) player.mods.attack *= cluster.bonus.attack;
-    if (cluster.bonus.defense) player.mods.defense *= cluster.bonus.defense;
-    if (cluster.bonus.income) player.mods.income *= cluster.bonus.income;
-    if (cluster.bonus.vision) player.mods.vision *= cluster.bonus.vision;
-  }
+  void player;
 };
 
 const playerModBreakdown = (player: Player): StatsModBreakdown => {
@@ -1559,8 +1538,7 @@ const generateClusters = (seed: number): void => {
         centerX: cx,
         centerY: cy,
         radius: 3,
-        controlThreshold: def.threshold,
-        bonus: def.bonus
+        controlThreshold: def.threshold
       });
       for (const tk of tiles) clusterByTile.set(tk, clusterId);
       centers.push({ x: cx, y: cy });
@@ -1583,8 +1561,7 @@ const generateClusters = (seed: number): void => {
           centerX: cx,
           centerY: cy,
           radius: 3,
-          controlThreshold: def.threshold,
-          bonus: def.bonus
+          controlThreshold: def.threshold
         });
         for (const tk of tiles) clusterByTile.set(tk, clusterId);
         placed = true;
@@ -1962,8 +1939,7 @@ const ensureBaselineEconomyCoverage = (seed: number): void => {
             centerX: center.x,
             centerY: center.y,
             radius: 3,
-            controlThreshold: 3,
-            bonus: resourceType === "FISH" ? { income: 1.2, vision: 1.03 } : { income: 1.25 }
+            controlThreshold: 3
           });
           for (const tk of foodTiles) clusterByTile.set(tk, clusterId);
         }
