@@ -2309,15 +2309,28 @@ const formatDomainBenefitSummary = (domain: DomainInfo): string => {
 
 const techCurrentModsHtml = (): string => {
   const m = state.mods;
+  const statDefs = [
+    { key: "attack", label: "Attack", short: "ATK", icon: "△", value: m.attack, tone: "attack" },
+    { key: "defense", label: "Defense", short: "DEF", icon: "⬡", value: m.defense, tone: "defense" },
+    { key: "income", label: "Income", short: "INC", icon: "↗", value: m.income, tone: "income" },
+    { key: "vision", label: "Vision", short: "VIS", icon: "◉", value: m.vision, tone: "vision" }
+  ] as const;
   const chips = [
-    { key: "attack", label: "ATK", value: m.attack },
-    { key: "defense", label: "DEF", value: m.defense },
-    { key: "income", label: "INC", value: m.income },
-    { key: "vision", label: "VIS", value: m.vision }
+    ...statDefs
   ]
     .map(
-      ({ key, label, value }) =>
-        `<button class="panel-btn tech-mod-chip${state.expandedModKey === key ? " selected" : ""}" data-mod-chip="${key}"><span>${label}</span><strong>x${value.toFixed(2)}</strong></button>`
+      ({ key, label, short, icon, value, tone }) => {
+        const pct = Math.round((value - 1) * 100);
+        const pctLabel = `${pct >= 0 ? "+" : ""}${pct}%`;
+        const expanded = state.expandedModKey === key;
+        return `<button class="panel-btn tech-mod-chip tech-mod-chip-${tone}${expanded ? " selected" : ""}" data-mod-chip="${key}" aria-expanded="${expanded ? "true" : "false"}" title="${label} bonus breakdown">
+          <div class="tech-mod-chip-main">
+            <span class="tech-mod-chip-label"><span class="tech-mod-chip-icon" aria-hidden="true">${icon}</span><span>${label}</span></span>
+            <strong>${pctLabel}</strong>
+          </div>
+          <div class="tech-mod-chip-meta"><span>${short}</span><span class="tech-mod-chip-expand">${expanded ? "Hide details" : "Tap to inspect"} ▾</span></div>
+        </button>`;
+      }
     )
     .join("");
   const breakdown =
@@ -2326,7 +2339,16 @@ const techCurrentModsHtml = (): string => {
       : `<div class="tech-mod-breakdown">${(state.modBreakdown[state.expandedModKey] ?? [])
           .map((entry) => `<div class="tech-mod-breakdown-row"><span>${entry.label}</span><strong>x${entry.mult.toFixed(3)}</strong></div>`)
           .join("")}</div>`;
-  return `<div class="tech-mod-strip">${chips}</div>${breakdown}`;
+  return `
+    <div class="card tech-mod-card">
+      <div class="tech-mod-card-head">
+        <div class="tech-mod-card-title">Active Bonuses</div>
+        <div class="tech-mod-card-hint">${state.expandedModKey === null ? "Tap a bonus to inspect its sources" : "Bonus source breakdown below"}</div>
+      </div>
+      <div class="tech-mod-strip">${chips}</div>
+      ${breakdown}
+    </div>
+  `;
 };
 
 const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>): number => {
