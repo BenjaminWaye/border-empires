@@ -3927,6 +3927,8 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       shieldUntil: p.spawnShieldUntil,
       defensiveness: playerDefensiveness(p),
       availableTechPicks: availableTechPicks(p),
+      techChoices: reachableTechs(p),
+      techCatalog: activeTechCatalog(p),
       domainIds: [...p.domainIds],
       domainChoices: reachableDomains(p),
       domainCatalog: activeDomainCatalog(p),
