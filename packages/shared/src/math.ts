@@ -24,10 +24,10 @@ export const exposureRatio = (T: number, E: number): number => {
 };
 
 export const defensivenessMultiplier = (T: number, E: number): number => {
-  // Low exposure should reward compact empires with a strong defensive ceiling,
-  // while heavily exposed borders fall back to the configured floor.
+  // Defensiveness is an efficiency score, not a combat buff. Compact empires
+  // can retain up to full defensive efficiency, while exposed borders degrade it.
   const compactness = 1 - exposureRatio(T, E);
-  return clamp(1 + compactness * 1.05, DEF_MULT_MIN, DEF_MULT_MAX);
+  return clamp(compactness, DEF_MULT_MIN, DEF_MULT_MAX);
 };
 
 export const ratingFromPointsLevel = (points: number, level: number): number => {
