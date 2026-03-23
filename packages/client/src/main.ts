@@ -39,6 +39,8 @@ import {
 const OBSERVATORY_BUILD_COST = 600;
 const OBSERVATORY_VISION_BONUS = 5;
 const OBSERVATORY_PROTECTION_RADIUS = 10;
+const MIN_ZOOM = 10;
+const MAX_ZOOM = 192;
 
 type Tile = {
   x: number;
@@ -1452,17 +1454,17 @@ const terrainTextureIdAt = (x: number, y: number, terrain: Tile["terrain"]): Ter
 const drawTerrainTile = (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number): void => {
   if (size < 8) {
     ctx.fillStyle = cachedTerrainColorAt(wx, wy, terrain);
-    ctx.fillRect(px, py, size - 1, size - 1);
+    ctx.fillRect(px, py, size, size);
     return;
   }
   const id = terrainTextureIdAt(wx, wy, terrain);
   const tex = terrainTextures.get(id);
   if (!tex) {
     ctx.fillStyle = cachedTerrainColorAt(wx, wy, terrain);
-    ctx.fillRect(px, py, size - 1, size - 1);
+    ctx.fillRect(px, py, size, size);
     return;
   }
-  ctx.drawImage(tex, 0, 0, tex.width, tex.height, px, py, size - 1, size - 1);
+  ctx.drawImage(tex, 0, 0, tex.width, tex.height, px, py, size, size);
 };
 const clusterTint = (clusterType: string | undefined): string | undefined => {
   if (clusterType === "FERTILE_PLAINS") return "rgba(233,242,123,0.28)";
@@ -5720,7 +5722,11 @@ const draw = (): void => {
           ownerAlpha = Math.min(ownerAlpha, 0.62);
         }
         ctx.globalAlpha = ownerAlpha;
-        ctx.fillRect(px, py, size - 1, size - 1);
+        if (t.ownerId === state.me && t.ownershipState === "SETTLED") {
+          ctx.fillRect(px, py, size, size);
+        } else {
+          ctx.fillRect(px, py, size - 1, size - 1);
+        }
         ctx.globalAlpha = 1;
       }
 
@@ -5890,10 +5896,15 @@ const draw = (): void => {
       }
 
       if (state.selected && state.selected.x === wx && state.selected.y === wy) {
-        ctx.strokeStyle = "#ffd166";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
-        ctx.lineWidth = 1;
+        if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
+          ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
+          ctx.fillRect(px, py, size, size);
+        } else {
+          ctx.strokeStyle = "#ffd166";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
+          ctx.lineWidth = 1;
+        }
       } else if (state.selected) {
         const selected = state.tiles.get(key(state.selected.x, state.selected.y));
         if (selected?.town && isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y)) {
@@ -5908,9 +5919,14 @@ const draw = (): void => {
           } else {
             ctx.strokeStyle = "rgba(255, 205, 92, 0.82)";
           }
-          ctx.lineWidth = 2;
-          ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          ctx.lineWidth = 1;
+          if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
+            ctx.fillStyle = "rgba(155, 242, 116, 0.12)";
+            ctx.fillRect(px, py, size, size);
+          } else {
+            ctx.lineWidth = 2;
+            ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+            ctx.lineWidth = 1;
+          }
         }
       }
       if (state.hover && state.hover.x === wx && state.hover.y === wy) {
@@ -6156,7 +6172,7 @@ setInterval(() => {
 
 canvas.addEventListener("wheel", (ev) => {
   ev.preventDefault();
-  state.zoom = Math.min(40, Math.max(10, state.zoom + (ev.deltaY > 0 ? -1 : 1)));
+  state.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, state.zoom + (ev.deltaY > 0 ? -1 : 1)));
 });
 
 window.addEventListener("keydown", (ev) => {
@@ -6447,7 +6463,7 @@ canvas.addEventListener(
       if (!a || !b) return;
       const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       const factor = d / Math.max(1, pinchStart.distance);
-      state.zoom = Math.max(12, Math.min(48, Math.round(pinchStart.zoom * factor)));
+      state.zoom = Math.max(12, Math.min(MAX_ZOOM, Math.round(pinchStart.zoom * factor)));
     }
   },
   { passive: true }
