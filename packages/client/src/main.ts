@@ -2334,7 +2334,7 @@ const techCurrentModsHtml = (): string => {
         const pct = Math.round((value - 1) * 100);
         const pctLabel = `${pct >= 0 ? "+" : ""}${pct}%`;
         const expanded = state.expandedModKey === key;
-        return `<button class="panel-btn tech-mod-chip tech-mod-chip-${tone}${expanded ? " selected" : ""}" data-mod-chip="${key}" aria-expanded="${expanded ? "true" : "false"}" title="${label} bonus breakdown">
+        return `<button class="panel-btn tech-mod-chip tech-mod-chip-${tone}${expanded ? " selected" : ""}" data-mod-chip="${key}" aria-expanded="${expanded ? "true" : "false"}">
           <div class="tech-mod-chip-main">
             <span class="tech-mod-chip-label"><span class="tech-mod-chip-icon" aria-hidden="true">${icon}</span><span>${label}</span></span>
             <strong>${pctLabel}</strong>
