@@ -16,12 +16,10 @@ export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
 export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
 export type EconomicStructureType = "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
 export type PopulationTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-export type VictoryPressureObjectiveId =
-  | "TOWN_SUPREMACY"
-  | "ECONOMIC_DOMINANCE"
-  | "FORTRESS_BELT"
-  | "FORWARD_PRESSURE"
-  | "FRONTIER_REACH";
+export type SeasonVictoryPathId =
+  | "TOWN_CONTROL"
+  | "SETTLED_TERRITORY"
+  | "ECONOMIC_HEGEMONY";
 
 export interface EmpireVisualStyle {
   primaryOverlay: string;
@@ -50,11 +48,10 @@ export interface EconomicStructure {
   nextUpkeepAt: number;
 }
 
-export interface VictoryPressureObjectiveView {
-  id: VictoryPressureObjectiveId;
+export interface SeasonVictoryObjectiveView {
+  id: SeasonVictoryPathId;
   name: string;
   description: string;
-  rewardLabel: string;
   leaderPlayerId?: PlayerId;
   leaderName: string;
   progressLabel: string;
@@ -63,6 +60,14 @@ export interface VictoryPressureObjectiveView {
   holdRemainingSeconds?: number;
   statusLabel: string;
   conditionMet: boolean;
+}
+
+export interface SeasonWinnerView {
+  playerId: PlayerId;
+  playerName: string;
+  crownedAt: number;
+  objectiveId: SeasonVictoryPathId;
+  objectiveName: string;
 }
 
 export interface Tile {
@@ -169,6 +174,7 @@ export interface MissionStats {
 export interface Player {
   id: PlayerId;
   name: string;
+  isAi?: boolean;
   profileComplete?: boolean;
   points: number;
   level: number;

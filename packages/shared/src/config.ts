@@ -8,8 +8,8 @@ export const FRONTIER_CLAIM_MS = 1_250;
 export const SETTLE_COST = 4;
 export const SETTLE_MS = 3_500;
 
-export const DEF_MULT_MIN = 0.6;
-export const DEF_MULT_MAX = 2.0;
+export const DEF_MULT_MIN = 0.0;
+export const DEF_MULT_MAX = 1.0;
 export const DEF_SIZE_PENALTY = 0.08;
 export const DEF_OVEREXPOSURE_PENALTY = 1.2;
 export const DEF_OVEREXPOSURE_SHARPNESS = 6;

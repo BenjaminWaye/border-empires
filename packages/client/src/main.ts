@@ -64,7 +64,6 @@ type Tile = {
     isFed: boolean;
     population: number;
     maxPopulation: number;
-    populationGrowthPerMinute?: number;
     populationTier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     connectedTownCount: number;
     connectedTownBonus: number;
@@ -144,11 +143,10 @@ type DomainInfo = {
 };
 type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number };
 type LeaderboardMetricEntry = { id: string; name: string; value: number };
-type VictoryPressureObjectiveView = {
-  id: "TOWN_SUPREMACY" | "ECONOMIC_DOMINANCE" | "FORTRESS_BELT" | "FORWARD_PRESSURE" | "FRONTIER_REACH";
+type SeasonVictoryObjectiveView = {
+  id: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY";
   name: string;
   description: string;
-  rewardLabel: string;
   leaderPlayerId?: string;
   leaderName: string;
   progressLabel: string;
@@ -157,6 +155,13 @@ type VictoryPressureObjectiveView = {
   holdRemainingSeconds?: number;
   statusLabel: string;
   conditionMet: boolean;
+};
+type SeasonWinnerView = {
+  playerId: string;
+  playerName: string;
+  crownedAt: number;
+  objectiveId: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY";
+  objectiveName: string;
 };
 type MissionState = {
   id: string;
@@ -734,13 +739,6 @@ const state = {
   gold: 0,
   level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-  modBreakdown: {
-    attack: [{ label: "Base", mult: 1 }],
-    defense: [{ label: "Base", mult: 1 }],
-    income: [{ label: "Base", mult: 1 }],
-    vision: [{ label: "Base", mult: 1 }]
-  } as Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>,
-  expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
   incomePerMinute: 0,
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
@@ -808,7 +806,8 @@ const state = {
     byIncome: [] as LeaderboardMetricEntry[],
     byTechs: [] as LeaderboardMetricEntry[]
   },
-  victoryPressure: [] as VictoryPressureObjectiveView[],
+  seasonVictory: [] as SeasonVictoryObjectiveView[],
+  seasonWinner: undefined as SeasonWinnerView | undefined,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "missions" | "tech" | "social" | "intel",
   activePanel: null as "missions" | "tech" | "alliance" | "leaderboard" | "feed" | "settings" | null,
@@ -869,26 +868,6 @@ const state = {
   firstChunkAt: 0,
   chunkFullCount: 0
 };
-
-const toggleExpandedModKey = (modKey: "attack" | "defense" | "income" | "vision"): void => {
-  state.expandedModKey = state.expandedModKey === modKey ? null : modKey;
-  techCurrentModsEl.innerHTML = techCurrentModsHtml();
-  mobileTechCurrentModsEl.innerHTML = techCurrentModsHtml();
-};
-
-const handleTechModChipClick = (ev: Event): void => {
-  const target = ev.target;
-  if (!(target instanceof HTMLElement)) return;
-  const button = target.closest<HTMLElement>("[data-mod-chip]");
-  if (!button) return;
-  const modKey = button.dataset.modChip;
-  if (modKey === "attack" || modKey === "defense" || modKey === "income" || modKey === "vision") {
-    toggleExpandedModKey(modKey);
-  }
-};
-
-techCurrentModsEl.addEventListener("click", handleTechModChipClick);
-mobileTechCurrentModsEl.addEventListener("click", handleTechModChipClick);
 
 const miniMapCtx = miniMapEl.getContext("2d");
 if (!miniMapCtx) throw new Error("missing minimap context");
@@ -1016,39 +995,6 @@ const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipSta
   if (style.borderStyle === "SOFT") return 2.25;
   return stateName === "SETTLED" ? 2 : 1.5;
 };
-const sharesBorderTerritory = (tile: Tile, neighbor?: Tile): boolean => {
-  if (!neighbor) return false;
-  if (neighbor.fogged) return false;
-  return neighbor.ownerId === tile.ownerId;
-};
-const drawExposedTileBorder = (tile: Tile, px: number, py: number, size: number): void => {
-  const top = state.tiles.get(key(wrapX(tile.x), wrapY(tile.y - 1)));
-  const right = state.tiles.get(key(wrapX(tile.x + 1), wrapY(tile.y)));
-  const bottom = state.tiles.get(key(wrapX(tile.x), wrapY(tile.y + 1)));
-  const left = state.tiles.get(key(wrapX(tile.x - 1), wrapY(tile.y)));
-  const x1 = px + 1;
-  const y1 = py + 1;
-  const x2 = px + size - 2;
-  const y2 = py + size - 2;
-  ctx.beginPath();
-  if (!sharesBorderTerritory(tile, top)) {
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y1);
-  }
-  if (!sharesBorderTerritory(tile, right)) {
-    ctx.moveTo(x2, y1);
-    ctx.lineTo(x2, y2);
-  }
-  if (!sharesBorderTerritory(tile, bottom)) {
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x1, y2);
-  }
-  if (!sharesBorderTerritory(tile, left)) {
-    ctx.moveTo(x1, y2);
-    ctx.lineTo(x1, y1);
-  }
-  ctx.stroke();
-};
 const structureAccentColor = (ownerId: string, fallback: string): string => {
   const style = visualStyleForOwner(ownerId);
   if (!style) return fallback;
@@ -1161,12 +1107,7 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   if (tile.town) {
     townBits.push(`${prettyToken(tile.town.type)} town`);
     townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
-    const growthPct =
-      typeof tile.town.populationGrowthPerMinute === "number" && tile.town.population > 0
-        ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
-        : null;
-    const growthSuffix = growthPct === null ? "" : ` (+${growthPct.toFixed(0)}%)`;
-    townBits.push(`Population ${Math.round(tile.town.population).toLocaleString()}${growthSuffix} (${prettyToken(tile.town.populationTier)})`);
+    townBits.push(`Population ${Math.round(tile.town.population).toLocaleString()} (${prettyToken(tile.town.populationTier)})`);
     townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
     if (!tile.town.isFed) townBits.push("Unfed");
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
@@ -2238,50 +2179,26 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "townFoodUpkeepMult" && typeof value === "number") return `Town food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "townGoldCapMult" && typeof value === "number") return `Town cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "marketBonusMult" && typeof value === "number") return `Market bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "granaryBonusMult" && typeof value === "number") return `Granary bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "marketIncomeBonusAdd" && typeof value === "number") return `Market income +${Math.round(value * 100)} pts`;
   if (key === "marketCapBonusAdd" && typeof value === "number") return `Market cap +${Math.round(value * 100)} pts`;
   if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary cap +${Math.round(value * 100)} pts`;
   if (key === "populationGrowthMult" && typeof value === "number") return `Population growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "firstThreeTownsPopulationGrowthMult" && typeof value === "number") {
-    return `First 3 towns growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  }
   if (key === "populationIncomeMult" && typeof value === "number") return `Population income ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "connectedTownStepBonusAdd" && typeof value === "number") return `Connected-city bonus +${Math.round(value * 100)} pts/step`;
   if (key === "growthPauseDurationMult" && typeof value === "number") return `War growth pause ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "buildCapacityAdd" && typeof value === "number") return `Build capacity ${value >= 0 ? "+" : ""}${value}`;
   if (key === "operationalTempoMult" && typeof value === "number") return `Operational tempo ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "goldCollectionEfficiencyMult" && typeof value === "number") {
-    return `Gold collection ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  }
-  if (key === "allGoldUpkeepMult" && typeof value === "number") {
-    return `All gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
-  }
   if (key === "harvestCapMult" && typeof value === "number") return `Harvest cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortIronUpkeepMult" && typeof value === "number") return `Fort iron upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortGoldUpkeepMult" && typeof value === "number") return `Fort gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
-  if (key === "settledDefenseNearFortMult" && typeof value === "number") {
-    return `Settled defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  }
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostSupplyUpkeepMult" && typeof value === "number") return `Outpost supply upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
-  if (key === "outpostDeploymentSpeedMult" && typeof value === "number") {
-    return `Outpost deployment ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  }
   if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Vision radius +${value}`;
-  if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") {
-    return `Observatory protection radius +${value}`;
-  }
-  if (key === "observatoryVisionBonus" && typeof value === "number") return `Observatory vision +${value}`;
-  if (key === "sabotageCooldownMult" && typeof value === "number") {
-    return `Sabotage cooldown ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
-  }
   if (key === "settledDefenseMult" && typeof value === "number") return `Settled defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsSettledMult" && typeof value === "number") return `Attack vs settled ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsFortsMult" && typeof value === "number") return `Attack vs forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
@@ -2332,23 +2249,13 @@ const formatDomainBenefitSummary = (domain: DomainInfo): string => {
 const techCurrentModsHtml = (): string => {
   const m = state.mods;
   const chips = [
-    { key: "attack", label: "ATK", value: m.attack },
-    { key: "defense", label: "DEF", value: m.defense },
-    { key: "income", label: "INC", value: m.income },
-    { key: "vision", label: "VIS", value: m.vision }
+    { label: "ATK", value: m.attack },
+    { label: "DEF", value: m.defense },
+    { label: "VIS", value: m.vision }
   ]
-    .map(
-      ({ key, label, value }) =>
-        `<button class="panel-btn tech-mod-chip${state.expandedModKey === key ? " selected" : ""}" data-mod-chip="${key}"><span>${label}</span><strong>x${value.toFixed(2)}</strong></button>`
-    )
+    .map(({ label, value }) => `<div class="tech-mod-chip"><span>${label}</span><strong>x${value.toFixed(2)}</strong></div>`)
     .join("");
-  const breakdown =
-    state.expandedModKey === null
-      ? ""
-      : `<div class="tech-mod-breakdown">${(state.modBreakdown[state.expandedModKey] ?? [])
-          .map((entry) => `<div class="tech-mod-breakdown-row"><span>${entry.label}</span><strong>x${entry.mult.toFixed(3)}</strong></div>`)
-          .join("")}</div>`;
-  return `<div class="tech-mod-strip">${chips}</div>${breakdown}`;
+  return `<div class="tech-mod-strip">${chips}</div>`;
 };
 
 const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>): number => {
@@ -2575,12 +2482,26 @@ const leaderboardHtml = (): string => {
   const overallLine = (e: LeaderboardOverallEntry): string =>
     `${e.name} | score ${e.score.toFixed(1)} | tiles ${e.tiles} | income ${e.incomePerMinute.toFixed(1)} | tech ${e.techs}`;
   const metricLine = (e: LeaderboardMetricEntry): string => `${e.name} (${e.value.toFixed(1)})`;
+  const winnerCard = state.seasonWinner
+    ? `
+    <article class="card pressure-card">
+      <strong>Season Winner</strong>
+      <div class="pressure-row">
+        <div class="pressure-head">
+          <span class="pressure-name">${state.seasonWinner.playerName}</span>
+          <span class="pressure-status is-hot">Crowned</span>
+        </div>
+        <div class="pressure-meta">${state.seasonWinner.objectiveName}</div>
+        <div class="pressure-meta">${new Date(state.seasonWinner.crownedAt).toLocaleString()}</div>
+      </div>
+    </article>`
+    : "";
   const pressureCards =
-    state.victoryPressure.length > 0
+    state.seasonVictory.length > 0
       ? `
     <article class="card pressure-card">
-      <strong>Victory Pressure</strong>
-      ${state.victoryPressure
+      <strong>Season Victory</strong>
+      ${state.seasonVictory
         .map(
           (objective) => `<div class="pressure-row">
             <div class="pressure-head">
@@ -2589,13 +2510,14 @@ const leaderboardHtml = (): string => {
             </div>
             <div class="pressure-meta">${objective.description}</div>
             <div class="pressure-meta">Leader: ${objective.leaderName} · ${objective.progressLabel}</div>
-            <div class="pressure-meta">${objective.thresholdLabel} · ${objective.rewardLabel}</div>
+            <div class="pressure-meta">${objective.thresholdLabel}</div>
           </div>`
         )
         .join("")}
     </article>`
       : "";
   return `
+    ${winnerCard}
     ${pressureCards}
     <article class="card">
       <strong>Overall</strong>
@@ -3324,56 +3246,69 @@ const startQueuedSettle = (x: number, y: number, retries: number): boolean => {
 
 const processActionQueue = (): boolean => {
   if (state.actionInFlight || ws.readyState !== ws.OPEN || !state.authSessionReady) return false;
-  const next = state.actionQueue.shift();
-  if (!next) return false;
+  while (state.actionQueue.length > 0) {
+    const next = state.actionQueue.shift();
+    if (!next) return false;
 
-  const to = state.tiles.get(key(next.x, next.y));
-  if (!to) return false;
-  if (next.mode === "settle") {
-    if (to.ownerId !== state.me || to.ownershipState !== "FRONTIER") {
-      state.queuedTargetKeys.delete(key(next.x, next.y));
-      return false;
+    const targetKey = key(next.x, next.y);
+    const to = state.tiles.get(targetKey);
+    if (!to) {
+      state.queuedTargetKeys.delete(targetKey);
+      continue;
     }
-    return startQueuedSettle(to.x, to.y, next.retries ?? 0);
-  }
-  if (to.ownerId === state.me) return false;
+    if (next.mode === "settle") {
+      if (to.ownerId !== state.me || to.ownershipState !== "FRONTIER") {
+        state.queuedTargetKeys.delete(targetKey);
+        continue;
+      }
+      return startQueuedSettle(to.x, to.y, next.retries ?? 0);
+    }
+    if (to.ownerId === state.me) {
+      state.queuedTargetKeys.delete(targetKey);
+      continue;
+    }
 
-  let from = pickOriginForTarget(to.x, to.y);
-  const selectedFrom = state.selected ? state.tiles.get(key(state.selected.x, state.selected.y)) : undefined;
-  if (!from && selectedFrom && selectedFrom.ownerId === state.me && isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y)) {
-    from = selectedFrom;
-  }
-  if (!from) return false;
+    let from = pickOriginForTarget(to.x, to.y);
+    const selectedFrom = state.selected ? state.tiles.get(key(state.selected.x, state.selected.y)) : undefined;
+    if (!from && selectedFrom && selectedFrom.ownerId === state.me && isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y)) {
+      from = selectedFrom;
+    }
+    if (!from) {
+      state.queuedTargetKeys.delete(targetKey);
+      continue;
+    }
 
-  state.actionCurrent = {
-    x: to.x,
-    y: to.y,
-    retries: next.retries ?? 0
-  };
-  if (next.mode) state.actionCurrent.mode = next.mode;
-  state.actionInFlight = true;
-  state.combatStartAck = false;
-  state.actionStartedAt = Date.now();
-  state.actionTargetKey = key(to.x, to.y);
-  const optimisticMs = !to.ownerId ? 1_250 : 3_000;
-  state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
-  state.attackPreview = undefined;
-  state.attackPreviewPendingKey = "";
-  if (!to.ownerId) {
-    ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
-    pushFeed(`Queued expand (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
-  } else {
-    if (next.mode === "breakthrough") {
-      ws.send(JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
-      pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
+    state.actionCurrent = {
+      x: to.x,
+      y: to.y,
+      retries: next.retries ?? 0
+    };
+    if (next.mode) state.actionCurrent.mode = next.mode;
+    state.actionInFlight = true;
+    state.combatStartAck = false;
+    state.actionStartedAt = Date.now();
+    state.actionTargetKey = targetKey;
+    const optimisticMs = !to.ownerId ? 1_250 : 3_000;
+    state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    state.attackPreview = undefined;
+    state.attackPreviewPendingKey = "";
+    if (!to.ownerId) {
+      ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+      pushFeed(`Queued expand (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
     } else {
-      ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
-      pushFeed(`Queued attack (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
+      if (next.mode === "breakthrough") {
+        ws.send(JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
+      } else {
+        ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        pushFeed(`Queued attack (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
+      }
     }
+    state.selected = { x: to.x, y: to.y };
+    renderHud();
+    return true;
   }
-  state.selected = { x: to.x, y: to.y };
-  renderHud();
-  return true;
+  return false;
 };
 const requestAttackPreviewForHover = (): void => {
   if (ws.readyState !== ws.OPEN) return;
@@ -4811,7 +4746,6 @@ ws.addEventListener("message", (ev) => {
     state.gold = (p.gold as number | undefined) ?? (p.points as number);
     state.level = p.level as number;
     state.mods = (p.mods as typeof state.mods) ?? state.mods;
-    state.modBreakdown = (p.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
     state.incomePerMinute = (p.incomePerMinute as number) ?? state.incomePerMinute;
     state.strategicResources =
       (p.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
@@ -4867,7 +4801,8 @@ ws.addEventListener("message", (ev) => {
         byIncome: LeaderboardMetricEntry[];
         byTechs: LeaderboardMetricEntry[];
       }) ?? state.leaderboard;
-    state.victoryPressure = (msg.victoryPressure as VictoryPressureObjectiveView[] | undefined) ?? state.victoryPressure;
+    state.seasonVictory = (msg.seasonVictory as SeasonVictoryObjectiveView[] | undefined) ?? state.seasonVictory;
+    state.seasonWinner = (msg.seasonWinner as SeasonWinnerView | undefined) ?? state.seasonWinner;
     if (state.profileSetupRequired) {
       setAuthStatus("Choose a display name and nation color to begin.");
     }
@@ -4937,7 +4872,6 @@ ws.addEventListener("message", (ev) => {
     }
     state.level = msg.level as number;
     state.mods = (msg.mods as typeof state.mods) ?? state.mods;
-    state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
     state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
     state.strategicResources =
       (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
@@ -5004,7 +4938,8 @@ ws.addEventListener("message", (ev) => {
         byIncome: LeaderboardMetricEntry[];
         byTechs: LeaderboardMetricEntry[];
       }) ?? state.leaderboard;
-    state.victoryPressure = (msg.victoryPressure as VictoryPressureObjectiveView[] | undefined) ?? state.victoryPressure;
+    state.seasonVictory = (msg.seasonVictory as SeasonVictoryObjectiveView[] | undefined) ?? state.seasonVictory;
+    state.seasonWinner = (msg.seasonWinner as SeasonWinnerView | undefined) ?? state.seasonWinner;
     const myTileColor = msg.tileColor as string | undefined;
     if (myTileColor) {
       state.playerColors.set(state.me, myTileColor);
@@ -5174,7 +5109,6 @@ ws.addEventListener("message", (ev) => {
     state.techChoices = (msg.nextChoices as string[]) ?? [];
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
     state.mods = (msg.mods as typeof state.mods) ?? state.mods;
-    state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
     state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
     state.missions = (msg.missions as MissionState[]) ?? state.missions;
     state.techCatalog = (msg.techCatalog as TechInfo[]) ?? state.techCatalog;
@@ -5193,7 +5127,6 @@ ws.addEventListener("message", (ev) => {
     state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
     state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
     state.mods = (msg.mods as typeof state.mods) ?? state.mods;
-    state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
     state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
     state.missions = (msg.missions as MissionState[]) ?? state.missions;
     pushFeed(`Domain chosen: ${state.domainIds[state.domainIds.length - 1] ?? "unknown"}`, "tech", "success");
@@ -5218,10 +5151,21 @@ ws.addEventListener("message", (ev) => {
     pushFeed(`Alliances updated (${state.allies.length})`, "alliance", "info");
     renderHud();
   }
-  if (msg.type === "VICTORY_PRESSURE_UPDATE") {
-    state.victoryPressure = (msg.objectives as VictoryPressureObjectiveView[]) ?? state.victoryPressure;
+  if (msg.type === "SEASON_VICTORY_UPDATE") {
+    state.seasonVictory = (msg.objectives as SeasonVictoryObjectiveView[]) ?? state.seasonVictory;
+    state.seasonWinner = (msg.seasonWinner as SeasonWinnerView | undefined) ?? state.seasonWinner;
     const announcement = msg.announcement as string | undefined;
     if (announcement) pushFeed(announcement, "info", "warn");
+    renderHud();
+  }
+  if (msg.type === "SEASON_WINNER_CROWNED") {
+    state.seasonWinner = (msg.winner as SeasonWinnerView | undefined) ?? state.seasonWinner;
+    state.seasonVictory = (msg.objectives as SeasonVictoryObjectiveView[] | undefined) ?? state.seasonVictory;
+    state.leaderboard = (msg.leaderboard as typeof state.leaderboard | undefined) ?? state.leaderboard;
+    if (state.seasonWinner) {
+      pushFeed(`${state.seasonWinner.playerName} was crowned season winner via ${state.seasonWinner.objectiveName}.`, "info", "warn");
+      state.activePanel = "leaderboard";
+    }
     renderHud();
   }
   if (msg.type === "ERROR") {
@@ -5360,6 +5304,8 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "SEASON_ROLLOVER") {
+    state.seasonWinner = undefined;
+    state.seasonVictory = [];
     const season = msg.season as { worldSeed?: number } | undefined;
     if (typeof season?.worldSeed === "number") {
       setWorldSeed(season.worldSeed);
@@ -5817,7 +5763,7 @@ const draw = (): void => {
         if (visualStyleForOwner(t.ownerId)?.borderStyle === "DASHED") ctx.setLineDash([4, 3]);
         else if (visualStyleForOwner(t.ownerId)?.borderStyle === "SOFT") ctx.setLineDash([10, 6]);
         else ctx.setLineDash([]);
-        drawExposedTileBorder(t, px, py, size);
+        ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
         ctx.setLineDash([]);
         ctx.lineWidth = 1;
       }
