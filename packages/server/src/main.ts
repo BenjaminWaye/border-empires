@@ -462,6 +462,9 @@ interface TelemetryCounters {
   techUnlocks: number;
 }
 
+type StatsModBreakdownEntry = { label: string; mult: number };
+type StatsModBreakdown = Record<StatsModKey, StatsModBreakdownEntry[]>;
+
 interface AbilityDefinition {
   id: "reveal_empire" | "deep_strike" | "naval_infiltration" | "sabotage" | "create_mountain" | "remove_mountain";
   name: string;
@@ -1256,6 +1259,40 @@ const resetPlayerClusterMods = (player: Player): void => {
 
 const recomputeClusterBonusForPlayer = (player: Player): void => {
   resetPlayerClusterMods(player);
+};
+
+const playerModBreakdown = (player: Player): StatsModBreakdown => {
+  const breakdown: StatsModBreakdown = {
+    attack: [{ label: "Base", mult: 1 }],
+    defense: [{ label: "Base", mult: 1 }],
+    income: [{ label: "Base", mult: 1 }],
+    vision: [{ label: "Base", mult: 1 }]
+  };
+  for (const techId of player.techIds) {
+    const tech = techById.get(techId);
+    if (!tech?.mods) continue;
+    if (tech.mods.attack && tech.mods.attack !== 1) breakdown.attack.push({ label: `Tech: ${tech.name}`, mult: tech.mods.attack });
+    if (tech.mods.defense && tech.mods.defense !== 1) breakdown.defense.push({ label: `Tech: ${tech.name}`, mult: tech.mods.defense });
+    if (tech.mods.income && tech.mods.income !== 1) breakdown.income.push({ label: `Tech: ${tech.name}`, mult: tech.mods.income });
+    if (tech.mods.vision && tech.mods.vision !== 1) breakdown.vision.push({ label: `Tech: ${tech.name}`, mult: tech.mods.vision });
+  }
+  for (const domainId of player.domainIds) {
+    const domain = domainById.get(domainId);
+    if (!domain?.mods) continue;
+    if (domain.mods.attack && domain.mods.attack !== 1) breakdown.attack.push({ label: `Domain: ${domain.name}`, mult: domain.mods.attack });
+    if (domain.mods.defense && domain.mods.defense !== 1) breakdown.defense.push({ label: `Domain: ${domain.name}`, mult: domain.mods.defense });
+    if (domain.mods.income && domain.mods.income !== 1) breakdown.income.push({ label: `Domain: ${domain.name}`, mult: domain.mods.income });
+    if (domain.mods.vision && domain.mods.vision !== 1) breakdown.vision.push({ label: `Domain: ${domain.name}`, mult: domain.mods.vision });
+  }
+
+  for (const key of ["attack", "defense", "income", "vision"] as const) {
+    const computed = breakdown[key].reduce((product, entry) => product * entry.mult, 1);
+    const live = player.mods[key];
+    if (Math.abs(computed - live) > 0.0001) {
+      breakdown[key].push({ label: "Other", mult: live / Math.max(0.0001, computed) });
+    }
+  }
+  return breakdown;
 };
 
 const recomputeTechModsFromOwnedTechs = (player: Player): void => {
@@ -2171,6 +2208,20 @@ const updateTownPopulationForPlayer = (player: Player): Set<TileKey> => {
   return touched;
 };
 
+const townPopulationGrowthPerMinuteForOwner = (town: TownDefinition, ownerId: string | undefined): number => {
+  if (!ownerId) return 0;
+  if (ownership.get(town.tileKey) !== ownerId) return 0;
+  if (ownershipStateByTile.get(town.tileKey) !== "SETTLED") return 0;
+  const growthPausedUntil = growthPausedUntilByPlayer.get(ownerId) ?? 0;
+  if (!isTownFedForOwner(town.tileKey, ownerId) || now() < growthPausedUntil) return 0;
+  const effects = getPlayerEffectsForPlayer(ownerId);
+  const firstThreeTownKeys = firstThreeTownKeySetForPlayer(ownerId);
+  const growthMult = effects.populationGrowthMult * (firstThreeTownKeys.has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1);
+  const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
+  if (logisticFactor <= 0) return 0;
+  return town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
+};
+
 const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold: number; strategicEach: number } => {
   const effects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
   if (!ownerId) {
@@ -2745,6 +2796,7 @@ const playerTile = (x: number, y: number): Tile => {
       isFed,
       population: town.population,
       maxPopulation: town.maxPopulation,
+      populationGrowthPerMinute: townPopulationGrowthPerMinuteForOwner(town, owner),
       populationTier: townPopulationTier(town.population),
       connectedTownCount: town.connectedTownCount,
       connectedTownBonus: town.connectedTownBonus,
@@ -3906,6 +3958,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       profileNeedsSetup: p.profileComplete !== true,
       level: p.level,
       mods: p.mods,
+      modBreakdown: playerModBreakdown(p),
       incomePerMinute: currentIncomePerMinute(p),
       incomeDelta,
       strategicResources: strategicStocks,
@@ -6673,6 +6726,7 @@ app.post("/admin/world/regenerate", async () => {
             points: player.points,
             level: player.level,
             mods: player.mods,
+            modBreakdown: playerModBreakdown(player),
             incomePerMinute: currentIncomePerMinute(player),
             strategicResources: strategicStocks,
             strategicProductionPerMinute: strategicProduction,
@@ -7019,6 +7073,7 @@ app.post("/admin/world/regenerate", async () => {
           techRootId: actor.techRootId,
           techIds: [...actor.techIds],
           mods: actor.mods,
+          modBreakdown: playerModBreakdown(actor),
           incomePerMinute: currentIncomePerMinute(actor),
           powerups: actor.powerups,
           nextChoices: reachableTechs(actor),
@@ -7049,6 +7104,7 @@ app.post("/admin/world/regenerate", async () => {
           type: "DOMAIN_UPDATE",
           domainIds: [...actor.domainIds],
           mods: actor.mods,
+          modBreakdown: playerModBreakdown(actor),
           incomePerMinute: currentIncomePerMinute(actor),
           domainChoices: reachableDomains(actor),
           domainCatalog: activeDomainCatalog(actor),

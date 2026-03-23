@@ -90,6 +90,7 @@ export interface Tile {
     isFed: boolean;
     population: number;
     maxPopulation: number;
+    populationGrowthPerMinute?: number;
     populationTier: PopulationTier;
     connectedTownCount: number;
     connectedTownBonus: number;

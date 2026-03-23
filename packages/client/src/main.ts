@@ -64,6 +64,7 @@ type Tile = {
     isFed: boolean;
     population: number;
     maxPopulation: number;
+    populationGrowthPerMinute?: number;
     populationTier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     connectedTownCount: number;
     connectedTownBonus: number;
@@ -733,6 +734,13 @@ const state = {
   gold: 0,
   level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+  modBreakdown: {
+    attack: [{ label: "Base", mult: 1 }],
+    defense: [{ label: "Base", mult: 1 }],
+    income: [{ label: "Base", mult: 1 }],
+    vision: [{ label: "Base", mult: 1 }]
+  } as Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>,
+  expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
   incomePerMinute: 0,
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
@@ -862,6 +870,26 @@ const state = {
   chunkFullCount: 0
 };
 
+const toggleExpandedModKey = (modKey: "attack" | "defense" | "income" | "vision"): void => {
+  state.expandedModKey = state.expandedModKey === modKey ? null : modKey;
+  techCurrentModsEl.innerHTML = techCurrentModsHtml();
+  mobileTechCurrentModsEl.innerHTML = techCurrentModsHtml();
+};
+
+const handleTechModChipClick = (ev: Event): void => {
+  const target = ev.target;
+  if (!(target instanceof HTMLElement)) return;
+  const button = target.closest<HTMLElement>("[data-mod-chip]");
+  if (!button) return;
+  const modKey = button.dataset.modChip;
+  if (modKey === "attack" || modKey === "defense" || modKey === "income" || modKey === "vision") {
+    toggleExpandedModKey(modKey);
+  }
+};
+
+techCurrentModsEl.addEventListener("click", handleTechModChipClick);
+mobileTechCurrentModsEl.addEventListener("click", handleTechModChipClick);
+
 const miniMapCtx = miniMapEl.getContext("2d");
 if (!miniMapCtx) throw new Error("missing minimap context");
 const miniMapBase = document.createElement("canvas");
@@ -988,6 +1016,39 @@ const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipSta
   if (style.borderStyle === "SOFT") return 2.25;
   return stateName === "SETTLED" ? 2 : 1.5;
 };
+const sharesBorderTerritory = (tile: Tile, neighbor?: Tile): boolean => {
+  if (!neighbor) return false;
+  if (neighbor.fogged) return false;
+  return neighbor.ownerId === tile.ownerId;
+};
+const drawExposedTileBorder = (tile: Tile, px: number, py: number, size: number): void => {
+  const top = state.tiles.get(key(wrapX(tile.x), wrapY(tile.y - 1)));
+  const right = state.tiles.get(key(wrapX(tile.x + 1), wrapY(tile.y)));
+  const bottom = state.tiles.get(key(wrapX(tile.x), wrapY(tile.y + 1)));
+  const left = state.tiles.get(key(wrapX(tile.x - 1), wrapY(tile.y)));
+  const x1 = px + 1;
+  const y1 = py + 1;
+  const x2 = px + size - 2;
+  const y2 = py + size - 2;
+  ctx.beginPath();
+  if (!sharesBorderTerritory(tile, top)) {
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y1);
+  }
+  if (!sharesBorderTerritory(tile, right)) {
+    ctx.moveTo(x2, y1);
+    ctx.lineTo(x2, y2);
+  }
+  if (!sharesBorderTerritory(tile, bottom)) {
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x1, y2);
+  }
+  if (!sharesBorderTerritory(tile, left)) {
+    ctx.moveTo(x1, y2);
+    ctx.lineTo(x1, y1);
+  }
+  ctx.stroke();
+};
 const structureAccentColor = (ownerId: string, fallback: string): string => {
   const style = visualStyleForOwner(ownerId);
   if (!style) return fallback;
@@ -1100,7 +1161,12 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   if (tile.town) {
     townBits.push(`${prettyToken(tile.town.type)} town`);
     townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
-    townBits.push(`Population ${Math.round(tile.town.population).toLocaleString()} (${prettyToken(tile.town.populationTier)})`);
+    const growthPct =
+      typeof tile.town.populationGrowthPerMinute === "number" && tile.town.population > 0
+        ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
+        : null;
+    const growthSuffix = growthPct === null ? "" : ` (+${growthPct.toFixed(0)}%)`;
+    townBits.push(`Population ${Math.round(tile.town.population).toLocaleString()}${growthSuffix} (${prettyToken(tile.town.populationTier)})`);
     townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
     if (!tile.town.isFed) townBits.push("Unfed");
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
@@ -2266,14 +2332,23 @@ const formatDomainBenefitSummary = (domain: DomainInfo): string => {
 const techCurrentModsHtml = (): string => {
   const m = state.mods;
   const chips = [
-    { label: "ATK", value: m.attack },
-    { label: "DEF", value: m.defense },
-    { label: "INC", value: m.income },
-    { label: "VIS", value: m.vision }
+    { key: "attack", label: "ATK", value: m.attack },
+    { key: "defense", label: "DEF", value: m.defense },
+    { key: "income", label: "INC", value: m.income },
+    { key: "vision", label: "VIS", value: m.vision }
   ]
-    .map(({ label, value }) => `<div class="tech-mod-chip"><span>${label}</span><strong>x${value.toFixed(2)}</strong></div>`)
+    .map(
+      ({ key, label, value }) =>
+        `<button class="panel-btn tech-mod-chip${state.expandedModKey === key ? " selected" : ""}" data-mod-chip="${key}"><span>${label}</span><strong>x${value.toFixed(2)}</strong></button>`
+    )
     .join("");
-  return `<div class="tech-mod-strip">${chips}</div>`;
+  const breakdown =
+    state.expandedModKey === null
+      ? ""
+      : `<div class="tech-mod-breakdown">${(state.modBreakdown[state.expandedModKey] ?? [])
+          .map((entry) => `<div class="tech-mod-breakdown-row"><span>${entry.label}</span><strong>x${entry.mult.toFixed(3)}</strong></div>`)
+          .join("")}</div>`;
+  return `<div class="tech-mod-strip">${chips}</div>${breakdown}`;
 };
 
 const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>): number => {
@@ -4736,6 +4811,7 @@ ws.addEventListener("message", (ev) => {
     state.gold = (p.gold as number | undefined) ?? (p.points as number);
     state.level = p.level as number;
     state.mods = (p.mods as typeof state.mods) ?? state.mods;
+    state.modBreakdown = (p.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
     state.incomePerMinute = (p.incomePerMinute as number) ?? state.incomePerMinute;
     state.strategicResources =
       (p.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
@@ -4861,6 +4937,7 @@ ws.addEventListener("message", (ev) => {
     }
     state.level = msg.level as number;
     state.mods = (msg.mods as typeof state.mods) ?? state.mods;
+    state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
     state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
     state.strategicResources =
       (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
@@ -5097,6 +5174,7 @@ ws.addEventListener("message", (ev) => {
     state.techChoices = (msg.nextChoices as string[]) ?? [];
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
     state.mods = (msg.mods as typeof state.mods) ?? state.mods;
+    state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
     state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
     state.missions = (msg.missions as MissionState[]) ?? state.missions;
     state.techCatalog = (msg.techCatalog as TechInfo[]) ?? state.techCatalog;
@@ -5115,6 +5193,7 @@ ws.addEventListener("message", (ev) => {
     state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
     state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
     state.mods = (msg.mods as typeof state.mods) ?? state.mods;
+    state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
     state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
     state.missions = (msg.missions as MissionState[]) ?? state.missions;
     pushFeed(`Domain chosen: ${state.domainIds[state.domainIds.length - 1] ?? "unknown"}`, "tech", "success");
@@ -5738,7 +5817,7 @@ const draw = (): void => {
         if (visualStyleForOwner(t.ownerId)?.borderStyle === "DASHED") ctx.setLineDash([4, 3]);
         else if (visualStyleForOwner(t.ownerId)?.borderStyle === "SOFT") ctx.setLineDash([10, 6]);
         else ctx.setLineDash([]);
-        ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
+        drawExposedTileBorder(t, px, py, size);
         ctx.setLineDash([]);
         ctx.lineWidth = 1;
       }
