@@ -24,6 +24,7 @@ export interface TechEffects {
   settlementSpeedMult?: number;
   operationalTempoMult?: number;
   populationGrowthMult?: number;
+  firstThreeTownsPopulationGrowthMult?: number;
   populationCapFirst3TownsMult?: number;
   growthPauseDurationMult?: number;
   townFoodUpkeepMult?: number;
@@ -109,6 +110,7 @@ const TechEffectsSchema = z
     settlementSpeedMult: z.number().positive().optional(),
     operationalTempoMult: z.number().positive().optional(),
     populationGrowthMult: z.number().positive().optional(),
+    firstThreeTownsPopulationGrowthMult: z.number().positive().optional(),
     populationCapFirst3TownsMult: z.number().positive().optional(),
     growthPauseDurationMult: z.number().positive().optional(),
     townFoodUpkeepMult: z.number().positive().optional(),
