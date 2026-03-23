@@ -1172,7 +1172,9 @@ const inspectionHtmlForTile = (tile: Tile): string => {
         ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
         : 0;
     const growthPctLabel =
-      Math.abs(growthPct) < 0.05 ? `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%` : `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`;
+      Math.abs(growthPct) < 0.05
+        ? `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`
+        : `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%/m`;
     townBits.push(`${prettyToken(tile.town.type)} town`);
     townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
     townBits.push(
