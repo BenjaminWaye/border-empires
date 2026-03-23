@@ -542,6 +542,7 @@ const POPULATION_START_SPREAD = 10_000;
 const POPULATION_GROWTH_TICK_MS = 60_000;
 const GROWTH_PAUSE_MS = 120_000;
 const GROWTH_PAUSE_MAX_MS = 20 * 60_000;
+const LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD = 500;
 const BREACH_SHOCK_MS = 180_000;
 const BREACH_SHOCK_DEF_MULT = 0.72;
 const DYNAMIC_MISSION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1610,6 +1611,33 @@ type LandComponentMeta = {
   fallbackY: number;
   oceanCandidates: DockCandidate[];
 };
+
+const selectSpacedDockCandidates = (candidates: DockCandidate[], count: number, seed: number): DockCandidate[] => {
+  if (count <= 0 || candidates.length === 0) return [];
+  const pool = [...candidates];
+  const startIdx = Math.floor(seeded01(seed + count, seed + pool.length, seed + 4123) * pool.length);
+  const selected: DockCandidate[] = [pool[startIdx]!];
+  while (selected.length < count && selected.length < pool.length) {
+    let bestCandidate: DockCandidate | undefined;
+    let bestDistance = Number.NEGATIVE_INFINITY;
+    for (const candidate of pool) {
+      if (selected.includes(candidate)) continue;
+      let minDistance = Number.POSITIVE_INFINITY;
+      for (const existing of selected) {
+        const dx = Math.min(Math.abs(candidate.seaX - existing.seaX), WORLD_WIDTH - Math.abs(candidate.seaX - existing.seaX));
+        const dy = Math.min(Math.abs(candidate.seaY - existing.seaY), WORLD_HEIGHT - Math.abs(candidate.seaY - existing.seaY));
+        minDistance = Math.min(minDistance, dx + dy);
+      }
+      if (minDistance > bestDistance) {
+        bestDistance = minDistance;
+        bestCandidate = candidate;
+      }
+    }
+    if (!bestCandidate) break;
+    selected.push(bestCandidate);
+  }
+  return selected;
+};
 const analyzeLandComponentsForDocks = (
   seed: number,
   oceanMask: Uint8Array
@@ -1677,110 +1705,140 @@ const generateDocks = (seed: number): void => {
   docksByTile.clear();
   dockById.clear();
   const oceanMask = largestSeaComponentMask();
-  const worldScale = (WORLD_WIDTH * WORLD_HEIGHT) / 1_000_000;
-  const rawPairs = DOCK_PAIRS_MIN + Math.floor(seeded01(seed + 5, seed + 9, seed + 700) * (DOCK_PAIRS_MAX - DOCK_PAIRS_MIN + 1));
-  const targetPairs = Math.max(10, Math.floor(rawPairs * worldScale));
-  const baseTargetDocks = Math.max(20, targetPairs * 2);
   const { components, componentByIndex } = analyzeLandComponentsForDocks(seed, oceanMask);
-  const forced: DockCandidate[] = [];
-  for (const comp of components) {
-    if (comp.tileCount < 24) continue;
-    if (comp.oceanCandidates.length > 0) {
-      const pick = Math.floor(seeded01(comp.id, seed + 407, seed + 409) * comp.oceanCandidates.length);
-      forced.push(comp.oceanCandidates[pick]!);
+  const eligibleComponents = components.filter((comp) => comp.tileCount >= 24 && comp.oceanCandidates.length > 0);
+  const primaryDockCandidateByComponent = new Map<number, DockCandidate>();
+  for (const comp of eligibleComponents) {
+    const primary = selectSpacedDockCandidates(comp.oceanCandidates, 1, seed + comp.id * 17)[0];
+    if (primary) primaryDockCandidateByComponent.set(comp.id, primary);
+  }
+
+  const componentIds = eligibleComponents.map((comp) => comp.id);
+  const componentSeaDistance = (aComponentId: number, bComponentId: number): number => {
+    const a = primaryDockCandidateByComponent.get(aComponentId);
+    const b = primaryDockCandidateByComponent.get(bComponentId);
+    if (!a || !b) return Number.POSITIVE_INFINITY;
+    const dx = Math.min(Math.abs(a.seaX - b.seaX), WORLD_WIDTH - Math.abs(a.seaX - b.seaX));
+    const dy = Math.min(Math.abs(a.seaY - b.seaY), WORLD_HEIGHT - Math.abs(a.seaY - b.seaY));
+    return dx + dy;
+  };
+
+  const componentEdges: Array<[number, number]> = [];
+  const componentEdgeKeys = new Set<string>();
+  const addComponentEdge = (aComponentId: number, bComponentId: number): void => {
+    if (aComponentId === bComponentId) return;
+    const edgeKey = aComponentId < bComponentId ? `${aComponentId}|${bComponentId}` : `${bComponentId}|${aComponentId}`;
+    if (componentEdgeKeys.has(edgeKey)) return;
+    componentEdgeKeys.add(edgeKey);
+    componentEdges.push([aComponentId, bComponentId]);
+  };
+
+  if (componentIds.length > 1) {
+    const visitedComponents = new Set<number>([componentIds[0]!]);
+    while (visitedComponents.size < componentIds.length) {
+      let bestFrom = -1;
+      let bestTo = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (const fromComponentId of visitedComponents) {
+        for (const toComponentId of componentIds) {
+          if (visitedComponents.has(toComponentId)) continue;
+          const dist = componentSeaDistance(fromComponentId, toComponentId);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestFrom = fromComponentId;
+            bestTo = toComponentId;
+          }
+        }
+      }
+      if (bestFrom < 0 || bestTo < 0) break;
+      addComponentEdge(bestFrom, bestTo);
+      visitedComponents.add(bestTo);
+    }
+
+    for (const componentId of componentIds) {
+      const comp = eligibleComponents.find((candidate) => candidate.id === componentId);
+      if (!comp || comp.tileCount >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD) continue;
+      let bestNeighbor = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (const otherComponentId of componentIds) {
+        if (otherComponentId === componentId) continue;
+        const dist = componentSeaDistance(componentId, otherComponentId);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestNeighbor = otherComponentId;
+        }
+      }
+      if (bestNeighbor >= 0) addComponentEdge(componentId, bestNeighbor);
     }
   }
 
-  const targetDocks = Math.max(baseTargetDocks, forced.length);
-  const candidates: DockCandidate[] = [];
-  for (let i = 0; i < 120_000 && candidates.length < targetDocks * 18; i += 1) {
-    const x = Math.floor(seeded01(i * 19, i * 23, seed + 401) * WORLD_WIDTH);
-    const y = Math.floor(seeded01(i * 29, i * 31, seed + 409) * WORLD_HEIGHT);
-    if (!isCoastalLand(x, y)) continue;
-    const oceanNeighbor = adjacentOceanSea(x, y, oceanMask);
-    if (!oceanNeighbor) continue;
-    const componentId = componentByIndex[worldIndex(x, y)] ?? -1;
-    if (componentId < 0) continue;
-    candidates.push({ x, y, componentId, seaX: oceanNeighbor.x, seaY: oceanNeighbor.y });
-  }
-  const minSpacing = Math.max(8, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.02));
-  const selected: DockCandidate[] = [];
-  const used = new Set<string>();
-  for (const c of forced) {
-    const tk = key(c.x, c.y);
-    if (used.has(tk)) continue;
-    selected.push(c);
-    used.add(tk);
-  }
-  for (let i = 0; i < candidates.length && selected.length < targetDocks; i += 1) {
-    const c = candidates[i]!;
-    const tk = key(c.x, c.y);
-    if (used.has(tk)) continue;
-    const tooClose = selected.some((s) => {
-      const dx = Math.min(Math.abs(s.x - c.x), WORLD_WIDTH - Math.abs(s.x - c.x));
-      const dy = Math.min(Math.abs(s.y - c.y), WORLD_HEIGHT - Math.abs(s.y - c.y));
-      return dx + dy < minSpacing;
-    });
-    if (tooClose) continue;
-    selected.push(c);
-    used.add(tk);
+  const degreeByComponent = new Map<number, number>();
+  for (const [aComponentId, bComponentId] of componentEdges) {
+    degreeByComponent.set(aComponentId, (degreeByComponent.get(aComponentId) ?? 0) + 1);
+    degreeByComponent.set(bComponentId, (degreeByComponent.get(bComponentId) ?? 0) + 1);
   }
 
+  const selectedByComponent = new Map<number, DockCandidate[]>();
+  for (const comp of eligibleComponents) {
+    const desiredCount =
+      comp.tileCount >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD ? Math.max(2, degreeByComponent.get(comp.id) ?? 1) : 1;
+    const picks = selectSpacedDockCandidates(comp.oceanCandidates, Math.min(desiredCount, comp.oceanCandidates.length), seed + comp.id * 97);
+    if (picks.length > 0) selectedByComponent.set(comp.id, picks);
+  }
+
+  const selected = [...selectedByComponent.values()].flat();
   const docks: Dock[] = selected.map((s, i) => ({
     dockId: `dock-${i}`,
     tileKey: key(s.x, s.y),
     pairedDockId: "",
+    connectedDockIds: [],
     cooldownUntil: 0
   }));
 
+  const dockIndexByTileKey = new Map<TileKey, number>();
+  const dockIndicesByComponent = new Map<number, number[]>();
   for (let i = 0; i < selected.length; i += 1) {
-    const a = selected[i]!;
-    let bestIdx = -1;
-    let bestDist = Number.POSITIVE_INFINITY;
-    for (let j = 0; j < selected.length; j += 1) {
-      if (i === j) continue;
-      const b = selected[j]!;
-      if (a.componentId === b.componentId) continue;
-      const dx = Math.min(Math.abs(a.seaX - b.seaX), WORLD_WIDTH - Math.abs(a.seaX - b.seaX));
-      const dy = Math.min(Math.abs(a.seaY - b.seaY), WORLD_HEIGHT - Math.abs(a.seaY - b.seaY));
-      const dist = dx + dy;
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestIdx = j;
-      }
-    }
-    if (bestIdx === -1) {
-      // Fallback: if all candidates ended up on one continent, keep local nearest to avoid empty pairing.
-      for (let j = 0; j < selected.length; j += 1) {
-        if (i === j) continue;
-        const b = selected[j]!;
-        const dx = Math.min(Math.abs(a.seaX - b.seaX), WORLD_WIDTH - Math.abs(a.seaX - b.seaX));
-        const dy = Math.min(Math.abs(a.seaY - b.seaY), WORLD_HEIGHT - Math.abs(a.seaY - b.seaY));
-        const dist = dx + dy;
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestIdx = j;
-        }
-      }
-    }
-    if (bestIdx === -1) continue;
-    docks[i]!.pairedDockId = docks[bestIdx]!.dockId;
+    dockIndexByTileKey.set(key(selected[i]!.x, selected[i]!.y), i);
+    const componentId = selected[i]!.componentId;
+    const indices = dockIndicesByComponent.get(componentId) ?? [];
+    indices.push(i);
+    dockIndicesByComponent.set(componentId, indices);
+  }
+
+  const edgeKeys = new Set<string>();
+  const addDockConnection = (aIdx: number, bIdx: number): void => {
+    if (aIdx === bIdx) return;
+    const a = docks[aIdx]!;
+    const b = docks[bIdx]!;
+    const edgeKey = a.dockId < b.dockId ? `${a.dockId}|${b.dockId}` : `${b.dockId}|${a.dockId}`;
+    if (edgeKeys.has(edgeKey)) return;
+    edgeKeys.add(edgeKey);
+    if (!a.connectedDockIds?.includes(b.dockId)) a.connectedDockIds = [...(a.connectedDockIds ?? []), b.dockId];
+    if (!b.connectedDockIds?.includes(a.dockId)) b.connectedDockIds = [...(b.connectedDockIds ?? []), a.dockId];
+    if (!a.pairedDockId) a.pairedDockId = b.dockId;
+    if (!b.pairedDockId) b.pairedDockId = a.dockId;
+  };
+
+  const nextDockOffsetByComponent = new Map<number, number>();
+  const dockIndexForEdge = (componentId: number): number | undefined => {
+    const indices = dockIndicesByComponent.get(componentId);
+    if (!indices || indices.length === 0) return undefined;
+    const comp = eligibleComponents.find((candidate) => candidate.id === componentId);
+    if (!comp || comp.tileCount < LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD) return indices[0];
+    const offset = nextDockOffsetByComponent.get(componentId) ?? 0;
+    nextDockOffsetByComponent.set(componentId, offset + 1);
+    return indices[Math.min(offset, indices.length - 1)];
+  };
+
+  for (const [aComponentId, bComponentId] of componentEdges) {
+    const aIdx = dockIndexForEdge(aComponentId);
+    const bIdx = dockIndexForEdge(bComponentId);
+    if (aIdx === undefined || bIdx === undefined) continue;
+    addDockConnection(aIdx, bIdx);
   }
 
   for (const d of docks) {
-    if (!d.pairedDockId) continue;
-    d.connectedDockIds = [d.pairedDockId];
-  }
-  for (const d of docks) {
-    if (!d.pairedDockId) continue;
-    const paired = docks.find((candidate) => candidate.dockId === d.pairedDockId);
-    if (paired && (!paired.connectedDockIds || !paired.connectedDockIds.includes(d.dockId))) {
-      paired.connectedDockIds = [...(paired.connectedDockIds ?? []), d.dockId];
-    }
-  }
-
-  for (const d of docks) {
-    if (!d.pairedDockId) continue;
+    if (!d.pairedDockId && (!d.connectedDockIds || d.connectedDockIds.length === 0)) continue;
     docksByTile.set(d.tileKey, d);
     dockById.set(d.dockId, d);
   }
@@ -2317,18 +2375,25 @@ const regenerateStrategicWorld = (initialSeed: number): number => {
 const dockLinkedDestinations = (fromDock: Dock): Dock[] => {
   const out: Dock[] = [];
   const seen = new Set<string>();
-  const direct = dockById.get(fromDock.pairedDockId);
-  if (direct) {
-    out.push(direct);
-    seen.add(direct.dockId);
+  for (const dockId of fromDock.connectedDockIds ?? []) {
+    const linked = dockById.get(dockId);
+    if (!linked || seen.has(linked.dockId)) continue;
+    out.push(linked);
+    seen.add(linked.dockId);
   }
-  // Bidirectional hub travel: if other docks point to this dock, this dock can travel back to them.
-  for (const d of dockById.values()) {
-    if (d.dockId === fromDock.dockId) continue;
-    if (d.pairedDockId !== fromDock.dockId) continue;
-    if (seen.has(d.dockId)) continue;
-    out.push(d);
-    seen.add(d.dockId);
+  if (seen.size === 0 && fromDock.pairedDockId) {
+    const direct = dockById.get(fromDock.pairedDockId);
+    if (direct) {
+      out.push(direct);
+      seen.add(direct.dockId);
+    }
+    for (const d of dockById.values()) {
+      if (d.dockId === fromDock.dockId) continue;
+      if (d.pairedDockId !== fromDock.dockId) continue;
+      if (seen.has(d.dockId)) continue;
+      out.push(d);
+      seen.add(d.dockId);
+    }
   }
   return out;
 };
@@ -2532,12 +2597,19 @@ const chooseBarbarianTarget = (agent: BarbarianAgent): Tile | undefined => {
 
 const exportDockPairs = (): Array<{ ax: number; ay: number; bx: number; by: number }> => {
   const out: Array<{ ax: number; ay: number; bx: number; by: number }> = [];
+  const seen = new Set<string>();
   for (const d of dockById.values()) {
-    const pair = dockById.get(d.pairedDockId);
-    if (!pair) continue;
-    const [ax, ay] = parseKey(d.tileKey);
-    const [bx, by] = parseKey(pair.tileKey);
-    out.push({ ax, ay, bx, by });
+    const linkedDockIds = d.connectedDockIds?.length ? d.connectedDockIds : d.pairedDockId ? [d.pairedDockId] : [];
+    for (const dockId of linkedDockIds) {
+      const pair = dockById.get(dockId);
+      if (!pair) continue;
+      const edgeKey = d.dockId < pair.dockId ? `${d.dockId}|${pair.dockId}` : `${pair.dockId}|${d.dockId}`;
+      if (seen.has(edgeKey)) continue;
+      seen.add(edgeKey);
+      const [ax, ay] = parseKey(d.tileKey);
+      const [bx, by] = parseKey(pair.tileKey);
+      out.push({ ax, ay, bx, by });
+    }
   }
   return out;
 };
@@ -7068,19 +7140,27 @@ if (
 }
 const hasCrossContinentDockPairs = (() => {
   const seen = new Set<string>();
+  let hasCrossContinentLink = false;
   for (const d of dockById.values()) {
-    if (seen.has(d.dockId)) continue;
-    const pair = dockById.get(d.pairedDockId);
-    if (!pair) return false;
-    seen.add(d.dockId);
-    seen.add(pair.dockId);
-    const [ax, ay] = parseKey(d.tileKey);
-    const [bx, by] = parseKey(pair.tileKey);
-    const ac = continentIdAt(ax, ay);
-    const bc = continentIdAt(bx, by);
-    if (ac === undefined || bc === undefined || ac === bc) return false;
+    const linkedDockIds = d.connectedDockIds?.length ? d.connectedDockIds : d.pairedDockId ? [d.pairedDockId] : [];
+    for (const dockId of linkedDockIds) {
+      const pair = dockById.get(dockId);
+      if (!pair) return false;
+      const edgeKey = d.dockId < pair.dockId ? `${d.dockId}|${pair.dockId}` : `${pair.dockId}|${d.dockId}`;
+      if (seen.has(edgeKey)) continue;
+      seen.add(edgeKey);
+      const [ax, ay] = parseKey(d.tileKey);
+      const [bx, by] = parseKey(pair.tileKey);
+      const ac = continentIdAt(ax, ay);
+      const bc = continentIdAt(bx, by);
+      if (ac === undefined || bc === undefined) return false;
+      if (ac !== bc) hasCrossContinentLink = true;
+    }
   }
-  return dockById.size > 0;
+  if (seen.size === 0) {
+    return false;
+  }
+  return dockById.size > 0 && hasCrossContinentLink;
 })();
 if (dockById.size === 0 || docksByTile.size === 0 || !hasCrossContinentDockPairs || townsByTile.size === 0) {
   activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
