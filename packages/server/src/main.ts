@@ -5034,7 +5034,7 @@ const recomputeExposure = (p: Player): void => {
     for (const tile of n) {
       if (tile.terrain !== "LAND") continue;
       const isSameOrAllied = tile.ownerId === p.id || Boolean(tile.ownerId && p.allies.has(tile.ownerId));
-      if (isSameOrAllied && tile.ownershipState === "SETTLED") continue;
+      if (isSameOrAllied) continue;
       settledExposedSides += 1;
     }
     Es += exposureWeightFromSides(settledExposedSides);
