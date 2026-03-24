@@ -225,4 +225,31 @@ describe("planBestGoal", () => {
     expect(plan?.goalId).toBe("claim_settlement_scaffold");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_scaffold_border_tile"]);
   });
+
+  it("can still choose enemy pressure when threatened but not critically", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: false,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
+      hasBarbarianTarget: false,
+      hasWeakEnemyBorder: true,
+      needsSettlement: false,
+      frontierDebtHigh: false,
+      underThreat: true,
+      threatCritical: false,
+      economyWeak: true,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: true,
+      canAffordSettlement: false,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: false,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, goalsForVictoryPath("TOWN_CONTROL"), AI_EMPIRE_ACTIONS);
+
+    expect(plan?.goalId).toBe("season_town_control");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["attack_enemy_border_tile"]);
+  });
 });
