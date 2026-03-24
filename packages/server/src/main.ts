@@ -12,6 +12,8 @@ import {
   CLUSTER_COUNT_MIN,
   ClientMessageSchema,
   COMBAT_LOCK_MS,
+  DEVELOPMENT_PROCESS_LIMIT,
+  ECONOMIC_STRUCTURE_BUILD_MS,
   FRONTIER_CLAIM_MS,
   DOCK_CROSSING_COOLDOWN_MS,
   DOCK_DEFENSE_MULT,
@@ -21,6 +23,7 @@ import {
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
   FORT_MAX_PER_PLAYER,
+  OBSERVATORY_BUILD_MS,
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_COST,
   SIEGE_OUTPOST_BUILD_MS,
@@ -284,7 +287,8 @@ interface Observatory {
   observatoryId: string;
   ownerId: string;
   tileKey: TileKey;
-  status: "active" | "inactive";
+  status: "under_construction" | "active" | "inactive";
+  completesAt?: number;
 }
 
 interface ActiveSabotage {
@@ -1115,10 +1119,12 @@ const fogDisabledByPlayer = new Map<string, boolean>();
 const fortsByTile = new Map<TileKey, Fort>();
 const fortBuildTimers = new Map<TileKey, NodeJS.Timeout>();
 const observatoriesByTile = new Map<TileKey, Observatory>();
+const observatoryBuildTimers = new Map<TileKey, NodeJS.Timeout>();
 const observatoryTileKeysByPlayer = new Map<string, Set<TileKey>>();
 const siegeOutpostsByTile = new Map<TileKey, SiegeOutpost>();
 const siegeOutpostBuildTimers = new Map<TileKey, NodeJS.Timeout>();
 const economicStructuresByTile = new Map<TileKey, EconomicStructure>();
+const economicStructureBuildTimers = new Map<TileKey, NodeJS.Timeout>();
 const economicStructureTileKeysByPlayer = new Map<string, Set<TileKey>>();
 const docksByTile = new Map<TileKey, Dock>();
 const dockById = new Map<string, Dock>();
@@ -2110,7 +2116,7 @@ const townPopulationMultiplier = (population: number): number => {
 
 const activeStructureAt = (tileKey: TileKey, ownerId: string | undefined, type: EconomicStructureType): boolean => {
   const structure = economicStructuresByTile.get(tileKey);
-  return Boolean(structure && structure.type === type && ownerId && structure.ownerId === ownerId && structure.isActive);
+  return Boolean(structure && structure.type === type && ownerId && structure.ownerId === ownerId && structure.status === "active");
 };
 
 const ownedStructureAt = (tileKey: TileKey, ownerId: string | undefined, type: EconomicStructureType): boolean => {
@@ -2727,10 +2733,14 @@ const clearWorldProgressForSeason = (): void => {
   for (const t of fortBuildTimers.values()) clearTimeout(t);
   fortBuildTimers.clear();
   fortsByTile.clear();
+  for (const t of observatoryBuildTimers.values()) clearTimeout(t);
+  observatoryBuildTimers.clear();
   observatoriesByTile.clear();
   for (const t of siegeOutpostBuildTimers.values()) clearTimeout(t);
   siegeOutpostBuildTimers.clear();
   siegeOutpostsByTile.clear();
+  for (const t of economicStructureBuildTimers.values()) clearTimeout(t);
+  economicStructureBuildTimers.clear();
   economicStructuresByTile.clear();
   sabotageByTile.clear();
   abilityCooldownsByPlayer.clear();
@@ -2939,10 +2949,12 @@ const playerTile = (x: number, y: number): Tile => {
     tile.fort = fortView;
   }
   if (observatory) {
+    const status = observatoryStatusForTile(observatory.ownerId, observatory.tileKey);
     tile.observatory = {
       ownerId: observatory.ownerId,
-      status: observatoryStatusForTile(observatory.ownerId, observatory.tileKey)
+      status
     };
+    if (status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
   }
   if (siegeOutpost) {
     const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
@@ -2964,8 +2976,9 @@ const playerTile = (x: number, y: number): Tile => {
     tile.economicStructure = {
       ownerId: economicStructure.ownerId,
       type: economicStructure.type,
-      status: economicStructure.isActive ? "active" : "inactive"
+      status: economicStructure.status
     };
+    if (economicStructure.completesAt !== undefined) tile.economicStructure.completesAt = economicStructure.completesAt;
   }
   if (history && (history.captureCount > 0 || history.structureHistory.length > 0 || history.lastStructureType)) {
     const historyView: NonNullable<Tile["history"]> = {
@@ -3492,9 +3505,10 @@ const startAbilityCooldown = (playerId: string, abilityId: AbilityDefinition["id
 
 const playerHasTechIds = (player: Player, techIds: string[]): boolean => techIds.every((id) => player.techIds.has(id));
 
-const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "active" | "inactive" => {
+const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "under_construction" | "active" | "inactive" => {
   const observatory = observatoriesByTile.get(tileKey);
   if (!observatory || observatory.ownerId !== playerId) return "inactive";
+  if (observatory.status === "under_construction") return "under_construction";
   const [x, y] = parseKey(tileKey);
   const t = playerTile(x, y);
   return t.ownerId === playerId && t.ownershipState === "SETTLED" ? observatory.status : "inactive";
@@ -3513,6 +3527,7 @@ const syncObservatoriesForPlayer = (playerId: string, active: boolean): void => 
   for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
     const observatory = observatoriesByTile.get(tk);
     if (!observatory) continue;
+    if (observatory.status === "under_construction") continue;
     const [x, y] = parseKey(tk);
     const t = playerTile(x, y);
     const nextStatus = active && t.ownerId === playerId && t.ownershipState === "SETTLED" ? "active" : "inactive";
@@ -3556,7 +3571,7 @@ const economicStructureResourceType = (resource: ResourceType | undefined): Econ
 
 const economicStructureOutputMultAt = (tileKey: TileKey, ownerId: string | undefined): number => {
   const structure = economicStructuresByTile.get(tileKey);
-  if (!structure || !ownerId || structure.ownerId !== ownerId || !structure.isActive) return 1;
+  if (!structure || !ownerId || structure.ownerId !== ownerId || structure.status !== "active") return 1;
   return structure.type === "GRANARY" || structure.type === "MARKET" ? 1 : STRUCTURE_OUTPUT_MULT;
 };
 
@@ -3675,6 +3690,7 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
   if (structureType === "MINE" && !actor.techIds.has("mining")) return { ok: false, reason: "unlock mines via Mining first" };
   if (structureType === "MARKET" && !actor.techIds.has("trade")) return { ok: false, reason: "unlock markets via Trade first" };
   if (structureType === "GRANARY" && !getPlayerEffectsForPlayer(actor.id).unlockGranary) return { ok: false, reason: "unlock granaries via Pottery first" };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
 
   if (structureType === "FARMSTEAD") {
     if (actor.points < FARMSTEAD_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for farmstead" };
@@ -3702,16 +3718,32 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
   }
 
   recalcPlayerDerived(actor);
+  const completesAt = now() + ECONOMIC_STRUCTURE_BUILD_MS;
   economicStructuresByTile.set(tk, {
     id: crypto.randomUUID(),
     type: structureType,
     tileKey: tk,
     ownerId: actor.id,
-    isActive: true,
-    nextUpkeepAt: now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS
+    status: "under_construction",
+    completesAt,
+    nextUpkeepAt: completesAt + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS
   });
   trackOwnedTileKey(economicStructureTileKeysByPlayer, actor.id, tk);
   recordTileStructureHistory(tk, structureType);
+  const timer = setTimeout(() => {
+    const current = economicStructuresByTile.get(tk);
+    if (!current) return;
+    const tileNow = runtimeTileCore(t.x, t.y);
+    if (tileNow.ownerId !== actor.id || tileNow.ownershipState !== "SETTLED") {
+      cancelEconomicStructureBuild(tk);
+      return;
+    }
+    current.status = "active";
+    delete current.completesAt;
+    economicStructureBuildTimers.delete(tk);
+    updateOwnership(t.x, t.y, actor.id);
+  }, ECONOMIC_STRUCTURE_BUILD_MS);
+  economicStructureBuildTimers.set(tk, timer);
   return { ok: true };
 };
 
@@ -3721,10 +3753,11 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
   for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
     const structure = economicStructuresByTile.get(tk);
     if (!structure) continue;
+    if (structure.status === "under_construction") continue;
     const [x, y] = parseKey(tk);
     const tile = playerTile(x, y);
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") {
-      structure.isActive = false;
+      structure.status = "inactive";
       touched.add(tk);
       continue;
     }
@@ -3733,9 +3766,9 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
       const marketCrystalUpkeep = MARKET_CRYSTAL_UPKEEP * getPlayerEffectsForPlayer(player.id).marketCrystalUpkeepMult;
       if ((stock.CRYSTAL ?? 0) >= marketCrystalUpkeep) {
         stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - marketCrystalUpkeep);
-        structure.isActive = true;
+        structure.status = "active";
       } else {
-        structure.isActive = false;
+        structure.status = "inactive";
       }
     } else {
       const upkeep =
@@ -3748,9 +3781,9 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
               : GRANARY_GOLD_UPKEEP;
       if (player.points >= upkeep) {
         player.points = Math.max(0, player.points - upkeep);
-        structure.isActive = true;
+        structure.status = "active";
       } else {
-        structure.isActive = false;
+        structure.status = "inactive";
       }
     }
     structure.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
@@ -4420,7 +4453,6 @@ const executeUnifiedGameplayMessage = async (actor: Player, msg: ClientMessage, 
       socket.send(JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: out.reason }));
       return true;
     }
-    socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: msg.x, y: msg.y }, target: { x: msg.x, y: msg.y }, resolvesAt: out.resolvesAt }));
     sendPlayerUpdate(actor, 0);
     return true;
   }
@@ -6880,6 +6912,29 @@ const countPlayerSiegeOutposts = (playerId: string): number => {
   return n;
 };
 
+const activeDevelopmentProcessCountForPlayer = (playerId: string): number => {
+  let n = 0;
+  for (const pending of pendingSettlementsByTile.values()) {
+    if (pending.ownerId === playerId) n += 1;
+  }
+  for (const fort of fortsByTile.values()) {
+    if (fort.ownerId === playerId && fort.status === "under_construction") n += 1;
+  }
+  for (const observatory of observatoriesByTile.values()) {
+    if (observatory.ownerId === playerId && observatory.status === "under_construction") n += 1;
+  }
+  for (const siege of siegeOutpostsByTile.values()) {
+    if (siege.ownerId === playerId && siege.status === "under_construction") n += 1;
+  }
+  for (const structure of economicStructuresByTile.values()) {
+    if (structure.ownerId === playerId && structure.status === "under_construction") n += 1;
+  }
+  return n;
+};
+
+const canStartDevelopmentProcess = (playerId: string): boolean =>
+  activeDevelopmentProcessCountForPlayer(playerId) < DEVELOPMENT_PROCESS_LIMIT;
+
 const fortCapacityForPlayer = (playerId: string): number => {
   return Math.max(1, FORT_MAX_PER_PLAYER + getPlayerEffectsForPlayer(playerId).buildCapacityAdd);
 };
@@ -6909,6 +6964,28 @@ const cancelSiegeOutpostBuild = (tileKey: TileKey): void => {
   if (siege?.status === "under_construction") siegeOutpostsByTile.delete(tileKey);
 };
 
+const cancelObservatoryBuild = (tileKey: TileKey): void => {
+  const timer = observatoryBuildTimers.get(tileKey);
+  if (timer) clearTimeout(timer);
+  observatoryBuildTimers.delete(tileKey);
+  const observatory = observatoriesByTile.get(tileKey);
+  if (observatory?.status === "under_construction") {
+    untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, tileKey);
+    observatoriesByTile.delete(tileKey);
+  }
+};
+
+const cancelEconomicStructureBuild = (tileKey: TileKey): void => {
+  const timer = economicStructureBuildTimers.get(tileKey);
+  if (timer) clearTimeout(timer);
+  economicStructureBuildTimers.delete(tileKey);
+  const structure = economicStructuresByTile.get(tileKey);
+  if (structure?.status === "under_construction") {
+    untrackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, tileKey);
+    economicStructuresByTile.delete(tileKey);
+  }
+};
+
 const consumeStrategicResource = (player: Player, resource: StrategicResource, amount: number): boolean => {
   const stock = getOrInitStrategicStocks(player.id);
   if ((stock[resource] ?? 0) < amount) return false;
@@ -6933,6 +7010,7 @@ const startSettlement = (
   const tk = key(t.x, t.y);
   if (pendingSettlementsByTile.has(tk)) return { ok: false, reason: "tile already settling" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile is locked in combat" };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
 
   const resolvesAt = now() + settleMs;
   const pending: PendingSettlement = {
@@ -7001,6 +7079,27 @@ const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: b
   return { ok: true };
 };
 
+const completeObservatoryConstruction = (tileKey: TileKey): void => {
+  const current = observatoriesByTile.get(tileKey);
+  if (!current) return;
+  const [x, y] = parseKey(tileKey);
+  const tileNow = runtimeTileCore(x, y);
+  if (tileNow.ownerId !== current.ownerId || tileNow.ownershipState !== "SETTLED") {
+    cancelObservatoryBuild(tileKey);
+    return;
+  }
+  current.status = "active";
+  delete current.completesAt;
+  observatoryBuildTimers.delete(tileKey);
+  markVisibilityDirty(current.ownerId);
+  updateOwnership(x, y, current.ownerId);
+};
+
+const scheduleObservatoryConstruction = (tileKey: TileKey, buildMs: number): void => {
+  const timer = setTimeout(() => completeObservatoryConstruction(tileKey), buildMs);
+  observatoryBuildTimers.set(tileKey, timer);
+};
+
 const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
   if (!actor.techIds.has("cartography")) return { ok: false, reason: "unlock observatories via Cartography first" };
   const t = playerTile(x, y);
@@ -7011,19 +7110,23 @@ const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
   if (actor.points < OBSERVATORY_BUILD_COST) return { ok: false, reason: "insufficient gold for observatory" };
   if (!consumeStrategicResource(actor, "CRYSTAL", OBSERVATORY_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for observatory" };
   actor.points -= OBSERVATORY_BUILD_COST;
   recalcPlayerDerived(actor);
+  const completesAt = now() + OBSERVATORY_BUILD_MS;
   observatoriesByTile.set(tk, {
     observatoryId: crypto.randomUUID(),
     ownerId: actor.id,
     tileKey: tk,
-    status: "active"
+    status: "under_construction",
+    completesAt
   });
   trackOwnedTileKey(observatoryTileKeysByPlayer, actor.id, tk);
   markVisibilityDirty(actor.id);
   recordTileStructureHistory(tk, "OBSERVATORY");
+  scheduleObservatoryConstruction(tk, OBSERVATORY_BUILD_MS);
   return { ok: true };
 };
 
@@ -7158,6 +7261,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   const dock = docksByTile.get(tk);
   if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
   if (countPlayerForts(actor.id) >= fortCapacityForPlayer(actor.id)) return { ok: false, reason: "fort cap reached" };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
   const goldCost = Math.ceil(FORT_BUILD_COST * effects.fortBuildGoldCostMult);
   if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fort" };
   if (!consumeStrategicResource(actor, "IRON", FORT_BUILD_IRON_COST)) return { ok: false, reason: "insufficient IRON for fort" };
@@ -7203,6 +7307,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   if (!isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile" };
   if (countPlayerSiegeOutposts(actor.id) >= siegeOutpostCapacityForPlayer(actor.id))
     return { ok: false, reason: "siege outpost cap reached" };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
   if (actor.points < SIEGE_OUTPOST_BUILD_COST) return { ok: false, reason: "insufficient gold for siege outpost" };
   if (!consumeStrategicResource(actor, "SUPPLY", SIEGE_OUTPOST_BUILD_SUPPLY_COST))
     return { ok: false, reason: "insufficient SUPPLY for siege outpost" };
@@ -7264,8 +7369,12 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     }
     const observatory = observatoriesByTile.get(k);
     if (observatory) {
-      untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, k);
-      observatoriesByTile.delete(k);
+      if (observatory.status === "under_construction") {
+        cancelObservatoryBuild(k);
+      } else {
+        untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, k);
+        observatoriesByTile.delete(k);
+      }
     }
     const economic = economicStructuresByTile.get(k);
     const siege = siegeOutpostsByTile.get(k);
@@ -7277,10 +7386,13 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     breachShockByTile.delete(k);
     settlementDefenseByTile.delete(k);
     if (economic) {
-      if (newOwner) {
+      if (economic.status === "under_construction") {
+        cancelEconomicStructureBuild(k);
+      } else if (newOwner) {
         untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
         economic.ownerId = newOwner;
-        economic.isActive = false;
+        economic.status = "inactive";
+        delete economic.completesAt;
         economic.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
         trackOwnedTileKey(economicStructureTileKeysByPlayer, newOwner, k);
       } else {
@@ -7301,13 +7413,21 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     ownershipStateByTile.delete(k);
     const observatory = observatoriesByTile.get(k);
     if (observatory) {
-      untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, k);
-      observatoriesByTile.delete(k);
+      if (observatory.status === "under_construction") {
+        cancelObservatoryBuild(k);
+      } else {
+        untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, k);
+        observatoriesByTile.delete(k);
+      }
     }
     const economic = economicStructuresByTile.get(k);
     if (economic) {
-      untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
-      economicStructuresByTile.delete(k);
+      if (economic.status === "under_construction") {
+        cancelEconomicStructureBuild(k);
+      } else {
+        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
+        economicStructuresByTile.delete(k);
+      }
     }
     sabotageByTile.delete(k);
     breachShockByTile.delete(k);
@@ -7799,12 +7919,29 @@ const loadSnapshot = (): void => {
   for (const request of raw.allianceRequests ?? []) allianceRequests.set(request.id, request);
   for (const f of raw.forts ?? []) fortsByTile.set(f.tileKey, f);
   for (const observatory of raw.observatories ?? []) {
-    observatoriesByTile.set(observatory.tileKey, observatory);
+    const normalized: Observatory = {
+      observatoryId: observatory.observatoryId,
+      ownerId: observatory.ownerId,
+      tileKey: observatory.tileKey,
+      status: observatory.status ?? "active"
+    };
+    if (observatory.completesAt !== undefined) normalized.completesAt = observatory.completesAt;
+    observatoriesByTile.set(observatory.tileKey, normalized);
     trackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, observatory.tileKey);
   }
   for (const s of raw.siegeOutposts ?? []) siegeOutpostsByTile.set(s.tileKey, s);
   for (const structure of raw.economicStructures ?? []) {
-    economicStructuresByTile.set(structure.tileKey, structure);
+    const legacy = structure as EconomicStructure & { isActive?: boolean };
+    const normalized: EconomicStructure = {
+      id: structure.id,
+      type: structure.type,
+      tileKey: structure.tileKey,
+      ownerId: structure.ownerId,
+      status: structure.status ?? (legacy.isActive ? "active" : "inactive"),
+      nextUpkeepAt: structure.nextUpkeepAt
+    };
+    if (structure.completesAt !== undefined) normalized.completesAt = structure.completesAt;
+    economicStructuresByTile.set(structure.tileKey, normalized);
     trackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, structure.tileKey);
   }
   for (const sabotage of raw.sabotage ?? []) sabotageByTile.set(sabotage.targetTileKey, sabotage);
@@ -7976,6 +8113,16 @@ for (const [tk, fort] of fortsByTile.entries()) {
   }, remaining);
   fortBuildTimers.set(tk, timer);
 }
+for (const [tk, observatory] of observatoriesByTile.entries()) {
+  if (observatory.status !== "under_construction" || observatory.completesAt === undefined) continue;
+  const remaining = observatory.completesAt - now();
+  if (remaining <= 0) {
+    observatory.status = "active";
+    delete observatory.completesAt;
+    continue;
+  }
+  scheduleObservatoryConstruction(tk, remaining);
+}
 for (const [tk, siege] of siegeOutpostsByTile.entries()) {
   if (siege.status !== "under_construction") continue;
   const remaining = siege.completesAt - now();
@@ -7998,6 +8145,30 @@ for (const [tk, siege] of siegeOutpostsByTile.entries()) {
     updateOwnership(sx, sy, live.ownerId);
   }, remaining);
   siegeOutpostBuildTimers.set(tk, timer);
+}
+for (const [tk, structure] of economicStructuresByTile.entries()) {
+  if (structure.status !== "under_construction" || structure.completesAt === undefined) continue;
+  const remaining = structure.completesAt - now();
+  if (remaining <= 0) {
+    structure.status = "active";
+    delete structure.completesAt;
+    continue;
+  }
+  const [sx, sy] = parseKey(tk);
+  const timer = setTimeout(() => {
+    const current = economicStructuresByTile.get(tk);
+    if (!current) return;
+    const tileNow = runtimeTileCore(sx, sy);
+    if (tileNow.ownerId !== current.ownerId || tileNow.ownershipState !== "SETTLED") {
+      cancelEconomicStructureBuild(tk);
+      return;
+    }
+    current.status = "active";
+    delete current.completesAt;
+    economicStructureBuildTimers.delete(tk);
+    updateOwnership(sx, sy, current.ownerId);
+  }, remaining);
+  economicStructureBuildTimers.set(tk, timer);
 }
 const runtimeIntervals: NodeJS.Timeout[] = [];
 const registerInterval = (fn: () => void, ms: number): void => {
@@ -8398,7 +8569,6 @@ app.post("/admin/world/regenerate", async () => {
         socket.send(JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: out.reason }));
         return;
       }
-      socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: msg.x, y: msg.y }, target: { x: msg.x, y: msg.y }, resolvesAt: out.resolvesAt }));
       sendPlayerUpdate(actor, 0);
       return;
     }

@@ -18,10 +18,13 @@ import {
 } from "firebase/auth";
 import {
   CHUNK_SIZE,
+  DEVELOPMENT_PROCESS_LIMIT,
+  ECONOMIC_STRUCTURE_BUILD_MS,
   FORT_BUILD_COST,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
   FRONTIER_CLAIM_COST,
+  OBSERVATORY_BUILD_MS,
   SETTLE_COST,
   SETTLE_MS,
   SIEGE_OUTPOST_ATTACK_MULT,
@@ -83,9 +86,14 @@ type Tile = {
     foodUpkeepPerMinute?: number;
   };
   fort?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
-  observatory?: { ownerId: string; status: "active" | "inactive" };
+  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive"; completesAt?: number };
   siegeOutpost?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
-  economicStructure?: { ownerId: string; type: "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY"; status: "active" | "inactive" };
+  economicStructure?: {
+    ownerId: string;
+    type: "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
+    status: "under_construction" | "active" | "inactive";
+    completesAt?: number;
+  };
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
   history?: {
     lastOwnerId?: string | null;
@@ -831,13 +839,13 @@ const state = {
   techSection: "research" as "research" | "domains",
   techUiSelectedId: "" as string,
   techChoicesSig: "" as string,
-  actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough" | "settle"; retries?: number }>,
+  actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
   queuedTargetKeys: new Set<string>(),
   actionInFlight: false,
   combatStartAck: false,
   actionStartedAt: 0,
   actionTargetKey: "" as string,
-  actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough" | "settle"; retries: number } | undefined,
+  actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } | undefined,
   attackPreview: undefined as
     | {
         fromKey: string;
@@ -3329,10 +3337,11 @@ const explainActionFailure = (code: string, message: string): string => {
   if (code === "ALLY_TARGET") return "Action blocked: you cannot attack an allied empire.";
   if (code === "BREAKTHROUGH_TARGET_INVALID") return `Cannot launch breach attack: ${message}.`;
   if (code === "EXPAND_TARGET_OWNED") return "Frontier claim failed: that tile is already owned.";
+  if (message.includes("development slots are busy")) return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   return `Error ${code}: ${message}`;
 };
 
-const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" | "settle" = "normal"): boolean => {
+const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean => {
   const k = key(x, y);
   if (state.queuedTargetKeys.has(k)) return false;
   state.actionQueue.push({ x, y, mode, retries: 0 });
@@ -3433,18 +3442,11 @@ const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
   if (!stillQueued) state.queuedTargetKeys.delete(targetKey);
 };
 
-const startQueuedSettle = (x: number, y: number, retries: number): boolean => {
+const requestSettlement = (x: number, y: number): boolean => {
   if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
-  const startAt = Date.now();
-  state.actionCurrent = { x, y, mode: "settle", retries };
-  state.actionInFlight = true;
-  state.combatStartAck = true;
-  state.actionStartedAt = startAt;
-  state.actionTargetKey = key(x, y);
-  state.capture = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y } };
+  state.selected = { x, y };
   state.attackPreview = undefined;
   state.attackPreviewPendingKey = "";
-  state.selected = { x, y };
   renderHud();
   return true;
 };
@@ -3460,13 +3462,6 @@ const processActionQueue = (): boolean => {
     if (!to) {
       state.queuedTargetKeys.delete(targetKey);
       continue;
-    }
-    if (next.mode === "settle") {
-      if (to.ownerId !== state.me || to.ownershipState !== "FRONTIER") {
-        state.queuedTargetKeys.delete(targetKey);
-        continue;
-      }
-      return startQueuedSettle(to.x, to.y, next.retries ?? 0);
     }
     if (to.ownerId === state.me) {
       state.queuedTargetKeys.delete(targetKey);
@@ -3617,13 +3612,8 @@ const settleSelected = (): void => {
     renderHud();
     return;
   }
-  if (!enqueueTarget(sel.x, sel.y, "settle")) {
-    pushFeed(`Settle already queued for (${sel.x}, ${sel.y}).`, "combat", "warn");
-    renderHud();
-    return;
-  }
-  processActionQueue();
-  pushFeed(`Settle queued at (${sel.x}, ${sel.y}).`, "combat", "info");
+  if (!requestSettlement(sel.x, sel.y)) return;
+  pushFeed(`Settlement started at (${sel.x}, ${sel.y}).`, "combat", "info");
 };
 const buildSiegeOutpostOnSelected = (): void => {
   const sel = state.selected;
@@ -4134,7 +4124,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "settle_land",
         label: "Settle Land",
-        ...tileActionAvailability(canAffordCost(state.gold, SETTLE_COST), `Need ${SETTLE_COST} gold`, `${SETTLE_COST} gold`)
+        ...tileActionAvailability(canAffordCost(state.gold, SETTLE_COST), `Need ${SETTLE_COST} gold`, `${SETTLE_COST} gold • ${(SETTLE_MS / 1000).toFixed(0)}s`)
       });
     if (tile.ownershipState === "SETTLED" && !tile.fort) {
       const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
@@ -4147,7 +4137,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         ...tileActionAvailability(
           hasTech && hasGold && hasIron && isBorderOrDock && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure,
           !hasTech ? "Requires Masonry" : !isBorderOrDock ? "Needs border or dock tile" : tile.siegeOutpost || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${FORT_BUILD_COST} gold` : !hasIron ? "Need 45 IRON" : "Unavailable",
-          `${FORT_BUILD_COST} gold + 45 IRON`
+          `${FORT_BUILD_COST} gold + 45 IRON • ${Math.round(FORT_BUILD_MS / 60000)}m`
         )
       });
     }
@@ -4161,7 +4151,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         ...tileActionAvailability(
           hasTech && hasGold && hasCrystal && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
           !hasTech ? "Requires Cartography" : tile.fort || tile.siegeOutpost || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${OBSERVATORY_BUILD_COST} gold` : !hasCrystal ? "Need 45 CRYSTAL" : "Unavailable",
-          `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL`
+          `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`
         )
       });
     }
@@ -4176,7 +4166,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         ...tileActionAvailability(
           hasTech && hasGold && hasSupply && onBorder && !tile.fort && !tile.observatory && !tile.economicStructure,
           !hasTech ? "Requires Leatherworking" : !onBorder ? "Needs border tile" : tile.fort || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${SIEGE_OUTPOST_BUILD_COST} gold` : !hasSupply ? "Need 45 SUPPLY" : "Unavailable",
-          `${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY`
+          `${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m`
         )
       });
     }
@@ -4188,7 +4178,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ...tileActionAvailability(
             !hasBlockingStructure && state.techIds.includes("agriculture") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 20,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("agriculture") ? "Requires Agriculture" : state.gold < 400 ? "Need 400 gold" : "Need 20 FOOD",
-            "400 gold + 20 FOOD"
+            `400 gold + 20 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
           )
         });
       }
@@ -4199,7 +4189,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ...tileActionAvailability(
             !hasBlockingStructure && state.techIds.includes("leatherworking") && state.gold >= 500 && (state.strategicResources.SUPPLY ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("leatherworking") ? "Requires Leatherworking" : state.gold < 500 ? "Need 500 gold" : "Need 30 SUPPLY",
-            "500 gold + 30 SUPPLY"
+            `500 gold + 30 SUPPLY • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
           )
         });
       }
@@ -4211,7 +4201,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ...tileActionAvailability(
             !hasBlockingStructure && state.techIds.includes("mining") && state.gold >= 500 && (state.strategicResources[matchingNeed] ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("mining") ? "Requires Mining" : state.gold < 500 ? "Need 500 gold" : `Need 30 ${matchingNeed}`,
-            `500 gold + 30 ${matchingNeed}`
+            `500 gold + 30 ${matchingNeed} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
           )
         });
       }
@@ -4222,7 +4212,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ...tileActionAvailability(
             !hasBlockingStructure && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("trade") ? "Requires Trade" : state.gold < 600 ? "Need 600 gold" : "Need 40 CRYSTAL",
-            "600 gold + 40 CRYSTAL"
+            `600 gold + 40 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
           )
         });
         out.push({
@@ -4231,7 +4221,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ...tileActionAvailability(
             !hasBlockingStructure && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("pottery") ? "Requires Pottery" : state.gold < 400 ? "Need 400 gold" : "Need 40 FOOD",
-            "400 gold + 40 FOOD"
+            `400 gold + 40 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
           )
         });
       }
@@ -4526,12 +4516,7 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
           pushFeed("Cannot claim this tile yet. It must touch your territory and you need enough gold.", "combat", "warn");
         }
       } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
-        if (enqueueTarget(selected.x, selected.y, "settle")) {
-          processActionQueue();
-          pushFeed(`Settle queued at (${selected.x}, ${selected.y}).`, "combat", "info");
-        } else {
-          pushFeed(`Settle already queued for (${selected.x}, ${selected.y}).`, "combat", "warn");
-        }
+        if (requestSettlement(selected.x, selected.y)) pushFeed(`Settlement started at (${selected.x}, ${selected.y}).`, "combat", "info");
       }
       state.autoSettleTargets.delete(k);
     }
@@ -5222,7 +5207,7 @@ ws.addEventListener("message", (ev) => {
     if (targetKey && state.autoSettleTargets.has(targetKey)) {
       const settledTile = state.tiles.get(targetKey);
       if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (startQueuedSettle(settledTile.x, settledTile.y, 0)) {
+        if (requestSettlement(settledTile.x, settledTile.y)) {
           handedOffToSettle = true;
           pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
         }
@@ -5357,7 +5342,6 @@ ws.addEventListener("message", (ev) => {
         !resolvedQueuedFrontierCapture &&
         updateKey === state.actionTargetKey &&
         state.actionInFlight &&
-        state.actionCurrent?.mode !== "settle" &&
         merged.ownerId === state.me &&
         merged.ownershipState === "FRONTIER"
       ) {
@@ -6313,7 +6297,7 @@ setInterval(() => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
       if (current && (current.retries ?? 0) < 3) {
-        const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough" | "settle"; retries: number } = {
+        const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
           x: current.x,
           y: current.y,
           retries: (current.retries ?? 0) + 1
