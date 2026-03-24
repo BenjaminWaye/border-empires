@@ -1877,6 +1877,13 @@ const showCaptureAlert = (title: string, detail: string, tone: "error" | "warn" 
   state.captureAlert = { title, detail, until: Date.now() + 2200, tone };
 };
 
+const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void => {
+  const label = action === "claim" ? "Frontier claim" : "Attack";
+  const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} gold. You have ${formatGoldAmount(state.gold)}.`;
+  showCaptureAlert("Insufficient gold", detail, "error");
+  pushFeed(detail, "combat", "warn");
+};
+
 const showCollectVisibleCooldownAlert = (): void => {
   const remaining = state.collectVisibleCooldownUntil - Date.now();
   if (remaining <= 0) return;
@@ -3472,9 +3479,31 @@ const processActionQueue = (): boolean => {
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
     if (!to.ownerId) {
+      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
+        notifyInsufficientGoldForFrontierAction("claim");
+        state.capture = undefined;
+        state.actionInFlight = false;
+        state.actionCurrent = undefined;
+        state.actionTargetKey = "";
+        state.combatStartAck = false;
+        state.queuedTargetKeys.delete(targetKey);
+        renderHud();
+        continue;
+      }
       ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
       pushFeed(`Queued expand (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
     } else {
+      if (next.mode !== "breakthrough" && !canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
+        notifyInsufficientGoldForFrontierAction("attack");
+        state.capture = undefined;
+        state.actionInFlight = false;
+        state.actionCurrent = undefined;
+        state.actionTargetKey = "";
+        state.combatStartAck = false;
+        state.queuedTargetKeys.delete(targetKey);
+        renderHud();
+        continue;
+      }
       if (next.mode === "breakthrough") {
         ws.send(JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
         pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
@@ -4201,7 +4230,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         id: "launch_attack",
         label: "Launch Attack",
         ...(previewDetail ? { detail: previewDetail } : {}),
-        ...tileActionAvailability(Boolean(pickOriginForTarget(tile.x, tile.y)) && state.gold >= FRONTIER_CLAIM_COST, !pickOriginForTarget(tile.x, tile.y) ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`)
+        ...tileActionAvailability(
+          Boolean(pickOriginForTarget(tile.x, tile.y)) && state.gold >= FRONTIER_CLAIM_COST,
+          !pickOriginForTarget(tile.x, tile.y) ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`,
+          `${FRONTIER_CLAIM_COST} gold`
+        )
       },
       {
         id: "launch_breach_attack",
@@ -4228,7 +4261,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       id: "launch_attack",
       label: "Launch Attack",
       ...(attackPreviewDetailForTarget(tile) ? { detail: attackPreviewDetailForTarget(tile) } : {}),
-      ...tileActionAvailability(reachable && state.gold >= FRONTIER_CLAIM_COST, !reachable ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`)
+      ...tileActionAvailability(
+        reachable && state.gold >= FRONTIER_CLAIM_COST,
+        !reachable ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`,
+        `${FRONTIER_CLAIM_COST} gold`
+      )
     },
     {
       id: "launch_breach_attack",
@@ -5422,7 +5459,7 @@ ws.addEventListener("message", (ev) => {
       syncAuthOverlay();
     }
     if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
-      showCaptureAlert("Insufficient gold", errorMessage === "insufficient gold for frontier claim" ? "Frontier claim costs 1 gold." : "Attack cost not met.", "error");
+      notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
     } else if (errorCode === "SETTLE_INVALID" && failedTargetKey) {
       showCaptureAlert("Action failed", errorMessage, "warn");
     }
