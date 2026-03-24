@@ -142,6 +142,8 @@ export const planBestGoal = <State extends object>(
 
 export interface AiEmpireGoapState {
   hasNeutralLandOpportunity: boolean;
+  hasScoutOpportunity: boolean;
+  hasScaffoldOpportunity: boolean;
   hasBarbarianTarget: boolean;
   hasWeakEnemyBorder: boolean;
   needsSettlement: boolean;
@@ -183,6 +185,8 @@ export type AiEmpireGoalId =
   | "grow_income"
   | "recover_resources"
   | "reduce_frontier_debt"
+  | "scout_frontier"
+  | "claim_settlement_scaffold"
   | "clear_barbarians"
   | "settle_interior"
   | "expand_frontier"
@@ -242,6 +246,41 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     meta: {
       goalIds: ["expand_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
       description: "Claim an adjacent neutral tile."
+    }
+  },
+  {
+    key: "claim_scout_border_tile",
+    cost: 2,
+    preconditions: {
+      hasScoutOpportunity: true,
+      canAffordFrontierAction: true,
+      staminaHealthy: true,
+      threatCritical: false
+    },
+    effects: {
+      needsSettlement: true
+    },
+    meta: {
+      goalIds: ["scout_frontier", "expand_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
+      description: "Probe outward to reveal promising land."
+    }
+  },
+  {
+    key: "claim_scaffold_border_tile",
+    cost: 2,
+    preconditions: {
+      hasScaffoldOpportunity: true,
+      canAffordFrontierAction: true,
+      staminaHealthy: true
+    },
+    effects: {
+      hasScaffoldOpportunity: false,
+      needsSettlement: true,
+      frontierDebtHigh: true
+    },
+    meta: {
+      goalIds: ["claim_settlement_scaffold", "expand_frontier", "season_settled_territory", "season_economic_hegemony"],
+      description: "Claim a border tile that sets up a strong settlement scaffold."
     }
   },
   {
@@ -367,6 +406,16 @@ export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
     desired: { frontierDebtHigh: false }
   },
   {
+    id: "scout_frontier",
+    priority: 8,
+    desired: { hasScoutOpportunity: false }
+  },
+  {
+    id: "claim_settlement_scaffold",
+    priority: 9,
+    desired: { hasScaffoldOpportunity: false, needsSettlement: true }
+  },
+  {
     id: "clear_barbarians",
     priority: 7,
     desired: { hasBarbarianTarget: false }
@@ -409,6 +458,8 @@ const SEASON_GOAL_BY_VICTORY_PATH: Record<AiSeasonVictoryPathId, GoapGoal<AiEmpi
 const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Record<AiEmpireGoalId, number>>>> = {
   TOWN_CONTROL: {
     season_town_control: 5,
+    scout_frontier: 2,
+    claim_settlement_scaffold: 1,
     reduce_frontier_debt: 2,
     expand_frontier: 2,
     harass_enemy_border: 3,
@@ -417,6 +468,8 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
   },
   SETTLED_TERRITORY: {
     season_settled_territory: 5,
+    scout_frontier: 1,
+    claim_settlement_scaffold: 4,
     reduce_frontier_debt: 5,
     expand_frontier: 1,
     settle_interior: 4,
@@ -425,6 +478,8 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
   },
   ECONOMIC_HEGEMONY: {
     season_economic_hegemony: 6,
+    scout_frontier: 3,
+    claim_settlement_scaffold: 3,
     grow_income: 4,
     reduce_frontier_debt: 4,
     settle_interior: 3,

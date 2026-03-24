@@ -3908,7 +3908,7 @@ const computeCrystalTargets = (
       originByTarget.set(key(tile.x, tile.y), key(origin.x, origin.y));
       continue;
     }
-    if ((tile.resource || tile.town || tile.dockId) && !tile.sabotage) validTargets.add(key(tile.x, tile.y));
+    if ((tile.resource || tile.town) && !tile.sabotage) validTargets.add(key(tile.x, tile.y));
   }
   return { validTargets, originByTarget };
 };
@@ -4346,7 +4346,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           !observatoryProtection &&
           sabotageCooldown <= 0 &&
           (state.strategicResources.CRYSTAL ?? 0) >= 20 &&
-          Boolean(tile.resource || tile.town || tile.dockId) &&
+          Boolean(tile.resource || tile.town) &&
           !tile.sabotage,
         !hasSabotageCapability()
           ? "Requires Cryptography"
@@ -4354,8 +4354,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
             ? "Blocked by observatory field"
           : tile.sabotage
             ? "Already sabotaged"
-            : !(tile.resource || tile.town || tile.dockId)
-              ? "Town, dock, or resource only"
+            : !(tile.resource || tile.town)
+              ? "Town or resource only"
               : sabotageCooldown > 0
                 ? `Cooldown ${formatCooldownShort(sabotageCooldown)}`
                 : "Need 20 CRYSTAL",

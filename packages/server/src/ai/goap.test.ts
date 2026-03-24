@@ -14,6 +14,8 @@ describe("planBestGoal", () => {
   it("prefers defensive stabilization when under threat", () => {
     const state: AiEmpireGoapState = {
       hasNeutralLandOpportunity: true,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: true,
       needsSettlement: false,
@@ -39,6 +41,8 @@ describe("planBestGoal", () => {
   it("uses recovery when the empire cannot afford frontier actions yet", () => {
     const state: AiEmpireGoapState = {
       hasNeutralLandOpportunity: true,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
       hasBarbarianTarget: true,
       hasWeakEnemyBorder: false,
       needsSettlement: false,
@@ -68,9 +72,7 @@ describe("planBestGoal", () => {
       settled: boolean;
     };
 
-    const goals: readonly GoapGoal<State>[] = [
-      { id: "stabilize_border", priority: 5, desired: { settled: true } }
-    ];
+    const goals: readonly GoapGoal<State>[] = [{ id: "stabilize_border", priority: 5, desired: { settled: true } }];
 
     const actions: readonly GoapAction<State>[] = [
       {
@@ -119,6 +121,8 @@ describe("planBestGoal", () => {
   it("promotes season victory routes to explicit GOAP goals", () => {
     const state: AiEmpireGoapState = {
       hasNeutralLandOpportunity: false,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
       needsSettlement: true,
@@ -144,6 +148,8 @@ describe("planBestGoal", () => {
   it("can still expand cheaply while conserving settlement reserve", () => {
     const state: AiEmpireGoapState = {
       hasNeutralLandOpportunity: true,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
       needsSettlement: false,
@@ -169,6 +175,8 @@ describe("planBestGoal", () => {
   it("prefers reducing frontier debt for the settled territory route", () => {
     const state: AiEmpireGoapState = {
       hasNeutralLandOpportunity: false,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
       needsSettlement: true,
@@ -189,5 +197,32 @@ describe("planBestGoal", () => {
 
     expect(plan?.goalId).toBe("season_settled_territory");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["settle_owned_frontier_tile"]);
+  });
+
+  it("can choose scaffold claims as a distinct frontier plan", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: false,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: true,
+      hasBarbarianTarget: false,
+      hasWeakEnemyBorder: false,
+      needsSettlement: false,
+      frontierDebtHigh: false,
+      underThreat: false,
+      threatCritical: false,
+      economyWeak: false,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: true,
+      canAffordSettlement: true,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: true,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, goalsForVictoryPath("SETTLED_TERRITORY"), AI_EMPIRE_ACTIONS);
+
+    expect(plan?.goalId).toBe("claim_settlement_scaffold");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_scaffold_border_tile"]);
   });
 });
