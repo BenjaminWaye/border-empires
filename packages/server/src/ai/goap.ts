@@ -307,7 +307,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       hasWeakEnemyBorder: true,
       canAffordFrontierAction: true,
       staminaHealthy: true,
-      underThreat: false
+      threatCritical: false
     },
     effects: {
       hasWeakEnemyBorder: false,

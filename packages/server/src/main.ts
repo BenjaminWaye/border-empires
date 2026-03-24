@@ -4903,6 +4903,54 @@ type AiSettlementCandidateEvaluation = {
   supportsImmediatePlan: boolean;
 };
 
+const aiEconomicFrontierSignal = (actor: Player, tile: Tile): number => {
+  const visibility = visibilitySnapshotForPlayer(actor);
+  const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
+  const tk = key(tile.x, tile.y);
+  let score = 0;
+  if (visibleToActor(tile.x, tile.y)) {
+    if (townsByTile.has(tk)) score += 150;
+    if (tile.resource) score += 90 + baseTileValue(tile.resource);
+    if (docksByTile.has(tk)) score += 135;
+  }
+  for (const neighbor of cardinalNeighborCores(tile.x, tile.y)) {
+    if (!visibleToActor(neighbor.x, neighbor.y)) continue;
+    const neighborKey = key(neighbor.x, neighbor.y);
+    if (townsByTile.has(neighborKey)) score += 110;
+    if (neighbor.resource) score += 65 + Math.floor(baseTileValue(neighbor.resource) * 0.6);
+    if (docksByTile.has(neighborKey)) score += 95;
+  }
+  return score;
+};
+
+const aiEnemyPressureSignal = (actor: Player, tile: Tile): number => {
+  const visibility = visibilitySnapshotForPlayer(actor);
+  const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
+  if (!tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId) || tile.ownerId === BARBARIAN_OWNER_ID) return 0;
+  let score = 0;
+  const tk = key(tile.x, tile.y);
+  if (visibleToActor(tile.x, tile.y)) {
+    if (townsByTile.has(tk)) score += 180;
+    if (tile.resource) score += 110 + baseTileValue(tile.resource);
+    if (docksByTile.has(tk)) score += 150;
+  }
+  for (const neighbor of cardinalNeighborCores(tile.x, tile.y)) {
+    if (!visibleToActor(neighbor.x, neighbor.y)) continue;
+    const neighborKey = key(neighbor.x, neighbor.y);
+    if (townsByTile.has(neighborKey)) score += 125;
+    if (neighbor.resource) score += 85 + Math.floor(baseTileValue(neighbor.resource) * 0.7);
+    if (docksByTile.has(neighborKey)) score += 110;
+    for (const secondRing of cardinalNeighborCores(neighbor.x, neighbor.y)) {
+      if (!visibleToActor(secondRing.x, secondRing.y)) continue;
+      const secondRingKey = key(secondRing.x, secondRing.y);
+      if (townsByTile.has(secondRingKey)) score += 45;
+      if (secondRing.resource) score += 30 + Math.floor(baseTileValue(secondRing.resource) * 0.35);
+      if (docksByTile.has(secondRingKey)) score += 40;
+    }
+  }
+  return score;
+};
+
 const evaluateAiSettlementCandidate = (
   actor: Player,
   tile: Tile,
@@ -4933,6 +4981,7 @@ const evaluateAiSettlementCandidate = (
 
   const isTown = townsByTile.has(tk);
   const resourceValue = tile.resource ? baseTileValue(tile.resource) : 0;
+  const economicFrontierSignal = aiEconomicFrontierSignal(actor, tile);
   const dock = docksByTile.get(tk);
   let dockValue = 0;
   if (dock) {
@@ -4976,7 +5025,7 @@ const evaluateAiSettlementCandidate = (
     (ownedNeighbors >= 3 ? 24 : 0) +
     (exposedSides <= 1 ? 18 : 0);
   const connectedCoreValue = alliedSettledNeighbors >= 2 ? 24 : alliedSettledNeighbors >= 1 ? 10 : -10;
-  const isEconomicallyInteresting = isTown || Boolean(tile.resource) || dockValue > 0;
+  const isEconomicallyInteresting = isTown || Boolean(tile.resource) || dockValue > 0 || economicFrontierSignal >= 95;
   const isDefensivelyCompact = ownedNeighbors >= 3 && exposedSides <= 1;
   const isStrategicallyInteresting = adjacentInteresting >= 35 || defensiveShapeValue >= 26;
 
@@ -4984,6 +5033,7 @@ const evaluateAiSettlementCandidate = (
   if (isTown) score += 140;
   score += resourceValue * 1.5;
   score += dockValue;
+  score += economicFrontierSignal;
   score += adjacentInteresting;
   score += defensiveShapeValue + connectedCoreValue;
   if (victoryPath === "SETTLED_TERRITORY") score += 25;
@@ -5007,10 +5057,7 @@ const evaluateAiSettlementCandidate = (
 };
 
 const isAiVisibleEconomicFrontierTile = (actor: Player, tile: Tile): boolean => {
-  const visibility = visibilitySnapshotForPlayer(actor);
-  if (!visibleInSnapshot(visibility, tile.x, tile.y)) return false;
-  const tk = key(tile.x, tile.y);
-  return townsByTile.has(tk) || Boolean(tile.resource) || docksByTile.has(tk);
+  return aiEconomicFrontierSignal(actor, tile) >= 95;
 };
 
 const classifyAiNeutralFrontierOpportunity = (
@@ -5064,6 +5111,40 @@ const bestAiEconomicExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId
     },
     victoryPath
   );
+};
+
+const bestAiEnemyPressureAttack = (
+  actor: Player,
+  victoryPath?: AiSeasonVictoryPathId
+): { from: Tile; to: Tile; score: number } | undefined => {
+  const candidates: Array<{ from: Tile; to: Tile; score: number }> = [];
+  for (const tileKey of actor.territoryTiles) {
+    const [x, y] = parseKey(tileKey);
+    const from = playerTile(x, y);
+    for (const neighbor of cardinalNeighborCores(x, y)) {
+      const to = playerTile(neighbor.x, neighbor.y);
+      if (
+        to.terrain !== "LAND" ||
+        !to.ownerId ||
+        to.ownerId === actor.id ||
+        to.ownerId === BARBARIAN_OWNER_ID ||
+        actor.allies.has(to.ownerId)
+      ) {
+        continue;
+      }
+      const signal = aiEnemyPressureSignal(actor, to);
+      if (signal <= 0) continue;
+      const candidate = bestAiFrontierAction(actor, "ATTACK", (tile) => tile.x === to.x && tile.y === to.y, victoryPath);
+      if (!candidate) continue;
+      let score = signal;
+      if (victoryPath === "TOWN_CONTROL") score += 45;
+      if (victoryPath === "ECONOMIC_HEGEMONY") score += 20;
+      candidates.push({ from: candidate.from, to: candidate.to, score });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  return best && best.score >= 120 ? best : undefined;
 };
 
 const aiFrontierOpportunityCounts = (actor: Player, victoryPath?: AiSeasonVictoryPathId): AiFrontierOpportunityCounts => {
@@ -5219,12 +5300,15 @@ const executeAiGoapAction = (actor: Player, actionKey: string, victoryPath?: AiS
     return true;
   }
   if (actionKey === "attack_enemy_border_tile") {
-    const candidate = bestAiFrontierAction(
-      actor,
-      "ATTACK",
-      (tile) => Boolean(tile.ownerId && tile.ownerId !== actor.id && tile.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(tile.ownerId)),
-      victoryPath
-    );
+    const pressuredCandidate = bestAiEnemyPressureAttack(actor, victoryPath);
+    const candidate =
+      pressuredCandidate ??
+      bestAiFrontierAction(
+        actor,
+        "ATTACK",
+        (tile) => Boolean(tile.ownerId && tile.ownerId !== actor.id && tile.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(tile.ownerId)),
+        victoryPath
+      );
     if (!candidate) return false;
     void executeUnifiedGameplayMessage(
       actor,
@@ -5368,7 +5452,10 @@ const runAiTurn = (actor: Player): void => {
     })[0]?.id;
   const bestNeutralExpand = bestAiEconomicExpand(actor, primaryVictoryPath);
   const bestScaffoldExpand = bestAiScaffoldExpand(actor, primaryVictoryPath);
+  const bestPressureAttack = bestAiEnemyPressureAttack(actor, primaryVictoryPath);
   const frontierOpportunityCounts = aiFrontierOpportunityCounts(actor, primaryVictoryPath);
+  const economicPushReady = frontierOpportunityCounts.economic > 0 && Boolean(bestNeutralExpand);
+  const pressureAttackReady = Boolean(bestPressureAttack) && !threatCritical && actor.points >= FRONTIER_ACTION_GOLD_COST;
 
   if ((economyWeak || frontierDebt) && bestSettlement && canAffordGoldCost(actor.points, SETTLE_COST)) {
     const executed = executeAiGoapAction(actor, "settle_owned_frontier_tile", primaryVictoryPath);
@@ -5385,6 +5472,41 @@ const runAiTurn = (actor: Player): void => {
         underThreat,
         hasSettlementTarget: Boolean(bestSettlement),
         frontierTiles
+      }
+    });
+    if (executed) return;
+  }
+  if (pressureAttackReady && (primaryVictoryPath === "TOWN_CONTROL" || (bestPressureAttack?.score ?? 0) >= 150)) {
+    const executed = executeAiGoapAction(actor, "attack_enemy_border_tile", primaryVictoryPath);
+    setAiTurnDebug(actor, executed ? "executed_pressure_attack_priority" : "failed_pressure_attack_priority", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      goapActionKey: "attack_enemy_border_tile",
+      executed,
+      details: {
+        enemyPressureScore: bestPressureAttack?.score ?? 0,
+        hasWeakEnemyBorder: Boolean(bestEnemyAttack),
+        underThreat,
+        threatCritical
+      }
+    });
+    if (executed) return;
+  }
+  if (economyWeak && economicPushReady && actor.points >= FRONTIER_ACTION_GOLD_COST) {
+    const executed = executeAiGoapAction(actor, "claim_neutral_border_tile", primaryVictoryPath);
+    setAiTurnDebug(actor, executed ? "executed_economic_expand_priority" : "failed_economic_expand_priority", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      goapActionKey: "claim_neutral_border_tile",
+      executed,
+      details: {
+        economyWeak,
+        economicOpportunityCount: frontierOpportunityCounts.economic,
+        hasNeutralLandOpportunity: Boolean(bestNeutralExpand)
       }
     });
     if (executed) return;
@@ -5428,7 +5550,7 @@ const runAiTurn = (actor: Player): void => {
     hasScoutOpportunity: Boolean(bestScoutExpand),
     hasScaffoldOpportunity: Boolean(bestScaffoldExpand),
     hasBarbarianTarget: Boolean(bestBarbarianAttack),
-    hasWeakEnemyBorder: Boolean(bestEnemyAttack),
+    hasWeakEnemyBorder: Boolean(bestPressureAttack ?? bestEnemyAttack),
     needsSettlement: Boolean(bestSettlement),
     frontierDebtHigh: frontierDebt,
     underThreat,
@@ -5470,7 +5592,23 @@ const runAiTurn = (actor: Player): void => {
       });
       if (executed) return;
     }
-    if (bestScoutExpand && actor.points >= FRONTIER_ACTION_GOLD_COST && !threatCritical) {
+    if (pressureAttackReady) {
+      const executed = executeAiGoapAction(actor, "attack_enemy_border_tile", primaryVictoryPath);
+      setAiTurnDebug(actor, executed ? "executed_pressure_attack_fallback" : "failed_pressure_attack_fallback", {
+        incomePerMinute: aiIncome,
+        controlledTowns,
+        settledTiles,
+        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+        goapActionKey: "attack_enemy_border_tile",
+        executed,
+        details: {
+          enemyPressureScore: bestPressureAttack?.score ?? 0,
+          hasWeakEnemyBorder: Boolean(bestEnemyAttack)
+        }
+      });
+      if (executed) return;
+    }
+    if (!economicPushReady && bestScoutExpand && actor.points >= FRONTIER_ACTION_GOLD_COST && !threatCritical) {
       const executed = executeAiGoapAction(actor, "claim_scout_border_tile", primaryVictoryPath);
       setAiTurnDebug(actor, executed ? "executed_scout_fallback" : "failed_scout_fallback", {
         incomePerMinute: aiIncome,
@@ -5486,7 +5624,7 @@ const runAiTurn = (actor: Player): void => {
       });
       if (executed) return;
     }
-    if (bestScaffoldExpand && actor.points >= FRONTIER_ACTION_GOLD_COST) {
+    if (!economicPushReady && bestScaffoldExpand && actor.points >= FRONTIER_ACTION_GOLD_COST) {
       const executed = executeAiGoapAction(actor, "claim_scaffold_border_tile", primaryVictoryPath);
       setAiTurnDebug(actor, executed ? "executed_scaffold_fallback" : "failed_scaffold_fallback", {
         incomePerMinute: aiIncome,
@@ -5531,6 +5669,7 @@ const runAiTurn = (actor: Player): void => {
         hasScaffoldOpportunity: goapState.hasScaffoldOpportunity,
         hasBarbarianTarget: goapState.hasBarbarianTarget,
         hasWeakEnemyBorder: goapState.hasWeakEnemyBorder,
+        enemyPressureScore: bestPressureAttack?.score ?? 0,
         needsSettlement: goapState.needsSettlement,
         frontierDebtHigh: goapState.frontierDebtHigh,
         underThreat: goapState.underThreat,
@@ -5565,6 +5704,7 @@ const runAiTurn = (actor: Player): void => {
       hasScaffoldOpportunity: goapState.hasScaffoldOpportunity,
       hasBarbarianTarget: goapState.hasBarbarianTarget,
       hasWeakEnemyBorder: goapState.hasWeakEnemyBorder,
+      enemyPressureScore: bestPressureAttack?.score ?? 0,
       needsSettlement: goapState.needsSettlement,
       frontierDebtHigh: goapState.frontierDebtHigh,
       underThreat: goapState.underThreat,
