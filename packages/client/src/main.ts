@@ -2100,6 +2100,7 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
   const to = clicked;
   state.selected = { x: wx, y: wy };
   const adjacentFromOwned = pickOriginForTarget(to.x, to.y);
+  const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
   const unreachableForeignClick =
     to.terrain === "LAND" &&
     !to.fogged &&
@@ -2112,7 +2113,7 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
     renderHud();
     return;
   }
-  if (to.terrain === "LAND" && !to.fogged && !to.ownerId && adjacentFromOwned) {
+  if (to.terrain === "LAND" && !to.fogged && !to.ownerId && frontierOrigin) {
     if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
       notifyInsufficientGoldForFrontierAction("claim");
       requestAttackPreviewForHover();
@@ -2177,18 +2178,18 @@ const dockDestinationsFor = (dx: number, dy: number): Array<{ x: number; y: numb
   return out;
 };
 
-const pickDockOriginForTarget = (tx: number, ty: number): Tile | undefined => {
+const pickDockOriginForTarget = (tx: number, ty: number, allowAdjacentToDock = true): Tile | undefined => {
   for (const t of state.tiles.values()) {
     if (t.ownerId !== state.me || t.terrain !== "LAND" || t.fogged || !t.dockId) continue;
     const linked = dockDestinationsFor(t.x, t.y);
     for (const d of linked) {
-      if ((d.x === tx && d.y === ty) || isAdjacentCardinal(d.x, d.y, tx, ty)) return t;
+      if ((d.x === tx && d.y === ty) || (allowAdjacentToDock && isAdjacentCardinal(d.x, d.y, tx, ty))) return t;
     }
   }
   return undefined;
 };
 
-const pickOriginForTarget = (tx: number, ty: number): Tile | undefined => {
+const pickOriginForTarget = (tx: number, ty: number, allowAdjacentToDock = true): Tile | undefined => {
   const candidates = [
     state.tiles.get(key(wrapX(tx), wrapY(ty - 1))),
     state.tiles.get(key(wrapX(tx + 1), wrapY(ty))),
@@ -2201,7 +2202,7 @@ const pickOriginForTarget = (tx: number, ty: number): Tile | undefined => {
   ].filter((t): t is Tile => Boolean(t));
   const adjacent = candidates.find((t) => t.ownerId === state.me);
   if (adjacent) return adjacent;
-  return pickDockOriginForTarget(tx, ty);
+  return pickDockOriginForTarget(tx, ty, allowAdjacentToDock);
 };
 
 const renderCaptureProgress = (): void => {
@@ -3468,7 +3469,7 @@ const processActionQueue = (): boolean => {
       continue;
     }
 
-    let from = pickOriginForTarget(to.x, to.y);
+    let from = to.ownerId ? pickOriginForTarget(to.x, to.y) : pickOriginForTarget(to.x, to.y, false);
     const selectedFrom = state.selected ? state.tiles.get(key(state.selected.x, state.selected.y)) : undefined;
     if (!from && selectedFrom && selectedFrom.ownerId === state.me && isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y)) {
       from = selectedFrom;
@@ -4098,7 +4099,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     };
   };
   if (!tile.ownerId) {
-    const reachable = Boolean(pickOriginForTarget(tile.x, tile.y));
+    const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false));
     const hasGold = state.gold >= FRONTIER_CLAIM_COST;
     return [
       {
@@ -4240,8 +4241,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         label: "Launch Attack",
         ...(previewDetail ? { detail: previewDetail } : {}),
         ...tileActionAvailability(
-          Boolean(pickOriginForTarget(tile.x, tile.y)) && state.gold >= FRONTIER_CLAIM_COST,
-          !pickOriginForTarget(tile.x, tile.y) ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`,
+          Boolean(pickOriginForTarget(tile.x, tile.y, false)) && state.gold >= FRONTIER_CLAIM_COST,
+          !pickOriginForTarget(tile.x, tile.y, false) ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`,
           `${FRONTIER_CLAIM_COST} gold`
         )
       },
@@ -4264,7 +4265,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       createMountainAction()
     ];
   }
-  const reachable = Boolean(pickOriginForTarget(tile.x, tile.y));
+  const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false));
   const out: TileActionDef[] = [
     {
       id: "launch_attack",
