@@ -1877,6 +1877,12 @@ const showCaptureAlert = (title: string, detail: string, tone: "error" | "warn" 
   state.captureAlert = { title, detail, until: Date.now() + 2200, tone };
 };
 
+const notifyInsufficientGoldForFrontierClaim = (): void => {
+  const detail = `Frontier claim costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} gold. You have ${formatGoldAmount(state.gold)}.`;
+  showCaptureAlert("Insufficient gold", detail, "error");
+  pushFeed(detail, "combat", "warn");
+};
+
 const showCollectVisibleCooldownAlert = (): void => {
   const remaining = state.collectVisibleCooldownUntil - Date.now();
   if (remaining <= 0) return;
@@ -2094,6 +2100,12 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
     return;
   }
   if (to.terrain === "LAND" && !to.fogged && !to.ownerId && adjacentFromOwned) {
+    if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
+      notifyInsufficientGoldForFrontierClaim();
+      requestAttackPreviewForHover();
+      renderHud();
+      return;
+    }
     if (enqueueTarget(to.x, to.y, "normal")) {
       processActionQueue();
       pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
@@ -3472,6 +3484,17 @@ const processActionQueue = (): boolean => {
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
     if (!to.ownerId) {
+      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
+        notifyInsufficientGoldForFrontierClaim();
+        state.capture = undefined;
+        state.actionInFlight = false;
+        state.actionCurrent = undefined;
+        state.actionTargetKey = "";
+        state.combatStartAck = false;
+        state.queuedTargetKeys.delete(targetKey);
+        renderHud();
+        continue;
+      }
       ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
       pushFeed(`Queued expand (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
     } else {
