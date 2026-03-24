@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AI_EMPIRE_ACTIONS,
   AI_EMPIRE_GOALS,
+  goalsForVictoryPath,
   planBestGoal,
   rankSeasonVictoryPaths,
   type AiEmpireGoapState,
@@ -16,9 +17,13 @@ describe("planBestGoal", () => {
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: true,
       needsSettlement: false,
+      frontierDebtHigh: false,
       underThreat: true,
+      threatCritical: true,
       economyWeak: false,
       needsFortifiedAnchor: true,
+      canAffordFrontierAction: true,
+      canAffordSettlement: true,
       canBuildFort: true,
       canBuildEconomy: true,
       goldHealthy: true,
@@ -37,9 +42,13 @@ describe("planBestGoal", () => {
       hasBarbarianTarget: true,
       hasWeakEnemyBorder: false,
       needsSettlement: false,
+      frontierDebtHigh: false,
       underThreat: false,
+      threatCritical: false,
       economyWeak: true,
       needsFortifiedAnchor: false,
+      canAffordFrontierAction: false,
+      canAffordSettlement: false,
       canBuildFort: false,
       canBuildEconomy: false,
       goldHealthy: false,
@@ -105,5 +114,80 @@ describe("planBestGoal", () => {
 
     expect(ranked[0]?.id).toBe("TOWN_CONTROL");
     expect(ranked[0]?.rationale).toContain("9/10");
+  });
+
+  it("promotes season victory routes to explicit GOAP goals", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: false,
+      hasBarbarianTarget: false,
+      hasWeakEnemyBorder: false,
+      needsSettlement: true,
+      frontierDebtHigh: true,
+      underThreat: false,
+      threatCritical: false,
+      economyWeak: false,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: false,
+      canAffordSettlement: true,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: true,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, goalsForVictoryPath("SETTLED_TERRITORY"), AI_EMPIRE_ACTIONS);
+
+    expect(plan?.goalId).toBe("season_settled_territory");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["settle_owned_frontier_tile"]);
+  });
+
+  it("can still expand cheaply while conserving settlement reserve", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: true,
+      hasBarbarianTarget: false,
+      hasWeakEnemyBorder: false,
+      needsSettlement: false,
+      frontierDebtHigh: false,
+      underThreat: false,
+      threatCritical: false,
+      economyWeak: true,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: true,
+      canAffordSettlement: false,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: false,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, goalsForVictoryPath("ECONOMIC_HEGEMONY"), AI_EMPIRE_ACTIONS);
+
+    expect(plan?.goalId).toBe("expand_frontier");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_neutral_border_tile"]);
+  });
+
+  it("prefers reducing frontier debt for the settled territory route", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: false,
+      hasBarbarianTarget: false,
+      hasWeakEnemyBorder: false,
+      needsSettlement: true,
+      frontierDebtHigh: true,
+      underThreat: false,
+      threatCritical: false,
+      economyWeak: false,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: true,
+      canAffordSettlement: true,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: true,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, goalsForVictoryPath("SETTLED_TERRITORY"), AI_EMPIRE_ACTIONS);
+
+    expect(plan?.goalId).toBe("season_settled_territory");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["settle_owned_frontier_tile"]);
   });
 });
