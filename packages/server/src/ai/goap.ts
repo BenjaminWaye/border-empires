@@ -145,9 +145,13 @@ export interface AiEmpireGoapState {
   hasBarbarianTarget: boolean;
   hasWeakEnemyBorder: boolean;
   needsSettlement: boolean;
+  frontierDebtHigh: boolean;
   underThreat: boolean;
+  threatCritical: boolean;
   economyWeak: boolean;
   needsFortifiedAnchor: boolean;
+  canAffordFrontierAction: boolean;
+  canAffordSettlement: boolean;
   canBuildFort: boolean;
   canBuildEconomy: boolean;
   goldHealthy: boolean;
@@ -173,6 +177,19 @@ export interface AiVictoryPathScore {
   score: number;
   rationale: string;
 }
+
+export type AiEmpireGoalId =
+  | "fortify_capital"
+  | "grow_income"
+  | "recover_resources"
+  | "reduce_frontier_debt"
+  | "clear_barbarians"
+  | "settle_interior"
+  | "expand_frontier"
+  | "harass_enemy_border"
+  | "season_town_control"
+  | "season_settled_territory"
+  | "season_economic_hegemony";
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
@@ -216,14 +233,14 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     cost: 2,
     preconditions: {
       hasNeutralLandOpportunity: true,
-      goldHealthy: true,
+      canAffordFrontierAction: true,
       staminaHealthy: true
     },
     effects: {
       needsSettlement: true
     },
     meta: {
-      goalIds: ["expand_frontier"],
+      goalIds: ["expand_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
       description: "Claim an adjacent neutral tile."
     }
   },
@@ -232,7 +249,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     cost: 3,
     preconditions: {
       hasBarbarianTarget: true,
-      goldHealthy: true,
+      canAffordFrontierAction: true,
       staminaHealthy: true
     },
     effects: {
@@ -240,7 +257,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["clear_barbarians"],
+      goalIds: ["clear_barbarians", "season_town_control", "season_economic_hegemony"],
       description: "Clear a barbarian border tile."
     }
   },
@@ -249,7 +266,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     cost: 5,
     preconditions: {
       hasWeakEnemyBorder: true,
-      goldHealthy: true,
+      canAffordFrontierAction: true,
       staminaHealthy: true,
       underThreat: false
     },
@@ -258,7 +275,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["harass_enemy_border"],
+      goalIds: ["harass_enemy_border", "season_town_control"],
       description: "Push a weak neighboring border."
     }
   },
@@ -267,13 +284,14 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     cost: 2,
     preconditions: {
       needsSettlement: true,
-      goldHealthy: true
+      canAffordSettlement: true
     },
     effects: {
-      needsSettlement: false
+      needsSettlement: false,
+      frontierDebtHigh: false
     },
     meta: {
-      goalIds: ["settle_interior"],
+      goalIds: ["settle_interior", "reduce_frontier_debt", "season_settled_territory", "season_economic_hegemony"],
       description: "Convert frontier territory into durable settled land."
     }
   },
@@ -290,7 +308,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsFortifiedAnchor: false
     },
     meta: {
-      goalIds: ["fortify_capital"],
+      goalIds: ["fortify_capital", "reduce_frontier_debt", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
       description: "Place a fort to stabilize an exposed edge."
     }
   },
@@ -306,7 +324,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       economyWeak: false
     },
     meta: {
-      goalIds: ["grow_income"],
+      goalIds: ["grow_income", "season_economic_hegemony"],
       description: "Improve recurring income on secure territory."
     }
   },
@@ -315,11 +333,13 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     cost: 1,
     preconditions: {},
     effects: {
+      canAffordFrontierAction: true,
+      canAffordSettlement: true,
       goldHealthy: true,
       staminaHealthy: true
     },
     meta: {
-      goalIds: ["recover_resources", "fortify_capital"],
+      goalIds: ["recover_resources", "fortify_capital", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
       description: "Spend a tick recovering instead of forcing a bad move."
     }
   }
@@ -340,6 +360,11 @@ export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
     id: "recover_resources",
     priority: 8,
     desired: { goldHealthy: true, staminaHealthy: true }
+  },
+  {
+    id: "reduce_frontier_debt",
+    priority: 9,
+    desired: { frontierDebtHigh: false }
   },
   {
     id: "clear_barbarians",
@@ -363,24 +388,58 @@ export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
   }
 ];
 
+const SEASON_GOAL_BY_VICTORY_PATH: Record<AiSeasonVictoryPathId, GoapGoal<AiEmpireGoapState>> = {
+  TOWN_CONTROL: {
+    id: "season_town_control",
+    priority: 12,
+    desired: { hasWeakEnemyBorder: false, threatCritical: false }
+  },
+  SETTLED_TERRITORY: {
+    id: "season_settled_territory",
+    priority: 12,
+    desired: { needsSettlement: false, frontierDebtHigh: false }
+  },
+  ECONOMIC_HEGEMONY: {
+    id: "season_economic_hegemony",
+    priority: 13,
+    desired: { economyWeak: false, frontierDebtHigh: false }
+  }
+};
+
+const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Record<AiEmpireGoalId, number>>>> = {
+  TOWN_CONTROL: {
+    season_town_control: 5,
+    reduce_frontier_debt: 2,
+    expand_frontier: 2,
+    harass_enemy_border: 3,
+    grow_income: 1,
+    fortify_capital: 2
+  },
+  SETTLED_TERRITORY: {
+    season_settled_territory: 5,
+    reduce_frontier_debt: 5,
+    expand_frontier: 1,
+    settle_interior: 4,
+    grow_income: 1,
+    recover_resources: 1
+  },
+  ECONOMIC_HEGEMONY: {
+    season_economic_hegemony: 6,
+    grow_income: 4,
+    reduce_frontier_debt: 4,
+    settle_interior: 3,
+    expand_frontier: 4,
+    clear_barbarians: 1,
+    recover_resources: -4
+  }
+};
+
 export const goalsForVictoryPath = (victoryPath?: AiSeasonVictoryPathId): GoapGoal<AiEmpireGoapState>[] => {
-  return AI_EMPIRE_GOALS.map((goal) => {
-    let priority = goal.priority;
-    if (victoryPath === "TOWN_CONTROL") {
-      if (goal.id === "expand_frontier") priority += 3;
-      if (goal.id === "harass_enemy_border") priority += 2;
-      if (goal.id === "grow_income") priority += 2;
-      if (goal.id === "fortify_capital") priority += 1;
-    } else if (victoryPath === "SETTLED_TERRITORY") {
-      if (goal.id === "expand_frontier") priority += 2;
-      if (goal.id === "settle_interior") priority += 4;
-      if (goal.id === "grow_income") priority += 1;
-      if (goal.id === "recover_resources") priority += 1;
-    } else if (victoryPath === "ECONOMIC_HEGEMONY") {
-      if (goal.id === "grow_income") priority += 4;
-      if (goal.id === "settle_interior") priority += 2;
-      if (goal.id === "clear_barbarians") priority += 1;
-    }
-    return { ...goal, priority };
-  });
+  const goals: GoapGoal<AiEmpireGoapState>[] = [...AI_EMPIRE_GOALS];
+  if (victoryPath) goals.unshift(SEASON_GOAL_BY_VICTORY_PATH[victoryPath]);
+  const bonuses = victoryPath ? GOAL_PRIORITY_BONUSES[victoryPath] ?? {} : {};
+  return goals.map((goal) => ({
+    ...goal,
+    priority: goal.priority + (bonuses[goal.id as AiEmpireGoalId] ?? 0)
+  }));
 };
