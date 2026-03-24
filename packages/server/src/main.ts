@@ -5037,7 +5037,7 @@ const recomputeExposure = (p: Player): void => {
       if (isSameOrAllied) continue;
       settledExposedSides += 1;
     }
-    Es += exposureWeightFromSides(settledExposedSides);
+    Es += settledExposedSides;
   }
   p.T = T;
   p.E = E;
