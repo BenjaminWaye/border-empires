@@ -20,14 +20,16 @@ export const exposureWeightFromSides = (exposedSides: number): number => {
 export const exposureRatio = (T: number, E: number): number => {
   const safeT = Math.max(1, T);
   const safeE = Math.max(0, E);
-  return safeE / (4 * safeT);
+  if (safeE <= 0) return 1;
+  const idealPerimeter = 2 * Math.ceil(2 * Math.sqrt(safeT));
+  return clamp(idealPerimeter / safeE, 0, 1);
 };
 
 export const defensivenessMultiplier = (T: number, E: number): number => {
-  // Defensiveness is an efficiency score, not a combat buff. Compact empires
-  // can retain up to full defensive efficiency, while exposed borders degrade it.
-  const compactness = 1 - exposureRatio(T, E);
-  return clamp(compactness, DEF_MULT_MIN, DEF_MULT_MAX);
+  // Defensibility compares the current exposed settled perimeter against the
+  // minimum possible perimeter for the same number of tiles. Compact shapes and
+  // terrain-backed borders stay high; stretched or fractured shapes fall off.
+  return clamp(exposureRatio(T, E), DEF_MULT_MIN, DEF_MULT_MAX);
 };
 
 export const ratingFromPointsLevel = (points: number, level: number): number => {

@@ -2156,7 +2156,7 @@ const renderCaptureProgress = (): void => {
 };
 const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
-  return Math.max(0, Math.min(100, (1 - exposureRatio(t, e)) * 100));
+  return Math.max(0, Math.min(100, exposureRatio(t, e) * 100));
 };
 
 const missionCardsHtml = (): string =>
@@ -2842,7 +2842,7 @@ const renderHud = (): void => {
   statsChipsEl.innerHTML = `
     <div class="stat-chip ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
     <div class="stat-chip stat-chip-gold${pointsClass}"><span>Gold</span><strong>${state.gold.toFixed(1)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></div>
-    <div class="stat-chip"><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
+    <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
     ${strategicRibbonHtml()}
   `;
   fogToggleMobileBtn.textContent = `Fog ${state.fogDisabled ? "Off" : "On"}`;
@@ -5151,7 +5151,9 @@ ws.addEventListener("message", (ev) => {
   }
   if (msg.type === "TILE_DELTA") {
     const updates = (msg.updates as Array<Tile>) ?? [];
+    let resolvedQueuedFrontierCapture = false;
     for (const update of updates) {
+      const updateKey = key(update.x, update.y);
       state.pendingCollectVisibleKeys.delete(key(update.x, update.y));
       const existing = state.tiles.get(key(update.x, update.y));
       const merged: Tile = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
@@ -5214,6 +5216,29 @@ ws.addEventListener("message", (ev) => {
       state.tiles.set(key(update.x, update.y), merged);
       markDockDiscovered(merged);
       if (!merged.fogged) state.discoveredTiles.add(key(update.x, update.y));
+      if (
+        !resolvedQueuedFrontierCapture &&
+        updateKey === state.actionTargetKey &&
+        state.actionInFlight &&
+        state.actionCurrent?.mode !== "settle" &&
+        merged.ownerId === state.me &&
+        merged.ownershipState === "FRONTIER"
+      ) {
+        resolvedQueuedFrontierCapture = true;
+      }
+    }
+    if (resolvedQueuedFrontierCapture) {
+      const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
+      state.capture = undefined;
+      state.actionInFlight = false;
+      state.combatStartAck = false;
+      state.actionStartedAt = 0;
+      if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
+      if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+      state.actionTargetKey = "";
+      state.actionCurrent = undefined;
+      processActionQueue();
+      renderHud();
     }
   }
   if (msg.type === "TECH_UPDATE") {
