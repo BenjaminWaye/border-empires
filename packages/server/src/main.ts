@@ -4590,14 +4590,44 @@ const bestAiFrontierAction = (
       if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
       return count;
     }, 0);
+    const ownedNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
+      if (neighbor.ownerId !== actor.id) return count;
+      return count + 1;
+    }, 0);
     const alliedSettledNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
       if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "SETTLED") return count;
       return count + 1;
     }, 0);
-    const compactnessValue = alliedSettledNeighbors * 16 - exposedSides * 10;
+    const frontierNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
+      if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "FRONTIER") return count;
+      return count + 1;
+    }, 0);
+    const coastlineDiscoveryValue = cardinalNeighborCores(to.x, to.y).reduce((score, neighbor) => {
+      if (neighbor.terrain !== "SEA") return score;
+      return score + (visibleToActor(neighbor.x, neighbor.y) ? 10 : 18);
+    }, 0);
+    const compactnessValue = alliedSettledNeighbors * 8 - exposedSides * 12;
+    const scoutShapePenalty =
+      Math.max(0, ownedNeighbors - 2) * 36 +
+      Math.max(0, alliedSettledNeighbors - 1) * 18 +
+      Math.max(0, frontierNeighbors - 1) * 12;
+    const directionalScoutValue =
+      explorationValue +
+      coastlineDiscoveryValue -
+      scoutShapePenalty +
+      (ownedNeighbors <= 2 ? 18 : 0) +
+      (from.ownershipState === "FRONTIER" ? 10 : 0);
     const knownEconomicValue = isTown || resourceValue > 0 || dockValue > 0;
     const knownMilitaryValue = adjacentInteresting >= 35 || to.ownerId === BARBARIAN_OWNER_ID;
     const reserveAfterAction = actor.points - FRONTIER_ACTION_GOLD_COST;
+    const futureSettlement = kind === "EXPAND"
+      ? evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([tk]))
+      : undefined;
+    const immediateSettlementPlan = Boolean(
+      futureSettlement &&
+        canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST) &&
+        futureSettlement.supportsImmediatePlan
+    );
 
     let score = 0;
     if (kind === "ATTACK") score += 40;
@@ -4605,7 +4635,15 @@ const bestAiFrontierAction = (
     score += resourceValue * (kind === "ATTACK" ? 1.8 : 1.25);
     score += dockValue;
     score += adjacentInteresting;
-    if (kind === "EXPAND" && !knownEconomicValue && !knownMilitaryValue) score += explorationValue + compactnessValue;
+    if (kind === "EXPAND" && !knownEconomicValue && !knownMilitaryValue) {
+      score += directionalScoutValue;
+      if (immediateSettlementPlan && futureSettlement) {
+        score += futureSettlement.score * 0.75;
+        if (futureSettlement.isDefensivelyCompact) score += 30;
+      } else {
+        score += compactnessValue * 0.2;
+      }
+    }
     if (to.ownerId === BARBARIAN_OWNER_ID) score += 35;
     if (victoryPath === "TOWN_CONTROL" && isTown) score += 120;
     if (victoryPath === "ECONOMIC_HEGEMONY") {
@@ -4619,16 +4657,25 @@ const bestAiFrontierAction = (
       if (reserveAfterAction < SETTLE_COST && !knownEconomicValue && adjacentInteresting < 35) score -= 180;
       if (settledTileCount >= 2 && !knownEconomicValue && !knownMilitaryValue) score -= 45;
       if (settledTileCount >= 4 && explorationValue < 45 && !knownEconomicValue) score -= 70;
-      if (frontierTileCount >= Math.max(2, settledTileCount) && !knownEconomicValue && !knownMilitaryValue) score -= 140;
+      if (frontierTileCount >= Math.max(2, settledTileCount) && !knownEconomicValue && !knownMilitaryValue && !immediateSettlementPlan) score -= 140;
     }
-    if (kind === "EXPAND" && from.ownershipState !== "SETTLED") score -= 10;
+    if (kind === "EXPAND" && from.ownershipState !== "SETTLED" && !knownEconomicValue && explorationValue < 35) score -= 10;
     if (earlyExpansionMode && kind === "EXPAND") {
-      score += 55;
-      if (!knownEconomicValue) score += 25;
+      score += 15;
+      if (!knownEconomicValue) {
+        score += directionalScoutValue;
+        if (immediateSettlementPlan && futureSettlement) score += futureSettlement.score * 0.5;
+      }
     }
     if (economicExpansionMode && kind === "EXPAND") {
       if (knownEconomicValue || explorationValue >= 40) score += 20;
       if (knownEconomicValue) score += 15;
+    }
+    if (kind === "EXPAND" && !knownEconomicValue && !knownMilitaryValue && ownedNeighbors >= 3 && !immediateSettlementPlan) {
+      score -= earlyExpansionMode ? 140 : 220;
+    }
+    if (kind === "EXPAND" && frontierTileCount >= Math.max(1, settledTileCount - 1) && !knownEconomicValue && !knownMilitaryValue && !immediateSettlementPlan) {
+      score -= 220;
     }
     if (!toVisible && kind === "ATTACK") {
       score -= 100;
@@ -4685,8 +4732,16 @@ const bestAiOpeningScoutExpand = (actor: Player): { from: Tile; to: Tile } | und
         if (next.ownerId) return count;
         return count + 1;
       }, 0);
+      const ownedNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+        if (next.ownerId !== actor.id) return count;
+        return count + 1;
+      }, 0);
       const alliedSettledNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
         if (next.ownerId !== actor.id || next.ownershipState !== "SETTLED") return count;
+        return count + 1;
+      }, 0);
+      const frontierNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+        if (next.ownerId !== actor.id || next.ownershipState !== "FRONTIER") return count;
         return count + 1;
       }, 0);
       const exposedSides = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
@@ -4694,12 +4749,274 @@ const bestAiOpeningScoutExpand = (actor: Player): { from: Tile; to: Tile } | und
         if (!next.ownerId || next.ownerId !== actor.id) return count + 1;
         return count;
       }, 0);
-      const score = unseenNeighbors * 20 + alliedSettledNeighbors * 16 - exposedSides * 8;
+      const coastlineDiscoveryValue = cardinalNeighborCores(to.x, to.y).reduce((score, next) => {
+        if (next.terrain !== "SEA") return score;
+        return score + 18;
+      }, 0);
+      const score =
+        unseenNeighbors * 26 +
+        coastlineDiscoveryValue +
+        (ownedNeighbors <= 2 ? 16 : 0) +
+        (from.ownershipState === "FRONTIER" ? 10 : 0) -
+        Math.max(0, ownedNeighbors - 2) * 34 -
+        Math.max(0, alliedSettledNeighbors - 1) * 20 -
+        Math.max(0, frontierNeighbors - 1) * 12 -
+        exposedSides * 4;
       candidates.push({ score, from, to });
     }
   }
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0];
+};
+
+const scoreAiScoutExpandCandidate = (actor: Player, from: Tile, to: Tile): number => {
+  const unseenNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+    if (next.terrain !== "LAND") return count;
+    if (next.ownerId) return count;
+    return count + 1;
+  }, 0);
+  const ownedNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+    if (next.ownerId !== actor.id) return count;
+    return count + 1;
+  }, 0);
+  const alliedSettledNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+    if (next.ownerId !== actor.id || next.ownershipState !== "SETTLED") return count;
+    return count + 1;
+  }, 0);
+  const frontierNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+    if (next.ownerId !== actor.id || next.ownershipState !== "FRONTIER") return count;
+    return count + 1;
+  }, 0);
+  const coastlineDiscoveryValue = cardinalNeighborCores(to.x, to.y).reduce((score, next) => {
+    if (next.terrain !== "SEA") return score;
+    return score + 18;
+  }, 0);
+  return (
+    unseenNeighbors * 26 +
+    coastlineDiscoveryValue +
+    (ownedNeighbors <= 2 ? 16 : 0) +
+    (from.ownershipState === "FRONTIER" ? 10 : 0) -
+    Math.max(0, ownedNeighbors - 2) * 34 -
+    Math.max(0, alliedSettledNeighbors - 1) * 20 -
+    Math.max(0, frontierNeighbors - 1) * 12
+  );
+};
+
+const bestAiScoutExpand = (actor: Player): { from: Tile; to: Tile } | undefined => {
+  const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
+  for (const tileKey of actor.territoryTiles) {
+    const [x, y] = parseKey(tileKey);
+    const from = playerTile(x, y);
+    for (const neighbor of cardinalNeighborCores(x, y)) {
+      const to = playerTile(neighbor.x, neighbor.y);
+      if (to.terrain !== "LAND" || to.ownerId) continue;
+      const score = scoreAiScoutExpandCandidate(actor, from, to);
+      candidates.push({ score, from, to });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  return best && best.score >= 30 ? best : undefined;
+};
+
+type AiFrontierOpportunityCounts = {
+  economic: number;
+  scout: number;
+  scaffold: number;
+  waste: number;
+};
+
+type AiNeutralFrontierClass = "economic" | "scaffold" | "scout" | "waste";
+
+type AiSettlementCandidateEvaluation = {
+  score: number;
+  isEconomicallyInteresting: boolean;
+  isStrategicallyInteresting: boolean;
+  isDefensivelyCompact: boolean;
+  supportsImmediatePlan: boolean;
+};
+
+const evaluateAiSettlementCandidate = (
+  actor: Player,
+  tile: Tile,
+  victoryPath?: AiSeasonVictoryPathId,
+  assumedFrontierKeys?: ReadonlySet<TileKey>
+): AiSettlementCandidateEvaluation => {
+  const tk = key(tile.x, tile.y);
+  const assumedOwned = assumedFrontierKeys?.has(tk) ?? false;
+  const actualOwnerId = assumedOwned ? actor.id : tile.ownerId;
+  const actualOwnershipState = assumedOwned ? "FRONTIER" : tile.ownershipState;
+  if (tile.terrain !== "LAND" || actualOwnerId !== actor.id || actualOwnershipState !== "FRONTIER") {
+    return {
+      score: Number.NEGATIVE_INFINITY,
+      isEconomicallyInteresting: false,
+      isStrategicallyInteresting: false,
+      isDefensivelyCompact: false,
+      supportsImmediatePlan: false
+    };
+  }
+
+  const neighborOwnership = (neighbor: RuntimeTileCore): { ownerId: string | undefined; ownershipState: OwnershipState | undefined } => {
+    const neighborKey = key(neighbor.x, neighbor.y);
+    if (assumedFrontierKeys?.has(neighborKey)) {
+      return { ownerId: actor.id, ownershipState: "FRONTIER" };
+    }
+    return { ownerId: neighbor.ownerId, ownershipState: neighbor.ownershipState };
+  };
+
+  const isTown = townsByTile.has(tk);
+  const resourceValue = tile.resource ? baseTileValue(tile.resource) : 0;
+  const dock = docksByTile.get(tk);
+  let dockValue = 0;
+  if (dock) {
+    dockValue += 95;
+    const linked = dock.connectedDockIds?.length ? dock.connectedDockIds.length : dock.pairedDockId ? 1 : 0;
+    dockValue += linked * 20;
+  }
+  const adjacentInteresting = cardinalNeighborCores(tile.x, tile.y).reduce((score, neighbor) => {
+    const neighborKey = key(neighbor.x, neighbor.y);
+    const hostileOwner = neighbor.ownerId && neighbor.ownerId !== actor.id && !actor.allies.has(neighbor.ownerId);
+    if (townsByTile.has(neighborKey) && hostileOwner) return score + 35;
+    if (neighbor.resource && hostileOwner) return score + Math.max(12, baseTileValue(neighbor.resource) / 2);
+    if (docksByTile.has(neighborKey) && hostileOwner) return score + 28;
+    return score;
+  }, 0);
+  const exposedSides = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+    const ownership = neighborOwnership(neighbor);
+    if (neighbor.terrain !== "LAND") return count + 1;
+    if (!ownership.ownerId || ownership.ownerId !== actor.id) return count + 1;
+    return count;
+  }, 0);
+  const ownedNeighbors = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+    const ownership = neighborOwnership(neighbor);
+    if (ownership.ownerId !== actor.id) return count;
+    return count + 1;
+  }, 0);
+  const alliedSettledNeighbors = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+    const ownership = neighborOwnership(neighbor);
+    if (ownership.ownerId !== actor.id || ownership.ownershipState !== "SETTLED") return count;
+    return count + 1;
+  }, 0);
+  const alliedFrontierNeighbors = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+    const ownership = neighborOwnership(neighbor);
+    if (ownership.ownerId !== actor.id || ownership.ownershipState !== "FRONTIER") return count;
+    return count + 1;
+  }, 0);
+  const defensiveShapeValue =
+    alliedSettledNeighbors * 22 +
+    alliedFrontierNeighbors * 10 -
+    exposedSides * 14 +
+    (ownedNeighbors >= 3 ? 24 : 0) +
+    (exposedSides <= 1 ? 18 : 0);
+  const connectedCoreValue = alliedSettledNeighbors >= 2 ? 24 : alliedSettledNeighbors >= 1 ? 10 : -10;
+  const isEconomicallyInteresting = isTown || Boolean(tile.resource) || dockValue > 0;
+  const isDefensivelyCompact = ownedNeighbors >= 3 && exposedSides <= 1;
+  const isStrategicallyInteresting = adjacentInteresting >= 35 || defensiveShapeValue >= 26;
+
+  let score = 0;
+  if (isTown) score += 140;
+  score += resourceValue * 1.5;
+  score += dockValue;
+  score += adjacentInteresting;
+  score += defensiveShapeValue + connectedCoreValue;
+  if (victoryPath === "SETTLED_TERRITORY") score += 25;
+  if (victoryPath === "ECONOMIC_HEGEMONY") score += resourceValue + dockValue + (isTown ? 30 : 0);
+  if (!isEconomicallyInteresting && !isStrategicallyInteresting) score -= 120;
+  if (ownedNeighbors <= 1 && !isEconomicallyInteresting) score -= 70;
+  if (exposedSides >= 3 && !isEconomicallyInteresting && adjacentInteresting < 25) score -= 55;
+
+  const supportsImmediatePlan =
+    isEconomicallyInteresting ||
+    isDefensivelyCompact ||
+    score >= (victoryPath === "SETTLED_TERRITORY" ? 36 : 58);
+
+  return {
+    score,
+    isEconomicallyInteresting,
+    isStrategicallyInteresting,
+    isDefensivelyCompact,
+    supportsImmediatePlan
+  };
+};
+
+const isAiVisibleEconomicFrontierTile = (actor: Player, tile: Tile): boolean => {
+  const visibility = visibilitySnapshotForPlayer(actor);
+  if (!visibleInSnapshot(visibility, tile.x, tile.y)) return false;
+  const tk = key(tile.x, tile.y);
+  return townsByTile.has(tk) || Boolean(tile.resource) || docksByTile.has(tk);
+};
+
+const classifyAiNeutralFrontierOpportunity = (
+  actor: Player,
+  from: Tile,
+  to: Tile,
+  victoryPath?: AiSeasonVictoryPathId
+): AiNeutralFrontierClass => {
+  if (isAiVisibleEconomicFrontierTile(actor, to)) return "economic";
+  const scaffoldEvaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([key(to.x, to.y)]));
+  if (scaffoldEvaluation.supportsImmediatePlan && scaffoldEvaluation.score >= 45) return "scaffold";
+  if (scoreAiScoutExpandCandidate(actor, from, to) >= 30) return "scout";
+  return "waste";
+};
+
+const bestAiScaffoldExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId): { from: Tile; to: Tile } | undefined => {
+  const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
+  for (const tileKey of actor.territoryTiles) {
+    const [x, y] = parseKey(tileKey);
+    const from = playerTile(x, y);
+    for (const neighbor of cardinalNeighborCores(x, y)) {
+      const to = playerTile(neighbor.x, neighbor.y);
+      if (to.terrain !== "LAND" || to.ownerId) continue;
+      const evaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([key(to.x, to.y)]));
+      if (!evaluation.supportsImmediatePlan) continue;
+      let score = evaluation.score;
+      if (evaluation.isDefensivelyCompact) score += 30;
+      if (evaluation.isEconomicallyInteresting) score += 25;
+      if (from.ownershipState === "SETTLED") score += 8;
+      candidates.push({ score, from, to });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  return best && best.score >= 45 ? best : undefined;
+};
+
+const bestAiEconomicExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId): { from: Tile; to: Tile } | undefined => {
+  return bestAiFrontierAction(
+    actor,
+    "EXPAND",
+    (tile) => {
+      if (tile.ownerId) return false;
+      for (const ownerTileKey of actor.territoryTiles) {
+        const [x, y] = parseKey(ownerTileKey);
+        const from = playerTile(x, y);
+        if (!cardinalNeighborCores(x, y).some((neighbor) => neighbor.x === tile.x && neighbor.y === tile.y)) continue;
+        return classifyAiNeutralFrontierOpportunity(actor, from, tile, victoryPath) === "economic";
+      }
+      return false;
+    },
+    victoryPath
+  );
+};
+
+const aiFrontierOpportunityCounts = (actor: Player, victoryPath?: AiSeasonVictoryPathId): AiFrontierOpportunityCounts => {
+  const counts: AiFrontierOpportunityCounts = {
+    economic: 0,
+    scout: 0,
+    scaffold: 0,
+    waste: 0
+  };
+  for (const tileKey of actor.territoryTiles) {
+    const [x, y] = parseKey(tileKey);
+    const from = playerTile(x, y);
+    for (const neighbor of cardinalNeighborCores(x, y)) {
+      const to = playerTile(neighbor.x, neighbor.y);
+      if (to.terrain !== "LAND" || to.ownerId) continue;
+      const frontierClass = classifyAiNeutralFrontierOpportunity(actor, from, to, victoryPath);
+      counts[frontierClass] += 1;
+    }
+  }
+  return counts;
 };
 
 const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId): Tile | undefined => {
@@ -4708,48 +5025,8 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
     .map((tileKey) => {
       const [x, y] = parseKey(tileKey);
       const tile = playerTile(x, y);
-      const tk = key(tile.x, tile.y);
-      const isTown = townsByTile.has(tk);
-      const resourceValue = tile.resource ? baseTileValue(tile.resource) : 0;
-      const dock = docksByTile.get(tk);
-      let dockValue = 0;
-      if (dock) {
-        dockValue += 95;
-        const linked = dock.connectedDockIds?.length ? dock.connectedDockIds.length : dock.pairedDockId ? 1 : 0;
-        dockValue += linked * 20;
-      }
-      const adjacentInteresting = cardinalNeighborCores(tile.x, tile.y).reduce((score, neighbor) => {
-        const neighborKey = key(neighbor.x, neighbor.y);
-        const hostileOwner = neighbor.ownerId && neighbor.ownerId !== actor.id && !actor.allies.has(neighbor.ownerId);
-        if (townsByTile.has(neighborKey) && hostileOwner) return score + 35;
-        if (neighbor.resource && hostileOwner) return score + Math.max(12, baseTileValue(neighbor.resource) / 2);
-        if (docksByTile.has(neighborKey) && hostileOwner) return score + 28;
-        return score;
-      }, 0);
-      const exposedSides = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
-        if (neighbor.terrain !== "LAND") return count + 1;
-        if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
-        return count;
-      }, 0);
-      const alliedSettledNeighbors = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
-        if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "SETTLED") return count;
-        return count + 1;
-      }, 0);
-      const defensiveAnchorValue = alliedSettledNeighbors * 14 - exposedSides * 6;
-      const isEconomicallyInteresting = isTown || Boolean(tile.resource) || dockValue > 0;
-      const isStrategicallyInteresting = adjacentInteresting >= 35 || defensiveAnchorValue >= 20;
-      let score = 0;
-      if (isTown) score += 140;
-      score += resourceValue * 1.5;
-      score += dockValue;
-      score += adjacentInteresting;
-      if (victoryPath === "SETTLED_TERRITORY") score += 25;
-      if (victoryPath === "ECONOMIC_HEGEMONY") score += resourceValue + dockValue + (isTown ? 30 : 0);
-      score -= exposedSides * 12;
-      score += defensiveAnchorValue;
-      if (!isEconomicallyInteresting && !isStrategicallyInteresting) score -= 120;
-      if (actor.points <= SETTLE_COST && !isTown && !tile.resource && adjacentInteresting < 35) score -= 70;
-      return { tile, score, isEconomicallyInteresting, isStrategicallyInteresting };
+      const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath);
+      return { tile, ...evaluation };
     })
     .sort((a, b) => b.score - a.score);
   const best = frontierTiles[0];
@@ -4835,7 +5112,27 @@ const bestAiEconomicStructure = (
 const executeAiGoapAction = (actor: Player, actionKey: string, victoryPath?: AiSeasonVictoryPathId): boolean => {
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
-    const candidate = bestAiFrontierAction(actor, "EXPAND", (tile) => !tile.ownerId, victoryPath);
+    const candidate = bestAiEconomicExpand(actor, victoryPath);
+    if (!candidate) return false;
+    void executeUnifiedGameplayMessage(
+      actor,
+      { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y },
+      NOOP_WS
+    );
+    return true;
+  }
+  if (actionKey === "claim_scout_border_tile") {
+    const candidate = bestAiScoutExpand(actor);
+    if (!candidate) return false;
+    void executeUnifiedGameplayMessage(
+      actor,
+      { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y },
+      NOOP_WS
+    );
+    return true;
+  }
+  if (actionKey === "claim_scaffold_border_tile") {
+    const candidate = bestAiScaffoldExpand(actor, victoryPath);
     if (!candidate) return false;
     void executeUnifiedGameplayMessage(
       actor,
@@ -4956,13 +5253,18 @@ const runAiTurn = (actor: Player): void => {
   const frontierTiles = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "FRONTIER").length;
   const settledTilesTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
   const worldFlags = playerWorldFlags(actor);
-  const rawUnderThreat = [...actor.territoryTiles].some((tileKey) => {
+  const rawHostileThreat = [...actor.territoryTiles].some((tileKey) => {
     const [x, y] = parseKey(tileKey);
-    return ownershipStateByTile.get(tileKey) === "SETTLED" && isBorderTile(x, y, actor.id);
+    if (ownershipStateByTile.get(tileKey) !== "SETTLED") return false;
+    return cardinalNeighborCores(x, y).some((neighbor) => {
+      if (neighbor.terrain !== "LAND") return false;
+      if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return false;
+      return true;
+    });
   });
-  const underThreat = rawUnderThreat && settledTiles > 2;
-  const bestNeutralExpand = bestAiFrontierAction(actor, "EXPAND", (tile) => !tile.ownerId);
+  const underThreat = rawHostileThreat && settledTiles > 2;
   const openingScoutExpand = bestAiOpeningScoutExpand(actor);
+  const bestScoutExpand = bestAiScoutExpand(actor);
   const bestBarbarianAttack = bestAiFrontierAction(actor, "ATTACK", (tile) => tile.ownerId === BARBARIAN_OWNER_ID);
   const bestEnemyAttack = bestAiFrontierAction(
     actor,
@@ -4997,6 +5299,9 @@ const runAiTurn = (actor: Player): void => {
       goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
       staminaHealthy: actor.stamina >= 0
     })[0]?.id;
+  const bestNeutralExpand = bestAiEconomicExpand(actor, primaryVictoryPath);
+  const bestScaffoldExpand = bestAiScaffoldExpand(actor, primaryVictoryPath);
+  const frontierOpportunityCounts = aiFrontierOpportunityCounts(actor, primaryVictoryPath);
 
   if ((economyWeak || frontierDebt) && bestSettlement && canAffordGoldCost(actor.points, SETTLE_COST)) {
     const executed = executeAiGoapAction(actor, "settle_owned_frontier_tile", primaryVictoryPath);
@@ -5053,6 +5358,8 @@ const runAiTurn = (actor: Player): void => {
 
   const goapState: AiEmpireGoapState = {
     hasNeutralLandOpportunity: Boolean(bestNeutralExpand),
+    hasScoutOpportunity: Boolean(bestScoutExpand),
+    hasScaffoldOpportunity: Boolean(bestScaffoldExpand),
     hasBarbarianTarget: Boolean(bestBarbarianAttack),
     hasWeakEnemyBorder: Boolean(bestEnemyAttack),
     needsSettlement: Boolean(bestSettlement),
@@ -5096,6 +5403,39 @@ const runAiTurn = (actor: Player): void => {
       });
       if (executed) return;
     }
+    if (bestScoutExpand && actor.points >= FRONTIER_ACTION_GOLD_COST && !threatCritical) {
+      const executed = executeAiGoapAction(actor, "claim_scout_border_tile", primaryVictoryPath);
+      setAiTurnDebug(actor, executed ? "executed_scout_fallback" : "failed_scout_fallback", {
+        incomePerMinute: aiIncome,
+        controlledTowns,
+        settledTiles,
+        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+        goapActionKey: "claim_scout_border_tile",
+        executed,
+        details: {
+          economyWeak,
+          hasScoutOpportunity: goapState.hasScoutOpportunity
+        }
+      });
+      if (executed) return;
+    }
+    if (bestScaffoldExpand && actor.points >= FRONTIER_ACTION_GOLD_COST) {
+      const executed = executeAiGoapAction(actor, "claim_scaffold_border_tile", primaryVictoryPath);
+      setAiTurnDebug(actor, executed ? "executed_scaffold_fallback" : "failed_scaffold_fallback", {
+        incomePerMinute: aiIncome,
+        controlledTowns,
+        settledTiles,
+        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+        goapActionKey: "claim_scaffold_border_tile",
+        executed,
+        details: {
+          economyWeak,
+          hasScaffoldOpportunity: goapState.hasScaffoldOpportunity,
+          scaffoldOpportunityCount: frontierOpportunityCounts.scaffold
+        }
+      });
+      if (executed) return;
+    }
     if (economyWeak && bestNeutralExpand && actor.points >= FRONTIER_ACTION_GOLD_COST) {
       const executed = executeAiGoapAction(actor, "claim_neutral_border_tile", primaryVictoryPath);
       setAiTurnDebug(actor, executed ? "executed_expand_fallback" : "failed_expand_fallback", {
@@ -5107,7 +5447,8 @@ const runAiTurn = (actor: Player): void => {
         executed,
         details: {
           economyWeak,
-          hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity
+          hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity,
+          economicOpportunityCount: frontierOpportunityCounts.economic
         }
       });
       if (executed) return;
@@ -5119,6 +5460,8 @@ const runAiTurn = (actor: Player): void => {
       ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
       details: {
         hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity,
+        hasScoutOpportunity: goapState.hasScoutOpportunity,
+        hasScaffoldOpportunity: goapState.hasScaffoldOpportunity,
         hasBarbarianTarget: goapState.hasBarbarianTarget,
         hasWeakEnemyBorder: goapState.hasWeakEnemyBorder,
         needsSettlement: goapState.needsSettlement,
@@ -5131,7 +5474,11 @@ const runAiTurn = (actor: Player): void => {
         canAffordSettlement: goapState.canAffordSettlement,
         canBuildFort: goapState.canBuildFort,
         canBuildEconomy: goapState.canBuildEconomy,
-        goldHealthy: goapState.goldHealthy
+        goldHealthy: goapState.goldHealthy,
+        economicOpportunityCount: frontierOpportunityCounts.economic,
+        scoutOpportunityCount: frontierOpportunityCounts.scout,
+        scaffoldOpportunityCount: frontierOpportunityCounts.scaffold,
+        wasteOpportunityCount: frontierOpportunityCounts.waste
       }
     });
     return;
@@ -5147,6 +5494,8 @@ const runAiTurn = (actor: Player): void => {
     executed,
     details: {
       hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity,
+      hasScoutOpportunity: goapState.hasScoutOpportunity,
+      hasScaffoldOpportunity: goapState.hasScaffoldOpportunity,
       hasBarbarianTarget: goapState.hasBarbarianTarget,
       hasWeakEnemyBorder: goapState.hasWeakEnemyBorder,
       needsSettlement: goapState.needsSettlement,
@@ -5159,7 +5508,11 @@ const runAiTurn = (actor: Player): void => {
       canAffordSettlement: goapState.canAffordSettlement,
       canBuildFort: goapState.canBuildFort,
       canBuildEconomy: goapState.canBuildEconomy,
-      goldHealthy: goapState.goldHealthy
+      goldHealthy: goapState.goldHealthy,
+      economicOpportunityCount: frontierOpportunityCounts.economic,
+      scoutOpportunityCount: frontierOpportunityCounts.scout,
+      scaffoldOpportunityCount: frontierOpportunityCounts.scaffold,
+      wasteOpportunityCount: frontierOpportunityCounts.waste
     }
   });
 };
@@ -6628,7 +6981,7 @@ const trySabotageTile = (actor: Player, x: number, y: number): { ok: boolean; re
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "sabotage requires land tile" };
   if (!t.ownerId || t.ownerId === actor.id || actor.allies.has(t.ownerId)) return { ok: false, reason: "target enemy-controlled town or resource tile" };
-  if (!t.town && !t.resource && !t.dockId) return { ok: false, reason: "target must be a town, dock, or resource tile" };
+  if (!t.town && !t.resource) return { ok: false, reason: "target must be a town or resource tile" };
   if (hostileObservatoryProtectingTile(actor, x, y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
   const tk = key(t.x, t.y);
   const current = sabotageByTile.get(tk);
