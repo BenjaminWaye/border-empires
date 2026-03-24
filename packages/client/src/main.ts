@@ -41,6 +41,11 @@ const OBSERVATORY_VISION_BONUS = 5;
 const OBSERVATORY_PROTECTION_RADIUS = 10;
 const MIN_ZOOM = 10;
 const MAX_ZOOM = 192;
+const GOLD_COST_EPSILON = 1e-6;
+
+const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
+
+const formatGoldAmount = (gold: number): string => gold.toFixed(2);
 
 type Tile = {
   x: number;
@@ -798,6 +803,7 @@ const state = {
   abilityCooldowns: {} as Partial<Record<"deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain", number>>,
   revealTargetId: "" as string,
   allies: [] as string[],
+  playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   incomingAllianceRequests: [] as AllianceRequest[],
@@ -980,6 +986,12 @@ const ownerColor = (ownerId: string): string => {
 };
 const effectiveColor = (ownerId: string): string => state.playerColors.get(ownerId) ?? ownerColor(ownerId);
 const visualStyleForOwner = (ownerId: string): EmpireVisualStyle | undefined => state.playerVisualStyles.get(ownerId);
+const playerNameForOwner = (ownerId?: string | null): string | undefined => {
+  if (!ownerId) return undefined;
+  if (ownerId === state.me) return state.meName || "you";
+  if (ownerId === "barbarian") return "Barbarians";
+  return state.playerNames.get(ownerId);
+};
 const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
   const clean = hex.replace("#", "");
   const full = clean.length === 3 ? clean.split("").map((c) => `${c}${c}`).join("") : clean;
@@ -1078,7 +1090,7 @@ const shortOwnerHistoryLabel = (ownerId?: string | null): string => {
   if (!ownerId) return "Unknown";
   if (ownerId === state.me) return "you";
   if (ownerId === "barbarian") return "Barbarians";
-  return `Empire ${ownerId.slice(0, 8)}`;
+  return playerNameForOwner(ownerId) ?? `Empire ${ownerId.slice(0, 8)}`;
 };
 const tileHistoryLines = (tile: Tile): string[] => {
   const history = tile.history;
@@ -1157,7 +1169,7 @@ const storedYieldSummary = (tile: Tile): string => {
 };
 
 const inspectionHtmlForTile = (tile: Tile): string => {
-  const ownerLabel = tile.ownerId ? (tile.ownerId === state.me ? "you" : tile.ownerId.slice(0, 8)) : "neutral";
+  const ownerLabel = tile.ownerId ? (playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : "neutral";
   const tags = [
     tile.ownershipState ? prettyToken(tile.ownershipState) : "",
     tile.regionType ? prettyToken(tile.regionType) : "",
@@ -2592,7 +2604,7 @@ const affordableTechChoicesCount = (): number => {
 
 const leaderboardHtml = (): string => {
   const overallLine = (e: LeaderboardOverallEntry): string =>
-    `${e.name} | score ${e.score.toFixed(1)} | tiles ${e.tiles} | income ${e.incomePerMinute.toFixed(1)} | tech ${e.techs}`;
+    `${e.name} | score ${e.score.toFixed(1)} | settled ${e.tiles} | income ${e.incomePerMinute.toFixed(1)} | tech ${e.techs}`;
   const metricLine = (e: LeaderboardMetricEntry): string => `${e.name} (${e.value.toFixed(1)})`;
   const winnerCard = state.seasonWinner
     ? `
@@ -2636,7 +2648,7 @@ const leaderboardHtml = (): string => {
       ${state.leaderboard.overall.map((e, i) => `<div class="lb-row">${i + 1}. ${overallLine(e)}</div>`).join("")}
     </article>
     <article class="card">
-      <strong>Most Tiles</strong>
+      <strong>Most Settled Tiles</strong>
       ${state.leaderboard.byTiles.map((e, i) => `<div class="lb-row">${i + 1}. ${metricLine(e)}</div>`).join("")}
     </article>
     <article class="card">
@@ -2841,7 +2853,7 @@ const renderHud = (): void => {
   const goldRateClass = rateToneClass(netGoldPerMinute);
   statsChipsEl.innerHTML = `
     <div class="stat-chip ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
-    <div class="stat-chip stat-chip-gold${pointsClass}"><span>Gold</span><strong>${state.gold.toFixed(1)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></div>
+    <div class="stat-chip stat-chip-gold${pointsClass}"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></div>
     <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
     ${strategicRibbonHtml()}
   `;
@@ -4019,7 +4031,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "settle_land",
         label: "Settle Land",
-        ...tileActionAvailability(state.gold >= SETTLE_COST, `Need ${SETTLE_COST} gold`, `${SETTLE_COST} gold`)
+        ...tileActionAvailability(canAffordCost(state.gold, SETTLE_COST), `Need ${SETTLE_COST} gold`, `${SETTLE_COST} gold`)
       });
     if (tile.ownershipState === "SETTLED" && !tile.fort) {
       const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
@@ -4562,7 +4574,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   holdBuildMenuEl.innerHTML = `
     <div class="hold-menu-card">
       <div class="hold-menu-title">Build on (${x}, ${y})</div>
-      <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && state.gold >= SETTLE_COST ? "" : "disabled"}>
+      <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && canAffordCost(state.gold, SETTLE_COST) ? "" : "disabled"}>
         <span>Settle Tile</span>
         <small>${SETTLE_COST} gold • ${(SETTLE_MS / 1000).toFixed(1)}s • converts frontier to settled</small>
       </button>
@@ -4851,6 +4863,7 @@ ws.addEventListener("message", (ev) => {
     const p = msg.player as Record<string, unknown>;
     state.me = p.id as string;
     state.meName = p.name as string;
+    state.playerNames.set(state.me, state.meName);
     state.profileSetupRequired = Boolean(p.profileNeedsSetup);
     setAuthStatus(`Signed in as ${state.authUserLabel || (p.name as string)}.`);
     state.gold = (p.gold as number | undefined) ?? (p.points as number);
@@ -4888,7 +4901,8 @@ ws.addEventListener("message", (ev) => {
     const myVisualStyle = p.visualStyle as EmpireVisualStyle | undefined;
     if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
     seedProfileSetupFields((p.name as string) || state.authUserLabel, myTileColor ?? tileColorInput.value);
-    for (const s of ((msg.playerStyles as Array<{ id: string; tileColor?: string; visualStyle?: EmpireVisualStyle }>) ?? [])) {
+    for (const s of ((msg.playerStyles as Array<{ id: string; name?: string; tileColor?: string; visualStyle?: EmpireVisualStyle }>) ?? [])) {
+      if (s.name) state.playerNames.set(s.id, s.name);
       if (s.tileColor) state.playerColors.set(s.id, s.tileColor);
       if (s.visualStyle) state.playerVisualStyles.set(s.id, s.visualStyle);
     }

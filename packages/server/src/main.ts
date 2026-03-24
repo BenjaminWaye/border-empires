@@ -435,6 +435,22 @@ interface TelemetryCounters {
 type StatsModBreakdownEntry = { label: string; mult: number };
 type StatsModBreakdown = Record<StatsModKey, StatsModBreakdownEntry[]>;
 
+type AiTurnDebugEntry = {
+  at: number;
+  playerId: string;
+  name: string;
+  reason: string;
+  points: number;
+  incomePerMinute?: number;
+  controlledTowns?: number;
+  settledTiles?: number;
+  primaryVictoryPath?: AiSeasonVictoryPathId;
+  goapGoalId?: string;
+  goapActionKey?: string;
+  executed?: boolean;
+  details?: Record<string, boolean | number | string | undefined>;
+};
+
 interface AbilityDefinition {
   id: "reveal_empire" | "deep_strike" | "naval_infiltration" | "sabotage" | "create_mountain" | "remove_mountain";
   name: string;
@@ -470,6 +486,8 @@ const ALLIANCE_REQUEST_TTL_MS = 5 * 60_000;
 const PASSIVE_INCOME_MULT = 1.0;
 const BASE_GOLD_PER_MIN = 1;
 const FRONTIER_ACTION_GOLD_COST = 1;
+const GOLD_COST_EPSILON = 1e-6;
+const canAffordGoldCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 const HARVEST_GOLD_RATE_MULT = 1;
 const HARVEST_RESOURCE_RATE_MULT = 1 / 1440;
 const TILE_YIELD_CAP_GOLD = 24;
@@ -857,6 +875,7 @@ const strategicProductionPerMinute = (player: Player): Record<StrategicResource,
 const players = new Map<string, Player>();
 const authIdentityByUid = new Map<string, AuthIdentity>();
 const socketsByPlayer = new Map<string, Ws>();
+const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
 
 const normalizedPlayerHandle = (name: string): string => {
   const cleaned = name.replace(/\s+/g, " ").trim();
@@ -896,6 +915,66 @@ const claimPlayerName = (playerId: string, preferred: string): string => {
   return candidate;
 };
 
+const AI_SINGLE_NAMES = [
+  "Conan",
+  "Boudica",
+  "Ragnar",
+  "Nyx",
+  "Ivar",
+  "Brakka",
+  "Skarn",
+  "Valka",
+  "Torvin",
+  "Morrigan",
+  "Korga",
+  "Thyra"
+] as const;
+
+const AI_NAME_PREFIXES = [
+  "Bastard",
+  "Iron",
+  "Wolf",
+  "Raven",
+  "Blood",
+  "Ash",
+  "Bone",
+  "Storm",
+  "Night",
+  "Skull",
+  "Dread",
+  "Black"
+] as const;
+
+const AI_NAME_SUFFIXES = [
+  "Cleaver",
+  "Reaver",
+  "Fang",
+  "Hammer",
+  "Render",
+  "Maw",
+  "Howl",
+  "Breaker",
+  "Warden",
+  "Rider",
+  "Seer",
+  "Brand"
+] as const;
+
+const randomFrom = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)]!;
+
+const generateAiNickname = (): string => {
+  for (let i = 0; i < 24; i += 1) {
+    const preferred =
+      Math.random() < 0.35
+        ? randomFrom(AI_SINGLE_NAMES)
+        : `${randomFrom(AI_NAME_PREFIXES)}${randomFrom(AI_NAME_SUFFIXES)}`;
+    if (!playerNameTaken(preferred)) return preferred;
+  }
+  return `${randomFrom(AI_NAME_PREFIXES)}${randomFrom(AI_NAME_SUFFIXES)}`;
+};
+
+const aiHasPlaceholderName = (name: string): boolean => /^AI Empire \d+$/.test(name);
+
 const playerHasFogAdminAccess = (playerId: string): boolean => {
   for (const identity of authIdentityByUid.values()) {
     if (identity.playerId !== playerId) continue;
@@ -907,12 +986,15 @@ const playerHasFogAdminAccess = (playerId: string): boolean => {
 const ensureAiPlayers = (): void => {
   if (AI_PLAYERS <= 0) return;
   const existing = [...players.values()].filter((player) => player.isAi);
+  for (const player of existing) {
+    if (!aiHasPlaceholderName(player.name)) continue;
+    player.name = claimPlayerName(player.id, generateAiNickname());
+  }
   for (let i = existing.length; i < AI_PLAYERS; i += 1) {
     const id = crypto.randomUUID();
-    const preferredName = `AI Empire ${i + 1}`;
     const player: Player = {
       id,
-      name: claimPlayerName(id, preferredName),
+      name: claimPlayerName(id, generateAiNickname()),
       isAi: true,
       profileComplete: true,
       points: STARTING_GOLD,
@@ -4456,8 +4538,15 @@ const bestAiFrontierAction = (
   filter: (tile: Tile) => boolean,
   victoryPath?: AiSeasonVictoryPathId
 ): { from: Tile; to: Tile } | undefined => {
+  const visibility = visibilitySnapshotForPlayer(actor);
+  const settledTileCount = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length;
+  const frontierTileCount = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "FRONTIER").length;
+  const earlyExpansionMode = settledTileCount <= 2;
+  const economicExpansionMode = settledTileCount <= 6;
+  const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
   const dockScoreForTile = (tile: Tile): number => {
     const tk = key(tile.x, tile.y);
+    if (!visibleToActor(tile.x, tile.y)) return 0;
     const dock = docksByTile.get(tk);
     let score = 0;
     if (dock) {
@@ -4466,6 +4555,7 @@ const bestAiFrontierAction = (
       score += linked * 18;
     }
     for (const neighbor of cardinalNeighborCores(tile.x, tile.y)) {
+      if (!visibleToActor(neighbor.x, neighbor.y)) continue;
       const neighborDock = docksByTile.get(key(neighbor.x, neighbor.y));
       if (!neighborDock) continue;
       score += 24;
@@ -4475,11 +4565,13 @@ const bestAiFrontierAction = (
   };
 
   const scoreFrontierAction = (from: Tile, to: Tile): number => {
+    const toVisible = visibleToActor(to.x, to.y);
     const tk = key(to.x, to.y);
-    const isTown = townsByTile.has(tk);
-    const resourceValue = to.resource ? baseTileValue(to.resource) : 0;
+    const isTown = toVisible && townsByTile.has(tk);
+    const resourceValue = toVisible && to.resource ? baseTileValue(to.resource) : 0;
     const dockValue = dockScoreForTile(to);
     const adjacentInteresting = cardinalNeighborCores(to.x, to.y).reduce((score, neighbor) => {
+      if (!visibleToActor(neighbor.x, neighbor.y)) return score;
       const neighborKey = key(neighbor.x, neighbor.y);
       const hostileOwner = neighbor.ownerId && neighbor.ownerId !== actor.id && !actor.allies.has(neighbor.ownerId);
       if (townsByTile.has(neighborKey) && hostileOwner) return score + 45;
@@ -4487,11 +4579,25 @@ const bestAiFrontierAction = (
       if (docksByTile.has(neighborKey) && hostileOwner) return score + 35;
       return score;
     }, 0);
+    const explorationValue = cardinalNeighborCores(to.x, to.y).reduce((score, neighbor) => {
+      if (visibleToActor(neighbor.x, neighbor.y)) return score;
+      let next = score + 18;
+      if (neighbor.terrain === "SEA") next += 10;
+      return next;
+    }, toVisible ? 0 : 24);
     const exposedSides = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
       if (neighbor.terrain !== "LAND") return count + 1;
       if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
       return count;
     }, 0);
+    const alliedSettledNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
+      if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "SETTLED") return count;
+      return count + 1;
+    }, 0);
+    const compactnessValue = alliedSettledNeighbors * 16 - exposedSides * 10;
+    const knownEconomicValue = isTown || resourceValue > 0 || dockValue > 0;
+    const knownMilitaryValue = adjacentInteresting >= 35 || to.ownerId === BARBARIAN_OWNER_ID;
+    const reserveAfterAction = actor.points - FRONTIER_ACTION_GOLD_COST;
 
     let score = 0;
     if (kind === "ATTACK") score += 40;
@@ -4499,6 +4605,7 @@ const bestAiFrontierAction = (
     score += resourceValue * (kind === "ATTACK" ? 1.8 : 1.25);
     score += dockValue;
     score += adjacentInteresting;
+    if (kind === "EXPAND" && !knownEconomicValue && !knownMilitaryValue) score += explorationValue + compactnessValue;
     if (to.ownerId === BARBARIAN_OWNER_ID) score += 35;
     if (victoryPath === "TOWN_CONTROL" && isTown) score += 120;
     if (victoryPath === "ECONOMIC_HEGEMONY") {
@@ -4507,8 +4614,28 @@ const bestAiFrontierAction = (
     }
     if (victoryPath === "SETTLED_TERRITORY" && kind === "EXPAND") score += 20;
     score -= exposedSides * (kind === "ATTACK" ? 6 : 18);
-    if (actor.points <= SETTLE_COST && !isTown && !to.resource && adjacentInteresting < 40) score -= 80;
+    if (actor.points <= SETTLE_COST && !knownEconomicValue && adjacentInteresting < 40) score -= 80;
+    if (kind === "EXPAND" && !earlyExpansionMode) {
+      if (reserveAfterAction < SETTLE_COST && !knownEconomicValue && adjacentInteresting < 35) score -= 180;
+      if (settledTileCount >= 2 && !knownEconomicValue && !knownMilitaryValue) score -= 45;
+      if (settledTileCount >= 4 && explorationValue < 45 && !knownEconomicValue) score -= 70;
+      if (frontierTileCount >= Math.max(2, settledTileCount) && !knownEconomicValue && !knownMilitaryValue) score -= 140;
+    }
     if (kind === "EXPAND" && from.ownershipState !== "SETTLED") score -= 10;
+    if (earlyExpansionMode && kind === "EXPAND") {
+      score += 55;
+      if (!knownEconomicValue) score += 25;
+    }
+    if (economicExpansionMode && kind === "EXPAND") {
+      if (knownEconomicValue || explorationValue >= 40) score += 20;
+      if (knownEconomicValue) score += 15;
+    }
+    if (!toVisible && kind === "ATTACK") {
+      score -= 100;
+    }
+    if (!knownEconomicValue && !knownMilitaryValue && explorationValue < 20 && !earlyExpansionMode) {
+      score -= 90;
+    }
     return score;
   };
 
@@ -4526,8 +4653,53 @@ const bestAiFrontierAction = (
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];
   if (!best) return undefined;
-  const minScore = kind === "ATTACK" ? 35 : 30;
+  if (kind === "EXPAND" && earlyExpansionMode && best.score > Number.NEGATIVE_INFINITY) {
+    return best;
+  }
+  const minScore =
+    kind === "ATTACK"
+      ? earlyExpansionMode
+        ? 20
+        : 35
+      : earlyExpansionMode
+        ? 0
+        : economicExpansionMode
+          ? 10
+          : 30;
   return best.score >= minScore ? best : undefined;
+};
+
+const bestAiOpeningScoutExpand = (actor: Player): { from: Tile; to: Tile } | undefined => {
+  const settledTileCount = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length;
+  if (settledTileCount > 2) return undefined;
+
+  const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
+  for (const tileKey of actor.territoryTiles) {
+    const [x, y] = parseKey(tileKey);
+    const from = playerTile(x, y);
+    for (const neighbor of cardinalNeighborCores(x, y)) {
+      const to = playerTile(neighbor.x, neighbor.y);
+      if (to.terrain !== "LAND" || to.ownerId) continue;
+      const unseenNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+        if (next.terrain !== "LAND") return count;
+        if (next.ownerId) return count;
+        return count + 1;
+      }, 0);
+      const alliedSettledNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+        if (next.ownerId !== actor.id || next.ownershipState !== "SETTLED") return count;
+        return count + 1;
+      }, 0);
+      const exposedSides = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+        if (next.terrain !== "LAND") return count + 1;
+        if (!next.ownerId || next.ownerId !== actor.id) return count + 1;
+        return count;
+      }, 0);
+      const score = unseenNeighbors * 20 + alliedSettledNeighbors * 16 - exposedSides * 8;
+      candidates.push({ score, from, to });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0];
 };
 
 const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId): Tile | undefined => {
@@ -4559,6 +4731,13 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
         if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
         return count;
       }, 0);
+      const alliedSettledNeighbors = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+        if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "SETTLED") return count;
+        return count + 1;
+      }, 0);
+      const defensiveAnchorValue = alliedSettledNeighbors * 14 - exposedSides * 6;
+      const isEconomicallyInteresting = isTown || Boolean(tile.resource) || dockValue > 0;
+      const isStrategicallyInteresting = adjacentInteresting >= 35 || defensiveAnchorValue >= 20;
       let score = 0;
       if (isTown) score += 140;
       score += resourceValue * 1.5;
@@ -4567,12 +4746,17 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
       if (victoryPath === "SETTLED_TERRITORY") score += 25;
       if (victoryPath === "ECONOMIC_HEGEMONY") score += resourceValue + dockValue + (isTown ? 30 : 0);
       score -= exposedSides * 12;
+      score += defensiveAnchorValue;
+      if (!isEconomicallyInteresting && !isStrategicallyInteresting) score -= 120;
       if (actor.points <= SETTLE_COST && !isTown && !tile.resource && adjacentInteresting < 35) score -= 70;
-      return { tile, score };
+      return { tile, score, isEconomicallyInteresting, isStrategicallyInteresting };
     })
     .sort((a, b) => b.score - a.score);
   const best = frontierTiles[0];
-  return best && best.score >= 28 ? best.tile : undefined;
+  if (!best) return undefined;
+  if (!best.isEconomicallyInteresting && !best.isStrategicallyInteresting) return undefined;
+  const minScore = victoryPath === "SETTLED_TERRITORY" ? 32 : 55;
+  return best.score >= minScore ? best.tile : undefined;
 };
 
 const bestAiFortTile = (actor: Player): Tile | undefined => {
@@ -4649,7 +4833,7 @@ const bestAiEconomicStructure = (
 };
 
 const executeAiGoapAction = (actor: Player, actionKey: string, victoryPath?: AiSeasonVictoryPathId): boolean => {
-  if (actionKey === "wait_and_recover") return false;
+  if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
     const candidate = bestAiFrontierAction(actor, "EXPAND", (tile) => !tile.ownerId, victoryPath);
     if (!candidate) return false;
@@ -4710,15 +4894,50 @@ const executeAiGoapAction = (actor: Player, actionKey: string, victoryPath?: AiS
   return false;
 };
 
+const setAiTurnDebug = (
+  actor: Player,
+  reason: string,
+  extras?: Partial<Omit<AiTurnDebugEntry, "at" | "playerId" | "name" | "reason" | "points">>
+): void => {
+  const normalizedExtras = { ...(extras ?? {}) };
+  if (normalizedExtras.primaryVictoryPath === undefined) delete normalizedExtras.primaryVictoryPath;
+  if (normalizedExtras.goapGoalId === undefined) delete normalizedExtras.goapGoalId;
+  if (normalizedExtras.goapActionKey === undefined) delete normalizedExtras.goapActionKey;
+  if (normalizedExtras.executed === undefined) delete normalizedExtras.executed;
+  if (normalizedExtras.incomePerMinute === undefined) delete normalizedExtras.incomePerMinute;
+  if (normalizedExtras.controlledTowns === undefined) delete normalizedExtras.controlledTowns;
+  if (normalizedExtras.settledTiles === undefined) delete normalizedExtras.settledTiles;
+  if (normalizedExtras.details === undefined) delete normalizedExtras.details;
+  aiTurnDebugByPlayer.set(actor.id, {
+    at: now(),
+    playerId: actor.id,
+    name: actor.name,
+    reason,
+    points: actor.points,
+    ...normalizedExtras
+  });
+};
+
 const runAiTurn = (actor: Player): void => {
   if (!actor.isAi) return;
   actor.lastActiveAt = now();
   if (actor.T <= 0 || actor.territoryTiles.size === 0 || actor.respawnPending) {
     actor.respawnPending = false;
     spawnPlayer(actor);
+    setAiTurnDebug(actor, "respawned");
     return;
   }
-  if (pendingCapturesByAttacker(actor.id).length > 0 || hasPendingSettlementForPlayer(actor.id)) return;
+  const pendingCaptures = pendingCapturesByAttacker(actor.id).length;
+  const pendingSettlement = hasPendingSettlementForPlayer(actor.id);
+  if (pendingCaptures > 0 || pendingSettlement) {
+    setAiTurnDebug(actor, "waiting_on_pending_resolution", {
+      details: {
+        pendingCaptures,
+        pendingSettlement
+      }
+    });
+    return;
+  }
 
   const collected = collectVisibleYield(actor);
   if (collected.gold > 0 || hasPositiveStrategicBuffer(collected.strategic)) {
@@ -4734,13 +4953,16 @@ const runAiTurn = (actor: Player): void => {
   const townsTarget = Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE));
   const controlledTowns = countControlledTowns(actor.id);
   const settledTiles = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length;
+  const frontierTiles = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "FRONTIER").length;
   const settledTilesTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
   const worldFlags = playerWorldFlags(actor);
-  const underThreat = [...actor.territoryTiles].some((tileKey) => {
+  const rawUnderThreat = [...actor.territoryTiles].some((tileKey) => {
     const [x, y] = parseKey(tileKey);
     return ownershipStateByTile.get(tileKey) === "SETTLED" && isBorderTile(x, y, actor.id);
   });
+  const underThreat = rawUnderThreat && settledTiles > 2;
   const bestNeutralExpand = bestAiFrontierAction(actor, "EXPAND", (tile) => !tile.ownerId);
+  const openingScoutExpand = bestAiOpeningScoutExpand(actor);
   const bestBarbarianAttack = bestAiFrontierAction(actor, "ATTACK", (tile) => tile.ownerId === BARBARIAN_OWNER_ID);
   const bestEnemyAttack = bestAiFrontierAction(
     actor,
@@ -4754,6 +4976,8 @@ const runAiTurn = (actor: Player): void => {
     aiIncome < (controlledTowns === 0 ? 12 : 18) ||
     (settledTiles >= 10 && aiIncome < 15) ||
     (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && settledTiles >= 6);
+  const frontierDebt = frontierTiles >= Math.max(2, settledTiles);
+  const threatCritical = underThreat && (controlledTowns > 0 || aiIncome >= 5 || frontierDebt);
   const needsFortifiedAnchor = Boolean(bestFortAnchor) && (controlledTowns > 0 || worldFlags.has("active_dock") || aiIncome >= 16);
   const preferredVictoryPath: AiSeasonVictoryPathId | undefined = economyWeak
     ? "ECONOMIC_HEGEMONY"
@@ -4770,15 +4994,61 @@ const runAiTurn = (actor: Player): void => {
       settledTiles,
       settledTilesTarget,
       underThreat,
-      goldHealthy: actor.points >= Math.max(SETTLE_COST, FRONTIER_ACTION_GOLD_COST),
+      goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
       staminaHealthy: actor.stamina >= 0
     })[0]?.id;
 
+  if ((economyWeak || frontierDebt) && bestSettlement && canAffordGoldCost(actor.points, SETTLE_COST)) {
+    const executed = executeAiGoapAction(actor, "settle_owned_frontier_tile", primaryVictoryPath);
+    setAiTurnDebug(actor, executed ? "executed_settlement_priority" : "failed_settlement_priority", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      goapActionKey: "settle_owned_frontier_tile",
+      executed,
+      details: {
+        economyWeak,
+        frontierDebt,
+        underThreat,
+        hasSettlementTarget: Boolean(bestSettlement),
+        frontierTiles
+      }
+    });
+    if (executed) return;
+  }
   if (economyWeak && bestEconomicBuild && !underThreat) {
-    if (executeAiGoapAction(actor, "build_economic_structure", primaryVictoryPath)) return;
+    const executed = executeAiGoapAction(actor, "build_economic_structure", primaryVictoryPath);
+    setAiTurnDebug(actor, executed ? "executed_economic_priority" : "failed_economic_priority", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      goapActionKey: "build_economic_structure",
+      executed,
+      details: {
+        economyWeak,
+        underThreat,
+        hasEconomicBuild: Boolean(bestEconomicBuild)
+      }
+    });
+    if (executed) return;
   }
   if (needsFortifiedAnchor && underThreat && actor.points >= FORT_BUILD_COST) {
-    if (executeAiGoapAction(actor, "build_fort_on_exposed_tile", primaryVictoryPath)) return;
+    const executed = executeAiGoapAction(actor, "build_fort_on_exposed_tile", primaryVictoryPath);
+    setAiTurnDebug(actor, executed ? "executed_fort_priority" : "failed_fort_priority", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      goapActionKey: "build_fort_on_exposed_tile",
+      executed,
+      details: {
+        needsFortifiedAnchor,
+        underThreat
+      }
+    });
+    if (executed) return;
   }
 
   const goapState: AiEmpireGoapState = {
@@ -4786,19 +5056,112 @@ const runAiTurn = (actor: Player): void => {
     hasBarbarianTarget: Boolean(bestBarbarianAttack),
     hasWeakEnemyBorder: Boolean(bestEnemyAttack),
     needsSettlement: Boolean(bestSettlement),
+    frontierDebtHigh: frontierDebt,
     underThreat,
+    threatCritical,
     economyWeak,
     needsFortifiedAnchor,
+    canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
+    canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
     canBuildFort: Boolean(bestFortAnchor) && actor.points >= FORT_BUILD_COST,
     canBuildEconomy: Boolean(bestEconomicBuild),
-    goldHealthy: actor.points >= Math.max(SETTLE_COST, FRONTIER_ACTION_GOLD_COST),
+    goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
     staminaHealthy: actor.stamina >= 0
   };
 
   const goapPlan = planBestGoal(goapState, goalsForVictoryPath(primaryVictoryPath), AI_EMPIRE_ACTIONS);
   const nextStep = goapPlan?.steps[0];
-  if (!nextStep) return;
-  executeAiGoapAction(actor, nextStep.action.key, primaryVictoryPath);
+  if (!nextStep) {
+    if (openingScoutExpand && actor.points >= FRONTIER_ACTION_GOLD_COST) {
+      const executedAt = tryQueueBasicFrontierAction(
+        actor,
+        "EXPAND",
+        openingScoutExpand.from.x,
+        openingScoutExpand.from.y,
+        openingScoutExpand.to.x,
+        openingScoutExpand.to.y
+      );
+      const executed = executedAt !== undefined;
+      setAiTurnDebug(actor, executed ? "executed_opening_scout" : "failed_opening_scout", {
+        incomePerMinute: aiIncome,
+        controlledTowns,
+        settledTiles,
+        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+        goapActionKey: "claim_neutral_border_tile",
+        executed,
+        details: {
+          economyWeak,
+          openingScout: true
+        }
+      });
+      if (executed) return;
+    }
+    if (economyWeak && bestNeutralExpand && actor.points >= FRONTIER_ACTION_GOLD_COST) {
+      const executed = executeAiGoapAction(actor, "claim_neutral_border_tile", primaryVictoryPath);
+      setAiTurnDebug(actor, executed ? "executed_expand_fallback" : "failed_expand_fallback", {
+        incomePerMinute: aiIncome,
+        controlledTowns,
+        settledTiles,
+        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+        goapActionKey: "claim_neutral_border_tile",
+        executed,
+        details: {
+          economyWeak,
+          hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity
+        }
+      });
+      if (executed) return;
+    }
+    setAiTurnDebug(actor, "no_goap_step", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      details: {
+        hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity,
+        hasBarbarianTarget: goapState.hasBarbarianTarget,
+        hasWeakEnemyBorder: goapState.hasWeakEnemyBorder,
+        needsSettlement: goapState.needsSettlement,
+        frontierDebtHigh: goapState.frontierDebtHigh,
+        underThreat: goapState.underThreat,
+        threatCritical: goapState.threatCritical,
+        economyWeak: goapState.economyWeak,
+        needsFortifiedAnchor: goapState.needsFortifiedAnchor,
+        canAffordFrontierAction: goapState.canAffordFrontierAction,
+        canAffordSettlement: goapState.canAffordSettlement,
+        canBuildFort: goapState.canBuildFort,
+        canBuildEconomy: goapState.canBuildEconomy,
+        goldHealthy: goapState.goldHealthy
+      }
+    });
+    return;
+  }
+  const executed = executeAiGoapAction(actor, nextStep.action.key, primaryVictoryPath);
+  setAiTurnDebug(actor, executed ? "executed_goap_action" : "failed_goap_action", {
+    incomePerMinute: aiIncome,
+    controlledTowns,
+    settledTiles,
+    ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+    goapGoalId: goapPlan.goalId,
+    goapActionKey: nextStep.action.key,
+    executed,
+    details: {
+      hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity,
+      hasBarbarianTarget: goapState.hasBarbarianTarget,
+      hasWeakEnemyBorder: goapState.hasWeakEnemyBorder,
+      needsSettlement: goapState.needsSettlement,
+      frontierDebtHigh: goapState.frontierDebtHigh,
+      underThreat: goapState.underThreat,
+      threatCritical: goapState.threatCritical,
+      economyWeak: goapState.economyWeak,
+      needsFortifiedAnchor: goapState.needsFortifiedAnchor,
+      canAffordFrontierAction: goapState.canAffordFrontierAction,
+      canAffordSettlement: goapState.canAffordSettlement,
+      canBuildFort: goapState.canBuildFort,
+      canBuildEconomy: goapState.canBuildEconomy,
+      goldHealthy: goapState.goldHealthy
+    }
+  });
 };
 
 const runAiTick = (): void => {
@@ -5034,7 +5397,7 @@ const recomputeExposure = (p: Player): void => {
     for (const tile of n) {
       if (tile.terrain !== "LAND") continue;
       const isSameOrAllied = tile.ownerId === p.id || Boolean(tile.ownerId && p.allies.has(tile.ownerId));
-      if (isSameOrAllied && tile.ownershipState === "SETTLED") continue;
+      if (isSameOrAllied) continue;
       settledExposedSides += 1;
     }
     Es += settledExposedSides;
@@ -5363,7 +5726,7 @@ const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
   const rows = collectPlayerCompetitionMetrics().map((metric) => ({
     id: metric.playerId,
     name: metric.name,
-    tiles: metric.tiles,
+    tiles: metric.settledTiles,
     incomePerMinute: metric.incomePerMinute,
     techs: metric.techs
   }));
@@ -6161,7 +6524,7 @@ const startSettlement = (
   if (t.terrain !== "LAND") return { ok: false, reason: "settlement requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "tile must be owned" };
   if (t.ownershipState !== "FRONTIER") return { ok: false, reason: "tile is already settled" };
-  if (actor.points < goldCost) return { ok: false, reason: "insufficient gold to settle" };
+  if (!canAffordGoldCost(actor.points, goldCost)) return { ok: false, reason: "insufficient gold to settle" };
   const tk = key(t.x, t.y);
   if (pendingSettlementsByTile.has(tk)) return { ok: false, reason: "tile already settling" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile is locked in combat" };
@@ -6182,7 +6545,7 @@ const startSettlement = (
     if (!liveActor) return;
     const live = runtimeTileCore(t.x, t.y);
     if (live.ownerId !== liveActor.id || live.ownershipState !== "FRONTIER") return;
-    if (liveActor.points < pending.goldCost) {
+    if (!canAffordGoldCost(liveActor.points, pending.goldCost)) {
       sendToPlayer(liveActor.id, {
         type: "ERROR",
         code: "SETTLE_INVALID",
@@ -7391,6 +7754,20 @@ app.get("/admin/telemetry", async () => {
     activeTowns,
     avgTownSupportRatio: supportCount > 0 ? supportSum / supportCount : 0,
     counters: telemetryCounters
+  };
+});
+app.get("/admin/ai/debug", async () => {
+  const entries = [...aiTurnDebugByPlayer.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const reasons = new Map<string, number>();
+  for (const entry of entries) reasons.set(entry.reason, (reasons.get(entry.reason) ?? 0) + 1);
+  return {
+    ok: true,
+    at: now(),
+    aiPlayers: entries.length,
+    reasons: [...reasons.entries()]
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)),
+    entries
   };
 });
 app.post("/admin/season/rollover", async () => {
