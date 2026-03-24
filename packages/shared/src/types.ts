@@ -7,7 +7,7 @@ export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "H
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
 export type FortStatus = "under_construction" | "active";
 export type SiegeOutpostStatus = "under_construction" | "active";
-export type ObservatoryStatus = "active" | "inactive";
+export type ObservatoryStatus = "under_construction" | "active" | "inactive";
 export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
 export type TownType = "MARKET" | "FARMING" | "ANCIENT";
@@ -44,7 +44,8 @@ export interface EconomicStructure {
   type: EconomicStructureType;
   tileKey: TileKey;
   ownerId: PlayerId;
-  isActive: boolean;
+  status: "under_construction" | "active" | "inactive";
+  completesAt?: number;
   nextUpkeepAt: number;
 }
 
@@ -120,8 +121,13 @@ export interface Tile {
   };
   fort?: { ownerId: PlayerId; status: FortStatus; completesAt?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; completesAt?: number };
-  observatory?: { ownerId: PlayerId; status: ObservatoryStatus };
-  economicStructure?: { ownerId: PlayerId; type: EconomicStructureType; status: "active" | "inactive" };
+  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number };
+  economicStructure?: {
+    ownerId: PlayerId;
+    type: EconomicStructureType;
+    status: "under_construction" | "active" | "inactive";
+    completesAt?: number;
+  };
   sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };
   history?: TileHistory;
   lastChangedAt: number;
@@ -276,6 +282,7 @@ export interface Observatory {
   ownerId: PlayerId;
   tileKey: TileKey;
   status: ObservatoryStatus;
+  completesAt?: number;
 }
 
 export interface ActiveRevealEmpire {
