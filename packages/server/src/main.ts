@@ -6628,7 +6628,7 @@ const trySabotageTile = (actor: Player, x: number, y: number): { ok: boolean; re
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "sabotage requires land tile" };
   if (!t.ownerId || t.ownerId === actor.id || actor.allies.has(t.ownerId)) return { ok: false, reason: "target enemy-controlled town or resource tile" };
-  if (!t.town && !t.resource) return { ok: false, reason: "target must be a town or resource tile" };
+  if (!t.town && !t.resource && !t.dockId) return { ok: false, reason: "target must be a town, dock, or resource tile" };
   if (hostileObservatoryProtectingTile(actor, x, y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
   const tk = key(t.x, t.y);
   const current = sabotageByTile.get(tk);
