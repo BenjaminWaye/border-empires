@@ -6,7 +6,8 @@ export const COMBAT_LOCK_MS = 3_000;
 export const FRONTIER_CLAIM_COST = 1;
 export const FRONTIER_CLAIM_MS = 1_250;
 export const SETTLE_COST = 4;
-export const SETTLE_MS = 3_500;
+export const SETTLE_MS = 60_000;
+export const DEVELOPMENT_PROCESS_LIMIT = 3;
 
 export const DEF_MULT_MIN = 0.0;
 export const DEF_MULT_MAX = 1.0;
@@ -26,15 +27,17 @@ export const PVP_REPEAT_FLOOR = 0.1;
 
 export const LEVEL_CURVE_C = 2.2;
 
-export const FORT_BUILD_MS = 60_000;
+export const FORT_BUILD_MS = 10 * 60_000;
 export const FORT_BUILD_COST = 600;
 export const FORT_MAX_PER_PLAYER = 10;
 export const FORT_DEFENSE_MULT = 1.25;
 
+export const OBSERVATORY_BUILD_MS = 10 * 60_000;
 export const OBSERVATORY_BUILD_COST = 600;
 export const OBSERVATORY_VISION_BONUS = 5;
 
-export const SIEGE_OUTPOST_BUILD_MS = 45_000;
+export const ECONOMIC_STRUCTURE_BUILD_MS = 5 * 60_000;
+export const SIEGE_OUTPOST_BUILD_MS = 10 * 60_000;
 export const SIEGE_OUTPOST_BUILD_COST = 600;
 export const SIEGE_OUTPOST_MAX_PER_PLAYER = 10;
 export const SIEGE_OUTPOST_ATTACK_MULT = 1.25;
