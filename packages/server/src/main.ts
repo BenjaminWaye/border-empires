@@ -2466,24 +2466,29 @@ const dockLinkedDestinations = (fromDock: Dock): Dock[] => {
   return out;
 };
 
-const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number): boolean => {
+const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): boolean => {
   const linked = dockLinkedDestinations(fromDock);
   for (const targetDock of linked) {
     const [px, py] = parseKey(targetDock.tileKey);
     if (toX === px && toY === py) return true;
-    if (isAdjacentTile(px, py, toX, toY)) return true;
+    if (allowAdjacentToDock && isAdjacentTile(px, py, toX, toY)) return true;
   }
   return false;
 };
 
-const findOwnedDockOriginForCrossing = (actor: Player, toX: number, toY: number): Tile | undefined => {
+const findOwnedDockOriginForCrossing = (
+  actor: Player,
+  toX: number,
+  toY: number,
+  allowAdjacentToDock = true
+): Tile | undefined => {
   for (const tk of actor.territoryTiles) {
     const dock = docksByTile.get(tk);
     if (!dock) continue;
     const [x, y] = parseKey(tk);
     const t = playerTile(x, y);
     if (t.ownerId !== actor.id || t.terrain !== "LAND") continue;
-    if (validDockCrossingTarget(dock, toX, toY)) return t;
+    if (validDockCrossingTarget(dock, toX, toY, allowAdjacentToDock)) return t;
   }
   return undefined;
 };
@@ -4227,15 +4232,16 @@ const tryQueueBasicFrontierAction = (
   const tk = key(to.x, to.y);
   let fromDock = docksByTile.get(fk);
   let adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
-  let dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
+  const allowAdjacentToDock = actionType !== "EXPAND";
+  let dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y, allowAdjacentToDock));
   if (!adjacent && !dockCrossing && from.ownerId === actor.id) {
-    const altFrom = findOwnedDockOriginForCrossing(actor, to.x, to.y);
+    const altFrom = findOwnedDockOriginForCrossing(actor, to.x, to.y, allowAdjacentToDock);
     if (altFrom) {
       from = altFrom;
       fk = key(from.x, from.y);
       fromDock = docksByTile.get(fk);
       adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
-      dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
+      dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y, allowAdjacentToDock));
     }
   }
   if (!adjacent && !dockCrossing) return undefined;
