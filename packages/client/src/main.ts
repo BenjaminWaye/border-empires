@@ -1017,6 +1017,12 @@ const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]
   if (style.borderStyle === "GLOW") return "rgba(126, 208, 255, 0.92)";
   return stateName === "FRONTIER" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.55)";
 };
+const shouldDrawOwnershipBorder = (tile: Tile): boolean => {
+  if (!tile.ownerId || tile.ownershipState === "FRONTIER") return false;
+  if (tile.ownerId === "barbarian") return true;
+  const style = visualStyleForOwner(tile.ownerId);
+  return Boolean(style && style.borderStyle !== "SHARP");
+};
 const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): number => {
   const style = visualStyleForOwner(ownerId);
   if (!style) return stateName === "SETTLED" ? 2 : 1;
@@ -5720,7 +5726,7 @@ const draw = (): void => {
           ownerAlpha = Math.min(ownerAlpha, 0.62);
         }
         ctx.globalAlpha = ownerAlpha;
-        if (t.ownerId === state.me && t.ownershipState === "SETTLED") {
+        if (t.ownershipState === "SETTLED") {
           ctx.fillRect(px, py, size, size);
         } else {
           ctx.fillRect(px, py, size - 1, size - 1);
@@ -5868,18 +5874,25 @@ const draw = (): void => {
         ctx.lineWidth = 1;
       }
 
-      if (t && vis === "visible" && t.ownerId && t.ownershipState !== "FRONTIER") {
+      if (t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
+        ctx.strokeStyle = "rgba(20, 26, 36, 0.58)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+      }
+
+      if (t && vis === "visible" && shouldDrawOwnershipBorder(t)) {
+        const ownerId = t.ownerId!;
         ctx.strokeStyle =
-          t.ownerId === "barbarian"
+          ownerId === "barbarian"
             ? "rgba(214, 222, 232, 0.45)"
-            : t.ownerId === state.me
-              ? borderColorForOwner(t.ownerId, t.ownershipState)
+            : ownerId === state.me
+              ? borderColorForOwner(ownerId, t.ownershipState)
               : isTileOwnedByAlly(t)
                 ? "rgba(255, 205, 92, 0.82)"
-                : borderColorForOwner(t.ownerId, t.ownershipState);
-        ctx.lineWidth = borderLineWidthForOwner(t.ownerId, t.ownershipState);
-        if (visualStyleForOwner(t.ownerId)?.borderStyle === "DASHED") ctx.setLineDash([4, 3]);
-        else if (visualStyleForOwner(t.ownerId)?.borderStyle === "SOFT") ctx.setLineDash([10, 6]);
+                : borderColorForOwner(ownerId, t.ownershipState);
+        ctx.lineWidth = borderLineWidthForOwner(ownerId, t.ownershipState);
+        if (visualStyleForOwner(ownerId)?.borderStyle === "DASHED") ctx.setLineDash([4, 3]);
+        else if (visualStyleForOwner(ownerId)?.borderStyle === "SOFT") ctx.setLineDash([10, 6]);
         else ctx.setLineDash([]);
         drawExposedTileBorder(t, px, py, size);
         ctx.setLineDash([]);
