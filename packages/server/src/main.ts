@@ -127,6 +127,7 @@ const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABL
 };
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
+const GLOBAL_STATUS_BROADCAST_MS = 2_000;
 
 interface AllianceRequest {
   id: string;
@@ -2148,10 +2149,9 @@ const connectedTownBonusForOwner = (connectedTownCount: number, ownerId: string 
   return total;
 };
 
-const isTownFedForOwner = (townKey: TileKey, ownerId: string | undefined): boolean => {
+const isTownFedForOwner = (_townKey: TileKey, ownerId: string | undefined): boolean => {
   if (!ownerId) return false;
-  const upkeepCoverage = foodUpkeepCoverageByPlayer.get(ownerId) ?? 1;
-  return upkeepCoverage >= 0.999;
+  return currentFoodCoverageForPlayer(ownerId) >= 0.999;
 };
 
 const marketIncomeMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
@@ -3053,6 +3053,14 @@ const sendVisibleTileDeltaAt = (x: number, y: number): void => {
   }
 };
 
+const sendVisibleTileDeltaSquare = (x: number, y: number, radius: number): void => {
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      sendVisibleTileDeltaAt(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
+    }
+  }
+};
+
 const reconcileCapitalForPlayer = (player: Player): void => {
   const previous = player.capitalTileKey;
   const next = isValidCapitalTile(player, previous) ? previous : chooseCapitalTileKey(player);
@@ -3272,6 +3280,17 @@ const consumeYieldGoldForPlayer = (player: Player, needed: number, touchedTileKe
     pruneEmptyTileYield(tk, y);
   }
   return paid;
+};
+
+const availableYieldStrategicForPlayer = (player: Player, resource: StrategicResource): number => {
+  let total = 0;
+  for (const tk of player.territoryTiles) {
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
+    const y = tileYieldByTile.get(tk);
+    if (!y) continue;
+    total += Math.max(0, y.strategic[resource] ?? 0);
+  }
+  return total;
 };
 
 const getPlayerEffectsForPlayer = (playerId: string): PlayerEffects => {
@@ -3620,6 +3639,16 @@ const upkeepPerMinuteForPlayer = (player: Player): {
     gold: fortCount * 0.2 * effects.fortGoldUpkeepMult + outpostCount * 0.2 * effects.outpostGoldUpkeepMult + (settledTileCount / 40) * 0.1 * effects.settledGoldUpkeepMult
   };
 };
+
+function currentFoodCoverageForPlayer(playerId: string): number {
+  const player = players.get(playerId);
+  if (!player) return foodUpkeepCoverageByPlayer.get(playerId) ?? 1;
+  const upkeepNeed = Math.max(0, upkeepPerMinuteForPlayer(player).food);
+  if (upkeepNeed <= 0) return 1;
+  const stock = getOrInitStrategicStocks(playerId);
+  const availableFood = Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD");
+  return Math.max(0, Math.min(1, availableFood / upkeepNeed));
+}
 
 const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
   if (t.terrain !== "LAND") return { ok: false, reason: "structure requires land tile" };
@@ -6315,6 +6344,7 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
 let cachedLeaderboardSnapshot: LeaderboardSnapshotView = { overall: [], byTiles: [], byIncome: [], byTechs: [] };
 let cachedVictoryPressureObjectives: SeasonVictoryObjectiveView[] = [];
 let globalStatusCacheExpiresAt = 0;
+let lastGlobalStatusBroadcastSig = "";
 
 const refreshGlobalStatusCache = (force = false): void => {
   const nowMs = now();
@@ -6334,8 +6364,29 @@ const currentVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   return cachedVictoryPressureObjectives;
 };
 
+const globalStatusBroadcastSignature = (): string =>
+  JSON.stringify({
+    leaderboard: cachedLeaderboardSnapshot,
+    seasonVictory: cachedVictoryPressureObjectives,
+    seasonWinner
+  });
+
+const broadcastGlobalStatusUpdate = (force = false): void => {
+  refreshGlobalStatusCache(force);
+  const nextSig = globalStatusBroadcastSignature();
+  if (!force && nextSig === lastGlobalStatusBroadcastSig) return;
+  lastGlobalStatusBroadcastSig = nextSig;
+  broadcast({
+    type: "GLOBAL_STATUS_UPDATE",
+    leaderboard: cachedLeaderboardSnapshot,
+    seasonVictory: cachedVictoryPressureObjectives,
+    seasonWinner
+  });
+};
+
 const broadcastVictoryPressureUpdate = (announcement?: string): void => {
   refreshGlobalStatusCache(true);
+  lastGlobalStatusBroadcastSig = globalStatusBroadcastSignature();
   broadcast({
     type: "SEASON_VICTORY_UPDATE",
     objectives: cachedVictoryPressureObjectives,
@@ -6356,6 +6407,7 @@ const crownSeasonWinner = (playerId: string, def: VictoryPressureDefinition): vo
     objectiveName: def.name
   };
   refreshGlobalStatusCache(true);
+  lastGlobalStatusBroadcastSig = globalStatusBroadcastSignature();
   broadcast({
     type: "SEASON_WINNER_CROWNED",
     winner: seasonWinner,
@@ -7305,7 +7357,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   }
   markVisibilityDirtyForPlayers(visibilityAffectedPlayers);
 
-  sendVisibleTileDeltaAt(t.x, t.y);
+  sendVisibleTileDeltaSquare(t.x, t.y, 1);
 };
 
 const spawnPlayer = (p: Player): void => {
@@ -8063,6 +8115,11 @@ registerInterval(() => {
   }
   evaluateVictoryPressure();
 }, 60_000);
+
+registerInterval(() => {
+  if (!hasOnlinePlayers()) return;
+  broadcastGlobalStatusUpdate(false);
+}, GLOBAL_STATUS_BROADCAST_MS);
 
 if (SEASONS_ENABLED) {
   registerInterval(() => {

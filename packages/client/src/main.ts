@@ -1212,7 +1212,11 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   const prodInfo = (() => {
     const gpm = tile.yieldRate?.goldPerMinute ?? 0;
     const parts: string[] = [];
-    if (gpm > 0) parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
+    if (tile.town) {
+      parts.push(`${gpm.toFixed(2)} / m${tile.town.isFed ? "" : " - Unfed"}`);
+    } else if (gpm > 0) {
+      parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
+    }
     parts.push(...prodStrategic);
     return parts.length > 0 ? parts.join("  ") : "";
   })();
@@ -1237,7 +1241,7 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     <div class="hover-subline">${metaLine}</div>
     ${extraLine ? `<div class="hover-subline">${extraLine}</div>` : ""}
     ${upkeepLine ? `<div class="hover-subline">${upkeepLine}</div>` : ""}
-    ${prodInfo ? `<div class="hover-subline">Production ${prodInfo}</div>` : ""}
+    ${prodInfo ? `<div class="hover-subline">Production: ${prodInfo}</div>` : ""}
     ${storedYield ? `<div class="hover-subline">Stored yield ${storedYield}</div>` : ""}
     ${structureLine ? `<div class="hover-subline">${structureLine}</div>` : ""}
     ${sabotageLine ? `<div class="hover-subline hover-accent">${sabotageLine}</div>` : ""}
@@ -2334,13 +2338,19 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
     return labels.length > 0 ? labels.join(" | ") : null;
   }
   if (key === "settlementSpeedMult" && typeof value === "number") return `Settlement speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "newSettlementDefenseMult" && typeof value === "number")
+    return `New settlement defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "settledFoodUpkeepMult" && typeof value === "number") return `Settled food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "settledGoldUpkeepMult" && typeof value === "number") return `Settled gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "townFoodUpkeepMult" && typeof value === "number") return `Town food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "townGoldCapMult" && typeof value === "number") return `Town cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "firstThreeTownsPopulationGrowthMult" && typeof value === "number")
+    return `First 3 towns growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "marketIncomeBonusAdd" && typeof value === "number") return `Market income +${Math.round(value * 100)} pts`;
   if (key === "marketCapBonusAdd" && typeof value === "number") return `Market cap +${Math.round(value * 100)} pts`;
+  if (key === "marketBonusMult" && typeof value === "number") return `Market bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "granaryBonusMult" && typeof value === "number") return `Granary bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary cap +${Math.round(value * 100)} pts`;
   if (key === "populationGrowthMult" && typeof value === "number") return `Population growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "populationIncomeMult" && typeof value === "number") return `Population income ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
@@ -2353,12 +2363,15 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortIronUpkeepMult" && typeof value === "number") return `Fort iron upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortGoldUpkeepMult" && typeof value === "number") return `Fort gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "settledDefenseNearFortMult" && typeof value === "number")
+    return `Settled defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostSupplyUpkeepMult" && typeof value === "number") return `Outpost supply upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Vision radius +${value}`;
+  if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Observatory protection radius +${value}`;
   if (key === "settledDefenseMult" && typeof value === "number") return `Settled defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsSettledMult" && typeof value === "number") return `Attack vs settled ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsFortsMult" && typeof value === "number") return `Attack vs forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
@@ -5177,6 +5190,18 @@ ws.addEventListener("message", (ev) => {
     syncAuthOverlay();
     renderHud();
   }
+  if (msg.type === "GLOBAL_STATUS_UPDATE") {
+    state.leaderboard =
+      (msg.leaderboard as {
+        overall: LeaderboardOverallEntry[];
+        byTiles: LeaderboardMetricEntry[];
+        byIncome: LeaderboardMetricEntry[];
+        byTechs: LeaderboardMetricEntry[];
+      }) ?? state.leaderboard;
+    state.seasonVictory = (msg.seasonVictory as SeasonVictoryObjectiveView[] | undefined) ?? state.seasonVictory;
+    state.seasonWinner = (msg.seasonWinner as SeasonWinnerView | undefined) ?? state.seasonWinner;
+    renderHud();
+  }
   if (msg.type === "COMBAT_RESULT") {
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     for (const c of changes) {
@@ -6444,18 +6469,9 @@ const clearHoldOpenTimer = (): void => {
   if (holdOpenTimer !== undefined) window.clearTimeout(holdOpenTimer);
   holdOpenTimer = undefined;
 };
-const scheduleHoldBuildMenu = (clientX: number, clientY: number, offsetX: number, offsetY: number): void => {
+const scheduleHoldBuildMenu = (_clientX: number, _clientY: number, _offsetX: number, _offsetY: number): void => {
   clearHoldOpenTimer();
   holdActivated = false;
-  holdOpenTimer = window.setTimeout(() => {
-    if (!dragActive || boxSelectionEngaged) return;
-    const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-    const tile = state.tiles.get(key(wx, wy));
-    if (!tile || tile.ownerId !== state.me || tile.terrain !== "LAND") return;
-    holdActivated = true;
-    suppressNextClick = true;
-    showHoldBuildMenu(wx, wy, clientX, clientY);
-  }, HOLD_OPEN_MS);
 };
 
 canvas.addEventListener("mousedown", (ev) => {
