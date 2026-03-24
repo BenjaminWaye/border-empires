@@ -817,6 +817,7 @@ const state = {
   incomingAllianceRequests: [] as AllianceRequest[],
   feed: [] as FeedEntry[],
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
+  settleProgress: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "error" | "warn" } | undefined,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
@@ -1239,6 +1240,10 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   const metaLine = [`Owner ${ownerLabel}`, ...tags].filter(Boolean).join(" · ");
   const extraLine = townBits.length > 0 ? townBits.join(" · ") : prodInfo;
   const storedYield = storedYieldSummary(tile);
+  const settleLine =
+    state.settleProgress && state.settleProgress.target.x === tile.x && state.settleProgress.target.y === tile.y
+      ? `Settling... ${formatCountdownClock(state.settleProgress.resolvesAt - Date.now())}`
+      : "";
   const sabotageLine =
     tile.sabotage && tile.sabotage.endsAt > Date.now()
       ? `Output ${Math.round(tile.sabotage.outputMultiplier * 100)}% until ${new Date(tile.sabotage.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
@@ -1250,6 +1255,7 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     ${extraLine ? `<div class="hover-subline">${extraLine}</div>` : ""}
     ${upkeepLine ? `<div class="hover-subline">${upkeepLine}</div>` : ""}
     ${prodInfo ? `<div class="hover-subline">Production: ${prodInfo}</div>` : ""}
+    ${settleLine ? `<div class="hover-subline hover-accent">${settleLine}</div>` : ""}
     ${storedYield ? `<div class="hover-subline">Stored yield ${storedYield}</div>` : ""}
     ${structureLine ? `<div class="hover-subline">${structureLine}</div>` : ""}
     ${sabotageLine ? `<div class="hover-subline hover-accent">${sabotageLine}</div>` : ""}
@@ -2219,6 +2225,19 @@ const renderCaptureProgress = (): void => {
     captureTitleEl.textContent = "Capturing Territory...";
     captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
     captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
+  } else if (state.settleProgress) {
+    captureCardEl.dataset.state = "progress";
+    const total = Math.max(1, state.settleProgress.resolvesAt - state.settleProgress.startAt);
+    const elapsed = Date.now() - state.settleProgress.startAt;
+    const pct = Math.max(0, Math.min(1, elapsed / total));
+    const remaining = Math.max(0, Math.ceil((state.settleProgress.resolvesAt - Date.now()) / 100) / 10);
+    captureCardEl.style.display = "grid";
+    captureWrapEl.style.display = "block";
+    captureCancelBtn.style.display = "inline-flex";
+    captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
+    captureTitleEl.textContent = "Settling Land...";
+    captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
+    captureTargetEl.textContent = `Target: (${state.settleProgress.target.x}, ${state.settleProgress.target.y})`;
   } else if (state.captureAlert && state.captureAlert.until > Date.now()) {
     if (state.captureAlert.title === "Collect Visible Cooldown") {
       const remaining = state.collectVisibleCooldownUntil - Date.now();
@@ -3445,6 +3464,8 @@ const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
 
 const requestSettlement = (x: number, y: number): boolean => {
   if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
+  const startAt = Date.now();
+  state.settleProgress = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y } };
   state.selected = { x, y };
   state.attackPreview = undefined;
   state.attackPreviewPendingKey = "";
@@ -3765,6 +3786,13 @@ const formatCooldownShort = (ms: number): string => {
   const seconds = totalSeconds % 60;
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;
+};
+
+const formatCountdownClock = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
 const hasRevealCapability = (): boolean => {
@@ -5228,6 +5256,18 @@ ws.addEventListener("message", (ev) => {
         state.actionCurrent = undefined;
       }
     }
+    if (
+      state.settleProgress &&
+      changes.some(
+        (c) =>
+          c.x === state.settleProgress?.target.x &&
+          c.y === state.settleProgress?.target.y &&
+          c.ownerId === state.me &&
+          c.ownershipState === "SETTLED"
+      )
+    ) {
+      state.settleProgress = undefined;
+    }
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
     renderHud();
@@ -5257,6 +5297,7 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COMBAT_CANCELLED") {
     const cancelledCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
+    state.settleProgress = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -5339,6 +5380,15 @@ ws.addEventListener("message", (ev) => {
       state.tiles.set(key(update.x, update.y), merged);
       markDockDiscovered(merged);
       if (!merged.fogged) state.discoveredTiles.add(key(update.x, update.y));
+      if (
+        state.settleProgress &&
+        update.x === state.settleProgress.target.x &&
+        update.y === state.settleProgress.target.y &&
+        merged.ownerId === state.me &&
+        merged.ownershipState === "SETTLED"
+      ) {
+        state.settleProgress = undefined;
+      }
       if (
         !resolvedQueuedFrontierCapture &&
         updateKey === state.actionTargetKey &&
@@ -5477,6 +5527,7 @@ ws.addEventListener("message", (ev) => {
     if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
       notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
     } else if (errorCode === "SETTLE_INVALID" && failedTargetKey) {
+      state.settleProgress = undefined;
       showCaptureAlert("Action failed", errorMessage, "warn");
     }
     if (errorCode === "COLLECT_EMPTY") {
@@ -5495,6 +5546,7 @@ ws.addEventListener("message", (ev) => {
     }
     const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
+    if (errorCode !== "LOCKED") state.settleProgress = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -6285,6 +6337,10 @@ renderHud();
 setInterval(renderCaptureProgress, 100);
 setInterval(() => {
   if (state.collectVisibleCooldownUntil > Date.now()) renderHud();
+  if (state.settleProgress) {
+    if (state.settleProgress.resolvesAt <= Date.now()) state.settleProgress = undefined;
+    renderHud();
+  }
   if (!state.actionInFlight) return;
   const started = state.actionStartedAt;
   if (!started) return;
