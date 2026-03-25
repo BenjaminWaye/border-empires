@@ -5001,6 +5001,28 @@ type AiSettlementCandidateEvaluation = {
   supportsImmediatePlan: boolean;
 };
 
+const aiEconomyPriorityState = (
+  actor: Player
+): {
+  controlledTowns: number;
+  settledTiles: number;
+  aiIncome: number;
+  worldFlags: Set<string>;
+  foodCoverageLow: boolean;
+  economyWeak: boolean;
+} => {
+  const controlledTowns = countControlledTowns(actor.id);
+  const settledTiles = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length;
+  const aiIncome = currentIncomePerMinute(actor);
+  const worldFlags = playerWorldFlags(actor);
+  const foodCoverageLow = controlledTowns > 0 && currentFoodCoverageForPlayer(actor.id) < 1.05;
+  const economyWeak =
+    aiIncome < (controlledTowns === 0 ? 12 : 18) ||
+    (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && settledTiles >= 6) ||
+    foodCoverageLow;
+  return { controlledTowns, settledTiles, aiIncome, worldFlags, foodCoverageLow, economyWeak };
+};
+
 const aiFoodPressureSignal = (actor: Player): number => {
   const ownedTownCount = ownedTownKeysForPlayer(actor.id).length;
   if (ownedTownCount <= 0) return 0;
@@ -5223,6 +5245,7 @@ const classifyAiNeutralFrontierOpportunity = (
 };
 
 const bestAiScaffoldExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId): { from: Tile; to: Tile } | undefined => {
+  const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor);
   const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
@@ -5232,6 +5255,7 @@ const bestAiScaffoldExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const evaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([key(to.x, to.y)]));
       if (!evaluation.supportsImmediatePlan) continue;
+      if ((economyWeak || foodCoverageLow) && !evaluation.isEconomicallyInteresting) continue;
       let score = evaluation.score;
       if (evaluation.isDefensivelyCompact) score += 30;
       if (evaluation.isEconomicallyInteresting) score += 25;
@@ -5330,10 +5354,7 @@ const aiFrontierOpportunityCounts = (actor: Player, victoryPath?: AiSeasonVictor
 };
 
 const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId): Tile | undefined => {
-  const controlledTowns = countControlledTowns(actor.id);
-  const aiIncome = currentIncomePerMinute(actor);
-  const worldFlags = playerWorldFlags(actor);
-  const foodCoverageLow = controlledTowns > 0 && currentFoodCoverageForPlayer(actor.id) < 1.05;
+  const { foodCoverageLow, economyWeak } = aiEconomyPriorityState(actor);
   const underThreat = [...actor.territoryTiles].some((tileKey) => {
     const [x, y] = parseKey(tileKey);
     if (ownershipStateByTile.get(tileKey) !== "SETTLED") return false;
@@ -5343,10 +5364,6 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
       return true;
     });
   });
-  const economyWeak =
-    aiIncome < (controlledTowns === 0 ? 12 : 18) ||
-    (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length >= 6) ||
-    foodCoverageLow;
   const frontierTiles = [...actor.territoryTiles]
     .filter((tileKey) => ownershipStateByTile.get(tileKey) === "FRONTIER")
     .map((tileKey) => {
@@ -5364,7 +5381,9 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
   const best = intrinsicBest ?? frontierTiles[0];
   if (!best) return undefined;
   if (!best.isEconomicallyInteresting && !best.isStrategicallyInteresting) return undefined;
-  if ((economyWeak || underThreat || foodCoverageLow) && !best.isEconomicallyInteresting) return undefined;
+  if ((economyWeak || underThreat || foodCoverageLow) && !best.hasIntrinsicEconomicValue && best.tile.resource !== "FARM" && best.tile.resource !== "FISH") {
+    return undefined;
+  }
   const minScore = best.hasIntrinsicEconomicValue ? 20 : victoryPath === "SETTLED_TERRITORY" ? 32 : 55;
   return best.score >= minScore ? best.tile : undefined;
 };
