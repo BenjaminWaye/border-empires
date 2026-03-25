@@ -3296,6 +3296,23 @@ const sendVisibleTileDeltaSquare = (x: number, y: number, radius: number): void 
   }
 };
 
+const refreshVisibleOwnedTownsForPlayer = (playerId: string): void => {
+  for (const townKey of ownedTownKeysForPlayer(playerId)) {
+    const [x, y] = parseKey(townKey);
+    sendVisibleTileDeltaAt(x, y);
+  }
+};
+
+const refreshVisibleNearbyTownDeltas = (x: number, y: number): void => {
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      const nx = wrapX(x + dx, WORLD_WIDTH);
+      const ny = wrapY(y + dy, WORLD_HEIGHT);
+      if (townsByTile.has(key(nx, ny))) sendVisibleTileDeltaAt(nx, ny);
+    }
+  }
+};
+
 const reconcileCapitalForPlayer = (player: Player): void => {
   const previous = player.capitalTileKey;
   const next = isValidCapitalTile(player, previous) ? previous : chooseCapitalTileKey(player);
@@ -8357,6 +8374,15 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     recomputeExposure(p);
     reconcileCapitalForPlayer(p);
     rebuildEconomyIndexForPlayer(pid);
+  }
+
+  const changedFoodTile = t.resource === "FARM" || t.resource === "FISH";
+  const changedTownTile = townsByTile.has(k);
+  const changedSupportAdjacency = adjacentNeighborCores(t.x, t.y).some((neighbor) => townsByTile.has(key(neighbor.x, neighbor.y)));
+  if (changedFoodTile) {
+    for (const pid of affectedPlayers) refreshVisibleOwnedTownsForPlayer(pid);
+  } else if (changedTownTile || changedSupportAdjacency) {
+    refreshVisibleNearbyTownDeltas(t.x, t.y);
   }
 
   const visibilityAffectedPlayers = new Set<string>();
