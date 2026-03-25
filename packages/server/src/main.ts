@@ -138,6 +138,8 @@ interface AllianceRequest {
   toPlayerId: string;
   createdAt: number;
   expiresAt: number;
+  fromName?: string;
+  toName?: string;
 }
 
 type VictoryPressureTracker = {
@@ -8992,21 +8994,21 @@ app.post("/admin/world/regenerate", async () => {
       const [x, y] = parseKey(tk);
       const t = playerTile(x, y);
       if (t.ownerId !== actor.id) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "tile is not owned by you" }));
+        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "tile is not owned by you", x, y }));
         return;
       }
       if (t.terrain !== "LAND") {
-        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "tile is not land" }));
+        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "tile is not land", x, y }));
         return;
       }
       if (t.ownershipState !== "SETTLED") {
-        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "only settled tiles can be collected" }));
+        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "only settled tiles can be collected", x, y }));
         return;
       }
       const got = collectYieldFromTile(actor, tk);
       const touched = got.gold > 0 || hasPositiveStrategicBuffer(got.strategic);
       if (!touched) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "yield is empty (upkeep may have consumed it)" }));
+        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: "yield is empty (upkeep may have consumed it)", x, y }));
         return;
       }
       recalcPlayerDerived(actor);
@@ -9117,7 +9119,8 @@ app.post("/admin/world/regenerate", async () => {
     }
 
     if (msg.type === "ALLIANCE_REQUEST") {
-      const target = [...players.values()].find((p) => p.name === msg.targetPlayerName);
+      const targetNameNeedle = msg.targetPlayerName.trim().toLocaleLowerCase();
+      const target = [...players.values()].find((p) => p.name.trim().toLocaleLowerCase() === targetNameNeedle);
       if (!target || target.id === actor.id) {
         socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_TARGET", message: "target not found" }));
         return;
@@ -9131,10 +9134,12 @@ app.post("/admin/world/regenerate", async () => {
         fromPlayerId: actor.id,
         toPlayerId: target.id,
         createdAt: now(),
-        expiresAt: now() + ALLIANCE_REQUEST_TTL_MS
+        expiresAt: now() + ALLIANCE_REQUEST_TTL_MS,
+        fromName: actor.name,
+        toName: target.name
       };
       allianceRequests.set(request.id, request);
-      socket.send(JSON.stringify({ type: "ALLIANCE_REQUESTED", request }));
+      socket.send(JSON.stringify({ type: "ALLIANCE_REQUESTED", request, targetName: target.name }));
       socketsByPlayer.get(target.id)?.send(JSON.stringify({ type: "ALLIANCE_REQUEST_INCOMING", request, fromName: actor.name }));
       return;
     }
