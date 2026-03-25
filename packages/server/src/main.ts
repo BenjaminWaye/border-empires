@@ -4903,21 +4903,40 @@ type AiSettlementCandidateEvaluation = {
   supportsImmediatePlan: boolean;
 };
 
+const aiFoodPressureSignal = (actor: Player): number => {
+  const ownedTownCount = ownedTownKeysForPlayer(actor.id).length;
+  if (ownedTownCount <= 0) return 0;
+  const coverage = currentFoodCoverageForPlayer(actor.id);
+  if (coverage >= 1.2) return 0;
+  if (coverage >= 1) return 35;
+  if (coverage >= 0.85) return 80;
+  return 140;
+};
+
 const aiEconomicFrontierSignal = (actor: Player, tile: Tile): number => {
   const visibility = visibilitySnapshotForPlayer(actor);
   const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
   const tk = key(tile.x, tile.y);
+  const foodPressure = aiFoodPressureSignal(actor);
   let score = 0;
   if (visibleToActor(tile.x, tile.y)) {
     if (townsByTile.has(tk)) score += 150;
-    if (tile.resource) score += 90 + baseTileValue(tile.resource);
+    if (tile.resource) {
+      score += 90 + baseTileValue(tile.resource);
+      if (foodPressure > 0 && (tile.resource === "FARM" || tile.resource === "FISH")) score += foodPressure;
+    }
     if (docksByTile.has(tk)) score += 135;
   }
   for (const neighbor of cardinalNeighborCores(tile.x, tile.y)) {
     if (!visibleToActor(neighbor.x, neighbor.y)) continue;
     const neighborKey = key(neighbor.x, neighbor.y);
     if (townsByTile.has(neighborKey)) score += 110;
-    if (neighbor.resource) score += 65 + Math.floor(baseTileValue(neighbor.resource) * 0.6);
+    if (neighbor.resource) {
+      score += 65 + Math.floor(baseTileValue(neighbor.resource) * 0.6);
+      if (foodPressure > 0 && (neighbor.resource === "FARM" || neighbor.resource === "FISH")) {
+        score += Math.round(foodPressure * 0.7);
+      }
+    }
     if (docksByTile.has(neighborKey)) score += 95;
   }
   return score;
@@ -4982,6 +5001,7 @@ const evaluateAiSettlementCandidate = (
   const isTown = townsByTile.has(tk);
   const resourceValue = tile.resource ? baseTileValue(tile.resource) : 0;
   const economicFrontierSignal = aiEconomicFrontierSignal(actor, tile);
+  const foodPressure = aiFoodPressureSignal(actor);
   const dock = docksByTile.get(tk);
   let dockValue = 0;
   if (dock) {
@@ -4989,6 +5009,24 @@ const evaluateAiSettlementCandidate = (
     const linked = dock.connectedDockIds?.length ? dock.connectedDockIds.length : dock.pairedDockId ? 1 : 0;
     dockValue += linked * 20;
   }
+  let townSupportSignal = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = wrapX(tile.x + dx, WORLD_WIDTH);
+      const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
+      if (terrainAt(nx, ny) !== "LAND") continue;
+      const neighborKey = key(nx, ny);
+      if (!townsByTile.has(neighborKey)) continue;
+      if (ownership.get(neighborKey) !== actor.id || ownershipStateByTile.get(neighborKey) !== "SETTLED") continue;
+      const support = townSupport(neighborKey, actor.id);
+      const deficit = Math.max(0, support.supportMax - support.supportCurrent);
+      if (deficit <= 0) continue;
+      townSupportSignal += 60 + deficit * 18;
+    }
+  }
+  const foodSettlementSignal =
+    foodPressure > 0 && (tile.resource === "FARM" || tile.resource === "FISH") ? Math.round(foodPressure * 0.9) : 0;
   const adjacentInteresting = cardinalNeighborCores(tile.x, tile.y).reduce((score, neighbor) => {
     const neighborKey = key(neighbor.x, neighbor.y);
     const hostileOwner = neighbor.ownerId && neighbor.ownerId !== actor.id && !actor.allies.has(neighbor.ownerId);
@@ -5025,15 +5063,18 @@ const evaluateAiSettlementCandidate = (
     (ownedNeighbors >= 3 ? 24 : 0) +
     (exposedSides <= 1 ? 18 : 0);
   const connectedCoreValue = alliedSettledNeighbors >= 2 ? 24 : alliedSettledNeighbors >= 1 ? 10 : -10;
-  const isEconomicallyInteresting = isTown || Boolean(tile.resource) || dockValue > 0 || economicFrontierSignal >= 95;
+  const isEconomicallyInteresting =
+    isTown || Boolean(tile.resource) || dockValue > 0 || economicFrontierSignal >= 95 || townSupportSignal > 0;
   const isDefensivelyCompact = ownedNeighbors >= 3 && exposedSides <= 1;
-  const isStrategicallyInteresting = adjacentInteresting >= 35 || defensiveShapeValue >= 26;
+  const isStrategicallyInteresting = adjacentInteresting >= 35 || defensiveShapeValue >= 26 || townSupportSignal > 0;
 
   let score = 0;
   if (isTown) score += 140;
   score += resourceValue * 1.5;
+  score += foodSettlementSignal;
   score += dockValue;
   score += economicFrontierSignal;
+  score += townSupportSignal;
   score += adjacentInteresting;
   score += defensiveShapeValue + connectedCoreValue;
   if (victoryPath === "SETTLED_TERRITORY") score += 25;
@@ -5045,6 +5086,7 @@ const evaluateAiSettlementCandidate = (
   const supportsImmediatePlan =
     isEconomicallyInteresting ||
     isDefensivelyCompact ||
+    townSupportSignal > 0 ||
     score >= (victoryPath === "SETTLED_TERRITORY" ? 36 : 58);
 
   return {
@@ -5425,10 +5467,13 @@ const runAiTurn = (actor: Player): void => {
   const bestSettlement = bestAiSettlementTile(actor);
   const bestFortAnchor = bestAiFortTile(actor);
   const bestEconomicBuild = bestAiEconomicStructure(actor);
+  const foodCoverage = currentFoodCoverageForPlayer(actor.id);
+  const foodCoverageLow = controlledTowns > 0 && foodCoverage < 1.05;
   const economyWeak =
     aiIncome < (controlledTowns === 0 ? 12 : 18) ||
     (settledTiles >= 10 && aiIncome < 15) ||
-    (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && settledTiles >= 6);
+    (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && settledTiles >= 6) ||
+    foodCoverageLow;
   const frontierDebt = frontierTiles >= Math.max(2, settledTiles);
   const threatCritical = underThreat && (controlledTowns > 0 || aiIncome >= 5 || frontierDebt);
   const needsFortifiedAnchor = Boolean(bestFortAnchor) && (controlledTowns > 0 || worldFlags.has("active_dock") || aiIncome >= 16);
@@ -5455,7 +5500,71 @@ const runAiTurn = (actor: Player): void => {
   const bestPressureAttack = bestAiEnemyPressureAttack(actor, primaryVictoryPath);
   const frontierOpportunityCounts = aiFrontierOpportunityCounts(actor, primaryVictoryPath);
   const economicPushReady = frontierOpportunityCounts.economic > 0 && Boolean(bestNeutralExpand);
-  const pressureAttackReady = Boolean(bestPressureAttack) && !threatCritical && actor.points >= FRONTIER_ACTION_GOLD_COST;
+  const urgentPressureAttackReady =
+    Boolean(bestPressureAttack) &&
+    actor.points >= FRONTIER_ACTION_GOLD_COST &&
+    ((bestPressureAttack?.score ?? 0) >= 350 || (underThreat && (bestPressureAttack?.score ?? 0) >= 220));
+  const pressureAttackReady =
+    Boolean(bestPressureAttack) &&
+    actor.points >= FRONTIER_ACTION_GOLD_COST &&
+    (!threatCritical || urgentPressureAttackReady);
+
+  if (urgentPressureAttackReady) {
+    const executed = executeAiGoapAction(actor, "attack_enemy_border_tile", primaryVictoryPath);
+    setAiTurnDebug(actor, executed ? "executed_pressure_counterattack_priority" : "failed_pressure_counterattack_priority", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      goapActionKey: "attack_enemy_border_tile",
+      executed,
+      details: {
+        enemyPressureScore: bestPressureAttack?.score ?? 0,
+        underThreat,
+        threatCritical,
+        urgentPressureAttackReady
+      }
+    });
+    if (executed) return;
+  }
+
+  if (foodCoverageLow && bestSettlement && canAffordGoldCost(actor.points, SETTLE_COST)) {
+    const executed = executeAiGoapAction(actor, "settle_owned_frontier_tile", primaryVictoryPath);
+    setAiTurnDebug(actor, executed ? "executed_food_settlement_priority" : "failed_food_settlement_priority", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      goapActionKey: "settle_owned_frontier_tile",
+      executed,
+      details: {
+        foodCoverage,
+        foodCoverageLow,
+        hasSettlementTarget: Boolean(bestSettlement),
+        frontierTiles
+      }
+    });
+    if (executed) return;
+  }
+
+  if (foodCoverageLow && economicPushReady && actor.points >= FRONTIER_ACTION_GOLD_COST) {
+    const executed = executeAiGoapAction(actor, "claim_food_border_tile", primaryVictoryPath);
+    setAiTurnDebug(actor, executed ? "executed_food_expand_priority" : "failed_food_expand_priority", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      goapActionKey: "claim_food_border_tile",
+      executed,
+      details: {
+        foodCoverage,
+        foodCoverageLow,
+        economicOpportunityCount: frontierOpportunityCounts.economic,
+        hasNeutralLandOpportunity: Boolean(bestNeutralExpand)
+      }
+    });
+    if (executed) return;
+  }
 
   if ((economyWeak || frontierDebt) && bestSettlement && canAffordGoldCost(actor.points, SETTLE_COST)) {
     const executed = executeAiGoapAction(actor, "settle_owned_frontier_tile", primaryVictoryPath);
@@ -5489,7 +5598,8 @@ const runAiTurn = (actor: Player): void => {
         enemyPressureScore: bestPressureAttack?.score ?? 0,
         hasWeakEnemyBorder: Boolean(bestEnemyAttack),
         underThreat,
-        threatCritical
+        threatCritical,
+        urgentPressureAttackReady
       }
     });
     if (executed) return;
@@ -5553,6 +5663,7 @@ const runAiTurn = (actor: Player): void => {
     hasWeakEnemyBorder: Boolean(bestPressureAttack ?? bestEnemyAttack),
     needsSettlement: Boolean(bestSettlement),
     frontierDebtHigh: frontierDebt,
+    foodCoverageLow,
     underThreat,
     threatCritical,
     economyWeak,
@@ -5603,7 +5714,8 @@ const runAiTurn = (actor: Player): void => {
         executed,
         details: {
           enemyPressureScore: bestPressureAttack?.score ?? 0,
-          hasWeakEnemyBorder: Boolean(bestEnemyAttack)
+          hasWeakEnemyBorder: Boolean(bestEnemyAttack),
+          urgentPressureAttackReady
         }
       });
       if (executed) return;
@@ -5672,6 +5784,7 @@ const runAiTurn = (actor: Player): void => {
         enemyPressureScore: bestPressureAttack?.score ?? 0,
         needsSettlement: goapState.needsSettlement,
         frontierDebtHigh: goapState.frontierDebtHigh,
+        foodCoverageLow: goapState.foodCoverageLow,
         underThreat: goapState.underThreat,
         threatCritical: goapState.threatCritical,
         economyWeak: goapState.economyWeak,
@@ -5707,6 +5820,7 @@ const runAiTurn = (actor: Player): void => {
       enemyPressureScore: bestPressureAttack?.score ?? 0,
       needsSettlement: goapState.needsSettlement,
       frontierDebtHigh: goapState.frontierDebtHigh,
+      foodCoverageLow: goapState.foodCoverageLow,
       underThreat: goapState.underThreat,
       threatCritical: goapState.threatCritical,
       economyWeak: goapState.economyWeak,
