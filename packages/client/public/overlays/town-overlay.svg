@@ -1,63 +1,21 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="plate" x1="64" y1="14" x2="64" y2="114" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#223045"/>
-      <stop offset="1" stop-color="#0D1523"/>
-    </linearGradient>
-    <linearGradient id="roofMain" x1="64" y1="34" x2="64" y2="63" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFDFA1"/>
-      <stop offset="1" stop-color="#C98D3E"/>
-    </linearGradient>
-    <linearGradient id="roofSide" x1="64" y1="40" x2="64" y2="72" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F3C975"/>
-      <stop offset="1" stop-color="#A86A2B"/>
-    </linearGradient>
-    <linearGradient id="wall" x1="64" y1="46" x2="64" y2="96" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#D6E0EC"/>
-      <stop offset="1" stop-color="#7A879B"/>
-    </linearGradient>
-    <filter id="shadow" x="6" y="8" width="116" height="116" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feOffset dy="6"/>
-      <feGaussianBlur stdDeviation="6"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0.0117647 0 0 0 0 0.0313726 0 0 0 0 0.0705882 0 0 0 0.46 0"/>
-    </filter>
-  </defs>
+  <path d="M28 86L43 75L66 75L51 86H28Z" fill="#B67733"/>
+  <path d="M43 75L43 55L66 55L66 75H43Z" fill="#D7E0EA"/>
+  <path d="M66 75L81 64L81 44L66 55V75Z" fill="#8E99AA"/>
+  <path d="M43 55L58 44L81 44L66 55H43Z" fill="#F1C875"/>
 
-  <g filter="url(#shadow)">
-    <rect x="18" y="18" width="92" height="92" rx="18" fill="url(#plate)"/>
-    <rect x="19.5" y="19.5" width="89" height="89" rx="16.5" stroke="#40516A" stroke-width="3"/>
-    <rect x="25" y="25" width="78" height="78" rx="13" fill="#111B2B"/>
-  </g>
+  <path d="M53 86L69 74L95 74L79 86H53Z" fill="#C18137"/>
+  <path d="M69 74L69 46L95 46L95 74H69Z" fill="#E3EAF1"/>
+  <path d="M95 74L110 63L110 35L95 46V74Z" fill="#95A0B1"/>
+  <path d="M69 46L85 35L110 35L95 46H69Z" fill="#FFD98C"/>
+  <path d="M78 86L78 65L87 65L87 86H78Z" fill="#263347"/>
+  <rect x="82" y="56" width="4" height="6" rx="1.2" fill="#F6DA94"/>
 
-  <path d="M30 92L40 80H88L98 92H30Z" fill="#314259"/>
-  <path d="M36 86H92V92H36V86Z" fill="#4A5D78"/>
-  <path d="M40 81H46V90H40V81Z" fill="#8392A7"/>
-  <path d="M82 81H88V90H82V81Z" fill="#8392A7"/>
+  <path d="M16 89L30 79L50 79L36 89H16Z" fill="#A6682E"/>
+  <path d="M30 79L30 62L50 62L50 79H30Z" fill="#CFD8E4"/>
+  <path d="M50 79L61 71L61 54L50 62V79Z" fill="#8792A4"/>
+  <path d="M30 62L44 54L61 54L50 62H30Z" fill="#EABA67"/>
 
-  <path d="M28 96H100" stroke="#556B87" stroke-width="4" stroke-linecap="round" stroke-opacity="0.7"/>
-
-  <path d="M49 59L64 42L79 59V90H49V59Z" fill="url(#wall)"/>
-  <path d="M46 61L64 33L82 61H46Z" fill="url(#roofMain)"/>
-  <path d="M56 68H72V90H56V68Z" fill="#253246"/>
-  <rect x="59" y="71" width="4" height="8" rx="1.5" fill="#F4D58B"/>
-  <rect x="65" y="71" width="4" height="8" rx="1.5" fill="#F4D58B"/>
-
-  <path d="M33 68L45 56L57 68V88H33V68Z" fill="#B5C1D1"/>
-  <path d="M31 69L45 48L59 69H31Z" fill="url(#roofSide)"/>
-  <rect x="39" y="73" width="5" height="5" rx="1.5" fill="#253246"/>
-  <rect x="47" y="73" width="5" height="5" rx="1.5" fill="#253246"/>
-
-  <path d="M71 68L83 56L95 68V88H71V68Z" fill="#B5C1D1"/>
-  <path d="M69 69L83 48L97 69H69Z" fill="url(#roofSide)"/>
-  <rect x="77" y="73" width="5" height="5" rx="1.5" fill="#253246"/>
-  <rect x="85" y="73" width="5" height="5" rx="1.5" fill="#253246"/>
-
-  <path d="M41 56V47L45 43L49 47V56H41Z" fill="#8D9CB0"/>
-  <path d="M79 56V44L84 39L89 44V56H79Z" fill="#8D9CB0"/>
-  <rect x="82" y="34" width="4" height="10" rx="1.5" fill="#708097"/>
-
-  <rect x="35" y="91" width="58" height="5" rx="2.5" fill="#1D293A"/>
-  <circle cx="47" cy="94" r="1.8" fill="#CDA052"/>
-  <circle cx="64" cy="94" r="1.8" fill="#CDA052"/>
-  <circle cx="81" cy="94" r="1.8" fill="#CDA052"/>
+  <path d="M95 46V31L99 28L103 31V40L95 46Z" fill="#A5B1C1"/>
+  <path d="M62 92L87 92" stroke="#D5A14C" stroke-width="4" stroke-linecap="round"/>
 </svg>
