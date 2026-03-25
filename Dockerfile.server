@@ -27,8 +27,11 @@ COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
+COPY --from=build /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=build /app/packages/server/package.json ./packages/server/package.json
+COPY --from=build /app/packages/server/data ./packages/server/data
 COPY --from=build /app/packages/server/dist ./packages/server/dist
+COPY --from=build /app/packages/server/node_modules ./packages/server/node_modules
 
 ENV NODE_ENV=production
 ENV PORT=8080
