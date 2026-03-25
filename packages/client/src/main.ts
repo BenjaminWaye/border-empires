@@ -129,6 +129,8 @@ type AllianceRequest = {
   toPlayerId: string;
   createdAt: number;
   expiresAt: number;
+  fromName?: string;
+  toName?: string;
 };
 type TechInfo = {
   id: string;
@@ -791,6 +793,14 @@ const state = {
     gold: 0,
     strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
   },
+  pendingCollectTileDelta: new Map<
+    string,
+    {
+      gold: number;
+      strategic: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+      previousYield?: { gold: number; strategic: Record<string, number> };
+    }
+  >(),
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     byTiles: [] as LeaderboardMetricEntry[],
@@ -1242,6 +1252,14 @@ const clearPendingCollectVisibleDelta = (): void => {
   }
 };
 
+const clearPendingCollectTileDelta = (tileKey?: string): void => {
+  if (tileKey) {
+    state.pendingCollectTileDelta.delete(tileKey);
+    return;
+  }
+  state.pendingCollectTileDelta.clear();
+};
+
 const revertOptimisticVisibleCollectDelta = (): void => {
   const delta = state.pendingCollectVisibleDelta;
   if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
@@ -1250,6 +1268,20 @@ const revertOptimisticVisibleCollectDelta = (): void => {
     if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
   }
   clearPendingCollectVisibleDelta();
+};
+
+const revertOptimisticTileCollectDelta = (tileKey: string): void => {
+  const delta = state.pendingCollectTileDelta.get(tileKey);
+  if (!delta) return;
+  if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    const amount = delta.strategic[resource] ?? 0;
+    if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
+  }
+  const tile = state.tiles.get(tileKey);
+  if (tile && delta.previousYield) tile.yield = delta.previousYield;
+  else if (tile) delete tile.yield;
+  state.pendingCollectTileDelta.delete(tileKey);
 };
 
 const applyOptimisticVisibleCollect = (): number => {
@@ -1279,6 +1311,41 @@ const applyOptimisticVisibleCollect = (): number => {
     touched += 1;
   }
   return touched;
+};
+
+const applyOptimisticTileCollect = (tile: Tile): boolean => {
+  const tileKey = key(tile.x, tile.y);
+  const gold = tile.yield?.gold ?? 0;
+  const strategic = {
+    FOOD: Number(tile.yield?.strategic?.FOOD ?? 0),
+    IRON: Number(tile.yield?.strategic?.IRON ?? 0),
+    CRYSTAL: Number(tile.yield?.strategic?.CRYSTAL ?? 0),
+    SUPPLY: Number(tile.yield?.strategic?.SUPPLY ?? 0),
+    SHARD: Number(tile.yield?.strategic?.SHARD ?? 0)
+  } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+  const touched = gold > 0 || Object.values(strategic).some((amount) => amount > 0);
+  if (!touched) return false;
+
+  state.pendingCollectTileDelta.set(tileKey, {
+    gold,
+    strategic,
+    ...(tile.yield
+      ? { previousYield: { gold: tile.yield.gold ?? 0, strategic: { ...(tile.yield.strategic ?? {}) } } }
+      : {})
+  });
+  if (gold > 0) {
+    state.gold += gold;
+    state.goldAnimUntil = Date.now() + 350;
+    state.goldAnimDir = 1;
+  }
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    const amount = strategic[resource] ?? 0;
+    if (amount <= 0) continue;
+    state.strategicResources[resource] += amount;
+    state.strategicAnim[resource] = { until: Date.now() + 350, dir: 1 };
+  }
+  tile.yield = { gold: 0, strategic: {} };
+  return true;
 };
 const isCoastalLand = (x: number, y: number): boolean => {
   if (terrainAt(x, y) !== "LAND") return false;
@@ -2851,7 +2918,7 @@ const allianceRequestsHtml = (): string => {
     .map(
       (request) => `<article class="card alliance-row">
       <div>
-        <strong>${request.fromPlayerId.slice(0, 8)}</strong>
+        <strong>${request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)}</strong>
         <p>Request ${request.id.slice(0, 8)}</p>
       </div>
       <button class="panel-btn accept-request" data-request-id="${request.id}">Accept</button>
@@ -2865,7 +2932,7 @@ const alliesHtml = (): string => {
   return state.allies
     .map(
       (id) => `<article class="card alliance-row">
-      <div><strong>${id.slice(0, 8)}</strong><p>Allied</p></div>
+      <div><strong>${playerNameForOwner(id) ?? id.slice(0, 8)}</strong><p>Allied</p></div>
       <button class="panel-btn break-ally" data-ally-id="${id}">Break</button>
     </article>`
     )
@@ -3741,6 +3808,10 @@ const collectVisibleYield = (): void => {
 const collectSelectedYield = (): void => {
   const sel = state.selected;
   if (!sel) return;
+  const tile = state.tiles.get(key(sel.x, sel.y));
+  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") return;
+  applyOptimisticTileCollect(tile);
+  renderHud();
   sendGameMessage({ type: "COLLECT_TILE", x: sel.x, y: sel.y });
 };
 
@@ -4699,7 +4770,7 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
     hideTileActionMenu();
     return;
   }
-  if (actionId === "collect_yield") sendGameMessage({ type: "COLLECT_TILE", x: selected.x, y: selected.y });
+  if (actionId === "collect_yield") collectSelectedYield();
   if (actionId === "build_fortification") sendGameMessage({ type: "BUILD_FORT", x: selected.x, y: selected.y });
   if (actionId === "build_observatory") sendGameMessage({ type: "BUILD_OBSERVATORY", x: selected.x, y: selected.y });
   if (actionId === "build_farmstead") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" });
@@ -5316,7 +5387,7 @@ ws.addEventListener("message", (ev) => {
         else if ("breachShockUntil" in c && !c.breachShockUntil) delete existing.breachShockUntil;
       }
     }
-    pushFeed(`Combat winner: ${(msg.winnerId as string).slice(0, 8)}`, "combat", "success");
+    pushFeed(`Combat winner: ${playerNameForOwner(msg.winnerId as string | undefined) ?? String(msg.winnerId ?? "").slice(0, 8)}`, "combat", "success");
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const targetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : state.actionTargetKey;
     let handedOffToSettle = false;
@@ -5533,12 +5604,22 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "ALLIANCE_REQUEST_INCOMING") {
-    state.incomingAllianceRequests.push(msg.request as AllianceRequest);
-    pushFeed(`Incoming alliance request`, "alliance", "info");
+    const request = (msg.request as AllianceRequest) ?? undefined;
+    if (request) {
+      const fromName = msg.fromName as string | undefined;
+      if (fromName) request.fromName = fromName;
+      state.incomingAllianceRequests.push(request);
+    }
+    pushFeed(`Incoming alliance request${request?.fromName ? ` from ${request.fromName}` : ""}`, "alliance", "info");
     renderHud();
   }
   if (msg.type === "ALLIANCE_REQUESTED") {
-    pushFeed(`Alliance request sent`, "alliance", "success");
+    const request = msg.request as AllianceRequest | undefined;
+    const targetName =
+      (msg.targetName as string | undefined) ??
+      request?.toName ??
+      (request ? playerNameForOwner(request.toPlayerId) : undefined);
+    pushFeed(`Alliance request sent${targetName ? ` to ${targetName}` : ""}`, "alliance", "success");
     renderHud();
   }
   if (msg.type === "ALLIANCE_UPDATE") {
@@ -5567,6 +5648,8 @@ ws.addEventListener("message", (ev) => {
     if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
       state.pendingCollectVisibleKeys.clear();
       revertOptimisticVisibleCollectDelta();
+      const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? key(Number(msg.x), Number(msg.y)) : "";
+      if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
     }
     const failedTargetKey = state.actionTargetKey;
     console.error("[server-error]", {
@@ -5690,6 +5773,9 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COLLECT_RESULT") {
     state.pendingCollectVisibleKeys.clear();
     if ((msg.mode as string | undefined) === "visible") clearPendingCollectVisibleDelta();
+    if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
+      clearPendingCollectTileDelta(key(Number(msg.x), Number(msg.y)));
+    }
     const gold = Number(msg.gold ?? 0);
     const strategic = (msg.strategic as Record<string, number> | undefined) ?? {};
     const strategicParts = Object.entries(strategic)
