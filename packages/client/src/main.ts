@@ -1672,6 +1672,32 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
   ctx.lineTo(px + size * 0.78, py + size * 0.88);
   ctx.stroke();
   ctx.lineWidth = 1;
+
+  if (!tile.town.isFed) {
+    const badgeSize = Math.max(8, size * 0.24);
+    const badgeX = px + size * 0.72;
+    const badgeY = py + size * 0.08;
+
+    ctx.fillStyle = "rgba(201, 74, 56, 0.96)";
+    ctx.beginPath();
+    ctx.moveTo(badgeX, badgeY + badgeSize);
+    ctx.lineTo(badgeX + badgeSize * 0.5, badgeY);
+    ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(39, 14, 9, 0.78)";
+    ctx.lineWidth = Math.max(1.2, size * 0.035);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255, 243, 219, 0.98)";
+    ctx.font = `bold ${Math.max(8, size * 0.16)}px system-ui`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("!", badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.62);
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
+  }
 };
 const clusterTint = (clusterType: string | undefined): string | undefined => {
   if (clusterType === "FERTILE_PLAINS") return "rgba(233,242,123,0.28)";
