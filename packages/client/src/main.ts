@@ -45,6 +45,8 @@ const OBSERVATORY_PROTECTION_RADIUS = 10;
 const MIN_ZOOM = 10;
 const MAX_ZOOM = 192;
 const GOLD_COST_EPSILON = 1e-6;
+const GUIDE_STORAGE_KEY = "border-empires-guide-complete-v1";
+const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1";
 
 const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 
@@ -209,6 +211,37 @@ type FeedEntry = {
 };
 type DockPair = { ax: number; ay: number; bx: number; by: number };
 type CrystalTargetingAbility = "deep_strike" | "naval_infiltration" | "sabotage";
+type GuideStep = {
+  title: string;
+  body: string;
+};
+
+const guideSteps: GuideStep[] = [
+  {
+    title: "Welcome to Border Empires",
+    body: "Expand, defend, and outmaneuver rival empires. Win the season by holding any victory condition continuously for 24 hours."
+  },
+  {
+    title: "Expand Your Territory",
+    body: "Tap nearby land to open expansion actions. Territory grows from unowned to frontier to settled, and settled land is what strengthens your empire."
+  },
+  {
+    title: "Manage Resources",
+    body: "Gold funds expansion and building. Iron supports war, Crystal fuels advanced actions, Supply supports outposts, and Food keeps towns productive."
+  },
+  {
+    title: "Build Structures",
+    body: "Open the Actions menu on your land to build forts, siege outposts, observatories, and economic structures on the tiles that matter most."
+  },
+  {
+    title: "Use Abilities",
+    body: "Technologies unlock powerful Crystal-based actions like sabotage, reconnaissance, and special attacks that can break open defended borders."
+  },
+  {
+    title: "Win the Season",
+    body: "Track victory races in the Victory panel. Town control, settled land, economy, resources, and continent reach can all decide the season if held for 24 hours."
+  }
+];
 
 const canvas = document.querySelector<HTMLCanvasElement>("#game");
 const hud = document.querySelector<HTMLDivElement>("#hud");
@@ -240,7 +273,8 @@ hud.innerHTML = `
       </button>
       <button id="collect-visible-desktop" class="panel-btn utility-btn utility-btn-collect" type="button">
         <span class="utility-btn-icon" aria-hidden="true">✦</span>
-        <span class="utility-btn-copy"><strong>Collect</strong><small>Gather visible yield</small></span>
+        <span class="utility-btn-copy"><strong>Collect</strong><small id="collect-visible-desktop-meta">Gather visible yield</small></span>
+        <span id="collect-visible-desktop-badge" class="utility-btn-badge" hidden></span>
       </button>
     </div>
   </div>
@@ -384,6 +418,8 @@ hud.innerHTML = `
   <div id="hold-build-menu" style="display:none;"></div>
   <div id="tile-action-menu" style="display:none;"></div>
   <div id="targeting-overlay" style="display:none;"></div>
+  <div id="guide-overlay" style="display:none;"></div>
+  <button id="guide-fab" type="button" aria-label="Open game guide">?</button>
 
   <div id="mobile-nav">
     <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
@@ -402,7 +438,8 @@ hud.innerHTML = `
       </button>
       <button id="collect-visible-mobile" class="panel-btn utility-btn utility-btn-collect utility-btn-mobile" type="button">
         <span class="utility-btn-icon" aria-hidden="true">✦</span>
-        <span class="utility-btn-copy"><strong>Collect</strong><small>Visible yield</small></span>
+        <span class="utility-btn-copy"><strong>Collect</strong><small id="collect-visible-mobile-meta">Visible yield</small></span>
+        <span id="collect-visible-mobile-badge" class="utility-btn-badge" hidden></span>
       </button>
     </div>
   </div>
@@ -605,6 +642,12 @@ const centerMeBtn = document.querySelector<HTMLButtonElement>("#center-me");
 const collectVisibleMobileBtn = document.querySelector<HTMLButtonElement>("#collect-visible-mobile");
 const centerMeDesktopBtn = document.querySelector<HTMLButtonElement>("#center-me-desktop");
 const collectVisibleDesktopBtn = document.querySelector<HTMLButtonElement>("#collect-visible-desktop");
+const collectVisibleDesktopMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-desktop-meta");
+const collectVisibleMobileMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-mobile-meta");
+const collectVisibleDesktopBadgeEl = document.querySelector<HTMLSpanElement>("#collect-visible-desktop-badge");
+const collectVisibleMobileBadgeEl = document.querySelector<HTMLSpanElement>("#collect-visible-mobile-badge");
+const guideOverlayEl = document.querySelector<HTMLDivElement>("#guide-overlay");
+const guideFabEl = document.querySelector<HTMLButtonElement>("#guide-fab");
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 if (
   !statsChipsEl ||
@@ -701,10 +744,32 @@ if (
   !centerMeBtn ||
   !collectVisibleMobileBtn ||
   !centerMeDesktopBtn ||
-  !collectVisibleDesktopBtn
+  !collectVisibleDesktopBtn ||
+  !collectVisibleDesktopMetaEl ||
+  !collectVisibleMobileMetaEl ||
+  !collectVisibleDesktopBadgeEl ||
+  !collectVisibleMobileBadgeEl ||
+  !guideOverlayEl ||
+  !guideFabEl
 ) {
   throw new Error("hud elements missing");
 }
+
+const storageGet = (keyName: string): string | null => {
+  try {
+    return window.localStorage.getItem(keyName);
+  } catch {
+    return null;
+  }
+};
+
+const storageSet = (keyName: string, value: string): void => {
+  try {
+    window.localStorage.setItem(keyName, value);
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
+};
 
 const state = {
   me: "",
@@ -864,6 +929,12 @@ const state = {
     ability: "deep_strike" as CrystalTargetingAbility,
     validTargets: new Set<string>(),
     originByTarget: new Map<string, string>()
+  },
+  guide: {
+    open: storageGet(GUIDE_STORAGE_KEY) !== "1",
+    stepIndex: 0,
+    completed: storageGet(GUIDE_STORAGE_KEY) === "1",
+    autoOpened: storageGet(GUIDE_AUTO_OPEN_STORAGE_KEY) === "1"
   },
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
@@ -1245,6 +1316,23 @@ const hasCollectableYield = (t: Tile | undefined): boolean => {
   return Object.values(t.yield.strategic ?? {}).some((v) => Number(v) > 0.01);
 };
 
+const visibleCollectSummary = (): { tileCount: number; gold: number; resourceKinds: number } => {
+  let tileCount = 0;
+  let gold = 0;
+  const activeResources = new Set<string>();
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") continue;
+    if (tileVisibilityStateAt(tile.x, tile.y, tile) !== "visible") continue;
+    if (!hasCollectableYield(tile)) continue;
+    tileCount += 1;
+    gold += tile.yield?.gold ?? 0;
+    for (const [resource, amount] of Object.entries(tile.yield?.strategic ?? {})) {
+      if (Number(amount) > 0.01) activeResources.add(resource);
+    }
+  }
+  return { tileCount, gold, resourceKinds: activeResources.size };
+};
+
 const clearPendingCollectVisibleDelta = (): void => {
   state.pendingCollectVisibleDelta.gold = 0;
   for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
@@ -1621,6 +1709,31 @@ const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =
 };
 const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
   if (!tile.town) return;
+  const hasYield = hasCollectableYield(tile);
+  const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(Date.now() / 320));
+  const accent =
+    !tile.town.isFed
+      ? "rgba(255, 112, 92, 0.96)"
+      : hasYield
+        ? `rgba(255, 216, 112, ${0.82 + pulse * 0.12})`
+        : tile.ownerId === state.me
+          ? "rgba(143, 229, 255, 0.84)"
+          : "rgba(238, 244, 255, 0.7)";
+  const haloFill =
+    !tile.town.isFed
+      ? `rgba(163, 40, 40, ${0.18 + pulse * 0.1})`
+      : hasYield
+        ? `rgba(255, 193, 71, ${0.16 + pulse * 0.1})`
+        : `rgba(180, 216, 255, ${0.08 + pulse * 0.06})`;
+  ctx.save();
+  ctx.fillStyle = haloFill;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(1.4, size * 0.06);
+  ctx.beginPath();
+  ctx.roundRect(px - size * 0.12, py - size * 0.16, size * 1.24, size * 1.16, Math.max(4, size * 0.22));
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
   const biome = landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
   const overlay = overlaySet[tile.town.populationTier];
@@ -1657,13 +1770,6 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
           : drawSize * 0.33;
 
   ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
-
-  const accent =
-    tile.town.type === "MARKET"
-      ? "rgba(255, 212, 102, 0.9)"
-      : tile.town.type === "FARMING"
-        ? "rgba(162, 241, 132, 0.88)"
-        : "rgba(198, 171, 255, 0.9)";
   ctx.strokeStyle = accent;
   ctx.lineWidth = Math.max(2, size * 0.08);
   ctx.lineCap = "round";
@@ -1695,6 +1801,26 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("!", badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.62);
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
+  }
+
+  if (hasYield) {
+    const badgeSize = Math.max(7, size * 0.22);
+    const badgeX = px + size * 0.04;
+    const badgeY = py + size * 0.06;
+    ctx.fillStyle = `rgba(255, 214, 102, ${0.9 + pulse * 0.08})`;
+    ctx.beginPath();
+    ctx.arc(badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.5, badgeSize * 0.52, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(64, 37, 5, 0.84)";
+    ctx.lineWidth = Math.max(1, size * 0.03);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(41, 23, 4, 0.95)";
+    ctx.font = `bold ${Math.max(7, size * 0.14)}px system-ui`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("✦", badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.55);
     ctx.textAlign = "start";
     ctx.textBaseline = "alphabetic";
   }
@@ -2017,10 +2143,18 @@ const drawMiniMap = (): void => {
     if (!state.fogDisabled && t.fogged) continue;
     const tx = Math.floor((t.x / WORLD_WIDTH) * w);
     const ty = Math.floor((t.y / WORLD_HEIGHT) * h);
-    if (t.town.type === "MARKET") miniMapCtx.fillStyle = "rgba(255, 214, 112, 0.92)";
-    else if (t.town.type === "FARMING") miniMapCtx.fillStyle = "rgba(157, 236, 130, 0.92)";
-    else miniMapCtx.fillStyle = "rgba(196, 169, 255, 0.92)";
-    miniMapCtx.fillRect(tx - 1, ty - 1, 3, 3);
+    miniMapCtx.fillStyle = !t.town.isFed ? "rgba(255, 112, 92, 0.94)" : "rgba(6, 10, 18, 0.86)";
+    miniMapCtx.beginPath();
+    miniMapCtx.arc(tx, ty, hasCollectableYield(t) ? 3.6 : 3.2, 0, Math.PI * 2);
+    miniMapCtx.fill();
+    if (!t.town.isFed) miniMapCtx.fillStyle = "rgba(255, 167, 148, 0.96)";
+    else if (hasCollectableYield(t)) miniMapCtx.fillStyle = "rgba(255, 220, 118, 0.96)";
+    else if (t.town.type === "MARKET") miniMapCtx.fillStyle = "rgba(255, 214, 112, 0.94)";
+    else if (t.town.type === "FARMING") miniMapCtx.fillStyle = "rgba(157, 236, 130, 0.94)";
+    else miniMapCtx.fillStyle = "rgba(196, 169, 255, 0.94)";
+    miniMapCtx.beginPath();
+    miniMapCtx.arc(tx, ty, hasCollectableYield(t) ? 2.1 : 1.8, 0, Math.PI * 2);
+    miniMapCtx.fill();
   }
   miniMapLastDrawCamX = state.camX;
   miniMapLastDrawCamY = state.camY;
@@ -3184,8 +3318,20 @@ const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
 };
 
 const renderHud = (): void => {
+  if (
+    !state.guide.completed &&
+    !state.guide.autoOpened &&
+    state.connection === "initialized" &&
+    state.firstChunkAt > 0 &&
+    authOverlayEl.style.display !== "grid"
+  ) {
+    state.guide.open = true;
+    state.guide.autoOpened = true;
+    storageSet(GUIDE_AUTO_OPEN_STORAGE_KEY, "1");
+  }
   const collectVisibleCooldownRemaining = Math.max(0, state.collectVisibleCooldownUntil - Date.now());
   const collectVisibleReady = collectVisibleCooldownRemaining <= 0;
+  const collectSummary = visibleCollectSummary();
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
   const pointsClass =
     Date.now() < state.goldAnimUntil ? (state.goldAnimDir > 0 ? " delta-up" : state.goldAnimDir < 0 ? " delta-down" : "") : "";
@@ -3200,12 +3346,21 @@ const renderHud = (): void => {
   `;
   collectVisibleDesktopBtn.disabled = !collectVisibleReady;
   collectVisibleMobileBtn.disabled = !collectVisibleReady;
-  collectVisibleDesktopBtn.textContent = collectVisibleReady
-    ? "Collect Visible"
-    : `Collect ${formatCooldownShort(collectVisibleCooldownRemaining)}`;
-  collectVisibleMobileBtn.textContent = collectVisibleReady
-    ? "Collect Visible"
-    : `Collect ${formatCooldownShort(collectVisibleCooldownRemaining)}`;
+  const collectReady = collectVisibleReady && collectSummary.tileCount > 0;
+  const collectMeta =
+    !collectVisibleReady
+      ? `Ready in ${formatCooldownShort(collectVisibleCooldownRemaining)}`
+      : collectSummary.tileCount > 0
+        ? `${collectSummary.tileCount} tile${collectSummary.tileCount === 1 ? "" : "s"} ready${collectSummary.gold > 0 ? ` · ${formatGoldAmount(collectSummary.gold)} gold` : collectSummary.resourceKinds > 0 ? " · resources ready" : ""}`
+        : "Visible yield";
+  collectVisibleDesktopMetaEl.textContent = collectMeta;
+  collectVisibleMobileMetaEl.textContent = collectSummary.tileCount > 0 && collectVisibleReady ? `${collectSummary.tileCount} ready` : collectMeta;
+  collectVisibleDesktopBtn.classList.toggle("is-attention", collectReady);
+  collectVisibleMobileBtn.classList.toggle("is-attention", collectReady);
+  collectVisibleDesktopBadgeEl.hidden = !collectReady;
+  collectVisibleMobileBadgeEl.hidden = !collectReady;
+  collectVisibleDesktopBadgeEl.textContent = collectReady ? String(collectSummary.tileCount) : "";
+  collectVisibleMobileBadgeEl.textContent = collectReady ? String(collectSummary.tileCount) : "";
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   panelActionButtons.forEach((btn) => {
@@ -3446,6 +3601,10 @@ const renderHud = (): void => {
       </div>
     </div>
     <div class="card auth-settings-card">
+      <p>Need a refresher on the controls and victory rules?</p>
+      <button id="open-guide" class="panel-btn">Open Game Guide</button>
+    </div>
+    <div class="card auth-settings-card">
       <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
       <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
     </div>
@@ -3475,6 +3634,74 @@ const renderHud = (): void => {
       await signOut(firebaseAuth);
       window.location.reload();
     };
+  }
+  const openGuideBtn = document.querySelector<HTMLButtonElement>("#open-guide");
+  if (openGuideBtn) {
+    openGuideBtn.onclick = () => {
+      state.guide.open = true;
+      state.guide.stepIndex = 0;
+      renderHud();
+    };
+  }
+
+  guideFabEl.classList.toggle("has-unseen-guide", !state.guide.completed);
+  const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired;
+  guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
+  if (canShowGuide) {
+    const step = guideSteps[Math.min(state.guide.stepIndex, guideSteps.length - 1)]!;
+    guideOverlayEl.innerHTML = `
+      <div class="guide-backdrop" id="guide-backdrop"></div>
+      <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+        <button id="guide-close" class="guide-close-btn" type="button" aria-label="Close guide">×</button>
+        <div class="guide-kicker">Step ${state.guide.stepIndex + 1} of ${guideSteps.length}</div>
+        <h2 id="guide-title" class="guide-title">${step.title}</h2>
+        <p class="guide-body">${step.body}</p>
+        <div class="guide-progress">
+          ${guideSteps.map((_, index) => `<span class="guide-progress-segment${index <= state.guide.stepIndex ? " is-active" : ""}"></span>`).join("")}
+        </div>
+        <div class="guide-actions">
+          <button id="guide-skip" class="guide-link-btn" type="button">Skip Tutorial</button>
+          <div class="guide-actions-right">
+            ${state.guide.stepIndex > 0 ? '<button id="guide-back" class="panel-btn guide-secondary-btn" type="button">Back</button>' : ""}
+            <button id="guide-next" class="panel-btn guide-primary-btn" type="button">${state.guide.stepIndex === guideSteps.length - 1 ? "Get Started" : "Next"}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const closeGuide = (markComplete: boolean): void => {
+      state.guide.open = false;
+      if (markComplete) {
+        state.guide.completed = true;
+        storageSet(GUIDE_STORAGE_KEY, "1");
+      }
+      renderHud();
+    };
+    const guideCloseBtn = guideOverlayEl.querySelector<HTMLButtonElement>("#guide-close");
+    const guideBackdropBtn = guideOverlayEl.querySelector<HTMLDivElement>("#guide-backdrop");
+    const guideSkipBtn = guideOverlayEl.querySelector<HTMLButtonElement>("#guide-skip");
+    const guideBackBtn = guideOverlayEl.querySelector<HTMLButtonElement>("#guide-back");
+    const guideNextBtn = guideOverlayEl.querySelector<HTMLButtonElement>("#guide-next");
+    if (guideCloseBtn) guideCloseBtn.onclick = () => closeGuide(true);
+    if (guideBackdropBtn) guideBackdropBtn.onclick = () => closeGuide(true);
+    if (guideSkipBtn) guideSkipBtn.onclick = () => closeGuide(true);
+    if (guideBackBtn) {
+      guideBackBtn.onclick = () => {
+        state.guide.stepIndex = Math.max(0, state.guide.stepIndex - 1);
+        renderHud();
+      };
+    }
+    if (guideNextBtn) {
+      guideNextBtn.onclick = () => {
+        if (state.guide.stepIndex >= guideSteps.length - 1) {
+          closeGuide(true);
+          return;
+        }
+        state.guide.stepIndex += 1;
+        renderHud();
+      };
+    }
+  } else if (guideOverlayEl.innerHTML) {
+    guideOverlayEl.innerHTML = "";
   }
 
   syncAuthOverlay();
@@ -5179,6 +5406,11 @@ collectVisibleMobileBtn.onclick = () => {
   collectVisibleYield();
 };
 captureCancelBtn.onclick = () => cancelOngoingCapture();
+guideFabEl.onclick = () => {
+  state.guide.open = true;
+  state.guide.stepIndex = 0;
+  renderHud();
+};
 
 panelCloseBtn.onclick = () => {
   state.activePanel = null;
