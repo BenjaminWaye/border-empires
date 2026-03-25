@@ -1,4 +1,4 @@
-app = "border-empires-api"
+app = "border-empires"
 primary_region = "iad"
 
 [build]
@@ -7,13 +7,16 @@ primary_region = "iad"
 [env]
   NODE_ENV = "production"
   PORT = "8080"
+  SNAPSHOT_DIR = "/data/snapshots"
+  AI_PLAYERS = "5"
+  AI_TICK_MS = "10000"
 
 [http_service]
   internal_port = 8080
   force_https = true
   auto_start_machines = true
-  auto_stop_machines = "stop"
-  min_machines_running = 0
+  auto_stop_machines = "off"
+  min_machines_running = 1
   processes = ["app"]
 
   [[http_service.checks]]
@@ -23,3 +26,13 @@ primary_region = "iad"
     method = "get"
     path = "/health"
     protocol = "http"
+
+[[mounts]]
+  source = "border_empires_data"
+  destination = "/data"
+  initial_size = "1gb"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"
