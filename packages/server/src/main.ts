@@ -5234,6 +5234,23 @@ const aiFrontierOpportunityCounts = (actor: Player, victoryPath?: AiSeasonVictor
 };
 
 const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId): Tile | undefined => {
+  const controlledTowns = countControlledTowns(actor.id);
+  const aiIncome = currentIncomePerMinute(actor);
+  const worldFlags = playerWorldFlags(actor);
+  const foodCoverageLow = controlledTowns > 0 && currentFoodCoverageForPlayer(actor.id) < 1.05;
+  const underThreat = [...actor.territoryTiles].some((tileKey) => {
+    const [x, y] = parseKey(tileKey);
+    if (ownershipStateByTile.get(tileKey) !== "SETTLED") return false;
+    return cardinalNeighborCores(x, y).some((neighbor) => {
+      if (neighbor.terrain !== "LAND") return false;
+      if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return false;
+      return true;
+    });
+  });
+  const economyWeak =
+    aiIncome < (controlledTowns === 0 ? 12 : 18) ||
+    (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length >= 6) ||
+    foodCoverageLow;
   const frontierTiles = [...actor.territoryTiles]
     .filter((tileKey) => ownershipStateByTile.get(tileKey) === "FRONTIER")
     .map((tileKey) => {
@@ -5246,6 +5263,7 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
   const best = frontierTiles[0];
   if (!best) return undefined;
   if (!best.isEconomicallyInteresting && !best.isStrategicallyInteresting) return undefined;
+  if ((economyWeak || underThreat || foodCoverageLow) && !best.isEconomicallyInteresting) return undefined;
   const minScore = victoryPath === "SETTLED_TERRITORY" ? 32 : 55;
   return best.score >= minScore ? best.tile : undefined;
 };
