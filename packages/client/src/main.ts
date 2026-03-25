@@ -110,6 +110,12 @@ type Tile = {
   yieldCap?: { gold: number; strategicEach: number };
 };
 
+type TileTimedProgress = {
+  startAt: number;
+  resolvesAt: number;
+  target: { x: number; y: number };
+};
+
 type EmpireVisualStyle = {
   primaryOverlay: string;
   secondaryTint: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
@@ -817,7 +823,8 @@ const state = {
   incomingAllianceRequests: [] as AllianceRequest[],
   feed: [] as FeedEntry[],
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
-  settleProgress: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
+  settleProgressByTile: new Map<string, TileTimedProgress>(),
+  latestSettleTargetKey: "",
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "error" | "warn" } | undefined,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
@@ -1240,10 +1247,9 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   const metaLine = [`Owner ${ownerLabel}`, ...tags].filter(Boolean).join(" · ");
   const extraLine = townBits.length > 0 ? townBits.join(" · ") : prodInfo;
   const storedYield = storedYieldSummary(tile);
-  const settleLine =
-    state.settleProgress && state.settleProgress.target.x === tile.x && state.settleProgress.target.y === tile.y
-      ? `Settling... ${formatCountdownClock(state.settleProgress.resolvesAt - Date.now())}`
-      : "";
+  const settleProgress = settlementProgressForTile(tile.x, tile.y);
+  const settleLine = settleProgress ? `Settling... ${formatCountdownClock(settleProgress.resolvesAt - Date.now())}` : "";
+  const constructionLine = constructionCountdownLineForTile(tile);
   const sabotageLine =
     tile.sabotage && tile.sabotage.endsAt > Date.now()
       ? `Output ${Math.round(tile.sabotage.outputMultiplier * 100)}% until ${new Date(tile.sabotage.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
@@ -1256,6 +1262,7 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     ${upkeepLine ? `<div class="hover-subline">${upkeepLine}</div>` : ""}
     ${prodInfo ? `<div class="hover-subline">Production: ${prodInfo}</div>` : ""}
     ${settleLine ? `<div class="hover-subline hover-accent">${settleLine}</div>` : ""}
+    ${constructionLine ? `<div class="hover-subline hover-accent">${constructionLine}</div>` : ""}
     ${storedYield ? `<div class="hover-subline">Stored yield ${storedYield}</div>` : ""}
     ${structureLine ? `<div class="hover-subline">${structureLine}</div>` : ""}
     ${sabotageLine ? `<div class="hover-subline hover-accent">${sabotageLine}</div>` : ""}
@@ -2225,24 +2232,31 @@ const renderCaptureProgress = (): void => {
     captureTitleEl.textContent = "Capturing Territory...";
     captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
     captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
-  } else if (state.settleProgress) {
+  } else {
+    const settlement = primarySettlementProgress();
+    const settlementCount = state.settleProgressByTile.size;
+    if (settlement) {
     captureCardEl.dataset.state = "progress";
-    const total = Math.max(1, state.settleProgress.resolvesAt - state.settleProgress.startAt);
-    const elapsed = Date.now() - state.settleProgress.startAt;
+    const total = Math.max(1, settlement.resolvesAt - settlement.startAt);
+    const elapsed = Date.now() - settlement.startAt;
     const pct = Math.max(0, Math.min(1, elapsed / total));
-    const remaining = Math.max(0, Math.ceil((state.settleProgress.resolvesAt - Date.now()) / 100) / 10);
+    const remaining = Math.max(0, Math.ceil((settlement.resolvesAt - Date.now()) / 100) / 10);
     captureCardEl.style.display = "grid";
     captureWrapEl.style.display = "block";
-    captureCancelBtn.style.display = "inline-flex";
+    captureCancelBtn.style.display = "none";
     captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
-    captureTitleEl.textContent = "Settling Land...";
+    captureTitleEl.textContent = settlementCount > 1 ? `Settling Land... (${settlementCount})` : "Settling Land...";
     captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
-    captureTargetEl.textContent = `Target: (${state.settleProgress.target.x}, ${state.settleProgress.target.y})`;
-  } else if (state.captureAlert && state.captureAlert.until > Date.now()) {
-    if (state.captureAlert.title === "Collect Visible Cooldown") {
-      const remaining = state.collectVisibleCooldownUntil - Date.now();
-      if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
-      else state.captureAlert = undefined;
+    captureTargetEl.textContent =
+      settlementCount > 1
+        ? `Target: (${settlement.target.x}, ${settlement.target.y}) • ${settlementCount} active`
+        : `Target: (${settlement.target.x}, ${settlement.target.y})`;
+    } else if (state.captureAlert && state.captureAlert.until > Date.now()) {
+      if (state.captureAlert.title === "Collect Visible Cooldown") {
+        const remaining = state.collectVisibleCooldownUntil - Date.now();
+        if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
+        else state.captureAlert = undefined;
+      }
     }
   }
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
@@ -3465,7 +3479,10 @@ const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
 const requestSettlement = (x: number, y: number): boolean => {
   if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
   const startAt = Date.now();
-  state.settleProgress = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y } };
+  const progress = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y } };
+  const tileKey = key(x, y);
+  state.settleProgressByTile.set(tileKey, progress);
+  state.latestSettleTargetKey = tileKey;
   state.selected = { x, y };
   state.attackPreview = undefined;
   state.attackPreviewPendingKey = "";
@@ -3793,6 +3810,68 @@ const formatCountdownClock = (ms: number): string => {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
+const clearSettlementProgressByKey = (tileKey: string): void => {
+  if (!tileKey) return;
+  state.settleProgressByTile.delete(tileKey);
+  if (state.latestSettleTargetKey === tileKey) state.latestSettleTargetKey = "";
+};
+
+const clearSettlementProgressForTile = (x: number, y: number): void => {
+  clearSettlementProgressByKey(key(x, y));
+};
+
+const settlementProgressForTile = (x: number, y: number): TileTimedProgress | undefined => {
+  const tileKey = key(x, y);
+  const progress = state.settleProgressByTile.get(tileKey);
+  if (!progress) return undefined;
+  if (progress.resolvesAt <= Date.now()) {
+    clearSettlementProgressByKey(tileKey);
+    return undefined;
+  }
+  return progress;
+};
+
+const cleanupExpiredSettlementProgress = (): boolean => {
+  let changed = false;
+  const now = Date.now();
+  for (const [tileKey, progress] of state.settleProgressByTile) {
+    if (progress.resolvesAt > now) continue;
+    state.settleProgressByTile.delete(tileKey);
+    if (state.latestSettleTargetKey === tileKey) state.latestSettleTargetKey = "";
+    changed = true;
+  }
+  return changed;
+};
+
+const activeSettlementProgressEntries = (): TileTimedProgress[] => {
+  cleanupExpiredSettlementProgress();
+  return [...state.settleProgressByTile.values()].sort((a, b) => a.resolvesAt - b.resolvesAt);
+};
+
+const primarySettlementProgress = (): TileTimedProgress | undefined => {
+  const selected = state.selected ? settlementProgressForTile(state.selected.x, state.selected.y) : undefined;
+  if (selected) return selected;
+  const latest = state.latestSettleTargetKey ? state.settleProgressByTile.get(state.latestSettleTargetKey) : undefined;
+  if (latest && latest.resolvesAt > Date.now()) return latest;
+  return activeSettlementProgressEntries()[0];
+};
+
+const constructionCountdownLineForTile = (tile: Tile): string => {
+  if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
+    return `Fortifying... ${formatCountdownClock(tile.fort.completesAt - Date.now())}`;
+  }
+  if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
+    return `Building Observatory... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
+  }
+  if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
+    return `Building Siege Camp... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
+  }
+  if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
+    return `Building ${economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
+  }
+  return "";
 };
 
 const hasRevealCapability = (): boolean => {
@@ -5256,17 +5335,10 @@ ws.addEventListener("message", (ev) => {
         state.actionCurrent = undefined;
       }
     }
-    if (
-      state.settleProgress &&
-      changes.some(
-        (c) =>
-          c.x === state.settleProgress?.target.x &&
-          c.y === state.settleProgress?.target.y &&
-          c.ownerId === state.me &&
-          c.ownershipState === "SETTLED"
-      )
-    ) {
-      state.settleProgress = undefined;
+    for (const change of changes) {
+      if (change.ownerId === state.me && change.ownershipState === "SETTLED") {
+        clearSettlementProgressForTile(change.x, change.y);
+      }
     }
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
@@ -5297,7 +5369,6 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COMBAT_CANCELLED") {
     const cancelledCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
-    state.settleProgress = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -5381,13 +5452,12 @@ ws.addEventListener("message", (ev) => {
       markDockDiscovered(merged);
       if (!merged.fogged) state.discoveredTiles.add(key(update.x, update.y));
       if (
-        state.settleProgress &&
-        update.x === state.settleProgress.target.x &&
-        update.y === state.settleProgress.target.y &&
-        merged.ownerId === state.me &&
-        merged.ownershipState === "SETTLED"
+        settlementProgressForTile(update.x, update.y) &&
+        (merged.ownerId !== state.me || (merged.ownershipState !== "FRONTIER" && merged.ownershipState !== "SETTLED"))
       ) {
-        state.settleProgress = undefined;
+        clearSettlementProgressForTile(update.x, update.y);
+      } else if (merged.ownerId === state.me && merged.ownershipState === "SETTLED") {
+        clearSettlementProgressForTile(update.x, update.y);
       }
       if (
         !resolvedQueuedFrontierCapture &&
@@ -5502,6 +5572,8 @@ ws.addEventListener("message", (ev) => {
     });
     const errorCode = String(msg.code ?? "");
     const errorMessage = String(msg.message ?? "unknown failure");
+    const errorTileKey =
+      typeof msg.x === "number" && typeof msg.y === "number" ? key(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
     if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE") {
       state.authSessionReady = false;
       if (errorCode === "AUTH_FAIL" && firebaseAuth?.currentUser && !state.authRetrying) {
@@ -5526,8 +5598,8 @@ ws.addEventListener("message", (ev) => {
     }
     if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
       notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
-    } else if (errorCode === "SETTLE_INVALID" && failedTargetKey) {
-      state.settleProgress = undefined;
+    } else if (errorCode === "SETTLE_INVALID") {
+      clearSettlementProgressByKey(errorTileKey);
       showCaptureAlert("Action failed", errorMessage, "warn");
     }
     if (errorCode === "COLLECT_EMPTY") {
@@ -5546,7 +5618,6 @@ ws.addEventListener("message", (ev) => {
     }
     const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
-    if (errorCode !== "LOCKED") state.settleProgress = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -5891,6 +5962,7 @@ const draw = (): void => {
       const wy = wrapY(state.camY + y);
       const wk = key(wx, wy);
       const t = state.tiles.get(key(wx, wy));
+      const settlementProgress = t ? settlementProgressForTile(wx, wy) : undefined;
       const vis = tileVisibilityStateAt(wx, wy, t);
       const px = (x + halfW) * size;
       const py = (y + halfH) * size;
@@ -6153,6 +6225,16 @@ const draw = (): void => {
         ctx.fillStyle = `rgba(255, 209, 102, ${alpha.toFixed(3)})`;
         ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
       }
+      if (settlementProgress) {
+        const phase = (Date.now() % 700) / 700;
+        const alpha = 0.22 + 0.5 * Math.sin(phase * Math.PI);
+        ctx.fillStyle = `rgba(255, 209, 102, ${alpha.toFixed(3)})`;
+        ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
+        ctx.strokeStyle = `rgba(255, 241, 185, ${(0.55 + alpha * 0.35).toFixed(3)})`;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 1.5, py + 1.5, size - 4, size - 4);
+        ctx.lineWidth = 1;
+      }
 
       if (state.dragPreviewKeys.has(wk)) {
         ctx.strokeStyle = "rgba(129, 230, 217, 0.9)";
@@ -6337,8 +6419,8 @@ renderHud();
 setInterval(renderCaptureProgress, 100);
 setInterval(() => {
   if (state.collectVisibleCooldownUntil > Date.now()) renderHud();
-  if (state.settleProgress) {
-    if (state.settleProgress.resolvesAt <= Date.now()) state.settleProgress = undefined;
+  const expiredSettlementProgress = cleanupExpiredSettlementProgress();
+  if (expiredSettlementProgress || state.settleProgressByTile.size > 0) {
     renderHud();
   }
   if (!state.actionInFlight) return;
