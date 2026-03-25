@@ -284,7 +284,6 @@ hud.innerHTML = `
       <button id="collect-visible-desktop" class="panel-btn utility-btn utility-btn-collect" type="button">
         <span class="utility-btn-icon" aria-hidden="true">✦</span>
         <span class="utility-btn-copy"><strong>Collect</strong><small id="collect-visible-desktop-meta">Gather visible yield</small></span>
-        <span id="collect-visible-desktop-badge" class="utility-btn-badge" hidden></span>
       </button>
     </div>
   </div>
@@ -449,7 +448,6 @@ hud.innerHTML = `
       <button id="collect-visible-mobile" class="panel-btn utility-btn utility-btn-collect utility-btn-mobile" type="button">
         <span class="utility-btn-icon" aria-hidden="true">✦</span>
         <span class="utility-btn-copy"><strong>Collect</strong><small id="collect-visible-mobile-meta">Visible yield</small></span>
-        <span id="collect-visible-mobile-badge" class="utility-btn-badge" hidden></span>
       </button>
     </div>
   </div>
@@ -654,8 +652,6 @@ const centerMeDesktopBtn = document.querySelector<HTMLButtonElement>("#center-me
 const collectVisibleDesktopBtn = document.querySelector<HTMLButtonElement>("#collect-visible-desktop");
 const collectVisibleDesktopMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-desktop-meta");
 const collectVisibleMobileMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-mobile-meta");
-const collectVisibleDesktopBadgeEl = document.querySelector<HTMLSpanElement>("#collect-visible-desktop-badge");
-const collectVisibleMobileBadgeEl = document.querySelector<HTMLSpanElement>("#collect-visible-mobile-badge");
 const guideOverlayEl = document.querySelector<HTMLDivElement>("#guide-overlay");
 const guideFabEl = document.querySelector<HTMLButtonElement>("#guide-fab");
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
@@ -757,8 +753,6 @@ if (
   !collectVisibleDesktopBtn ||
   !collectVisibleDesktopMetaEl ||
   !collectVisibleMobileMetaEl ||
-  !collectVisibleDesktopBadgeEl ||
-  !collectVisibleMobileBadgeEl ||
   !guideOverlayEl ||
   !guideFabEl
 ) {
@@ -1809,6 +1803,22 @@ const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =
 };
 const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
   if (!tile.town) return;
+  if (size < 16) {
+    drawTownMarker(px, py, size, true);
+    if (!tile.town.isFed) {
+      const badgeSize = Math.max(6, size * 0.24);
+      const badgeX = px + size - badgeSize - 1;
+      const badgeY = py + 1;
+      ctx.fillStyle = "rgba(201, 74, 56, 0.96)";
+      ctx.beginPath();
+      ctx.moveTo(badgeX, badgeY + badgeSize);
+      ctx.lineTo(badgeX + badgeSize * 0.5, badgeY);
+      ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize);
+      ctx.closePath();
+      ctx.fill();
+    }
+    return;
+  }
   const accent =
     tile.town.type === "MARKET"
       ? "rgba(255, 212, 102, 0.9)"
@@ -1894,22 +1904,7 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
     ctx.textBaseline = "alphabetic";
   }
 
-  const marker = Math.max(4, Math.floor(size * 0.22));
-  const mx = px + 2;
-  const my = py + 2;
-  ctx.fillStyle = "rgba(12, 16, 28, 0.72)";
-  ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-  ctx.fillStyle = "rgba(255, 210, 92, 0.96)";
-  ctx.fillRect(mx, my, marker, marker);
-  ctx.fillStyle = "rgba(88, 55, 8, 0.96)";
-  ctx.beginPath();
-  ctx.arc(mx + marker / 2, my + marker / 2, Math.max(1.1, marker * 0.3), 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255, 244, 214, 0.82)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(mx + marker / 2 - marker * 0.1, my + marker / 2 - marker * 0.08, Math.max(0.8, marker * 0.18), 0, Math.PI * 2);
-  ctx.stroke();
+  drawTownMarker(px, py, size, false);
 };
 const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
@@ -1950,6 +1945,31 @@ const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: numb
   ctx.fillRect(px + inset, py + inset, badge, badge);
   ctx.fillStyle = "rgba(22, 24, 28, 0.95)";
   drawResourceMarkerIcon(tile.resource, px + inset, py + inset, badge);
+};
+const drawTownMarker = (px: number, py: number, size: number, fullTile = false): void => {
+  const badge = fullTile ? Math.max(8, size - 2) : Math.max(9, size * 0.22);
+  const inset = fullTile ? 1 : Math.max(2, size * 0.03);
+  const x = px + inset;
+  const y = py + inset;
+  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
+  ctx.fillRect(x - 1, y - 1, badge + 2, badge + 2);
+  ctx.fillStyle = "rgba(255, 208, 102, 0.98)";
+  ctx.fillRect(x, y, badge, badge);
+  const coinRadius = Math.max(2, badge * 0.28);
+  const coinX = x + badge / 2;
+  const coinY = y + badge / 2;
+  ctx.fillStyle = "rgba(255, 233, 153, 0.98)";
+  ctx.beginPath();
+  ctx.arc(coinX, coinY, coinRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(173, 112, 18, 0.95)";
+  ctx.lineWidth = Math.max(1, badge * 0.08);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255, 247, 221, 0.88)";
+  ctx.lineWidth = Math.max(0.8, badge * 0.04);
+  ctx.beginPath();
+  ctx.arc(coinX - coinRadius * 0.18, coinY - coinRadius * 0.16, Math.max(1, coinRadius * 0.45), 0, Math.PI * 2);
+  ctx.stroke();
 };
 const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
   if (!tile.resource) return undefined;
@@ -3518,10 +3538,6 @@ const renderHud = (): void => {
   collectVisibleMobileMetaEl.textContent = collectMeta;
   collectVisibleDesktopBtn.classList.toggle("is-attention", collectReady);
   collectVisibleMobileBtn.classList.toggle("is-attention", collectReady);
-  collectVisibleDesktopBadgeEl.hidden = true;
-  collectVisibleMobileBadgeEl.hidden = true;
-  collectVisibleDesktopBadgeEl.textContent = "";
-  collectVisibleMobileBadgeEl.textContent = "";
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   panelActionButtons.forEach((btn) => {
