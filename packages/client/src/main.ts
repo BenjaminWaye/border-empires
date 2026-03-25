@@ -24,6 +24,7 @@ import {
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
   FRONTIER_CLAIM_COST,
+  FRONTIER_CLAIM_MS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST,
   SETTLE_MS,
@@ -51,6 +52,15 @@ const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1";
 const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 
 const formatGoldAmount = (gold: number): string => gold.toFixed(2);
+
+const isForestTile = (x: number, y: number): boolean => landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
+
+const frontierClaimDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? FRONTIER_CLAIM_MS * 2 : FRONTIER_CLAIM_MS);
+
+const frontierClaimCostLabelForTile = (x: number, y: number): string => {
+  const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);
+  return isForestTile(x, y) ? `${FRONTIER_CLAIM_COST} gold • ${seconds}s (Forest)` : `${FRONTIER_CLAIM_COST} gold • ${seconds}s`;
+};
 
 type Tile = {
   x: number;
@@ -1295,6 +1305,10 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   const settleProgress = settlementProgressForTile(tile.x, tile.y);
   const settleLine = settleProgress ? `Settling... ${formatCountdownClock(settleProgress.resolvesAt - Date.now())}` : "";
   const constructionLine = constructionCountdownLineForTile(tile);
+  const forestExpandLine =
+    tile.terrain === "LAND" && !tile.ownerId && pickOriginForTarget(tile.x, tile.y, false) && isForestTile(tile.x, tile.y)
+      ? `Forest slows frontier expansion to ${Math.round(frontierClaimDurationMsForTile(tile.x, tile.y) / 1000)}s`
+      : "";
   const sabotageLine =
     tile.sabotage && tile.sabotage.endsAt > Date.now()
       ? `Output ${Math.round(tile.sabotage.outputMultiplier * 100)}% until ${new Date(tile.sabotage.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
@@ -1306,6 +1320,7 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     ${extraLine ? `<div class="hover-subline">${extraLine}</div>` : ""}
     ${upkeepLine ? `<div class="hover-subline">${upkeepLine}</div>` : ""}
     ${prodInfo ? `<div class="hover-subline">Production: ${prodInfo}</div>` : ""}
+    ${forestExpandLine ? `<div class="hover-subline hover-accent">${forestExpandLine}</div>` : ""}
     ${settleLine ? `<div class="hover-subline hover-accent">${settleLine}</div>` : ""}
     ${constructionLine ? `<div class="hover-subline hover-accent">${constructionLine}</div>` : ""}
     ${storedYield ? `<div class="hover-subline">Stored yield ${storedYield}</div>` : ""}
@@ -1683,6 +1698,60 @@ const drawTerrainTile = (wx: number, wy: number, terrain: Tile["terrain"], px: n
   }
   ctx.drawImage(tex, 0, 0, tex.width, tex.height, px, py, size, size);
 };
+
+const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void => {
+  if (size < 12 || !isForestTile(wx, wy)) return;
+  const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
+  const treeCount = size >= 44 ? 4 : size >= 24 ? 3 : 2;
+  const anchors: Array<[number, number]> =
+    treeCount === 4
+      ? [
+          [0.22, 0.6],
+          [0.42, 0.44],
+          [0.62, 0.58],
+          [0.8, 0.42]
+        ]
+      : treeCount === 3
+        ? [
+            [0.24, 0.62],
+            [0.5, 0.42],
+            [0.76, 0.58]
+          ]
+        : [
+            [0.34, 0.6],
+            [0.68, 0.5]
+          ];
+
+  ctx.save();
+  for (let i = 0; i < anchors.length; i += 1) {
+    const anchor = anchors[i];
+    if (!anchor) continue;
+    const [ax, ay] = anchor;
+    const trunkW = Math.max(1, size * 0.045);
+    const canopyW = size * (0.2 + i * 0.015);
+    const canopyH = canopyW * 0.92;
+    const tx = px + size * ax;
+    const ty = py + size * ay;
+    ctx.fillStyle = `rgba(28, 54, 27, ${0.4 + pulse * 0.16})`;
+    ctx.fillRect(tx - trunkW / 2, ty - size * 0.02, trunkW, size * 0.12);
+    ctx.fillStyle = `rgba(14, 41, 18, ${0.72 + pulse * 0.12})`;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty - canopyH * 0.64);
+    ctx.lineTo(tx - canopyW * 0.46, ty + canopyH * 0.14);
+    ctx.lineTo(tx + canopyW * 0.46, ty + canopyH * 0.14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = `rgba(52, 96, 45, ${0.32 + pulse * 0.08})`;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty - canopyH * 0.52);
+    ctx.lineTo(tx - canopyW * 0.24, ty - canopyH * 0.05);
+    ctx.lineTo(tx + canopyW * 0.12, ty - canopyH * 0.14);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+};
+
 const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void => {
   if (size < 10) return;
 
@@ -2668,7 +2737,7 @@ const renderCaptureProgress = (): void => {
     captureWrapEl.style.display = "block";
     captureCancelBtn.style.display = "inline-flex";
     captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
-    captureTitleEl.textContent = "Capturing Territory...";
+    captureTitleEl.textContent = isForestTile(state.capture.target.x, state.capture.target.y) ? "Capturing Forest..." : "Capturing Territory...";
     captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
     captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
   } else {
@@ -4797,6 +4866,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
   if (!tile.ownerId) {
     const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false));
     const hasGold = state.gold >= FRONTIER_CLAIM_COST;
+    const frontierCostLabel = frontierClaimCostLabelForTile(tile.x, tile.y);
     return [
       {
         id: "settle_land",
@@ -4804,7 +4874,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         ...tileActionAvailability(
           reachable && hasGold,
           !reachable ? "Must touch your territory" : `Need ${FRONTIER_CLAIM_COST} gold`,
-          `${SETTLE_COST} gold + timers`
+          frontierCostLabel
         )
       },
       createMountainAction()
@@ -6581,6 +6651,8 @@ const draw = (): void => {
       } else {
         drawTerrainTile(wx, wy, "LAND", px, py, size);
       }
+
+      if (t && vis === "visible" && t.terrain === "LAND") drawForestOverlay(wx, wy, px, py, size);
 
       // Render ownership on top of land terrain so frontier tiles stay subtle and biome remains visible.
       if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
