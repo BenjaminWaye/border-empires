@@ -3619,6 +3619,28 @@ const buildFrontierQueue = (
 const queueDragSelection = (): { queued: number; skipped: number } =>
   buildFrontierQueue([...state.dragPreviewKeys], (x, y) => enqueueTarget(x, y));
 
+const applyPendingSettlementsFromServer = (
+  entries: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
+): void => {
+  if (!entries) return;
+  state.settleProgressByTile.clear();
+  let latestKey = "";
+  let latestResolvesAt = -Infinity;
+  for (const entry of entries) {
+    const tileKey = key(entry.x, entry.y);
+    state.settleProgressByTile.set(tileKey, {
+      startAt: entry.startedAt,
+      resolvesAt: entry.resolvesAt,
+      target: { x: entry.x, y: entry.y }
+    });
+    if (entry.resolvesAt > latestResolvesAt) {
+      latestResolvesAt = entry.resolvesAt;
+      latestKey = tileKey;
+    }
+  }
+  state.latestSettleTargetKey = latestKey;
+};
+
 const queueSpecificTargets = (
   targetKeys: string[],
   mode: "normal" | "breakthrough"
@@ -3636,6 +3658,7 @@ const requestSettlement = (x: number, y: number): boolean => {
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y } };
   const tileKey = key(x, y);
+  state.gold = Math.max(0, state.gold - SETTLE_COST);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
   state.selected = { x, y };
@@ -5223,6 +5246,9 @@ ws.addEventListener("message", (ev) => {
     state.activeRevealTargets = (p.activeRevealTargets as string[]) ?? state.activeRevealTargets;
     state.abilityCooldowns =
       (p.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
+    applyPendingSettlementsFromServer(
+      (p.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
+    );
     state.allies = (p.allies as string[]) ?? [];
     const myTileColor = p.tileColor as string | undefined;
     if (myTileColor) {
@@ -5338,6 +5364,9 @@ ws.addEventListener("message", (ev) => {
       (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
     state.upkeepLastTick =
       (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
+    applyPendingSettlementsFromServer(
+      (msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
+    );
     clearPendingCollectVisibleDelta();
     if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
       pushFeed(

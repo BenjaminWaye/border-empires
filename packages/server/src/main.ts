@@ -248,6 +248,9 @@ interface SnapshotState {
   firstSpecialSiteCaptureClaimed?: TileKey[];
   clusters?: ClusterDefinition[];
   clusterTiles?: [TileKey, string][];
+  pendingSettlements?: Array<{ tileKey: TileKey; ownerId: string; startedAt: number; resolvesAt: number; goldCost: number }>;
+  townCaptureShock?: [TileKey, number][];
+  townGrowthShock?: [TileKey, number][];
   season?: Season;
   seasonWinner?: SeasonWinnerView;
   seasonArchives?: SeasonArchiveEntry[];
@@ -1054,6 +1057,7 @@ interface PendingCapture {
 interface PendingSettlement {
   tileKey: TileKey;
   ownerId: string;
+  startedAt: number;
   resolvesAt: number;
   goldCost: number;
   cancelled: boolean;
@@ -1110,6 +1114,8 @@ const dynamicMissionsByPlayer = new Map<string, DynamicMissionDef[]>();
 const temporaryAttackBuffUntilByPlayer = new Map<string, number>();
 const temporaryIncomeBuffUntilByPlayer = new Map<string, { until: number; resources: [ResourceType, ResourceType] }>();
 const growthPausedUntilByPlayer = new Map<string, number>();
+const townCaptureShockUntilByTile = new Map<TileKey, number>();
+const townGrowthShockUntilByTile = new Map<TileKey, number>();
 const vendettaCaptureCountsByPlayer = new Map<string, Map<string, number>>();
 const forcedRevealTilesByPlayer = new Map<string, Set<TileKey>>();
 const cachedVisibilitySnapshotByPlayer = new Map<string, VisibilitySnapshot>();
@@ -2000,6 +2006,22 @@ const normalizeTownPlacements = (): void => {
   }
 };
 
+const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
+const TOWN_CAPTURE_GROWTH_RADIUS = 20;
+
+const applyTownCaptureShock = (tileKey: TileKey): void => {
+  const [x, y] = parseKey(tileKey);
+  const until = now() + TOWN_CAPTURE_SHOCK_MS;
+  townCaptureShockUntilByTile.set(tileKey, until);
+  for (const otherTownKey of townsByTile.keys()) {
+    if (otherTownKey === tileKey) continue;
+    const [ox, oy] = parseKey(otherTownKey);
+    if (chebyshevDistance(ox, oy, x, y) > TOWN_CAPTURE_GROWTH_RADIUS) continue;
+    const currentUntil = townGrowthShockUntilByTile.get(otherTownKey) ?? 0;
+    townGrowthShockUntilByTile.set(otherTownKey, Math.max(currentUntil, until));
+  }
+};
+
 const ensureBaselineEconomyCoverage = (seed: number): void => {
   const block = 30;
   for (let by = 0; by < WORLD_HEIGHT; by += block) {
@@ -2258,6 +2280,11 @@ const isTownFedForOwner = (townKey: TileKey, ownerId: string | undefined): boole
   return townFeedingStateForPlayer(ownerId).fedTownKeys.has(townKey);
 };
 
+const townIncomeSuppressed = (townKey: TileKey): boolean => (townCaptureShockUntilByTile.get(townKey) ?? 0) > now();
+
+const townGrowthSuppressed = (townKey: TileKey): boolean =>
+  (townCaptureShockUntilByTile.get(townKey) ?? 0) > now() || (townGrowthShockUntilByTile.get(townKey) ?? 0) > now();
+
 const marketIncomeMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
   if (!activeStructureAt(tileKey, ownerId, "MARKET") || !isTownFedForOwner(tileKey, ownerId)) return 1;
   const effects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
@@ -2308,6 +2335,7 @@ const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): 
   if (!ownerId) return 0;
   if (ownership.get(town.tileKey) !== ownerId) return 0;
   if (ownershipStateByTile.get(town.tileKey) !== "SETTLED") return 0;
+  if (townIncomeSuppressed(town.tileKey)) return 0;
   const { supportCurrent, supportMax } = townSupport(town.tileKey, ownerId);
   const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
   if (!isTownFedForOwner(town.tileKey, ownerId)) return 0;
@@ -2404,7 +2432,7 @@ const updateTownPopulationForPlayer = (player: Player): Set<TileKey> => {
     const elapsedMinutes = Math.max(1, Math.floor((nowMs - town.lastGrowthTickAt) / POPULATION_GROWTH_TICK_MS));
     town.lastGrowthTickAt = nowMs;
     town.maxPopulation = townMaxPopulationForOwner(town, player.id);
-    if (!isTownFedForOwner(tk, player.id) || warFactor <= 0) continue;
+    if (!isTownFedForOwner(tk, player.id) || warFactor <= 0 || townGrowthSuppressed(tk)) continue;
     const firstThreeTownKeys = firstThreeTownKeySetForPlayer(player.id);
     const growthMult =
       getPlayerEffectsForPlayer(player.id).populationGrowthMult *
@@ -2427,7 +2455,7 @@ const townPopulationGrowthPerMinuteForOwner = (town: TownDefinition, ownerId: st
   if (ownership.get(town.tileKey) !== ownerId) return 0;
   if (ownershipStateByTile.get(town.tileKey) !== "SETTLED") return 0;
   const growthPausedUntil = growthPausedUntilByPlayer.get(ownerId) ?? 0;
-  if (!isTownFedForOwner(town.tileKey, ownerId) || now() < growthPausedUntil) return 0;
+  if (!isTownFedForOwner(town.tileKey, ownerId) || now() < growthPausedUntil || townGrowthSuppressed(town.tileKey)) return 0;
   const effects = getPlayerEffectsForPlayer(ownerId);
   const firstThreeTownKeys = firstThreeTownKeySetForPlayer(ownerId);
   const growthMult = effects.populationGrowthMult * (firstThreeTownKeys.has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1);
@@ -2815,6 +2843,8 @@ const clearWorldProgressForSeason = (): void => {
     if (settle.timeout) clearTimeout(settle.timeout);
   }
   pendingSettlementsByTile.clear();
+  townCaptureShockUntilByTile.clear();
+  townGrowthShockUntilByTile.clear();
   tileYieldByTile.clear();
   tileHistoryByTile.clear();
   terrainShapesByTile.clear();
@@ -4210,6 +4240,12 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
   const strategicProduction = strategicProductionPerMinute(p);
   const upkeepDiag = lastUpkeepByPlayer.get(p.id) ?? emptyUpkeepDiagnostics();
   const upkeepNeed = upkeepPerMinuteForPlayer(p);
+  const pendingSettlements = [...pendingSettlementsByTile.values()]
+    .filter((settlement) => settlement.ownerId === p.id)
+    .map((settlement) => {
+      const [x, y] = parseKey(settlement.tileKey);
+      return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
+    });
   ws.send(
     JSON.stringify({
       type: "PLAYER_UPDATE",
@@ -4244,6 +4280,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       revealCapacity: revealCapacityForPlayer(p),
       activeRevealTargets: [...getOrInitRevealTargets(p.id)],
       abilityCooldowns: Object.fromEntries(getAbilityCooldowns(p.id)),
+      pendingSettlements,
       missions: missionPayload(p),
       leaderboard: cachedLeaderboardSnapshot,
       seasonVictory: cachedVictoryPressureObjectives,
@@ -7415,6 +7452,70 @@ const consumeStrategicResource = (player: Player, resource: StrategicResource, a
   return true;
 };
 
+const clearPendingSettlement = (settlement: PendingSettlement): void => {
+  settlement.cancelled = true;
+  if (settlement.timeout) clearTimeout(settlement.timeout);
+  pendingSettlementsByTile.delete(settlement.tileKey);
+};
+
+const refundPendingSettlement = (settlement: PendingSettlement): void => {
+  const player = players.get(settlement.ownerId);
+  if (!player) return;
+  player.points += settlement.goldCost;
+  recalcPlayerDerived(player);
+};
+
+const resolvePendingSettlement = (settlement: PendingSettlement): void => {
+  if (settlement.cancelled) return;
+  pendingSettlementsByTile.delete(settlement.tileKey);
+  const [x, y] = parseKey(settlement.tileKey);
+  const liveActor = players.get(settlement.ownerId);
+  if (!liveActor) return;
+  const live = runtimeTileCore(x, y);
+  if (live.ownerId !== liveActor.id) {
+    const capturedByEnemy = Boolean(live.ownerId && live.ownerId !== liveActor.id);
+    if (!capturedByEnemy) {
+      refundPendingSettlement(settlement);
+      sendToPlayer(liveActor.id, { type: "ERROR", code: "SETTLE_INVALID", message: "settlement cancelled and gold returned", x, y });
+    } else {
+      sendToPlayer(liveActor.id, { type: "ERROR", code: "SETTLE_INVALID", message: "tile captured during settlement; gold forfeited", x, y });
+    }
+    sendPlayerUpdate(liveActor, 0);
+    return;
+  }
+  if (live.ownershipState !== "FRONTIER") {
+    refundPendingSettlement(settlement);
+    sendToPlayer(liveActor.id, { type: "ERROR", code: "SETTLE_INVALID", message: "settlement cancelled and gold returned", x, y });
+    sendPlayerUpdate(liveActor, 0);
+    return;
+  }
+  updateOwnership(x, y, liveActor.id, "SETTLED");
+  revealLinkedDocksForPlayer(liveActor.id, settlement.tileKey);
+  recordFrontierSettlementForPressure(liveActor.id);
+  const effects = getPlayerEffectsForPlayer(liveActor.id);
+  if (effects.newSettlementDefenseMult > 1) {
+    settlementDefenseByTile.set(settlement.tileKey, {
+      ownerId: liveActor.id,
+      expiresAt: now() + NEW_SETTLEMENT_DEFENSE_MS,
+      mult: effects.newSettlementDefenseMult
+    });
+  }
+  sendToPlayer(liveActor.id, {
+    type: "COMBAT_RESULT",
+    winnerId: liveActor.id,
+    changes: [{ x, y, ownerId: liveActor.id, ownershipState: "SETTLED" }],
+    pointsDelta: 0,
+    levelDelta: 0
+  });
+  sendPlayerUpdate(liveActor, 0);
+  telemetryCounters.settlements += 1;
+};
+
+const schedulePendingSettlementResolution = (settlement: PendingSettlement): void => {
+  const remaining = Math.max(0, settlement.resolvesAt - now());
+  settlement.timeout = setTimeout(() => resolvePendingSettlement(settlement), remaining);
+};
+
 const startSettlement = (
   actor: Player,
   x: number,
@@ -7434,51 +7535,21 @@ const startSettlement = (
   if (combatLocks.has(tk)) return { ok: false, reason: "tile is locked in combat" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
 
-  const resolvesAt = now() + settleMs;
+  const startedAt = now();
+  const resolvesAt = startedAt + settleMs;
+  actor.points -= goldCost;
+  recalcPlayerDerived(actor);
   const pending: PendingSettlement = {
     tileKey: tk,
     ownerId: actor.id,
+    startedAt,
     resolvesAt,
     goldCost,
     cancelled: false
   };
   pendingSettlementsByTile.set(tk, pending);
-  pending.timeout = setTimeout(() => {
-    if (pending.cancelled) return;
-    pendingSettlementsByTile.delete(tk);
-    const liveActor = players.get(actor.id);
-    if (!liveActor) return;
-    const live = runtimeTileCore(t.x, t.y);
-    if (live.ownerId !== liveActor.id || live.ownershipState !== "FRONTIER") return;
-    if (!canAffordGoldCost(liveActor.points, pending.goldCost)) {
-      sendToPlayer(liveActor.id, {
-        type: "ERROR",
-        code: "SETTLE_INVALID",
-        message: "insufficient gold when settlement completed",
-        x: t.x,
-        y: t.y
-      });
-      sendPlayerUpdate(liveActor, 0);
-      return;
-    }
-    liveActor.points -= pending.goldCost;
-    recalcPlayerDerived(liveActor);
-    updateOwnership(t.x, t.y, liveActor.id, "SETTLED");
-    revealLinkedDocksForPlayer(liveActor.id, tk);
-    recordFrontierSettlementForPressure(liveActor.id);
-    if (effects.newSettlementDefenseMult > 1) {
-      settlementDefenseByTile.set(tk, { ownerId: liveActor.id, expiresAt: now() + NEW_SETTLEMENT_DEFENSE_MS, mult: effects.newSettlementDefenseMult });
-    }
-    sendToPlayer(liveActor.id, {
-      type: "COMBAT_RESULT",
-      winnerId: liveActor.id,
-      changes: [{ x: t.x, y: t.y, ownerId: liveActor.id, ownershipState: "SETTLED" }],
-      pointsDelta: 0,
-      levelDelta: 0
-    });
-    sendPlayerUpdate(liveActor, 0);
-    telemetryCounters.settlements += 1;
-  }, settleMs);
+  schedulePendingSettlementResolution(pending);
+  sendPlayerUpdate(actor, 0);
   return { ok: true, resolvesAt };
 };
 
@@ -7782,9 +7853,21 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     }
     const settle = pendingSettlementsByTile.get(k);
     if (settle) {
-      settle.cancelled = true;
-      if (settle.timeout) clearTimeout(settle.timeout);
-      pendingSettlementsByTile.delete(k);
+      clearPendingSettlement(settle);
+      if (!newOwner || newOwner === settle.ownerId) {
+        refundPendingSettlement(settle);
+        const player = players.get(settle.ownerId);
+        if (player) {
+          sendToPlayer(player.id, { type: "ERROR", code: "SETTLE_INVALID", message: "settlement cancelled and gold returned", x: t.x, y: t.y });
+          sendPlayerUpdate(player, 0);
+        }
+      } else {
+        const player = players.get(settle.ownerId);
+        if (player) {
+          sendToPlayer(player.id, { type: "ERROR", code: "SETTLE_INVALID", message: "tile captured during settlement; gold forfeited", x: t.x, y: t.y });
+          sendPlayerUpdate(player, 0);
+        }
+      }
     }
     const fort = fortsByTile.get(k);
     if (fort) {
@@ -7858,8 +7941,9 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     settlementDefenseByTile.delete(k);
   }
   if (oldOwner !== newOwner) {
-    tileYieldByTile.delete(k);
+    if (!newOwner) tileYieldByTile.delete(k);
     if (oldOwner && newOwner) recordTileCaptureHistory(k, oldOwner, newOwner);
+    if (oldOwner && newOwner && townsByTile.has(k)) applyTownCaptureShock(k);
   }
 
   if (oldOwner) {
@@ -8189,6 +8273,15 @@ const buildSnapshotState = (): SnapshotState => {
     firstSpecialSiteCaptureClaimed: [...firstSpecialSiteCaptureClaimed],
     clusters: [...clustersById.values()],
     clusterTiles: [...clusterByTile.entries()],
+    pendingSettlements: [...pendingSettlementsByTile.values()].map((settle) => ({
+      tileKey: settle.tileKey,
+      ownerId: settle.ownerId,
+      startedAt: settle.startedAt,
+      resolvesAt: settle.resolvesAt,
+      goldCost: settle.goldCost
+    })),
+    townCaptureShock: [...townCaptureShockUntilByTile.entries()],
+    townGrowthShock: [...townGrowthShockUntilByTile.entries()],
     season: activeSeason,
     seasonArchives,
     seasonTechConfig: {
@@ -8380,6 +8473,8 @@ const loadSnapshot = (): void => {
   for (const tk of raw.firstSpecialSiteCaptureClaimed ?? []) firstSpecialSiteCaptureClaimed.add(tk);
   for (const c of raw.clusters ?? []) clustersById.set(c.clusterId, c);
   for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
+  for (const [tk, until] of raw.townCaptureShock ?? []) townCaptureShockUntilByTile.set(tk, until);
+  for (const [tk, until] of raw.townGrowthShock ?? []) townGrowthShockUntilByTile.set(tk, until);
   normalizeTownPlacements();
   if (raw.season) activeSeason = raw.season;
   if (raw.seasonWinner) seasonWinner = raw.seasonWinner;
@@ -8417,6 +8512,17 @@ const loadSnapshot = (): void => {
       vision: hydrated.mods.vision
     });
     recomputePlayerEffectsForPlayer(hydrated);
+  }
+  for (const settlement of raw.pendingSettlements ?? []) {
+    const hydrated: PendingSettlement = {
+      tileKey: settlement.tileKey,
+      ownerId: settlement.ownerId,
+      startedAt: settlement.startedAt,
+      resolvesAt: settlement.resolvesAt,
+      goldCost: settlement.goldCost,
+      cancelled: false
+    };
+    pendingSettlementsByTile.set(hydrated.tileKey, hydrated);
   }
   if (barbarianAgents.size === 0) {
     for (const [tk, ownerId] of ownership.entries()) {
@@ -8595,6 +8701,10 @@ for (const [tk, structure] of economicStructuresByTile.entries()) {
   }, remaining);
   economicStructureBuildTimers.set(tk, timer);
 }
+for (const settlement of pendingSettlementsByTile.values()) {
+  if (settlement.resolvesAt <= now()) resolvePendingSettlement(settlement);
+  else schedulePendingSettlementResolution(settlement);
+}
 const runtimeIntervals: NodeJS.Timeout[] = [];
 const registerInterval = (fn: () => void, ms: number): void => {
   runtimeIntervals.push(setInterval(fn, ms));
@@ -8617,6 +8727,12 @@ registerInterval(() => {
   }
   for (const [tk, defense] of settlementDefenseByTile) {
     if (defense.expiresAt <= now()) settlementDefenseByTile.delete(tk);
+  }
+  for (const [tk, until] of townCaptureShockUntilByTile) {
+    if (until <= now()) townCaptureShockUntilByTile.delete(tk);
+  }
+  for (const [tk, until] of townGrowthShockUntilByTile) {
+    if (until <= now()) townGrowthShockUntilByTile.delete(tk);
   }
   for (const [id, req] of allianceRequests) {
     if (req.expiresAt < now()) allianceRequests.delete(id);
@@ -8902,7 +9018,13 @@ app.post("/admin/world/regenerate", async () => {
             availableTechPicks: availableTechPicks(player),
             revealCapacity: revealCapacityForPlayer(player),
             activeRevealTargets: [...getOrInitRevealTargets(player.id)],
-            abilityCooldowns: Object.fromEntries(getAbilityCooldowns(player.id))
+            abilityCooldowns: Object.fromEntries(getAbilityCooldowns(player.id)),
+            pendingSettlements: [...pendingSettlementsByTile.values()]
+              .filter((settlement) => settlement.ownerId === player.id)
+              .map((settlement) => {
+                const [x, y] = parseKey(settlement.tileKey);
+                return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
+              })
           },
           config: {
             width: WORLD_WIDTH,
@@ -9140,9 +9262,8 @@ app.post("/admin/world/regenerate", async () => {
         cancelPendingCapture(pcap);
       }
       for (const settle of pendingSettles) {
-        settle.cancelled = true;
-        if (settle.timeout) clearTimeout(settle.timeout);
-        pendingSettlementsByTile.delete(settle.tileKey);
+        clearPendingSettlement(settle);
+        refundPendingSettlement(settle);
       }
       if (refunded > 0) actor.stamina = Math.min(STAMINA_MAX, actor.stamina + refunded);
       socket.send(JSON.stringify({ type: "COMBAT_CANCELLED", count: pending.length + pendingSettles.length }));
