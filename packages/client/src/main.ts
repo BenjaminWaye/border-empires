@@ -168,7 +168,7 @@ type DomainInfo = {
 type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number };
 type LeaderboardMetricEntry = { id: string; name: string; value: number };
 type SeasonVictoryObjectiveView = {
-  id: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY";
+  id: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "CONTINENT_FOOTPRINT";
   name: string;
   description: string;
   leaderPlayerId?: string;
@@ -184,7 +184,7 @@ type SeasonWinnerView = {
   playerId: string;
   playerName: string;
   crownedAt: number;
-  objectiveId: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY";
+  objectiveId: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "CONTINENT_FOOTPRINT";
   objectiveName: string;
 };
 type MissionState = {
