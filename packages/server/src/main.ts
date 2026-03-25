@@ -89,7 +89,7 @@ const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 const FOG_ADMIN_EMAIL = "bw199005@gmail.com";
-const SNAPSHOT_DIR = path.resolve(process.cwd(), "snapshots");
+const SNAPSHOT_DIR = path.resolve(process.env.SNAPSHOT_DIR ?? path.join(process.cwd(), "snapshots"));
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
 const snapshotTempFile = (): string => path.join(SNAPSHOT_DIR, `state.${process.pid}.tmp`);
 
