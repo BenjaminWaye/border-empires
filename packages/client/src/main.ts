@@ -1809,31 +1809,12 @@ const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =
 };
 const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
   if (!tile.town) return;
-  const hasYield = hasCollectableYield(tile);
-  const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(Date.now() / 320));
   const accent =
-    !tile.town.isFed
-      ? "rgba(255, 112, 92, 0.96)"
-      : hasYield
-        ? `rgba(255, 216, 112, ${0.82 + pulse * 0.12})`
-        : tile.ownerId === state.me
-          ? "rgba(143, 229, 255, 0.84)"
-          : "rgba(238, 244, 255, 0.7)";
-  const haloFill =
-    !tile.town.isFed
-      ? `rgba(163, 40, 40, ${0.18 + pulse * 0.1})`
-      : hasYield
-        ? `rgba(255, 193, 71, ${0.16 + pulse * 0.1})`
-        : `rgba(180, 216, 255, ${0.08 + pulse * 0.06})`;
-  ctx.save();
-  ctx.fillStyle = haloFill;
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = Math.max(1.4, size * 0.06);
-  ctx.beginPath();
-  ctx.roundRect(px - size * 0.12, py - size * 0.16, size * 1.24, size * 1.16, Math.max(4, size * 0.22));
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
+    tile.town.type === "MARKET"
+      ? "rgba(255, 212, 102, 0.9)"
+      : tile.town.type === "FARMING"
+        ? "rgba(162, 241, 132, 0.88)"
+        : "rgba(198, 171, 255, 0.9)";
   const biome = landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
   const overlay =
@@ -1913,25 +1894,22 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
     ctx.textBaseline = "alphabetic";
   }
 
-  if (hasYield) {
-    const badgeSize = Math.max(7, size * 0.22);
-    const badgeX = px + size * 0.04;
-    const badgeY = py + size * 0.06;
-    ctx.fillStyle = `rgba(255, 214, 102, ${0.9 + pulse * 0.08})`;
-    ctx.beginPath();
-    ctx.arc(badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.5, badgeSize * 0.52, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(64, 37, 5, 0.84)";
-    ctx.lineWidth = Math.max(1, size * 0.03);
-    ctx.stroke();
-    ctx.fillStyle = "rgba(41, 23, 4, 0.95)";
-    ctx.font = `bold ${Math.max(7, size * 0.14)}px system-ui`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("✦", badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.55);
-    ctx.textAlign = "start";
-    ctx.textBaseline = "alphabetic";
-  }
+  const marker = Math.max(4, Math.floor(size * 0.22));
+  const mx = px + 2;
+  const my = py + 2;
+  ctx.fillStyle = "rgba(12, 16, 28, 0.72)";
+  ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
+  ctx.fillStyle = "rgba(255, 210, 92, 0.96)";
+  ctx.fillRect(mx, my, marker, marker);
+  ctx.fillStyle = "rgba(88, 55, 8, 0.96)";
+  ctx.beginPath();
+  ctx.arc(mx + marker / 2, my + marker / 2, Math.max(1.1, marker * 0.3), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 244, 214, 0.82)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(mx + marker / 2 - marker * 0.1, my + marker / 2 - marker * 0.08, Math.max(0.8, marker * 0.18), 0, Math.PI * 2);
+  ctx.stroke();
 };
 const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
@@ -3536,20 +3514,15 @@ const renderHud = (): void => {
   collectVisibleDesktopBtn.disabled = !collectVisibleReady;
   collectVisibleMobileBtn.disabled = !collectVisibleReady;
   const collectReady = collectVisibleReady && collectSummary.tileCount > 0;
-  const collectMeta =
-    !collectVisibleReady
-      ? `Ready in ${formatCooldownShort(collectVisibleCooldownRemaining)}`
-      : collectSummary.tileCount > 0
-        ? `${collectSummary.tileCount} tile${collectSummary.tileCount === 1 ? "" : "s"} ready${collectSummary.gold > 0 ? ` · ${formatGoldAmount(collectSummary.gold)} gold` : collectSummary.resourceKinds > 0 ? " · resources ready" : ""}`
-        : "Visible yield";
+  const collectMeta = !collectVisibleReady ? `Cooldown ${formatCooldownShort(collectVisibleCooldownRemaining)}` : collectReady ? "Ready to collect" : "Tap to gather";
   collectVisibleDesktopMetaEl.textContent = collectMeta;
-  collectVisibleMobileMetaEl.textContent = collectSummary.tileCount > 0 && collectVisibleReady ? `${collectSummary.tileCount} ready` : collectMeta;
+  collectVisibleMobileMetaEl.textContent = collectMeta;
   collectVisibleDesktopBtn.classList.toggle("is-attention", collectReady);
   collectVisibleMobileBtn.classList.toggle("is-attention", collectReady);
-  collectVisibleDesktopBadgeEl.hidden = !collectReady;
-  collectVisibleMobileBadgeEl.hidden = !collectReady;
-  collectVisibleDesktopBadgeEl.textContent = collectReady ? String(collectSummary.tileCount) : "";
-  collectVisibleMobileBadgeEl.textContent = collectReady ? String(collectSummary.tileCount) : "";
+  collectVisibleDesktopBadgeEl.hidden = true;
+  collectVisibleMobileBadgeEl.hidden = true;
+  collectVisibleDesktopBadgeEl.textContent = "";
+  collectVisibleMobileBadgeEl.textContent = "";
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   panelActionButtons.forEach((btn) => {
@@ -6258,6 +6231,8 @@ ws.addEventListener("message", (ev) => {
     } else if (errorCode === "SETTLE_INVALID") {
       clearSettlementProgressByKey(errorTileKey);
       showCaptureAlert("Action failed", errorMessage, "warn");
+    } else if (errorCode === "TOWN_UNFED") {
+      showCaptureAlert("Town unfed", errorMessage, "warn");
     }
     if (errorCode === "COLLECT_EMPTY") {
       pushFeed(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
@@ -6265,6 +6240,8 @@ ws.addEventListener("message", (ev) => {
       if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + COLLECT_VISIBLE_COOLDOWN_MS;
       showCollectVisibleCooldownAlert();
       pushFeed(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
+    } else if (errorCode === "TOWN_UNFED") {
+      pushFeed(errorMessage, "info", "warn");
     } else {
       pushFeed(explainActionFailure(errorCode, errorMessage), "error", "error");
     }
