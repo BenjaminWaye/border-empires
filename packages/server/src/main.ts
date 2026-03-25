@@ -3145,6 +3145,17 @@ const cardinalNeighborCores = (x: number, y: number): RuntimeTileCore[] => [
   runtimeTileCore(x - 1, y)
 ];
 
+const adjacentNeighborCores = (x: number, y: number): RuntimeTileCore[] => [
+  runtimeTileCore(x, y - 1),
+  runtimeTileCore(x + 1, y),
+  runtimeTileCore(x, y + 1),
+  runtimeTileCore(x - 1, y),
+  runtimeTileCore(x - 1, y - 1),
+  runtimeTileCore(x + 1, y - 1),
+  runtimeTileCore(x + 1, y + 1),
+  runtimeTileCore(x - 1, y + 1)
+];
+
 const isValidCapitalTile = (player: Player, tileKey: TileKey | undefined): tileKey is TileKey => {
   if (!tileKey) return false;
   return ownership.get(tileKey) === player.id && ownershipStateByTile.get(tileKey) === "SETTLED";
@@ -4719,7 +4730,7 @@ const bestAiFrontierAction = (
       const linked = dock.connectedDockIds?.length ? dock.connectedDockIds.length : dock.pairedDockId ? 1 : 0;
       score += linked * 18;
     }
-    for (const neighbor of cardinalNeighborCores(tile.x, tile.y)) {
+    for (const neighbor of adjacentNeighborCores(tile.x, tile.y)) {
       if (!visibleToActor(neighbor.x, neighbor.y)) continue;
       const neighborDock = docksByTile.get(key(neighbor.x, neighbor.y));
       if (!neighborDock) continue;
@@ -4735,7 +4746,7 @@ const bestAiFrontierAction = (
     const isTown = toVisible && townsByTile.has(tk);
     const resourceValue = toVisible && to.resource ? baseTileValue(to.resource) : 0;
     const dockValue = dockScoreForTile(to);
-    const adjacentInteresting = cardinalNeighborCores(to.x, to.y).reduce((score, neighbor) => {
+    const adjacentInteresting = adjacentNeighborCores(to.x, to.y).reduce((score, neighbor) => {
       if (!visibleToActor(neighbor.x, neighbor.y)) return score;
       const neighborKey = key(neighbor.x, neighbor.y);
       const hostileOwner = neighbor.ownerId && neighbor.ownerId !== actor.id && !actor.allies.has(neighbor.ownerId);
@@ -4744,30 +4755,30 @@ const bestAiFrontierAction = (
       if (docksByTile.has(neighborKey) && hostileOwner) return score + 35;
       return score;
     }, 0);
-    const explorationValue = cardinalNeighborCores(to.x, to.y).reduce((score, neighbor) => {
+    const explorationValue = adjacentNeighborCores(to.x, to.y).reduce((score, neighbor) => {
       if (visibleToActor(neighbor.x, neighbor.y)) return score;
       let next = score + 18;
       if (neighbor.terrain === "SEA") next += 10;
       return next;
     }, toVisible ? 0 : 24);
-    const exposedSides = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
+    const exposedSides = adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => {
       if (neighbor.terrain !== "LAND") return count + 1;
       if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
       return count;
     }, 0);
-    const ownedNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
+    const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => {
       if (neighbor.ownerId !== actor.id) return count;
       return count + 1;
     }, 0);
-    const alliedSettledNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
+    const alliedSettledNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => {
       if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "SETTLED") return count;
       return count + 1;
     }, 0);
-    const frontierNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, neighbor) => {
+    const frontierNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => {
       if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "FRONTIER") return count;
       return count + 1;
     }, 0);
-    const coastlineDiscoveryValue = cardinalNeighborCores(to.x, to.y).reduce((score, neighbor) => {
+    const coastlineDiscoveryValue = adjacentNeighborCores(to.x, to.y).reduce((score, neighbor) => {
       if (neighbor.terrain !== "SEA") return score;
       return score + (visibleToActor(neighbor.x, neighbor.y) ? 10 : 18);
     }, 0);
@@ -4855,8 +4866,7 @@ const bestAiFrontierAction = (
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
     const from = playerTile(x, y);
-    for (const neighbor of cardinalNeighborCores(x, y)) {
-      const to = playerTile(neighbor.x, neighbor.y);
+    for (const to of aiFrontierActionCandidates(actor, from, kind)) {
       if (to.terrain !== "LAND" || !filter(to)) continue;
       const score = scoreFrontierAction(from, to);
       candidates.push({ score, from, to });
@@ -4889,32 +4899,37 @@ const bestAiOpeningScoutExpand = (actor: Player): { from: Tile; to: Tile } | und
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
     const from = playerTile(x, y);
-    for (const neighbor of cardinalNeighborCores(x, y)) {
-      const to = playerTile(neighbor.x, neighbor.y);
+    for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
-      const unseenNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
-        if (next.terrain !== "LAND") return count;
-        if (next.ownerId) return count;
-        return count + 1;
-      }, 0);
-      const ownedNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+      const visibility = visibilitySnapshotForPlayer(actor);
+      const scoutRevealTiles = new Set<TileKey>();
+      for (const next of adjacentNeighborCores(to.x, to.y)) {
+        if (next.terrain !== "LAND") continue;
+        if (!visibleInSnapshot(visibility, next.x, next.y)) scoutRevealTiles.add(key(next.x, next.y));
+        for (const secondRing of adjacentNeighborCores(next.x, next.y)) {
+          if (secondRing.terrain !== "LAND") continue;
+          if (!visibleInSnapshot(visibility, secondRing.x, secondRing.y)) scoutRevealTiles.add(key(secondRing.x, secondRing.y));
+        }
+      }
+      const unseenNeighbors = scoutRevealTiles.size;
+      const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
         if (next.ownerId !== actor.id) return count;
         return count + 1;
       }, 0);
-      const alliedSettledNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+      const alliedSettledNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
         if (next.ownerId !== actor.id || next.ownershipState !== "SETTLED") return count;
         return count + 1;
       }, 0);
-      const frontierNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+      const frontierNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
         if (next.ownerId !== actor.id || next.ownershipState !== "FRONTIER") return count;
         return count + 1;
       }, 0);
-      const exposedSides = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+      const exposedSides = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
         if (next.terrain !== "LAND") return count + 1;
         if (!next.ownerId || next.ownerId !== actor.id) return count + 1;
         return count;
       }, 0);
-      const coastlineDiscoveryValue = cardinalNeighborCores(to.x, to.y).reduce((score, next) => {
+      const coastlineDiscoveryValue = adjacentNeighborCores(to.x, to.y).reduce((score, next) => {
         if (next.terrain !== "SEA") return score;
         return score + 18;
       }, 0);
@@ -4935,29 +4950,35 @@ const bestAiOpeningScoutExpand = (actor: Player): { from: Tile; to: Tile } | und
 };
 
 const scoreAiScoutExpandCandidate = (actor: Player, from: Tile, to: Tile): number => {
-  const unseenNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
-    if (next.terrain !== "LAND") return count;
-    if (next.ownerId) return count;
-    return count + 1;
-  }, 0);
-  const ownedNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+  const visibility = visibilitySnapshotForPlayer(actor);
+  const scoutRevealTiles = new Set<TileKey>();
+  for (const next of adjacentNeighborCores(to.x, to.y)) {
+    if (next.terrain !== "LAND") continue;
+    if (!visibleInSnapshot(visibility, next.x, next.y)) scoutRevealTiles.add(key(next.x, next.y));
+    for (const secondRing of adjacentNeighborCores(next.x, next.y)) {
+      if (secondRing.terrain !== "LAND") continue;
+      if (!visibleInSnapshot(visibility, secondRing.x, secondRing.y)) scoutRevealTiles.add(key(secondRing.x, secondRing.y));
+    }
+  }
+  const unseenNeighbors = scoutRevealTiles.size;
+  const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
     if (next.ownerId !== actor.id) return count;
     return count + 1;
   }, 0);
-  const alliedSettledNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+  const alliedSettledNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
     if (next.ownerId !== actor.id || next.ownershipState !== "SETTLED") return count;
     return count + 1;
   }, 0);
-  const frontierNeighbors = cardinalNeighborCores(to.x, to.y).reduce((count, next) => {
+  const frontierNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
     if (next.ownerId !== actor.id || next.ownershipState !== "FRONTIER") return count;
     return count + 1;
   }, 0);
-  const coastlineDiscoveryValue = cardinalNeighborCores(to.x, to.y).reduce((score, next) => {
+  const coastlineDiscoveryValue = adjacentNeighborCores(to.x, to.y).reduce((score, next) => {
     if (next.terrain !== "SEA") return score;
     return score + 18;
   }, 0);
   return (
-    unseenNeighbors * 26 +
+    unseenNeighbors * 18 +
     coastlineDiscoveryValue +
     (ownedNeighbors <= 2 ? 16 : 0) +
     (from.ownershipState === "FRONTIER" ? 10 : 0) -
@@ -4972,8 +4993,7 @@ const bestAiScoutExpand = (actor: Player): { from: Tile; to: Tile } | undefined 
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
     const from = playerTile(x, y);
-    for (const neighbor of cardinalNeighborCores(x, y)) {
-      const to = playerTile(neighbor.x, neighbor.y);
+    for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const score = scoreAiScoutExpandCandidate(actor, from, to);
       candidates.push({ score, from, to });
@@ -4999,6 +5019,8 @@ type AiSettlementCandidateEvaluation = {
   isStrategicallyInteresting: boolean;
   isDefensivelyCompact: boolean;
   supportsImmediatePlan: boolean;
+  townSupportSignal: number;
+  intrinsicDockValue: number;
 };
 
 const aiEconomyPriorityState = (
@@ -5033,6 +5055,53 @@ const aiFoodPressureSignal = (actor: Player): number => {
   return 140;
 };
 
+const aiDockStrategicSignal = (actor: Player, tile: Tile): number => {
+  const dock = docksByTile.get(key(tile.x, tile.y));
+  if (!dock) return 0;
+  let score = 140;
+  const linkedDocks = dockLinkedDestinations(dock);
+  score += linkedDocks.length * 32;
+  for (const linkedDock of linkedDocks) {
+    const [linkedX, linkedY] = parseKey(linkedDock.tileKey);
+    const linkedTile = playerTile(linkedX, linkedY);
+    if (!linkedTile.ownerId) {
+      score += 160;
+      continue;
+    }
+    if (linkedTile.ownerId === actor.id) {
+      score += linkedTile.ownershipState === "SETTLED" ? 70 : 110;
+      continue;
+    }
+    if (!actor.allies.has(linkedTile.ownerId)) score += 135;
+  }
+  return score;
+};
+
+const aiFrontierActionCandidates = (
+  actor: Player,
+  from: Tile,
+  actionType: BasicFrontierActionType
+): Tile[] => {
+  const out = new Map<TileKey, Tile>();
+  for (const neighbor of adjacentNeighborCores(from.x, from.y)) {
+    out.set(key(neighbor.x, neighbor.y), playerTile(neighbor.x, neighbor.y));
+  }
+  const fromDock = docksByTile.get(key(from.x, from.y));
+  if (fromDock) {
+    for (const linkedDock of dockLinkedDestinations(fromDock)) {
+      const [linkedX, linkedY] = parseKey(linkedDock.tileKey);
+      const linkedTile = playerTile(linkedX, linkedY);
+      out.set(linkedDock.tileKey, linkedTile);
+      if (actionType === "ATTACK") {
+        for (const neighbor of adjacentNeighborCores(linkedTile.x, linkedTile.y)) {
+          out.set(key(neighbor.x, neighbor.y), playerTile(neighbor.x, neighbor.y));
+        }
+      }
+    }
+  }
+  return [...out.values()];
+};
+
 const aiEconomicFrontierSignal = (actor: Player, tile: Tile): number => {
   const visibility = visibilitySnapshotForPlayer(actor);
   const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
@@ -5045,9 +5114,9 @@ const aiEconomicFrontierSignal = (actor: Player, tile: Tile): number => {
       score += 90 + baseTileValue(tile.resource);
       if (foodPressure > 0 && (tile.resource === "FARM" || tile.resource === "FISH")) score += foodPressure;
     }
-    if (docksByTile.has(tk)) score += 135;
+    score += aiDockStrategicSignal(actor, tile);
   }
-  for (const neighbor of cardinalNeighborCores(tile.x, tile.y)) {
+  for (const neighbor of adjacentNeighborCores(tile.x, tile.y)) {
     if (!visibleToActor(neighbor.x, neighbor.y)) continue;
     const neighborKey = key(neighbor.x, neighbor.y);
     if (townsByTile.has(neighborKey)) score += 110;
@@ -5057,7 +5126,7 @@ const aiEconomicFrontierSignal = (actor: Player, tile: Tile): number => {
         score += Math.round(foodPressure * 0.7);
       }
     }
-    if (docksByTile.has(neighborKey)) score += 95;
+    if (docksByTile.has(neighborKey)) score += 95 + Math.round(aiDockStrategicSignal(actor, playerTile(neighbor.x, neighbor.y)) * 0.45);
   }
   return score;
 };
@@ -5068,7 +5137,7 @@ const aiEnemyPressureSignal = (actor: Player, tile: Tile): number => {
   if (!tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId) || tile.ownerId === BARBARIAN_OWNER_ID) return 0;
   let score = 0;
   const tk = key(tile.x, tile.y);
-  const frontlineIntrusion = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+  const frontlineIntrusion = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
     if (neighbor.terrain !== "LAND") return count;
     if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "SETTLED") return count;
     return count + 1;
@@ -5082,13 +5151,13 @@ const aiEnemyPressureSignal = (actor: Player, tile: Tile): number => {
     if (tile.resource) score += 110 + baseTileValue(tile.resource);
     if (docksByTile.has(tk)) score += 150;
   }
-  for (const neighbor of cardinalNeighborCores(tile.x, tile.y)) {
+  for (const neighbor of adjacentNeighborCores(tile.x, tile.y)) {
     if (!visibleToActor(neighbor.x, neighbor.y)) continue;
     const neighborKey = key(neighbor.x, neighbor.y);
     if (townsByTile.has(neighborKey)) score += 125;
     if (neighbor.resource) score += 85 + Math.floor(baseTileValue(neighbor.resource) * 0.7);
     if (docksByTile.has(neighborKey)) score += 110;
-    for (const secondRing of cardinalNeighborCores(neighbor.x, neighbor.y)) {
+    for (const secondRing of adjacentNeighborCores(neighbor.x, neighbor.y)) {
       if (!visibleToActor(secondRing.x, secondRing.y)) continue;
       const secondRingKey = key(secondRing.x, secondRing.y);
       if (townsByTile.has(secondRingKey)) score += 45;
@@ -5115,7 +5184,9 @@ const evaluateAiSettlementCandidate = (
       isEconomicallyInteresting: false,
       isStrategicallyInteresting: false,
       isDefensivelyCompact: false,
-      supportsImmediatePlan: false
+      supportsImmediatePlan: false,
+      townSupportSignal: 0,
+      intrinsicDockValue: 0
     };
   }
 
@@ -5131,13 +5202,7 @@ const evaluateAiSettlementCandidate = (
   const resourceValue = tile.resource ? baseTileValue(tile.resource) : 0;
   const economicFrontierSignal = aiEconomicFrontierSignal(actor, tile);
   const foodPressure = aiFoodPressureSignal(actor);
-  const dock = docksByTile.get(tk);
-  let dockValue = 0;
-  if (dock) {
-    dockValue += 95;
-    const linked = dock.connectedDockIds?.length ? dock.connectedDockIds.length : dock.pairedDockId ? 1 : 0;
-    dockValue += linked * 20;
-  }
+  const dockValue = docksByTile.has(tk) ? aiDockStrategicSignal(actor, tile) : 0;
   let townSupportSignal = 0;
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
@@ -5156,7 +5221,7 @@ const evaluateAiSettlementCandidate = (
   }
   const foodSettlementSignal =
     foodPressure > 0 && (tile.resource === "FARM" || tile.resource === "FISH") ? Math.round(foodPressure * 0.9) : 0;
-  const adjacentInteresting = cardinalNeighborCores(tile.x, tile.y).reduce((score, neighbor) => {
+  const adjacentInteresting = adjacentNeighborCores(tile.x, tile.y).reduce((score, neighbor) => {
     const neighborKey = key(neighbor.x, neighbor.y);
     const hostileOwner = neighbor.ownerId && neighbor.ownerId !== actor.id && !actor.allies.has(neighbor.ownerId);
     if (townsByTile.has(neighborKey) && hostileOwner) return score + 35;
@@ -5164,23 +5229,23 @@ const evaluateAiSettlementCandidate = (
     if (docksByTile.has(neighborKey) && hostileOwner) return score + 28;
     return score;
   }, 0);
-  const exposedSides = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+  const exposedSides = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
     const ownership = neighborOwnership(neighbor);
     if (neighbor.terrain !== "LAND") return count + 1;
     if (!ownership.ownerId || ownership.ownerId !== actor.id) return count + 1;
     return count;
   }, 0);
-  const ownedNeighbors = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+  const ownedNeighbors = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
     const ownership = neighborOwnership(neighbor);
     if (ownership.ownerId !== actor.id) return count;
     return count + 1;
   }, 0);
-  const alliedSettledNeighbors = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+  const alliedSettledNeighbors = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
     const ownership = neighborOwnership(neighbor);
     if (ownership.ownerId !== actor.id || ownership.ownershipState !== "SETTLED") return count;
     return count + 1;
   }, 0);
-  const alliedFrontierNeighbors = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+  const alliedFrontierNeighbors = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
     const ownership = neighborOwnership(neighbor);
     if (ownership.ownerId !== actor.id || ownership.ownershipState !== "FRONTIER") return count;
     return count + 1;
@@ -5223,7 +5288,9 @@ const evaluateAiSettlementCandidate = (
     isEconomicallyInteresting,
     isStrategicallyInteresting,
     isDefensivelyCompact,
-    supportsImmediatePlan
+    supportsImmediatePlan,
+    townSupportSignal,
+    intrinsicDockValue: dockValue
   };
 };
 
@@ -5250,8 +5317,7 @@ const bestAiScaffoldExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
     const from = playerTile(x, y);
-    for (const neighbor of cardinalNeighborCores(x, y)) {
-      const to = playerTile(neighbor.x, neighbor.y);
+    for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const evaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([key(to.x, to.y)]));
       if (!evaluation.supportsImmediatePlan) continue;
@@ -5277,7 +5343,7 @@ const bestAiEconomicExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId
       for (const ownerTileKey of actor.territoryTiles) {
         const [x, y] = parseKey(ownerTileKey);
         const from = playerTile(x, y);
-        if (!cardinalNeighborCores(x, y).some((neighbor) => neighbor.x === tile.x && neighbor.y === tile.y)) continue;
+        if (!aiFrontierActionCandidates(actor, from, "EXPAND").some((neighbor) => neighbor.x === tile.x && neighbor.y === tile.y)) continue;
         return classifyAiNeutralFrontierOpportunity(actor, from, tile, victoryPath) === "economic";
       }
       return false;
@@ -5294,8 +5360,7 @@ const bestAiEnemyPressureAttack = (
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
     const from = playerTile(x, y);
-    for (const neighbor of cardinalNeighborCores(x, y)) {
-      const to = playerTile(neighbor.x, neighbor.y);
+    for (const to of aiFrontierActionCandidates(actor, from, "ATTACK")) {
       if (
         to.terrain !== "LAND" ||
         !to.ownerId ||
@@ -5343,8 +5408,7 @@ const aiFrontierOpportunityCounts = (actor: Player, victoryPath?: AiSeasonVictor
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
     const from = playerTile(x, y);
-    for (const neighbor of cardinalNeighborCores(x, y)) {
-      const to = playerTile(neighbor.x, neighbor.y);
+    for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const frontierClass = classifyAiNeutralFrontierOpportunity(actor, from, to, victoryPath);
       counts[frontierClass] += 1;
@@ -5358,7 +5422,7 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
   const underThreat = [...actor.territoryTiles].some((tileKey) => {
     const [x, y] = parseKey(tileKey);
     if (ownershipStateByTile.get(tileKey) !== "SETTLED") return false;
-    return cardinalNeighborCores(x, y).some((neighbor) => {
+    return adjacentNeighborCores(x, y).some((neighbor) => {
       if (neighbor.terrain !== "LAND") return false;
       if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return false;
       return true;
@@ -5381,7 +5445,13 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
   const best = intrinsicBest ?? frontierTiles[0];
   if (!best) return undefined;
   if (!best.isEconomicallyInteresting && !best.isStrategicallyInteresting) return undefined;
-  if ((economyWeak || underThreat || foodCoverageLow) && !best.hasIntrinsicEconomicValue && best.tile.resource !== "FARM" && best.tile.resource !== "FISH") {
+  if (
+    (economyWeak || underThreat || foodCoverageLow) &&
+    !best.hasIntrinsicEconomicValue &&
+    best.tile.resource !== "FARM" &&
+    best.tile.resource !== "FISH" &&
+    best.townSupportSignal <= 0
+  ) {
     return undefined;
   }
   const minScore = best.hasIntrinsicEconomicValue ? 20 : victoryPath === "SETTLED_TERRITORY" ? 32 : 55;
@@ -5399,7 +5469,7 @@ const bestAiFortTile = (actor: Player): Tile | undefined => {
       if (townsByTile.has(tk)) score += 140;
       if (docksByTile.has(tk)) score += 120;
       if (tile.resource) score += baseTileValue(tile.resource) * 2;
-      const hostileAdjacency = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+      const hostileAdjacency = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
         if (neighbor.terrain !== "LAND") return count;
         if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return count;
         return count + 1;
@@ -5611,7 +5681,7 @@ const runAiTurn = (actor: Player): void => {
   const rawHostileThreat = [...actor.territoryTiles].some((tileKey) => {
     const [x, y] = parseKey(tileKey);
     if (ownershipStateByTile.get(tileKey) !== "SETTLED") return false;
-    return cardinalNeighborCores(x, y).some((neighbor) => {
+    return adjacentNeighborCores(x, y).some((neighbor) => {
       if (neighbor.terrain !== "LAND") return false;
       if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return false;
       return true;
