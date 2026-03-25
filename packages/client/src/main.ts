@@ -2369,6 +2369,40 @@ const pickOriginForTarget = (tx: number, ty: number, allowAdjacentToDock = true)
   return pickDockOriginForTarget(tx, ty, allowAdjacentToDock);
 };
 
+const startingExpansionArrowTargets = (): Array<{ x: number; y: number; dx: number; dy: number }> => {
+  if (!state.homeTile) return [];
+  if (state.actionInFlight || state.capture || state.actionQueue.length > 0 || state.settleProgressByTile.size > 0) return [];
+  const homeKey = key(state.homeTile.x, state.homeTile.y);
+  const home = state.tiles.get(homeKey);
+  if (!home || home.fogged || home.ownerId !== state.me || home.ownershipState !== "SETTLED") return [];
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me) continue;
+    if (key(tile.x, tile.y) === homeKey) continue;
+    if (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED") return [];
+  }
+
+  const dirs = [
+    { dx: 0, dy: -1 },
+    { dx: 1, dy: 0 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+    { dx: -1, dy: -1 },
+    { dx: 1, dy: -1 },
+    { dx: 1, dy: 1 },
+    { dx: -1, dy: 1 }
+  ];
+  const out: Array<{ x: number; y: number; dx: number; dy: number }> = [];
+  for (const dir of dirs) {
+    const x = wrapX(state.homeTile.x + dir.dx);
+    const y = wrapY(state.homeTile.y + dir.dy);
+    const tile = state.tiles.get(key(x, y));
+    if (!tile || tile.fogged || tile.terrain !== "LAND" || tile.ownerId) continue;
+    if (!pickOriginForTarget(x, y, false)) continue;
+    out.push({ x, y, dx: dir.dx, dy: dir.dy });
+  }
+  return out;
+};
+
 const renderCaptureProgress = (): void => {
   if (state.capture) {
     captureCardEl.dataset.state = "progress";
@@ -2430,6 +2464,39 @@ const renderCaptureProgress = (): void => {
     captureTimeEl.textContent = "";
     captureTargetEl.textContent = "";
   }
+};
+
+const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: number, dy: number): void => {
+  const phase = (Date.now() % 1200) / 1200;
+  const wave = Math.sin(phase * Math.PI * 2);
+  const slide = size * 0.12 * wave;
+  const centerX = px + size / 2 + dx * slide;
+  const centerY = py + size / 2 + dy * slide;
+  const shaft = Math.max(6, size * 0.22);
+  const head = Math.max(4, size * 0.16);
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(Math.atan2(dy, dx) + Math.PI / 2);
+  ctx.strokeStyle = "rgba(255, 213, 110, 0.96)";
+  ctx.fillStyle = "rgba(255, 241, 201, 0.98)";
+  ctx.lineWidth = Math.max(2, size * 0.06);
+  ctx.lineCap = "round";
+  ctx.shadowColor = "rgba(255, 209, 102, 0.45)";
+  ctx.shadowBlur = Math.max(4, size * 0.12);
+
+  ctx.beginPath();
+  ctx.moveTo(0, shaft * 0.6);
+  ctx.lineTo(0, -shaft * 0.25);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0, -shaft * 0.62);
+  ctx.lineTo(-head * 0.7, -shaft * 0.08);
+  ctx.lineTo(head * 0.7, -shaft * 0.08);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 };
 const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
@@ -6086,6 +6153,9 @@ const draw = (): void => {
   const crystalTargetingActive = state.crystalTargeting.active;
   const crystalTone = crystalTargetingActive ? crystalTargetingTone(state.crystalTargeting.ability) : "amber";
   const queueIndex = new Map<string, number>();
+  const startingArrowTargets = new Map(
+    startingExpansionArrowTargets().map((target) => [key(target.x, target.y), target] as const)
+  );
   let queueOffset = 0;
   if (state.actionInFlight && state.actionTargetKey) {
     queueIndex.set(state.actionTargetKey, 1);
@@ -6282,6 +6352,11 @@ const draw = (): void => {
         ctx.strokeStyle = "rgba(20, 26, 36, 0.58)";
         ctx.lineWidth = 1;
         ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+      }
+
+      const startingArrow = startingArrowTargets.get(wk);
+      if (startingArrow && !settlementProgress && queueIndex.get(wk) === undefined) {
+        drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
       }
 
       if (t && vis === "visible" && t.ownerId === "barbarian") {
