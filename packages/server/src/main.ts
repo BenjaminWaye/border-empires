@@ -1101,7 +1101,7 @@ const strategicResourceStockByPlayer = new Map<string, Record<StrategicResource,
 const strategicResourceBufferByPlayer = new Map<string, Record<StrategicResource, number>>();
 const economyIndexByPlayer = new Map<string, PlayerEconomyIndex>();
 const foodUpkeepCoverageByPlayer = new Map<string, number>();
-const townFeedingStateByPlayer = new Map<string, { bucket: number; foodCoverage: number; fedTownKeys: Set<TileKey> }>();
+const townFeedingStateByPlayer = new Map<string, { foodCoverage: number; fedTownKeys: Set<TileKey> }>();
 const tileYieldByTile = new Map<TileKey, TileYieldBuffer>();
 const tileHistoryByTile = new Map<TileKey, TileHistoryState>();
 const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
@@ -2199,8 +2199,9 @@ const connectedTownBonusForOwner = (connectedTownCount: number, ownerId: string 
   return total;
 };
 
-const townFeedingStateForPlayer = (
-  playerId: string
+const computeTownFeedingState = (
+  playerId: string,
+  availableFood: number
 ): { foodCoverage: number; fedTownKeys: Set<TileKey> } => {
   const player = players.get(playerId);
   if (!player) {
@@ -2208,11 +2209,6 @@ const townFeedingStateForPlayer = (
       foodCoverage: foodUpkeepCoverageByPlayer.get(playerId) ?? 1,
       fedTownKeys: new Set()
     };
-  }
-  const bucket = Math.floor(now() / 50);
-  const cached = townFeedingStateByPlayer.get(playerId);
-  if (cached?.bucket === bucket) {
-    return { foodCoverage: cached.foodCoverage, fedTownKeys: cached.fedTownKeys };
   }
 
   const effects = getPlayerEffectsForPlayer(playerId);
@@ -2223,8 +2219,7 @@ const townFeedingStateForPlayer = (
     if (!town) continue;
     upkeepNeed += townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult;
   }
-  const stock = getOrInitStrategicStocks(playerId);
-  let remainingFood = Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD");
+  let remainingFood = Math.max(0, availableFood);
   const fedTownKeys = new Set<TileKey>();
   for (const townKey of townKeys) {
     const town = townsByTile.get(townKey);
@@ -2238,9 +2233,24 @@ const townFeedingStateForPlayer = (
     fedTownKeys.add(townKey);
     remainingFood = Math.max(0, remainingFood - townNeed);
   }
-  const foodCoverage = upkeepNeed <= 0 ? 1 : Math.max(0, Math.min(1, (Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD")) / upkeepNeed));
-  townFeedingStateByPlayer.set(playerId, { bucket, foodCoverage, fedTownKeys });
+  const foodCoverage = upkeepNeed <= 0 ? 1 : Math.max(0, Math.min(1, Math.max(0, availableFood) / upkeepNeed));
   return { foodCoverage, fedTownKeys };
+};
+
+const townFeedingStateForPlayer = (
+  playerId: string
+): { foodCoverage: number; fedTownKeys: Set<TileKey> } => {
+  const cached = townFeedingStateByPlayer.get(playerId);
+  if (cached) return cached;
+  const player = players.get(playerId);
+  if (!player) {
+    return {
+      foodCoverage: foodUpkeepCoverageByPlayer.get(playerId) ?? 1,
+      fedTownKeys: new Set()
+    };
+  }
+  const stock = getOrInitStrategicStocks(playerId);
+  return computeTownFeedingState(playerId, Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD"));
 };
 
 const isTownFedForOwner = (townKey: TileKey, ownerId: string | undefined): boolean => {
@@ -3888,6 +3898,8 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
   const upkeep = upkeepPerMinuteForPlayer(player);
   const touchedTileKeys = new Set<TileKey>();
   const diag = emptyUpkeepDiagnostics();
+  const availableFoodBeforeUpkeep = Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD");
+  const foodFeedingState = computeTownFeedingState(player.id, availableFoodBeforeUpkeep);
 
   const payResource = (resource: StrategicResource, needRaw: number): UpkeepBreakdown => {
     const need = Math.max(0, needRaw);
@@ -3904,8 +3916,9 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
   diag.iron = payResource("IRON", upkeep.iron);
   diag.supply = payResource("SUPPLY", upkeep.supply);
   diag.crystal = payResource("CRYSTAL", upkeep.crystal);
-  diag.foodCoverage = diag.food.need <= 0 ? 1 : Math.max(0, Math.min(1, (diag.food.fromYield + diag.food.fromStock) / diag.food.need));
+  diag.foodCoverage = foodFeedingState.foodCoverage;
   foodUpkeepCoverageByPlayer.set(player.id, diag.foodCoverage);
+  townFeedingStateByPlayer.set(player.id, foodFeedingState);
 
   if (diag.crystal.need > 0 && diag.crystal.remaining > 0) {
     const activeReveals = revealedEmpireTargetsByPlayer.get(player.id);
