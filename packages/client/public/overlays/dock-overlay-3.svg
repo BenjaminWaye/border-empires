@@ -1,0 +1,28 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M23 92L54 69L80 69L49 92H23Z" fill="#76573B"/>
+  <path d="M54 69L54 61L80 61L80 69H54Z" fill="#A88357"/>
+  <path d="M80 69L91 61L91 53L80 61V69Z" fill="#68503A"/>
+  <path d="M54 61L68 53L91 53L80 61H54Z" fill="#C6A06B"/>
+
+  <path d="M58 86L80 70L112 70L90 86H58Z" fill="#826246"/>
+  <path d="M80 70L80 54L112 54L112 70H80Z" fill="#B28B60"/>
+  <path d="M112 70L123 62L123 46L112 54V70Z" fill="#71573F"/>
+  <path d="M80 54L101 46L123 46L112 54H80Z" fill="#D9B177"/>
+
+  <rect x="57" y="69" width="5" height="18" rx="1.5" fill="#5B4635"/>
+  <rect x="76" y="70" width="5" height="18" rx="1.5" fill="#5B4635"/>
+  <rect x="96" y="70" width="5" height="18" rx="1.5" fill="#5B4635"/>
+  <rect x="110" y="70" width="5" height="18" rx="1.5" fill="#5B4635"/>
+
+  <path d="M94 53V31L98 28L102 31V47L94 53Z" fill="#A8B4C4"/>
+  <path d="M98 28L108 22L108 44L98 50V28Z" fill="#F4F0E3"/>
+
+  <path d="M31 96L43 88L56 88L44 96H31Z" fill="#7C838C"/>
+  <path d="M43 88L43 79L56 79L56 88H43Z" fill="#C7CFD7"/>
+  <path d="M56 88L63 83L63 74L56 79V88Z" fill="#697179"/>
+  <path d="M43 79L55 74L63 74L56 79H43Z" fill="#E5EAF0"/>
+
+  <circle cx="27" cy="90" r="7" fill="#2A3445"/>
+  <circle cx="27" cy="90" r="4" fill="#BFC7D0"/>
+
+</svg>
