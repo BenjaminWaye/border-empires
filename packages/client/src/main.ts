@@ -384,11 +384,11 @@ hud.innerHTML = `
   <div id="targeting-overlay" style="display:none;"></div>
 
   <div id="mobile-nav">
-    <button data-mobile-panel="core">Core</button>
-    <button data-mobile-panel="missions">Missions</button>
-    <button data-mobile-panel="tech">Tech</button>
-    <button data-mobile-panel="social">Social</button>
-    <button data-mobile-panel="intel">Intel</button>
+    <button data-mobile-panel="core"><span class="tab-icon">⌂</span><span>Core</span></button>
+    <button data-mobile-panel="missions"><span class="tab-icon">◎</span><span>Missions</span></button>
+    <button data-mobile-panel="tech"><span class="tab-icon">⚡</span><span>Tech</span></button>
+    <button data-mobile-panel="social"><span class="tab-icon">👥</span><span>Social</span></button>
+    <button data-mobile-panel="intel"><span class="tab-icon">🔔</span><span>Intel</span></button>
   </div>
 
   <div id="mobile-core" class="mobile-panel">
@@ -402,12 +402,6 @@ hud.innerHTML = `
         <span class="utility-btn-icon" aria-hidden="true">✦</span>
         <span class="utility-btn-copy"><strong>Collect</strong><small>Visible yield</small></span>
       </button>
-    </div>
-    <div class="row mobile-action-grid">
-      <button id="settle-mobile" class="panel-btn">Settle</button>
-      <button id="build-fort-mobile" class="panel-btn">Fort</button>
-      <button id="build-siege-mobile" class="panel-btn">Siege</button>
-      <button id="uncapture-mobile" class="panel-btn">Release</button>
     </div>
   </div>
 
@@ -610,10 +604,6 @@ const collectVisibleMobileBtn = document.querySelector<HTMLButtonElement>("#coll
 const centerMeDesktopBtn = document.querySelector<HTMLButtonElement>("#center-me-desktop");
 const collectVisibleDesktopBtn = document.querySelector<HTMLButtonElement>("#collect-visible-desktop");
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
-const settleMobileBtn = document.querySelector<HTMLButtonElement>("#settle-mobile");
-const buildFortMobileBtn = document.querySelector<HTMLButtonElement>("#build-fort-mobile");
-const buildSiegeMobileBtn = document.querySelector<HTMLButtonElement>("#build-siege-mobile");
-const uncaptureMobileBtn = document.querySelector<HTMLButtonElement>("#uncapture-mobile");
 if (
   !statsChipsEl ||
   !selectedEl ||
@@ -709,11 +699,7 @@ if (
   !centerMeBtn ||
   !collectVisibleMobileBtn ||
   !centerMeDesktopBtn ||
-  !collectVisibleDesktopBtn ||
-  !settleMobileBtn ||
-  !buildFortMobileBtn ||
-  !buildSiegeMobileBtn ||
-  !uncaptureMobileBtn
+  !collectVisibleDesktopBtn
 ) {
   throw new Error("hud elements missing");
 }
@@ -1956,6 +1942,20 @@ const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof sta
   return "intel";
 };
 
+const mobileNavLabelHtml = (panel: typeof state.mobilePanel, opts?: { techReady?: boolean; attackAlertUnread?: boolean }): string => {
+  if (panel === "core") return '<span class="tab-icon">⌂</span><span>Core</span>';
+  if (panel === "missions") return '<span class="tab-icon">◎</span><span>Missions</span>';
+  if (panel === "tech") {
+    return opts?.techReady
+      ? '<span class="tab-icon">⚡</span><span>Tech</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
+      : '<span class="tab-icon">⚡</span><span>Tech</span>';
+  }
+  if (panel === "social") return '<span class="tab-icon">👥</span><span>Social</span>';
+  return opts?.attackAlertUnread
+    ? '<span class="tab-icon">🔔</span><span>Intel</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
+    : '<span class="tab-icon">🔔</span><span>Intel</span>';
+};
+
 const viewportSize = (): { width: number; height: number } => {
   const vv = window.visualViewport;
   if (vv) return { width: Math.round(vv.width), height: Math.round(vv.height) };
@@ -2024,7 +2024,9 @@ const renderMobilePanels = (): void => {
 
   const buttons = nav.querySelectorAll<HTMLButtonElement>("button[data-mobile-panel]");
   buttons.forEach((b) => {
-    b.classList.toggle("active", b.dataset.mobilePanel === state.mobilePanel);
+    const panel = b.dataset.mobilePanel as typeof state.mobilePanel | undefined;
+    if (panel) b.innerHTML = mobileNavLabelHtml(panel);
+    b.classList.toggle("active", panel === state.mobilePanel);
   });
 };
 
@@ -2976,10 +2978,16 @@ const renderHud = (): void => {
         : '<span class="tab-icon">🔔</span>';
     }
   });
+  const coreMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='core']");
+  if (coreMobileBtn) coreMobileBtn.innerHTML = mobileNavLabelHtml("core");
+  const missionsMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='missions']");
+  if (missionsMobileBtn) missionsMobileBtn.innerHTML = mobileNavLabelHtml("missions");
   const techMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='tech']");
-  if (techMobileBtn) techMobileBtn.innerHTML = techReady ? 'Tech <span class="tech-ready-dot" aria-label="upgrade available"></span>' : "Tech";
+  if (techMobileBtn) techMobileBtn.innerHTML = mobileNavLabelHtml("tech", { techReady });
+  const socialMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='social']");
+  if (socialMobileBtn) socialMobileBtn.innerHTML = mobileNavLabelHtml("social");
   const intelMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='intel']");
-  if (intelMobileBtn) intelMobileBtn.innerHTML = attackAlertUnread ? 'Intel <span class="attack-alert-dot" aria-label="under attack">🔥</span>' : "Intel";
+  if (intelMobileBtn) intelMobileBtn.innerHTML = mobileNavLabelHtml("intel", { attackAlertUnread });
 
   if (state.crystalTargeting.active) {
     const ability = state.crystalTargeting.ability;
@@ -4900,10 +4908,6 @@ collectVisibleDesktopBtn.onclick = () => {
 collectVisibleMobileBtn.onclick = () => {
   collectVisibleYield();
 };
-settleMobileBtn.onclick = () => settleSelected();
-buildFortMobileBtn.onclick = () => buildFortOnSelected();
-buildSiegeMobileBtn.onclick = () => buildSiegeOutpostOnSelected();
-uncaptureMobileBtn.onclick = () => uncaptureSelected();
 captureCancelBtn.onclick = () => cancelOngoingCapture();
 
 panelCloseBtn.onclick = () => {
