@@ -97,6 +97,15 @@ const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
 const snapshotTempFile = (): string => path.join(SNAPSHOT_DIR, `state.${process.pid}.tmp`);
 
 let appRef: FastifyInstance | undefined;
+const startupState: {
+  ready: boolean;
+  startedAt: number;
+  completedAt?: number;
+  currentPhase?: string;
+} = {
+  ready: false,
+  startedAt: Date.now()
+};
 const logRuntimeError = (message: string, err: unknown): void => {
   if (appRef) {
     appRef.log.error({ err }, message);
@@ -107,6 +116,16 @@ const logRuntimeError = (message: string, err: unknown): void => {
 
 type Ws = import("ws").WebSocket;
 const NOOP_WS = { send: () => undefined, readyState: 1, OPEN: 1 } as unknown as Ws;
+
+const logStartupPhase = (phase: string, startedAt: number, extra?: Record<string, unknown>): void => {
+  startupState.currentPhase = phase;
+  const elapsedMs = Date.now() - startedAt;
+  if (appRef) {
+    appRef.log.info({ phase, elapsedMs, startupElapsedMs: Date.now() - startupState.startedAt, ...extra }, "startup phase");
+    return;
+  }
+  console.log("startup phase", { phase, elapsedMs, startupElapsedMs: Date.now() - startupState.startedAt, ...extra });
+};
 
 interface AuthIdentity {
   uid: string;
@@ -8891,181 +8910,209 @@ const loadSnapshot = (): void => {
   }
 };
 
-loadSnapshot();
-ensureAiPlayers();
-setWorldSeed(activeSeason.worldSeed);
-const minAcceptableClusters = CLUSTER_COUNT_MIN;
-const hasBiomeLinkedClusters = [...clustersById.values()].every((c) => Boolean(c.resourceType));
-const clusterTilesById = new Map<string, number>();
-for (const cid of clusterByTile.values()) clusterTilesById.set(cid, (clusterTilesById.get(cid) ?? 0) + 1);
-const hasLegacyResourceMix = [...clustersById.values()].some((c) => c.resourceType === "WOOD");
-const hasFurClusters = [...clustersById.values()].some((c) => c.resourceType === "FUR");
-const hasExpectedClusterShape =
-  clustersById.size === CLUSTER_COUNT_MIN &&
-  [...clustersById.values()].every((c) => (clusterTilesById.get(c.clusterId) ?? 0) === 8);
-const hasGemOnNonSand = (() => {
-  for (const [tk, cid] of clusterByTile) {
-    const c = clustersById.get(cid);
-    if (!c || c.resourceType !== "GEMS") continue;
-    const [x, y] = parseKey(tk);
-    if (landBiomeAt(x, y) !== "SAND") return true;
-  }
-  return false;
-})();
-if (
-  clustersById.size < minAcceptableClusters ||
-  clusterByTile.size === 0 ||
-  !hasBiomeLinkedClusters ||
-  !hasExpectedClusterShape ||
-  hasLegacyResourceMix ||
-  !hasFurClusters ||
-  hasGemOnNonSand
-) {
-  activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
+const bootstrapRuntimeState = (): void => {
+  const loadStartedAt = Date.now();
+  loadSnapshot();
+  logStartupPhase("load_snapshot", loadStartedAt, { players: players.size, ownershipTiles: ownership.size });
+
+  const worldStartedAt = Date.now();
+  ensureAiPlayers();
   setWorldSeed(activeSeason.worldSeed);
-}
-const hasCrossContinentDockPairs = (() => {
-  const seen = new Set<string>();
-  let hasCrossContinentLink = false;
-  for (const d of dockById.values()) {
-    const linkedDockIds = d.connectedDockIds?.length ? d.connectedDockIds : d.pairedDockId ? [d.pairedDockId] : [];
-    for (const dockId of linkedDockIds) {
-      const pair = dockById.get(dockId);
-      if (!pair) return false;
-      const edgeKey = d.dockId < pair.dockId ? `${d.dockId}|${pair.dockId}` : `${pair.dockId}|${d.dockId}`;
-      if (seen.has(edgeKey)) continue;
-      seen.add(edgeKey);
-      const [ax, ay] = parseKey(d.tileKey);
-      const [bx, by] = parseKey(pair.tileKey);
-      const ac = continentIdAt(ax, ay);
-      const bc = continentIdAt(bx, by);
-      if (ac === undefined || bc === undefined) return false;
-      if (ac !== bc) hasCrossContinentLink = true;
+  const minAcceptableClusters = CLUSTER_COUNT_MIN;
+  const hasBiomeLinkedClusters = [...clustersById.values()].every((c) => Boolean(c.resourceType));
+  const clusterTilesById = new Map<string, number>();
+  for (const cid of clusterByTile.values()) clusterTilesById.set(cid, (clusterTilesById.get(cid) ?? 0) + 1);
+  const hasLegacyResourceMix = [...clustersById.values()].some((c) => c.resourceType === "WOOD");
+  const hasFurClusters = [...clustersById.values()].some((c) => c.resourceType === "FUR");
+  const hasExpectedClusterShape =
+    clustersById.size === CLUSTER_COUNT_MIN &&
+    [...clustersById.values()].every((c) => (clusterTilesById.get(c.clusterId) ?? 0) === 8);
+  const hasGemOnNonSand = (() => {
+    for (const [tk, cid] of clusterByTile) {
+      const c = clustersById.get(cid);
+      if (!c || c.resourceType !== "GEMS") continue;
+      const [x, y] = parseKey(tk);
+      if (landBiomeAt(x, y) !== "SAND") return true;
     }
-  }
-  if (seen.size === 0) {
     return false;
+  })();
+  if (
+    clustersById.size < minAcceptableClusters ||
+    clusterByTile.size === 0 ||
+    !hasBiomeLinkedClusters ||
+    !hasExpectedClusterShape ||
+    hasLegacyResourceMix ||
+    !hasFurClusters ||
+    hasGemOnNonSand
+  ) {
+    activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
+    setWorldSeed(activeSeason.worldSeed);
   }
-  return dockById.size > 0 && hasCrossContinentLink;
-})();
-if (dockById.size === 0 || docksByTile.size === 0 || !hasCrossContinentDockPairs || townsByTile.size === 0) {
-  activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
-  setWorldSeed(activeSeason.worldSeed);
-}
-if (activeSeasonTechConfig.rootNodeIds.length === 0 || activeSeasonTechConfig.activeNodeIds.size === 0) {
-  activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
-  activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
-}
-for (const p of players.values()) {
-  if (!playerBaseMods.has(p.id)) {
-    playerBaseMods.set(p.id, {
-      attack: p.mods.attack,
-      defense: p.mods.defense,
-      income: p.mods.income,
-      vision: p.mods.vision
-    });
+  const hasCrossContinentDockPairs = (() => {
+    const seen = new Set<string>();
+    let hasCrossContinentLink = false;
+    for (const d of dockById.values()) {
+      const linkedDockIds = d.connectedDockIds?.length ? d.connectedDockIds : d.pairedDockId ? [d.pairedDockId] : [];
+      for (const dockId of linkedDockIds) {
+        const pair = dockById.get(dockId);
+        if (!pair) return false;
+        const edgeKey = d.dockId < pair.dockId ? `${d.dockId}|${pair.dockId}` : `${pair.dockId}|${d.dockId}`;
+        if (seen.has(edgeKey)) continue;
+        seen.add(edgeKey);
+        const [ax, ay] = parseKey(d.tileKey);
+        const [bx, by] = parseKey(pair.tileKey);
+        const ac = continentIdAt(ax, ay);
+        const bc = continentIdAt(bx, by);
+        if (ac === undefined || bc === undefined) return false;
+        if (ac !== bc) hasCrossContinentLink = true;
+      }
+    }
+    if (seen.size === 0) {
+      return false;
+    }
+    return dockById.size > 0 && hasCrossContinentLink;
+  })();
+  if (dockById.size === 0 || docksByTile.size === 0 || !hasCrossContinentDockPairs || townsByTile.size === 0) {
+    activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
+    setWorldSeed(activeSeason.worldSeed);
   }
-  if (!revealedEmpireTargetsByPlayer.has(p.id)) setRevealTargetsForPlayer(p.id, []);
-  rebuildEconomyIndexForPlayer(p.id);
-  if (!playerEffectsByPlayer.has(p.id)) recomputePlayerEffectsForPlayer(p);
-}
-rebuildOwnershipDerivedState();
-for (const p of players.values()) recomputeTechModsFromOwnedTechs(p);
-for (const p of players.values()) {
-  if (p.T <= 0 || p.territoryTiles.size === 0) {
-    spawnPlayer(p);
+  if (activeSeasonTechConfig.rootNodeIds.length === 0 || activeSeasonTechConfig.activeNodeIds.size === 0) {
+    activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
+    activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   }
-}
-if (barbarianAgents.size === 0) {
-  spawnInitialBarbarians();
-}
-for (const [tk, fort] of fortsByTile.entries()) {
-  if (fort.status !== "under_construction") continue;
-  const remaining = fort.completesAt - now();
-  if (remaining <= 0) {
-    fort.status = "active";
-    continue;
+  logStartupPhase("validate_world_state", worldStartedAt, {
+    clusters: clustersById.size,
+    docks: dockById.size,
+    towns: townsByTile.size
+  });
+
+  const playerStartedAt = Date.now();
+  for (const p of players.values()) {
+    if (!playerBaseMods.has(p.id)) {
+      playerBaseMods.set(p.id, {
+        attack: p.mods.attack,
+        defense: p.mods.defense,
+        income: p.mods.income,
+        vision: p.mods.vision
+      });
+    }
+    if (!revealedEmpireTargetsByPlayer.has(p.id)) setRevealTargetsForPlayer(p.id, []);
+    rebuildEconomyIndexForPlayer(p.id);
+    if (!playerEffectsByPlayer.has(p.id)) recomputePlayerEffectsForPlayer(p);
   }
-  const timer = setTimeout(() => {
-    const live = fortsByTile.get(tk);
-    if (!live) return;
-    const [fx, fy] = parseKey(tk);
-    const tileNow = playerTile(fx, fy);
-    if (tileNow.ownerId !== live.ownerId) {
-      fortsByTile.delete(tk);
+  rebuildOwnershipDerivedState();
+  for (const p of players.values()) recomputeTechModsFromOwnedTechs(p);
+  for (const p of players.values()) {
+    if (p.T <= 0 || p.territoryTiles.size === 0) {
+      spawnPlayer(p);
+    }
+  }
+  if (barbarianAgents.size === 0) {
+    spawnInitialBarbarians();
+  }
+  logStartupPhase("hydrate_players", playerStartedAt, { players: players.size, barbarianAgents: barbarianAgents.size });
+
+  const timersStartedAt = Date.now();
+  for (const [tk, fort] of fortsByTile.entries()) {
+    if (fort.status !== "under_construction") continue;
+    const remaining = fort.completesAt - now();
+    if (remaining <= 0) {
+      fort.status = "active";
+      continue;
+    }
+    const timer = setTimeout(() => {
+      const live = fortsByTile.get(tk);
+      if (!live) return;
+      const [fx, fy] = parseKey(tk);
+      const tileNow = playerTile(fx, fy);
+      if (tileNow.ownerId !== live.ownerId) {
+        fortsByTile.delete(tk);
+        fortBuildTimers.delete(tk);
+        return;
+      }
+      live.status = "active";
       fortBuildTimers.delete(tk);
-      return;
+      updateOwnership(fx, fy, live.ownerId);
+    }, remaining);
+    fortBuildTimers.set(tk, timer);
+  }
+  for (const [tk, observatory] of observatoriesByTile.entries()) {
+    if (observatory.status !== "under_construction" || observatory.completesAt === undefined) continue;
+    const remaining = observatory.completesAt - now();
+    if (remaining <= 0) {
+      observatory.status = "active";
+      delete observatory.completesAt;
+      continue;
     }
-    live.status = "active";
-    fortBuildTimers.delete(tk);
-    updateOwnership(fx, fy, live.ownerId);
-  }, remaining);
-  fortBuildTimers.set(tk, timer);
-}
-for (const [tk, observatory] of observatoriesByTile.entries()) {
-  if (observatory.status !== "under_construction" || observatory.completesAt === undefined) continue;
-  const remaining = observatory.completesAt - now();
-  if (remaining <= 0) {
-    observatory.status = "active";
-    delete observatory.completesAt;
-    continue;
+    scheduleObservatoryConstruction(tk, remaining);
   }
-  scheduleObservatoryConstruction(tk, remaining);
-}
-for (const [tk, siege] of siegeOutpostsByTile.entries()) {
-  if (siege.status !== "under_construction") continue;
-  const remaining = siege.completesAt - now();
-  if (remaining <= 0) {
-    siege.status = "active";
-    continue;
-  }
-  const timer = setTimeout(() => {
-    const live = siegeOutpostsByTile.get(tk);
-    if (!live) return;
-    const [sx, sy] = parseKey(tk);
-    const tileNow = playerTile(sx, sy);
-    if (tileNow.ownerId !== live.ownerId) {
-      siegeOutpostsByTile.delete(tk);
+  for (const [tk, siege] of siegeOutpostsByTile.entries()) {
+    if (siege.status !== "under_construction") continue;
+    const remaining = siege.completesAt - now();
+    if (remaining <= 0) {
+      siege.status = "active";
+      continue;
+    }
+    const timer = setTimeout(() => {
+      const live = siegeOutpostsByTile.get(tk);
+      if (!live) return;
+      const [sx, sy] = parseKey(tk);
+      const tileNow = playerTile(sx, sy);
+      if (tileNow.ownerId !== live.ownerId) {
+        siegeOutpostsByTile.delete(tk);
+        siegeOutpostBuildTimers.delete(tk);
+        return;
+      }
+      live.status = "active";
       siegeOutpostBuildTimers.delete(tk);
-      return;
-    }
-    live.status = "active";
-    siegeOutpostBuildTimers.delete(tk);
-    updateOwnership(sx, sy, live.ownerId);
-  }, remaining);
-  siegeOutpostBuildTimers.set(tk, timer);
-}
-for (const [tk, structure] of economicStructuresByTile.entries()) {
-  if (structure.status !== "under_construction" || structure.completesAt === undefined) continue;
-  const remaining = structure.completesAt - now();
-  if (remaining <= 0) {
-    structure.status = "active";
-    delete structure.completesAt;
-    continue;
+      updateOwnership(sx, sy, live.ownerId);
+    }, remaining);
+    siegeOutpostBuildTimers.set(tk, timer);
   }
-  const [sx, sy] = parseKey(tk);
-  const timer = setTimeout(() => {
-    const current = economicStructuresByTile.get(tk);
-    if (!current) return;
-    const tileNow = runtimeTileCore(sx, sy);
-    if (tileNow.ownerId !== current.ownerId || tileNow.ownershipState !== "SETTLED") {
-      cancelEconomicStructureBuild(tk);
-      return;
+  for (const [tk, structure] of economicStructuresByTile.entries()) {
+    if (structure.status !== "under_construction" || structure.completesAt === undefined) continue;
+    const remaining = structure.completesAt - now();
+    if (remaining <= 0) {
+      structure.status = "active";
+      delete structure.completesAt;
+      continue;
     }
-    current.status = "active";
-    delete current.completesAt;
-    economicStructureBuildTimers.delete(tk);
-    updateOwnership(sx, sy, current.ownerId);
-  }, remaining);
-  economicStructureBuildTimers.set(tk, timer);
-}
-for (const settlement of pendingSettlementsByTile.values()) {
-  if (settlement.resolvesAt <= now()) resolvePendingSettlement(settlement);
-  else schedulePendingSettlementResolution(settlement);
-}
+    const [sx, sy] = parseKey(tk);
+    const timer = setTimeout(() => {
+      const current = economicStructuresByTile.get(tk);
+      if (!current) return;
+      const tileNow = runtimeTileCore(sx, sy);
+      if (tileNow.ownerId !== current.ownerId || tileNow.ownershipState !== "SETTLED") {
+        cancelEconomicStructureBuild(tk);
+        return;
+      }
+      current.status = "active";
+      delete current.completesAt;
+      economicStructureBuildTimers.delete(tk);
+      updateOwnership(sx, sy, current.ownerId);
+    }, remaining);
+    economicStructureBuildTimers.set(tk, timer);
+  }
+  for (const settlement of pendingSettlementsByTile.values()) {
+    if (settlement.resolvesAt <= now()) resolvePendingSettlement(settlement);
+    else schedulePendingSettlementResolution(settlement);
+  }
+  logStartupPhase("schedule_runtime_timers", timersStartedAt, {
+    pendingSettlements: pendingSettlementsByTile.size,
+    forts: fortsByTile.size,
+    observatories: observatoriesByTile.size,
+    siegeOutposts: siegeOutpostsByTile.size,
+    economicStructures: economicStructuresByTile.size
+  });
+};
 const runtimeIntervals: NodeJS.Timeout[] = [];
 const registerInterval = (fn: () => void, ms: number): void => {
-  runtimeIntervals.push(setInterval(fn, ms));
+  runtimeIntervals.push(
+    setInterval(() => {
+      if (!startupState.ready) return;
+      fn();
+    }, ms)
+  );
 };
 
 let lastSnapshotAt = 0;
@@ -9202,7 +9249,21 @@ appRef = app;
 await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
-app.get("/health", async () => ({ ok: true }));
+app.get("/health", async (_request, reply) => {
+  if (!startupState.ready) {
+    reply.code(503);
+    return {
+      ok: false,
+      status: "starting",
+      startupElapsedMs: Date.now() - startupState.startedAt,
+      phase: startupState.currentPhase ?? "boot"
+    };
+  }
+  return {
+    ok: true,
+    startupElapsedMs: (startupState.completedAt ?? Date.now()) - startupState.startedAt
+  };
+});
 app.get("/season", async () => ({
   activeSeason,
   seasonWinner,
@@ -9292,6 +9353,11 @@ app.post("/admin/world/regenerate", async () => {
     }
 
     const msg = parsed.data as import("@border-empires/shared").ClientMessage;
+
+    if (!startupState.ready) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "SERVER_STARTING", message: "server is still starting" }));
+      return;
+    }
 
     if (msg.type === "AUTH") {
       let decoded = cachedFirebaseIdentityForToken(msg.token);
@@ -10395,3 +10461,16 @@ process.once("SIGTERM", () => {
 });
 
 await app.listen({ host: "0.0.0.0", port: PORT });
+logStartupPhase("server_listening", startupState.startedAt, { port: PORT });
+try {
+  bootstrapRuntimeState();
+  startupState.ready = true;
+  startupState.completedAt = Date.now();
+  logStartupPhase("startup_ready", startupState.startedAt, {
+    players: players.size,
+    onlinePlayers: onlineSocketCount()
+  });
+} catch (err) {
+  logRuntimeError("startup bootstrap failed", err);
+  process.exit(1);
+}
