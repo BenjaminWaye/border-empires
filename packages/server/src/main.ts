@@ -1823,7 +1823,7 @@ const analyzeLandComponentsForDocks = (
           comp.fallbackY = cy;
         }
         const ocean = adjacentOceanSea(cx, cy, oceanMask);
-        if (ocean) {
+        if (ocean && !clusterByTile.has(key(cx, cy))) {
           comp.oceanCandidates.push({
             x: cx,
             y: cy,
@@ -3111,7 +3111,7 @@ const playerTile = (x: number, y: number): Tile => {
   };
   const continentId = continentIdAt(wx, wy);
   const regionType = regionTypeAtLocal(wx, wy);
-  if (resource) tile.resource = resource;
+  if (resource && !dock) tile.resource = resource;
   if (ownerId) {
     tile.ownerId = ownerId;
     tile.ownershipState = ownershipState ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
@@ -10394,7 +10394,14 @@ app.post("/admin/world/regenerate", async () => {
 
       socket.send(JSON.stringify({
         type: "COMBAT_RESULT",
+        attackType: msg.type,
+        attackerWon: win,
         winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+        origin: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        atkEff: atkEffWithSiege,
+        defEff,
+        winChance: p,
         changes: resultChanges,
         pointsDelta,
         levelDelta: 0
