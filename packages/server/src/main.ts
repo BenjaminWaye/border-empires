@@ -582,6 +582,7 @@ const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
 const SEASON_VICTORY_SETTLED_TERRITORY_SHARE = 0.66;
 const SEASON_VICTORY_ECONOMY_MIN_INCOME = 200;
 const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
+const SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE = 0.2;
 const VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS = 2 * 60 * 60_000;
 const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
@@ -600,6 +601,18 @@ const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
     id: "ECONOMIC_HEGEMONY",
     name: "Economy",
     description: "Reach at least 200 gold per minute and stay 33% ahead of second place.",
+    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
+  },
+  {
+    id: "RESOURCE_MONOPOLY",
+    name: "Resource Monopoly",
+    description: "Control all tiles of at least one world resource type.",
+    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
+  },
+  {
+    id: "CONTINENT_FOOTPRINT",
+    name: "Continental Footprint",
+    description: "Control at least 20% of claimable land on every continent.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   }
 ];
@@ -6763,6 +6776,56 @@ const countControlledTowns = (playerId: string): number => {
   return count;
 };
 
+const worldResourceTileCounts = (): Record<ResourceType, number> => {
+  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0 };
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      if (terrainAtRuntime(x, y) !== "LAND") continue;
+      const resource = applyClusterResources(x, y, resourceAt(x, y));
+      if (!resource) continue;
+      counts[resource] += 1;
+    }
+  }
+  return counts;
+};
+
+const controlledResourceTileCounts = (playerId: string): Record<ResourceType, number> => {
+  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0 };
+  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
+    const [x, y] = parseKey(tk);
+    if (terrainAtRuntime(x, y) !== "LAND") continue;
+    const resource = applyClusterResources(x, y, resourceAt(x, y));
+    if (!resource) continue;
+    counts[resource] += 1;
+  }
+  return counts;
+};
+
+const continentLandCounts = (): Map<number, number> => {
+  const counts = new Map<number, number>();
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      if (terrainAtRuntime(x, y) !== "LAND") continue;
+      const continentId = continentIdAt(x, y);
+      if (continentId === undefined) continue;
+      counts.set(continentId, (counts.get(continentId) ?? 0) + 1);
+    }
+  }
+  return counts;
+};
+
+const continentControlledCounts = (playerId: string): Map<number, number> => {
+  const counts = new Map<number, number>();
+  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
+    const [x, y] = parseKey(tk);
+    if (terrainAtRuntime(x, y) !== "LAND") continue;
+    const continentId = continentIdAt(x, y);
+    if (continentId === undefined) continue;
+    counts.set(continentId, (counts.get(continentId) ?? 0) + 1);
+  }
+  return counts;
+};
+
 let cachedClaimableLandTileCount: { seed: number; count: number } | undefined;
 const claimableLandTileCount = (): number => {
   if (cachedClaimableLandTileCount?.seed === activeSeason.worldSeed) return cachedClaimableLandTileCount?.count ?? 0;
@@ -6828,6 +6891,8 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
   const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
   const metrics = collectPlayerCompetitionMetrics(nowMs);
+  const totalResourceCounts = worldResourceTileCounts();
+  const allContinents = continentLandCounts();
   return VICTORY_PRESSURE_DEFS.map((def) => {
     const tracker = getVictoryPressureTracker(def.id);
     let leaderPlayerId: string | undefined;
@@ -6850,7 +6915,7 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
       conditionMet = Boolean(leaderPlayerId && leaderValue >= settledTarget);
       progressLabel = `${leaderValue}/${settledTarget} settled land`;
       thresholdLabel = `Need ${settledTarget} settled land tiles`;
-    } else {
+    } else if (def.id === "ECONOMIC_HEGEMONY") {
       const pair = leadingPair(metrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute })));
       leaderPlayerId = pair.tied ? undefined : pair.leaderPlayerId;
       leaderValue = pair.leaderValue;
@@ -6864,6 +6929,56 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
       );
       progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${pair.runnerUpValue.toFixed(1)}`;
       thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
+    } else if (def.id === "RESOURCE_MONOPOLY") {
+      let bestLeaderId: string | undefined;
+      let bestOwned = 0;
+      let bestTotal = 0;
+      let bestResource: ResourceType | undefined;
+      for (const metric of metrics) {
+        const controlled = controlledResourceTileCounts(metric.playerId);
+        for (const resource of Object.keys(totalResourceCounts) as ResourceType[]) {
+          const total = totalResourceCounts[resource];
+          if (total <= 0) continue;
+          const owned = controlled[resource] ?? 0;
+          if (owned > bestOwned) {
+            bestLeaderId = metric.playerId;
+            bestOwned = owned;
+            bestTotal = total;
+            bestResource = resource;
+          }
+        }
+      }
+      leaderPlayerId = bestLeaderId;
+      leaderValue = bestOwned;
+      conditionMet = Boolean(leaderPlayerId && bestResource && bestTotal > 0 && bestOwned >= bestTotal);
+      progressLabel = bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource leader";
+      thresholdLabel = "Need 100% control of one resource type";
+    } else {
+      let bestLeaderId: string | undefined;
+      let bestRatio = 0;
+      let bestMinPct = 0;
+      for (const metric of metrics) {
+        const controlled = continentControlledCounts(metric.playerId);
+        let minRatio = Number.POSITIVE_INFINITY;
+        let validContinents = 0;
+        for (const [continentId, totalLand] of allContinents) {
+          if (totalLand <= 0) continue;
+          validContinents += 1;
+          const owned = controlled.get(continentId) ?? 0;
+          minRatio = Math.min(minRatio, owned / totalLand);
+        }
+        if (validContinents === 0) continue;
+        if (minRatio > bestRatio) {
+          bestRatio = minRatio;
+          bestMinPct = Math.round(minRatio * 100);
+          bestLeaderId = metric.playerId;
+        }
+      }
+      leaderPlayerId = bestLeaderId;
+      leaderValue = bestMinPct;
+      conditionMet = Boolean(leaderPlayerId && bestRatio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE);
+      progressLabel = `${bestMinPct}% minimum continent share`;
+      thresholdLabel = "Need 20% of land on every continent";
     }
 
     const winner = currentSeasonWinner();
