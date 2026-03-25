@@ -46,6 +46,7 @@ import {
   pvpPointsReward,
   randomFactor,
   ratingFromPointsLevel,
+  regionTypeAt,
   resourceAt,
   setWorldSeed,
   continentIdAt,
@@ -1323,18 +1324,8 @@ const hasOwnedLandWithinRange = (playerId: string, x: number, y: number, range: 
   return false;
 };
 
-const regionTypeAtLocal = (x: number, y: number): "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES" | undefined => {
-  if (terrainAt(x, y) !== "LAND") return undefined;
-  const a = seeded01(Math.floor(x / 80), Math.floor(y / 80), activeSeason.worldSeed + 1403);
-  const b = seeded01(Math.floor((x + 137) / 64), Math.floor((y + 59) / 64), activeSeason.worldSeed + 1417);
-  const c = seeded01(Math.floor((x - 83) / 110), Math.floor((y + 191) / 110), activeSeason.worldSeed + 1429);
-  const v = a * 0.5 + b * 0.3 + c * 0.2;
-  if (v < 0.2) return "FERTILE_PLAINS";
-  if (v < 0.4) return "DEEP_FOREST";
-  if (v < 0.6) return "BROKEN_HIGHLANDS";
-  if (v < 0.8) return "ANCIENT_HEARTLAND";
-  return "CRYSTAL_WASTES";
-};
+const regionTypeAtLocal = (x: number, y: number): "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES" | undefined =>
+  terrainAt(x, y) === "LAND" ? regionTypeAt(x, y) : undefined;
 
 const isAdjacentTile = (ax: number, ay: number, bx: number, by: number): boolean => {
   const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
@@ -1589,6 +1580,11 @@ const clusterRuleMatchRelaxed = (x: number, y: number, resource: ResourceType): 
 
 const resourcePlacementAllowed = (x: number, y: number, resource: ResourceType, relaxed = false): boolean =>
   relaxed ? clusterRuleMatchRelaxed(x, y, resource) : clusterRuleMatch(x, y, resource);
+
+const isForestFrontierTile = (x: number, y: number): boolean =>
+  terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
+
+const frontierClaimDurationMsAt = (x: number, y: number): number => (isForestFrontierTile(x, y) ? FRONTIER_CLAIM_MS * 2 : FRONTIER_CLAIM_MS);
 
 const nearestLandTiles = (
   originX: number,
@@ -4485,7 +4481,7 @@ const tryQueueBasicFrontierAction = (
   if (actionType === "ATTACK" && to.ownerId && to.ownerId !== actor.id && !actor.allies.has(to.ownerId)) {
     pausePopulationGrowthFromWar(actor.id);
   }
-  const resolvesAt = now() + (actionType === "EXPAND" && !to.ownerId ? FRONTIER_CLAIM_MS : COMBAT_LOCK_MS);
+  const resolvesAt = now() + (actionType === "EXPAND" && !to.ownerId ? frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
   const pending: PendingCapture = {
     resolvesAt,
     origin: fk,
@@ -10214,7 +10210,7 @@ app.post("/admin/world/regenerate", async () => {
     if (msg.type !== "EXPAND" && to.ownerId && to.ownerId !== actor.id && !actor.allies.has(to.ownerId)) {
       pausePopulationGrowthFromWar(actor.id);
     }
-    const resolvesAt = now() + (msg.type === "EXPAND" && !to.ownerId ? FRONTIER_CLAIM_MS : COMBAT_LOCK_MS);
+    const resolvesAt = now() + (msg.type === "EXPAND" && !to.ownerId ? frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
     const pending: PendingCapture = {
       resolvesAt,
       origin: fk,
