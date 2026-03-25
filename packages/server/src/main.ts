@@ -3885,6 +3885,18 @@ function currentFoodCoverageForPlayer(playerId: string): number {
   return townFeedingStateForPlayer(playerId).foodCoverage;
 }
 
+const playerHasSettledFoodSources = (playerId: string): boolean => {
+  const player = players.get(playerId);
+  if (!player) return false;
+  for (const tk of player.territoryTiles) {
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
+    const [x, y] = parseKey(tk);
+    const resource = playerTile(x, y).resource;
+    if (resource === "FARM" || resource === "FISH") return true;
+  }
+  return false;
+};
+
 const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
   if (t.terrain !== "LAND") return { ok: false, reason: "structure requires land tile" };
   if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") return { ok: false, reason: "structure requires settled owned tile" };
@@ -8362,6 +8374,17 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
 };
 
 const spawnPlayer = (p: Player): void => {
+  const hasNearbyPlayerSpawn = (x: number, y: number, radius: number): boolean => {
+    for (const other of players.values()) {
+      if (other.id === p.id) continue;
+      const home = playerHomeTile(other);
+      const spawnOrigin = other.spawnOrigin;
+      const [ox, oy] = home ? [home.x, home.y] : spawnOrigin ? parseKey(spawnOrigin) : [Number.NaN, Number.NaN];
+      if (Number.isNaN(ox) || Number.isNaN(oy)) continue;
+      if (chebyshevDistance(x, y, ox, oy) < radius) return true;
+    }
+    return false;
+  };
   const hasNearbyTown = (x: number, y: number, radius: number): boolean => {
     for (let dy = -radius; dy <= radius; dy += 1) {
       for (let dx = -radius; dx <= radius; dx += 1) {
@@ -8406,8 +8429,29 @@ const spawnPlayer = (p: Player): void => {
     const y = Math.floor(Math.random() * WORLD_HEIGHT);
     const t = playerTile(x, y);
     if (t.terrain !== "LAND" || t.ownerId) continue;
-    if (!hasNearbyTown(x, y, 15)) continue;
-    if (!hasNearbyFood(x, y, 15)) continue;
+    if (hasNearbyPlayerSpawn(x, y, 50)) continue;
+    if (!hasNearbyTown(x, y, 10)) continue;
+    if (!hasNearbyFood(x, y, 10)) continue;
+    if (trySpawnAt(x, y)) return;
+  }
+
+  for (let i = 0; i < 5000; i += 1) {
+    const x = Math.floor(Math.random() * WORLD_WIDTH);
+    const y = Math.floor(Math.random() * WORLD_HEIGHT);
+    const t = playerTile(x, y);
+    if (t.terrain !== "LAND" || t.ownerId) continue;
+    if (hasNearbyPlayerSpawn(x, y, 50)) continue;
+    if (!hasNearbyTown(x, y, 10)) continue;
+    if (trySpawnAt(x, y)) return;
+  }
+
+  for (let i = 0; i < 5000; i += 1) {
+    const x = Math.floor(Math.random() * WORLD_WIDTH);
+    const y = Math.floor(Math.random() * WORLD_HEIGHT);
+    const t = playerTile(x, y);
+    if (t.terrain !== "LAND" || t.ownerId) continue;
+    if (hasNearbyPlayerSpawn(x, y, 50)) continue;
+    if (!hasNearbyFood(x, y, 10)) continue;
     if (trySpawnAt(x, y)) return;
   }
 
@@ -8416,6 +8460,7 @@ const spawnPlayer = (p: Player): void => {
     const y = Math.floor(Math.random() * WORLD_HEIGHT);
     const t = playerTile(x, y);
     if (t.terrain !== "LAND") continue;
+    if (hasNearbyPlayerSpawn(x, y, 50)) continue;
     if (!t.ownerId && trySpawnAt(x, y)) return;
   }
 
@@ -10309,8 +10354,18 @@ app.post("/admin/world/regenerate", async () => {
       }> = [];
       if (win) {
         const targetWasSettled = to.ownershipState === "SETTLED";
+        const targetHadTown = townsByTile.has(tk);
         updateOwnership(to.x, to.y, actor.id, "FRONTIER");
         resultChanges = [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }];
+        if (targetHadTown && !playerHasSettledFoodSources(actor.id)) {
+          sendToPlayer(actor.id, {
+            type: "ERROR",
+            code: "TOWN_UNFED",
+            message: "Captured town is unfed. Settle a FISH or FARM tile to feed its citizens.",
+            x: to.x,
+            y: to.y
+          });
+        }
         if (!defenderIsBarbarian && isBreakthroughAttack && targetWasSettled && defender) {
           applyBreachShockAround(to.x, to.y, defender.id);
         }
