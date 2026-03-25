@@ -5243,14 +5243,22 @@ const aiEnemyPressureSignal = (actor: Player, tile: Tile): number => {
   if (!tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId) || tile.ownerId === BARBARIAN_OWNER_ID) return 0;
   let score = 0;
   const tk = key(tile.x, tile.y);
-  const frontlineIntrusion = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+  const settledIntrusion = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
     if (neighbor.terrain !== "LAND") return count;
     if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "SETTLED") return count;
     return count + 1;
   }, 0);
-  if (frontlineIntrusion > 0) {
-    score += 180 + frontlineIntrusion * 90;
-    if (tile.ownershipState === "FRONTIER") score += 180;
+  const ownedIntrusion = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+    if (neighbor.terrain !== "LAND") return count;
+    if (neighbor.ownerId !== actor.id) return count;
+    return count + 1;
+  }, 0);
+  if (ownedIntrusion > 0) {
+    score += 180 + ownedIntrusion * 95 + settledIntrusion * 70;
+    if (tile.ownershipState === "FRONTIER") score += 260;
+  }
+  if (settledIntrusion > 0) {
+    score += 120 + settledIntrusion * 60;
   }
   if (visibleToActor(tile.x, tile.y)) {
     if (townsByTile.has(tk)) score += 180;
@@ -5527,12 +5535,15 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
       return {
         tile,
         ...evaluation,
-        hasIntrinsicEconomicValue: townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey)
+        hasIntrinsicEconomicValue: townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey),
+        priorityScore:
+          evaluation.score +
+          ((townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey)) ? 480 : 0) +
+          (evaluation.townSupportSignal > 0 ? 520 + evaluation.townSupportSignal : 0)
       };
     })
-    .sort((a, b) => b.score - a.score);
-  const intrinsicBest = frontierTiles.find((entry) => entry.hasIntrinsicEconomicValue);
-  const best = intrinsicBest ?? frontierTiles[0];
+    .sort((a, b) => b.priorityScore - a.priorityScore || b.score - a.score);
+  const best = frontierTiles[0];
   if (!best) return undefined;
   if (!best.isEconomicallyInteresting && !best.isStrategicallyInteresting) return undefined;
   if (
@@ -5770,7 +5781,8 @@ const runAiTurn = (actor: Player): void => {
   const worldFlags = playerWorldFlags(actor);
   const rawHostileThreat = [...actor.territoryTiles].some((tileKey) => {
     const [x, y] = parseKey(tileKey);
-    if (ownershipStateByTile.get(tileKey) !== "SETTLED") return false;
+    const ownershipState = ownershipStateByTile.get(tileKey);
+    if (ownershipState !== "SETTLED" && ownershipState !== "FRONTIER") return false;
     return adjacentNeighborCores(x, y).some((neighbor) => {
       if (neighbor.terrain !== "LAND") return false;
       if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return false;
