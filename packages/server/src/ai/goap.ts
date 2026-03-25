@@ -261,6 +261,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       staminaHealthy: true
     },
     effects: {
+      hasScoutOpportunity: false,
       needsSettlement: true
     },
     meta: {
@@ -274,10 +275,10 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     preconditions: {
       hasScoutOpportunity: true,
       canAffordFrontierAction: true,
-      staminaHealthy: true,
-      threatCritical: false
+      staminaHealthy: true
     },
     effects: {
+      hasScoutOpportunity: false,
       needsSettlement: true
     },
     meta: {
