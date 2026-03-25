@@ -402,12 +402,6 @@ hud.innerHTML = `
         <span class="utility-btn-icon" aria-hidden="true">✦</span>
         <span class="utility-btn-copy"><strong>Collect</strong><small>Visible yield</small></span>
       </button>
-      <button id="refresh" class="panel-btn">Refresh</button>
-      <button id="fog-toggle-mobile" class="panel-btn">Fog On</button>
-    </div>
-    <div class="row mobile-style-row">
-      <input id="tile-color" type="color" value="#38b000" />
-      <button id="set-color" class="panel-btn">Apply Tint</button>
     </div>
     <div class="row mobile-action-grid">
       <button id="settle-mobile" class="panel-btn">Settle</button>
@@ -466,13 +460,6 @@ hud.innerHTML = `
         <div id="feed"></div>
       </section>
       <section id="panel-settings" class="panel-body">
-        <div class="card">
-          <div class="row">
-            <input id="panel-color" type="color" value="#38b000" />
-            <input id="panel-color-text" type="text" value="#38b000" />
-            <button id="set-color-panel" class="panel-btn">Apply</button>
-          </div>
-        </div>
         <div id="panel-settings-preview"></div>
       </section>
     </div>
@@ -575,9 +562,6 @@ const panelLeaderboardEl = document.querySelector<HTMLDivElement>("#panel-leader
 const panelFeedEl = document.querySelector<HTMLDivElement>("#panel-feed");
 const panelSettingsEl = document.querySelector<HTMLDivElement>("#panel-settings");
 const panelSettingsPreviewEl = document.querySelector<HTMLDivElement>("#panel-settings-preview");
-const panelColorInput = document.querySelector<HTMLInputElement>("#panel-color");
-const panelColorTextInput = document.querySelector<HTMLInputElement>("#panel-color-text");
-const setColorPanelBtn = document.querySelector<HTMLButtonElement>("#set-color-panel");
 const feedEl = document.querySelector<HTMLDivElement>("#feed");
 const techPickEl = document.querySelector<HTMLSelectElement>("#tech-pick");
 const techPointsEl = document.querySelector<HTMLDivElement>("#tech-points");
@@ -623,17 +607,13 @@ const mobileAllianceRequestsEl = document.querySelector<HTMLDivElement>("#mobile
 const mobileAlliesListEl = document.querySelector<HTMLDivElement>("#mobile-allies-list");
 const centerMeBtn = document.querySelector<HTMLButtonElement>("#center-me");
 const collectVisibleMobileBtn = document.querySelector<HTMLButtonElement>("#collect-visible-mobile");
-const refreshBtn = document.querySelector<HTMLButtonElement>("#refresh");
 const centerMeDesktopBtn = document.querySelector<HTMLButtonElement>("#center-me-desktop");
 const collectVisibleDesktopBtn = document.querySelector<HTMLButtonElement>("#collect-visible-desktop");
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
-const fogToggleMobileBtn = document.querySelector<HTMLButtonElement>("#fog-toggle-mobile");
 const settleMobileBtn = document.querySelector<HTMLButtonElement>("#settle-mobile");
 const buildFortMobileBtn = document.querySelector<HTMLButtonElement>("#build-fort-mobile");
 const buildSiegeMobileBtn = document.querySelector<HTMLButtonElement>("#build-siege-mobile");
 const uncaptureMobileBtn = document.querySelector<HTMLButtonElement>("#uncapture-mobile");
-const tileColorInput = document.querySelector<HTMLInputElement>("#tile-color");
-const setColorBtn = document.querySelector<HTMLButtonElement>("#set-color");
 if (
   !statsChipsEl ||
   !selectedEl ||
@@ -683,9 +663,6 @@ if (
   !panelFeedEl ||
   !panelSettingsEl ||
   !panelSettingsPreviewEl ||
-  !panelColorInput ||
-  !panelColorTextInput ||
-  !setColorPanelBtn ||
   !feedEl ||
   !techPickEl ||
   !techPointsEl ||
@@ -731,16 +708,12 @@ if (
   !mobileAlliesListEl ||
   !centerMeBtn ||
   !collectVisibleMobileBtn ||
-  !refreshBtn ||
   !centerMeDesktopBtn ||
   !collectVisibleDesktopBtn ||
-  !fogToggleMobileBtn ||
   !settleMobileBtn ||
   !buildFortMobileBtn ||
   !buildSiegeMobileBtn ||
-  !uncaptureMobileBtn ||
-  !tileColorInput ||
-  !setColorBtn
+  !uncaptureMobileBtn
 ) {
   throw new Error("hud elements missing");
 }
@@ -2980,7 +2953,6 @@ const renderHud = (): void => {
     <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
     ${strategicRibbonHtml()}
   `;
-  fogToggleMobileBtn.textContent = `Fog ${state.fogDisabled ? "Off" : "On"}`;
   collectVisibleDesktopBtn.disabled = !collectVisibleReady;
   collectVisibleMobileBtn.disabled = !collectVisibleReady;
   collectVisibleDesktopBtn.textContent = collectVisibleReady
@@ -3213,14 +3185,13 @@ const renderHud = (): void => {
   feedEl.innerHTML = feedHtml();
   mobileFeedEl.innerHTML = feedHtml();
 
-  panelColorInput.value = tileColorInput.value;
-  panelColorTextInput.value = tileColorInput.value;
+  const currentNationColor = state.playerColors.get(state.me) ?? authProfileColorEl.value;
   panelSettingsPreviewEl.innerHTML = `
     <div class="card">
-      <p>Pick your civilization tile color.</p>
+      <p>Nation color is locked after onboarding.</p>
       <div class="color-preview">
-        <div class="swatch" style="background:${tileColorInput.value}"></div>
-        <span>${tileColorInput.value}</span>
+        <div class="swatch" style="background:${currentNationColor}"></div>
+        <span>${currentNationColor}</span>
       </div>
     </div>
     <div class="card auth-settings-card">
@@ -3701,13 +3672,6 @@ const collectSelectedYield = (): void => {
   const sel = state.selected;
   if (!sel) return;
   sendGameMessage({ type: "COLLECT_TILE", x: sel.x, y: sel.y });
-};
-const applyTileColor = (value: string): void => {
-  if (!/^#[0-9a-fA-F]{6}$/.test(value)) return;
-  tileColorInput.value = value;
-  panelColorInput.value = value;
-  panelColorTextInput.value = value;
-  sendGameMessage({ type: "SET_TILE_COLOR", color: value }, "Finish sign-in before changing your nation color.");
 };
 
 const hideHoldBuildMenu = (): void => {
@@ -4921,23 +4885,6 @@ mobileTechPickEl.onchange = () => {
   techPickEl.value = mobileTechPickEl.value;
   renderHud();
 };
-setColorBtn.onclick = () => {
-  applyTileColor(tileColorInput.value);
-};
-setColorPanelBtn.onclick = () => {
-  applyTileColor(panelColorInput.value);
-};
-panelColorInput.oninput = () => {
-  panelColorTextInput.value = panelColorInput.value;
-};
-panelColorTextInput.onchange = () => {
-  if (/^#[0-9a-fA-F]{6}$/.test(panelColorTextInput.value)) panelColorInput.value = panelColorTextInput.value;
-};
-tileColorInput.oninput = () => {
-  panelColorInput.value = tileColorInput.value;
-  panelColorTextInput.value = tileColorInput.value;
-};
-
 centerMeBtn.onclick = () => {
   centerOnOwnedTile();
   requestViewRefresh(2, true);
@@ -4950,12 +4897,8 @@ collectVisibleDesktopBtn.onclick = () => {
   collectVisibleYield();
 };
 
-refreshBtn.onclick = () => requestViewRefresh();
 collectVisibleMobileBtn.onclick = () => {
   collectVisibleYield();
-};
-fogToggleMobileBtn.onclick = () => {
-  sendGameMessage({ type: "SET_FOG_DISABLED", disabled: !state.fogDisabled });
 };
 settleMobileBtn.onclick = () => settleSelected();
 buildFortMobileBtn.onclick = () => buildFortOnSelected();
@@ -5100,11 +5043,11 @@ ws.addEventListener("message", (ev) => {
     const myTileColor = p.tileColor as string | undefined;
     if (myTileColor) {
       state.playerColors.set(state.me, myTileColor);
-      tileColorInput.value = myTileColor;
+      authProfileColorEl.value = myTileColor;
     }
     const myVisualStyle = p.visualStyle as EmpireVisualStyle | undefined;
     if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
-    seedProfileSetupFields((p.name as string) || state.authUserLabel, myTileColor ?? tileColorInput.value);
+    seedProfileSetupFields((p.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value);
     for (const s of ((msg.playerStyles as Array<{ id: string; name?: string; tileColor?: string; visualStyle?: EmpireVisualStyle }>) ?? [])) {
       if (s.name) state.playerNames.set(s.id, s.name);
       if (s.tileColor) state.playerColors.set(s.id, s.tileColor);
@@ -5275,7 +5218,6 @@ ws.addEventListener("message", (ev) => {
     const myTileColor = msg.tileColor as string | undefined;
     if (myTileColor) {
       state.playerColors.set(state.me, myTileColor);
-      tileColorInput.value = myTileColor;
       authProfileColorEl.value = myTileColor;
     }
     const myVisualStyle = msg.visualStyle as EmpireVisualStyle | undefined;
@@ -5675,7 +5617,7 @@ ws.addEventListener("message", (ev) => {
     const visualStyle = msg.visualStyle as EmpireVisualStyle | undefined;
     if (pid && color) {
       state.playerColors.set(pid, color);
-      if (pid === state.me) tileColorInput.value = color;
+      if (pid === state.me) authProfileColorEl.value = color;
     }
     if (pid && visualStyle) state.playerVisualStyles.set(pid, visualStyle);
   }
