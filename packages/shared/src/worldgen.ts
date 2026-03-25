@@ -495,16 +495,16 @@ export const regionTypeAt = (x: number, y: number): RegionType | undefined => {
     regionTypeCacheReady[idx] = 1;
     return undefined;
   }
-  const a = valueNoise(wx, wy, 95, worldSeed() + 1403);
-  const b = valueNoise(wx + 137, wy + 59, 64, worldSeed() + 1417);
-  const c = valueNoise(wx - 83, wy + 191, 140, worldSeed() + 1429);
-  const v = a * 0.5 + b * 0.3 + c * 0.2;
+  const a = valueNoise(wx, wy, 180, worldSeed() + 1403);
+  const b = valueNoise(wx + 137, wy + 59, 120, worldSeed() + 1417);
+  const c = valueNoise(wx - 83, wy + 191, 260, worldSeed() + 1429);
+  const v = a * 0.52 + b * 0.28 + c * 0.2;
   const region =
-    v < 0.2
+    v < 0.22
       ? "FERTILE_PLAINS"
-      : v < 0.4
+      : v < 0.36
         ? "DEEP_FOREST"
-        : v < 0.6
+        : v < 0.58
           ? "BROKEN_HIGHLANDS"
           : v < 0.8
             ? "ANCIENT_HEARTLAND"
@@ -524,7 +524,12 @@ export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined
     grassShadeCacheReady[idx] = 1;
     return undefined;
   }
-  const shade = valueNoise(wx, wy, 28, worldSeed() + 99) < 0.46 ? "DARK" : "LIGHT";
+  const region = regionTypeAt(wx, wy);
+  const macro = valueNoise(wx + 41, wy - 23, 110, worldSeed() + 99);
+  const micro = valueNoise(wx - 17, wy + 61, 34, worldSeed() + 109);
+  const forestField = macro * 0.7 + micro * 0.3;
+  const darkThreshold = region === "DEEP_FOREST" ? 0.82 : 0.22;
+  const shade = forestField < darkThreshold ? "DARK" : "LIGHT";
   grassShadeCache[idx] = encodeGrassShade(shade);
   grassShadeCacheReady[idx] = 1;
   return shade;
