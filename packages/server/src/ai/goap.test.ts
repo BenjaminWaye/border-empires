@@ -20,6 +20,7 @@ describe("planBestGoal", () => {
       hasWeakEnemyBorder: true,
       needsSettlement: false,
       frontierDebtHigh: false,
+      foodCoverageLow: false,
       underThreat: true,
       threatCritical: true,
       economyWeak: false,
@@ -47,6 +48,7 @@ describe("planBestGoal", () => {
       hasWeakEnemyBorder: false,
       needsSettlement: false,
       frontierDebtHigh: false,
+      foodCoverageLow: false,
       underThreat: false,
       threatCritical: false,
       economyWeak: true,
@@ -127,6 +129,7 @@ describe("planBestGoal", () => {
       hasWeakEnemyBorder: false,
       needsSettlement: true,
       frontierDebtHigh: true,
+      foodCoverageLow: false,
       underThreat: false,
       threatCritical: false,
       economyWeak: false,
@@ -154,6 +157,7 @@ describe("planBestGoal", () => {
       hasWeakEnemyBorder: false,
       needsSettlement: false,
       frontierDebtHigh: false,
+      foodCoverageLow: false,
       underThreat: false,
       threatCritical: false,
       economyWeak: true,
@@ -181,6 +185,7 @@ describe("planBestGoal", () => {
       hasWeakEnemyBorder: false,
       needsSettlement: true,
       frontierDebtHigh: true,
+      foodCoverageLow: false,
       underThreat: false,
       threatCritical: false,
       economyWeak: false,
@@ -208,6 +213,7 @@ describe("planBestGoal", () => {
       hasWeakEnemyBorder: false,
       needsSettlement: false,
       frontierDebtHigh: false,
+      foodCoverageLow: false,
       underThreat: false,
       threatCritical: false,
       economyWeak: false,
@@ -235,6 +241,7 @@ describe("planBestGoal", () => {
       hasWeakEnemyBorder: true,
       needsSettlement: false,
       frontierDebtHigh: false,
+      foodCoverageLow: false,
       underThreat: true,
       threatCritical: false,
       economyWeak: true,
@@ -251,5 +258,65 @@ describe("planBestGoal", () => {
 
     expect(plan?.goalId).toBe("season_town_control");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["attack_enemy_border_tile"]);
+  });
+
+  it("still allows enemy pressure plans under critical threat when fortification is unavailable", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: false,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
+      hasBarbarianTarget: false,
+      hasWeakEnemyBorder: true,
+      needsSettlement: false,
+      frontierDebtHigh: true,
+      foodCoverageLow: false,
+      underThreat: true,
+      threatCritical: true,
+      economyWeak: true,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: true,
+      canAffordSettlement: false,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: false,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(
+      state,
+      [{ id: "harass_enemy_border", priority: 12, desired: { hasWeakEnemyBorder: false } }],
+      AI_EMPIRE_ACTIONS
+    );
+
+    expect(plan?.goalId).toBe("harass_enemy_border");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["attack_enemy_border_tile"]);
+  });
+
+  it("prioritizes food recovery as an explicit economic goal", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: true,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
+      hasBarbarianTarget: false,
+      hasWeakEnemyBorder: false,
+      needsSettlement: false,
+      frontierDebtHigh: false,
+      foodCoverageLow: true,
+      underThreat: false,
+      threatCritical: false,
+      economyWeak: true,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: true,
+      canAffordSettlement: false,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: false,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, goalsForVictoryPath("ECONOMIC_HEGEMONY"), AI_EMPIRE_ACTIONS);
+
+    expect(plan?.goalId).toBe("secure_food_supply");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_food_border_tile"]);
   });
 });

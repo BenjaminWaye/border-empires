@@ -148,6 +148,7 @@ export interface AiEmpireGoapState {
   hasWeakEnemyBorder: boolean;
   needsSettlement: boolean;
   frontierDebtHigh: boolean;
+  foodCoverageLow: boolean;
   underThreat: boolean;
   threatCritical: boolean;
   economyWeak: boolean;
@@ -182,6 +183,7 @@ export interface AiVictoryPathScore {
 
 export type AiEmpireGoalId =
   | "fortify_capital"
+  | "secure_food_supply"
   | "grow_income"
   | "recover_resources"
   | "reduce_frontier_debt"
@@ -232,6 +234,24 @@ export const rankSeasonVictoryPaths = (snapshot: AiSeasonVictorySnapshot): AiVic
 };
 
 export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
+  {
+    key: "claim_food_border_tile",
+    cost: 1,
+    preconditions: {
+      hasNeutralLandOpportunity: true,
+      foodCoverageLow: true,
+      canAffordFrontierAction: true,
+      staminaHealthy: true
+    },
+    effects: {
+      foodCoverageLow: false,
+      needsSettlement: true
+    },
+    meta: {
+      goalIds: ["secure_food_supply", "season_economic_hegemony"],
+      description: "Claim frontier toward food-supporting economic land."
+    }
+  },
   {
     key: "claim_neutral_border_tile",
     cost: 2,
@@ -306,8 +326,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     preconditions: {
       hasWeakEnemyBorder: true,
       canAffordFrontierAction: true,
-      staminaHealthy: true,
-      threatCritical: false
+      staminaHealthy: true
     },
     effects: {
       hasWeakEnemyBorder: false,
@@ -327,7 +346,8 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     },
     effects: {
       needsSettlement: false,
-      frontierDebtHigh: false
+      frontierDebtHigh: false,
+      foodCoverageLow: false
     },
     meta: {
       goalIds: ["settle_interior", "reduce_frontier_debt", "season_settled_territory", "season_economic_hegemony"],
@@ -391,6 +411,11 @@ export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
     desired: { underThreat: false, needsFortifiedAnchor: false }
   },
   {
+    id: "secure_food_supply",
+    priority: 11,
+    desired: { foodCoverageLow: false }
+  },
+  {
     id: "grow_income",
     priority: 10,
     desired: { economyWeak: false }
@@ -451,13 +476,14 @@ const SEASON_GOAL_BY_VICTORY_PATH: Record<AiSeasonVictoryPathId, GoapGoal<AiEmpi
   ECONOMIC_HEGEMONY: {
     id: "season_economic_hegemony",
     priority: 13,
-    desired: { economyWeak: false, frontierDebtHigh: false }
+    desired: { economyWeak: false, frontierDebtHigh: false, foodCoverageLow: false }
   }
 };
 
 const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Record<AiEmpireGoalId, number>>>> = {
   TOWN_CONTROL: {
     season_town_control: 5,
+    secure_food_supply: 2,
     scout_frontier: 2,
     claim_settlement_scaffold: 1,
     reduce_frontier_debt: 2,
@@ -468,6 +494,7 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
   },
   SETTLED_TERRITORY: {
     season_settled_territory: 5,
+    secure_food_supply: 3,
     scout_frontier: 1,
     claim_settlement_scaffold: 4,
     reduce_frontier_debt: 5,
@@ -478,6 +505,7 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
   },
   ECONOMIC_HEGEMONY: {
     season_economic_hegemony: 6,
+    secure_food_supply: 7,
     scout_frontier: 3,
     claim_settlement_scaffold: 3,
     grow_income: 4,
