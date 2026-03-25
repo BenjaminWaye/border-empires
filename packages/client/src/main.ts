@@ -2068,20 +2068,19 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
   const defEff = typeof msg.defEff === "number" ? msg.defEff : undefined;
   const winChance = typeof msg.winChance === "number" ? msg.winChance : undefined;
   const pointsDelta = typeof msg.pointsDelta === "number" ? msg.pointsDelta : 0;
-  const swing =
-    origin && target
-      ? attackerWon
-        ? `target (${target.x}, ${target.y}) captured`
-        : `origin (${origin.x}, ${origin.y}) lost`
-      : attackerWon
-        ? "target captured"
-        : "origin lost";
-  const bits = [
-    `${attackType}: ${attackerWon ? "attacker won" : "attacker lost"}`,
-    swing,
-    `winner ${winnerName}`
-  ];
-  if (origin && target) bits.push(`(${origin.x}, ${origin.y}) -> (${target.x}, ${target.y})`);
+  const bits = [`${attackType}: ${attackerWon ? "you captured the target" : "your attack failed"}`];
+  if (origin && target) {
+    bits.push(`from (${origin.x}, ${origin.y})`);
+    bits.push(`into (${target.x}, ${target.y})`);
+    bits.push(attackerWon ? `captured (${target.x}, ${target.y})` : `lost (${origin.x}, ${origin.y})`);
+  } else if (origin) {
+    bits.push(attackerWon ? "target captured" : `lost (${origin.x}, ${origin.y})`);
+  } else if (target) {
+    bits.push(attackerWon ? `captured (${target.x}, ${target.y})` : `failed to take (${target.x}, ${target.y})`);
+  } else {
+    bits.push(attackerWon ? "target captured" : "attack failed");
+  }
+  bits.push(`winner ${winnerName}`);
   if (typeof winChance === "number") bits.push(`roll ${(winChance * 100).toFixed(0)}%`);
   if (typeof atkEff === "number" && typeof defEff === "number") bits.push(`atk ${atkEff.toFixed(1)} vs def ${defEff.toFixed(1)}`);
   if (pointsDelta > 0) bits.push(`+${pointsDelta.toFixed(1)} pts`);
