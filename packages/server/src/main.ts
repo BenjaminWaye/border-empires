@@ -4456,7 +4456,7 @@ const executeUnifiedGameplayMessage = async (actor: Player, msg: ClientMessage, 
   if (msg.type === "SETTLE") {
     const out = startSettlement(actor, msg.x, msg.y);
     if (!out.ok) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: out.reason }));
+      socket.send(JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: out.reason, x: msg.x, y: msg.y }));
       return true;
     }
     sendPlayerUpdate(actor, 0);
@@ -7178,7 +7178,9 @@ const startSettlement = (
       sendToPlayer(liveActor.id, {
         type: "ERROR",
         code: "SETTLE_INVALID",
-        message: "insufficient gold when settlement completed"
+        message: "insufficient gold when settlement completed",
+        x: t.x,
+        y: t.y
       });
       sendPlayerUpdate(liveActor, 0);
       return;
@@ -8712,7 +8714,7 @@ app.post("/admin/world/regenerate", async () => {
     if (msg.type === "SETTLE") {
       const out = startSettlement(actor, msg.x, msg.y);
       if (!out.ok) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: out.reason }));
+        socket.send(JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: out.reason, x: msg.x, y: msg.y }));
         return;
       }
       sendPlayerUpdate(actor, 0);
