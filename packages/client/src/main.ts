@@ -2112,7 +2112,7 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
 const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
   if (terrain !== "LAND") return terrain;
   const biome = landBiomeAt(x, y);
-  if (biome === "GRASS") return "GRASS";
+  if (biome === "GRASS") return isForestTile(x, y) ? "FOREST" : "GRASS";
   return "SAND";
 };
 const toroidDelta = (from: number, to: number, dim: number): number => {
