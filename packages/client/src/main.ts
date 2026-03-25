@@ -1425,16 +1425,35 @@ type TerrainTextureId =
   | "MOUNTAIN";
 
 const TERRAIN_TEXTURE_SIZE = 64;
-const townOverlayByTier: Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> = {
-  TOWN: new Image(),
-  CITY: new Image(),
-  GREAT_CITY: new Image(),
-  METROPOLIS: new Image()
+const createTownOverlaySet = (
+  sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
+): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
+  const set = {
+    TOWN: new Image(),
+    CITY: new Image(),
+    GREAT_CITY: new Image(),
+    METROPOLIS: new Image()
+  };
+  set.TOWN.src = sources.TOWN;
+  set.CITY.src = sources.CITY;
+  set.GREAT_CITY.src = sources.GREAT_CITY;
+  set.METROPOLIS.src = sources.METROPOLIS;
+  return set;
 };
-townOverlayByTier.TOWN.src = "/overlays/town-overlay.svg";
-townOverlayByTier.CITY.src = "/overlays/city-overlay.svg";
-townOverlayByTier.GREAT_CITY.src = "/overlays/great-city-overlay.svg";
-townOverlayByTier.METROPOLIS.src = "/overlays/metropolis-overlay.svg";
+
+const defaultTownOverlayByTier = createTownOverlaySet({
+  TOWN: "/overlays/town-overlay.svg",
+  CITY: "/overlays/city-overlay.svg",
+  GREAT_CITY: "/overlays/great-city-overlay.svg",
+  METROPOLIS: "/overlays/metropolis-overlay.svg"
+});
+
+const grassTownOverlayByTier = createTownOverlaySet({
+  TOWN: "/overlays/grass-town-preview.svg",
+  CITY: "/overlays/grass-city-preview.svg",
+  GREAT_CITY: "/overlays/grass-great-city-preview.svg",
+  METROPOLIS: "/overlays/grass-metropolis-preview.svg"
+});
 const textureCanvas = (): HTMLCanvasElement => {
   const c = document.createElement("canvas");
   c.width = TERRAIN_TEXTURE_SIZE;
@@ -1602,7 +1621,9 @@ const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =
 };
 const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
   if (!tile.town) return;
-  const overlay = townOverlayByTier[tile.town.populationTier];
+  const biome = landBiomeAt(tile.x, tile.y);
+  const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
+  const overlay = overlaySet[tile.town.populationTier];
   if (!overlay.complete || !overlay.naturalWidth) {
     const marker = Math.max(4, Math.floor(size * 0.34));
     const mx = px + Math.floor((size - marker) / 2);
@@ -5294,7 +5315,7 @@ ws.addEventListener("message", (ev) => {
     clearPendingCollectVisibleDelta();
     if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
       pushFeed(
-        `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Town income is reduced.`,
+        `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing gold.`,
         "info",
         "warn"
       );

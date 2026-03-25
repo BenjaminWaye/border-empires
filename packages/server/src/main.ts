@@ -1101,6 +1101,7 @@ const strategicResourceStockByPlayer = new Map<string, Record<StrategicResource,
 const strategicResourceBufferByPlayer = new Map<string, Record<StrategicResource, number>>();
 const economyIndexByPlayer = new Map<string, PlayerEconomyIndex>();
 const foodUpkeepCoverageByPlayer = new Map<string, number>();
+const townFeedingStateByPlayer = new Map<string, { bucket: number; foodCoverage: number; fedTownKeys: Set<TileKey> }>();
 const tileYieldByTile = new Map<TileKey, TileYieldBuffer>();
 const tileHistoryByTile = new Map<TileKey, TileHistoryState>();
 const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
@@ -1936,7 +1937,8 @@ const generateTowns = (seed: number): void => {
     const x = Math.floor(seeded01(i * 13, i * 17, seed + 9301) * WORLD_WIDTH);
     const y = Math.floor(seeded01(i * 19, i * 23, seed + 9311) * WORLD_HEIGHT);
     if (terrainAt(x, y) !== "LAND") continue;
-    if (docksByTile.has(key(x, y))) continue;
+    const tileKey = key(x, y);
+    if (docksByTile.has(tileKey) || clusterByTile.has(tileKey)) continue;
     const tooClose = placed.some((p) => {
       const dx = Math.min(Math.abs(p.x - x), WORLD_WIDTH - Math.abs(p.x - x));
       const dy = Math.min(Math.abs(p.y - y), WORLD_HEIGHT - Math.abs(p.y - y));
@@ -1944,16 +1946,56 @@ const generateTowns = (seed: number): void => {
     });
     if (tooClose) continue;
     placed.push({ x, y });
-    const tk = key(x, y);
-    townsByTile.set(tk, {
+    townsByTile.set(tileKey, {
       townId: `town-${townsByTile.size}`,
-      tileKey: tk,
+      tileKey,
       type: townTypeAt(x, y),
       population: POPULATION_MIN + Math.floor(seeded01(x, y, seed + 9601) * POPULATION_START_SPREAD),
       maxPopulation: POPULATION_MAX,
       connectedTownCount: 0,
       connectedTownBonus: 0,
       lastGrowthTickAt: now()
+    });
+  }
+};
+
+const canPlaceTownAt = (x: number, y: number, ignoreTileKey?: TileKey): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  const tk = key(x, y);
+  if (tk !== ignoreTileKey && townsByTile.has(tk)) return false;
+  if (docksByTile.has(tk)) return false;
+  if (clusterByTile.has(tk)) return false;
+  return true;
+};
+
+const findNearestTownPlacement = (originX: number, originY: number, ignoreTileKey?: TileKey): TileKey | undefined => {
+  if (canPlaceTownAt(originX, originY, ignoreTileKey)) return key(originX, originY);
+  const maxRadius = Math.max(WORLD_WIDTH, WORLD_HEIGHT);
+  for (let radius = 1; radius <= maxRadius; radius += 1) {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const x = wrapX(originX + dx, WORLD_WIDTH);
+        const y = wrapY(originY + dy, WORLD_HEIGHT);
+        if (canPlaceTownAt(x, y, ignoreTileKey)) return key(x, y);
+      }
+    }
+  }
+  return undefined;
+};
+
+const normalizeTownPlacements = (): void => {
+  const existingTowns = [...townsByTile.values()];
+  townsByTile.clear();
+  for (const town of existingTowns) {
+    const [x, y] = parseKey(town.tileKey);
+    const destinationKey = findNearestTownPlacement(x, y, town.tileKey);
+    if (!destinationKey) continue;
+    const [destX, destY] = parseKey(destinationKey);
+    townsByTile.set(destinationKey, {
+      ...town,
+      tileKey: destinationKey,
+      type: townTypeAt(destX, destY)
     });
   }
 };
@@ -2157,9 +2199,53 @@ const connectedTownBonusForOwner = (connectedTownCount: number, ownerId: string 
   return total;
 };
 
-const isTownFedForOwner = (_townKey: TileKey, ownerId: string | undefined): boolean => {
+const townFeedingStateForPlayer = (
+  playerId: string
+): { foodCoverage: number; fedTownKeys: Set<TileKey> } => {
+  const player = players.get(playerId);
+  if (!player) {
+    return {
+      foodCoverage: foodUpkeepCoverageByPlayer.get(playerId) ?? 1,
+      fedTownKeys: new Set()
+    };
+  }
+  const bucket = Math.floor(now() / 50);
+  const cached = townFeedingStateByPlayer.get(playerId);
+  if (cached?.bucket === bucket) {
+    return { foodCoverage: cached.foodCoverage, fedTownKeys: cached.fedTownKeys };
+  }
+
+  const effects = getPlayerEffectsForPlayer(playerId);
+  const townKeys = ownedTownKeysForPlayer(playerId);
+  let upkeepNeed = 0;
+  for (const townKey of townKeys) {
+    const town = townsByTile.get(townKey);
+    if (!town) continue;
+    upkeepNeed += townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult;
+  }
+  const stock = getOrInitStrategicStocks(playerId);
+  let remainingFood = Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD");
+  const fedTownKeys = new Set<TileKey>();
+  for (const townKey of townKeys) {
+    const town = townsByTile.get(townKey);
+    if (!town) continue;
+    const townNeed = townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult;
+    if (townNeed <= 0) {
+      fedTownKeys.add(townKey);
+      continue;
+    }
+    if (remainingFood + 1e-9 < townNeed) continue;
+    fedTownKeys.add(townKey);
+    remainingFood = Math.max(0, remainingFood - townNeed);
+  }
+  const foodCoverage = upkeepNeed <= 0 ? 1 : Math.max(0, Math.min(1, (Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD")) / upkeepNeed));
+  townFeedingStateByPlayer.set(playerId, { bucket, foodCoverage, fedTownKeys });
+  return { foodCoverage, fedTownKeys };
+};
+
+const isTownFedForOwner = (townKey: TileKey, ownerId: string | undefined): boolean => {
   if (!ownerId) return false;
-  return currentFoodCoverageForPlayer(ownerId) >= 0.999;
+  return townFeedingStateForPlayer(ownerId).fedTownKeys.has(townKey);
 };
 
 const marketIncomeMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
@@ -2436,6 +2522,7 @@ const regenerateStrategicWorld = (initialSeed: number): number => {
     generateTowns(seed);
     ensureBaselineEconomyCoverage(seed);
     ensureInterestCoverage(seed);
+    normalizeTownPlacements();
     if (!worldLooksBland()) return seed;
     seed = Math.floor(seeded01(seed + i * 101, seed + i * 137, seed + 9001) * 1_000_000_000);
   }
@@ -3665,11 +3752,7 @@ const upkeepPerMinuteForPlayer = (player: Player): {
 function currentFoodCoverageForPlayer(playerId: string): number {
   const player = players.get(playerId);
   if (!player) return foodUpkeepCoverageByPlayer.get(playerId) ?? 1;
-  const upkeepNeed = Math.max(0, upkeepPerMinuteForPlayer(player).food);
-  if (upkeepNeed <= 0) return 1;
-  const stock = getOrInitStrategicStocks(playerId);
-  const availableFood = Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD");
-  return Math.max(0, Math.min(1, availableFood / upkeepNeed));
+  return townFeedingStateForPlayer(playerId).foodCoverage;
 }
 
 const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
@@ -8260,6 +8343,7 @@ const loadSnapshot = (): void => {
   for (const tk of raw.firstSpecialSiteCaptureClaimed ?? []) firstSpecialSiteCaptureClaimed.add(tk);
   for (const c of raw.clusters ?? []) clustersById.set(c.clusterId, c);
   for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
+  normalizeTownPlacements();
   if (raw.season) activeSeason = raw.season;
   if (raw.seasonWinner) seasonWinner = raw.seasonWinner;
   if (raw.seasonArchives) seasonArchives.push(...raw.seasonArchives);
