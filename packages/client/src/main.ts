@@ -1358,6 +1358,16 @@ type TerrainTextureId =
   | "MOUNTAIN";
 
 const TERRAIN_TEXTURE_SIZE = 64;
+const townOverlayByTier: Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> = {
+  TOWN: new Image(),
+  CITY: new Image(),
+  GREAT_CITY: new Image(),
+  METROPOLIS: new Image()
+};
+townOverlayByTier.TOWN.src = "/overlays/town-overlay.svg";
+townOverlayByTier.CITY.src = "/overlays/city-overlay.svg";
+townOverlayByTier.GREAT_CITY.src = "/overlays/great-city-overlay.svg";
+townOverlayByTier.METROPOLIS.src = "/overlays/metropolis-overlay.svg";
 const textureCanvas = (): HTMLCanvasElement => {
   const c = document.createElement("canvas");
   c.width = TERRAIN_TEXTURE_SIZE;
@@ -1522,6 +1532,58 @@ const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =
   }
 
   ctx.restore();
+};
+const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
+  if (!tile.town) return;
+  const overlay = townOverlayByTier[tile.town.populationTier];
+  if (!overlay.complete || !overlay.naturalWidth) {
+    const marker = Math.max(4, Math.floor(size * 0.34));
+    const mx = px + Math.floor((size - marker) / 2);
+    const my = py + Math.floor((size - marker) / 2);
+    ctx.fillStyle = "rgba(10, 14, 24, 0.82)";
+    ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
+    if (tile.town.type === "MARKET") ctx.fillStyle = "rgba(255, 212, 102, 0.95)";
+    else if (tile.town.type === "FARMING") ctx.fillStyle = "rgba(162, 241, 132, 0.95)";
+    else ctx.fillStyle = "rgba(198, 171, 255, 0.95)";
+    ctx.fillRect(mx, my, marker, marker);
+    return;
+  }
+
+  const scaleByTier =
+    tile.town.populationTier === "TOWN"
+      ? 1.12
+      : tile.town.populationTier === "CITY"
+        ? 1.22
+        : tile.town.populationTier === "GREAT_CITY"
+          ? 1.3
+          : 1.38;
+  const drawSize = size * scaleByTier;
+  const offsetX = (drawSize - size) / 2;
+  const offsetY =
+    tile.town.populationTier === "TOWN"
+      ? drawSize * 0.22
+      : tile.town.populationTier === "CITY"
+        ? drawSize * 0.26
+        : tile.town.populationTier === "GREAT_CITY"
+          ? drawSize * 0.29
+          : drawSize * 0.33;
+
+  ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
+
+  const accent =
+    tile.town.type === "MARKET"
+      ? "rgba(255, 212, 102, 0.9)"
+      : tile.town.type === "FARMING"
+        ? "rgba(162, 241, 132, 0.88)"
+        : "rgba(198, 171, 255, 0.9)";
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(2, size * 0.08);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(px + size * 0.22, py + size * 0.88);
+  ctx.lineTo(px + size * 0.78, py + size * 0.88);
+  ctx.stroke();
+  ctx.lineWidth = 1;
 };
 const clusterTint = (clusterType: string | undefined): string | undefined => {
   if (clusterType === "FERTILE_PLAINS") return "rgba(233,242,123,0.28)";
@@ -5998,15 +6060,7 @@ const draw = (): void => {
       }
 
       if (t && vis === "visible" && t.town && t.terrain === "LAND") {
-        const marker = Math.max(4, Math.floor(size * 0.34));
-        const mx = px + Math.floor((size - marker) / 2);
-        const my = py + Math.floor((size - marker) / 2);
-        ctx.fillStyle = "rgba(10, 14, 24, 0.82)";
-        ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-        if (t.town.type === "MARKET") ctx.fillStyle = "rgba(255, 212, 102, 0.95)";
-        else if (t.town.type === "FARMING") ctx.fillStyle = "rgba(162, 241, 132, 0.95)";
-        else ctx.fillStyle = "rgba(198, 171, 255, 0.95)";
-        ctx.fillRect(mx, my, marker, marker);
+        drawTownOverlay(t, px, py, size);
       }
 
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && hasCollectableYield(t)) {
