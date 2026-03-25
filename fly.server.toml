@@ -1,5 +1,5 @@
 app = "border-empires"
-primary_region = "iad"
+primary_region = "arn"
 
 [build]
   dockerfile = "Dockerfile.server"
