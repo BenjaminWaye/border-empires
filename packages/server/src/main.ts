@@ -90,6 +90,7 @@ const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
 const MAX_SUBSCRIBE_RADIUS = Number(process.env.MAX_SUBSCRIBE_RADIUS ?? 2);
+const CHUNK_STREAM_BATCH_SIZE = Math.max(1, Number(process.env.CHUNK_STREAM_BATCH_SIZE ?? 2));
 const FOG_ADMIN_EMAIL = "bw199005@gmail.com";
 const SNAPSHOT_DIR = path.resolve(process.env.SNAPSHOT_DIR ?? path.join(process.cwd(), "snapshots"));
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
@@ -1171,13 +1172,11 @@ const cachedVisibilitySnapshotByPlayer = new Map<string, VisibilitySnapshot>();
 const cachedChunkSnapshotByPlayer = new Map<
   string,
   {
-    cx: number;
-    cy: number;
-    radius: number;
     visibility: VisibilitySnapshot;
-    payloads: string[];
+    payloadByChunkKey: Map<string, string>;
   }
 >();
+const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const allianceRequests = new Map<string, AllianceRequest>();
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
 const chunkSnapshotSentAtByPlayer = new Map<string, { cx: number; cy: number; radius: number; sentAt: number }>();
@@ -2920,6 +2919,7 @@ const clearWorldProgressForSeason = (): void => {
   collectVisibleCooldownByPlayer.clear();
   cachedVisibilitySnapshotByPlayer.clear();
   cachedChunkSnapshotByPlayer.clear();
+  chunkSnapshotGenerationByPlayer.clear();
   revealWatchersByTarget.clear();
   economyIndexByPlayer.clear();
   observatoryTileKeysByPlayer.clear();
@@ -3656,6 +3656,7 @@ const getOrInitRevealTargets = (playerId: string): Set<string> => {
 const markVisibilityDirty = (playerId: string): void => {
   cachedVisibilitySnapshotByPlayer.delete(playerId);
   cachedChunkSnapshotByPlayer.delete(playerId);
+  chunkSnapshotGenerationByPlayer.delete(playerId);
 };
 
 const markVisibilityDirtyForPlayers = (playerIds: Iterable<string>): void => {
@@ -6523,101 +6524,112 @@ const visibleInSnapshot = (snapshot: VisibilitySnapshot, x: number, y: number): 
   return snapshot.visibleMask[tileIndex(x, y)] === 1;
 };
 
+const chunkSnapshotCacheForPlayer = (
+  playerId: string,
+  visibility: VisibilitySnapshot
+): Map<string, string> => {
+  const cached = cachedChunkSnapshotByPlayer.get(playerId);
+  if (cached?.visibility === visibility) return cached.payloadByChunkKey;
+  const payloadByChunkKey = new Map<string, string>();
+  cachedChunkSnapshotByPlayer.set(playerId, { visibility, payloadByChunkKey });
+  return payloadByChunkKey;
+};
+
+const chunkSnapshotPayload = (
+  actor: Player,
+  snapshot: VisibilitySnapshot,
+  worldCx: number,
+  worldCy: number,
+  fallbackLastChangedAt: number
+): { payload: string; tileCount: number } => {
+  const payloadByChunkKey = chunkSnapshotCacheForPlayer(actor.id, snapshot);
+  const chunkKey = `${worldCx},${worldCy}`;
+  const cachedPayload = payloadByChunkKey.get(chunkKey);
+  if (cachedPayload) {
+    return { payload: cachedPayload, tileCount: CHUNK_SIZE * CHUNK_SIZE };
+  }
+
+  const startX = worldCx * CHUNK_SIZE;
+  const startY = worldCy * CHUNK_SIZE;
+  const chunkTiles: Tile[] = [];
+
+  for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+    for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+      const wx = wrapX(x, WORLD_WIDTH);
+      const wy = wrapY(y, WORLD_HEIGHT);
+      const tk = key(wx, wy);
+      if (visibleInSnapshot(snapshot, wx, wy)) {
+        const tile = playerTile(wx, wy);
+        tile.fogged = false;
+        chunkTiles.push(tile);
+      } else {
+        const fogTile: Tile = {
+          x: wx,
+          y: wy,
+          terrain: terrainAtRuntime(wx, wy),
+          fogged: true,
+          lastChangedAt: fallbackLastChangedAt
+        };
+        const dock = docksByTile.get(tk);
+        const clusterId = clusterByTile.get(tk);
+        const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
+        if (dock) fogTile.dockId = dock.dockId;
+        if (clusterId) fogTile.clusterId = clusterId;
+        if (clusterType) fogTile.clusterType = clusterType;
+        chunkTiles.push(fogTile);
+      }
+    }
+  }
+
+  const payload = JSON.stringify({ type: "CHUNK_FULL", cx: worldCx, cy: worldCy, tilesMaskedByFog: chunkTiles });
+  payloadByChunkKey.set(chunkKey, payload);
+  return { payload, tileCount: chunkTiles.length };
+};
+
 const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: number; radius: number }): void => {
   const startedAt = now();
   const snapshot = visibilitySnapshotForPlayer(actor);
-  const cachedSnapshot = cachedChunkSnapshotByPlayer.get(actor.id);
-  if (
-    cachedSnapshot &&
-    cachedSnapshot.cx === sub.cx &&
-    cachedSnapshot.cy === sub.cy &&
-    cachedSnapshot.radius === sub.radius &&
-    cachedSnapshot.visibility === snapshot
-  ) {
-    for (const payload of cachedSnapshot.payloads) socket.send(payload);
-    chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
-    return;
-  }
-  const chunkBatch: Array<{ cx: number; cy: number; tilesMaskedByFog: Tile[] }> = [];
-  const serializedPayloads: string[] = [];
+  const generation = (chunkSnapshotGenerationByPlayer.get(actor.id) ?? 0) + 1;
+  chunkSnapshotGenerationByPlayer.set(actor.id, generation);
+  chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
   const fallbackLastChangedAt = now();
   let chunkCount = 0;
   let tileCount = 0;
-
-  const flushChunkBatch = (): void => {
-    if (chunkBatch.length === 0) return;
-    if (chunkBatch.length === 1) {
-      const chunk = chunkBatch[0]!;
-      const payload = JSON.stringify({ type: "CHUNK_FULL", cx: chunk.cx, cy: chunk.cy, tilesMaskedByFog: chunk.tilesMaskedByFog });
-      socket.send(payload);
-      serializedPayloads.push(payload);
-    } else {
-      const payload = JSON.stringify({ type: "CHUNK_BATCH", chunks: chunkBatch });
-      socket.send(payload);
-      serializedPayloads.push(payload);
-    }
-    chunkBatch.length = 0;
-  };
-
+  const chunkCoords: Array<{ cx: number; cy: number }> = [];
   for (let cy = sub.cy - sub.radius; cy <= sub.cy + sub.radius; cy += 1) {
     for (let cx = sub.cx - sub.radius; cx <= sub.cx + sub.radius; cx += 1) {
-      const worldCx = wrapChunkX(cx);
-      const worldCy = wrapChunkY(cy);
-      const startX = worldCx * CHUNK_SIZE;
-      const startY = worldCy * CHUNK_SIZE;
-      const chunkTiles: Tile[] = [];
-
-      for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-        for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-          tileCount += 1;
-          const wx = wrapX(x, WORLD_WIDTH);
-          const wy = wrapY(y, WORLD_HEIGHT);
-          const tk = key(wx, wy);
-          if (visibleInSnapshot(snapshot, wx, wy)) {
-            const tile = playerTile(wx, wy);
-            tile.fogged = false;
-            chunkTiles.push(tile);
-          } else {
-            const fogTile: Tile = {
-              x: wx,
-              y: wy,
-              terrain: terrainAtRuntime(wx, wy),
-              fogged: true,
-              lastChangedAt: fallbackLastChangedAt
-            };
-            const dock = docksByTile.get(tk);
-            const clusterId = clusterByTile.get(tk);
-            const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
-            if (dock) fogTile.dockId = dock.dockId;
-            if (clusterId) fogTile.clusterId = clusterId;
-            if (clusterType) fogTile.clusterType = clusterType;
-            chunkTiles.push(fogTile);
-          }
-        }
-      }
-
-      chunkBatch.push({ cx: worldCx, cy: worldCy, tilesMaskedByFog: chunkTiles });
-      chunkCount += 1;
-      if (chunkBatch.length >= CHUNK_SNAPSHOT_BATCH_SIZE) flushChunkBatch();
+      chunkCoords.push({ cx: wrapChunkX(cx), cy: wrapChunkY(cy) });
     }
   }
-  flushChunkBatch();
 
-  const elapsed = now() - startedAt;
-  cachedChunkSnapshotByPlayer.set(actor.id, {
-    cx: sub.cx,
-    cy: sub.cy,
-    radius: sub.radius,
-    visibility: snapshot,
-    payloads: serializedPayloads
-  });
-  chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
-  if (elapsed >= CHUNK_SNAPSHOT_WARN_MS) {
-    app.log.warn(
-      { playerId: actor.id, elapsedMs: elapsed, chunks: chunkCount, tiles: tileCount, radius: sub.radius },
-      "slow chunk snapshot"
-    );
-  }
+  let index = 0;
+  const streamNext = (): void => {
+    if (chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) return;
+    if (socket.readyState !== socket.OPEN) return;
+    const chunkBatchPayloads: string[] = [];
+    const end = Math.min(index + CHUNK_STREAM_BATCH_SIZE, chunkCoords.length);
+    for (; index < end; index += 1) {
+      const coords = chunkCoords[index]!;
+      const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy, fallbackLastChangedAt);
+      chunkBatchPayloads.push(chunk.payload);
+      chunkCount += 1;
+      tileCount += chunk.tileCount;
+    }
+    for (const payload of chunkBatchPayloads) socket.send(payload);
+    if (index < chunkCoords.length) {
+      queueMicrotaskFn(streamNext);
+      return;
+    }
+    const elapsed = now() - startedAt;
+    if (elapsed >= CHUNK_SNAPSHOT_WARN_MS) {
+      app.log.warn(
+        { playerId: actor.id, elapsedMs: elapsed, chunks: chunkCount, tiles: tileCount, radius: sub.radius },
+        "slow chunk snapshot"
+      );
+    }
+  };
+
+  streamNext();
 };
 
 const tileInSubscription = (playerId: string, x: number, y: number): boolean => {
@@ -8704,6 +8716,7 @@ const loadSnapshot = (): void => {
   }
   cachedVisibilitySnapshotByPlayer.clear();
   cachedChunkSnapshotByPlayer.clear();
+  chunkSnapshotGenerationByPlayer.clear();
   revealWatchersByTarget.clear();
   observatoryTileKeysByPlayer.clear();
   economicStructureTileKeysByPlayer.clear();
@@ -10275,6 +10288,7 @@ app.post("/admin/world/regenerate", async () => {
       socketsByPlayer.delete(authedPlayer.id);
       chunkSubscriptionByPlayer.delete(authedPlayer.id);
       chunkSnapshotSentAtByPlayer.delete(authedPlayer.id);
+      chunkSnapshotGenerationByPlayer.delete(authedPlayer.id);
       actionTimestampsByPlayer.delete(authedPlayer.id);
       fogDisabledByPlayer.delete(authedPlayer.id);
       if (!hasOnlinePlayers()) {
