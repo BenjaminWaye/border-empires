@@ -19,7 +19,9 @@ export type PopulationTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"
   | "SETTLED_TERRITORY"
-  | "ECONOMIC_HEGEMONY";
+  | "ECONOMIC_HEGEMONY"
+  | "RESOURCE_MONOPOLY"
+  | "CONTINENT_FOOTPRINT";
 
 export interface EmpireVisualStyle {
   primaryOverlay: string;
