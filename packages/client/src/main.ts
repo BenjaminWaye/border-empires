@@ -906,7 +906,7 @@ const state = {
   dragPreviewKeys: new Set<string>(),
   boxSelectStart: undefined as { gx: number; gy: number } | undefined,
   boxSelectCurrent: undefined as { gx: number; gy: number } | undefined,
-  fogDisabled: false,
+  fogDisabled: true,
   lastSubCx: Number.NaN,
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,
@@ -1018,6 +1018,7 @@ const parseKey = (k: string): { x: number; y: number } => {
 };
 const wrapX = (x: number): number => (x + WORLD_WIDTH) % WORLD_WIDTH;
 const wrapY = (y: number): number => (y + WORLD_HEIGHT) % WORLD_HEIGHT;
+const FULL_MAP_CHUNK_RADIUS = Math.max(Math.ceil(WORLD_WIDTH / CHUNK_SIZE / 2), Math.ceil(WORLD_HEIGHT / CHUNK_SIZE / 2));
 type TileVisibilityState = "unexplored" | "fogged" | "visible";
 const tileVisibilityStateAt = (x: number, y: number, tile?: Tile): TileVisibilityState => {
   if (state.fogDisabled) return "visible";
@@ -1277,10 +1278,14 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     return parts.length > 0 ? parts.join("  ") : "";
   })();
   const historyLines = tileHistoryLines(tile);
+  const terrainAndResource = (() => {
+    const terrainText = prettyToken(terrainLabel(tile.x, tile.y, tile.terrain));
+    if (!tile.resource) return terrainText;
+    return `${terrainText} - ${prettyToken(resourceLabel(tile.resource))}`;
+  })();
   const topLine = [
     `<strong>${tile.x}, ${tile.y}</strong>`,
-    prettyToken(terrainLabel(tile.x, tile.y, tile.terrain)),
-    tile.resource ? prettyToken(resourceLabel(tile.resource)) : ""
+    terrainAndResource
   ]
     .filter(Boolean)
     .join(" · ");
@@ -1529,19 +1534,45 @@ const createTownOverlaySet = (
   return set;
 };
 
+const overlayAssetVersion = "20260325p";
+const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
+const loadOverlayImage = (filename: string): HTMLImageElement => {
+  const image = new Image();
+  image.decoding = "async";
+  image.src = overlaySrc(filename);
+  return image;
+};
+const createOverlayVariantSet = (filenames: readonly string[]): HTMLImageElement[] => filenames.map(loadOverlayImage);
+const overlayVariantIndexAt = (x: number, y: number, count: number): number => {
+  const hash = (((x + 1) * 374761393) ^ ((y + 1) * 668265263)) >>> 0;
+  return hash % count;
+};
+
 const defaultTownOverlayByTier = createTownOverlaySet({
-  TOWN: "/overlays/town-overlay.svg",
-  CITY: "/overlays/city-overlay.svg",
-  GREAT_CITY: "/overlays/great-city-overlay.svg",
-  METROPOLIS: "/overlays/metropolis-overlay.svg"
+  TOWN: overlaySrc("town-overlay-sand.svg"),
+  CITY: overlaySrc("city-overlay-sand.svg"),
+  GREAT_CITY: overlaySrc("great-city-overlay-sand.svg"),
+  METROPOLIS: overlaySrc("metropolis-overlay-sand.svg")
 });
 
 const grassTownOverlayByTier = createTownOverlaySet({
-  TOWN: "/overlays/grass-town-preview.svg",
-  CITY: "/overlays/grass-city-preview.svg",
-  GREAT_CITY: "/overlays/grass-great-city-preview.svg",
-  METROPOLIS: "/overlays/grass-metropolis-preview.svg"
+  TOWN: overlaySrc("town-overlay-grass.svg"),
+  CITY: overlaySrc("city-overlay-grass.svg"),
+  GREAT_CITY: overlaySrc("great-city-overlay-grass.svg"),
+  METROPOLIS: overlaySrc("metropolis-overlay-grass.svg")
 });
+const ancientTownOverlayByBiome = {
+  SAND: loadOverlayImage("ancient-town-overlay-sand.svg"),
+  GRASS: loadOverlayImage("ancient-town-overlay-grass.svg")
+} as const;
+const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
+const resourceOverlayVariants = {
+  FARM: createOverlayVariantSet(["farm-overlay-1.svg", "farm-overlay-2.svg", "farm-overlay-3.svg"]),
+  FISH: createOverlayVariantSet(["fish-overlay-1.svg", "fish-overlay-2.svg", "fish-overlay-3.svg"]),
+  FUR: createOverlayVariantSet(["fur-overlay-1.svg", "fur-overlay-2.svg", "fur-overlay-3.svg"]),
+  IRON: createOverlayVariantSet(["iron-overlay-1.svg", "iron-overlay-2.svg", "iron-overlay-3.svg"]),
+  GEMS: createOverlayVariantSet(["gems-overlay-1.svg", "gems-overlay-2.svg", "gems-overlay-3.svg", "gems-overlay-4.svg"])
+} as const;
 const textureCanvas = (): HTMLCanvasElement => {
   const c = document.createElement("canvas");
   c.width = TERRAIN_TEXTURE_SIZE;
@@ -1736,7 +1767,12 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
   ctx.restore();
   const biome = landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
-  const overlay = overlaySet[tile.town.populationTier];
+  const overlay =
+    tile.town.type === "ANCIENT" && tile.town.populationTier === "TOWN"
+      ? biome === "GRASS"
+        ? ancientTownOverlayByBiome.GRASS
+        : ancientTownOverlayByBiome.SAND
+      : overlaySet[tile.town.populationTier];
   if (!overlay.complete || !overlay.naturalWidth) {
     const marker = Math.max(4, Math.floor(size * 0.34));
     const mx = px + Math.floor((size - marker) / 2);
@@ -1752,32 +1788,35 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
 
   const scaleByTier =
     tile.town.populationTier === "TOWN"
-      ? 1.12
+      ? 1.46
       : tile.town.populationTier === "CITY"
-        ? 1.22
+        ? 1.58
         : tile.town.populationTier === "GREAT_CITY"
-          ? 1.3
-          : 1.38;
+          ? 1.72
+          : 1.86;
   const drawSize = size * scaleByTier;
   const offsetX = (drawSize - size) / 2;
   const offsetY =
     tile.town.populationTier === "TOWN"
-      ? drawSize * 0.22
+      ? drawSize * 0.28
       : tile.town.populationTier === "CITY"
-        ? drawSize * 0.26
+        ? drawSize * 0.32
         : tile.town.populationTier === "GREAT_CITY"
-          ? drawSize * 0.29
-          : drawSize * 0.33;
+          ? drawSize * 0.35
+          : drawSize * 0.39;
 
   ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = Math.max(2, size * 0.08);
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(px + size * 0.22, py + size * 0.88);
-  ctx.lineTo(px + size * 0.78, py + size * 0.88);
-  ctx.stroke();
-  ctx.lineWidth = 1;
+
+  if (tile.town.type !== "ANCIENT") {
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = Math.max(2, size * 0.08);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(px + size * 0.22, py + size * 0.88);
+    ctx.lineTo(px + size * 0.78, py + size * 0.88);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
 
   if (!tile.town.isFed) {
     const badgeSize = Math.max(8, size * 0.24);
@@ -1824,6 +1863,57 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
     ctx.textAlign = "start";
     ctx.textBaseline = "alphabetic";
   }
+};
+const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void => {
+  if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
+  const drawSize = size * scale;
+  const offset = (drawSize - size) / 2;
+  ctx.drawImage(overlay, px - offset, py - offset, drawSize, drawSize);
+};
+const drawResourceMarkerIcon = (resource: string | undefined, x: number, y: number, badge: number): void => {
+  const icon =
+    resource === "FARM" || resource === "FISH"
+      ? "🍞"
+      : resource === "IRON"
+        ? "⛏"
+        : resource === "GEMS"
+          ? "💎"
+          : resource === "FUR"
+            ? "🦊"
+            : resource === "WOOD"
+              ? "🪵"
+              : "";
+  if (!icon) return;
+  ctx.font = `${Math.max(8, badge * 0.8)}px system-ui`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(icon, x + badge / 2, y + badge / 2 + 0.5);
+  ctx.textAlign = "start";
+  ctx.textBaseline = "alphabetic";
+};
+const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void => {
+  if (!tile.resource) return;
+  const color = resourceColor(tile.resource);
+  if (!color) return;
+  const badge = Math.max(9, size * 0.22);
+  const inset = Math.max(2, size * 0.03);
+  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
+  ctx.fillRect(px + inset - 1, py + inset - 1, badge + 2, badge + 2);
+  ctx.fillStyle = color;
+  ctx.fillRect(px + inset, py + inset, badge, badge);
+  ctx.fillStyle = "rgba(22, 24, 28, 0.95)";
+  drawResourceMarkerIcon(tile.resource, px + inset, py + inset, badge);
+};
+const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
+  if (!tile.resource) return undefined;
+  const variants = resourceOverlayVariants[tile.resource as keyof typeof resourceOverlayVariants];
+  if (!variants) return undefined;
+  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
+};
+const resourceOverlayScaleForTile = (tile: Tile): number => {
+  if (tile.resource === "FISH") return 1.3;
+  if (tile.resource === "IRON") return 1.2;
+  return 1.08;
 };
 const clusterTint = (clusterType: string | undefined): string | undefined => {
   if (clusterType === "FERTILE_PLAINS") return "rgba(233,242,123,0.28)";
@@ -1921,6 +2011,35 @@ const prettyToken = (value: string): string =>
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+const combatResolutionSummary = (msg: Record<string, unknown>): string => {
+  const origin = msg.origin as { x: number; y: number } | undefined;
+  const target = msg.target as { x: number; y: number } | undefined;
+  const attackType = prettyToken(String(msg.attackType ?? "ATTACK"));
+  const attackerWon = Boolean(msg.attackerWon);
+  const winnerName = playerNameForOwner(msg.winnerId as string | undefined) ?? String(msg.winnerId ?? "").slice(0, 8);
+  const atkEff = typeof msg.atkEff === "number" ? msg.atkEff : undefined;
+  const defEff = typeof msg.defEff === "number" ? msg.defEff : undefined;
+  const winChance = typeof msg.winChance === "number" ? msg.winChance : undefined;
+  const pointsDelta = typeof msg.pointsDelta === "number" ? msg.pointsDelta : 0;
+  const swing =
+    origin && target
+      ? attackerWon
+        ? `target (${target.x}, ${target.y}) captured`
+        : `origin (${origin.x}, ${origin.y}) lost`
+      : attackerWon
+        ? "target captured"
+        : "origin lost";
+  const bits = [
+    `${attackType}: ${attackerWon ? "attacker won" : "attacker lost"}`,
+    swing,
+    `winner ${winnerName}`
+  ];
+  if (origin && target) bits.push(`(${origin.x}, ${origin.y}) -> (${target.x}, ${target.y})`);
+  if (typeof winChance === "number") bits.push(`roll ${(winChance * 100).toFixed(0)}%`);
+  if (typeof atkEff === "number" && typeof defEff === "number") bits.push(`atk ${atkEff.toFixed(1)} vs def ${defEff.toFixed(1)}`);
+  if (pointsDelta > 0) bits.push(`+${pointsDelta.toFixed(1)} pts`);
+  return bits.join(" · ");
+};
 const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
   if (terrain !== "LAND") return terrain;
   const biome = landBiomeAt(x, y);
@@ -2205,21 +2324,22 @@ const centerOnOwnedTile = (): void => {
 const requestViewRefresh = (radius = 2, force = false): void => {
   if (ws.readyState !== ws.OPEN) return;
   if (!state.authSessionReady) return;
+  const effectiveRadius = state.fogDisabled ? FULL_MAP_CHUNK_RADIUS : radius;
   const cx = Math.floor(state.camX / CHUNK_SIZE);
   const cy = Math.floor(state.camY / CHUNK_SIZE);
   const elapsed = Date.now() - state.lastSubAt;
-  const sameSub = cx === state.lastSubCx && cy === state.lastSubCy && radius === state.lastSubRadius;
+  const sameSub = cx === state.lastSubCx && cy === state.lastSubCy && effectiveRadius === state.lastSubRadius;
   if (!force && sameSub && elapsed < 700) return;
   state.lastSubCx = cx;
   state.lastSubCy = cy;
-  state.lastSubRadius = radius;
+  state.lastSubRadius = effectiveRadius;
   state.lastSubAt = Date.now();
   ws.send(
     JSON.stringify({
       type: "SUBSCRIBE_CHUNKS",
       cx,
       cy,
-      radius
+      radius: effectiveRadius
     })
   );
 };
@@ -5762,7 +5882,7 @@ ws.addEventListener("message", (ev) => {
         else if ("breachShockUntil" in c && !c.breachShockUntil) delete existing.breachShockUntil;
       }
     }
-    pushFeed(`Combat winner: ${playerNameForOwner(msg.winnerId as string | undefined) ?? String(msg.winnerId ?? "").slice(0, 8)}`, "combat", "success");
+    pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const targetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : state.actionTargetKey;
     let handedOffToSettle = false;
@@ -5836,6 +5956,7 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "FOG_UPDATE") {
     state.fogDisabled = Boolean(msg.fogDisabled);
     pushFeed(`Fog of war ${state.fogDisabled ? "disabled" : "enabled"}.`, "info", "info");
+    requestViewRefresh(2, true);
     renderHud();
   }
   if (msg.type === "TILE_DELTA") {
@@ -6477,42 +6598,36 @@ const draw = (): void => {
         ctx.globalAlpha = 1;
       }
 
-      if (t && vis === "visible" && t.clusterType && t.terrain === "LAND") {
-        const tint = clusterTint(t.clusterType);
-        if (tint) {
-          const marker = clusterMarkerColor(t.clusterType);
-          if (marker) {
-            const r = Math.max(1, Math.floor(size * 0.14));
-            ctx.fillStyle = "rgba(12, 16, 28, 0.72)";
-            ctx.fillRect(px + 1, py + 1, r * 2 + 1, r * 2 + 1);
-            ctx.fillStyle = marker;
-            ctx.fillRect(px + 2, py + 2, r * 2 - 1, r * 2 - 1);
-          }
-        }
-      }
-
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && state.fogDisabled) || vis === "visible";
       if (dockVisible && isDockEndpoint) {
-        // Previous-style frame+cross marker, but with higher contrast than yellow-on-sand.
-        ctx.fillStyle = "rgba(12, 22, 38, 0.42)";
-        ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-        ctx.strokeStyle = "rgba(115, 225, 255, 0.98)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        ctx.strokeStyle = "rgba(214, 247, 255, 0.95)";
-        ctx.beginPath();
-        ctx.moveTo(px + size / 2, py + 3);
-        ctx.lineTo(px + size / 2, py + size - 3);
-        ctx.moveTo(px + 3, py + size / 2);
-        ctx.lineTo(px + size - 3, py + size / 2);
-        ctx.stroke();
-        ctx.lineWidth = 1;
+        const dockOverlay = dockOverlayVariants[overlayVariantIndexAt(wx, wy, dockOverlayVariants.length)];
+        if (dockOverlay?.complete && dockOverlay.naturalWidth) drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
+        else {
+          ctx.fillStyle = "rgba(12, 22, 38, 0.42)";
+          ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
+          ctx.strokeStyle = "rgba(115, 225, 255, 0.98)";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+          ctx.strokeStyle = "rgba(214, 247, 255, 0.95)";
+          ctx.beginPath();
+          ctx.moveTo(px + size / 2, py + 3);
+          ctx.lineTo(px + size / 2, py + size - 3);
+          ctx.moveTo(px + 3, py + size / 2);
+          ctx.lineTo(px + size - 3, py + size / 2);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        }
       }
 
       if (t && vis === "visible" && t.resource && t.terrain === "LAND") {
-        const rc = resourceColor(t.resource);
-        if (rc) {
+        const overlay = resourceOverlayForTile(t);
+        if (overlay?.complete && overlay.naturalWidth) {
+          drawCenteredOverlay(overlay, px, py, size, resourceOverlayScaleForTile(t));
+          drawResourceCornerMarker(t, px, py, size);
+        } else {
+          const rc = resourceColor(t.resource);
+          if (!rc) continue;
           const marker = Math.max(3, Math.floor(size * 0.22));
           const mx = px + Math.floor((size - marker) / 2);
           const my = py + Math.floor((size - marker) / 2);
@@ -6520,6 +6635,7 @@ const draw = (): void => {
           ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
           ctx.fillStyle = rc;
           ctx.fillRect(mx, my, marker, marker);
+          drawResourceCornerMarker(t, px, py, size);
         }
       }
 
