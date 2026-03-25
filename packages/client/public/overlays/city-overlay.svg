@@ -1,61 +1,18 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="plate" x1="64" y1="14" x2="64" y2="114" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#223045"/>
-      <stop offset="1" stop-color="#0D1523"/>
-    </linearGradient>
-    <linearGradient id="roofMain" x1="64" y1="28" x2="64" y2="62" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFE4A8"/>
-      <stop offset="1" stop-color="#C68838"/>
-    </linearGradient>
-    <linearGradient id="roofSide" x1="64" y1="36" x2="64" y2="74" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F0C56C"/>
-      <stop offset="1" stop-color="#A56529"/>
-    </linearGradient>
-    <linearGradient id="wall" x1="64" y1="42" x2="64" y2="96" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#D8E1EB"/>
-      <stop offset="1" stop-color="#738094"/>
-    </linearGradient>
-    <filter id="shadow" x="6" y="8" width="116" height="116" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feOffset dy="6"/>
-      <feGaussianBlur stdDeviation="6"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0.0117647 0 0 0 0 0.0313726 0 0 0 0 0.0705882 0 0 0 0.46 0"/>
-    </filter>
-  </defs>
+  <path d="M21 89L39 76L66 76L48 89H21Z" fill="#AE6E31"/>
+  <path d="M39 76L39 56L66 56L66 76H39Z" fill="#D7E0EA"/>
+  <path d="M66 76L80 66L80 46L66 56V76Z" fill="#8E99AA"/>
+  <path d="M39 56L57 46L80 46L66 56H39Z" fill="#EDC16D"/>
 
-  <g filter="url(#shadow)">
-    <rect x="18" y="18" width="92" height="92" rx="18" fill="url(#plate)"/>
-    <rect x="19.5" y="19.5" width="89" height="89" rx="16.5" stroke="#40516A" stroke-width="3"/>
-    <rect x="25" y="25" width="78" height="78" rx="13" fill="#111B2B"/>
-  </g>
+  <path d="M45 90L64 76L95 76L76 90H45Z" fill="#BF8037"/>
+  <path d="M64 76L64 42L95 42L95 76H64Z" fill="#E5ECF3"/>
+  <path d="M95 76L111 64L111 30L95 42V76Z" fill="#94A0B1"/>
+  <path d="M64 42L82 30L111 30L95 42H64Z" fill="#FFD98D"/>
+  <path d="M75 90L75 63L86 63L86 90H75Z" fill="#263347"/>
+  <rect x="79" y="52" width="4" height="7" rx="1.2" fill="#F6DA94"/>
+  <rect x="86" y="52" width="4" height="7" rx="1.2" fill="#F6DA94"/>
 
-  <path d="M29 92L40 77H88L99 92H29Z" fill="#304157"/>
-  <path d="M34 86H94V92H34V86Z" fill="#4B5E7A"/>
-
-  <path d="M46 54L64 38L82 54V91H46V54Z" fill="url(#wall)"/>
-  <path d="M42 57L64 28L86 57H42Z" fill="url(#roofMain)"/>
-  <rect x="57" y="66" width="14" height="25" rx="3" fill="#223045"/>
-  <rect x="60" y="70" width="3.5" height="8" rx="1.3" fill="#F5D78E"/>
-  <rect x="65" y="70" width="3.5" height="8" rx="1.3" fill="#F5D78E"/>
-
-  <path d="M28 70L42 56L56 70V89H28V70Z" fill="#BAC5D4"/>
-  <path d="M26 72L42 48L58 72H26Z" fill="url(#roofSide)"/>
-  <rect x="34" y="75" width="4.5" height="4.5" rx="1.2" fill="#223045"/>
-  <rect x="42" y="75" width="4.5" height="4.5" rx="1.2" fill="#223045"/>
-  <rect x="38" y="82" width="6" height="7" rx="1.4" fill="#223045"/>
-
-  <path d="M72 70L86 56L100 70V89H72V70Z" fill="#BAC5D4"/>
-  <path d="M70 72L86 48L102 72H70Z" fill="url(#roofSide)"/>
-  <rect x="78" y="75" width="4.5" height="4.5" rx="1.2" fill="#223045"/>
-  <rect x="86" y="75" width="4.5" height="4.5" rx="1.2" fill="#223045"/>
-  <rect x="82" y="82" width="6" height="7" rx="1.4" fill="#223045"/>
-
-  <path d="M47 46V34L52 29L57 34V46H47Z" fill="#8F9DB1"/>
-  <path d="M72 46V31L77 26L82 31V46H72Z" fill="#8F9DB1"/>
-  <rect x="75" y="22" width="4" height="9" rx="1.3" fill="#728198"/>
-
-  <path d="M38 93H90" stroke="#1D293A" stroke-width="5" stroke-linecap="round"/>
-  <circle cx="49" cy="95" r="1.8" fill="#CDA052"/>
-  <circle cx="64" cy="95" r="1.8" fill="#CDA052"/>
-  <circle cx="79" cy="95" r="1.8" fill="#CDA052"/>
+  <path d="M86 42V24L91 20L96 24V35L86 42Z" fill="#A7B3C3"/>
+  <path d="M27 74L27 59L34 54L34 69L27 74Z" fill="#98A4B6"/>
+  <path d="M60 95L88 95" stroke="#D5A14C" stroke-width="4" stroke-linecap="round"/>
 </svg>
