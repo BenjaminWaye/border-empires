@@ -88,6 +88,8 @@ const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
+const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
+const MAX_SUBSCRIBE_RADIUS = Number(process.env.MAX_SUBSCRIBE_RADIUS ?? 2);
 const FOG_ADMIN_EMAIL = "bw199005@gmail.com";
 const SNAPSHOT_DIR = path.resolve(process.env.SNAPSHOT_DIR ?? path.join(process.cwd(), "snapshots"));
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
@@ -113,20 +115,54 @@ interface AuthIdentity {
 }
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
-const firebaseJwks = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
+const FIREBASE_TOKEN_CACHE_TTL_MS = 55 * 60 * 1000;
+const firebaseJwks = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
+  {
+    timeoutDuration: 15_000,
+    cooldownDuration: 60_000,
+    cacheMaxAge: 12 * 60 * 60 * 1000
+  }
+);
+const verifiedFirebaseTokenCache = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
 const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
   const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   if (
+    text.includes("JWKSTimeout") ||
+    text.includes("ERR_JWKS_TIMEOUT") ||
     text.includes("fetch failed") ||
     text.includes("ECONNREFUSED") ||
     text.includes("ECONNRESET") ||
     text.includes("ENOTFOUND") ||
     text.includes("ETIMEDOUT") ||
+    text.includes("timed out") ||
     text.includes("network")
   ) {
     return { code: "AUTH_UNAVAILABLE", message: "Authentication service temporarily unavailable." };
   }
   return { code: "AUTH_FAIL", message: "Firebase token verification failed." };
+};
+
+const cachedFirebaseIdentityForToken = (token: string): { uid: string; email?: string | undefined; name?: string | undefined } | undefined => {
+  const cached = verifiedFirebaseTokenCache.get(token);
+  if (!cached) return undefined;
+  if (cached.expiresAt <= now()) {
+    verifiedFirebaseTokenCache.delete(token);
+    return undefined;
+  }
+  return cached.decoded;
+};
+
+const cacheVerifiedFirebaseIdentity = (
+  token: string,
+  decoded: { uid: string; email?: string | undefined; name?: string | undefined },
+  exp?: number
+): void => {
+  const expiresAt =
+    typeof exp === "number" && Number.isFinite(exp)
+      ? Math.max(now() + 60_000, exp * 1000)
+      : now() + FIREBASE_TOKEN_CACHE_TTL_MS;
+  verifiedFirebaseTokenCache.set(token, { decoded, expiresAt });
 };
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
@@ -1132,6 +1168,16 @@ const townGrowthShockUntilByTile = new Map<TileKey, number>();
 const vendettaCaptureCountsByPlayer = new Map<string, Map<string, number>>();
 const forcedRevealTilesByPlayer = new Map<string, Set<TileKey>>();
 const cachedVisibilitySnapshotByPlayer = new Map<string, VisibilitySnapshot>();
+const cachedChunkSnapshotByPlayer = new Map<
+  string,
+  {
+    cx: number;
+    cy: number;
+    radius: number;
+    visibility: VisibilitySnapshot;
+    payloads: string[];
+  }
+>();
 const allianceRequests = new Map<string, AllianceRequest>();
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
 const chunkSnapshotSentAtByPlayer = new Map<string, { cx: number; cy: number; radius: number; sentAt: number }>();
@@ -2873,6 +2919,7 @@ const clearWorldProgressForSeason = (): void => {
   repeatFights.clear();
   collectVisibleCooldownByPlayer.clear();
   cachedVisibilitySnapshotByPlayer.clear();
+  cachedChunkSnapshotByPlayer.clear();
   revealWatchersByTarget.clear();
   economyIndexByPlayer.clear();
   observatoryTileKeysByPlayer.clear();
@@ -3608,6 +3655,7 @@ const getOrInitRevealTargets = (playerId: string): Set<string> => {
 
 const markVisibilityDirty = (playerId: string): void => {
   cachedVisibilitySnapshotByPlayer.delete(playerId);
+  cachedChunkSnapshotByPlayer.delete(playerId);
 };
 
 const markVisibilityDirtyForPlayers = (playerIds: Iterable<string>): void => {
@@ -4765,8 +4813,13 @@ const bestAiFrontierAction = (
   victoryPath?: AiSeasonVictoryPathId
 ): { from: Tile; to: Tile } | undefined => {
   const visibility = visibilitySnapshotForPlayer(actor);
-  const settledTileCount = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length;
-  const frontierTileCount = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "FRONTIER").length;
+  let settledTileCount = 0;
+  let frontierTileCount = 0;
+  for (const tileKey of actor.territoryTiles) {
+    const ownershipState = ownershipStateByTile.get(tileKey);
+    if (ownershipState === "SETTLED") settledTileCount += 1;
+    else if (ownershipState === "FRONTIER") frontierTileCount += 1;
+  }
   const earlyExpansionMode = settledTileCount <= 2;
   const economicExpansionMode = settledTileCount <= 6;
   const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
@@ -4942,16 +4995,19 @@ const bestAiFrontierAction = (
 };
 
 const bestAiOpeningScoutExpand = (actor: Player): { from: Tile; to: Tile } | undefined => {
-  const settledTileCount = [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length;
+  let settledTileCount = 0;
+  for (const tileKey of actor.territoryTiles) {
+    if (ownershipStateByTile.get(tileKey) === "SETTLED") settledTileCount += 1;
+  }
   if (settledTileCount > 2) return undefined;
 
+  const visibility = visibilitySnapshotForPlayer(actor);
   const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
     const from = playerTile(x, y);
     for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
-      const visibility = visibilitySnapshotForPlayer(actor);
       const scoutRevealTiles = new Set<TileKey>();
       for (const next of adjacentNeighborCores(to.x, to.y)) {
         if (next.terrain !== "LAND") continue;
@@ -4999,8 +5055,7 @@ const bestAiOpeningScoutExpand = (actor: Player): { from: Tile; to: Tile } | und
   return candidates[0];
 };
 
-const scoreAiScoutExpandCandidate = (actor: Player, from: Tile, to: Tile): number => {
-  const visibility = visibilitySnapshotForPlayer(actor);
+const scoreAiScoutExpandCandidate = (actor: Player, from: Tile, to: Tile, visibility = visibilitySnapshotForPlayer(actor)): number => {
   const scoutRevealTiles = new Set<TileKey>();
   for (const next of adjacentNeighborCores(to.x, to.y)) {
     if (next.terrain !== "LAND") continue;
@@ -5039,13 +5094,14 @@ const scoreAiScoutExpandCandidate = (actor: Player, from: Tile, to: Tile): numbe
 };
 
 const bestAiScoutExpand = (actor: Player): { from: Tile; to: Tile } | undefined => {
+  const visibility = visibilitySnapshotForPlayer(actor);
   const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
     const from = playerTile(x, y);
     for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
-      const score = scoreAiScoutExpandCandidate(actor, from, to);
+      const score = scoreAiScoutExpandCandidate(actor, from, to, visibility);
       candidates.push({ score, from, to });
     }
   }
@@ -5385,21 +5441,7 @@ const bestAiScaffoldExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId
 };
 
 const bestAiEconomicExpand = (actor: Player, victoryPath?: AiSeasonVictoryPathId): { from: Tile; to: Tile } | undefined => {
-  return bestAiFrontierAction(
-    actor,
-    "EXPAND",
-    (tile) => {
-      if (tile.ownerId) return false;
-      for (const ownerTileKey of actor.territoryTiles) {
-        const [x, y] = parseKey(ownerTileKey);
-        const from = playerTile(x, y);
-        if (!aiFrontierActionCandidates(actor, from, "EXPAND").some((neighbor) => neighbor.x === tile.x && neighbor.y === tile.y)) continue;
-        return classifyAiNeutralFrontierOpportunity(actor, from, tile, victoryPath) === "economic";
-      }
-      return false;
-    },
-    victoryPath
-  );
+  return bestAiFrontierAction(actor, "EXPAND", (tile) => !tile.ownerId && isAiVisibleEconomicFrontierTile(actor, tile), victoryPath);
 };
 
 const bestAiEnemyPressureAttack = (
@@ -5422,8 +5464,6 @@ const bestAiEnemyPressureAttack = (
       }
       const signal = aiEnemyPressureSignal(actor, to);
       if (signal <= 0) continue;
-      const candidate = bestAiFrontierAction(actor, "ATTACK", (tile) => tile.x === to.x && tile.y === to.y, victoryPath);
-      if (!candidate) continue;
       let score = signal;
       const defender = players.get(to.ownerId);
       const attackBase = 10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to);
@@ -5440,7 +5480,7 @@ const bestAiEnemyPressureAttack = (
       if (to.ownershipState === "FRONTIER") score += 120;
       if (victoryPath === "TOWN_CONTROL") score += 45;
       if (victoryPath === "ECONOMIC_HEGEMONY") score += 20;
-      candidates.push({ from: candidate.from, to: candidate.to, score });
+      candidates.push({ from, to, score });
     }
   }
   candidates.sort((a, b) => b.score - a.score);
@@ -6120,11 +6160,41 @@ const runAiTurn = (actor: Player): void => {
   });
 };
 
+let aiTickInFlight = false;
+const queueMicrotaskFn =
+  typeof setImmediate === "function"
+    ? (fn: () => void): void => {
+        setImmediate(fn);
+      }
+    : (fn: () => void): void => {
+        queueMicrotask(fn);
+      };
+
 const runAiTick = (): void => {
-  for (const actor of players.values()) {
-    if (!actor.isAi) continue;
-    runAiTurn(actor);
-  }
+  if (aiTickInFlight) return;
+  const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
+  if (aiPlayers.length === 0) return;
+  aiTickInFlight = true;
+  let index = 0;
+
+  const processBatch = (): void => {
+    const end = Math.min(index + AI_TICK_BATCH_SIZE, aiPlayers.length);
+    for (; index < end; index += 1) {
+      const actor = aiPlayers[index]!;
+      try {
+        runAiTurn(actor);
+      } catch (err) {
+        logRuntimeError("ai tick failed", err);
+      }
+    }
+    if (index < aiPlayers.length) {
+      queueMicrotaskFn(processBatch);
+      return;
+    }
+    aiTickInFlight = false;
+  };
+
+  processBatch();
 };
 
 const resolveEliminationIfNeeded = (p: Player, isOnline: boolean): void => {
@@ -6456,7 +6526,20 @@ const visibleInSnapshot = (snapshot: VisibilitySnapshot, x: number, y: number): 
 const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: number; radius: number }): void => {
   const startedAt = now();
   const snapshot = visibilitySnapshotForPlayer(actor);
+  const cachedSnapshot = cachedChunkSnapshotByPlayer.get(actor.id);
+  if (
+    cachedSnapshot &&
+    cachedSnapshot.cx === sub.cx &&
+    cachedSnapshot.cy === sub.cy &&
+    cachedSnapshot.radius === sub.radius &&
+    cachedSnapshot.visibility === snapshot
+  ) {
+    for (const payload of cachedSnapshot.payloads) socket.send(payload);
+    chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
+    return;
+  }
   const chunkBatch: Array<{ cx: number; cy: number; tilesMaskedByFog: Tile[] }> = [];
+  const serializedPayloads: string[] = [];
   const fallbackLastChangedAt = now();
   let chunkCount = 0;
   let tileCount = 0;
@@ -6465,9 +6548,13 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
     if (chunkBatch.length === 0) return;
     if (chunkBatch.length === 1) {
       const chunk = chunkBatch[0]!;
-      socket.send(JSON.stringify({ type: "CHUNK_FULL", cx: chunk.cx, cy: chunk.cy, tilesMaskedByFog: chunk.tilesMaskedByFog }));
+      const payload = JSON.stringify({ type: "CHUNK_FULL", cx: chunk.cx, cy: chunk.cy, tilesMaskedByFog: chunk.tilesMaskedByFog });
+      socket.send(payload);
+      serializedPayloads.push(payload);
     } else {
-      socket.send(JSON.stringify({ type: "CHUNK_BATCH", chunks: chunkBatch }));
+      const payload = JSON.stringify({ type: "CHUNK_BATCH", chunks: chunkBatch });
+      socket.send(payload);
+      serializedPayloads.push(payload);
     }
     chunkBatch.length = 0;
   };
@@ -6517,6 +6604,13 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
   flushChunkBatch();
 
   const elapsed = now() - startedAt;
+  cachedChunkSnapshotByPlayer.set(actor.id, {
+    cx: sub.cx,
+    cy: sub.cy,
+    radius: sub.radius,
+    visibility: snapshot,
+    payloads: serializedPayloads
+  });
   chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
   if (elapsed >= CHUNK_SNAPSHOT_WARN_MS) {
     app.log.warn(
@@ -8609,6 +8703,7 @@ const loadSnapshot = (): void => {
     temporaryIncomeBuffUntilByPlayer.set(pid, buff);
   }
   cachedVisibilitySnapshotByPlayer.clear();
+  cachedChunkSnapshotByPlayer.clear();
   revealWatchersByTarget.clear();
   observatoryTileKeysByPlayer.clear();
   economicStructureTileKeysByPlayer.clear();
@@ -9121,28 +9216,36 @@ app.post("/admin/world/regenerate", async () => {
     const msg = parsed.data as import("@border-empires/shared").ClientMessage;
 
     if (msg.type === "AUTH") {
-      let decoded: { uid: string; email?: string | undefined; name?: string | undefined };
+      let decoded = cachedFirebaseIdentityForToken(msg.token);
       try {
-        const verified = await jwtVerify(msg.token, firebaseJwks, {
-          issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
-          audience: FIREBASE_PROJECT_ID
-        });
-        decoded = {
-          uid: String(verified.payload.user_id ?? verified.payload.sub ?? ""),
-          email: typeof verified.payload.email === "string" ? verified.payload.email : undefined,
-          name: typeof verified.payload.name === "string" ? verified.payload.name : undefined
-        };
+        if (!decoded) {
+          const verified = await jwtVerify(msg.token, firebaseJwks, {
+            issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+            audience: FIREBASE_PROJECT_ID
+          });
+          decoded = {
+            uid: String(verified.payload.user_id ?? verified.payload.sub ?? ""),
+            email: typeof verified.payload.email === "string" ? verified.payload.email : undefined,
+            name: typeof verified.payload.name === "string" ? verified.payload.name : undefined
+          };
+          cacheVerifiedFirebaseIdentity(msg.token, decoded, typeof verified.payload.exp === "number" ? verified.payload.exp : undefined);
+        }
       } catch (err) {
-        const authError = classifyAuthError(err);
-        app.log.warn(
-          {
-            err,
-            authErrorCode: authError.code
-          },
-          "firebase token verification failed"
-        );
-        socket.send(JSON.stringify({ type: "ERROR", code: authError.code, message: authError.message }));
-        return;
+        if (!decoded) decoded = cachedFirebaseIdentityForToken(msg.token);
+        if (decoded) {
+          app.log.warn({ err }, "firebase token verification fallback to cached identity");
+        } else {
+          const authError = classifyAuthError(err);
+          app.log.warn(
+            {
+              err,
+              authErrorCode: authError.code
+            },
+            "firebase token verification failed"
+          );
+          socket.send(JSON.stringify({ type: "ERROR", code: authError.code, message: authError.message }));
+          return;
+        }
       }
       if (!decoded.uid) {
         socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FAIL", message: "Firebase token missing user id." }));
@@ -9277,7 +9380,6 @@ app.post("/admin/world/regenerate", async () => {
       }
       broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
       sendPlayerUpdate(actor, 0);
-      refreshSubscribedViewForPlayer(actor.id);
       return;
     }
 
@@ -9329,7 +9431,7 @@ app.post("/admin/world/regenerate", async () => {
       }
       const target = runtimeTileCore(msg.x, msg.y);
       sendPlayerUpdate(actor, 0);
-      refreshSubscribedViewForPlayer(actor.id);
+      sendVisibleTileDeltaAt(target.x, target.y);
       if (target.ownerId && target.ownerId !== actor.id) {
         sendToPlayer(target.ownerId, {
           type: "ATTACK_ALERT",
@@ -9340,7 +9442,6 @@ app.post("/admin/world/regenerate", async () => {
           resolvesAt: now() + SABOTAGE_DURATION_MS
         });
       }
-      if (target.ownerId) refreshSubscribedViewForPlayer(target.ownerId);
       return;
     }
 
@@ -9647,7 +9748,7 @@ app.post("/admin/world/regenerate", async () => {
     }
 
     if (msg.type === "SUBSCRIBE_CHUNKS") {
-      const sub = { cx: msg.cx, cy: msg.cy, radius: msg.radius };
+      const sub = { cx: msg.cx, cy: msg.cy, radius: Math.max(0, Math.min(msg.radius, MAX_SUBSCRIBE_RADIUS)) };
       chunkSubscriptionByPlayer.set(actor.id, sub);
       const last = chunkSnapshotSentAtByPlayer.get(actor.id);
       if (last && last.cx === sub.cx && last.cy === sub.cy && last.radius === sub.radius && now() - last.sentAt < 2500) {
