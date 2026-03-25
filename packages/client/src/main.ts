@@ -386,11 +386,11 @@ hud.innerHTML = `
   <div id="targeting-overlay" style="display:none;"></div>
 
   <div id="mobile-nav">
-    <button data-mobile-panel="core"><span class="tab-icon">⌂</span><span>Core</span></button>
-    <button data-mobile-panel="missions"><span class="tab-icon">◎</span><span>Missions</span></button>
-    <button data-mobile-panel="tech"><span class="tab-icon">⚡</span><span>Tech</span></button>
-    <button data-mobile-panel="social"><span class="tab-icon">👥</span><span>Social</span></button>
-    <button data-mobile-panel="intel"><span class="tab-icon">🔔</span><span>Intel</span></button>
+    <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
+    <button data-mobile-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
+    <button data-mobile-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
+    <button data-mobile-panel="social" title="Social" aria-label="Social"><span class="tab-icon">👥</span></button>
+    <button data-mobile-panel="intel" title="Intel" aria-label="Intel"><span class="tab-icon">🔔</span></button>
   </div>
 
   <div id="mobile-core" class="mobile-panel">
@@ -2119,17 +2119,17 @@ const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof sta
 };
 
 const mobileNavLabelHtml = (panel: typeof state.mobilePanel, opts?: { techReady?: boolean; attackAlertUnread?: boolean }): string => {
-  if (panel === "core") return '<span class="tab-icon">⌂</span><span>Core</span>';
-  if (panel === "missions") return '<span class="tab-icon">◎</span><span>Missions</span>';
+  if (panel === "core") return '<span class="tab-icon">⌂</span>';
+  if (panel === "missions") return '<span class="tab-icon">◎</span>';
   if (panel === "tech") {
     return opts?.techReady
-      ? '<span class="tab-icon">⚡</span><span>Tech</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
-      : '<span class="tab-icon">⚡</span><span>Tech</span>';
+      ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
+      : '<span class="tab-icon">⚡</span>';
   }
-  if (panel === "social") return '<span class="tab-icon">👥</span><span>Social</span>';
+  if (panel === "social") return '<span class="tab-icon">👥</span>';
   return opts?.attackAlertUnread
-    ? '<span class="tab-icon">🔔</span><span>Intel</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
-    : '<span class="tab-icon">🔔</span><span>Intel</span>';
+    ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
+    : '<span class="tab-icon">🔔</span>';
 };
 
 const viewportSize = (): { width: number; height: number } => {
