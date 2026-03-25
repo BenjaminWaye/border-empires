@@ -319,4 +319,32 @@ describe("planBestGoal", () => {
     expect(plan?.goalId).toBe("secure_food_supply");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_food_border_tile"]);
   });
+
+  it("still allows scouting under critical threat", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: false,
+      hasScoutOpportunity: true,
+      hasScaffoldOpportunity: false,
+      hasBarbarianTarget: false,
+      hasWeakEnemyBorder: false,
+      needsSettlement: false,
+      frontierDebtHigh: false,
+      foodCoverageLow: false,
+      underThreat: true,
+      threatCritical: true,
+      economyWeak: true,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: true,
+      canAffordSettlement: false,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: false,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, [{ id: "scout_frontier", priority: 8, desired: { hasScoutOpportunity: false } }], AI_EMPIRE_ACTIONS);
+
+    expect(plan?.goalId).toBe("scout_frontier");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_scout_border_tile"]);
+  });
 });

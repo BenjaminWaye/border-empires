@@ -4950,6 +4950,15 @@ const aiEnemyPressureSignal = (actor: Player, tile: Tile): number => {
   if (!tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId) || tile.ownerId === BARBARIAN_OWNER_ID) return 0;
   let score = 0;
   const tk = key(tile.x, tile.y);
+  const frontlineIntrusion = cardinalNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+    if (neighbor.terrain !== "LAND") return count;
+    if (neighbor.ownerId !== actor.id || neighbor.ownershipState !== "SETTLED") return count;
+    return count + 1;
+  }, 0);
+  if (frontlineIntrusion > 0) {
+    score += 180 + frontlineIntrusion * 90;
+    if (tile.ownershipState === "FRONTIER") score += 180;
+  }
   if (visibleToActor(tile.x, tile.y)) {
     if (townsByTile.has(tk)) score += 180;
     if (tile.resource) score += 110 + baseTileValue(tile.resource);
@@ -5181,6 +5190,19 @@ const bestAiEnemyPressureAttack = (
       const candidate = bestAiFrontierAction(actor, "ATTACK", (tile) => tile.x === to.x && tile.y === to.y, victoryPath);
       if (!candidate) continue;
       let score = signal;
+      const defender = players.get(to.ownerId);
+      const attackBase = 10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to);
+      const defenseBase =
+        10 *
+        (defender?.mods.defense ?? 1) *
+        (defender ? playerDefensiveness(defender) : 1) *
+        (defender ? fortDefenseMultAt(defender.id, key(to.x, to.y)) : 1) *
+        (docksByTile.has(key(to.x, to.y)) ? DOCK_DEFENSE_MULT : 1) *
+        (defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1) *
+        ownershipDefenseMultiplierForTarget(to);
+      const winChance = combatWinChance(attackBase, defenseBase);
+      score += Math.round(winChance * 220);
+      if (to.ownershipState === "FRONTIER") score += 120;
       if (victoryPath === "TOWN_CONTROL") score += 45;
       if (victoryPath === "ECONOMIC_HEGEMONY") score += 20;
       candidates.push({ from: candidate.from, to: candidate.to, score });
@@ -5188,7 +5210,7 @@ const bestAiEnemyPressureAttack = (
   }
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];
-  return best && best.score >= 120 ? best : undefined;
+  return best && best.score >= 80 ? best : undefined;
 };
 
 const aiFrontierOpportunityCounts = (actor: Player, victoryPath?: AiSeasonVictoryPathId): AiFrontierOpportunityCounts => {
@@ -5421,8 +5443,8 @@ const runAiTurn = (actor: Player): void => {
   }
   const pendingCaptures = pendingCapturesByAttacker(actor.id).length;
   const pendingSettlement = hasPendingSettlementForPlayer(actor.id);
-  if (pendingCaptures > 0 || pendingSettlement) {
-    setAiTurnDebug(actor, "waiting_on_pending_resolution", {
+  if (pendingCaptures > 0) {
+    setAiTurnDebug(actor, "waiting_on_pending_capture_resolution", {
       details: {
         pendingCaptures,
         pendingSettlement
@@ -5722,7 +5744,7 @@ const runAiTurn = (actor: Player): void => {
       });
       if (executed) return;
     }
-    if (!economicPushReady && bestScoutExpand && actor.points >= FRONTIER_ACTION_GOLD_COST && !threatCritical) {
+    if (!economicPushReady && bestScoutExpand && actor.points >= FRONTIER_ACTION_GOLD_COST) {
       const executed = executeAiGoapAction(actor, "claim_scout_border_tile", primaryVictoryPath);
       setAiTurnDebug(actor, executed ? "executed_scout_fallback" : "failed_scout_fallback", {
         incomePerMinute: aiIncome,
