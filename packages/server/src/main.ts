@@ -1559,22 +1559,24 @@ const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean
   if (terrainAt(x, y) !== "LAND") return false;
   const biome = landBiomeAt(x, y);
   const shade = grassShadeAt(x, y);
+  const region = regionTypeAtLocal(x, y);
   if (resource === "FISH") return biome === "COASTAL_SAND";
   if (resource === "IRON") return biome === "SAND" && isNearMountain(x, y, 4);
   if (resource === "GEMS") return biome === "SAND";
   if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
-  if (resource === "FUR") return biome === "GRASS" && shade === "LIGHT" && !isCoastalLand(x, y);
+  if (resource === "FUR") return biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST" && !isCoastalLand(x, y);
   return false;
 };
 
 const clusterRuleMatchRelaxed = (x: number, y: number, resource: ResourceType): boolean => {
   if (terrainAt(x, y) !== "LAND") return false;
   const biome = landBiomeAt(x, y);
+  const shade = grassShadeAt(x, y);
   if (resource === "FISH") return biome === "COASTAL_SAND";
   if (resource === "IRON") return biome === "SAND";
   if (resource === "GEMS") return biome === "SAND";
   if (resource === "FARM") return biome === "GRASS";
-  if (resource === "FUR") return biome === "GRASS";
+  if (resource === "FUR") return biome === "GRASS" && shade === "DARK";
   return false;
 };
 
