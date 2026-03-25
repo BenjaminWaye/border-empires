@@ -5340,14 +5340,19 @@ const bestAiSettlementTile = (actor: Player, victoryPath?: AiSeasonVictoryPathId
       const [x, y] = parseKey(tileKey);
       const tile = playerTile(x, y);
       const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath);
-      return { tile, ...evaluation };
+      return {
+        tile,
+        ...evaluation,
+        hasIntrinsicEconomicValue: townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey)
+      };
     })
     .sort((a, b) => b.score - a.score);
-  const best = frontierTiles[0];
+  const intrinsicBest = frontierTiles.find((entry) => entry.hasIntrinsicEconomicValue);
+  const best = intrinsicBest ?? frontierTiles[0];
   if (!best) return undefined;
   if (!best.isEconomicallyInteresting && !best.isStrategicallyInteresting) return undefined;
   if ((economyWeak || underThreat || foodCoverageLow) && !best.isEconomicallyInteresting) return undefined;
-  const minScore = victoryPath === "SETTLED_TERRITORY" ? 32 : 55;
+  const minScore = best.hasIntrinsicEconomicValue ? 20 : victoryPath === "SETTLED_TERRITORY" ? 32 : 55;
   return best.score >= minScore ? best.tile : undefined;
 };
 
