@@ -80,7 +80,8 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { z } from "zod";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
 import { planBestGoal, rankSeasonVictoryPaths, goalsForVictoryPath, AI_EMPIRE_ACTIONS, type AiEmpireGoapState, type AiSeasonVictoryPathId } from "./ai/goap.js";
@@ -145,15 +146,14 @@ interface AuthIdentity {
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
 const FIREBASE_TOKEN_CACHE_TTL_MS = 55 * 60 * 1000;
-const firebaseJwks = createRemoteJWKSet(
-  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
-  {
-    timeoutDuration: 15_000,
-    cooldownDuration: 60_000,
-    cacheMaxAge: 12 * 60 * 60 * 1000
-  }
-);
 const verifiedFirebaseTokenCache = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
+const firebaseAdminApp =
+  getApps()[0] ??
+  initializeApp({
+    credential: applicationDefault(),
+    projectId: FIREBASE_PROJECT_ID
+  });
+const firebaseAdminAuth = getAuth(firebaseAdminApp);
 const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
   const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   if (
@@ -210,6 +210,11 @@ interface AllianceRequest {
 type VictoryPressureTracker = {
   leaderPlayerId?: string;
   holdStartedAt?: number;
+};
+
+type AiTickContext = {
+  competitionMetrics: PlayerCompetitionMetrics[];
+  incomeByPlayerId: Map<string, number>;
 };
 
 type LeaderboardOverallEntry = {
@@ -5647,7 +5652,7 @@ const bestAiEnemyPressureAttack = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile; score: number } | undefined => {
-  const candidates: Array<{ from: Tile; to: Tile; score: number }> = [];
+  let best: { from: Tile; to: Tile; score: number } | undefined;
   for (const { from, to } of territorySummary.attackCandidates) {
     if (
       to.terrain !== "LAND" ||
@@ -5676,10 +5681,8 @@ const bestAiEnemyPressureAttack = (
     if (to.ownershipState === "FRONTIER") score += 120;
     if (victoryPath === "TOWN_CONTROL") score += 45;
     if (victoryPath === "ECONOMIC_HEGEMONY") score += 20;
-    candidates.push({ from, to, score });
+    if (!best || score > best.score) best = { from, to, score };
   }
-  candidates.sort((a, b) => b.score - a.score);
-  const best = candidates[0];
   return best && best.score >= 80 ? best : undefined;
 };
 
@@ -5708,22 +5711,23 @@ const bestAiSettlementTile = (
   territorySummary = collectAiTerritorySummary(actor)
 ): Tile | undefined => {
   const { foodCoverageLow, economyWeak } = aiEconomyPriorityState(actor, territorySummary);
-  const frontierTiles = territorySummary.frontierTiles
-    .map((tile) => {
-      const tileKey = key(tile.x, tile.y);
-      const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
-      return {
-        tile,
-        ...evaluation,
-        hasIntrinsicEconomicValue: townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey),
-        priorityScore:
-          evaluation.score +
-          ((townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey)) ? 480 : 0) +
-          (evaluation.townSupportSignal > 0 ? 520 + evaluation.townSupportSignal : 0)
-      };
-    })
-    .sort((a, b) => b.priorityScore - a.priorityScore || b.score - a.score);
-  const best = frontierTiles[0];
+  let best:
+    | (ReturnType<typeof evaluateAiSettlementCandidate> & {
+        tile: Tile;
+        hasIntrinsicEconomicValue: boolean;
+        priorityScore: number;
+      })
+    | undefined;
+  for (const tile of territorySummary.frontierTiles) {
+    const tileKey = key(tile.x, tile.y);
+    const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
+    const hasIntrinsicEconomicValue = townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey);
+    const priorityScore =
+      evaluation.score + (hasIntrinsicEconomicValue ? 480 : 0) + (evaluation.townSupportSignal > 0 ? 520 + evaluation.townSupportSignal : 0);
+    if (!best || priorityScore > best.priorityScore || (priorityScore === best.priorityScore && evaluation.score > best.score)) {
+      best = { tile, ...evaluation, hasIntrinsicEconomicValue, priorityScore };
+    }
+  }
   if (!best) return undefined;
   if (!best.isEconomicallyInteresting && !best.isStrategicallyInteresting) return undefined;
   if (
@@ -5740,29 +5744,25 @@ const bestAiSettlementTile = (
 };
 
 const bestAiFortTile = (actor: Player): Tile | undefined => {
-  const fortCandidates = [...actor.territoryTiles]
-    .filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED")
-    .map((tileKey) => {
-      const [x, y] = parseKey(tileKey);
-      const tile = playerTile(x, y);
-      const tk = key(tile.x, tile.y);
-      let score = 0;
-      if (townsByTile.has(tk)) score += 140;
-      if (docksByTile.has(tk)) score += 120;
-      if (tile.resource) score += baseTileValue(tile.resource) * 2;
-      const hostileAdjacency = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
-        if (neighbor.terrain !== "LAND") return count;
-        if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return count;
-        return count + 1;
-      }, 0);
-      score += hostileAdjacency * 24;
-      return { tile, score };
-    })
-    .filter((entry) => isBorderTile(entry.tile.x, entry.tile.y, actor.id))
-    .sort((a, b) => {
-      return b.score - a.score;
-    });
-  const best = fortCandidates[0];
+  let best: { tile: Tile; score: number } | undefined;
+  for (const tileKey of actor.territoryTiles) {
+    if (ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
+    const [x, y] = parseKey(tileKey);
+    if (!isBorderTile(x, y, actor.id)) continue;
+    const tile = playerTile(x, y);
+    const tk = key(tile.x, tile.y);
+    let score = 0;
+    if (townsByTile.has(tk)) score += 140;
+    if (docksByTile.has(tk)) score += 120;
+    if (tile.resource) score += baseTileValue(tile.resource) * 2;
+    const hostileAdjacency = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+      if (neighbor.terrain !== "LAND") return count;
+      if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return count;
+      return count + 1;
+    }, 0);
+    score += hostileAdjacency * 24;
+    if (!best || score > best.score) best = { tile, score };
+  }
   return best && best.score >= 70 ? best.tile : undefined;
 };
 
@@ -5770,44 +5770,70 @@ const bestAiEconomicStructure = (
   actor: Player
 ): { tile: Tile; structureType: EconomicStructureType } | undefined => {
   const stock = getOrInitStrategicStocks(actor.id);
-  const candidates: Array<{ score: number; tile: Tile; structureType: EconomicStructureType }> = [];
+  let best: { score: number; tile: Tile; structureType: EconomicStructureType } | undefined;
+  const consider = (score: number, tile: Tile, structureType: EconomicStructureType): void => {
+    if (!best || score > best.score) best = { score, tile, structureType };
+  };
   for (const tileKey of actor.territoryTiles) {
     if (ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
     const [x, y] = parseKey(tileKey);
     const tile = playerTile(x, y);
     if (tile.economicStructure) continue;
     if (tile.resource === "FARM" || tile.resource === "FISH") {
-      candidates.push({ score: 50, tile, structureType: "FARMSTEAD" });
-      candidates.push({ score: 25, tile, structureType: "GRANARY" });
+      consider(50, tile, "FARMSTEAD");
+      consider(25, tile, "GRANARY");
     } else if (tile.resource === "FUR" || tile.resource === "WOOD") {
-      candidates.push({ score: 40, tile, structureType: "CAMP" });
-      candidates.push({ score: 20, tile, structureType: "MARKET" });
+      consider(40, tile, "CAMP");
+      consider(20, tile, "MARKET");
     } else if (tile.resource === "IRON" || tile.resource === "GEMS") {
-      candidates.push({ score: 45, tile, structureType: "MINE" });
-      candidates.push({ score: 22, tile, structureType: "MARKET" });
+      consider(45, tile, "MINE");
+      consider(22, tile, "MARKET");
     } else if (townsByTile.has(tileKey)) {
-      candidates.push({ score: 35, tile, structureType: "MARKET" });
-      candidates.push({ score: 18, tile, structureType: "GRANARY" });
+      consider(35, tile, "MARKET");
+      consider(18, tile, "GRANARY");
     }
   }
-  candidates.sort((a, b) => b.score - a.score);
-  for (const candidate of candidates) {
-    const placed = canPlaceEconomicStructure(actor, candidate.tile, candidate.structureType);
-    if (!placed.ok) continue;
-    if (candidate.structureType === "FARMSTEAD" && (!actor.techIds.has("agriculture") || actor.points < FARMSTEAD_BUILD_GOLD_COST || (stock.FOOD ?? 0) < FARMSTEAD_BUILD_FOOD_COST)) continue;
-    if (candidate.structureType === "CAMP" && (!actor.techIds.has("leatherworking") || actor.points < CAMP_BUILD_GOLD_COST || (stock.SUPPLY ?? 0) < CAMP_BUILD_SUPPLY_COST)) continue;
-    if (
-      candidate.structureType === "MINE" &&
-      (!actor.techIds.has("mining") ||
-        actor.points < MINE_BUILD_GOLD_COST ||
-        ((candidate.tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)
-    ) continue;
-    if (candidate.structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST || (stock.CRYSTAL ?? 0) < MARKET_BUILD_CRYSTAL_COST)) continue;
-    if (
-      candidate.structureType === "GRANARY" &&
+  if (best) {
+    const placed = canPlaceEconomicStructure(actor, best.tile, best.structureType);
+    if (!placed.ok) best = undefined;
+    else if (best.structureType === "FARMSTEAD" && (!actor.techIds.has("agriculture") || actor.points < FARMSTEAD_BUILD_GOLD_COST || (stock.FOOD ?? 0) < FARMSTEAD_BUILD_FOOD_COST)) best = undefined;
+    else if (best.structureType === "CAMP" && (!actor.techIds.has("leatherworking") || actor.points < CAMP_BUILD_GOLD_COST || (stock.SUPPLY ?? 0) < CAMP_BUILD_SUPPLY_COST)) best = undefined;
+    else if (
+      best.structureType === "MINE" &&
+      (!actor.techIds.has("mining") || actor.points < MINE_BUILD_GOLD_COST || ((best.tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)
+    ) best = undefined;
+    else if (best.structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST || (stock.CRYSTAL ?? 0) < MARKET_BUILD_CRYSTAL_COST)) best = undefined;
+    else if (
+      best.structureType === "GRANARY" &&
       (!getPlayerEffectsForPlayer(actor.id).unlockGranary || actor.points < GRANARY_BUILD_GOLD_COST || (stock.FOOD ?? 0) < GRANARY_BUILD_FOOD_COST)
-    ) continue;
-    return { tile: candidate.tile, structureType: candidate.structureType };
+    ) best = undefined;
+    else return { tile: best.tile, structureType: best.structureType };
+  }
+  for (const tileKey of actor.territoryTiles) {
+    if (ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
+    const [x, y] = parseKey(tileKey);
+    const tile = playerTile(x, y);
+    if (tile.economicStructure) continue;
+    const candidates: EconomicStructureType[] =
+      tile.resource === "FARM" || tile.resource === "FISH"
+        ? ["FARMSTEAD", "GRANARY"]
+        : tile.resource === "FUR" || tile.resource === "WOOD"
+          ? ["CAMP", "MARKET"]
+          : tile.resource === "IRON" || tile.resource === "GEMS"
+            ? ["MINE", "MARKET"]
+            : townsByTile.has(tileKey)
+              ? ["MARKET", "GRANARY"]
+              : [];
+    for (const structureType of candidates) {
+      const placed = canPlaceEconomicStructure(actor, tile, structureType);
+      if (!placed.ok) continue;
+      if (structureType === "FARMSTEAD" && (!actor.techIds.has("agriculture") || actor.points < FARMSTEAD_BUILD_GOLD_COST || (stock.FOOD ?? 0) < FARMSTEAD_BUILD_FOOD_COST)) continue;
+      if (structureType === "CAMP" && (!actor.techIds.has("leatherworking") || actor.points < CAMP_BUILD_GOLD_COST || (stock.SUPPLY ?? 0) < CAMP_BUILD_SUPPLY_COST)) continue;
+      if (structureType === "MINE" && (!actor.techIds.has("mining") || actor.points < MINE_BUILD_GOLD_COST || ((tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)) continue;
+      if (structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST || (stock.CRYSTAL ?? 0) < MARKET_BUILD_CRYSTAL_COST)) continue;
+      if (structureType === "GRANARY" && (!getPlayerEffectsForPlayer(actor.id).unlockGranary || actor.points < GRANARY_BUILD_GOLD_COST || (stock.FOOD ?? 0) < GRANARY_BUILD_FOOD_COST)) continue;
+      return { tile, structureType };
+    }
   }
   return undefined;
 };
@@ -5927,7 +5953,7 @@ const setAiTurnDebug = (
   });
 };
 
-const runAiTurn = (actor: Player): void => {
+const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
   if (!actor.isAi) return;
   actor.lastActiveAt = now();
   if (actor.T <= 0 || actor.territoryTiles.size === 0 || actor.respawnPending) {
@@ -5953,10 +5979,12 @@ const runAiTurn = (actor: Player): void => {
     sendPlayerUpdate(actor, collected.gold);
   }
 
-  const territoryMetrics = collectPlayerCompetitionMetrics();
-  const incomeByPlayer = territoryMetrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute })).sort((a, b) => b.value - a.value);
-  const aiIncome = incomeByPlayer.find((entry) => entry.playerId === actor.id)?.value ?? currentIncomePerMinute(actor);
-  const runnerUpIncome = incomeByPlayer.find((entry) => entry.playerId !== actor.id)?.value ?? 0;
+  const territoryMetrics = tickContext?.competitionMetrics ?? collectPlayerCompetitionMetrics();
+  const aiIncome = tickContext?.incomeByPlayerId.get(actor.id) ?? territoryMetrics.find((metric) => metric.playerId === actor.id)?.incomePerMinute ?? currentIncomePerMinute(actor);
+  const runnerUpIncome = territoryMetrics.reduce((best, metric) => {
+    if (metric.playerId === actor.id) return best;
+    return Math.max(best, metric.incomePerMinute);
+  }, 0);
   maybePickAiTech(actor);
   maybePickAiDomain(actor);
   const territorySummary = collectAiTerritorySummary(actor);
@@ -6366,26 +6394,27 @@ const runAiTick = (): void => {
   const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
   if (aiPlayers.length === 0) return;
   aiTickInFlight = true;
-  let index = 0;
+  const competitionMetrics = collectPlayerCompetitionMetrics();
+  const tickContext: AiTickContext = {
+    competitionMetrics,
+    incomeByPlayerId: new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute]))
+  };
+  const slotMs = Math.max(25, Math.floor(AI_TICK_MS / Math.max(1, aiPlayers.length)));
+  let pending = aiPlayers.length;
 
-  const processBatch = (): void => {
-    const end = Math.min(index + AI_TICK_BATCH_SIZE, aiPlayers.length);
-    for (; index < end; index += 1) {
-      const actor = aiPlayers[index]!;
+  aiPlayers.forEach((actor, index) => {
+    const delayMs = Math.min(AI_TICK_MS - 1, index * slotMs);
+    setTimeout(() => {
       try {
-        runAiTurn(actor);
+        runAiTurn(actor, tickContext);
       } catch (err) {
         logRuntimeError("ai tick failed", err);
+      } finally {
+        pending -= 1;
+        if (pending <= 0) aiTickInFlight = false;
       }
-    }
-    if (index < aiPlayers.length) {
-      queueMicrotaskFn(processBatch);
-      return;
-    }
-    aiTickInFlight = false;
-  };
-
-  processBatch();
+    }, delayMs);
+  });
 };
 
 const resolveEliminationIfNeeded = (p: Player, isOnline: boolean): void => {
@@ -9715,16 +9744,13 @@ app.post("/admin/world/regenerate", async () => {
       let decoded = cachedFirebaseIdentityForToken(msg.token);
       try {
         if (!decoded) {
-          const verified = await jwtVerify(msg.token, firebaseJwks, {
-            issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
-            audience: FIREBASE_PROJECT_ID
-          });
+          const verified = await firebaseAdminAuth.verifyIdToken(msg.token, true);
           decoded = {
-            uid: String(verified.payload.user_id ?? verified.payload.sub ?? ""),
-            email: typeof verified.payload.email === "string" ? verified.payload.email : undefined,
-            name: typeof verified.payload.name === "string" ? verified.payload.name : undefined
+            uid: String(verified.uid ?? ""),
+            email: typeof verified.email === "string" ? verified.email : undefined,
+            name: typeof verified.name === "string" ? verified.name : undefined
           };
-          cacheVerifiedFirebaseIdentity(msg.token, decoded, typeof verified.payload.exp === "number" ? verified.payload.exp : undefined);
+          cacheVerifiedFirebaseIdentity(msg.token, decoded, typeof verified.exp === "number" ? verified.exp : undefined);
         }
       } catch (err) {
         if (!decoded) decoded = cachedFirebaseIdentityForToken(msg.token);
