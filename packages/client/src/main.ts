@@ -3898,6 +3898,7 @@ const defaultWsUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://
 const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? defaultWsUrl;
 const ws = new WebSocket(wsUrl);
 let reconnectReloadTimer: number | undefined;
+let authReconnectTimer: number | undefined;
 const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
   if (ws.readyState !== ws.OPEN) {
     setAuthStatus(`Game server unavailable at ${wsUrl}.`, "error");
@@ -3919,6 +3920,31 @@ const clearReconnectReloadTimer = (): void => {
     window.clearTimeout(reconnectReloadTimer);
     reconnectReloadTimer = undefined;
   }
+};
+const clearAuthReconnectTimer = (): void => {
+  if (authReconnectTimer !== undefined) {
+    window.clearTimeout(authReconnectTimer);
+    authReconnectTimer = undefined;
+  }
+};
+const scheduleAuthReconnect = (message: string, forceRefresh = false): void => {
+  clearAuthReconnectTimer();
+  state.authBusy = true;
+  state.authRetrying = true;
+  setAuthStatus(message);
+  syncAuthOverlay();
+  renderHud();
+  authReconnectTimer = window.setTimeout(() => {
+    authReconnectTimer = undefined;
+    if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN || state.authSessionReady) return;
+    void authenticateSocket(forceRefresh).catch((error) => {
+      state.authBusy = false;
+      state.authRetrying = false;
+      setAuthStatus(error instanceof Error ? error.message : "Could not reconnect to the game server.", "error");
+      syncAuthOverlay();
+      renderHud();
+    });
+  }, 2000);
 };
 const scheduleReconnectReload = (): void => {
   if (!state.hasEverInitialized) return;
@@ -5645,6 +5671,7 @@ ws.addEventListener("open", () => {
   state.connection = "connected";
   if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
   clearReconnectReloadTimer();
+  clearAuthReconnectTimer();
   renderHud();
   void authenticateSocket();
 });
@@ -5657,9 +5684,10 @@ ws.addEventListener("close", () => {
   state.actionCurrent = undefined;
   pushFeed("Connection lost. Retrying...", "error", "warn");
   if (state.authReady && !state.authSessionReady) {
-    state.authBusy = false;
-    setAuthStatus(`Signed into Firebase, but the game server is unavailable at ${wsUrl}.`, "error");
+    state.authBusy = true;
+    setAuthStatus(`Signed into Firebase. Reconnecting to the game server at ${wsUrl}...`);
   }
+  clearAuthReconnectTimer();
   scheduleReconnectReload();
   renderHud();
 });
@@ -5672,9 +5700,10 @@ ws.addEventListener("error", () => {
   state.actionCurrent = undefined;
   pushFeed("Server unreachable. Retrying...", "error", "warn");
   if (state.authReady && !state.authSessionReady) {
-    state.authBusy = false;
-    setAuthStatus(`Signed into Firebase, but the game server is unavailable at ${wsUrl}.`, "error");
+    state.authBusy = true;
+    setAuthStatus(`Signed into Firebase. Waiting for the game server at ${wsUrl}...`);
   }
+  clearAuthReconnectTimer();
   scheduleReconnectReload();
   renderHud();
 });
@@ -5687,6 +5716,7 @@ ws.addEventListener("message", (ev) => {
     state.hasEverInitialized = true;
     state.authBusy = false;
     state.authRetrying = false;
+    clearAuthReconnectTimer();
     state.mapLoadStartedAt = Date.now();
     state.firstChunkAt = 0;
     state.chunkFullCount = 0;
@@ -6219,8 +6249,16 @@ ws.addEventListener("message", (ev) => {
     const errorMessage = String(msg.message ?? "unknown failure");
     const errorTileKey =
       typeof msg.x === "number" && typeof msg.y === "number" ? key(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
-    if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE") {
+    if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
       state.authSessionReady = false;
+      if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
+        scheduleAuthReconnect(
+          errorCode === "SERVER_STARTING"
+            ? "Game server is still starting. Retrying sign-in..."
+            : "Google account connected. Waiting for the game server to finish authorizing..."
+        );
+        return;
+      }
       if (errorCode === "AUTH_FAIL" && firebaseAuth?.currentUser && !state.authRetrying) {
         state.authBusy = true;
         state.authRetrying = true;
@@ -6419,8 +6457,8 @@ if (firebaseAuth) {
       if (ws.readyState === ws.OPEN) {
         ws.send(JSON.stringify({ type: "AUTH", token: authToken }));
       } else {
-        state.authBusy = false;
-        setAuthStatus(`Google account connected. Game server unavailable at ${wsUrl}.`, "error");
+        state.authBusy = true;
+        setAuthStatus(`Google account connected. Waiting for the game server at ${wsUrl}...`);
       }
     } catch (error) {
       state.authSessionReady = false;
