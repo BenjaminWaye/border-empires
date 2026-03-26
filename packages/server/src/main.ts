@@ -82,6 +82,7 @@ import crypto from "node:crypto";
 import { z } from "zod";
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
 import { planBestGoal, rankSeasonVictoryPaths, goalsForVictoryPath, AI_EMPIRE_ACTIONS, type AiEmpireGoapState, type AiSeasonVictoryPathId } from "./ai/goap.js";
@@ -146,6 +147,14 @@ interface AuthIdentity {
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
 const FIREBASE_TOKEN_CACHE_TTL_MS = 55 * 60 * 1000;
+const firebaseJwks = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
+  {
+    timeoutDuration: 15_000,
+    cooldownDuration: 60_000,
+    cacheMaxAge: 12 * 60 * 60 * 1000
+  }
+);
 const verifiedFirebaseTokenCache = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
 const firebaseAdminApp =
   getApps()[0] ??
@@ -192,6 +201,40 @@ const cacheVerifiedFirebaseIdentity = (
       ? Math.max(now() + 60_000, exp * 1000)
       : now() + FIREBASE_TOKEN_CACHE_TTL_MS;
   verifiedFirebaseTokenCache.set(token, { decoded, expiresAt });
+};
+
+const verifyFirebaseToken = async (
+  token: string
+): Promise<{ uid: string; email?: string | undefined; name?: string | undefined; exp?: number }> => {
+  try {
+    const verified = await firebaseAdminAuth.verifyIdToken(token, true);
+    const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
+      uid: String(verified.uid ?? "")
+    };
+    if (typeof verified.email === "string") decoded.email = verified.email;
+    if (typeof verified.name === "string") decoded.name = verified.name;
+    if (typeof verified.exp === "number") decoded.exp = verified.exp;
+    return decoded;
+  } catch (err) {
+    const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    const adminCredentialUnavailable =
+      text.includes("Could not load the default credentials") ||
+      text.includes("app/invalid-credential") ||
+      text.includes("MetadataLookupWarning");
+    if (!adminCredentialUnavailable) throw err;
+  }
+
+  const verified = await jwtVerify(token, firebaseJwks, {
+    issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+    audience: FIREBASE_PROJECT_ID
+  });
+  const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
+    uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
+  };
+  if (typeof verified.payload.email === "string") decoded.email = verified.payload.email;
+  if (typeof verified.payload.name === "string") decoded.name = verified.payload.name;
+  if (typeof verified.payload.exp === "number") decoded.exp = verified.payload.exp;
+  return decoded;
 };
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
@@ -9744,7 +9787,7 @@ app.post("/admin/world/regenerate", async () => {
       let decoded = cachedFirebaseIdentityForToken(msg.token);
       try {
         if (!decoded) {
-          const verified = await firebaseAdminAuth.verifyIdToken(msg.token, true);
+          const verified = await verifyFirebaseToken(msg.token);
           decoded = {
             uid: String(verified.uid ?? ""),
             email: typeof verified.email === "string" ? verified.email : undefined,
