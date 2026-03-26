@@ -95,7 +95,15 @@ const CHUNK_STREAM_BATCH_SIZE = Math.max(1, Number(process.env.CHUNK_STREAM_BATC
 const FOG_ADMIN_EMAIL = "bw199005@gmail.com";
 const SNAPSHOT_DIR = path.resolve(process.env.SNAPSHOT_DIR ?? path.join(process.cwd(), "snapshots"));
 const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
-const snapshotTempFile = (): string => path.join(SNAPSHOT_DIR, `state.${process.pid}.tmp`);
+const SNAPSHOT_INDEX_FILE = path.join(SNAPSHOT_DIR, "state.index.json");
+const SNAPSHOT_SECTION_FILES = {
+  meta: "state.meta.json",
+  players: "state.players.json",
+  territory: "state.territory.json",
+  economy: "state.economy.json",
+  systems: "state.systems.json"
+} as const;
+const snapshotSectionFile = (name: keyof typeof SNAPSHOT_SECTION_FILES): string => path.join(SNAPSHOT_DIR, SNAPSHOT_SECTION_FILES[name]);
 
 let appRef: FastifyInstance | undefined;
 const startupState: {
@@ -312,6 +320,64 @@ interface SnapshotState {
   seasonWinner?: SeasonWinnerView;
   seasonArchives?: SeasonArchiveEntry[];
   seasonTechConfig?: Omit<SeasonalTechConfig, "activeNodeIds"> & { activeNodeIds: string[] };
+}
+
+interface SnapshotMetaSection {
+  world: { width: number; height: number };
+  season?: Season;
+  seasonWinner?: SeasonWinnerView;
+  seasonArchives?: SeasonArchiveEntry[];
+  seasonTechConfig?: Omit<SeasonalTechConfig, "activeNodeIds"> & { activeNodeIds: string[] };
+}
+
+interface SnapshotPlayersSection {
+  players: SnapshotState["players"];
+  authIdentities?: AuthIdentity[];
+}
+
+interface SnapshotTerritorySection {
+  ownership: [TileKey, string][];
+  ownershipState?: [TileKey, OwnershipState][];
+  barbarianAgents?: BarbarianAgent[];
+  tileHistory?: [TileKey, TileHistoryState][];
+  terrainShapes?: [TileKey, TerrainShapeState][];
+  docks?: Dock[];
+  towns?: TownDefinition[];
+  firstSpecialSiteCaptureClaimed?: TileKey[];
+  clusters?: ClusterDefinition[];
+  clusterTiles?: [TileKey, string][];
+  townCaptureShock?: [TileKey, number][];
+  townGrowthShock?: [TileKey, number][];
+}
+
+interface SnapshotEconomySection {
+  resources: [string, Record<ResourceType, number>][];
+  strategicResources?: [string, Record<StrategicResource, number>][];
+  strategicResourceBuffer?: [string, Record<StrategicResource, number>][];
+  tileYield?: [TileKey, TileYieldBuffer][];
+  frontierSettlements?: [string, number[]][];
+  dynamicMissions?: [string, DynamicMissionDef[]][];
+  temporaryAttackBuffUntil?: [string, number][];
+  temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
+  pendingSettlements?: Array<{ tileKey: TileKey; ownerId: string; startedAt: number; resolvesAt: number; goldCost: number }>;
+}
+
+interface SnapshotSystemsSection {
+  seasonVictory?: [SeasonVictoryPathId, VictoryPressureTracker][];
+  forcedReveal?: [string, TileKey[]][];
+  revealedEmpireTargets?: [string, string[]][];
+  allianceRequests?: AllianceRequest[];
+  forts?: Fort[];
+  observatories?: Observatory[];
+  siegeOutposts?: SiegeOutpost[];
+  economicStructures?: EconomicStructure[];
+  sabotage?: ActiveSabotage[];
+  abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
+}
+
+interface SnapshotSectionIndex {
+  formatVersion: 2;
+  sections: Record<keyof typeof SNAPSHOT_SECTION_FILES, string>;
 }
 
 interface ClusterDefinition {
@@ -1749,8 +1815,9 @@ const applyClusterResources = (x: number, y: number, base: ResourceType | undefi
   if (!cid) return base;
   const c = clustersById.get(cid);
   if (!c) return base;
-  const resource = clusterResourceType(c);
-  return resourcePlacementAllowed(x, y, resource, false) ? resource : base;
+  // Cluster membership is already validated when the world is generated or restored.
+  // Re-running placement rules here turns every runtime tile read into a worldgen check.
+  return clusterResourceType(c);
 };
 
 type DockCandidate = { x: number; y: number; componentId: number; seaX: number; seaY: number };
@@ -2063,6 +2130,18 @@ const findNearestTownPlacement = (originX: number, originY: number, ignoreTileKe
     }
   }
   return undefined;
+};
+
+const townPlacementsNeedNormalization = (): boolean => {
+  const seen = new Set<TileKey>();
+  for (const town of townsByTile.values()) {
+    const tileKey = town.tileKey;
+    if (seen.has(tileKey)) return true;
+    seen.add(tileKey);
+    const [x, y] = parseKey(tileKey);
+    if (!canPlaceTownAt(x, y, tileKey)) return true;
+  }
+  return false;
 };
 
 const normalizeTownPlacements = (): void => {
@@ -8737,16 +8816,115 @@ const buildSnapshotState = (): SnapshotState => {
   return snapshot;
 };
 
+const splitSnapshotState = (
+  snapshot: SnapshotState
+): {
+  meta: SnapshotMetaSection;
+  players: SnapshotPlayersSection;
+  territory: SnapshotTerritorySection;
+  economy: SnapshotEconomySection;
+  systems: SnapshotSystemsSection;
+} => ({
+  meta: {
+    world: snapshot.world,
+    ...(snapshot.season ? { season: snapshot.season } : {}),
+    ...(snapshot.seasonWinner ? { seasonWinner: snapshot.seasonWinner } : {}),
+    ...(snapshot.seasonArchives ? { seasonArchives: snapshot.seasonArchives } : {}),
+    ...(snapshot.seasonTechConfig ? { seasonTechConfig: snapshot.seasonTechConfig } : {})
+  },
+  players: {
+    players: snapshot.players,
+    ...(snapshot.authIdentities ? { authIdentities: snapshot.authIdentities } : {})
+  },
+  territory: {
+    ownership: snapshot.ownership,
+    ...(snapshot.ownershipState ? { ownershipState: snapshot.ownershipState } : {}),
+    ...(snapshot.barbarianAgents ? { barbarianAgents: snapshot.barbarianAgents } : {}),
+    ...(snapshot.tileHistory ? { tileHistory: snapshot.tileHistory } : {}),
+    ...(snapshot.terrainShapes ? { terrainShapes: snapshot.terrainShapes } : {}),
+    ...(snapshot.docks ? { docks: snapshot.docks } : {}),
+    ...(snapshot.towns ? { towns: snapshot.towns } : {}),
+    ...(snapshot.firstSpecialSiteCaptureClaimed ? { firstSpecialSiteCaptureClaimed: snapshot.firstSpecialSiteCaptureClaimed } : {}),
+    ...(snapshot.clusters ? { clusters: snapshot.clusters } : {}),
+    ...(snapshot.clusterTiles ? { clusterTiles: snapshot.clusterTiles } : {}),
+    ...(snapshot.townCaptureShock ? { townCaptureShock: snapshot.townCaptureShock } : {}),
+    ...(snapshot.townGrowthShock ? { townGrowthShock: snapshot.townGrowthShock } : {})
+  },
+  economy: {
+    resources: snapshot.resources,
+    ...(snapshot.strategicResources ? { strategicResources: snapshot.strategicResources } : {}),
+    ...(snapshot.strategicResourceBuffer ? { strategicResourceBuffer: snapshot.strategicResourceBuffer } : {}),
+    ...(snapshot.tileYield ? { tileYield: snapshot.tileYield } : {}),
+    ...(snapshot.frontierSettlements ? { frontierSettlements: snapshot.frontierSettlements } : {}),
+    ...(snapshot.dynamicMissions ? { dynamicMissions: snapshot.dynamicMissions } : {}),
+    ...(snapshot.temporaryAttackBuffUntil ? { temporaryAttackBuffUntil: snapshot.temporaryAttackBuffUntil } : {}),
+    ...(snapshot.temporaryIncomeBuff ? { temporaryIncomeBuff: snapshot.temporaryIncomeBuff } : {}),
+    ...(snapshot.pendingSettlements ? { pendingSettlements: snapshot.pendingSettlements } : {})
+  },
+  systems: {
+    ...(snapshot.seasonVictory ? { seasonVictory: snapshot.seasonVictory } : {}),
+    ...(snapshot.forcedReveal ? { forcedReveal: snapshot.forcedReveal } : {}),
+    ...(snapshot.revealedEmpireTargets ? { revealedEmpireTargets: snapshot.revealedEmpireTargets } : {}),
+    ...(snapshot.allianceRequests ? { allianceRequests: snapshot.allianceRequests } : {}),
+    ...(snapshot.forts ? { forts: snapshot.forts } : {}),
+    ...(snapshot.observatories ? { observatories: snapshot.observatories } : {}),
+    ...(snapshot.siegeOutposts ? { siegeOutposts: snapshot.siegeOutposts } : {}),
+    ...(snapshot.economicStructures ? { economicStructures: snapshot.economicStructures } : {}),
+    ...(snapshot.sabotage ? { sabotage: snapshot.sabotage } : {}),
+    ...(snapshot.abilityCooldowns ? { abilityCooldowns: snapshot.abilityCooldowns } : {})
+  }
+});
+
+const writeSnapshotJsonAtomic = async (targetFile: string, serialized: string): Promise<void> => {
+  const tmpFile = `${targetFile}.${process.pid}.tmp`;
+  await fs.promises.writeFile(tmpFile, serialized);
+  await fs.promises.rename(tmpFile, targetFile);
+};
+
+const readSnapshotJsonSync = <T>(file: string): { data: T; bytes: number; elapsedMs: number } => {
+  const startedAt = Date.now();
+  const text = fs.readFileSync(file, "utf8");
+  return {
+    data: JSON.parse(text) as T,
+    bytes: Buffer.byteLength(text),
+    elapsedMs: Date.now() - startedAt
+  };
+};
+
 let snapshotSavePromise: Promise<void> = Promise.resolve();
 const saveSnapshot = async (): Promise<void> => {
-  const serialized = JSON.stringify(buildSnapshotState());
+  const snapshot = buildSnapshotState();
+  const sections = splitSnapshotState(snapshot);
+  const serializedSections = {
+    meta: JSON.stringify(sections.meta),
+    players: JSON.stringify(sections.players),
+    territory: JSON.stringify(sections.territory),
+    economy: JSON.stringify(sections.economy),
+    systems: JSON.stringify(sections.systems)
+  };
+  const index: SnapshotSectionIndex = {
+    formatVersion: 2,
+    sections: {
+      meta: SNAPSHOT_SECTION_FILES.meta,
+      players: SNAPSHOT_SECTION_FILES.players,
+      territory: SNAPSHOT_SECTION_FILES.territory,
+      economy: SNAPSHOT_SECTION_FILES.economy,
+      systems: SNAPSHOT_SECTION_FILES.systems
+    }
+  };
+  const serializedIndex = JSON.stringify(index);
   snapshotSavePromise = snapshotSavePromise
     .catch(() => undefined)
     .then(async () => {
       await fs.promises.mkdir(SNAPSHOT_DIR, { recursive: true });
-      const tmpFile = snapshotTempFile();
-      await fs.promises.writeFile(tmpFile, serialized);
-      await fs.promises.rename(tmpFile, SNAPSHOT_FILE);
+      await Promise.all([
+        writeSnapshotJsonAtomic(snapshotSectionFile("meta"), serializedSections.meta),
+        writeSnapshotJsonAtomic(snapshotSectionFile("players"), serializedSections.players),
+        writeSnapshotJsonAtomic(snapshotSectionFile("territory"), serializedSections.territory),
+        writeSnapshotJsonAtomic(snapshotSectionFile("economy"), serializedSections.economy),
+        writeSnapshotJsonAtomic(snapshotSectionFile("systems"), serializedSections.systems)
+      ]);
+      await writeSnapshotJsonAtomic(SNAPSHOT_INDEX_FILE, serializedIndex);
     });
   return snapshotSavePromise;
 };
@@ -8757,20 +8935,67 @@ const saveSnapshotInBackground = (): void => {
   });
 };
 
-const loadSnapshot = (): void => {
-  if (!fs.existsSync(SNAPSHOT_FILE)) return;
-  let raw: SnapshotState;
-  try {
-    raw = JSON.parse(fs.readFileSync(SNAPSHOT_FILE, "utf8")) as SnapshotState;
-  } catch (err) {
-    logRuntimeError("snapshot load failed", err);
-    try {
-      fs.renameSync(SNAPSHOT_FILE, `${SNAPSHOT_FILE}.corrupt-${Date.now()}`);
-    } catch (renameErr) {
-      logRuntimeError("failed to quarantine corrupt snapshot", renameErr);
-    }
-    return;
+const loadSectionedSnapshot = (): SnapshotState | undefined => {
+  if (!fs.existsSync(SNAPSHOT_INDEX_FILE)) return undefined;
+  const indexStartedAt = Date.now();
+  const index = readSnapshotJsonSync<SnapshotSectionIndex>(SNAPSHOT_INDEX_FILE);
+  logStartupPhase("load_snapshot_index", indexStartedAt, { bytes: index.bytes });
+  if (index.data.formatVersion !== 2) {
+    throw new Error(`unsupported snapshot index format ${index.data.formatVersion}`);
   }
+  const meta = readSnapshotJsonSync<SnapshotMetaSection>(path.join(SNAPSHOT_DIR, index.data.sections.meta));
+  const playersSection = readSnapshotJsonSync<SnapshotPlayersSection>(path.join(SNAPSHOT_DIR, index.data.sections.players));
+  const territory = readSnapshotJsonSync<SnapshotTerritorySection>(path.join(SNAPSHOT_DIR, index.data.sections.territory));
+  const economy = readSnapshotJsonSync<SnapshotEconomySection>(path.join(SNAPSHOT_DIR, index.data.sections.economy));
+  const systems = readSnapshotJsonSync<SnapshotSystemsSection>(path.join(SNAPSHOT_DIR, index.data.sections.systems));
+  if (appRef) {
+    appRef.log.info(
+      {
+        sections: {
+          meta: { bytes: meta.bytes, elapsedMs: meta.elapsedMs },
+          players: { bytes: playersSection.bytes, elapsedMs: playersSection.elapsedMs },
+          territory: { bytes: territory.bytes, elapsedMs: territory.elapsedMs },
+          economy: { bytes: economy.bytes, elapsedMs: economy.elapsedMs },
+          systems: { bytes: systems.bytes, elapsedMs: systems.elapsedMs }
+        }
+      },
+      "snapshot section timings"
+    );
+  }
+  return {
+    ...meta.data,
+    ...playersSection.data,
+    ...territory.data,
+    ...economy.data,
+    ...systems.data
+  };
+};
+
+const loadLegacySnapshot = (): SnapshotState | undefined => {
+  if (!fs.existsSync(SNAPSHOT_FILE)) return undefined;
+  return readSnapshotJsonSync<SnapshotState>(SNAPSHOT_FILE).data;
+};
+
+const hydrateSnapshotState = (raw: SnapshotState): void => {
+  const hydrateStartedAt = Date.now();
+  let phaseStartedAt = hydrateStartedAt;
+  const logHydratePhase = (phase: string, extra: Record<string, number> = {}): void => {
+    if (!appRef) {
+      phaseStartedAt = Date.now();
+      return;
+    }
+    const nowMs = Date.now();
+    appRef.log.info(
+      {
+        phase: `hydrate_snapshot:${phase}`,
+        elapsedMs: nowMs - phaseStartedAt,
+        hydrateElapsedMs: nowMs - hydrateStartedAt,
+        ...extra
+      },
+      "startup phase"
+    );
+    phaseStartedAt = nowMs;
+  };
   if (!raw.world || raw.world.width !== WORLD_WIDTH || raw.world.height !== WORLD_HEIGHT) {
     return;
   }
@@ -8867,6 +9092,11 @@ const loadSnapshot = (): void => {
   for (const [pid, buff] of raw.temporaryIncomeBuff ?? []) {
     temporaryIncomeBuffUntilByPlayer.set(pid, buff);
   }
+  logHydratePhase("territory_and_economy", {
+    ownershipTiles: raw.ownership.length,
+    tileHistory: raw.tileHistory?.length ?? 0,
+    structures: (raw.forts?.length ?? 0) + (raw.observatories?.length ?? 0) + (raw.economicStructures?.length ?? 0)
+  });
   cachedVisibilitySnapshotByPlayer.clear();
   cachedChunkSnapshotByPlayer.clear();
   chunkSnapshotGenerationByPlayer.clear();
@@ -8879,6 +9109,10 @@ const loadSnapshot = (): void => {
   for (const [pid, targets] of raw.revealedEmpireTargets ?? []) {
     setRevealTargetsForPlayer(pid, targets);
   }
+  logHydratePhase("visibility_and_reveal", {
+    forcedRevealPlayers: raw.forcedReveal?.length ?? 0,
+    revealTargets: raw.revealedEmpireTargets?.length ?? 0
+  });
   for (const request of raw.allianceRequests ?? []) allianceRequests.set(request.id, request);
   for (const f of raw.forts ?? []) fortsByTile.set(f.tileKey, f);
   for (const observatory of raw.observatories ?? []) {
@@ -8911,6 +9145,12 @@ const loadSnapshot = (): void => {
   for (const [pid, entries] of raw.abilityCooldowns ?? []) {
     abilityCooldownsByPlayer.set(pid, new Map(entries));
   }
+  logHydratePhase("systems_structures", {
+    forts: raw.forts?.length ?? 0,
+    observatories: raw.observatories?.length ?? 0,
+    siegeOutposts: raw.siegeOutposts?.length ?? 0,
+    economicStructures: raw.economicStructures?.length ?? 0
+  });
   for (const d of raw.docks ?? []) {
     docksByTile.set(d.tileKey, d);
     dockById.set(d.dockId, d);
@@ -8921,7 +9161,18 @@ const loadSnapshot = (): void => {
   for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
   for (const [tk, until] of raw.townCaptureShock ?? []) townCaptureShockUntilByTile.set(tk, until);
   for (const [tk, until] of raw.townGrowthShock ?? []) townGrowthShockUntilByTile.set(tk, until);
-  normalizeTownPlacements();
+  logHydratePhase("world_maps", {
+    docks: raw.docks?.length ?? 0,
+    towns: raw.towns?.length ?? 0,
+    clusters: raw.clusters?.length ?? 0,
+    clusterTiles: raw.clusterTiles?.length ?? 0
+  });
+  if (townPlacementsNeedNormalization()) {
+    normalizeTownPlacements();
+    logHydratePhase("town_normalization", { normalized: 1, towns: raw.towns?.length ?? 0 });
+  } else {
+    logHydratePhase("town_normalization", { normalized: 0, towns: raw.towns?.length ?? 0 });
+  }
   if (raw.season) activeSeason = raw.season;
   if (raw.seasonWinner) seasonWinner = raw.seasonWinner;
   if (raw.seasonArchives) seasonArchives.push(...raw.seasonArchives);
@@ -8935,6 +9186,14 @@ const loadSnapshot = (): void => {
     activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
     activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   }
+  logHydratePhase("season_and_meta", {
+    alliances: raw.allianceRequests?.length ?? 0,
+    seasonArchives: raw.seasonArchives?.length ?? 0
+  });
+  logHydratePhase("systems_and_world_meta", {
+    docks: raw.docks?.length ?? 0,
+    towns: raw.towns?.length ?? 0
+  });
   for (const p of raw.players) {
     const hydrated: Player = {
       ...p,
@@ -8959,6 +9218,7 @@ const loadSnapshot = (): void => {
     });
     recomputePlayerEffectsForPlayer(hydrated);
   }
+  logHydratePhase("players", { players: raw.players.length });
   for (const settlement of raw.pendingSettlements ?? []) {
     const hydrated: PendingSettlement = {
       tileKey: settlement.tileKey,
@@ -8970,6 +9230,7 @@ const loadSnapshot = (): void => {
     };
     pendingSettlementsByTile.set(hydrated.tileKey, hydrated);
   }
+  logHydratePhase("pending_settlements", { pendingSettlements: raw.pendingSettlements?.length ?? 0 });
   if (barbarianAgents.size === 0) {
     for (const [tk, ownerId] of ownership.entries()) {
       if (ownerId !== BARBARIAN_OWNER_ID) continue;
@@ -8977,6 +9238,28 @@ const loadSnapshot = (): void => {
       spawnBarbarianAgentAt(x, y, 0);
     }
   }
+  logHydratePhase("barbarian_backfill", { barbarianAgents: barbarianAgents.size });
+};
+
+const loadSnapshot = (): void => {
+  let raw: SnapshotState | undefined;
+  try {
+    raw = loadSectionedSnapshot() ?? loadLegacySnapshot();
+  } catch (err) {
+    logRuntimeError("snapshot load failed", err);
+    try {
+      if (fs.existsSync(SNAPSHOT_INDEX_FILE)) {
+        fs.renameSync(SNAPSHOT_INDEX_FILE, `${SNAPSHOT_INDEX_FILE}.corrupt-${Date.now()}`);
+      } else if (fs.existsSync(SNAPSHOT_FILE)) {
+        fs.renameSync(SNAPSHOT_FILE, `${SNAPSHOT_FILE}.corrupt-${Date.now()}`);
+      }
+    } catch (renameErr) {
+      logRuntimeError("failed to quarantine corrupt snapshot", renameErr);
+    }
+    return;
+  }
+  if (!raw) return;
+  hydrateSnapshotState(raw);
 };
 
 const bootstrapRuntimeState = (): void => {
