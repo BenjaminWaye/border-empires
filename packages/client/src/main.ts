@@ -5711,7 +5711,12 @@ const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: 
 };
 
 const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string): void => {
-  const selected = state.selected ? state.tiles.get(key(state.selected.x, state.selected.y)) : undefined;
+  const singleTargetKey = state.tileActionMenu.mode === "single" ? state.tileActionMenu.currentTileKey : "";
+  const selected = singleTargetKey
+    ? state.tiles.get(singleTargetKey)
+    : state.selected
+      ? state.tiles.get(key(state.selected.x, state.selected.y))
+      : undefined;
   const bulkKeys = state.tileActionMenu.mode === "bulk" ? state.tileActionMenu.bulkKeys : [];
   const fromBulk = bulkKeys.length > 0;
   const targets = fromBulk ? bulkKeys : selected ? [key(selected.x, selected.y)] : [];
