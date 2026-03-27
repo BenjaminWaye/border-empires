@@ -473,7 +473,6 @@ hud.innerHTML = `
   <div id="tile-action-menu" style="display:none;"></div>
   <div id="targeting-overlay" style="display:none;"></div>
   <div id="guide-overlay" style="display:none;"></div>
-  <button id="guide-fab" type="button" aria-label="Open game guide">?</button>
 
   <div id="mobile-nav">
     <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
@@ -698,7 +697,6 @@ const collectVisibleDesktopBtn = document.querySelector<HTMLButtonElement>("#col
 const collectVisibleDesktopMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-desktop-meta");
 const collectVisibleMobileMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-mobile-meta");
 const guideOverlayEl = document.querySelector<HTMLDivElement>("#guide-overlay");
-const guideFabEl = document.querySelector<HTMLButtonElement>("#guide-fab");
 if (
   !statsChipsEl ||
   !selectedEl ||
@@ -797,8 +795,7 @@ if (
   !collectVisibleDesktopBtn ||
   !collectVisibleDesktopMetaEl ||
   !collectVisibleMobileMetaEl ||
-  !guideOverlayEl ||
-  !guideFabEl
+  !guideOverlayEl
 ) {
   throw new Error("hud elements missing");
 }
@@ -4198,10 +4195,6 @@ const renderHud = (): void => {
       </div>
     </div>
     <div class="card auth-settings-card">
-      <p>Need a refresher on the controls and victory rules?</p>
-      <button id="open-guide" class="panel-btn">Open Game Guide</button>
-    </div>
-    <div class="card auth-settings-card">
       <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
       <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
     </div>
@@ -4232,16 +4225,6 @@ const renderHud = (): void => {
       window.location.reload();
     };
   }
-  const openGuideBtn = document.querySelector<HTMLButtonElement>("#open-guide");
-  if (openGuideBtn) {
-    openGuideBtn.onclick = () => {
-      state.guide.open = true;
-      state.guide.stepIndex = 0;
-      renderHud();
-    };
-  }
-
-  guideFabEl.classList.toggle("has-unseen-guide", !state.guide.completed);
   const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired;
   guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
   if (canShowGuide) {
@@ -5160,7 +5143,9 @@ const menuOverviewForTile = (tile: Tile): string[] => {
   }
   if (tile.ownerId === state.me) {
     const slots = developmentSlotSummary();
-    lines.push(`Development slots ${slots.busy}/${slots.limit} busy${slots.available > 0 ? ` • ${slots.available} available` : ""}.`);
+    if (slots.busy > 0 || slots.available === 0) {
+      lines.push(`Development slots ${slots.busy}/${slots.limit} busy${slots.available > 0 ? ` • ${slots.available} available` : ""}.`);
+    }
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
@@ -6524,11 +6509,6 @@ collectVisibleMobileBtn.onclick = () => {
   collectVisibleYield();
 };
 captureCancelBtn.onclick = () => cancelOngoingCapture();
-guideFabEl.onclick = () => {
-  state.guide.open = true;
-  state.guide.stepIndex = 0;
-  renderHud();
-};
 
 panelCloseBtn.onclick = () => {
   state.activePanel = null;
