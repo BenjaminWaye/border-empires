@@ -174,22 +174,32 @@ interface AuthIdentity {
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
 const FIREBASE_TOKEN_CACHE_TTL_MS = 55 * 60 * 1000;
+const FIREBASE_JWKS_TIMEOUT_MS = Math.max(1_500, Number(process.env.FIREBASE_JWKS_TIMEOUT_MS ?? 4_000));
+const FIREBASE_JWKS_COOLDOWN_MS = Math.max(5_000, Number(process.env.FIREBASE_JWKS_COOLDOWN_MS ?? 15_000));
+const AUTH_PRIORITY_WINDOW_MS = Math.max(2_000, Number(process.env.AUTH_PRIORITY_WINDOW_MS ?? 10_000));
 const firebaseJwks = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
   {
-    timeoutDuration: 15_000,
-    cooldownDuration: 60_000,
+    timeoutDuration: FIREBASE_JWKS_TIMEOUT_MS,
+    cooldownDuration: FIREBASE_JWKS_COOLDOWN_MS,
     cacheMaxAge: 12 * 60 * 60 * 1000
   }
 );
 const verifiedFirebaseTokenCache = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
-const firebaseAdminApp =
-  getApps()[0] ??
-  initializeApp({
-    credential: applicationDefault(),
-    projectId: FIREBASE_PROJECT_ID
-  });
-const firebaseAdminAuth = getAuth(firebaseAdminApp);
+const firebaseAdminEnabled = Boolean(
+  process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    (process.env.FIREBASE_ADMIN_CLIENT_EMAIL && process.env.FIREBASE_ADMIN_PRIVATE_KEY)
+);
+const firebaseAdminApp = firebaseAdminEnabled
+  ? getApps()[0] ??
+    initializeApp({
+      credential: applicationDefault(),
+      projectId: FIREBASE_PROJECT_ID
+    })
+  : undefined;
+const firebaseAdminAuth = firebaseAdminApp ? getAuth(firebaseAdminApp) : undefined;
+let pendingAuthVerifications = 0;
+let authPriorityUntil = 0;
 const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
   const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   if (
@@ -233,35 +243,43 @@ const cacheVerifiedFirebaseIdentity = (
 const verifyFirebaseToken = async (
   token: string
 ): Promise<{ uid: string; email?: string | undefined; name?: string | undefined; exp?: number }> => {
+  pendingAuthVerifications += 1;
+  authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
   try {
-    const verified = await firebaseAdminAuth.verifyIdToken(token, true);
-    const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
-      uid: String(verified.uid ?? "")
-    };
-    if (typeof verified.email === "string") decoded.email = verified.email;
-    if (typeof verified.name === "string") decoded.name = verified.name;
-    if (typeof verified.exp === "number") decoded.exp = verified.exp;
-    return decoded;
-  } catch (err) {
-    const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    const adminCredentialUnavailable =
-      text.includes("Could not load the default credentials") ||
-      text.includes("app/invalid-credential") ||
-      text.includes("MetadataLookupWarning");
-    if (!adminCredentialUnavailable) throw err;
-  }
+    if (firebaseAdminAuth) {
+      try {
+        const verified = await firebaseAdminAuth.verifyIdToken(token, true);
+        const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
+          uid: String(verified.uid ?? "")
+        };
+        if (typeof verified.email === "string") decoded.email = verified.email;
+        if (typeof verified.name === "string") decoded.name = verified.name;
+        if (typeof verified.exp === "number") decoded.exp = verified.exp;
+        return decoded;
+      } catch (err) {
+        const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+        const adminCredentialUnavailable =
+          text.includes("Could not load the default credentials") ||
+          text.includes("app/invalid-credential") ||
+          text.includes("MetadataLookupWarning");
+        if (!adminCredentialUnavailable) throw err;
+      }
+    }
 
-  const verified = await jwtVerify(token, firebaseJwks, {
-    issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
-    audience: FIREBASE_PROJECT_ID
-  });
-  const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
-    uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
-  };
-  if (typeof verified.payload.email === "string") decoded.email = verified.payload.email;
-  if (typeof verified.payload.name === "string") decoded.name = verified.payload.name;
-  if (typeof verified.payload.exp === "number") decoded.exp = verified.payload.exp;
-  return decoded;
+    const verified = await jwtVerify(token, firebaseJwks, {
+      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+      audience: FIREBASE_PROJECT_ID
+    });
+    const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
+      uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
+    };
+    if (typeof verified.payload.email === "string") decoded.email = verified.payload.email;
+    if (typeof verified.payload.name === "string") decoded.name = verified.payload.name;
+    if (typeof verified.payload.exp === "number") decoded.exp = verified.payload.exp;
+    return decoded;
+  } finally {
+    pendingAuthVerifications = Math.max(0, pendingAuthVerifications - 1);
+  }
 };
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
@@ -6634,6 +6652,7 @@ const queueMicrotaskFn =
 
 const runAiTick = (): void => {
   if (aiTickInFlight) return;
+  if (pendingAuthVerifications > 0 || authPriorityUntil > now()) return;
   const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
   if (aiPlayers.length === 0) return;
   aiTickInFlight = true;
@@ -10075,6 +10094,7 @@ app.post("/admin/world/regenerate", async () => {
     }
 
     if (msg.type === "AUTH") {
+      authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
       let decoded = cachedFirebaseIdentityForToken(msg.token);
       try {
         if (!decoded) {
