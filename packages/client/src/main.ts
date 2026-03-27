@@ -68,6 +68,7 @@ import type {
   LeaderboardMetricEntry,
   LeaderboardOverallEntry,
   MissionState,
+  OptimisticStructureKind,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   TechInfo,
@@ -2665,7 +2666,7 @@ const tileHasUnderConstructionStructureKind = (tile: Tile, kind: OptimisticStruc
   if (kind === "FORT") return tile.fort?.status === "under_construction";
   if (kind === "OBSERVATORY") return tile.observatory?.status === "under_construction";
   if (kind === "SIEGE_OUTPOST") return tile.siegeOutpost?.status === "under_construction";
-  return tile.economicStructure?.type === kind && tile.economicStructure.status === "under_construction";
+  return tile.economicStructure?.type === kind && tile.economicStructure?.status === "under_construction";
 };
 
 const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
