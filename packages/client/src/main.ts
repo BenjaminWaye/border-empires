@@ -2592,6 +2592,34 @@ const clearOptimisticTileState = (tileKey: string, revert = false): void => {
   }
 };
 
+const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
+  const tileKey = key(incoming.x, incoming.y);
+  const existing = state.tiles.get(tileKey);
+  if (!existing?.optimisticPending || existing.ownerId !== state.me) return incoming;
+  if (existing.optimisticPending === "expand") {
+    if (incoming.ownerId === state.me && incoming.ownershipState === "FRONTIER") return incoming;
+    const merged: Tile = {
+      ...incoming,
+      ownerId: existing.ownerId,
+      fogged: false,
+      optimisticPending: existing.optimisticPending
+    };
+    if (existing.ownershipState) merged.ownershipState = existing.ownershipState;
+    return merged;
+  }
+  if (existing.optimisticPending === "settle") {
+    if (incoming.ownerId === state.me && incoming.ownershipState === "SETTLED") return incoming;
+    return {
+      ...incoming,
+      ownerId: existing.ownerId,
+      ownershipState: "SETTLED",
+      fogged: false,
+      optimisticPending: existing.optimisticPending
+    };
+  }
+  return incoming;
+};
+
 const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
   if (holdActivated) {
     holdActivated = false;
@@ -3703,7 +3731,7 @@ const renderHud = (): void => {
     } else if (state.connection === "connected" || (state.connection === "initialized" && state.firstChunkAt === 0)) {
       const startAt = state.mapLoadStartedAt || Date.now();
       const elapsed = ((Date.now() - startAt) / 1000).toFixed(1);
-      mapLoadingTitleEl.textContent = state.authSessionReady ? "Loading nearby land..." : "Authorizing empire...";
+      mapLoadingTitleEl.textContent = state.authSessionReady ? "Loading nearby land..." : "Syncing empire...";
       mapLoadingMetaEl.textContent = state.authSessionReady ? `Elapsed ${elapsed}s · chunks ${state.chunkFullCount}` : `Connected to ${wsUrl}`;
     } else {
       mapLoadingTitleEl.textContent = "Loading world...";
@@ -5970,7 +5998,7 @@ ws.addEventListener("open", () => {
   clearAuthReconnectTimer();
   if (state.authReady && !state.authSessionReady) {
     state.authBusy = true;
-    setAuthStatus(`Connected to the game server. Authorizing ${state.authUserLabel || "empire"}...`);
+    setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel || "empire"}...`);
   }
   renderHud();
   void authenticateSocket();
@@ -6135,11 +6163,12 @@ ws.addEventListener("message", (ev) => {
     let sawVisibleTile = false;
     let sawOwnedTile = false;
     for (const t of tiles) {
-      state.tiles.set(key(t.x, t.y), t);
-      markDockDiscovered(t);
-      if (!t.fogged) state.discoveredTiles.add(key(t.x, t.y));
-      if (!t.fogged) sawVisibleTile = true;
-      if (t.ownerId === state.me) sawOwnedTile = true;
+      const mergedTile = mergeServerTileWithOptimisticState(t);
+      state.tiles.set(key(mergedTile.x, mergedTile.y), mergedTile);
+      markDockDiscovered(mergedTile);
+      if (!mergedTile.fogged) state.discoveredTiles.add(key(mergedTile.x, mergedTile.y));
+      if (!mergedTile.fogged) sawVisibleTile = true;
+      if (mergedTile.ownerId === state.me) sawOwnedTile = true;
     }
     if (sawOwnedTile) {
       state.hasOwnedTileInCache = true;
@@ -6765,7 +6794,7 @@ if (firebaseAuth) {
     try {
       authToken = await user.getIdToken(true);
       authUid = user.uid;
-      setAuthStatus(`Connected to the game server. Authorizing ${state.authUserLabel}...`);
+      setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel}...`);
       if (ws.readyState === ws.OPEN) {
         ws.send(JSON.stringify({ type: "AUTH", token: authToken }));
       } else {
