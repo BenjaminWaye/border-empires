@@ -3375,9 +3375,10 @@ const playerTile = (x: number, y: number): Tile => {
       marketActive: Boolean(market && market.status === "active" && isFed),
       hasGranary: Boolean(granary),
       granaryActive: Boolean(granary && granary.status === "active"),
-      foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
-      growthModifiers: townGrowthModifiersForOwner(town, owner)
+      foodUpkeepPerMinute: townFoodUpkeepPerMinute(town)
     };
+    (tile.town as typeof tile.town & { growthModifiers?: ReturnType<typeof townGrowthModifiersForOwner> }).growthModifiers =
+      townGrowthModifiersForOwner(town, owner);
   }
   if (fort) {
     const fortView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
@@ -5103,6 +5104,10 @@ type AiTerritorySummary = {
   attackCandidates: AiFrontierCandidatePair[];
   underThreat: boolean;
   foodPressure: number;
+  settlementEvaluationByKey: Map<string, AiSettlementCandidateEvaluation>;
+  scoutRevealCountByTileKey: Map<TileKey, number>;
+  scoutRevealMarks: Uint32Array;
+  scoutRevealStamp: number;
 };
 
 const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
@@ -5143,8 +5148,48 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     expandCandidates,
     attackCandidates,
     underThreat,
-    foodPressure: aiFoodPressureSignal(actor)
+    foodPressure: aiFoodPressureSignal(actor),
+    settlementEvaluationByKey: new Map<string, AiSettlementCandidateEvaluation>(),
+    scoutRevealCountByTileKey: new Map<TileKey, number>(),
+    scoutRevealMarks: new Uint32Array(WORLD_WIDTH * WORLD_HEIGHT),
+    scoutRevealStamp: 1
   };
+};
+
+const countAiScoutRevealTiles = (
+  to: Tile,
+  visibility: ReturnType<typeof visibilitySnapshotForPlayer>,
+  territorySummary: AiTerritorySummary
+): number => {
+  const tk = key(to.x, to.y);
+  const cached = territorySummary.scoutRevealCountByTileKey.get(tk);
+  if (cached !== undefined) return cached;
+
+  territorySummary.scoutRevealStamp += 1;
+  if (territorySummary.scoutRevealStamp === 0) {
+    territorySummary.scoutRevealMarks.fill(0);
+    territorySummary.scoutRevealStamp = 1;
+  }
+  const stamp = territorySummary.scoutRevealStamp;
+  let count = 0;
+  for (const next of adjacentNeighborCores(to.x, to.y)) {
+    if (next.terrain !== "LAND") continue;
+    const firstIndex = tileIndex(next.x, next.y);
+    if (!visibleInSnapshot(visibility, next.x, next.y) && territorySummary.scoutRevealMarks[firstIndex] !== stamp) {
+      territorySummary.scoutRevealMarks[firstIndex] = stamp;
+      count += 1;
+    }
+    for (const secondRing of adjacentNeighborCores(next.x, next.y)) {
+      if (secondRing.terrain !== "LAND") continue;
+      const secondIndex = tileIndex(secondRing.x, secondRing.y);
+      if (!visibleInSnapshot(visibility, secondRing.x, secondRing.y) && territorySummary.scoutRevealMarks[secondIndex] !== stamp) {
+        territorySummary.scoutRevealMarks[secondIndex] = stamp;
+        count += 1;
+      }
+    }
+  }
+  territorySummary.scoutRevealCountByTileKey.set(tk, count);
+  return count;
 };
 
 const bestAiFrontierAction = (
@@ -5235,7 +5280,7 @@ const bestAiFrontierAction = (
     const knownMilitaryValue = adjacentInteresting >= 35 || to.ownerId === BARBARIAN_OWNER_ID;
     const reserveAfterAction = actor.points - FRONTIER_ACTION_GOLD_COST;
     const futureSettlement = kind === "EXPAND"
-      ? evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([tk]))
+      ? evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([tk]), territorySummary)
       : undefined;
     const immediateSettlementPlan = Boolean(
       futureSettlement &&
@@ -5300,15 +5345,13 @@ const bestAiFrontierAction = (
     return score;
   };
 
-  const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
+  let best: { score: number; from: Tile; to: Tile } | undefined;
   const frontierCandidates = kind === "ATTACK" ? territorySummary.attackCandidates : territorySummary.expandCandidates;
   for (const { from, to } of frontierCandidates) {
     if (to.terrain !== "LAND" || !filter(to)) continue;
     const score = scoreFrontierAction(from, to);
-    candidates.push({ score, from, to });
+    if (!best || score > best.score) best = { score, from, to };
   }
-  candidates.sort((a, b) => b.score - a.score);
-  const best = candidates[0];
   if (!best) return undefined;
   if (kind === "EXPAND" && earlyExpansionMode && best.score > Number.NEGATIVE_INFINITY) {
     return best;
@@ -5333,19 +5376,10 @@ const bestAiOpeningScoutExpand = (
   const { settledTileCount, visibility } = territorySummary;
   if (settledTileCount > 2) return undefined;
 
-  const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
+  let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
-    const scoutRevealTiles = new Set<TileKey>();
-    for (const next of adjacentNeighborCores(to.x, to.y)) {
-      if (next.terrain !== "LAND") continue;
-      if (!visibleInSnapshot(visibility, next.x, next.y)) scoutRevealTiles.add(key(next.x, next.y));
-      for (const secondRing of adjacentNeighborCores(next.x, next.y)) {
-        if (secondRing.terrain !== "LAND") continue;
-        if (!visibleInSnapshot(visibility, secondRing.x, secondRing.y)) scoutRevealTiles.add(key(secondRing.x, secondRing.y));
-      }
-    }
-    const unseenNeighbors = scoutRevealTiles.size;
+    const unseenNeighbors = countAiScoutRevealTiles(to, visibility, territorySummary);
     const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
       if (next.ownerId !== actor.id) return count;
       return count + 1;
@@ -5376,23 +5410,32 @@ const bestAiOpeningScoutExpand = (
       Math.max(0, alliedSettledNeighbors - 1) * 20 -
       Math.max(0, frontierNeighbors - 1) * 12 -
       exposedSides * 4;
-    candidates.push({ score, from, to });
+    if (!best || score > best.score) best = { score, from, to };
   }
-  candidates.sort((a, b) => b.score - a.score);
-  return candidates[0];
+  return best;
 };
 
-const scoreAiScoutExpandCandidate = (actor: Player, from: Tile, to: Tile, visibility = visibilitySnapshotForPlayer(actor)): number => {
-  const scoutRevealTiles = new Set<TileKey>();
-  for (const next of adjacentNeighborCores(to.x, to.y)) {
-    if (next.terrain !== "LAND") continue;
-    if (!visibleInSnapshot(visibility, next.x, next.y)) scoutRevealTiles.add(key(next.x, next.y));
-    for (const secondRing of adjacentNeighborCores(next.x, next.y)) {
-      if (secondRing.terrain !== "LAND") continue;
-      if (!visibleInSnapshot(visibility, secondRing.x, secondRing.y)) scoutRevealTiles.add(key(secondRing.x, secondRing.y));
-    }
-  }
-  const unseenNeighbors = scoutRevealTiles.size;
+const scoreAiScoutExpandCandidate = (
+  actor: Player,
+  from: Tile,
+  to: Tile,
+  visibility = visibilitySnapshotForPlayer(actor),
+  territorySummary?: AiTerritorySummary
+): number => {
+  const unseenNeighbors = territorySummary
+    ? countAiScoutRevealTiles(to, visibility, territorySummary)
+    : (() => {
+        const scoutRevealTiles = new Set<TileKey>();
+        for (const next of adjacentNeighborCores(to.x, to.y)) {
+          if (next.terrain !== "LAND") continue;
+          if (!visibleInSnapshot(visibility, next.x, next.y)) scoutRevealTiles.add(key(next.x, next.y));
+          for (const secondRing of adjacentNeighborCores(next.x, next.y)) {
+            if (secondRing.terrain !== "LAND") continue;
+            if (!visibleInSnapshot(visibility, secondRing.x, secondRing.y)) scoutRevealTiles.add(key(secondRing.x, secondRing.y));
+          }
+        }
+        return scoutRevealTiles.size;
+      })();
   const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
     if (next.ownerId !== actor.id) return count;
     return count + 1;
@@ -5425,14 +5468,12 @@ const bestAiScoutExpand = (
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
   const { visibility } = territorySummary;
-  const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
+  let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
-    const score = scoreAiScoutExpandCandidate(actor, from, to, visibility);
-    candidates.push({ score, from, to });
+    const score = scoreAiScoutExpandCandidate(actor, from, to, visibility, territorySummary);
+    if (!best || score > best.score) best = { score, from, to };
   }
-  candidates.sort((a, b) => b.score - a.score);
-  const best = candidates[0];
   return best && best.score >= 30 ? best : undefined;
 };
 
@@ -5615,14 +5656,19 @@ const evaluateAiSettlementCandidate = (
   tile: Tile,
   victoryPath?: AiSeasonVictoryPathId,
   assumedFrontierKeys?: ReadonlySet<TileKey>,
-  territorySummary?: Pick<AiTerritorySummary, "visibility" | "foodPressure">
+  territorySummary?: Pick<AiTerritorySummary, "visibility" | "foodPressure" | "settlementEvaluationByKey">
 ): AiSettlementCandidateEvaluation => {
   const tk = key(tile.x, tile.y);
+  const cacheKey = `${tk}|${victoryPath ?? "none"}|${assumedFrontierKeys ? [...assumedFrontierKeys].sort().join(",") : "-"}`;
+  if (territorySummary) {
+    const cached = territorySummary.settlementEvaluationByKey.get(cacheKey);
+    if (cached) return cached;
+  }
   const assumedOwned = assumedFrontierKeys?.has(tk) ?? false;
   const actualOwnerId = assumedOwned ? actor.id : tile.ownerId;
   const actualOwnershipState = assumedOwned ? "FRONTIER" : tile.ownershipState;
   if (tile.terrain !== "LAND" || actualOwnerId !== actor.id || actualOwnershipState !== "FRONTIER") {
-    return {
+    const invalidEvaluation = {
       score: Number.NEGATIVE_INFINITY,
       isEconomicallyInteresting: false,
       isStrategicallyInteresting: false,
@@ -5631,6 +5677,10 @@ const evaluateAiSettlementCandidate = (
       townSupportSignal: 0,
       intrinsicDockValue: 0
     };
+    if (territorySummary) {
+      territorySummary.settlementEvaluationByKey.set(cacheKey, invalidEvaluation);
+    }
+    return invalidEvaluation;
   }
 
   const neighborOwnership = (neighbor: RuntimeTileCore): { ownerId: string | undefined; ownershipState: OwnershipState | undefined } => {
@@ -5726,7 +5776,7 @@ const evaluateAiSettlementCandidate = (
     townSupportSignal > 0 ||
     score >= (victoryPath === "SETTLED_TERRITORY" ? 36 : 58);
 
-  return {
+  const evaluation = {
     score,
     isEconomicallyInteresting,
     isStrategicallyInteresting,
@@ -5735,6 +5785,10 @@ const evaluateAiSettlementCandidate = (
     townSupportSignal,
     intrinsicDockValue: dockValue
   };
+  if (territorySummary) {
+    territorySummary.settlementEvaluationByKey.set(cacheKey, evaluation);
+  }
+  return evaluation;
 };
 
 const isAiVisibleEconomicFrontierTile = (
@@ -5750,12 +5804,15 @@ const classifyAiNeutralFrontierOpportunity = (
   from: Tile,
   to: Tile,
   victoryPath?: AiSeasonVictoryPathId,
-  territorySummary?: Pick<AiTerritorySummary, "visibility" | "foodPressure">
+  territorySummary?: Pick<
+    AiTerritorySummary,
+    "visibility" | "foodPressure" | "settlementEvaluationByKey" | "scoutRevealCountByTileKey" | "scoutRevealMarks" | "scoutRevealStamp"
+  >
 ): AiNeutralFrontierClass => {
   if (isAiVisibleEconomicFrontierTile(actor, to, territorySummary)) return "economic";
   const scaffoldEvaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([key(to.x, to.y)]), territorySummary);
   if (scaffoldEvaluation.supportsImmediatePlan && scaffoldEvaluation.score >= 45) return "scaffold";
-  if (scoreAiScoutExpandCandidate(actor, from, to, territorySummary?.visibility) >= 30) return "scout";
+  if (scoreAiScoutExpandCandidate(actor, from, to, territorySummary?.visibility, territorySummary as AiTerritorySummary | undefined) >= 30) return "scout";
   return "waste";
 };
 
@@ -5765,7 +5822,7 @@ const bestAiScaffoldExpand = (
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
   const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
-  const candidates: Array<{ score: number; from: Tile; to: Tile }> = [];
+  let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
     const evaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([key(to.x, to.y)]), territorySummary);
@@ -5775,10 +5832,8 @@ const bestAiScaffoldExpand = (
     if (evaluation.isDefensivelyCompact) score += 30;
     if (evaluation.isEconomicallyInteresting) score += 25;
     if (from.ownershipState === "SETTLED") score += 8;
-    candidates.push({ score, from, to });
+    if (!best || score > best.score) best = { score, from, to };
   }
-  candidates.sort((a, b) => b.score - a.score);
-  const best = candidates[0];
   return best && best.score >= 45 ? best : undefined;
 };
 
@@ -10448,36 +10503,6 @@ app.post("/admin/world/regenerate", async () => {
       }
       cancelSiegeOutpostBuild(tk);
       updateOwnership(msg.x, msg.y, actor.id);
-      return;
-    }
-
-    if (msg.type === "CANCEL_STRUCTURE_BUILD") {
-      const tk = key(wrapX(msg.x, WORLD_WIDTH), wrapY(msg.y, WORLD_HEIGHT));
-      const fort = fortsByTile.get(tk);
-      if (fort && fort.ownerId === actor.id && fort.status === "under_construction") {
-        cancelFortBuild(tk);
-        updateOwnership(msg.x, msg.y, actor.id);
-        return;
-      }
-      const observatory = observatoriesByTile.get(tk);
-      if (observatory && observatory.ownerId === actor.id && observatory.status === "under_construction") {
-        cancelObservatoryBuild(tk);
-        updateOwnership(msg.x, msg.y, actor.id);
-        return;
-      }
-      const siege = siegeOutpostsByTile.get(tk);
-      if (siege && siege.ownerId === actor.id && siege.status === "under_construction") {
-        cancelSiegeOutpostBuild(tk);
-        updateOwnership(msg.x, msg.y, actor.id);
-        return;
-      }
-      const economic = economicStructuresByTile.get(tk);
-      if (economic && economic.ownerId === actor.id && economic.status === "under_construction") {
-        cancelEconomicStructureBuild(tk);
-        updateOwnership(msg.x, msg.y, actor.id);
-        return;
-      }
-      socket.send(JSON.stringify({ type: "ERROR", code: "STRUCTURE_CANCEL_INVALID", message: "no structure under construction on tile" }));
       return;
     }
 
