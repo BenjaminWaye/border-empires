@@ -7172,16 +7172,18 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COMBAT_RESULT") {
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     for (const c of changes) {
-      clearOptimisticTileState(key(c.x, c.y));
-      const existing = state.tiles.get(key(c.x, c.y));
-      if (existing) {
-        if (c.ownerId) existing.ownerId = c.ownerId;
-        else delete existing.ownerId;
-        if (c.ownershipState) existing.ownershipState = c.ownershipState;
-        else if (!c.ownerId) delete existing.ownershipState;
-        if (typeof c.breachShockUntil === "number") existing.breachShockUntil = c.breachShockUntil;
-        else if ("breachShockUntil" in c && !c.breachShockUntil) delete existing.breachShockUntil;
-      }
+      const changeKey = key(c.x, c.y);
+      const existing = state.tiles.get(changeKey);
+      const merged: Tile = existing ?? { x: c.x, y: c.y, terrain: terrainAt(c.x, c.y) };
+      if (c.ownerId) merged.ownerId = c.ownerId;
+      else delete merged.ownerId;
+      if (c.ownershipState) merged.ownershipState = c.ownershipState;
+      else if (!c.ownerId) delete merged.ownershipState;
+      if (typeof c.breachShockUntil === "number") merged.breachShockUntil = c.breachShockUntil;
+      else if ("breachShockUntil" in c && !c.breachShockUntil) delete merged.breachShockUntil;
+      const resolved = mergeServerTileWithOptimisticState(merged);
+      state.tiles.set(changeKey, resolved);
+      if (!resolved.optimisticPending) clearOptimisticTileState(changeKey);
     }
     pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
