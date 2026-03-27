@@ -3759,6 +3759,7 @@ const renderHud = (): void => {
   const collectVisibleCooldownRemaining = Math.max(0, state.collectVisibleCooldownUntil - Date.now());
   const collectVisibleReady = collectVisibleCooldownRemaining <= 0;
   const collectSummary = visibleCollectSummary();
+  const development = developmentSlotSummary();
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
   const pointsClass =
     Date.now() < state.goldAnimUntil ? (state.goldAnimDir > 0 ? " delta-up" : state.goldAnimDir < 0 ? " delta-down" : "") : "";
@@ -3769,6 +3770,11 @@ const renderHud = (): void => {
     <div class="stat-chip ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
     <div class="stat-chip stat-chip-gold${pointsClass}"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></div>
     <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
+    <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
+      <span>Development</span>
+      <strong>${development.busy}/${development.limit}</strong>
+      <div class="stat-chip-dev-pips" aria-hidden="true">${developmentSlotPipsHtml(development)}</div>
+    </div>
     ${strategicRibbonHtml()}
   `;
   collectVisibleDesktopBtn.disabled = !collectVisibleReady;
@@ -3867,6 +3873,7 @@ const renderHud = (): void => {
       <div class="mobile-context-label">Tile</div>
       <div class="mobile-context-value">${selectedEl.innerHTML || selectedEl.textContent || "No tile selected."}</div>
     </div>
+    ${developmentSlotCardHtml(development, "hud")}
   `;
 
   renderCaptureProgress();
@@ -4701,6 +4708,12 @@ type TileMenuProgressView = {
   cancelLabel?: string;
 };
 
+type DevelopmentSlotSummary = {
+  busy: number;
+  limit: number;
+  available: number;
+};
+
 type TileMenuView = {
   title: string;
   subtitle: string;
@@ -4709,6 +4722,7 @@ type TileMenuView = {
   overviewLines: string[];
   actions: TileActionDef[];
   progress?: TileMenuProgressView;
+  development?: DevelopmentSlotSummary;
 };
 
 const actionIcon = (id: TileActionDef["id"]): string => {
@@ -4750,6 +4764,47 @@ const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => {
   }
   return undefined;
 };
+
+const developmentSlotLimit = (): number => DEVELOPMENT_PROCESS_LIMIT;
+
+const developmentSlotSummary = (): DevelopmentSlotSummary => {
+  let busy = state.settleProgressByTile.size;
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me) continue;
+    if (
+      tile.fort?.status === "under_construction" ||
+      tile.observatory?.status === "under_construction" ||
+      tile.siegeOutpost?.status === "under_construction" ||
+      tile.economicStructure?.status === "under_construction"
+    ) {
+      busy += 1;
+    }
+  }
+  const limit = developmentSlotLimit();
+  return {
+    busy,
+    limit,
+    available: Math.max(0, limit - busy)
+  };
+};
+
+const developmentSlotReason = (summary = developmentSlotSummary()): string => {
+  return `No available development slots (${summary.busy}/${summary.limit} busy)`;
+};
+
+const developmentSlotPipsHtml = (summary: DevelopmentSlotSummary): string =>
+  Array.from({ length: summary.limit }, (_, index) => `<span class="dev-slot-pip${index < summary.busy ? " is-busy" : ""}"></span>`).join("");
+
+const developmentSlotCardHtml = (summary: DevelopmentSlotSummary, tone: "hud" | "menu" = "hud"): string => `
+  <div class="dev-slot-card dev-slot-card-${tone}${summary.available === 0 ? " is-full" : ""}">
+    <div class="dev-slot-copy">
+      <span class="dev-slot-label">Development</span>
+      <strong>${summary.busy}/${summary.limit} busy</strong>
+      <small>${summary.available > 0 ? `${summary.available} available` : "All slots committed"}</small>
+    </div>
+    <div class="dev-slot-pips" aria-hidden="true">${developmentSlotPipsHtml(summary)}</div>
+  </div>
+`;
 
 const abilityCooldownRemainingMs = (
   abilityId: "deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain"
@@ -4857,6 +4912,7 @@ const tileProductionRequirementLabel = (tile: Tile): string | undefined => {
 
 const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
   const nowMs = Date.now();
+  const slots = developmentSlotSummary();
   if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
     const remaining = Math.max(0, tile.fort.completesAt - nowMs);
     return {
@@ -4864,7 +4920,7 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will gain fortified defense when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
-      note: "Uses 1 development slot while building.",
+      note: `Uses 1 development slot while building. ${slots.busy}/${slots.limit} busy.`,
       cancelLabel: "Cancel construction"
     };
   }
@@ -4875,7 +4931,7 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will extend vision and observatory protection when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
-      note: "Uses 1 development slot while building.",
+      note: `Uses 1 development slot while building. ${slots.busy}/${slots.limit} busy.`,
       cancelLabel: "Cancel construction"
     };
   }
@@ -4886,7 +4942,7 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will gain an offensive staging structure when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
-      note: "Uses 1 development slot while building.",
+      note: `Uses 1 development slot while building. ${slots.busy}/${slots.limit} busy.`,
       cancelLabel: "Cancel construction"
     };
   }
@@ -4897,7 +4953,7 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile is still being developed and is not fully online yet.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, ECONOMIC_STRUCTURE_BUILD_MS))),
-      note: "Uses 1 development slot while building.",
+      note: `Uses 1 development slot while building. ${slots.busy}/${slots.limit} busy.`,
       cancelLabel: "Cancel construction"
     };
   }
@@ -4929,6 +4985,10 @@ const menuOverviewForTile = (tile: Tile): string[] => {
   } else if (tile.ownershipState === "SETTLED") {
     lines.push("Settled land is defended and fully part of your empire.");
     if (tile.town) lines.push("Towns produce gold when fed.");
+  }
+  if (tile.ownerId === state.me) {
+    const slots = developmentSlotSummary();
+    lines.push(`Development slots ${slots.busy}/${slots.limit} busy${slots.available > 0 ? ` • ${slots.available} available` : ""}.`);
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
@@ -4976,6 +5036,7 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
   const actions = menuActionsForSingleTile(tile);
   const settlement = settlementProgressForTile(tile.x, tile.y);
   const construction = constructionProgressForTile(tile);
+  const slots = tile.ownerId === state.me ? developmentSlotSummary() : undefined;
   const progress =
     settlement
       ? {
@@ -4987,7 +5048,9 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
           progress: settlement.awaitingServerConfirm
             ? 1
             : Math.max(0, Math.min(1, (Date.now() - settlement.startAt) / Math.max(1, settlement.resolvesAt - settlement.startAt))),
-          note: settlement.awaitingServerConfirm ? "Keeping the tile settled client-side until the server responds." : "Uses 1 development slot while settling."
+          note: settlement.awaitingServerConfirm
+            ? `Keeping the tile settled client-side until the server responds. ${slots ? `${slots.busy}/${slots.limit} busy.` : ""}`.trim()
+            : `Uses 1 development slot while settling.${slots ? ` ${slots.busy}/${slots.limit} busy.` : ""}`
         }
       : construction;
   const tabs: TileMenuTab[] = progress ? ["progress"] : actions.length > 0 ? ["actions"] : ["overview"];
@@ -5014,7 +5077,8 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: menuOverviewForTile(tile),
     actions,
-    ...(progress ? { progress } : {})
+    ...(progress ? { progress } : {}),
+    ...(slots ? { development: slots } : {})
   };
 };
 
@@ -5272,6 +5336,16 @@ const tileActionAvailability = (
   return { disabled: true, disabledReason: reason, cost: reason };
 };
 
+const tileActionAvailabilityWithDevelopmentSlot = (
+  enabledWithoutSlot: boolean,
+  baseReason: string,
+  cost?: string,
+  summary = developmentSlotSummary()
+): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => {
+  if (summary.available <= 0) return tileActionAvailability(false, developmentSlotReason(summary), cost);
+  return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
+};
+
 const isOwnedBorderTile = (x: number, y: number): boolean => {
   const neighbors = [
     state.tiles.get(key(wrapX(x), wrapY(y - 1))),
@@ -5367,6 +5441,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     ];
   }
   if (tile.ownerId === state.me) {
+    const slots = developmentSlotSummary();
     const out: TileActionDef[] = [];
     const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
     const hasYield =
@@ -5379,7 +5454,12 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "settle_land",
         label: "Settle Land",
-        ...tileActionAvailability(canAffordCost(state.gold, SETTLE_COST), `Need ${SETTLE_COST} gold`, `${SETTLE_COST} gold • ${(SETTLE_MS / 1000).toFixed(0)}s`)
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          canAffordCost(state.gold, SETTLE_COST),
+          `Need ${SETTLE_COST} gold`,
+          `${SETTLE_COST} gold • ${(SETTLE_MS / 1000).toFixed(0)}s`,
+          slots
+        )
       });
     if (tile.ownershipState === "SETTLED" && !tile.fort) {
       const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
@@ -5389,10 +5469,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "build_fortification",
         label: "Build Fortification",
-        ...tileActionAvailability(
+        ...tileActionAvailabilityWithDevelopmentSlot(
           hasTech && hasGold && hasIron && isBorderOrDock && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure,
           !hasTech ? "Requires Masonry" : !isBorderOrDock ? "Needs border or dock tile" : tile.siegeOutpost || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${FORT_BUILD_COST} gold` : !hasIron ? "Need 45 IRON" : "Unavailable",
-          `${FORT_BUILD_COST} gold + 45 IRON • ${Math.round(FORT_BUILD_MS / 60000)}m`
+          `${FORT_BUILD_COST} gold + 45 IRON • ${Math.round(FORT_BUILD_MS / 60000)}m`,
+          slots
         )
       });
     }
@@ -5403,7 +5484,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "build_observatory",
         label: "Build Observatory",
-        ...tileActionAvailability(
+        ...tileActionAvailabilityWithDevelopmentSlot(
           hasTech && hasGold && hasCrystal && !tile.resource && !tile.town && !tile.dockId && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
           !hasTech
             ? "Requires Cartography"
@@ -5416,7 +5497,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
                   : !hasCrystal
                     ? "Need 45 CRYSTAL"
                     : "Unavailable",
-          `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`
+          `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`,
+          slots
         )
       });
     }
@@ -5428,10 +5510,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "build_siege_camp",
         label: "Build Siege Camp",
-        ...tileActionAvailability(
+        ...tileActionAvailabilityWithDevelopmentSlot(
           hasTech && hasGold && hasSupply && onBorder && !tile.fort && !tile.observatory && !tile.economicStructure,
           !hasTech ? "Requires Leatherworking" : !onBorder ? "Needs border tile" : tile.fort || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${SIEGE_OUTPOST_BUILD_COST} gold` : !hasSupply ? "Need 45 SUPPLY" : "Unavailable",
-          `${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m`
+          `${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m`,
+          slots
         )
       });
     }
@@ -5440,10 +5523,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_farmstead",
           label: "Build Farmstead",
-          ...tileActionAvailability(
+          ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("agriculture") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 20,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("agriculture") ? "Requires Agriculture" : state.gold < 400 ? "Need 400 gold" : "Need 20 FOOD",
-            `400 gold + 20 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
+            `400 gold + 20 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
           )
         });
       }
@@ -5451,10 +5535,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_camp",
           label: "Build Camp",
-          ...tileActionAvailability(
+          ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("leatherworking") && state.gold >= 500 && (state.strategicResources.SUPPLY ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("leatherworking") ? "Requires Leatherworking" : state.gold < 500 ? "Need 500 gold" : "Need 30 SUPPLY",
-            `500 gold + 30 SUPPLY • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
+            `500 gold + 30 SUPPLY • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
           )
         });
       }
@@ -5463,10 +5548,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_mine",
           label: "Build Mine",
-          ...tileActionAvailability(
+          ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("mining") && state.gold >= 500 && (state.strategicResources[matchingNeed] ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("mining") ? "Requires Mining" : state.gold < 500 ? "Need 500 gold" : `Need 30 ${matchingNeed}`,
-            `500 gold + 30 ${matchingNeed} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
+            `500 gold + 30 ${matchingNeed} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
           )
         });
       }
@@ -5474,7 +5560,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_market",
           label: "Build Market",
-          ...tileActionAvailability(
+          ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && !supportedTown.town?.hasMarket && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
             hasBlockingStructure
               ? "Tile already has structure"
@@ -5485,13 +5571,14 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
                   : state.gold < 600
                     ? "Need 600 gold"
                     : "Need 40 CRYSTAL",
-            `600 gold + 40 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
+            `600 gold + 40 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
           )
         });
         out.push({
           id: "build_granary",
           label: "Build Granary",
-          ...tileActionAvailability(
+          ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && !supportedTown.town?.hasGranary && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
             hasBlockingStructure
               ? "Tile already has structure"
@@ -5502,7 +5589,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
                   : state.gold < 400
                     ? "Need 400 gold"
                     : "Need 40 FOOD",
-            `400 gold + 40 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
+            `400 gold + 40 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
           )
         });
       } else if (supportedTowns.length > 1) {
@@ -5671,9 +5759,10 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
 };
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
+  const developmentHtml = view.development ? developmentSlotCardHtml(view.development, "menu") : "";
   if (activeTab === "actions") {
-    if (view.actions.length === 0) return `<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
-    return `<div class="tile-action-list">${view.actions
+    if (view.actions.length === 0) return `${developmentHtml}<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
+    return `${developmentHtml}<div class="tile-action-list">${view.actions
       .map(
         (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${actionIcon(a.id)}</span>
@@ -5689,6 +5778,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
     return `
+      ${developmentHtml}
       <div class="tile-progress-card">
         <div class="tile-progress-title">${view.progress.title}</div>
         <div class="tile-progress-detail">${view.progress.detail}</div>
@@ -5704,6 +5794,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   }
   return `
     <div class="tile-overview-card">
+      ${developmentHtml}
       ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
       ${view.overviewLines.map((line) => `<div class="tile-overview-line">${line}</div>`).join("")}
     </div>
@@ -6020,10 +6111,13 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     return;
   }
   state.selected = { x, y };
+  const development = developmentSlotSummary();
+  const hasDevelopmentSlot = development.available > 0;
   const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
   const canAffordFort = state.gold >= FORT_BUILD_COST;
   const canAffordSiege = state.gold >= SIEGE_OUTPOST_BUILD_COST;
   const canAffordObservatory =
+    hasDevelopmentSlot &&
     tile.ownershipState === "SETTLED" &&
     !tile.fort &&
     !tile.siegeOutpost &&
@@ -6033,6 +6127,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.gold >= OBSERVATORY_BUILD_COST &&
     (state.strategicResources.CRYSTAL ?? 0) >= 45;
   const canBuildFarmstead =
+    hasDevelopmentSlot &&
     tile.ownershipState === "SETTLED" &&
     !hasBlockingStructure &&
     (tile.resource === "FARM" || tile.resource === "FISH") &&
@@ -6040,6 +6135,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.gold >= 400 &&
     (state.strategicResources.FOOD ?? 0) >= 20;
   const canBuildCamp =
+    hasDevelopmentSlot &&
     tile.ownershipState === "SETTLED" &&
     !hasBlockingStructure &&
     (tile.resource === "WOOD" || tile.resource === "FUR") &&
@@ -6047,6 +6143,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.gold >= 500 &&
     (state.strategicResources.SUPPLY ?? 0) >= 30;
   const canBuildMine =
+    hasDevelopmentSlot &&
     tile.ownershipState === "SETTLED" &&
     !hasBlockingStructure &&
     (tile.resource === "IRON" || tile.resource === "GEMS") &&
@@ -6054,6 +6151,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.gold >= 500 &&
     (state.strategicResources[tile.resource === "IRON" ? "IRON" : "CRYSTAL"] ?? 0) >= 30;
   const canBuildMarket =
+    hasDevelopmentSlot &&
     tile.ownershipState === "SETTLED" &&
     !hasBlockingStructure &&
     Boolean(tile.town) &&
@@ -6061,6 +6159,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.gold >= 600 &&
     (state.strategicResources.CRYSTAL ?? 0) >= 40;
   const canBuildGranary =
+    hasDevelopmentSlot &&
     tile.ownershipState === "SETTLED" &&
     !hasBlockingStructure &&
     Boolean(tile.town) &&
@@ -6070,11 +6169,11 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   holdBuildMenuEl.innerHTML = `
     <div class="hold-menu-card">
       <div class="hold-menu-title">Build on (${x}, ${y})</div>
-      <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && canAffordCost(state.gold, SETTLE_COST) ? "" : "disabled"}>
+      <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && hasDevelopmentSlot && canAffordCost(state.gold, SETTLE_COST) ? "" : "disabled"}>
         <span>Settle Tile</span>
         <small>${SETTLE_COST} gold • ${(SETTLE_MS / 1000).toFixed(1)}s • converts frontier to settled</small>
       </button>
-      <button class="hold-menu-btn" data-build="fort" ${canAffordFort ? "" : "disabled"}>
+      <button class="hold-menu-btn" data-build="fort" ${hasDevelopmentSlot && canAffordFort ? "" : "disabled"}>
         <span>Fort</span>
         <small>${FORT_BUILD_COST} gold + 45 IRON • ${(FORT_BUILD_MS / 1000).toFixed(0)}s • def x${FORT_DEFENSE_MULT.toFixed(2)}</small>
       </button>
@@ -6102,11 +6201,11 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
         <span>Granary</span>
         <small>400 gold + 40 FOOD • +50% town cap • 1 gold / 10m</small>
       </button>
-      <button class="hold-menu-btn" data-build="siege" ${canAffordSiege ? "" : "disabled"}>
+      <button class="hold-menu-btn" data-build="siege" ${hasDevelopmentSlot && canAffordSiege ? "" : "disabled"}>
         <span>Siege Outpost</span>
         <small>${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY • ${(SIEGE_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)} (from tile)</small>
       </button>
-      <div class="hold-menu-hint">Hold any owned land tile to open this menu.</div>
+      <div class="hold-menu-hint">${hasDevelopmentSlot ? `Development ${development.busy}/${development.limit} busy.` : developmentSlotReason(development)}</div>
     </div>
   `;
   const { width: vw, height: vh } = viewportSize();
