@@ -3111,10 +3111,10 @@ const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: nu
 const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
 
 const settlePixelMotionPhase = (nowMs: number, seedOffset: number): number => {
-  const base = ((nowMs / 900) + seedOffset) % 1;
+  const base = ((nowMs / 1800) + seedOffset) % 1;
   const envelope = triangularWave(base);
   const speedEnvelope = 0.22 + 0.78 * (envelope * envelope);
-  return (((base * (0.55 + speedEnvelope * 1.7)) % 1) + 1) % 1;
+  return (((base * (0.42 + speedEnvelope * 0.9)) % 1) + 1) % 1;
 };
 
 const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
@@ -7893,9 +7893,9 @@ const draw = (): void => {
         ctx.globalAlpha = 1;
         const pixelCount = isMobile() ? Math.max(6, Math.min(16, Math.floor(size * 0.62))) : Math.max(8, Math.min(22, Math.floor(size * 0.78)));
         const activePixels = Math.max(4, Math.round(progress * pixelCount));
-        const swarmInset = Math.max(2, Math.floor(size * 0.08));
-        const swarmWidth = Math.max(3, size - swarmInset * 2);
-        const pixelSize = 1;
+        const swarmInset = 1;
+        const swarmWidth = Math.max(4, size - swarmInset * 2);
+        const pixelSize = 2;
         ctx.fillStyle = `rgba(6, 8, 12, ${darkPixelAlpha})`;
         for (let i = 0; i < activePixels; i += 1) {
           const seedA = settlePixelSeed(wx, wy, i, 17);
@@ -7905,9 +7905,9 @@ const draw = (): void => {
           const phaseY = settlePixelMotionPhase(now, seedB * 0.9 + 0.07);
           const driftX = triangularWave((phaseX + seedC * 0.31) % 1);
           const driftY = triangularWave((phaseY + seedC * 0.57) % 1);
-          const jitterPhase = (now / 140) + i * 0.19;
-          const jitterX = (triangularWave((jitterPhase + seedA) % 1) - 0.5) * 1.2;
-          const jitterY = (triangularWave((jitterPhase + seedB + 0.37) % 1) - 0.5) * 1.2;
+          const jitterPhase = (now / 280) + i * 0.19;
+          const jitterX = (triangularWave((jitterPhase + seedA) % 1) - 0.5) * 0.8;
+          const jitterY = (triangularWave((jitterPhase + seedB + 0.37) % 1) - 0.5) * 0.8;
           const dotX = Math.floor(px + swarmInset + driftX * (swarmWidth - pixelSize) + jitterX);
           const dotY = Math.floor(py + swarmInset + driftY * (swarmWidth - pixelSize) + jitterY);
           ctx.fillRect(dotX, dotY, pixelSize, pixelSize);
