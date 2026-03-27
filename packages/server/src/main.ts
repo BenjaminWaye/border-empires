@@ -124,6 +124,33 @@ const logRuntimeError = (message: string, err: unknown): void => {
   }
   console.error(message, err);
 };
+const perfRing = <T>(limit: number): { push: (value: T) => void; values: () => T[] } => {
+  const entries: T[] = [];
+  return {
+    push: (value: T): void => {
+      entries.push(value);
+      if (entries.length > limit) entries.shift();
+    },
+    values: (): T[] => [...entries]
+  };
+};
+const runtimeMemoryStats = (): {
+  rssMb: number;
+  heapUsedMb: number;
+  heapTotalMb: number;
+  externalMb: number;
+  arrayBuffersMb: number;
+} => {
+  const usage = process.memoryUsage();
+  const toMb = (value: number): number => Math.round((value / (1024 * 1024)) * 10) / 10;
+  return {
+    rssMb: toMb(usage.rss),
+    heapUsedMb: toMb(usage.heapUsed),
+    heapTotalMb: toMb(usage.heapTotal),
+    externalMb: toMb(usage.external),
+    arrayBuffersMb: toMb(usage.arrayBuffers)
+  };
+};
 
 type Ws = import("ws").WebSocket;
 const NOOP_WS = { send: () => undefined, readyState: 1, OPEN: 1 } as unknown as Ws;
@@ -1314,6 +1341,8 @@ const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const allianceRequests = new Map<string, AllianceRequest>();
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
 const chunkSnapshotSentAtByPlayer = new Map<string, { cx: number; cy: number; radius: number; sentAt: number }>();
+const recentAiTickPerf = perfRing<{ at: number; elapsedMs: number; aiPlayers: number; rssMb: number; heapUsedMb: number }>(30);
+const recentChunkSnapshotPerf = perfRing<{ at: number; playerId: string; elapsedMs: number; chunks: number; tiles: number; radius: number; rssMb: number; heapUsedMb: number }>(50);
 const collectVisibleCooldownByPlayer = new Map<string, number>();
 const actionTimestampsByPlayer = new Map<string, number[]>();
 const fogDisabledByPlayer = new Map<string, boolean>();
@@ -6437,6 +6466,7 @@ const runAiTick = (): void => {
   const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
   if (aiPlayers.length === 0) return;
   aiTickInFlight = true;
+  const startedAt = now();
   const competitionMetrics = collectPlayerCompetitionMetrics();
   const tickContext: AiTickContext = {
     competitionMetrics,
@@ -6454,7 +6484,21 @@ const runAiTick = (): void => {
         logRuntimeError("ai tick failed", err);
       } finally {
         pending -= 1;
-        if (pending <= 0) aiTickInFlight = false;
+        if (pending <= 0) {
+          aiTickInFlight = false;
+          const memory = runtimeMemoryStats();
+          const elapsedMs = now() - startedAt;
+          recentAiTickPerf.push({
+            at: now(),
+            elapsedMs,
+            aiPlayers: aiPlayers.length,
+            rssMb: memory.rssMb,
+            heapUsedMb: memory.heapUsedMb
+          });
+          if (elapsedMs >= 250) {
+            app.log.warn({ elapsedMs, aiPlayers: aiPlayers.length, ...memory }, "slow ai tick");
+          }
+        }
       }
     }, delayMs);
   });
@@ -6883,9 +6927,20 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
       return;
     }
     const elapsed = now() - startedAt;
+    const memory = runtimeMemoryStats();
+    recentChunkSnapshotPerf.push({
+      at: now(),
+      playerId: actor.id,
+      elapsedMs: elapsed,
+      chunks: chunkCount,
+      tiles: tileCount,
+      radius: sub.radius,
+      rssMb: memory.rssMb,
+      heapUsedMb: memory.heapUsedMb
+    });
     if (elapsed >= CHUNK_SNAPSHOT_WARN_MS) {
       app.log.warn(
-        { playerId: actor.id, elapsedMs: elapsed, chunks: chunkCount, tiles: tileCount, radius: sub.radius },
+        { playerId: actor.id, elapsedMs: elapsed, chunks: chunkCount, tiles: tileCount, radius: sub.radius, ...memory },
         "slow chunk snapshot"
       );
     }
@@ -9549,6 +9604,26 @@ registerInterval(() => {
 registerInterval(runBarbarianTick, 1_000);
 registerInterval(runAiTick, AI_TICK_MS);
 registerInterval(maintainBarbarianPopulation, BARBARIAN_MAINTENANCE_INTERVAL_MS);
+registerInterval(() => {
+  const cachePayloads = (() => {
+    let total = 0;
+    for (const cached of cachedChunkSnapshotByPlayer.values()) total += cached.payloadByChunkKey.size;
+    return total;
+  })();
+  app.log.info(
+    {
+      ...runtimeMemoryStats(),
+      onlinePlayers: onlineSocketCount(),
+      aiPlayers: [...players.values()].filter((player) => player.isAi).length,
+      totalPlayers: players.size,
+      ownershipTiles: ownership.size,
+      visibilitySnapshots: cachedVisibilitySnapshotByPlayer.size,
+      cachedChunkPlayers: cachedChunkSnapshotByPlayer.size,
+      cachedChunkPayloads: cachePayloads
+    },
+    "runtime memory"
+  );
+}, 60_000);
 
 registerInterval(() => {
   for (const [tk, shock] of breachShockByTile) {
@@ -9733,6 +9808,32 @@ app.get("/admin/ai/debug", async () => {
       .map(([reason, count]) => ({ reason, count }))
       .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)),
     entries
+  };
+});
+app.get("/admin/runtime/debug", async () => {
+  let cachedChunkPayloads = 0;
+  for (const cached of cachedChunkSnapshotByPlayer.values()) cachedChunkPayloads += cached.payloadByChunkKey.size;
+  return {
+    ok: true,
+    at: now(),
+    memory: runtimeMemoryStats(),
+    counts: {
+      onlinePlayers: onlineSocketCount(),
+      totalPlayers: players.size,
+      aiPlayers: [...players.values()].filter((player) => player.isAi).length,
+      ownershipTiles: ownership.size,
+      towns: townsByTile.size,
+      docks: docksByTile.size,
+      clusters: clustersById.size,
+      barbarianAgents: barbarianAgents.size
+    },
+    caches: {
+      visibilitySnapshots: cachedVisibilitySnapshotByPlayer.size,
+      cachedChunkPlayers: cachedChunkSnapshotByPlayer.size,
+      cachedChunkPayloads
+    },
+    recentAiTicks: recentAiTickPerf.values(),
+    recentChunkSnapshots: recentChunkSnapshotPerf.values()
   };
 });
 app.post("/admin/season/rollover", async () => {
