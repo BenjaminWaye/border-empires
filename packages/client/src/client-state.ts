@@ -144,6 +144,7 @@ export const createInitialState = () => ({
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
   techUiSelectedId: "" as string,
+  pendingTechUnlockId: "" as string,
   techChoicesSig: "" as string,
   actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
   queuedTargetKeys: new Set<string>(),
