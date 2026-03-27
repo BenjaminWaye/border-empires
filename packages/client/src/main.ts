@@ -96,6 +96,7 @@ type Tile = {
     hasGranary: boolean;
     granaryActive: boolean;
     foodUpkeepPerMinute?: number;
+    growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   };
   fort?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
   observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive"; completesAt?: number };
@@ -1200,6 +1201,15 @@ const economicStructureName = (type: Tile["economicStructure"] extends infer T ?
   return "Market";
 };
 
+const economicStructureBenefitText = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
+  if (type === "MARKET") return "Boosts nearby town gold output and storage while fed.";
+  if (type === "GRANARY") return "Boosts nearby town population cap.";
+  if (type === "FARMSTEAD") return "Improves food output on this tile.";
+  if (type === "CAMP") return "Improves supply output on this tile.";
+  if (type === "MINE") return "Improves iron or crystal output on this tile.";
+  return "Strengthens this tile's economy.";
+};
+
 const displayTownGoldPerMinute = (tile: Tile): number => {
   if (!tile.town) return 0;
   return tile.town.goldPerMinute;
@@ -1580,6 +1590,11 @@ const ancientTownOverlayByBiome = {
   GRASS: loadOverlayImage("ancient-town-overlay-grass.svg")
 } as const;
 const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
+const structureOverlayImages = {
+  OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
+  MARKET: loadOverlayImage("market-overlay.svg"),
+  GRANARY: loadOverlayImage("granary-overlay.svg")
+} as const;
 const resourceOverlayVariants = {
   FARM: createOverlayVariantSet(["farm-overlay-1.svg", "farm-overlay-2.svg", "farm-overlay-3.svg"]),
   FISH: createOverlayVariantSet(["fish-overlay-1.svg", "fish-overlay-2.svg", "fish-overlay-3.svg"]),
@@ -2711,6 +2726,23 @@ const isTownSupportNeighbor = (tx: number, ty: number, sx: number, sy: number): 
   const dy = Math.min(Math.abs(ty - sy), WORLD_HEIGHT - Math.abs(ty - sy));
   if (dx === 0 && dy === 0) return false;
   return dx <= 1 && dy <= 1;
+};
+
+const supportedOwnedTownsForTile = (tile: Tile): Tile[] => {
+  const out: Tile[] = [];
+  for (const candidate of state.tiles.values()) {
+    if (!candidate.town || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
+    if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
+    out.push(candidate);
+  }
+  return out.sort((a, b) => a.x - b.x || a.y - b.y);
+};
+
+const growthDeltaPctLabel = (population: number, deltaPerMinute: number): string => {
+  if (population <= 0) return "0.00%/m";
+  const pct = (deltaPerMinute / population) * 100;
+  const sign = pct > 0 ? "+" : "";
+  return `${sign}${pct.toFixed(2)}%/m`;
 };
 const hoverTile = (): Tile | undefined => {
   if (!state.hover) return undefined;
@@ -4537,6 +4569,7 @@ type TileMenuProgressView = {
   remainingLabel: string;
   progress: number;
   note: string;
+  cancelLabel?: string;
 };
 
 type TileMenuView = {
@@ -4670,6 +4703,20 @@ const constructionCountdownLineForTile = (tile: Tile): string => {
   return "";
 };
 
+const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
+  const completesAt =
+    tile.fort?.status === "under_construction"
+      ? tile.fort.completesAt
+      : tile.observatory?.status === "under_construction"
+        ? tile.observatory.completesAt
+        : tile.siegeOutpost?.status === "under_construction"
+          ? tile.siegeOutpost.completesAt
+          : tile.economicStructure?.status === "under_construction"
+            ? tile.economicStructure.completesAt
+            : undefined;
+  return typeof completesAt === "number" ? Math.max(0, completesAt - Date.now()) : undefined;
+};
+
 const tileProductionRequirementLabel = (tile: Tile): string | undefined => {
   if (tile.town) return "gold";
   const strategicKey = strategicResourceKeyForTile(tile);
@@ -4688,7 +4735,8 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will gain fortified defense when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
-      note: "Uses 1 development slot while building."
+      note: "Uses 1 development slot while building.",
+      cancelLabel: "Cancel construction"
     };
   }
   if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
@@ -4698,7 +4746,8 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will extend vision and observatory protection when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
-      note: "Uses 1 development slot while building."
+      note: "Uses 1 development slot while building.",
+      cancelLabel: "Cancel construction"
     };
   }
   if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
@@ -4708,7 +4757,8 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will gain an offensive staging structure when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
-      note: "Uses 1 development slot while building."
+      note: "Uses 1 development slot while building.",
+      cancelLabel: "Cancel construction"
     };
   }
   if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
@@ -4718,7 +4768,8 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile is still being developed and is not fully online yet.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, ECONOMIC_STRUCTURE_BUILD_MS))),
-      note: "Uses 1 development slot while building."
+      note: "Uses 1 development slot while building.",
+      cancelLabel: "Cancel construction"
     };
   }
   return undefined;
@@ -4726,14 +4777,8 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
 
 const menuOverviewForTile = (tile: Tile): string[] => {
   const lines: string[] = [];
-  const ownerLabel = !tile.ownerId
-    ? "Unclaimed land"
-    : tile.ownerId === state.me
-      ? "Your land"
-      : isTileOwnedByAlly(tile)
-        ? "Allied land"
-        : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`;
-  lines.push(ownerLabel);
+  if (!tile.ownerId) lines.push("Unclaimed land");
+  else if (tile.ownerId !== state.me) lines.push(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`);
   if (tile.terrain === "SEA") {
     lines.push(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions.");
     return lines;
@@ -4754,19 +4799,47 @@ const menuOverviewForTile = (tile: Tile): string[] => {
     else lines.push("Needs settlement to gain defense and full ownership strength.");
   } else if (tile.ownershipState === "SETTLED") {
     lines.push("Settled land is defended and fully part of your empire.");
-    if (productionLabel) lines.push(`This tile is eligible to produce ${productionLabel}.`);
+    if (tile.town) lines.push("Towns produce gold when fed.");
   }
+  const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
     lines.push(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
-    lines.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax} • Pop ${Math.round(tile.town.population).toLocaleString()}`);
+    const growthPct =
+      tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
+        ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
+        : 0;
+    lines.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax} • Pop ${Math.round(tile.town.population).toLocaleString()} • Growth ${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`);
+    for (const modifier of tile.town.growthModifiers ?? []) {
+      lines.push(`${modifier.label} (${growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute)})`);
+    }
+    if (tile.town.hasMarket) lines.push(`Market: ${tile.town.marketActive ? "Active" : "Built"} • Boosts town gold and storage.`);
+    if (tile.town.hasGranary) lines.push(`Granary: ${tile.town.granaryActive ? "Active" : "Built"} • Boosts town population cap.`);
   } else if (tile.resource) {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
     if (tile.ownershipState === "SETTLED") lines.push(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
+  }
+  if (supportedTowns.length === 1) {
+    const town = supportedTowns[0];
+    if (town) {
+      lines.push(`Support tile for nearby town at (${town.x}, ${town.y}).`);
+      if (town.town?.hasMarket) lines.push("Nearby town already has a Market.");
+      if (town.town?.hasGranary) lines.push("Nearby town already has a Granary.");
+      if (!tile.economicStructure) {
+        lines.push("Town buildings like markets and granaries must be built on support tiles.");
+      }
+    }
+  } else if (supportedTowns.length > 1) {
+    lines.push("This support tile touches multiple towns.");
+  }
+  if (tile.economicStructure) {
+    lines.push(`${economicStructureName(tile.economicStructure.type)} on this square. ${economicStructureBenefitText(tile.economicStructure.type)}`);
   }
   const storedYield = storedYieldSummary(tile);
   if (storedYield) lines.push(`Stored yield: ${storedYield}`);
   const construction = constructionCountdownLineForTile(tile);
   if (construction) lines.push(construction);
+  const historyLines = tileHistoryLines(tile);
+  lines.push(...historyLines);
   return lines;
 };
 
@@ -4788,9 +4861,9 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
           note: settlement.awaitingServerConfirm ? "Keeping the tile settled client-side until the server responds." : "Uses 1 development slot while settling."
         }
       : construction;
-  const tabs: TileMenuTab[] = ["overview"];
-  if (actions.length > 0) tabs.push("actions");
-  if (progress) tabs.push("progress");
+  const tabs: TileMenuTab[] = progress ? ["progress"] : actions.length > 0 ? ["actions"] : ["overview"];
+  if (progress && actions.length > 0) tabs.push("actions");
+  if (!tabs.includes("overview")) tabs.push("overview");
   const ownerLabel =
     tile.terrain === "SEA"
       ? actions.length > 0
@@ -5170,6 +5243,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const hasYield =
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
     const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
+    const supportedTowns = tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
+    const supportedTown = supportedTowns.length === 1 ? supportedTowns[0] : undefined;
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
     if (tile.ownershipState === "FRONTIER")
       out.push({
@@ -5200,8 +5275,18 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         id: "build_observatory",
         label: "Build Observatory",
         ...tileActionAvailability(
-          hasTech && hasGold && hasCrystal && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
-          !hasTech ? "Requires Cartography" : tile.fort || tile.siegeOutpost || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${OBSERVATORY_BUILD_COST} gold` : !hasCrystal ? "Need 45 CRYSTAL" : "Unavailable",
+          hasTech && hasGold && hasCrystal && !tile.resource && !tile.town && !tile.dockId && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
+          !hasTech
+            ? "Requires Cartography"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.economicStructure
+                ? "Tile already has structure"
+                : !hasGold
+                  ? `Need ${OBSERVATORY_BUILD_COST} gold`
+                  : !hasCrystal
+                    ? "Need 45 CRYSTAL"
+                    : "Unavailable",
           `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`
         )
       });
@@ -5256,13 +5341,21 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           )
         });
       }
-      if (tile.town) {
+      if (supportedTown) {
         out.push({
           id: "build_market",
           label: "Build Market",
           ...tileActionAvailability(
-            !hasBlockingStructure && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("trade") ? "Requires Trade" : state.gold < 600 ? "Need 600 gold" : "Need 40 CRYSTAL",
+            !hasBlockingStructure && !supportedTown.town?.hasMarket && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
+            hasBlockingStructure
+              ? "Tile already has structure"
+              : supportedTown.town?.hasMarket
+                ? "Nearby town already has Market"
+                : !state.techIds.includes("trade")
+                  ? "Requires Trade"
+                  : state.gold < 600
+                    ? "Need 600 gold"
+                    : "Need 40 CRYSTAL",
             `600 gold + 40 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
           )
         });
@@ -5270,10 +5363,31 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           id: "build_granary",
           label: "Build Granary",
           ...tileActionAvailability(
-            !hasBlockingStructure && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("pottery") ? "Requires Pottery" : state.gold < 400 ? "Need 400 gold" : "Need 40 FOOD",
+            !hasBlockingStructure && !supportedTown.town?.hasGranary && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
+            hasBlockingStructure
+              ? "Tile already has structure"
+              : supportedTown.town?.hasGranary
+                ? "Nearby town already has Granary"
+                : !state.techIds.includes("pottery")
+                  ? "Requires Pottery"
+                  : state.gold < 400
+                    ? "Need 400 gold"
+                    : "Need 40 FOOD",
             `400 gold + 40 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`
           )
+        });
+      } else if (supportedTowns.length > 1) {
+        out.push({
+          id: "build_market",
+          label: "Build Market",
+          disabled: true,
+          disabledReason: "Support tile touches multiple towns"
+        });
+        out.push({
+          id: "build_granary",
+          label: "Build Granary",
+          disabled: true,
+          disabledReason: "Support tile touches multiple towns"
         });
       }
     }
@@ -5455,6 +5569,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
         </div>
         <div class="tile-progress-bar"><div style="width:${Math.round(view.progress.progress * 100)}%"></div></div>
         <div class="tile-progress-note">${view.progress.note}</div>
+        ${view.progress.cancelLabel ? `<button class="tile-progress-cancel" type="button" data-progress-action="cancel_structure_build">${view.progress.cancelLabel}</button>` : ""}
       </div>
     `;
   }
@@ -5492,13 +5607,13 @@ const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: numb
   `;
   const { width: vw, height: vh } = viewportSize();
   const menuW = Math.min(348, vw - 16);
-  const menuH = Math.min(360, vh - 90);
-  const left = Math.max(8, Math.min(vw - menuW - 8, clientX + 10));
-  const top = Math.max(78, Math.min(vh - menuH - 8, clientY + 8));
   tileActionMenuEl.style.width = `${menuW}px`;
+  tileActionMenuEl.style.display = "block";
+  const renderedHeight = Math.min(tileActionMenuEl.offsetHeight || 360, vh - 90);
+  const left = Math.max(8, Math.min(vw - menuW - 8, clientX + 10));
+  const top = Math.max(78, Math.min(vh - renderedHeight - 8, clientY + 8));
   tileActionMenuEl.style.left = `${left}px`;
   tileActionMenuEl.style.top = `${top}px`;
-  tileActionMenuEl.style.display = "block";
   state.tileActionMenu.visible = true;
   state.tileActionMenu.x = clientX;
   state.tileActionMenu.y = clientY;
@@ -5524,6 +5639,16 @@ const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: numb
       handleTileAction(actionId, btn.dataset.targetKey, btn.dataset.originKey);
     };
   });
+  const progressButtons = tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-progress-action]");
+  progressButtons.forEach((btn) => {
+    btn.onclick = () => {
+      if (btn.dataset.progressAction !== "cancel_structure_build") return;
+      const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
+      if (!tile) return;
+      sendGameMessage({ type: "CANCEL_STRUCTURE_BUILD", x: tile.x, y: tile.y });
+      hideTileActionMenu();
+    };
+  });
 };
 
 const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number): void => {
@@ -5531,7 +5656,7 @@ const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number):
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = key(tile.x, tile.y);
-  state.tileActionMenu.activeTab = settlementProgressForTile(tile.x, tile.y) || constructionProgressForTile(tile) ? "progress" : "overview";
+  state.tileActionMenu.activeTab = settlementProgressForTile(tile.x, tile.y) || constructionProgressForTile(tile) ? "progress" : "actions";
   renderTileActionMenu(tileMenuViewForTile(tile), clientX, clientY);
 };
 
@@ -7108,15 +7233,24 @@ const draw = (): void => {
         ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
       }
       if (t && vis === "visible" && t.observatory) {
-        ctx.strokeStyle = structureAccentColor(t.ownerId ?? "", t.observatory.status === "active" ? "rgba(122, 214, 255, 0.92)" : "rgba(122, 214, 255, 0.42)");
-        ctx.beginPath();
-        ctx.arc(px + size / 2, py + size / 2, Math.max(3, size * 0.22), 0, Math.PI * 2);
-        ctx.stroke();
+        const overlay = structureOverlayImages.OBSERVATORY;
+        if (overlay.complete && overlay.naturalWidth) drawCenteredOverlay(overlay, px, py, size, 1.02);
+        else {
+          ctx.strokeStyle = structureAccentColor(t.ownerId ?? "", t.observatory.status === "active" ? "rgba(122, 214, 255, 0.92)" : "rgba(122, 214, 255, 0.42)");
+          ctx.beginPath();
+          ctx.arc(px + size / 2, py + size / 2, Math.max(3, size * 0.22), 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
       if (t && vis === "visible" && t.economicStructure) {
         const markerSize = Math.max(3, Math.floor(size * 0.2));
         const active = t.economicStructure.status === "active";
-        if (t.economicStructure.type === "FARMSTEAD") {
+        if ((t.economicStructure.type === "MARKET" || t.economicStructure.type === "GRANARY")) {
+          const overlay = t.economicStructure.type === "MARKET" ? structureOverlayImages.MARKET : structureOverlayImages.GRANARY;
+          if (overlay.complete && overlay.naturalWidth) {
+            drawCenteredOverlay(overlay, px, py, size, 1.02);
+          }
+        } else if (t.economicStructure.type === "FARMSTEAD") {
           ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)");
           ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
         } else if (t.economicStructure.type === "CAMP") {
@@ -7135,6 +7269,18 @@ const draw = (): void => {
           ctx.lineWidth = 2;
           ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
           ctx.lineWidth = 1;
+        }
+      }
+      if (t && vis === "visible" && t.terrain === "LAND") {
+        const remainingConstructionMs = constructionRemainingMsForTile(t);
+        if (remainingConstructionMs !== undefined && size >= 18) {
+          const timerLabel = formatCountdownClock(remainingConstructionMs);
+          ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
+          ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
+          ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
+          ctx.font = "9px monospace";
+          ctx.textBaseline = "top";
+          ctx.fillText(timerLabel, px + 4, py + size - 11);
         }
       }
       if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
@@ -7265,25 +7411,22 @@ const draw = (): void => {
         ctx.globalAlpha = 0.16 + progress * 0.36;
         ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
         ctx.globalAlpha = 1;
-        const dotCount = Math.max(2, Math.min(5, Math.floor(size / 5)));
-        const activeDots = Math.max(1, Math.round(progress * dotCount));
+        const dotCount = Math.max(4, Math.min(10, Math.floor(size / 2.8)));
+        const activeDots = Math.max(2, Math.round(progress * dotCount));
         for (let i = 0; i < activeDots; i += 1) {
-          const dotX = px + 3 + i * Math.max(4, Math.floor((size - 8) / Math.max(1, dotCount - 1)));
-          const wave = Math.sin(Date.now() / 180 + i * 0.9) * Math.max(1, size * 0.06);
-          const dotY = py + size * 0.34 + wave;
-          ctx.fillStyle = `rgba(255, 241, 185, ${0.72 + pulse * 0.18})`;
+          const seed = (((wx + 11) * 92821) ^ ((wy + 7) * 68917) ^ ((i + 3) * 1259) ^ Math.floor(Date.now() / 160)) >>> 0;
+          const rx = ((seed % 1000) / 1000) * (size - 8);
+          const ry = ((((seed / 1000) | 0) % 1000) / 1000) * (size - 8);
+          const dotX = px + 4 + rx;
+          const dotY = py + 4 + ry;
+          ctx.fillStyle = `rgba(8, 10, 16, ${0.58 + pulse * 0.16})`;
           ctx.beginPath();
-          ctx.arc(dotX, dotY, Math.max(1.4, size * 0.06), 0, Math.PI * 2);
+          ctx.arc(dotX, dotY, Math.max(1.1, size * 0.05), 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.strokeStyle = `rgba(255, 241, 185, ${0.68 + pulse * 0.16})`;
         ctx.lineWidth = 2;
         ctx.strokeRect(px + 1.5, py + 1.5, size - 4, size - 4);
-        const barH = Math.max(3, Math.floor(size * 0.12));
-        ctx.fillStyle = "rgba(8, 12, 18, 0.82)";
-        ctx.fillRect(px + 1, py + size - barH - 1, size - 2, barH);
-        ctx.fillStyle = "rgba(255, 209, 102, 0.96)";
-        ctx.fillRect(px + 1, py + size - barH - 1, Math.max(2, Math.floor((size - 2) * progress)), barH);
         ctx.lineWidth = 1;
       }
 
