@@ -818,6 +818,43 @@ body {
   color: #f2f7ff;
 }
 
+.stat-chip-dev {
+  min-width: 104px;
+}
+
+.stat-chip-dev.is-full {
+  border-color: rgba(255, 184, 107, 0.4);
+  background: rgba(66, 34, 19, 0.34);
+}
+
+.stat-chip-dev-pips,
+.dev-slot-pips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-chip-dev-pips {
+  margin-top: 5px;
+}
+
+.dev-slot-pip {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(176, 204, 238, 0.3);
+  background: rgba(191, 216, 245, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.dev-slot-pip.is-busy {
+  border-color: rgba(255, 209, 102, 0.56);
+  background: linear-gradient(180deg, rgba(255, 214, 122, 0.95), rgba(242, 161, 39, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 249, 231, 0.24),
+    0 0 12px rgba(255, 196, 88, 0.18);
+}
+
 .stat-chip-rate {
   font-size: 11px;
   font-style: normal;
@@ -1542,6 +1579,56 @@ body {
   border-radius: 12px;
   background: rgba(12, 21, 32, 0.58);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dev-slot-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 163, 222, 0.18);
+  background: linear-gradient(180deg, rgba(18, 29, 45, 0.74), rgba(10, 18, 29, 0.74));
+}
+
+.dev-slot-card.is-full {
+  border-color: rgba(255, 190, 120, 0.34);
+  background: linear-gradient(180deg, rgba(61, 35, 17, 0.78), rgba(34, 20, 10, 0.76));
+}
+
+.dev-slot-card-menu {
+  margin-bottom: 2px;
+}
+
+.dev-slot-card-hud {
+  margin-top: 8px;
+}
+
+.dev-slot-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dev-slot-label {
+  color: rgba(182, 207, 233, 0.74);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dev-slot-copy strong {
+  color: #f1f7ff;
+  font-size: 15px;
+  line-height: 1.05;
+}
+
+.dev-slot-copy small {
+  color: rgba(221, 234, 248, 0.72);
+  font-size: 11px;
+  line-height: 1.15;
 }
 .tile-overview-kicker {
   color: #ffd166;
@@ -2427,12 +2514,28 @@ h4 {
     border-radius: 12px;
   }
 
+  .stat-chip-dev {
+    min-width: 0;
+  }
+
   .stat-chip strong {
     font-size: 13px;
   }
 
   .stat-chip span {
     font-size: 9px;
+  }
+
+  .dev-slot-card {
+    padding: 9px 10px;
+  }
+
+  .dev-slot-copy strong {
+    font-size: 14px;
+  }
+
+  .dev-slot-copy small {
+    font-size: 10px;
   }
 
   #panel-actions {
