@@ -121,8 +121,10 @@ type Tile = {
   yield?: { gold?: number; strategic?: Record<string, number> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
-  optimisticPending?: "expand" | "settle";
+  optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel";
 };
+
+type OptimisticStructureKind = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
 
 type TileTimedProgress = {
   startAt: number;
@@ -2608,6 +2610,58 @@ const clearOptimisticTileState = (tileKey: string, revert = false): void => {
   }
 };
 
+const tileHasStructureKind = (tile: Tile, kind: OptimisticStructureKind): boolean => {
+  if (kind === "FORT") return Boolean(tile.fort);
+  if (kind === "OBSERVATORY") return Boolean(tile.observatory);
+  if (kind === "SIEGE_OUTPOST") return Boolean(tile.siegeOutpost);
+  return tile.economicStructure?.type === kind;
+};
+
+const tileHasUnderConstructionStructureKind = (tile: Tile, kind: OptimisticStructureKind): boolean => {
+  if (kind === "FORT") return tile.fort?.status === "under_construction";
+  if (kind === "OBSERVATORY") return tile.observatory?.status === "under_construction";
+  if (kind === "SIEGE_OUTPOST") return tile.siegeOutpost?.status === "under_construction";
+  return tile.economicStructure?.type === kind && tile.economicStructure.status === "under_construction";
+};
+
+const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
+  const completesAt =
+    Date.now() +
+    (kind === "FORT"
+      ? FORT_BUILD_MS
+      : kind === "OBSERVATORY"
+        ? OBSERVATORY_BUILD_MS
+        : kind === "SIEGE_OUTPOST"
+          ? SIEGE_OUTPOST_BUILD_MS
+          : ECONOMIC_STRUCTURE_BUILD_MS);
+  applyOptimisticTileState(x, y, (tile) => {
+    tile.optimisticPending = "structure_build";
+    if (kind === "FORT") {
+      tile.fort = { ownerId: state.me, status: "under_construction", completesAt };
+      return;
+    }
+    if (kind === "OBSERVATORY") {
+      tile.observatory = { ownerId: state.me, status: "under_construction", completesAt };
+      return;
+    }
+    if (kind === "SIEGE_OUTPOST") {
+      tile.siegeOutpost = { ownerId: state.me, status: "under_construction", completesAt };
+      return;
+    }
+    tile.economicStructure = { ownerId: state.me, type: kind, status: "under_construction", completesAt };
+  });
+};
+
+const applyOptimisticStructureCancel = (x: number, y: number): void => {
+  applyOptimisticTileState(x, y, (tile) => {
+    tile.optimisticPending = "structure_cancel";
+    delete tile.fort;
+    delete tile.observatory;
+    delete tile.siegeOutpost;
+    delete tile.economicStructure;
+  });
+};
+
 const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
   const tileKey = key(incoming.x, incoming.y);
   const existing = state.tiles.get(tileKey);
@@ -2632,6 +2686,53 @@ const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
       fogged: false,
       optimisticPending: existing.optimisticPending
     };
+  }
+  if (existing.optimisticPending === "structure_build") {
+    const optimisticKind =
+      existing.fort?.status === "under_construction"
+        ? "FORT"
+        : existing.observatory?.status === "under_construction"
+          ? "OBSERVATORY"
+          : existing.siegeOutpost?.status === "under_construction"
+            ? "SIEGE_OUTPOST"
+            : existing.economicStructure?.status === "under_construction"
+              ? existing.economicStructure.type
+              : undefined;
+    if (!optimisticKind) return incoming;
+    if (tileHasStructureKind(incoming, optimisticKind)) return incoming;
+    const merged: Tile = {
+      ...incoming,
+      optimisticPending: existing.optimisticPending
+    };
+    if (existing.fort) merged.fort = existing.fort;
+    if (existing.observatory) merged.observatory = existing.observatory;
+    if (existing.siegeOutpost) merged.siegeOutpost = existing.siegeOutpost;
+    if (existing.economicStructure) merged.economicStructure = existing.economicStructure;
+    return merged;
+  }
+  if (existing.optimisticPending === "structure_cancel") {
+    const previous = state.optimisticTileSnapshots.get(tileKey);
+    const cancelledKind =
+      previous?.fort?.status === "under_construction"
+        ? "FORT"
+        : previous?.observatory?.status === "under_construction"
+          ? "OBSERVATORY"
+          : previous?.siegeOutpost?.status === "under_construction"
+            ? "SIEGE_OUTPOST"
+            : previous?.economicStructure?.status === "under_construction"
+              ? previous.economicStructure.type
+              : undefined;
+    if (!cancelledKind) return incoming;
+    if (!tileHasUnderConstructionStructureKind(incoming, cancelledKind)) return incoming;
+    const merged: Tile = {
+      ...incoming,
+      optimisticPending: existing.optimisticPending
+    };
+    delete merged.fort;
+    delete merged.observatory;
+    delete merged.siegeOutpost;
+    delete merged.economicStructure;
+    return merged;
   }
   return incoming;
 };
@@ -5673,7 +5774,10 @@ const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: numb
       if (btn.dataset.progressAction !== "cancel_structure_build") return;
       const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
       if (!tile) return;
-      sendGameMessage({ type: "CANCEL_STRUCTURE_BUILD", x: tile.x, y: tile.y });
+      if (sendGameMessage({ type: "CANCEL_STRUCTURE_BUILD", x: tile.x, y: tile.y })) {
+        applyOptimisticStructureCancel(tile.x, tile.y);
+        renderHud();
+      }
       hideTileActionMenu();
     };
   });
@@ -5821,14 +5925,47 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
     return;
   }
   if (actionId === "collect_yield") collectSelectedYield();
-  if (actionId === "build_fortification") sendGameMessage({ type: "BUILD_FORT", x: selected.x, y: selected.y });
-  if (actionId === "build_observatory") sendGameMessage({ type: "BUILD_OBSERVATORY", x: selected.x, y: selected.y });
-  if (actionId === "build_farmstead") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" });
-  if (actionId === "build_camp") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" });
-  if (actionId === "build_mine") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" });
-  if (actionId === "build_market") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" });
-  if (actionId === "build_granary") sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" });
-  if (actionId === "build_siege_camp") sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y });
+  if (actionId === "build_fortification" && sendGameMessage({ type: "BUILD_FORT", x: selected.x, y: selected.y })) {
+    applyOptimisticStructureBuild(selected.x, selected.y, "FORT");
+    renderHud();
+  }
+  if (actionId === "build_observatory" && sendGameMessage({ type: "BUILD_OBSERVATORY", x: selected.x, y: selected.y })) {
+    applyOptimisticStructureBuild(selected.x, selected.y, "OBSERVATORY");
+    renderHud();
+  }
+  if (
+    actionId === "build_farmstead" &&
+    sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" })
+  ) {
+    applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD");
+    renderHud();
+  }
+  if (actionId === "build_camp" && sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" })) {
+    applyOptimisticStructureBuild(selected.x, selected.y, "CAMP");
+    renderHud();
+  }
+  if (actionId === "build_mine" && sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" })) {
+    applyOptimisticStructureBuild(selected.x, selected.y, "MINE");
+    renderHud();
+  }
+  if (
+    actionId === "build_market" &&
+    sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" })
+  ) {
+    applyOptimisticStructureBuild(selected.x, selected.y, "MARKET");
+    renderHud();
+  }
+  if (
+    actionId === "build_granary" &&
+    sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" })
+  ) {
+    applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY");
+    renderHud();
+  }
+  if (actionId === "build_siege_camp" && sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y })) {
+    applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST");
+    renderHud();
+  }
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
@@ -5999,49 +6136,73 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   }
   if (fortBtn) {
     fortBtn.onclick = () => {
-      sendGameMessage({ type: "BUILD_FORT", x, y });
+      if (sendGameMessage({ type: "BUILD_FORT", x, y })) {
+        applyOptimisticStructureBuild(x, y, "FORT");
+        renderHud();
+      }
       hideHoldBuildMenu();
     };
   }
   if (siegeBtn) {
     siegeBtn.onclick = () => {
-      sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x, y });
+      if (sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x, y })) {
+        applyOptimisticStructureBuild(x, y, "SIEGE_OUTPOST");
+        renderHud();
+      }
       hideHoldBuildMenu();
     };
   }
   if (observatoryBtn) {
     observatoryBtn.onclick = () => {
-      sendGameMessage({ type: "BUILD_OBSERVATORY", x, y });
+      if (sendGameMessage({ type: "BUILD_OBSERVATORY", x, y })) {
+        applyOptimisticStructureBuild(x, y, "OBSERVATORY");
+        renderHud();
+      }
       hideHoldBuildMenu();
     };
   }
   if (farmsteadBtn) {
     farmsteadBtn.onclick = () => {
-      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "FARMSTEAD" });
+      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "FARMSTEAD" })) {
+        applyOptimisticStructureBuild(x, y, "FARMSTEAD");
+        renderHud();
+      }
       hideHoldBuildMenu();
     };
   }
   if (campBtn) {
     campBtn.onclick = () => {
-      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "CAMP" });
+      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "CAMP" })) {
+        applyOptimisticStructureBuild(x, y, "CAMP");
+        renderHud();
+      }
       hideHoldBuildMenu();
     };
   }
   if (mineBtn) {
     mineBtn.onclick = () => {
-      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MINE" });
+      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MINE" })) {
+        applyOptimisticStructureBuild(x, y, "MINE");
+        renderHud();
+      }
       hideHoldBuildMenu();
     };
   }
   if (marketBtn) {
     marketBtn.onclick = () => {
-      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MARKET" });
+      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MARKET" })) {
+        applyOptimisticStructureBuild(x, y, "MARKET");
+        renderHud();
+      }
       hideHoldBuildMenu();
     };
   }
   if (granaryBtn) {
     granaryBtn.onclick = () => {
-      sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "GRANARY" });
+      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "GRANARY" })) {
+        applyOptimisticStructureBuild(x, y, "GRANARY");
+        renderHud();
+      }
       hideHoldBuildMenu();
     };
   }
@@ -6323,6 +6484,7 @@ ws.addEventListener("message", (ev) => {
     for (const t of tiles) {
       const mergedTile = mergeServerTileWithOptimisticState(t);
       state.tiles.set(key(mergedTile.x, mergedTile.y), mergedTile);
+      if (!mergedTile.optimisticPending) clearOptimisticTileState(key(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
       if (!mergedTile.fogged) state.discoveredTiles.add(key(mergedTile.x, mergedTile.y));
       if (!mergedTile.fogged) sawVisibleTile = true;
@@ -6545,7 +6707,6 @@ ws.addEventListener("message", (ev) => {
     let resolvedQueuedFrontierCapture = false;
     for (const update of updates) {
       const updateKey = key(update.x, update.y);
-      clearOptimisticTileState(updateKey);
       state.pendingCollectVisibleKeys.delete(key(update.x, update.y));
       const existing = state.tiles.get(key(update.x, update.y));
       const merged: Tile = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
@@ -6605,23 +6766,25 @@ ws.addEventListener("message", (ev) => {
         if (update.history) merged.history = update.history;
         else delete merged.history;
       }
-      state.tiles.set(key(update.x, update.y), merged);
-      markDockDiscovered(merged);
-      if (!merged.fogged) state.discoveredTiles.add(key(update.x, update.y));
+      const resolved = mergeServerTileWithOptimisticState(merged);
+      state.tiles.set(updateKey, resolved);
+      if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
+      markDockDiscovered(resolved);
+      if (!resolved.fogged) state.discoveredTiles.add(updateKey);
       if (
         settlementProgressForTile(update.x, update.y) &&
-        (merged.ownerId !== state.me || (merged.ownershipState !== "FRONTIER" && merged.ownershipState !== "SETTLED"))
+        (resolved.ownerId !== state.me || (resolved.ownershipState !== "FRONTIER" && resolved.ownershipState !== "SETTLED"))
       ) {
         clearSettlementProgressForTile(update.x, update.y);
-      } else if (merged.ownerId === state.me && merged.ownershipState === "SETTLED") {
+      } else if (resolved.ownerId === state.me && resolved.ownershipState === "SETTLED") {
         clearSettlementProgressForTile(update.x, update.y);
       }
       if (
         !resolvedQueuedFrontierCapture &&
         updateKey === state.actionTargetKey &&
         state.actionInFlight &&
-        merged.ownerId === state.me &&
-        merged.ownershipState === "FRONTIER"
+        resolved.ownerId === state.me &&
+        resolved.ownershipState === "FRONTIER"
       ) {
         resolvedQueuedFrontierCapture = true;
       }
@@ -6777,12 +6940,21 @@ ws.addEventListener("message", (ev) => {
       setAuthStatus(errorMessage, "error");
       syncAuthOverlay();
     }
+    const isStructureActionError =
+      errorCode === "FORT_BUILD_INVALID" ||
+      errorCode === "OBSERVATORY_BUILD_INVALID" ||
+      errorCode === "SIEGE_OUTPOST_BUILD_INVALID" ||
+      errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
+      errorCode === "STRUCTURE_CANCEL_INVALID";
     if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
       notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
     } else if (errorCode === "SETTLE_INVALID") {
       clearOptimisticTileState(errorTileKey, true);
       clearSettlementProgressByKey(errorTileKey);
       showCaptureAlert("Action failed", errorMessage, "warn");
+    } else if (isStructureActionError && errorTileKey) {
+      clearOptimisticTileState(errorTileKey, true);
+      showCaptureAlert("Construction failed", errorMessage, "warn");
     } else if (errorCode === "TOWN_UNFED") {
       showCaptureAlert("Town unfed", errorMessage, "warn");
     }
