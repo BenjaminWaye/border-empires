@@ -200,6 +200,7 @@ const firebaseAdminApp = firebaseAdminEnabled
 const firebaseAdminAuth = firebaseAdminApp ? getAuth(firebaseAdminApp) : undefined;
 let pendingAuthVerifications = 0;
 let authPriorityUntil = 0;
+const authSyncTimingByPlayer = new Map<string, { authVerifiedAt?: number; initSentAt?: number; firstSubscribeAt?: number; firstChunkSentAt?: number }>();
 const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
   const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   if (
@@ -7088,6 +7089,7 @@ const chunkSnapshotPayload = (
 
 const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: number; radius: number }): void => {
   const startedAt = now();
+  const authSync = authSyncTimingByPlayer.get(actor.id);
   const snapshot = visibilitySnapshotForPlayer(actor);
   const generation = (chunkSnapshotGenerationByPlayer.get(actor.id) ?? 0) + 1;
   chunkSnapshotGenerationByPlayer.set(actor.id, generation);
@@ -7136,6 +7138,21 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
     }
     const elapsed = now() - startedAt;
     const memory = runtimeMemoryStats();
+    if (authSync && authSync.firstChunkSentAt === undefined) {
+      authSync.firstChunkSentAt = now();
+      app.log.info(
+        {
+          playerId: actor.id,
+          sinceAuthVerifiedMs: authSync.authVerifiedAt ? authSync.firstChunkSentAt - authSync.authVerifiedAt : undefined,
+          sinceInitSentMs: authSync.initSentAt ? authSync.firstChunkSentAt - authSync.initSentAt : undefined,
+          sinceFirstSubscribeMs: authSync.firstSubscribeAt ? authSync.firstChunkSentAt - authSync.firstSubscribeAt : undefined,
+          chunkCount,
+          tileCount,
+          radius: sub.radius
+        },
+        "auth sync first chunk sent"
+      );
+    }
     recentChunkSnapshotPerf.push({
       at: now(),
       playerId: actor.id,
@@ -10094,6 +10111,7 @@ app.post("/admin/world/regenerate", async () => {
     }
 
     if (msg.type === "AUTH") {
+      const authStartedAt = now();
       authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
       let decoded = cachedFirebaseIdentityForToken(msg.token);
       try {
@@ -10145,6 +10163,17 @@ app.post("/admin/world/regenerate", async () => {
         socket.send(JSON.stringify({ type: "ERROR", code: "AUTH_FAIL", message: "player initialization failed" }));
         return;
       }
+      const verifiedAt = now();
+      authSyncTimingByPlayer.set(player.id, { authVerifiedAt: verifiedAt });
+      app.log.info(
+        {
+          playerId: player.id,
+          uid: decoded.uid,
+          cachedToken: Boolean(cachedFirebaseIdentityForToken(msg.token)),
+          verifyElapsedMs: verifiedAt - authStartedAt
+        },
+        "auth verified"
+      );
 
       authedPlayer = player;
       socketsByPlayer.set(player.id, socket);
@@ -10218,6 +10247,17 @@ app.post("/admin/world/regenerate", async () => {
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id)
         })
       );
+      const authSync = authSyncTimingByPlayer.get(player.id);
+      if (authSync) {
+        authSync.initSentAt = now();
+        app.log.info(
+          {
+            playerId: player.id,
+            sinceAuthVerifiedMs: authSync.initSentAt - (authSync.authVerifiedAt ?? authSync.initSentAt)
+          },
+          "auth sync init sent"
+        );
+      }
       return;
     }
 
@@ -10656,6 +10696,21 @@ app.post("/admin/world/regenerate", async () => {
     if (msg.type === "SUBSCRIBE_CHUNKS") {
       const sub = { cx: msg.cx, cy: msg.cy, radius: Math.max(0, Math.min(msg.radius, MAX_SUBSCRIBE_RADIUS)) };
       chunkSubscriptionByPlayer.set(actor.id, sub);
+      const authSync = authSyncTimingByPlayer.get(actor.id);
+      if (authSync && authSync.firstSubscribeAt === undefined) {
+        authSync.firstSubscribeAt = now();
+        app.log.info(
+          {
+            playerId: actor.id,
+            sinceAuthVerifiedMs: authSync.authVerifiedAt ? authSync.firstSubscribeAt - authSync.authVerifiedAt : undefined,
+            sinceInitSentMs: authSync.initSentAt ? authSync.firstSubscribeAt - authSync.initSentAt : undefined,
+            cx: sub.cx,
+            cy: sub.cy,
+            radius: sub.radius
+          },
+          "auth sync first subscribe"
+        );
+      }
       const last = chunkSnapshotSentAtByPlayer.get(actor.id);
       if (last && last.cx === sub.cx && last.cy === sub.cy && last.radius === sub.radius && now() - last.sentAt < 2500) {
         return;
