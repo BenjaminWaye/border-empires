@@ -3095,6 +3095,18 @@ const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: nu
   ctx.fill();
   ctx.restore();
 };
+
+const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
+
+const settlePixelMotionPhase = (nowMs: number, seedOffset: number): number => {
+  const base = ((nowMs / 900) + seedOffset) % 1;
+  const envelope = triangularWave(base);
+  const speedEnvelope = 0.22 + 0.78 * (envelope * envelope);
+  return (((base * (0.55 + speedEnvelope * 1.7)) % 1) + 1) % 1;
+};
+
+const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
+  ((((wx + salt) * 92821) ^ ((wy + salt * 3) * 68917) ^ ((i + salt * 5) * 1259)) >>> 0) / 0xffffffff;
 const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
   return Math.max(0, Math.min(100, exposureRatio(t, e) * 100));
@@ -7866,28 +7878,38 @@ const draw = (): void => {
       }
       if (settlementProgress) {
         const totalMs = Math.max(1, settlementProgress.resolvesAt - settlementProgress.startAt);
-        const progress = Math.max(0, Math.min(1, (Date.now() - settlementProgress.startAt) / totalMs));
+        const now = Date.now();
+        const progress = Math.max(0, Math.min(1, (now - settlementProgress.startAt) / totalMs));
         const fillWidth = Math.max(2, Math.floor((size - 2) * progress));
         const ownerFill = t?.ownerId ? effectiveOverlayColor(t.ownerId) : "#ffd166";
-        const pulse = 0.38 + 0.34 * (0.5 + 0.5 * Math.sin(Date.now() / 210));
+        const pulse = 0.34 + 0.28 * (0.5 + 0.5 * Math.sin(now / 160));
+        const darkPixelAlpha = (0.52 + pulse * 0.18).toFixed(3);
         ctx.fillStyle = `rgba(9, 14, 24, 0.28)`;
         ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
         ctx.fillStyle = ownerFill;
         ctx.globalAlpha = 0.16 + progress * 0.36;
         ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
         ctx.globalAlpha = 1;
-        const dotCount = Math.max(4, Math.min(10, Math.floor(size / 2.8)));
-        const activeDots = Math.max(2, Math.round(progress * dotCount));
-        for (let i = 0; i < activeDots; i += 1) {
-          const seed = (((wx + 11) * 92821) ^ ((wy + 7) * 68917) ^ ((i + 3) * 1259) ^ Math.floor(Date.now() / 160)) >>> 0;
-          const rx = ((seed % 1000) / 1000) * (size - 8);
-          const ry = ((((seed / 1000) | 0) % 1000) / 1000) * (size - 8);
-          const dotX = px + 4 + rx;
-          const dotY = py + 4 + ry;
-          ctx.fillStyle = `rgba(8, 10, 16, ${0.58 + pulse * 0.16})`;
-          ctx.beginPath();
-          ctx.arc(dotX, dotY, Math.max(1.1, size * 0.05), 0, Math.PI * 2);
-          ctx.fill();
+        const pixelCount = isMobile() ? Math.max(6, Math.min(16, Math.floor(size * 0.62))) : Math.max(8, Math.min(22, Math.floor(size * 0.78)));
+        const activePixels = Math.max(4, Math.round(progress * pixelCount));
+        const swarmInset = Math.max(2, Math.floor(size * 0.08));
+        const swarmWidth = Math.max(3, size - swarmInset * 2);
+        const pixelSize = 1;
+        ctx.fillStyle = `rgba(6, 8, 12, ${darkPixelAlpha})`;
+        for (let i = 0; i < activePixels; i += 1) {
+          const seedA = settlePixelSeed(wx, wy, i, 17);
+          const seedB = settlePixelSeed(wx, wy, i, 29);
+          const seedC = settlePixelSeed(wx, wy, i, 7);
+          const phaseX = settlePixelMotionPhase(now, seedA);
+          const phaseY = settlePixelMotionPhase(now, seedB * 0.9 + 0.07);
+          const driftX = triangularWave((phaseX + seedC * 0.31) % 1);
+          const driftY = triangularWave((phaseY + seedC * 0.57) % 1);
+          const jitterPhase = (now / 140) + i * 0.19;
+          const jitterX = (triangularWave((jitterPhase + seedA) % 1) - 0.5) * 1.2;
+          const jitterY = (triangularWave((jitterPhase + seedB + 0.37) % 1) - 0.5) * 1.2;
+          const dotX = Math.floor(px + swarmInset + driftX * (swarmWidth - pixelSize) + jitterX);
+          const dotY = Math.floor(py + swarmInset + driftY * (swarmWidth - pixelSize) + jitterY);
+          ctx.fillRect(dotX, dotY, pixelSize, pixelSize);
         }
         ctx.strokeStyle = `rgba(255, 241, 185, ${0.68 + pulse * 0.16})`;
         ctx.lineWidth = 2;
