@@ -2665,6 +2665,16 @@ const applyOptimisticStructureCancel = (x: number, y: number): void => {
 const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
   const tileKey = key(incoming.x, incoming.y);
   const existing = state.tiles.get(tileKey);
+  const settlementProgress = state.settleProgressByTile.get(tileKey);
+  if (settlementProgress && (existing?.ownerId === state.me || incoming.ownerId === state.me)) {
+    return {
+      ...incoming,
+      ownerId: state.me,
+      ownershipState: settlementProgress.awaitingServerConfirm ? "SETTLED" : existing?.ownershipState === "SETTLED" ? "SETTLED" : "FRONTIER",
+      fogged: false,
+      optimisticPending: "settle"
+    };
+  }
   if (!existing?.optimisticPending || existing.ownerId !== state.me) return incoming;
   if (existing.optimisticPending === "expand") {
     if (incoming.ownerId === state.me && incoming.ownershipState === "FRONTIER") return incoming;
@@ -4387,12 +4397,14 @@ const applyPendingSettlementsFromServer = (
   let latestResolvesAt = -Infinity;
   for (const entry of entries) {
     const tileKey = key(entry.x, entry.y);
+    const awaitingServerConfirm = entry.resolvesAt <= Date.now();
     state.settleProgressByTile.set(tileKey, {
       startAt: entry.startedAt,
       resolvesAt: entry.resolvesAt,
       target: { x: entry.x, y: entry.y },
-      awaitingServerConfirm: false
+      awaitingServerConfirm
     });
+    syncOptimisticSettlementTile(entry.x, entry.y, awaitingServerConfirm);
     if (entry.resolvesAt > latestResolvesAt) {
       latestResolvesAt = entry.resolvesAt;
       latestKey = tileKey;
@@ -4421,6 +4433,7 @@ const requestSettlement = (x: number, y: number): boolean => {
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
+  syncOptimisticSettlementTile(x, y, false);
   state.selected = { x, y };
   state.attackPreview = undefined;
   state.attackPreviewPendingKey = "";
@@ -4837,6 +4850,15 @@ const clearSettlementProgressForTile = (x: number, y: number): void => {
   clearSettlementProgressByKey(key(x, y));
 };
 
+const syncOptimisticSettlementTile = (x: number, y: number, awaitingServerConfirm: boolean): void => {
+  applyOptimisticTileState(x, y, (tile) => {
+    tile.ownerId = state.me;
+    tile.ownershipState = awaitingServerConfirm ? "SETTLED" : tile.ownershipState === "SETTLED" ? "SETTLED" : "FRONTIER";
+    tile.fogged = false;
+    tile.optimisticPending = "settle";
+  });
+};
+
 const settlementProgressForTile = (x: number, y: number): TileTimedProgress | undefined => {
   const tileKey = key(x, y);
   const progress = state.settleProgressByTile.get(tileKey);
@@ -4844,12 +4866,7 @@ const settlementProgressForTile = (x: number, y: number): TileTimedProgress | un
   if (progress.resolvesAt <= Date.now() && !progress.awaitingServerConfirm) {
     progress.awaitingServerConfirm = true;
     state.settleProgressByTile.set(tileKey, progress);
-    applyOptimisticTileState(x, y, (tile) => {
-      tile.ownerId = state.me;
-      tile.ownershipState = "SETTLED";
-      tile.fogged = false;
-      tile.optimisticPending = "settle";
-    });
+    syncOptimisticSettlementTile(x, y, true);
   }
   return progress;
 };
