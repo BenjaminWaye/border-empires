@@ -3295,6 +3295,75 @@ const settlePixelMotionPhase = (nowMs: number, seedOffset: number): number => {
 
 const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
   ((((wx + salt) * 92821) ^ ((wy + salt * 3) * 68917) ^ ((i + salt * 5) * 1259)) >>> 0) / 0xffffffff;
+const settlePixelWaypoint = (wx: number, wy: number, i: number, step: number, axis: "x" | "y"): number =>
+  settlePixelSeed(wx, wy, i, axis === "x" ? 41 + step * 7 : 83 + step * 11);
+const settlePixelWanderPoint = (
+  nowMs: number,
+  wx: number,
+  wy: number,
+  i: number
+): { x: number; y: number } => {
+  const phase = settlePixelMotionPhase(nowMs, settlePixelSeed(wx, wy, i, 17));
+  const waypointCount = 5;
+  const scaled = phase * waypointCount;
+  const segment = Math.floor(scaled) % waypointCount;
+  const nextSegment = (segment + 1) % waypointCount;
+  const local = scaled - Math.floor(scaled);
+  const ease = local * local * (3 - 2 * local);
+  const x0 = settlePixelWaypoint(wx, wy, i, segment, "x");
+  const y0 = settlePixelWaypoint(wx, wy, i, segment, "y");
+  const x1 = settlePixelWaypoint(wx, wy, i, nextSegment, "x");
+  const y1 = settlePixelWaypoint(wx, wy, i, nextSegment, "y");
+  return {
+    x: x0 + (x1 - x0) * ease,
+    y: y0 + (y1 - y0) * ease
+  };
+};
+const ownershipPatternTone = (ownerId: string): string => {
+  const style = visualStyleForOwner(ownerId);
+  if (!style) return "rgba(255,255,255,0.14)";
+  if (style.secondaryTint === "IRON") return "rgba(214, 225, 239, 0.16)";
+  if (style.secondaryTint === "SUPPLY") return "rgba(238, 198, 126, 0.16)";
+  if (style.secondaryTint === "FOOD") return "rgba(186, 238, 144, 0.16)";
+  if (style.secondaryTint === "CRYSTAL") return "rgba(159, 220, 255, 0.16)";
+  return "rgba(255,255,255,0.14)";
+};
+const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: number): void => {
+  const style = visualStyleForOwner(ownerId);
+  if (!style || size < 12) return;
+  ctx.save();
+  ctx.strokeStyle = ownershipPatternTone(ownerId);
+  ctx.fillStyle = ownershipPatternTone(ownerId);
+  ctx.lineWidth = 1;
+  if (style.borderStyle === "HEAVY") {
+    ctx.fillRect(px + 2, py + 2, Math.max(2, Math.floor(size * 0.18)), size - 4);
+    ctx.fillRect(px + size - Math.max(2, Math.floor(size * 0.18)) - 2, py + 2, Math.max(2, Math.floor(size * 0.18)), size - 4);
+  } else if (style.borderStyle === "DASHED") {
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(px + 3, py + size - 4);
+    ctx.lineTo(px + size - 4, py + 3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (style.borderStyle === "SOFT") {
+    const r = Math.max(1.5, size * 0.1);
+    ctx.beginPath();
+    ctx.arc(px + size * 0.32, py + size * 0.32, r, 0, Math.PI * 2);
+    ctx.arc(px + size * 0.68, py + size * 0.68, r, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (style.borderStyle === "GLOW") {
+    ctx.beginPath();
+    ctx.moveTo(px + size / 2, py + 3);
+    ctx.lineTo(px + size - 3, py + size / 2);
+    ctx.lineTo(px + size / 2, py + size - 3);
+    ctx.lineTo(px + 3, py + size / 2);
+    ctx.closePath();
+    ctx.stroke();
+  } else {
+    ctx.strokeRect(px + size * 0.28, py + size * 0.28, size * 0.44, size * 0.44);
+  }
+  ctx.restore();
+};
 const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
   return Math.max(0, Math.min(100, exposureRatio(t, e) * 100));
@@ -4125,7 +4194,7 @@ const renderHud = (): void => {
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
   statsChipsEl.innerHTML = `
-    <div class="stat-chip ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
+    <div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
     <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
@@ -6152,10 +6221,9 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
 };
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
-  const developmentHtml = view.development ? developmentSlotCardHtml(view.development, "menu") : "";
   if (activeTab === "actions") {
-    if (view.actions.length === 0) return `${developmentHtml}<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
-    return `${developmentHtml}<div class="tile-action-list">${view.actions
+    if (view.actions.length === 0) return `<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
+    return `<div class="tile-action-list">${view.actions
       .map(
         (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${actionIcon(a.id)}</span>
@@ -6171,7 +6239,6 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
     return `
-      ${developmentHtml}
       <div class="tile-progress-card">
         <div class="tile-progress-title">${view.progress.title}</div>
         <div class="tile-progress-detail">${view.progress.detail}</div>
@@ -6187,7 +6254,6 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   }
   return `
     <div class="tile-overview-card">
-      ${developmentHtml}
       ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
       ${view.overviewLines
         .map((line) =>
@@ -7864,6 +7930,7 @@ const draw = (): void => {
           ctx.fillRect(px, py, size - 1, size - 1);
         }
         ctx.globalAlpha = 1;
+        if (t.ownershipState === "SETTLED") drawOwnershipSignature(t.ownerId, px, py, size);
       }
 
       const isDockEndpoint = dockEndpointKeys.has(wk);
@@ -8147,25 +8214,21 @@ const draw = (): void => {
         ctx.globalAlpha = 0.16 + progress * 0.36;
         ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
         ctx.globalAlpha = 1;
-        const pixelCount = isMobile() ? Math.max(6, Math.min(16, Math.floor(size * 0.62))) : Math.max(8, Math.min(22, Math.floor(size * 0.78)));
-        const activePixels = Math.max(4, Math.round(progress * pixelCount));
+        const pixelCount = isMobile() ? Math.max(8, Math.min(20, Math.floor(size * 0.9))) : Math.max(10, Math.min(28, Math.floor(size * 1.05)));
+        const activePixels = Math.max(2, Math.round(2 + progress * pixelCount));
         const swarmInset = 1;
         const swarmWidth = Math.max(4, size - swarmInset * 2);
         const pixelSize = 2;
         ctx.fillStyle = `rgba(6, 8, 12, ${darkPixelAlpha})`;
         for (let i = 0; i < activePixels; i += 1) {
+          const point = settlePixelWanderPoint(now + i * 93, wx, wy, i);
           const seedA = settlePixelSeed(wx, wy, i, 17);
           const seedB = settlePixelSeed(wx, wy, i, 29);
-          const seedC = settlePixelSeed(wx, wy, i, 7);
-          const phaseX = settlePixelMotionPhase(now, seedA);
-          const phaseY = settlePixelMotionPhase(now, seedB * 0.9 + 0.07);
-          const driftX = triangularWave((phaseX + seedC * 0.31) % 1);
-          const driftY = triangularWave((phaseY + seedC * 0.57) % 1);
-          const jitterPhase = (now / 280) + i * 0.19;
-          const jitterX = (triangularWave((jitterPhase + seedA) % 1) - 0.5) * 0.8;
-          const jitterY = (triangularWave((jitterPhase + seedB + 0.37) % 1) - 0.5) * 0.8;
-          const dotX = Math.floor(px + swarmInset + driftX * (swarmWidth - pixelSize) + jitterX);
-          const dotY = Math.floor(py + swarmInset + driftY * (swarmWidth - pixelSize) + jitterY);
+          const jitterPhase = (now / 620) + i * 0.11;
+          const jitterX = (triangularWave((jitterPhase + seedA) % 1) - 0.5) * 0.55;
+          const jitterY = (triangularWave((jitterPhase + seedB + 0.37) % 1) - 0.5) * 0.55;
+          const dotX = Math.floor(px + swarmInset + point.x * (swarmWidth - pixelSize) + jitterX);
+          const dotY = Math.floor(py + swarmInset + point.y * (swarmWidth - pixelSize) + jitterY);
           ctx.fillRect(dotX, dotY, pixelSize, pixelSize);
         }
         ctx.strokeStyle = `rgba(255, 241, 185, ${0.68 + pulse * 0.16})`;
