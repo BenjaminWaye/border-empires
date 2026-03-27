@@ -466,6 +466,14 @@ hud.innerHTML = `
           </div>
         </div>
       </section>
+      <div id="auth-busy-modal" aria-live="polite" aria-hidden="true">
+        <div class="auth-busy-card">
+          <div class="auth-busy-spinner" aria-hidden="true"></div>
+          <div class="auth-busy-eyebrow">Securing session</div>
+          <strong id="auth-busy-title">Connecting your empire...</strong>
+          <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -627,6 +635,9 @@ const authEmailLinkBtn = document.querySelector<HTMLButtonElement>("#auth-email-
 const authGoogleBtn = document.querySelector<HTMLButtonElement>("#auth-google");
 const authStatusEl = document.querySelector<HTMLDivElement>("#auth-status");
 const authPanelEl = document.querySelector<HTMLElement>(".auth-panel");
+const authBusyModalEl = document.querySelector<HTMLDivElement>("#auth-busy-modal");
+const authBusyTitleEl = document.querySelector<HTMLHeadingElement>("#auth-busy-title");
+const authBusyCopyEl = document.querySelector<HTMLParagraphElement>("#auth-busy-copy");
 const authEmailSentAddressEl = document.querySelector<HTMLSpanElement>("#auth-email-sent-address");
 const authEmailResetBtn = document.querySelector<HTMLButtonElement>("#auth-email-reset");
 const authProfileNameEl = document.querySelector<HTMLInputElement>("#auth-profile-name");
@@ -729,6 +740,9 @@ if (
   !authGoogleBtn ||
   !authStatusEl ||
   !authPanelEl ||
+  !authBusyModalEl ||
+  !authBusyTitleEl ||
+  !authBusyCopyEl ||
   !authEmailSentAddressEl ||
   !authEmailResetBtn ||
   !authProfileNameEl ||
@@ -3844,6 +3858,8 @@ const syncAuthPanelState = (): void => {
 
 const syncAuthOverlay = (): void => {
   authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired ? "none" : "grid";
+  authOverlayEl.dataset.busy = state.authBusy ? "true" : "false";
+  authBusyModalEl.setAttribute("aria-hidden", state.authBusy ? "false" : "true");
   authLoginBtn.disabled = state.authBusy || !state.authConfigured;
   authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
   authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
@@ -3855,6 +3871,10 @@ const syncAuthOverlay = (): void => {
   authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
   authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
+  authBusyTitleEl.textContent = state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...";
+  authBusyCopyEl.textContent = state.authError
+    ? state.authError
+    : authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
   syncAuthPanelState();
   if (!state.authConfigured) {
     setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");
