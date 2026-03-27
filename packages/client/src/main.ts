@@ -887,6 +887,7 @@ const state = {
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
   techUiSelectedId: "" as string,
+  pendingTechUnlockId: "" as string,
   techChoicesSig: "" as string,
   actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
   queuedTargetKeys: new Set<string>(),
@@ -2940,12 +2941,14 @@ const missionCardsHtml = (): string =>
     .join("");
 
 const techOwnedHtml = (): string => {
-  if (state.techIds.length === 0) return `<article class="card"><p>No techs selected yet.</p></article>`;
+  const ownedTechIds = effectiveOwnedTechIds();
+  if (ownedTechIds.length === 0) return `<article class="card"><p>No techs selected yet.</p></article>`;
   const catalogById = new Map(state.techCatalog.map((t) => [t.id, t]));
-  return state.techIds
+  return ownedTechIds
     .map((id) => {
       const t = catalogById.get(id);
-      return `<article class="card"><strong>${t?.name ?? id}</strong><p>${t?.description ?? id}</p><p>${t ? formatTechBenefitSummary(t) : id}</p></article>`;
+      const pending = isPendingTechUnlock(id) ? `<p class="muted">Unlocking...</p>` : "";
+      return `<article class="card"><strong>${t?.name ?? id}</strong>${pending}<p>${t?.description ?? id}</p><p>${t ? formatTechBenefitSummary(t) : id}</p></article>`;
     })
     .join("");
 };
@@ -3168,6 +3171,16 @@ const unlockedByTech = (techId: string): TechInfo[] =>
     })
     .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
 
+const effectiveOwnedTechIds = (): string[] => {
+  if (!state.pendingTechUnlockId || state.techIds.includes(state.pendingTechUnlockId)) return state.techIds;
+  return [...state.techIds, state.pendingTechUnlockId];
+};
+
+const effectiveTechChoices = (): string[] =>
+  state.pendingTechUnlockId ? state.techChoices.filter((id) => id !== state.pendingTechUnlockId) : state.techChoices;
+
+const isPendingTechUnlock = (techId: string): boolean => state.pendingTechUnlockId === techId;
+
 const formatTechCost = (t: TechInfo): string => {
   const checklist = t.requirements.checklist ?? [];
   const costBits = checklist.filter((c) => /gold|food|iron|crystal|supply|shard/i.test(c.label)).map((c) => c.label);
@@ -3179,7 +3192,8 @@ const formatTechCost = (t: TechInfo): string => {
 const renderTechChoiceGrid = (): string => {
   const byId = new Map(state.techCatalog.map((t) => [t.id, t]));
   const tierMemo = new Map<string, number>();
-  const choices = state.techChoices
+  const ownedTechIds = effectiveOwnedTechIds();
+  const choices = effectiveTechChoices()
     .map((id) => byId.get(id))
     .filter((t): t is TechInfo => Boolean(t))
     .sort((a, b) => techTier(a.id, byId, tierMemo) - techTier(b.id, byId, tierMemo));
@@ -3197,15 +3211,16 @@ const renderTechChoiceGrid = (): string => {
       const cards = (grouped.get(tier) ?? [])
         .map((t) => {
           const selected = state.techUiSelectedId === t.id ? " selected" : "";
-          const owned = state.techIds.includes(t.id) ? " owned" : "";
-          const blocked = t.requirements.canResearch ? "" : " blocked";
+          const owned = ownedTechIds.includes(t.id) ? " owned" : "";
+          const blocked = t.requirements.canResearch || isPendingTechUnlock(t.id) ? "" : " blocked";
+          const costLabel = isPendingTechUnlock(t.id) ? "Unlocking..." : formatTechCost(t);
           return `<button class="tech-card${selected}${owned}${blocked}" data-tech-card="${t.id}">
             <div class="tech-card-top">
               <strong>${t.name}</strong>
               <span class="tech-root">Tier ${techTier(t.id, byId, tierMemo)}</span>
             </div>
             <p>${formatTechBenefitSummary(t)}</p>
-            <p class="tech-card-cost">${formatTechCost(t)}</p>
+            <p class="tech-card-cost">${costLabel}</p>
           </button>`;
         })
         .join("");
@@ -3225,7 +3240,8 @@ const renderTechDetailCard = (): string => {
   const prereqs = t.prereqIds && t.prereqIds.length > 0 ? t.prereqIds : t.requires ? [t.requires] : [];
   const unlocks = unlockedByTech(t.id);
   const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
-  const canUnlock = t.requirements.canResearch;
+  const pendingUnlock = isPendingTechUnlock(t.id);
+  const canUnlock = t.requirements.canResearch && !state.pendingTechUnlockId;
   const effectSummary = formatTechBenefitSummary(t);
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
@@ -3233,8 +3249,9 @@ const renderTechDetailCard = (): string => {
         <strong>${t.name}</strong>
         <p class="tech-detail-effect">${effectSummary}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
+        ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
       </div>
-      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${canUnlock ? "" : "disabled"}>${canUnlock ? "Unlock" : "Locked"}</button>
+      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock) ? "" : "disabled"}>${pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked"}</button>
     </div>
     <p class="tech-detail-flavor">${t.description}</p>
     ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${next.tier})`).join(", ")}</p>` : ""}
@@ -3312,6 +3329,7 @@ const renderTechChoiceDetails = (): string => {
   const selectedId = techPickEl.value || mobileTechPickEl.value;
   const t = state.techCatalog.find((x) => x.id === selectedId);
   if (!t) return `<p class="muted">No tech selected.</p>`;
+  const pendingUnlock = isPendingTechUnlock(t.id);
   const mods = Object.entries(t.mods ?? {})
     .map(([k, v]) => `${k} x${Number(v).toFixed(3)}`)
     .join(" | ");
@@ -3331,6 +3349,7 @@ const renderTechChoiceDetails = (): string => {
   const prereqs = t.prereqIds && t.prereqIds.length > 0 ? t.prereqIds : t.requires ? [t.requires] : [];
   return `<article class="card">
     <strong>${t.name}</strong>
+    ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for authoritative update...</p>` : ""}
     <p>${t.description}</p>
     <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
     <p><strong>Requirements:</strong></p>
@@ -3345,7 +3364,7 @@ const renderTechChoiceDetails = (): string => {
 const affordableTechChoicesCount = (): number => {
   const catalogById = new Map(state.techCatalog.map((t) => [t.id, t]));
   let n = 0;
-  for (const id of state.techChoices) {
+  for (const id of effectiveTechChoices()) {
     const t = catalogById.get(id);
     if (t && t.requirements.canResearch) n += 1;
   }
@@ -3741,14 +3760,15 @@ const renderHud = (): void => {
     mapLoadingOverlayEl.style.display = "none";
   }
 
-  const choicesSig = `${state.availableTechPicks}|${state.techChoices.join("|")}|${state.techCatalog.length}`;
+  const visibleTechChoices = effectiveTechChoices();
+  const choicesSig = `${state.availableTechPicks}|${visibleTechChoices.join("|")}|${state.techCatalog.length}|${state.pendingTechUnlockId}`;
   const focused = document.activeElement === techPickEl || document.activeElement === mobileTechPickEl;
   const catalogById = new Map(state.techCatalog.map((t) => [t.id, t]));
   if (choicesSig !== state.techChoicesSig && !focused) {
     const previous = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
     techPickEl.innerHTML = "";
     mobileTechPickEl.innerHTML = "";
-    for (const choice of state.techChoices) {
+    for (const choice of visibleTechChoices) {
       const opt = document.createElement("option");
       opt.value = choice;
       const info = catalogById.get(choice);
@@ -3756,18 +3776,20 @@ const renderHud = (): void => {
       techPickEl.append(opt);
       mobileTechPickEl.append(opt.cloneNode(true));
     }
-    if (state.techChoices.length === 0) {
+    if (visibleTechChoices.length === 0) {
       const opt = document.createElement("option");
       opt.value = "";
       opt.textContent =
-        state.techIds.length > 0
-          ? "No further techs in your current branch this season"
-          : "No available tech choices";
+        state.pendingTechUnlockId
+          ? "Unlock pending..."
+          : state.techIds.length > 0
+            ? "No further techs in your current branch this season"
+            : "No available tech choices";
       techPickEl.append(opt);
       mobileTechPickEl.append(opt.cloneNode(true));
     }
-    const fallback = state.techChoices[0] ?? "";
-    const nextValue = state.techChoices.includes(previous) ? previous : fallback;
+    const fallback = state.pendingTechUnlockId || visibleTechChoices[0] || "";
+    const nextValue = previous === state.pendingTechUnlockId || visibleTechChoices.includes(previous) ? previous : fallback;
     techPickEl.value = nextValue;
     mobileTechPickEl.value = nextValue;
     state.techUiSelectedId = nextValue;
@@ -3809,7 +3831,7 @@ const renderHud = (): void => {
     };
   });
   const selectedTech = state.techCatalog.find((t) => t.id === (techPickEl.value || mobileTechPickEl.value));
-  const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch);
+  const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch && !state.pendingTechUnlockId);
   techChooseBtn.disabled = !canPick;
   mobileTechChooseBtn.disabled = !canPick;
 
@@ -4090,9 +4112,15 @@ const chooseTech = (techIdRaw?: string): void => {
     syncAuthOverlay();
     return;
   }
+  if (state.pendingTechUnlockId) {
+    pushFeed("Already unlocking a technology. Waiting for server confirmation...", "tech", "warn");
+    return;
+  }
   state.techUiSelectedId = techId;
+  state.pendingTechUnlockId = techId;
   console.info("[tech] sending CHOOSE_TECH", { techId });
   ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
+  renderHud();
 };
 
 const explainActionFailure = (code: string, message: string): string => {
@@ -6491,6 +6519,7 @@ ws.addEventListener("message", (ev) => {
       nextChoices: (msg.nextChoices as string[])?.length ?? 0
     });
     state.techRootId = msg.techRootId as string | undefined;
+    state.pendingTechUnlockId = "";
     state.techIds = (msg.techIds as string[]) ?? [];
     state.techChoices = (msg.nextChoices as string[]) ?? [];
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
@@ -6585,6 +6614,7 @@ ws.addEventListener("message", (ev) => {
     });
     const errorCode = String(msg.code ?? "");
     const errorMessage = String(msg.message ?? "unknown failure");
+    if (errorCode === "TECH_INVALID" && state.pendingTechUnlockId) state.pendingTechUnlockId = "";
     const errorTileKey =
       typeof msg.x === "number" && typeof msg.y === "number" ? key(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
     if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
