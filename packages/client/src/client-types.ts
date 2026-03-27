@@ -57,8 +57,10 @@ export type Tile = {
   yield?: { gold?: number; strategic?: Record<string, number> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
-  optimisticPending?: "expand" | "settle";
+  optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel";
 };
+
+export type OptimisticStructureKind = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
 
 export type TileTimedProgress = {
   startAt: number;
