@@ -780,8 +780,7 @@ body {
 #hud #hold-build-menu,
 #hud #tile-action-menu,
 #hud #targeting-overlay,
-#hud #guide-overlay,
-#hud #guide-fab {
+#hud #guide-overlay {
   pointer-events: auto;
 }
 
@@ -1306,29 +1305,6 @@ body {
   background: linear-gradient(180deg, #11c34a, #0da53d);
   border-color: rgba(78, 217, 122, 0.82);
   color: #f9fff9;
-}
-
-#guide-fab {
-  position: fixed;
-  right: max(14px, calc(env(safe-area-inset-right) + 14px));
-  bottom: max(14px, calc(env(safe-area-inset-bottom) + 14px));
-  width: 48px;
-  height: 48px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.96);
-  color: #0d1722;
-  font-size: 22px;
-  font-weight: 800;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
-  pointer-events: auto;
-  z-index: 28;
-}
-
-#guide-fab.has-unseen-guide {
-  box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.28),
-    0 0 0 8px rgba(35, 212, 92, 0.14);
 }
 
 .targeting-card {
@@ -2862,12 +2838,6 @@ h4 {
     border: 1px solid rgba(255, 255, 255, 0.18);
     background: linear-gradient(145deg, rgba(11, 19, 32, 0.95), rgba(3, 7, 14, 0.95));
     z-index: 22;
-  }
-
-  #guide-fab {
-    bottom: calc(var(--mobile-nav-height) + var(--mobile-bottom-safe) + 14px);
-    width: 44px;
-    height: 44px;
   }
 
   #mobile-nav button {
