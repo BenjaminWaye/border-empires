@@ -926,7 +926,9 @@ const state = {
     x: 0,
     y: 0,
     mode: "single" as "single" | "bulk",
-    bulkKeys: [] as string[]
+    bulkKeys: [] as string[],
+    currentTileKey: "",
+    activeTab: "overview" as TileMenuTab
   },
   crystalTargeting: {
     active: false,
@@ -3614,6 +3616,10 @@ const renderHud = (): void => {
       selectedEl.innerHTML = inspectionHtmlForTile(selected);
     }
   }
+  if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
+    const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
+    if (menuTile) renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);
+  }
   hoverEl.innerHTML = "";
   hoverEl.style.display = "none";
 
@@ -4390,6 +4396,8 @@ const hideHoldBuildMenu = (): void => {
 const hideTileActionMenu = (): void => {
   state.tileActionMenu.visible = false;
   state.tileActionMenu.bulkKeys = [];
+  state.tileActionMenu.currentTileKey = "";
+  state.tileActionMenu.activeTab = "overview";
   tileActionMenuEl.style.display = "none";
   tileActionMenuEl.innerHTML = "";
 };
@@ -4422,6 +4430,26 @@ type TileActionDef = {
   disabledReason?: string;
   targetKey?: string;
   originKey?: string;
+};
+
+type TileMenuTab = "overview" | "actions" | "progress";
+
+type TileMenuProgressView = {
+  title: string;
+  detail: string;
+  remainingLabel: string;
+  progress: number;
+  note: string;
+};
+
+type TileMenuView = {
+  title: string;
+  subtitle: string;
+  tabs: TileMenuTab[];
+  overviewKicker?: string;
+  overviewLines: string[];
+  actions: TileActionDef[];
+  progress?: TileMenuProgressView;
 };
 
 const actionIcon = (id: TileActionDef["id"]): string => {
@@ -4544,6 +4572,148 @@ const constructionCountdownLineForTile = (tile: Tile): string => {
     return `Building ${economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
   }
   return "";
+};
+
+const tileProductionRequirementLabel = (tile: Tile): string | undefined => {
+  if (tile.town) return "gold";
+  const strategicKey = strategicResourceKeyForTile(tile);
+  if (strategicKey) return prettyToken(strategicKey).toLowerCase();
+  const gpm = tile.yieldRate?.goldPerMinute ?? 0;
+  if (gpm > 0.01) return "gold";
+  return undefined;
+};
+
+const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
+  const nowMs = Date.now();
+  if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
+    const remaining = Math.max(0, tile.fort.completesAt - nowMs);
+    return {
+      title: "Fortification under construction",
+      detail: "This tile will gain fortified defense when construction completes.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
+      note: "Uses 1 development slot while building."
+    };
+  }
+  if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
+    const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
+    return {
+      title: "Observatory under construction",
+      detail: "This tile will extend vision and observatory protection when construction completes.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
+      note: "Uses 1 development slot while building."
+    };
+  }
+  if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
+    const remaining = Math.max(0, tile.siegeOutpost.completesAt - nowMs);
+    return {
+      title: "Siege camp under construction",
+      detail: "This tile will gain an offensive staging structure when construction completes.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
+      note: "Uses 1 development slot while building."
+    };
+  }
+  if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
+    const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
+    return {
+      title: `${economicStructureName(tile.economicStructure.type)} under construction`,
+      detail: "This tile is still being developed and is not fully online yet.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, ECONOMIC_STRUCTURE_BUILD_MS))),
+      note: "Uses 1 development slot while building."
+    };
+  }
+  return undefined;
+};
+
+const menuOverviewForTile = (tile: Tile): string[] => {
+  const lines: string[] = [];
+  const ownerLabel = !tile.ownerId
+    ? "Unclaimed land"
+    : tile.ownerId === state.me
+      ? "Your land"
+      : isTileOwnedByAlly(tile)
+        ? "Allied land"
+        : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`;
+  lines.push(ownerLabel);
+  if (tile.terrain === "SEA") {
+    lines.push(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions.");
+    return lines;
+  }
+  if (tile.terrain === "MOUNTAIN") {
+    lines.push("Mountains block normal land expansion and attacks.");
+    return lines;
+  }
+  const productionLabel = tileProductionRequirementLabel(tile);
+  if (!tile.ownerId) {
+    lines.push("Claim this tile first to turn it into frontier land.");
+    if (productionLabel) lines.push(`After you settle it, this tile can produce ${productionLabel}.`);
+    return lines;
+  }
+  if (tile.ownershipState === "FRONTIER") {
+    lines.push("Frontier land is visible control, but it has no real defense yet.");
+    if (productionLabel) lines.push(`Needs settlement to produce ${productionLabel}.`);
+    else lines.push("Needs settlement to gain defense and full ownership strength.");
+  } else if (tile.ownershipState === "SETTLED") {
+    lines.push("Settled land is defended and fully part of your empire.");
+    if (productionLabel) lines.push(`This tile is eligible to produce ${productionLabel}.`);
+  }
+  if (tile.town) {
+    lines.push(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
+    lines.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax} • Pop ${Math.round(tile.town.population).toLocaleString()}`);
+  } else if (tile.resource) {
+    const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
+    if (tile.ownershipState === "SETTLED") lines.push(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
+  }
+  const storedYield = storedYieldSummary(tile);
+  if (storedYield) lines.push(`Stored yield: ${storedYield}`);
+  const construction = constructionCountdownLineForTile(tile);
+  if (construction) lines.push(construction);
+  return lines;
+};
+
+const tileMenuViewForTile = (tile: Tile): TileMenuView => {
+  const actions = menuActionsForSingleTile(tile);
+  const settlement = settlementProgressForTile(tile.x, tile.y);
+  const construction = constructionProgressForTile(tile);
+  const progress =
+    settlement
+      ? {
+          title: "Settlement in progress",
+          detail: "Settling unlocks defense and activates town and resource production.",
+          remainingLabel: formatCountdownClock(Math.max(0, settlement.resolvesAt - Date.now())),
+          progress: Math.max(0, Math.min(1, (Date.now() - settlement.startAt) / Math.max(1, settlement.resolvesAt - settlement.startAt))),
+          note: "Uses 1 development slot while settling."
+        }
+      : construction;
+  const tabs: TileMenuTab[] = ["overview"];
+  if (actions.length > 0) tabs.push("actions");
+  if (progress) tabs.push("progress");
+  const ownerLabel =
+    tile.terrain === "SEA"
+      ? actions.length > 0
+        ? "Crossing route"
+        : "Open sea"
+      : !tile.ownerId
+        ? "Unclaimed"
+        : tile.ownerId === state.me
+          ? tile.ownershipState === "FRONTIER"
+            ? "Your frontier"
+            : "Your settled land"
+          : isTileOwnedByAlly(tile)
+            ? "Allied"
+            : "Enemy";
+  return {
+    title: `${terrainLabel(tile.x, tile.y, tile.terrain)} (${tile.x}, ${tile.y})`,
+    subtitle: ownerLabel,
+    tabs,
+    ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
+    overviewLines: menuOverviewForTile(tile),
+    actions,
+    ...(progress ? { progress } : {})
+  };
 };
 
 const hasRevealCapability = (): boolean => {
@@ -5151,37 +5321,78 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
   return out;
 };
 
-const renderTileActionMenu = (title: string, subtitle: string, actions: TileActionDef[], clientX: number, clientY: number): void => {
-  if (actions.length === 0) {
-    hideTileActionMenu();
-    return;
+const tileMenuTabLabel = (tab: TileMenuTab): string => {
+  if (tab === "overview") return "Overview";
+  if (tab === "actions") return "Actions";
+  return "Progress";
+};
+
+const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
+  if (activeTab === "actions") {
+    if (view.actions.length === 0) return `<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
+    return `<div class="tile-action-list">${view.actions
+      .map(
+        (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
+          <span class="tile-action-icon">${actionIcon(a.id)}</span>
+          <span class="tile-action-copy">
+            <span class="tile-action-label">${a.label}</span>
+            ${a.detail || a.disabledReason ? `<span class="tile-action-detail">${a.detail ?? a.disabledReason ?? ""}</span>` : ""}
+          </span>
+          ${a.cost ? `<span class="tile-action-cost">${a.cost}</span>` : ""}
+        </button>`
+      )
+      .join("")}</div>`;
   }
-  const rows = actions
-    .map(
-      (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
-        <span class="tile-action-icon">${actionIcon(a.id)}</span>
-        <span class="tile-action-copy">
-          <span class="tile-action-label">${a.label}</span>
-          ${a.detail ? `<span class="tile-action-detail">${a.detail}</span>` : ""}
-        </span>
-        ${a.cost ? `<span class="tile-action-cost">${a.cost}</span>` : ""}
-      </button>`
-    )
-    .join("");
+  if (activeTab === "progress") {
+    if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
+    return `
+      <div class="tile-progress-card">
+        <div class="tile-progress-title">${view.progress.title}</div>
+        <div class="tile-progress-detail">${view.progress.detail}</div>
+        <div class="tile-progress-meta">
+          <span>Remaining</span>
+          <strong>${view.progress.remainingLabel}</strong>
+        </div>
+        <div class="tile-progress-bar"><div style="width:${Math.round(view.progress.progress * 100)}%"></div></div>
+        <div class="tile-progress-note">${view.progress.note}</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="tile-overview-card">
+      ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
+      ${view.overviewLines.map((line) => `<div class="tile-overview-line">${line}</div>`).join("")}
+    </div>
+  `;
+};
+
+const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void => {
+  const activeTab = view.tabs.includes(state.tileActionMenu.activeTab) ? state.tileActionMenu.activeTab : (view.tabs[0] ?? "overview");
+  state.tileActionMenu.activeTab = activeTab;
+  const tabsHtml =
+    view.tabs.length > 1
+      ? `<div class="tile-menu-tabs">${view.tabs
+          .map(
+            (tab) =>
+              `<button class="tile-menu-tab${tab === activeTab ? " is-active" : ""}" type="button" data-tile-tab="${tab}">${tileMenuTabLabel(tab)}</button>`
+          )
+          .join("")}</div>`
+      : "";
   tileActionMenuEl.innerHTML = `
     <div class="tile-action-card">
       <button class="tile-action-close" id="tile-action-close" title="Close">×</button>
       <div class="tile-action-head">
-        <div class="tile-action-title">${title}</div>
-        <div class="tile-action-subtitle">${subtitle}</div>
+        <div class="tile-action-title">${view.title}</div>
+        <div class="tile-action-subtitle">${view.subtitle}</div>
       </div>
-      <div class="tile-action-list">${rows}</div>
+      ${tabsHtml}
+      <div class="tile-menu-body">${tileMenuBodyHtml(view, activeTab)}</div>
       <div class="tile-action-hint">${isMobile() ? "Tap outside to close" : "Right-click or ESC to close"}</div>
     </div>
   `;
   const { width: vw, height: vh } = viewportSize();
-  const menuW = Math.min(330, vw - 16);
-  const menuH = 260;
+  const menuW = Math.min(348, vw - 16);
+  const menuH = Math.min(360, vh - 90);
   const left = Math.max(8, Math.min(vw - menuW - 8, clientX + 10));
   const top = Math.max(78, Math.min(vh - menuH - 8, clientY + 8));
   tileActionMenuEl.style.width = `${menuW}px`;
@@ -5193,6 +5404,18 @@ const renderTileActionMenu = (title: string, subtitle: string, actions: TileActi
   state.tileActionMenu.y = clientY;
   const closeBtn = tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
   if (closeBtn) closeBtn.onclick = () => hideTileActionMenu();
+  const tabButtons = tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-tab]");
+  tabButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const nextTab = btn.dataset.tileTab as TileMenuTab | undefined;
+      if (!nextTab) return;
+      state.tileActionMenu.activeTab = nextTab;
+      if (state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
+        const tile = state.tiles.get(state.tileActionMenu.currentTileKey);
+        if (tile) renderTileActionMenu(tileMenuViewForTile(tile), state.tileActionMenu.x, state.tileActionMenu.y);
+      }
+    };
+  });
   const actionButtons = tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-action]");
   actionButtons.forEach((btn) => {
     btn.onclick = () => {
@@ -5205,22 +5428,11 @@ const renderTileActionMenu = (title: string, subtitle: string, actions: TileActi
 
 const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number): void => {
   if (tile.ownerId && tile.ownerId !== state.me && !isTileOwnedByAlly(tile)) requestAttackPreviewForTarget(tile);
-  const actions = menuActionsForSingleTile(tile);
-  const ownerLabel =
-    tile.terrain === "SEA"
-      ? actions.length > 0
-        ? "Crossing Route"
-        : "Open Sea"
-      : !tile.ownerId
-        ? "Unclaimed"
-        : tile.ownerId === state.me
-          ? "Owned"
-          : isTileOwnedByAlly(tile)
-            ? "Allied"
-            : "Enemy";
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
-  renderTileActionMenu(`${terrainLabel(tile.x, tile.y, tile.terrain)} (${tile.x}, ${tile.y})`, ownerLabel, actions, clientX, clientY);
+  state.tileActionMenu.currentTileKey = key(tile.x, tile.y);
+  state.tileActionMenu.activeTab = settlementProgressForTile(tile.x, tile.y) || constructionProgressForTile(tile) ? "progress" : "overview";
+  renderTileActionMenu(tileMenuViewForTile(tile), clientX, clientY);
 };
 
 const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: number): void => {
@@ -5258,7 +5470,19 @@ const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: 
   }
   state.tileActionMenu.mode = "bulk";
   state.tileActionMenu.bulkKeys = targetKeys;
-  renderTileActionMenu("Tile Selection", `${targetKeys.length} selected`, actions, clientX, clientY);
+  state.tileActionMenu.currentTileKey = "";
+  state.tileActionMenu.activeTab = "actions";
+  renderTileActionMenu(
+    {
+      title: "Tile Selection",
+      subtitle: `${targetKeys.length} selected`,
+      tabs: ["actions"],
+      overviewLines: [],
+      actions
+    },
+    clientX,
+    clientY
+  );
 };
 
 const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string): void => {
@@ -6913,13 +7137,36 @@ const draw = (): void => {
         ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
       }
       if (settlementProgress) {
-        const phase = (Date.now() % 700) / 700;
-        const alpha = 0.22 + 0.5 * Math.sin(phase * Math.PI);
-        ctx.fillStyle = `rgba(255, 209, 102, ${alpha.toFixed(3)})`;
-        ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-        ctx.strokeStyle = `rgba(255, 241, 185, ${(0.55 + alpha * 0.35).toFixed(3)})`;
+        const totalMs = Math.max(1, settlementProgress.resolvesAt - settlementProgress.startAt);
+        const progress = Math.max(0, Math.min(1, (Date.now() - settlementProgress.startAt) / totalMs));
+        const fillWidth = Math.max(2, Math.floor((size - 2) * progress));
+        const ownerFill = t?.ownerId ? effectiveOverlayColor(t.ownerId) : "#ffd166";
+        const pulse = 0.38 + 0.34 * (0.5 + 0.5 * Math.sin(Date.now() / 210));
+        ctx.fillStyle = `rgba(9, 14, 24, 0.28)`;
+        ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
+        ctx.fillStyle = ownerFill;
+        ctx.globalAlpha = 0.16 + progress * 0.36;
+        ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
+        ctx.globalAlpha = 1;
+        const dotCount = Math.max(2, Math.min(5, Math.floor(size / 5)));
+        const activeDots = Math.max(1, Math.round(progress * dotCount));
+        for (let i = 0; i < activeDots; i += 1) {
+          const dotX = px + 3 + i * Math.max(4, Math.floor((size - 8) / Math.max(1, dotCount - 1)));
+          const wave = Math.sin(Date.now() / 180 + i * 0.9) * Math.max(1, size * 0.06);
+          const dotY = py + size * 0.34 + wave;
+          ctx.fillStyle = `rgba(255, 241, 185, ${0.72 + pulse * 0.18})`;
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, Math.max(1.4, size * 0.06), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = `rgba(255, 241, 185, ${0.68 + pulse * 0.16})`;
         ctx.lineWidth = 2;
         ctx.strokeRect(px + 1.5, py + 1.5, size - 4, size - 4);
+        const barH = Math.max(3, Math.floor(size * 0.12));
+        ctx.fillStyle = "rgba(8, 12, 18, 0.82)";
+        ctx.fillRect(px + 1, py + size - barH - 1, size - 2, barH);
+        ctx.fillStyle = "rgba(255, 209, 102, 0.96)";
+        ctx.fillRect(px + 1, py + size - barH - 1, Math.max(2, Math.floor((size - 2) * progress)), barH);
         ctx.lineWidth = 1;
       }
 
