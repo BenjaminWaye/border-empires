@@ -26,6 +26,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     structureType: z.enum(["FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY"])
   }),
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("CANCEL_STRUCTURE_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("SETTLE"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("BUILD_SIEGE_OUTPOST"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1) }),
