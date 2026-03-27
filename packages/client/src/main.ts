@@ -120,12 +120,14 @@ type Tile = {
   yield?: { gold?: number; strategic?: Record<string, number> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
+  optimisticPending?: "expand" | "settle";
 };
 
 type TileTimedProgress = {
   startAt: number;
   resolvesAt: number;
   target: { x: number; y: number };
+  awaitingServerConfirm?: boolean;
 };
 
 type EmpireVisualStyle = {
@@ -855,6 +857,7 @@ const state = {
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
+  optimisticTileSnapshots: new Map<string, Tile | undefined>(),
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "error" | "warn" } | undefined,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
@@ -2530,7 +2533,63 @@ const renderMobilePanels = (): void => {
 
 const selectedTile = (): Tile | undefined => {
   if (!state.selected) return undefined;
-  return state.tiles.get(key(state.selected.x, state.selected.y));
+  const existing = state.tiles.get(key(state.selected.x, state.selected.y));
+  if (existing) return existing;
+  const visibility = tileVisibilityStateAt(state.selected.x, state.selected.y);
+  if (visibility === "unexplored") return undefined;
+  return {
+    x: state.selected.x,
+    y: state.selected.y,
+    terrain: terrainAt(state.selected.x, state.selected.y),
+    fogged: visibility !== "visible"
+  };
+};
+
+const applyOptimisticTileState = (
+  x: number,
+  y: number,
+  mutate: (tile: Tile) => void
+): void => {
+  const tileKey = key(x, y);
+  if (!state.optimisticTileSnapshots.has(tileKey)) {
+    const existing = state.tiles.get(tileKey);
+    state.optimisticTileSnapshots.set(tileKey, existing ? { ...existing } : undefined);
+  }
+  const current =
+    state.tiles.get(tileKey) ??
+    ({
+      x,
+      y,
+      terrain: terrainAt(x, y),
+      fogged: false
+    } satisfies Tile);
+  const next = { ...current };
+  mutate(next);
+  state.tiles.set(tileKey, next);
+  if (!next.fogged) state.discoveredTiles.add(tileKey);
+};
+
+const clearOptimisticTileState = (tileKey: string, revert = false): void => {
+  if (!state.optimisticTileSnapshots.has(tileKey)) return;
+  const previous = state.optimisticTileSnapshots.get(tileKey);
+  state.optimisticTileSnapshots.delete(tileKey);
+  if (!revert) {
+    const current = state.tiles.get(tileKey);
+    if (current?.optimisticPending) {
+      const next = { ...current };
+      delete next.optimisticPending;
+      state.tiles.set(tileKey, next);
+    }
+    return;
+  }
+  if (previous) {
+    state.tiles.set(tileKey, previous);
+    if (!previous.fogged) state.discoveredTiles.add(tileKey);
+    else state.discoveredTiles.delete(tileKey);
+  } else {
+    state.tiles.delete(tileKey);
+    state.discoveredTiles.delete(tileKey);
+  }
 };
 
 const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
@@ -3644,8 +3703,8 @@ const renderHud = (): void => {
     } else if (state.connection === "connected" || (state.connection === "initialized" && state.firstChunkAt === 0)) {
       const startAt = state.mapLoadStartedAt || Date.now();
       const elapsed = ((Date.now() - startAt) / 1000).toFixed(1);
-      mapLoadingTitleEl.textContent = "Loading world...";
-      mapLoadingMetaEl.textContent = `Elapsed ${elapsed}s · chunks ${state.chunkFullCount}`;
+      mapLoadingTitleEl.textContent = state.authSessionReady ? "Loading nearby land..." : "Authorizing empire...";
+      mapLoadingMetaEl.textContent = state.authSessionReady ? `Elapsed ${elapsed}s · chunks ${state.chunkFullCount}` : `Connected to ${wsUrl}`;
     } else {
       mapLoadingTitleEl.textContent = "Loading world...";
       mapLoadingMetaEl.textContent = "Finalizing map render...";
@@ -4126,6 +4185,7 @@ const applyPendingSettlementsFromServer = (
   entries: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
 ): void => {
   if (!entries) return;
+  for (const tileKey of state.settleProgressByTile.keys()) clearOptimisticTileState(tileKey);
   state.settleProgressByTile.clear();
   let latestKey = "";
   let latestResolvesAt = -Infinity;
@@ -4134,7 +4194,8 @@ const applyPendingSettlementsFromServer = (
     state.settleProgressByTile.set(tileKey, {
       startAt: entry.startedAt,
       resolvesAt: entry.resolvesAt,
-      target: { x: entry.x, y: entry.y }
+      target: { x: entry.x, y: entry.y },
+      awaitingServerConfirm: false
     });
     if (entry.resolvesAt > latestResolvesAt) {
       latestResolvesAt = entry.resolvesAt;
@@ -4159,7 +4220,7 @@ const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
 const requestSettlement = (x: number, y: number): boolean => {
   if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
   const startAt = Date.now();
-  const progress = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y } };
+  const progress = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y }, awaitingServerConfirm: false };
   const tileKey = key(x, y);
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   state.settleProgressByTile.set(tileKey, progress);
@@ -4210,6 +4271,14 @@ const processActionQueue = (): boolean => {
     state.actionTargetKey = targetKey;
     const optimisticMs = !to.ownerId ? 1_250 : 3_000;
     state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    if (!to.ownerId) {
+      applyOptimisticTileState(to.x, to.y, (tile) => {
+        tile.ownerId = state.me;
+        tile.ownershipState = "FRONTIER";
+        tile.fogged = false;
+        tile.optimisticPending = "expand";
+      });
+    }
     state.attackPreview = undefined;
     state.attackPreviewPendingKey = "";
     if (!to.ownerId) {
@@ -4515,6 +4584,7 @@ const formatCountdownClock = (ms: number): string => {
 const clearSettlementProgressByKey = (tileKey: string): void => {
   if (!tileKey) return;
   state.settleProgressByTile.delete(tileKey);
+  clearOptimisticTileState(tileKey);
   if (state.latestSettleTargetKey === tileKey) state.latestSettleTargetKey = "";
 };
 
@@ -4526,23 +4596,21 @@ const settlementProgressForTile = (x: number, y: number): TileTimedProgress | un
   const tileKey = key(x, y);
   const progress = state.settleProgressByTile.get(tileKey);
   if (!progress) return undefined;
-  if (progress.resolvesAt <= Date.now()) {
-    clearSettlementProgressByKey(tileKey);
-    return undefined;
+  if (progress.resolvesAt <= Date.now() && !progress.awaitingServerConfirm) {
+    progress.awaitingServerConfirm = true;
+    state.settleProgressByTile.set(tileKey, progress);
+    applyOptimisticTileState(x, y, (tile) => {
+      tile.ownerId = state.me;
+      tile.ownershipState = "SETTLED";
+      tile.fogged = false;
+      tile.optimisticPending = "settle";
+    });
   }
   return progress;
 };
 
 const cleanupExpiredSettlementProgress = (): boolean => {
-  let changed = false;
-  const now = Date.now();
-  for (const [tileKey, progress] of state.settleProgressByTile) {
-    if (progress.resolvesAt > now) continue;
-    state.settleProgressByTile.delete(tileKey);
-    if (state.latestSettleTargetKey === tileKey) state.latestSettleTargetKey = "";
-    changed = true;
-  }
-  return changed;
+  return false;
 };
 
 const activeSettlementProgressEntries = (): TileTimedProgress[] => {
@@ -4554,7 +4622,7 @@ const primarySettlementProgress = (): TileTimedProgress | undefined => {
   const selected = state.selected ? settlementProgressForTile(state.selected.x, state.selected.y) : undefined;
   if (selected) return selected;
   const latest = state.latestSettleTargetKey ? state.settleProgressByTile.get(state.latestSettleTargetKey) : undefined;
-  if (latest && latest.resolvesAt > Date.now()) return latest;
+  if (latest) return latest;
   return activeSettlementProgressEntries()[0];
 };
 
@@ -4682,10 +4750,14 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     settlement
       ? {
           title: "Settlement in progress",
-          detail: "Settling unlocks defense and activates town and resource production.",
-          remainingLabel: formatCountdownClock(Math.max(0, settlement.resolvesAt - Date.now())),
-          progress: Math.max(0, Math.min(1, (Date.now() - settlement.startAt) / Math.max(1, settlement.resolvesAt - settlement.startAt))),
-          note: "Uses 1 development slot while settling."
+          detail: settlement.awaitingServerConfirm
+            ? "Settlement timer finished locally. Waiting for server confirmation."
+            : "Settling unlocks defense and activates town and resource production.",
+          remainingLabel: settlement.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(Math.max(0, settlement.resolvesAt - Date.now())),
+          progress: settlement.awaitingServerConfirm
+            ? 1
+            : Math.max(0, Math.min(1, (Date.now() - settlement.startAt) / Math.max(1, settlement.resolvesAt - settlement.startAt))),
+          note: settlement.awaitingServerConfirm ? "Keeping the tile settled client-side until the server responds." : "Uses 1 development slot while settling."
         }
       : construction;
   const tabs: TileMenuTab[] = ["overview"];
@@ -5896,16 +5968,22 @@ ws.addEventListener("open", () => {
   if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
   clearReconnectReloadTimer();
   clearAuthReconnectTimer();
+  if (state.authReady && !state.authSessionReady) {
+    state.authBusy = true;
+    setAuthStatus(`Connected to the game server. Authorizing ${state.authUserLabel || "empire"}...`);
+  }
   renderHud();
   void authenticateSocket();
 });
 ws.addEventListener("close", () => {
+  const currentActionKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
   state.connection = "disconnected";
   state.actionInFlight = false;
   state.combatStartAck = false;
   state.actionStartedAt = 0;
   state.actionTargetKey = "";
   state.actionCurrent = undefined;
+  if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
   pushFeed("Connection lost. Retrying...", "error", "warn");
   if (state.authReady && !state.authSessionReady) {
     state.authBusy = true;
@@ -5916,12 +5994,14 @@ ws.addEventListener("close", () => {
   renderHud();
 });
 ws.addEventListener("error", () => {
+  const currentActionKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
   state.connection = "disconnected";
   state.actionInFlight = false;
   state.combatStartAck = false;
   state.actionStartedAt = 0;
   state.actionTargetKey = "";
   state.actionCurrent = undefined;
+  if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
   pushFeed("Server unreachable. Retrying...", "error", "warn");
   if (state.authReady && !state.authSessionReady) {
     state.authBusy = true;
@@ -6184,6 +6264,7 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COMBAT_RESULT") {
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     for (const c of changes) {
+      clearOptimisticTileState(key(c.x, c.y));
       const existing = state.tiles.get(key(c.x, c.y));
       if (existing) {
         if (c.ownerId) existing.ownerId = c.ownerId;
@@ -6261,6 +6342,7 @@ ws.addEventListener("message", (ev) => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     if (cancelledCurrentKey) state.queuedTargetKeys.delete(cancelledCurrentKey);
+    if (cancelledCurrentKey) clearOptimisticTileState(cancelledCurrentKey, true);
     state.autoSettleTargets.clear();
     pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "warn");
     renderHud();
@@ -6276,6 +6358,7 @@ ws.addEventListener("message", (ev) => {
     let resolvedQueuedFrontierCapture = false;
     for (const update of updates) {
       const updateKey = key(update.x, update.y);
+      clearOptimisticTileState(updateKey);
       state.pendingCollectVisibleKeys.delete(key(update.x, update.y));
       const existing = state.tiles.get(key(update.x, update.y));
       const merged: Tile = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
@@ -6363,7 +6446,9 @@ ws.addEventListener("message", (ev) => {
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
+      if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey);
       if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+      if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
       processActionQueue();
@@ -6506,6 +6591,7 @@ ws.addEventListener("message", (ev) => {
     if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
       notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
     } else if (errorCode === "SETTLE_INVALID") {
+      clearOptimisticTileState(errorTileKey, true);
       clearSettlementProgressByKey(errorTileKey);
       showCaptureAlert("Action failed", errorMessage, "warn");
     } else if (errorCode === "TOWN_UNFED") {
@@ -6535,6 +6621,8 @@ ws.addEventListener("message", (ev) => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
+    if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
+    if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
     if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
     state.attackPreviewPendingKey = "";
     processActionQueue();
@@ -6677,7 +6765,7 @@ if (firebaseAuth) {
     try {
       authToken = await user.getIdToken(true);
       authUid = user.uid;
-      setAuthStatus(`Authenticating ${state.authUserLabel}...`);
+      setAuthStatus(`Connected to the game server. Authorizing ${state.authUserLabel}...`);
       if (ws.readyState === ws.OPEN) {
         ws.send(JSON.stringify({ type: "AUTH", token: authToken }));
       } else {
@@ -7363,12 +7451,14 @@ setInterval(() => {
   // Stage 1: waiting for server COMBAT_START ack.
   if (!state.combatStartAck && Date.now() - started > 4_500) {
     const current = state.actionCurrent;
+    const currentKey = current ? key(current.x, current.y) : "";
     state.capture = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
+    if (currentKey) clearOptimisticTileState(currentKey, true);
       if (current && (current.retries ?? 0) < 3) {
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
           x: current.x,
@@ -7381,7 +7471,7 @@ setInterval(() => {
       pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
     } else {
       pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
-      if (current) dropQueuedTargetKeyIfAbsent(key(current.x, current.y));
+      if (currentKey) dropQueuedTargetKeyIfAbsent(currentKey);
     }
     processActionQueue();
     renderHud();
@@ -7398,6 +7488,7 @@ setInterval(() => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     if (timedOutCurrentKey) dropQueuedTargetKeyIfAbsent(timedOutCurrentKey);
+    if (timedOutCurrentKey) clearOptimisticTileState(timedOutCurrentKey, true);
     pushFeed("Combat result delayed locally; continuing queue.", "combat", "warn");
     processActionQueue();
     renderHud();
