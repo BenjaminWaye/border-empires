@@ -39,6 +39,43 @@ import {
   setWorldSeed,
   terrainAt
 } from "@border-empires/shared";
+import {
+  COLLECT_VISIBLE_COOLDOWN_MS,
+  GUIDE_AUTO_OPEN_STORAGE_KEY,
+  GUIDE_STORAGE_KEY,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  OBSERVATORY_BUILD_COST,
+  OBSERVATORY_PROTECTION_RADIUS,
+  OBSERVATORY_VISION_BONUS,
+  canAffordCost,
+  formatGoldAmount,
+  frontierClaimCostLabelForTile,
+  frontierClaimDurationMsForTile,
+  guideSteps,
+  isForestTile
+} from "./client-constants.js";
+import { createInitialState, storageSet } from "./client-state.js";
+import type {
+  AllianceRequest,
+  CrystalTargetingAbility,
+  DockPair,
+  DomainInfo,
+  EmpireVisualStyle,
+  FeedEntry,
+  FeedSeverity,
+  FeedType,
+  LeaderboardMetricEntry,
+  LeaderboardOverallEntry,
+  MissionState,
+  SeasonVictoryObjectiveView,
+  SeasonWinnerView,
+  TechInfo,
+  Tile,
+  TileTimedProgress
+} from "./client-types.js";
+
+/*
 
 const OBSERVATORY_BUILD_COST = 600;
 const OBSERVATORY_VISION_BONUS = 5;
@@ -257,6 +294,8 @@ const guideSteps: GuideStep[] = [
     body: "Track victory races in the Victory panel. Town control, settled land, economy, resources, and continent reach can all decide the season if held for 24 hours."
   }
 ];
+
+*/
 
 const canvas = document.querySelector<HTMLCanvasElement>("#game");
 const hud = document.querySelector<HTMLDivElement>("#hud");
@@ -659,7 +698,6 @@ const collectVisibleDesktopMetaEl = document.querySelector<HTMLSpanElement>("#co
 const collectVisibleMobileMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-mobile-meta");
 const guideOverlayEl = document.querySelector<HTMLDivElement>("#guide-overlay");
 const guideFabEl = document.querySelector<HTMLButtonElement>("#guide-fab");
-const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 if (
   !statsChipsEl ||
   !selectedEl ||
@@ -763,6 +801,8 @@ if (
 ) {
   throw new Error("hud elements missing");
 }
+
+/*
 
 const storageGet = (keyName: string): string | null => {
   try {
@@ -953,6 +993,10 @@ const state = {
   firstChunkAt: 0,
   chunkFullCount: 0
 };
+
+*/
+
+const state = createInitialState();
 
 const toggleExpandedModKey = (modKey: "attack" | "defense" | "income" | "vision"): void => {
   state.expandedModKey = state.expandedModKey === modKey ? null : modKey;
