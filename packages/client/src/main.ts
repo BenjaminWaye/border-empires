@@ -546,6 +546,7 @@ hud.innerHTML = `
         <div id="allies-list"></div>
         <div id="alliance-requests"></div>
       </section>
+      <section id="panel-economy" class="panel-body"></section>
       <section id="panel-leaderboard" class="panel-body">
         <div id="leaderboard"></div>
       </section>
@@ -596,6 +597,7 @@ hud.innerHTML = `
       <div id="mobile-allies-list"></div>
       <div id="mobile-alliance-requests"></div>
     </section>
+    <section id="mobile-panel-economy" class="mobile-panel"></section>
     <section id="mobile-panel-intel" class="mobile-panel">
       <div id="mobile-leaderboard"></div>
       <div id="mobile-feed"></div>
@@ -654,6 +656,7 @@ const panelActionButtons = document.querySelectorAll<HTMLButtonElement>("#panel-
 const panelMissionsEl = document.querySelector<HTMLDivElement>("#panel-missions");
 const panelTechEl = document.querySelector<HTMLDivElement>("#panel-tech");
 const panelAllianceEl = document.querySelector<HTMLDivElement>("#panel-alliance");
+const panelEconomyEl = document.querySelector<HTMLDivElement>("#panel-economy");
 const panelLeaderboardEl = document.querySelector<HTMLDivElement>("#panel-leaderboard");
 const panelFeedEl = document.querySelector<HTMLDivElement>("#panel-feed");
 const panelSettingsEl = document.querySelector<HTMLDivElement>("#panel-settings");
@@ -683,6 +686,7 @@ const mobilePanelCoreEl = document.querySelector<HTMLDivElement>("#mobile-panel-
 const mobilePanelMissionsEl = document.querySelector<HTMLDivElement>("#mobile-panel-missions");
 const mobilePanelTechEl = document.querySelector<HTMLDivElement>("#mobile-panel-tech");
 const mobilePanelSocialEl = document.querySelector<HTMLDivElement>("#mobile-panel-social");
+const mobilePanelEconomyEl = document.querySelector<HTMLDivElement>("#mobile-panel-economy");
 const mobilePanelIntelEl = document.querySelector<HTMLDivElement>("#mobile-panel-intel");
 const mobileFeedEl = document.querySelector<HTMLDivElement>("#mobile-feed");
 const mobileLeaderboardEl = document.querySelector<HTMLDivElement>("#mobile-leaderboard");
@@ -756,6 +760,7 @@ if (
   !panelMissionsEl ||
   !panelTechEl ||
   !panelAllianceEl ||
+  !panelEconomyEl ||
   !panelLeaderboardEl ||
   !panelFeedEl ||
   !panelSettingsEl ||
@@ -785,6 +790,7 @@ if (
   !mobilePanelMissionsEl ||
   !mobilePanelTechEl ||
   !mobilePanelSocialEl ||
+  !mobilePanelEconomyEl ||
   !mobilePanelIntelEl ||
   !mobileFeedEl ||
   !mobileLeaderboardEl ||
@@ -937,8 +943,9 @@ const state = {
   seasonVictory: [] as SeasonVictoryObjectiveView[],
   seasonWinner: undefined as SeasonWinnerView | undefined,
   missions: [] as MissionState[],
-  mobilePanel: "core" as "core" | "missions" | "tech" | "social" | "intel",
-  activePanel: null as "missions" | "tech" | "alliance" | "leaderboard" | "feed" | "settings" | null,
+  mobilePanel: "core" as "core" | "missions" | "tech" | "social" | "economy" | "intel",
+  activePanel: null as "missions" | "tech" | "alliance" | "economy" | "leaderboard" | "feed" | "settings" | null,
+  economyFocus: "ALL" as EconomyFocusKey,
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
   techUiSelectedId: "" as string,
@@ -2146,6 +2153,170 @@ const formatUpkeepSummary = (upkeep: typeof state.upkeepPerMinute): string => {
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
+
+const nextPopulationTierThreshold = (tier: NonNullable<Tile["town"]>["populationTier"]): number | undefined => {
+  if (tier === "TOWN") return 100_000;
+  if (tier === "CITY") return 1_000_000;
+  if (tier === "GREAT_CITY") return 5_000_000;
+  return undefined;
+};
+
+const formatDurationFromMinutes = (minutesRaw: number): string => {
+  if (!Number.isFinite(minutesRaw) || minutesRaw <= 0) return "soon";
+  const minutes = Math.ceil(minutesRaw);
+  const weeks = Math.floor(minutes / (60 * 24 * 7));
+  const days = Math.floor((minutes % (60 * 24 * 7)) / (60 * 24));
+  const hours = Math.floor((minutes % (60 * 24)) / 60);
+  if (weeks > 0) return `${weeks}w${days > 0 ? ` ${days}d` : ""}`;
+  if (days > 0) return `${days}d${hours > 0 ? ` ${hours}h` : ""}`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+};
+
+const townNextTierEtaLabel = (town: NonNullable<Tile["town"]>): string => {
+  const threshold = nextPopulationTierThreshold(town.populationTier);
+  if (!threshold) return "Largest size reached";
+  const growth = town.populationGrowthPerMinute ?? 0;
+  if (growth <= 0.000001) return `Next size at ${threshold.toLocaleString()} pop`;
+  const remainingPopulation = Math.max(0, threshold - town.population);
+  return `${prettyToken(town.populationTier)} → ${prettyToken(threshold === 100_000 ? "CITY" : threshold === 1_000_000 ? "GREAT_CITY" : "METROPOLIS")} in ${formatDurationFromMinutes(remainingPopulation / growth)}`;
+};
+
+type EconomyBucket = {
+  label: string;
+  amountPerMinute: number;
+  count: number;
+};
+
+const economySourceLabelForTile = (tile: Tile, resource: Exclude<EconomyFocusKey, "ALL">): string => {
+  if (resource === "GOLD") {
+    if (tile.town) return "Towns";
+    if (tile.dockId) return "Docks";
+    if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
+    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Settled land";
+  }
+  if (resource === "SHARD") return tile.town ? "Ancient towns" : "Shard sites";
+  if (tile.resource) return prettyToken(resourceLabel(tile.resource));
+  if (tile.town && resource === "FOOD") return "Town support";
+  return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";
+};
+
+const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string, amountPerMinute: number): void => {
+  if (amountPerMinute <= 0.0001) return;
+  const current = map.get(label);
+  if (current) {
+    current.amountPerMinute += amountPerMinute;
+    current.count += 1;
+    return;
+  }
+  map.set(label, { label, amountPerMinute, count: 1 });
+};
+
+const resourceUpkeepPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
+  if (resource === "GOLD") return state.upkeepPerMinute.gold;
+  if (resource === "FOOD") return state.upkeepPerMinute.food;
+  if (resource === "IRON") return state.upkeepPerMinute.iron;
+  if (resource === "CRYSTAL") return state.upkeepPerMinute.crystal;
+  if (resource === "SUPPLY") return state.upkeepPerMinute.supply;
+  return 0;
+};
+
+const resourceNetPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
+  if (resource === "GOLD") return state.incomePerMinute - state.upkeepPerMinute.gold;
+  return state.strategicProductionPerMinute[resource] - resourceUpkeepPerMinute(resource);
+};
+
+const economyDetailForResource = (resource: Exclude<EconomyFocusKey, "ALL">): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
+  const sources = new Map<string, EconomyBucket>();
+  const sinks = new Map<string, EconomyBucket>();
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
+    if (tile.fogged) continue;
+    const amountPerMinute =
+      resource === "GOLD"
+        ? tile.yieldRate?.goldPerMinute ?? 0
+        : Number(tile.yieldRate?.strategicPerDay?.[resource] ?? 0) / 1440;
+    accumulateEconomyBucket(sources, economySourceLabelForTile(tile, resource), amountPerMinute);
+    if (resource === "FOOD" && tile.town?.foodUpkeepPerMinute) {
+      accumulateEconomyBucket(sinks, "Town upkeep", tile.town.foodUpkeepPerMinute);
+    }
+  }
+  const totalUpkeep = resourceUpkeepPerMinute(resource);
+  const knownUpkeep = [...sinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0);
+  const residualUpkeep = Math.max(0, totalUpkeep - knownUpkeep);
+  if (residualUpkeep > 0.0001) {
+    accumulateEconomyBucket(sinks, resource === "FOOD" ? "Other empire upkeep" : "Structures, abilities, and upkeep effects", residualUpkeep);
+  }
+  return {
+    sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
+    sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
+  };
+};
+
+const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
+  state.economyFocus = focus;
+  setActivePanel("economy");
+};
+
+const economySummaryCardHtml = (resource: Exclude<EconomyFocusKey, "ALL">, selected: boolean): string => {
+  const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
+  const gross = resource === "GOLD" ? state.incomePerMinute : state.strategicProductionPerMinute[resource];
+  const upkeep = resourceUpkeepPerMinute(resource);
+  const net = resourceNetPerMinute(resource);
+  const icon = resourceIconForKey(resource);
+  const label = prettyToken(resource);
+  return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
+    <div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>
+    <div class="economy-summary-stock">${stock.toFixed(resource === "GOLD" ? 1 : 1)}</div>
+    <div class="economy-summary-rates">
+      <span>Gross ${gross.toFixed(2)}/m</span>
+      <span>Upkeep ${upkeep.toFixed(2)}/m</span>
+      <span class="economy-rate ${rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</span>
+    </div>
+  </button>`;
+};
+
+const economyPanelHtml = (): string => {
+  const focus = state.economyFocus;
+  const resources: Array<Exclude<EconomyFocusKey, "ALL">> = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
+  const visibleResources = focus === "ALL" ? resources : [focus];
+  const totals = formatUpkeepSummary(state.upkeepPerMinute);
+  return `
+    <div class="economy-panel">
+      <div class="economy-summary-grid">
+        ${resources.map((resource) => economySummaryCardHtml(resource, resource === focus)).join("")}
+      </div>
+      ${totals ? `<div class="economy-overview-note">${totals}</div>` : ""}
+      ${visibleResources
+        .map((resource) => {
+          const detail = economyDetailForResource(resource);
+          const net = resourceNetPerMinute(resource);
+          const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
+          return `<section class="economy-detail-card card">
+            <div class="economy-detail-head">
+              <div>
+                <div class="economy-detail-kicker">${resourceIconForKey(resource)} ${prettyToken(resource)}</div>
+                <strong>${stock.toFixed(1)} in reserve</strong>
+              </div>
+              <div class="economy-rate ${rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
+            </div>
+            <div class="economy-detail-columns">
+              <div class="economy-detail-column">
+                <h4>Income Sources</h4>
+                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
+              </div>
+              <div class="economy-detail-column">
+                <h4>Upkeep</h4>
+                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
+              </div>
+            </div>
+            ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((state.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
+          </section>`;
+        })
+        .join("")}
+    </div>
+  `;
+};
 const rateToneClass = (rate: number): string => {
   if (rate > 0.001) return "positive";
   if (rate < -0.001) return "negative";
@@ -2505,6 +2676,7 @@ const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => {
   if (panel === "missions") return "Missions";
   if (panel === "tech") return "Technology Tree";
   if (panel === "alliance") return "Alliances";
+  if (panel === "economy") return "Economy";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Activity Feed";
   return "Player Identity";
@@ -2514,6 +2686,7 @@ const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof sta
   if (panel === "missions") return "missions";
   if (panel === "tech") return "tech";
   if (panel === "alliance") return "social";
+  if (panel === "economy") return "economy";
   return "intel";
 };
 
@@ -2526,6 +2699,7 @@ const mobileNavLabelHtml = (panel: typeof state.mobilePanel, opts?: { techReady?
       : '<span class="tab-icon">⚡</span>';
   }
   if (panel === "social") return '<span class="tab-icon">👥</span>';
+  if (panel === "economy") return '<span class="tab-icon">◫</span>';
   return opts?.attackAlertUnread
     ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
     : '<span class="tab-icon">🔔</span>';
@@ -2585,6 +2759,7 @@ const renderMobilePanels = (): void => {
     [mobilePanelMissionsEl, "missions"],
     [mobilePanelTechEl, "tech"],
     [mobilePanelSocialEl, "social"],
+    [mobilePanelEconomyEl, "economy"],
     [mobilePanelIntelEl, "intel"]
   ];
   for (const [el, panel] of mobileSections) {
@@ -2594,6 +2769,7 @@ const renderMobilePanels = (): void => {
   if (state.mobilePanel === "missions") mobileSheetHeadEl.textContent = "Missions";
   else if (state.mobilePanel === "tech") mobileSheetHeadEl.textContent = "Technology Tree";
   else if (state.mobilePanel === "social") mobileSheetHeadEl.textContent = "Alliances";
+  else if (state.mobilePanel === "economy") mobileSheetHeadEl.textContent = "Economy";
   else if (state.mobilePanel === "intel") mobileSheetHeadEl.textContent = "Intel";
   else mobileSheetHeadEl.textContent = "Core";
 
@@ -3827,13 +4003,13 @@ const strategicRibbonHtml = (): string => {
       const anim = state.strategicAnim[e.key];
       const deltaClass =
         nowMs < anim.until ? (anim.dir > 0 ? "delta-up" : anim.dir < 0 ? "delta-down" : "") : "";
-      return `<div class="resource-pill ${e.className} ${deltaClass}" title="${e.label} · ${e.source}">
+      return `<button class="resource-pill ${e.className} ${deltaClass}" type="button" data-economy-open="${e.key}" title="${e.label} · ${e.source}">
         <span class="resource-icon" aria-hidden="true">${e.icon}</span>
         <span class="resource-value-row">
           <span class="resource-value">${Number(stock).toFixed(1)}</span>
           <span class="resource-rate ${rateClass}">${prodText}</span>
         </span>
-      </div>`;
+      </button>`;
     })
     .join("")}</div>`;
 };
@@ -3950,7 +4126,7 @@ const renderHud = (): void => {
   const goldRateClass = rateToneClass(netGoldPerMinute);
   statsChipsEl.innerHTML = `
     <div class="stat-chip ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
-    <div class="stat-chip stat-chip-gold${pointsClass}"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></div>
+    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
     <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>Development</span>
@@ -3967,6 +4143,13 @@ const renderHud = (): void => {
   collectVisibleMobileMetaEl.textContent = collectMeta;
   collectVisibleDesktopBtn.classList.toggle("is-attention", collectReady);
   collectVisibleMobileBtn.classList.toggle("is-attention", collectReady);
+  const economyButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-economy-open]");
+  economyButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const focus = btn.dataset.economyOpen as EconomyFocusKey | undefined;
+      openEconomyPanel(focus ?? "ALL");
+    };
+  });
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   panelActionButtons.forEach((btn) => {
@@ -4200,6 +4383,8 @@ const renderHud = (): void => {
 
   missionsEl.innerHTML = missionCardsHtml();
   mobilePanelMissionsEl.innerHTML = missionCardsHtml();
+  panelEconomyEl.innerHTML = economyPanelHtml();
+  mobilePanelEconomyEl.innerHTML = economyPanelHtml();
   leaderboardEl.innerHTML = leaderboardHtml();
   mobileLeaderboardEl.innerHTML = leaderboardHtml();
   feedEl.innerHTML = feedHtml();
@@ -4245,6 +4430,15 @@ const renderHud = (): void => {
       window.location.reload();
     };
   }
+  const economyFocusButtons = hud.querySelectorAll<HTMLButtonElement>("[data-economy-focus]");
+  economyFocusButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const focus = btn.dataset.economyFocus as EconomyFocusKey | undefined;
+      if (!focus) return;
+      state.economyFocus = focus;
+      renderHud();
+    };
+  });
   const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired;
   guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
   if (canShowGuide) {
@@ -4885,12 +5079,18 @@ type DevelopmentSlotSummary = {
   available: number;
 };
 
+type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+
+type TileOverviewLine =
+  | { kind: "text"; text: string }
+  | { kind: "effect"; name: string; modifier: string; tone: "positive" | "negative" | "neutral" };
+
 type TileMenuView = {
   title: string;
   subtitle: string;
   tabs: TileMenuTab[];
   overviewKicker?: string;
-  overviewLines: string[];
+  overviewLines: TileOverviewLine[];
   actions: TileActionDef[];
   progress?: TileMenuProgressView;
   development?: DevelopmentSlotSummary;
@@ -5135,78 +5335,94 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
   return undefined;
 };
 
-const menuOverviewForTile = (tile: Tile): string[] => {
-  const lines: string[] = [];
-  if (!tile.ownerId) lines.push("Unclaimed land");
-  else if (tile.ownerId !== state.me) lines.push(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`);
+const overviewText = (text: string): TileOverviewLine => ({ kind: "text", text });
+const overviewEffect = (name: string, modifier: string, tone: "positive" | "negative" | "neutral" = "positive"): TileOverviewLine => ({
+  kind: "effect",
+  name,
+  modifier,
+  tone
+});
+
+const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
+  const lines: TileOverviewLine[] = [];
+  const effects: TileOverviewLine[] = [];
+  if (!tile.ownerId) lines.push(overviewText("Unclaimed land"));
+  else if (tile.ownerId !== state.me) lines.push(overviewText(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`));
   if (tile.terrain === "SEA") {
-    lines.push(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions.");
+    lines.push(overviewText(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions."));
     return lines;
   }
   if (tile.terrain === "MOUNTAIN") {
-    lines.push("Mountains block normal land expansion and attacks.");
+    lines.push(overviewText("Mountains block normal land expansion and attacks."));
     return lines;
   }
   const productionLabel = tileProductionRequirementLabel(tile);
   if (!tile.ownerId) {
-    lines.push("Claim this tile first to turn it into frontier land.");
-    if (productionLabel) lines.push(`After you settle it, this tile can produce ${productionLabel}.`);
+    lines.push(overviewText("Claim this tile first to turn it into frontier land."));
+    if (productionLabel) lines.push(overviewText(`After you settle it, this tile can produce ${productionLabel}.`));
     return lines;
   }
   if (tile.ownershipState === "FRONTIER") {
-    lines.push("Frontier land is visible control, but it has no real defense yet.");
-    if (productionLabel) lines.push(`Needs settlement to produce ${productionLabel}.`);
-    else lines.push("Needs settlement to gain defense and full ownership strength.");
+    lines.push(overviewText("Frontier land is visible control, but it has no real defense yet."));
+    if (productionLabel) lines.push(overviewText(`Needs settlement to produce ${productionLabel}.`));
+    else lines.push(overviewText("Needs settlement to gain defense and full ownership strength."));
   } else if (tile.ownershipState === "SETTLED") {
-    lines.push("Settled land is defended and fully part of your empire.");
-    if (tile.town) lines.push("Towns produce gold when fed.");
+    lines.push(overviewText("Settled land is defended and fully part of your empire."));
+    if (tile.town) lines.push(overviewText("Towns produce gold when fed."));
   }
   if (tile.ownerId === state.me) {
     const slots = developmentSlotSummary();
     if (slots.busy > 0 || slots.available === 0) {
-      lines.push(`Development slots ${slots.busy}/${slots.limit} busy${slots.available > 0 ? ` • ${slots.available} available` : ""}.`);
+      lines.push(overviewText(`Development slots ${slots.busy}/${slots.limit} busy${slots.available > 0 ? ` • ${slots.available} available` : ""}.`));
     }
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
-    lines.push(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
+    lines.push(overviewText(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby."));
     const growthPct =
       tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
         ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
         : 0;
-    lines.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax} • Pop ${Math.round(tile.town.population).toLocaleString()} • Growth ${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`);
+    lines.push(overviewText(`Support ${tile.town.supportCurrent}/${tile.town.supportMax} • Pop ${Math.round(tile.town.population).toLocaleString()} • Growth ${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`));
+    lines.push(overviewText(townNextTierEtaLabel(tile.town)));
     for (const modifier of tile.town.growthModifiers ?? []) {
-      lines.push(`${modifier.label} (${growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute)})`);
+      effects.push(
+        overviewEffect(
+          modifier.label,
+          growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute),
+          modifier.deltaPerMinute < 0 ? "negative" : modifier.deltaPerMinute > 0 ? "positive" : "neutral"
+        )
+      );
     }
-    if (tile.town.hasMarket) lines.push(`Market: ${tile.town.marketActive ? "Active" : "Built"} • Boosts town gold and storage.`);
-    if (tile.town.hasGranary) lines.push(`Granary: ${tile.town.granaryActive ? "Active" : "Built"} • Boosts town population cap.`);
+    if (tile.town.hasMarket) effects.push(overviewEffect("Market", tile.town.marketActive ? "+50% gold production, +50% storage" : "built but inactive", tile.town.marketActive ? "positive" : "neutral"));
+    if (tile.town.hasGranary) effects.push(overviewEffect("Granary", tile.town.granaryActive ? "+50% population cap" : "built but inactive", tile.town.granaryActive ? "positive" : "neutral"));
   } else if (tile.resource) {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
-    if (tile.ownershipState === "SETTLED") lines.push(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
+    if (tile.ownershipState === "SETTLED") lines.push(overviewText(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`));
   }
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {
-      lines.push(`Support tile for nearby town at (${town.x}, ${town.y}).`);
-      if (town.town?.hasMarket) lines.push("Nearby town already has a Market.");
-      if (town.town?.hasGranary) lines.push("Nearby town already has a Granary.");
+      lines.push(overviewText(`Support tile for nearby town at (${town.x}, ${town.y}).`));
+      if (town.town?.hasMarket) lines.push(overviewText("Nearby town already has a Market."));
+      if (town.town?.hasGranary) lines.push(overviewText("Nearby town already has a Granary."));
       if (!tile.economicStructure) {
-        lines.push("Town buildings like markets and granaries must be built on support tiles.");
+        lines.push(overviewText("Town buildings like markets and granaries must be built on support tiles."));
       }
     }
   } else if (supportedTowns.length > 1) {
-    lines.push("This support tile touches multiple towns.");
+    lines.push(overviewText("This support tile touches multiple towns."));
   }
   if (tile.economicStructure) {
-    lines.push(`${economicStructureName(tile.economicStructure.type)} on this square. ${economicStructureBenefitText(tile.economicStructure.type)}`);
+    effects.push(overviewEffect(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), tile.economicStructure.status === "active" ? "positive" : "neutral"));
   }
   const storedYield = storedYieldSummary(tile);
-  if (storedYield) lines.push(`Stored yield: ${storedYield}`);
+  if (storedYield) lines.push(overviewText(`Stored yield: ${storedYield}`));
   const construction = constructionCountdownLineForTile(tile);
-  if (construction) lines.push(construction);
+  if (construction) lines.push(overviewText(construction));
   const historyLines = tileHistoryLines(tile);
-  lines.push(...historyLines);
-  return lines;
+  lines.push(...historyLines.map((line) => overviewText(line)));
+  return [...lines, ...effects];
 };
 
 const tileMenuViewForTile = (tile: Tile): TileMenuView => {
@@ -5973,7 +6189,13 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
     <div class="tile-overview-card">
       ${developmentHtml}
       ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
-      ${view.overviewLines.map((line) => `<div class="tile-overview-line">${line}</div>`).join("")}
+      ${view.overviewLines
+        .map((line) =>
+          line.kind === "text"
+            ? `<div class="tile-overview-line">${line.text}</div>`
+            : `<div class="tile-overview-line tile-overview-line-effect"><span class="tile-overview-effect-name">${line.name}</span> <span class="tile-overview-effect-mod is-${line.tone}">(${line.modifier})</span></div>`
+        )
+        .join("")}
     </div>
   `;
 };
@@ -7689,6 +7911,40 @@ const draw = (): void => {
         drawTownOverlay(t, px, py, size);
       }
 
+      if (t && vis === "visible" && t.terrain === "LAND") {
+        const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(nowMs / 340 + wx * 0.07 + wy * 0.05));
+        const isTownOrDock = Boolean(t.town || t.dockId);
+        const isValuableFrontier = t.ownerId === state.me && t.ownershipState === "FRONTIER" && Boolean(t.town || t.dockId || t.resource);
+        const isVisibleTarget = !t.ownerId && Boolean(t.town || t.dockId || t.resource);
+        if (isTownOrDock) {
+          ctx.fillStyle = t.town
+            ? `rgba(255, 214, 112, ${0.07 + pulse * 0.08})`
+            : `rgba(113, 223, 255, ${0.06 + pulse * 0.07})`;
+          ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
+          ctx.strokeStyle = t.town
+            ? `rgba(255, 224, 138, ${0.42 + pulse * 0.34})`
+            : `rgba(144, 233, 255, ${0.34 + pulse * 0.28})`;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px + 1.5, py + 1.5, size - 3, size - 3);
+          ctx.lineWidth = 1;
+        }
+        if (isValuableFrontier) {
+          ctx.strokeStyle = `rgba(255, 209, 102, ${0.58 + pulse * 0.22})`;
+          ctx.setLineDash([4, 3]);
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px + 3, py + 3, size - 6, size - 6);
+          ctx.setLineDash([]);
+          ctx.lineWidth = 1;
+          const marker = Math.max(4, Math.floor(size * 0.18));
+          ctx.fillStyle = `rgba(255, 196, 88, ${0.72 + pulse * 0.18})`;
+          ctx.fillRect(px + size - marker - 3, py + 3, marker, marker);
+        } else if (isVisibleTarget) {
+          ctx.strokeStyle = `rgba(240, 245, 255, ${0.18 + pulse * 0.18})`;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + 2.5, py + 2.5, size - 5, size - 5);
+        }
+      }
+
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
         const marker = Math.max(4, Math.floor(size * 0.22));
@@ -8385,6 +8641,32 @@ window.addEventListener("contextmenu", (ev) => {
 
 let touchPanStart: { x: number; y: number; camX: number; camY: number } | undefined;
 let pinchStart: { distance: number; zoom: number } | undefined;
+let pendingTouchTapTimeout: number | undefined;
+let lastTouchTap:
+  | {
+      at: number;
+      x: number;
+      y: number;
+    }
+  | undefined;
+
+const clearPendingTouchTapTimeout = (): void => {
+  if (pendingTouchTapTimeout !== undefined) window.clearTimeout(pendingTouchTapTimeout);
+  pendingTouchTapTimeout = undefined;
+};
+
+const handleMobileDoubleTapZoom = (clientX: number, clientY: number): void => {
+  const rect = canvas.getBoundingClientRect();
+  const offsetX = clientX - rect.left;
+  const offsetY = clientY - rect.top;
+  const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+  const zoomedIn = state.zoom >= 30;
+  state.zoom = zoomedIn ? 18 : 34;
+  state.camX = wx;
+  state.camY = wy;
+  maybeRefreshForCamera(true);
+  renderHud();
+};
 
 canvas.addEventListener(
   "touchstart",
@@ -8400,6 +8682,8 @@ canvas.addEventListener(
       scheduleHoldBuildMenu(t.clientX, t.clientY, t.clientX - rect.left, t.clientY - rect.top);
       pinchStart = undefined;
     } else if (ev.touches.length === 2) {
+      clearPendingTouchTapTimeout();
+      lastTouchTap = undefined;
       const a = ev.touches[0];
       const b = ev.touches[1];
       if (!a || !b) return;
@@ -8449,12 +8733,30 @@ canvas.addEventListener(
   "touchend",
   () => {
     if (touchTapCandidate && !holdActivated && !pinchStart) {
-      const rect = canvas.getBoundingClientRect();
-      const offsetX = touchTapCandidate.x - rect.left;
-      const offsetY = touchTapCandidate.y - rect.top;
-      const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-      suppressNextClick = true;
-      handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
+      const now = Date.now();
+      const previousTap = lastTouchTap;
+      const isDoubleTap =
+        previousTap !== undefined &&
+        now - previousTap.at <= 280 &&
+        Math.hypot(touchTapCandidate.x - previousTap.x, touchTapCandidate.y - previousTap.y) <= 18;
+      clearPendingTouchTapTimeout();
+      if (isDoubleTap) {
+        suppressNextClick = true;
+        lastTouchTap = undefined;
+        handleMobileDoubleTapZoom(touchTapCandidate.x, touchTapCandidate.y);
+      } else {
+        const tap = touchTapCandidate;
+        lastTouchTap = { at: now, x: tap.x, y: tap.y };
+        pendingTouchTapTimeout = window.setTimeout(() => {
+          const rect = canvas.getBoundingClientRect();
+          const offsetX = tap.x - rect.left;
+          const offsetY = tap.y - rect.top;
+          const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+          suppressNextClick = true;
+          handleTileSelection(wx, wy, tap.x, tap.y);
+          pendingTouchTapTimeout = undefined;
+        }, 240);
+      }
     }
     clearHoldOpenTimer();
     touchHoldStart = undefined;

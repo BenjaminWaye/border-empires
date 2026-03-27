@@ -819,6 +819,7 @@ body {
 }
 
 .resource-pill {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -826,6 +827,9 @@ body {
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .resource-icon {
@@ -891,6 +895,7 @@ body {
 }
 
 .stat-chip {
+  appearance: none;
   min-width: 86px;
   padding: 5px 8px;
   border-radius: 10px;
@@ -898,6 +903,8 @@ body {
   background: rgba(255, 255, 255, 0.06);
   display: grid;
   line-height: 1.15;
+  font: inherit;
+  text-align: left;
 }
 
 .stat-chip span {
@@ -1642,6 +1649,33 @@ body {
   display: grid;
   gap: 8px;
 }
+.tile-overview-line {
+  color: rgba(228, 239, 255, 0.82);
+  line-height: 1.45;
+}
+.tile-overview-line-effect {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tile-overview-effect-name {
+  color: rgba(241, 247, 255, 0.9);
+  font-weight: 700;
+}
+.tile-overview-effect-mod {
+  font-size: 12px;
+  font-weight: 700;
+}
+.tile-overview-effect-mod.is-positive {
+  color: #7ef0aa;
+}
+.tile-overview-effect-mod.is-negative {
+  color: #ff9b9b;
+}
+.tile-overview-effect-mod.is-neutral {
+  color: rgba(182, 204, 230, 0.74);
+}
 .tile-overview-card,
 .tile-progress-card {
   display: grid;
@@ -1870,6 +1904,127 @@ body {
 .card p {
   margin: 4px 0 0;
   color: rgba(233, 242, 255, 0.7);
+}
+
+.economy-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.economy-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.economy-summary-card {
+  appearance: none;
+  border: 1px solid rgba(142, 202, 230, 0.2);
+  border-radius: 12px;
+  background: rgba(8, 17, 31, 0.72);
+  color: #eef6ff;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  font: inherit;
+}
+
+.economy-summary-card.is-active {
+  border-color: rgba(255, 209, 102, 0.52);
+  background: linear-gradient(180deg, rgba(49, 36, 18, 0.82), rgba(19, 22, 34, 0.84));
+}
+
+.economy-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.economy-summary-head strong {
+  font-size: 13px;
+}
+
+.economy-summary-stock {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f7fbff;
+}
+
+.economy-summary-rates {
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+  color: rgba(211, 225, 244, 0.76);
+}
+
+.economy-overview-note {
+  font-size: 12px;
+  color: rgba(195, 211, 231, 0.76);
+}
+
+.economy-detail-card {
+  display: grid;
+  gap: 12px;
+}
+
+.economy-detail-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.economy-detail-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(170, 198, 231, 0.66);
+}
+
+.economy-detail-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.economy-detail-column {
+  display: grid;
+  gap: 6px;
+}
+
+.economy-detail-column h4 {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(240, 246, 255, 0.88);
+}
+
+.economy-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(226, 236, 248, 0.86);
+}
+
+.economy-line strong {
+  color: #7ef0aa;
+}
+
+.economy-line.is-negative strong {
+  color: #ff9b9b;
+}
+
+.economy-line.muted {
+  justify-content: flex-start;
+  color: rgba(181, 196, 218, 0.62);
+}
+
+.economy-footnote {
+  font-size: 11px;
+  color: rgba(194, 211, 233, 0.7);
 }
 
 .tech-legacy-controls {
@@ -3013,6 +3168,11 @@ h4 {
   #mobile-leaderboard {
     display: grid;
     gap: 8px;
+  }
+
+  .economy-summary-grid,
+  .economy-detail-columns {
+    grid-template-columns: 1fr;
   }
 
   .tech-card-grid {
