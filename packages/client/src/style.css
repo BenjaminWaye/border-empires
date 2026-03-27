@@ -2021,6 +2021,95 @@ body {
   margin: 0;
 }
 
+.domain-summary-card {
+  display: grid;
+  gap: 6px;
+  border-color: rgba(137, 182, 240, 0.28);
+  background: linear-gradient(180deg, rgba(9, 19, 34, 0.82), rgba(5, 12, 23, 0.74));
+}
+
+.domain-summary-kicker {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(154, 190, 235, 0.72);
+}
+
+.domain-summary-card strong {
+  font-size: 19px;
+  color: #f4f9ff;
+}
+
+.domain-summary-card p {
+  margin: 0;
+  color: rgba(220, 232, 246, 0.82);
+  line-height: 1.45;
+}
+
+.domain-tier-block {
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(145, 176, 219, 0.18);
+  background: rgba(6, 15, 28, 0.5);
+}
+
+.domain-tier-block-chosen {
+  border-color: rgba(69, 214, 141, 0.22);
+  background: linear-gradient(180deg, rgba(6, 26, 21, 0.6), rgba(6, 15, 28, 0.56));
+}
+
+.domain-tier-block-current {
+  border-color: rgba(255, 209, 102, 0.28);
+  background: linear-gradient(180deg, rgba(39, 30, 13, 0.62), rgba(6, 15, 28, 0.56));
+}
+
+.domain-tier-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.domain-tier-head p {
+  margin: 4px 0 0;
+  color: rgba(217, 230, 244, 0.76);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.domain-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.domain-tier-badge-chosen {
+  border: 1px solid rgba(69, 214, 141, 0.34);
+  background: rgba(18, 98, 64, 0.24);
+  color: #97f0bd;
+}
+
+.domain-tier-badge-current {
+  border: 1px solid rgba(255, 209, 102, 0.4);
+  background: rgba(118, 79, 21, 0.24);
+  color: #ffe08b;
+}
+
+.domain-tier-badge-locked {
+  border: 1px solid rgba(132, 159, 191, 0.22);
+  background: rgba(74, 89, 112, 0.18);
+  color: rgba(209, 223, 242, 0.72);
+}
+
 .tech-card-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2080,6 +2169,52 @@ body {
 
 .tech-card.blocked {
   opacity: 0.62;
+}
+
+.domain-card {
+  gap: 8px;
+}
+
+.domain-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(134, 198, 255, 0.24);
+  background: rgba(78, 112, 157, 0.16);
+  color: rgba(215, 231, 249, 0.84);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.domain-card-current .domain-card-badge {
+  border-color: rgba(255, 209, 102, 0.34);
+  background: rgba(118, 79, 21, 0.24);
+  color: #ffe08b;
+}
+
+.domain-card-chosen .domain-card-badge,
+.domain-card.owned .domain-card-badge {
+  border-color: rgba(69, 214, 141, 0.34);
+  background: rgba(18, 98, 64, 0.24);
+  color: #97f0bd;
+}
+
+.domain-card.blocked .domain-card-badge {
+  border-color: rgba(132, 159, 191, 0.18);
+  background: rgba(74, 89, 112, 0.18);
+  color: rgba(209, 223, 242, 0.62);
+}
+
+.domain-detail-tier-rule {
+  margin: 6px 0 0;
+  color: #ffd166;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
 }
 
 #tech-detail-card,
