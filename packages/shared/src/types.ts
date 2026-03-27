@@ -108,6 +108,7 @@ export interface Tile {
     hasGranary: boolean;
     granaryActive: boolean;
     foodUpkeepPerMinute?: number;
+    growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   };
   yield?: {
     gold?: number;
