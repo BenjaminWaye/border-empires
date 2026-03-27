@@ -7022,6 +7022,20 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
       chunkCoords.push({ cx: wrapChunkX(cx), cy: wrapChunkY(cy) });
     }
   }
+  chunkCoords.sort((a, b) => {
+    const adx = chunkDist(a.cx, wrapChunkX(sub.cx), chunkCountX);
+    const ady = chunkDist(a.cy, wrapChunkY(sub.cy), chunkCountY);
+    const bdx = chunkDist(b.cx, wrapChunkX(sub.cx), chunkCountX);
+    const bdy = chunkDist(b.cy, wrapChunkY(sub.cy), chunkCountY);
+    const aChebyshev = Math.max(adx, ady);
+    const bChebyshev = Math.max(bdx, bdy);
+    if (aChebyshev !== bChebyshev) return aChebyshev - bChebyshev;
+    const aManhattan = adx + ady;
+    const bManhattan = bdx + bdy;
+    if (aManhattan !== bManhattan) return aManhattan - bManhattan;
+    if (a.cy !== b.cy) return a.cy - b.cy;
+    return a.cx - b.cx;
+  });
 
   let index = 0;
   const streamNext = (): void => {
