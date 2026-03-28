@@ -2826,11 +2826,26 @@ const techCurrentModsHtml = (): string => {
       }
     )
     .join("");
+  const formatTechModDelta = (mult: number): { text: string; tone: "positive" | "negative" | "neutral" } => {
+    const delta = (mult - 1) * 100;
+    const rounded = Math.round(delta * 10) / 10;
+    if (Math.abs(rounded) < 0.05) return { text: "0%", tone: "neutral" };
+    const prefix = rounded > 0 ? "+" : "";
+    const hasFraction = Math.abs(rounded % 1) > 0.001;
+    return {
+      text: `${prefix}${hasFraction ? rounded.toFixed(1) : rounded.toFixed(0)}%`,
+      tone: rounded > 0 ? "positive" : "negative"
+    };
+  };
   const breakdown =
     state.expandedModKey === null
       ? ""
       : `<div class="tech-mod-breakdown">${(state.modBreakdown[state.expandedModKey] ?? [])
-          .map((entry) => `<div class="tech-mod-breakdown-row"><span>${entry.label}</span><strong>x${entry.mult.toFixed(3)}</strong></div>`)
+          .filter((entry) => entry.label.trim().toLowerCase() !== "base")
+          .map((entry) => {
+            const delta = formatTechModDelta(entry.mult);
+            return `<div class="tech-mod-breakdown-row"><span>${entry.label}</span><strong class="tech-mod-delta ${delta.tone}">${delta.text}</strong></div>`;
+          })
           .join("")}</div>`;
   return `
     <div class="card tech-mod-card">
