@@ -150,6 +150,7 @@ const {
   mobileAlliesListEl,
   mobileCoreEl,
   mobileCoreHelpEl,
+  mobilePanelDefensibilityEl,
   mobileFeedEl,
   mobileLeaderboardEl,
   mobilePanelCoreEl,
@@ -172,6 +173,7 @@ const {
   panelActionButtons,
   panelAllianceEl,
   panelCloseBtn,
+  panelDefensibilityEl,
   panelEconomyEl,
   panelFeedEl,
   panelLeaderboardEl,
@@ -1335,6 +1337,94 @@ type EconomyBucket = {
   label: string;
   amountPerMinute: number;
   count: number;
+  note?: string;
+};
+
+type DefensibilityBreakdown = {
+  settledTiles: number;
+  exposedEdges: number;
+  internalEdges: number;
+  naturalShieldEdges: number;
+  borderEdges: number;
+  exposedEdgeRatio: number;
+  rating: "Strong" | "Stable" | "Fragile" | "Very Exposed";
+  tips: string[];
+};
+
+const settledOwnedTiles = (): Tile[] =>
+  [...state.tiles.values()].filter((tile) => tile.ownerId === state.me && tile.terrain === "LAND" && tile.ownershipState === "SETTLED" && !tile.fogged);
+
+const defensibilityBreakdown = (): DefensibilityBreakdown => {
+  const tiles = settledOwnedTiles();
+  let exposedEdges = 0;
+  let internalEdges = 0;
+  let naturalShieldEdges = 0;
+  for (const tile of tiles) {
+    const neighbors = [
+      { x: wrapX(tile.x), y: wrapY(tile.y - 1) },
+      { x: wrapX(tile.x + 1), y: wrapY(tile.y) },
+      { x: wrapX(tile.x), y: wrapY(tile.y + 1) },
+      { x: wrapX(tile.x - 1), y: wrapY(tile.y) }
+    ];
+    for (const neighbor of neighbors) {
+      const neighborTile = state.tiles.get(key(neighbor.x, neighbor.y));
+      if (neighborTile?.ownerId === state.me && neighborTile.terrain === "LAND" && neighborTile.ownershipState === "SETTLED" && !neighborTile.fogged) {
+        internalEdges += 1;
+        continue;
+      }
+      const terrain = terrainAt(neighbor.x, neighbor.y);
+      if (terrain === "SEA" || terrain === "MOUNTAIN") {
+        naturalShieldEdges += 1;
+        continue;
+      }
+      exposedEdges += 1;
+    }
+  }
+  const borderEdges = naturalShieldEdges + exposedEdges;
+  const exposedEdgeRatio = borderEdges > 0 ? exposedEdges / borderEdges : 0;
+  const rating =
+    exposedEdgeRatio <= 0.18 ? "Strong" : exposedEdgeRatio <= 0.32 ? "Stable" : exposedEdgeRatio <= 0.5 ? "Fragile" : "Very Exposed";
+  const tips: string[] = [];
+  if (exposedEdges > naturalShieldEdges) tips.push("Anchor more of your border on coastlines or mountains to replace exposed edges with natural shields.");
+  if (tiles.length > 0 && exposedEdges / tiles.length > 1.6) tips.push("Your empire is stretched thin. Fill inward gaps and avoid long one-tile corridors.");
+  if (internalEdges < borderEdges * 1.4) tips.push("Compact blocks defend better than snakes. Settling tiles that connect nearby clusters will lift defensibility fastest.");
+  if (tips.length === 0) tips.push("Your current shape is efficient. Keep expanding in compact blocks and preserve natural barriers where possible.");
+  return { settledTiles: tiles.length, exposedEdges, internalEdges, naturalShieldEdges, borderEdges, exposedEdgeRatio, rating, tips };
+};
+
+const defensibilityPanelHtml = (): string => {
+  const summary = defensibilityBreakdown();
+  const rounded = Math.round(state.defensibilityPct);
+  return `<div class="defense-panel">
+    <article class="card defense-hero-card">
+      <div class="defense-hero-head">
+        <div>
+          <div class="defense-kicker">Empire Shape</div>
+          <strong>${rounded}% defensibility</strong>
+        </div>
+        <span class="defense-rating defense-rating-${summary.rating.toLowerCase().replace(/ /g, "-")}">${summary.rating}</span>
+      </div>
+      <p class="defense-copy">Compact settled land with fewer exposed sides defends better. Coastlines and mountains count as safer borders than open land.</p>
+    </article>
+    <article class="card defense-breakdown-card">
+      <div class="defense-stat-grid">
+        <div class="defense-stat"><span>Settled tiles</span><strong>${summary.settledTiles}</strong></div>
+        <div class="defense-stat"><span>Exposed edges</span><strong>${summary.exposedEdges}</strong></div>
+        <div class="defense-stat"><span>Natural shields</span><strong>${summary.naturalShieldEdges}</strong></div>
+        <div class="defense-stat"><span>Connected interiors</span><strong>${Math.round(summary.internalEdges / 2)}</strong></div>
+      </div>
+    </article>
+    <article class="card defense-breakdown-card">
+      <strong>How this works</strong>
+      <div class="defense-line"><span>Open land borders</span><strong class="is-negative">${Math.round(summary.exposedEdgeRatio * 100)}%</strong></div>
+      <div class="defense-line"><span>Coast / mountain cover</span><strong class="is-positive">${summary.borderEdges > 0 ? Math.round((summary.naturalShieldEdges / summary.borderEdges) * 100) : 0}%</strong></div>
+      <div class="defense-line"><span>Shape efficiency</span><strong>${rounded >= 100 ? "Maxed" : rounded >= 70 ? "Good" : rounded >= 45 ? "Needs work" : "Very loose"}</strong></div>
+    </article>
+    <article class="card defense-breakdown-card">
+      <strong>Tips to improve</strong>
+      ${summary.tips.map((tip) => `<div class="defense-tip">${tip}</div>`).join("")}
+    </article>
+  </div>`;
 };
 
 const economySourceLabelForTile = (tile: Tile, resource: Exclude<EconomyFocusKey, "ALL">): string => {
@@ -1361,6 +1451,11 @@ const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string,
   map.set(label, { label, amountPerMinute, count: 1 });
 };
 
+const setEconomyBucketNote = (map: Map<string, EconomyBucket>, label: string, note: string): void => {
+  const bucket = map.get(label);
+  if (bucket) bucket.note = note;
+};
+
 const resourceUpkeepPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
   if (resource === "GOLD") return state.upkeepPerMinute.gold;
   if (resource === "FOOD") return state.upkeepPerMinute.food;
@@ -1378,9 +1473,14 @@ const resourceNetPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number
 const economyDetailForResource = (resource: Exclude<EconomyFocusKey, "ALL">): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
   const sources = new Map<string, EconomyBucket>();
   const sinks = new Map<string, EconomyBucket>();
+  let settledTileCount = 0;
+  let fortCount = 0;
+  let outpostCount = 0;
+  let observatoryCount = 0;
   for (const tile of state.tiles.values()) {
     if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
+    settledTileCount += 1;
     const amountPerMinute =
       resource === "GOLD"
         ? tile.yieldRate?.goldPerMinute ?? 0
@@ -1389,12 +1489,41 @@ const economyDetailForResource = (resource: Exclude<EconomyFocusKey, "ALL">): { 
     if (resource === "FOOD" && tile.town?.foodUpkeepPerMinute) {
       accumulateEconomyBucket(sinks, "Town upkeep", tile.town.foodUpkeepPerMinute);
     }
+    if (tile.fort?.ownerId === state.me && tile.fort.status === "active") fortCount += 1;
+    if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") outpostCount += 1;
+    if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") observatoryCount += 1;
+  }
+  if (resource === "GOLD") {
+    const settledUpkeep = (settledTileCount / 40) * 0.1;
+    const fortUpkeep = fortCount * 0.2;
+    const outpostUpkeep = outpostCount * 0.2;
+    accumulateEconomyBucket(sinks, "Settled land upkeep", settledUpkeep);
+    accumulateEconomyBucket(sinks, "Fort upkeep", fortUpkeep);
+    accumulateEconomyBucket(sinks, "Siege outpost upkeep", outpostUpkeep);
+    if (settledTileCount > 0) setEconomyBucketNote(sinks, "Settled land upkeep", `${settledTileCount} settled tiles`);
+    if (fortCount > 0) setEconomyBucketNote(sinks, "Fort upkeep", `${fortCount} active fort${fortCount === 1 ? "" : "s"}`);
+    if (outpostCount > 0) setEconomyBucketNote(sinks, "Siege outpost upkeep", `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`);
+  } else if (resource === "CRYSTAL") {
+    const revealUpkeep = Math.min(1, state.activeRevealTargets.length) * 0.015;
+    const observatoryUpkeep = observatoryCount * 0.025;
+    accumulateEconomyBucket(sinks, "Empire reveal upkeep", revealUpkeep);
+    accumulateEconomyBucket(sinks, "Observatory upkeep", observatoryUpkeep);
+    if (state.activeRevealTargets.length > 0) setEconomyBucketNote(sinks, "Empire reveal upkeep", `${Math.min(1, state.activeRevealTargets.length)} active reveal`);
+    if (observatoryCount > 0) setEconomyBucketNote(sinks, "Observatory upkeep", `${observatoryCount} active observator${observatoryCount === 1 ? "y" : "ies"}`);
+  } else if (resource === "IRON") {
+    const fortUpkeep = fortCount * 0.025;
+    accumulateEconomyBucket(sinks, "Fort upkeep", fortUpkeep);
+    if (fortCount > 0) setEconomyBucketNote(sinks, "Fort upkeep", `${fortCount} active fort${fortCount === 1 ? "" : "s"}`);
+  } else if (resource === "SUPPLY") {
+    const outpostUpkeep = outpostCount * 0.025;
+    accumulateEconomyBucket(sinks, "Siege outpost upkeep", outpostUpkeep);
+    if (outpostCount > 0) setEconomyBucketNote(sinks, "Siege outpost upkeep", `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`);
   }
   const totalUpkeep = resourceUpkeepPerMinute(resource);
   const knownUpkeep = [...sinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0);
   const residualUpkeep = Math.max(0, totalUpkeep - knownUpkeep);
   if (residualUpkeep > 0.0001) {
-    accumulateEconomyBucket(sinks, resource === "FOOD" ? "Other empire upkeep" : "Structures, abilities, and upkeep effects", residualUpkeep);
+    accumulateEconomyBucket(sinks, resource === "FOOD" ? "Other empire upkeep" : "Other upkeep modifiers", residualUpkeep);
   }
   return {
     sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
@@ -1428,14 +1557,15 @@ const economySummaryCardHtml = (resource: Exclude<EconomyFocusKey, "ALL">, selec
 const economyPanelHtml = (): string => {
   const focus = state.economyFocus;
   const resources: Array<Exclude<EconomyFocusKey, "ALL">> = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
-  const visibleResources = focus === "ALL" ? resources : [focus];
+  const mobile = window.matchMedia("(max-width: 900px)").matches;
+  const visibleResources = mobile ? [focus === "ALL" ? "GOLD" : focus] : focus === "ALL" ? resources : [focus];
   const totals = formatUpkeepSummary(state.upkeepPerMinute);
   return `
     <div class="economy-panel">
       <div class="economy-summary-grid">
         ${resources.map((resource) => economySummaryCardHtml(resource, resource === focus)).join("")}
       </div>
-      ${totals ? `<div class="economy-overview-note">${totals}</div>` : ""}
+      ${totals ? `<div class="economy-overview-note">${mobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : mobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
       ${visibleResources
         .map((resource) => {
           const detail = economyDetailForResource(resource);
@@ -1452,11 +1582,11 @@ const economyPanelHtml = (): string => {
             <div class="economy-detail-columns">
               <div class="economy-detail-column">
                 <h4>Income Sources</h4>
-                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
+                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
               </div>
               <div class="economy-detail-column">
                 <h4>Upkeep</h4>
-                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
+                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
               </div>
             </div>
             ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((state.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
@@ -1825,6 +1955,8 @@ const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => {
   if (panel === "missions") return "Missions";
   if (panel === "tech") return "Technology Tree";
   if (panel === "alliance") return "Alliances";
+  if (panel === "economy") return "Economy";
+  if (panel === "defensibility") return "Defensibility";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Activity Feed";
   return "Player Identity";
@@ -1834,6 +1966,8 @@ const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof sta
   if (panel === "missions") return "missions";
   if (panel === "tech") return "tech";
   if (panel === "alliance") return "social";
+  if (panel === "defensibility") return "defensibility";
+  if (panel === "economy") return "economy";
   return "intel";
 };
 
@@ -1905,6 +2039,8 @@ const renderMobilePanels = (): void => {
     [mobilePanelMissionsEl, "missions"],
     [mobilePanelTechEl, "tech"],
     [mobilePanelSocialEl, "social"],
+    [mobilePanelDefensibilityEl, "defensibility"],
+    [mobilePanelEconomyEl, "economy"],
     [mobilePanelIntelEl, "intel"]
   ];
   for (const [el, panel] of mobileSections) {
@@ -1914,6 +2050,8 @@ const renderMobilePanels = (): void => {
   if (state.mobilePanel === "missions") mobileSheetHeadEl.textContent = "Missions";
   else if (state.mobilePanel === "tech") mobileSheetHeadEl.textContent = "Technology Tree";
   else if (state.mobilePanel === "social") mobileSheetHeadEl.textContent = "Alliances";
+  else if (state.mobilePanel === "defensibility") mobileSheetHeadEl.textContent = "Defensibility";
+  else if (state.mobilePanel === "economy") mobileSheetHeadEl.textContent = "Economy";
   else if (state.mobilePanel === "intel") mobileSheetHeadEl.textContent = "Intel";
   else mobileSheetHeadEl.textContent = "Core";
 
@@ -3235,7 +3373,7 @@ const renderHud = (): void => {
   statsChipsEl.innerHTML = `
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
-    ${mobile ? "" : `<div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>`}
+    ${mobile ? "" : `<button class="stat-chip" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>`}
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
@@ -3261,6 +3399,12 @@ const renderHud = (): void => {
     btn.onclick = () => {
       const focus = btn.dataset.economyOpen as EconomyFocusKey | undefined;
       openEconomyPanel(focus ?? "ALL");
+    };
+  });
+  const defensibilityButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-defensibility-open]");
+  defensibilityButtons.forEach((btn) => {
+    btn.onclick = () => {
+      setActivePanel("defensibility");
     };
   });
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
@@ -3351,7 +3495,14 @@ const renderHud = (): void => {
       <div class="mobile-context-label">Tile</div>
       <div class="mobile-context-value">${selectedEl.innerHTML || selectedEl.textContent || "No tile selected."}</div>
     </div>
+    <button class="panel-btn mobile-context-action" type="button" data-defensibility-open="true">Defensibility ${Math.round(state.defensibilityPct)}%</button>
   `;
+  const mobileDefensibilityBtn = mobileCoreHelpEl.querySelector<HTMLButtonElement>("[data-defensibility-open]");
+  if (mobileDefensibilityBtn) {
+    mobileDefensibilityBtn.onclick = () => {
+      setActivePanel("defensibility");
+    };
+  }
 
   renderCaptureProgress();
   miniMapLabelEl.textContent = `Minimap (${state.camX}, ${state.camY})`;
@@ -3495,6 +3646,8 @@ const renderHud = (): void => {
 
   missionsEl.innerHTML = missionCardsHtml(state.missions);
   mobilePanelMissionsEl.innerHTML = missionCardsHtml(state.missions);
+  panelDefensibilityEl.innerHTML = defensibilityPanelHtml();
+  mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml();
   panelEconomyEl.innerHTML = economyPanelHtml();
   mobilePanelEconomyEl.innerHTML = economyPanelHtml();
   leaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);

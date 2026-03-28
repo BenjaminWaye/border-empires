@@ -1165,6 +1165,10 @@ body {
   gap: 3px;
 }
 
+.mobile-context-action {
+  width: 100%;
+}
+
 .mobile-context-label {
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -2004,6 +2008,16 @@ body {
   color: rgba(226, 236, 248, 0.86);
 }
 
+.economy-line span {
+  display: grid;
+  gap: 2px;
+}
+
+.economy-line span small {
+  color: rgba(192, 208, 229, 0.66);
+  font-size: 11px;
+}
+
 .economy-line strong {
   color: #7ef0aa;
 }
@@ -2020,6 +2034,117 @@ body {
 .economy-footnote {
   font-size: 11px;
   color: rgba(194, 211, 233, 0.7);
+}
+
+.defense-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.defense-hero-card,
+.defense-breakdown-card {
+  display: grid;
+  gap: 10px;
+}
+
+.defense-hero-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.defense-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(170, 198, 231, 0.66);
+}
+
+.defense-copy {
+  margin: 0;
+}
+
+.defense-rating {
+  display: inline-flex;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.defense-rating-strong {
+  color: #97f0bd;
+  background: rgba(18, 98, 64, 0.24);
+  border: 1px solid rgba(69, 214, 141, 0.34);
+}
+
+.defense-rating-stable {
+  color: #b8f2cf;
+  background: rgba(21, 77, 58, 0.24);
+  border: 1px solid rgba(102, 204, 154, 0.3);
+}
+
+.defense-rating-fragile {
+  color: #ffe08b;
+  background: rgba(118, 79, 21, 0.24);
+  border: 1px solid rgba(255, 209, 102, 0.4);
+}
+
+.defense-rating-very-exposed {
+  color: #ffb1a3;
+  background: rgba(116, 39, 24, 0.28);
+  border: 1px solid rgba(255, 143, 143, 0.38);
+}
+
+.defense-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.defense-stat {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.defense-stat span {
+  color: rgba(190, 210, 234, 0.72);
+  font-size: 11px;
+}
+
+.defense-stat strong {
+  color: #f5f9ff;
+  font-size: 18px;
+}
+
+.defense-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.defense-line .is-positive {
+  color: #7ef0aa;
+}
+
+.defense-line .is-negative {
+  color: #ff9b9b;
+}
+
+.defense-tip {
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(228, 238, 248, 0.84);
 }
 
 .tech-legacy-controls {
@@ -3199,7 +3324,8 @@ h4 {
   }
 
   .economy-summary-grid,
-  .economy-detail-columns {
+  .economy-detail-columns,
+  .defense-stat-grid {
     grid-template-columns: 1fr;
   }
 
