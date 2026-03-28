@@ -153,6 +153,7 @@ const {
   mobileFeedEl,
   mobileLeaderboardEl,
   mobilePanelCoreEl,
+  mobilePanelEconomyEl,
   mobilePanelIntelEl,
   mobilePanelMissionsEl,
   mobilePanelSocialEl,
@@ -171,6 +172,7 @@ const {
   panelActionButtons,
   panelAllianceEl,
   panelCloseBtn,
+  panelEconomyEl,
   panelFeedEl,
   panelLeaderboardEl,
   panelMissionsEl,
@@ -1328,6 +1330,141 @@ const formatUpkeepSummary = (upkeep: typeof state.upkeepPerMinute): string => {
   if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
+};
+type EconomyBucket = {
+  label: string;
+  amountPerMinute: number;
+  count: number;
+};
+
+const economySourceLabelForTile = (tile: Tile, resource: Exclude<EconomyFocusKey, "ALL">): string => {
+  if (resource === "GOLD") {
+    if (tile.town) return "Towns";
+    if (tile.dockId) return "Docks";
+    if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
+    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Settled land";
+  }
+  if (resource === "SHARD") return tile.town ? "Ancient towns" : "Shard sites";
+  if (tile.resource) return prettyToken(resourceLabel(tile.resource));
+  if (tile.town && resource === "FOOD") return "Town support";
+  return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";
+};
+
+const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string, amountPerMinute: number): void => {
+  if (amountPerMinute <= 0.0001) return;
+  const current = map.get(label);
+  if (current) {
+    current.amountPerMinute += amountPerMinute;
+    current.count += 1;
+    return;
+  }
+  map.set(label, { label, amountPerMinute, count: 1 });
+};
+
+const resourceUpkeepPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
+  if (resource === "GOLD") return state.upkeepPerMinute.gold;
+  if (resource === "FOOD") return state.upkeepPerMinute.food;
+  if (resource === "IRON") return state.upkeepPerMinute.iron;
+  if (resource === "CRYSTAL") return state.upkeepPerMinute.crystal;
+  if (resource === "SUPPLY") return state.upkeepPerMinute.supply;
+  return 0;
+};
+
+const resourceNetPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
+  if (resource === "GOLD") return state.incomePerMinute - state.upkeepPerMinute.gold;
+  return state.strategicProductionPerMinute[resource] - resourceUpkeepPerMinute(resource);
+};
+
+const economyDetailForResource = (resource: Exclude<EconomyFocusKey, "ALL">): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
+  const sources = new Map<string, EconomyBucket>();
+  const sinks = new Map<string, EconomyBucket>();
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
+    if (tile.fogged) continue;
+    const amountPerMinute =
+      resource === "GOLD"
+        ? tile.yieldRate?.goldPerMinute ?? 0
+        : Number(tile.yieldRate?.strategicPerDay?.[resource] ?? 0) / 1440;
+    accumulateEconomyBucket(sources, economySourceLabelForTile(tile, resource), amountPerMinute);
+    if (resource === "FOOD" && tile.town?.foodUpkeepPerMinute) {
+      accumulateEconomyBucket(sinks, "Town upkeep", tile.town.foodUpkeepPerMinute);
+    }
+  }
+  const totalUpkeep = resourceUpkeepPerMinute(resource);
+  const knownUpkeep = [...sinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0);
+  const residualUpkeep = Math.max(0, totalUpkeep - knownUpkeep);
+  if (residualUpkeep > 0.0001) {
+    accumulateEconomyBucket(sinks, resource === "FOOD" ? "Other empire upkeep" : "Structures, abilities, and upkeep effects", residualUpkeep);
+  }
+  return {
+    sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
+    sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
+  };
+};
+
+const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
+  state.economyFocus = focus;
+  setActivePanel("economy");
+};
+
+const economySummaryCardHtml = (resource: Exclude<EconomyFocusKey, "ALL">, selected: boolean): string => {
+  const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
+  const gross = resource === "GOLD" ? state.incomePerMinute : state.strategicProductionPerMinute[resource];
+  const upkeep = resourceUpkeepPerMinute(resource);
+  const net = resourceNetPerMinute(resource);
+  const icon = resourceIconForKey(resource);
+  const label = prettyToken(resource);
+  return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
+    <div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>
+    <div class="economy-summary-stock">${stock.toFixed(1)}</div>
+    <div class="economy-summary-rates">
+      <span>Gross ${gross.toFixed(2)}/m</span>
+      <span>Upkeep ${upkeep.toFixed(2)}/m</span>
+      <span class="economy-rate ${rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</span>
+    </div>
+  </button>`;
+};
+
+const economyPanelHtml = (): string => {
+  const focus = state.economyFocus;
+  const resources: Array<Exclude<EconomyFocusKey, "ALL">> = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
+  const visibleResources = focus === "ALL" ? resources : [focus];
+  const totals = formatUpkeepSummary(state.upkeepPerMinute);
+  return `
+    <div class="economy-panel">
+      <div class="economy-summary-grid">
+        ${resources.map((resource) => economySummaryCardHtml(resource, resource === focus)).join("")}
+      </div>
+      ${totals ? `<div class="economy-overview-note">${totals}</div>` : ""}
+      ${visibleResources
+        .map((resource) => {
+          const detail = economyDetailForResource(resource);
+          const net = resourceNetPerMinute(resource);
+          const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
+          return `<section class="economy-detail-card card">
+            <div class="economy-detail-head">
+              <div>
+                <div class="economy-detail-kicker">${resourceIconForKey(resource)} ${prettyToken(resource)}</div>
+                <strong>${stock.toFixed(1)} in reserve</strong>
+              </div>
+              <div class="economy-rate ${rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
+            </div>
+            <div class="economy-detail-columns">
+              <div class="economy-detail-column">
+                <h4>Income Sources</h4>
+                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
+              </div>
+              <div class="economy-detail-column">
+                <h4>Upkeep</h4>
+                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
+              </div>
+            </div>
+            ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((state.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
+          </section>`;
+        })
+        .join("")}
+    </div>
+  `;
 };
 const rateToneClass = (rate: number): string => {
   if (rate > 0.001) return "positive";
@@ -3007,7 +3144,7 @@ const renderHud = (): void => {
   const goldRateClass = rateToneClass(netGoldPerMinute);
   statsChipsEl.innerHTML = `
     <div class="stat-chip ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
-    <div class="stat-chip stat-chip-gold${pointsClass}"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></div>
+    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
     <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>Development</span>
@@ -3030,6 +3167,13 @@ const renderHud = (): void => {
   collectVisibleMobileMetaEl.textContent = collectMeta;
   collectVisibleDesktopBtn.classList.toggle("is-attention", collectReady);
   collectVisibleMobileBtn.classList.toggle("is-attention", collectReady);
+  const economyButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-economy-open]");
+  economyButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const focus = btn.dataset.economyOpen as EconomyFocusKey | undefined;
+      openEconomyPanel(focus ?? "ALL");
+    };
+  });
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   panelActionButtons.forEach((btn) => {
@@ -3314,6 +3458,15 @@ const renderHud = (): void => {
       window.location.reload();
     };
   }
+  const economyFocusButtons = hud.querySelectorAll<HTMLButtonElement>("[data-economy-focus]");
+  economyFocusButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const focus = btn.dataset.economyFocus as EconomyFocusKey | undefined;
+      if (!focus) return;
+      state.economyFocus = focus;
+      renderHud();
+    };
+  });
   const openGuideBtn = document.querySelector<HTMLButtonElement>("#open-guide");
   if (openGuideBtn) {
     openGuideBtn.onclick = () => {
@@ -3963,6 +4116,8 @@ type DevelopmentSlotSummary = {
   limit: number;
   available: number;
 };
+
+type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 
 type TileMenuView = {
   title: string;
