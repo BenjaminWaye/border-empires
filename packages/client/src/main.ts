@@ -2430,33 +2430,35 @@ const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: nu
 
 const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
 
-const settlePixelMotionPhase = (nowMs: number, seedOffset: number): number => {
-  const base = ((nowMs / 900) + seedOffset) % 1;
-  const envelope = triangularWave(base);
-  const speedEnvelope = 0.22 + 0.78 * (envelope * envelope);
-  return (((base * (0.55 + speedEnvelope * 1.7)) % 1) + 1) % 1;
-};
-
 const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
   ((((wx + salt) * 92821) ^ ((wy + salt * 3) * 68917) ^ ((i + salt * 5) * 1259)) >>> 0) / 0xffffffff;
+
+const settlePixelWaypoint = (wx: number, wy: number, i: number, step: number, axis: "x" | "y"): number =>
+  settlePixelSeed(wx, wy, i, axis === "x" ? 41 + step * 13 : 83 + step * 17);
+
 const settlePixelWanderPoint = (
   nowMs: number,
   wx: number,
   wy: number,
   i: number
 ): { x: number; y: number } => {
-  const phaseA = settlePixelMotionPhase(nowMs, settlePixelSeed(wx, wy, i, 17));
-  const phaseB = settlePixelMotionPhase(nowMs * 0.83, settlePixelSeed(wx, wy, i, 29));
-  const phaseC = settlePixelMotionPhase(nowMs * 1.17, settlePixelSeed(wx, wy, i, 47));
-  const driftX = (triangularWave((phaseA + phaseC * 0.31) % 1) - 0.5) * 0.92;
-  const driftY = (triangularWave((phaseB + phaseC * 0.53) % 1) - 0.5) * 0.92;
-  const idleX = (triangularWave((phaseA * 0.43 + phaseB * 0.21 + settlePixelSeed(wx, wy, i, 71)) % 1) - 0.5) * 0.44;
-  const idleY = (triangularWave((phaseB * 0.47 + phaseC * 0.18 + settlePixelSeed(wx, wy, i, 89)) % 1) - 0.5) * 0.44;
-  const x = Math.max(0, Math.min(1, 0.5 + driftX + idleX));
-  const y = Math.max(0, Math.min(1, 0.5 + driftY + idleY));
+  const moveDurationMs = 1700;
+  const pauseDurationMs = 1000;
+  const cycleDurationMs = moveDurationMs + pauseDurationMs;
+  const offsetMs = settlePixelSeed(wx, wy, i, 11) * cycleDurationMs;
+  const localTime = nowMs + offsetMs;
+  const segment = Math.floor(localTime / cycleDurationMs);
+  const segmentTime = localTime - segment * cycleDurationMs;
+  const fromX = settlePixelWaypoint(wx, wy, i, segment, "x");
+  const fromY = settlePixelWaypoint(wx, wy, i, segment, "y");
+  const toX = settlePixelWaypoint(wx, wy, i, segment + 1, "x");
+  const toY = settlePixelWaypoint(wx, wy, i, segment + 1, "y");
+  const travel = segmentTime >= moveDurationMs ? 1 : segmentTime / moveDurationMs;
+  const x = fromX + (toX - fromX) * travel;
+  const y = fromY + (toY - fromY) * travel;
   return {
-    x,
-    y
+    x: Math.max(0, Math.min(1, x)),
+    y: Math.max(0, Math.min(1, y))
   };
 };
 const ownershipPatternTone = (ownerId: string): string => {
@@ -7197,18 +7199,9 @@ const draw = (): void => {
         const pixelSize = 1;
         ctx.fillStyle = `rgba(6, 8, 12, ${darkPixelAlpha})`;
         for (let i = 0; i < activePixels; i += 1) {
-          const seedA = settlePixelSeed(wx, wy, i, 17);
-          const seedB = settlePixelSeed(wx, wy, i, 29);
-          const seedC = settlePixelSeed(wx, wy, i, 7);
-          const phaseX = settlePixelMotionPhase(now, seedA);
-          const phaseY = settlePixelMotionPhase(now, seedB * 0.9 + 0.07);
-          const driftX = triangularWave((phaseX + seedC * 0.31) % 1);
-          const driftY = triangularWave((phaseY + seedC * 0.57) % 1);
-          const jitterPhase = (now / 140) + i * 0.19;
-          const jitterX = (triangularWave((jitterPhase + seedA) % 1) - 0.5) * 1.2;
-          const jitterY = (triangularWave((jitterPhase + seedB + 0.37) % 1) - 0.5) * 1.2;
-          const dotX = Math.floor(px + swarmInset + driftX * (swarmWidth - pixelSize) + jitterX);
-          const dotY = Math.floor(py + swarmInset + driftY * (swarmWidth - pixelSize) + jitterY);
+          const point = settlePixelWanderPoint(now, wx, wy, i);
+          const dotX = Math.floor(px + swarmInset + point.x * (swarmWidth - pixelSize));
+          const dotY = Math.floor(py + swarmInset + point.y * (swarmWidth - pixelSize));
           ctx.fillRect(dotX, dotY, pixelSize, pixelSize);
         }
         ctx.strokeStyle = `rgba(255, 241, 185, ${0.68 + pulse * 0.16})`;
