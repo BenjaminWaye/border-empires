@@ -232,6 +232,7 @@ const hudMarkup = `
         <div id="allies-list"></div>
         <div id="alliance-requests"></div>
       </section>
+      <section id="panel-defensibility" class="panel-body"></section>
       <section id="panel-economy" class="panel-body"></section>
       <section id="panel-leaderboard" class="panel-body">
         <div id="leaderboard"></div>
@@ -283,6 +284,7 @@ const hudMarkup = `
       <div id="mobile-allies-list"></div>
       <div id="mobile-alliance-requests"></div>
     </section>
+    <section id="mobile-panel-defensibility" class="mobile-panel"></section>
     <section id="mobile-panel-economy" class="mobile-panel"></section>
     <section id="mobile-panel-intel" class="mobile-panel">
       <div id="mobile-leaderboard"></div>
@@ -351,6 +353,7 @@ export const initClientDom = () => {
   const panelMissionsEl = requireElement<HTMLDivElement>("#panel-missions");
   const panelTechEl = requireElement<HTMLDivElement>("#panel-tech");
   const panelAllianceEl = requireElement<HTMLDivElement>("#panel-alliance");
+  const panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility");
   const panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy");
   const panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard");
   const panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
@@ -381,6 +384,7 @@ export const initClientDom = () => {
   const mobilePanelMissionsEl = requireElement<HTMLDivElement>("#mobile-panel-missions");
   const mobilePanelTechEl = requireElement<HTMLDivElement>("#mobile-panel-tech");
   const mobilePanelSocialEl = requireElement<HTMLDivElement>("#mobile-panel-social");
+  const mobilePanelDefensibilityEl = requireElement<HTMLDivElement>("#mobile-panel-defensibility");
   const mobilePanelEconomyEl = requireElement<HTMLDivElement>("#mobile-panel-economy");
   const mobilePanelIntelEl = requireElement<HTMLDivElement>("#mobile-panel-intel");
   const mobileFeedEl = requireElement<HTMLDivElement>("#mobile-feed");
@@ -476,6 +480,7 @@ export const initClientDom = () => {
     mobileAlliesListEl,
     mobileCoreEl,
     mobileCoreHelpEl,
+    mobilePanelDefensibilityEl,
     mobileFeedEl,
     mobileLeaderboardEl,
     mobilePanelCoreEl,
@@ -498,6 +503,7 @@ export const initClientDom = () => {
     panelActionButtons,
     panelAllianceEl,
     panelCloseBtn,
+    panelDefensibilityEl,
     panelEconomyEl,
     panelFeedEl,
     panelLeaderboardEl,
