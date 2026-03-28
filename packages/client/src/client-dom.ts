@@ -232,6 +232,7 @@ const hudMarkup = `
         <div id="allies-list"></div>
         <div id="alliance-requests"></div>
       </section>
+      <section id="panel-economy" class="panel-body"></section>
       <section id="panel-leaderboard" class="panel-body">
         <div id="leaderboard"></div>
       </section>
@@ -282,6 +283,7 @@ const hudMarkup = `
       <div id="mobile-allies-list"></div>
       <div id="mobile-alliance-requests"></div>
     </section>
+    <section id="mobile-panel-economy" class="mobile-panel"></section>
     <section id="mobile-panel-intel" class="mobile-panel">
       <div id="mobile-leaderboard"></div>
       <div id="mobile-feed"></div>
@@ -349,6 +351,7 @@ export const initClientDom = () => {
   const panelMissionsEl = requireElement<HTMLDivElement>("#panel-missions");
   const panelTechEl = requireElement<HTMLDivElement>("#panel-tech");
   const panelAllianceEl = requireElement<HTMLDivElement>("#panel-alliance");
+  const panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy");
   const panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard");
   const panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
   const panelSettingsEl = requireElement<HTMLDivElement>("#panel-settings");
@@ -378,6 +381,7 @@ export const initClientDom = () => {
   const mobilePanelMissionsEl = requireElement<HTMLDivElement>("#mobile-panel-missions");
   const mobilePanelTechEl = requireElement<HTMLDivElement>("#mobile-panel-tech");
   const mobilePanelSocialEl = requireElement<HTMLDivElement>("#mobile-panel-social");
+  const mobilePanelEconomyEl = requireElement<HTMLDivElement>("#mobile-panel-economy");
   const mobilePanelIntelEl = requireElement<HTMLDivElement>("#mobile-panel-intel");
   const mobileFeedEl = requireElement<HTMLDivElement>("#mobile-feed");
   const mobileLeaderboardEl = requireElement<HTMLDivElement>("#mobile-leaderboard");
@@ -475,6 +479,7 @@ export const initClientDom = () => {
     mobileFeedEl,
     mobileLeaderboardEl,
     mobilePanelCoreEl,
+    mobilePanelEconomyEl,
     mobilePanelIntelEl,
     mobilePanelMissionsEl,
     mobilePanelSocialEl,
@@ -493,6 +498,7 @@ export const initClientDom = () => {
     panelActionButtons,
     panelAllianceEl,
     panelCloseBtn,
+    panelEconomyEl,
     panelFeedEl,
     panelLeaderboardEl,
     panelMissionsEl,
