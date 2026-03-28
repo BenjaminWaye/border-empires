@@ -4183,6 +4183,7 @@ const renderHud = (): void => {
   const collectVisibleReady = collectVisibleCooldownRemaining <= 0;
   const collectSummary = visibleCollectSummary();
   const development = developmentSlotSummary();
+  const mobile = isMobile();
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
   const pointsClass =
     Date.now() < state.goldAnimUntil ? (state.goldAnimDir > 0 ? " delta-up" : state.goldAnimDir < 0 ? " delta-down" : "") : "";
@@ -4190,13 +4191,13 @@ const renderHud = (): void => {
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
   statsChipsEl.innerHTML = `
-    <div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
+    ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
-    <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
+    ${mobile ? "" : `<div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>`}
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
-      <span>Development</span>
+      <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
-      <div class="stat-chip-dev-pips" aria-hidden="true">${developmentSlotPipsHtml(development)}</div>
+      ${mobile ? "" : `<div class="stat-chip-dev-pips" aria-hidden="true">${developmentSlotPipsHtml(development)}</div>`}
     </div>
     ${strategicRibbonHtml()}
   `;
@@ -4303,7 +4304,6 @@ const renderHud = (): void => {
       <div class="mobile-context-label">Tile</div>
       <div class="mobile-context-value">${selectedEl.innerHTML || selectedEl.textContent || "No tile selected."}</div>
     </div>
-    ${developmentSlotCardHtml(development, "hud")}
   `;
 
   renderCaptureProgress();
@@ -4843,6 +4843,23 @@ const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
 };
 
 const requestSettlement = (x: number, y: number): boolean => {
+  const tile = state.tiles.get(key(x, y));
+  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
+    pushFeed("Cannot settle: tile is not one of your frontier tiles.", "combat", "warn");
+    renderHud();
+    return false;
+  }
+  const slots = developmentSlotSummary();
+  if (slots.available <= 0) {
+    pushFeed(developmentSlotReason(slots), "combat", "warn");
+    renderHud();
+    return false;
+  }
+  if (!canAffordCost(state.gold, SETTLE_COST)) {
+    pushFeed(`Need ${SETTLE_COST} gold to settle this tile.`, "combat", "warn");
+    renderHud();
+    return false;
+  }
   if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y }, awaitingServerConfirm: false };
@@ -4854,6 +4871,22 @@ const requestSettlement = (x: number, y: number): boolean => {
   state.selected = { x, y };
   state.attackPreview = undefined;
   state.attackPreviewPendingKey = "";
+  renderHud();
+  return true;
+};
+
+const ensureDevelopmentSlotBeforeAction = (): boolean => {
+  const summary = developmentSlotSummary();
+  if (summary.available > 0) return true;
+  pushFeed(developmentSlotReason(summary), "combat", "warn");
+  renderHud();
+  return false;
+};
+
+const sendDevelopmentBuild = (payload: unknown, optimistic: () => void): boolean => {
+  if (!ensureDevelopmentSlotBeforeAction()) return false;
+  if (!sendGameMessage(payload)) return false;
+  optimistic();
   renderHud();
   return true;
 };
@@ -6477,47 +6510,16 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
     return;
   }
   if (actionId === "collect_yield") collectSelectedYield();
-  if (actionId === "build_fortification" && sendGameMessage({ type: "BUILD_FORT", x: selected.x, y: selected.y })) {
-    applyOptimisticStructureBuild(selected.x, selected.y, "FORT");
-    renderHud();
-  }
-  if (actionId === "build_observatory" && sendGameMessage({ type: "BUILD_OBSERVATORY", x: selected.x, y: selected.y })) {
-    applyOptimisticStructureBuild(selected.x, selected.y, "OBSERVATORY");
-    renderHud();
-  }
+  if (actionId === "build_fortification") sendDevelopmentBuild({ type: "BUILD_FORT", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FORT"));
+  if (actionId === "build_observatory") sendDevelopmentBuild({ type: "BUILD_OBSERVATORY", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "OBSERVATORY"));
   if (
-    actionId === "build_farmstead" &&
-    sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" })
-  ) {
-    applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD");
-    renderHud();
-  }
-  if (actionId === "build_camp" && sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" })) {
-    applyOptimisticStructureBuild(selected.x, selected.y, "CAMP");
-    renderHud();
-  }
-  if (actionId === "build_mine" && sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" })) {
-    applyOptimisticStructureBuild(selected.x, selected.y, "MINE");
-    renderHud();
-  }
-  if (
-    actionId === "build_market" &&
-    sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" })
-  ) {
-    applyOptimisticStructureBuild(selected.x, selected.y, "MARKET");
-    renderHud();
-  }
-  if (
-    actionId === "build_granary" &&
-    sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" })
-  ) {
-    applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY");
-    renderHud();
-  }
-  if (actionId === "build_siege_camp" && sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y })) {
-    applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST");
-    renderHud();
-  }
+    actionId === "build_farmstead"
+  ) sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"));
+  if (actionId === "build_camp") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"));
+  if (actionId === "build_mine") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MINE"));
+  if (actionId === "build_market") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MARKET"));
+  if (actionId === "build_granary") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY"));
+  if (actionId === "build_siege_camp") sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"));
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
@@ -6690,79 +6692,55 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   const siegeBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='siege']");
   if (settleBtn) {
     settleBtn.onclick = () => {
-      sendGameMessage({ type: "SETTLE", x, y });
+      requestSettlement(x, y);
       hideHoldBuildMenu();
     };
   }
   if (fortBtn) {
     fortBtn.onclick = () => {
-      if (sendGameMessage({ type: "BUILD_FORT", x, y })) {
-        applyOptimisticStructureBuild(x, y, "FORT");
-        renderHud();
-      }
+      sendDevelopmentBuild({ type: "BUILD_FORT", x, y }, () => applyOptimisticStructureBuild(x, y, "FORT"));
       hideHoldBuildMenu();
     };
   }
   if (siegeBtn) {
     siegeBtn.onclick = () => {
-      if (sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x, y })) {
-        applyOptimisticStructureBuild(x, y, "SIEGE_OUTPOST");
-        renderHud();
-      }
+      sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x, y }, () => applyOptimisticStructureBuild(x, y, "SIEGE_OUTPOST"));
       hideHoldBuildMenu();
     };
   }
   if (observatoryBtn) {
     observatoryBtn.onclick = () => {
-      if (sendGameMessage({ type: "BUILD_OBSERVATORY", x, y })) {
-        applyOptimisticStructureBuild(x, y, "OBSERVATORY");
-        renderHud();
-      }
+      sendDevelopmentBuild({ type: "BUILD_OBSERVATORY", x, y }, () => applyOptimisticStructureBuild(x, y, "OBSERVATORY"));
       hideHoldBuildMenu();
     };
   }
   if (farmsteadBtn) {
     farmsteadBtn.onclick = () => {
-      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "FARMSTEAD" })) {
-        applyOptimisticStructureBuild(x, y, "FARMSTEAD");
-        renderHud();
-      }
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "FARMSTEAD" }, () => applyOptimisticStructureBuild(x, y, "FARMSTEAD"));
       hideHoldBuildMenu();
     };
   }
   if (campBtn) {
     campBtn.onclick = () => {
-      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "CAMP" })) {
-        applyOptimisticStructureBuild(x, y, "CAMP");
-        renderHud();
-      }
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(x, y, "CAMP"));
       hideHoldBuildMenu();
     };
   }
   if (mineBtn) {
     mineBtn.onclick = () => {
-      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MINE" })) {
-        applyOptimisticStructureBuild(x, y, "MINE");
-        renderHud();
-      }
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MINE" }, () => applyOptimisticStructureBuild(x, y, "MINE"));
       hideHoldBuildMenu();
     };
   }
   if (marketBtn) {
     marketBtn.onclick = () => {
-      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MARKET" })) {
-        applyOptimisticStructureBuild(x, y, "MARKET");
-        renderHud();
-      }
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(x, y, "MARKET"));
       hideHoldBuildMenu();
     };
   }
   if (granaryBtn) {
     granaryBtn.onclick = () => {
-      if (sendGameMessage({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "GRANARY" })) {
-        applyOptimisticStructureBuild(x, y, "GRANARY");
-        renderHud();
-      }
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(x, y, "GRANARY"));
       hideHoldBuildMenu();
     };
   }
