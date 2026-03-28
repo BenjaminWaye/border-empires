@@ -1552,6 +1552,44 @@ body {
   color: #eef7ff;
 }
 
+.tech-mod-breakdown {
+  display: grid;
+  gap: 8px;
+}
+
+.tech-mod-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(7, 16, 29, 0.48);
+  border: 1px solid rgba(158, 184, 216, 0.16);
+}
+
+.tech-mod-breakdown-row span {
+  color: rgba(221, 235, 250, 0.82);
+  font-size: 12px;
+}
+
+.tech-mod-delta {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.tech-mod-delta.positive {
+  color: #58dc8a;
+}
+
+.tech-mod-delta.negative {
+  color: #ff7b7b;
+}
+
+.tech-mod-delta.neutral {
+  color: rgba(221, 235, 250, 0.82);
+}
+
 #tech-choices-grid,
 #mobile-tech-choices-grid {
   display: grid;
