@@ -127,7 +127,6 @@ const {
   collectVisibleMobileMetaEl,
   ctx,
   feedEl,
-  guideFabEl,
   guideOverlayEl,
   holdBuildMenuEl,
   hoverEl,
@@ -413,11 +412,19 @@ const tileHistoryLines = (tile: Tile): string[] => {
   const history = tile.history;
   if (!history) return [];
   const lines: string[] = [];
+  const currentStructureType =
+    tile.fort
+      ? "FORT"
+      : tile.siegeOutpost
+        ? "SIEGE_OUTPOST"
+        : tile.observatory
+          ? "OBSERVATORY"
+          : tile.economicStructure?.type;
   if (history.captureCount > 0) lines.push(`Captured ${history.captureCount} time${history.captureCount === 1 ? "" : "s"}`);
   if (history.lastOwnerId) lines.push(`Last held by ${shortOwnerHistoryLabel(history.lastOwnerId)}`);
   if (history.wasMountainCreatedByPlayer) lines.push("Artificial mountain");
   if (history.wasMountainRemovedByPlayer) lines.push("Former mountain pass");
-  if (history.lastStructureType) {
+  if (history.lastStructureType && history.lastStructureType !== currentStructureType) {
     const label =
       history.lastStructureType === "FORT"
         ? "Former Fort site"
@@ -4096,10 +4103,6 @@ const renderHud = (): void => {
       </div>
     </div>
     <div class="card auth-settings-card">
-      <p>Need a refresher on the controls and victory rules?</p>
-      <button id="open-guide" class="panel-btn">Open Game Guide</button>
-    </div>
-    <div class="card auth-settings-card">
       <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
       <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
     </div>
@@ -4139,16 +4142,6 @@ const renderHud = (): void => {
       renderHud();
     };
   });
-  const openGuideBtn = document.querySelector<HTMLButtonElement>("#open-guide");
-  if (openGuideBtn) {
-    openGuideBtn.onclick = () => {
-      state.guide.open = true;
-      state.guide.stepIndex = 0;
-      renderHud();
-    };
-  }
-
-  guideFabEl.classList.toggle("has-unseen-guide", !state.guide.completed);
   const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired;
   guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
   if (canShowGuide) {
@@ -6399,12 +6392,6 @@ collectVisibleMobileBtn.onclick = () => {
   collectVisibleYield();
 };
 captureCancelBtn.onclick = () => cancelOngoingCapture();
-guideFabEl.onclick = () => {
-  state.guide.open = true;
-  state.guide.stepIndex = 0;
-  renderHud();
-};
-
 panelCloseBtn.onclick = () => {
   state.activePanel = null;
   renderHud();
