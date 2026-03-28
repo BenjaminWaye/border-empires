@@ -2443,6 +2443,36 @@ const growthDeltaPctLabel = (population: number, deltaPerMinute: number): string
   const sign = pct > 0 ? "+" : "";
   return `${sign}${pct.toFixed(2)}%/m`;
 };
+
+const townNextPopulationMilestone = (
+  town: NonNullable<Tile["town"]>
+): { label: string; targetPopulation: number } | undefined => {
+  if (town.populationTier === "TOWN") return { label: "City", targetPopulation: 100_000 };
+  if (town.populationTier === "CITY") return { label: "Great City", targetPopulation: 1_000_000 };
+  if (town.populationTier === "GREAT_CITY") return { label: "Metropolis", targetPopulation: 5_000_000 };
+  return undefined;
+};
+
+const formatRoughMinutes = (minutes: number): string => {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "now";
+  if (minutes < 60) return `${Math.ceil(minutes)}m`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${Math.ceil(hours)}h`;
+  const days = hours / 24;
+  if (days < 14) return `${Math.ceil(days)}d`;
+  const weeks = days / 7;
+  return `${Math.ceil(weeks)}w`;
+};
+
+const townNextGrowthEtaLabel = (town: NonNullable<Tile["town"]>): string => {
+  const milestone = townNextPopulationMilestone(town);
+  if (!milestone) return "Max tier reached";
+  const growth = town.populationGrowthPerMinute ?? 0;
+  if (growth <= 0) return `${milestone.label} growth paused`;
+  const remainingPopulation = Math.max(0, milestone.targetPopulation - town.population);
+  if (remainingPopulation <= 0) return `${milestone.label} ready`;
+  return `${milestone.label} in ~${formatRoughMinutes(remainingPopulation / growth)}`;
+};
 const hoverTile = (): Tile | undefined => {
   if (!state.hover) return undefined;
   return state.tiles.get(key(state.hover.x, state.hover.y));
@@ -4830,12 +4860,17 @@ type DevelopmentSlotSummary = {
 
 type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 
+type TileOverviewLine = {
+  html: string;
+  kind?: "effect";
+};
+
 type TileMenuView = {
   title: string;
   subtitle: string;
   tabs: TileMenuTab[];
   overviewKicker?: string;
-  overviewLines: string[];
+  overviewLines: TileOverviewLine[];
   actions: TileActionDef[];
   progress?: TileMenuProgressView;
 };
@@ -5064,71 +5099,85 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
   return undefined;
 };
 
-const menuOverviewForTile = (tile: Tile): string[] => {
-  const lines: string[] = [];
-  if (!tile.ownerId) lines.push("Unclaimed land");
-  else if (tile.ownerId !== state.me) lines.push(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`);
+const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
+  const lines: TileOverviewLine[] = [];
+  const pushLine = (html: string): void => {
+    lines.push({ html });
+  };
+  const pushEffectLine = (name: string, mod: string, tone: "positive" | "negative" | "neutral"): void => {
+    lines.push({
+      kind: "effect",
+      html: `<span class="tile-overview-effect-name">${name}</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
+    });
+  };
+  if (!tile.ownerId) pushLine("Unclaimed land");
+  else if (tile.ownerId !== state.me) pushLine(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`);
   if (tile.terrain === "SEA") {
-    lines.push(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions.");
+    pushLine(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions.");
     return lines;
   }
   if (tile.terrain === "MOUNTAIN") {
-    lines.push("Mountains block normal land expansion and attacks.");
+    pushLine("Mountains block normal land expansion and attacks.");
     return lines;
   }
   const productionLabel = tileProductionRequirementLabel(tile);
   if (!tile.ownerId) {
-    lines.push("Claim this tile first to turn it into frontier land.");
-    if (productionLabel) lines.push(`After you settle it, this tile can produce ${productionLabel}.`);
+    pushLine("Claim this tile first to turn it into frontier land.");
+    if (productionLabel) pushLine(`After you settle it, this tile can produce ${productionLabel}.`);
     return lines;
   }
   if (tile.ownershipState === "FRONTIER") {
-    lines.push("Frontier land is visible control, but it has no real defense yet.");
-    if (productionLabel) lines.push(`Needs settlement to produce ${productionLabel}.`);
-    else lines.push("Needs settlement to gain defense and full ownership strength.");
+    pushLine("Frontier land is visible control, but it has no real defense yet.");
+    if (productionLabel) pushLine(`Needs settlement to produce ${productionLabel}.`);
+    else pushLine("Needs settlement to gain defense and full ownership strength.");
   } else if (tile.ownershipState === "SETTLED") {
-    lines.push("Settled land is defended and fully part of your empire.");
-    if (tile.town) lines.push("Towns produce gold when fed.");
+    pushLine("Settled land is defended and fully part of your empire.");
+    if (tile.town) pushLine("Towns produce gold when fed.");
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
-    lines.push(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
+    pushLine(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
     const growthPct =
       tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
         ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
         : 0;
-    lines.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax} • Pop ${Math.round(tile.town.population).toLocaleString()} • Growth ${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`);
+    const growthLabel = `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`;
+    pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
+    pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
+    pushLine(`Growth ${growthLabel}`);
+    pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
     for (const modifier of tile.town.growthModifiers ?? []) {
-      lines.push(`${modifier.label} (${growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute)})`);
+      const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
+      pushEffectLine(modifier.label, growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute), tone);
     }
-    if (tile.town.hasMarket) lines.push(`Market: ${tile.town.marketActive ? "Active" : "Built"} • Boosts town gold and storage.`);
-    if (tile.town.hasGranary) lines.push(`Granary: ${tile.town.granaryActive ? "Active" : "Built"} • Boosts town population cap.`);
+    if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% gold output" : "Built", tile.town.marketActive ? "positive" : "neutral");
+    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+population cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
   } else if (tile.resource) {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
-    if (tile.ownershipState === "SETTLED") lines.push(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
+    if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
   }
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {
-      lines.push(`Support tile for nearby town at (${town.x}, ${town.y}).`);
-      if (town.town?.hasMarket) lines.push("Nearby town already has a Market.");
-      if (town.town?.hasGranary) lines.push("Nearby town already has a Granary.");
+      pushLine(`Support tile for nearby town at (${town.x}, ${town.y}).`);
+      if (town.town?.hasMarket) pushLine("Nearby town already has a Market.");
+      if (town.town?.hasGranary) pushLine("Nearby town already has a Granary.");
       if (!tile.economicStructure) {
-        lines.push("Town buildings like markets and granaries must be built on support tiles.");
+        pushLine("Town buildings like markets and granaries must be built on support tiles.");
       }
     }
   } else if (supportedTowns.length > 1) {
-    lines.push("This support tile touches multiple towns.");
+    pushLine("This support tile touches multiple towns.");
   }
   if (tile.economicStructure) {
-    lines.push(`${economicStructureName(tile.economicStructure.type)} on this square. ${economicStructureBenefitText(tile.economicStructure.type)}`);
+    pushEffectLine(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), "positive");
   }
   const storedYield = storedYieldSummary(tile);
-  if (storedYield) lines.push(`Stored yield: ${storedYield}`);
+  if (storedYield) pushLine(`Stored yield: ${storedYield}`);
   const construction = constructionCountdownLineForTile(tile);
-  if (construction) lines.push(construction);
+  if (construction) pushLine(construction);
   const historyLines = tileHistoryLines(tile);
-  lines.push(...historyLines);
+  for (const historyLine of historyLines) pushLine(historyLine);
   return lines;
 };
 
@@ -5891,7 +5940,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   return `
     <div class="tile-overview-card">
       ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
-      ${view.overviewLines.map((line) => `<div class="tile-overview-line">${line}</div>`).join("")}
+      ${view.overviewLines.map((line) => `<div class="tile-overview-line${line.kind === "effect" ? " tile-overview-line-effect" : ""}">${line.html}</div>`).join("")}
     </div>
   `;
 };
