@@ -2417,9 +2417,20 @@ const dockDestinationsFor = (dx: number, dy: number): Array<{ x: number; y: numb
   return out;
 };
 
-const pickDockOriginForTarget = (tx: number, ty: number, allowAdjacentToDock = true): Tile | undefined => {
+const pickDockOriginForTarget = (
+  tx: number,
+  ty: number,
+  allowAdjacentToDock = true,
+  allowOptimisticExpandOrigin = true
+): Tile | undefined => {
   for (const t of state.tiles.values()) {
-    if (t.ownerId !== state.me || t.terrain !== "LAND" || t.fogged || !t.dockId) continue;
+    if (
+      t.ownerId !== state.me ||
+      t.terrain !== "LAND" ||
+      t.fogged ||
+      !t.dockId ||
+      (!allowOptimisticExpandOrigin && t.optimisticPending === "expand")
+    ) continue;
     const linked = dockDestinationsFor(t.x, t.y);
     for (const d of linked) {
       if ((d.x === tx && d.y === ty) || (allowAdjacentToDock && isAdjacentCardinal(d.x, d.y, tx, ty))) return t;
@@ -2428,7 +2439,12 @@ const pickDockOriginForTarget = (tx: number, ty: number, allowAdjacentToDock = t
   return undefined;
 };
 
-const pickOriginForTarget = (tx: number, ty: number, allowAdjacentToDock = true): Tile | undefined => {
+const pickOriginForTarget = (
+  tx: number,
+  ty: number,
+  allowAdjacentToDock = true,
+  allowOptimisticExpandOrigin = true
+): Tile | undefined => {
   const candidates = [
     state.tiles.get(key(wrapX(tx), wrapY(ty - 1))),
     state.tiles.get(key(wrapX(tx + 1), wrapY(ty))),
@@ -2439,9 +2455,9 @@ const pickOriginForTarget = (tx: number, ty: number, allowAdjacentToDock = true)
     state.tiles.get(key(wrapX(tx + 1), wrapY(ty + 1))),
     state.tiles.get(key(wrapX(tx - 1), wrapY(ty + 1)))
   ].filter((t): t is Tile => Boolean(t));
-  const adjacent = candidates.find((t) => t.ownerId === state.me);
+  const adjacent = candidates.find((t) => t.ownerId === state.me && (allowOptimisticExpandOrigin || t.optimisticPending !== "expand"));
   if (adjacent) return adjacent;
-  return pickDockOriginForTarget(tx, ty, allowAdjacentToDock);
+  return pickDockOriginForTarget(tx, ty, allowAdjacentToDock, allowOptimisticExpandOrigin);
 };
 
 const startingExpansionArrowTargets = (): Array<{ x: number; y: number; dx: number; dy: number }> => {
@@ -4137,29 +4153,42 @@ const sendDevelopmentBuild = (payload: unknown, optimistic: () => void): boolean
 const processActionQueue = (): boolean => {
   if (state.actionInFlight || ws.readyState !== ws.OPEN || !state.authSessionReady) return false;
   while (state.actionQueue.length > 0) {
-    const next = state.actionQueue.shift();
+    const next = state.actionQueue[0];
     if (!next) return false;
 
     const targetKey = key(next.x, next.y);
     const to = state.tiles.get(targetKey);
     if (!to) {
+      state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
       continue;
     }
     if (to.ownerId === state.me) {
+      state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
       continue;
     }
 
-    let from = to.ownerId ? pickOriginForTarget(to.x, to.y) : pickOriginForTarget(to.x, to.y, false);
+    const allowOptimisticOrigin = Boolean(to.ownerId);
+    let from = to.ownerId ? pickOriginForTarget(to.x, to.y) : pickOriginForTarget(to.x, to.y, false, false);
+    const optimisticFrom = to.ownerId ? from : pickOriginForTarget(to.x, to.y, false, true);
     const selectedFrom = state.selected ? state.tiles.get(key(state.selected.x, state.selected.y)) : undefined;
-    if (!from && selectedFrom && selectedFrom.ownerId === state.me && isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y)) {
+    if (
+      !from &&
+      selectedFrom &&
+      selectedFrom.ownerId === state.me &&
+      isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y) &&
+      (allowOptimisticOrigin || selectedFrom.optimisticPending !== "expand")
+    ) {
       from = selectedFrom;
     }
+    if (!from && !allowOptimisticOrigin && optimisticFrom) return false;
     if (!from) {
+      state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
       continue;
     }
+    state.actionQueue.shift();
 
     state.actionCurrent = {
       x: to.x,
