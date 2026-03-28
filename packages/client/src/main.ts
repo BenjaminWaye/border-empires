@@ -59,7 +59,6 @@ import { initClientDom } from "./client-dom.js";
 import {
   allianceRequestsHtml,
   alliesHtml,
-  developmentSlotPipsHtml,
   feedHtml,
   leaderboardHtml,
   missionCardsHtml,
@@ -4416,7 +4415,6 @@ type TileMenuView = {
   overviewLines: string[];
   actions: TileActionDef[];
   progress?: TileMenuProgressView;
-  development?: DevelopmentSlotSummary;
 };
 
 const actionIcon = (id: TileActionDef["id"]): string => {
@@ -4485,17 +4483,6 @@ const developmentSlotSummary = (): DevelopmentSlotSummary => {
 const developmentSlotReason = (summary = developmentSlotSummary()): string => {
   return `No available development slots (${summary.busy}/${summary.limit} busy)`;
 };
-
-const developmentSlotCardHtml = (summary: DevelopmentSlotSummary, tone: "hud" | "menu" = "hud"): string => `
-  <div class="dev-slot-card dev-slot-card-${tone}${summary.available === 0 ? " is-full" : ""}">
-    <div class="dev-slot-copy">
-      <span class="dev-slot-label">Development</span>
-      <strong>${summary.busy}/${summary.limit} busy</strong>
-      <small>${summary.available > 0 ? `${summary.available} available` : "All slots committed"}</small>
-    </div>
-    <div class="dev-slot-pips" aria-hidden="true">${developmentSlotPipsHtml(summary)}</div>
-  </div>
-`;
 
 const abilityCooldownRemainingMs = (
   abilityId: "deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain"
@@ -4607,7 +4594,6 @@ const tileProductionRequirementLabel = (tile: Tile): string | undefined => {
 
 const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
   const nowMs = Date.now();
-  const slots = developmentSlotSummary();
   if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
     const remaining = Math.max(0, tile.fort.completesAt - nowMs);
     return {
@@ -4615,7 +4601,7 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will gain fortified defense when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
-      note: `Uses 1 development slot while building. ${slots.busy}/${slots.limit} busy.`,
+      note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction"
     };
   }
@@ -4626,7 +4612,7 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will extend vision and observatory protection when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
-      note: `Uses 1 development slot while building. ${slots.busy}/${slots.limit} busy.`,
+      note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction"
     };
   }
@@ -4637,7 +4623,7 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile will gain an offensive staging structure when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
-      note: `Uses 1 development slot while building. ${slots.busy}/${slots.limit} busy.`,
+      note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction"
     };
   }
@@ -4648,7 +4634,7 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       detail: "This tile is still being developed and is not fully online yet.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, ECONOMIC_STRUCTURE_BUILD_MS))),
-      note: `Uses 1 development slot while building. ${slots.busy}/${slots.limit} busy.`,
+      note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction"
     };
   }
@@ -4680,10 +4666,6 @@ const menuOverviewForTile = (tile: Tile): string[] => {
   } else if (tile.ownershipState === "SETTLED") {
     lines.push("Settled land is defended and fully part of your empire.");
     if (tile.town) lines.push("Towns produce gold when fed.");
-  }
-  if (tile.ownerId === state.me) {
-    const slots = developmentSlotSummary();
-    lines.push(`Development slots ${slots.busy}/${slots.limit} busy${slots.available > 0 ? ` • ${slots.available} available` : ""}.`);
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
@@ -4731,7 +4713,6 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
   const actions = menuActionsForSingleTile(tile);
   const settlement = settlementProgressForTile(tile.x, tile.y);
   const construction = constructionProgressForTile(tile);
-  const slots = tile.ownerId === state.me ? developmentSlotSummary() : undefined;
   const progress =
     settlement
       ? {
@@ -4744,8 +4725,8 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
             ? 1
             : Math.max(0, Math.min(1, (Date.now() - settlement.startAt) / Math.max(1, settlement.resolvesAt - settlement.startAt))),
           note: settlement.awaitingServerConfirm
-            ? `Keeping the tile settled client-side until the server responds. ${slots ? `${slots.busy}/${slots.limit} busy.` : ""}`.trim()
-            : `Uses 1 development slot while settling.${slots ? ` ${slots.busy}/${slots.limit} busy.` : ""}`
+            ? "Keeping the tile settled client-side until the server responds."
+            : "This tile is actively settling."
         }
       : construction;
   const tabs: TileMenuTab[] = progress ? ["progress"] : actions.length > 0 ? ["actions"] : ["overview"];
@@ -4773,8 +4754,7 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     overviewLines: menuOverviewForTile(tile),
     actions,
     ...(progress ? { progress } : {}),
-    ...(slots ? { development: slots } : {})
-  };
+    };
 };
 
 const hasRevealCapability = (): boolean => {
@@ -5454,10 +5434,9 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
 };
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
-  const developmentHtml = view.development ? developmentSlotCardHtml(view.development, "menu") : "";
   if (activeTab === "actions") {
-    if (view.actions.length === 0) return `${developmentHtml}<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
-    return `${developmentHtml}<div class="tile-action-list">${view.actions
+    if (view.actions.length === 0) return `<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
+    return `<div class="tile-action-list">${view.actions
       .map(
         (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${actionIcon(a.id)}</span>
@@ -5473,7 +5452,6 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
     return `
-      ${developmentHtml}
       <div class="tile-progress-card">
         <div class="tile-progress-title">${view.progress.title}</div>
         <div class="tile-progress-detail">${view.progress.detail}</div>
@@ -5489,7 +5467,6 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   }
   return `
     <div class="tile-overview-card">
-      ${developmentHtml}
       ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
       ${view.overviewLines.map((line) => `<div class="tile-overview-line">${line}</div>`).join("")}
     </div>
@@ -7359,18 +7336,18 @@ const draw = (): void => {
         const fillWidth = Math.max(2, Math.floor((size - 2) * progress));
         const ownerFill = t?.ownerId ? effectiveOverlayColor(t.ownerId) : "#ffd166";
         const pulse = 0.34 + 0.28 * (0.5 + 0.5 * Math.sin(now / 160));
-        const darkPixelAlpha = (0.52 + pulse * 0.18).toFixed(3);
+        const darkPixelAlpha = (0.86 + pulse * 0.12).toFixed(3);
         ctx.fillStyle = `rgba(9, 14, 24, 0.28)`;
         ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
         ctx.fillStyle = ownerFill;
         ctx.globalAlpha = 0.16 + progress * 0.36;
         ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
         ctx.globalAlpha = 1;
-        const pixelCount = isMobile() ? Math.max(6, Math.min(16, Math.floor(size * 0.62))) : Math.max(8, Math.min(22, Math.floor(size * 0.78)));
-        const activePixels = Math.max(4, Math.round(progress * pixelCount));
-        const swarmInset = Math.max(2, Math.floor(size * 0.08));
+        const pixelCount = isMobile() ? Math.max(10, Math.min(22, Math.floor(size * 0.78))) : Math.max(12, Math.min(28, Math.floor(size * 0.94)));
+        const activePixels = Math.max(6, Math.round(4 + progress * pixelCount));
+        const swarmInset = Math.max(1, Math.floor(size * 0.04));
         const swarmWidth = Math.max(3, size - swarmInset * 2);
-        const pixelSize = 1;
+        const pixelSize = size <= 10 ? 1 : 2;
         ctx.fillStyle = `rgba(6, 8, 12, ${darkPixelAlpha})`;
         for (let i = 0; i < activePixels; i += 1) {
           const point = settlePixelWanderPoint(now, wx, wy, i);
