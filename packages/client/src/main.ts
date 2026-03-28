@@ -55,6 +55,16 @@ import {
   guideSteps,
   isForestTile
 } from "./client-constants.js";
+import { initClientDom } from "./client-dom.js";
+import {
+  allianceRequestsHtml,
+  alliesHtml,
+  developmentSlotPipsHtml,
+  feedHtml,
+  leaderboardHtml,
+  missionCardsHtml,
+  strategicRibbonHtml
+} from "./client-panel-html.js";
 import { createInitialState, storageSet } from "./client-state.js";
 import type {
   AllianceRequest,
@@ -76,944 +86,114 @@ import type {
   TileTimedProgress
 } from "./client-types.js";
 
-/*
-
-const OBSERVATORY_BUILD_COST = 600;
-const OBSERVATORY_VISION_BONUS = 5;
-const OBSERVATORY_PROTECTION_RADIUS = 10;
-const MIN_ZOOM = 10;
-const MAX_ZOOM = 192;
-const GOLD_COST_EPSILON = 1e-6;
-const GUIDE_STORAGE_KEY = "border-empires-guide-complete-v1";
-const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1";
-
-const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
-
-const formatGoldAmount = (gold: number): string => gold.toFixed(2);
-
-const isForestTile = (x: number, y: number): boolean => landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
-
-const frontierClaimDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? FRONTIER_CLAIM_MS * 2 : FRONTIER_CLAIM_MS);
-
-const frontierClaimCostLabelForTile = (x: number, y: number): string => {
-  const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);
-  return isForestTile(x, y) ? `${FRONTIER_CLAIM_COST} gold • ${seconds}s (Forest)` : `${FRONTIER_CLAIM_COST} gold • ${seconds}s`;
-};
-
-type Tile = {
-  x: number;
-  y: number;
-  terrain: "LAND" | "SEA" | "MOUNTAIN";
-  fogged?: boolean;
-  resource?: string;
-  ownerId?: string;
-  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
-  capital?: boolean;
-  breachShockUntil?: number;
-  clusterId?: string;
-  clusterType?: string;
-  regionType?: "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
-  dockId?: string;
-  town?: {
-    type: "MARKET" | "FARMING" | "ANCIENT";
-    baseGoldPerMinute: number;
-    supportCurrent: number;
-    supportMax: number;
-    goldPerMinute: number;
-    cap: number;
-    isFed: boolean;
-    population: number;
-    maxPopulation: number;
-    populationGrowthPerMinute?: number;
-    populationTier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    connectedTownCount: number;
-    connectedTownBonus: number;
-    connectedTownNames?: string[];
-    hasMarket: boolean;
-    marketActive: boolean;
-    hasGranary: boolean;
-    granaryActive: boolean;
-    foodUpkeepPerMinute?: number;
-    growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
-  };
-  fort?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
-  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive"; completesAt?: number };
-  siegeOutpost?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
-  economicStructure?: {
-    ownerId: string;
-    type: "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
-    status: "under_construction" | "active" | "inactive";
-    completesAt?: number;
-  };
-  sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
-  history?: {
-    lastOwnerId?: string | null;
-    previousOwners: string[];
-    captureCount: number;
-    lastCapturedAt?: number | null;
-    lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY" | null;
-    structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY">;
-    wasMountainCreatedByPlayer?: boolean;
-    wasMountainRemovedByPlayer?: boolean;
-  };
-  yield?: { gold?: number; strategic?: Record<string, number> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
-  yieldCap?: { gold: number; strategicEach: number };
-  optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel";
-};
-
-type OptimisticStructureKind = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
-
-type TileTimedProgress = {
-  startAt: number;
-  resolvesAt: number;
-  target: { x: number; y: number };
-  awaitingServerConfirm?: boolean;
-};
-
-type EmpireVisualStyle = {
-  primaryOverlay: string;
-  secondaryTint: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
-  borderStyle: "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
-  structureAccent: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
-};
-
-type AllianceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt: number;
-  fromName?: string;
-  toName?: string;
-};
-type TechInfo = {
-  id: string;
-  name: string;
-  tier: number;
-  rootId?: string;
-  requires?: string;
-  prereqIds?: string[];
-  description: string;
-  mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-  effects?: Record<string, unknown>;
-  requirements: {
-    gold: number;
-    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
-    checklist?: Array<{ label: string; met: boolean }>;
-    canResearch?: boolean;
-  };
-  grantsPowerup?: { id: string; charges: number };
-};
-type DomainInfo = {
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  requiresTechId: string;
-  mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-  effects?: Record<string, unknown>;
-  requirements: {
-    gold: number;
-    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
-    checklist?: Array<{ label: string; met: boolean }>;
-    canResearch?: boolean;
-  };
-};
-type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number };
-type LeaderboardMetricEntry = { id: string; name: string; value: number };
-type SeasonVictoryObjectiveView = {
-  id: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "CONTINENT_FOOTPRINT";
-  name: string;
-  description: string;
-  leaderPlayerId?: string;
-  leaderName: string;
-  progressLabel: string;
-  thresholdLabel: string;
-  holdDurationSeconds: number;
-  holdRemainingSeconds?: number;
-  statusLabel: string;
-  conditionMet: boolean;
-};
-type SeasonWinnerView = {
-  playerId: string;
-  playerName: string;
-  crownedAt: number;
-  objectiveId: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "CONTINENT_FOOTPRINT";
-  objectiveName: string;
-};
-type MissionState = {
-  id: string;
-  name: string;
-  description: string;
-  target: number;
-  progress: number;
-  rewardPoints: number;
-  rewardLabel?: string;
-  expiresAt?: number;
-  completed: boolean;
-  claimed: boolean;
-};
-type FeedType = "combat" | "mission" | "error" | "info" | "alliance" | "tech";
-type FeedSeverity = "info" | "success" | "warn" | "error";
-type FeedEntry = {
-  text: string;
-  type: FeedType;
-  severity: FeedSeverity;
-  at: number;
-};
-type DockPair = { ax: number; ay: number; bx: number; by: number };
-type CrystalTargetingAbility = "deep_strike" | "naval_infiltration" | "sabotage";
-type GuideStep = {
-  title: string;
-  body: string;
-};
-
-const guideSteps: GuideStep[] = [
-  {
-    title: "Welcome to Border Empires",
-    body: "Expand, defend, and outmaneuver rival empires. Win the season by holding any victory condition continuously for 24 hours."
-  },
-  {
-    title: "Expand Your Territory",
-    body: "Tap nearby land to open expansion actions. Territory grows from unowned to frontier to settled, and settled land is what strengthens your empire."
-  },
-  {
-    title: "Manage Resources",
-    body: "Gold funds expansion and building. Iron supports war, Crystal fuels advanced actions, Supply supports outposts, and Food keeps towns productive."
-  },
-  {
-    title: "Build Structures",
-    body: "Open the Actions menu on your land to build forts, siege outposts, observatories, and economic structures on the tiles that matter most."
-  },
-  {
-    title: "Use Abilities",
-    body: "Technologies unlock powerful Crystal-based actions like sabotage, reconnaissance, and special attacks that can break open defended borders."
-  },
-  {
-    title: "Win the Season",
-    body: "Track victory races in the Victory panel. Town control, settled land, economy, resources, and continent reach can all decide the season if held for 24 hours."
-  }
-];
-
-*/
-
-const canvas = document.querySelector<HTMLCanvasElement>("#game");
-const hud = document.querySelector<HTMLDivElement>("#hud");
-if (!canvas || !hud) throw new Error("missing DOM roots");
-
-const ctx = canvas.getContext("2d");
-if (!ctx) throw new Error("missing 2d context");
-
-hud.innerHTML = `
-  <div id="top-strip">
-    <div id="stats-chips"></div>
-    <div id="panel-actions">
-      <button class="icon-btn icon-only" data-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
-      <button class="icon-btn icon-only" data-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
-      <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies"><span class="tab-icon">👥</span></button>
-      <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks"><span class="tab-icon">🏆</span></button>
-      <button class="icon-btn icon-only" data-panel="feed" title="Feed" aria-label="Feed"><span class="tab-icon">🔔</span></button>
-      <button class="icon-btn icon-only" data-panel="settings" title="Style" aria-label="Style"><span class="tab-icon">🎨</span></button>
-    </div>
-  </div>
-
-  <div id="floating-info">
-    <div id="selected"></div>
-    <div id="hover"></div>
-    <div class="row">
-      <button id="center-me-desktop" class="panel-btn utility-btn" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">◎</span>
-        <span class="utility-btn-copy"><strong>Center</strong><small>Jump to your banner</small></span>
-      </button>
-      <button id="collect-visible-desktop" class="panel-btn utility-btn utility-btn-collect" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">✦</span>
-        <span class="utility-btn-copy"><strong>Collect</strong><small id="collect-visible-desktop-meta">Gather visible yield</small></span>
-      </button>
-    </div>
-  </div>
-
-  <div id="mini-map-wrap">
-    <canvas id="mini-map" width="220" height="220"></canvas>
-    <div id="mini-map-label">Minimap</div>
-  </div>
-
-  <div id="capture-overlay">
-    <div id="capture-controls">
-      <div id="capture-card">
-        <div id="capture-head">
-          <div id="capture-title">Capturing Territory...</div>
-          <div id="capture-time"></div>
-        </div>
-        <div id="capture-wrap">
-          <div id="capture-bar"></div>
-        </div>
-        <div id="capture-target"></div>
-      </div>
-      <button id="capture-cancel" class="capture-cancel-btn" title="Cancel capture">Cancel</button>
-    </div>
-  </div>
-
-  <div id="map-loading-overlay">
-    <div id="map-loading-row">
-      <div id="map-loading-spinner" aria-hidden="true"></div>
-      <div id="map-loading-copy">
-        <div id="map-loading-title">Loading world...</div>
-        <div id="map-loading-meta">Preparing map data...</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="auth-overlay">
-    <div id="auth-card">
-      <section class="auth-panel" data-mode="login">
-        <div class="auth-minimal-head">
-          <div class="auth-brand">
-            <span class="auth-brand-glyph" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M12 3 19 6v5c0 5.1-2.95 8.68-7 10-4.05-1.32-7-4.9-7-10V6l7-3Z" />
-              </svg>
-            </span>
-            <span class="auth-brand-text">Border Empires</span>
-          </div>
-          <p id="auth-copy">Sign in to reopen your empire.</p>
-        </div>
-        <div class="auth-panel-emblem" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false">
-            <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"></polyline>
-            <line x1="13" x2="19" y1="19" y2="13"></line>
-            <line x1="16" x2="20" y1="16" y2="20"></line>
-            <line x1="19" x2="21" y1="21" y2="19"></line>
-            <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"></polyline>
-            <line x1="5" x2="9" y1="14" y2="18"></line>
-            <line x1="7" x2="4" y1="17" y2="20"></line>
-            <line x1="3" x2="5" y1="19" y2="21"></line>
-          </svg>
-        </div>
-        <div class="auth-panel-head">
-          <div class="auth-panel-title">Sign in to your empire</div>
-          <div class="auth-panel-subtitle">Choose your preferred method</div>
-        </div>
-        <div class="auth-login-state">
-          <button id="auth-google" class="panel-btn auth-google-btn auth-primary-sso">
-            <span class="auth-google-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.44a5.51 5.51 0 0 1-2.4 3.62v3.01h3.89c2.27-2.09 3.56-5.17 3.56-8.66Z"></path>
-                <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.89-3.01c-1.08.73-2.46 1.16-4.06 1.16-3.12 0-5.76-2.11-6.7-4.95H1.28v3.11A12 12 0 0 0 12 24Z"></path>
-                <path fill="#FBBC05" d="M5.3 14.29A7.2 7.2 0 0 1 4.93 12c0-.79.14-1.55.37-2.29V6.6H1.28A12 12 0 0 0 0 12c0 1.94.46 3.78 1.28 5.4l4.02-3.11Z"></path>
-                <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.58 1.79l3.43-3.43C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.6l4.02 3.11c.94-2.84 3.58-4.94 6.7-4.94Z"></path>
-              </svg>
-            </span>
-            <span>Continue with Google</span>
-          </button>
-          <div class="auth-divider"><span>Or</span></div>
-          <div class="auth-email-entry">
-            <span class="auth-email-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M4 6h16v12H4z" />
-                <path d="m5 7 7 6 7-6" />
-              </svg>
-            </span>
-            <input id="auth-email" type="email" placeholder="your@email.com" autocomplete="email" />
-          </div>
-          <button id="auth-email-link" class="panel-btn auth-email-cta">Continue with Email</button>
-        </div>
-        <div class="auth-confirmation-state">
-          <div class="auth-confirmation-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M4 6h16v12H4z" />
-              <path d="m5 7 7 6 7-6" />
-            </svg>
-          </div>
-          <div class="auth-confirmation-copy">
-            <h3>Check your email</h3>
-            <p>We've sent a magic link to <span id="auth-email-sent-address"></span></p>
-          </div>
-          <button id="auth-email-reset" type="button">Try a different email</button>
-        </div>
-        <div class="auth-onboarding-state">
-          <div class="auth-onboarding-head">
-            <div class="auth-panel-title">Found your first standard.</div>
-            <div class="auth-panel-subtitle">Choose the name and color other empires will remember.</div>
-          </div>
-          <input id="auth-profile-name" type="text" placeholder="Display name" autocomplete="nickname" maxlength="24" />
-          <div class="auth-color-block">
-            <div class="auth-color-label">Nation color</div>
-            <div id="auth-color-presets" class="auth-color-presets">
-              <button type="button" class="auth-color-swatch" data-color="#38b000" style="--swatch:#38b000"></button>
-              <button type="button" class="auth-color-swatch" data-color="#f59e0b" style="--swatch:#f59e0b"></button>
-              <button type="button" class="auth-color-swatch" data-color="#3b82f6" style="--swatch:#3b82f6"></button>
-              <button type="button" class="auth-color-swatch" data-color="#ef4444" style="--swatch:#ef4444"></button>
-              <button type="button" class="auth-color-swatch" data-color="#8b5cf6" style="--swatch:#8b5cf6"></button>
-              <button type="button" class="auth-color-swatch" data-color="#ec4899" style="--swatch:#ec4899"></button>
-            </div>
-            <label class="auth-color-custom">
-              <span>Custom</span>
-              <input id="auth-profile-color" type="color" value="#38b000" />
-            </label>
-          </div>
-          <button id="auth-profile-save" class="panel-btn auth-email-cta" type="button">Enter the map</button>
-        </div>
-        <div class="auth-legal">By continuing, you agree to our <a href="/terms.html" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a></div>
-        <div id="auth-status"></div>
-        <p class="auth-hint">No password needed. We'll send you a secure link.</p>
-        <div class="auth-legacy-controls" hidden>
-          <input id="auth-display-name" type="text" placeholder="Display name" autocomplete="nickname" />
-          <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" />
-          <div class="auth-actions">
-            <button id="auth-login" class="panel-btn">Log In</button>
-            <button id="auth-register" class="panel-btn">Create Account</button>
-          </div>
-        </div>
-      </section>
-      <div id="auth-busy-modal" aria-live="polite" aria-hidden="true">
-        <div class="auth-busy-card">
-          <div class="auth-busy-spinner" aria-hidden="true"></div>
-          <div class="auth-busy-eyebrow">Securing session</div>
-          <strong id="auth-busy-title">Connecting your empire...</strong>
-          <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="hold-build-menu" style="display:none;"></div>
-  <div id="tile-action-menu" style="display:none;"></div>
-  <div id="targeting-overlay" style="display:none;"></div>
-  <div id="guide-overlay" style="display:none;"></div>
-
-  <div id="mobile-nav">
-    <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
-    <button data-mobile-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
-    <button data-mobile-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
-    <button data-mobile-panel="social" title="Social" aria-label="Social"><span class="tab-icon">👥</span></button>
-    <button data-mobile-panel="intel" title="Intel" aria-label="Intel"><span class="tab-icon">🔔</span></button>
-  </div>
-
-  <div id="mobile-core" class="mobile-panel">
-    <div id="mobile-core-help" class="card mobile-context-card"></div>
-    <div class="row mobile-utility-row">
-      <button id="center-me" class="panel-btn utility-btn utility-btn-mobile" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">◎</span>
-        <span class="utility-btn-copy"><strong>Center</strong><small>Own tile</small></span>
-      </button>
-      <button id="collect-visible-mobile" class="panel-btn utility-btn utility-btn-collect utility-btn-mobile" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">✦</span>
-        <span class="utility-btn-copy"><strong>Collect</strong><small id="collect-visible-mobile-meta">Visible yield</small></span>
-      </button>
-    </div>
-  </div>
-
-  <aside id="side-panel">
-    <div id="side-panel-head">
-      <h3 id="panel-title">Panel</h3>
-      <button id="panel-close">Close</button>
-    </div>
-    <div id="side-panel-body">
-      <section id="panel-missions" class="panel-body"></section>
-      <section id="panel-tech" class="panel-body">
-        <div class="tech-section-tabs">
-          <button class="tech-section-tab active" data-tech-section="research">Research</button>
-          <button class="tech-section-tab" data-tech-section="domains">Domains</button>
-        </div>
-        <div id="tech-research-section" class="tech-section-panel">
-          <div id="tech-current-mods"></div>
-          <div class="card tech-legacy-controls">
-            <div id="tech-points"></div>
-            <div class="row">
-              <select id="tech-pick"></select>
-              <button id="tech-choose" class="panel-btn">Choose</button>
-            </div>
-            <div id="tech-choice-details"></div>
-          </div>
-          <div id="tech-choices-grid"></div>
-          <div id="tech-detail-card"></div>
-          <div id="tech-owned"></div>
-        </div>
-        <div id="tech-domains-section" class="tech-section-panel" style="display:none">
-          <div id="tech-domains"></div>
-        </div>
-      </section>
-      <section id="panel-alliance" class="panel-body">
-        <div class="row">
-          <input id="alliance-target" placeholder="ally player name" />
-          <button id="alliance-send" class="panel-btn">Send</button>
-        </div>
-        <div class="row">
-          <input id="alliance-break-id" placeholder="break by player id" />
-          <button id="alliance-break" class="panel-btn">Break</button>
-        </div>
-        <div id="allies-list"></div>
-        <div id="alliance-requests"></div>
-      </section>
-      <section id="panel-economy" class="panel-body"></section>
-      <section id="panel-leaderboard" class="panel-body">
-        <div id="leaderboard"></div>
-      </section>
-      <section id="panel-feed" class="panel-body">
-        <div id="feed"></div>
-      </section>
-      <section id="panel-settings" class="panel-body">
-        <div id="panel-settings-preview"></div>
-      </section>
-    </div>
-  </aside>
-
-  <div id="mobile-sheet">
-    <div id="mobile-sheet-head">Panel</div>
-    <section id="mobile-panel-missions" class="mobile-panel"></section>
-    <section id="mobile-panel-tech" class="mobile-panel">
-      <div class="tech-section-tabs">
-        <button class="tech-section-tab active" data-tech-section="research">Research</button>
-        <button class="tech-section-tab" data-tech-section="domains">Domains</button>
-      </div>
-      <div id="mobile-tech-research-section" class="tech-section-panel">
-        <div id="mobile-tech-current-mods"></div>
-        <div class="card tech-legacy-controls">
-          <div id="mobile-tech-points"></div>
-          <div class="row">
-            <select id="mobile-tech-pick"></select>
-            <button id="mobile-tech-choose" class="panel-btn">Choose</button>
-          </div>
-          <div id="mobile-tech-choice-details"></div>
-        </div>
-        <div id="mobile-tech-choices-grid"></div>
-        <div id="mobile-tech-detail-card"></div>
-        <div id="mobile-tech-owned"></div>
-      </div>
-      <div id="mobile-tech-domains-section" class="tech-section-panel" style="display:none">
-        <div id="mobile-tech-domains"></div>
-      </div>
-    </section>
-    <section id="mobile-panel-social" class="mobile-panel">
-      <div class="row">
-        <input id="mobile-alliance-target" placeholder="ally player name" />
-        <button id="mobile-alliance-send" class="panel-btn">Send</button>
-      </div>
-      <div class="row">
-        <input id="mobile-alliance-break-id" placeholder="break by player id" />
-        <button id="mobile-alliance-break" class="panel-btn">Break</button>
-      </div>
-      <div id="mobile-allies-list"></div>
-      <div id="mobile-alliance-requests"></div>
-    </section>
-    <section id="mobile-panel-economy" class="mobile-panel"></section>
-    <section id="mobile-panel-intel" class="mobile-panel">
-      <div id="mobile-leaderboard"></div>
-      <div id="mobile-feed"></div>
-    </section>
-    <section id="mobile-panel-core" class="mobile-panel"></section>
-  </div>
-
-`;
-
-const statsChipsEl = document.querySelector<HTMLDivElement>("#stats-chips");
-const selectedEl = document.querySelector<HTMLDivElement>("#selected");
-const hoverEl = document.querySelector<HTMLDivElement>("#hover");
-const mobileCoreHelpEl = document.querySelector<HTMLDivElement>("#mobile-core-help");
-const miniMapWrapEl = document.querySelector<HTMLDivElement>("#mini-map-wrap");
-const miniMapEl = document.querySelector<HTMLCanvasElement>("#mini-map");
-const miniMapLabelEl = document.querySelector<HTMLDivElement>("#mini-map-label");
-const captureCancelBtn = document.querySelector<HTMLButtonElement>("#capture-cancel");
-const captureCardEl = document.querySelector<HTMLDivElement>("#capture-card");
-const captureWrapEl = document.querySelector<HTMLDivElement>("#capture-wrap");
-const captureBarEl = document.querySelector<HTMLDivElement>("#capture-bar");
-const captureTitleEl = document.querySelector<HTMLDivElement>("#capture-title");
-const captureTimeEl = document.querySelector<HTMLDivElement>("#capture-time");
-const captureTargetEl = document.querySelector<HTMLDivElement>("#capture-target");
-const mapLoadingOverlayEl = document.querySelector<HTMLDivElement>("#map-loading-overlay");
-const mapLoadingRowEl = document.querySelector<HTMLDivElement>("#map-loading-row");
-const mapLoadingSpinnerEl = document.querySelector<HTMLDivElement>("#map-loading-spinner");
-const mapLoadingTitleEl = document.querySelector<HTMLDivElement>("#map-loading-title");
-const mapLoadingMetaEl = document.querySelector<HTMLDivElement>("#map-loading-meta");
-const authOverlayEl = document.querySelector<HTMLDivElement>("#auth-overlay");
-const authDisplayNameEl = document.querySelector<HTMLInputElement>("#auth-display-name");
-const authEmailEl = document.querySelector<HTMLInputElement>("#auth-email");
-const authPasswordEl = document.querySelector<HTMLInputElement>("#auth-password");
-const authLoginBtn = document.querySelector<HTMLButtonElement>("#auth-login");
-const authRegisterBtn = document.querySelector<HTMLButtonElement>("#auth-register");
-const authEmailLinkBtn = document.querySelector<HTMLButtonElement>("#auth-email-link");
-const authGoogleBtn = document.querySelector<HTMLButtonElement>("#auth-google");
-const authStatusEl = document.querySelector<HTMLDivElement>("#auth-status");
-const authPanelEl = document.querySelector<HTMLElement>(".auth-panel");
-const authBusyModalEl = document.querySelector<HTMLDivElement>("#auth-busy-modal");
-const authBusyTitleEl = document.querySelector<HTMLHeadingElement>("#auth-busy-title");
-const authBusyCopyEl = document.querySelector<HTMLParagraphElement>("#auth-busy-copy");
-const authEmailSentAddressEl = document.querySelector<HTMLSpanElement>("#auth-email-sent-address");
-const authEmailResetBtn = document.querySelector<HTMLButtonElement>("#auth-email-reset");
-const authProfileNameEl = document.querySelector<HTMLInputElement>("#auth-profile-name");
-const authProfileColorEl = document.querySelector<HTMLInputElement>("#auth-profile-color");
-const authProfileSaveBtn = document.querySelector<HTMLButtonElement>("#auth-profile-save");
-const authColorPresetButtons = document.querySelectorAll<HTMLButtonElement>("#auth-color-presets .auth-color-swatch");
-const holdBuildMenuEl = document.querySelector<HTMLDivElement>("#hold-build-menu");
-const tileActionMenuEl = document.querySelector<HTMLDivElement>("#tile-action-menu");
-const targetingOverlayEl = document.querySelector<HTMLDivElement>("#targeting-overlay");
-const sidePanelEl = document.querySelector<HTMLElement>("#side-panel");
-const sidePanelBodyEl = document.querySelector<HTMLDivElement>("#side-panel-body");
-const panelTitleEl = document.querySelector<HTMLHeadingElement>("#panel-title");
-const panelCloseBtn = document.querySelector<HTMLButtonElement>("#panel-close");
-const panelActionButtons = document.querySelectorAll<HTMLButtonElement>("#panel-actions button[data-panel]");
-const panelMissionsEl = document.querySelector<HTMLDivElement>("#panel-missions");
-const panelTechEl = document.querySelector<HTMLDivElement>("#panel-tech");
-const panelAllianceEl = document.querySelector<HTMLDivElement>("#panel-alliance");
-const panelEconomyEl = document.querySelector<HTMLDivElement>("#panel-economy");
-const panelLeaderboardEl = document.querySelector<HTMLDivElement>("#panel-leaderboard");
-const panelFeedEl = document.querySelector<HTMLDivElement>("#panel-feed");
-const panelSettingsEl = document.querySelector<HTMLDivElement>("#panel-settings");
-const panelSettingsPreviewEl = document.querySelector<HTMLDivElement>("#panel-settings-preview");
-const feedEl = document.querySelector<HTMLDivElement>("#feed");
-const techPickEl = document.querySelector<HTMLSelectElement>("#tech-pick");
-const techPointsEl = document.querySelector<HTMLDivElement>("#tech-points");
-const techCurrentModsEl = document.querySelector<HTMLDivElement>("#tech-current-mods");
-const techChoicesGridEl = document.querySelector<HTMLDivElement>("#tech-choices-grid");
-const techDetailCardEl = document.querySelector<HTMLDivElement>("#tech-detail-card");
-const techOwnedEl = document.querySelector<HTMLDivElement>("#tech-owned");
-const techDomainsEl = document.querySelector<HTMLDivElement>("#tech-domains");
-const techChoiceDetailsEl = document.querySelector<HTMLDivElement>("#tech-choice-details");
-const allianceTargetEl = document.querySelector<HTMLInputElement>("#alliance-target");
-const allianceBreakIdEl = document.querySelector<HTMLInputElement>("#alliance-break-id");
-const alliesListEl = document.querySelector<HTMLDivElement>("#allies-list");
-const allianceRequestsEl = document.querySelector<HTMLDivElement>("#alliance-requests");
-const missionsEl = document.querySelector<HTMLDivElement>("#panel-missions");
-const leaderboardEl = document.querySelector<HTMLDivElement>("#leaderboard");
-const allianceSendBtn = document.querySelector<HTMLButtonElement>("#alliance-send");
-const allianceBreakBtn = document.querySelector<HTMLButtonElement>("#alliance-break");
-const techChooseBtn = document.querySelector<HTMLButtonElement>("#tech-choose");
-const mobileSheetEl = document.querySelector<HTMLDivElement>("#mobile-sheet");
-const mobileSheetHeadEl = document.querySelector<HTMLDivElement>("#mobile-sheet-head");
-const mobileCoreEl = document.querySelector<HTMLDivElement>("#mobile-core");
-const mobilePanelCoreEl = document.querySelector<HTMLDivElement>("#mobile-panel-core");
-const mobilePanelMissionsEl = document.querySelector<HTMLDivElement>("#mobile-panel-missions");
-const mobilePanelTechEl = document.querySelector<HTMLDivElement>("#mobile-panel-tech");
-const mobilePanelSocialEl = document.querySelector<HTMLDivElement>("#mobile-panel-social");
-const mobilePanelEconomyEl = document.querySelector<HTMLDivElement>("#mobile-panel-economy");
-const mobilePanelIntelEl = document.querySelector<HTMLDivElement>("#mobile-panel-intel");
-const mobileFeedEl = document.querySelector<HTMLDivElement>("#mobile-feed");
-const mobileLeaderboardEl = document.querySelector<HTMLDivElement>("#mobile-leaderboard");
-const mobileTechPickEl = document.querySelector<HTMLSelectElement>("#mobile-tech-pick");
-const mobileTechChooseBtn = document.querySelector<HTMLButtonElement>("#mobile-tech-choose");
-const mobileTechPointsEl = document.querySelector<HTMLDivElement>("#mobile-tech-points");
-const mobileTechCurrentModsEl = document.querySelector<HTMLDivElement>("#mobile-tech-current-mods");
-const mobileTechChoicesGridEl = document.querySelector<HTMLDivElement>("#mobile-tech-choices-grid");
-const mobileTechDetailCardEl = document.querySelector<HTMLDivElement>("#mobile-tech-detail-card");
-const mobileTechOwnedEl = document.querySelector<HTMLDivElement>("#mobile-tech-owned");
-const mobileTechDomainsEl = document.querySelector<HTMLDivElement>("#mobile-tech-domains");
-const mobileTechChoiceDetailsEl = document.querySelector<HTMLDivElement>("#mobile-tech-choice-details");
-const mobileAllianceTargetEl = document.querySelector<HTMLInputElement>("#mobile-alliance-target");
-const mobileAllianceBreakIdEl = document.querySelector<HTMLInputElement>("#mobile-alliance-break-id");
-const mobileAllianceSendBtn = document.querySelector<HTMLButtonElement>("#mobile-alliance-send");
-const mobileAllianceBreakBtn = document.querySelector<HTMLButtonElement>("#mobile-alliance-break");
-const mobileAllianceRequestsEl = document.querySelector<HTMLDivElement>("#mobile-alliance-requests");
-const mobileAlliesListEl = document.querySelector<HTMLDivElement>("#mobile-allies-list");
-const centerMeBtn = document.querySelector<HTMLButtonElement>("#center-me");
-const collectVisibleMobileBtn = document.querySelector<HTMLButtonElement>("#collect-visible-mobile");
-const centerMeDesktopBtn = document.querySelector<HTMLButtonElement>("#center-me-desktop");
-const collectVisibleDesktopBtn = document.querySelector<HTMLButtonElement>("#collect-visible-desktop");
-const collectVisibleDesktopMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-desktop-meta");
-const collectVisibleMobileMetaEl = document.querySelector<HTMLSpanElement>("#collect-visible-mobile-meta");
-const guideOverlayEl = document.querySelector<HTMLDivElement>("#guide-overlay");
-if (
-  !statsChipsEl ||
-  !selectedEl ||
-  !hoverEl ||
-  !mobileCoreHelpEl ||
-  !miniMapWrapEl ||
-  !miniMapEl ||
-  !miniMapLabelEl ||
-  !captureCancelBtn ||
-  !captureCardEl ||
-  !captureWrapEl ||
-  !captureBarEl ||
-  !captureTitleEl ||
-  !captureTimeEl ||
-  !captureTargetEl ||
-  !mapLoadingOverlayEl ||
-  !mapLoadingRowEl ||
-  !mapLoadingSpinnerEl ||
-  !mapLoadingTitleEl ||
-  !mapLoadingMetaEl ||
-  !authOverlayEl ||
-  !authDisplayNameEl ||
-  !authEmailEl ||
-  !authPasswordEl ||
-  !authLoginBtn ||
-  !authRegisterBtn ||
-  !authEmailLinkBtn ||
-  !authGoogleBtn ||
-  !authStatusEl ||
-  !authPanelEl ||
-  !authBusyModalEl ||
-  !authBusyTitleEl ||
-  !authBusyCopyEl ||
-  !authEmailSentAddressEl ||
-  !authEmailResetBtn ||
-  !authProfileNameEl ||
-  !authProfileColorEl ||
-  !authProfileSaveBtn ||
-  !holdBuildMenuEl ||
-  !tileActionMenuEl ||
-  !targetingOverlayEl ||
-  !sidePanelEl ||
-  !sidePanelBodyEl ||
-  !panelTitleEl ||
-  !panelCloseBtn ||
-  !panelMissionsEl ||
-  !panelTechEl ||
-  !panelAllianceEl ||
-  !panelEconomyEl ||
-  !panelLeaderboardEl ||
-  !panelFeedEl ||
-  !panelSettingsEl ||
-  !panelSettingsPreviewEl ||
-  !feedEl ||
-  !techPickEl ||
-  !techPointsEl ||
-  !techCurrentModsEl ||
-  !techChoicesGridEl ||
-  !techDetailCardEl ||
-  !techOwnedEl ||
-  !techDomainsEl ||
-  !techChoiceDetailsEl ||
-  !allianceTargetEl ||
-  !allianceBreakIdEl ||
-  !alliesListEl ||
-  !allianceRequestsEl ||
-  !missionsEl ||
-  !leaderboardEl ||
-  !allianceSendBtn ||
-  !allianceBreakBtn ||
-  !techChooseBtn ||
-  !mobileSheetEl ||
-  !mobileSheetHeadEl ||
-  !mobileCoreEl ||
-  !mobilePanelCoreEl ||
-  !mobilePanelMissionsEl ||
-  !mobilePanelTechEl ||
-  !mobilePanelSocialEl ||
-  !mobilePanelEconomyEl ||
-  !mobilePanelIntelEl ||
-  !mobileFeedEl ||
-  !mobileLeaderboardEl ||
-  !mobileTechPickEl ||
-  !mobileTechChooseBtn ||
-  !mobileTechPointsEl ||
-  !mobileTechCurrentModsEl ||
-  !mobileTechChoicesGridEl ||
-  !mobileTechDetailCardEl ||
-  !mobileTechOwnedEl ||
-  !mobileTechDomainsEl ||
-  !mobileTechChoiceDetailsEl ||
-  !mobileAllianceTargetEl ||
-  !mobileAllianceBreakIdEl ||
-  !mobileAllianceSendBtn ||
-  !mobileAllianceBreakBtn ||
-  !mobileAllianceRequestsEl ||
-  !mobileAlliesListEl ||
-  !centerMeBtn ||
-  !collectVisibleMobileBtn ||
-  !centerMeDesktopBtn ||
-  !collectVisibleDesktopBtn ||
-  !collectVisibleDesktopMetaEl ||
-  !collectVisibleMobileMetaEl ||
-  !guideOverlayEl
-) {
-  throw new Error("hud elements missing");
-}
-
-/*
-
-const storageGet = (keyName: string): string | null => {
-  try {
-    return window.localStorage.getItem(keyName);
-  } catch {
-    return null;
-  }
-};
-
-const storageSet = (keyName: string, value: string): void => {
-  try {
-    window.localStorage.setItem(keyName, value);
-  } catch {
-    // Ignore storage failures in restricted browser contexts.
-  }
-};
-
-const state = {
-  me: "",
-  meName: "",
-  connection: "connecting" as "connecting" | "connected" | "initialized" | "disconnected",
-  authReady: false,
-  authSessionReady: false,
-  hasEverInitialized: false,
-  authBusy: false,
-  authRetrying: false,
-  authConfigured: false,
-  authUserLabel: "",
-  authError: "",
-  profileSetupRequired: false,
-  gold: 0,
-  level: 0,
-  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-  modBreakdown: {
-    attack: [{ label: "Base", mult: 1 }],
-    defense: [{ label: "Base", mult: 1 }],
-    income: [{ label: "Base", mult: 1 }],
-    vision: [{ label: "Base", mult: 1 }]
-  } as Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>,
-  expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
-  incomePerMinute: 0,
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
-  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
-  upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
-  upkeepLastTick: {
-    food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    foodCoverage: 1
-  },
-  foodCoverageWarned: false,
-  goldAnimUntil: 0,
-  goldAnimDir: 0 as -1 | 0 | 1,
-  strategicAnim: {
-    FOOD: { until: 0, dir: 0 as -1 | 0 | 1 },
-    IRON: { until: 0, dir: 0 as -1 | 0 | 1 },
-    CRYSTAL: { until: 0, dir: 0 as -1 | 0 | 1 },
-    SUPPLY: { until: 0, dir: 0 as -1 | 0 | 1 },
-    SHARD: { until: 0, dir: 0 as -1 | 0 | 1 }
-  },
-  stamina: 0,
-  availableTechPicks: 0,
-  defensibilityPct: 100,
-  territoryT: 1,
-  exposureE: 4,
-  settledT: 1,
-  settledE: 4,
-  selected: undefined as { x: number; y: number } | undefined,
-  hover: undefined as { x: number; y: number } | undefined,
-  homeTile: undefined as { x: number; y: number } | undefined,
-  tiles: new Map<string, Tile>(),
-  camX: 0,
-  camY: 0,
-  zoom: 22,
-  techRootId: undefined as string | undefined,
-  techIds: [] as string[],
-  domainIds: [] as string[],
-  techChoices: [] as string[],
-  techCatalog: [] as TechInfo[],
-  domainChoices: [] as string[],
-  domainCatalog: [] as DomainInfo[],
-  domainUiSelectedId: "" as string,
-  revealCapacity: 1,
-  activeRevealTargets: [] as string[],
-  abilityCooldowns: {} as Partial<Record<"deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain", number>>,
-  revealTargetId: "" as string,
-  allies: [] as string[],
-  playerNames: new Map<string, string>(),
-  playerColors: new Map<string, string>(),
-  playerVisualStyles: new Map<string, EmpireVisualStyle>(),
-  incomingAllianceRequests: [] as AllianceRequest[],
-  feed: [] as FeedEntry[],
-  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
-  settleProgressByTile: new Map<string, TileTimedProgress>(),
-  latestSettleTargetKey: "",
-  optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; until: number; tone: "error" | "warn" } | undefined,
-  collectVisibleCooldownUntil: 0,
-  pendingCollectVisibleKeys: new Set<string>(),
-  pendingCollectVisibleDelta: {
-    gold: 0,
-    strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
-  },
-  pendingCollectTileDelta: new Map<
-    string,
-    {
-      gold: number;
-      strategic: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
-      previousYield?: { gold: number; strategic: Record<string, number> };
-    }
-  >(),
-  leaderboard: {
-    overall: [] as LeaderboardOverallEntry[],
-    byTiles: [] as LeaderboardMetricEntry[],
-    byIncome: [] as LeaderboardMetricEntry[],
-    byTechs: [] as LeaderboardMetricEntry[]
-  },
-  seasonVictory: [] as SeasonVictoryObjectiveView[],
-  seasonWinner: undefined as SeasonWinnerView | undefined,
-  missions: [] as MissionState[],
-  mobilePanel: "core" as "core" | "missions" | "tech" | "social" | "economy" | "intel",
-  activePanel: null as "missions" | "tech" | "alliance" | "economy" | "leaderboard" | "feed" | "settings" | null,
-  economyFocus: "ALL" as EconomyFocusKey,
-  unreadAttackAlerts: 0,
-  techSection: "research" as "research" | "domains",
-  techUiSelectedId: "" as string,
-  pendingTechUnlockId: "" as string,
-  techChoicesSig: "" as string,
-  actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
-  queuedTargetKeys: new Set<string>(),
-  actionInFlight: false,
-  combatStartAck: false,
-  actionStartedAt: 0,
-  actionTargetKey: "" as string,
-  actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } | undefined,
-  attackPreview: undefined as
-    | {
-        fromKey: string;
-        toKey: string;
-        valid: boolean;
-        reason?: string;
-        winChance?: number;
-        breakthroughWinChance?: number;
-        atkEff?: number;
-        defEff?: number;
-        defenseEffPct?: number;
-      }
-    | undefined,
-  attackPreviewPendingKey: "" as string,
-  lastAttackPreviewAt: 0,
-  dragPreviewKeys: new Set<string>(),
-  boxSelectStart: undefined as { gx: number; gy: number } | undefined,
-  boxSelectCurrent: undefined as { gx: number; gy: number } | undefined,
-  fogDisabled: true,
-  lastSubCx: Number.NaN,
-  lastSubCy: Number.NaN,
-  lastSubRadius: Number.NaN,
-  lastSubAt: 0,
-  dockPairs: [] as DockPair[],
-  dockRouteCache: new Map<string, Array<{ x: number; y: number }>>(),
-  discoveredDockTiles: new Set<string>(),
-  discoveredTiles: new Set<string>(),
-  autoSettleTargets: new Set<string>(),
-  hasOwnedTileInCache: false,
-  tileActionMenu: {
-    visible: false,
-    x: 0,
-    y: 0,
-    mode: "single" as "single" | "bulk",
-    bulkKeys: [] as string[],
-    currentTileKey: "",
-    activeTab: "overview" as TileMenuTab
-  },
-  crystalTargeting: {
-    active: false,
-    ability: "deep_strike" as CrystalTargetingAbility,
-    validTargets: new Set<string>(),
-    originByTarget: new Map<string, string>()
-  },
-  guide: {
-    open: storageGet(GUIDE_STORAGE_KEY) !== "1",
-    stepIndex: 0,
-    completed: storageGet(GUIDE_STORAGE_KEY) === "1",
-    autoOpened: storageGet(GUIDE_AUTO_OPEN_STORAGE_KEY) === "1"
-  },
-  mapLoadStartedAt: Date.now(),
-  firstChunkAt: 0,
-  chunkFullCount: 0
-};
-
-*/
+const {
+  allianceBreakBtn,
+  allianceBreakIdEl,
+  allianceRequestsEl,
+  allianceSendBtn,
+  allianceTargetEl,
+  alliesListEl,
+  authColorPresetButtons,
+  authDisplayNameEl,
+  authEmailEl,
+  authEmailLinkBtn,
+  authEmailResetBtn,
+  authEmailSentAddressEl,
+  authGoogleBtn,
+  authLoginBtn,
+  authOverlayEl,
+  authPanelEl,
+  authPasswordEl,
+  authProfileColorEl,
+  authProfileNameEl,
+  authProfileSaveBtn,
+  authRegisterBtn,
+  authStatusEl,
+  canvas,
+  captureBarEl,
+  captureCancelBtn,
+  captureCardEl,
+  captureTargetEl,
+  captureTimeEl,
+  captureTitleEl,
+  captureWrapEl,
+  centerMeBtn,
+  centerMeDesktopBtn,
+  collectVisibleDesktopBtn,
+  collectVisibleDesktopMetaEl,
+  collectVisibleMobileBtn,
+  collectVisibleMobileMetaEl,
+  ctx,
+  feedEl,
+  guideFabEl,
+  guideOverlayEl,
+  holdBuildMenuEl,
+  hoverEl,
+  hud,
+  leaderboardEl,
+  mapLoadingMetaEl,
+  mapLoadingOverlayEl,
+  mapLoadingRowEl,
+  mapLoadingSpinnerEl,
+  mapLoadingTitleEl,
+  miniMapBase,
+  miniMapCtx,
+  miniMapEl,
+  miniMapLabelEl,
+  miniMapWrapEl,
+  missionsEl,
+  mobileAllianceBreakBtn,
+  mobileAllianceBreakIdEl,
+  mobileAllianceRequestsEl,
+  mobileAllianceSendBtn,
+  mobileAllianceTargetEl,
+  mobileAlliesListEl,
+  mobileCoreEl,
+  mobileCoreHelpEl,
+  mobileFeedEl,
+  mobileLeaderboardEl,
+  mobilePanelCoreEl,
+  mobilePanelIntelEl,
+  mobilePanelMissionsEl,
+  mobilePanelSocialEl,
+  mobilePanelTechEl,
+  mobileSheetEl,
+  mobileSheetHeadEl,
+  mobileTechChoiceDetailsEl,
+  mobileTechChoicesGridEl,
+  mobileTechChooseBtn,
+  mobileTechCurrentModsEl,
+  mobileTechDetailCardEl,
+  mobileTechDomainsEl,
+  mobileTechOwnedEl,
+  mobileTechPickEl,
+  mobileTechPointsEl,
+  panelActionButtons,
+  panelAllianceEl,
+  panelCloseBtn,
+  panelFeedEl,
+  panelLeaderboardEl,
+  panelMissionsEl,
+  panelSettingsEl,
+  panelSettingsPreviewEl,
+  panelTechEl,
+  panelTitleEl,
+  selectedEl,
+  sidePanelBodyEl,
+  sidePanelEl,
+  statsChipsEl,
+  targetingOverlayEl,
+  techChoiceDetailsEl,
+  techChoicesGridEl,
+  techChooseBtn,
+  techCurrentModsEl,
+  techDetailCardEl,
+  techDomainsEl,
+  techOwnedEl,
+  techPickEl,
+  techPointsEl,
+  tileActionMenuEl
+} = initClientDom();
 
 const state = createInitialState();
 
@@ -1036,10 +216,6 @@ const handleTechModChipClick = (ev: Event): void => {
 
 techCurrentModsEl.addEventListener("click", handleTechModChipClick);
 mobileTechCurrentModsEl.addEventListener("click", handleTechModChipClick);
-
-const miniMapCtx = miniMapEl.getContext("2d");
-if (!miniMapCtx) throw new Error("missing minimap context");
-const miniMapBase = document.createElement("canvas");
 
 const firebaseConfig = (() => {
   const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
@@ -2153,170 +1329,6 @@ const formatUpkeepSummary = (upkeep: typeof state.upkeepPerMinute): string => {
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
-
-const nextPopulationTierThreshold = (tier: NonNullable<Tile["town"]>["populationTier"]): number | undefined => {
-  if (tier === "TOWN") return 100_000;
-  if (tier === "CITY") return 1_000_000;
-  if (tier === "GREAT_CITY") return 5_000_000;
-  return undefined;
-};
-
-const formatDurationFromMinutes = (minutesRaw: number): string => {
-  if (!Number.isFinite(minutesRaw) || minutesRaw <= 0) return "soon";
-  const minutes = Math.ceil(minutesRaw);
-  const weeks = Math.floor(minutes / (60 * 24 * 7));
-  const days = Math.floor((minutes % (60 * 24 * 7)) / (60 * 24));
-  const hours = Math.floor((minutes % (60 * 24)) / 60);
-  if (weeks > 0) return `${weeks}w${days > 0 ? ` ${days}d` : ""}`;
-  if (days > 0) return `${days}d${hours > 0 ? ` ${hours}h` : ""}`;
-  if (hours > 0) return `${hours}h`;
-  return `${minutes}m`;
-};
-
-const townNextTierEtaLabel = (town: NonNullable<Tile["town"]>): string => {
-  const threshold = nextPopulationTierThreshold(town.populationTier);
-  if (!threshold) return "Largest size reached";
-  const growth = town.populationGrowthPerMinute ?? 0;
-  if (growth <= 0.000001) return `Next size at ${threshold.toLocaleString()} pop`;
-  const remainingPopulation = Math.max(0, threshold - town.population);
-  return `${prettyToken(town.populationTier)} → ${prettyToken(threshold === 100_000 ? "CITY" : threshold === 1_000_000 ? "GREAT_CITY" : "METROPOLIS")} in ${formatDurationFromMinutes(remainingPopulation / growth)}`;
-};
-
-type EconomyBucket = {
-  label: string;
-  amountPerMinute: number;
-  count: number;
-};
-
-const economySourceLabelForTile = (tile: Tile, resource: Exclude<EconomyFocusKey, "ALL">): string => {
-  if (resource === "GOLD") {
-    if (tile.town) return "Towns";
-    if (tile.dockId) return "Docks";
-    if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
-    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Settled land";
-  }
-  if (resource === "SHARD") return tile.town ? "Ancient towns" : "Shard sites";
-  if (tile.resource) return prettyToken(resourceLabel(tile.resource));
-  if (tile.town && resource === "FOOD") return "Town support";
-  return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";
-};
-
-const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string, amountPerMinute: number): void => {
-  if (amountPerMinute <= 0.0001) return;
-  const current = map.get(label);
-  if (current) {
-    current.amountPerMinute += amountPerMinute;
-    current.count += 1;
-    return;
-  }
-  map.set(label, { label, amountPerMinute, count: 1 });
-};
-
-const resourceUpkeepPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
-  if (resource === "GOLD") return state.upkeepPerMinute.gold;
-  if (resource === "FOOD") return state.upkeepPerMinute.food;
-  if (resource === "IRON") return state.upkeepPerMinute.iron;
-  if (resource === "CRYSTAL") return state.upkeepPerMinute.crystal;
-  if (resource === "SUPPLY") return state.upkeepPerMinute.supply;
-  return 0;
-};
-
-const resourceNetPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
-  if (resource === "GOLD") return state.incomePerMinute - state.upkeepPerMinute.gold;
-  return state.strategicProductionPerMinute[resource] - resourceUpkeepPerMinute(resource);
-};
-
-const economyDetailForResource = (resource: Exclude<EconomyFocusKey, "ALL">): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
-  const sources = new Map<string, EconomyBucket>();
-  const sinks = new Map<string, EconomyBucket>();
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
-    if (tile.fogged) continue;
-    const amountPerMinute =
-      resource === "GOLD"
-        ? tile.yieldRate?.goldPerMinute ?? 0
-        : Number(tile.yieldRate?.strategicPerDay?.[resource] ?? 0) / 1440;
-    accumulateEconomyBucket(sources, economySourceLabelForTile(tile, resource), amountPerMinute);
-    if (resource === "FOOD" && tile.town?.foodUpkeepPerMinute) {
-      accumulateEconomyBucket(sinks, "Town upkeep", tile.town.foodUpkeepPerMinute);
-    }
-  }
-  const totalUpkeep = resourceUpkeepPerMinute(resource);
-  const knownUpkeep = [...sinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0);
-  const residualUpkeep = Math.max(0, totalUpkeep - knownUpkeep);
-  if (residualUpkeep > 0.0001) {
-    accumulateEconomyBucket(sinks, resource === "FOOD" ? "Other empire upkeep" : "Structures, abilities, and upkeep effects", residualUpkeep);
-  }
-  return {
-    sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
-    sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
-  };
-};
-
-const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
-  state.economyFocus = focus;
-  setActivePanel("economy");
-};
-
-const economySummaryCardHtml = (resource: Exclude<EconomyFocusKey, "ALL">, selected: boolean): string => {
-  const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
-  const gross = resource === "GOLD" ? state.incomePerMinute : state.strategicProductionPerMinute[resource];
-  const upkeep = resourceUpkeepPerMinute(resource);
-  const net = resourceNetPerMinute(resource);
-  const icon = resourceIconForKey(resource);
-  const label = prettyToken(resource);
-  return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
-    <div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>
-    <div class="economy-summary-stock">${stock.toFixed(resource === "GOLD" ? 1 : 1)}</div>
-    <div class="economy-summary-rates">
-      <span>Gross ${gross.toFixed(2)}/m</span>
-      <span>Upkeep ${upkeep.toFixed(2)}/m</span>
-      <span class="economy-rate ${rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</span>
-    </div>
-  </button>`;
-};
-
-const economyPanelHtml = (): string => {
-  const focus = state.economyFocus;
-  const resources: Array<Exclude<EconomyFocusKey, "ALL">> = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
-  const visibleResources = focus === "ALL" ? resources : [focus];
-  const totals = formatUpkeepSummary(state.upkeepPerMinute);
-  return `
-    <div class="economy-panel">
-      <div class="economy-summary-grid">
-        ${resources.map((resource) => economySummaryCardHtml(resource, resource === focus)).join("")}
-      </div>
-      ${totals ? `<div class="economy-overview-note">${totals}</div>` : ""}
-      ${visibleResources
-        .map((resource) => {
-          const detail = economyDetailForResource(resource);
-          const net = resourceNetPerMinute(resource);
-          const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
-          return `<section class="economy-detail-card card">
-            <div class="economy-detail-head">
-              <div>
-                <div class="economy-detail-kicker">${resourceIconForKey(resource)} ${prettyToken(resource)}</div>
-                <strong>${stock.toFixed(1)} in reserve</strong>
-              </div>
-              <div class="economy-rate ${rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
-            </div>
-            <div class="economy-detail-columns">
-              <div class="economy-detail-column">
-                <h4>Income Sources</h4>
-                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
-              </div>
-              <div class="economy-detail-column">
-                <h4>Upkeep</h4>
-                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
-              </div>
-            </div>
-            ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((state.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
-          </section>`;
-        })
-        .join("")}
-    </div>
-  `;
-};
 const rateToneClass = (rate: number): string => {
   if (rate > 0.001) return "positive";
   if (rate < -0.001) return "negative";
@@ -2676,7 +1688,6 @@ const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => {
   if (panel === "missions") return "Missions";
   if (panel === "tech") return "Technology Tree";
   if (panel === "alliance") return "Alliances";
-  if (panel === "economy") return "Economy";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Activity Feed";
   return "Player Identity";
@@ -2686,7 +1697,6 @@ const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof sta
   if (panel === "missions") return "missions";
   if (panel === "tech") return "tech";
   if (panel === "alliance") return "social";
-  if (panel === "economy") return "economy";
   return "intel";
 };
 
@@ -2699,7 +1709,6 @@ const mobileNavLabelHtml = (panel: typeof state.mobilePanel, opts?: { techReady?
       : '<span class="tab-icon">⚡</span>';
   }
   if (panel === "social") return '<span class="tab-icon">👥</span>';
-  if (panel === "economy") return '<span class="tab-icon">◫</span>';
   return opts?.attackAlertUnread
     ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
     : '<span class="tab-icon">🔔</span>';
@@ -2759,7 +1768,6 @@ const renderMobilePanels = (): void => {
     [mobilePanelMissionsEl, "missions"],
     [mobilePanelTechEl, "tech"],
     [mobilePanelSocialEl, "social"],
-    [mobilePanelEconomyEl, "economy"],
     [mobilePanelIntelEl, "intel"]
   ];
   for (const [el, panel] of mobileSections) {
@@ -2769,7 +1777,6 @@ const renderMobilePanels = (): void => {
   if (state.mobilePanel === "missions") mobileSheetHeadEl.textContent = "Missions";
   else if (state.mobilePanel === "tech") mobileSheetHeadEl.textContent = "Technology Tree";
   else if (state.mobilePanel === "social") mobileSheetHeadEl.textContent = "Alliances";
-  else if (state.mobilePanel === "economy") mobileSheetHeadEl.textContent = "Economy";
   else if (state.mobilePanel === "intel") mobileSheetHeadEl.textContent = "Intel";
   else mobileSheetHeadEl.textContent = "Core";
 
@@ -2853,7 +1860,7 @@ const tileHasUnderConstructionStructureKind = (tile: Tile, kind: OptimisticStruc
   if (kind === "FORT") return tile.fort?.status === "under_construction";
   if (kind === "OBSERVATORY") return tile.observatory?.status === "under_construction";
   if (kind === "SIEGE_OUTPOST") return tile.siegeOutpost?.status === "under_construction";
-  return tile.economicStructure?.type === kind && tile.economicStructure?.status === "under_construction";
+  return tile.economicStructure?.type === kind && tile.economicStructure.status === "under_construction";
 };
 
 const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
@@ -3287,10 +2294,10 @@ const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: nu
 const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
 
 const settlePixelMotionPhase = (nowMs: number, seedOffset: number): number => {
-  const base = ((nowMs / 1800) + seedOffset) % 1;
+  const base = ((nowMs / 900) + seedOffset) % 1;
   const envelope = triangularWave(base);
   const speedEnvelope = 0.22 + 0.78 * (envelope * envelope);
-  return (((base * (0.42 + speedEnvelope * 0.9)) % 1) + 1) % 1;
+  return (((base * (0.55 + speedEnvelope * 1.7)) % 1) + 1) % 1;
 };
 
 const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
@@ -3364,33 +2371,6 @@ const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): n
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
   return Math.max(0, Math.min(100, exposureRatio(t, e) * 100));
 };
-
-const missionCardsHtml = (): string =>
-  state.missions.length === 0
-    ? `<article class="card"><p>Missions are paused for rebalance.</p></article>`
-    : state.missions
-    .map((m) => {
-      const pct = Math.min(100, Math.floor((m.progress / Math.max(1, m.target)) * 100));
-      const status = m.claimed ? "Claimed" : m.completed ? "Completed" : `${m.progress}/${m.target}`;
-      const expiresText =
-        typeof m.expiresAt === "number"
-          ? (() => {
-              const ms = Math.max(0, m.expiresAt - Date.now());
-              const h = Math.floor(ms / 3_600_000);
-              const d = Math.floor(h / 24);
-              if (d > 0) return `Expires in ${d}d ${h % 24}h`;
-              return `Expires in ${h}h`;
-            })()
-          : "";
-      return `<article class="card mission-card">
-        <div class="mission-top"><strong>${m.name}</strong><span class="chip">${status}</span></div>
-        <p>${m.description}</p>
-        ${expiresText ? `<p class="muted">${expiresText}</p>` : ""}
-        <div class="progress"><div style="width:${pct}%"></div></div>
-        <div class="mission-reward">${m.rewardLabel ?? `Reward +${m.rewardPoints} Gold`}</div>
-      </article>`;
-    })
-    .join("");
 
 const techOwnedHtml = (): string => {
   const ownedTechIds = effectiveOwnedTechIds();
@@ -3921,164 +2901,6 @@ const affordableTechChoicesCount = (): number => {
   return n;
 };
 
-const leaderboardHtml = (): string => {
-  const overallLine = (e: LeaderboardOverallEntry): string =>
-    `${e.name} | score ${e.score.toFixed(1)} | settled ${e.tiles} | income ${e.incomePerMinute.toFixed(1)} | tech ${e.techs}`;
-  const metricLine = (e: LeaderboardMetricEntry): string => `${e.name} (${e.value.toFixed(1)})`;
-  const winnerCard = state.seasonWinner
-    ? `
-    <article class="card pressure-card">
-      <strong>Season Winner</strong>
-      <div class="pressure-row">
-        <div class="pressure-head">
-          <span class="pressure-name">${state.seasonWinner.playerName}</span>
-          <span class="pressure-status is-hot">Crowned</span>
-        </div>
-        <div class="pressure-meta">${state.seasonWinner.objectiveName}</div>
-        <div class="pressure-meta">${new Date(state.seasonWinner.crownedAt).toLocaleString()}</div>
-      </div>
-    </article>`
-    : "";
-  const pressureCards =
-    state.seasonVictory.length > 0
-      ? `
-    <article class="card pressure-card">
-      <strong>Season Victory</strong>
-      ${state.seasonVictory
-        .map(
-          (objective) => `<div class="pressure-row">
-            <div class="pressure-head">
-              <span class="pressure-name">${objective.name}</span>
-              <span class="pressure-status ${objective.conditionMet ? "is-hot" : ""}">${objective.statusLabel}</span>
-            </div>
-            <div class="pressure-meta">${objective.description}</div>
-            <div class="pressure-meta">Leader: ${objective.leaderName} · ${objective.progressLabel}</div>
-            <div class="pressure-meta">${objective.thresholdLabel}</div>
-          </div>`
-        )
-        .join("")}
-    </article>`
-      : "";
-  return `
-    ${winnerCard}
-    ${pressureCards}
-    <article class="card">
-      <strong>Overall</strong>
-      ${state.leaderboard.overall.map((e, i) => `<div class="lb-row">${i + 1}. ${overallLine(e)}</div>`).join("")}
-    </article>
-    <article class="card">
-      <strong>Most Settled Tiles</strong>
-      ${state.leaderboard.byTiles.map((e, i) => `<div class="lb-row">${i + 1}. ${metricLine(e)}</div>`).join("")}
-    </article>
-    <article class="card">
-      <strong>Most Income</strong>
-      ${state.leaderboard.byIncome.map((e, i) => `<div class="lb-row">${i + 1}. ${metricLine(e)}</div>`).join("")}
-    </article>
-    <article class="card">
-      <strong>Most Techs</strong>
-      ${state.leaderboard.byTechs.map((e, i) => `<div class="lb-row">${i + 1}. ${metricLine(e)}</div>`).join("")}
-    </article>
-  `;
-};
-
-const feedIcon = (type: FeedType): string => {
-  if (type === "combat") return "⚔";
-  if (type === "mission") return "✓";
-  if (type === "alliance") return "🤝";
-  if (type === "tech") return "⚡";
-  if (type === "error") return "!";
-  return "i";
-};
-
-const feedHtml = (): string => {
-  if (state.feed.length === 0) return `<article class="card"><p>No activity yet.</p></article>`;
-  return state.feed
-    .map((f) => {
-      const ageSec = Math.floor((Date.now() - f.at) / 1000);
-      const age = ageSec < 60 ? `${ageSec}s` : `${Math.floor(ageSec / 60)}m`;
-      return `<article class="card feed-card severity-${f.severity}">
-        <div class="feed-icon">${feedIcon(f.type)}</div>
-        <div><div>${f.text}</div><span>${age} ago</span></div>
-      </article>`;
-    })
-    .join("");
-};
-
-const allianceRequestsHtml = (): string => {
-  if (state.incomingAllianceRequests.length === 0) return `<article class="card"><p>No incoming requests.</p></article>`;
-  return state.incomingAllianceRequests
-    .map(
-      (request) => `<article class="card alliance-row">
-      <div>
-        <strong>${request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)}</strong>
-        <p>Request ${request.id.slice(0, 8)}</p>
-      </div>
-      <button class="panel-btn accept-request" data-request-id="${request.id}">Accept</button>
-    </article>`
-    )
-    .join("");
-};
-
-const alliesHtml = (): string => {
-  if (state.allies.length === 0) return `<article class="card"><p>No allies.</p></article>`;
-  return state.allies
-    .map(
-      (id) => `<article class="card alliance-row">
-      <div><strong>${playerNameForOwner(id) ?? id.slice(0, 8)}</strong><p>Allied</p></div>
-      <button class="panel-btn break-ally" data-ally-id="${id}">Break</button>
-    </article>`
-    )
-    .join("");
-};
-
-const strategicRibbonHtml = (): string => {
-  const nowMs = Date.now();
-  const entries: Array<{
-    key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
-    icon: string;
-    label: string;
-    source: string;
-    className: string;
-  }> = [
-    { key: "FOOD", icon: "🍞", label: "Food", source: "From Farms + Fish", className: "res-food" },
-    { key: "IRON", icon: "⛏", label: "Iron", source: "From Iron nodes", className: "res-iron" },
-    { key: "CRYSTAL", icon: "💎", label: "Crystal", source: "From Gem nodes", className: "res-crystal" },
-    { key: "SUPPLY", icon: "🦊", label: "Supply", source: "From Fur + Wood", className: "res-stone" },
-    { key: "SHARD", icon: "✦", label: "Shard", source: "From Ancient towns", className: "res-shard" }
-  ];
-  return `<div class="resource-ribbon">${entries
-    .map((e) => {
-      const stock = state.strategicResources[e.key];
-      const upkeep =
-        e.key === "FOOD"
-          ? state.upkeepPerMinute.food
-          : e.key === "IRON"
-            ? state.upkeepPerMinute.iron
-            : e.key === "CRYSTAL"
-              ? state.upkeepPerMinute.crystal
-              : e.key === "SUPPLY"
-                ? state.upkeepPerMinute.supply
-                : 0;
-      const net = state.strategicProductionPerMinute[e.key] - upkeep;
-      const prodText =
-        e.key === "SHARD"
-          ? `${net * 1440 > 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day`
-          : `${net > 0 ? "+" : ""}${net.toFixed(2)}/m`;
-      const rateClass = rateToneClass(net);
-      const anim = state.strategicAnim[e.key];
-      const deltaClass =
-        nowMs < anim.until ? (anim.dir > 0 ? "delta-up" : anim.dir < 0 ? "delta-down" : "") : "";
-      return `<button class="resource-pill ${e.className} ${deltaClass}" type="button" data-economy-open="${e.key}" title="${e.label} · ${e.source}">
-        <span class="resource-icon" aria-hidden="true">${e.icon}</span>
-        <span class="resource-value-row">
-          <span class="resource-value">${Number(stock).toFixed(1)}</span>
-          <span class="resource-rate ${rateClass}">${prodText}</span>
-        </span>
-      </button>`;
-    })
-    .join("")}</div>`;
-};
-
 const setAuthStatus = (message: string, tone: "normal" | "error" = "normal"): void => {
   state.authError = tone === "error" ? message : "";
   authStatusEl.textContent = message;
@@ -4096,8 +2918,6 @@ const syncAuthPanelState = (): void => {
 
 const syncAuthOverlay = (): void => {
   authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired ? "none" : "grid";
-  authOverlayEl.dataset.busy = state.authBusy ? "true" : "false";
-  authBusyModalEl.setAttribute("aria-hidden", state.authBusy ? "false" : "true");
   authLoginBtn.disabled = state.authBusy || !state.authConfigured;
   authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
   authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
@@ -4109,10 +2929,6 @@ const syncAuthOverlay = (): void => {
   authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
   authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
-  authBusyTitleEl.textContent = state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...";
-  authBusyCopyEl.textContent = state.authError
-    ? state.authError
-    : authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
   syncAuthPanelState();
   if (!state.authConfigured) {
     setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");
@@ -4190,15 +3006,21 @@ const renderHud = (): void => {
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
   statsChipsEl.innerHTML = `
-    <div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
-    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
+    <div class="stat-chip ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>
+    <div class="stat-chip stat-chip-gold${pointsClass}"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></div>
     <div class="stat-chip" title="Measures shape efficiency of your settled land. Compact squares and borders backed by coast or mountains score high. Long lines and checkerboard shapes score low."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></div>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>Development</span>
       <strong>${development.busy}/${development.limit}</strong>
       <div class="stat-chip-dev-pips" aria-hidden="true">${developmentSlotPipsHtml(development)}</div>
     </div>
-    ${strategicRibbonHtml()}
+    ${strategicRibbonHtml(
+      state.strategicResources,
+      state.strategicProductionPerMinute,
+      state.upkeepPerMinute,
+      state.strategicAnim,
+      rateToneClass
+    )}
   `;
   collectVisibleDesktopBtn.disabled = !collectVisibleReady;
   collectVisibleMobileBtn.disabled = !collectVisibleReady;
@@ -4208,13 +3030,6 @@ const renderHud = (): void => {
   collectVisibleMobileMetaEl.textContent = collectMeta;
   collectVisibleDesktopBtn.classList.toggle("is-attention", collectReady);
   collectVisibleMobileBtn.classList.toggle("is-attention", collectReady);
-  const economyButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-economy-open]");
-  economyButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const focus = btn.dataset.economyOpen as EconomyFocusKey | undefined;
-      openEconomyPanel(focus ?? "ALL");
-    };
-  });
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
   const attackAlertUnread = state.unreadAttackAlerts > 0;
   panelActionButtons.forEach((btn) => {
@@ -4441,19 +3256,19 @@ const renderHud = (): void => {
       sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
     };
   });
-  alliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml()}`;
-  mobileAlliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml()}`;
-  allianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml()}`;
-  mobileAllianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml()}`;
+  alliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}`;
+  mobileAlliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}`;
+  allianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}`;
+  mobileAllianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}`;
 
-  missionsEl.innerHTML = missionCardsHtml();
-  mobilePanelMissionsEl.innerHTML = missionCardsHtml();
+  missionsEl.innerHTML = missionCardsHtml(state.missions);
+  mobilePanelMissionsEl.innerHTML = missionCardsHtml(state.missions);
   panelEconomyEl.innerHTML = economyPanelHtml();
   mobilePanelEconomyEl.innerHTML = economyPanelHtml();
-  leaderboardEl.innerHTML = leaderboardHtml();
-  mobileLeaderboardEl.innerHTML = leaderboardHtml();
-  feedEl.innerHTML = feedHtml();
-  mobileFeedEl.innerHTML = feedHtml();
+  leaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
+  mobileLeaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
+  feedEl.innerHTML = feedHtml(state.feed);
+  mobileFeedEl.innerHTML = feedHtml(state.feed);
 
   const currentNationColor = state.playerColors.get(state.me) ?? authProfileColorEl.value;
   panelSettingsPreviewEl.innerHTML = `
@@ -4463,6 +3278,10 @@ const renderHud = (): void => {
         <div class="swatch" style="background:${currentNationColor}"></div>
         <span>${currentNationColor}</span>
       </div>
+    </div>
+    <div class="card auth-settings-card">
+      <p>Need a refresher on the controls and victory rules?</p>
+      <button id="open-guide" class="panel-btn">Open Game Guide</button>
     </div>
     <div class="card auth-settings-card">
       <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
@@ -4495,15 +3314,16 @@ const renderHud = (): void => {
       window.location.reload();
     };
   }
-  const economyFocusButtons = hud.querySelectorAll<HTMLButtonElement>("[data-economy-focus]");
-  economyFocusButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const focus = btn.dataset.economyFocus as EconomyFocusKey | undefined;
-      if (!focus) return;
-      state.economyFocus = focus;
+  const openGuideBtn = document.querySelector<HTMLButtonElement>("#open-guide");
+  if (openGuideBtn) {
+    openGuideBtn.onclick = () => {
+      state.guide.open = true;
+      state.guide.stepIndex = 0;
       renderHud();
     };
-  });
+  }
+
+  guideFabEl.classList.toggle("has-unseen-guide", !state.guide.completed);
   const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired;
   guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
   if (canShowGuide) {
@@ -5144,18 +3964,12 @@ type DevelopmentSlotSummary = {
   available: number;
 };
 
-type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
-
-type TileOverviewLine =
-  | { kind: "text"; text: string }
-  | { kind: "effect"; name: string; modifier: string; tone: "positive" | "negative" | "neutral" };
-
 type TileMenuView = {
   title: string;
   subtitle: string;
   tabs: TileMenuTab[];
   overviewKicker?: string;
-  overviewLines: TileOverviewLine[];
+  overviewLines: string[];
   actions: TileActionDef[];
   progress?: TileMenuProgressView;
   development?: DevelopmentSlotSummary;
@@ -5227,9 +4041,6 @@ const developmentSlotSummary = (): DevelopmentSlotSummary => {
 const developmentSlotReason = (summary = developmentSlotSummary()): string => {
   return `No available development slots (${summary.busy}/${summary.limit} busy)`;
 };
-
-const developmentSlotPipsHtml = (summary: DevelopmentSlotSummary): string =>
-  Array.from({ length: summary.limit }, (_, index) => `<span class="dev-slot-pip${index < summary.busy ? " is-busy" : ""}"></span>`).join("");
 
 const developmentSlotCardHtml = (summary: DevelopmentSlotSummary, tone: "hud" | "menu" = "hud"): string => `
   <div class="dev-slot-card dev-slot-card-${tone}${summary.available === 0 ? " is-full" : ""}">
@@ -5400,94 +4211,76 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
   return undefined;
 };
 
-const overviewText = (text: string): TileOverviewLine => ({ kind: "text", text });
-const overviewEffect = (name: string, modifier: string, tone: "positive" | "negative" | "neutral" = "positive"): TileOverviewLine => ({
-  kind: "effect",
-  name,
-  modifier,
-  tone
-});
-
-const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
-  const lines: TileOverviewLine[] = [];
-  const effects: TileOverviewLine[] = [];
-  if (!tile.ownerId) lines.push(overviewText("Unclaimed land"));
-  else if (tile.ownerId !== state.me) lines.push(overviewText(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`));
+const menuOverviewForTile = (tile: Tile): string[] => {
+  const lines: string[] = [];
+  if (!tile.ownerId) lines.push("Unclaimed land");
+  else if (tile.ownerId !== state.me) lines.push(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`);
   if (tile.terrain === "SEA") {
-    lines.push(overviewText(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions."));
+    lines.push(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions.");
     return lines;
   }
   if (tile.terrain === "MOUNTAIN") {
-    lines.push(overviewText("Mountains block normal land expansion and attacks."));
+    lines.push("Mountains block normal land expansion and attacks.");
     return lines;
   }
   const productionLabel = tileProductionRequirementLabel(tile);
   if (!tile.ownerId) {
-    lines.push(overviewText("Claim this tile first to turn it into frontier land."));
-    if (productionLabel) lines.push(overviewText(`After you settle it, this tile can produce ${productionLabel}.`));
+    lines.push("Claim this tile first to turn it into frontier land.");
+    if (productionLabel) lines.push(`After you settle it, this tile can produce ${productionLabel}.`);
     return lines;
   }
   if (tile.ownershipState === "FRONTIER") {
-    lines.push(overviewText("Frontier land is visible control, but it has no real defense yet."));
-    if (productionLabel) lines.push(overviewText(`Needs settlement to produce ${productionLabel}.`));
-    else lines.push(overviewText("Needs settlement to gain defense and full ownership strength."));
+    lines.push("Frontier land is visible control, but it has no real defense yet.");
+    if (productionLabel) lines.push(`Needs settlement to produce ${productionLabel}.`);
+    else lines.push("Needs settlement to gain defense and full ownership strength.");
   } else if (tile.ownershipState === "SETTLED") {
-    lines.push(overviewText("Settled land is defended and fully part of your empire."));
-    if (tile.town) lines.push(overviewText("Towns produce gold when fed."));
+    lines.push("Settled land is defended and fully part of your empire.");
+    if (tile.town) lines.push("Towns produce gold when fed.");
   }
   if (tile.ownerId === state.me) {
     const slots = developmentSlotSummary();
-    if (slots.busy > 0 || slots.available === 0) {
-      lines.push(overviewText(`Development slots ${slots.busy}/${slots.limit} busy${slots.available > 0 ? ` • ${slots.available} available` : ""}.`));
-    }
+    lines.push(`Development slots ${slots.busy}/${slots.limit} busy${slots.available > 0 ? ` • ${slots.available} available` : ""}.`);
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
-    lines.push(overviewText(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby."));
+    lines.push(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
     const growthPct =
       tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
         ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
         : 0;
-    lines.push(overviewText(`Support ${tile.town.supportCurrent}/${tile.town.supportMax} • Pop ${Math.round(tile.town.population).toLocaleString()} • Growth ${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`));
-    lines.push(overviewText(townNextTierEtaLabel(tile.town)));
+    lines.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax} • Pop ${Math.round(tile.town.population).toLocaleString()} • Growth ${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`);
     for (const modifier of tile.town.growthModifiers ?? []) {
-      effects.push(
-        overviewEffect(
-          modifier.label,
-          growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute),
-          modifier.deltaPerMinute < 0 ? "negative" : modifier.deltaPerMinute > 0 ? "positive" : "neutral"
-        )
-      );
+      lines.push(`${modifier.label} (${growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute)})`);
     }
-    if (tile.town.hasMarket) effects.push(overviewEffect("Market", tile.town.marketActive ? "+50% gold production, +50% storage" : "built but inactive", tile.town.marketActive ? "positive" : "neutral"));
-    if (tile.town.hasGranary) effects.push(overviewEffect("Granary", tile.town.granaryActive ? "+50% population cap" : "built but inactive", tile.town.granaryActive ? "positive" : "neutral"));
+    if (tile.town.hasMarket) lines.push(`Market: ${tile.town.marketActive ? "Active" : "Built"} • Boosts town gold and storage.`);
+    if (tile.town.hasGranary) lines.push(`Granary: ${tile.town.granaryActive ? "Active" : "Built"} • Boosts town population cap.`);
   } else if (tile.resource) {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
-    if (tile.ownershipState === "SETTLED") lines.push(overviewText(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`));
+    if (tile.ownershipState === "SETTLED") lines.push(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
   }
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {
-      lines.push(overviewText(`Support tile for nearby town at (${town.x}, ${town.y}).`));
-      if (town.town?.hasMarket) lines.push(overviewText("Nearby town already has a Market."));
-      if (town.town?.hasGranary) lines.push(overviewText("Nearby town already has a Granary."));
+      lines.push(`Support tile for nearby town at (${town.x}, ${town.y}).`);
+      if (town.town?.hasMarket) lines.push("Nearby town already has a Market.");
+      if (town.town?.hasGranary) lines.push("Nearby town already has a Granary.");
       if (!tile.economicStructure) {
-        lines.push(overviewText("Town buildings like markets and granaries must be built on support tiles."));
+        lines.push("Town buildings like markets and granaries must be built on support tiles.");
       }
     }
   } else if (supportedTowns.length > 1) {
-    lines.push(overviewText("This support tile touches multiple towns."));
+    lines.push("This support tile touches multiple towns.");
   }
   if (tile.economicStructure) {
-    effects.push(overviewEffect(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), tile.economicStructure.status === "active" ? "positive" : "neutral"));
+    lines.push(`${economicStructureName(tile.economicStructure.type)} on this square. ${economicStructureBenefitText(tile.economicStructure.type)}`);
   }
   const storedYield = storedYieldSummary(tile);
-  if (storedYield) lines.push(overviewText(`Stored yield: ${storedYield}`));
+  if (storedYield) lines.push(`Stored yield: ${storedYield}`);
   const construction = constructionCountdownLineForTile(tile);
-  if (construction) lines.push(overviewText(construction));
+  if (construction) lines.push(construction);
   const historyLines = tileHistoryLines(tile);
-  lines.push(...historyLines.map((line) => overviewText(line)));
-  return [...lines, ...effects];
+  lines.push(...historyLines);
+  return lines;
 };
 
 const tileMenuViewForTile = (tile: Tile): TileMenuView => {
@@ -6217,9 +5010,10 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
 };
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
+  const developmentHtml = view.development ? developmentSlotCardHtml(view.development, "menu") : "";
   if (activeTab === "actions") {
-    if (view.actions.length === 0) return `<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
-    return `<div class="tile-action-list">${view.actions
+    if (view.actions.length === 0) return `${developmentHtml}<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
+    return `${developmentHtml}<div class="tile-action-list">${view.actions
       .map(
         (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${actionIcon(a.id)}</span>
@@ -6235,6 +5029,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
     return `
+      ${developmentHtml}
       <div class="tile-progress-card">
         <div class="tile-progress-title">${view.progress.title}</div>
         <div class="tile-progress-detail">${view.progress.detail}</div>
@@ -6250,14 +5045,9 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   }
   return `
     <div class="tile-overview-card">
+      ${developmentHtml}
       ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
-      ${view.overviewLines
-        .map((line) =>
-          line.kind === "text"
-            ? `<div class="tile-overview-line">${line.text}</div>`
-            : `<div class="tile-overview-line tile-overview-line-effect"><span class="tile-overview-effect-name">${line.name}</span> <span class="tile-overview-effect-mod is-${line.tone}">(${line.modifier})</span></div>`
-        )
-        .join("")}
+      ${view.overviewLines.map((line) => `<div class="tile-overview-line">${line}</div>`).join("")}
     </div>
   `;
 };
@@ -6813,6 +5603,11 @@ collectVisibleMobileBtn.onclick = () => {
   collectVisibleYield();
 };
 captureCancelBtn.onclick = () => cancelOngoingCapture();
+guideFabEl.onclick = () => {
+  state.guide.open = true;
+  state.guide.stepIndex = 0;
+  renderHud();
+};
 
 panelCloseBtn.onclick = () => {
   state.activePanel = null;
@@ -7168,18 +5963,16 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COMBAT_RESULT") {
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     for (const c of changes) {
-      const changeKey = key(c.x, c.y);
-      const existing = state.tiles.get(changeKey);
-      const merged: Tile = existing ?? { x: c.x, y: c.y, terrain: terrainAt(c.x, c.y) };
-      if (c.ownerId) merged.ownerId = c.ownerId;
-      else delete merged.ownerId;
-      if (c.ownershipState) merged.ownershipState = c.ownershipState;
-      else if (!c.ownerId) delete merged.ownershipState;
-      if (typeof c.breachShockUntil === "number") merged.breachShockUntil = c.breachShockUntil;
-      else if ("breachShockUntil" in c && !c.breachShockUntil) delete merged.breachShockUntil;
-      const resolved = mergeServerTileWithOptimisticState(merged);
-      state.tiles.set(changeKey, resolved);
-      if (!resolved.optimisticPending) clearOptimisticTileState(changeKey);
+      clearOptimisticTileState(key(c.x, c.y));
+      const existing = state.tiles.get(key(c.x, c.y));
+      if (existing) {
+        if (c.ownerId) existing.ownerId = c.ownerId;
+        else delete existing.ownerId;
+        if (c.ownershipState) existing.ownershipState = c.ownershipState;
+        else if (!c.ownerId) delete existing.ownershipState;
+        if (typeof c.breachShockUntil === "number") existing.breachShockUntil = c.breachShockUntil;
+        else if ("breachShockUntil" in c && !c.breachShockUntil) delete existing.breachShockUntil;
+      }
     }
     pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
@@ -7928,7 +6721,6 @@ const draw = (): void => {
           ctx.fillRect(px, py, size - 1, size - 1);
         }
         ctx.globalAlpha = 1;
-        if (t.ownershipState === "SETTLED") drawOwnershipSignature(t.ownerId, px, py, size);
       }
 
       const isDockEndpoint = dockEndpointKeys.has(wk);
@@ -7974,40 +6766,6 @@ const draw = (): void => {
 
       if (t && vis === "visible" && t.town && t.terrain === "LAND") {
         drawTownOverlay(t, px, py, size);
-      }
-
-      if (t && vis === "visible" && t.terrain === "LAND") {
-        const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(nowMs / 340 + wx * 0.07 + wy * 0.05));
-        const isTownOrDock = Boolean(t.town || t.dockId);
-        const isValuableFrontier = t.ownerId === state.me && t.ownershipState === "FRONTIER" && Boolean(t.town || t.dockId || t.resource);
-        const isVisibleTarget = !t.ownerId && Boolean(t.town || t.dockId || t.resource);
-        if (isTownOrDock) {
-          ctx.fillStyle = t.town
-            ? `rgba(255, 214, 112, ${0.07 + pulse * 0.08})`
-            : `rgba(113, 223, 255, ${0.06 + pulse * 0.07})`;
-          ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-          ctx.strokeStyle = t.town
-            ? `rgba(255, 224, 138, ${0.42 + pulse * 0.34})`
-            : `rgba(144, 233, 255, ${0.34 + pulse * 0.28})`;
-          ctx.lineWidth = 2;
-          ctx.strokeRect(px + 1.5, py + 1.5, size - 3, size - 3);
-          ctx.lineWidth = 1;
-        }
-        if (isValuableFrontier) {
-          ctx.strokeStyle = `rgba(255, 209, 102, ${0.58 + pulse * 0.22})`;
-          ctx.setLineDash([4, 3]);
-          ctx.lineWidth = 2;
-          ctx.strokeRect(px + 3, py + 3, size - 6, size - 6);
-          ctx.setLineDash([]);
-          ctx.lineWidth = 1;
-          const marker = Math.max(4, Math.floor(size * 0.18));
-          ctx.fillStyle = `rgba(255, 196, 88, ${0.72 + pulse * 0.18})`;
-          ctx.fillRect(px + size - marker - 3, py + 3, marker, marker);
-        } else if (isVisibleTarget) {
-          ctx.strokeStyle = `rgba(240, 245, 255, ${0.18 + pulse * 0.18})`;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(px + 2.5, py + 2.5, size - 5, size - 5);
-        }
       }
 
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && hasCollectableYield(t)) {
@@ -8212,21 +6970,25 @@ const draw = (): void => {
         ctx.globalAlpha = 0.16 + progress * 0.36;
         ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
         ctx.globalAlpha = 1;
-        const pixelCount = isMobile() ? Math.max(8, Math.min(20, Math.floor(size * 0.9))) : Math.max(10, Math.min(28, Math.floor(size * 1.05)));
-        const activePixels = Math.max(2, Math.round(2 + progress * pixelCount));
-        const swarmInset = 1;
-        const swarmWidth = Math.max(4, size - swarmInset * 2);
-        const pixelSize = 2;
+        const pixelCount = isMobile() ? Math.max(6, Math.min(16, Math.floor(size * 0.62))) : Math.max(8, Math.min(22, Math.floor(size * 0.78)));
+        const activePixels = Math.max(4, Math.round(progress * pixelCount));
+        const swarmInset = Math.max(2, Math.floor(size * 0.08));
+        const swarmWidth = Math.max(3, size - swarmInset * 2);
+        const pixelSize = 1;
         ctx.fillStyle = `rgba(6, 8, 12, ${darkPixelAlpha})`;
         for (let i = 0; i < activePixels; i += 1) {
-          const point = settlePixelWanderPoint(now + i * 93, wx, wy, i);
           const seedA = settlePixelSeed(wx, wy, i, 17);
           const seedB = settlePixelSeed(wx, wy, i, 29);
-          const jitterPhase = (now / 620) + i * 0.11;
-          const jitterX = (triangularWave((jitterPhase + seedA) % 1) - 0.5) * 0.55;
-          const jitterY = (triangularWave((jitterPhase + seedB + 0.37) % 1) - 0.5) * 0.55;
-          const dotX = Math.floor(px + swarmInset + point.x * (swarmWidth - pixelSize) + jitterX);
-          const dotY = Math.floor(py + swarmInset + point.y * (swarmWidth - pixelSize) + jitterY);
+          const seedC = settlePixelSeed(wx, wy, i, 7);
+          const phaseX = settlePixelMotionPhase(now, seedA);
+          const phaseY = settlePixelMotionPhase(now, seedB * 0.9 + 0.07);
+          const driftX = triangularWave((phaseX + seedC * 0.31) % 1);
+          const driftY = triangularWave((phaseY + seedC * 0.57) % 1);
+          const jitterPhase = (now / 140) + i * 0.19;
+          const jitterX = (triangularWave((jitterPhase + seedA) % 1) - 0.5) * 1.2;
+          const jitterY = (triangularWave((jitterPhase + seedB + 0.37) % 1) - 0.5) * 1.2;
+          const dotX = Math.floor(px + swarmInset + driftX * (swarmWidth - pixelSize) + jitterX);
+          const dotY = Math.floor(py + swarmInset + driftY * (swarmWidth - pixelSize) + jitterY);
           ctx.fillRect(dotX, dotY, pixelSize, pixelSize);
         }
         ctx.strokeStyle = `rgba(255, 241, 185, ${0.68 + pulse * 0.16})`;
@@ -8702,32 +7464,6 @@ window.addEventListener("contextmenu", (ev) => {
 
 let touchPanStart: { x: number; y: number; camX: number; camY: number } | undefined;
 let pinchStart: { distance: number; zoom: number } | undefined;
-let pendingTouchTapTimeout: number | undefined;
-let lastTouchTap:
-  | {
-      at: number;
-      x: number;
-      y: number;
-    }
-  | undefined;
-
-const clearPendingTouchTapTimeout = (): void => {
-  if (pendingTouchTapTimeout !== undefined) window.clearTimeout(pendingTouchTapTimeout);
-  pendingTouchTapTimeout = undefined;
-};
-
-const handleMobileDoubleTapZoom = (clientX: number, clientY: number): void => {
-  const rect = canvas.getBoundingClientRect();
-  const offsetX = clientX - rect.left;
-  const offsetY = clientY - rect.top;
-  const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-  const zoomedIn = state.zoom >= 30;
-  state.zoom = zoomedIn ? 18 : 34;
-  state.camX = wx;
-  state.camY = wy;
-  maybeRefreshForCamera(true);
-  renderHud();
-};
 
 canvas.addEventListener(
   "touchstart",
@@ -8743,8 +7479,6 @@ canvas.addEventListener(
       scheduleHoldBuildMenu(t.clientX, t.clientY, t.clientX - rect.left, t.clientY - rect.top);
       pinchStart = undefined;
     } else if (ev.touches.length === 2) {
-      clearPendingTouchTapTimeout();
-      lastTouchTap = undefined;
       const a = ev.touches[0];
       const b = ev.touches[1];
       if (!a || !b) return;
@@ -8794,30 +7528,12 @@ canvas.addEventListener(
   "touchend",
   () => {
     if (touchTapCandidate && !holdActivated && !pinchStart) {
-      const now = Date.now();
-      const previousTap = lastTouchTap;
-      const isDoubleTap =
-        previousTap !== undefined &&
-        now - previousTap.at <= 280 &&
-        Math.hypot(touchTapCandidate.x - previousTap.x, touchTapCandidate.y - previousTap.y) <= 18;
-      clearPendingTouchTapTimeout();
-      if (isDoubleTap) {
-        suppressNextClick = true;
-        lastTouchTap = undefined;
-        handleMobileDoubleTapZoom(touchTapCandidate.x, touchTapCandidate.y);
-      } else {
-        const tap = touchTapCandidate;
-        lastTouchTap = { at: now, x: tap.x, y: tap.y };
-        pendingTouchTapTimeout = window.setTimeout(() => {
-          const rect = canvas.getBoundingClientRect();
-          const offsetX = tap.x - rect.left;
-          const offsetY = tap.y - rect.top;
-          const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-          suppressNextClick = true;
-          handleTileSelection(wx, wy, tap.x, tap.y);
-          pendingTouchTapTimeout = undefined;
-        }, 240);
-      }
+      const rect = canvas.getBoundingClientRect();
+      const offsetX = touchTapCandidate.x - rect.left;
+      const offsetY = touchTapCandidate.y - rect.top;
+      const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+      suppressNextClick = true;
+      handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
     }
     clearHoldOpenTimer();
     touchHoldStart = undefined;
