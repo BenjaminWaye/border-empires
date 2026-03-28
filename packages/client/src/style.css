@@ -928,15 +928,10 @@ body {
   background: rgba(66, 34, 19, 0.34);
 }
 
-.stat-chip-dev-pips,
 .dev-slot-pips {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-
-.stat-chip-dev-pips {
-  margin-top: 5px;
 }
 
 .dev-slot-pip {

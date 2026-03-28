@@ -3239,7 +3239,6 @@ const renderHud = (): void => {
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
-      ${mobile ? "" : `<div class="stat-chip-dev-pips" aria-hidden="true">${developmentSlotPipsHtml(development)}</div>`}
     </div>
     ${strategicRibbonHtml(
       state.strategicResources,
