@@ -201,6 +201,7 @@ const hudMarkup = `
         <div class="tech-section-tabs">
           <button class="tech-section-tab active" data-tech-section="research">Research</button>
           <button class="tech-section-tab" data-tech-section="domains">Domains</button>
+          <button id="tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
         </div>
         <div id="tech-research-section" class="tech-section-panel">
           <div id="tech-current-mods"></div>
@@ -253,6 +254,7 @@ const hudMarkup = `
       <div class="tech-section-tabs">
         <button class="tech-section-tab active" data-tech-section="research">Research</button>
         <button class="tech-section-tab" data-tech-section="domains">Domains</button>
+        <button id="mobile-tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
       </div>
       <div id="mobile-tech-research-section" class="tech-section-panel">
         <div id="mobile-tech-current-mods"></div>
@@ -377,6 +379,7 @@ export const initClientDom = () => {
   const allianceSendBtn = requireElement<HTMLButtonElement>("#alliance-send");
   const allianceBreakBtn = requireElement<HTMLButtonElement>("#alliance-break");
   const techChooseBtn = requireElement<HTMLButtonElement>("#tech-choose");
+  const techTreeExpandToggleEl = requireElement<HTMLButtonElement>("#tech-tree-expand-toggle");
   const mobileSheetEl = requireElement<HTMLDivElement>("#mobile-sheet");
   const mobileSheetHeadEl = requireElement<HTMLDivElement>("#mobile-sheet-head");
   const mobileCoreEl = requireElement<HTMLDivElement>("#mobile-core");
@@ -391,6 +394,7 @@ export const initClientDom = () => {
   const mobileLeaderboardEl = requireElement<HTMLDivElement>("#mobile-leaderboard");
   const mobileTechPickEl = requireElement<HTMLSelectElement>("#mobile-tech-pick");
   const mobileTechChooseBtn = requireElement<HTMLButtonElement>("#mobile-tech-choose");
+  const mobileTechTreeExpandToggleEl = requireElement<HTMLButtonElement>("#mobile-tech-tree-expand-toggle");
   const mobileTechPointsEl = requireElement<HTMLDivElement>("#mobile-tech-points");
   const mobileTechCurrentModsEl = requireElement<HTMLDivElement>("#mobile-tech-current-mods");
   const mobileTechChoicesGridEl = requireElement<HTMLDivElement>("#mobile-tech-choices-grid");
@@ -523,9 +527,11 @@ export const initClientDom = () => {
     techCurrentModsEl,
     techDetailCardEl,
     techDomainsEl,
+    techTreeExpandToggleEl,
     techOwnedEl,
     techPickEl,
     techPointsEl,
-    tileActionMenuEl
+    tileActionMenuEl,
+    mobileTechTreeExpandToggleEl
   };
 };
