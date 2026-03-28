@@ -93,6 +93,9 @@ const {
   allianceTargetEl,
   alliesListEl,
   authColorPresetButtons,
+  authBusyCopyEl,
+  authBusyModalEl,
+  authBusyTitleEl,
   authDisplayNameEl,
   authEmailEl,
   authEmailLinkBtn,
@@ -3302,6 +3305,8 @@ const syncAuthPanelState = (): void => {
 
 const syncAuthOverlay = (): void => {
   authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired ? "none" : "grid";
+  authOverlayEl.dataset.busy = state.authBusy ? "true" : "false";
+  authBusyModalEl.setAttribute("aria-hidden", state.authBusy ? "false" : "true");
   authLoginBtn.disabled = state.authBusy || !state.authConfigured;
   authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
   authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
@@ -3313,6 +3318,10 @@ const syncAuthOverlay = (): void => {
   authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
   authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
+  authBusyTitleEl.textContent = state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...";
+  authBusyCopyEl.textContent = state.authError
+    ? state.authError
+    : authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
   syncAuthPanelState();
   if (!state.authConfigured) {
     setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");

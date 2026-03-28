@@ -159,6 +159,14 @@ const hudMarkup = `
           </div>
         </div>
       </section>
+      <div id="auth-busy-modal" aria-live="polite" aria-hidden="true">
+        <div class="auth-busy-card">
+          <div class="auth-busy-spinner" aria-hidden="true"></div>
+          <div class="auth-busy-eyebrow">Securing session</div>
+          <strong id="auth-busy-title">Connecting your empire...</strong>
+          <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -336,6 +344,9 @@ export const initClientDom = () => {
   const authGoogleBtn = requireElement<HTMLButtonElement>("#auth-google");
   const authStatusEl = requireElement<HTMLDivElement>("#auth-status");
   const authPanelEl = requireElement<HTMLElement>(".auth-panel");
+  const authBusyModalEl = requireElement<HTMLDivElement>("#auth-busy-modal");
+  const authBusyTitleEl = requireElement<HTMLElement>("#auth-busy-title");
+  const authBusyCopyEl = requireElement<HTMLParagraphElement>("#auth-busy-copy");
   const authEmailSentAddressEl = requireElement<HTMLSpanElement>("#auth-email-sent-address");
   const authEmailResetBtn = requireElement<HTMLButtonElement>("#auth-email-reset");
   const authProfileNameEl = requireElement<HTMLInputElement>("#auth-profile-name");
@@ -431,6 +442,9 @@ export const initClientDom = () => {
     authEmailSentAddressEl,
     authGoogleBtn,
     authLoginBtn,
+    authBusyCopyEl,
+    authBusyModalEl,
+    authBusyTitleEl,
     authOverlayEl,
     authPanelEl,
     authPasswordEl,
