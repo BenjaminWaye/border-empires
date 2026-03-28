@@ -3295,28 +3295,24 @@ const settlePixelMotionPhase = (nowMs: number, seedOffset: number): number => {
 
 const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
   ((((wx + salt) * 92821) ^ ((wy + salt * 3) * 68917) ^ ((i + salt * 5) * 1259)) >>> 0) / 0xffffffff;
-const settlePixelWaypoint = (wx: number, wy: number, i: number, step: number, axis: "x" | "y"): number =>
-  settlePixelSeed(wx, wy, i, axis === "x" ? 41 + step * 7 : 83 + step * 11);
 const settlePixelWanderPoint = (
   nowMs: number,
   wx: number,
   wy: number,
   i: number
 ): { x: number; y: number } => {
-  const phase = settlePixelMotionPhase(nowMs, settlePixelSeed(wx, wy, i, 17));
-  const waypointCount = 5;
-  const scaled = phase * waypointCount;
-  const segment = Math.floor(scaled) % waypointCount;
-  const nextSegment = (segment + 1) % waypointCount;
-  const local = scaled - Math.floor(scaled);
-  const ease = local * local * (3 - 2 * local);
-  const x0 = settlePixelWaypoint(wx, wy, i, segment, "x");
-  const y0 = settlePixelWaypoint(wx, wy, i, segment, "y");
-  const x1 = settlePixelWaypoint(wx, wy, i, nextSegment, "x");
-  const y1 = settlePixelWaypoint(wx, wy, i, nextSegment, "y");
+  const phaseA = settlePixelMotionPhase(nowMs, settlePixelSeed(wx, wy, i, 17));
+  const phaseB = settlePixelMotionPhase(nowMs * 0.83, settlePixelSeed(wx, wy, i, 29));
+  const phaseC = settlePixelMotionPhase(nowMs * 1.17, settlePixelSeed(wx, wy, i, 47));
+  const driftX = (triangularWave((phaseA + phaseC * 0.31) % 1) - 0.5) * 0.92;
+  const driftY = (triangularWave((phaseB + phaseC * 0.53) % 1) - 0.5) * 0.92;
+  const idleX = (triangularWave((phaseA * 0.43 + phaseB * 0.21 + settlePixelSeed(wx, wy, i, 71)) % 1) - 0.5) * 0.44;
+  const idleY = (triangularWave((phaseB * 0.47 + phaseC * 0.18 + settlePixelSeed(wx, wy, i, 89)) % 1) - 0.5) * 0.44;
+  const x = Math.max(0, Math.min(1, 0.5 + driftX + idleX));
+  const y = Math.max(0, Math.min(1, 0.5 + driftY + idleY));
   return {
-    x: x0 + (x1 - x0) * ease,
-    y: y0 + (y1 - y0) * ease
+    x,
+    y
   };
 };
 const ownershipPatternTone = (ownerId: string): string => {
