@@ -1282,6 +1282,9 @@ interface PendingCapture {
   attackerId: string;
   staminaCost: number;
   cancelled: boolean;
+  actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | "DEEP_STRIKE_ATTACK" | "NAVAL_INFILTRATION_ATTACK";
+  startedAt?: number;
+  traceId?: string;
   timeout?: NodeJS.Timeout;
 }
 interface PendingSettlement {
@@ -6778,6 +6781,27 @@ const cancelPendingCapture = (capture: PendingCapture): void => {
   combatLocks.delete(capture.target);
 };
 
+const logExpandTrace = (
+  phase: "received" | "queued" | "combat_start_sent" | "result_applied" | "combat_result_sent" | "vision_delta_sent",
+  capture: PendingCapture,
+  extra?: Record<string, unknown>
+): void => {
+  if (capture.actionType !== "EXPAND" || !capture.traceId || typeof capture.startedAt !== "number") return;
+  app.log.info(
+    {
+      traceId: capture.traceId,
+      attackerId: capture.attackerId,
+      origin: capture.origin,
+      target: capture.target,
+      phase,
+      elapsedMs: now() - capture.startedAt,
+      resolvesAt: capture.resolvesAt,
+      ...extra
+    },
+    "expand trace"
+  );
+};
+
 const cancelAllBarbarianPendingCaptures = (): void => {
   const uniq = new Set<PendingCapture>();
   for (const lock of combatLocks.values()) {
@@ -10871,8 +10895,21 @@ app.post("/admin/world/regenerate", async () => {
       },
       "action request"
     );
-
     const nowMs = now();
+    const expandTraceId = msg.type === "EXPAND" ? `${actor.id}:${nowMs}:${msg.toX},${msg.toY}` : undefined;
+    if (msg.type === "EXPAND") {
+      app.log.info(
+        {
+          traceId: expandTraceId,
+          attackerId: actor.id,
+          origin: key(msg.fromX, msg.fromY),
+          target: key(msg.toX, msg.toY),
+          phase: "received",
+          elapsedMs: 0
+        },
+        "expand trace"
+      );
+    }
     const actionTimes = pruneActionTimes(actor.id, nowMs);
     if (actionTimes.length >= ACTION_LIMIT) {
       app.log.info({ playerId: actor.id, action: msg.type }, "action rejected: rate limit");
@@ -11060,12 +11097,17 @@ app.post("/admin/world/regenerate", async () => {
       target: tk,
       attackerId: actor.id,
       staminaCost,
-      cancelled: false
+      cancelled: false,
+      actionType: msg.type,
+      startedAt: nowMs
     };
+    if (expandTraceId) pending.traceId = expandTraceId;
     combatLocks.set(fk, pending);
     combatLocks.set(tk, pending);
     app.log.info({ playerId: actor.id, action: msg.type, from: fk, to: tk, resolvesAt }, "action accepted");
+    logExpandTrace("queued", pending);
     socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, resolvesAt }));
+    logExpandTrace("combat_start_sent", pending);
     if (isBreakthroughAttack || isDeepStrikeAttack || isNavalInfiltrationAttack) sendPlayerUpdate(actor, 0);
     if (defender && !defenderIsBarbarian) {
       sendToPlayer(defender.id, {
@@ -11091,6 +11133,7 @@ app.post("/admin/world/regenerate", async () => {
         }
         actor.stamina -= staminaCost;
         updateOwnership(to.x, to.y, actor.id, "FRONTIER");
+        logExpandTrace("result_applied", pending, { neutralTarget: true });
         const siteBonusGold = claimFirstSpecialSiteCaptureBonus(actor, to.x, to.y);
         telemetryCounters.frontierClaims += 1;
         actor.missionStats.neutralCaptures += 1;
@@ -11105,8 +11148,10 @@ app.post("/admin/world/regenerate", async () => {
             levelDelta: 0
           })
         );
+        logExpandTrace("combat_result_sent", pending, { neutralTarget: true });
         sendPlayerUpdate(actor, 0);
         sendLocalVisionDeltaForPlayer(actor.id, [{ x: to.x, y: to.y }]);
+        logExpandTrace("vision_delta_sent", pending, { centers: 1, neutralTarget: true });
         return;
       }
 
@@ -11238,6 +11283,7 @@ app.post("/admin/world/regenerate", async () => {
       if (defender) recalcPlayerDerived(defender);
       updateMissionState(actor);
       if (defender) updateMissionState(defender);
+      logExpandTrace("result_applied", pending, { neutralTarget: false, attackerWon: win, changes: resultChanges.length });
 
       resolveEliminationIfNeeded(actor, true);
       if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
@@ -11256,10 +11302,12 @@ app.post("/admin/world/regenerate", async () => {
         pointsDelta,
         levelDelta: 0
       }));
+      logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
       sendPlayerUpdate(actor, 0);
       if (defender && !defenderIsBarbarian) sendPlayerUpdate(defender, 0);
       const changedCenters = resultChanges.map((change) => ({ x: change.x, y: change.y }));
       sendLocalVisionDeltaForPlayer(actor.id, changedCenters);
+      logExpandTrace("vision_delta_sent", pending, { centers: changedCenters.length, targetPlayer: actor.id });
       if (defender && !defenderIsBarbarian) sendLocalVisionDeltaForPlayer(defender.id, changedCenters);
     }, resolvesAt - now());
   });
