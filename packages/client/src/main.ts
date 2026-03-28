@@ -2720,6 +2720,82 @@ const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, num
   return tier;
 };
 
+const techPrereqIds = (tech: Pick<TechInfo, "prereqIds" | "requires">): string[] =>
+  tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+
+const orderedTechIdsByTier = (catalog: TechInfo[]): string[] => {
+  const byId = new Map(catalog.map((tech) => [tech.id, tech]));
+  const tierMemo = new Map<string, number>();
+  const tiers = new Map<number, string[]>();
+  const childrenById = new Map<string, string[]>();
+
+  for (const tech of catalog) {
+    const tier = techTier(tech.id, byId, tierMemo);
+    const ids = tiers.get(tier) ?? [];
+    ids.push(tech.id);
+    tiers.set(tier, ids);
+    for (const prereqId of techPrereqIds(tech)) {
+      const children = childrenById.get(prereqId) ?? [];
+      children.push(tech.id);
+      childrenById.set(prereqId, children);
+    }
+  }
+
+  const tierNumbers = [...tiers.keys()].sort((a, b) => a - b);
+  for (const tier of tierNumbers) {
+    const ids = tiers.get(tier);
+    if (!ids) continue;
+    ids.sort((a, b) => {
+      const techA = byId.get(a);
+      const techB = byId.get(b);
+      return (techA?.tier ?? 999) - (techB?.tier ?? 999) || (techA?.name ?? a).localeCompare(techB?.name ?? b);
+    });
+  }
+
+  const positionMap = (): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (const tier of tierNumbers) {
+      const ids = tiers.get(tier) ?? [];
+      ids.forEach((id, index) => map.set(id, index));
+    }
+    return map;
+  };
+
+  const meanPosition = (ids: string[], positions: Map<string, number>): number | null => {
+    const values = ids.map((id) => positions.get(id)).filter((value): value is number => typeof value === "number");
+    if (values.length === 0) return null;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  };
+
+  const sortTier = (tier: number, anchorsFor: (id: string) => string[]): void => {
+    const ids = tiers.get(tier);
+    if (!ids || ids.length < 2) return;
+    const positions = positionMap();
+    ids.sort((a, b) => {
+      const anchorA = meanPosition(anchorsFor(a), positions);
+      const anchorB = meanPosition(anchorsFor(b), positions);
+      if (anchorA !== null && anchorB !== null && anchorA !== anchorB) return anchorA - anchorB;
+      if (anchorA !== null && anchorB === null) return -1;
+      if (anchorA === null && anchorB !== null) return 1;
+      const childA = meanPosition(childrenById.get(a) ?? [], positions);
+      const childB = meanPosition(childrenById.get(b) ?? [], positions);
+      if (childA !== null && childB !== null && childA !== childB) return childA - childB;
+      if (childA !== null && childB === null) return -1;
+      if (childA === null && childB !== null) return 1;
+      const techA = byId.get(a);
+      const techB = byId.get(b);
+      return (techA?.tier ?? 999) - (techB?.tier ?? 999) || (techA?.name ?? a).localeCompare(techB?.name ?? b);
+    });
+  };
+
+  for (let sweep = 0; sweep < 4; sweep += 1) {
+    for (const tier of tierNumbers.slice(1)) sortTier(tier, (id) => techPrereqIds(byId.get(id) ?? {}));
+    for (const tier of [...tierNumbers].reverse().slice(1)) sortTier(tier, (id) => childrenById.get(id) ?? []);
+  }
+
+  return tierNumbers.flatMap((tier) => tiers.get(tier) ?? []);
+};
+
 const titleCaseFromId = (value: string): string =>
   value
     .split("-")
@@ -2761,11 +2837,17 @@ const formatTechCost = (t: TechInfo): string => {
 const renderTechChoiceGrid = (): string => {
   const byId = new Map(state.techCatalog.map((t) => [t.id, t]));
   const tierMemo = new Map<string, number>();
+  const techLayoutOrder = new Map(orderedTechIdsByTier(state.techCatalog).map((id, index) => [id, index]));
   const ownedTechIds = effectiveOwnedTechIds();
   const choices = effectiveTechChoices()
     .map((id) => byId.get(id))
     .filter((t): t is TechInfo => Boolean(t))
-    .sort((a, b) => techTier(a.id, byId, tierMemo) - techTier(b.id, byId, tierMemo));
+    .sort(
+      (a, b) =>
+        techTier(a.id, byId, tierMemo) - techTier(b.id, byId, tierMemo) ||
+        (techLayoutOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (techLayoutOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
+        a.name.localeCompare(b.name)
+    );
   if (choices.length === 0) return `<article class="card"><p>No available technologies right now.</p></article>`;
   const grouped = new Map<number, TechInfo[]>();
   for (const t of choices) {
@@ -2778,6 +2860,11 @@ const renderTechChoiceGrid = (): string => {
   return tiers
     .map((tier) => {
       const cards = (grouped.get(tier) ?? [])
+        .sort(
+          (a, b) =>
+            (techLayoutOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (techLayoutOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
+            a.name.localeCompare(b.name)
+        )
         .map((t) => {
           const selected = state.techUiSelectedId === t.id ? " selected" : "";
           const owned = ownedTechIds.includes(t.id) ? " owned" : "";
