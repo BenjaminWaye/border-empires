@@ -1206,6 +1206,7 @@ body {
   place-items: center;
   padding: 20px;
   z-index: 31;
+  overflow: auto;
 }
 
 .guide-backdrop {
@@ -1218,6 +1219,8 @@ body {
 .guide-modal {
   position: relative;
   width: min(560px, calc(100vw - 28px));
+  max-width: 100%;
+  max-height: calc(100dvh - 40px);
   padding: 24px 24px 20px;
   border-radius: 24px;
   border: 1px solid rgba(191, 206, 184, 0.18);
@@ -1226,6 +1229,7 @@ body {
   display: grid;
   gap: 18px;
   color: #f3f6f1;
+  overflow: auto;
 }
 
 .guide-close-btn {
@@ -3404,6 +3408,7 @@ h4 {
 
   .guide-modal {
     width: min(100vw - 24px, 560px);
+    max-height: calc(100dvh - 24px);
     padding: 20px 18px 18px;
     gap: 16px;
     border-radius: 20px;
