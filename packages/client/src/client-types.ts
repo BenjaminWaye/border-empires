@@ -1,3 +1,5 @@
+export type OptimisticStructureKind = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
+
 export type Tile = {
   x: number;
   y: number;
@@ -59,8 +61,6 @@ export type Tile = {
   yieldCap?: { gold: number; strategicEach: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel";
 };
-
-export type OptimisticStructureKind = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
 
 export type TileTimedProgress = {
   startAt: number;

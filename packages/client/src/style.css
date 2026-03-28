@@ -1855,6 +1855,15 @@ body {
   overflow: hidden;
 }
 
+#side-panel.tech-panel-active {
+  left: 10px;
+  width: auto;
+}
+
+#side-panel.tech-panel-active #side-panel-head {
+  display: none;
+}
+
 #side-panel-head {
   padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
@@ -1880,6 +1889,59 @@ body {
 #side-panel-body {
   overflow: auto;
   padding: 12px;
+}
+
+#panel-tech,
+#mobile-panel-tech {
+  min-height: 0;
+}
+
+#side-panel.tech-panel-active #tech-research-section {
+  height: calc(100vh - 84px);
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-rows: 1fr;
+  align-items: stretch;
+}
+
+#panel-tech.tech-tree-expanded .tech-section-tab {
+  display: none;
+}
+
+#panel-tech.tech-tree-expanded .tech-section-tabs,
+#mobile-panel-tech.tech-tree-expanded .tech-section-tabs {
+  grid-template-columns: 1fr;
+}
+
+#side-panel.tech-panel-active #side-panel-body {
+  overflow: hidden;
+}
+
+#side-panel.tech-panel-active #tech-current-mods {
+  display: none;
+}
+
+#side-panel.tech-panel-active #tech-choices-grid {
+  grid-column: 1;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding-right: 4px;
+}
+
+#side-panel.tech-panel-active #tech-detail-card,
+#side-panel.tech-panel-active #tech-owned {
+  grid-column: 2;
+}
+
+#side-panel.tech-panel-active #tech-detail-card {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+}
+
+#side-panel.tech-panel-active #tech-owned {
+  display: none;
 }
 
 .panel-body {
@@ -2154,7 +2216,7 @@ body {
 
 .tech-section-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   gap: 8px;
 }
 
@@ -2182,9 +2244,21 @@ body {
   color: #f5fbff;
 }
 
+.tech-tree-expand-toggle {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 11px;
+  white-space: nowrap;
+}
+
 .tech-section-panel {
   display: grid;
   gap: 12px;
+}
+
+#tech-choices-grid,
+#mobile-tech-choices-grid {
+  align-content: start;
 }
 
 .tech-mod-card {
@@ -2404,6 +2478,224 @@ body {
 
 .tech-tier-block h4 {
   margin: 0;
+}
+
+.tech-tree-shell {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(137, 182, 240, 0.22);
+  background: linear-gradient(180deg, rgba(9, 19, 34, 0.9), rgba(5, 12, 23, 0.82));
+}
+
+.tech-tree-shell.expanded {
+  height: 100%;
+  min-height: 0;
+}
+
+.tech-tree-shell-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tech-tree-shell-head strong {
+  font-size: 24px;
+  color: #f4f9ff;
+}
+
+.tech-tree-shell-head p {
+  margin: 6px 0 0;
+}
+
+.tech-tree-overview-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tech-tree-overview-metrics span,
+.tech-root-tree-state,
+.tech-tree-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(145, 176, 219, 0.2);
+  background: rgba(8, 17, 31, 0.64);
+  color: rgba(225, 236, 248, 0.84);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tech-tree-overview-metrics strong {
+  margin-right: 5px;
+  font-size: 13px;
+}
+
+.tech-tree-graph-scroll {
+  position: relative;
+  height: 100%;
+  overflow: auto hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(142, 177, 224, 0.18);
+  background:
+    radial-gradient(circle at top left, rgba(37, 80, 121, 0.18), transparent 36%),
+    linear-gradient(180deg, rgba(4, 11, 22, 0.7), rgba(3, 8, 16, 0.86));
+  min-height: 420px;
+  cursor: grab;
+}
+
+.tech-tree-graph-scroll.dragging {
+  cursor: grabbing;
+}
+
+.tech-tree-graph-stage {
+  position: relative;
+}
+
+.tech-tree-stage-tier {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  padding: 8px 0;
+  border-radius: 999px;
+  border: 1px solid rgba(145, 176, 219, 0.18);
+  background: rgba(7, 16, 29, 0.92);
+  color: rgba(224, 235, 248, 0.84);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.tech-tree-graph-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tech-tree-link {
+  fill: none;
+  stroke: rgba(110, 172, 229, 0.34);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.tech-tree-link.is-selected-incoming {
+  stroke: rgba(134, 198, 255, 0.62);
+  stroke-width: 4;
+}
+
+.tech-tree-link.is-selected-outgoing {
+  stroke: rgba(255, 209, 102, 0.88);
+  stroke-width: 5;
+  filter: drop-shadow(0 0 6px rgba(255, 209, 102, 0.35));
+}
+
+.tech-tree-graph-node {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(150, 180, 220, 0.28);
+  background: linear-gradient(180deg, rgba(10, 20, 36, 0.96), rgba(6, 14, 27, 0.96));
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.24);
+  white-space: normal;
+}
+
+.tech-tree-graph-node:hover {
+  transform: translateY(-1px);
+}
+
+.tech-tree-graph-node.selected {
+  border-color: rgba(255, 209, 102, 0.82);
+  background: linear-gradient(180deg, rgba(56, 40, 10, 0.98), rgba(18, 14, 8, 0.98));
+  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.32) inset, 0 16px 28px rgba(0, 0, 0, 0.32);
+}
+
+.tech-tree-graph-node.selected strong,
+.tech-tree-graph-node.selected .tech-tree-card-branch,
+.tech-tree-graph-node.selected .tech-tree-card-meta,
+.tech-tree-graph-node.selected .tech-card-cost {
+  color: #f8fbff;
+}
+
+.tech-tree-graph-node.selected .tech-tree-card-badge {
+  border-color: rgba(255, 209, 102, 0.52);
+  background: rgba(255, 209, 102, 0.18);
+  color: #fff1bf;
+}
+
+.tech-tree-card.choice {
+  border-color: rgba(134, 198, 255, 0.48);
+  box-shadow: 0 0 0 1px rgba(134, 198, 255, 0.16) inset;
+}
+
+.tech-tree-card.available {
+  border-color: rgba(255, 209, 102, 0.42);
+  background: linear-gradient(180deg, rgba(40, 31, 11, 0.78), rgba(8, 17, 31, 0.78));
+}
+
+.tech-tree-card.pending .tech-tree-card-badge {
+  border-color: rgba(134, 198, 255, 0.38);
+  background: rgba(31, 58, 83, 0.28);
+  color: #bfe8ff;
+}
+
+.tech-tree-card.available .tech-tree-card-badge {
+  border-color: rgba(255, 209, 102, 0.38);
+  background: rgba(118, 79, 21, 0.24);
+  color: #ffe08b;
+}
+
+.tech-tree-card.owned .tech-tree-card-badge {
+  border-color: rgba(69, 214, 141, 0.34);
+  background: rgba(18, 98, 64, 0.24);
+  color: #97f0bd;
+}
+
+.tech-tree-card.blocked .tech-tree-card-badge {
+  color: rgba(209, 223, 242, 0.62);
+}
+
+.tech-tree-card-meta,
+.tech-tree-card-next {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.tech-tree-card-branch {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(134, 198, 255, 0.74);
+}
+
+.tech-tree-card-meta {
+  color: rgba(196, 214, 237, 0.7);
+  overflow-wrap: anywhere;
+}
+
+.tech-tree-card-next {
+  color: rgba(154, 190, 235, 0.82);
 }
 
 .domain-summary-card {
@@ -3217,6 +3509,11 @@ h4 {
     z-index: 21;
   }
 
+  #mobile-sheet.tech-panel-active {
+    top: 6px;
+    bottom: calc(var(--mobile-nav-height) + var(--mobile-bottom-safe));
+  }
+
   #mobile-sheet-head {
     padding: 8px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.14);
@@ -3229,6 +3526,49 @@ h4 {
     gap: 8px;
     padding: 10px;
     overflow: auto;
+  }
+
+  .tech-tree-shell-head {
+    display: grid;
+  }
+
+  .tech-tree-shell-head strong {
+    font-size: 20px;
+  }
+
+  .tech-tree-expand-toggle {
+    grid-column: 1 / -1;
+  }
+
+  .tech-tree-graph-scroll {
+    min-height: 360px;
+  }
+
+  #mobile-panel-tech.tech-tree-expanded {
+    overflow: hidden;
+  }
+
+  #mobile-panel-tech.tech-tree-expanded #mobile-tech-research-section {
+    height: calc(100vh - 92px);
+    grid-template-rows: 1fr;
+  }
+
+  #mobile-panel-tech.tech-tree-expanded .tech-section-tab {
+    display: none;
+  }
+
+  #mobile-panel-tech.tech-tree-expanded #mobile-tech-choices-grid {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #mobile-panel-tech.tech-tree-expanded #mobile-tech-current-mods {
+    display: none;
+  }
+
+  #mobile-panel-tech.tech-tree-expanded #mobile-tech-detail-card,
+  #mobile-panel-tech.tech-tree-expanded #mobile-tech-owned {
+    display: none;
   }
 
   .row {
