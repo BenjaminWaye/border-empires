@@ -808,7 +808,7 @@ const createTownOverlaySet = (
   return set;
 };
 
-const overlayAssetVersion = "20260325p";
+const overlayAssetVersion = "20260328a";
 const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -844,6 +844,13 @@ const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MARKET: loadOverlayImage("market-overlay.svg"),
   GRANARY: loadOverlayImage("granary-overlay.svg")
+} as const;
+const builtResourceOverlayVariants = {
+  FARM_FARMSTEAD: createOverlayVariantSet(["farm-farmstead-overlay-1.svg", "farm-farmstead-overlay-2.svg", "farm-farmstead-overlay-3.svg"]),
+  FISH_FARMSTEAD: createOverlayVariantSet(["fish-farmstead-overlay-1.svg", "fish-farmstead-overlay-2.svg", "fish-farmstead-overlay-3.svg"]),
+  FUR_CAMP: createOverlayVariantSet(["fur-camp-overlay-1.svg", "fur-camp-overlay-2.svg", "fur-camp-overlay-3.svg"]),
+  IRON_MINE: createOverlayVariantSet(["iron-mine-overlay-1.svg", "iron-mine-overlay-2.svg", "iron-mine-overlay-3.svg"]),
+  GEMS_MINE: createOverlayVariantSet(["gems-mine-overlay-1.svg", "gems-mine-overlay-2.svg", "gems-mine-overlay-3.svg", "gems-mine-overlay-4.svg"])
 } as const;
 const resourceOverlayVariants = {
   FARM: createOverlayVariantSet(["farm-overlay-1.svg", "farm-overlay-2.svg", "farm-overlay-3.svg"]),
@@ -1182,6 +1189,20 @@ const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, 
   const offset = (drawSize - size) / 2;
   ctx.drawImage(overlay, px - offset, py - offset, drawSize, drawSize);
 };
+const drawCenteredOverlayWithAlpha = (
+  overlay: HTMLImageElement | undefined,
+  px: number,
+  py: number,
+  size: number,
+  scale = 1.08,
+  alpha = 1
+): void => {
+  if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
+  const prevAlpha = ctx.globalAlpha;
+  ctx.globalAlpha = prevAlpha * alpha;
+  drawCenteredOverlay(overlay, px, py, size, scale);
+  ctx.globalAlpha = prevAlpha;
+};
 const drawResourceMarkerIcon = (resource: string | undefined, x: number, y: number, badge: number): void => {
   const icon =
     resource === "FARM" || resource === "FISH"
@@ -1247,10 +1268,34 @@ const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
   if (!variants) return undefined;
   return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
 };
+const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
+  if (!tile.resource || !tile.economicStructure) return undefined;
+  const key =
+    tile.resource === "FARM" && tile.economicStructure.type === "FARMSTEAD"
+      ? "FARM_FARMSTEAD"
+      : tile.resource === "FISH" && tile.economicStructure.type === "FARMSTEAD"
+        ? "FISH_FARMSTEAD"
+        : tile.resource === "FUR" && tile.economicStructure.type === "CAMP"
+          ? "FUR_CAMP"
+          : tile.resource === "IRON" && tile.economicStructure.type === "MINE"
+            ? "IRON_MINE"
+            : tile.resource === "GEMS" && tile.economicStructure.type === "MINE"
+              ? "GEMS_MINE"
+              : undefined;
+  if (!key) return undefined;
+  const variants = builtResourceOverlayVariants[key];
+  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
+};
 const resourceOverlayScaleForTile = (tile: Tile): number => {
   if (tile.resource === "FISH") return 1.3;
   if (tile.resource === "IRON") return 1.2;
   return 1.08;
+};
+const economicStructureOverlayAlpha = (tile: Tile): number => {
+  const status = tile.economicStructure?.status;
+  if (status === "active") return 1;
+  if (status === "under_construction") return 0.8;
+  return 0.7;
 };
 const clusterTint = (clusterType: string | undefined): string | undefined => {
   if (clusterType === "FERTILE_PLAINS") return "rgba(233,242,123,0.28)";
@@ -7549,9 +7594,10 @@ const draw = (): void => {
       }
 
       if (t && vis === "visible" && t.resource && t.terrain === "LAND") {
-        const overlay = resourceOverlayForTile(t);
+        const overlay = builtResourceOverlayForTile(t) ?? resourceOverlayForTile(t);
         if (overlay?.complete && overlay.naturalWidth) {
-          drawCenteredOverlay(overlay, px, py, size, resourceOverlayScaleForTile(t));
+          const alpha = builtResourceOverlayForTile(t) ? economicStructureOverlayAlpha(t) : 1;
+          drawCenteredOverlayWithAlpha(overlay, px, py, size, resourceOverlayScaleForTile(t), alpha);
           drawResourceCornerMarker(t, px, py, size);
         } else {
           const rc = resourceColor(t.resource);
@@ -7605,15 +7651,16 @@ const draw = (): void => {
       if (t && vis === "visible" && t.economicStructure) {
         const markerSize = Math.max(3, Math.floor(size * 0.2));
         const active = t.economicStructure.status === "active";
+        const hasBuiltResourceOverlay = Boolean(builtResourceOverlayForTile(t));
         if ((t.economicStructure.type === "MARKET" || t.economicStructure.type === "GRANARY")) {
           const overlay = t.economicStructure.type === "MARKET" ? structureOverlayImages.MARKET : structureOverlayImages.GRANARY;
           if (overlay.complete && overlay.naturalWidth) {
             drawCenteredOverlay(overlay, px, py, size, 1.02);
           }
-        } else if (t.economicStructure.type === "FARMSTEAD") {
+        } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
           ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)");
           ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-        } else if (t.economicStructure.type === "CAMP") {
+        } else if (t.economicStructure.type === "CAMP" && !hasBuiltResourceOverlay) {
           ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(222, 174, 108, 0.95)" : "rgba(171, 134, 86, 0.74)");
           ctx.beginPath();
           ctx.moveTo(px + size / 2, py + 3);
@@ -7621,7 +7668,7 @@ const draw = (): void => {
           ctx.lineTo(px + 4, py + markerSize + 4);
           ctx.closePath();
           ctx.fill();
-        } else if (t.economicStructure.type === "MINE") {
+        } else if (t.economicStructure.type === "MINE" && !hasBuiltResourceOverlay) {
           ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(188, 197, 214, 0.96)" : "rgba(120, 130, 148, 0.74)");
           ctx.fillRect(px + 2, py + 2, markerSize + 1, markerSize + 1);
         } else {
