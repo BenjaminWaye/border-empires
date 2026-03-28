@@ -3989,7 +3989,7 @@ const processActionQueue = (): boolean => {
     state.combatStartAck = false;
     state.actionStartedAt = Date.now();
     state.actionTargetKey = targetKey;
-    const optimisticMs = !to.ownerId ? 1_250 : 3_000;
+    const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
     state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
     if (!to.ownerId) {
       applyOptimisticTileState(to.x, to.y, (tile) => {
@@ -6184,16 +6184,23 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COMBAT_RESULT") {
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     for (const c of changes) {
-      clearOptimisticTileState(key(c.x, c.y));
-      const existing = state.tiles.get(key(c.x, c.y));
-      if (existing) {
-        if (c.ownerId) existing.ownerId = c.ownerId;
-        else delete existing.ownerId;
-        if (c.ownershipState) existing.ownershipState = c.ownershipState;
-        else if (!c.ownerId) delete existing.ownershipState;
-        if (typeof c.breachShockUntil === "number") existing.breachShockUntil = c.breachShockUntil;
-        else if ("breachShockUntil" in c && !c.breachShockUntil) delete existing.breachShockUntil;
-      }
+      const tileKey = key(c.x, c.y);
+      const existing = state.tiles.get(tileKey);
+      const incoming: Tile = {
+        ...(existing ?? { x: c.x, y: c.y, terrain: terrainAt(c.x, c.y), fogged: false }),
+        x: c.x,
+        y: c.y,
+        fogged: false
+      };
+      if (c.ownerId) incoming.ownerId = c.ownerId;
+      else delete incoming.ownerId;
+      if (c.ownershipState) incoming.ownershipState = c.ownershipState;
+      else if (!c.ownerId) delete incoming.ownershipState;
+      if (typeof c.breachShockUntil === "number") incoming.breachShockUntil = c.breachShockUntil;
+      else if ("breachShockUntil" in c && !c.breachShockUntil) delete incoming.breachShockUntil;
+      const merged = mergeServerTileWithOptimisticState(incoming);
+      if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
+      state.tiles.set(tileKey, merged);
     }
     pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
