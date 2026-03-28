@@ -172,6 +172,7 @@ const {
   mobileTechOwnedEl,
   mobileTechPickEl,
   mobileTechPointsEl,
+  mobileTechTreeExpandToggleEl,
   panelActionButtons,
   panelAllianceEl,
   panelCloseBtn,
@@ -198,6 +199,7 @@ const {
   techOwnedEl,
   techPickEl,
   techPointsEl,
+  techTreeExpandToggleEl,
   tileActionMenuEl
 } = initClientDom();
 
@@ -2021,6 +2023,8 @@ const renderMobilePanels = (): void => {
   sideSections.forEach((s) => {
     s.style.display = s.id === `panel-${state.activePanel}` ? "grid" : "none";
   });
+  sidePanelEl.classList.toggle("tech-panel-active", state.activePanel === "tech" && state.techTreeExpanded);
+  mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
 
   if (!isMobile()) {
     nav.style.display = "none";
@@ -2062,6 +2066,60 @@ const renderMobilePanels = (): void => {
     const panel = b.dataset.mobilePanel as typeof state.mobilePanel | undefined;
     if (panel) b.innerHTML = mobileNavLabelHtml(panel);
     b.classList.toggle("active", panel === state.mobilePanel);
+  });
+};
+
+const bindTechTreeDragScroll = (): void => {
+  const scrollRegions = hud.querySelectorAll<HTMLElement>("[data-tech-tree-scroll]");
+  scrollRegions.forEach((region) => {
+    if (region.dataset.dragBound === "1") return;
+    region.dataset.dragBound = "1";
+    region.scrollLeft = state.techTreeScrollLeft;
+    region.scrollTop = state.techTreeScrollTop;
+    let pointerId = -1;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    const release = (): void => {
+      if (pointerId !== -1) {
+        try {
+          region.releasePointerCapture(pointerId);
+        } catch {
+          // Ignore if pointer capture was not established.
+        }
+      }
+      pointerId = -1;
+      region.classList.remove("dragging");
+    };
+    region.onpointerdown = (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-tech-card]")) return;
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+      startLeft = region.scrollLeft;
+      startTop = region.scrollTop;
+      region.classList.add("dragging");
+      region.setPointerCapture(event.pointerId);
+    };
+    region.onpointermove = (event) => {
+      if (event.pointerId !== pointerId) return;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      region.scrollLeft = startLeft - dx;
+      region.scrollTop = startTop - dy;
+      state.techTreeScrollLeft = region.scrollLeft;
+      state.techTreeScrollTop = region.scrollTop;
+    };
+    region.onscroll = () => {
+      state.techTreeScrollLeft = region.scrollLeft;
+      state.techTreeScrollTop = region.scrollTop;
+    };
+    region.onpointerup = release;
+    region.onpointercancel = release;
+    region.onlostpointercapture = release;
   });
 };
 
@@ -2137,7 +2195,7 @@ const tileHasUnderConstructionStructureKind = (tile: Tile, kind: OptimisticStruc
   if (kind === "FORT") return tile.fort?.status === "under_construction";
   if (kind === "OBSERVATORY") return tile.observatory?.status === "under_construction";
   if (kind === "SIEGE_OUTPOST") return tile.siegeOutpost?.status === "under_construction";
-  return tile.economicStructure?.type === kind && tile.economicStructure.status === "under_construction";
+  return tile.economicStructure?.type === kind && tile.economicStructure?.status === "under_construction";
 };
 
 const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
@@ -3013,7 +3071,47 @@ const formatTechCost = (t: TechInfo): string => {
   return fallback.length > 0 ? fallback.join(" · ") : "Cost not listed";
 };
 
-const renderTechChoiceGrid = (): string => {
+const TECH_TREE_NODE_W = 224;
+const TECH_TREE_NODE_MIN_H = 102;
+const TECH_TREE_COL_GAP = 96;
+const TECH_TREE_MIN_ROW_GAP = 10;
+const TECH_TREE_IDEAL_ROW_GAP = 18;
+const TECH_TREE_TIER_SPREAD = 248;
+const TECH_TREE_ZIP_RATIO = 0.54;
+const TECH_TREE_PADDING_X = 36;
+const TECH_TREE_PADDING_Y = 28;
+
+type TechTreeNodeLayout = {
+  tech: TechInfo;
+  tier: number;
+  row: number;
+  x: number;
+  y: number;
+  height: number;
+};
+
+const techTierSlotWidth = (): number => TECH_TREE_NODE_W + TECH_TREE_TIER_SPREAD * 2;
+
+const techTierNodeOffset = (index: number, count: number): number => {
+  if (count <= 1) return TECH_TREE_TIER_SPREAD * 0.5;
+  const lane = index % 2;
+  return Math.round(lane === 0 ? 0 : TECH_TREE_TIER_SPREAD);
+};
+
+const estimateTechNodeHeight = (tech: TechInfo): number => {
+  const titleLines = Math.max(1, Math.ceil(tech.name.length / 14));
+  const summaryText = formatTechBenefitSummary(tech);
+  const summaryLines = Math.max(1, Math.ceil(summaryText.length / 30));
+  const prereqText = techPrereqIds(tech).length > 0 ? `Requires ${techNameList(techPrereqIds(tech))}` : "Entry technology";
+  const costText = tech.requirements.canResearch ? formatTechCost(tech) : prereqText;
+  const costLines = Math.max(1, Math.ceil(costText.length / 30));
+  const estimate = 28 + titleLines * 24 + 18 + summaryLines * 20 + costLines * 20 + 26;
+  return Math.max(TECH_TREE_NODE_MIN_H, estimate);
+};
+
+const average = (values: number[]): number => values.reduce((sum, value) => sum + value, 0) / values.length;
+
+const renderCompactTechChoiceGrid = (): string => {
   const byId = new Map(state.techCatalog.map((t) => [t.id, t]));
   const tierMemo = new Map<string, number>();
   const techLayoutOrder = new Map(orderedTechIdsByTier(state.techCatalog).map((id, index) => [id, index]));
@@ -3064,15 +3162,285 @@ const renderTechChoiceGrid = (): string => {
     .join("");
 };
 
+const renderExpandedTechChoiceTree = (): string => {
+  const byId = new Map(state.techCatalog.map((t) => [t.id, t]));
+  const tierMemo = new Map<string, number>();
+  const ownedTechIds = effectiveOwnedTechIds();
+  const ownedSet = new Set(ownedTechIds);
+  const choicesSet = new Set(effectiveTechChoices());
+  if (state.techCatalog.length === 0) return `<article class="card"><p>No technologies are available this season.</p></article>`;
+
+  const childrenByTech = new Map<string, string[]>();
+  for (const tech of state.techCatalog) {
+    for (const prereqId of techPrereqIds(tech)) {
+      const children = childrenByTech.get(prereqId) ?? [];
+      children.push(tech.id);
+      childrenByTech.set(prereqId, children);
+    }
+  }
+  for (const [key, children] of childrenByTech) {
+    childrenByTech.set(
+      key,
+      children.sort((a, b) => {
+        const aTech = byId.get(a);
+        const bTech = byId.get(b);
+        return (aTech?.name ?? a).localeCompare(bTech?.name ?? b);
+      })
+    );
+  }
+
+  const groupedByRoot = new Map<string, TechInfo[]>();
+  for (const tech of state.techCatalog) {
+    const rootKey = tech.rootId || tech.id;
+    const group = groupedByRoot.get(rootKey) ?? [];
+    group.push(tech);
+    groupedByRoot.set(rootKey, group);
+  }
+
+  const currentRootId = state.techRootId || state.techCatalog.find((tech) => ownedSet.has(tech.id))?.rootId || "";
+  const rootKeys = [...groupedByRoot.keys()].sort((a, b) => {
+    const aCurrent = a === currentRootId ? 1 : 0;
+    const bCurrent = b === currentRootId ? 1 : 0;
+    if (aCurrent !== bCurrent) return bCurrent - aCurrent;
+    const aOwned = (groupedByRoot.get(a) ?? []).some((tech) => ownedSet.has(tech.id)) ? 1 : 0;
+    const bOwned = (groupedByRoot.get(b) ?? []).some((tech) => ownedSet.has(tech.id)) ? 1 : 0;
+    if (aOwned !== bOwned) return bOwned - aOwned;
+    return (byId.get(a)?.name ?? titleCaseFromId(a)).localeCompare(byId.get(b)?.name ?? titleCaseFromId(b));
+  });
+
+  let leafRow = 0;
+  const rowByTech = new Map<string, number>();
+  const assigning = new Set<string>();
+  const assignRow = (techId: string): number => {
+    const cached = rowByTech.get(techId);
+    if (typeof cached === "number") return cached;
+    if (assigning.has(techId)) {
+      const fallback = leafRow;
+      leafRow += 1;
+      rowByTech.set(techId, fallback);
+      return fallback;
+    }
+    assigning.add(techId);
+    const children = (childrenByTech.get(techId) ?? []).filter((childId) => byId.get(childId)?.rootId === (byId.get(techId)?.rootId || techId));
+    let row: number;
+    if (children.length === 0) {
+      row = leafRow;
+      leafRow += 1;
+    } else {
+      const childRows = children.map(assignRow);
+      row = childRows.reduce((sum, value) => sum + value, 0) / childRows.length;
+    }
+    assigning.delete(techId);
+    rowByTech.set(techId, row);
+    return row;
+  };
+
+  for (const rootKey of rootKeys) {
+    const rootTechs = (groupedByRoot.get(rootKey) ?? []).slice();
+    const groupIds = new Set(rootTechs.map((tech) => tech.id));
+    const entryTechs = rootTechs
+      .filter((tech) => techPrereqIds(tech).filter((id) => groupIds.has(id)).length === 0)
+      .sort((a, b) => techTier(a.id, byId, tierMemo) - techTier(b.id, byId, tierMemo) || a.name.localeCompare(b.name));
+    for (const tech of entryTechs) assignRow(tech.id);
+    for (const tech of rootTechs.sort((a, b) => techTier(a.id, byId, tierMemo) - techTier(b.id, byId, tierMemo) || a.name.localeCompare(b.name))) {
+      if (!rowByTech.has(tech.id)) assignRow(tech.id);
+    }
+    leafRow += 1;
+  }
+
+  const viewportHeight = viewportSize().height;
+  const stageHeight = Math.max(420, viewportHeight - (isMobile() ? 220 : 190));
+  const usableHeight = Math.max(220, stageHeight - TECH_TREE_PADDING_Y * 2);
+  const techsByTier = new Map<number, TechInfo[]>();
+  for (const tech of state.techCatalog) {
+    const tier = techTier(tech.id, byId, tierMemo);
+    const group = techsByTier.get(tier) ?? [];
+    group.push(tech);
+    techsByTier.set(tier, group);
+  }
+
+  const orderedTiers = [...techsByTier.keys()].sort((a, b) => a - b);
+  const orderedIdsByTier = new Map<number, string[]>();
+  for (const tier of orderedTiers) {
+    const ids = (techsByTier.get(tier) ?? [])
+      .slice()
+      .sort((a, b) => {
+        const aOrder = rowByTech.get(a.id) ?? 0;
+        const bOrder = rowByTech.get(b.id) ?? 0;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return a.name.localeCompare(b.name);
+      })
+      .map((tech) => tech.id);
+    orderedIdsByTier.set(tier, ids);
+  }
+
+  const sortTierByLinkedNeighbors = (tier: number, direction: "parents" | "children"): void => {
+    const ids = orderedIdsByTier.get(tier);
+    if (!ids || ids.length <= 1) return;
+    const neighborTierIds = orderedIdsByTier.get(direction === "parents" ? tier - 1 : tier + 1);
+    const neighborIndex = new Map((neighborTierIds ?? []).map((id, index) => [id, index]));
+    const fallbackIndex = new Map(ids.map((id, index) => [id, index]));
+    ids.sort((aId, bId) => {
+      const aTech = byId.get(aId);
+      const bTech = byId.get(bId);
+      if (!aTech || !bTech) return 0;
+      const aNeighbors =
+        direction === "parents"
+          ? techPrereqIds(aTech).filter((id) => neighborIndex.has(id))
+          : (childrenByTech.get(aId) ?? []).filter((id) => neighborIndex.has(id));
+      const bNeighbors =
+        direction === "parents"
+          ? techPrereqIds(bTech).filter((id) => neighborIndex.has(id))
+          : (childrenByTech.get(bId) ?? []).filter((id) => neighborIndex.has(id));
+      const aScore = aNeighbors.length > 0 ? average(aNeighbors.map((id) => neighborIndex.get(id) ?? 0)) : fallbackIndex.get(aId) ?? 0;
+      const bScore = bNeighbors.length > 0 ? average(bNeighbors.map((id) => neighborIndex.get(id) ?? 0)) : fallbackIndex.get(bId) ?? 0;
+      if (aScore !== bScore) return aScore - bScore;
+      const aBase = rowByTech.get(aId) ?? 0;
+      const bBase = rowByTech.get(bId) ?? 0;
+      if (aBase !== bBase) return aBase - bBase;
+      return aTech.name.localeCompare(bTech.name);
+    });
+  };
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (const tier of orderedTiers) {
+      if (tier > orderedTiers[0]!) sortTierByLinkedNeighbors(tier, "parents");
+    }
+    for (let index = orderedTiers.length - 1; index >= 0; index -= 1) {
+      const tier = orderedTiers[index];
+      if (tier === undefined || tier >= orderedTiers[orderedTiers.length - 1]!) continue;
+      sortTierByLinkedNeighbors(tier, "children");
+    }
+  }
+
+  const layouts: TechTreeNodeLayout[] = [];
+  for (const tier of orderedTiers) {
+    const tierTechs = (orderedIdsByTier.get(tier) ?? []).map((id) => byId.get(id)).filter((tech): tech is TechInfo => Boolean(tech));
+    const count = tierTechs.length;
+    const tierHeights = tierTechs.map((tech) => estimateTechNodeHeight(tech));
+    const zipperSteps = tierHeights.slice(0, -1).map((height) => Math.max(TECH_TREE_MIN_ROW_GAP, height * TECH_TREE_ZIP_RATIO));
+    const stackHeight =
+      count === 0
+        ? 0
+        : tierHeights[0]! + zipperSteps.reduce((sum, step) => sum + step, 0) + Math.max(0, (tierHeights[count - 1]! - tierHeights[0]!) * 0.15);
+    const startY = TECH_TREE_PADDING_Y + Math.max(0, (usableHeight - stackHeight) / 2);
+    const tierBaseX = TECH_TREE_PADDING_X + (tier - 1) * (techTierSlotWidth() + TECH_TREE_COL_GAP);
+    let currentY = startY;
+    tierTechs.forEach((tech, index) => {
+      const height = tierHeights[index] ?? TECH_TREE_NODE_MIN_H;
+      layouts.push({
+        tech,
+        tier,
+        row: index,
+        x: tierBaseX + techTierNodeOffset(index, count),
+        y: currentY,
+        height
+      });
+      currentY += index < zipperSteps.length ? zipperSteps[index]! : 0;
+    });
+  }
+  layouts.sort((a, b) => a.x - b.x || a.y - b.y);
+
+  const maxTier = Math.max(...layouts.map((layout) => layout.tier));
+  const stageWidth = TECH_TREE_PADDING_X * 2 + maxTier * techTierSlotWidth() + Math.max(0, maxTier - 1) * TECH_TREE_COL_GAP;
+  const contentHeight = stageHeight;
+  const layoutById = new Map(layouts.map((layout) => [layout.tech.id, layout]));
+
+  const tierHeaders = Array.from({ length: maxTier }, (_, index) => {
+    const left = TECH_TREE_PADDING_X + index * (techTierSlotWidth() + TECH_TREE_COL_GAP);
+    return `<div class="tech-tree-stage-tier" style="left:${left}px;width:${techTierSlotWidth()}px;">Tier ${index + 1}</div>`;
+  }).join("");
+
+  const lines = layouts
+    .flatMap((layout) =>
+      techPrereqIds(layout.tech)
+        .map((prereqId) => {
+          const source = layoutById.get(prereqId);
+          if (!source) return "";
+          const startX = source.x + TECH_TREE_NODE_W;
+          const startY = source.y + source.height / 2;
+          const endX = layout.x;
+          const endY = layout.y + layout.height / 2;
+          const controlOffset = Math.max(36, (endX - startX) * 0.45);
+          const selectedClass = state.techUiSelectedId === prereqId ? " is-selected-outgoing" : state.techUiSelectedId === layout.tech.id ? " is-selected-incoming" : "";
+          return `<path class="tech-tree-link${selectedClass}" d="M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${endX - controlOffset} ${endY}, ${endX} ${endY}" />`;
+        })
+        .filter(Boolean)
+    )
+    .join("");
+
+  const nodes = layouts
+    .map((layout) => {
+      const { tech } = layout;
+      const selected = state.techUiSelectedId === tech.id ? " selected" : "";
+      const owned = ownedSet.has(tech.id) ? " owned" : "";
+      const pending = isPendingTechUnlock(tech.id) ? " pending" : "";
+      const available = tech.requirements.canResearch && !isPendingTechUnlock(tech.id) ? " available" : "";
+      const choice = choicesSet.has(tech.id) ? " choice" : "";
+      const blocked = owned || available || pending ? "" : " blocked";
+      const prereqs = techPrereqIds(tech);
+      const stateLabel = pending ? "Unlocking" : owned ? "Unlocked" : tech.requirements.canResearch ? "Available" : "Locked";
+      const costLabel =
+        pending
+          ? "Waiting for server confirmation..."
+          : tech.requirements.canResearch
+            ? formatTechCost(tech)
+            : prereqs.length > 0
+              ? `Requires ${techNameList(prereqs)}`
+              : "Entry technology";
+      const rootName = byId.get(tech.rootId || tech.id)?.name ?? titleCaseFromId(tech.rootId || tech.id);
+      return `<button
+        class="tech-card tech-tree-card tech-tree-graph-node${selected}${owned}${pending}${available}${choice}${blocked}"
+        data-tech-card="${tech.id}"
+        style="left:${layout.x}px;top:${layout.y}px;width:${TECH_TREE_NODE_W}px;min-height:${layout.height}px;"
+      >
+        <div class="tech-card-top">
+          <strong>${tech.name}</strong>
+          <span class="tech-tree-card-badge">${stateLabel}</span>
+        </div>
+        <p class="tech-tree-card-branch">${rootName}</p>
+        <p class="tech-tree-card-meta">${formatTechBenefitSummary(tech)}</p>
+        <p class="tech-card-cost">${costLabel}</p>
+      </button>`;
+    })
+    .join("");
+
+  return `<article class="card tech-tree-shell expanded">
+    <div class="tech-tree-shell-head">
+      <div>
+        <div class="domain-summary-kicker">Research</div>
+        <strong>Technology tree</strong>
+        <p>Drag horizontally from Tier 1 through Tier ${maxTier} to see how every unlock connects.</p>
+      </div>
+      <div class="tech-tree-overview-metrics">
+        <span><strong>${ownedTechIds.length}</strong> unlocked</span>
+        <span><strong>${state.techCatalog.filter((tech) => tech.requirements.canResearch).length}</strong> ready</span>
+        <span><strong>${state.techCatalog.length}</strong> total</span>
+      </div>
+    </div>
+    <div class="tech-tree-graph-scroll" data-tech-tree-scroll>
+      <div class="tech-tree-graph-stage" style="width:${stageWidth}px;height:${contentHeight}px;min-height:${stageHeight}px;">
+        ${tierHeaders}
+        <svg class="tech-tree-graph-lines" viewBox="0 0 ${stageWidth} ${contentHeight}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
+        ${nodes}
+      </div>
+    </div>
+  </article>`;
+};
+
+const renderTechChoiceGrid = (): string => (state.techTreeExpanded ? renderExpandedTechChoiceTree() : renderCompactTechChoiceGrid());
+
 const renderTechDetailCard = (): string => {
-  const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
+  const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value || state.techCatalog[0]?.id;
+  const byId = new Map(state.techCatalog.map((tech) => [tech.id, tech]));
+  const tierMemo = new Map<string, number>();
   const t = state.techCatalog.find((x) => x.id === selectedId);
   if (!t) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
   const checklist = t.requirements.checklist ?? [];
   const checks = checklist
     .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
     .join("");
-  const prereqs = t.prereqIds && t.prereqIds.length > 0 ? t.prereqIds : t.requires ? [t.requires] : [];
+  const prereqs = techPrereqIds(t);
   const unlocks = unlockedByTech(t.id);
   const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
   const pendingUnlock = isPendingTechUnlock(t.id);
@@ -3089,7 +3457,7 @@ const renderTechDetailCard = (): string => {
       <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock) ? "" : "disabled"}>${pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked"}</button>
     </div>
     <p class="tech-detail-flavor">${t.description}</p>
-    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${next.tier})`).join(", ")}</p>` : ""}
+    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${techTier(next.id, byId, tierMemo)})`).join(", ")}</p>` : ""}
     <p><strong>Requirements:</strong></p>
     <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
   </article>`;
@@ -3259,7 +3627,7 @@ const renderDomainDetailCard = (): string => {
 };
 
 const renderTechChoiceDetails = (): string => {
-  const selectedId = techPickEl.value || mobileTechPickEl.value;
+  const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
   const t = state.techCatalog.find((x) => x.id === selectedId);
   if (!t) return `<p class="muted">No tech selected.</p>`;
   const pendingUnlock = isPendingTechUnlock(t.id);
@@ -3279,7 +3647,7 @@ const renderTechChoiceDetails = (): string => {
           .map((c) => `<li style="color:${c.met ? "#84f2b8" : "#ff9f9f"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
           .join("")}</ul>`
       : "<p class=\"muted\">No requirements listed.</p>";
-  const prereqs = t.prereqIds && t.prereqIds.length > 0 ? t.prereqIds : t.requires ? [t.requires] : [];
+  const prereqs = techPrereqIds(t);
   return `<article class="card">
     <strong>${t.name}</strong>
     ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for authoritative update...</p>` : ""}
@@ -3578,7 +3946,7 @@ const renderHud = (): void => {
   const focused = document.activeElement === techPickEl || document.activeElement === mobileTechPickEl;
   const catalogById = new Map(state.techCatalog.map((t) => [t.id, t]));
   if (choicesSig !== state.techChoicesSig && !focused) {
-    const previous = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
+    const previous = state.techUiSelectedId?.trim() || techPickEl.value || mobileTechPickEl.value;
     techPickEl.innerHTML = "";
     mobileTechPickEl.innerHTML = "";
     for (const choice of visibleTechChoices) {
@@ -3601,15 +3969,16 @@ const renderHud = (): void => {
       techPickEl.append(opt);
       mobileTechPickEl.append(opt.cloneNode(true));
     }
-    const fallback = state.pendingTechUnlockId || visibleTechChoices[0] || "";
-    const nextValue = previous === state.pendingTechUnlockId || visibleTechChoices.includes(previous) ? previous : fallback;
-    techPickEl.value = nextValue;
-    mobileTechPickEl.value = nextValue;
-    state.techUiSelectedId = nextValue;
+    const fallback = state.pendingTechUnlockId || visibleTechChoices[0] || state.techCatalog[0]?.id || "";
+    const nextSelected = previous && catalogById.has(previous) ? previous : fallback;
+    const nextPickerValue = visibleTechChoices.includes(nextSelected) ? nextSelected : state.pendingTechUnlockId || visibleTechChoices[0] || "";
+    techPickEl.value = nextPickerValue;
+    mobileTechPickEl.value = nextPickerValue;
+    state.techUiSelectedId = nextSelected;
     state.techChoicesSig = choicesSig;
   } else if (!focused) {
-    const selected = techPickEl.value || mobileTechPickEl.value;
-    if (selected) state.techUiSelectedId = selected;
+    const selected = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
+    if (selected && catalogById.has(selected)) state.techUiSelectedId = selected;
   }
   techPointsEl.textContent = "Tech unlocks use gold + strategic resources";
   mobileTechPointsEl.textContent = "Tech unlocks use gold + strategic resources";
@@ -3633,6 +4002,8 @@ const renderHud = (): void => {
   if (techDomainsSectionEl) techDomainsSectionEl.style.display = state.techSection === "domains" ? "grid" : "none";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = state.techSection === "research" ? "grid" : "none";
   if (mobileTechDomainsSectionEl) mobileTechDomainsSectionEl.style.display = state.techSection === "domains" ? "grid" : "none";
+  panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
+  mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   const techSectionButtons = hud.querySelectorAll<HTMLButtonElement>("[data-tech-section]");
   techSectionButtons.forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.techSection === state.techSection);
@@ -3643,7 +4014,20 @@ const renderHud = (): void => {
       renderHud();
     };
   });
-  const selectedTech = state.techCatalog.find((t) => t.id === (techPickEl.value || mobileTechPickEl.value));
+  techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
+  mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
+  techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
+  mobileTechTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
+  techTreeExpandToggleEl.onclick = () => {
+    state.techTreeExpanded = !state.techTreeExpanded;
+    renderHud();
+  };
+  mobileTechTreeExpandToggleEl.onclick = () => {
+    state.techTreeExpanded = !state.techTreeExpanded;
+    renderHud();
+  };
+  bindTechTreeDragScroll();
+  const selectedTech = state.techCatalog.find((t) => t.id === state.techUiSelectedId);
   const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch && !state.pendingTechUnlockId);
   techChooseBtn.disabled = !canPick;
   mobileTechChooseBtn.disabled = !canPick;
@@ -3654,8 +4038,10 @@ const renderHud = (): void => {
       const id = btn.dataset.techCard;
       if (!id) return;
       state.techUiSelectedId = id;
-      techPickEl.value = id;
-      mobileTechPickEl.value = id;
+      if (visibleTechChoices.includes(id)) {
+        techPickEl.value = id;
+        mobileTechPickEl.value = id;
+      }
       renderHud();
     };
   });
