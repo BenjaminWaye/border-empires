@@ -95,6 +95,43 @@ const fieldBush = ({ x, y, fill = "#7C7A2D" }) => `
   <ellipse cx="${x + 11}" cy="${y + 4}" rx="5" ry="4" fill="#8B8833"/>
 `;
 
+const tent = ({ x, y, fill = "#A97745", side = "#7B542F", flap = "#D8B780" }) => `
+  <path d="M${x} ${y + 20}L${x + 14} ${y}L${x + 28} ${y + 20}H${x}Z" fill="${fill}"/>
+  <path d="M${x + 14} ${y}L${x + 28} ${y + 20}H${x + 14}Z" fill="${side}"/>
+  <path d="M${x + 14} ${y + 3}L${x + 21} ${y + 20}H${x + 14}Z" fill="${flap}"/>
+`;
+
+const mineFrame = ({ x, y, width = 36, height = 26, wood = "#8B5D34", dark = "#3C2D1F" }) => `
+  <path d="M${x} ${y + height}L${x + 7} ${y}L${x + 12} ${y}L${x + 6} ${y + height}H${x}Z" fill="${wood}"/>
+  <path d="M${x + width - 6} ${y + height}L${x + width - 12} ${y}L${x + width - 7} ${y}L${x + width} ${y + height}H${x + width - 6}Z" fill="${wood}"/>
+  <path d="M${x + 8} ${y + 4}H${x + width - 8}" stroke="#B88349" stroke-width="4" stroke-linecap="round"/>
+  <path d="M${x + 12} ${y + height}L${x + width - 12} ${y + height}L${x + width - 18} ${y + 10}L${x + 18} ${y + 10}L${x + 12} ${y + height}Z" fill="${dark}"/>
+`;
+
+const rail = ({ x, y, len = 26 }) => `
+  <path d="M${x} ${y}L${x + len} ${y + 6}" stroke="#6E5842" stroke-width="3" stroke-linecap="round"/>
+  <path d="M${x + 1} ${y + 6}L${x + len + 1} ${y + 12}" stroke="#6E5842" stroke-width="3" stroke-linecap="round"/>
+  <path d="M${x + 5} ${y + 1}L${x + 3} ${y + 8}" stroke="#9B7C59" stroke-width="2" stroke-linecap="round"/>
+  <path d="M${x + 13} ${y + 3}L${x + 11} ${y + 10}" stroke="#9B7C59" stroke-width="2" stroke-linecap="round"/>
+  <path d="M${x + 21} ${y + 5}L${x + 19} ${y + 12}" stroke="#9B7C59" stroke-width="2" stroke-linecap="round"/>
+`;
+
+const cart = ({ x, y, body = "#A06C36", wheel = "#3C4653" }) => `
+  <path d="M${x} ${y + 12}L${x + 8} ${y + 6}H${x + 24}L${x + 18} ${y + 18}H${x + 6}L${x} ${y + 12}Z" fill="${body}"/>
+  <circle cx="${x + 7}" cy="${y + 18}" r="5" fill="${wheel}"/>
+  <circle cx="${x + 18}" cy="${y + 18}" r="5" fill="${wheel}"/>
+  <circle cx="${x + 7}" cy="${y + 18}" r="2" fill="#B8C1CD"/>
+  <circle cx="${x + 18}" cy="${y + 18}" r="2" fill="#B8C1CD"/>
+`;
+
+const smallHut = ({ x, y, front = "#D6D1C6", side = "#9EA7B5", roof = "#C48B46" }) => `
+  <path d="M${x} ${y + 24}L${x + 10} ${y + 17}H${x + 30}L${x + 20} ${y + 24}H${x}Z" fill="#9A6B38"/>
+  <path d="M${x + 10} ${y + 17}V${y + 4}H${x + 30}V${y + 17}H${x + 10}Z" fill="${front}"/>
+  <path d="M${x + 30} ${y + 17}L${x + 40} ${y + 10}V${y - 3}L${x + 30} ${y + 4}V${y + 17}Z" fill="${side}"/>
+  <path d="M${x + 10} ${y + 4}L${x + 20} ${y - 3}H${x + 40}L${x + 30} ${y + 4}H${x + 10}Z" fill="${roof}"/>
+  <path d="M${x + 18} ${y + 17}V${y + 8}H${x + 24}V${y + 17}" fill="#2D394A"/>
+`;
+
 const stylizedBarleyPatch = ({
   x,
   y,
@@ -337,6 +374,109 @@ ${crystalReferenceGroup({ x: 78, y: 64, scale: 0.56, fill: "#71DAFF", side: "#33
   "gems-overlay-4.svg": svg(`
 ${crystalReferenceGroup({ x: 20, y: 54, scale: 0.84, fill: "#3FB9FF", side: "#1879D2", top: "#D8F3FF" })}
 ${crystalReferenceGroup({ x: 72, y: 58, scale: 0.66, fill: "#5DCEFF", side: "#2488DC", top: "#E2F8FF" })}
+`),
+  "farm-farmstead-overlay-1.svg": svg(`
+${stylizedBarleyPatch({ x: 8, y: 38, scale: 5, gold: "#F2B319", light: "#FFE07A", mid: "#EA8E12", height: 0.9 })}
+${stylizedBarleyPatch({ x: 32, y: 28, scale: 5, gold: "#F7BC1E", light: "#FFE78E", mid: "#F29114", height: 1.05 })}
+${smallHut({ x: 60, y: 56, roof: "#C98B43" })}
+${hay({ x: 56, y: 86, w: 18, h: 7, fill: "#CFB052" })}
+${hay({ x: 82, y: 83, w: 16, h: 6, fill: "#DABC62" })}
+`),
+  "farm-farmstead-overlay-2.svg": svg(`
+${stylizedBarleyPatch({ x: 12, y: 42, scale: 5, gold: "#F2AF18", light: "#FFDD73", mid: "#E98711", height: 0.88 })}
+${smallHut({ x: 42, y: 52, roof: "#D1964D" })}
+${stylizedBarleyPatch({ x: 78, y: 32, scale: 5, gold: "#F8BF24", light: "#FFE892", mid: "#F49517", height: 1.08 })}
+${barrel({ x: 82, y: 86, body: "#8B5D34" })}
+`),
+  "farm-farmstead-overlay-3.svg": svg(`
+${smallHut({ x: 18, y: 58, roof: "#CA8D46" })}
+${stylizedBarleyPatch({ x: 56, y: 26, scale: 6, gold: "#F6B71B", light: "#FFE481", mid: "#EF9014", height: 1.06 })}
+${stylizedBarleyPatch({ x: 86, y: 40, scale: 4.8, gold: "#F1A814", light: "#FFD967", mid: "#E58110", height: 0.86 })}
+${hay({ x: 26, y: 88, w: 16, h: 6, fill: "#D3B55E" })}
+`),
+  "fish-farmstead-overlay-1.svg": svg(`
+${fishRack({ x: 18, y: 54, count: 4 })}
+${smallHut({ x: 64, y: 56, roof: "#B9884A" })}
+${barrel({ x: 86, y: 82, body: "#8B5D34" })}
+`),
+  "fish-farmstead-overlay-2.svg": svg(`
+${smallHut({ x: 18, y: 54, roof: "#C08C4A" })}
+${fishRack({ x: 62, y: 50, count: 4 })}
+${barrel({ x: 28, y: 84, body: "#875A32" })}
+${barrel({ x: 40, y: 88, body: "#9B6A3A" })}
+`),
+  "fish-farmstead-overlay-3.svg": svg(`
+${fishRack({ x: 18, y: 48, count: 5 })}
+${smallHut({ x: 60, y: 60, roof: "#C8924E" })}
+${barrel({ x: 92, y: 86, body: "#8C5D34" })}
+`),
+  "fur-camp-overlay-1.svg": svg(`
+${tent({ x: 14, y: 62 })}
+  <path d="M64 56L70 84" stroke="#8C5E35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M83 56L77 84" stroke="#8C5E35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M64 56H83" stroke="#B88349" stroke-width="4" stroke-linecap="round"/>
+${pelt({ x: 62, y: 64, fill: "#8A613D" })}
+${pelt({ x: 74, y: 66, fill: "#A97B52" })}
+`),
+  "fur-camp-overlay-2.svg": svg(`
+  <path d="M18 56L24 84" stroke="#8C5E35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M37 56L31 84" stroke="#8C5E35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M18 56H37" stroke="#B88349" stroke-width="4" stroke-linecap="round"/>
+${pelt({ x: 17, y: 63, fill: "#8A603C" })}
+${tent({ x: 62, y: 62, fill: "#A3703E", side: "#78522E" })}
+${barrel({ x: 96, y: 86, body: "#865A32" })}
+`),
+  "fur-camp-overlay-3.svg": svg(`
+${tent({ x: 12, y: 64, fill: "#A97745" })}
+${tent({ x: 40, y: 58, fill: "#956638", side: "#6E4A28", flap: "#CFAE7B" })}
+  <path d="M82 54L88 82" stroke="#8C5E35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M101 54L95 82" stroke="#8C5E35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M82 54H101" stroke="#B88349" stroke-width="4" stroke-linecap="round"/>
+${pelt({ x: 83, y: 62, fill: "#89603B" })}
+`),
+  "iron-mine-overlay-1.svg": svg(`
+${mineFrame({ x: 46, y: 54 })}
+${oreRock({ x: 12, y: 72, fill: "#7E848D", face: "#B7C0C9" })}
+${oreRock({ x: 84, y: 76, fill: "#737A84", face: "#AEB7C1" })}
+${rail({ x: 56, y: 84, len: 26 })}
+${cart({ x: 76, y: 78, body: "#8E6033" })}
+`),
+  "iron-mine-overlay-2.svg": svg(`
+${oreRock({ x: 14, y: 72, fill: "#787F88", face: "#B4BDC6" })}
+${mineFrame({ x: 52, y: 50, width: 34, height: 28 })}
+${oreRock({ x: 92, y: 72, fill: "#88919A", face: "#C3CBD3" })}
+${rail({ x: 48, y: 86, len: 30 })}
+`),
+  "iron-mine-overlay-3.svg": svg(`
+${mineFrame({ x: 22, y: 56, width: 34, height: 26 })}
+${cart({ x: 54, y: 80, body: "#9A6B39" })}
+${oreRock({ x: 80, y: 70, fill: "#7B828B", face: "#B8C0C8" })}
+${oreRock({ x: 94, y: 82, fill: "#6F767F", face: "#AAB3BC" })}
+${rail({ x: 44, y: 84, len: 24 })}
+`),
+  "gems-mine-overlay-1.svg": svg(`
+${mineFrame({ x: 46, y: 54, width: 34, height: 26 })}
+${crystalReferenceGroup({ x: 8, y: 66, scale: 0.42, fill: "#57C9FF", side: "#2485DD", top: "#E2F9FF" })}
+${crystalReferenceGroup({ x: 80, y: 70, scale: 0.36, fill: "#63D2FF", side: "#2A8CE0", top: "#E4FAFF" })}
+${rail({ x: 54, y: 84, len: 24 })}
+`),
+  "gems-mine-overlay-2.svg": svg(`
+${crystalReferenceGroup({ x: 10, y: 68, scale: 0.34, fill: "#52C8FF", side: "#2184DB", top: "#DFF8FF" })}
+${mineFrame({ x: 50, y: 50, width: 36, height: 28 })}
+${cart({ x: 84, y: 78, body: "#916337" })}
+${crystalReferenceGroup({ x: 92, y: 78, scale: 0.22, fill: "#71DAFF", side: "#3394E5", top: "#EAFCFF" })}
+`),
+  "gems-mine-overlay-3.svg": svg(`
+${mineFrame({ x: 18, y: 56, width: 34, height: 26 })}
+${crystalReferenceGroup({ x: 64, y: 62, scale: 0.42, fill: "#46BFFF", side: "#1A7DD4", top: "#D8F4FF" })}
+${crystalReferenceGroup({ x: 94, y: 80, scale: 0.22, fill: "#70D8FF", side: "#328FE1", top: "#E8FBFF" })}
+${rail({ x: 40, y: 84, len: 22 })}
+`),
+  "gems-mine-overlay-4.svg": svg(`
+${crystalReferenceGroup({ x: 8, y: 68, scale: 0.26, fill: "#75DCFF", side: "#3797E7", top: "#E9FCFF" })}
+${mineFrame({ x: 44, y: 52, width: 34, height: 27 })}
+${crystalReferenceGroup({ x: 78, y: 62, scale: 0.36, fill: "#5DCEFF", side: "#2488DC", top: "#E2F8FF" })}
+${cart({ x: 86, y: 80, body: "#98693A" })}
 `)
 };
 
