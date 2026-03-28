@@ -2176,6 +2176,12 @@ const applyOptimisticStructureCancel = (x: number, y: number): void => {
   });
 };
 
+const shouldPreserveOptimisticExpand = (tileKey: string): boolean => {
+  if (!tileKey) return false;
+  const tile = state.tiles.get(tileKey);
+  return tile?.ownerId === state.me && tile.optimisticPending === "expand";
+};
+
 const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
   const tileKey = key(incoming.x, incoming.y);
   const existing = state.tiles.get(tileKey);
@@ -7607,6 +7613,7 @@ setInterval(() => {
   // Stage 2: combat started but result got dropped.
   if (Date.now() > state.capture.resolvesAt + 4_000) {
     const timedOutCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
+    const keepOptimisticExpand = shouldPreserveOptimisticExpand(timedOutCurrentKey);
     state.capture = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
@@ -7614,8 +7621,14 @@ setInterval(() => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     if (timedOutCurrentKey) dropQueuedTargetKeyIfAbsent(timedOutCurrentKey);
-    if (timedOutCurrentKey) clearOptimisticTileState(timedOutCurrentKey, true);
-    pushFeed("Combat result delayed locally; continuing queue.", "combat", "warn");
+    if (timedOutCurrentKey && !keepOptimisticExpand) clearOptimisticTileState(timedOutCurrentKey, true);
+    pushFeed(
+      keepOptimisticExpand
+        ? "Frontier result delayed; keeping optimistic tile while continuing queue."
+        : "Combat result delayed locally; continuing queue.",
+      "combat",
+      "warn"
+    );
     processActionQueue();
     renderHud();
   }
