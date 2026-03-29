@@ -33,8 +33,13 @@ Split responsibilities into two services:
 2. Reduce AI tick monopolization with work budgeting and human-priority scheduling.
 3. Make frontier/settlement confirmations delta-first and avoid chunk refresh dependence.
 4. Extract simulation commands and events behind an internal interface in-process.
-5. Move AI/simulation onto a separate worker or service while keeping websocket gateway stable.
-6. Replace snapshot-first persistence with an indexed store such as SQLite or Postgres.
+   - Status: started.
+   - AI actions now go through an internal simulation-command seam instead of calling websocket-shaped message handling directly.
+5. Build reusable per-turn simulation indexes.
+   - Cache frontier anchors, structure candidates, and other selector inputs once per AI turn.
+   - Prefer incremental invalidation over recomputing territory scans in every selector.
+6. Move AI/simulation onto a separate worker or service while keeping websocket gateway stable.
+7. Replace snapshot-first persistence with an indexed store such as SQLite or Postgres.
 
 ## Desired invariants
 
