@@ -2583,7 +2583,7 @@ const pickDockOriginForTarget = (
     ) continue;
     const linked = dockDestinationsFor(t.x, t.y);
     for (const d of linked) {
-      if ((d.x === tx && d.y === ty) || (allowAdjacentToDock && isAdjacentCardinal(d.x, d.y, tx, ty))) return t;
+      if ((d.x === tx && d.y === ty) || (allowAdjacentToDock && isAdjacent(d.x, d.y, tx, ty))) return t;
     }
   }
   return undefined;
@@ -4298,7 +4298,7 @@ const buildFrontierQueue = (
     for (const k of frontier) {
       const { x, y } = parseKey(k);
       remaining.delete(k);
-      if (enqueueTarget(x, y)) {
+      if (enqueue(x, y)) {
         planned.add(k);
         queued += 1;
       }
@@ -4339,8 +4339,37 @@ const applyPendingSettlementsFromServer = (
 const queueSpecificTargets = (
   targetKeys: string[],
   mode: "normal" | "breakthrough"
-): { queued: number; skipped: number; queuedKeys: string[] } =>
-  buildFrontierQueue(targetKeys, (x, y) => enqueueTarget(x, y, mode));
+): { queued: number; skipped: number; queuedKeys: string[] } => {
+  const neutralTargets: string[] = [];
+  const attackTargets: string[] = [];
+  for (const targetKey of targetKeys) {
+    const tile = state.tiles.get(targetKey);
+    if (!tile || tile.terrain !== "LAND" || tile.fogged) continue;
+    if (!tile.ownerId) neutralTargets.push(targetKey);
+    else if (tile.ownerId !== state.me && !isTileOwnedByAlly(tile)) attackTargets.push(targetKey);
+  }
+
+  const neutralResult = buildFrontierQueue(neutralTargets, (x, y) => enqueueTarget(x, y, mode));
+  const queuedKeys = [...neutralResult.queuedKeys];
+  let queued = neutralResult.queued;
+  let skipped = neutralResult.skipped;
+
+  for (const targetKey of attackTargets) {
+    const { x, y } = parseKey(targetKey);
+    if (!pickOriginForTarget(x, y)) {
+      skipped += 1;
+      continue;
+    }
+    if (!enqueueTarget(x, y, mode)) {
+      skipped += 1;
+      continue;
+    }
+    queued += 1;
+    queuedKeys.push(targetKey);
+  }
+
+  return { queued, skipped, queuedKeys };
+};
 
 const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
   if (!targetKey) return;
