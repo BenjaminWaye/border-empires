@@ -918,6 +918,8 @@ body {
 .stat-chip strong {
   font-size: 16px;
   color: #f2f7ff;
+  display: block;
+  min-width: 0;
 }
 
 .stat-chip-dev {
@@ -1600,6 +1602,7 @@ body {
   position: fixed;
   z-index: 26;
   width: 330px;
+  max-width: calc(100vw - 16px);
 }
 
 .tile-action-card {
@@ -1610,6 +1613,9 @@ body {
   padding: 10px;
   display: grid;
   gap: 8px;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .tile-action-close {
   justify-self: end;
@@ -2554,6 +2560,7 @@ body {
     linear-gradient(180deg, rgba(4, 11, 22, 0.7), rgba(3, 8, 16, 0.86));
   min-height: 420px;
   cursor: grab;
+  touch-action: none;
 }
 
 .tech-tree-graph-scroll.dragging {
@@ -3307,7 +3314,7 @@ h4 {
 
   #stats-chips {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 5px;
   }
 
@@ -3320,24 +3327,29 @@ h4 {
     margin-left: 0;
     padding-left: 0;
     border-left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .resource-pill {
     flex: 0 1 auto;
     max-width: 100%;
-    justify-content: flex-start;
+    min-width: 0;
+    justify-content: center;
   }
 
   .stat-chip {
     min-width: 0;
-    padding: 4px 6px;
+    padding: 4px 5px;
     border-radius: 12px;
   }
 
   .stat-chip strong {
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.05;
   }
 
+  .stat-chip-def,
   .stat-chip-dev {
     min-width: 0;
   }
@@ -3347,7 +3359,9 @@ h4 {
   }
 
   .stat-chip-rate {
-    font-size: 10px;
+    display: block;
+    margin-top: 1px;
+    font-size: 9px;
   }
 
   .stat-chip-dev-pips {
@@ -3359,16 +3373,27 @@ h4 {
   }
 
   .resource-pill {
-    padding: 4px 6px;
-    gap: 5px;
+    padding: 4px 5px;
+    gap: 4px;
   }
 
   .resource-icon {
     font-size: 14px;
   }
 
+  .resource-value-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+
   .resource-value {
-    font-size: 14px;
+    font-size: 11px;
+  }
+
+  .resource-rate {
+    font-size: 8px;
+    line-height: 1;
   }
 
   .resource-rate {
@@ -3547,6 +3572,7 @@ h4 {
 
   .tech-tree-graph-scroll {
     min-height: 360px;
+    touch-action: none;
   }
 
   #mobile-panel-tech.tech-tree-expanded {
@@ -3632,8 +3658,12 @@ h4 {
 
   .tile-action-card,
   .hold-menu-card {
-    max-height: min(56dvh, 420px);
+    max-height: min(62dvh, 480px);
     overflow: auto;
+  }
+
+  #tile-action-menu {
+    max-width: calc(100vw - 12px);
   }
 
   .tile-menu-tab {
