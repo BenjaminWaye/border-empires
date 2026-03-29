@@ -2148,7 +2148,7 @@ const bindTechTreeDragScroll = (): void => {
     region.onpointerdown = (event) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       const target = event.target;
-      if (target instanceof Element && target.closest("[data-tech-card]")) return;
+      if (event.pointerType === "mouse" && target instanceof Element && target.closest("[data-tech-card]")) return;
       pointerId = event.pointerId;
       startX = event.clientX;
       startY = event.clientY;
@@ -2156,6 +2156,7 @@ const bindTechTreeDragScroll = (): void => {
       startTop = region.scrollTop;
       region.classList.add("dragging");
       region.setPointerCapture(event.pointerId);
+      if (event.pointerType !== "mouse") event.preventDefault();
     };
     region.onpointermove = (event) => {
       if (event.pointerId !== pointerId) return;
@@ -2165,6 +2166,7 @@ const bindTechTreeDragScroll = (): void => {
       region.scrollTop = startTop - dy;
       state.techTreeScrollLeft = region.scrollLeft;
       state.techTreeScrollTop = region.scrollTop;
+      if (event.pointerType !== "mouse") event.preventDefault();
     };
     region.onscroll = () => {
       state.techTreeScrollLeft = region.scrollLeft;
@@ -2471,6 +2473,13 @@ const isTownSupportNeighbor = (tx: number, ty: number, sx: number, sy: number): 
   const dy = Math.min(Math.abs(ty - sy), WORLD_HEIGHT - Math.abs(ty - sy));
   if (dx === 0 && dy === 0) return false;
   return dx <= 1 && dy <= 1;
+};
+
+const isTownSupportHighlightableTile = (tile: Tile | undefined): boolean => {
+  if (!tile) return false;
+  if (tile.terrain !== "LAND") return false;
+  if (tile.dockId) return false;
+  return true;
 };
 
 const supportedOwnedTownsForTile = (tile: Tile): Tile[] => {
@@ -3659,7 +3668,7 @@ const renderHud = (): void => {
   statsChipsEl.innerHTML = `
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
-    ${mobile ? "" : `<button class="stat-chip" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>Defensibility</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>`}
+    <button class="stat-chip stat-chip-def" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
@@ -3781,14 +3790,7 @@ const renderHud = (): void => {
       <div class="mobile-context-label">Tile</div>
       <div class="mobile-context-value">${selectedEl.innerHTML || selectedEl.textContent || "No tile selected."}</div>
     </div>
-    <button class="panel-btn mobile-context-action" type="button" data-defensibility-open="true">Defensibility ${Math.round(state.defensibilityPct)}%</button>
   `;
-  const mobileDefensibilityBtn = mobileCoreHelpEl.querySelector<HTMLButtonElement>("[data-defensibility-open]");
-  if (mobileDefensibilityBtn) {
-    mobileDefensibilityBtn.onclick = () => {
-      setActivePanel("defensibility");
-    };
-  }
 
   renderCaptureProgress();
   miniMapLabelEl.textContent = `Minimap (${state.camX}, ${state.camY})`;
@@ -7601,10 +7603,10 @@ const draw = (): void => {
         }
       } else if (state.selected) {
         const selected = state.tiles.get(key(state.selected.x, state.selected.y));
-        if (selected?.town && isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y)) {
-          if (t?.terrain !== "LAND") {
-            ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
-          } else if (!t?.ownerId) {
+      if (selected?.town && isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) && isTownSupportHighlightableTile(t)) {
+        if (t?.terrain !== "LAND") {
+          ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
+        } else if (!t?.ownerId) {
             ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
           } else if (t.ownerId !== state.me) {
             ctx.strokeStyle = "rgba(255, 98, 98, 0.65)";
