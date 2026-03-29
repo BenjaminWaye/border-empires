@@ -3980,13 +3980,17 @@ const startAbilityCooldown = (playerId: string, abilityId: AbilityDefinition["id
 
 const playerHasTechIds = (player: Player, techIds: string[]): boolean => techIds.every((id) => player.techIds.has(id));
 
+const isOwnedSettledLandTile = (playerId: string, tileKey: TileKey): boolean => {
+  const [x, y] = parseKey(tileKey);
+  if (terrainAtRuntime(x, y) !== "LAND") return false;
+  return ownership.get(tileKey) === playerId && ownershipStateByTile.get(tileKey) === "SETTLED";
+};
+
 const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "under_construction" | "active" | "inactive" => {
   const observatory = observatoriesByTile.get(tileKey);
   if (!observatory || observatory.ownerId !== playerId) return "inactive";
   if (observatory.status === "under_construction") return "under_construction";
-  const [x, y] = parseKey(tileKey);
-  const t = playerTile(x, y);
-  return t.ownerId === playerId && t.ownershipState === "SETTLED" ? observatory.status : "inactive";
+  return isOwnedSettledLandTile(playerId, tileKey) ? observatory.status : "inactive";
 };
 
 const activeObservatoryTileKeysForPlayer = (playerId: string): TileKey[] => {
@@ -4003,9 +4007,7 @@ const syncObservatoriesForPlayer = (playerId: string, active: boolean): void => 
     const observatory = observatoriesByTile.get(tk);
     if (!observatory) continue;
     if (observatory.status === "under_construction") continue;
-    const [x, y] = parseKey(tk);
-    const t = playerTile(x, y);
-    const nextStatus = active && t.ownerId === playerId && t.ownershipState === "SETTLED" ? "active" : "inactive";
+    const nextStatus = active && isOwnedSettledLandTile(playerId, tk) ? "active" : "inactive";
     if (observatory.status !== nextStatus) {
       observatory.status = nextStatus;
       changed = true;
