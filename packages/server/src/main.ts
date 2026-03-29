@@ -5111,6 +5111,8 @@ type AiTerritorySummary = {
   frontierTiles: Tile[];
   expandCandidates: AiFrontierCandidatePair[];
   attackCandidates: AiFrontierCandidatePair[];
+  borderSettledTileKeys: Set<TileKey>;
+  structureCandidateTiles: Tile[];
   underThreat: boolean;
   foodPressure: number;
   settlementEvaluationByKey: Map<string, AiSettlementCandidateEvaluation>;
@@ -5125,6 +5127,7 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
   const frontierTiles: Tile[] = [];
   const expandCandidates: AiFrontierCandidatePair[] = [];
   const attackCandidates: AiFrontierCandidatePair[] = [];
+  const borderSettledTileKeys = new Set<TileKey>();
   let underThreat = false;
 
   for (const tileKey of actor.territoryTiles) {
@@ -5142,11 +5145,18 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     }
     for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
       expandCandidates.push({ from, to });
+      if (from.ownerId === actor.id && from.ownershipState === "SETTLED") borderSettledTileKeys.add(tileKey);
     }
     for (const to of aiFrontierActionCandidates(actor, from, "ATTACK")) {
       attackCandidates.push({ from, to });
+      if (from.ownerId === actor.id && from.ownershipState === "SETTLED") borderSettledTileKeys.add(tileKey);
     }
   }
+
+  const structureCandidateTiles = settledTiles.filter((tile) => {
+    const tileKey = key(tile.x, tile.y);
+    return borderSettledTileKeys.has(tileKey) || docksByTile.has(tileKey) || townsByTile.has(tileKey) || Boolean(tile.resource);
+  });
 
   return {
     visibility,
@@ -5156,6 +5166,8 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     frontierTiles,
     expandCandidates,
     attackCandidates,
+    borderSettledTileKeys,
+    structureCandidateTiles,
     underThreat,
     foodPressure: aiFoodPressureSignal(actor),
     settlementEvaluationByKey: new Map<string, AiSettlementCandidateEvaluation>(),
@@ -5957,17 +5969,10 @@ const bestAiSettlementTile = (
 };
 
 const bestAiFortTile = (actor: Player, territorySummary = collectAiTerritorySummary(actor)): Tile | undefined => {
-  const borderSettledTileKeys = new Set<TileKey>();
-  for (const { from } of territorySummary.expandCandidates) {
-    if (from.ownerId === actor.id && from.ownershipState === "SETTLED") borderSettledTileKeys.add(key(from.x, from.y));
-  }
-  for (const { from } of territorySummary.attackCandidates) {
-    if (from.ownerId === actor.id && from.ownershipState === "SETTLED") borderSettledTileKeys.add(key(from.x, from.y));
-  }
   let best: { tile: Tile; score: number } | undefined;
-  for (const tile of territorySummary.settledTiles) {
+  for (const tile of territorySummary.structureCandidateTiles) {
     const tk = key(tile.x, tile.y);
-    if (!borderSettledTileKeys.has(tk) && !docksByTile.has(tk)) continue;
+    if (!territorySummary.borderSettledTileKeys.has(tk) && !docksByTile.has(tk)) continue;
     let score = 0;
     if (townsByTile.has(tk)) score += 140;
     if (docksByTile.has(tk)) score += 120;
@@ -5992,7 +5997,7 @@ const bestAiEconomicStructure = (
   const consider = (score: number, tile: Tile, structureType: EconomicStructureType): void => {
     if (!best || score > best.score) best = { score, tile, structureType };
   };
-  for (const tile of territorySummary.settledTiles) {
+  for (const tile of territorySummary.structureCandidateTiles) {
     const tileKey = key(tile.x, tile.y);
     if (tile.economicStructure) continue;
     if (tile.resource === "FARM" || tile.resource === "FISH") {
@@ -6025,7 +6030,7 @@ const bestAiEconomicStructure = (
     ) best = undefined;
     else return { tile: best.tile, structureType: best.structureType };
   }
-  for (const tile of territorySummary.settledTiles) {
+  for (const tile of territorySummary.structureCandidateTiles) {
     const tileKey = key(tile.x, tile.y);
     if (tile.economicStructure) continue;
     const candidates: EconomicStructureType[] =
@@ -6052,6 +6057,17 @@ const bestAiEconomicStructure = (
   return undefined;
 };
 
+type SimulationCommand =
+  | { type: "EXPAND"; fromX: number; fromY: number; toX: number; toY: number }
+  | { type: "ATTACK"; fromX: number; fromY: number; toX: number; toY: number }
+  | { type: "SETTLE"; x: number; y: number }
+  | { type: "BUILD_FORT"; x: number; y: number }
+  | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
+
+const executeSimulationCommand = (actor: Player, command: SimulationCommand): void => {
+  void executeUnifiedGameplayMessage(actor, command, NOOP_WS);
+};
+
 const executeAiGoapAction = (
   actor: Player,
   actionKey: string,
@@ -6073,42 +6089,26 @@ const executeAiGoapAction = (
   if (actionKey === "claim_neutral_border_tile") {
     const candidate = candidates?.neutralExpand ?? bestAiEconomicExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
-    void executeUnifiedGameplayMessage(
-      actor,
-      { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y },
-      NOOP_WS
-    );
+    executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_scout_border_tile") {
     const candidate = candidates?.scoutExpand ?? bestAiScoutExpand(actor, territorySummary);
     if (!candidate) return false;
-    void executeUnifiedGameplayMessage(
-      actor,
-      { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y },
-      NOOP_WS
-    );
+    executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_scaffold_border_tile") {
     const candidate = candidates?.scaffoldExpand ?? bestAiScaffoldExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
-    void executeUnifiedGameplayMessage(
-      actor,
-      { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y },
-      NOOP_WS
-    );
+    executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "attack_barbarian_border_tile") {
     const candidate =
       candidates?.barbarianAttack ?? bestAiFrontierAction(actor, "ATTACK", (tile) => tile.ownerId === BARBARIAN_OWNER_ID, victoryPath, territorySummary);
     if (!candidate) return false;
-    void executeUnifiedGameplayMessage(
-      actor,
-      { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y },
-      NOOP_WS
-    );
+    executeSimulationCommand(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "attack_enemy_border_tile") {
@@ -6124,33 +6124,25 @@ const executeAiGoapAction = (
         territorySummary
       );
     if (!candidate) return false;
-    void executeUnifiedGameplayMessage(
-      actor,
-      { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y },
-      NOOP_WS
-    );
+    executeSimulationCommand(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "settle_owned_frontier_tile") {
     const tile = candidates?.settlementTile ?? bestAiSettlementTile(actor, victoryPath, territorySummary);
     if (!tile) return false;
-    void executeUnifiedGameplayMessage(actor, { type: "SETTLE", x: tile.x, y: tile.y }, NOOP_WS);
+    executeSimulationCommand(actor, { type: "SETTLE", x: tile.x, y: tile.y });
     return true;
   }
   if (actionKey === "build_fort_on_exposed_tile") {
     const tile = candidates?.fortAnchor ?? bestAiFortTile(actor, territorySummary);
     if (!tile) return false;
-    void executeUnifiedGameplayMessage(actor, { type: "BUILD_FORT", x: tile.x, y: tile.y }, NOOP_WS);
+    executeSimulationCommand(actor, { type: "BUILD_FORT", x: tile.x, y: tile.y });
     return true;
   }
   if (actionKey === "build_economic_structure") {
     const candidate = candidates?.economicBuild ?? bestAiEconomicStructure(actor, territorySummary);
     if (!candidate) return false;
-    void executeUnifiedGameplayMessage(
-      actor,
-      { type: "BUILD_ECONOMIC_STRUCTURE", x: candidate.tile.x, y: candidate.tile.y, structureType: candidate.structureType },
-      NOOP_WS
-    );
+    executeSimulationCommand(actor, { type: "BUILD_ECONOMIC_STRUCTURE", x: candidate.tile.x, y: candidate.tile.y, structureType: candidate.structureType });
     return true;
   }
   return false;
