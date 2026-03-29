@@ -370,6 +370,7 @@ interface SeasonArchiveEntry {
 
 interface SnapshotState {
   world: { width: number; height: number };
+  townPlacementsNormalized?: boolean;
   players: Array<
     Omit<Player, "techIds" | "domainIds" | "territoryTiles" | "allies"> & {
       techIds: string[];
@@ -420,6 +421,7 @@ interface SnapshotState {
 
 interface SnapshotMetaSection {
   world: { width: number; height: number };
+  townPlacementsNormalized?: boolean;
   season?: Season;
   seasonWinner?: SeasonWinnerView;
   seasonArchives?: SeasonArchiveEntry[];
@@ -9326,6 +9328,7 @@ const recordMountainShapeHistory = (tileKey: TileKey, kind: "created" | "removed
 const buildSnapshotState = (): SnapshotState => {
   const snapshot: SnapshotState = {
     world: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
+    townPlacementsNormalized: true,
     players: [...players.values()].map(serializePlayer),
     ownership: [...ownership.entries()],
     ownershipState: [...ownershipStateByTile.entries()],
@@ -9387,6 +9390,7 @@ const splitSnapshotState = (
 } => ({
   meta: {
     world: snapshot.world,
+    ...(snapshot.townPlacementsNormalized ? { townPlacementsNormalized: snapshot.townPlacementsNormalized } : {}),
     ...(snapshot.season ? { season: snapshot.season } : {}),
     ...(snapshot.seasonWinner ? { seasonWinner: snapshot.seasonWinner } : {}),
     ...(snapshot.seasonArchives ? { seasonArchives: snapshot.seasonArchives } : {}),
@@ -9524,6 +9528,7 @@ const loadSectionedSnapshot = (): SnapshotState | undefined => {
   }
   return {
     ...meta.data,
+    townPlacementsNormalized: meta.data.townPlacementsNormalized ?? true,
     ...playersSection.data,
     ...territory.data,
     ...economy.data,
@@ -9727,7 +9732,8 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
     clusters: raw.clusters?.length ?? 0,
     clusterTiles: raw.clusterTiles?.length ?? 0
   });
-  if (townPlacementsNeedNormalization()) {
+  const shouldNormalizeTownPlacements = raw.townPlacementsNormalized === true ? false : townPlacementsNeedNormalization();
+  if (shouldNormalizeTownPlacements) {
     normalizeTownPlacements();
     logHydratePhase("town_normalization", { normalized: 1, towns: raw.towns?.length ?? 0 });
   } else {
