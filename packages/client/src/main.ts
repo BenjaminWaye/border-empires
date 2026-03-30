@@ -62,6 +62,7 @@ import {
   settleDurationMsForTile
 } from "./client-constants.js";
 import { initClientDom } from "./client-dom.js";
+import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import {
   allianceRequestsHtml,
   alliesHtml,
@@ -1527,22 +1528,6 @@ const formatYieldSummary = (tile: Tile): string => {
   }
   return parts.length > 0 ? `Yield: ${parts.join("  ")}` : "";
 };
-const formatUpkeepSummary = (upkeep: typeof state.upkeepPerMinute): string => {
-  const parts: string[] = [];
-  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${upkeep.food.toFixed(2)}/m`);
-  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeep.iron.toFixed(2)}/m`);
-  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeep.supply.toFixed(2)}/m`);
-  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
-  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
-  return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
-};
-type EconomyBucket = {
-  label: string;
-  amountPerMinute: number;
-  count: number;
-  note?: string;
-};
-
 type DefensibilityBreakdown = {
   settledTiles: number;
   exposedEdges: number;
@@ -1677,174 +1662,30 @@ const defensibilityPanelHtml = (): string => {
   </div>`;
 };
 
-const economySourceLabelForTile = (tile: Tile, resource: Exclude<EconomyFocusKey, "ALL">): string => {
-  if (resource === "GOLD") {
-    if (tile.town) return "Towns";
-    if (tile.dockId) return "Docks";
-    if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
-    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Settled land";
-  }
-  if (resource === "SHARD") return tile.town ? "Ancient towns" : "Shard sites";
-  if (tile.resource) return prettyToken(resourceLabel(tile.resource));
-  if (tile.town && resource === "FOOD") return "Town support";
-  return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";
-};
-
-const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string, amountPerMinute: number): void => {
-  if (amountPerMinute <= 0.0001) return;
-  const current = map.get(label);
-  if (current) {
-    current.amountPerMinute += amountPerMinute;
-    current.count += 1;
-    return;
-  }
-  map.set(label, { label, amountPerMinute, count: 1 });
-};
-
-const setEconomyBucketNote = (map: Map<string, EconomyBucket>, label: string, note: string): void => {
-  const bucket = map.get(label);
-  if (bucket) bucket.note = note;
-};
-
-const resourceUpkeepPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
-  if (resource === "GOLD") return state.upkeepPerMinute.gold;
-  if (resource === "FOOD") return state.upkeepPerMinute.food;
-  if (resource === "IRON") return state.upkeepPerMinute.iron;
-  if (resource === "CRYSTAL") return state.upkeepPerMinute.crystal;
-  if (resource === "SUPPLY") return state.upkeepPerMinute.supply;
-  return 0;
-};
-
-const resourceNetPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
-  if (resource === "GOLD") return state.incomePerMinute - state.upkeepPerMinute.gold;
-  return state.strategicProductionPerMinute[resource] - resourceUpkeepPerMinute(resource);
-};
-
-const economyDetailForResource = (resource: Exclude<EconomyFocusKey, "ALL">): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
-  const sources = new Map<string, EconomyBucket>();
-  const sinks = new Map<string, EconomyBucket>();
-  let settledTileCount = 0;
-  let fortCount = 0;
-  let outpostCount = 0;
-  let observatoryCount = 0;
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
-    if (tile.fogged) continue;
-    settledTileCount += 1;
-    const amountPerMinute =
-      resource === "GOLD"
-        ? tile.yieldRate?.goldPerMinute ?? 0
-        : Number(tile.yieldRate?.strategicPerDay?.[resource] ?? 0) / 1440;
-    accumulateEconomyBucket(sources, economySourceLabelForTile(tile, resource), amountPerMinute);
-    if (resource === "FOOD" && tile.town?.foodUpkeepPerMinute) {
-      accumulateEconomyBucket(sinks, "Town upkeep", tile.town.foodUpkeepPerMinute);
-    }
-    if (tile.fort?.ownerId === state.me && tile.fort.status === "active") fortCount += 1;
-    if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") outpostCount += 1;
-    if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") observatoryCount += 1;
-  }
-  if (resource === "GOLD") {
-    const settledUpkeep = (settledTileCount / 40) * 0.1;
-    const fortUpkeep = fortCount * 0.2;
-    const outpostUpkeep = outpostCount * 0.2;
-    accumulateEconomyBucket(sinks, "Settled land upkeep", settledUpkeep);
-    accumulateEconomyBucket(sinks, "Fort upkeep", fortUpkeep);
-    accumulateEconomyBucket(sinks, "Siege outpost upkeep", outpostUpkeep);
-    if (settledTileCount > 0) setEconomyBucketNote(sinks, "Settled land upkeep", `${settledTileCount} settled tiles`);
-    if (fortCount > 0) setEconomyBucketNote(sinks, "Fort upkeep", `${fortCount} active fort${fortCount === 1 ? "" : "s"}`);
-    if (outpostCount > 0) setEconomyBucketNote(sinks, "Siege outpost upkeep", `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`);
-  } else if (resource === "CRYSTAL") {
-    const revealUpkeep = Math.min(1, state.activeRevealTargets.length) * 0.015;
-    const observatoryUpkeep = observatoryCount * 0.025;
-    accumulateEconomyBucket(sinks, "Empire reveal upkeep", revealUpkeep);
-    accumulateEconomyBucket(sinks, "Observatory upkeep", observatoryUpkeep);
-    if (state.activeRevealTargets.length > 0) setEconomyBucketNote(sinks, "Empire reveal upkeep", `${Math.min(1, state.activeRevealTargets.length)} active reveal`);
-    if (observatoryCount > 0) setEconomyBucketNote(sinks, "Observatory upkeep", `${observatoryCount} active observator${observatoryCount === 1 ? "y" : "ies"}`);
-  } else if (resource === "IRON") {
-    const fortUpkeep = fortCount * 0.025;
-    accumulateEconomyBucket(sinks, "Fort upkeep", fortUpkeep);
-    if (fortCount > 0) setEconomyBucketNote(sinks, "Fort upkeep", `${fortCount} active fort${fortCount === 1 ? "" : "s"}`);
-  } else if (resource === "SUPPLY") {
-    const outpostUpkeep = outpostCount * 0.025;
-    accumulateEconomyBucket(sinks, "Siege outpost upkeep", outpostUpkeep);
-    if (outpostCount > 0) setEconomyBucketNote(sinks, "Siege outpost upkeep", `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`);
-  }
-  const totalUpkeep = resourceUpkeepPerMinute(resource);
-  const knownUpkeep = [...sinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0);
-  const residualUpkeep = Math.max(0, totalUpkeep - knownUpkeep);
-  if (residualUpkeep > 0.0001) {
-    accumulateEconomyBucket(sinks, resource === "FOOD" ? "Other empire upkeep" : "Other upkeep modifiers", residualUpkeep);
-  }
-  return {
-    sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
-    sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
-  };
-};
-
 const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
   state.economyFocus = focus;
   setActivePanel("economy");
 };
 
-const economySummaryCardHtml = (resource: Exclude<EconomyFocusKey, "ALL">, selected: boolean): string => {
-  const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
-  const gross = resource === "GOLD" ? state.incomePerMinute : state.strategicProductionPerMinute[resource];
-  const upkeep = resourceUpkeepPerMinute(resource);
-  const net = resourceNetPerMinute(resource);
-  const icon = resourceIconForKey(resource);
-  const label = prettyToken(resource);
-  return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
-    <div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>
-    <div class="economy-summary-stock">${stock.toFixed(1)}</div>
-    <div class="economy-summary-rates">
-      <span>Gross ${gross.toFixed(2)}/m</span>
-      <span>Upkeep ${upkeep.toFixed(2)}/m</span>
-      <span class="economy-rate ${rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</span>
-    </div>
-  </button>`;
-};
-
 const economyPanelHtml = (): string => {
-  const focus = state.economyFocus;
-  const resources: Array<Exclude<EconomyFocusKey, "ALL">> = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
-  const mobile = window.matchMedia("(max-width: 900px)").matches;
-  const visibleResources = mobile ? [focus === "ALL" ? "GOLD" : focus] : focus === "ALL" ? resources : [focus];
-  const totals = formatUpkeepSummary(state.upkeepPerMinute);
-  return `
-    <div class="economy-panel">
-      <div class="economy-summary-grid">
-        ${resources.map((resource) => economySummaryCardHtml(resource, resource === focus)).join("")}
-      </div>
-      ${totals ? `<div class="economy-overview-note">${mobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : mobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
-      ${visibleResources
-        .map((resource) => {
-          const detail = economyDetailForResource(resource);
-          const net = resourceNetPerMinute(resource);
-          const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
-          return `<section class="economy-detail-card card">
-            <div class="economy-detail-head">
-              <div>
-                <div class="economy-detail-kicker">${resourceIconForKey(resource)} ${prettyToken(resource)}</div>
-                <strong>${stock.toFixed(1)} in reserve</strong>
-              </div>
-              <div class="economy-rate ${rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
-            </div>
-            <div class="economy-detail-columns">
-              <div class="economy-detail-column">
-                <h4>Income Sources</h4>
-                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
-              </div>
-              <div class="economy-detail-column">
-                <h4>Upkeep</h4>
-                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
-              </div>
-            </div>
-            ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((state.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
-          </section>`;
-        })
-        .join("")}
-    </div>
-  `;
+  return renderEconomyPanelHtml({
+    focus: state.economyFocus,
+    gold: state.gold,
+    me: state.me,
+    incomePerMinute: state.incomePerMinute,
+    strategicResources: state.strategicResources,
+    strategicProductionPerMinute: state.strategicProductionPerMinute,
+    upkeepPerMinute: state.upkeepPerMinute,
+    upkeepLastTick: state.upkeepLastTick,
+    activeRevealTargetsCount: state.activeRevealTargets.length,
+    tiles: state.tiles.values(),
+    isMobile: window.matchMedia("(max-width: 900px)").matches,
+    prettyToken,
+    resourceIconForKey,
+    rateToneClass,
+    resourceLabel,
+    economicStructureName
+  });
 };
 const rateToneClass = (rate: number): string => {
   if (rate > 0.001) return "positive";
@@ -4918,8 +4759,6 @@ type DevelopmentSlotSummary = {
   limit: number;
   available: number;
 };
-
-type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 
 type TileOverviewLine = {
   html: string;
