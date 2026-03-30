@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, FRONTIER_CLAIM_MS, grassShadeAt, landBiomeAt } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, FRONTIER_CLAIM_MS, SETTLE_MS, grassShadeAt, landBiomeAt } from "@border-empires/shared";
 
 import type { GuideStep } from "./client-types.js";
 
@@ -45,7 +45,8 @@ export const formatGoldAmount = (gold: number): string => gold.toFixed(2);
 
 export const isForestTile = (x: number, y: number): boolean => landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
 
-export const frontierClaimDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? FRONTIER_CLAIM_MS * 2 : FRONTIER_CLAIM_MS);
+export const frontierClaimDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? FRONTIER_CLAIM_MS * 4 : FRONTIER_CLAIM_MS);
+export const settleDurationMsForTile = (x: number, y: number): number => (isForestTile(x, y) ? SETTLE_MS * 2 : SETTLE_MS);
 
 export const frontierClaimCostLabelForTile = (x: number, y: number): string => {
   const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);
