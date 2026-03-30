@@ -4735,7 +4735,7 @@ const tryQueueBasicFrontierAction = (
   let adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
   const allowAdjacentToDock = actionType !== "EXPAND";
   let dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y, allowAdjacentToDock));
-  if (!adjacent && !dockCrossing && from.ownerId === actor.id) {
+  if (!adjacent && !dockCrossing && actionType === "ATTACK") {
     const altFrom = findOwnedDockOriginForCrossing(actor, to.x, to.y, allowAdjacentToDock);
     if (altFrom) {
       from = altFrom;
@@ -10902,7 +10902,7 @@ app.post("/admin/world/regenerate", async () => {
       let fromDock = docksByTile.get(fk);
       let adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
       let dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
-      if (!adjacent && !dockCrossing && from.ownerId === actor.id) {
+      if (!adjacent && !dockCrossing) {
         const altFrom = findOwnedDockOriginForCrossing(actor, to.x, to.y);
         if (altFrom) {
           from = altFrom;
@@ -11134,7 +11134,7 @@ app.post("/admin/world/regenerate", async () => {
     let fromDock = docksByTile.get(fk);
     let adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
     let dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
-    if (!adjacent && !dockCrossing && from.ownerId === actor.id) {
+    if (!adjacent && !dockCrossing) {
       const altFrom = findOwnedDockOriginForCrossing(actor, to.x, to.y);
       if (altFrom) {
         from = altFrom;
