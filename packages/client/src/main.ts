@@ -6755,6 +6755,7 @@ ws.addEventListener("message", (ev) => {
   }
   if (msg.type === "COMBAT_RESULT") {
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
+    const resolvedCaptureTargetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : "";
     for (const c of changes) {
       const tileKey = key(c.x, c.y);
       state.incomingAttacksByTile.delete(tileKey);
@@ -6777,7 +6778,7 @@ ws.addEventListener("message", (ev) => {
     }
     pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
-    const targetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : state.actionTargetKey;
+    const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
     let handedOffToSettle = false;
     if (targetKey && state.autoSettleTargets.has(targetKey)) {
       const settledTile = state.tiles.get(targetKey);
@@ -6789,6 +6790,7 @@ ws.addEventListener("message", (ev) => {
       }
       state.autoSettleTargets.delete(targetKey);
     }
+    state.capture = undefined;
     if (!handedOffToSettle) {
       state.actionInFlight = false;
       state.combatStartAck = false;
@@ -6797,7 +6799,6 @@ ws.addEventListener("message", (ev) => {
       if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
       const startedNext = processActionQueue();
       if (!startedNext) {
-        state.capture = undefined;
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
       }
