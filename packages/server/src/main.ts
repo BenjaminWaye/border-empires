@@ -303,9 +303,30 @@ type VictoryPressureTracker = {
 };
 
 type AiTickContext = {
+  cycleId: number;
   competitionMetrics: PlayerCompetitionMetrics[];
   incomeByPlayerId: Map<string, number>;
   humanPriorityMode: boolean;
+  townsTarget: number;
+  settledTilesTarget: number;
+  analysisByPlayerId: Map<string, AiTurnAnalysis>;
+};
+
+type AiTurnAnalysis = {
+  territorySummary: AiTerritorySummary;
+  aiIncome: number;
+  runnerUpIncome: number;
+  controlledTowns: number;
+  settledTiles: number;
+  frontierTiles: number;
+  worldFlags: Set<string>;
+  underThreat: boolean;
+  foodCoverage: number;
+  foodCoverageLow: boolean;
+  economyWeak: boolean;
+  frontierDebt: boolean;
+  threatCritical: boolean;
+  preferredVictoryPath: AiSeasonVictoryPathId | undefined;
 };
 
 type LeaderboardOverallEntry = {
@@ -6065,6 +6086,55 @@ const bestAiEconomicStructure = (
   return undefined;
 };
 
+const buildAiTurnAnalysis = (
+  actor: Player,
+  competitionMetrics: PlayerCompetitionMetrics[],
+  incomeByPlayerId: Map<string, number>
+): AiTurnAnalysis => {
+  const territorySummary = collectAiTerritorySummary(actor);
+  const aiIncome = incomeByPlayerId.get(actor.id) ?? competitionMetrics.find((metric) => metric.playerId === actor.id)?.incomePerMinute ?? currentIncomePerMinute(actor);
+  const runnerUpIncome = competitionMetrics.reduce((best, metric) => {
+    if (metric.playerId === actor.id) return best;
+    return Math.max(best, metric.incomePerMinute);
+  }, 0);
+  const controlledTowns = countControlledTowns(actor.id);
+  const settledTiles = territorySummary.settledTileCount;
+  const frontierTiles = territorySummary.frontierTileCount;
+  const worldFlags = playerWorldFlags(actor);
+  const underThreat = territorySummary.underThreat && settledTiles > 2;
+  const foodCoverage = currentFoodCoverageForPlayer(actor.id);
+  const foodCoverageLow = controlledTowns > 0 && foodCoverage < 1.05;
+  const economyWeak =
+    aiIncome < (controlledTowns === 0 ? 12 : 18) ||
+    (settledTiles >= 10 && aiIncome < 15) ||
+    (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && settledTiles >= 6) ||
+    foodCoverageLow;
+  const frontierDebt = frontierTiles >= Math.max(2, settledTiles);
+  const threatCritical = underThreat && (controlledTowns > 0 || aiIncome >= 5 || frontierDebt);
+  const preferredVictoryPath: AiSeasonVictoryPathId | undefined = economyWeak
+    ? "ECONOMIC_HEGEMONY"
+    : controlledTowns === 0
+      ? "TOWN_CONTROL"
+      : undefined;
+
+  return {
+    territorySummary,
+    aiIncome,
+    runnerUpIncome,
+    controlledTowns,
+    settledTiles,
+    frontierTiles,
+    worldFlags,
+    underThreat,
+    foodCoverage,
+    foodCoverageLow,
+    economyWeak,
+    frontierDebt,
+    threatCritical,
+    preferredVictoryPath
+  };
+};
+
 type SimulationCommand =
   | { type: "EXPAND"; fromX: number; fromY: number; toX: number; toY: number }
   | { type: "ATTACK"; fromX: number; fromY: number; toX: number; toY: number }
@@ -6072,8 +6142,46 @@ type SimulationCommand =
   | { type: "BUILD_FORT"; x: number; y: number }
   | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
 
+type SimulationCommandJob = {
+  actor: Player;
+  command: SimulationCommand;
+};
+
+const simulationCommandWorkerState: {
+  queue: SimulationCommandJob[];
+  draining: boolean;
+} = {
+  queue: [],
+  draining: false
+};
+
+const drainSimulationCommandQueue = async (): Promise<void> => {
+  const job = simulationCommandWorkerState.queue.shift();
+  if (!job) {
+    simulationCommandWorkerState.draining = false;
+    return;
+  }
+  try {
+    await executeUnifiedGameplayMessage(job.actor, job.command, NOOP_WS);
+  } catch (err) {
+    logRuntimeError("simulation command failed", err);
+  }
+  if (simulationCommandWorkerState.queue.length <= 0) {
+    simulationCommandWorkerState.draining = false;
+    return;
+  }
+  queueMicrotaskFn(() => {
+    void drainSimulationCommandQueue();
+  });
+};
+
 const executeSimulationCommand = (actor: Player, command: SimulationCommand): void => {
-  void executeUnifiedGameplayMessage(actor, command, NOOP_WS);
+  simulationCommandWorkerState.queue.push({ actor, command });
+  if (simulationCommandWorkerState.draining) return;
+  simulationCommandWorkerState.draining = true;
+  queueMicrotaskFn(() => {
+    void drainSimulationCommandQueue();
+  });
 };
 
 const executeAiGoapAction = (
@@ -6207,35 +6315,26 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
   }
 
   const territoryMetrics = tickContext?.competitionMetrics ?? collectPlayerCompetitionMetrics();
-  const aiIncome = tickContext?.incomeByPlayerId.get(actor.id) ?? territoryMetrics.find((metric) => metric.playerId === actor.id)?.incomePerMinute ?? currentIncomePerMinute(actor);
-  const runnerUpIncome = territoryMetrics.reduce((best, metric) => {
-    if (metric.playerId === actor.id) return best;
-    return Math.max(best, metric.incomePerMinute);
-  }, 0);
+  const analysis =
+    tickContext?.analysisByPlayerId.get(actor.id) ?? buildAiTurnAnalysis(actor, territoryMetrics, tickContext?.incomeByPlayerId ?? new Map<string, number>());
+  const aiIncome = analysis.aiIncome;
+  const runnerUpIncome = analysis.runnerUpIncome;
   maybePickAiTech(actor);
   maybePickAiDomain(actor);
-  const territorySummary = collectAiTerritorySummary(actor);
-  const townsTarget = Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE));
-  const controlledTowns = countControlledTowns(actor.id);
-  const settledTiles = territorySummary.settledTileCount;
-  const frontierTiles = territorySummary.frontierTileCount;
-  const settledTilesTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
-  const worldFlags = playerWorldFlags(actor);
-  const underThreat = territorySummary.underThreat && settledTiles > 2;
-  const foodCoverage = currentFoodCoverageForPlayer(actor.id);
-  const foodCoverageLow = controlledTowns > 0 && foodCoverage < 1.05;
-  const economyWeak =
-    aiIncome < (controlledTowns === 0 ? 12 : 18) ||
-    (settledTiles >= 10 && aiIncome < 15) ||
-    (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && settledTiles >= 6) ||
-    foodCoverageLow;
-  const frontierDebt = frontierTiles >= Math.max(2, settledTiles);
-  const threatCritical = underThreat && (controlledTowns > 0 || aiIncome >= 5 || frontierDebt);
-  const preferredVictoryPath: AiSeasonVictoryPathId | undefined = economyWeak
-    ? "ECONOMIC_HEGEMONY"
-    : controlledTowns === 0
-      ? "TOWN_CONTROL"
-      : undefined;
+  const territorySummary = analysis.territorySummary;
+  const townsTarget = tickContext?.townsTarget ?? Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE));
+  const controlledTowns = analysis.controlledTowns;
+  const settledTiles = analysis.settledTiles;
+  const frontierTiles = analysis.frontierTiles;
+  const settledTilesTarget = tickContext?.settledTilesTarget ?? Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
+  const worldFlags = analysis.worldFlags;
+  const underThreat = analysis.underThreat;
+  const foodCoverage = analysis.foodCoverage;
+  const foodCoverageLow = analysis.foodCoverageLow;
+  const economyWeak = analysis.economyWeak;
+  const frontierDebt = analysis.frontierDebt;
+  const threatCritical = analysis.threatCritical;
+  const preferredVictoryPath = analysis.preferredVictoryPath;
   const primaryVictoryPath =
     preferredVictoryPath ??
     rankSeasonVictoryPaths({
@@ -6816,6 +6915,7 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
 
 let aiTickInFlight = false;
 let aiRoundRobinOffset = 0;
+let aiCycleCounter = 0;
 const queueMicrotaskFn =
   typeof setImmediate === "function"
     ? (fn: () => void): void => {
@@ -6824,6 +6924,48 @@ const queueMicrotaskFn =
     : (fn: () => void): void => {
         queueMicrotask(fn);
       };
+
+type AiWorkerJob = {
+  actor: Player;
+  tickContext: AiTickContext;
+  onComplete: (elapsedMs: number) => void;
+};
+
+const aiWorkerState: {
+  queue: AiWorkerJob[];
+  draining: boolean;
+} = {
+  queue: [],
+  draining: false
+};
+
+const drainAiWorkerQueue = (): void => {
+  const job = aiWorkerState.queue.shift();
+  if (!job) {
+    aiWorkerState.draining = false;
+    return;
+  }
+  const turnStartedAt = now();
+  try {
+    runAiTurn(job.actor, job.tickContext);
+  } catch (err) {
+    logRuntimeError("ai tick failed", err);
+  } finally {
+    job.onComplete(now() - turnStartedAt);
+  }
+  if (aiWorkerState.queue.length <= 0) {
+    aiWorkerState.draining = false;
+    return;
+  }
+  queueMicrotaskFn(drainAiWorkerQueue);
+};
+
+const enqueueAiWorkerJob = (job: AiWorkerJob): void => {
+  aiWorkerState.queue.push(job);
+  if (aiWorkerState.draining) return;
+  aiWorkerState.draining = true;
+  queueMicrotaskFn(drainAiWorkerQueue);
+};
 
 const runAiTick = (): void => {
   if (aiTickInFlight) return;
@@ -6845,10 +6987,19 @@ const runAiTick = (): void => {
   aiTickInFlight = true;
   const startedAt = now();
   const competitionMetrics = collectPlayerCompetitionMetrics();
+  const incomeByPlayerId = new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute]));
+  const analysisByPlayerId = new Map<string, AiTurnAnalysis>();
+  for (const actor of selectedAiPlayers) {
+    analysisByPlayerId.set(actor.id, buildAiTurnAnalysis(actor, competitionMetrics, incomeByPlayerId));
+  }
   const tickContext: AiTickContext = {
+    cycleId: ++aiCycleCounter,
     competitionMetrics,
-    incomeByPlayerId: new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute])),
-    humanPriorityMode
+    incomeByPlayerId,
+    humanPriorityMode,
+    townsTarget: Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE)),
+    settledTilesTarget: Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE)),
+    analysisByPlayerId
   };
   const slotMs = Math.max(25, Math.floor(AI_TICK_MS / Math.max(1, selectedAiPlayers.length)));
   let pending = selectedAiPlayers.length;
@@ -6857,34 +7008,41 @@ const runAiTick = (): void => {
   selectedAiPlayers.forEach((actor, index) => {
     const delayMs = Math.min(AI_TICK_MS - 1, index * slotMs);
     setTimeout(() => {
-      const turnStartedAt = now();
-      try {
-        runAiTurn(actor, tickContext);
-      } catch (err) {
-        logRuntimeError("ai tick failed", err);
-      } finally {
-        activeElapsedMs += now() - turnStartedAt;
-        pending -= 1;
-        if (pending <= 0) {
+      enqueueAiWorkerJob({
+        actor,
+        tickContext,
+        onComplete: (elapsedMs) => {
+          activeElapsedMs += elapsedMs;
+          pending -= 1;
+          if (pending > 0) return;
           aiTickInFlight = false;
           const memory = runtimeMemoryStats();
-          const elapsedMs = activeElapsedMs;
+          const elapsedMsTotal = activeElapsedMs;
           const wallElapsedMs = now() - startedAt;
           recentAiTickPerf.push({
             at: now(),
-            elapsedMs,
+            elapsedMs: elapsedMsTotal,
             aiPlayers: selectedAiPlayers.length,
             rssMb: memory.rssMb,
             heapUsedMb: memory.heapUsedMb
           });
-          if (elapsedMs >= 250) {
+          if (elapsedMsTotal >= 250) {
             app.log.warn(
-              { elapsedMs, wallElapsedMs, aiPlayers: selectedAiPlayers.length, totalAiPlayers: aiPlayers.length, humanPriorityMode, ...memory },
+              {
+                elapsedMs: elapsedMsTotal,
+                wallElapsedMs,
+                aiPlayers: selectedAiPlayers.length,
+                totalAiPlayers: aiPlayers.length,
+                humanPriorityMode,
+                queueDepth: aiWorkerState.queue.length,
+                cycleId: tickContext.cycleId,
+                ...memory
+              },
               "slow ai tick"
             );
           }
         }
-      }
+      });
     }, delayMs);
   });
 };
@@ -10269,6 +10427,12 @@ app.get("/admin/runtime/debug", async () => {
       visibilitySnapshots: cachedVisibilitySnapshotByPlayer.size,
       cachedChunkPlayers: cachedChunkSnapshotByPlayer.size,
       cachedChunkPayloads
+    },
+    workers: {
+      aiQueueDepth: aiWorkerState.queue.length,
+      aiDraining: aiWorkerState.draining,
+      simulationCommandQueueDepth: simulationCommandWorkerState.queue.length,
+      simulationCommandDraining: simulationCommandWorkerState.draining
     },
     recentAiTicks: recentAiTickPerf.values(),
     recentChunkSnapshots: recentChunkSnapshotPerf.values()
