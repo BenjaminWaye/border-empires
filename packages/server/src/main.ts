@@ -866,7 +866,7 @@ const DEEP_STRIKE_MAX_DISTANCE = 2;
 const NAVAL_INFILTRATION_CRYSTAL_COST = 30;
 const NAVAL_INFILTRATION_COOLDOWN_MS = 30 * 60_000;
 const NAVAL_INFILTRATION_ATTACK_MULT = 0.85;
-const NAVAL_INFILTRATION_MAX_RANGE = 4;
+const NAVAL_INFILTRATION_MAX_RANGE = 5;
 const SABOTAGE_CRYSTAL_COST = 20;
 const SABOTAGE_COOLDOWN_MS = 15 * 60_000;
 const SABOTAGE_DURATION_MS = 45 * 60_000;
@@ -1932,7 +1932,11 @@ const resourcePlacementAllowed = (x: number, y: number, resource: ResourceType, 
 const isForestFrontierTile = (x: number, y: number): boolean =>
   terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
 
-const frontierClaimDurationMsAt = (x: number, y: number): number => (isForestFrontierTile(x, y) ? FRONTIER_CLAIM_MS * 2 : FRONTIER_CLAIM_MS);
+const FOREST_FRONTIER_CLAIM_MULT = 4;
+const FOREST_SETTLEMENT_MULT = 2;
+
+const frontierClaimDurationMsAt = (x: number, y: number): number =>
+  isForestFrontierTile(x, y) ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS;
 
 const nearestLandTiles = (
   originX: number,
@@ -8918,7 +8922,8 @@ const startSettlement = (
 ): { ok: boolean; reason?: string; resolvesAt?: number } => {
   const goldCost = opts?.goldCost ?? SETTLE_COST;
   const effects = getPlayerEffectsForPlayer(actor.id);
-  const settleMs = Math.max(250, Math.round((opts?.settleMs ?? SETTLE_MS) / effects.settlementSpeedMult));
+  const baseSettleMs = (opts?.settleMs ?? SETTLE_MS) * (isForestFrontierTile(x, y) ? FOREST_SETTLEMENT_MULT : 1);
+  const settleMs = Math.max(250, Math.round(baseSettleMs / effects.settlementSpeedMult));
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "settlement requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "tile must be owned" };
@@ -8958,8 +8963,11 @@ const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: b
   if (!target) return { ok: false, reason: "target empire not found" };
   if (actor.allies.has(targetPlayerId)) return { ok: false, reason: "cannot reveal allied empire" };
   const reveals = getOrInitRevealTargets(actor.id);
+  if (reveals.has(targetPlayerId)) {
+    setRevealTargetsForPlayer(actor.id, []);
+    return { ok: true };
+  }
   if (abilityOnCooldown(actor.id, "reveal_empire")) return { ok: false, reason: "reveal empire is cooling down" };
-  if (reveals.has(targetPlayerId)) return { ok: false, reason: "target already revealed" };
   if (reveals.size >= 1) return { ok: false, reason: "only one revealed empire allowed" };
   const stock = getOrInitStrategicStocks(actor.id);
   if ((stock.CRYSTAL ?? 0) < REVEAL_EMPIRE_ACTIVATION_COST) return { ok: false, reason: "insufficient crystal to activate reveal" };
@@ -9365,16 +9373,17 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     const p = players.get(pid);
     if (!p) continue;
     recomputeExposure(p);
+    recomputeTownNetworkForPlayer(pid);
     reconcileCapitalForPlayer(p);
     rebuildEconomyIndexForPlayer(pid);
   }
 
+  for (const pid of affectedPlayers) refreshVisibleOwnedTownsForPlayer(pid);
+
   const changedFoodTile = t.resource === "FARM" || t.resource === "FISH";
   const changedTownTile = townsByTile.has(k);
   const changedSupportAdjacency = adjacentNeighborCores(t.x, t.y).some((neighbor) => townsByTile.has(key(neighbor.x, neighbor.y)));
-  if (changedFoodTile) {
-    for (const pid of affectedPlayers) refreshVisibleOwnedTownsForPlayer(pid);
-  } else if (changedTownTile || changedSupportAdjacency) {
+  if (!changedFoodTile && (changedTownTile || changedSupportAdjacency)) {
     refreshVisibleNearbyTownDeltas(t.x, t.y);
   }
 
@@ -11960,7 +11969,7 @@ app.post("/admin/world/regenerate", async () => {
           message: isDeepStrikeAttack
             ? "target must be within 2 tiles and not through mountains"
             : isNavalInfiltrationAttack
-              ? "target must cross water and land within 4 tiles"
+              ? "target must cross up to 4 sea tiles before landing"
               : "target must be adjacent or valid dock crossing"
         })
       );
@@ -12196,13 +12205,19 @@ app.post("/admin/world/regenerate", async () => {
           }
           pointsDelta = 0;
         } else if (defender) {
-          updateOwnership(from.x, from.y, defender.id, "FRONTIER");
-          resultChanges = [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" }];
-          defender.missionStats.enemyCaptures += 1;
+          const originFort = fortsByTile.get(fk);
+          const fortHeldOrigin = originFort?.ownerId === actor.id && originFort.status === "active";
+          if (fortHeldOrigin) {
+            resultChanges = [];
+          } else {
+            updateOwnership(from.x, from.y, defender.id, "FRONTIER");
+            resultChanges = [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" }];
+            defender.missionStats.enemyCaptures += 1;
+            maybeIssueResourceMission(defender, from.resource);
+          }
           defender.missionStats.combatWins += 1;
           incrementVendettaCount(defender.id, actor.id);
           maybeIssueVendettaMission(defender, actor.id);
-          maybeIssueResourceMission(defender, from.resource);
           const attackerRating = ratingFromPointsLevel(defender.points, defender.level);
           const defenderRating = ratingFromPointsLevel(actor.points, actor.level);
           pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(from.resource), attackerRating, defenderRating) * PVP_REWARD_MULT;
