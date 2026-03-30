@@ -360,8 +360,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     cost: 3,
     preconditions: {
       underThreat: true,
-      canBuildFort: true,
-      goldHealthy: true
+      canBuildFort: true
     },
     effects: {
       underThreat: false,

@@ -5680,6 +5680,33 @@ const aiEnemyPressureSignal = (actor: Player, tile: Tile, visibility = visibilit
   return score;
 };
 
+const isOwnedTownSupportRingTile = (ownerId: string, tile: Tile): boolean => {
+  if (tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") return false;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = wrapX(tile.x + dx, WORLD_WIDTH);
+      const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
+      const neighborKey = key(nx, ny);
+      if (townsByTile.has(neighborKey) && ownership.get(neighborKey) === ownerId && ownershipStateByTile.get(neighborKey) === "SETTLED") {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+const pressureAttackThreatensCore = (actor: Player, candidate?: { to: Tile } | undefined): boolean => {
+  if (!candidate) return false;
+  for (const neighbor of adjacentNeighborCores(candidate.to.x, candidate.to.y)) {
+    if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) continue;
+    const neighborKey = key(neighbor.x, neighbor.y);
+    if (townsByTile.has(neighborKey) || docksByTile.has(neighborKey)) return true;
+    if (isOwnedTownSupportRingTile(actor.id, playerTile(neighbor.x, neighbor.y))) return true;
+  }
+  return false;
+};
+
 const evaluateAiSettlementCandidate = (
   actor: Player,
   tile: Tile,
@@ -5985,12 +6012,22 @@ const bestAiFortTile = (actor: Player, territorySummary = collectAiTerritorySumm
     if (townsByTile.has(tk)) score += 140;
     if (docksByTile.has(tk)) score += 120;
     if (tile.resource) score += baseTileValue(tile.resource) * 2;
+    const adjacentLandCount = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => count + (neighbor.terrain === "LAND" ? 1 : 0), 0);
+    const isChokePoint = adjacentLandCount <= 3;
+    if (isChokePoint) score += 70;
+    if (docksByTile.has(tk) && isChokePoint) score += 110;
     const hostileAdjacency = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
       if (neighbor.terrain !== "LAND") return count;
       if (!neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return count;
       return count + 1;
     }, 0);
     score += hostileAdjacency * 24;
+    const neutralAdjacency = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+      if (neighbor.terrain !== "LAND") return count;
+      if (neighbor.ownerId) return count;
+      return count + 1;
+    }, 0);
+    score += neutralAdjacency * (docksByTile.has(tk) ? 10 : 4);
     if (!best || score > best.score) best = { tile, score };
   }
   return best && best.score >= 70 ? best.tile : undefined;
@@ -6370,6 +6407,7 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
   const urgentPressureAttackReady =
     Boolean(pressureAttack()) &&
     actor.points >= FRONTIER_ACTION_GOLD_COST &&
+    pressureAttackThreatensCore(actor, pressureAttack()) &&
     ((pressureAttack()?.score ?? 0) >= 350 || (underThreat && (pressureAttack()?.score ?? 0) >= 220));
   const pressureAttackReady =
     Boolean(pressureAttack()) &&
@@ -6614,7 +6652,8 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
     if (executed) return;
   }
   const needsFortifiedAnchor = Boolean(fortAnchor()) && (controlledTowns > 0 || worldFlags.has("active_dock") || aiIncome >= 16);
-  if (needsFortifiedAnchor && underThreat && actor.points >= FORT_BUILD_COST) {
+  const fortifyChokePoint = Boolean(fortAnchor()) && (underThreat || worldFlags.has("active_dock"));
+  if (fortifyChokePoint && actor.points >= FORT_BUILD_COST) {
     const executed = executeAiGoapAction(actor, "build_fort_on_exposed_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
     setAiTurnDebug(actor, executed ? "executed_fort_priority" : "failed_fort_priority", {
       incomePerMinute: aiIncome,
@@ -6625,6 +6664,7 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
       executed,
       details: {
         needsFortifiedAnchor,
+        fortifyChokePoint,
         underThreat
       }
     });
