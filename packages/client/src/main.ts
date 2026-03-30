@@ -4412,19 +4412,29 @@ const applyPendingSettlementsFromServer = (
   entries: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
 ): void => {
   if (!entries) return;
+  const now = Date.now();
+  const previousProgress = new Map(state.settleProgressByTile);
+  let ignoredStaleEntry = false;
   for (const tileKey of state.settleProgressByTile.keys()) clearOptimisticTileState(tileKey);
   state.settleProgressByTile.clear();
   let latestKey = "";
   let latestResolvesAt = -Infinity;
   for (const entry of entries) {
+    if (entry.resolvesAt <= now - SETTLEMENT_CONFIRM_STALE_MS) {
+      ignoredStaleEntry = true;
+      continue;
+    }
     const tileKey = key(entry.x, entry.y);
-    const awaitingServerConfirm = entry.resolvesAt <= Date.now();
-    state.settleProgressByTile.set(tileKey, {
+    const awaitingServerConfirm = entry.resolvesAt <= now;
+    const nextProgress: TileTimedProgress = {
       startAt: entry.startedAt,
       resolvesAt: entry.resolvesAt,
       target: { x: entry.x, y: entry.y },
       awaitingServerConfirm
-    });
+    };
+    const confirmRefreshRequestedAt = previousProgress.get(tileKey)?.confirmRefreshRequestedAt;
+    if (typeof confirmRefreshRequestedAt === "number") nextProgress.confirmRefreshRequestedAt = confirmRefreshRequestedAt;
+    state.settleProgressByTile.set(tileKey, nextProgress);
     syncOptimisticSettlementTile(entry.x, entry.y, awaitingServerConfirm);
     if (entry.resolvesAt > latestResolvesAt) {
       latestResolvesAt = entry.resolvesAt;
@@ -4432,6 +4442,7 @@ const applyPendingSettlementsFromServer = (
     }
   }
   state.latestSettleTargetKey = latestKey;
+  if (ignoredStaleEntry) requestViewRefresh(2, true);
 };
 
 const queueSpecificTargets = (
@@ -4980,6 +4991,10 @@ const formatCountdownClock = (ms: number): string => {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
+const SETTLEMENT_CONFIRM_REFRESH_MS = 4_000;
+const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
+const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
+
 const clearSettlementProgressByKey = (tileKey: string): void => {
   if (!tileKey) return;
   state.settleProgressByTile.delete(tileKey);
@@ -5004,16 +5019,53 @@ const settlementProgressForTile = (x: number, y: number): TileTimedProgress | un
   const tileKey = key(x, y);
   const progress = state.settleProgressByTile.get(tileKey);
   if (!progress) return undefined;
-  if (progress.resolvesAt <= Date.now() && !progress.awaitingServerConfirm) {
+  const now = Date.now();
+  if (progress.resolvesAt <= now && !progress.awaitingServerConfirm) {
     progress.awaitingServerConfirm = true;
     state.settleProgressByTile.set(tileKey, progress);
     syncOptimisticSettlementTile(x, y, true);
+  }
+  if (
+    progress.awaitingServerConfirm &&
+    now - progress.resolvesAt >= SETTLEMENT_CONFIRM_REFRESH_MS &&
+    (!progress.confirmRefreshRequestedAt || now - progress.confirmRefreshRequestedAt >= SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS)
+  ) {
+    progress.confirmRefreshRequestedAt = now;
+    state.settleProgressByTile.set(tileKey, progress);
+    requestViewRefresh(2, true);
   }
   return progress;
 };
 
 const cleanupExpiredSettlementProgress = (): boolean => {
-  return false;
+  const now = Date.now();
+  let changed = false;
+  let requestedRefresh = false;
+  for (const [tileKey, existing] of [...state.settleProgressByTile.entries()]) {
+    const progress = { ...existing };
+    if (progress.resolvesAt <= now && !progress.awaitingServerConfirm) {
+      progress.awaitingServerConfirm = true;
+      state.settleProgressByTile.set(tileKey, progress);
+      syncOptimisticSettlementTile(progress.target.x, progress.target.y, true);
+      changed = true;
+    }
+    if (
+      progress.awaitingServerConfirm &&
+      now - progress.resolvesAt >= SETTLEMENT_CONFIRM_REFRESH_MS &&
+      (!progress.confirmRefreshRequestedAt || now - progress.confirmRefreshRequestedAt >= SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS)
+    ) {
+      progress.confirmRefreshRequestedAt = now;
+      state.settleProgressByTile.set(tileKey, progress);
+      requestedRefresh = true;
+    }
+    if (progress.awaitingServerConfirm && now - progress.resolvesAt >= SETTLEMENT_CONFIRM_STALE_MS) {
+      clearSettlementProgressByKey(tileKey);
+      changed = true;
+      requestedRefresh = true;
+    }
+  }
+  if (requestedRefresh) requestViewRefresh(2, true);
+  return changed;
 };
 
 const activeSettlementProgressEntries = (): TileTimedProgress[] => {
