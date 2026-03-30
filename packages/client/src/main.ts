@@ -17,7 +17,10 @@ import {
   type User
 } from "firebase/auth";
 import {
+  ATTACK_MANPOWER_MIN,
+  BREAKTHROUGH_ATTACK_MANPOWER_MIN,
   CHUNK_SIZE,
+  DEEP_STRIKE_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
   ECONOMIC_STRUCTURE_BUILD_MS,
   FORT_BUILD_COST,
@@ -26,6 +29,7 @@ import {
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
   OBSERVATORY_BUILD_MS,
+  NAVAL_INFILTRATION_MANPOWER_MIN,
   SETTLE_COST,
   SETTLE_MS,
   SIEGE_OUTPOST_ATTACK_MULT,
@@ -50,6 +54,7 @@ import {
   OBSERVATORY_VISION_BONUS,
   canAffordCost,
   formatGoldAmount,
+  formatManpowerAmount,
   frontierClaimCostLabelForTile,
   frontierClaimDurationMsForTile,
   guideSteps,
@@ -713,8 +718,9 @@ const applyOptimisticTileCollect = (tile: Tile): boolean => {
     IRON: Number(tile.yield?.strategic?.IRON ?? 0),
     CRYSTAL: Number(tile.yield?.strategic?.CRYSTAL ?? 0),
     SUPPLY: Number(tile.yield?.strategic?.SUPPLY ?? 0),
-    SHARD: Number(tile.yield?.strategic?.SHARD ?? 0)
-  } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+    SHARD: Number(tile.yield?.strategic?.SHARD ?? 0),
+    OIL: Number(tile.yield?.strategic?.OIL ?? 0)
+  } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
   const touched = gold > 0 || Object.values(strategic).some((amount) => amount > 0);
   if (!touched) return false;
 
@@ -1723,6 +1729,9 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
   const defEff = typeof msg.defEff === "number" ? msg.defEff : undefined;
   const winChance = typeof msg.winChance === "number" ? msg.winChance : undefined;
   const pointsDelta = typeof msg.pointsDelta === "number" ? msg.pointsDelta : 0;
+  const manpowerDelta = typeof msg.manpowerDelta === "number" ? msg.manpowerDelta : 0;
+  const pillagedGold = typeof msg.pillagedGold === "number" ? msg.pillagedGold : 0;
+  const pillagedStrategic = msg.pillagedStrategic as Partial<Record<string, number>> | undefined;
   const bits = [`${attackType}: ${attackerWon ? "you captured the target" : "your attack failed"}`];
   if (origin && target) {
     bits.push(`from (${origin.x}, ${origin.y})`);
@@ -1745,6 +1754,14 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
   if (typeof winChance === "number") bits.push(`roll ${(winChance * 100).toFixed(0)}%`);
   if (typeof atkEff === "number" && typeof defEff === "number") bits.push(`atk ${atkEff.toFixed(1)} vs def ${defEff.toFixed(1)}`);
   if (pointsDelta > 0) bits.push(`+${pointsDelta.toFixed(1)} pts`);
+  if (manpowerDelta < -0.001) bits.push(`${formatManpowerAmount(manpowerDelta)} manpower`);
+  if (pillagedGold > 0.001) bits.push(`pillaged ${formatGoldAmount(pillagedGold)} gold`);
+  if (pillagedStrategic) {
+    const stolen = Object.entries(pillagedStrategic)
+      .filter(([, amount]) => typeof amount === "number" && amount > 0.001)
+      .map(([resource, amount]) => `${resourceIconForKey(resource)} ${Number(amount).toFixed(1)}`);
+    if (stolen.length > 0) bits.push(`pillaged ${stolen.join(" ")}`);
+  }
   return bits.join(" · ");
 };
 const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
@@ -3749,9 +3766,12 @@ const renderHud = (): void => {
   const netGoldPerMinute = state.incomePerMinute - state.upkeepPerMinute.gold;
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
+  const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}/m`;
+  const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   statsChipsEl.innerHTML = `
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
+    <div class="stat-chip" title="Manpower gates attacks. Settled towns raise your cap and regeneration; recently captured towns contribute less until they stabilize."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)} / ${formatManpowerAmount(state.manpowerCap)} <em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em></strong></div>
     <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
@@ -4291,6 +4311,7 @@ const chooseTech = (techIdRaw?: string): void => {
 
 const explainActionFailure = (code: string, message: string): string => {
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
+  if (code === "INSUFFICIENT_MANPOWER") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
   if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build observatory: ${message}.`;
@@ -4313,6 +4334,8 @@ const explainActionFailure = (code: string, message: string): string => {
   if (message.includes("development slots are busy")) return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   return `Error ${code}: ${message}`;
 };
+
+const hasEnoughManpower = (required: number): boolean => state.manpower + 1e-6 >= required;
 
 const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean => {
   const k = key(x, y);
@@ -4742,10 +4765,13 @@ const attackPreviewDetailForTarget = (to: Tile, mode: "normal" | "breakthrough" 
     return undefined;
   }
   if (!state.attackPreview.valid) return state.attackPreview.reason ? `Attack ${state.attackPreview.reason}` : undefined;
+  const manpowerMin = mode === "breakthrough" ? state.attackPreview.breakthroughManpowerMin : state.attackPreview.manpowerMin;
   if (mode === "breakthrough" && typeof state.attackPreview.breakthroughWinChance === "number") {
-    return `${Math.round(state.attackPreview.breakthroughWinChance * 100)}% breach win chance`;
+    return `${Math.round(state.attackPreview.breakthroughWinChance * 100)}% breach win chance${typeof manpowerMin === "number" ? ` • min ${formatManpowerAmount(manpowerMin)} manpower` : ""}`;
   }
-  if (typeof state.attackPreview.winChance === "number") return `${Math.round(state.attackPreview.winChance * 100)}% win chance`;
+  if (typeof state.attackPreview.winChance === "number") {
+    return `${Math.round(state.attackPreview.winChance * 100)}% win chance${typeof manpowerMin === "number" ? ` • min ${formatManpowerAmount(manpowerMin)} manpower` : ""}`;
+  }
   return undefined;
 };
 const buildFortOnSelected = (): void => {
@@ -5871,9 +5897,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         label: "Launch Attack",
         ...(previewDetail ? { detail: previewDetail } : {}),
         ...tileActionAvailability(
-          reachable && state.gold >= FRONTIER_CLAIM_COST,
-          !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
-          `${FRONTIER_CLAIM_COST} gold`
+          reachable && state.gold >= FRONTIER_CLAIM_COST && hasEnoughManpower(ATTACK_MANPOWER_MIN),
+          !reachable ? "No bordering origin tile or linked dock" : state.gold < FRONTIER_CLAIM_COST ? `Need ${FRONTIER_CLAIM_COST} gold` : `Need ${formatManpowerAmount(ATTACK_MANPOWER_MIN)} manpower`,
+          `${FRONTIER_CLAIM_COST} gold • min ${formatManpowerAmount(ATTACK_MANPOWER_MIN)} manpower`
         )
       },
       {
@@ -5881,15 +5907,17 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         label: "Launch Breach Attack",
         ...(breachPreviewDetail ? { detail: breachPreviewDetail } : {}),
         ...tileActionAvailability(
-          (Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId)) && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
+          (Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId)) && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1 && hasEnoughManpower(BREAKTHROUGH_ATTACK_MANPOWER_MIN),
           !(Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId))
             ? "No bordering origin tile or linked dock"
             : !hasBreakthroughCapability()
               ? "Requires Breach Doctrine"
               : state.gold < 2
                 ? "Need 2 gold"
-                : "Need 1 IRON",
-          "2 gold + 1 IRON"
+                : (state.strategicResources.IRON ?? 0) < 1
+                  ? "Need 1 IRON"
+                  : `Need ${formatManpowerAmount(BREAKTHROUGH_ATTACK_MANPOWER_MIN)} manpower`,
+          `2 gold + 1 IRON • min ${formatManpowerAmount(BREAKTHROUGH_ATTACK_MANPOWER_MIN)} manpower`
         )
       },
       createMountainAction()
@@ -5902,9 +5930,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       label: "Launch Attack",
       ...(attackPreviewDetailForTarget(tile) ? { detail: attackPreviewDetailForTarget(tile) } : {}),
       ...tileActionAvailability(
-        reachable && state.gold >= FRONTIER_CLAIM_COST,
-        !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
-        `${FRONTIER_CLAIM_COST} gold`
+        reachable && state.gold >= FRONTIER_CLAIM_COST && hasEnoughManpower(ATTACK_MANPOWER_MIN),
+        !reachable ? "No bordering origin tile or linked dock" : state.gold < FRONTIER_CLAIM_COST ? `Need ${FRONTIER_CLAIM_COST} gold` : `Need ${formatManpowerAmount(ATTACK_MANPOWER_MIN)} manpower`,
+        `${FRONTIER_CLAIM_COST} gold • min ${formatManpowerAmount(ATTACK_MANPOWER_MIN)} manpower`
       )
     },
     {
@@ -5912,9 +5940,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       label: "Launch Breach Attack",
       ...(attackPreviewDetailForTarget(tile, "breakthrough") ? { detail: attackPreviewDetailForTarget(tile, "breakthrough") } : {}),
       ...tileActionAvailability(
-        reachable && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
-        !reachable ? "No bordering origin tile or linked dock" : !hasBreakthroughCapability() ? "Requires Breach Doctrine" : state.gold < 2 ? "Need 2 gold" : "Need 1 IRON",
-        "2 gold + 1 IRON"
+        reachable && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1 && hasEnoughManpower(BREAKTHROUGH_ATTACK_MANPOWER_MIN),
+        !reachable ? "No bordering origin tile or linked dock" : !hasBreakthroughCapability() ? "Requires Breach Doctrine" : state.gold < 2 ? "Need 2 gold" : (state.strategicResources.IRON ?? 0) < 1 ? "Need 1 IRON" : `Need ${formatManpowerAmount(BREAKTHROUGH_ATTACK_MANPOWER_MIN)} manpower`,
+        `2 gold + 1 IRON • min ${formatManpowerAmount(BREAKTHROUGH_ATTACK_MANPOWER_MIN)} manpower`
       )
     }
   ];
@@ -5925,7 +5953,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     id: "deep_strike",
     label: "Deep Strike",
     ...tileActionAvailability(
-      hasDeepStrikeCapability() && !observatoryProtection && Boolean(deepStrikeOrigin) && deepStrikeCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25,
+      hasDeepStrikeCapability() && !observatoryProtection && Boolean(deepStrikeOrigin) && deepStrikeCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25 && hasEnoughManpower(DEEP_STRIKE_MANPOWER_MIN),
       !hasDeepStrikeCapability()
         ? "Requires Deep Operations"
         : observatoryProtection
@@ -5934,8 +5962,10 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ? "Need valid 2-tile origin"
           : deepStrikeCooldown > 0
             ? `Cooldown ${formatCooldownShort(deepStrikeCooldown)}`
-            : "Need 25 CRYSTAL",
-      "25 CRYSTAL • -10% ATK"
+            : (state.strategicResources.CRYSTAL ?? 0) < 25
+              ? "Need 25 CRYSTAL"
+              : `Need ${formatManpowerAmount(DEEP_STRIKE_MANPOWER_MIN)} manpower`,
+      `25 CRYSTAL • min ${formatManpowerAmount(DEEP_STRIKE_MANPOWER_MIN)} manpower • -10% ATK`
     )
   });
   const navalCooldown = abilityCooldownRemainingMs("naval_infiltration");
@@ -5944,7 +5974,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     id: "naval_infiltration",
     label: "Naval Infiltration",
     ...tileActionAvailability(
-      hasNavalInfiltrationCapability() && !observatoryProtection && Boolean(navalOrigin) && navalCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
+      hasNavalInfiltrationCapability() && !observatoryProtection && Boolean(navalOrigin) && navalCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30 && hasEnoughManpower(NAVAL_INFILTRATION_MANPOWER_MIN),
       !hasNavalInfiltrationCapability()
         ? "Requires Navigation"
         : observatoryProtection
@@ -5953,8 +5983,10 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ? "Need water crossing origin"
           : navalCooldown > 0
             ? `Cooldown ${formatCooldownShort(navalCooldown)}`
-            : "Need 30 CRYSTAL",
-      "30 CRYSTAL • -15% ATK"
+            : (state.strategicResources.CRYSTAL ?? 0) < 30
+              ? "Need 30 CRYSTAL"
+              : `Need ${formatManpowerAmount(NAVAL_INFILTRATION_MANPOWER_MIN)} manpower`,
+      `30 CRYSTAL • min ${formatManpowerAmount(NAVAL_INFILTRATION_MANPOWER_MIN)} manpower • -15% ATK`
     )
   });
   if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
@@ -6675,6 +6707,9 @@ ws.addEventListener("message", (ev) => {
     state.strategicProductionPerMinute =
       (p.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
     state.stamina = p.stamina as number;
+    state.manpower = (p.manpower as number) ?? state.manpower;
+    state.manpowerCap = (p.manpowerCap as number) ?? state.manpowerCap;
+    state.manpowerRegenPerMinute = (p.manpowerRegenPerMinute as number) ?? state.manpowerRegenPerMinute;
     state.territoryT = (p.T as number) ?? state.territoryT;
     state.exposureE = (p.E as number) ?? state.exposureE;
     state.settledT = (p.Ts as number) ?? state.settledT;
@@ -6853,6 +6888,11 @@ ws.addEventListener("message", (ev) => {
       }
     }
     state.stamina = msg.stamina as number;
+    if (typeof (msg.manpower as number | undefined) === "number") state.manpower = msg.manpower as number;
+    if (typeof (msg.manpowerCap as number | undefined) === "number") state.manpowerCap = msg.manpowerCap as number;
+    if (typeof (msg.manpowerRegenPerMinute as number | undefined) === "number") {
+      state.manpowerRegenPerMinute = msg.manpowerRegenPerMinute as number;
+    }
     if (typeof (msg.T as number | undefined) === "number") state.territoryT = msg.T as number;
     if (typeof (msg.E as number | undefined) === "number") state.exposureE = msg.E as number;
     if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
@@ -7320,6 +7360,8 @@ ws.addEventListener("message", (ev) => {
       reason?: string;
       winChance?: number;
       breakthroughWinChance?: number;
+      manpowerMin?: number;
+      breakthroughManpowerMin?: number;
       atkEff?: number;
       defEff?: number;
       defenseEffPct?: number;
@@ -7331,12 +7373,16 @@ ws.addEventListener("message", (ev) => {
     const reason = msg.reason as string | undefined;
     const winChance = msg.winChance as number | undefined;
     const breakthroughWinChance = msg.breakthroughWinChance as number | undefined;
+    const manpowerMin = msg.manpowerMin as number | undefined;
+    const breakthroughManpowerMin = msg.breakthroughManpowerMin as number | undefined;
     const atkEff = msg.atkEff as number | undefined;
     const defEff = msg.defEff as number | undefined;
     const defMult = msg.defMult as number | undefined;
     if (reason) preview.reason = reason;
     if (typeof winChance === "number") preview.winChance = winChance;
     if (typeof breakthroughWinChance === "number") preview.breakthroughWinChance = breakthroughWinChance;
+    if (typeof manpowerMin === "number") preview.manpowerMin = manpowerMin;
+    if (typeof breakthroughManpowerMin === "number") preview.breakthroughManpowerMin = breakthroughManpowerMin;
     if (typeof atkEff === "number") preview.atkEff = atkEff;
     if (typeof defEff === "number") preview.defEff = defEff;
     if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));

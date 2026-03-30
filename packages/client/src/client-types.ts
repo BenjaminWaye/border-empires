@@ -1,4 +1,21 @@
-export type OptimisticStructureKind = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
+export type OptimisticStructureKind =
+  | "FORT"
+  | "OBSERVATORY"
+  | "SIEGE_OUTPOST"
+  | "FARMSTEAD"
+  | "CAMP"
+  | "MINE"
+  | "MARKET"
+  | "GRANARY"
+  | "BANK"
+  | "AIRPORT"
+  | "QUARTERMASTER"
+  | "IRONWORKS"
+  | "CRYSTAL_SYNTHESIZER"
+  | "FUEL_PLANT"
+  | "FOUNDRY"
+  | "GOVERNORS_OFFICE"
+  | "RADAR_SYSTEM";
 
 export type Tile = {
   x: number;
@@ -33,6 +50,8 @@ export type Tile = {
     marketActive: boolean;
     hasGranary: boolean;
     granaryActive: boolean;
+    hasBank: boolean;
+    bankActive: boolean;
     foodUpkeepPerMinute?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   };
@@ -41,7 +60,21 @@ export type Tile = {
   siegeOutpost?: { ownerId: string; status: "under_construction" | "active"; completesAt?: number };
   economicStructure?: {
     ownerId: string;
-    type: "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
+    type:
+      | "FARMSTEAD"
+      | "CAMP"
+      | "MINE"
+      | "MARKET"
+      | "GRANARY"
+      | "BANK"
+      | "AIRPORT"
+      | "QUARTERMASTER"
+      | "IRONWORKS"
+      | "CRYSTAL_SYNTHESIZER"
+      | "FUEL_PLANT"
+      | "FOUNDRY"
+      | "GOVERNORS_OFFICE"
+      | "RADAR_SYSTEM";
     status: "under_construction" | "active" | "inactive";
     completesAt?: number;
   };
@@ -51,8 +84,44 @@ export type Tile = {
     previousOwners: string[];
     captureCount: number;
     lastCapturedAt?: number | null;
-    lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY" | null;
-    structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY">;
+    lastStructureType?:
+      | "FORT"
+      | "SIEGE_OUTPOST"
+      | "OBSERVATORY"
+      | "FARMSTEAD"
+      | "CAMP"
+      | "MINE"
+      | "MARKET"
+      | "GRANARY"
+      | "BANK"
+      | "AIRPORT"
+      | "QUARTERMASTER"
+      | "IRONWORKS"
+      | "CRYSTAL_SYNTHESIZER"
+      | "FUEL_PLANT"
+      | "FOUNDRY"
+      | "GOVERNORS_OFFICE"
+      | "RADAR_SYSTEM"
+      | null;
+    structureHistory: Array<
+      | "FORT"
+      | "SIEGE_OUTPOST"
+      | "OBSERVATORY"
+      | "FARMSTEAD"
+      | "CAMP"
+      | "MINE"
+      | "MARKET"
+      | "GRANARY"
+      | "BANK"
+      | "AIRPORT"
+      | "QUARTERMASTER"
+      | "IRONWORKS"
+      | "CRYSTAL_SYNTHESIZER"
+      | "FUEL_PLANT"
+      | "FOUNDRY"
+      | "GOVERNORS_OFFICE"
+      | "RADAR_SYSTEM"
+    >;
     wasMountainCreatedByPlayer?: boolean;
     wasMountainRemovedByPlayer?: boolean;
   };
@@ -91,6 +160,7 @@ export type TechInfo = {
   id: string;
   name: string;
   tier: number;
+  researchTimeSeconds?: number;
   rootId?: string;
   requires?: string;
   prereqIds?: string[];
@@ -99,7 +169,7 @@ export type TechInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
-    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;
   };
@@ -116,10 +186,16 @@ export type DomainInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
-    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;
   };
+};
+
+export type PendingResearch = {
+  techId: string;
+  startedAt: number;
+  completesAt: number;
 };
 
 export type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number };
@@ -202,6 +278,15 @@ export type TileActionDef = {
     | "build_mine"
     | "build_market"
     | "build_granary"
+    | "build_bank"
+    | "build_airport"
+    | "build_quartermaster"
+    | "build_ironworks"
+    | "build_crystal_synthesizer"
+    | "build_fuel_plant"
+    | "build_foundry"
+    | "build_governors_office"
+    | "build_radar_system"
     | "abandon_territory"
     | "build_siege_camp"
     | "deep_strike"
