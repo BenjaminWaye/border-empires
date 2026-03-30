@@ -103,6 +103,7 @@ const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.
 const SIM_DRAIN_BUDGET_MS = Math.max(4, Number(process.env.SIM_DRAIN_BUDGET_MS ?? 12));
 const SIM_DRAIN_MAX_COMMANDS = Math.max(1, Number(process.env.SIM_DRAIN_MAX_COMMANDS ?? 8));
 const SIM_DRAIN_HUMAN_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_HUMAN_QUOTA ?? 6));
+const SIM_DRAIN_SYSTEM_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_SYSTEM_QUOTA ?? 2));
 const SIM_DRAIN_AI_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_AI_QUOTA ?? 2));
 const MAX_SUBSCRIBE_RADIUS = Number(process.env.MAX_SUBSCRIBE_RADIUS ?? 2);
 const CHUNK_STREAM_BATCH_SIZE = Math.max(1, Number(process.env.CHUNK_STREAM_BATCH_SIZE ?? 2));
@@ -3256,6 +3257,17 @@ const maintainBarbarianPopulation = (): void => {
   }
 };
 
+const enqueueBarbarianMaintenance = (): void => {
+  if (
+    hasQueuedSystemSimulationCommand(
+      (job) => job.command.type === "BARBARIAN_MAINTENANCE"
+    )
+  ) {
+    return;
+  }
+  enqueueSystemSimulationCommand({ type: "BARBARIAN_MAINTENANCE" });
+};
+
 const getBarbarianProgressGain = (tile: Tile): number => (isOccupiedPlayerTile(tile) && isValuableTile(tile) ? 2 : 1);
 
 const barbarianDefenseScore = (tile: Tile): number => {
@@ -6364,25 +6376,32 @@ type QueuedSimulationMessage =
   | { type: "BUILD_OBSERVATORY"; x: number; y: number }
   | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number };
 
+type SystemSimulationCommand =
+  | { type: "BARBARIAN_ACTION"; agentId: string }
+  | { type: "BARBARIAN_MAINTENANCE" };
+
 type SimulationCommandJob = {
-  actor: Player;
-  command: QueuedSimulationMessage;
+  actor?: Player;
+  command: QueuedSimulationMessage | SystemSimulationCommand;
   socket: Ws;
-  priority: "human" | "ai";
+  priority: "human" | "system" | "ai";
 };
 
 const simulationCommandWorkerState: {
   humanQueue: SimulationCommandJob[];
+  systemQueue: SimulationCommandJob[];
   aiQueue: SimulationCommandJob[];
   draining: boolean;
-  lastDequeuedPriority: "human" | "ai" | "idle";
+  lastDequeuedPriority: "human" | "system" | "ai" | "idle";
   lastDrainAt: number;
   lastDrainElapsedMs: number;
   lastDrainCommands: number;
   lastDrainHumanCommands: number;
+  lastDrainSystemCommands: number;
   lastDrainAiCommands: number;
 } = {
   humanQueue: [],
+  systemQueue: [],
   aiQueue: [],
   draining: false,
   lastDequeuedPriority: "idle",
@@ -6390,11 +6409,25 @@ const simulationCommandWorkerState: {
   lastDrainElapsedMs: 0,
   lastDrainCommands: 0,
   lastDrainHumanCommands: 0,
+  lastDrainSystemCommands: 0,
   lastDrainAiCommands: 0
 };
 
 const simulationCommandQueueDepth = (): number =>
-  simulationCommandWorkerState.humanQueue.length + simulationCommandWorkerState.aiQueue.length;
+  simulationCommandWorkerState.humanQueue.length +
+  simulationCommandWorkerState.systemQueue.length +
+  simulationCommandWorkerState.aiQueue.length;
+
+const queueSimulationDrain = (): void => {
+  if (simulationCommandWorkerState.draining) return;
+  simulationCommandWorkerState.draining = true;
+  queueMicrotaskFn(() => {
+    void drainSimulationCommandQueue();
+  });
+};
+
+const hasQueuedSystemSimulationCommand = (predicate: (job: SimulationCommandJob) => boolean): boolean =>
+  simulationCommandWorkerState.systemQueue.some(predicate);
 
 const isQueuedSimulationMessage = (msg: ClientMessage): msg is QueuedSimulationMessage =>
   msg.type === "SETTLE" ||
@@ -6407,43 +6440,66 @@ const isQueuedSimulationMessage = (msg: ClientMessage): msg is QueuedSimulationM
 
 const dequeueSimulationCommandJob = (
   drainedHumanCommands: number,
+  drainedSystemCommands: number,
   drainedAiCommands: number
 ): SimulationCommandJob | undefined => {
   const humanPending = simulationCommandWorkerState.humanQueue.length > 0;
+  const systemPending = simulationCommandWorkerState.systemQueue.length > 0;
   const aiPending = simulationCommandWorkerState.aiQueue.length > 0;
-  if (!humanPending && !aiPending) return undefined;
-  if (humanPending && (drainedHumanCommands < SIM_DRAIN_HUMAN_QUOTA || !aiPending)) {
+  if (!humanPending && !systemPending && !aiPending) return undefined;
+  if (humanPending && (drainedHumanCommands < SIM_DRAIN_HUMAN_QUOTA || (!systemPending && !aiPending))) {
     return simulationCommandWorkerState.humanQueue.shift();
+  }
+  if (systemPending && (drainedSystemCommands < SIM_DRAIN_SYSTEM_QUOTA || (!humanPending && !aiPending))) {
+    return simulationCommandWorkerState.systemQueue.shift();
   }
   if (aiPending && (drainedAiCommands < SIM_DRAIN_AI_QUOTA || !humanPending)) {
     return simulationCommandWorkerState.aiQueue.shift();
   }
   if (humanPending) return simulationCommandWorkerState.humanQueue.shift();
+  if (systemPending) return simulationCommandWorkerState.systemQueue.shift();
   return simulationCommandWorkerState.aiQueue.shift();
+};
+
+const executeSystemSimulationCommand = async (command: SystemSimulationCommand): Promise<void> => {
+  if (command.type === "BARBARIAN_MAINTENANCE") {
+    maintainBarbarianPopulation();
+    return;
+  }
+  const live = barbarianAgents.get(command.agentId);
+  if (!live) return;
+  runBarbarianAction(live);
 };
 
 const drainSimulationCommandQueue = async (): Promise<void> => {
   let drainedCommands = 0;
   let drainedHumanCommands = 0;
+  let drainedSystemCommands = 0;
   let drainedAiCommands = 0;
   const drainStartedAt = now();
   while (drainedCommands < SIM_DRAIN_MAX_COMMANDS && now() - drainStartedAt < SIM_DRAIN_BUDGET_MS) {
-    const job = dequeueSimulationCommandJob(drainedHumanCommands, drainedAiCommands);
+    const job = dequeueSimulationCommandJob(drainedHumanCommands, drainedSystemCommands, drainedAiCommands);
     if (!job) break;
     simulationCommandWorkerState.lastDequeuedPriority = job.priority;
     try {
-      await executeUnifiedGameplayMessage(job.actor, job.command, job.socket, true);
+      if (job.priority === "system") {
+        await executeSystemSimulationCommand(job.command as SystemSimulationCommand);
+      } else {
+        await executeUnifiedGameplayMessage(job.actor!, job.command as ClientMessage, job.socket, true);
+      }
     } catch (err) {
       logRuntimeError("simulation command failed", err);
     }
     drainedCommands += 1;
     if (job.priority === "human") drainedHumanCommands += 1;
+    else if (job.priority === "system") drainedSystemCommands += 1;
     else drainedAiCommands += 1;
   }
   simulationCommandWorkerState.lastDrainAt = now();
   simulationCommandWorkerState.lastDrainElapsedMs = simulationCommandWorkerState.lastDrainAt - drainStartedAt;
   simulationCommandWorkerState.lastDrainCommands = drainedCommands;
   simulationCommandWorkerState.lastDrainHumanCommands = drainedHumanCommands;
+  simulationCommandWorkerState.lastDrainSystemCommands = drainedSystemCommands;
   simulationCommandWorkerState.lastDrainAiCommands = drainedAiCommands;
   if (simulationCommandQueueDepth() <= 0) {
     simulationCommandWorkerState.draining = false;
@@ -6455,18 +6511,27 @@ const drainSimulationCommandQueue = async (): Promise<void> => {
   });
 };
 
-const enqueueSimulationCommand = (actor: Player, command: QueuedSimulationMessage, socket: Ws, priority: "human" | "ai"): void => {
-  if (priority === "human") simulationCommandWorkerState.humanQueue.push({ actor, command, socket, priority });
-  else simulationCommandWorkerState.aiQueue.push({ actor, command, socket, priority });
-  if (simulationCommandWorkerState.draining) return;
-  simulationCommandWorkerState.draining = true;
-  queueMicrotaskFn(() => {
-    void drainSimulationCommandQueue();
-  });
+const enqueueSimulationCommand = (
+  actor: Player | undefined,
+  command: QueuedSimulationMessage | SystemSimulationCommand,
+  socket: Ws,
+  priority: "human" | "system" | "ai"
+): void => {
+  const job: SimulationCommandJob = actor
+    ? { actor, command, socket, priority }
+    : { command, socket, priority };
+  if (priority === "human") simulationCommandWorkerState.humanQueue.push(job);
+  else if (priority === "system") simulationCommandWorkerState.systemQueue.push(job);
+  else simulationCommandWorkerState.aiQueue.push(job);
+  queueSimulationDrain();
 };
 
 const executeSimulationCommand = (actor: Player, command: SimulationCommand): void => {
   enqueueSimulationCommand(actor, command, NOOP_WS, "ai");
+};
+
+const enqueueSystemSimulationCommand = (command: SystemSimulationCommand): void => {
+  enqueueSimulationCommand(undefined, command, NOOP_WS, "system");
 };
 
 const executeAiGoapAction = (
@@ -7499,6 +7564,17 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
   }, COMBAT_LOCK_MS);
 };
 
+const enqueueBarbarianAction = (agentId: string): void => {
+  if (
+    hasQueuedSystemSimulationCommand(
+      (job) => job.command.type === "BARBARIAN_ACTION" && job.command.agentId === agentId
+    )
+  ) {
+    return;
+  }
+  enqueueSystemSimulationCommand({ type: "BARBARIAN_ACTION", agentId });
+};
+
 const runBarbarianTick = (): void => {
   if (!hasOnlinePlayers()) return;
   const current = [...barbarianAgents.values()];
@@ -7509,7 +7585,7 @@ const runBarbarianTick = (): void => {
     if (!isVisibleToAnyOnlinePlayer(live.x, live.y)) {
       continue;
     }
-    runBarbarianAction(live);
+    enqueueBarbarianAction(live.id);
   }
 };
 
@@ -10463,7 +10539,7 @@ registerInterval(() => {
 }, 30_000);
 registerInterval(runBarbarianTick, BARBARIAN_TICK_MS);
 registerInterval(runAiTick, AI_TICK_MS);
-registerInterval(maintainBarbarianPopulation, BARBARIAN_MAINTENANCE_INTERVAL_MS);
+registerInterval(enqueueBarbarianMaintenance, BARBARIAN_MAINTENANCE_INTERVAL_MS);
 registerInterval(() => {
   const vitals = sampleRuntimeVitals();
   recentRuntimeVitals.push(vitals);
@@ -10626,16 +10702,18 @@ const runtimeDashboardPayload = (): {
     pendingAuthVerifications: number;
     runtimeIntervals: number;
     humanSimulationQueueDepth: number;
+    systemSimulationQueueDepth: number;
     aiSimulationQueueDepth: number;
     aiQueueDepth: number;
     simulationCommandQueueDepth: number;
     aiDraining: boolean;
     simulationCommandDraining: boolean;
-    lastSimulationPriority: "human" | "ai" | "idle";
+    lastSimulationPriority: "human" | "system" | "ai" | "idle";
     lastSimulationDrainAt: number;
     lastSimulationDrainElapsedMs: number;
     lastSimulationDrainCommands: number;
     lastSimulationDrainHumanCommands: number;
+    lastSimulationDrainSystemCommands: number;
     lastSimulationDrainAiCommands: number;
   };
   aiScheduler: {
@@ -10689,6 +10767,7 @@ const runtimeDashboardPayload = (): {
       pendingAuthVerifications,
       runtimeIntervals: runtimeIntervals.length,
       humanSimulationQueueDepth: simulationCommandWorkerState.humanQueue.length,
+      systemSimulationQueueDepth: simulationCommandWorkerState.systemQueue.length,
       aiSimulationQueueDepth: simulationCommandWorkerState.aiQueue.length,
       aiQueueDepth: aiWorkerState.queue.length,
       simulationCommandQueueDepth: simulationCommandQueueDepth(),
@@ -10699,6 +10778,7 @@ const runtimeDashboardPayload = (): {
       lastSimulationDrainElapsedMs: simulationCommandWorkerState.lastDrainElapsedMs,
       lastSimulationDrainCommands: simulationCommandWorkerState.lastDrainCommands,
       lastSimulationDrainHumanCommands: simulationCommandWorkerState.lastDrainHumanCommands,
+      lastSimulationDrainSystemCommands: simulationCommandWorkerState.lastDrainSystemCommands,
       lastSimulationDrainAiCommands: simulationCommandWorkerState.lastDrainAiCommands
     },
     aiScheduler: {

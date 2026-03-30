@@ -20,6 +20,7 @@ primary_region = "arn"
   SIM_DRAIN_BUDGET_MS = "12"
   SIM_DRAIN_MAX_COMMANDS = "8"
   SIM_DRAIN_HUMAN_QUOTA = "6"
+  SIM_DRAIN_SYSTEM_QUOTA = "2"
   SIM_DRAIN_AI_QUOTA = "2"
 
 [http_service]
