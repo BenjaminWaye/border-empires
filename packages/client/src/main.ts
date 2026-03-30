@@ -4398,6 +4398,36 @@ const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
   if (!stillQueued) state.queuedTargetKeys.delete(targetKey);
 };
 
+const reconcileActionQueue = (): void => {
+  const nextQueue: typeof state.actionQueue = [];
+  const nextQueuedKeys = new Set<string>();
+  for (const entry of state.actionQueue) {
+    const targetKey = key(entry.x, entry.y);
+    const tile = state.tiles.get(targetKey);
+    if (!tile) continue;
+    if (tile.ownerId === state.me) {
+      clearOptimisticTileState(targetKey);
+      continue;
+    }
+    const hasConfirmedOrigin = tile.ownerId
+      ? Boolean(pickOriginForTarget(tile.x, tile.y))
+      : Boolean(pickOriginForTarget(tile.x, tile.y, false, false));
+    const hasOptimisticOrigin = tile.ownerId
+      ? hasConfirmedOrigin
+      : Boolean(pickOriginForTarget(tile.x, tile.y, false, true));
+    if (!hasConfirmedOrigin && !hasOptimisticOrigin) {
+      clearOptimisticTileState(targetKey, true);
+      state.autoSettleTargets.delete(targetKey);
+      continue;
+    }
+    nextQueue.push(entry);
+    nextQueuedKeys.add(targetKey);
+  }
+  state.actionQueue = nextQueue;
+  if (state.actionInFlight && state.actionTargetKey) nextQueuedKeys.add(state.actionTargetKey);
+  state.queuedTargetKeys = nextQueuedKeys;
+};
+
 const requestSettlement = (x: number, y: number): boolean => {
   const tile = state.tiles.get(key(x, y));
   if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
@@ -7063,6 +7093,11 @@ ws.addEventListener("message", (ev) => {
       renderHud();
       return;
     }
+    const frontierActionError =
+      errorCode === "ACTION_INVALID" ||
+      errorCode === "NOT_ADJACENT" ||
+      errorCode === "NOT_OWNER" ||
+      errorCode === "EXPAND_TARGET_OWNED";
     const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
     state.actionInFlight = false;
@@ -7075,6 +7110,8 @@ ws.addEventListener("message", (ev) => {
     if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
     if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
     state.attackPreviewPendingKey = "";
+    if (frontierActionError) requestViewRefresh(2, true);
+    reconcileActionQueue();
     processActionQueue();
     renderHud();
   }
@@ -7968,6 +8005,8 @@ setInterval(() => {
       "combat",
       "warn"
     );
+    if (keepOptimisticExpand) requestViewRefresh(2, true);
+    reconcileActionQueue();
     processActionQueue();
     renderHud();
   }
