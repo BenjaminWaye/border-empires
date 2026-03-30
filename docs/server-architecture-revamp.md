@@ -41,6 +41,7 @@ Split responsibilities into two services:
    - AI actions now go through an internal simulation-command seam instead of calling websocket-shaped message handling directly.
    - Human mutating gameplay commands now also enter a prioritized in-process simulation queue instead of executing inline on the websocket callback.
    - The queue is split into human and AI lanes, with human jobs draining first.
+   - The queue drain is now time-budgeted and quota-based, so large command bursts yield back to the event loop instead of recursively draining to completion.
 5. Build reusable per-turn simulation indexes.
    - Cache frontier anchors, structure candidates, and other selector inputs once per AI turn.
    - Prefer incremental invalidation over recomputing territory scans in every selector.

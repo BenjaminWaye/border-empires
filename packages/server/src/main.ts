@@ -100,6 +100,10 @@ const AI_WORKER_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_WORKER_QUEU
 const AI_SIM_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_SIM_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 3));
 const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ?? 60));
 const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ?? 65));
+const SIM_DRAIN_BUDGET_MS = Math.max(4, Number(process.env.SIM_DRAIN_BUDGET_MS ?? 12));
+const SIM_DRAIN_MAX_COMMANDS = Math.max(1, Number(process.env.SIM_DRAIN_MAX_COMMANDS ?? 8));
+const SIM_DRAIN_HUMAN_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_HUMAN_QUOTA ?? 6));
+const SIM_DRAIN_AI_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_AI_QUOTA ?? 2));
 const MAX_SUBSCRIBE_RADIUS = Number(process.env.MAX_SUBSCRIBE_RADIUS ?? 2);
 const CHUNK_STREAM_BATCH_SIZE = Math.max(1, Number(process.env.CHUNK_STREAM_BATCH_SIZE ?? 2));
 const FOG_ADMIN_EMAIL = "bw199005@gmail.com";
@@ -6372,11 +6376,21 @@ const simulationCommandWorkerState: {
   aiQueue: SimulationCommandJob[];
   draining: boolean;
   lastDequeuedPriority: "human" | "ai" | "idle";
+  lastDrainAt: number;
+  lastDrainElapsedMs: number;
+  lastDrainCommands: number;
+  lastDrainHumanCommands: number;
+  lastDrainAiCommands: number;
 } = {
   humanQueue: [],
   aiQueue: [],
   draining: false,
-  lastDequeuedPriority: "idle"
+  lastDequeuedPriority: "idle",
+  lastDrainAt: 0,
+  lastDrainElapsedMs: 0,
+  lastDrainCommands: 0,
+  lastDrainHumanCommands: 0,
+  lastDrainAiCommands: 0
 };
 
 const simulationCommandQueueDepth = (): number =>
@@ -6391,19 +6405,46 @@ const isQueuedSimulationMessage = (msg: ClientMessage): msg is QueuedSimulationM
   msg.type === "ATTACK" ||
   msg.type === "EXPAND";
 
+const dequeueSimulationCommandJob = (
+  drainedHumanCommands: number,
+  drainedAiCommands: number
+): SimulationCommandJob | undefined => {
+  const humanPending = simulationCommandWorkerState.humanQueue.length > 0;
+  const aiPending = simulationCommandWorkerState.aiQueue.length > 0;
+  if (!humanPending && !aiPending) return undefined;
+  if (humanPending && (drainedHumanCommands < SIM_DRAIN_HUMAN_QUOTA || !aiPending)) {
+    return simulationCommandWorkerState.humanQueue.shift();
+  }
+  if (aiPending && (drainedAiCommands < SIM_DRAIN_AI_QUOTA || !humanPending)) {
+    return simulationCommandWorkerState.aiQueue.shift();
+  }
+  if (humanPending) return simulationCommandWorkerState.humanQueue.shift();
+  return simulationCommandWorkerState.aiQueue.shift();
+};
+
 const drainSimulationCommandQueue = async (): Promise<void> => {
-  const job = simulationCommandWorkerState.humanQueue.shift() ?? simulationCommandWorkerState.aiQueue.shift();
-  if (!job) {
-    simulationCommandWorkerState.draining = false;
-    simulationCommandWorkerState.lastDequeuedPriority = "idle";
-    return;
+  let drainedCommands = 0;
+  let drainedHumanCommands = 0;
+  let drainedAiCommands = 0;
+  const drainStartedAt = now();
+  while (drainedCommands < SIM_DRAIN_MAX_COMMANDS && now() - drainStartedAt < SIM_DRAIN_BUDGET_MS) {
+    const job = dequeueSimulationCommandJob(drainedHumanCommands, drainedAiCommands);
+    if (!job) break;
+    simulationCommandWorkerState.lastDequeuedPriority = job.priority;
+    try {
+      await executeUnifiedGameplayMessage(job.actor, job.command, job.socket, true);
+    } catch (err) {
+      logRuntimeError("simulation command failed", err);
+    }
+    drainedCommands += 1;
+    if (job.priority === "human") drainedHumanCommands += 1;
+    else drainedAiCommands += 1;
   }
-  simulationCommandWorkerState.lastDequeuedPriority = job.priority;
-  try {
-    await executeUnifiedGameplayMessage(job.actor, job.command, job.socket, true);
-  } catch (err) {
-    logRuntimeError("simulation command failed", err);
-  }
+  simulationCommandWorkerState.lastDrainAt = now();
+  simulationCommandWorkerState.lastDrainElapsedMs = simulationCommandWorkerState.lastDrainAt - drainStartedAt;
+  simulationCommandWorkerState.lastDrainCommands = drainedCommands;
+  simulationCommandWorkerState.lastDrainHumanCommands = drainedHumanCommands;
+  simulationCommandWorkerState.lastDrainAiCommands = drainedAiCommands;
   if (simulationCommandQueueDepth() <= 0) {
     simulationCommandWorkerState.draining = false;
     simulationCommandWorkerState.lastDequeuedPriority = "idle";
@@ -10591,6 +10632,11 @@ const runtimeDashboardPayload = (): {
     aiDraining: boolean;
     simulationCommandDraining: boolean;
     lastSimulationPriority: "human" | "ai" | "idle";
+    lastSimulationDrainAt: number;
+    lastSimulationDrainElapsedMs: number;
+    lastSimulationDrainCommands: number;
+    lastSimulationDrainHumanCommands: number;
+    lastSimulationDrainAiCommands: number;
   };
   aiScheduler: {
     at: number;
@@ -10648,7 +10694,12 @@ const runtimeDashboardPayload = (): {
       simulationCommandQueueDepth: simulationCommandQueueDepth(),
       aiDraining: aiWorkerState.draining,
       simulationCommandDraining: simulationCommandWorkerState.draining,
-      lastSimulationPriority: simulationCommandWorkerState.lastDequeuedPriority
+      lastSimulationPriority: simulationCommandWorkerState.lastDequeuedPriority,
+      lastSimulationDrainAt: simulationCommandWorkerState.lastDrainAt,
+      lastSimulationDrainElapsedMs: simulationCommandWorkerState.lastDrainElapsedMs,
+      lastSimulationDrainCommands: simulationCommandWorkerState.lastDrainCommands,
+      lastSimulationDrainHumanCommands: simulationCommandWorkerState.lastDrainHumanCommands,
+      lastSimulationDrainAiCommands: simulationCommandWorkerState.lastDrainAiCommands
     },
     aiScheduler: {
       ...aiSchedulerState
