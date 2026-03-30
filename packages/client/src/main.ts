@@ -1153,6 +1153,50 @@ const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: numbe
   ctx.stroke();
   ctx.restore();
 };
+
+const drawFrontierCaptureOverlay = (wx: number, wy: number, px: number, py: number, size: number, startAt: number, resolvesAt: number): void => {
+  if (size < 10) return;
+  const now = Date.now();
+  const totalMs = Math.max(1, resolvesAt - startAt);
+  const progress = Math.max(0, Math.min(1, (now - startAt) / totalMs));
+  const remainingMs = Math.max(0, resolvesAt - now);
+  const pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(now / 180 + wx * 0.7 + wy * 0.45));
+  const fillAlpha = isForestTile(wx, wy) ? 0.26 + pulse * 0.18 : 0.18 + pulse * 0.12;
+  const barHeight = Math.max(4, Math.floor(size * 0.14));
+  const barWidth = size - 4;
+  const barX = px + 2;
+  const barY = py + size - barHeight - 2;
+  const filledWidth = Math.max(2, Math.floor(barWidth * progress));
+
+  ctx.save();
+  ctx.fillStyle = `rgba(255, 209, 102, ${fillAlpha.toFixed(3)})`;
+  ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
+
+  ctx.fillStyle = "rgba(8, 14, 22, 0.76)";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+  ctx.fillStyle = isForestTile(wx, wy) ? "rgba(224, 104, 56, 0.98)" : "rgba(255, 209, 102, 0.98)";
+  ctx.fillRect(barX, barY, filledWidth, barHeight);
+  ctx.strokeStyle = "rgba(255, 245, 214, 0.82)";
+  ctx.strokeRect(barX + 0.5, barY + 0.5, barWidth - 1, barHeight - 1);
+
+  if (size >= 22) {
+    const label = `${(Math.ceil(remainingMs / 100) / 10).toFixed(1)}s`;
+    const badgeW = Math.max(18, Math.floor(size * 0.52));
+    const badgeH = Math.max(11, Math.floor(size * 0.22));
+    const badgeX = px + 2;
+    const badgeY = py + 2;
+    ctx.fillStyle = "rgba(8, 14, 22, 0.8)";
+    ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+    ctx.strokeStyle = "rgba(255, 244, 207, 0.52)";
+    ctx.strokeRect(badgeX + 0.5, badgeY + 0.5, badgeW - 1, badgeH - 1);
+    ctx.fillStyle = "rgba(255, 244, 207, 0.98)";
+    ctx.font = `${Math.max(8, Math.floor(size * 0.18))}px system-ui`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, badgeX + badgeW / 2, badgeY + badgeH / 2 + 0.5);
+  }
+  ctx.restore();
+};
 const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
   if (!tile.town) return;
   if (size < 16) {
@@ -1991,23 +2035,43 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
 };
 
 const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error"): void => {
-  state.captureAlert = { title, detail, until: Date.now() + 2200, tone };
+  state.captureAlert = { title, detail, until: Date.now() + 1800, tone };
 };
 
-const combatResolutionAlert = (msg: Record<string, unknown>): { title: string; detail: string; tone: "success" | "warn" } => {
+const playerNameOrFallback = (ownerId: string | undefined): string => {
+  if (!ownerId) return "neutral territory";
+  if (ownerId === "barbarian") return "Barbarians";
+  return playerNameForOwner(ownerId) ?? ownerId.slice(0, 8);
+};
+
+const conqueredTileLabel = (tile: Tile | undefined, target: { x: number; y: number } | undefined): string => {
+  if (tile?.town) return "Town";
+  if (tile?.resource) return prettyToken(resourceLabel(tile.resource));
+  if (target) return prettyToken(terrainLabel(target.x, target.y, tile?.terrain ?? terrainAt(target.x, target.y)));
+  return "Territory";
+};
+
+const combatResolutionAlert = (
+  msg: Record<string, unknown>,
+  context?: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined }
+): { title: string; detail: string; tone: "success" | "warn" } => {
+  const origin = msg.origin as { x: number; y: number } | undefined;
   const target = msg.target as { x: number; y: number } | undefined;
-  const attackType = prettyToken(String(msg.attackType ?? "ATTACK"));
   const attackerWon = Boolean(msg.attackerWon);
+  const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
+  const targetOwnerName = playerNameOrFallback(context?.targetTileBefore?.ownerId);
+  const targetLabel = conqueredTileLabel(context?.targetTileBefore, target);
   if (attackerWon) {
     return {
-      title: `${attackType} won`,
-      detail: target ? `Captured (${target.x}, ${target.y}).` : "Captured the target.",
+      title: "Victory",
+      detail: `${targetLabel} was conquered from ${targetOwnerName}.`,
       tone: "success"
     };
   }
+  const originLost = Boolean(origin && changes.some((change) => change.x === origin.x && change.y === origin.y));
   return {
-    title: `${attackType} failed`,
-    detail: target ? `Defender held (${target.x}, ${target.y}).` : "The defender held the tile.",
+    title: "Attack Beaten Back",
+    detail: originLost && origin ? `Attack on ${targetOwnerName} was beaten back and we lost (${origin.x}, ${origin.y}).` : `Attack on ${targetOwnerName} was beaten back.`,
     tone: "warn"
   };
 };
@@ -6796,6 +6860,14 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "COMBAT_RESULT") {
+    const targetBefore = (() => {
+      const target = msg.target as { x: number; y: number } | undefined;
+      return target ? state.tiles.get(key(target.x, target.y)) : undefined;
+    })();
+    const originBefore = (() => {
+      const origin = msg.origin as { x: number; y: number } | undefined;
+      return origin ? state.tiles.get(key(origin.x, origin.y)) : undefined;
+    })();
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     const resolvedCaptureTargetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : "";
     for (const c of changes) {
@@ -6818,8 +6890,11 @@ ws.addEventListener("message", (ev) => {
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
     }
-    pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
-    const resultAlert = combatResolutionAlert(msg as Record<string, unknown>);
+    const resultAlert = combatResolutionAlert(msg as Record<string, unknown>, {
+      targetTileBefore: targetBefore,
+      originTileBefore: originBefore
+    });
+    pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
     showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone);
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
@@ -7870,10 +7945,7 @@ const draw = (): void => {
         ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
       }
       if (state.capture && state.capture.target.x === wx && state.capture.target.y === wy) {
-        const phase = (Date.now() % 600) / 600;
-        const alpha = 0.25 + 0.55 * Math.sin(phase * Math.PI);
-        ctx.fillStyle = `rgba(255, 209, 102, ${alpha.toFixed(3)})`;
-        ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
+        drawFrontierCaptureOverlay(wx, wy, px, py, size, state.capture.startAt, state.capture.resolvesAt);
       }
       const incomingAttack = state.incomingAttacksByTile.get(wk);
       if (incomingAttack) {
