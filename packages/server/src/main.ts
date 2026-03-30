@@ -5139,11 +5139,21 @@ const maybePickAiDomain = (actor: Player): void => {
   sendPlayerUpdate(actor, 0);
 };
 
-const executeUnifiedGameplayMessage = async (actor: Player, msg: ClientMessage, socket: Ws): Promise<boolean> => {
+const executeUnifiedGameplayMessage = async (
+  actor: Player,
+  msg: ClientMessage,
+  socket: Ws,
+  queuedExecution = false
+): Promise<boolean> => {
   actor.lastActiveAt = now();
 
   if (msg.type === "PING") {
     socket.send(JSON.stringify({ type: "PONG", t: msg.t }));
+    return true;
+  }
+
+  if (!queuedExecution && socket !== NOOP_WS && isQueuedSimulationMessage(msg)) {
+    enqueueSimulationCommand(actor, msg, socket, "human");
     return true;
   }
 
@@ -6345,46 +6355,77 @@ type SimulationCommand =
   | { type: "BUILD_FORT"; x: number; y: number }
   | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
 
+type QueuedSimulationMessage =
+  | SimulationCommand
+  | { type: "BUILD_OBSERVATORY"; x: number; y: number }
+  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number };
+
 type SimulationCommandJob = {
   actor: Player;
-  command: SimulationCommand;
+  command: QueuedSimulationMessage;
+  socket: Ws;
+  priority: "human" | "ai";
 };
 
 const simulationCommandWorkerState: {
-  queue: SimulationCommandJob[];
+  humanQueue: SimulationCommandJob[];
+  aiQueue: SimulationCommandJob[];
   draining: boolean;
+  lastDequeuedPriority: "human" | "ai" | "idle";
 } = {
-  queue: [],
-  draining: false
+  humanQueue: [],
+  aiQueue: [],
+  draining: false,
+  lastDequeuedPriority: "idle"
 };
 
+const simulationCommandQueueDepth = (): number =>
+  simulationCommandWorkerState.humanQueue.length + simulationCommandWorkerState.aiQueue.length;
+
+const isQueuedSimulationMessage = (msg: ClientMessage): msg is QueuedSimulationMessage =>
+  msg.type === "SETTLE" ||
+  msg.type === "BUILD_FORT" ||
+  msg.type === "BUILD_OBSERVATORY" ||
+  msg.type === "BUILD_ECONOMIC_STRUCTURE" ||
+  msg.type === "BUILD_SIEGE_OUTPOST" ||
+  msg.type === "ATTACK" ||
+  msg.type === "EXPAND";
+
 const drainSimulationCommandQueue = async (): Promise<void> => {
-  const job = simulationCommandWorkerState.queue.shift();
+  const job = simulationCommandWorkerState.humanQueue.shift() ?? simulationCommandWorkerState.aiQueue.shift();
   if (!job) {
     simulationCommandWorkerState.draining = false;
+    simulationCommandWorkerState.lastDequeuedPriority = "idle";
     return;
   }
+  simulationCommandWorkerState.lastDequeuedPriority = job.priority;
   try {
-    await executeUnifiedGameplayMessage(job.actor, job.command, NOOP_WS);
+    await executeUnifiedGameplayMessage(job.actor, job.command, job.socket, true);
   } catch (err) {
     logRuntimeError("simulation command failed", err);
   }
-  if (simulationCommandWorkerState.queue.length <= 0) {
+  if (simulationCommandQueueDepth() <= 0) {
     simulationCommandWorkerState.draining = false;
+    simulationCommandWorkerState.lastDequeuedPriority = "idle";
     return;
   }
+  queueMicrotaskFn(() => {
+    void drainSimulationCommandQueue();
+  });
+};
+
+const enqueueSimulationCommand = (actor: Player, command: QueuedSimulationMessage, socket: Ws, priority: "human" | "ai"): void => {
+  if (priority === "human") simulationCommandWorkerState.humanQueue.push({ actor, command, socket, priority });
+  else simulationCommandWorkerState.aiQueue.push({ actor, command, socket, priority });
+  if (simulationCommandWorkerState.draining) return;
+  simulationCommandWorkerState.draining = true;
   queueMicrotaskFn(() => {
     void drainSimulationCommandQueue();
   });
 };
 
 const executeSimulationCommand = (actor: Player, command: SimulationCommand): void => {
-  simulationCommandWorkerState.queue.push({ actor, command });
-  if (simulationCommandWorkerState.draining) return;
-  simulationCommandWorkerState.draining = true;
-  queueMicrotaskFn(() => {
-    void drainSimulationCommandQueue();
-  });
+  enqueueSimulationCommand(actor, command, NOOP_WS, "ai");
 };
 
 const executeAiGoapAction = (
@@ -7104,7 +7145,7 @@ const chooseAiBatchSize = (totalAiPlayers: number): number => {
   const humanPlayersOnline = onlineHumanPlayerCount() > 0;
   const authPriorityActive = pendingAuthVerifications > 0 || authPriorityUntil > now();
   const aiQueueBackpressure = aiWorkerState.queue.length >= AI_WORKER_QUEUE_SOFT_LIMIT;
-  const simulationQueueBackpressure = simulationCommandWorkerState.queue.length >= AI_SIM_QUEUE_SOFT_LIMIT;
+  const simulationQueueBackpressure = simulationCommandQueueDepth() >= AI_SIM_QUEUE_SOFT_LIMIT;
   const eventLoopOverloaded = Boolean(
     vitals &&
       (vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ||
@@ -10543,10 +10584,13 @@ const runtimeDashboardPayload = (): {
   queuePressure: {
     pendingAuthVerifications: number;
     runtimeIntervals: number;
+    humanSimulationQueueDepth: number;
+    aiSimulationQueueDepth: number;
     aiQueueDepth: number;
     simulationCommandQueueDepth: number;
     aiDraining: boolean;
     simulationCommandDraining: boolean;
+    lastSimulationPriority: "human" | "ai" | "idle";
   };
   aiScheduler: {
     at: number;
@@ -10598,10 +10642,13 @@ const runtimeDashboardPayload = (): {
     queuePressure: {
       pendingAuthVerifications,
       runtimeIntervals: runtimeIntervals.length,
+      humanSimulationQueueDepth: simulationCommandWorkerState.humanQueue.length,
+      aiSimulationQueueDepth: simulationCommandWorkerState.aiQueue.length,
       aiQueueDepth: aiWorkerState.queue.length,
-      simulationCommandQueueDepth: simulationCommandWorkerState.queue.length,
+      simulationCommandQueueDepth: simulationCommandQueueDepth(),
       aiDraining: aiWorkerState.draining,
-      simulationCommandDraining: simulationCommandWorkerState.draining
+      simulationCommandDraining: simulationCommandWorkerState.draining,
+      lastSimulationPriority: simulationCommandWorkerState.lastDequeuedPriority
     },
     aiScheduler: {
       ...aiSchedulerState
