@@ -4309,6 +4309,7 @@ const chooseTech = (techIdRaw?: string): void => {
 
 const explainActionFailure = (code: string, message: string): string => {
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
+  if (code === "DOCK_COOLDOWN") return `Dock crossing cooling down: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
   if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build observatory: ${message}.`;
@@ -7312,6 +7313,8 @@ ws.addEventListener("message", (ev) => {
       errorCode === "STRUCTURE_CANCEL_INVALID";
     if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
       notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
+    } else if (errorCode === "DOCK_COOLDOWN") {
+      showCaptureAlert("Dock crossing cooling down", errorMessage, "warn");
     } else if (errorCode === "SETTLE_INVALID") {
       clearOptimisticTileState(errorTileKey, true);
       clearSettlementProgressByKey(errorTileKey);
