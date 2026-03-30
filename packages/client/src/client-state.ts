@@ -72,6 +72,8 @@ export const createInitialState = () => ({
   foodCoverageWarned: false,
   goldAnimUntil: 0,
   goldAnimDir: 0 as -1 | 0 | 1,
+  defensibilityAnimUntil: 0,
+  defensibilityAnimDir: 0 as -1 | 0 | 1,
   strategicAnim: {
     FOOD: { until: 0, dir: 0 as -1 | 0 | 1 },
     IRON: { until: 0, dir: 0 as -1 | 0 | 1 },
