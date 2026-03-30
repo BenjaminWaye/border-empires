@@ -71,7 +71,19 @@ import {
   strategicRibbonHtml
 } from "./client-panel-html.js";
 import { createInitialState, storageSet } from "./client-state.js";
-import { domainOwnedHtml, formatDomainBenefitSummary, formatTechBenefitSummary, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html.js";
+import {
+  currentDomainChoiceTier,
+  domainOwnedHtml,
+  formatDomainBenefitSummary,
+  formatTechBenefitSummary,
+  ownedDomainByTier,
+  renderDomainChoiceGridHtml,
+  renderDomainDetailCardHtml,
+  renderTechChoiceDetailsHtml,
+  renderTechDetailCardHtml,
+  techCurrentModsHtml,
+  techOwnedHtml
+} from "./client-tech-html.js";
 import type {
   AllianceRequest,
   CrystalTargetingAbility,
@@ -3552,234 +3564,67 @@ const renderTechDetailCard = (): string => {
   const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value || state.techCatalog[0]?.id;
   const byId = new Map(state.techCatalog.map((tech) => [tech.id, tech]));
   const tierMemo = new Map<string, number>();
-  const t = state.techCatalog.find((x) => x.id === selectedId);
-  if (!t) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
-  const checklist = t.requirements.checklist ?? [];
-  const checks = checklist
-    .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
-    .join("");
-  const prereqs = techPrereqIds(t);
-  const unlocks = unlockedByTech(t.id);
-  const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
-  const pendingUnlock = isPendingTechUnlock(t.id);
-  const canUnlock = t.requirements.canResearch && !state.pendingTechUnlockId;
-  const effectSummary = formatTechBenefitSummary(t);
-  const relatedStructures = relatedStructureTypesForTech(t);
-  return `<article class="card tech-detail-card">
-    <div class="tech-detail-head">
-      <div>
-        <strong>${t.name}</strong>
-        <p class="tech-detail-effect">${effectSummary}</p>
-        <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
-        ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
-      </div>
-      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock) ? "" : "disabled"}>${pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked"}</button>
-    </div>
-    <p class="tech-detail-flavor">${t.description}</p>
-    ${relatedStructures.length > 0 ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>` : ""}
-    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${techTier(next.id, byId, tierMemo)})`).join(", ")}</p>` : ""}
-    <p><strong>Requirements:</strong></p>
-    <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
-  </article>`;
-};
-
-const formatDomainCost = (d: DomainInfo): string => {
-  const checklist = d.requirements.checklist ?? [];
-  const costBits = checklist.filter((c) => /gold|food|iron|crystal|supply|shard/i.test(c.label)).map((c) => c.label);
-  if (costBits.length > 0) return costBits.join(" · ");
-  return "Cost not listed";
-};
-
-const ownedDomainByTier = (): Map<number, DomainInfo> => {
-  const catalogById = new Map(state.domainCatalog.map((d) => [d.id, d]));
-  const out = new Map<number, DomainInfo>();
-  for (const id of state.domainIds) {
-    const domain = catalogById.get(id);
-    if (domain) out.set(domain.tier, domain);
+  const tech = state.techCatalog.find((entry) => entry.id === selectedId);
+  if (!tech) {
+    return renderTechDetailCardHtml({
+      tech,
+      pendingUnlock: false,
+      canUnlock: false,
+      prereqs: [],
+      prereqText: "",
+      unlocks: [],
+      relatedStructuresHtml: ""
+    });
   }
-  return out;
-};
-
-const currentDomainChoiceTier = (): number | undefined => {
-  const byId = new Map(state.domainCatalog.map((d) => [d.id, d]));
-  const first = state.domainChoices.map((id) => byId.get(id)).find((d): d is DomainInfo => Boolean(d));
-  return first?.tier;
-};
-
-const domainTierStatus = (
-  tier: number,
-  ownedByTier: Map<number, DomainInfo>,
-  currentTier?: number
-): {
-  tone: "chosen" | "current" | "locked";
-  badge: string;
-  detail: string;
-} => {
-  const owned = ownedByTier.get(tier);
-  if (owned) {
-    return {
-      tone: "chosen",
-      badge: "Chosen",
-      detail: `Tier ${tier} is already committed to ${owned.name}. You cannot choose another domain at this tier.`
-    };
-  }
-  if (currentTier === tier) {
-    return {
-      tone: "current",
-      badge: "Choose 1",
-      detail: `Pick exactly one domain for Tier ${tier}. Once chosen, the other domains in this tier are closed.`
-    };
-  }
-  return {
-    tone: "locked",
-    badge: "Locked",
-    detail: tier < (currentTier ?? 0) ? `This tier is no longer available because your choice is already set.` : `Unlock Tier ${Math.max(1, tier - 1)} first to reach this tier.`
-  };
-};
-
-const domainCardBlockedReason = (
-  domain: DomainInfo,
-  ownedByTier: Map<number, DomainInfo>,
-  currentTier?: number
-): string | undefined => {
-  const owned = ownedByTier.get(domain.tier);
-  if (owned && owned.id !== domain.id) return `Tier ${domain.tier} already committed to ${owned.name}`;
-  if (currentTier !== undefined && domain.tier > currentTier) return `Locked until Tier ${domain.tier - 1} is chosen`;
-  if (currentTier !== undefined && domain.tier < currentTier && !owned) return "Tier no longer available";
-  const unmet = (domain.requirements.checklist ?? []).find((check) => !check.met);
-  return unmet?.label;
+  const prereqs = techPrereqIds(tech);
+  const unlocks = unlockedByTech(tech.id).map((next) => ({ name: next.name, tier: techTier(next.id, byId, tierMemo) }));
+  const relatedStructures = relatedStructureTypesForTech(tech);
+  return renderTechDetailCardHtml({
+    tech,
+    pendingUnlock: isPendingTechUnlock(tech.id),
+    canUnlock: Boolean(tech.requirements.canResearch) && !state.pendingTechUnlockId,
+    prereqs,
+    prereqText: prereqs.length > 0 ? techNameList(prereqs) : "Entry tech",
+    unlocks,
+    relatedStructuresHtml:
+      relatedStructures.length > 0
+        ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>`
+        : ""
+  });
 };
 
 const renderDomainChoiceGrid = (): string => {
-  if (state.domainCatalog.length === 0) return `<article class="card"><p>No domains available right now.</p></article>`;
-  const grouped = new Map<number, DomainInfo[]>();
-  for (const d of state.domainCatalog) {
-    const arr = grouped.get(d.tier) ?? [];
-    arr.push(d);
-    grouped.set(d.tier, arr);
-  }
-  const ownedByTier = ownedDomainByTier();
-  const currentTier = currentDomainChoiceTier();
-  const tiers = [...grouped.keys()].sort((a, b) => a - b);
-  const summary =
-    currentTier !== undefined
-      ? `<article class="card domain-summary-card">
-          <div class="domain-summary-kicker">Domains</div>
-          <strong>Choose one domain for Tier ${currentTier}</strong>
-          <p>Each tier allows exactly one domain. Choosing one locks the others in that tier and advances you to the next tier later.</p>
-        </article>`
-      : `<article class="card domain-summary-card">
-          <div class="domain-summary-kicker">Domains</div>
-          <strong>All current domain tiers are committed</strong>
-          <p>You can only choose one domain per tier. Review your picks below and unlock the next tier when it becomes available.</p>
-        </article>`;
-  const sections = tiers
-    .map((tier) => {
-      const status = domainTierStatus(tier, ownedByTier, currentTier);
-      const cards = (grouped.get(tier) ?? [])
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((d) => {
-          const selected = state.domainUiSelectedId === d.id ? " selected" : "";
-          const owned = state.domainIds.includes(d.id) ? " owned" : "";
-          const blockedReason = domainCardBlockedReason(d, ownedByTier, currentTier);
-          const blocked = blockedReason && !owned ? " blocked" : "";
-          const cardBadge = owned ? "Chosen" : currentTier === tier ? "Candidate" : "Unavailable";
-          return `<button class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${d.id}">
-            <div class="tech-card-top">
-              <strong>${d.name}</strong>
-              <span class="domain-card-badge">${cardBadge}</span>
-            </div>
-            <p>${formatDomainBenefitSummary(d)}</p>
-            <p class="tech-card-cost">${owned ? "Tier locked in" : blockedReason ? blockedReason : formatDomainCost(d)}</p>
-          </button>`;
-        })
-        .join("");
-      return `<section class="tech-tier-block domain-tier-block domain-tier-block-${status.tone}">
-        <div class="domain-tier-head">
-          <div>
-            <h4>Tier ${tier}</h4>
-            <p>${status.detail}</p>
-          </div>
-          <span class="domain-tier-badge domain-tier-badge-${status.tone}">${status.badge}</span>
-        </div>
-        <div class="tech-card-grid">${cards}</div>
-      </section>`;
-    })
-    .join("");
-  return `${summary}${sections}`;
+  const ownedByTier = ownedDomainByTier(state.domainCatalog, state.domainIds);
+  return renderDomainChoiceGridHtml({
+    domainCatalog: state.domainCatalog,
+    domainIds: state.domainIds,
+    domainUiSelectedId: state.domainUiSelectedId,
+    ownedByTier,
+    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices)
+  });
 };
 
 const renderDomainDetailCard = (): string => {
-  const d = state.domainCatalog.find((x) => x.id === state.domainUiSelectedId);
-  if (!d) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
-  const checklist = d.requirements.checklist ?? [];
-  const checks = checklist
-    .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
-    .join("");
-  const ownedByTier = ownedDomainByTier();
-  const currentTier = currentDomainChoiceTier();
-  const chosenInTier = ownedByTier.get(d.tier);
-  const canUnlock = d.requirements.canResearch;
-  const requiresTechName = techNameList([d.requiresTechId]);
-  const tierRuleText =
-    chosenInTier && chosenInTier.id !== d.id
-      ? `Tier ${d.tier} is already filled by ${chosenInTier.name}.`
-      : currentTier === d.tier
-        ? `This is one of the current Tier ${d.tier} choices. You may choose exactly one.`
-        : chosenInTier?.id === d.id
-          ? `You already chose this for Tier ${d.tier}.`
-          : `This domain will only become choosable when Tier ${d.tier} opens.`;
-  return `<article class="card tech-detail-card">
-    <div class="tech-detail-head">
-      <div>
-        <strong>${d.name}</strong>
-        <p class="muted">Tier ${d.tier} · Requires ${requiresTechName}</p>
-        <p class="domain-detail-tier-rule">${tierRuleText}</p>
-      </div>
-      <button class="panel-btn domain-unlock-btn" data-domain-unlock="${d.id}" ${canUnlock ? "" : "disabled"}>${state.domainIds.includes(d.id) ? "Chosen" : canUnlock ? `Choose Tier ${d.tier}` : "Locked"}</button>
-    </div>
-    <p>${d.description}</p>
-    <p><strong>Benefits:</strong> ${formatDomainBenefitSummary(d)}</p>
-    <p><strong>Cost:</strong> ${formatDomainCost(d)}</p>
-    <p><strong>Requirements:</strong></p>
-    <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
-  </article>`;
+  const domain = state.domainCatalog.find((entry) => entry.id === state.domainUiSelectedId);
+  const ownedByTier = ownedDomainByTier(state.domainCatalog, state.domainIds);
+  return renderDomainDetailCardHtml({
+    domain,
+    domainIds: state.domainIds,
+    chosenInTier: domain ? ownedByTier.get(domain.tier) : undefined,
+    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices),
+    requiresTechName: domain ? techNameList([domain.requiresTechId]) : ""
+  });
 };
 
 const renderTechChoiceDetails = (): string => {
   const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
-  const t = state.techCatalog.find((x) => x.id === selectedId);
-  if (!t) return `<p class="muted">No tech selected.</p>`;
-  const pendingUnlock = isPendingTechUnlock(t.id);
-  const mods = Object.entries(t.mods ?? {})
-    .map(([k, v]) => `${k} x${Number(v).toFixed(3)}`)
-    .join(" | ");
-  const projected = {
-    attack: state.mods.attack * (t.mods.attack ?? 1),
-    defense: state.mods.defense * (t.mods.defense ?? 1),
-    income: state.mods.income * (t.mods.income ?? 1),
-    vision: state.mods.vision * (t.mods.vision ?? 1)
-  };
-  const checklist = t.requirements.checklist ?? [];
-  const checklistHtml =
-    checklist.length > 0
-      ? `<ul>${checklist
-          .map((c) => `<li style="color:${c.met ? "#84f2b8" : "#ff9f9f"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
-          .join("")}</ul>`
-      : "<p class=\"muted\">No requirements listed.</p>";
-  const prereqs = techPrereqIds(t);
-  return `<article class="card">
-    <strong>${t.name}</strong>
-    ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for authoritative update...</p>` : ""}
-    <p>${t.description}</p>
-    <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
-    <p><strong>Requirements:</strong></p>
-    ${checklistHtml}
-    <p><strong>Modifiers:</strong> ${mods || "None"}</p>
-    <p><strong>Current:</strong> atk x${state.mods.attack.toFixed(3)} | def x${state.mods.defense.toFixed(3)} | inc x${state.mods.income.toFixed(3)} | vis x${state.mods.vision.toFixed(3)}</p>
-    <p><strong>Projected:</strong> atk x${projected.attack.toFixed(3)} | def x${projected.defense.toFixed(3)} | inc x${projected.income.toFixed(3)} | vis x${projected.vision.toFixed(3)}</p>
-    ${t.grantsPowerup ? `<p><strong>Powerup:</strong> ${t.grantsPowerup.id} (+${t.grantsPowerup.charges})</p>` : ""}
-  </article>`;
+  const tech = state.techCatalog.find((entry) => entry.id === selectedId);
+  return renderTechChoiceDetailsHtml({
+    tech,
+    pendingUnlock: tech ? isPendingTechUnlock(tech.id) : false,
+    currentMods: state.mods,
+    prereqs: tech ? techPrereqIds(tech) : []
+  });
 };
 
 const affordableTechChoicesCount = (): number => {

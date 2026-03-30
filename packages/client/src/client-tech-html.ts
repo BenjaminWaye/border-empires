@@ -214,3 +214,244 @@ export const techCurrentModsHtml = (
     </div>
   `;
 };
+
+const checklistHtml = (items: Array<{ label: string; met: boolean }>, className = "tech-req-list"): string =>
+  items.length > 0
+    ? `<ul class="${className}">${items
+        .map((item) => `<li class="${item.met ? "ok" : "bad"}">${item.met ? "✓" : "✗"} ${item.label}</li>`)
+        .join("")}</ul>`
+    : `<ul class="${className}"><li>None</li></ul>`;
+
+const compactChecklistHtml = (items: Array<{ label: string; met: boolean }>): string =>
+  items.length > 0
+    ? `<ul>${items
+        .map((item) => `<li style="color:${item.met ? "#84f2b8" : "#ff9f9f"}">${item.met ? "✓" : "✗"} ${item.label}</li>`)
+        .join("")}</ul>`
+    : `<p class="muted">No requirements listed.</p>`;
+
+export const formatDomainCost = (domain: DomainInfo): string => {
+  const checklist = domain.requirements.checklist ?? [];
+  const costBits = checklist.filter((item) => /gold|food|iron|crystal|supply|shard/i.test(item.label)).map((item) => item.label);
+  return costBits.length > 0 ? costBits.join(" · ") : "Cost not listed";
+};
+
+export const ownedDomainByTier = (domainCatalog: DomainInfo[], domainIds: string[]): Map<number, DomainInfo> => {
+  const catalogById = new Map(domainCatalog.map((domain) => [domain.id, domain]));
+  const out = new Map<number, DomainInfo>();
+  for (const id of domainIds) {
+    const domain = catalogById.get(id);
+    if (domain) out.set(domain.tier, domain);
+  }
+  return out;
+};
+
+export const currentDomainChoiceTier = (domainCatalog: DomainInfo[], domainChoices: string[]): number | undefined => {
+  const byId = new Map(domainCatalog.map((domain) => [domain.id, domain]));
+  const first = domainChoices.map((id) => byId.get(id)).find((domain): domain is DomainInfo => Boolean(domain));
+  return first?.tier;
+};
+
+const domainTierStatus = (
+  tier: number,
+  ownedByTier: Map<number, DomainInfo>,
+  currentTier?: number
+): {
+  tone: "chosen" | "current" | "locked";
+  badge: string;
+  detail: string;
+} => {
+  const owned = ownedByTier.get(tier);
+  if (owned) {
+    return {
+      tone: "chosen",
+      badge: "Chosen",
+      detail: `Tier ${tier} is already committed to ${owned.name}. You cannot choose another domain at this tier.`
+    };
+  }
+  if (currentTier === tier) {
+    return {
+      tone: "current",
+      badge: "Choose 1",
+      detail: `Pick exactly one domain for Tier ${tier}. Once chosen, the other domains in this tier are closed.`
+    };
+  }
+  return {
+    tone: "locked",
+    badge: "Locked",
+    detail: tier < (currentTier ?? 0) ? `This tier is no longer available because your choice is already set.` : `Unlock Tier ${Math.max(1, tier - 1)} first to reach this tier.`
+  };
+};
+
+const domainCardBlockedReason = (
+  domain: DomainInfo,
+  ownedByTier: Map<number, DomainInfo>,
+  currentTier?: number
+): string | undefined => {
+  const owned = ownedByTier.get(domain.tier);
+  if (owned && owned.id !== domain.id) return `Tier ${domain.tier} already committed to ${owned.name}`;
+  if (currentTier !== undefined && domain.tier > currentTier) return `Locked until Tier ${domain.tier - 1} is chosen`;
+  if (currentTier !== undefined && domain.tier < currentTier && !owned) return "Tier no longer available";
+  const unmet = (domain.requirements.checklist ?? []).find((check) => !check.met);
+  return unmet?.label;
+};
+
+export const renderTechDetailCardHtml = (args: {
+  tech: TechInfo | undefined;
+  pendingUnlock: boolean;
+  canUnlock: boolean;
+  prereqs: string[];
+  prereqText: string;
+  unlocks: Array<{ name: string; tier: number }>;
+  relatedStructuresHtml: string;
+}): string => {
+  const { tech, pendingUnlock, canUnlock, prereqs, prereqText, unlocks, relatedStructuresHtml } = args;
+  if (!tech) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
+  const checklist = tech.requirements.checklist ?? [];
+  return `<article class="card tech-detail-card">
+    <div class="tech-detail-head">
+      <div>
+        <strong>${tech.name}</strong>
+        <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
+        <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
+        ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
+      </div>
+      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${tech.id}" ${(canUnlock || pendingUnlock) ? "" : "disabled"}>${pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked"}</button>
+    </div>
+    <p class="tech-detail-flavor">${tech.description}</p>
+    ${relatedStructuresHtml}
+    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${next.tier})`).join(", ")}</p>` : ""}
+    <p><strong>Requirements:</strong></p>
+    ${checklistHtml(checklist)}
+  </article>`;
+};
+
+export const renderDomainChoiceGridHtml = (args: {
+  domainCatalog: DomainInfo[];
+  domainIds: string[];
+  domainUiSelectedId: string;
+  ownedByTier: Map<number, DomainInfo>;
+  currentTier: number | undefined;
+}): string => {
+  const { domainCatalog, domainIds, domainUiSelectedId, ownedByTier, currentTier } = args;
+  if (domainCatalog.length === 0) return `<article class="card"><p>No domains available right now.</p></article>`;
+  const grouped = new Map<number, DomainInfo[]>();
+  for (const domain of domainCatalog) {
+    const arr = grouped.get(domain.tier) ?? [];
+    arr.push(domain);
+    grouped.set(domain.tier, arr);
+  }
+  const tiers = [...grouped.keys()].sort((a, b) => a - b);
+  const summary =
+    currentTier !== undefined
+      ? `<article class="card domain-summary-card">
+          <div class="domain-summary-kicker">Domains</div>
+          <strong>Choose one domain for Tier ${currentTier}</strong>
+          <p>Each tier allows exactly one domain. Choosing one locks the others in that tier and advances you to the next tier later.</p>
+        </article>`
+      : `<article class="card domain-summary-card">
+          <div class="domain-summary-kicker">Domains</div>
+          <strong>All current domain tiers are committed</strong>
+          <p>You can only choose one domain per tier. Review your picks below and unlock the next tier when it becomes available.</p>
+        </article>`;
+  const sections = tiers
+    .map((tier) => {
+      const status = domainTierStatus(tier, ownedByTier, currentTier);
+      const cards = (grouped.get(tier) ?? [])
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((domain) => {
+          const selected = domainUiSelectedId === domain.id ? " selected" : "";
+          const owned = domainIds.includes(domain.id) ? " owned" : "";
+          const blockedReason = domainCardBlockedReason(domain, ownedByTier, currentTier);
+          const blocked = blockedReason && !owned ? " blocked" : "";
+          const cardBadge = owned ? "Chosen" : currentTier === tier ? "Candidate" : "Unavailable";
+          return `<button class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${domain.id}">
+            <div class="tech-card-top">
+              <strong>${domain.name}</strong>
+              <span class="domain-card-badge">${cardBadge}</span>
+            </div>
+            <p>${formatDomainBenefitSummary(domain)}</p>
+            <p class="tech-card-cost">${owned ? "Tier locked in" : blockedReason ? blockedReason : formatDomainCost(domain)}</p>
+          </button>`;
+        })
+        .join("");
+      return `<section class="tech-tier-block domain-tier-block domain-tier-block-${status.tone}">
+        <div class="domain-tier-head">
+          <div>
+            <h4>Tier ${tier}</h4>
+            <p>${status.detail}</p>
+          </div>
+          <span class="domain-tier-badge domain-tier-badge-${status.tone}">${status.badge}</span>
+        </div>
+        <div class="tech-card-grid">${cards}</div>
+      </section>`;
+    })
+    .join("");
+  return `${summary}${sections}`;
+};
+
+export const renderDomainDetailCardHtml = (args: {
+  domain: DomainInfo | undefined;
+  domainIds: string[];
+  chosenInTier: DomainInfo | undefined;
+  currentTier: number | undefined;
+  requiresTechName: string;
+}): string => {
+  const { domain, domainIds, chosenInTier, currentTier, requiresTechName } = args;
+  if (!domain) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
+  const checklist = domain.requirements.checklist ?? [];
+  const canUnlock = domain.requirements.canResearch;
+  const tierRuleText =
+    chosenInTier && chosenInTier.id !== domain.id
+      ? `Tier ${domain.tier} is already filled by ${chosenInTier.name}.`
+      : currentTier === domain.tier
+        ? `This is one of the current Tier ${domain.tier} choices. You may choose exactly one.`
+        : chosenInTier?.id === domain.id
+          ? `You already chose this for Tier ${domain.tier}.`
+          : `This domain will only become choosable when Tier ${domain.tier} opens.`;
+  return `<article class="card tech-detail-card">
+    <div class="tech-detail-head">
+      <div>
+        <strong>${domain.name}</strong>
+        <p class="muted">Tier ${domain.tier} · Requires ${requiresTechName}</p>
+        <p class="domain-detail-tier-rule">${tierRuleText}</p>
+      </div>
+      <button class="panel-btn domain-unlock-btn" data-domain-unlock="${domain.id}" ${canUnlock ? "" : "disabled"}>${domainIds.includes(domain.id) ? "Chosen" : canUnlock ? `Choose Tier ${domain.tier}` : "Locked"}</button>
+    </div>
+    <p>${domain.description}</p>
+    <p><strong>Benefits:</strong> ${formatDomainBenefitSummary(domain)}</p>
+    <p><strong>Cost:</strong> ${formatDomainCost(domain)}</p>
+    <p><strong>Requirements:</strong></p>
+    ${checklistHtml(checklist)}
+  </article>`;
+};
+
+export const renderTechChoiceDetailsHtml = (args: {
+  tech: TechInfo | undefined;
+  pendingUnlock: boolean;
+  currentMods: Record<ModKey, number>;
+  prereqs: string[];
+}): string => {
+  const { tech, pendingUnlock, currentMods, prereqs } = args;
+  if (!tech) return `<p class="muted">No tech selected.</p>`;
+  const mods = Object.entries(tech.mods ?? {})
+    .map(([key, value]) => `${key} x${Number(value).toFixed(3)}`)
+    .join(" | ");
+  const projected = {
+    attack: currentMods.attack * (tech.mods.attack ?? 1),
+    defense: currentMods.defense * (tech.mods.defense ?? 1),
+    income: currentMods.income * (tech.mods.income ?? 1),
+    vision: currentMods.vision * (tech.mods.vision ?? 1)
+  };
+  return `<article class="card">
+    <strong>${tech.name}</strong>
+    ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for authoritative update...</p>` : ""}
+    <p>${tech.description}</p>
+    <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
+    <p><strong>Requirements:</strong></p>
+    ${compactChecklistHtml(tech.requirements.checklist ?? [])}
+    <p><strong>Modifiers:</strong> ${mods || "None"}</p>
+    <p><strong>Current:</strong> atk x${currentMods.attack.toFixed(3)} | def x${currentMods.defense.toFixed(3)} | inc x${currentMods.income.toFixed(3)} | vis x${currentMods.vision.toFixed(3)}</p>
+    <p><strong>Projected:</strong> atk x${projected.attack.toFixed(3)} | def x${projected.defense.toFixed(3)} | inc x${projected.income.toFixed(3)} | vis x${projected.vision.toFixed(3)}</p>
+    ${tech.grantsPowerup ? `<p><strong>Powerup:</strong> ${tech.grantsPowerup.id} (+${tech.grantsPowerup.charges})</p>` : ""}
+  </article>`;
+};
