@@ -94,6 +94,12 @@ const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
+const AI_HUMAN_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_HUMAN_PRIORITY_BATCH_SIZE ?? 1));
+const AI_AUTH_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_AUTH_PRIORITY_BATCH_SIZE ?? AI_HUMAN_PRIORITY_BATCH_SIZE));
+const AI_WORKER_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_WORKER_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 2));
+const AI_SIM_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_SIM_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 3));
+const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ?? 60));
+const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ?? 65));
 const MAX_SUBSCRIBE_RADIUS = Number(process.env.MAX_SUBSCRIBE_RADIUS ?? 2);
 const CHUNK_STREAM_BATCH_SIZE = Math.max(1, Number(process.env.CHUNK_STREAM_BATCH_SIZE ?? 2));
 const FOG_ADMIN_EMAIL = "bw199005@gmail.com";
@@ -7007,6 +7013,29 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
 let aiTickInFlight = false;
 let aiRoundRobinOffset = 0;
 let aiCycleCounter = 0;
+const aiSchedulerState: {
+  at: number;
+  batchSize: number;
+  selectedAiPlayers: number;
+  totalAiPlayers: number;
+  humanPlayersOnline: boolean;
+  authPriorityActive: boolean;
+  aiQueueBackpressure: boolean;
+  simulationQueueBackpressure: boolean;
+  eventLoopOverloaded: boolean;
+  reason: string;
+} = {
+  at: 0,
+  batchSize: 0,
+  selectedAiPlayers: 0,
+  totalAiPlayers: 0,
+  humanPlayersOnline: false,
+  authPriorityActive: false,
+  aiQueueBackpressure: false,
+  simulationQueueBackpressure: false,
+  eventLoopOverloaded: false,
+  reason: "idle"
+};
 const queueMicrotaskFn =
   typeof setImmediate === "function"
     ? (fn: () => void): void => {
@@ -7058,12 +7087,68 @@ const enqueueAiWorkerJob = (job: AiWorkerJob): void => {
   queueMicrotaskFn(drainAiWorkerQueue);
 };
 
+const latestRuntimeVitalsSample = (): ReturnType<typeof sampleRuntimeVitals> | undefined => recentRuntimeVitals.values().at(-1);
+
+const onlineHumanPlayerCount = (): number => {
+  let count = 0;
+  for (const playerId of socketsByPlayer.keys()) {
+    const player = players.get(playerId);
+    if (!player?.isAi) count += 1;
+  }
+  return count;
+};
+
+const chooseAiBatchSize = (totalAiPlayers: number): number => {
+  if (totalAiPlayers <= 0) return 0;
+  const vitals = latestRuntimeVitalsSample();
+  const humanPlayersOnline = onlineHumanPlayerCount() > 0;
+  const authPriorityActive = pendingAuthVerifications > 0 || authPriorityUntil > now();
+  const aiQueueBackpressure = aiWorkerState.queue.length >= AI_WORKER_QUEUE_SOFT_LIMIT;
+  const simulationQueueBackpressure = simulationCommandWorkerState.queue.length >= AI_SIM_QUEUE_SOFT_LIMIT;
+  const eventLoopOverloaded = Boolean(
+    vitals &&
+      (vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ||
+        vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT)
+  );
+  let batchSize = Math.min(totalAiPlayers, AI_TICK_BATCH_SIZE);
+  let reason = "base";
+
+  if (humanPlayersOnline) {
+    batchSize = Math.min(batchSize, AI_HUMAN_PRIORITY_BATCH_SIZE);
+    reason = "human_priority";
+  }
+  if (authPriorityActive) {
+    batchSize = Math.min(batchSize, AI_AUTH_PRIORITY_BATCH_SIZE);
+    reason = reason === "base" ? "auth_priority" : `${reason}+auth_priority`;
+  }
+  if (aiQueueBackpressure || simulationQueueBackpressure || eventLoopOverloaded) {
+    batchSize = 1;
+    const overloadReasons = [
+      aiQueueBackpressure ? "ai_queue_backpressure" : "",
+      simulationQueueBackpressure ? "simulation_queue_backpressure" : "",
+      eventLoopOverloaded ? "event_loop_overloaded" : ""
+    ].filter(Boolean);
+    reason = overloadReasons.join("+") || "overloaded";
+  }
+
+  aiSchedulerState.at = now();
+  aiSchedulerState.batchSize = Math.max(1, batchSize);
+  aiSchedulerState.selectedAiPlayers = Math.max(1, batchSize);
+  aiSchedulerState.totalAiPlayers = totalAiPlayers;
+  aiSchedulerState.humanPlayersOnline = humanPlayersOnline;
+  aiSchedulerState.authPriorityActive = authPriorityActive;
+  aiSchedulerState.aiQueueBackpressure = aiQueueBackpressure;
+  aiSchedulerState.simulationQueueBackpressure = simulationQueueBackpressure;
+  aiSchedulerState.eventLoopOverloaded = eventLoopOverloaded;
+  aiSchedulerState.reason = reason;
+  return Math.max(1, batchSize);
+};
+
 const runAiTick = (): void => {
   if (aiTickInFlight) return;
-  if (pendingAuthVerifications > 0 || authPriorityUntil > now()) return;
   const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
   if (aiPlayers.length === 0) return;
-  const batchSize = Math.min(aiPlayers.length, AI_TICK_BATCH_SIZE);
+  const batchSize = Math.min(aiPlayers.length, chooseAiBatchSize(aiPlayers.length));
   const selectedAiPlayers =
     batchSize >= aiPlayers.length
       ? aiPlayers
@@ -7071,6 +7156,8 @@ const runAiTick = (): void => {
           (actor): actor is Player => Boolean(actor)
         );
   if (selectedAiPlayers.length === 0) return;
+  aiSchedulerState.at = now();
+  aiSchedulerState.selectedAiPlayers = selectedAiPlayers.length;
   aiRoundRobinOffset = (aiRoundRobinOffset + batchSize) % aiPlayers.length;
   aiTickInFlight = true;
   const startedAt = now();
@@ -10461,6 +10548,18 @@ const runtimeDashboardPayload = (): {
     aiDraining: boolean;
     simulationCommandDraining: boolean;
   };
+  aiScheduler: {
+    at: number;
+    batchSize: number;
+    selectedAiPlayers: number;
+    totalAiPlayers: number;
+    humanPlayersOnline: boolean;
+    authPriorityActive: boolean;
+    aiQueueBackpressure: boolean;
+    simulationQueueBackpressure: boolean;
+    eventLoopOverloaded: boolean;
+    reason: string;
+  };
   hotspots: ReturnType<typeof runtimeHotspotDiagnostics>;
   collections: Array<{ name: string; entries: number }>;
   history: {
@@ -10503,6 +10602,9 @@ const runtimeDashboardPayload = (): {
       simulationCommandQueueDepth: simulationCommandWorkerState.queue.length,
       aiDraining: aiWorkerState.draining,
       simulationCommandDraining: simulationCommandWorkerState.draining
+    },
+    aiScheduler: {
+      ...aiSchedulerState
     },
     hotspots: runtimeHotspotDiagnostics(),
     collections: runtimeCollectionDiagnostics(),
