@@ -90,6 +90,7 @@ import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
+import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
@@ -104,6 +105,8 @@ const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT
 const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ?? 65));
 const AI_PLANNER_WORKER_ENABLED = process.env.AI_PLANNER_WORKER !== "0";
 const AI_PLANNER_TIMEOUT_MS = Math.max(50, Number(process.env.AI_PLANNER_TIMEOUT_MS ?? 750));
+const SIM_COMBAT_WORKER_ENABLED = process.env.SIM_COMBAT_WORKER !== "0";
+const SIM_COMBAT_TIMEOUT_MS = Math.max(50, Number(process.env.SIM_COMBAT_TIMEOUT_MS ?? 750));
 const SIM_DRAIN_BUDGET_MS = Math.max(4, Number(process.env.SIM_DRAIN_BUDGET_MS ?? 12));
 const SIM_DRAIN_MAX_COMMANDS = Math.max(1, Number(process.env.SIM_DRAIN_MAX_COMMANDS ?? 8));
 const SIM_DRAIN_HUMAN_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_HUMAN_QUOTA ?? 6));
@@ -4983,7 +4986,7 @@ const tryQueueBasicFrontierAction = (
   combatLocks.set(fk, pending);
   combatLocks.set(tk, pending);
 
-  pending.timeout = setTimeout(() => {
+  pending.timeout = setTimeout(async () => {
     if (pending.cancelled) return;
     combatLocks.delete(fk);
     combatLocks.delete(tk);
@@ -7148,6 +7151,118 @@ const planAiDecisionViaWorker = async (snapshot: AiPlanningSnapshot): Promise<Ai
   }
 };
 
+type CombatWorkerResponse =
+  | { id: number; result: CombatResolutionResult }
+  | { id: number; error: string };
+
+const combatWorkerState: {
+  worker: Worker | undefined;
+  enabled: boolean;
+  available: boolean;
+  crashed: boolean;
+  pending: number;
+  lastRoundTripMs: number;
+  lastUsedWorker: boolean;
+  lastFallbackReason: string | undefined;
+  nextRequestId: number;
+  inflight: Map<number, { startedAt: number; resolve: (result: CombatResolutionResult) => void; reject: (err: Error) => void; timeout: NodeJS.Timeout }>;
+} = {
+  worker: undefined,
+  enabled: SIM_COMBAT_WORKER_ENABLED,
+  available: false,
+  crashed: false,
+  pending: 0,
+  lastRoundTripMs: 0,
+  lastUsedWorker: false,
+  lastFallbackReason: undefined,
+  nextRequestId: 0,
+  inflight: new Map()
+};
+
+const resolveCombatFallback = (request: CombatResolutionRequest, reason: string): CombatResolutionResult => {
+  combatWorkerState.lastUsedWorker = false;
+  combatWorkerState.lastFallbackReason = reason;
+  return resolveCombatRoll(request);
+};
+
+const clearCombatInflight = (error: Error): void => {
+  for (const [requestId, entry] of combatWorkerState.inflight.entries()) {
+    clearTimeout(entry.timeout);
+    entry.reject(error);
+    combatWorkerState.inflight.delete(requestId);
+  }
+  combatWorkerState.pending = 0;
+};
+
+const ensureCombatWorker = (): Worker | undefined => {
+  if (!combatWorkerState.enabled) return undefined;
+  if (combatWorkerState.worker) return combatWorkerState.worker;
+  try {
+    const worker = new Worker(new URL("./sim/combat-worker.js", import.meta.url));
+    worker.on("message", (message: CombatWorkerResponse) => {
+      const entry = combatWorkerState.inflight.get(message.id);
+      if (!entry) return;
+      clearTimeout(entry.timeout);
+      combatWorkerState.inflight.delete(message.id);
+      combatWorkerState.pending = combatWorkerState.inflight.size;
+      combatWorkerState.lastRoundTripMs = now() - entry.startedAt;
+      if ("error" in message) {
+        entry.reject(new Error(message.error));
+        return;
+      }
+      combatWorkerState.lastUsedWorker = true;
+      combatWorkerState.lastFallbackReason = undefined;
+      entry.resolve(message.result);
+    });
+    worker.on("error", (err) => {
+      combatWorkerState.available = false;
+      combatWorkerState.crashed = true;
+      combatWorkerState.worker = undefined;
+      clearCombatInflight(err instanceof Error ? err : new Error(String(err)));
+      logRuntimeError("combat worker failed", err);
+    });
+    worker.on("exit", (code) => {
+      combatWorkerState.available = false;
+      combatWorkerState.worker = undefined;
+      if (code !== 0) {
+        combatWorkerState.crashed = true;
+        clearCombatInflight(new Error(`combat worker exited with code ${code}`));
+      }
+    });
+    combatWorkerState.worker = worker;
+    combatWorkerState.available = true;
+    combatWorkerState.crashed = false;
+    return worker;
+  } catch (err) {
+    combatWorkerState.available = false;
+    combatWorkerState.crashed = true;
+    logRuntimeError("failed to start combat worker", err);
+    return undefined;
+  }
+};
+
+const resolveCombatViaWorker = async (request: CombatResolutionRequest): Promise<CombatResolutionResult> => {
+  const worker = ensureCombatWorker();
+  if (!worker) return resolveCombatFallback(request, "worker_unavailable");
+  const requestId = ++combatWorkerState.nextRequestId;
+  const startedAt = now();
+  const promise = new Promise<CombatResolutionResult>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      combatWorkerState.inflight.delete(requestId);
+      combatWorkerState.pending = combatWorkerState.inflight.size;
+      reject(new Error("combat worker timed out"));
+    }, SIM_COMBAT_TIMEOUT_MS);
+    combatWorkerState.inflight.set(requestId, { startedAt, resolve, reject, timeout });
+    combatWorkerState.pending = combatWorkerState.inflight.size;
+  });
+  worker.postMessage({ id: requestId, request });
+  try {
+    return await promise;
+  } catch (err) {
+    return resolveCombatFallback(request, err instanceof Error ? err.message : "worker_error");
+  }
+};
+
 const drainAiWorkerQueue = async (): Promise<void> => {
   const job = aiWorkerState.queue.shift();
   if (!job) {
@@ -7431,7 +7546,7 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
       resolvesAt: pending.resolvesAt
     });
   }
-  pending.timeout = setTimeout(() => {
+  pending.timeout = setTimeout(async () => {
     if (pending.cancelled) return;
     if (!hasOnlinePlayers()) {
       cancelPendingCapture(pending);
@@ -7461,20 +7576,21 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
     const shockMult = shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
     const fortMult = fortDefenseMultAt(defender.id, targetKey);
     const dockMult = docksByTile.has(targetKey) ? DOCK_DEFENSE_MULT : 1;
-    const atkEff = 10 * BARBARIAN_ATTACK_POWER * randomFactor();
-    const defEff =
-      10 *
-      BARBARIAN_DEFENSE_POWER *
-      defender.mods.defense *
-      playerDefensiveness(defender) *
-      shockMult *
-      fortMult *
-      dockMult *
-      settledDefenseMultiplierForTarget(defender.id, currentTarget) *
-      settlementDefenseMultAt(defender.id, targetKey) *
-      ownershipDefenseMultiplierForTarget(currentTarget) *
-      randomFactor();
-    const win = Math.random() < combatWinChance(atkEff, defEff);
+    const combat = await resolveCombatViaWorker({
+      attackBase: 10 * BARBARIAN_ATTACK_POWER,
+      defenseBase:
+        10 *
+        BARBARIAN_DEFENSE_POWER *
+        defender.mods.defense *
+        playerDefensiveness(defender) *
+        shockMult *
+        fortMult *
+        dockMult *
+        settledDefenseMultiplierForTarget(defender.id, currentTarget) *
+        settlementDefenseMultAt(defender.id, targetKey) *
+        ownershipDefenseMultiplierForTarget(currentTarget)
+    });
+    const win = combat.win;
     const progressBefore = live.progress;
     if (!win) {
       live.lastActionAt = now();
@@ -10652,6 +10768,7 @@ const runtimeDashboardPayload = (): {
     aiSimulationQueueDepth: number;
     aiQueueDepth: number;
     aiPlannerPending: number;
+    combatWorkerPending: number;
     simulationCommandQueueDepth: number;
     aiDraining: boolean;
     simulationCommandDraining: boolean;
@@ -10667,6 +10784,11 @@ const runtimeDashboardPayload = (): {
     aiPlannerLastRoundTripMs: number;
     aiPlannerLastUsedWorker: boolean;
     aiPlannerLastFallbackReason?: string;
+    combatWorkerAvailable: boolean;
+    combatWorkerCrashed: boolean;
+    combatWorkerLastRoundTripMs: number;
+    combatWorkerLastUsedWorker: boolean;
+    combatWorkerLastFallbackReason?: string;
   };
   aiScheduler: {
     at: number;
@@ -10723,6 +10845,7 @@ const runtimeDashboardPayload = (): {
       aiSimulationQueueDepth: simulationCommandWorkerState.aiQueue.length,
       aiQueueDepth: aiWorkerState.queue.length,
       aiPlannerPending: aiPlannerWorkerState.pending,
+      combatWorkerPending: combatWorkerState.pending,
       simulationCommandQueueDepth: simulationCommandQueueDepth(),
       aiDraining: aiWorkerState.draining,
       simulationCommandDraining: simulationCommandWorkerState.draining,
@@ -10737,7 +10860,12 @@ const runtimeDashboardPayload = (): {
       aiPlannerCrashed: aiPlannerWorkerState.crashed,
       aiPlannerLastRoundTripMs: aiPlannerWorkerState.lastRoundTripMs,
       aiPlannerLastUsedWorker: aiPlannerWorkerState.lastUsedWorker,
-      ...(aiPlannerWorkerState.lastFallbackReason ? { aiPlannerLastFallbackReason: aiPlannerWorkerState.lastFallbackReason } : {})
+      ...(aiPlannerWorkerState.lastFallbackReason ? { aiPlannerLastFallbackReason: aiPlannerWorkerState.lastFallbackReason } : {}),
+      combatWorkerAvailable: combatWorkerState.available,
+      combatWorkerCrashed: combatWorkerState.crashed,
+      combatWorkerLastRoundTripMs: combatWorkerState.lastRoundTripMs,
+      combatWorkerLastUsedWorker: combatWorkerState.lastUsedWorker,
+      ...(combatWorkerState.lastFallbackReason ? { combatWorkerLastFallbackReason: combatWorkerState.lastFallbackReason } : {})
     },
     aiScheduler: {
       ...aiSchedulerState
@@ -12185,7 +12313,7 @@ app.post("/admin/world/regenerate", async () => {
       });
     }
 
-    pending.timeout = setTimeout(() => {
+    pending.timeout = setTimeout(async () => {
       if (pending.cancelled) return;
       combatLocks.delete(fk);
       combatLocks.delete(tk);
@@ -12232,10 +12360,7 @@ app.post("/admin/world/regenerate", async () => {
       actor.stamina -= staminaCost;
 
       const specialAttackMult = isDeepStrikeAttack ? DEEP_STRIKE_ATTACK_MULT : isNavalInfiltrationAttack ? NAVAL_INFILTRATION_ATTACK_MULT : 1;
-      const atkEff =
-        10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to) * specialAttackMult * randomFactor();
       const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
-      const atkEffWithSiege = atkEff * siegeAtkMult;
       applyTownWarShock(tk);
       const shock = breachShockByTile.get(tk);
       const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
@@ -12246,11 +12371,22 @@ app.post("/admin/world/regenerate", async () => {
       const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
       const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
       const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
-      const defEff = defenderIsBarbarian
-        ? 10 * BARBARIAN_DEFENSE_POWER * dockMult * randomFactor()
-        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult * randomFactor();
-      const p = combatWinChance(atkEffWithSiege, defEff);
-      const win = Math.random() < p;
+      const combat = await resolveCombatViaWorker({
+        attackBase:
+          10 *
+          actor.mods.attack *
+          activeAttackBuffMult(actor.id) *
+          attackMultiplierForTarget(actor.id, to) *
+          specialAttackMult *
+          siegeAtkMult,
+        defenseBase: defenderIsBarbarian
+          ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
+          : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult
+      });
+      const atkEffWithSiege = combat.atkEff;
+      const defEff = combat.defEff;
+      const p = combat.winChance;
+      const win = combat.win;
 
       let pointsDelta = 0;
       let resultChanges: Array<{
