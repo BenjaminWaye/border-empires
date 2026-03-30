@@ -81,13 +81,15 @@ import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
+import { Worker } from "node:worker_threads";
 import { z } from "zod";
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
-import { planBestGoal, rankSeasonVictoryPaths, goalsForVictoryPath, AI_EMPIRE_ACTIONS, type AiEmpireGoapState, type AiSeasonVictoryPathId } from "./ai/goap.js";
+import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
+import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
@@ -100,6 +102,8 @@ const AI_WORKER_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_WORKER_QUEU
 const AI_SIM_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_SIM_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 3));
 const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ?? 60));
 const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ?? 65));
+const AI_PLANNER_WORKER_ENABLED = process.env.AI_PLANNER_WORKER !== "0";
+const AI_PLANNER_TIMEOUT_MS = Math.max(50, Number(process.env.AI_PLANNER_TIMEOUT_MS ?? 750));
 const SIM_DRAIN_BUDGET_MS = Math.max(4, Number(process.env.SIM_DRAIN_BUDGET_MS ?? 12));
 const SIM_DRAIN_MAX_COMMANDS = Math.max(1, Number(process.env.SIM_DRAIN_MAX_COMMANDS ?? 8));
 const SIM_DRAIN_HUMAN_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_HUMAN_QUOTA ?? 6));
@@ -6659,7 +6663,7 @@ const setAiTurnDebug = (
   });
 };
 
-const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
+const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<void> => {
   if (!actor.isAi) return;
   actor.lastActiveAt = now();
   if (actor.T <= 0 || actor.territoryTiles.size === 0 || actor.respawnPending) {
@@ -6836,360 +6840,150 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
     economicBuild: economicBuild(),
     pressureAttack: pressureAttack()
   });
-  const urgentPressureAttackReady =
-    Boolean(pressureAttack()) &&
-    actor.points >= FRONTIER_ACTION_GOLD_COST &&
-    pressureAttackThreatensCore(actor, pressureAttack()) &&
-    ((pressureAttack()?.score ?? 0) >= 350 || (underThreat && (pressureAttack()?.score ?? 0) >= 220));
-  const pressureAttackReady =
-    Boolean(pressureAttack()) &&
-    actor.points >= FRONTIER_ACTION_GOLD_COST &&
-    (!threatCritical || urgentPressureAttackReady);
-
-  if (urgentPressureAttackReady) {
-    const executed = executeAiGoapAction(actor, "attack_enemy_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-    setAiTurnDebug(actor, executed ? "executed_pressure_counterattack_priority" : "failed_pressure_counterattack_priority", {
-      incomePerMinute: aiIncome,
-      controlledTowns,
-      settledTiles,
-      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      goapActionKey: "attack_enemy_border_tile",
-      executed,
-      details: {
-        enemyPressureScore: pressureAttack()?.score ?? 0,
-        underThreat,
-        threatCritical,
-        urgentPressureAttackReady
-      }
-    });
-    if (executed) return;
-  }
-
-  if (foodCoverageLow && settlementTile() && canAffordGoldCost(actor.points, SETTLE_COST)) {
-    const executed = executeAiGoapAction(actor, "settle_owned_frontier_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-    setAiTurnDebug(actor, executed ? "executed_food_settlement_priority" : "failed_food_settlement_priority", {
-      incomePerMinute: aiIncome,
-      controlledTowns,
-      settledTiles,
-      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      goapActionKey: "settle_owned_frontier_tile",
-      executed,
-      details: {
-        foodCoverage,
-        foodCoverageLow,
-        hasSettlementTarget: Boolean(settlementTile()),
-        frontierTiles
-      }
-    });
-    if (executed) return;
-  }
-
-  if (foodCoverageLow && economicPushReady() && actor.points >= FRONTIER_ACTION_GOLD_COST) {
-    const executed = executeAiGoapAction(actor, "claim_food_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-    setAiTurnDebug(actor, executed ? "executed_food_expand_priority" : "failed_food_expand_priority", {
-      incomePerMinute: aiIncome,
-      controlledTowns,
-      settledTiles,
-      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      goapActionKey: "claim_food_border_tile",
-      executed,
-      details: {
-        foodCoverage,
-        foodCoverageLow,
-        economicOpportunityCount: frontierOpportunityCounts().economic,
-        hasNeutralLandOpportunity: Boolean(neutralExpand())
-      }
-    });
-    if (executed) return;
-  }
-
-  if ((economyWeak || frontierDebt) && settlementTile() && canAffordGoldCost(actor.points, SETTLE_COST)) {
-    const executed = executeAiGoapAction(actor, "settle_owned_frontier_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-    setAiTurnDebug(actor, executed ? "executed_settlement_priority" : "failed_settlement_priority", {
-      incomePerMinute: aiIncome,
-      controlledTowns,
-      settledTiles,
-      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      goapActionKey: "settle_owned_frontier_tile",
-      executed,
-      details: {
-        economyWeak,
-        frontierDebt,
-        underThreat,
-        hasSettlementTarget: Boolean(settlementTile()),
-        frontierTiles
-      }
-    });
-    if (executed) return;
-  }
-  if (pressureAttackReady && (primaryVictoryPath === "TOWN_CONTROL" || (pressureAttack()?.score ?? 0) >= 150)) {
-    const executed = executeAiGoapAction(actor, "attack_enemy_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-    setAiTurnDebug(actor, executed ? "executed_pressure_attack_priority" : "failed_pressure_attack_priority", {
-      incomePerMinute: aiIncome,
-      controlledTowns,
-      settledTiles,
-      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      goapActionKey: "attack_enemy_border_tile",
-      executed,
-      details: {
-        enemyPressureScore: pressureAttack()?.score ?? 0,
-        hasWeakEnemyBorder: Boolean(enemyAttack()),
-        underThreat,
-        threatCritical,
-        urgentPressureAttackReady
-      }
-    });
-    if (executed) return;
-  }
-  if (economyWeak && economicPushReady() && actor.points >= FRONTIER_ACTION_GOLD_COST) {
-    const executed = executeAiGoapAction(actor, "claim_neutral_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-    setAiTurnDebug(actor, executed ? "executed_economic_expand_priority" : "failed_economic_expand_priority", {
-      incomePerMinute: aiIncome,
-      controlledTowns,
-      settledTiles,
-      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      goapActionKey: "claim_neutral_border_tile",
-      executed,
-      details: {
-        economyWeak,
-        economicOpportunityCount: frontierOpportunityCounts().economic,
-        hasNeutralLandOpportunity: Boolean(neutralExpand())
-      }
-    });
-    if (executed) return;
-  }
-  if (economyWeak && economicBuild() && !underThreat) {
-    const executed = executeAiGoapAction(actor, "build_economic_structure", primaryVictoryPath, territorySummary, aiActionCandidates());
-    setAiTurnDebug(actor, executed ? "executed_economic_priority" : "failed_economic_priority", {
-      incomePerMinute: aiIncome,
-      controlledTowns,
-      settledTiles,
-      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      goapActionKey: "build_economic_structure",
-      executed,
-      details: {
-        economyWeak,
-        underThreat,
-        hasEconomicBuild: Boolean(economicBuild())
-      }
-    });
-    if (executed) return;
-  }
+  const pressureCandidate = pressureAttack();
+  const enemyAttackCandidate = enemyAttack();
+  const settlementCandidate = settlementTile();
   const fortAnchorTile = fortAnchor();
+  const economicBuildCandidate = economicBuild();
+  const neutralExpandCandidate = neutralExpand();
+  const scaffoldExpandCandidate = scaffoldExpand();
+  const scoutExpandCandidate = scoutExpand();
+  const barbarianAttackCandidate = barbarianAttack();
+  const openingScoutCandidate = openingScoutExpand();
+  const frontierCounts = frontierOpportunityCounts();
   const coreFortAnchor = fortTileProtectsCore(actor, fortAnchorTile);
   const dockFortAnchor = fortTileIsDockChokePoint(fortAnchorTile);
-  const needsFortifiedAnchor = Boolean(fortAnchorTile) && coreFortAnchor && (controlledTowns > 0 || worldFlags.has("active_dock") || aiIncome >= 16);
-  const fortifyChokePoint =
-    Boolean(fortAnchorTile) &&
-    coreFortAnchor &&
-    !pressureAttackReady &&
-    !urgentPressureAttackReady &&
-    (
-      (underThreat && threatCritical && !settlementTile()) ||
-      (dockFortAnchor && worldFlags.has("active_dock") && !economyWeak && !foodCoverageLow && !settlementTile())
-    );
-  if (fortifyChokePoint && actor.points >= FORT_BUILD_COST) {
-    const executed = executeAiGoapAction(actor, "build_fort_on_exposed_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-    setAiTurnDebug(actor, executed ? "executed_fort_priority" : "failed_fort_priority", {
-      incomePerMinute: aiIncome,
-      controlledTowns,
-      settledTiles,
-      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      goapActionKey: "build_fort_on_exposed_tile",
-      executed,
-      details: {
-        needsFortifiedAnchor,
-        fortifyChokePoint,
-        underThreat,
-        threatCritical,
-        coreFortAnchor,
-        dockFortAnchor,
-        pressureAttackReady
-      }
-    });
-    if (executed) return;
-  }
-
-  const goapState: AiEmpireGoapState = {
-    hasNeutralLandOpportunity: Boolean(neutralExpand()),
-    hasScoutOpportunity: Boolean(scoutExpand()),
-    hasScaffoldOpportunity: Boolean(scaffoldExpand()),
-    hasBarbarianTarget: Boolean(barbarianAttack()),
-    hasWeakEnemyBorder: Boolean(pressureAttack() ?? enemyAttack()),
-    needsSettlement: Boolean(settlementTile()),
-    frontierDebtHigh: frontierDebt,
-    foodCoverageLow,
+  const planningSnapshot: AiPlanningSnapshot = {
+    primaryVictoryPath,
+    aiIncome,
+    runnerUpIncome,
+    controlledTowns,
+    townsTarget,
+    settledTiles,
+    settledTilesTarget,
+    frontierTiles,
     underThreat,
     threatCritical,
     economyWeak,
-    needsFortifiedAnchor,
+    frontierDebt,
+    foodCoverage,
+    foodCoverageLow,
+    hasActiveTown: worldFlags.has("active_town"),
+    hasActiveDock: worldFlags.has("active_dock"),
+    points: actor.points,
+    stamina: actor.stamina,
+    openingScoutAvailable: Boolean(openingScoutCandidate),
+    neutralExpandAvailable: Boolean(neutralExpandCandidate),
+    scoutExpandAvailable: Boolean(scoutExpandCandidate),
+    scaffoldExpandAvailable: Boolean(scaffoldExpandCandidate),
+    barbarianAttackAvailable: Boolean(barbarianAttackCandidate),
+    enemyAttackAvailable: Boolean(enemyAttackCandidate),
+    pressureAttackAvailable: Boolean(pressureCandidate),
+    pressureAttackScore: pressureCandidate?.score ?? 0,
+    settlementAvailable: Boolean(settlementCandidate),
+    fortAvailable: Boolean(fortAnchorTile),
+    fortProtectsCore: coreFortAnchor,
+    fortIsDockChokePoint: dockFortAnchor,
+    economicBuildAvailable: Boolean(economicBuildCandidate),
+    frontierOpportunityEconomic: frontierCounts.economic,
+    frontierOpportunityScout: frontierCounts.scout,
+    frontierOpportunityScaffold: frontierCounts.scaffold,
+    frontierOpportunityWaste: frontierCounts.waste,
     canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
     canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
-    canBuildFort: Boolean(fortAnchor()) && actor.points >= FORT_BUILD_COST,
-    canBuildEconomy: Boolean(economicBuild()),
-    goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
-    staminaHealthy: actor.stamina >= 0
+    canBuildFort: Boolean(fortAnchorTile) && actor.points >= FORT_BUILD_COST,
+    canBuildEconomy: Boolean(economicBuildCandidate),
+    goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
   };
+  const decision = await planAiDecisionViaWorker(planningSnapshot);
+  const debugDetails = {
+    hasNeutralLandOpportunity: planningSnapshot.neutralExpandAvailable,
+    hasScoutOpportunity: planningSnapshot.scoutExpandAvailable,
+    hasScaffoldOpportunity: planningSnapshot.scaffoldExpandAvailable,
+    hasBarbarianTarget: planningSnapshot.barbarianAttackAvailable,
+    hasWeakEnemyBorder: planningSnapshot.pressureAttackAvailable || planningSnapshot.enemyAttackAvailable,
+    enemyPressureScore: planningSnapshot.pressureAttackScore,
+    needsSettlement: planningSnapshot.settlementAvailable,
+    frontierDebtHigh: planningSnapshot.frontierDebt,
+    foodCoverageLow: planningSnapshot.foodCoverageLow,
+    underThreat: planningSnapshot.underThreat,
+    threatCritical: planningSnapshot.threatCritical,
+    economyWeak: planningSnapshot.economyWeak,
+    needsFortifiedAnchor:
+      planningSnapshot.fortAvailable &&
+      planningSnapshot.fortProtectsCore &&
+      (planningSnapshot.controlledTowns > 0 || planningSnapshot.hasActiveDock || planningSnapshot.aiIncome >= 16),
+    canAffordFrontierAction: planningSnapshot.canAffordFrontierAction,
+    canAffordSettlement: planningSnapshot.canAffordSettlement,
+    canBuildFort: planningSnapshot.canBuildFort,
+    canBuildEconomy: planningSnapshot.canBuildEconomy,
+    goldHealthy: planningSnapshot.goldHealthy,
+    economicOpportunityCount: planningSnapshot.frontierOpportunityEconomic,
+    scoutOpportunityCount: planningSnapshot.frontierOpportunityScout,
+    scaffoldOpportunityCount: planningSnapshot.frontierOpportunityScaffold,
+    wasteOpportunityCount: planningSnapshot.frontierOpportunityWaste,
+    foodCoverage: planningSnapshot.foodCoverage,
+    frontierTiles,
+    openingScout: planningSnapshot.openingScoutAvailable,
+    workerPlanned: aiPlannerWorkerState.lastUsedWorker,
+    workerFallbackReason: aiPlannerWorkerState.lastFallbackReason
+  };
+  const resolvedReason = (executed: boolean): string =>
+    executed && decision.reason.startsWith("failed_")
+      ? decision.reason.replace("failed_", "executed_")
+      : !executed && decision.reason.startsWith("executed_")
+        ? decision.reason.replace("executed_", "failed_")
+        : decision.reason;
 
-  const goapPlan = planBestGoal(goapState, goalsForVictoryPath(primaryVictoryPath), AI_EMPIRE_ACTIONS);
-  const nextStep = goapPlan?.steps[0];
-  if (!nextStep) {
-    if (openingScoutExpand() && actor.points >= FRONTIER_ACTION_GOLD_COST) {
-      const executedAt = tryQueueBasicFrontierAction(
-        actor,
-        "EXPAND",
-        openingScoutExpand()!.from.x,
-        openingScoutExpand()!.from.y,
-        openingScoutExpand()!.to.x,
-        openingScoutExpand()!.to.y
-      );
-      const executed = executedAt !== undefined;
-      setAiTurnDebug(actor, executed ? "executed_opening_scout" : "failed_opening_scout", {
-        incomePerMinute: aiIncome,
-        controlledTowns,
-        settledTiles,
-        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-        goapActionKey: "claim_neutral_border_tile",
-        executed,
-        details: {
-          economyWeak,
-          openingScout: true
-        }
-      });
-      if (executed) return;
-    }
-    if (pressureAttackReady) {
-      const executed = executeAiGoapAction(actor, "attack_enemy_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-      setAiTurnDebug(actor, executed ? "executed_pressure_attack_fallback" : "failed_pressure_attack_fallback", {
-        incomePerMinute: aiIncome,
-        controlledTowns,
-        settledTiles,
-        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-        goapActionKey: "attack_enemy_border_tile",
-        executed,
-        details: {
-          enemyPressureScore: pressureAttack()?.score ?? 0,
-          hasWeakEnemyBorder: Boolean(enemyAttack()),
-          urgentPressureAttackReady
-        }
-      });
-      if (executed) return;
-    }
-    if (!economicPushReady() && scoutExpand() && actor.points >= FRONTIER_ACTION_GOLD_COST) {
-      const executed = executeAiGoapAction(actor, "claim_scout_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-      setAiTurnDebug(actor, executed ? "executed_scout_fallback" : "failed_scout_fallback", {
-        incomePerMinute: aiIncome,
-        controlledTowns,
-        settledTiles,
-        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-        goapActionKey: "claim_scout_border_tile",
-        executed,
-        details: {
-          economyWeak,
-          hasScoutOpportunity: goapState.hasScoutOpportunity
-        }
-      });
-      if (executed) return;
-    }
-    if (!economicPushReady() && scaffoldExpand() && actor.points >= FRONTIER_ACTION_GOLD_COST) {
-      const executed = executeAiGoapAction(actor, "claim_scaffold_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-      setAiTurnDebug(actor, executed ? "executed_scaffold_fallback" : "failed_scaffold_fallback", {
-        incomePerMinute: aiIncome,
-        controlledTowns,
-        settledTiles,
-        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-        goapActionKey: "claim_scaffold_border_tile",
-        executed,
-        details: {
-          economyWeak,
-          hasScaffoldOpportunity: goapState.hasScaffoldOpportunity,
-          scaffoldOpportunityCount: frontierOpportunityCounts().scaffold
-        }
-      });
-      if (executed) return;
-    }
-    if (economyWeak && neutralExpand() && actor.points >= FRONTIER_ACTION_GOLD_COST) {
-      const executed = executeAiGoapAction(actor, "claim_neutral_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
-      setAiTurnDebug(actor, executed ? "executed_expand_fallback" : "failed_expand_fallback", {
-        incomePerMinute: aiIncome,
-        controlledTowns,
-        settledTiles,
-        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-        goapActionKey: "claim_neutral_border_tile",
-        executed,
-        details: {
-          economyWeak,
-          hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity,
-          economicOpportunityCount: frontierOpportunityCounts().economic
-        }
-      });
-      if (executed) return;
-    }
-    setAiTurnDebug(actor, "no_goap_step", {
+  if (!decision.actionKey) {
+    setAiTurnDebug(actor, decision.reason, {
       incomePerMinute: aiIncome,
       controlledTowns,
       settledTiles,
       ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-      details: {
-        hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity,
-        hasScoutOpportunity: goapState.hasScoutOpportunity,
-        hasScaffoldOpportunity: goapState.hasScaffoldOpportunity,
-        hasBarbarianTarget: goapState.hasBarbarianTarget,
-        hasWeakEnemyBorder: goapState.hasWeakEnemyBorder,
-        enemyPressureScore: pressureAttack()?.score ?? 0,
-        needsSettlement: goapState.needsSettlement,
-        frontierDebtHigh: goapState.frontierDebtHigh,
-        foodCoverageLow: goapState.foodCoverageLow,
-        underThreat: goapState.underThreat,
-        threatCritical: goapState.threatCritical,
-        economyWeak: goapState.economyWeak,
-        needsFortifiedAnchor: goapState.needsFortifiedAnchor,
-        canAffordFrontierAction: goapState.canAffordFrontierAction,
-        canAffordSettlement: goapState.canAffordSettlement,
-        canBuildFort: goapState.canBuildFort,
-        canBuildEconomy: goapState.canBuildEconomy,
-        goldHealthy: goapState.goldHealthy,
-        economicOpportunityCount: frontierOpportunityCounts().economic,
-        scoutOpportunityCount: frontierOpportunityCounts().scout,
-        scaffoldOpportunityCount: frontierOpportunityCounts().scaffold,
-        wasteOpportunityCount: frontierOpportunityCounts().waste
-      }
+      details: debugDetails
     });
     return;
   }
-  const executed = executeAiGoapAction(actor, nextStep.action.key, primaryVictoryPath, territorySummary, aiActionCandidates());
-  setAiTurnDebug(actor, executed ? "executed_goap_action" : "failed_goap_action", {
+
+  if (decision.actionKey === "opening_scout_expand") {
+    const opening = openingScoutCandidate;
+    const executed = Boolean(
+      opening &&
+        tryQueueBasicFrontierAction(actor, "EXPAND", opening.from.x, opening.from.y, opening.to.x, opening.to.y)
+    );
+    setAiTurnDebug(actor, resolvedReason(executed), {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      ...(decision.goapActionKey ? { goapActionKey: decision.goapActionKey } : {}),
+      executed,
+      details: debugDetails
+    });
+    return;
+  }
+
+  const executed = executeAiGoapAction(actor, decision.actionKey, primaryVictoryPath, territorySummary, {
+    neutralExpand: neutralExpandCandidate,
+    scoutExpand: scoutExpandCandidate,
+    scaffoldExpand: scaffoldExpandCandidate,
+    barbarianAttack: barbarianAttackCandidate,
+    enemyAttack: enemyAttackCandidate,
+    settlementTile: settlementCandidate,
+    fortAnchor: fortAnchorTile,
+    economicBuild: economicBuildCandidate,
+    pressureAttack: pressureCandidate
+  });
+  setAiTurnDebug(actor, resolvedReason(executed), {
     incomePerMinute: aiIncome,
     controlledTowns,
     settledTiles,
     ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
-    goapGoalId: goapPlan.goalId,
-    goapActionKey: nextStep.action.key,
+    ...(decision.goapGoalId ? { goapGoalId: decision.goapGoalId } : {}),
+    ...(decision.goapActionKey ? { goapActionKey: decision.goapActionKey } : {}),
     executed,
-    details: {
-      hasNeutralLandOpportunity: goapState.hasNeutralLandOpportunity,
-      hasScoutOpportunity: goapState.hasScoutOpportunity,
-      hasScaffoldOpportunity: goapState.hasScaffoldOpportunity,
-      hasBarbarianTarget: goapState.hasBarbarianTarget,
-      hasWeakEnemyBorder: goapState.hasWeakEnemyBorder,
-      enemyPressureScore: pressureAttack()?.score ?? 0,
-      needsSettlement: goapState.needsSettlement,
-      frontierDebtHigh: goapState.frontierDebtHigh,
-      foodCoverageLow: goapState.foodCoverageLow,
-      underThreat: goapState.underThreat,
-      threatCritical: goapState.threatCritical,
-      economyWeak: goapState.economyWeak,
-      needsFortifiedAnchor: goapState.needsFortifiedAnchor,
-      canAffordFrontierAction: goapState.canAffordFrontierAction,
-      canAffordSettlement: goapState.canAffordSettlement,
-      canBuildFort: goapState.canBuildFort,
-      canBuildEconomy: goapState.canBuildEconomy,
-      goldHealthy: goapState.goldHealthy,
-      economicOpportunityCount: frontierOpportunityCounts().economic,
-      scoutOpportunityCount: frontierOpportunityCounts().scout,
-      scaffoldOpportunityCount: frontierOpportunityCounts().scaffold,
-      wasteOpportunityCount: frontierOpportunityCounts().waste
-    }
+    details: debugDetails
   });
 };
 
@@ -7242,7 +7036,119 @@ const aiWorkerState: {
   draining: false
 };
 
-const drainAiWorkerQueue = (): void => {
+type AiPlannerWorkerResponse =
+  | { id: number; decision: AiPlanningDecision }
+  | { id: number; error: string };
+
+const aiPlannerWorkerState: {
+  worker: Worker | undefined;
+  enabled: boolean;
+  available: boolean;
+  crashed: boolean;
+  pending: number;
+  lastRoundTripMs: number;
+  lastUsedWorker: boolean;
+  lastFallbackReason: string | undefined;
+  nextRequestId: number;
+  inflight: Map<number, { startedAt: number; resolve: (decision: AiPlanningDecision) => void; reject: (err: Error) => void; timeout: NodeJS.Timeout }>;
+} = {
+  worker: undefined,
+  enabled: AI_PLANNER_WORKER_ENABLED,
+  available: false,
+  crashed: false,
+  pending: 0,
+  lastRoundTripMs: 0,
+  lastUsedWorker: false,
+  lastFallbackReason: undefined,
+  nextRequestId: 0,
+  inflight: new Map()
+};
+
+const resolveAiPlannerFallback = (snapshot: AiPlanningSnapshot, reason: string): AiPlanningDecision => {
+  aiPlannerWorkerState.lastUsedWorker = false;
+  aiPlannerWorkerState.lastFallbackReason = reason;
+  return planAiDecision(snapshot);
+};
+
+const clearAiPlannerInflight = (error: Error): void => {
+  for (const [requestId, entry] of aiPlannerWorkerState.inflight.entries()) {
+    clearTimeout(entry.timeout);
+    entry.reject(error);
+    aiPlannerWorkerState.inflight.delete(requestId);
+  }
+  aiPlannerWorkerState.pending = 0;
+};
+
+const ensureAiPlannerWorker = (): Worker | undefined => {
+  if (!aiPlannerWorkerState.enabled) return undefined;
+  if (aiPlannerWorkerState.worker) return aiPlannerWorkerState.worker;
+  try {
+    const worker = new Worker(new URL("./ai/planner-worker.js", import.meta.url));
+    worker.on("message", (message: AiPlannerWorkerResponse) => {
+      const entry = aiPlannerWorkerState.inflight.get(message.id);
+      if (!entry) return;
+      clearTimeout(entry.timeout);
+      aiPlannerWorkerState.inflight.delete(message.id);
+      aiPlannerWorkerState.pending = aiPlannerWorkerState.inflight.size;
+      aiPlannerWorkerState.lastRoundTripMs = now() - entry.startedAt;
+      if ("error" in message) {
+        entry.reject(new Error(message.error));
+        return;
+      }
+      aiPlannerWorkerState.lastUsedWorker = true;
+      aiPlannerWorkerState.lastFallbackReason = undefined;
+      entry.resolve(message.decision);
+    });
+    worker.on("error", (err) => {
+      aiPlannerWorkerState.available = false;
+      aiPlannerWorkerState.crashed = true;
+      aiPlannerWorkerState.worker = undefined;
+      clearAiPlannerInflight(err instanceof Error ? err : new Error(String(err)));
+      logRuntimeError("ai planner worker failed", err);
+    });
+    worker.on("exit", (code) => {
+      aiPlannerWorkerState.available = false;
+      aiPlannerWorkerState.worker = undefined;
+      if (code !== 0) {
+        aiPlannerWorkerState.crashed = true;
+        clearAiPlannerInflight(new Error(`ai planner worker exited with code ${code}`));
+      }
+    });
+    aiPlannerWorkerState.worker = worker;
+    aiPlannerWorkerState.available = true;
+    aiPlannerWorkerState.crashed = false;
+    return worker;
+  } catch (err) {
+    aiPlannerWorkerState.available = false;
+    aiPlannerWorkerState.crashed = true;
+    logRuntimeError("failed to start ai planner worker", err);
+    return undefined;
+  }
+};
+
+const planAiDecisionViaWorker = async (snapshot: AiPlanningSnapshot): Promise<AiPlanningDecision> => {
+  const worker = ensureAiPlannerWorker();
+  if (!worker) return resolveAiPlannerFallback(snapshot, "worker_unavailable");
+  const requestId = ++aiPlannerWorkerState.nextRequestId;
+  const startedAt = now();
+  const promise = new Promise<AiPlanningDecision>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      aiPlannerWorkerState.inflight.delete(requestId);
+      aiPlannerWorkerState.pending = aiPlannerWorkerState.inflight.size;
+      reject(new Error("ai planner worker timed out"));
+    }, AI_PLANNER_TIMEOUT_MS);
+    aiPlannerWorkerState.inflight.set(requestId, { startedAt, resolve, reject, timeout });
+    aiPlannerWorkerState.pending = aiPlannerWorkerState.inflight.size;
+  });
+  worker.postMessage({ id: requestId, snapshot });
+  try {
+    return await promise;
+  } catch (err) {
+    return resolveAiPlannerFallback(snapshot, err instanceof Error ? err.message : "worker_error");
+  }
+};
+
+const drainAiWorkerQueue = async (): Promise<void> => {
   const job = aiWorkerState.queue.shift();
   if (!job) {
     aiWorkerState.draining = false;
@@ -7250,7 +7156,7 @@ const drainAiWorkerQueue = (): void => {
   }
   const turnStartedAt = now();
   try {
-    runAiTurn(job.actor, job.tickContext);
+    await runAiTurn(job.actor, job.tickContext);
   } catch (err) {
     logRuntimeError("ai tick failed", err);
   } finally {
@@ -7260,14 +7166,18 @@ const drainAiWorkerQueue = (): void => {
     aiWorkerState.draining = false;
     return;
   }
-  queueMicrotaskFn(drainAiWorkerQueue);
+  queueMicrotaskFn(() => {
+    void drainAiWorkerQueue();
+  });
 };
 
 const enqueueAiWorkerJob = (job: AiWorkerJob): void => {
   aiWorkerState.queue.push(job);
   if (aiWorkerState.draining) return;
   aiWorkerState.draining = true;
-  queueMicrotaskFn(drainAiWorkerQueue);
+  queueMicrotaskFn(() => {
+    void drainAiWorkerQueue();
+  });
 };
 
 const latestRuntimeVitalsSample = (): ReturnType<typeof sampleRuntimeVitals> | undefined => recentRuntimeVitals.values().at(-1);
@@ -10741,6 +10651,7 @@ const runtimeDashboardPayload = (): {
     systemSimulationQueueDepth: number;
     aiSimulationQueueDepth: number;
     aiQueueDepth: number;
+    aiPlannerPending: number;
     simulationCommandQueueDepth: number;
     aiDraining: boolean;
     simulationCommandDraining: boolean;
@@ -10751,6 +10662,11 @@ const runtimeDashboardPayload = (): {
     lastSimulationDrainHumanCommands: number;
     lastSimulationDrainSystemCommands: number;
     lastSimulationDrainAiCommands: number;
+    aiPlannerAvailable: boolean;
+    aiPlannerCrashed: boolean;
+    aiPlannerLastRoundTripMs: number;
+    aiPlannerLastUsedWorker: boolean;
+    aiPlannerLastFallbackReason?: string;
   };
   aiScheduler: {
     at: number;
@@ -10806,6 +10722,7 @@ const runtimeDashboardPayload = (): {
       systemSimulationQueueDepth: simulationCommandWorkerState.systemQueue.length,
       aiSimulationQueueDepth: simulationCommandWorkerState.aiQueue.length,
       aiQueueDepth: aiWorkerState.queue.length,
+      aiPlannerPending: aiPlannerWorkerState.pending,
       simulationCommandQueueDepth: simulationCommandQueueDepth(),
       aiDraining: aiWorkerState.draining,
       simulationCommandDraining: simulationCommandWorkerState.draining,
@@ -10815,7 +10732,12 @@ const runtimeDashboardPayload = (): {
       lastSimulationDrainCommands: simulationCommandWorkerState.lastDrainCommands,
       lastSimulationDrainHumanCommands: simulationCommandWorkerState.lastDrainHumanCommands,
       lastSimulationDrainSystemCommands: simulationCommandWorkerState.lastDrainSystemCommands,
-      lastSimulationDrainAiCommands: simulationCommandWorkerState.lastDrainAiCommands
+      lastSimulationDrainAiCommands: simulationCommandWorkerState.lastDrainAiCommands,
+      aiPlannerAvailable: aiPlannerWorkerState.available,
+      aiPlannerCrashed: aiPlannerWorkerState.crashed,
+      aiPlannerLastRoundTripMs: aiPlannerWorkerState.lastRoundTripMs,
+      aiPlannerLastUsedWorker: aiPlannerWorkerState.lastUsedWorker,
+      ...(aiPlannerWorkerState.lastFallbackReason ? { aiPlannerLastFallbackReason: aiPlannerWorkerState.lastFallbackReason } : {})
     },
     aiScheduler: {
       ...aiSchedulerState
