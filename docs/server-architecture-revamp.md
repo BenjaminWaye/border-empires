@@ -37,8 +37,10 @@ Split responsibilities into two services:
    - Queue backpressure and event-loop pressure now clamp AI to single-turn slices instead of allowing runaway batches.
 3. Make frontier/settlement confirmations delta-first and avoid chunk refresh dependence.
 4. Extract simulation commands and events behind an internal interface in-process.
-   - Status: started.
+   - Status: expanded.
    - AI actions now go through an internal simulation-command seam instead of calling websocket-shaped message handling directly.
+   - Human mutating gameplay commands now also enter a prioritized in-process simulation queue instead of executing inline on the websocket callback.
+   - The queue is split into human and AI lanes, with human jobs draining first.
 5. Build reusable per-turn simulation indexes.
    - Cache frontier anchors, structure candidates, and other selector inputs once per AI turn.
    - Prefer incremental invalidation over recomputing territory scans in every selector.
@@ -46,6 +48,7 @@ Split responsibilities into two services:
    - Status: started in-process.
    - AI ticks now build one shared cycle snapshot for the selected batch and enqueue turn execution onto an internal AI worker queue.
    - AI actions now enqueue simulation commands onto a separate internal simulation-command queue instead of mutating world state inline from the AI decision path.
+   - Human and AI simulation queue pressure is now visible independently in `/admin/runtime/debug`.
    - AI scheduling now exposes runtime scheduler state so starvation/backpressure is visible in `/admin/runtime/debug`.
    - Next step is to lift these two queues behind a `worker_threads` or external simulation process boundary without changing the gateway contract.
 7. Replace snapshot-first persistence with an indexed store such as SQLite or Postgres.
