@@ -2774,7 +2774,7 @@ const marketCapMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): n
   return 1 + effects.marketCapBonusAdd;
 };
 
-const granaryCapMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+const granaryGrowthMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
   const structure = structureForSupportedTown(tileKey, ownerId, "GRANARY");
   if (!structure || structure.status !== "active") return 1;
   const effects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
@@ -2833,7 +2833,7 @@ const townCapForOwner = (town: TownDefinition, ownerId: string | undefined): num
   if (!ownerId) return TILE_YIELD_CAP_GOLD;
   const effects = getPlayerEffectsForPlayer(ownerId);
   const income = townIncomeForOwner(town, ownerId);
-  return income * 60 * 8 * effects.townGoldCapMult * marketCapMultiplierAt(town.tileKey, ownerId) * granaryCapMultiplierAt(town.tileKey, ownerId);
+  return income * 60 * 8 * effects.townGoldCapMult * marketCapMultiplierAt(town.tileKey, ownerId);
 };
 
 const settledLandKeysForPlayer = (playerId: string): Set<TileKey> => {
@@ -2906,7 +2906,10 @@ const baseTownPopulationGrowthPerMinuteForOwner = (town: TownDefinition, ownerId
   if (!isTownFedForOwner(town.tileKey, ownerId)) return 0;
   const effects = getPlayerEffectsForPlayer(ownerId);
   const firstThreeTownKeys = firstThreeTownKeySetForPlayer(ownerId);
-  const growthMult = effects.populationGrowthMult * (firstThreeTownKeys.has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1);
+  const growthMult =
+    effects.populationGrowthMult *
+    (firstThreeTownKeys.has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1) *
+    granaryGrowthMultiplierAt(town.tileKey, ownerId);
   const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
   if (logisticFactor <= 0) return 0;
   return town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
