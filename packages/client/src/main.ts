@@ -53,7 +53,8 @@ import {
   frontierClaimCostLabelForTile,
   frontierClaimDurationMsForTile,
   guideSteps,
-  isForestTile
+  isForestTile,
+  settleDurationMsForTile
 } from "./client-constants.js";
 import { initClientDom } from "./client-dom.js";
 import {
@@ -460,13 +461,29 @@ const economicStructureName = (type: Tile["economicStructure"] extends infer T ?
 };
 
 const economicStructureBenefitText = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
-  if (type === "MARKET") return "Boosts nearby town gold output and storage while fed.";
-  if (type === "GRANARY") return "Boosts nearby town population cap.";
+  if (type === "MARKET") return "Nearby town: +50% fed gold output and +50% gold storage cap.";
+  if (type === "GRANARY") return "Nearby town: +50% gold storage cap.";
   if (type === "FARMSTEAD") return "Improves food output on this tile.";
   if (type === "CAMP") return "Improves supply output on this tile.";
   if (type === "MINE") return "Improves iron or crystal output on this tile.";
   return "Strengthens this tile's economy.";
 };
+
+type StructureInfoKey = "FORT" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY" | "SIEGE_OUTPOST";
+
+const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: string } => {
+  if (type === "FORT") return { title: "Fort", detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails." };
+  if (type === "OBSERVATORY") return { title: "Observatory", detail: "Observatories add local vision and project a protection field that blocks hostile crystal actions in the area." };
+  if (type === "FARMSTEAD") return { title: "Farmstead", detail: "Farmsteads increase food yield on farm and fish tiles by 50%." };
+  if (type === "CAMP") return { title: "Camp", detail: "Camps increase supply yield on wood and fur tiles by 50%." };
+  if (type === "MINE") return { title: "Mine", detail: "Mines increase iron or crystal yield on mineral tiles by 50%." };
+  if (type === "MARKET") return { title: "Market", detail: "Markets are built on a support tile for a town. They increase that fed town's gold output by 50% and its gold storage cap by 50%." };
+  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's gold storage cap by 50%." };
+  return { title: "Siege Outpost", detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile." };
+};
+
+const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
+  `<button class="inline-info-link" type="button" data-structure-info="${type}">${label ?? structureInfoForKey(type).title}</button>`;
 
 const displayTownGoldPerMinute = (tile: Tile): number => {
   if (!tile.town) return 0;
@@ -1669,6 +1686,7 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
   const target = msg.target as { x: number; y: number } | undefined;
   const attackType = prettyToken(String(msg.attackType ?? "ATTACK"));
   const attackerWon = Boolean(msg.attackerWon);
+  const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
   const winnerName = playerNameForOwner(msg.winnerId as string | undefined) ?? String(msg.winnerId ?? "").slice(0, 8);
   const atkEff = typeof msg.atkEff === "number" ? msg.atkEff : undefined;
   const defEff = typeof msg.defEff === "number" ? msg.defEff : undefined;
@@ -1678,9 +1696,15 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
   if (origin && target) {
     bits.push(`from (${origin.x}, ${origin.y})`);
     bits.push(`into (${target.x}, ${target.y})`);
-    bits.push(attackerWon ? `captured (${target.x}, ${target.y})` : `lost (${origin.x}, ${origin.y})`);
+    if (attackerWon) {
+      bits.push(`captured (${target.x}, ${target.y})`);
+    } else if (changes.length === 0) {
+      bits.push(`origin held at (${origin.x}, ${origin.y})`);
+    } else {
+      bits.push(`lost (${origin.x}, ${origin.y})`);
+    }
   } else if (origin) {
-    bits.push(attackerWon ? "target captured" : `lost (${origin.x}, ${origin.y})`);
+    bits.push(attackerWon ? "target captured" : changes.length === 0 ? `origin held at (${origin.x}, ${origin.y})` : `lost (${origin.x}, ${origin.y})`);
   } else if (target) {
     bits.push(attackerWon ? `captured (${target.x}, ${target.y})` : `failed to take (${target.x}, ${target.y})`);
   } else {
@@ -2436,13 +2460,15 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
   state.selected = { x: wx, y: wy };
   const adjacentFromOwned = pickOriginForTarget(to.x, to.y);
   const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
+  const navalOrigin = to.terrain === "LAND" ? findNavalInfiltrationOriginForTarget(to) : undefined;
   const unreachableForeignClick =
     to.terrain === "LAND" &&
     !to.fogged &&
     to.ownerId !== state.me &&
     !isTileOwnedByAlly(to) &&
     !adjacentFromOwned &&
-    !to.dockId;
+    !to.dockId &&
+    !navalOrigin;
   if (unreachableForeignClick) {
     pushFeed("Target is not connected to your border.", "combat", "warn");
     requestAttackPreviewForHover();
@@ -3313,6 +3339,22 @@ const renderExpandedTechChoiceTree = (): string => {
 
 const renderTechChoiceGrid = (): string => (state.techTreeExpanded ? renderExpandedTechChoiceTree() : renderCompactTechChoiceGrid());
 
+const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
+  const out = new Set<StructureInfoKey>();
+  const effects = tech.effects ?? {};
+  for (const [key] of Object.entries(effects)) {
+    if (key === "unlockForts" || key.startsWith("fort")) out.add("FORT");
+    if (key === "unlockObservatory" || key.startsWith("observatory")) out.add("OBSERVATORY");
+    if (key === "unlockFarmstead") out.add("FARMSTEAD");
+    if (key === "unlockCamp") out.add("CAMP");
+    if (key === "unlockMine") out.add("MINE");
+    if (key === "unlockMarket" || key.startsWith("market")) out.add("MARKET");
+    if (key === "unlockGranary" || key.startsWith("granary")) out.add("GRANARY");
+    if (key === "unlockSiegeOutposts" || key.startsWith("outpost")) out.add("SIEGE_OUTPOST");
+  }
+  return [...out];
+};
+
 const renderTechDetailCard = (): string => {
   const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value || state.techCatalog[0]?.id;
   const byId = new Map(state.techCatalog.map((tech) => [tech.id, tech]));
@@ -3329,6 +3371,7 @@ const renderTechDetailCard = (): string => {
   const pendingUnlock = isPendingTechUnlock(t.id);
   const canUnlock = t.requirements.canResearch && !state.pendingTechUnlockId;
   const effectSummary = formatTechBenefitSummary(t);
+  const relatedStructures = relatedStructureTypesForTech(t);
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
       <div>
@@ -3340,6 +3383,7 @@ const renderTechDetailCard = (): string => {
       <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock) ? "" : "disabled"}>${pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked"}</button>
     </div>
     <p class="tech-detail-flavor">${t.description}</p>
+    ${relatedStructures.length > 0 ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>` : ""}
     ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${techTier(next.id, byId, tierMemo)})`).join(", ")}</p>` : ""}
     <p><strong>Requirements:</strong></p>
     <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
@@ -3663,13 +3707,21 @@ const renderHud = (): void => {
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
   const pointsClass =
     Date.now() < state.goldAnimUntil ? (state.goldAnimDir > 0 ? " delta-up" : state.goldAnimDir < 0 ? " delta-down" : "") : "";
+  const defClass =
+    Date.now() < state.defensibilityAnimUntil
+      ? state.defensibilityAnimDir > 0
+        ? " delta-up"
+        : state.defensibilityAnimDir < 0
+          ? " delta-down"
+          : ""
+      : "";
   const netGoldPerMinute = state.incomePerMinute - state.upkeepPerMinute.gold;
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
   statsChipsEl.innerHTML = `
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
-    <button class="stat-chip stat-chip-def" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
+    <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
@@ -3903,6 +3955,15 @@ const renderHud = (): void => {
     renderHud();
   };
   bindTechTreeDragScroll();
+  const structureInfoButtons = hud.querySelectorAll<HTMLButtonElement>("[data-structure-info]");
+  structureInfoButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const type = btn.dataset.structureInfo as StructureInfoKey | undefined;
+      if (!type) return;
+      const info = structureInfoForKey(type);
+      showCaptureAlert(info.title, info.detail, "warn");
+    };
+  });
   const selectedTech = state.techCatalog.find((t) => t.id === state.techUiSelectedId);
   const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch && !state.pendingTechUnlockId);
   techChooseBtn.disabled = !canPick;
@@ -4448,7 +4509,7 @@ const requestSettlement = (x: number, y: number): boolean => {
   }
   if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
   const startAt = Date.now();
-  const progress = { startAt, resolvesAt: startAt + SETTLE_MS, target: { x, y }, awaitingServerConfirm: false };
+  const progress = { startAt, resolvesAt: startAt + settleDurationMsForTile(x, y), target: { x, y }, awaitingServerConfirm: false };
   const tileKey = key(x, y);
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   state.settleProgressByTile.set(tileKey, progress);
@@ -4967,6 +5028,28 @@ const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
   return typeof completesAt === "number" ? Math.max(0, completesAt - Date.now()) : undefined;
 };
 
+const buildDetailTextForAction = (actionId: TileActionDef["id"], tile: Tile, supportedTown?: Tile): string | undefined => {
+  if (actionId === "settle_land") {
+    const seconds = Math.round(settleDurationMsForTile(tile.x, tile.y) / 1000);
+    return `Makes this tile defended and activates production. ${SETTLE_COST} gold • ${seconds}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`;
+  }
+  if (actionId === "build_fortification") return "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
+  if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
+  if (actionId === "build_siege_camp") return "Adds an offensive staging point on this border tile. Attacks from here hit 25% harder.";
+  if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
+  if (actionId === "build_camp") return "Improves supply output on this tile by 50%.";
+  if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} output on this tile by 50%.`;
+  if (actionId === "build_market") {
+    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
+    return `Build on this support tile for the ${townLabel}. Grants +50% fed gold output and +50% gold storage cap.`;
+  }
+  if (actionId === "build_granary") {
+    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
+    return `Build on this support tile for the ${townLabel}. Grants +50% gold storage cap.`;
+  }
+  return undefined;
+};
+
 const tileProductionRequirementLabel = (tile: Tile): string | undefined => {
   if (tile.town) return "gold";
   const strategicKey = strategicResourceKeyForTile(tile);
@@ -5076,8 +5159,8 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
       const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
       pushEffectLine(modifier.label, growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute), tone);
     }
-    if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% gold output" : "Built", tile.town.marketActive ? "positive" : "neutral");
-    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+population cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
+    if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
+    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
   } else if (tile.resource) {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
     if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
@@ -5228,7 +5311,7 @@ const findNavalInfiltrationOriginForTarget = (target: Tile): Tile | undefined =>
     const dx = Math.min(Math.abs(tile.x - target.x), WORLD_WIDTH - Math.abs(tile.x - target.x));
     const dy = Math.min(Math.abs(tile.y - target.y), WORLD_HEIGHT - Math.abs(tile.y - target.y));
     const distance = Math.max(dx, dy);
-    if (distance < 2 || distance > 4) continue;
+    if (distance < 2 || distance > 5) continue;
     const steps = lineStepsBetween(tile.x, tile.y, target.x, target.y);
     if (steps.length === 0) continue;
     const seaOnly = steps.every((step) => terrainAt(step.x, step.y) === "SEA");
@@ -5527,10 +5610,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "settle_land",
         label: "Settle Land",
+        detail: buildDetailTextForAction("settle_land", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           canAffordCost(state.gold, SETTLE_COST),
           `Need ${SETTLE_COST} gold`,
-          `${SETTLE_COST} gold • ${(SETTLE_MS / 1000).toFixed(0)}s`,
+          `${SETTLE_COST} gold • ${Math.round(settleDurationMsForTile(tile.x, tile.y) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`,
           slots
         )
       });
@@ -5542,6 +5626,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "build_fortification",
         label: "Build Fortification",
+        detail: buildDetailTextForAction("build_fortification", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           hasTech && hasGold && hasIron && isBorderOrDock && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure,
           !hasTech ? "Requires Masonry" : !isBorderOrDock ? "Needs border or dock tile" : tile.siegeOutpost || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${FORT_BUILD_COST} gold` : !hasIron ? "Need 45 IRON" : "Unavailable",
@@ -5557,6 +5642,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "build_observatory",
         label: "Build Observatory",
+        detail: buildDetailTextForAction("build_observatory", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           hasTech && hasGold && hasCrystal && !tile.resource && !tile.town && !tile.dockId && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
           !hasTech
@@ -5583,6 +5669,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       out.push({
         id: "build_siege_camp",
         label: "Build Siege Camp",
+        detail: buildDetailTextForAction("build_siege_camp", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           hasTech && hasGold && hasSupply && onBorder && !tile.fort && !tile.observatory && !tile.economicStructure,
           !hasTech ? "Requires Leatherworking" : !onBorder ? "Needs border tile" : tile.fort || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${SIEGE_OUTPOST_BUILD_COST} gold` : !hasSupply ? "Need 45 SUPPLY" : "Unavailable",
@@ -5596,6 +5683,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_farmstead",
           label: "Build Farmstead",
+          detail: buildDetailTextForAction("build_farmstead", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("agriculture") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 20,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("agriculture") ? "Requires Agriculture" : state.gold < 400 ? "Need 400 gold" : "Need 20 FOOD",
@@ -5608,6 +5696,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_camp",
           label: "Build Camp",
+          detail: buildDetailTextForAction("build_camp", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("leatherworking") && state.gold >= 500 && (state.strategicResources.SUPPLY ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("leatherworking") ? "Requires Leatherworking" : state.gold < 500 ? "Need 500 gold" : "Need 30 SUPPLY",
@@ -5621,6 +5710,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_mine",
           label: "Build Mine",
+          detail: buildDetailTextForAction("build_mine", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("mining") && state.gold >= 500 && (state.strategicResources[matchingNeed] ?? 0) >= 30,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("mining") ? "Requires Mining" : state.gold < 500 ? "Need 500 gold" : `Need 30 ${matchingNeed}`,
@@ -5633,6 +5723,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_market",
           label: "Build Market",
+          detail: buildDetailTextForAction("build_market", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && !supportedTown.town?.hasMarket && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
             hasBlockingStructure
@@ -5651,6 +5742,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_granary",
           label: "Build Granary",
+          detail: buildDetailTextForAction("build_granary", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && !supportedTown.town?.hasGranary && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
             hasBlockingStructure
@@ -5782,20 +5874,21 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       "30 CRYSTAL • -15% ATK"
     )
   });
-  if (tile.ownerId && !state.activeRevealTargets.includes(tile.ownerId)) {
-      const revealCost = 20;
-      const hasCapability = hasRevealCapability();
-      const hasCapacity = state.revealCapacity > 0 && state.activeRevealTargets.length < 1;
-      const hasCrystal = (state.strategicResources.CRYSTAL ?? 0) >= revealCost;
-      out.push({
-        id: "reveal_empire",
-        label: "Reveal Empire",
-        ...tileActionAvailability(
-          hasCapability && hasCapacity && hasCrystal,
-          !hasCapability ? "Requires Cryptography" : !hasCapacity ? "Reveal capacity full" : "Need crystal",
-          "20 CRYSTAL • 0.15 / 10m"
-        )
-      });
+  if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
+    const revealCost = 20;
+    const revealActive = state.activeRevealTargets.includes(tile.ownerId);
+    const hasCapability = hasRevealCapability();
+    const hasCapacity = state.revealCapacity > 0 && state.activeRevealTargets.length < 1;
+    const hasCrystal = (state.strategicResources.CRYSTAL ?? 0) >= revealCost;
+    out.push({
+      id: "reveal_empire",
+      label: revealActive ? "Cancel Reveal Empire" : "Reveal Empire",
+      ...tileActionAvailability(
+        revealActive || (hasCapability && hasCapacity && hasCrystal),
+        revealActive ? "Stop revealing this empire" : !hasCapability ? "Requires Cryptography" : !hasCapacity ? "Reveal capacity full" : "Need crystal",
+        revealActive ? "Cancel current reveal" : "20 CRYSTAL • 0.15 / 10m"
+      )
+    });
     const sabotageCooldown = abilityCooldownRemainingMs("sabotage");
     out.push({
       id: "sabotage_tile",
@@ -5841,7 +5934,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
           <span class="tile-action-icon">${actionIcon(a.id)}</span>
           <span class="tile-action-copy">
             <span class="tile-action-label">${a.label}</span>
-            ${a.detail || a.disabledReason ? `<span class="tile-action-detail">${a.detail ?? a.disabledReason ?? ""}</span>` : ""}
+            ${a.detail || a.disabledReason ? `<span class="tile-action-detail">${a.disabled ? a.disabledReason ?? a.detail ?? "" : a.detail ?? a.disabledReason ?? ""}</span>` : ""}
           </span>
           ${a.cost ? `<span class="tile-action-cost">${a.cost}</span>` : ""}
         </button>`
@@ -6214,7 +6307,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
       <div class="hold-menu-title">Build on (${x}, ${y})</div>
       <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && hasDevelopmentSlot && canAffordCost(state.gold, SETTLE_COST) ? "" : "disabled"}>
         <span>Settle Tile</span>
-        <small>${SETTLE_COST} gold • ${(SETTLE_MS / 1000).toFixed(1)}s • converts frontier to settled</small>
+        <small>${SETTLE_COST} gold • ${(settleDurationMsForTile(x, y) / 1000).toFixed(0)}s${isForestTile(x, y) ? " (Forest)" : ""} • converts frontier to settled</small>
       </button>
       <button class="hold-menu-btn" data-build="fort" ${hasDevelopmentSlot && canAffordFort ? "" : "disabled"}>
         <span>Fort</span>
@@ -6238,17 +6331,16 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
       </button>
       <button class="hold-menu-btn" data-build="market" ${canBuildMarket ? "" : "disabled"}>
         <span>Market</span>
-        <small>600 gold + 40 CRYSTAL • +50% town gold if fed • 0.05 crystal / 10m</small>
+        <small>600 gold + 40 CRYSTAL • +50% fed town gold • +50% town cap • 0.05 crystal / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="granary" ${canBuildGranary ? "" : "disabled"}>
         <span>Granary</span>
-        <small>400 gold + 40 FOOD • +50% town cap • 1 gold / 10m</small>
+        <small>400 gold + 40 FOOD • +50% town gold cap • 1 gold / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="siege" ${hasDevelopmentSlot && canAffordSiege ? "" : "disabled"}>
         <span>Siege Outpost</span>
         <small>${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY • ${(SIEGE_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)} (from tile)</small>
       </button>
-      <div class="hold-menu-hint">${hasDevelopmentSlot ? `Development ${development.busy}/${development.limit} busy.` : developmentSlotReason(development)}</div>
     </div>
   `;
   const { width: vw, height: vh } = viewportSize();
@@ -6504,10 +6596,13 @@ ws.addEventListener("message", (ev) => {
     state.exposureE = (p.E as number) ?? state.exposureE;
     state.settledT = (p.Ts as number) ?? state.settledT;
     state.settledE = (p.Es as number) ?? state.settledE;
-    state.defensibilityPct = defensibilityPctFromTE(
+    const initDefensibility = defensibilityPctFromTE(
       (p.Ts as number | undefined) ?? (p.T as number | undefined),
       (p.Es as number | undefined) ?? (p.E as number | undefined)
     );
+    state.defensibilityPct = initDefensibility;
+    state.defensibilityAnimDir = 0;
+    state.defensibilityAnimUntil = 0;
     state.availableTechPicks = (p.availableTechPicks as number) ?? 0;
     state.techRootId = p.techRootId as string | undefined;
     state.techIds = (p.techIds as string[]) ?? [];
@@ -6618,6 +6713,7 @@ ws.addEventListener("message", (ev) => {
   }
   if (msg.type === "PLAYER_UPDATE") {
     const prevGold = state.gold;
+    const prevDefensibility = state.defensibilityPct;
     const prevStrategic = { ...state.strategicResources };
     state.gold = (msg.gold as number | undefined) ?? (msg.points as number);
     if (typeof msg.name === "string") {
@@ -6679,6 +6775,15 @@ ws.addEventListener("message", (ev) => {
     if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
     if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
     state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
+    if (state.defensibilityPct > prevDefensibility + 0.05) {
+      state.defensibilityAnimUntil = Date.now() + 550;
+      state.defensibilityAnimDir = 1;
+    } else if (state.defensibilityPct < prevDefensibility - 0.05) {
+      state.defensibilityAnimUntil = Date.now() + 550;
+      state.defensibilityAnimDir = -1;
+    } else if (Date.now() >= state.defensibilityAnimUntil) {
+      state.defensibilityAnimDir = 0;
+    }
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
     state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
     state.techCatalog = (msg.techCatalog as TechInfo[]) ?? state.techCatalog;

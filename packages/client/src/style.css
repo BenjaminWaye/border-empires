@@ -2941,6 +2941,23 @@ body {
   line-height: 1.45;
 }
 
+.inline-info-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #8fd9f6;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.inline-info-link:hover {
+  color: #ffd166;
+}
+
 .tech-req-list {
   margin: 4px 0 0;
   padding-left: 18px;
