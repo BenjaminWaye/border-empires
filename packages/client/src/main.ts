@@ -462,7 +462,7 @@ const economicStructureName = (type: Tile["economicStructure"] extends infer T ?
 
 const economicStructureBenefitText = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
   if (type === "MARKET") return "Nearby town: +50% fed gold output and +50% gold storage cap.";
-  if (type === "GRANARY") return "Nearby town: +50% gold storage cap.";
+  if (type === "GRANARY") return "Nearby town: +50% population growth.";
   if (type === "FARMSTEAD") return "Improves food output on this tile.";
   if (type === "CAMP") return "Improves supply output on this tile.";
   if (type === "MINE") return "Improves iron or crystal output on this tile.";
@@ -478,7 +478,7 @@ const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: s
   if (type === "CAMP") return { title: "Camp", detail: "Camps increase supply yield on wood and fur tiles by 50%." };
   if (type === "MINE") return { title: "Mine", detail: "Mines increase iron or crystal yield on mineral tiles by 50%." };
   if (type === "MARKET") return { title: "Market", detail: "Markets are built on a support tile for a town. They increase that fed town's gold output by 50% and its gold storage cap by 50%." };
-  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's gold storage cap by 50%." };
+  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's population growth by 50%." };
   return { title: "Siege Outpost", detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile." };
 };
 
@@ -1239,6 +1239,86 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
 
   drawTownMarker(px, py, size, false);
 };
+
+const drawWeakDefensibilityOverlay = (px: number, py: number, size: number, entry: WeakDefTile, nowMs: number): void => {
+  const pulse = 0.5 + 0.5 * Math.sin(nowMs / 420);
+  const critical = entry.severity === "critical";
+  const stroke = critical
+    ? `rgba(255, 86, 86, ${(0.62 + pulse * 0.18).toFixed(3)})`
+    : `rgba(255, 173, 92, ${(0.52 + pulse * 0.14).toFixed(3)})`;
+  const glow = critical
+    ? `rgba(92, 8, 8, ${(0.26 + pulse * 0.08).toFixed(3)})`
+    : `rgba(92, 46, 8, ${(0.18 + pulse * 0.06).toFixed(3)})`;
+  const inset = Math.max(1, Math.floor(size * 0.08));
+  const lineWidth = Math.max(2, Math.floor(size * 0.11));
+  ctx.save();
+  ctx.strokeStyle = glow;
+  ctx.lineWidth = lineWidth + 2;
+  ctx.lineCap = "round";
+  for (const side of entry.exposedSides) {
+    ctx.beginPath();
+    if (side === "N") {
+      ctx.moveTo(px + inset, py + inset);
+      ctx.lineTo(px + size - inset, py + inset);
+    } else if (side === "E") {
+      ctx.moveTo(px + size - inset, py + inset);
+      ctx.lineTo(px + size - inset, py + size - inset);
+    } else if (side === "S") {
+      ctx.moveTo(px + inset, py + size - inset);
+      ctx.lineTo(px + size - inset, py + size - inset);
+    } else {
+      ctx.moveTo(px + inset, py + inset);
+      ctx.lineTo(px + inset, py + size - inset);
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = lineWidth;
+  for (const side of entry.exposedSides) {
+    ctx.beginPath();
+    if (side === "N") {
+      ctx.moveTo(px + inset, py + inset);
+      ctx.lineTo(px + size - inset, py + inset);
+    } else if (side === "E") {
+      ctx.moveTo(px + size - inset, py + inset);
+      ctx.lineTo(px + size - inset, py + size - inset);
+    } else if (side === "S") {
+      ctx.moveTo(px + inset, py + size - inset);
+      ctx.lineTo(px + size - inset, py + size - inset);
+    } else {
+      ctx.moveTo(px + inset, py + inset);
+      ctx.lineTo(px + inset, py + size - inset);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+};
+
+const drawStructureGlyph = (
+  px: number,
+  py: number,
+  size: number,
+  glyph: string,
+  fill: string,
+  stroke: string,
+  active: boolean
+): void => {
+  const badge = Math.max(12, Math.floor(size * 0.34));
+  const bx = px + size - badge - 3;
+  const by = py + 3;
+  ctx.save();
+  ctx.fillStyle = active ? "rgba(9, 14, 24, 0.84)" : "rgba(14, 18, 29, 0.74)";
+  ctx.fillRect(bx, by, badge, badge);
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(bx + 0.5, by + 0.5, badge - 1, badge - 1);
+  ctx.font = `${Math.max(9, Math.floor(badge * 0.7))}px system-ui`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = fill;
+  ctx.fillText(glyph, bx + badge / 2, by + badge / 2 + 0.5);
+  ctx.restore();
+};
 const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
   const drawSize = size * scale;
@@ -1456,8 +1536,41 @@ type DefensibilityBreakdown = {
   tips: string[];
 };
 
+type WeakDefTile = {
+  tile: Tile;
+  exposedSides: Array<"N" | "E" | "S" | "W">;
+  severity: "weak" | "critical";
+};
+
 const settledOwnedTiles = (): Tile[] =>
   [...state.tiles.values()].filter((tile) => tile.ownerId === state.me && tile.terrain === "LAND" && tile.ownershipState === "SETTLED" && !tile.fogged);
+
+const weakDefensibilityTiles = (): WeakDefTile[] => {
+  const out: WeakDefTile[] = [];
+  for (const tile of settledOwnedTiles()) {
+    const exposedSides: Array<"N" | "E" | "S" | "W"> = [];
+    const neighbors: Array<{ side: "N" | "E" | "S" | "W"; x: number; y: number }> = [
+      { side: "N", x: wrapX(tile.x), y: wrapY(tile.y - 1) },
+      { side: "E", x: wrapX(tile.x + 1), y: wrapY(tile.y) },
+      { side: "S", x: wrapX(tile.x), y: wrapY(tile.y + 1) },
+      { side: "W", x: wrapX(tile.x - 1), y: wrapY(tile.y) }
+    ];
+    for (const neighbor of neighbors) {
+      const neighborTile = state.tiles.get(key(neighbor.x, neighbor.y));
+      if (neighborTile?.ownerId === state.me && neighborTile.terrain === "LAND" && neighborTile.ownershipState === "SETTLED" && !neighborTile.fogged) continue;
+      const terrain = terrainAt(neighbor.x, neighbor.y);
+      if (terrain === "SEA" || terrain === "MOUNTAIN") continue;
+      exposedSides.push(neighbor.side);
+    }
+    if (exposedSides.length < 2) continue;
+    out.push({
+      tile,
+      exposedSides,
+      severity: exposedSides.length >= 3 ? "critical" : "weak"
+    });
+  }
+  return out;
+};
 
 const defensibilityBreakdown = (): DefensibilityBreakdown => {
   const tiles = settledOwnedTiles();
@@ -1500,6 +1613,9 @@ const defensibilityBreakdown = (): DefensibilityBreakdown => {
 const defensibilityPanelHtml = (): string => {
   const summary = defensibilityBreakdown();
   const rounded = Math.round(state.defensibilityPct);
+  const weakTiles = weakDefensibilityTiles();
+  const weakCount = weakTiles.filter((entry) => entry.severity === "weak").length;
+  const criticalCount = weakTiles.filter((entry) => entry.severity === "critical").length;
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
@@ -1510,6 +1626,17 @@ const defensibilityPanelHtml = (): string => {
         <span class="defense-rating defense-rating-${summary.rating.toLowerCase().replace(/ /g, "-")}">${summary.rating}</span>
       </div>
       <p class="defense-copy">Compact settled land with fewer exposed sides defends better. Coastlines and mountains count as safer borders than open land.</p>
+    </article>
+    <article class="card defense-breakdown-card">
+      <div class="defense-toggle-head">
+        <div>
+          <strong>Weak-tile overlay</strong>
+          <p class="defense-copy">Highlights your settled tiles with many exposed land borders.</p>
+        </div>
+        <button class="panel-btn defense-toggle-btn${state.showWeakDefensibility ? " active" : ""}" type="button" data-toggle-weak-def="true">${state.showWeakDefensibility ? "Hide Weak Tiles" : "Show Weak Tiles"}</button>
+      </div>
+      <div class="defense-line"><span>Critical tiles</span><strong class="is-negative">${criticalCount}</strong></div>
+      <div class="defense-line"><span>Weak tiles</span><strong>${weakCount}</strong></div>
     </article>
     <article class="card defense-breakdown-card">
       <div class="defense-stat-grid">
@@ -3757,6 +3884,7 @@ const renderHud = (): void => {
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
     </div>
+    ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-hide-weak-def="true"><span>${mobile ? "Overlay" : "Weak Tiles"}</span><strong>Hide</strong></button>` : ""}
     ${strategicRibbonHtml(
       state.strategicResources,
       state.strategicProductionPerMinute,
@@ -3784,6 +3912,13 @@ const renderHud = (): void => {
   defensibilityButtons.forEach((btn) => {
     btn.onclick = () => {
       setActivePanel("defensibility");
+    };
+  });
+  const weakDefHideButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-hide-weak-def]");
+  weakDefHideButtons.forEach((btn) => {
+    btn.onclick = () => {
+      state.showWeakDefensibility = false;
+      renderHud();
     };
   });
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
@@ -4047,6 +4182,13 @@ const renderHud = (): void => {
   mobilePanelMissionsEl.innerHTML = missionCardsHtml(state.missions);
   panelDefensibilityEl.innerHTML = defensibilityPanelHtml();
   mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml();
+  const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
+  weakDefButtons.forEach((btn) => {
+    btn.onclick = () => {
+      state.showWeakDefensibility = !state.showWeakDefensibility;
+      renderHud();
+    };
+  });
   panelEconomyEl.innerHTML = economyPanelHtml();
   mobilePanelEconomyEl.innerHTML = economyPanelHtml();
   leaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
@@ -4900,6 +5042,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "reveal_empire") return "◈";
   if (id === "collect_yield") return "⛃";
   if (id === "build_fortification") return "🛡";
+  if (id === "build_siege_camp") return "⚔";
   if (id === "build_observatory") return "◉";
   if (id === "build_farmstead") return "▥";
   if (id === "build_camp") return "⛺";
@@ -5061,8 +5204,7 @@ const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
 
 const buildDetailTextForAction = (actionId: TileActionDef["id"], tile: Tile, supportedTown?: Tile): string | undefined => {
   if (actionId === "settle_land") {
-    const seconds = Math.round(settleDurationMsForTile(tile.x, tile.y) / 1000);
-    return `Makes this tile defended and activates production. ${SETTLE_COST} gold • ${seconds}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`;
+    return "Makes this tile defended and activates production.";
   }
   if (actionId === "build_fortification") return "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
   if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
@@ -5076,7 +5218,7 @@ const buildDetailTextForAction = (actionId: TileActionDef["id"], tile: Tile, sup
   }
   if (actionId === "build_granary") {
     const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +50% gold storage cap.`;
+    return `Build on this support tile for the ${townLabel}. Grants +50% population growth.`;
   }
   return undefined;
 };
@@ -5191,7 +5333,7 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
       pushEffectLine(modifier.label, growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute), tone);
     }
     if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
-    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
+    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% population growth" : "Built", tile.town.granaryActive ? "positive" : "neutral");
   } else if (tile.resource) {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
     if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
@@ -6366,7 +6508,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
       </button>
       <button class="hold-menu-btn" data-build="granary" ${canBuildGranary ? "" : "disabled"}>
         <span>Granary</span>
-        <small>400 gold + 40 FOOD • +50% town gold cap • 1 gold / 10m</small>
+        <small>400 gold + 40 FOOD • +50% town population growth • 1 gold / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="siege" ${hasDevelopmentSlot && canAffordSiege ? "" : "disabled"}>
         <span>Siege Outpost</span>
@@ -7576,6 +7718,9 @@ const draw = (): void => {
   }
   const crystalTargetingActive = state.crystalTargeting.active;
   const crystalTone = crystalTargetingActive ? crystalTargetingTone(state.crystalTargeting.ability) : "amber";
+  const weakDefByTile = state.showWeakDefensibility
+    ? new Map(weakDefensibilityTiles().map((entry) => [key(entry.tile.x, entry.tile.y), entry] as const))
+    : new Map<string, WeakDefTile>();
   const queueIndex = new Map<string, number>();
   const startingArrowTargets = new Map(
     startingExpansionArrowTargets().map((target) => [key(target.x, target.y), target] as const)
@@ -7700,14 +7845,28 @@ const draw = (): void => {
       }
 
       if (t && vis === "visible" && t.fort) {
-        ctx.fillStyle = structureAccentColor(t.ownerId ?? "", t.fort.status === "active" ? "rgba(239,71,111,0.8)" : "rgba(255,209,102,0.75)");
-        const dot = Math.max(3, Math.floor(size * 0.25));
-        ctx.fillRect(px + size - dot - 2, py + 2, dot, dot);
+        const active = t.fort.status === "active";
+        drawStructureGlyph(
+          px,
+          py,
+          size,
+          actionIcon("build_fortification"),
+          structureAccentColor(t.ownerId ?? "", active ? "rgba(255, 216, 153, 0.98)" : "rgba(255, 223, 166, 0.88)"),
+          structureAccentColor(t.ownerId ?? "", active ? "rgba(239,71,111,0.92)" : "rgba(255,209,102,0.88)"),
+          active
+        );
       }
       if (t && vis === "visible" && t.siegeOutpost) {
-        ctx.fillStyle = structureAccentColor(t.ownerId ?? "", t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)");
-        const dot = Math.max(3, Math.floor(size * 0.25));
-        ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
+        const active = t.siegeOutpost.status === "active";
+        drawStructureGlyph(
+          px,
+          py,
+          size,
+          actionIcon("build_siege_camp"),
+          structureAccentColor(t.ownerId ?? "", active ? "rgba(255, 225, 180, 0.98)" : "rgba(255, 214, 160, 0.9)"),
+          structureAccentColor(t.ownerId ?? "", active ? "rgba(255, 123, 0, 0.96)" : "rgba(255, 178, 97, 0.88)"),
+          active
+        );
       }
       if (t && vis === "visible" && t.observatory) {
         const overlay = structureOverlayImages.OBSERVATORY;
@@ -7760,6 +7919,10 @@ const draw = (): void => {
           ctx.textBaseline = "top";
           ctx.fillText(timerLabel, px + 4, py + size - 11);
         }
+      }
+      if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId === state.me && t.ownershipState === "SETTLED") {
+        const weakDefEntry = weakDefByTile.get(wk);
+        if (weakDefEntry) drawWeakDefensibilityOverlay(px, py, size, weakDefEntry, nowMs);
       }
       if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
         ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
