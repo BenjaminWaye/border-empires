@@ -10,6 +10,8 @@ primary_region = "arn"
   SNAPSHOT_DIR = "/data/snapshots"
   AI_PLAYERS = "5"
   AI_TICK_MS = "10000"
+  AI_TICK_BATCH_SIZE = "2"
+  AI_HUMAN_PRIORITY_BATCH_SIZE = "1"
 
 [http_service]
   internal_port = 8080
