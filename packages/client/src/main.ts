@@ -1993,8 +1993,26 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
   state.feed = state.feed.slice(0, 18);
 };
 
-const showCaptureAlert = (title: string, detail: string, tone: "error" | "warn" = "error"): void => {
+const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error"): void => {
   state.captureAlert = { title, detail, until: Date.now() + 2200, tone };
+};
+
+const combatResolutionAlert = (msg: Record<string, unknown>): { title: string; detail: string; tone: "success" | "warn" } => {
+  const target = msg.target as { x: number; y: number } | undefined;
+  const attackType = prettyToken(String(msg.attackType ?? "ATTACK"));
+  const attackerWon = Boolean(msg.attackerWon);
+  if (attackerWon) {
+    return {
+      title: `${attackType} won`,
+      detail: target ? `Captured (${target.x}, ${target.y}).` : "Captured the target.",
+      tone: "success"
+    };
+  }
+  return {
+    title: `${attackType} failed`,
+    detail: target ? `Defender held (${target.x}, ${target.y}).` : "The defender held the tile.",
+    tone: "warn"
+  };
 };
 
 const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void => {
@@ -6934,6 +6952,8 @@ ws.addEventListener("message", (ev) => {
       state.tiles.set(tileKey, merged);
     }
     pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
+    const resultAlert = combatResolutionAlert(msg as Record<string, unknown>);
+    showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone);
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
     let handedOffToSettle = false;
@@ -7143,7 +7163,6 @@ ws.addEventListener("message", (ev) => {
       if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
-      showCaptureAlert("Attack failed", "The defender held the tile.", "warn");
       pushFeed("Attack resolved as a loss; updated from server tile state.", "combat", "warn");
       requestViewRefresh(2, true);
       processActionQueue();
