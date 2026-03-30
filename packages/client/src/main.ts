@@ -7018,6 +7018,7 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "TILE_DELTA") {
     const updates = (msg.updates as Array<Tile>) ?? [];
     let resolvedQueuedFrontierCapture = false;
+    let resolvedFailedCombat = false;
     for (const update of updates) {
       const updateKey = key(update.x, update.y);
       state.incomingAttacksByTile.delete(updateKey);
@@ -7102,6 +7103,18 @@ ws.addEventListener("message", (ev) => {
       ) {
         resolvedQueuedFrontierCapture = true;
       }
+      if (
+        !resolvedFailedCombat &&
+        updateKey === state.actionTargetKey &&
+        state.actionInFlight &&
+        state.capture &&
+        Date.now() >= state.capture.resolvesAt &&
+        resolved.ownerId &&
+        resolved.ownerId !== state.me &&
+        !resolved.optimisticPending
+      ) {
+        resolvedFailedCombat = true;
+      }
     }
     if (resolvedQueuedFrontierCapture) {
       const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
@@ -7115,6 +7128,24 @@ ws.addEventListener("message", (ev) => {
       if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
+      processActionQueue();
+      renderHud();
+    }
+    if (resolvedFailedCombat) {
+      const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
+      state.capture = undefined;
+      state.actionInFlight = false;
+      state.combatStartAck = false;
+      state.actionStartedAt = 0;
+      if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
+      if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey, true);
+      if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
+      if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
+      state.actionTargetKey = "";
+      state.actionCurrent = undefined;
+      showCaptureAlert("Attack failed", "The defender held the tile.", "warn");
+      pushFeed("Attack resolved as a loss; updated from server tile state.", "combat", "warn");
+      requestViewRefresh(2, true);
       processActionQueue();
       renderHud();
     }
