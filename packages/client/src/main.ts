@@ -1086,6 +1086,37 @@ const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =
 
   ctx.restore();
 };
+
+const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void => {
+  if (size < 10) return;
+  const remainingMs = Math.max(0, resolvesAt - Date.now());
+  const urgency = Math.max(0.2, Math.min(1, 1 - remainingMs / 4000));
+  const phase = Date.now() / 180 + wx * 0.9 + wy * 0.7;
+  const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(phase));
+  const alpha = 0.18 + pulse * (0.16 + urgency * 0.22);
+  const ringInset = 1 + Math.max(0, Math.floor((size * 0.08) * (1 - pulse)));
+
+  ctx.save();
+  ctx.fillStyle = `rgba(255, 72, 72, ${alpha.toFixed(3)})`;
+  ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
+
+  ctx.strokeStyle = `rgba(255, 214, 214, ${(0.38 + urgency * 0.34 + pulse * 0.08).toFixed(3)})`;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(px + ringInset, py + ringInset, size - ringInset * 2, size - ringInset * 2);
+
+  const cx = px + size / 2;
+  const cy = py + size / 2;
+  const arm = Math.max(3, size * 0.18);
+  ctx.strokeStyle = `rgba(72, 10, 10, ${(0.52 + urgency * 0.22).toFixed(3)})`;
+  ctx.lineWidth = Math.max(1.5, size * 0.07);
+  ctx.beginPath();
+  ctx.moveTo(cx - arm, cy - arm);
+  ctx.lineTo(cx + arm, cy + arm);
+  ctx.moveTo(cx + arm, cy - arm);
+  ctx.lineTo(cx - arm, cy + arm);
+  ctx.stroke();
+  ctx.restore();
+};
 const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
   if (!tile.town) return;
   if (size < 16) {
@@ -6726,6 +6757,7 @@ ws.addEventListener("message", (ev) => {
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     for (const c of changes) {
       const tileKey = key(c.x, c.y);
+      state.incomingAttacksByTile.delete(tileKey);
       const existing = state.tiles.get(tileKey);
       const incoming: Tile = {
         ...(existing ?? { x: c.x, y: c.y, terrain: terrainAt(c.x, c.y), fogged: false }),
@@ -6797,6 +6829,10 @@ ws.addEventListener("message", (ev) => {
     const attackerName = (msg.attackerName as string | undefined) || (msg.attackerId as string | undefined) || "Unknown attacker";
     const x = Number(msg.x ?? -1);
     const y = Number(msg.y ?? -1);
+    const resolvesAt = Number(msg.resolvesAt ?? Date.now() + 3000);
+    if (x >= 0 && y >= 0) {
+      state.incomingAttacksByTile.set(key(x, y), { attackerName, resolvesAt });
+    }
     state.unreadAttackAlerts += 1;
     pushFeed(`Under attack: ${attackerName} is striking (${x}, ${y}).`, "combat", "error");
     renderHud();
@@ -6826,6 +6862,7 @@ ws.addEventListener("message", (ev) => {
     let resolvedQueuedFrontierCapture = false;
     for (const update of updates) {
       const updateKey = key(update.x, update.y);
+      state.incomingAttacksByTile.delete(updateKey);
       state.pendingCollectVisibleKeys.delete(key(update.x, update.y));
       const existing = state.tiles.get(key(update.x, update.y));
       const merged: Tile = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
@@ -7733,6 +7770,14 @@ const draw = (): void => {
         const alpha = 0.25 + 0.55 * Math.sin(phase * Math.PI);
         ctx.fillStyle = `rgba(255, 209, 102, ${alpha.toFixed(3)})`;
         ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
+      }
+      const incomingAttack = state.incomingAttacksByTile.get(wk);
+      if (incomingAttack) {
+        if (incomingAttack.resolvesAt <= Date.now()) {
+          state.incomingAttacksByTile.delete(wk);
+        } else {
+          drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
+        }
       }
       if (settlementProgress) {
         const totalMs = Math.max(1, settlementProgress.resolvesAt - settlementProgress.startAt);
