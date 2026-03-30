@@ -4224,6 +4224,11 @@ const explainActionFailure = (code: string, message: string): string => {
 
 const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean => {
   const k = key(x, y);
+  if (state.queuedTargetKeys.has(k)) {
+    const stillQueued = state.actionQueue.some((entry) => key(entry.x, entry.y) === k);
+    const currentlyExecuting = state.actionInFlight && state.actionTargetKey === k;
+    if (!stillQueued && !currentlyExecuting) state.queuedTargetKeys.delete(k);
+  }
   if (state.queuedTargetKeys.has(k)) return false;
   state.actionQueue.push({ x, y, mode, retries: 0 });
   state.queuedTargetKeys.add(k);
