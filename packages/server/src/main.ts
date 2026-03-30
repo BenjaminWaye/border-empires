@@ -2,16 +2,22 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import {
+  ATTACK_MANPOWER_COST,
+  ATTACK_MANPOWER_MIN,
   BARBARIAN_ACTION_INTERVAL_MS,
   BARBARIAN_ATTACK_POWER,
   BARBARIAN_CLEAR_GOLD_REWARD,
   BARBARIAN_DEFENSE_POWER,
   BARBARIAN_MULTIPLY_THRESHOLD,
+  BREAKTHROUGH_ATTACK_MANPOWER_COST,
+  BREAKTHROUGH_ATTACK_MANPOWER_MIN,
   CHUNK_SIZE,
   CLUSTER_COUNT_MAX,
   CLUSTER_COUNT_MIN,
   ClientMessageSchema,
   COMBAT_LOCK_MS,
+  DEEP_STRIKE_MANPOWER_COST,
+  DEEP_STRIKE_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
   ECONOMIC_STRUCTURE_BUILD_MS,
   FRONTIER_CLAIM_MS,
@@ -38,6 +44,10 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
   INITIAL_BARBARIAN_COUNT,
+  MANPOWER_BASE_CAP,
+  MANPOWER_BASE_REGEN_PER_MINUTE,
+  NAVAL_INFILTRATION_MANPOWER_MIN,
+  NAVAL_INFILTRATION_MANPOWER_COST,
   combatWinChance,
   defensivenessMultiplier,
   levelFromPoints,
@@ -55,6 +65,7 @@ import {
   wrapX,
   wrapY,
   type Player,
+  type PendingResearch,
   type MissionKind,
   type MissionState,
   type MissionStats,
@@ -613,8 +624,8 @@ interface TownDefinition {
   lastGrowthTickAt: number;
 }
 
-type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
-const STRATEGIC_RESOURCE_KEYS: readonly StrategicResource[] = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
+type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
+const STRATEGIC_RESOURCE_KEYS: readonly StrategicResource[] = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"];
 
 interface Observatory {
   observatoryId: string;
@@ -676,7 +687,7 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   townGoldCapMult: 1,
   marketIncomeBonusAdd: 0.5,
   marketCapBonusAdd: 0.5,
-  granaryCapBonusAdd: 0.5,
+  granaryCapBonusAdd: 0.2,
   populationIncomeMult: 1,
   connectedTownStepBonusAdd: 0,
   harvestCapMult: 1,
@@ -700,7 +711,7 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   attackVsFortsMult: 1,
   newSettlementDefenseMult: 1,
   buildCapacityAdd: 0,
-  resourceOutputMult: { FARM: 1, FISH: 1, IRON: 1, CRYSTAL: 1, SUPPLY: 1, SHARD: 1 }
+  resourceOutputMult: { FARM: 1, FISH: 1, IRON: 1, CRYSTAL: 1, SUPPLY: 1, SHARD: 1, OIL: 1 }
 });
 
 interface TechRequirementChecklist {
@@ -760,7 +771,7 @@ interface PlayerEffects {
   attackVsFortsMult: number;
   newSettlementDefenseMult: number;
   buildCapacityAdd: number;
-  resourceOutputMult: { FARM: number; FISH: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number };
+  resourceOutputMult: { FARM: number; FISH: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number; OIL: number };
 }
 
 interface TelemetryCounters {
@@ -853,6 +864,7 @@ const OBSERVATORY_VISION_BONUS = 5;
 const OBSERVATORY_BUILD_CRYSTAL_COST = 45;
 const OBSERVATORY_UPKEEP_PER_MIN = 0.025;
 const OBSERVATORY_PROTECTION_RADIUS = 10;
+const OBSERVATORY_CAST_RADIUS = 30;
 const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 const FARMSTEAD_BUILD_GOLD_COST = 400;
 const FARMSTEAD_BUILD_FOOD_COST = 20;
@@ -869,7 +881,49 @@ const MARKET_CRYSTAL_UPKEEP = 0.05;
 const GRANARY_BUILD_GOLD_COST = 400;
 const GRANARY_BUILD_FOOD_COST = 40;
 const GRANARY_GOLD_UPKEEP = 1;
+const BANK_BUILD_GOLD_COST = 700;
+const BANK_BUILD_CRYSTAL_COST = 45;
+const BANK_CRYSTAL_UPKEEP = 0.05;
+const AIRPORT_BUILD_GOLD_COST = 900;
+const AIRPORT_BUILD_CRYSTAL_COST = 60;
+const QUARTERMASTER_BUILD_GOLD_COST = 1000;
+const IRONWORKS_BUILD_GOLD_COST = 1100;
+const CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST = 1300;
+const FUEL_PLANT_BUILD_GOLD_COST = 1400;
+const GOVERNORS_OFFICE_BUILD_GOLD_COST = 1300;
+const RADAR_SYSTEM_BUILD_GOLD_COST = 1600;
+const FOUNDRY_BUILD_GOLD_COST = 1800;
+const TOWN_CAPTURED_MANPOWER_MULT = 0.25;
+const MANPOWER_EPSILON = 1e-6;
+const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
+  TOWN: { cap: 300, regenPerMinute: 60 },
+  CITY: { cap: 600, regenPerMinute: 120 },
+  GREAT_CITY: { cap: 1_200, regenPerMinute: 240 },
+  METROPOLIS: { cap: 2_400, regenPerMinute: 480 }
+};
+const QUARTERMASTER_GOLD_UPKEEP = 120;
+const IRONWORKS_GOLD_UPKEEP = 120;
+const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 160;
+const FUEL_PLANT_GOLD_UPKEEP = 180;
+const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
+const RADAR_SYSTEM_GOLD_UPKEEP = 45;
+const FOUNDRY_GOLD_UPKEEP = 50;
+const QUARTERMASTER_SUPPLY_PER_DAY = 18;
+const IRONWORKS_IRON_PER_DAY = 18;
+const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
+const FUEL_PLANT_OIL_PER_DAY = 10;
+const AIRPORT_OIL_UPKEEP_PER_MIN = 0.025;
+const AIRPORT_BOMBARD_OIL_COST = 1;
+const AIRPORT_BOMBARD_RANGE = 30;
+const AIRPORT_BOMBARD_ATTACK_MULT = 0.95;
+const AIRPORT_BOMBARD_MIN_FIELD_TILES = 2;
+const AIRPORT_BOMBARD_MAX_FIELD_TILES = 4;
 const STRUCTURE_OUTPUT_MULT = 1.5;
+const FOUNDRY_RADIUS = 10;
+const FOUNDRY_OUTPUT_MULT = 2;
+const GOVERNORS_OFFICE_RADIUS = 10;
+const GOVERNORS_OFFICE_UPKEEP_MULT = 0.8;
+const RADAR_SYSTEM_RADIUS = 30;
 const REVEAL_EMPIRE_ACTIVATION_COST = 20;
 const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
 const DEEP_STRIKE_CRYSTAL_COST = 25;
@@ -1138,7 +1192,8 @@ const resourceRate: Record<ResourceType, number> = {
   FUR: 0,
   WOOD: 0,
   IRON: 0,
-  GEMS: 0
+  GEMS: 0,
+  OIL: 0
 };
 
 const strategicResourceRates: Record<StrategicResource, number> = {
@@ -1146,7 +1201,8 @@ const strategicResourceRates: Record<StrategicResource, number> = {
   IRON: 0,
   CRYSTAL: 0,
   SUPPLY: 0,
-  SHARD: 1
+  SHARD: 1,
+  OIL: 0
 };
 
 const strategicDailyFromResource: Partial<Record<ResourceType, number>> = {
@@ -1155,7 +1211,8 @@ const strategicDailyFromResource: Partial<Record<ResourceType, number>> = {
   IRON: 60,
   FUR: 60,
   WOOD: 60,
-  GEMS: 36
+  GEMS: 36,
+  OIL: 48
 };
 
 const toStrategicResource = (resource: ResourceType | undefined): StrategicResource | undefined => {
@@ -1164,6 +1221,7 @@ const toStrategicResource = (resource: ResourceType | undefined): StrategicResou
   if (resource === "IRON") return "IRON";
   if (resource === "GEMS") return "CRYSTAL";
   if (resource === "WOOD" || resource === "FUR") return "SUPPLY";
+  if (resource === "OIL") return "OIL";
   return undefined;
 };
 
@@ -1174,6 +1232,7 @@ const baseTileValue = (resource: ResourceType | undefined): number => {
   if (resource === "FUR") return 24;
   if (resource === "WOOD") return 30;
   if (resource === "IRON") return 40;
+  if (resource === "OIL") return 50;
   return 60;
 };
 
@@ -1193,6 +1252,12 @@ const currentIncomePerMinute = (player: Player): number => {
   for (const town of townsByTile.values()) {
     incomePerMinute += townIncomeForOwner(town, player.id) * sabotageMultiplierAt(town.tileKey);
   }
+  let activeBankCount = 0;
+  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
+    const structure = economicStructuresByTile.get(tk);
+    if (structure?.type === "BANK" && structure.status === "active") activeBankCount += 1;
+  }
+  incomePerMinute += activeBankCount;
   const hasCapital = Boolean(
     player.capitalTileKey &&
       ownership.get(player.capitalTileKey) === player.id &&
@@ -1202,7 +1267,7 @@ const currentIncomePerMinute = (player: Player): number => {
 };
 
 const strategicProductionPerMinute = (player: Player): Record<StrategicResource, number> => {
-  const out: Record<StrategicResource, number> = { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 };
+  const out: Record<StrategicResource, number> = { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 };
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
     const [x, y] = parseKey(tk);
@@ -1365,6 +1430,8 @@ const ensureAiPlayers = (): void => {
       Es: 0,
       stamina: STAMINA_MAX,
       staminaUpdatedAt: now(),
+      manpower: MANPOWER_BASE_CAP,
+      manpowerUpdatedAt: now(),
       allies: new Set<string>(),
       spawnShieldUntil: now() + 120_000,
       isEliminated: false,
@@ -1393,6 +1460,7 @@ interface PendingCapture {
   target: TileKey;
   attackerId: string;
   staminaCost: number;
+  manpowerCost: number;
   cancelled: boolean;
   actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | "DEEP_STRIKE_ATTACK" | "NAVAL_INFILTRATION_ATTACK";
   startedAt?: number;
@@ -1419,6 +1487,7 @@ interface UpkeepDiagnostics {
   iron: UpkeepBreakdown;
   supply: UpkeepBreakdown;
   crystal: UpkeepBreakdown;
+  oil: UpkeepBreakdown;
   gold: UpkeepBreakdown;
   foodCoverage: number;
 }
@@ -1783,7 +1852,86 @@ const clusterResourceType = (cluster: ClusterDefinition): ResourceType => {
   if (cluster.clusterType === "CRYSTAL_BASIN") return "GEMS";
   if (cluster.clusterType === "HORSE_STEPPES") return "FUR";
   if (cluster.clusterType === "COASTAL_SHOALS") return "FISH";
+  if (cluster.clusterType === "OIL_FIELD") return "OIL";
   return "GEMS";
+};
+
+const discoverOilFieldNearAirport = (ownerId: string, airportTileKey: TileKey): TileKey[] => {
+  const [ax, ay] = parseKey(airportTileKey);
+  const candidateKeys: TileKey[] = [];
+  for (let dy = -2; dy <= 2; dy += 1) {
+    for (let dx = -2; dx <= 2; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const x = wrapX(ax + dx, WORLD_WIDTH);
+      const y = wrapY(ay + dy, WORLD_HEIGHT);
+      const tk = key(x, y);
+      if (terrainAtRuntime(x, y) !== "LAND") continue;
+      if (clusterByTile.has(tk) || townsByTile.has(tk) || docksByTile.has(tk)) continue;
+      if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) continue;
+      candidateKeys.push(tk);
+    }
+  }
+  candidateKeys.sort((left, right) => {
+    const leftTile = playerTile(...parseKey(left));
+    const rightTile = playerTile(...parseKey(right));
+    const leftScore = leftTile.ownerId === ownerId && leftTile.ownershipState === "SETTLED" ? 0 : leftTile.ownerId === ownerId ? 1 : 2;
+    const rightScore = rightTile.ownerId === ownerId && rightTile.ownershipState === "SETTLED" ? 0 : rightTile.ownerId === ownerId ? 1 : 2;
+    return leftScore - rightScore;
+  });
+  const desiredCount =
+    AIRPORT_BOMBARD_MIN_FIELD_TILES +
+    Math.floor(seeded01(ax, ay, activeSeason.worldSeed + 811) * (AIRPORT_BOMBARD_MAX_FIELD_TILES - AIRPORT_BOMBARD_MIN_FIELD_TILES + 1));
+  const candidateSet = new Set(candidateKeys);
+  const selected: TileKey[] = [];
+  for (const start of candidateKeys) {
+    if (selected.length >= desiredCount) break;
+    if (selected.includes(start)) continue;
+    const queue = [start];
+    const visited = new Set<TileKey>([start]);
+    while (queue.length > 0 && selected.length < desiredCount) {
+      const current = queue.shift()!;
+      if (!selected.includes(current)) selected.push(current);
+      const [cx, cy] = parseKey(current);
+      for (let ny = cy - 1; ny <= cy + 1; ny += 1) {
+        for (let nx = cx - 1; nx <= cx + 1; nx += 1) {
+          const neighborKey = key(wrapX(nx, WORLD_WIDTH), wrapY(ny, WORLD_HEIGHT));
+          if (!candidateSet.has(neighborKey) || visited.has(neighborKey)) continue;
+          visited.add(neighborKey);
+          queue.push(neighborKey);
+        }
+      }
+    }
+    if (selected.length >= AIRPORT_BOMBARD_MIN_FIELD_TILES) break;
+  }
+  if (selected.length < AIRPORT_BOMBARD_MIN_FIELD_TILES) return [];
+  const clusterId = `oil-${crypto.randomUUID()}`;
+  clustersById.set(clusterId, {
+    clusterId,
+    clusterType: "OIL_FIELD",
+    resourceType: "OIL",
+    centerX: ax,
+    centerY: ay,
+    radius: 1,
+    controlThreshold: 2
+  });
+  const affectedOwners = new Set<string>();
+  for (const tk of selected) {
+    clusterByTile.set(tk, clusterId);
+    const owner = ownership.get(tk);
+    if (!owner) continue;
+    getOrInitResourceCounts(owner).OIL = (getOrInitResourceCounts(owner).OIL ?? 0) + 1;
+    affectedOwners.add(owner);
+  }
+  for (const affectedOwner of affectedOwners) {
+    rebuildEconomyIndexForPlayer(affectedOwner);
+    const player = players.get(affectedOwner);
+    if (player) sendPlayerUpdate(player, 0);
+  }
+  for (const tk of selected) {
+    const [x, y] = parseKey(tk);
+    sendVisibleTileDeltaAt(x, y);
+  }
+  return selected;
 };
 
 const chooseSeasonalTechConfig = (seed: number): SeasonalTechConfig => {
@@ -2635,6 +2783,76 @@ const townPopulationMultiplier = (population: number): number => {
   return 1;
 };
 
+const townManpowerSnapshotForOwner = (
+  town: TownDefinition,
+  ownerId: string | undefined
+): { cap: number; regenPerMinute: number } => {
+  if (!ownerId) return { cap: 0, regenPerMinute: 0 };
+  if (!isTownFedForOwner(town.tileKey, ownerId)) return { cap: 0, regenPerMinute: 0 };
+  const base = TOWN_MANPOWER_BY_TIER[townPopulationTier(town.population)];
+  if ((townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now()) {
+    return {
+      cap: base.cap * TOWN_CAPTURED_MANPOWER_MULT,
+      regenPerMinute: base.regenPerMinute * TOWN_CAPTURED_MANPOWER_MULT
+    };
+  }
+  return base;
+};
+
+const playerManpowerCap = (player: Player): number => {
+  let cap = MANPOWER_BASE_CAP;
+  for (const tk of ownedTownKeysForPlayer(player.id)) {
+    const town = townsByTile.get(tk);
+    if (!town) continue;
+    cap += townManpowerSnapshotForOwner(town, player.id).cap;
+  }
+  return Math.max(MANPOWER_BASE_CAP, cap);
+};
+
+const playerManpowerRegenPerMinute = (player: Player): number => {
+  let regen = MANPOWER_BASE_REGEN_PER_MINUTE;
+  for (const tk of ownedTownKeysForPlayer(player.id)) {
+    const town = townsByTile.get(tk);
+    if (!town) continue;
+    regen += townManpowerSnapshotForOwner(town, player.id).regenPerMinute;
+  }
+  return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
+};
+
+const applyManpowerRegen = (player: Player): void => {
+  const cap = playerManpowerCap(player);
+  if (!Number.isFinite(player.manpower)) player.manpower = cap;
+  if (!Number.isFinite(player.manpowerUpdatedAt)) {
+    player.manpower = Math.min(cap, Math.max(0, player.manpower));
+    player.manpowerUpdatedAt = now();
+    return;
+  }
+  const nowMs = now();
+  const elapsedMinutes = Math.max(0, (nowMs - player.manpowerUpdatedAt) / 60_000);
+  const regenPerMinute = playerManpowerRegenPerMinute(player);
+  const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;
+  player.manpower = Math.max(0, Math.min(cap, nextManpower));
+  player.manpowerUpdatedAt = nowMs;
+};
+
+const manpowerCostForAction = (actionType: PendingCapture["actionType"] | ClientMessage["type"]): number => {
+  if (actionType === "ATTACK") return ATTACK_MANPOWER_COST;
+  if (actionType === "BREAKTHROUGH_ATTACK") return BREAKTHROUGH_ATTACK_MANPOWER_COST;
+  if (actionType === "DEEP_STRIKE_ATTACK") return DEEP_STRIKE_MANPOWER_COST;
+  if (actionType === "NAVAL_INFILTRATION_ATTACK") return NAVAL_INFILTRATION_MANPOWER_COST;
+  return 0;
+};
+
+const manpowerMinForAction = (actionType: PendingCapture["actionType"] | ClientMessage["type"]): number => {
+  if (actionType === "ATTACK") return ATTACK_MANPOWER_MIN;
+  if (actionType === "BREAKTHROUGH_ATTACK") return BREAKTHROUGH_ATTACK_MANPOWER_MIN;
+  if (actionType === "DEEP_STRIKE_ATTACK") return DEEP_STRIKE_MANPOWER_MIN;
+  if (actionType === "NAVAL_INFILTRATION_ATTACK") return NAVAL_INFILTRATION_MANPOWER_MIN;
+  return 0;
+};
+
+const hasEnoughManpower = (player: Player, amount: number): boolean => player.manpower + MANPOWER_EPSILON >= amount;
+
 const activeStructureAt = (tileKey: TileKey, ownerId: string | undefined, type: EconomicStructureType): boolean => {
   const structure = economicStructuresByTile.get(tileKey);
   return Boolean(structure && structure.type === type && ownerId && structure.ownerId === ownerId && structure.status === "active");
@@ -2727,14 +2945,14 @@ const computeTownFeedingState = (
   for (const townKey of townKeys) {
     const town = townsByTile.get(townKey);
     if (!town) continue;
-    upkeepNeed += townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult;
+    upkeepNeed += townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult * governorUpkeepMultiplierAtTile(playerId, townKey);
   }
   let remainingFood = Math.max(0, availableFood);
   const fedTownKeys = new Set<TileKey>();
   for (const townKey of townKeys) {
     const town = townsByTile.get(townKey);
     if (!town) continue;
-    const townNeed = townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult;
+    const townNeed = townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult * governorUpkeepMultiplierAtTile(playerId, townKey);
     if (townNeed <= 0) {
       fedTownKeys.add(townKey);
       continue;
@@ -2794,6 +3012,16 @@ const granaryGrowthMultiplierAt = (tileKey: TileKey, ownerId: string | undefined
   return 1 + effects.granaryCapBonusAdd;
 };
 
+const bankIncomeMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+  const structure = structureForSupportedTown(tileKey, ownerId, "BANK");
+  return structure && structure.status === "active" ? 1.5 : 1;
+};
+
+const bankFlatIncomeBonusAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+  const structure = structureForSupportedTown(tileKey, ownerId, "BANK");
+  return structure && structure.status === "active" ? 1 : 0;
+};
+
 const dockConnectedOwnedSettledCount = (dock: Dock, ownerId: string | undefined): number => {
   if (!ownerId) return 0;
   const linkedDockIds = dock.connectedDockIds?.length ? dock.connectedDockIds : [dock.pairedDockId];
@@ -2837,9 +3065,10 @@ const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): 
     townPopulationMultiplier(town.population) *
     (1 + town.connectedTownBonus) *
     marketIncomeMultiplierAt(town.tileKey, ownerId) *
+    bankIncomeMultiplierAt(town.tileKey, ownerId) *
     effects.townGoldOutputMult *
     effects.populationIncomeMult
-  );
+  ) + bankFlatIncomeBonusAt(town.tileKey, ownerId);
 };
 
 const townCapForOwner = (town: TownDefinition, ownerId: string | undefined): number => {
@@ -2991,6 +3220,9 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
     HARVEST_GOLD_RATE_MULT;
   const strategicResource = toStrategicResource(resource);
   const strategicBaseDaily = strategicResource && resource ? (strategicDailyFromResource[resource] ?? 0) : 0;
+  const structure = economicStructuresByTile.get(tileKey);
+  const converterDaily = structure && structure.ownerId === ownerId && structure.status === "active" ? converterStructureOutputFor(structure.type) : undefined;
+  const converterMaxDaily = converterDaily ? Math.max(0, ...Object.values(converterDaily)) : 0;
   const fallbackGoldCap = TILE_YIELD_CAP_GOLD * effects.harvestCapMult;
   const fallbackResourceCap = TILE_YIELD_CAP_RESOURCE * effects.harvestCapMult;
   return {
@@ -3001,7 +3233,7 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
         : goldPerMinute > 0
           ? goldPerMinute * 60 * 8
           : fallbackGoldCap,
-    strategicEach: strategicBaseDaily > 0 ? strategicBaseDaily / 3 : fallbackResourceCap
+    strategicEach: strategicBaseDaily > 0 ? strategicBaseDaily / 3 : converterMaxDaily > 0 ? converterMaxDaily / 3 : fallbackResourceCap
   };
 };
 
@@ -3417,13 +3649,15 @@ const clearWorldProgressForSeason = (): void => {
     p.spawnShieldUntil = now() + 120_000;
     p.stamina = STAMINA_MAX;
     p.staminaUpdatedAt = now();
+    p.manpower = playerManpowerCap(p);
+    p.manpowerUpdatedAt = now();
     p.isEliminated = false;
     p.respawnPending = false;
     p.missions = [];
     p.missionStats = defaultMissionStats();
     p.powerups = {};
     p.mods = { attack: 1, defense: 1, income: 1, vision: 1 };
-    resourceCountsByPlayer.set(p.id, { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0 });
+    resourceCountsByPlayer.set(p.id, { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 });
     strategicResourceStockByPlayer.set(p.id, emptyStrategicStocks());
     strategicResourceBufferByPlayer.set(p.id, emptyStrategicStocks());
     economyIndexByPlayer.set(p.id, emptyPlayerEconomyIndex());
@@ -3569,6 +3803,7 @@ const playerTile = (x: number, y: number): Tile => {
     const connectedTownKeys = owner ? directlyConnectedTownKeysForTown(owner, town.tileKey) : [];
     const market = structureForSupportedTown(town.tileKey, owner, "MARKET");
     const granary = structureForSupportedTown(town.tileKey, owner, "GRANARY");
+    const bank = structureForSupportedTown(town.tileKey, owner, "BANK");
     tile.town = {
       type: town.type,
       baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
@@ -3590,10 +3825,11 @@ const playerTile = (x: number, y: number): Tile => {
       marketActive: Boolean(market && market.status === "active" && isFed),
       hasGranary: Boolean(granary),
       granaryActive: Boolean(granary && granary.status === "active"),
-      foodUpkeepPerMinute: townFoodUpkeepPerMinute(town)
+      hasBank: Boolean(bank),
+      bankActive: Boolean(bank && bank.status === "active"),
+      foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
+      growthModifiers: townGrowthModifiersForOwner(town, owner)
     };
-    (tile.town as typeof tile.town & { growthModifiers?: ReturnType<typeof townGrowthModifiersForOwner> }).growthModifiers =
-      townGrowthModifiersForOwner(town, owner);
   }
   if (fort) {
     const fortView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
@@ -3670,6 +3906,15 @@ const playerTile = (x: number, y: number): Tile => {
     }
     if (town?.type === "ANCIENT") {
       strategicPerDay.SHARD = (strategicPerDay.SHARD ?? 0) + strategicResourceRates.SHARD * ownerEffects.resourceOutputMult.SHARD;
+    }
+    const economicStructure = economicStructuresByTile.get(key(wx, wy));
+    if (economicStructure && economicStructure.ownerId === ownerId && economicStructure.status === "active") {
+      const converterDaily = converterStructureOutputFor(economicStructure.type);
+      if (converterDaily) {
+        for (const [resourceKey, amount] of Object.entries(converterDaily) as Array<[StrategicResource, number]>) {
+          strategicPerDay[resourceKey] = (strategicPerDay[resourceKey] ?? 0) + amount;
+        }
+      }
     }
     (tile as Tile & { yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResource, number>> } }).yieldRate = {
       goldPerMinute: Number(goldPerMinuteFromTile.toFixed(4)),
@@ -3776,7 +4021,7 @@ const reconcileCapitalForPlayer = (player: Player): void => {
 const getOrInitResourceCounts = (playerId: string): Record<ResourceType, number> => {
   let counts = resourceCountsByPlayer.get(playerId);
   if (!counts) {
-    counts = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0 };
+    counts = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 };
     resourceCountsByPlayer.set(playerId, counts);
   } else {
     if (counts.FARM === undefined) counts.FARM = 0;
@@ -3785,6 +4030,7 @@ const getOrInitResourceCounts = (playerId: string): Record<ResourceType, number>
     if (counts.WOOD === undefined) counts.WOOD = 0;
     if (counts.IRON === undefined) counts.IRON = 0;
     if (counts.GEMS === undefined) counts.GEMS = 0;
+    if (counts.OIL === undefined) counts.OIL = 0;
   }
   return counts;
 };
@@ -3794,7 +4040,8 @@ const emptyStrategicStocks = (): Record<StrategicResource, number> => ({
   IRON: 0,
   CRYSTAL: 0,
   SUPPLY: 0,
-  SHARD: 0
+  SHARD: 0,
+  OIL: 0
 });
 
 const emptyTileYield = (): TileYieldBuffer => ({
@@ -3927,6 +4174,7 @@ const emptyUpkeepDiagnostics = (): UpkeepDiagnostics => ({
   iron: emptyUpkeepBreakdown(),
   supply: emptyUpkeepBreakdown(),
   crystal: emptyUpkeepBreakdown(),
+  oil: emptyUpkeepBreakdown(),
   gold: emptyUpkeepBreakdown(),
   foodCoverage: 1
 });
@@ -4236,6 +4484,70 @@ const hostileObservatoryProtectingTile = (actor: Player, x: number, y: number): 
   return undefined;
 };
 
+const ownedActiveObservatoryWithinRange = (playerId: string, x: number, y: number, range = OBSERVATORY_CAST_RADIUS): boolean => {
+  for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
+    if (observatoryStatusForTile(playerId, tk) !== "active") continue;
+    const [ox, oy] = parseKey(tk);
+    if (chebyshevDistance(ox, oy, x, y) <= range) return true;
+  }
+  return false;
+};
+
+const activeAirportAt = (ownerId: string, tileKey: TileKey): EconomicStructure | undefined => {
+  const structure = economicStructuresByTile.get(tileKey);
+  return structure && structure.ownerId === ownerId && structure.type === "AIRPORT" && structure.status === "active" ? structure : undefined;
+};
+
+const activeOwnedEconomicStructureWithinRange = (
+  ownerId: string,
+  type: EconomicStructureType,
+  x: number,
+  y: number,
+  range: number
+): TileKey | undefined => {
+  for (const tk of economicStructureTileKeysByPlayer.get(ownerId) ?? []) {
+    const structure = economicStructuresByTile.get(tk);
+    if (!structure || structure.type !== type || structure.status !== "active") continue;
+    const [sx, sy] = parseKey(tk);
+    if (chebyshevDistance(sx, sy, x, y) <= range) return tk;
+  }
+  return undefined;
+};
+
+const hostileRadarProtectingTile = (actor: Player, x: number, y: number): TileKey | undefined => {
+  for (const [tk, structure] of economicStructuresByTile) {
+    if (structure.type !== "RADAR_SYSTEM" || structure.status !== "active") continue;
+    if (structure.ownerId === actor.id || actor.allies.has(structure.ownerId)) continue;
+    const [rx, ry] = parseKey(tk);
+    if (chebyshevDistance(rx, ry, x, y) <= RADAR_SYSTEM_RADIUS) return tk;
+  }
+  return undefined;
+};
+
+const governorUpkeepMultiplierAtTile = (ownerId: string | undefined, tileKey: TileKey): number => {
+  if (!ownerId) return 1;
+  const [x, y] = parseKey(tileKey);
+  return activeOwnedEconomicStructureWithinRange(ownerId, "GOVERNORS_OFFICE", x, y, GOVERNORS_OFFICE_RADIUS)
+    ? GOVERNORS_OFFICE_UPKEEP_MULT
+    : 1;
+};
+
+const foundryMineOutputMultiplierAt = (ownerId: string | undefined, tileKey: TileKey): number => {
+  if (!ownerId) return 1;
+  const structure = economicStructuresByTile.get(tileKey);
+  if (!structure || structure.ownerId !== ownerId || structure.status !== "active" || structure.type !== "MINE") return 1;
+  const [x, y] = parseKey(tileKey);
+  return activeOwnedEconomicStructureWithinRange(ownerId, "FOUNDRY", x, y, FOUNDRY_RADIUS) ? FOUNDRY_OUTPUT_MULT : 1;
+};
+
+const converterStructureOutputFor = (structureType: EconomicStructureType): Partial<Record<StrategicResource, number>> | undefined => {
+  if (structureType === "QUARTERMASTER") return { SUPPLY: QUARTERMASTER_SUPPLY_PER_DAY };
+  if (structureType === "IRONWORKS") return { IRON: IRONWORKS_IRON_PER_DAY };
+  if (structureType === "CRYSTAL_SYNTHESIZER") return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
+  if (structureType === "FUEL_PLANT") return { OIL: FUEL_PLANT_OIL_PER_DAY };
+  return undefined;
+};
+
 const sabotageMultiplierAt = (tileKey: TileKey): number => {
   const sabotage = sabotageByTile.get(tileKey);
   if (!sabotage || sabotage.endsAt <= now()) {
@@ -4259,7 +4571,22 @@ const economicStructureResourceType = (resource: ResourceType | undefined): Econ
 const economicStructureOutputMultAt = (tileKey: TileKey, ownerId: string | undefined): number => {
   const structure = economicStructuresByTile.get(tileKey);
   if (!structure || !ownerId || structure.ownerId !== ownerId || structure.status !== "active") return 1;
-  return structure.type === "GRANARY" || structure.type === "MARKET" ? 1 : STRUCTURE_OUTPUT_MULT;
+  if (
+    structure.type === "GRANARY" ||
+    structure.type === "MARKET" ||
+    structure.type === "BANK" ||
+    structure.type === "AIRPORT" ||
+    structure.type === "QUARTERMASTER" ||
+    structure.type === "IRONWORKS" ||
+    structure.type === "CRYSTAL_SYNTHESIZER" ||
+    structure.type === "FUEL_PLANT" ||
+    structure.type === "FOUNDRY" ||
+    structure.type === "GOVERNORS_OFFICE" ||
+    structure.type === "RADAR_SYSTEM"
+  ) {
+    return 1;
+  }
+  return STRUCTURE_OUTPUT_MULT * foundryMineOutputMultiplierAt(ownerId, tileKey);
 };
 
 const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => {
@@ -4307,24 +4634,28 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   iron: number;
   supply: number;
   crystal: number;
+  oil: number;
   gold: number;
 } => {
   let townFoodUpkeep = 0;
-  let settledTileCount = 0;
+  let settledTileGoldUpkeep = 0;
   let fortCount = 0;
   let outpostCount = 0;
   let observatoryCount = 0;
+  let airportCount = 0;
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    settledTileCount += 1;
+    settledTileGoldUpkeep += 0.0025 * governorUpkeepMultiplierAtTile(player.id, tk);
     const town = townsByTile.get(tk);
-    if (town) townFoodUpkeep += townFoodUpkeepPerMinute(town);
+    if (town) townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
     const fort = fortsByTile.get(tk);
     if (fort?.ownerId === player.id && fort.status === "active") fortCount += 1;
     const siege = siegeOutpostsByTile.get(tk);
     if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
     const observatory = observatoriesByTile.get(tk);
     if (observatory?.ownerId === player.id && observatory?.status === "active") observatoryCount += 1;
+    const airport = economicStructuresByTile.get(tk);
+    if (airport?.ownerId === player.id && airport.status === "active" && airport.type === "AIRPORT") airportCount += 1;
   }
   const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
   const effects = getPlayerEffectsForPlayer(player.id);
@@ -4337,8 +4668,9 @@ const upkeepPerMinuteForPlayer = (player: Player): {
     supply: outpostCount * 0.025 * effects.outpostSupplyUpkeepMult,
     // 0.25 / 10 min for each active empire reveal.
     crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN,
+    oil: airportCount * AIRPORT_OIL_UPKEEP_PER_MIN,
     // 2 gold / 10 min per fort + 2 gold / 10 min per outpost + 1 gold / 10 min per 40 settled tiles.
-    gold: fortCount * 0.2 * effects.fortGoldUpkeepMult + outpostCount * 0.2 * effects.outpostGoldUpkeepMult + (settledTileCount / 40) * 0.1 * effects.settledGoldUpkeepMult
+    gold: fortCount * 0.2 * effects.fortGoldUpkeepMult + outpostCount * 0.2 * effects.outpostGoldUpkeepMult + settledTileGoldUpkeep * effects.settledGoldUpkeepMult
   };
 };
 
@@ -4362,15 +4694,39 @@ const playerHasSettledFoodSources = (playerId: string): boolean => {
 
 const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
   if (t.terrain !== "LAND") return { ok: false, reason: "structure requires land tile" };
-  if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") return { ok: false, reason: "structure requires settled owned tile" };
   const tk = key(t.x, t.y);
+  const isFoundry = structureType === "FOUNDRY";
+  if (isFoundry) {
+    if (t.ownerId && t.ownerId !== actor.id) return { ok: false, reason: "foundry cannot be placed on enemy land" };
+    if (t.ownerId === actor.id && t.ownershipState !== "SETTLED") return { ok: false, reason: "foundry requires settled owned land when placed in your territory" };
+    if (!t.ownerId) {
+      const touchesOwned = cardinalNeighborCores(t.x, t.y).some((neighbor) => neighbor.ownerId === actor.id);
+      if (!touchesOwned) return { ok: false, reason: "foundry on neutral land must touch your territory" };
+    }
+  } else if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") {
+    return { ok: false, reason: "structure requires settled owned tile" };
+  }
   if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) {
     return { ok: false, reason: "tile already has structure" };
   }
   if (structureType === "FARMSTEAD" && t.resource !== "FARM" && t.resource !== "FISH") return { ok: false, reason: "farmstead requires FARM or FISH tile" };
   if (structureType === "CAMP" && t.resource !== "WOOD" && t.resource !== "FUR") return { ok: false, reason: "camp requires SUPPLY tile" };
   if (structureType === "MINE" && t.resource !== "IRON" && t.resource !== "GEMS") return { ok: false, reason: "mine requires IRON or CRYSTAL tile" };
-  if (structureType === "MARKET" || structureType === "GRANARY") {
+  if (structureType === "AIRPORT") {
+    if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: "airport requires empty settled land" };
+  }
+  if (structureType === "RADAR_SYSTEM" || structureType === "GOVERNORS_OFFICE" || structureType === "FOUNDRY") {
+    if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} requires empty land` };
+  }
+  if (
+    structureType === "MARKET" ||
+    structureType === "GRANARY" ||
+    structureType === "BANK" ||
+    structureType === "QUARTERMASTER" ||
+    structureType === "IRONWORKS" ||
+    structureType === "CRYSTAL_SYNTHESIZER" ||
+    structureType === "FUEL_PLANT"
+  ) {
     if (townsByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} must be built on a town support tile` };
     const supportedTowns = supportedTownKeysForTile(tk, actor.id);
     if (supportedTowns.length === 0) return { ok: false, reason: `${structureType.toLowerCase()} requires a support tile next to your town` };
@@ -4394,6 +4750,18 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
   if (structureType === "MINE" && !actor.techIds.has("mining")) return { ok: false, reason: "unlock mines via Mining first" };
   if (structureType === "MARKET" && !actor.techIds.has("trade")) return { ok: false, reason: "unlock markets via Trade first" };
   if (structureType === "GRANARY" && !getPlayerEffectsForPlayer(actor.id).unlockGranary) return { ok: false, reason: "unlock granaries via Pottery first" };
+  if (structureType === "BANK" && !actor.techIds.has("coinage")) return { ok: false, reason: "unlock banks via Coinage first" };
+  if (structureType === "AIRPORT" && !actor.techIds.has("aeronautics")) return { ok: false, reason: "unlock airports via Aeronautics first" };
+  if (structureType === "FOUNDRY" && !actor.techIds.has("industrial-extraction")) return { ok: false, reason: "unlock foundries via Industrial Extraction first" };
+  if (structureType === "GOVERNORS_OFFICE" && !actor.techIds.has("civil-service")) return { ok: false, reason: "unlock governor's offices via Civil Service first" };
+  if (structureType === "RADAR_SYSTEM" && !actor.techIds.has("radar")) return { ok: false, reason: "unlock radar systems via Radar first" };
+  if (
+    (structureType === "QUARTERMASTER" || structureType === "IRONWORKS" || structureType === "CRYSTAL_SYNTHESIZER") &&
+    !actor.techIds.has("workshops")
+  ) {
+    return { ok: false, reason: "unlock converters via Workshops first" };
+  }
+  if (structureType === "FUEL_PLANT" && !actor.techIds.has("plastics")) return { ok: false, reason: "unlock fuel plants via Plastics first" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
 
   if (structureType === "FARMSTEAD") {
@@ -4414,10 +4782,39 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
       if (actor.points < MARKET_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for market" };
       if (!consumeStrategicResource(actor, "CRYSTAL", MARKET_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for market" };
       actor.points -= MARKET_BUILD_GOLD_COST;
-    } else {
+    } else if (structureType === "GRANARY") {
       if (actor.points < GRANARY_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for granary" };
       if (!consumeStrategicResource(actor, "FOOD", GRANARY_BUILD_FOOD_COST)) return { ok: false, reason: "insufficient FOOD for granary" };
       actor.points -= GRANARY_BUILD_GOLD_COST;
+    } else if (structureType === "BANK") {
+      if (actor.points < BANK_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for bank" };
+      if (!consumeStrategicResource(actor, "CRYSTAL", BANK_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for bank" };
+      actor.points -= BANK_BUILD_GOLD_COST;
+    } else if (structureType === "QUARTERMASTER") {
+      if (actor.points < QUARTERMASTER_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for quartermaster" };
+      actor.points -= QUARTERMASTER_BUILD_GOLD_COST;
+    } else if (structureType === "IRONWORKS") {
+      if (actor.points < IRONWORKS_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for ironworks" };
+      actor.points -= IRONWORKS_BUILD_GOLD_COST;
+    } else if (structureType === "CRYSTAL_SYNTHESIZER") {
+      if (actor.points < CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for crystal synthesizer" };
+      actor.points -= CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST;
+    } else if (structureType === "FUEL_PLANT") {
+      if (actor.points < FUEL_PLANT_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for fuel plant" };
+      actor.points -= FUEL_PLANT_BUILD_GOLD_COST;
+    } else if (structureType === "FOUNDRY") {
+      if (actor.points < FOUNDRY_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for foundry" };
+      actor.points -= FOUNDRY_BUILD_GOLD_COST;
+    } else if (structureType === "GOVERNORS_OFFICE") {
+      if (actor.points < GOVERNORS_OFFICE_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for governor's office" };
+      actor.points -= GOVERNORS_OFFICE_BUILD_GOLD_COST;
+    } else if (structureType === "RADAR_SYSTEM") {
+      if (actor.points < RADAR_SYSTEM_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for radar system" };
+      actor.points -= RADAR_SYSTEM_BUILD_GOLD_COST;
+    } else {
+      if (actor.points < AIRPORT_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for airport" };
+      if (!consumeStrategicResource(actor, "CRYSTAL", AIRPORT_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for airport" };
+      actor.points -= AIRPORT_BUILD_GOLD_COST;
     }
   }
 
@@ -4438,13 +4835,18 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
     const current = economicStructuresByTile.get(tk);
     if (!current) return;
     const tileNow = runtimeTileCore(t.x, t.y);
-    if (tileNow.ownerId !== actor.id || tileNow.ownershipState !== "SETTLED") {
+    const ownsActiveSite =
+      current.type === "FOUNDRY"
+        ? tileNow.ownerId === actor.id && tileNow.terrain === "LAND"
+        : tileNow.ownerId === actor.id && tileNow.ownershipState === "SETTLED";
+    if (!ownsActiveSite) {
       cancelEconomicStructureBuild(tk);
       return;
     }
     current.status = "active";
     delete current.completesAt;
     economicStructureBuildTimers.delete(tk);
+    if (current.type === "AIRPORT") discoverOilFieldNearAirport(actor.id, tk);
     updateOwnership(t.x, t.y, actor.id);
   }, ECONOMIC_STRUCTURE_BUILD_MS);
   economicStructureBuildTimers.set(tk, timer);
@@ -4460,16 +4862,21 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
     if (structure.status === "under_construction") continue;
     const [x, y] = parseKey(tk);
     const tile = playerTile(x, y);
-    if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") {
+    const canRemainActive =
+      structure.type === "FOUNDRY"
+        ? tile.ownerId === player.id && tile.terrain === "LAND"
+        : tile.ownerId === player.id && tile.ownershipState === "SETTLED";
+    if (!canRemainActive) {
       structure.status = "inactive";
       touched.add(tk);
       continue;
     }
     if (!economicStructureUpkeepDue(structure)) continue;
-    if (structure.type === "MARKET") {
-      const marketCrystalUpkeep = MARKET_CRYSTAL_UPKEEP * getPlayerEffectsForPlayer(player.id).marketCrystalUpkeepMult;
-      if ((stock.CRYSTAL ?? 0) >= marketCrystalUpkeep) {
-        stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - marketCrystalUpkeep);
+    if (structure.type === "MARKET" || structure.type === "BANK") {
+      const crystalUpkeep =
+        (structure.type === "MARKET" ? MARKET_CRYSTAL_UPKEEP : BANK_CRYSTAL_UPKEEP) * getPlayerEffectsForPlayer(player.id).marketCrystalUpkeepMult;
+      if ((stock.CRYSTAL ?? 0) >= crystalUpkeep) {
+        stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - crystalUpkeep);
         structure.status = "active";
       } else {
         structure.status = "inactive";
@@ -4482,12 +4889,28 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
             ? CAMP_GOLD_UPKEEP
             : structure.type === "MINE"
               ? MINE_GOLD_UPKEEP
-              : GRANARY_GOLD_UPKEEP;
+              : structure.type === "GRANARY"
+                ? GRANARY_GOLD_UPKEEP
+                : structure.type === "QUARTERMASTER"
+                  ? QUARTERMASTER_GOLD_UPKEEP
+                  : structure.type === "IRONWORKS"
+                    ? IRONWORKS_GOLD_UPKEEP
+                    : structure.type === "CRYSTAL_SYNTHESIZER"
+                      ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
+                      : structure.type === "FUEL_PLANT"
+                        ? FUEL_PLANT_GOLD_UPKEEP
+                        : structure.type === "FOUNDRY"
+                          ? FOUNDRY_GOLD_UPKEEP
+                          : structure.type === "GOVERNORS_OFFICE"
+                            ? GOVERNORS_OFFICE_GOLD_UPKEEP
+                            : structure.type === "RADAR_SYSTEM"
+                              ? RADAR_SYSTEM_GOLD_UPKEEP
+                : 0;
       if (player.points >= upkeep) {
         player.points = Math.max(0, player.points - upkeep);
-        structure.status = "active";
+        if (structure.type !== "AIRPORT") structure.status = "active";
       } else {
-        structure.status = "inactive";
+        if (structure.type !== "AIRPORT") structure.status = "inactive";
       }
     }
     structure.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
@@ -4520,6 +4943,7 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
   diag.iron = payResource("IRON", upkeep.iron);
   diag.supply = payResource("SUPPLY", upkeep.supply);
   diag.crystal = payResource("CRYSTAL", upkeep.crystal);
+  diag.oil = payResource("OIL", upkeep.oil);
   diag.foodCoverage = foodFeedingState.foodCoverage;
   foodUpkeepCoverageByPlayer.set(player.id, diag.foodCoverage);
   townFeedingStateByPlayer.set(player.id, foodFeedingState);
@@ -4538,6 +4962,16 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
     syncObservatoriesForPlayer(player.id, true);
     for (const [tk, observatory] of observatoriesByTile) {
       if (observatory.ownerId === player.id) touchedTileKeys.add(tk);
+    }
+  }
+
+  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
+    const structure = economicStructuresByTile.get(tk);
+    if (!structure || structure.type !== "AIRPORT" || structure.status === "under_construction") continue;
+    const nextStatus = diag.oil.need > 0 && diag.oil.remaining > 0 ? "inactive" : "active";
+    if (structure.status !== nextStatus) {
+      structure.status = nextStatus;
+      touchedTileKeys.add(tk);
     }
   }
 
@@ -4625,7 +5059,9 @@ const activeResourceIncomeMult = (playerId: string, resource: ResourceType): num
           ? effects.resourceOutputMult.IRON
           : resource === "GEMS"
             ? effects.resourceOutputMult.CRYSTAL
-            : effects.resourceOutputMult.SUPPLY;
+            : resource === "OIL"
+              ? effects.resourceOutputMult.OIL
+              : effects.resourceOutputMult.SUPPLY;
   const buff = temporaryIncomeBuffUntilByPlayer.get(playerId);
   if (!buff || buff.until <= now()) return permanent;
   return permanent * (buff.resources.includes(resource) ? RESOURCE_CHAIN_MULT : 1);
@@ -4684,6 +5120,43 @@ const applyStaminaRegen = (p: Player): void => {
   // Prototype mode: stamina is disabled as a gameplay limiter.
   p.stamina = STAMINA_MAX;
   p.staminaUpdatedAt = now();
+};
+
+const settleAttackManpower = (player: Player, committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number => {
+  if (committedManpower <= 0) return 0;
+  if (attackerWon) {
+    const loss = Math.max(10, committedManpower * 0.16);
+    player.manpower = Math.max(0, player.manpower - loss);
+    return loss;
+  }
+  const combatRatio = defEff / Math.max(1, atkEff);
+  const loss = committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
+  player.manpower = Math.max(0, player.manpower - loss);
+  return loss;
+};
+
+const pillageSettledTile = (
+  attacker: Player,
+  defender: Player,
+  defenderTileCountBeforeCapture: number
+): { gold: number; strategic: Partial<Record<StrategicResource, number>>; share: number } => {
+  const share = 1 / Math.max(1, defenderTileCountBeforeCapture);
+  const gold = Math.max(0, defender.points * share);
+  defender.points = Math.max(0, defender.points - gold);
+  attacker.points += gold;
+
+  const stolenStrategic: Partial<Record<StrategicResource, number>> = {};
+  const attackerStocks = getOrInitStrategicStocks(attacker.id);
+  const defenderStocks = getOrInitStrategicStocks(defender.id);
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+    const available = Math.max(0, defenderStocks[resource] ?? 0);
+    const amount = available * share;
+    if (amount <= 0) continue;
+    defenderStocks[resource] = Math.max(0, available - amount);
+    attackerStocks[resource] = (attackerStocks[resource] ?? 0) + amount;
+    stolenStrategic[resource] = amount;
+  }
+  return { gold, strategic: stolenStrategic, share };
 };
 
 const visible = (p: Player, x: number, y: number): boolean => {
@@ -4807,6 +5280,7 @@ const broadcastLocalVisionDelta = (centers: Array<{ x: number; y: number }>): vo
 };
 
 const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
+  applyManpowerRegen(p);
   const ws = socketsByPlayer.get(p.id);
   if (!ws || ws.readyState !== ws.OPEN) return;
   refreshGlobalStatusCache(false);
@@ -4839,12 +5313,16 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       upkeepPerMinute: upkeepNeed,
       upkeepLastTick: upkeepDiag,
       stamina: p.stamina,
+      manpower: p.manpower,
+      manpowerCap: playerManpowerCap(p),
+      manpowerRegenPerMinute: playerManpowerRegenPerMinute(p),
       T: p.T,
       E: p.E,
       Ts: p.Ts,
       Es: p.Es,
       shieldUntil: p.spawnShieldUntil,
       defensiveness: playerDefensiveness(p),
+      currentResearch: p.currentResearch,
       availableTechPicks: availableTechPicks(p),
       techChoices: reachableTechs(p),
       techCatalog: activeTechCatalog(p),
@@ -4965,6 +5443,12 @@ const tryQueueBasicFrontierAction = (
       message: actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
     };
   }
+  applyManpowerRegen(actor);
+  const manpowerMin = manpowerMinForAction(actionType);
+  const manpowerCost = manpowerCostForAction(actionType);
+  if (!hasEnoughManpower(actor, manpowerMin)) {
+    return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerMin.toFixed(0)} manpower to launch attack` };
+  }
 
   const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
   const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
@@ -4978,6 +5462,7 @@ const tryQueueBasicFrontierAction = (
     target: tk,
     attackerId: actor.id,
     staminaCost: 0,
+    manpowerCost,
     cancelled: false
   };
   combatLocks.set(fk, pending);
@@ -5022,6 +5507,7 @@ const tryQueueBasicFrontierAction = (
       ? 10 * BARBARIAN_DEFENSE_POWER * dockMult * randomFactor()
       : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult * randomFactor();
     const win = Math.random() < combatWinChance(atkEff, defEff);
+    settleAttackManpower(actor, pending.manpowerCost, win, atkEff, defEff);
     applyTownWarShock(tk);
 
     if (win) {
@@ -5112,6 +5598,10 @@ const chooseAiTech = (actor: Player): string | undefined => {
       if (tech.id === "harborcraft" && flags.has("active_dock")) score += 65;
       if (tech.id === "maritime-trade" && flags.has("active_dock")) score += 55;
       if (tech.id === "port-infrastructure" && flags.has("active_dock")) score += 45;
+      if (tech.id === "coinage" && flags.has("active_town")) score += 55;
+      if (tech.id === "banking" && flags.has("active_town")) score += 45;
+      if (tech.id === "civil-service" && flags.has("active_town")) score += 35;
+      if (tech.id === "aeronautics" && (counts.OIL ?? 0) > 0) score += 50;
       score += Math.max(0, 24 - techDepth(tech.id) * 6);
       return { id: tech.id, score };
     })
@@ -5144,9 +5634,9 @@ const chooseAiDomain = (actor: Player): string | undefined => {
 const maybePickAiTech = (actor: Player): void => {
   const choice = chooseAiTech(actor);
   if (!choice) return;
-  const outcome = applyTech(actor, choice);
+  const outcome = startTechResearch(actor, choice);
   if (!outcome.ok) return;
-  recomputeClusterBonusForPlayer(actor);
+  sendTechUpdate(actor, "started");
   sendPlayerUpdate(actor, 0);
 };
 
@@ -5252,31 +5742,12 @@ const executeUnifiedGameplayMessage = async (
   }
 
   if (msg.type === "CHOOSE_TECH") {
-    const outcome = applyTech(actor, msg.techId);
+    const outcome = startTechResearch(actor, msg.techId);
     if (!outcome.ok) {
       socket.send(JSON.stringify({ type: "ERROR", code: "TECH_INVALID", message: outcome.reason }));
       return true;
     }
-    recomputeClusterBonusForPlayer(actor);
-    socket.send(
-      JSON.stringify({
-        type: "TECH_UPDATE",
-        techRootId: actor.techRootId,
-        techIds: [...actor.techIds],
-        mods: actor.mods,
-        incomePerMinute: currentIncomePerMinute(actor),
-        powerups: actor.powerups,
-        nextChoices: reachableTechs(actor),
-        availableTechPicks: availableTechPicks(actor),
-        missions: missionPayload(actor),
-        techCatalog: activeTechCatalog(actor),
-        domainChoices: reachableDomains(actor),
-        domainCatalog: activeDomainCatalog(actor),
-        domainIds: [...actor.domainIds],
-        revealCapacity: revealCapacityForPlayer(actor),
-        activeRevealTargets: [...getOrInitRevealTargets(actor.id)]
-      })
-    );
+    sendTechUpdate(actor, "started");
     broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
     sendPlayerUpdate(actor, 0);
     return true;
@@ -7416,6 +7887,7 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
     target: targetKey,
     attackerId: `${BARBARIAN_OWNER_ID}:${agent.id}`,
     staminaCost: 0,
+    manpowerCost: 0,
     cancelled: false
   };
   combatLocks.set(currentKey, pending);
@@ -7827,9 +8299,10 @@ const tileInSubscription = (playerId: string, x: number, y: number): boolean => 
   return chunkDist(tcx, scx, chunkCountX) <= sub.radius && chunkDist(tcy, scy, chunkCountY) <= sub.radius;
 };
 
-const availableTechPicks = (_player: Player): number => {
-  // Tech progression is gated by points + branch prerequisites, not a consumable pick counter.
-  return 1;
+const hasActiveResearch = (player: Player): boolean => Boolean(player.currentResearch && player.currentResearch.completesAt > now());
+
+const availableTechPicks = (player: Player): number => {
+  return hasActiveResearch(player) ? 0 : 1;
 };
 
 const defaultMissionStats = (): MissionStats => ({
@@ -7967,6 +8440,15 @@ const missionPayload = (_player: Player): MissionState[] => [];
 const normalizePlayerProgressionState = (player: Player): void => {
   player.techIds = new Set([...player.techIds].filter((id) => techById.has(id)));
   player.domainIds = new Set([...player.domainIds].filter((id) => domainById.has(id)));
+  if (!Number.isFinite(player.manpower)) player.manpower = playerManpowerCap(player);
+  if (!Number.isFinite(player.manpowerUpdatedAt)) player.manpowerUpdatedAt = now();
+  applyManpowerRegen(player);
+  if (player.currentResearch) {
+    const researchingTech = techById.get(player.currentResearch.techId);
+    if (!researchingTech || player.techIds.has(player.currentResearch.techId)) {
+      delete player.currentResearch;
+    }
+  }
 };
 
 const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
@@ -8068,7 +8550,7 @@ const countControlledTowns = (playerId: string): number => {
 };
 
 const worldResourceTileCounts = (): Record<ResourceType, number> => {
-  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0 };
+  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 };
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
       if (terrainAtRuntime(x, y) !== "LAND") continue;
@@ -8081,7 +8563,7 @@ const worldResourceTileCounts = (): Record<ResourceType, number> => {
 };
 
 const controlledResourceTileCounts = (playerId: string): Record<ResourceType, number> => {
-  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0 };
+  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 };
   for (const tk of players.get(playerId)?.territoryTiles ?? []) {
     const [x, y] = parseKey(tk);
     if (terrainAtRuntime(x, y) !== "LAND") continue;
@@ -8548,7 +9030,9 @@ const techChecklistFor = (
 
 const activeTechCatalog = (player?: Player): Array<{
   id: string;
+  tier: number;
   name: string;
+  researchTimeSeconds?: number;
   rootId?: string;
   requires?: string;
   prereqIds?: string[];
@@ -8566,7 +9050,9 @@ const activeTechCatalog = (player?: Player): Array<{
   return TECHS.filter((t) => activeSeasonTechConfig.activeNodeIds.has(t.id)).map((t) => {
     const out: {
       id: string;
+      tier: number;
       name: string;
+      researchTimeSeconds?: number;
       rootId?: string;
       requires?: string;
       prereqIds?: string[];
@@ -8582,11 +9068,13 @@ const activeTechCatalog = (player?: Player): Array<{
       grantsPowerup?: { id: string; charges: number };
     } = {
       id: t.id,
+      tier: t.tier ?? 0,
       name: t.name,
       description: t.description,
       mods: t.mods ?? {},
       requirements: techRequirements(t)
     };
+    if (typeof t.researchTimeSeconds === "number") out.researchTimeSeconds = t.researchTimeSeconds;
     if (t.effects) out.effects = { ...t.effects };
     if (t.rootId) out.rootId = t.rootId;
     if (t.requires) out.requires = t.requires;
@@ -8607,8 +9095,8 @@ const FOOD_DOMAIN_IDS = new Set(["urbanization"]);
 const CRYSTAL_DOMAIN_IDS = new Set<string>();
 
 const IRON_TECH_IDS = new Set(["masonry", "mining", "bronze-working", "fortified-walls", "siegecraft", "industrial-extraction", "breach-doctrine", "steelworking"]);
-const SUPPLY_TECH_IDS = new Set(["toolmaking", "leatherworking", "harborcraft", "logistics", "navigation", "organized-supply", "deep-operations", "terrain-engineering", "imperial-roads"]);
-const FOOD_TECH_IDS = new Set(["agriculture", "irrigation", "pottery", "banking", "civil-service"]);
+const SUPPLY_TECH_IDS = new Set(["toolmaking", "leatherworking", "harborcraft", "logistics", "navigation", "organized-supply", "deep-operations", "terrain-engineering", "imperial-roads", "workshops"]);
+const FOOD_TECH_IDS = new Set(["agriculture", "irrigation", "pottery", "banking", "civil-service", "workshops"]);
 const CRYSTAL_TECH_IDS = new Set([
   "cartography",
   "signal-fires",
@@ -8623,7 +9111,10 @@ const CRYSTAL_TECH_IDS = new Set([
   "maritime-trade",
   "port-infrastructure",
   "global-trade-networks",
-  "trade-empire"
+  "urban-markets",
+  "aeronautics",
+  "radar",
+  "plastics"
 ]);
 
 const empireStyleFromPlayer = (player: Player): EmpireVisualStyle => {
@@ -8792,11 +9283,21 @@ const applyDomain = (player: Player, domainId: string): { ok: boolean; reason?: 
   return { ok: true };
 };
 
-const applyTech = (player: Player, techId: string): { ok: boolean; reason?: string } => {
+const grantTech = (player: Player, tech: (typeof TECHS)[number]): void => {
+  player.techIds.add(tech.id);
+  recomputeTechModsFromOwnedTechs(player);
+  if (tech.grantsPowerup) {
+    player.powerups[tech.grantsPowerup.id] = (player.powerups[tech.grantsPowerup.id] ?? 0) + tech.grantsPowerup.charges;
+  }
+  telemetryCounters.techUnlocks += 1;
+};
+
+const startTechResearch = (player: Player, techId: string): { ok: boolean; reason?: string; tech?: (typeof TECHS)[number] } => {
   const tech = techById.get(techId);
   if (!tech) return { ok: false, reason: "tech not found" };
   if (!activeSeasonTechConfig.activeNodeIds.has(techId)) return { ok: false, reason: "tech is not active this season" };
   if (player.techIds.has(techId)) return { ok: false, reason: "tech already selected" };
+  if (hasActiveResearch(player)) return { ok: false, reason: "research already in progress" };
   const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
   for (const req of prereqs) {
     if (!player.techIds.has(req)) {
@@ -8813,22 +9314,51 @@ const applyTech = (player: Player, techId: string): { ok: boolean; reason?: stri
   for (const [r, amount] of Object.entries(checklist.resources) as Array<[StrategicResource, number]>) {
     stock[r] = Math.max(0, stock[r] - amount);
   }
+  const startedAt = now();
+  player.currentResearch = {
+    techId: tech.id,
+    startedAt,
+    completesAt: startedAt + (tech.researchTimeSeconds ?? 1) * 1000
+  };
+  return { ok: true, tech };
+};
 
-  player.techIds.add(tech.id);
-  for (const [k, mult] of Object.entries(tech.mods ?? {}) as Array<[StatsModKey, number]>) {
-    player.mods[k] *= mult;
-  }
-  playerBaseMods.set(player.id, {
-    attack: player.mods.attack,
-    defense: player.mods.defense,
-    income: player.mods.income,
-    vision: player.mods.vision
+const sendTechUpdate = (player: Player, status: "started" | "completed"): void => {
+  sendToPlayer(player.id, {
+    type: "TECH_UPDATE",
+    status,
+    techRootId: player.techRootId,
+    currentResearch: player.currentResearch,
+    techIds: [...player.techIds],
+    mods: player.mods,
+    modBreakdown: playerModBreakdown(player),
+    incomePerMinute: currentIncomePerMinute(player),
+    powerups: player.powerups,
+    nextChoices: reachableTechs(player),
+    availableTechPicks: availableTechPicks(player),
+    missions: missionPayload(player),
+    techCatalog: activeTechCatalog(player),
+    domainChoices: reachableDomains(player),
+    domainCatalog: activeDomainCatalog(player),
+    domainIds: [...player.domainIds],
+    revealCapacity: revealCapacityForPlayer(player),
+    activeRevealTargets: [...getOrInitRevealTargets(player.id)]
   });
-  if (tech.grantsPowerup) {
-    player.powerups[tech.grantsPowerup.id] = (player.powerups[tech.grantsPowerup.id] ?? 0) + tech.grantsPowerup.charges;
+};
+
+const completeDueResearchForPlayer = (player: Player): void => {
+  if (!player.currentResearch || player.currentResearch.completesAt > now()) return;
+  const tech = techById.get(player.currentResearch.techId);
+  delete player.currentResearch;
+  if (!tech || player.techIds.has(tech.id)) {
+    sendPlayerUpdate(player, 0);
+    return;
   }
-  telemetryCounters.techUnlocks += 1;
-  return { ok: true };
+  grantTech(player, tech);
+  recomputeClusterBonusForPlayer(player);
+  sendTechUpdate(player, "completed");
+  broadcast({ type: "PLAYER_STYLE", playerId: player.id, tileColor: player.tileColor, visualStyle: empireStyleFromPlayer(player) });
+  sendPlayerUpdate(player, 0);
 };
 
 const countPlayerForts = (playerId: string): number => {
@@ -9113,6 +9643,7 @@ const trySabotageTile = (actor: Player, x: number, y: number): { ok: boolean; re
   if (t.terrain !== "LAND") return { ok: false, reason: "sabotage requires land tile" };
   if (!t.ownerId || t.ownerId === actor.id || actor.allies.has(t.ownerId)) return { ok: false, reason: "target enemy-controlled town or resource tile" };
   if (!t.town && !t.resource) return { ok: false, reason: "target must be a town or resource tile" };
+  if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
   if (hostileObservatoryProtectingTile(actor, x, y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
   const tk = key(t.x, t.y);
   const current = sabotageByTile.get(tk);
@@ -9168,6 +9699,7 @@ const tryCreateMountain = (actor: Player, x: number, y: number): { ok: boolean; 
   const tk = key(t.x, t.y);
   if (t.terrain !== "LAND") return { ok: false, reason: "target must be land" };
   if (!hasOwnedLandWithinRange(actor.id, t.x, t.y, TERRAIN_SHAPING_RANGE)) return { ok: false, reason: "target must be within 2 tiles of your land" };
+  if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile locked in combat" };
   if (hostileObservatoryProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
   if (townsByTile.has(tk)) return { ok: false, reason: "cannot create mountain on town tile" };
@@ -9208,6 +9740,7 @@ const tryRemoveMountain = (actor: Player, x: number, y: number): { ok: boolean; 
   const tk = key(wx, wy);
   if (terrainAtRuntime(wx, wy) !== "MOUNTAIN") return { ok: false, reason: "target must be mountain" };
   if (!hasOwnedLandWithinRange(actor.id, wx, wy, TERRAIN_SHAPING_RANGE)) return { ok: false, reason: "target must be within 2 tiles of your land" };
+  if (!ownedActiveObservatoryWithinRange(actor.id, wx, wy)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile locked in combat" };
   if (hostileObservatoryProtectingTile(actor, wx, wy)) return { ok: false, reason: "target is inside enemy observatory protection field" };
   if (actor.points < TERRAIN_SHAPING_GOLD_COST) return { ok: false, reason: "insufficient gold for remove mountain" };
@@ -9222,6 +9755,58 @@ const tryRemoveMountain = (actor: Player, x: number, y: number): { ok: boolean; 
   recordMountainShapeHistory(tk, "removed");
   recalcPlayerDerived(actor);
   return { ok: true };
+};
+
+const tryAirportBombard = (
+  actor: Player,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number
+): { ok: boolean; reason?: string; changedTileKeys?: TileKey[]; destroyed?: number } => {
+  const airportKey = key(wrapX(fromX, WORLD_WIDTH), wrapY(fromY, WORLD_HEIGHT));
+  const airport = activeAirportAt(actor.id, airportKey);
+  if (!airport) return { ok: false, reason: "select an active airport first" };
+  const [ax, ay] = parseKey(airportKey);
+  const targetX = wrapX(toX, WORLD_WIDTH);
+  const targetY = wrapY(toY, WORLD_HEIGHT);
+  if (chebyshevDistance(ax, ay, targetX, targetY) > AIRPORT_BOMBARD_RANGE) {
+    return { ok: false, reason: "target must be within 30 tiles of the airport" };
+  }
+  if (hostileRadarProtectingTile(actor, targetX, targetY)) {
+    return { ok: false, reason: "target is inside enemy radar coverage" };
+  }
+  if (!consumeStrategicResource(actor, "OIL", AIRPORT_BOMBARD_OIL_COST)) return { ok: false, reason: "insufficient OIL for bombardment" };
+  const changedTileKeys: TileKey[] = [];
+  let destroyed = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      const wx = wrapX(targetX + dx, WORLD_WIDTH);
+      const wy = wrapY(targetY + dy, WORLD_HEIGHT);
+      const tile = playerTile(wx, wy);
+      const tk = key(wx, wy);
+      if (tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || tile.ownerId === BARBARIAN_OWNER_ID || actor.allies.has(tile.ownerId)) continue;
+      if (combatLocks.has(tk)) continue;
+      const defender = players.get(tile.ownerId);
+      if (!defender) continue;
+      const atkEff = 10 * actor.mods.attack * AIRPORT_BOMBARD_ATTACK_MULT * attackMultiplierForTarget(actor.id, tile) * randomFactor();
+      const fortMult = fortDefenseMultAt(defender.id, tk);
+      const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
+      const settledDefenseMult = settledDefenseMultiplierForTarget(defender.id, tile);
+      const newSettlementDefenseMult = settlementDefenseMultAt(defender.id, tk);
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(tile);
+      const defEff =
+        10 * defender.mods.defense * playerDefensiveness(defender) * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult * randomFactor();
+      const win = Math.random() < combatWinChance(atkEff, defEff);
+      if (!win) continue;
+      updateOwnership(wx, wy, undefined);
+      changedTileKeys.push(tk);
+      destroyed += 1;
+    }
+  }
+  if (destroyed === 0) return { ok: true, changedTileKeys, destroyed: 0 };
+  recalcPlayerDerived(actor);
+  return { ok: true, changedTileKeys, destroyed };
 };
 
 const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
@@ -9605,7 +10190,7 @@ const rebuildOwnershipDerivedState = (): void => {
     p.E = 0;
     p.Ts = 0;
     p.Es = 0;
-    resourceCountsByPlayer.set(p.id, { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0 });
+    resourceCountsByPlayer.set(p.id, { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 });
     clusterControlledTilesByPlayer.set(p.id, new Map());
   }
 
@@ -9686,6 +10271,8 @@ const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefine
       Es: 0,
       stamina: STAMINA_MAX,
       staminaUpdatedAt: now(),
+      manpower: MANPOWER_BASE_CAP,
+      manpowerUpdatedAt: now(),
       allies: new Set<string>(),
       spawnShieldUntil: now() + 120_000,
       isEliminated: false,
@@ -10025,7 +10612,8 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       FUR: c.FUR ?? 0,
       WOOD: c.WOOD ?? 0,
       IRON: c.IRON ?? 0,
-      GEMS: c.GEMS ?? 0
+      GEMS: c.GEMS ?? 0,
+      OIL: c.OIL ?? 0
     });
   }
   for (const [pid, c] of raw.strategicResources ?? []) {
@@ -10035,7 +10623,8 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       IRON: c.IRON ?? 0,
       CRYSTAL: c.CRYSTAL ?? 0,
       SUPPLY: c.SUPPLY ?? legacy.STONE ?? 0,
-      SHARD: c.SHARD ?? 0
+      SHARD: c.SHARD ?? 0,
+      OIL: c.OIL ?? 0
     });
   }
   for (const [tk, history] of raw.tileHistory ?? []) {
@@ -10071,7 +10660,8 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       IRON: c.IRON ?? 0,
       CRYSTAL: c.CRYSTAL ?? 0,
       SUPPLY: c.SUPPLY ?? legacy.STONE ?? 0,
-      SHARD: c.SHARD ?? 0
+      SHARD: c.SHARD ?? 0,
+      OIL: c.OIL ?? 0
     });
   }
   for (const [tk, y] of raw.tileYield ?? []) {
@@ -10083,7 +10673,8 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
         IRON: y.strategic?.IRON ?? 0,
         CRYSTAL: y.strategic?.CRYSTAL ?? 0,
         SUPPLY: y.strategic?.SUPPLY ?? legacyStrategic.STONE ?? 0,
-        SHARD: y.strategic?.SHARD ?? 0
+        SHARD: y.strategic?.SHARD ?? 0,
+        OIL: y.strategic?.OIL ?? 0
       }
     });
   }
@@ -10558,6 +11149,7 @@ registerInterval(() => {
       continue;
     }
     applyStaminaRegen(p);
+    applyManpowerRegen(p);
     recomputeTownNetworkForPlayer(p.id);
     const populationTouched = updateTownPopulationForPlayer(p);
     const economicTouched = syncEconomicStructuresForPlayer(p);
@@ -10598,6 +11190,17 @@ registerInterval(() => {
       }
       if (goldDelta > 0 || (strategic && hasPositiveStrategicBuffer(strategic))) addTileYield(tk, goldDelta, strategic);
     }
+    for (const tk of economicStructureTileKeysByPlayer.get(p.id) ?? []) {
+      const structure = economicStructuresByTile.get(tk);
+      if (!structure || structure.ownerId !== p.id || structure.status !== "active") continue;
+      const strategicDaily = converterStructureOutputFor(structure.type);
+      if (!strategicDaily) continue;
+      const strategic: Partial<Record<StrategicResource, number>> = {};
+      for (const [resource, amount] of Object.entries(strategicDaily) as Array<[StrategicResource, number]>) {
+        strategic[resource] = amount * HARVEST_RESOURCE_RATE_MULT;
+      }
+      if (hasPositiveStrategicBuffer(strategic)) addTileYield(tk, 0, strategic);
+    }
     const upkeepResult = applyUpkeepForPlayer(p);
     const touchedTileKeys = new Set<TileKey>([...populationTouched, ...economicTouched, ...upkeepResult.touchedTileKeys]);
     if (touchedTileKeys.size > 0) {
@@ -10617,6 +11220,10 @@ registerInterval(() => {
   if (!hasOnlinePlayers()) return;
   broadcastGlobalStatusUpdate(false);
 }, GLOBAL_STATUS_BROADCAST_MS);
+
+registerInterval(() => {
+  for (const player of players.values()) completeDueResearchForPlayer(player);
+}, 1000);
 
 if (SEASONS_ENABLED) {
   registerInterval(() => {
@@ -11325,6 +11932,7 @@ app.post("/admin/world/regenerate", async () => {
       const strategicStocks = getOrInitStrategicStocks(player.id);
       const strategicProduction = strategicProductionPerMinute(player);
       const dockPairs = exportDockPairs();
+      completeDueResearchForPlayer(player);
       socket.send(
         JSON.stringify({
           type: "INIT",
@@ -11341,12 +11949,16 @@ app.post("/admin/world/regenerate", async () => {
             strategicResources: strategicStocks,
             strategicProductionPerMinute: strategicProduction,
             stamina: player.stamina,
+            manpower: player.manpower,
+            manpowerCap: playerManpowerCap(player),
+            manpowerRegenPerMinute: playerManpowerRegenPerMinute(player),
             T: player.T,
             E: player.E,
             Ts: player.Ts,
             Es: player.Es,
             techRootId: player.techRootId,
             techIds: [...player.techIds],
+            currentResearch: player.currentResearch,
             domainIds: [...player.domainIds],
             allies: [...player.allies],
             tileColor: player.tileColor,
@@ -11560,6 +12172,42 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
+    if (msg.type === "AIRPORT_BOMBARD") {
+      const targetX = wrapX(msg.toX, WORLD_WIDTH);
+      const targetY = wrapY(msg.toY, WORLD_HEIGHT);
+      const radarKey = hostileRadarProtectingTile(actor, targetX, targetY);
+      if (radarKey) {
+        const radar = economicStructuresByTile.get(radarKey);
+        if (radar) {
+          sendToPlayer(radar.ownerId, {
+            type: "ATTACK_ALERT",
+            attackerId: actor.id,
+            attackerName: actor.name,
+            x: targetX,
+            y: targetY,
+            fromX: wrapX(msg.fromX, WORLD_WIDTH),
+            fromY: wrapY(msg.fromY, WORLD_HEIGHT),
+            resolvesAt: now()
+          });
+        }
+      }
+      const out = tryAirportBombard(actor, msg.fromX, msg.fromY, msg.toX, msg.toY);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "AIRPORT_BOMBARD_INVALID", message: out.reason }));
+        return;
+      }
+      socket.send(JSON.stringify({
+        type: "AIRPORT_BOMBARD_RESULT",
+        fromX: wrapX(msg.fromX, WORLD_WIDTH),
+        fromY: wrapY(msg.fromY, WORLD_HEIGHT),
+        toX: wrapX(msg.toX, WORLD_WIDTH),
+        toY: wrapY(msg.toY, WORLD_HEIGHT),
+        destroyed: out.destroyed ?? 0
+      }));
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
     if (msg.type === "CANCEL_FORT_BUILD") {
       const tk = key(wrapX(msg.x, WORLD_WIDTH), wrapY(msg.y, WORLD_HEIGHT));
       const fort = fortsByTile.get(tk);
@@ -11689,32 +12337,12 @@ app.post("/admin/world/regenerate", async () => {
     }
 
     if (msg.type === "CHOOSE_TECH") {
-      const outcome = applyTech(actor, msg.techId);
+      const outcome = startTechResearch(actor, msg.techId);
       if (!outcome.ok) {
         socket.send(JSON.stringify({ type: "ERROR", code: "TECH_INVALID", message: outcome.reason }));
         return;
       }
-      recomputeClusterBonusForPlayer(actor);
-      socket.send(
-        JSON.stringify({
-          type: "TECH_UPDATE",
-          techRootId: actor.techRootId,
-          techIds: [...actor.techIds],
-          mods: actor.mods,
-          modBreakdown: playerModBreakdown(actor),
-          incomePerMinute: currentIncomePerMinute(actor),
-          powerups: actor.powerups,
-          nextChoices: reachableTechs(actor),
-          availableTechPicks: availableTechPicks(actor),
-          missions: missionPayload(actor),
-          techCatalog: activeTechCatalog(actor),
-          domainChoices: reachableDomains(actor),
-          domainCatalog: activeDomainCatalog(actor),
-          domainIds: [...actor.domainIds],
-          revealCapacity: revealCapacityForPlayer(actor),
-          activeRevealTargets: [...getOrInitRevealTargets(actor.id)]
-        })
-      );
+      sendTechUpdate(actor, "started");
       broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
       sendPlayerUpdate(actor, 0);
       return;
@@ -11880,6 +12508,7 @@ app.post("/admin/world/regenerate", async () => {
         sendInvalid("tile locked in combat");
         return;
       }
+      applyManpowerRegen(actor);
       const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
       const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
       if (!defender && !defenderIsBarbarian) {
@@ -11902,11 +12531,16 @@ app.post("/admin/world/regenerate", async () => {
         sendInvalid("target shielded");
         return;
       }
+      if (!hasEnoughManpower(actor, ATTACK_MANPOWER_MIN)) {
+        sendInvalid(`needs ${ATTACK_MANPOWER_MIN} manpower to launch`);
+        return;
+      }
 
       const canBreakthrough =
         actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID) &&
         Boolean(to.ownerId && to.ownerId !== actor.id && to.ownerId !== BARBARIAN_OWNER_ID) &&
-        !actor.allies.has(to.ownerId ?? "");
+        !actor.allies.has(to.ownerId ?? "") &&
+        hasEnoughManpower(actor, BREAKTHROUGH_ATTACK_MANPOWER_MIN);
       const shock = breachShockByTile.get(tk);
       const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
       const defMult = defender ? playerDefensiveness(defender) * shockMult : 1;
@@ -11927,6 +12561,8 @@ app.post("/admin/world/regenerate", async () => {
           from: { x: from.x, y: from.y },
           to: { x: to.x, y: to.y },
           valid: true,
+          manpowerMin: ATTACK_MANPOWER_MIN,
+          breakthroughManpowerMin: BREAKTHROUGH_ATTACK_MANPOWER_MIN,
           winChance: combatWinChance(atkEff, defEff),
           breakthroughWinChance: canBreakthrough ? combatWinChance(atkEff, breakthroughDefEff) : undefined,
           atkEff,
@@ -11985,7 +12621,10 @@ app.post("/admin/world/regenerate", async () => {
     actionTimestampsByPlayer.set(actor.id, actionTimes);
 
     applyStaminaRegen(actor);
+    applyManpowerRegen(actor);
     const staminaCost = 0;
+    const manpowerMin = manpowerMinForAction(msg.type);
+    const manpowerCost = manpowerCostForAction(msg.type);
     const isBreakthroughAttack = msg.type === "BREAKTHROUGH_ATTACK";
     const isDeepStrikeAttack = msg.type === "DEEP_STRIKE_ATTACK";
     const isNavalInfiltrationAttack = msg.type === "NAVAL_INFILTRATION_ATTACK";
@@ -12012,8 +12651,16 @@ app.post("/admin/world/regenerate", async () => {
       socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "deep strike requires enemy tile" }));
       return;
     }
+    if (isDeepStrikeAttack && !ownedActiveObservatoryWithinRange(actor.id, to.x, to.y)) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "target must be within 30 tiles of your observatory" }));
+      return;
+    }
     if (isNavalInfiltrationAttack && (!to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId))) {
       socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "naval infiltration requires enemy tile" }));
+      return;
+    }
+    if (isNavalInfiltrationAttack && !ownedActiveObservatoryWithinRange(actor.id, to.x, to.y)) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "target must be within 30 tiles of your observatory" }));
       return;
     }
     if (isDeepStrikeAttack && hostileObservatoryProtectingTile(actor, to.x, to.y)) {
@@ -12022,6 +12669,10 @@ app.post("/admin/world/regenerate", async () => {
     }
     if (isNavalInfiltrationAttack && hostileObservatoryProtectingTile(actor, to.x, to.y)) {
       socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "landing tile is inside enemy observatory protection field" }));
+      return;
+    }
+    if (!hasEnoughManpower(actor, manpowerMin)) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerMin.toFixed(0)} manpower to launch attack` }));
       return;
     }
     if ((msg.type === "EXPAND" || msg.type === "ATTACK") && actor.points < FRONTIER_ACTION_GOLD_COST) {
@@ -12162,6 +12813,7 @@ app.post("/admin/world/regenerate", async () => {
       target: tk,
       attackerId: actor.id,
       staminaCost,
+      manpowerCost,
       cancelled: false,
       actionType: msg.type,
       startedAt: nowMs
@@ -12253,6 +12905,10 @@ app.post("/admin/world/regenerate", async () => {
       const win = Math.random() < p;
 
       let pointsDelta = 0;
+      let manpowerDelta = 0;
+      let pillagedGold = 0;
+      let pillagedShare = 0;
+      let pillagedStrategic: Partial<Record<StrategicResource, number>> = {};
       let resultChanges: Array<{
         x: number;
         y: number;
@@ -12262,6 +12918,7 @@ app.post("/admin/world/regenerate", async () => {
       if (win) {
         const targetWasSettled = to.ownershipState === "SETTLED";
         const targetHadTown = townsByTile.has(tk);
+        const defenderTileCountBeforeCapture = defender ? Math.max(1, defender.territoryTiles.size) : 0;
         updateOwnership(to.x, to.y, actor.id, "FRONTIER");
         resultChanges = [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }];
         if (targetHadTown && !playerHasSettledFoodSources(actor.id)) {
@@ -12283,6 +12940,12 @@ app.post("/admin/world/regenerate", async () => {
         } else {
           actor.missionStats.enemyCaptures += 1;
         }
+        if (defender && targetWasSettled) {
+          const pillage = pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);
+          pillagedGold = pillage.gold;
+          pillagedShare = pillage.share;
+          pillagedStrategic = pillage.strategic;
+        }
         actor.missionStats.combatWins += 1;
         if (defender) {
           incrementVendettaCount(actor.id, defender.id);
@@ -12301,7 +12964,9 @@ app.post("/admin/world/regenerate", async () => {
           pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(to.resource), attackerRating, defenderRating) * repeatMult * PVP_REWARD_MULT;
           actor.points += pointsDelta;
         }
+        manpowerDelta = -settleAttackManpower(actor, manpowerCost, true, atkEffWithSiege, defEff);
       } else {
+        manpowerDelta = -settleAttackManpower(actor, manpowerCost, false, atkEffWithSiege, defEff);
         if (defenderIsBarbarian) {
           const barbarianAgentId = barbarianAgentByTileKey.get(tk);
           const barbarianAgent = barbarianAgentId ? barbarianAgents.get(barbarianAgentId) : undefined;
@@ -12371,6 +13036,10 @@ app.post("/admin/world/regenerate", async () => {
         winChance: p,
         changes: resultChanges,
         pointsDelta,
+        manpowerDelta,
+        pillagedGold,
+        pillagedShare,
+        pillagedStrategic,
         levelDelta: 0
       }));
       logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });

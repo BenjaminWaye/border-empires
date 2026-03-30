@@ -5,6 +5,8 @@ import type { GuideStep } from "./client-types.js";
 export const OBSERVATORY_BUILD_COST = 600;
 export const OBSERVATORY_VISION_BONUS = 5;
 export const OBSERVATORY_PROTECTION_RADIUS = 10;
+export const OBSERVATORY_CAST_RADIUS = 30;
+export const AIRPORT_BOMBARD_RADIUS = 30;
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 192;
 export const GOLD_COST_EPSILON = 1e-6;
@@ -42,6 +44,7 @@ export const guideSteps: GuideStep[] = [
 export const canAffordCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 
 export const formatGoldAmount = (gold: number): string => gold.toFixed(2);
+export const formatManpowerAmount = (manpower: number): string => manpower.toFixed(0);
 
 export const isForestTile = (x: number, y: number): boolean => landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
 
