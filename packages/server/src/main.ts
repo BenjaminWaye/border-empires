@@ -709,6 +709,7 @@ const parseKey = (k: TileKey): [number, number] => {
   return [Number(xs), Number(ys)];
 };
 const BARBARIAN_OWNER_ID = "barbarian";
+const BARBARIAN_TICK_MS = 5_000;
 
 const now = (): number => Date.now();
 const ALLIANCE_REQUEST_TTL_MS = 5 * 60_000;
@@ -6970,9 +6971,6 @@ const runBarbarianTick = (): void => {
     if (!live) continue;
     if (now() < live.nextActionAt) continue;
     if (!isVisibleToAnyOnlinePlayer(live.x, live.y)) {
-      live.lastActionAt = now();
-      live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
-      upsertBarbarianAgent(live);
       continue;
     }
     runBarbarianAction(live);
@@ -9918,7 +9916,7 @@ registerInterval(() => {
   saveSnapshotInBackground();
   lastSnapshotAt = nowMs;
 }, 30_000);
-registerInterval(runBarbarianTick, 1_000);
+registerInterval(runBarbarianTick, BARBARIAN_TICK_MS);
 registerInterval(runAiTick, AI_TICK_MS);
 registerInterval(maintainBarbarianPopulation, BARBARIAN_MAINTENANCE_INTERVAL_MS);
 registerInterval(() => {
