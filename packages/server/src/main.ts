@@ -102,6 +102,7 @@ import { loadDomainTree } from "./domain-tree.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
+import { serializeChunkFull, type ChunkPayloadChunk } from "./chunk/serializer-shared.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
@@ -118,6 +119,8 @@ const AI_PLANNER_WORKER_ENABLED = process.env.AI_PLANNER_WORKER !== "0";
 const AI_PLANNER_TIMEOUT_MS = Math.max(50, Number(process.env.AI_PLANNER_TIMEOUT_MS ?? 750));
 const SIM_COMBAT_WORKER_ENABLED = process.env.SIM_COMBAT_WORKER !== "0";
 const SIM_COMBAT_TIMEOUT_MS = Math.max(50, Number(process.env.SIM_COMBAT_TIMEOUT_MS ?? 750));
+const CHUNK_SERIALIZER_WORKER_ENABLED = process.env.CHUNK_SERIALIZER_WORKER !== "0";
+const CHUNK_SERIALIZER_TIMEOUT_MS = Math.max(50, Number(process.env.CHUNK_SERIALIZER_TIMEOUT_MS ?? 750));
 const SIM_DRAIN_BUDGET_MS = Math.max(4, Number(process.env.SIM_DRAIN_BUDGET_MS ?? 12));
 const SIM_DRAIN_MAX_COMMANDS = Math.max(1, Number(process.env.SIM_DRAIN_MAX_COMMANDS ?? 8));
 const SIM_DRAIN_HUMAN_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_HUMAN_QUOTA ?? 6));
@@ -1543,6 +1546,7 @@ const cachedChunkSnapshotByPlayer = new Map<
     payloadByChunkKey: Map<string, string>;
   }
 >();
+const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
 const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const allianceRequests = new Map<string, AllianceRequest>();
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
@@ -7734,6 +7738,118 @@ const resolveCombatViaWorker = async (request: CombatResolutionRequest): Promise
   }
 };
 
+type ChunkSerializerResponse =
+  | { id: number; payload: string }
+  | { id: number; error: string };
+
+const chunkSerializerWorkerState: {
+  worker: Worker | undefined;
+  enabled: boolean;
+  available: boolean;
+  crashed: boolean;
+  pending: number;
+  lastRoundTripMs: number;
+  lastUsedWorker: boolean;
+  lastFallbackReason: string | undefined;
+  nextRequestId: number;
+  inflight: Map<number, { startedAt: number; resolve: (payload: string) => void; reject: (err: Error) => void; timeout: NodeJS.Timeout }>;
+} = {
+  worker: undefined,
+  enabled: CHUNK_SERIALIZER_WORKER_ENABLED,
+  available: false,
+  crashed: false,
+  pending: 0,
+  lastRoundTripMs: 0,
+  lastUsedWorker: false,
+  lastFallbackReason: undefined,
+  nextRequestId: 0,
+  inflight: new Map()
+};
+
+const serializeChunkFallback = (chunk: ChunkPayloadChunk, reason: string): string => {
+  chunkSerializerWorkerState.lastUsedWorker = false;
+  chunkSerializerWorkerState.lastFallbackReason = reason;
+  return serializeChunkFull(chunk);
+};
+
+const clearChunkSerializerInflight = (error: Error): void => {
+  for (const [requestId, entry] of chunkSerializerWorkerState.inflight.entries()) {
+    clearTimeout(entry.timeout);
+    entry.reject(error);
+    chunkSerializerWorkerState.inflight.delete(requestId);
+  }
+  chunkSerializerWorkerState.pending = 0;
+};
+
+const ensureChunkSerializerWorker = (): Worker | undefined => {
+  if (!chunkSerializerWorkerState.enabled) return undefined;
+  if (chunkSerializerWorkerState.worker) return chunkSerializerWorkerState.worker;
+  try {
+    const worker = new Worker(new URL("./chunk/serializer-worker.js", import.meta.url));
+    worker.on("message", (message: ChunkSerializerResponse) => {
+      const entry = chunkSerializerWorkerState.inflight.get(message.id);
+      if (!entry) return;
+      clearTimeout(entry.timeout);
+      chunkSerializerWorkerState.inflight.delete(message.id);
+      chunkSerializerWorkerState.pending = chunkSerializerWorkerState.inflight.size;
+      chunkSerializerWorkerState.lastRoundTripMs = now() - entry.startedAt;
+      if ("error" in message) {
+        entry.reject(new Error(message.error));
+        return;
+      }
+      chunkSerializerWorkerState.lastUsedWorker = true;
+      chunkSerializerWorkerState.lastFallbackReason = undefined;
+      entry.resolve(message.payload);
+    });
+    worker.on("error", (err) => {
+      chunkSerializerWorkerState.available = false;
+      chunkSerializerWorkerState.crashed = true;
+      chunkSerializerWorkerState.worker = undefined;
+      clearChunkSerializerInflight(err instanceof Error ? err : new Error(String(err)));
+      logRuntimeError("chunk serializer worker failed", err);
+    });
+    worker.on("exit", (code) => {
+      chunkSerializerWorkerState.available = false;
+      chunkSerializerWorkerState.worker = undefined;
+      if (code !== 0) {
+        chunkSerializerWorkerState.crashed = true;
+        clearChunkSerializerInflight(new Error(`chunk serializer worker exited with code ${code}`));
+      }
+    });
+    chunkSerializerWorkerState.worker = worker;
+    chunkSerializerWorkerState.available = true;
+    chunkSerializerWorkerState.crashed = false;
+    return worker;
+  } catch (err) {
+    chunkSerializerWorkerState.available = false;
+    chunkSerializerWorkerState.crashed = true;
+    logRuntimeError("failed to start chunk serializer worker", err);
+    return undefined;
+  }
+};
+
+const serializeChunkViaWorker = async (chunk: ChunkPayloadChunk): Promise<string> => {
+  const worker = ensureChunkSerializerWorker();
+  if (!worker) return serializeChunkFallback(chunk, "worker_unavailable");
+  const requestId = ++chunkSerializerWorkerState.nextRequestId;
+  const startedAt = now();
+  const promise = new Promise<string>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      chunkSerializerWorkerState.inflight.delete(requestId);
+      chunkSerializerWorkerState.pending = chunkSerializerWorkerState.inflight.size;
+      reject(new Error("chunk serializer worker timed out"));
+    }, CHUNK_SERIALIZER_TIMEOUT_MS);
+    chunkSerializerWorkerState.inflight.set(requestId, { startedAt, resolve, reject, timeout });
+    chunkSerializerWorkerState.pending = chunkSerializerWorkerState.inflight.size;
+  });
+  worker.postMessage({ id: requestId, chunk });
+  try {
+    return await promise;
+  } catch (err) {
+    return serializeChunkFallback(chunk, err instanceof Error ? err.message : "worker_error");
+  }
+};
+
 const drainAiWorkerQueue = async (): Promise<void> => {
   const job = aiWorkerState.queue.shift();
   if (!job) {
@@ -8267,55 +8383,86 @@ const chunkSnapshotCacheForPlayer = (
   return payloadByChunkKey;
 };
 
+const fogChunkTiles = (worldCx: number, worldCy: number): readonly Tile[] => {
+  const chunkKey = `${worldCx},${worldCy}`;
+  const cached = fogChunkTilesByChunkKey.get(chunkKey);
+  if (cached) return cached;
+  const startX = worldCx * CHUNK_SIZE;
+  const startY = worldCy * CHUNK_SIZE;
+  const tiles: Tile[] = [];
+  for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+    for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+      const wx = wrapX(x, WORLD_WIDTH);
+      const wy = wrapY(y, WORLD_HEIGHT);
+      const tk = key(wx, wy);
+      const fogTile: Tile = {
+        x: wx,
+        y: wy,
+        terrain: terrainAtRuntime(wx, wy),
+        fogged: true,
+        lastChangedAt: 0
+      };
+      const dock = docksByTile.get(tk);
+      const clusterId = clusterByTile.get(tk);
+      const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
+      if (dock) fogTile.dockId = dock.dockId;
+      if (clusterId) fogTile.clusterId = clusterId;
+      if (clusterType) fogTile.clusterType = clusterType;
+      tiles.push(Object.freeze(fogTile));
+    }
+  }
+  fogChunkTilesByChunkKey.set(chunkKey, tiles);
+  return tiles;
+};
+
 const chunkSnapshotPayload = (
   actor: Player,
   snapshot: VisibilitySnapshot,
   worldCx: number,
   worldCy: number,
   fallbackLastChangedAt: number
-): { payload: string; tileCount: number } => {
+): { chunk: ChunkPayloadChunk; payload?: string; tileCount: number; chunkKey: string } => {
   const payloadByChunkKey = chunkSnapshotCacheForPlayer(actor.id, snapshot);
   const chunkKey = `${worldCx},${worldCy}`;
   const cachedPayload = payloadByChunkKey.get(chunkKey);
   if (cachedPayload) {
-    return { payload: cachedPayload, tileCount: CHUNK_SIZE * CHUNK_SIZE };
+    return {
+      chunk: { cx: worldCx, cy: worldCy, tilesMaskedByFog: [] },
+      payload: cachedPayload,
+      tileCount: CHUNK_SIZE * CHUNK_SIZE,
+      chunkKey
+    };
   }
 
   const startX = worldCx * CHUNK_SIZE;
   const startY = worldCy * CHUNK_SIZE;
-  const chunkTiles: Tile[] = [];
+  const chunkTiles = [...fogChunkTiles(worldCx, worldCy)];
 
+  let tileIndexInChunk = 0;
   for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
     for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
       const wx = wrapX(x, WORLD_WIDTH);
       const wy = wrapY(y, WORLD_HEIGHT);
-      const tk = key(wx, wy);
       if (visibleInSnapshot(snapshot, wx, wy)) {
         const tile = playerTile(wx, wy);
         tile.fogged = false;
-        chunkTiles.push(tile);
-      } else {
-        const fogTile: Tile = {
-          x: wx,
-          y: wy,
-          terrain: terrainAtRuntime(wx, wy),
-          fogged: true,
+        chunkTiles[tileIndexInChunk] = tile;
+      } else if (fallbackLastChangedAt !== 0) {
+        const baseFogTile = chunkTiles[tileIndexInChunk]!;
+        chunkTiles[tileIndexInChunk] = {
+          ...baseFogTile,
           lastChangedAt: fallbackLastChangedAt
         };
-        const dock = docksByTile.get(tk);
-        const clusterId = clusterByTile.get(tk);
-        const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
-        if (dock) fogTile.dockId = dock.dockId;
-        if (clusterId) fogTile.clusterId = clusterId;
-        if (clusterType) fogTile.clusterType = clusterType;
-        chunkTiles.push(fogTile);
       }
+      tileIndexInChunk += 1;
     }
   }
 
-  const payload = JSON.stringify({ type: "CHUNK_FULL", cx: worldCx, cy: worldCy, tilesMaskedByFog: chunkTiles });
-  payloadByChunkKey.set(chunkKey, payload);
-  return { payload, tileCount: chunkTiles.length };
+  return {
+    chunk: { cx: worldCx, cy: worldCy, tilesMaskedByFog: chunkTiles },
+    tileCount: chunkTiles.length,
+    chunkKey
+  };
 };
 
 const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: number; radius: number }): void => {
@@ -8350,7 +8497,7 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
   });
 
   let index = 0;
-  const streamNext = (): void => {
+  const streamNext = async (): Promise<void> => {
     if (chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) return;
     if (socket.readyState !== socket.OPEN) return;
     const chunkBatchPayloads: string[] = [];
@@ -8358,13 +8505,20 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
     for (; index < end; index += 1) {
       const coords = chunkCoords[index]!;
       const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy, fallbackLastChangedAt);
-      chunkBatchPayloads.push(chunk.payload);
+      let payload = chunk.payload;
+      if (!payload) {
+        payload = await serializeChunkViaWorker(chunk.chunk);
+        chunkSnapshotCacheForPlayer(actor.id, snapshot).set(chunk.chunkKey, payload);
+      }
+      chunkBatchPayloads.push(payload);
       chunkCount += 1;
       tileCount += chunk.tileCount;
     }
     for (const payload of chunkBatchPayloads) socket.send(payload);
     if (index < chunkCoords.length) {
-      queueMicrotaskFn(streamNext);
+      queueMicrotaskFn(() => {
+        void streamNext();
+      });
       return;
     }
     const elapsed = now() - startedAt;
@@ -8402,7 +8556,7 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
     }
   };
 
-  streamNext();
+  void streamNext();
 };
 
 const tileInSubscription = (playerId: string, x: number, y: number): boolean => {
@@ -11376,6 +11530,7 @@ const runtimeDashboardPayload = (): {
     aiQueueDepth: number;
     aiPlannerPending: number;
     combatWorkerPending: number;
+    chunkSerializerPending: number;
     simulationCommandQueueDepth: number;
     aiDraining: boolean;
     simulationCommandDraining: boolean;
@@ -11396,6 +11551,11 @@ const runtimeDashboardPayload = (): {
     combatWorkerLastRoundTripMs: number;
     combatWorkerLastUsedWorker: boolean;
     combatWorkerLastFallbackReason?: string;
+    chunkSerializerAvailable: boolean;
+    chunkSerializerCrashed: boolean;
+    chunkSerializerLastRoundTripMs: number;
+    chunkSerializerLastUsedWorker: boolean;
+    chunkSerializerLastFallbackReason?: string;
   };
   aiScheduler: {
     at: number;
@@ -11453,6 +11613,7 @@ const runtimeDashboardPayload = (): {
       aiQueueDepth: aiWorkerState.queue.length,
       aiPlannerPending: aiPlannerWorkerState.pending,
       combatWorkerPending: combatWorkerState.pending,
+      chunkSerializerPending: chunkSerializerWorkerState.pending,
       simulationCommandQueueDepth: simulationCommandQueueDepth(),
       aiDraining: aiWorkerState.draining,
       simulationCommandDraining: simulationCommandWorkerState.draining,
@@ -11472,7 +11633,12 @@ const runtimeDashboardPayload = (): {
       combatWorkerCrashed: combatWorkerState.crashed,
       combatWorkerLastRoundTripMs: combatWorkerState.lastRoundTripMs,
       combatWorkerLastUsedWorker: combatWorkerState.lastUsedWorker,
-      ...(combatWorkerState.lastFallbackReason ? { combatWorkerLastFallbackReason: combatWorkerState.lastFallbackReason } : {})
+      ...(combatWorkerState.lastFallbackReason ? { combatWorkerLastFallbackReason: combatWorkerState.lastFallbackReason } : {}),
+      chunkSerializerAvailable: chunkSerializerWorkerState.available,
+      chunkSerializerCrashed: chunkSerializerWorkerState.crashed,
+      chunkSerializerLastRoundTripMs: chunkSerializerWorkerState.lastRoundTripMs,
+      chunkSerializerLastUsedWorker: chunkSerializerWorkerState.lastUsedWorker,
+      ...(chunkSerializerWorkerState.lastFallbackReason ? { chunkSerializerLastFallbackReason: chunkSerializerWorkerState.lastFallbackReason } : {})
     },
     aiScheduler: {
       ...aiSchedulerState
