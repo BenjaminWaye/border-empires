@@ -30,7 +30,11 @@ Split responsibilities into two services:
 ## Suggested rollout
 
 1. Instrument request-to-result latency for expand, settle, and attack.
-2. Reduce AI tick monopolization with work budgeting and human-priority scheduling.
+2. Reduce AI tick monopolization with work budgeting and bounded scheduling.
+   - Status: in progress.
+   - AI now gets a guaranteed minimum slice even while humans are active or auth is hot.
+   - Human activity throttles AI batch size instead of skipping AI ticks entirely.
+   - Queue backpressure and event-loop pressure now clamp AI to single-turn slices instead of allowing runaway batches.
 3. Make frontier/settlement confirmations delta-first and avoid chunk refresh dependence.
 4. Extract simulation commands and events behind an internal interface in-process.
    - Status: started.
@@ -42,6 +46,7 @@ Split responsibilities into two services:
    - Status: started in-process.
    - AI ticks now build one shared cycle snapshot for the selected batch and enqueue turn execution onto an internal AI worker queue.
    - AI actions now enqueue simulation commands onto a separate internal simulation-command queue instead of mutating world state inline from the AI decision path.
+   - AI scheduling now exposes runtime scheduler state so starvation/backpressure is visible in `/admin/runtime/debug`.
    - Next step is to lift these two queues behind a `worker_threads` or external simulation process boundary without changing the gateway contract.
 7. Replace snapshot-first persistence with an indexed store such as SQLite or Postgres.
 
