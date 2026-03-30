@@ -144,6 +144,7 @@ export const createInitialState = () => ({
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "missions" | "tech" | "social" | "economy" | "defensibility" | "intel",
   activePanel: null as "missions" | "tech" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "settings" | null,
+  showWeakDefensibility: false,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD",
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
