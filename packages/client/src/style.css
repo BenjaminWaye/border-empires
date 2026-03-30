@@ -1531,6 +1531,12 @@ body {
   box-shadow: 0 14px 36px rgba(74, 10, 10, 0.42);
 }
 
+#capture-card[data-state="success"] {
+  border-color: rgba(141, 233, 168, 0.5);
+  background: linear-gradient(145deg, rgba(23, 94, 49, 0.72), rgba(11, 54, 26, 0.78));
+  box-shadow: 0 14px 36px rgba(8, 56, 20, 0.34);
+}
+
 #capture-card[data-state="warn"] {
   border-color: rgba(255, 209, 102, 0.46);
   background: linear-gradient(145deg, rgba(103, 72, 18, 0.68), rgba(62, 41, 8, 0.74));
@@ -1575,6 +1581,10 @@ body {
 
 #capture-card[data-state="error"] #capture-bar {
   background: linear-gradient(90deg, rgba(255, 91, 91, 0.96), rgba(194, 38, 38, 0.98));
+}
+
+#capture-card[data-state="success"] #capture-bar {
+  background: linear-gradient(90deg, rgba(139, 246, 172, 0.98), rgba(77, 196, 115, 0.98));
 }
 
 #capture-card[data-state="warn"] #capture-bar {
