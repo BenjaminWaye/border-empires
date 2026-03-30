@@ -2441,7 +2441,8 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
     !to.fogged &&
     to.ownerId !== state.me &&
     !isTileOwnedByAlly(to) &&
-    !adjacentFromOwned;
+    !adjacentFromOwned &&
+    !to.dockId;
   if (unreachableForeignClick) {
     pushFeed("Target is not connected to your border.", "combat", "warn");
     requestAttackPreviewForHover();
@@ -4355,8 +4356,13 @@ const queueSpecificTargets = (
   let skipped = neutralResult.skipped;
 
   for (const targetKey of attackTargets) {
+    const tile = state.tiles.get(targetKey);
+    if (!tile) {
+      skipped += 1;
+      continue;
+    }
     const { x, y } = parseKey(targetKey);
-    if (!pickOriginForTarget(x, y)) {
+    if (!pickOriginForTarget(x, y) && !tile.dockId) {
       skipped += 1;
       continue;
     }
@@ -4369,6 +4375,16 @@ const queueSpecificTargets = (
   }
 
   return { queued, skipped, queuedKeys };
+};
+
+const attackQueueFailureReason = (tile: Tile, mode: "normal" | "breakthrough"): string => {
+  if (mode === "breakthrough" && !hasBreakthroughCapability()) return "Requires Breach Doctrine.";
+  if (mode === "breakthrough" && (state.strategicResources.IRON ?? 0) < 1) return "Need 1 IRON.";
+  if (state.gold < (mode === "breakthrough" ? 2 : FRONTIER_CLAIM_COST)) return `Need ${mode === "breakthrough" ? 2 : FRONTIER_CLAIM_COST} gold.`;
+  if (!pickOriginForTarget(tile.x, tile.y)) {
+    return tile.dockId ? "No owned linked dock can reach this target." : "Target must border your territory or a linked dock.";
+  }
+  return "Action could not be queued.";
 };
 
 const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
@@ -4459,6 +4475,9 @@ const processActionQueue = (): boolean => {
       from = selectedFrom;
     }
     if (!from && !allowOptimisticOrigin && optimisticFrom) return false;
+    if (!from && to.ownerId && to.dockId) {
+      from = to;
+    }
     if (!from) {
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
@@ -4560,25 +4579,30 @@ const requestAttackPreviewForTarget = (to: Tile): void => {
   if (state.actionInFlight || state.capture) return;
   if (!to.ownerId || to.ownerId === state.me || to.fogged) return;
   const from = pickOriginForTarget(to.x, to.y);
-  if (!from || from.ownerId !== state.me) return;
-  const fromKey = key(from.x, from.y);
+  if (!from && !to.dockId) return;
+  if (from && from.ownerId !== state.me) return;
+  const fromKey = key(from?.x ?? to.x, from?.y ?? to.y);
   const toKey = key(to.x, to.y);
   const previewKey = `${fromKey}->${toKey}`;
   if (state.attackPreviewPendingKey === previewKey) return;
-  if (state.attackPreview && state.attackPreview.fromKey === fromKey && state.attackPreview.toKey === toKey) return;
+  if (state.attackPreview && state.attackPreview.toKey === toKey && (state.attackPreview.fromKey === fromKey || (!from && to.dockId))) return;
   const nowMs = Date.now();
   if (nowMs - state.lastAttackPreviewAt < 120) return;
   state.lastAttackPreviewAt = nowMs;
   state.attackPreviewPendingKey = previewKey;
-  ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+  ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: from?.x ?? to.x, fromY: from?.y ?? to.y, toX: to.x, toY: to.y }));
 };
 
 const attackPreviewDetailForTarget = (to: Tile, mode: "normal" | "breakthrough" = "normal"): string | undefined => {
   const from = pickOriginForTarget(to.x, to.y);
-  if (!from) return undefined;
-  const fromKey = key(from.x, from.y);
   const toKey = key(to.x, to.y);
-  if (!state.attackPreview || state.attackPreview.fromKey !== fromKey || state.attackPreview.toKey !== toKey) return undefined;
+  if (!state.attackPreview || state.attackPreview.toKey !== toKey) return undefined;
+  if (from) {
+    const fromKey = key(from.x, from.y);
+    if (state.attackPreview.fromKey !== fromKey) return undefined;
+  } else if (!to.dockId) {
+    return undefined;
+  }
   if (!state.attackPreview.valid) return state.attackPreview.reason ? `Attack ${state.attackPreview.reason}` : undefined;
   if (mode === "breakthrough" && typeof state.attackPreview.breakthroughWinChance === "number") {
     return `${Math.round(state.attackPreview.breakthroughWinChance * 100)}% breach win chance`;
@@ -5630,14 +5654,15 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
   if (tile.ownerId === "barbarian") {
     const previewDetail = attackPreviewDetailForTarget(tile);
     const breachPreviewDetail = attackPreviewDetailForTarget(tile, "breakthrough");
+    const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
     return [
       {
         id: "launch_attack",
         label: "Launch Attack",
         ...(previewDetail ? { detail: previewDetail } : {}),
         ...tileActionAvailability(
-          Boolean(pickOriginForTarget(tile.x, tile.y, false)) && state.gold >= FRONTIER_CLAIM_COST,
-          !pickOriginForTarget(tile.x, tile.y, false) ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`,
+          reachable && state.gold >= FRONTIER_CLAIM_COST,
+          !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
           `${FRONTIER_CLAIM_COST} gold`
         )
       },
@@ -5646,9 +5671,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         label: "Launch Breach Attack",
         ...(breachPreviewDetail ? { detail: breachPreviewDetail } : {}),
         ...tileActionAvailability(
-          Boolean(pickOriginForTarget(tile.x, tile.y)) && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
-          !pickOriginForTarget(tile.x, tile.y)
-            ? "No bordering origin tile"
+          (Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId)) && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
+          !(Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId))
+            ? "No bordering origin tile or linked dock"
             : !hasBreakthroughCapability()
               ? "Requires Breach Doctrine"
               : state.gold < 2
@@ -5660,7 +5685,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       createMountainAction()
     ];
   }
-  const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false));
+  const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
   const out: TileActionDef[] = [
     {
       id: "launch_attack",
@@ -5668,7 +5693,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       ...(attackPreviewDetailForTarget(tile) ? { detail: attackPreviewDetailForTarget(tile) } : {}),
       ...tileActionAvailability(
         reachable && state.gold >= FRONTIER_CLAIM_COST,
-        !reachable ? "No bordering origin tile" : `Need ${FRONTIER_CLAIM_COST} gold`,
+        !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
         `${FRONTIER_CLAIM_COST} gold`
       )
     },
@@ -5678,7 +5703,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       ...(attackPreviewDetailForTarget(tile, "breakthrough") ? { detail: attackPreviewDetailForTarget(tile, "breakthrough") } : {}),
       ...tileActionAvailability(
         reachable && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
-        !reachable ? "No bordering origin tile" : !hasBreakthroughCapability() ? "Requires Breach Doctrine" : state.gold < 2 ? "Need 2 gold" : "Need 1 IRON",
+        !reachable ? "No bordering origin tile or linked dock" : !hasBreakthroughCapability() ? "Requires Breach Doctrine" : state.gold < 2 ? "Need 2 gold" : "Need 1 IRON",
         "2 gold + 1 IRON"
       )
     }
@@ -6000,13 +6025,16 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
     const mode = actionId === "launch_breach_attack" ? "breakthrough" : "normal";
     const out = queueSpecificTargets(enemyTargets, mode);
     if (out.queued > 0) processActionQueue();
-    pushFeed(
-      out.queued > 0
-        ? `Queued ${out.queued} attacks${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
-        : `Cannot launch ${mode === "breakthrough" ? "breakthrough " : ""}attack. Target needs a bordering origin tile and sufficient resources.`,
-      "combat",
-      out.queued > 0 ? "warn" : "error"
-    );
+    if (out.queued > 0) {
+      pushFeed(`Queued ${out.queued} attacks${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "warn");
+    } else {
+      const singleTile = !fromBulk && selected ? selected : undefined;
+      const failureMessage = singleTile
+        ? attackQueueFailureReason(singleTile, mode)
+        : `Cannot launch ${mode === "breakthrough" ? "breakthrough " : ""}attack for one or more selected tiles.`;
+      showCaptureAlert(`${mode === "breakthrough" ? "Breach attack" : "Attack"} failed`, failureMessage, "warn");
+      pushFeed(failureMessage, "combat", "error");
+    }
     hideTileActionMenu();
     return;
   }
