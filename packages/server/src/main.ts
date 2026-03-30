@@ -5908,6 +5908,27 @@ const pressureAttackThreatensCore = (actor: Player, candidate?: { to: Tile } | u
   return false;
 };
 
+const fortTileProtectsCore = (actor: Player, tile?: Tile): boolean => {
+  if (!tile || tile.ownerId !== actor.id || tile.terrain !== "LAND") return false;
+  const tk = key(tile.x, tile.y);
+  if (townsByTile.has(tk) || docksByTile.has(tk) || isOwnedTownSupportRingTile(actor.id, tile)) return true;
+  for (const neighbor of adjacentNeighborCores(tile.x, tile.y)) {
+    if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) continue;
+    const neighborKey = key(neighbor.x, neighbor.y);
+    if (townsByTile.has(neighborKey) || docksByTile.has(neighborKey)) return true;
+    if (isOwnedTownSupportRingTile(actor.id, playerTile(neighbor.x, neighbor.y))) return true;
+  }
+  return false;
+};
+
+const fortTileIsDockChokePoint = (tile?: Tile): boolean => {
+  if (!tile) return false;
+  const tk = key(tile.x, tile.y);
+  if (!docksByTile.has(tk)) return false;
+  const adjacentLandCount = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => count + (neighbor.terrain === "LAND" ? 1 : 0), 0);
+  return adjacentLandCount <= 3;
+};
+
 const evaluateAiSettlementCandidate = (
   actor: Player,
   tile: Tile,
@@ -6889,8 +6910,19 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
     });
     if (executed) return;
   }
-  const needsFortifiedAnchor = Boolean(fortAnchor()) && (controlledTowns > 0 || worldFlags.has("active_dock") || aiIncome >= 16);
-  const fortifyChokePoint = Boolean(fortAnchor()) && (underThreat || worldFlags.has("active_dock"));
+  const fortAnchorTile = fortAnchor();
+  const coreFortAnchor = fortTileProtectsCore(actor, fortAnchorTile);
+  const dockFortAnchor = fortTileIsDockChokePoint(fortAnchorTile);
+  const needsFortifiedAnchor = Boolean(fortAnchorTile) && coreFortAnchor && (controlledTowns > 0 || worldFlags.has("active_dock") || aiIncome >= 16);
+  const fortifyChokePoint =
+    Boolean(fortAnchorTile) &&
+    coreFortAnchor &&
+    !pressureAttackReady &&
+    !urgentPressureAttackReady &&
+    (
+      (underThreat && threatCritical && !settlementTile()) ||
+      (dockFortAnchor && worldFlags.has("active_dock") && !economyWeak && !foodCoverageLow && !settlementTile())
+    );
   if (fortifyChokePoint && actor.points >= FORT_BUILD_COST) {
     const executed = executeAiGoapAction(actor, "build_fort_on_exposed_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
     setAiTurnDebug(actor, executed ? "executed_fort_priority" : "failed_fort_priority", {
@@ -6903,7 +6935,11 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
       details: {
         needsFortifiedAnchor,
         fortifyChokePoint,
-        underThreat
+        underThreat,
+        threatCritical,
+        coreFortAnchor,
+        dockFortAnchor,
+        pressureAttackReady
       }
     });
     if (executed) return;
