@@ -92,6 +92,7 @@ const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
+const AI_HUMAN_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_HUMAN_PRIORITY_BATCH_SIZE ?? 1));
 const MAX_SUBSCRIBE_RADIUS = Number(process.env.MAX_SUBSCRIBE_RADIUS ?? 2);
 const CHUNK_STREAM_BATCH_SIZE = Math.max(1, Number(process.env.CHUNK_STREAM_BATCH_SIZE ?? 2));
 const FOG_ADMIN_EMAIL = "bw199005@gmail.com";
@@ -304,6 +305,7 @@ type VictoryPressureTracker = {
 type AiTickContext = {
   competitionMetrics: PlayerCompetitionMetrics[];
   incomeByPlayerId: Map<string, number>;
+  humanPriorityMode: boolean;
 };
 
 type LeaderboardOverallEntry = {
@@ -6247,6 +6249,7 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
       goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
       staminaHealthy: actor.stamina >= 0
     })[0]?.id;
+  const humanPriorityMode = tickContext?.humanPriorityMode ?? false;
   let openingScoutExpandCache: ReturnType<typeof bestAiOpeningScoutExpand> | undefined;
   let openingScoutExpandLoaded = false;
   const openingScoutExpand = (): ReturnType<typeof bestAiOpeningScoutExpand> => {
@@ -6372,6 +6375,114 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
     Boolean(pressureAttack()) &&
     actor.points >= FRONTIER_ACTION_GOLD_COST &&
     (!threatCritical || urgentPressureAttackReady);
+
+  if (humanPriorityMode) {
+    if (urgentPressureAttackReady) {
+      const executed = executeAiGoapAction(actor, "attack_enemy_border_tile", primaryVictoryPath, territorySummary, {
+        pressureAttack: pressureAttack()
+      });
+      setAiTurnDebug(actor, executed ? "executed_pressure_counterattack_priority" : "failed_pressure_counterattack_priority", {
+        incomePerMinute: aiIncome,
+        controlledTowns,
+        settledTiles,
+        ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+        goapActionKey: "attack_enemy_border_tile",
+        executed,
+        details: {
+          humanPriorityMode,
+          enemyPressureScore: pressureAttack()?.score ?? 0,
+          underThreat,
+          threatCritical,
+          urgentPressureAttackReady
+        }
+      });
+      return;
+    }
+    if (foodCoverageLow && actor.points >= SETTLE_COST) {
+      const target = settlementTile();
+      if (target) {
+        const executed = executeAiGoapAction(actor, "settle_owned_frontier_tile", primaryVictoryPath, territorySummary, {
+          settlementTile: target
+        });
+        setAiTurnDebug(actor, executed ? "executed_food_settlement_priority" : "failed_food_settlement_priority", {
+          incomePerMinute: aiIncome,
+          controlledTowns,
+          settledTiles,
+          ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+          goapActionKey: "settle_owned_frontier_tile",
+          executed,
+          details: {
+            humanPriorityMode,
+            foodCoverage,
+            foodCoverageLow,
+            frontierTiles
+          }
+        });
+        return;
+      }
+    }
+    if (economyWeak && actor.points >= FRONTIER_ACTION_GOLD_COST) {
+      const candidate = neutralExpand();
+      if (candidate) {
+        const executed = executeAiGoapAction(actor, "claim_neutral_border_tile", primaryVictoryPath, territorySummary, {
+          neutralExpand: candidate
+        });
+        setAiTurnDebug(actor, executed ? "executed_economic_expand_priority" : "failed_economic_expand_priority", {
+          incomePerMinute: aiIncome,
+          controlledTowns,
+          settledTiles,
+          ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+          goapActionKey: "claim_neutral_border_tile",
+          executed,
+          details: {
+            humanPriorityMode,
+            economyWeak
+          }
+        });
+        return;
+      }
+    }
+    if (actor.points >= FRONTIER_ACTION_GOLD_COST) {
+      const scoutCandidate = scoutExpand();
+      const scaffoldCandidate = scoutCandidate ? undefined : scaffoldExpand();
+      const candidate = scoutCandidate ?? scaffoldCandidate;
+      const actionKey = scoutCandidate ? "claim_scout_border_tile" : "claim_scaffold_border_tile";
+      if (candidate) {
+        const executed = executeAiGoapAction(actor, actionKey, primaryVictoryPath, territorySummary, {
+          scoutExpand: scoutCandidate,
+          scaffoldExpand: scaffoldCandidate
+        });
+        setAiTurnDebug(actor, executed ? "executed_human_priority_expand" : "failed_human_priority_expand", {
+          incomePerMinute: aiIncome,
+          controlledTowns,
+          settledTiles,
+          ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+          goapActionKey: actionKey,
+          executed,
+          details: {
+            humanPriorityMode,
+            economyWeak,
+            underThreat
+          }
+        });
+        return;
+      }
+    }
+    setAiTurnDebug(actor, "skipped_human_priority_budget", {
+      incomePerMinute: aiIncome,
+      controlledTowns,
+      settledTiles,
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      details: {
+        humanPriorityMode,
+        economyWeak,
+        underThreat,
+        foodCoverageLow,
+        urgentPressureAttackReady
+      }
+    });
+    return;
+  }
 
   if (urgentPressureAttackReady) {
     const executed = executeAiGoapAction(actor, "attack_enemy_border_tile", primaryVictoryPath, territorySummary, aiActionCandidates());
@@ -6704,6 +6815,7 @@ const runAiTurn = (actor: Player, tickContext?: AiTickContext): void => {
 };
 
 let aiTickInFlight = false;
+let aiRoundRobinOffset = 0;
 const queueMicrotaskFn =
   typeof setImmediate === "function"
     ? (fn: () => void): void => {
@@ -6718,14 +6830,25 @@ const runAiTick = (): void => {
   if (pendingAuthVerifications > 0 || authPriorityUntil > now()) return;
   const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
   if (aiPlayers.length === 0) return;
-  const selectedAiPlayers = aiPlayers;
+  const humanPriorityMode = onlineSocketCount() > 0;
+  const batchSize = humanPriorityMode
+    ? Math.min(aiPlayers.length, AI_HUMAN_PRIORITY_BATCH_SIZE)
+    : Math.min(aiPlayers.length, AI_TICK_BATCH_SIZE);
+  const selectedAiPlayers =
+    batchSize >= aiPlayers.length
+      ? aiPlayers
+      : Array.from({ length: batchSize }, (_, index) => aiPlayers[(aiRoundRobinOffset + index) % aiPlayers.length]).filter(
+          (actor): actor is Player => Boolean(actor)
+        );
   if (selectedAiPlayers.length === 0) return;
+  aiRoundRobinOffset = (aiRoundRobinOffset + batchSize) % aiPlayers.length;
   aiTickInFlight = true;
   const startedAt = now();
   const competitionMetrics = collectPlayerCompetitionMetrics();
   const tickContext: AiTickContext = {
     competitionMetrics,
-    incomeByPlayerId: new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute]))
+    incomeByPlayerId: new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute])),
+    humanPriorityMode
   };
   const slotMs = Math.max(25, Math.floor(AI_TICK_MS / Math.max(1, selectedAiPlayers.length)));
   let pending = selectedAiPlayers.length;
@@ -6756,7 +6879,7 @@ const runAiTick = (): void => {
           });
           if (elapsedMs >= 250) {
             app.log.warn(
-              { elapsedMs, wallElapsedMs, aiPlayers: selectedAiPlayers.length, totalAiPlayers: aiPlayers.length, ...memory },
+              { elapsedMs, wallElapsedMs, aiPlayers: selectedAiPlayers.length, totalAiPlayers: aiPlayers.length, humanPriorityMode, ...memory },
               "slow ai tick"
             );
           }
