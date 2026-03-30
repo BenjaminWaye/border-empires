@@ -67,6 +67,7 @@ export type TileTimedProgress = {
   resolvesAt: number;
   target: { x: number; y: number };
   awaitingServerConfirm?: boolean;
+  confirmRefreshRequestedAt?: number;
 };
 
 export type EmpireVisualStyle = {
