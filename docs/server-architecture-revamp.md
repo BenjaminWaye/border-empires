@@ -39,6 +39,10 @@ Split responsibilities into two services:
    - Cache frontier anchors, structure candidates, and other selector inputs once per AI turn.
    - Prefer incremental invalidation over recomputing territory scans in every selector.
 6. Move AI/simulation onto a separate worker or service while keeping websocket gateway stable.
+   - Status: started in-process.
+   - AI ticks now build one shared cycle snapshot for the selected batch and enqueue turn execution onto an internal AI worker queue.
+   - AI actions now enqueue simulation commands onto a separate internal simulation-command queue instead of mutating world state inline from the AI decision path.
+   - Next step is to lift these two queues behind a `worker_threads` or external simulation process boundary without changing the gateway contract.
 7. Replace snapshot-first persistence with an indexed store such as SQLite or Postgres.
 
 ## Desired invariants
