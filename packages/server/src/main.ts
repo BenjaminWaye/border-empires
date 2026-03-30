@@ -4720,14 +4720,14 @@ const tryQueueBasicFrontierAction = (
   fromY: number,
   toX: number,
   toY: number
-): number | undefined => {
+): { ok: true; resolvesAt: number } | { ok: false; code: string; message: string } => {
   applyStaminaRegen(actor);
   actor.lastActiveAt = now();
 
   let from = playerTile(fromX, fromY);
   const to = playerTile(toX, toY);
-  if (actionType === "EXPAND" && to.ownerId) return undefined;
-  if (actionType === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) return undefined;
+  if (actionType === "EXPAND" && to.ownerId) return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
+  if (actionType === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) return { ok: false, code: "NOT_ADJACENT", message: "target must be enemy-controlled land" };
 
   let fk = key(from.x, from.y);
   const tk = key(to.x, to.y);
@@ -4745,16 +4745,23 @@ const tryQueueBasicFrontierAction = (
       dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y, allowAdjacentToDock));
     }
   }
-  if (!adjacent && !dockCrossing) return undefined;
-  if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) return undefined;
-  if (from.ownerId !== actor.id || to.terrain !== "LAND") return undefined;
-  if (combatLocks.has(fk) || combatLocks.has(tk)) return undefined;
-  if (actor.points < FRONTIER_ACTION_GOLD_COST) return undefined;
+  if (!adjacent && !dockCrossing) return { ok: false, code: "NOT_ADJACENT", message: "target must be adjacent or valid dock crossing" };
+  if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) return { ok: false, code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" };
+  if (from.ownerId !== actor.id) return { ok: false, code: "NOT_OWNER", message: "origin not owned" };
+  if (to.terrain !== "LAND") return { ok: false, code: "BARRIER", message: "target is barrier" };
+  if (combatLocks.has(fk) || combatLocks.has(tk)) return { ok: false, code: "LOCKED", message: "tile locked in combat" };
+  if (actor.points < FRONTIER_ACTION_GOLD_COST) {
+    return {
+      ok: false,
+      code: "INSUFFICIENT_GOLD",
+      message: actionType === "ATTACK" ? "insufficient gold for attack" : "insufficient gold for frontier claim"
+    };
+  }
 
   const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
   const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
-  if (defender && actor.allies.has(defender.id)) return undefined;
-  if (defender && defender.spawnShieldUntil > now()) return undefined;
+  if (defender && actor.allies.has(defender.id)) return { ok: false, code: "ALLY_TARGET", message: "cannot attack allied tile" };
+  if (defender && defender.spawnShieldUntil > now()) return { ok: false, code: "SHIELDED", message: "target shielded" };
 
   const resolvesAt = now() + (actionType === "EXPAND" && !to.ownerId ? frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
   const pending: PendingCapture = {
@@ -4870,7 +4877,7 @@ const tryQueueBasicFrontierAction = (
     if (defender && !defenderIsBarbarian) sendLocalVisionDeltaForPlayer(defender.id, changedCenters);
   }, resolvesAt - now());
 
-  return resolvesAt;
+  return { ok: true, resolvesAt };
 };
 
 const chooseAiTech = (actor: Player): string | undefined => {
@@ -5086,11 +5093,11 @@ const executeUnifiedGameplayMessage = async (actor: Player, msg: ClientMessage, 
     msg.type === "ATTACK" ||
     msg.type === "EXPAND"
   ) {
-    const resolvesAt = tryQueueBasicFrontierAction(actor, msg.type, msg.fromX, msg.fromY, msg.toX, msg.toY);
-    if (resolvesAt === undefined) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "ACTION_INVALID", message: "action failed validation" }));
+    const result = tryQueueBasicFrontierAction(actor, msg.type, msg.fromX, msg.fromY, msg.toX, msg.toY);
+    if (!result.ok) {
+      socket.send(JSON.stringify({ type: "ERROR", code: result.code, message: result.message }));
     } else {
-      socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: msg.fromX, y: msg.fromY }, target: { x: msg.toX, y: msg.toY }, resolvesAt }));
+      socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: msg.fromX, y: msg.fromY }, target: { x: msg.toX, y: msg.toY }, resolvesAt: result.resolvesAt }));
     }
     return true;
   }
