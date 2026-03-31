@@ -83,6 +83,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Vision radius +${value}`;
   if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Observatory protection radius +${value}`;
+  if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Observatory cast radius +${value}`;
   if (key === "settledDefenseMult" && typeof value === "number") return `Settled defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsSettledMult" && typeof value === "number") return `Attack vs settled ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsFortsMult" && typeof value === "number") return `Attack vs forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
