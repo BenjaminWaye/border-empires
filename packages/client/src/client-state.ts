@@ -1,4 +1,5 @@
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY } from "./client-constants.js";
+import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
 import type {
   AllianceRequest,
   CrystalTargetingAbility,
@@ -85,9 +86,9 @@ export const createInitialState = () => ({
     OIL: { until: 0, dir: 0 as -1 | 0 | 1 }
   },
   stamina: 0,
-  manpower: 0,
-  manpowerCap: 0,
-  manpowerRegenPerMinute: 0,
+  manpower: MANPOWER_BASE_CAP,
+  manpowerCap: MANPOWER_BASE_CAP,
+  manpowerRegenPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
   availableTechPicks: 0,
   defensibilityPct: 100,
   territoryT: 1,
