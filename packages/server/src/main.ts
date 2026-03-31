@@ -2085,7 +2085,7 @@ const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean
   if (resource === "IRON") return biome === "SAND" && isNearMountain(x, y, 4);
   if (resource === "GEMS") return biome === "SAND";
   if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
-  if (resource === "FUR") return biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST" && !isCoastalLand(x, y);
+  if (resource === "FUR") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST") || biome === "SAND");
   return false;
 };
 
@@ -2097,7 +2097,7 @@ const clusterRuleMatchRelaxed = (x: number, y: number, resource: ResourceType): 
   if (resource === "IRON") return biome === "SAND";
   if (resource === "GEMS") return biome === "SAND";
   if (resource === "FARM") return biome === "GRASS";
-  if (resource === "FUR") return biome === "GRASS" && shade === "DARK";
+  if (resource === "FUR") return biome === "SAND" || (biome === "GRASS" && shade === "DARK");
   return false;
 };
 
@@ -2193,10 +2193,19 @@ const collectClusterTilesRelaxed = (cx: number, cy: number, resource: ResourceTy
   return out.length >= count ? out.slice(0, count) : [];
 };
 
+const clusterTileCountForResource = (resource: ResourceType, x: number, y: number): number => {
+  if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 4;
+  return 8;
+};
+
+const clusterRadiusForResource = (resource: ResourceType, x: number, y: number): number => {
+  if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 2;
+  return 3;
+};
+
 const generateClusters = (seed: number): void => {
   clusterByTile.clear();
   clustersById.clear();
-  const clusterTileCount = 8;
   const clusterPlan: ResourceType[] = [
     ...Array.from({ length: 52 }, () => "FARM" as const),
     ...Array.from({ length: 52 }, () => "FUR" as const),
@@ -2226,6 +2235,7 @@ const generateClusters = (seed: number): void => {
         return dx + dy < minCenterDist;
       });
       if (tooClose) continue;
+      const clusterTileCount = clusterTileCountForResource(resource, cx, cy);
       const tiles = collectClusterTiles(cx, cy, resource, clusterTileCount);
       if (tiles.length < clusterTileCount) continue;
       const clusterId = `cl-${clustersById.size}`;
@@ -2235,7 +2245,7 @@ const generateClusters = (seed: number): void => {
         resourceType: def.resourceType,
         centerX: cx,
         centerY: cy,
-        radius: 3,
+        radius: clusterRadiusForResource(resource, cx, cy),
         controlThreshold: def.threshold
       });
       for (const tk of tiles) clusterByTile.set(tk, clusterId);
@@ -2249,6 +2259,7 @@ const generateClusters = (seed: number): void => {
         const cx = Math.floor(seeded01((attemptSeed + tries) * 17, (attemptSeed + tries) * 29, seed + 701) * WORLD_WIDTH);
         const cy = Math.floor(seeded01((attemptSeed + tries) * 37, (attemptSeed + tries) * 43, seed + 751) * WORLD_HEIGHT);
         if (!clusterRuleMatchRelaxed(cx, cy, resource)) continue;
+        const clusterTileCount = clusterTileCountForResource(resource, cx, cy);
         const tiles = collectClusterTilesRelaxed(cx, cy, resource, clusterTileCount);
         if (tiles.length < clusterTileCount) continue;
         const clusterId = `cl-${clustersById.size}`;
@@ -2258,7 +2269,7 @@ const generateClusters = (seed: number): void => {
           resourceType: def.resourceType,
           centerX: cx,
           centerY: cy,
-          radius: 3,
+          radius: clusterRadiusForResource(resource, cx, cy),
           controlThreshold: def.threshold
         });
         for (const tk of tiles) clusterByTile.set(tk, clusterId);
