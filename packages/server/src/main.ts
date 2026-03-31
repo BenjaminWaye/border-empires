@@ -2833,6 +2833,19 @@ const playerManpowerRegenPerMinute = (player: Player): number => {
   return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
 };
 
+const effectiveManpowerAt = (player: Player, nowMs = now()): number => {
+  const cap = playerManpowerCap(player);
+  if (!Number.isFinite(player.manpower)) return cap;
+  if (!Number.isFinite(player.manpowerUpdatedAt)) return Math.min(cap, Math.max(0, player.manpower));
+  const elapsedMinutes = Math.max(0, (nowMs - player.manpowerUpdatedAt) / 60_000);
+  const regenPerMinute = playerManpowerRegenPerMinute(player);
+  const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;
+  return Math.max(0, Math.min(cap, nextManpower));
+};
+
+const townGoldIncomeEnabledForPlayer = (player: Player, nowMs = now()): boolean =>
+  effectiveManpowerAt(player, nowMs) + MANPOWER_EPSILON >= playerManpowerCap(player);
+
 const applyManpowerRegen = (player: Player): void => {
   const cap = playerManpowerCap(player);
   if (!Number.isFinite(player.manpower)) player.manpower = cap;
@@ -2842,10 +2855,7 @@ const applyManpowerRegen = (player: Player): void => {
     return;
   }
   const nowMs = now();
-  const elapsedMinutes = Math.max(0, (nowMs - player.manpowerUpdatedAt) / 60_000);
-  const regenPerMinute = playerManpowerRegenPerMinute(player);
-  const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;
-  player.manpower = Math.max(0, Math.min(cap, nextManpower));
+  player.manpower = effectiveManpowerAt(player, nowMs);
   player.manpowerUpdatedAt = nowMs;
 };
 
@@ -3069,6 +3079,8 @@ const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): 
   if (ownership.get(town.tileKey) !== ownerId) return 0;
   if (ownershipStateByTile.get(town.tileKey) !== "SETTLED") return 0;
   if (townIncomeSuppressed(town.tileKey)) return 0;
+  const owner = players.get(ownerId);
+  if (!owner || !townGoldIncomeEnabledForPlayer(owner)) return 0;
   const { supportCurrent, supportMax } = townSupport(town.tileKey, ownerId);
   const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
   if (!isTownFedForOwner(town.tileKey, ownerId)) return 0;
