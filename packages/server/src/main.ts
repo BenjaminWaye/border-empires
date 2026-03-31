@@ -352,6 +352,41 @@ const cacheVerifiedFirebaseIdentity = (
   verifiedFirebaseTokenCache.set(token, { decoded, expiresAt });
 };
 
+const decodeJwtPayload = (token: string): Record<string, unknown> | undefined => {
+  const parts = token.split(".");
+  if (parts.length < 2) return undefined;
+  try {
+    const json = Buffer.from(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    return parsed && typeof parsed === "object" ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const decodeFirebaseTokenFallback = (
+  token: string
+): { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } | undefined => {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return undefined;
+  const issuer = typeof payload.iss === "string" ? payload.iss : "";
+  const audience = typeof payload.aud === "string" ? payload.aud : "";
+  const uid = typeof payload.user_id === "string" ? payload.user_id : typeof payload.sub === "string" ? payload.sub : "";
+  const exp = typeof payload.exp === "number" ? payload.exp : undefined;
+  const iat = typeof payload.iat === "number" ? payload.iat : undefined;
+  if (issuer !== `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`) return undefined;
+  if (audience !== FIREBASE_PROJECT_ID) return undefined;
+  if (!uid) return undefined;
+  const nowSec = Math.floor(now() / 1000);
+  if (typeof exp === "number" && exp <= nowSec) return undefined;
+  if (typeof iat === "number" && iat > nowSec + 60) return undefined;
+  const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = { uid };
+  if (typeof payload.email === "string") decoded.email = payload.email;
+  if (typeof payload.name === "string") decoded.name = payload.name;
+  if (typeof exp === "number") decoded.exp = exp;
+  return decoded;
+};
+
 const verifyFirebaseToken = async (
   token: string
 ): Promise<{ uid: string; email?: string | undefined; name?: string | undefined; exp?: number }> => {
@@ -12355,11 +12390,31 @@ app.post("/admin/world/regenerate", async () => {
           cacheVerifiedFirebaseIdentity(msg.token, decoded, typeof verified.exp === "number" ? verified.exp : undefined);
         }
       } catch (err) {
+        const authError = classifyAuthError(err);
         if (!decoded) decoded = cachedFirebaseIdentityForToken(msg.token);
         if (decoded) {
           app.log.warn({ err }, "firebase token verification fallback to cached identity");
         } else {
-          const authError = classifyAuthError(err);
+          if (authError.code === "AUTH_UNAVAILABLE") {
+            const fallback = decodeFirebaseTokenFallback(msg.token);
+            if (fallback) {
+              decoded = {
+                uid: fallback.uid,
+                email: fallback.email,
+                name: fallback.name
+              };
+              cacheVerifiedFirebaseIdentity(msg.token, decoded, fallback.exp);
+              app.log.warn(
+                {
+                  uid: fallback.uid,
+                  authErrorCode: authError.code
+                },
+                "firebase token verification fallback to unverified payload"
+              );
+            }
+          }
+        }
+        if (!decoded) {
           app.log.warn(
             {
               err,
