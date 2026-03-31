@@ -3914,23 +3914,9 @@ const runtimeTileCore = (x: number, y: number): RuntimeTileCore => {
 // Summary chunks intentionally avoid derived town economy state; detail requests fill it in on demand.
 const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => ({
   type: town.type,
-  baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
-  supportCurrent: 0,
-  supportMax: 0,
-  goldPerMinute: 0,
-  cap: 0,
   isFed: Boolean(ownerId),
   population: town.population,
-  maxPopulation: town.maxPopulation,
-  populationTier: townPopulationTier(town.population),
-  connectedTownCount: 0,
-  connectedTownBonus: 0,
-  hasMarket: false,
-  marketActive: false,
-  hasGranary: false,
-  granaryActive: false,
-  hasBank: false,
-  bankActive: false
+  populationTier: townPopulationTier(town.population)
 });
 
 const playerTileSummary = (x: number, y: number): Tile => {
@@ -3958,17 +3944,12 @@ const playerTileSummary = (x: number, y: number): Tile => {
     detailLevel: "summary",
     lastChangedAt: now()
   };
-  const continentId = continentIdAt(wx, wy);
-  const regionType = regionTypeAtLocal(wx, wy);
   if (resource && !dock) tile.resource = resource;
   if (ownerId) {
     tile.ownerId = ownerId;
     tile.ownershipState = ownershipState ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
     if (ownerId !== BARBARIAN_OWNER_ID && players.get(ownerId)?.capitalTileKey === tk) tile.capital = true;
   }
-  if (continentId !== undefined) tile.continentId = continentId;
-  if (terrain === "LAND" && regionType) (tile as Tile & { regionType?: string }).regionType = regionType;
-  if (terrain === "LAND" && clusterId) tile.clusterId = clusterId;
   if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
   if (dock) tile.dockId = dock.dockId;
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
