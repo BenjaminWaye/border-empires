@@ -122,6 +122,7 @@ const AI_SIM_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_SIM_QUEUE_SOFT
 const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ?? 60));
 const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ?? 65));
 const AI_COMPETITION_CONTEXT_TTL_MS = Math.max(250, Number(process.env.AI_COMPETITION_CONTEXT_TTL_MS ?? 2_000));
+const AI_YIELD_COLLECTION_INTERVAL_MS = Math.max(250, Number(process.env.AI_YIELD_COLLECTION_INTERVAL_MS ?? 2_000));
 const AI_PLANNER_WORKER_ENABLED = process.env.AI_PLANNER_WORKER !== "0";
 const AI_PLANNER_TIMEOUT_MS = Math.max(50, Number(process.env.AI_PLANNER_TIMEOUT_MS ?? 750));
 const SIM_COMBAT_WORKER_ENABLED = process.env.SIM_COMBAT_WORKER !== "0";
@@ -1620,6 +1621,7 @@ const chunkSnapshotSentAtByPlayer = new Map<string, { cx: number; cy: number; ra
 const recentAiTickPerf = perfRing<{ at: number; elapsedMs: number; aiPlayers: number; rssMb: number; heapUsedMb: number }>(30);
 const recentChunkSnapshotPerf = perfRing<{ at: number; playerId: string; elapsedMs: number; chunks: number; tiles: number; radius: number; rssMb: number; heapUsedMb: number }>(50);
 const recentRuntimeVitals = perfRing<ReturnType<typeof sampleRuntimeVitals>>(180);
+const aiYieldCollectDueAtByPlayer = new Map<string, number>();
 const collectVisibleCooldownByPlayer = new Map<string, number>();
 const actionTimestampsByPlayer = new Map<string, number[]>();
 const fogDisabledByPlayer = new Map<string, boolean>();
@@ -2452,6 +2454,7 @@ const analyzeLandComponentsForDocks = (
 const generateDocks = (seed: number): void => {
   docksByTile.clear();
   dockById.clear();
+  dockLinkedTileKeysByDockTileKey.clear();
   const oceanMask = largestSeaComponentMask();
   const { components, componentByIndex } = analyzeLandComponentsForDocks(seed, oceanMask);
   const eligibleComponents = components.filter((comp) => comp.tileCount >= 24 && comp.oceanCandidates.length > 0);
@@ -3477,6 +3480,16 @@ const dockLinkedDestinations = (fromDock: Dock): Dock[] => {
   return out;
 };
 
+const dockLinkedTileKeysByDockTileKey = new Map<TileKey, TileKey[]>();
+
+const dockLinkedTileKeys = (fromDock: Dock): TileKey[] => {
+  const cached = dockLinkedTileKeysByDockTileKey.get(fromDock.tileKey);
+  if (cached) return cached;
+  const linked = dockLinkedDestinations(fromDock).map((dock) => dock.tileKey);
+  dockLinkedTileKeysByDockTileKey.set(fromDock.tileKey, linked);
+  return linked;
+};
+
 const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): boolean => {
   const linked = dockLinkedDestinations(fromDock);
   for (const targetDock of linked) {
@@ -3909,6 +3922,53 @@ const runtimeTileCore = (x: number, y: number): RuntimeTileCore => {
   const ownershipState = ownerId ? (ownershipStateByTile.get(tileKey) ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED")) : undefined;
   const resource = terrain === "LAND" ? applyClusterResources(wx, wy, resourceAt(wx, wy)) : undefined;
   return { x: wx, y: wy, tileKey, terrain, ownerId, ownershipState, resource };
+};
+
+const aiTileLiteAt = (x: number, y: number): Tile => {
+  const core = runtimeTileCore(x, y);
+  const tile: Tile = {
+    x: core.x,
+    y: core.y,
+    terrain: core.terrain,
+    lastChangedAt: 0
+  };
+  if (core.resource) tile.resource = core.resource;
+  if (core.ownerId) tile.ownerId = core.ownerId;
+  if (core.ownershipState) tile.ownershipState = core.ownershipState;
+  const tk = core.tileKey;
+  const dock = docksByTile.get(tk);
+  if (dock) tile.dockId = dock.dockId;
+  if (townsByTile.has(tk)) {
+    const town = townsByTile.get(tk)!;
+    tile.town = {
+      type: town.type,
+      isFed: Boolean(core.ownerId),
+      population: town.population,
+      populationTier: townPopulationTier(town.population)
+    };
+  }
+  const fort = fortsByTile.get(tk);
+  if (fort) tile.fort = { ownerId: fort.ownerId, status: fort.status, ...(fort.completesAt !== undefined ? { completesAt: fort.completesAt } : {}) };
+  const observatory = observatoriesByTile.get(tk);
+  if (observatory) {
+    tile.observatory = {
+      ownerId: observatory.ownerId,
+      status: observatory.status,
+      ...(observatory.completesAt !== undefined ? { completesAt: observatory.completesAt } : {})
+    };
+  }
+  const siegeOutpost = siegeOutpostsByTile.get(tk);
+  if (siegeOutpost) tile.siegeOutpost = { ownerId: siegeOutpost.ownerId, status: siegeOutpost.status, ...(siegeOutpost.completesAt !== undefined ? { completesAt: siegeOutpost.completesAt } : {}) };
+  const economic = economicStructuresByTile.get(tk);
+  if (economic) {
+    tile.economicStructure = {
+      ownerId: economic.ownerId,
+      type: economic.type,
+      status: economic.status,
+      ...(economic.completesAt !== undefined ? { completesAt: economic.completesAt } : {})
+    };
+  }
+  return tile;
 };
 
 // Summary chunks intentionally avoid derived town economy state; detail requests fill it in on demand.
@@ -6125,9 +6185,15 @@ type AiTerritorySummary = {
   borderSettledTileKeys: Set<TileKey>;
   structureCandidateTiles: Tile[];
   underThreat: boolean;
+  worldFlags: Set<string>;
+  controlledTowns: number;
   foodPressure: number;
   settlementEvaluationByKey: Map<string, AiSettlementCandidateEvaluation>;
   scoutRevealCountByTileKey: Map<TileKey, number>;
+  supportedTownKeysByTileKey: Map<TileKey, TileKey[]>;
+  dockSignalByTileKey: Map<TileKey, number>;
+  economicSignalByTileKey: Map<TileKey, number>;
+  pressureSignalByTileKey: Map<TileKey, number>;
   scoutRevealMarks: Uint32Array;
   scoutRevealStamp: number;
 };
@@ -6177,7 +6243,7 @@ const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCach
 
   for (const tileKey of actor.territoryTiles) {
     const [x, y] = parseKey(tileKey);
-    const from = playerTile(x, y);
+    const from = aiTileLiteAt(x, y);
     const ownershipState = ownershipStateByTile.get(tileKey);
     if (ownershipState === "SETTLED") settledTiles.push(from);
     else if (ownershipState === "FRONTIER") frontierTiles.push(from);
@@ -6241,9 +6307,15 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     borderSettledTileKeys: cached.borderSettledTileKeys,
     structureCandidateTiles: cached.structureCandidateTiles,
     underThreat: cached.underThreat,
+    worldFlags: cached.worldFlags,
+    controlledTowns: cached.controlledTowns,
     foodPressure: aiFoodPressureSignal(actor),
     settlementEvaluationByKey: new Map<string, AiSettlementCandidateEvaluation>(),
     scoutRevealCountByTileKey: new Map<TileKey, number>(),
+    supportedTownKeysByTileKey: new Map<TileKey, TileKey[]>(),
+    dockSignalByTileKey: new Map<TileKey, number>(),
+    economicSignalByTileKey: new Map<TileKey, number>(),
+    pressureSignalByTileKey: new Map<TileKey, number>(),
     scoutRevealMarks: new Uint32Array(WORLD_WIDTH * WORLD_HEIGHT),
     scoutRevealStamp: 1
   };
@@ -6591,7 +6663,7 @@ type AiSettlementCandidateEvaluation = {
 
 const aiEconomyPriorityState = (
   actor: Player,
-  territorySummary?: Pick<AiTerritorySummary, "settledTileCount">
+  territorySummary?: Pick<AiTerritorySummary, "settledTileCount" | "worldFlags" | "controlledTowns" | "foodPressure">
 ): {
   controlledTowns: number;
   settledTiles: number;
@@ -6600,12 +6672,12 @@ const aiEconomyPriorityState = (
   foodCoverageLow: boolean;
   economyWeak: boolean;
 } => {
-  const controlledTowns = countControlledTowns(actor.id);
+  const controlledTowns = territorySummary?.controlledTowns ?? countControlledTowns(actor.id);
   const settledTiles =
     territorySummary?.settledTileCount ?? [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length;
   const aiIncome = currentIncomePerMinute(actor);
-  const worldFlags = playerWorldFlags(actor);
-  const foodCoverageLow = controlledTowns > 0 && currentFoodCoverageForPlayer(actor.id) < 1.05;
+  const worldFlags = territorySummary?.worldFlags ?? playerWorldFlags(actor);
+  const foodCoverageLow = controlledTowns > 0 && (territorySummary ? territorySummary.foodPressure > 0 && currentFoodCoverageForPlayer(actor.id) < 1.05 : currentFoodCoverageForPlayer(actor.id) < 1.05);
   const economyWeak =
     aiIncome < (controlledTowns === 0 ? 12 : 18) ||
     (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && settledTiles >= 6) ||
@@ -6623,15 +6695,24 @@ const aiFoodPressureSignal = (actor: Player): number => {
   return 140;
 };
 
-const aiDockStrategicSignal = (actor: Player, tile: Tile): number => {
-  const dock = docksByTile.get(key(tile.x, tile.y));
+const aiDockStrategicSignal = (
+  actor: Player,
+  tile: Tile,
+  territorySummary?: Partial<Pick<AiTerritorySummary, "dockSignalByTileKey" | "visibility" | "foodPressure" | "settlementEvaluationByKey">>
+): number => {
+  const tk = key(tile.x, tile.y);
+  if (territorySummary?.dockSignalByTileKey) {
+    const cached = territorySummary.dockSignalByTileKey.get(tk);
+    if (cached !== undefined) return cached;
+  }
+  const dock = docksByTile.get(tk);
   if (!dock) return 0;
   let score = 140;
-  const linkedDocks = dockLinkedDestinations(dock);
-  score += linkedDocks.length * 32;
-  for (const linkedDock of linkedDocks) {
-    const [linkedX, linkedY] = parseKey(linkedDock.tileKey);
-    const linkedTile = playerTile(linkedX, linkedY);
+  const linkedDockTileKeys = dockLinkedTileKeys(dock);
+  score += linkedDockTileKeys.length * 32;
+  for (const linkedTileKey of linkedDockTileKeys) {
+    const [linkedX, linkedY] = parseKey(linkedTileKey);
+    const linkedTile = aiTileLiteAt(linkedX, linkedY);
     if (!linkedTile.ownerId) {
       score += 160;
       continue;
@@ -6642,6 +6723,7 @@ const aiDockStrategicSignal = (actor: Player, tile: Tile): number => {
     }
     if (!actor.allies.has(linkedTile.ownerId)) score += 135;
   }
+  territorySummary?.dockSignalByTileKey?.set(tk, score);
   return score;
 };
 
@@ -6652,17 +6734,17 @@ const aiFrontierActionCandidates = (
 ): Tile[] => {
   const out = new Map<TileKey, Tile>();
   for (const neighbor of adjacentNeighborCores(from.x, from.y)) {
-    out.set(key(neighbor.x, neighbor.y), playerTile(neighbor.x, neighbor.y));
+    out.set(key(neighbor.x, neighbor.y), aiTileLiteAt(neighbor.x, neighbor.y));
   }
   const fromDock = docksByTile.get(key(from.x, from.y));
   if (fromDock) {
-    for (const linkedDock of dockLinkedDestinations(fromDock)) {
-      const [linkedX, linkedY] = parseKey(linkedDock.tileKey);
-      const linkedTile = playerTile(linkedX, linkedY);
-      out.set(linkedDock.tileKey, linkedTile);
+    for (const linkedTileKey of dockLinkedTileKeys(fromDock)) {
+      const [linkedX, linkedY] = parseKey(linkedTileKey);
+      const linkedTile = aiTileLiteAt(linkedX, linkedY);
+      out.set(linkedTileKey, linkedTile);
       if (actionType === "ATTACK") {
         for (const neighbor of adjacentNeighborCores(linkedTile.x, linkedTile.y)) {
-          out.set(key(neighbor.x, neighbor.y), playerTile(neighbor.x, neighbor.y));
+          out.set(key(neighbor.x, neighbor.y), aiTileLiteAt(neighbor.x, neighbor.y));
         }
       }
     }
@@ -6674,10 +6756,17 @@ const aiEconomicFrontierSignal = (
   actor: Player,
   tile: Tile,
   visibility = visibilitySnapshotForPlayer(actor),
-  foodPressure = aiFoodPressureSignal(actor)
+  foodPressure = aiFoodPressureSignal(actor),
+  territorySummary?: Partial<
+    Pick<AiTerritorySummary, "economicSignalByTileKey" | "dockSignalByTileKey" | "visibility" | "foodPressure" | "settlementEvaluationByKey">
+  >
 ): number => {
-  const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
   const tk = key(tile.x, tile.y);
+  if (territorySummary?.economicSignalByTileKey) {
+    const cached = territorySummary.economicSignalByTileKey.get(tk);
+    if (cached !== undefined) return cached;
+  }
+  const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
   let score = 0;
   if (visibleToActor(tile.x, tile.y)) {
     if (townsByTile.has(tk)) score += 150;
@@ -6685,7 +6774,7 @@ const aiEconomicFrontierSignal = (
       score += 90 + baseTileValue(tile.resource);
       if (foodPressure > 0 && (tile.resource === "FARM" || tile.resource === "FISH")) score += foodPressure;
     }
-    score += aiDockStrategicSignal(actor, tile);
+    score += aiDockStrategicSignal(actor, tile, territorySummary);
   }
   for (const neighbor of adjacentNeighborCores(tile.x, tile.y)) {
     if (!visibleToActor(neighbor.x, neighbor.y)) continue;
@@ -6697,16 +6786,26 @@ const aiEconomicFrontierSignal = (
         score += Math.round(foodPressure * 0.7);
       }
     }
-    if (docksByTile.has(neighborKey)) score += 95 + Math.round(aiDockStrategicSignal(actor, playerTile(neighbor.x, neighbor.y)) * 0.45);
+    if (docksByTile.has(neighborKey)) score += 95 + Math.round(aiDockStrategicSignal(actor, aiTileLiteAt(neighbor.x, neighbor.y), territorySummary) * 0.45);
   }
+  territorySummary?.economicSignalByTileKey?.set(tk, score);
   return score;
 };
 
-const aiEnemyPressureSignal = (actor: Player, tile: Tile, visibility = visibilitySnapshotForPlayer(actor)): number => {
+const aiEnemyPressureSignal = (
+  actor: Player,
+  tile: Tile,
+  visibility = visibilitySnapshotForPlayer(actor),
+  territorySummary?: Partial<Pick<AiTerritorySummary, "pressureSignalByTileKey" | "visibility" | "foodPressure" | "settlementEvaluationByKey">>
+): number => {
+  const tk = key(tile.x, tile.y);
+  if (territorySummary?.pressureSignalByTileKey) {
+    const cached = territorySummary.pressureSignalByTileKey.get(tk);
+    if (cached !== undefined) return cached;
+  }
   const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
   if (!tile.ownerId || tile.ownerId === actor.id || actor.allies.has(tile.ownerId) || tile.ownerId === BARBARIAN_OWNER_ID) return 0;
   let score = 0;
-  const tk = key(tile.x, tile.y);
   const firstRing = adjacentNeighborCores(tile.x, tile.y);
   let settledIntrusion = 0;
   let ownedIntrusion = 0;
@@ -6741,6 +6840,7 @@ const aiEnemyPressureSignal = (actor: Player, tile: Tile, visibility = visibilit
       if (docksByTile.has(secondRingKey)) score += 40;
     }
   }
+  territorySummary?.pressureSignalByTileKey?.set(tk, score);
   return score;
 };
 
@@ -6760,13 +6860,26 @@ const isOwnedTownSupportRingTile = (ownerId: string, tile: Tile): boolean => {
   return false;
 };
 
+const cachedSupportedTownKeysForTile = (
+  actorId: string,
+  tileKey: TileKey,
+  territorySummary?: Pick<AiTerritorySummary, "supportedTownKeysByTileKey">
+): TileKey[] => {
+  if (!territorySummary) return supportedTownKeysForTile(tileKey, actorId);
+  const cached = territorySummary.supportedTownKeysByTileKey.get(tileKey);
+  if (cached) return cached;
+  const resolved = supportedTownKeysForTile(tileKey, actorId);
+  territorySummary.supportedTownKeysByTileKey.set(tileKey, resolved);
+  return resolved;
+};
+
 const pressureAttackThreatensCore = (actor: Player, candidate?: { to: Tile } | undefined): boolean => {
   if (!candidate) return false;
   for (const neighbor of adjacentNeighborCores(candidate.to.x, candidate.to.y)) {
     if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) continue;
     const neighborKey = key(neighbor.x, neighbor.y);
     if (townsByTile.has(neighborKey) || docksByTile.has(neighborKey)) return true;
-    if (isOwnedTownSupportRingTile(actor.id, playerTile(neighbor.x, neighbor.y))) return true;
+    if (isOwnedTownSupportRingTile(actor.id, aiTileLiteAt(neighbor.x, neighbor.y))) return true;
   }
   return false;
 };
@@ -6779,7 +6892,7 @@ const fortTileProtectsCore = (actor: Player, tile?: Tile): boolean => {
     if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) continue;
     const neighborKey = key(neighbor.x, neighbor.y);
     if (townsByTile.has(neighborKey) || docksByTile.has(neighborKey)) return true;
-    if (isOwnedTownSupportRingTile(actor.id, playerTile(neighbor.x, neighbor.y))) return true;
+    if (isOwnedTownSupportRingTile(actor.id, aiTileLiteAt(neighbor.x, neighbor.y))) return true;
   }
   return false;
 };
@@ -6834,9 +6947,9 @@ const evaluateAiSettlementCandidate = (
 
   const isTown = townsByTile.has(tk);
   const resourceValue = tile.resource ? baseTileValue(tile.resource) : 0;
-  const economicFrontierSignal = aiEconomicFrontierSignal(actor, tile, territorySummary?.visibility, territorySummary?.foodPressure);
+  const economicFrontierSignal = aiEconomicFrontierSignal(actor, tile, territorySummary?.visibility, territorySummary?.foodPressure, territorySummary);
   const foodPressure = territorySummary?.foodPressure ?? aiFoodPressureSignal(actor);
-  const dockValue = docksByTile.has(tk) ? aiDockStrategicSignal(actor, tile) : 0;
+  const dockValue = docksByTile.has(tk) ? aiDockStrategicSignal(actor, tile, territorySummary) : 0;
   let townSupportSignal = 0;
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
@@ -6937,7 +7050,7 @@ const isAiVisibleEconomicFrontierTile = (
   tile: Tile,
   territorySummary?: Pick<AiTerritorySummary, "visibility" | "foodPressure">
 ): boolean => {
-  return aiEconomicFrontierSignal(actor, tile, territorySummary?.visibility, territorySummary?.foodPressure) >= 95;
+  return aiEconomicFrontierSignal(actor, tile, territorySummary?.visibility, territorySummary?.foodPressure, territorySummary) >= 95;
 };
 
 const classifyAiNeutralFrontierOpportunity = (
@@ -7008,7 +7121,7 @@ const bestAiEnemyPressureAttack = (
     ) {
       continue;
     }
-    const signal = aiEnemyPressureSignal(actor, to, territorySummary.visibility);
+    const signal = aiEnemyPressureSignal(actor, to, territorySummary.visibility, territorySummary);
     if (signal <= 0) continue;
     let score = signal;
     const defender = players.get(to.ownerId);
@@ -7112,7 +7225,7 @@ const buildAiPlanningStaticCache = (
       if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
       return count;
     }, 0);
-    const hasTownSupport = supportedTownKeysForTile(tileKey, actor.id).length > 0;
+    const hasTownSupport = cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
     if (townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey) || hasTownSupport || (ownedNeighbors >= 3 && exposedSides <= 1)) {
       settlementAvailable = true;
       break;
@@ -7134,7 +7247,7 @@ const buildAiPlanningStaticCache = (
     if (scoutRevealCount > 0) scoutExpandAvailable = true;
     const economic = isAiVisibleEconomicFrontierTile(actor, to, territorySummary);
     const scaffold =
-      supportedTownKeysForTile(tileKey, actor.id).length > 0 ||
+      cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ||
       (ownedNeighbors >= 3 && exposedSides <= 1) ||
       townsByTile.has(tileKey) ||
       Boolean(to.resource) ||
@@ -7166,7 +7279,7 @@ const buildAiPlanningStaticCache = (
       const tileKey = key(tile.x, tile.y);
       if (economicStructuresByTile.has(tileKey)) return false;
       if (tile.resource || townsByTile.has(tileKey)) return true;
-      return supportedTownKeysForTile(tileKey, actor.id).length > 0;
+      return cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
     });
 
   return {
@@ -7759,9 +7872,14 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     return;
   }
 
-  const collected = collectVisibleYield(actor);
-  if (collected.gold > 0 || hasPositiveStrategicBuffer(collected.strategic)) {
-    sendPlayerUpdate(actor, collected.gold);
+  const nowMs = now();
+  const nextYieldCollectAt = aiYieldCollectDueAtByPlayer.get(actor.id) ?? 0;
+  if (tileYieldByTile.size > 0 && nowMs >= nextYieldCollectAt) {
+    aiYieldCollectDueAtByPlayer.set(actor.id, nowMs + AI_YIELD_COLLECTION_INTERVAL_MS);
+    const collected = collectVisibleYield(actor);
+    if (collected.gold > 0 || hasPositiveStrategicBuffer(collected.strategic)) {
+      sendPlayerUpdate(actor, collected.gold);
+    }
   }
 
   const territoryMetrics = tickContext?.competitionMetrics ?? collectPlayerCompetitionMetrics();
@@ -9829,7 +9947,7 @@ const playerWorldFlags = (player: Player): Set<string> => {
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
     const [x, y] = parseKey(tk);
-    const t = playerTile(x, y);
+    const t = runtimeTileCore(x, y);
     if (t.resource === "IRON") hasIron = true;
     if (t.resource === "GEMS") hasCrystal = true;
     if (docksByTile.has(tk)) hasDock = true;
@@ -11642,6 +11760,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
     docksByTile.set(d.tileKey, d);
     dockById.set(d.dockId, d);
   }
+  dockLinkedTileKeysByDockTileKey.clear();
   for (const t of raw.towns ?? []) townsByTile.set(t.tileKey, t);
   for (const tk of raw.firstSpecialSiteCaptureClaimed ?? []) firstSpecialSiteCaptureClaimed.add(tk);
   for (const c of raw.clusters ?? []) clustersById.set(c.clusterId, c);
