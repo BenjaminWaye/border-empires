@@ -4983,7 +4983,31 @@ type DevelopmentSlotSummary = {
 };
 
 type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
+  id === "reveal_empire" ||
+  id === "deep_strike" ||
+  id === "naval_infiltration" ||
+  id === "sabotage_tile" ||
+  id === "create_mountain" ||
+  id === "remove_mountain";
 
+const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_");
+
+const hideTechLockedTileAction = (action: TileActionDef): boolean => {
+  if (!action.disabled || !action.disabledReason) return false;
+  return /^Requires\b/i.test(action.disabledReason) || /^Need reveal capability\b/i.test(action.disabledReason);
+};
+
+const splitTileActionsIntoTabs = (
+  actions: TileActionDef[]
+): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
+  const filtered = actions.filter((action) => !hideTechLockedTileAction(action));
+  return {
+    actions: filtered.filter((action) => !tileActionIsBuilding(action.id) && !tileActionIsCrystal(action.id)),
+    buildings: filtered.filter((action) => tileActionIsBuilding(action.id)),
+    crystal: filtered.filter((action) => tileActionIsCrystal(action.id))
+  };
+};
 const isTileOwnedByAlly = (tile: Tile): boolean => Boolean(tile.ownerId && state.allies.includes(tile.ownerId));
 
 const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number => {
@@ -5351,6 +5375,7 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
 
 const tileMenuViewForTile = (tile: Tile): TileMenuView => {
   const actions = menuActionsForSingleTile(tile);
+  const actionTabs = splitTileActionsIntoTabs(actions);
   const settlement = settlementProgressForTile(tile.x, tile.y);
   const construction = constructionProgressForTile(tile);
   const progress =
@@ -5369,9 +5394,12 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
             : "This tile is actively settling."
         }
       : construction;
-  const tabs: TileMenuTab[] = progress ? ["progress"] : actions.length > 0 ? ["actions"] : ["overview"];
-  if (progress && actions.length > 0) tabs.push("actions");
-  if (!tabs.includes("overview")) tabs.push("overview");
+  const tabs: TileMenuTab[] = [];
+  if (progress) tabs.push("progress");
+  if (actionTabs.actions.length > 0) tabs.push("actions");
+  if (actionTabs.buildings.length > 0) tabs.push("buildings");
+  if (actionTabs.crystal.length > 0) tabs.push("crystal");
+  tabs.push("overview");
   const ownerLabel =
     tile.terrain === "SEA"
       ? actions.length > 0
@@ -5392,9 +5420,11 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     tabs,
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: menuOverviewForTile(tile),
-    actions,
+    actions: actionTabs.actions,
+    buildings: actionTabs.buildings,
+    crystal: actionTabs.crystal,
     ...(progress ? { progress } : {}),
-    };
+  };
 };
 
 const hasRevealCapability = (): boolean => {
@@ -6376,8 +6406,9 @@ const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number):
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = key(tile.x, tile.y);
-  state.tileActionMenu.activeTab = settlementProgressForTile(tile.x, tile.y) || constructionProgressForTile(tile) ? "progress" : "actions";
-  renderTileActionMenu(tileMenuViewForTile(tile), clientX, clientY);
+  const view = tileMenuViewForTile(tile);
+  state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
+  renderTileActionMenu(view, clientX, clientY);
 };
 
 const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: number): void => {
@@ -6423,7 +6454,9 @@ const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: 
       subtitle: `${targetKeys.length} selected`,
       tabs: ["actions"],
       overviewLines: [],
-      actions
+      actions,
+      buildings: [],
+      crystal: []
     },
     clientX,
     clientY
