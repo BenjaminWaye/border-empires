@@ -511,7 +511,7 @@ const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string
 
 const displayTownGoldPerMinute = (tile: Tile): number => {
   if (!tile.town) return 0;
-  return tile.town.goldPerMinute;
+  return tile.town.goldPerMinute ?? 0;
 };
 
 const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | undefined => {
@@ -599,7 +599,7 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     townBits.push(
       `Population ${Math.round(tile.town.population).toLocaleString()} (${growthPctLabel}) (${prettyToken(tile.town.populationTier)})`
     );
-    townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
+    townBits.push(`Connected towns ${tile.town.connectedTownCount ?? 0} (+${Math.round((tile.town.connectedTownBonus ?? 0) * 100)}%)`);
     if (!tile.town.isFed) townBits.push("Unfed");
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
       upkeepLine = `Upkeep: ${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`;
@@ -2395,10 +2395,10 @@ const canRetainFullTileDetail = (existing: Tile | undefined, incoming: Tile): ex
     existing.ownerId === incoming.ownerId &&
     existing.ownershipState === incoming.ownershipState &&
     existing.resource === incoming.resource &&
-    existing.capital === incoming.capital &&
-    existing.clusterId === incoming.clusterId &&
-    existing.clusterType === incoming.clusterType &&
-    existing.regionType === incoming.regionType &&
+    (incoming.capital === undefined || existing.capital === incoming.capital) &&
+    (incoming.clusterId === undefined || existing.clusterId === incoming.clusterId) &&
+    (incoming.clusterType === undefined || existing.clusterType === incoming.clusterType) &&
+    (incoming.regionType === undefined || existing.regionType === incoming.regionType) &&
     existing.dockId === incoming.dockId &&
     sameTownSummary &&
     sameStructureSummary(existing.fort, incoming.fort) &&
@@ -2421,9 +2421,9 @@ const mergeIncomingTileDetail = (existing: Tile | undefined, incoming: Tile): Ti
       type: incoming.town.type,
       isFed: incoming.town.isFed,
       population: incoming.town.population,
-      maxPopulation: incoming.town.maxPopulation,
       populationTier: incoming.town.populationTier
     };
+    if (incoming.town.maxPopulation !== undefined) merged.town.maxPopulation = incoming.town.maxPopulation;
   }
   if (existing.yield) merged.yield = existing.yield;
   if (existing.yieldRate) merged.yieldRate = existing.yieldRate;
@@ -5340,22 +5340,27 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
-    pushLine(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
-    const growthPct =
-      tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
-        ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
-        : 0;
-    const growthLabel = `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`;
-    pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
-    pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
-    pushLine(`Growth ${growthLabel}`);
-    pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
-    for (const modifier of tile.town.growthModifiers ?? []) {
-      const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
-      pushEffectLine(modifier.label, growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute), tone);
+    if (tile.detailLevel !== "full") {
+      pushLine(tile.town.isFed ? "Town is fed. Syncing town detail..." : "Town is unfed. Syncing town detail...");
+      pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
+    } else {
+      pushLine(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
+      const growthPct =
+        tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
+          ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
+          : 0;
+      const growthLabel = `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`;
+      pushLine(`Support ${tile.town.supportCurrent ?? 0}/${tile.town.supportMax ?? 0}`);
+      pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
+      pushLine(`Growth ${growthLabel}`);
+      pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
+      for (const modifier of tile.town.growthModifiers ?? []) {
+        const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
+        pushEffectLine(modifier.label, growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute), tone);
+      }
+      if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
+      if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% population growth" : "Built", tile.town.granaryActive ? "positive" : "neutral");
     }
-    if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
-    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% population growth" : "Built", tile.town.granaryActive ? "positive" : "neutral");
   } else if (tile.resource) {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
     if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
@@ -5932,7 +5937,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Market",
           detail: buildDetailTextForAction("build_market", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            townSupportTiles.length > 0 && !tile.town.hasMarket && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
+            townSupportTiles.length > 0 && !(tile.town.hasMarket ?? false) && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
             townSupportTiles.length === 0
               ? "No open support tile for this town"
               : tile.town.hasMarket
@@ -5951,7 +5956,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Granary",
           detail: buildDetailTextForAction("build_granary", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            townSupportTiles.length > 0 && !tile.town.hasGranary && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
+            townSupportTiles.length > 0 && !(tile.town.hasGranary ?? false) && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
             townSupportTiles.length === 0
               ? "No open support tile for this town"
               : tile.town.hasGranary
