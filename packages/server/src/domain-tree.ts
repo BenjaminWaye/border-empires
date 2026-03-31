@@ -38,6 +38,7 @@ export interface DomainEffects {
   revealCapacityBonus?: number;
   visionRadiusBonus?: number;
   observatoryProtectionRadiusBonus?: number;
+  observatoryCastRadiusBonus?: number;
   observatoryVisionBonus?: number;
   settledDefenseMult?: number;
   attackVsSettledMult?: number;
@@ -102,6 +103,7 @@ const DomainEffectsSchema = z
     revealCapacityBonus: z.number().int().min(0).optional(),
     visionRadiusBonus: z.number().int().min(0).optional(),
     observatoryProtectionRadiusBonus: z.number().int().min(0).optional(),
+    observatoryCastRadiusBonus: z.number().int().min(0).optional(),
     observatoryVisionBonus: z.number().int().min(0).optional(),
     settledDefenseMult: z.number().positive().optional(),
     attackVsSettledMult: z.number().positive().optional(),
@@ -241,6 +243,9 @@ export const loadDomainTree = (cwd: string): LoadedDomainTree => {
       if (typeof d.effects.visionRadiusBonus === "number") effects.visionRadiusBonus = d.effects.visionRadiusBonus;
       if (typeof d.effects.observatoryProtectionRadiusBonus === "number") {
         effects.observatoryProtectionRadiusBonus = d.effects.observatoryProtectionRadiusBonus;
+      }
+      if (typeof d.effects.observatoryCastRadiusBonus === "number") {
+        effects.observatoryCastRadiusBonus = d.effects.observatoryCastRadiusBonus;
       }
       if (typeof d.effects.observatoryVisionBonus === "number") {
         effects.observatoryVisionBonus = d.effects.observatoryVisionBonus;
