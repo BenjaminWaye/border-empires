@@ -5,6 +5,8 @@ import type { GuideStep } from "./client-types.js";
 export const OBSERVATORY_BUILD_COST = 600;
 export const OBSERVATORY_VISION_BONUS = 5;
 export const OBSERVATORY_PROTECTION_RADIUS = 10;
+export const OBSERVATORY_CAST_RADIUS = 30;
+export const AIRPORT_BOMBARD_RADIUS = 30;
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 192;
 export const GOLD_COST_EPSILON = 1e-6;

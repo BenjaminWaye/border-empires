@@ -440,7 +440,27 @@ const tileHistoryLines = (tile: Tile): string[] => {
                 ? "Former Camp site"
                 : history.lastStructureType === "MINE"
                   ? "Former Mine site"
-                  : "Former Market site";
+                  : history.lastStructureType === "MARKET"
+                    ? "Former Market site"
+                    : history.lastStructureType === "GRANARY"
+                      ? "Former Granary site"
+                      : history.lastStructureType === "BANK"
+                        ? "Former Bank site"
+                        : history.lastStructureType === "AIRPORT"
+                          ? "Former Airport site"
+                          : history.lastStructureType === "QUARTERMASTER"
+                            ? "Former Quartermaster site"
+                            : history.lastStructureType === "IRONWORKS"
+                              ? "Former Ironworks site"
+                              : history.lastStructureType === "CRYSTAL_SYNTHESIZER"
+                                ? "Former Crystal Synthesizer site"
+                                : history.lastStructureType === "FUEL_PLANT"
+                                  ? "Former Fuel Plant site"
+                                  : history.lastStructureType === "FOUNDRY"
+                                    ? "Former Foundry site"
+                                    : history.lastStructureType === "GOVERNORS_OFFICE"
+                                      ? "Former Governor's Office site"
+                                      : "Former Radar System site";
     lines.push(label);
   }
   return lines;
@@ -457,12 +477,36 @@ const economicStructureName = (type: Tile["economicStructure"] extends infer T ?
   if (type === "CAMP") return "Camp";
   if (type === "MINE") return "Mine";
   if (type === "GRANARY") return "Granary";
+  if (type === "BANK") return "Bank";
+  if (type === "AIRPORT") return "Airport";
+  if (type === "CARAVANARY") return "Caravanary";
+  if (type === "QUARTERMASTER") return "Quartermaster";
+  if (type === "IRONWORKS") return "Ironworks";
+  if (type === "CRYSTAL_SYNTHESIZER") return "Crystal Synthesizer";
+  if (type === "FUEL_PLANT") return "Fuel Plant";
+  if (type === "FOUNDRY") return "Foundry";
+  if (type === "GARRISON_HALL") return "Garrison Hall";
+  if (type === "CUSTOMS_HOUSE") return "Customs House";
+  if (type === "GOVERNORS_OFFICE") return "Governor's Office";
+  if (type === "RADAR_SYSTEM") return "Radar System";
   return "Market";
 };
 
 const economicStructureBenefitText = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
   if (type === "MARKET") return "Nearby town: +50% fed gold output and +50% gold storage cap.";
-  if (type === "GRANARY") return "Nearby town: +50% gold storage cap.";
+  if (type === "GRANARY") return "Nearby town: +20% population growth and +20% gold storage cap.";
+  if (type === "BANK") return "Nearby town: +50% city income and +1 flat income.";
+  if (type === "AIRPORT") return "Launches oil-fueled bombardment against enemy territory.";
+  if (type === "CARAVANARY") return "Boosts the nearby town's connected-town income bonus by 25%.";
+  if (type === "QUARTERMASTER") return "Converts gold into steady supply output.";
+  if (type === "IRONWORKS") return "Converts gold into steady iron output.";
+  if (type === "CRYSTAL_SYNTHESIZER") return "Converts gold into steady crystal output.";
+  if (type === "FUEL_PLANT") return "Converts gold into steady oil output.";
+  if (type === "FOUNDRY") return "Doubles active mine output in a 10-tile radius.";
+  if (type === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius.";
+  if (type === "CUSTOMS_HOUSE") return "Boosts income from a nearby dock by 50%.";
+  if (type === "GOVERNORS_OFFICE") return "Reduces food and settled-tile upkeep in a 10-tile radius.";
+  if (type === "RADAR_SYSTEM") return "Blocks enemy airport bombardment in a 30-tile radius.";
   if (type === "FARMSTEAD") return "Improves food output on this tile.";
   if (type === "CAMP") return "Improves supply output on this tile.";
   if (type === "MINE") return "Improves iron or crystal output on this tile.";
@@ -478,7 +522,7 @@ const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: s
   if (type === "CAMP") return { title: "Camp", detail: "Camps increase supply yield on wood and fur tiles by 50%." };
   if (type === "MINE") return { title: "Mine", detail: "Mines increase iron or crystal yield on mineral tiles by 50%." };
   if (type === "MARKET") return { title: "Market", detail: "Markets are built on a support tile for a town. They increase that fed town's gold output by 50% and its gold storage cap by 50%." };
-  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's gold storage cap by 50%." };
+  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's population growth and gold storage cap by 20%." };
   return { title: "Siege Outpost", detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile." };
 };
 
@@ -639,7 +683,7 @@ const visibleCollectSummary = (): { tileCount: number; gold: number; resourceKin
 
 const clearPendingCollectVisibleDelta = (): void => {
   state.pendingCollectVisibleDelta.gold = 0;
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     state.pendingCollectVisibleDelta.strategic[resource] = 0;
   }
 };
@@ -655,7 +699,7 @@ const clearPendingCollectTileDelta = (tileKey?: string): void => {
 const revertOptimisticVisibleCollectDelta = (): void => {
   const delta = state.pendingCollectVisibleDelta;
   if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = delta.strategic[resource] ?? 0;
     if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
   }
@@ -666,7 +710,7 @@ const revertOptimisticTileCollectDelta = (tileKey: string): void => {
   const delta = state.pendingCollectTileDelta.get(tileKey);
   if (!delta) return;
   if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = delta.strategic[resource] ?? 0;
     if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
   }
@@ -692,7 +736,7 @@ const applyOptimisticVisibleCollect = (): number => {
       state.goldAnimUntil = Date.now() + 350;
       state.goldAnimDir = 1;
     }
-    for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
       const amount = Number(tile.yield?.strategic?.[resource] ?? 0);
       if (amount <= 0) continue;
       state.strategicResources[resource] += amount;
@@ -714,7 +758,7 @@ const applyOptimisticTileCollect = (tile: Tile): boolean => {
     CRYSTAL: Number(tile.yield?.strategic?.CRYSTAL ?? 0),
     SUPPLY: Number(tile.yield?.strategic?.SUPPLY ?? 0),
     SHARD: Number(tile.yield?.strategic?.SHARD ?? 0)
-  } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+  } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
   const touched = gold > 0 || Object.values(strategic).some((amount) => amount > 0);
   if (!touched) return false;
 
@@ -730,7 +774,7 @@ const applyOptimisticTileCollect = (tile: Tile): boolean => {
     state.goldAnimUntil = Date.now() + 350;
     state.goldAnimDir = 1;
   }
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = strategic[resource] ?? 0;
     if (amount <= 0) continue;
     state.strategicResources[resource] += amount;
@@ -1421,7 +1465,7 @@ const formatYieldSummary = (tile: Tile): string => {
   if (gold > 0.01 || (goldCap ?? 0) > 0) {
     parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${(goldCap ?? 0).toFixed(1)}`);
   }
-  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = Number(tile.yield?.strategic?.[key] ?? 0);
     const cap = yieldCapForResource(tile, key);
     if (amount <= 0.01 && (cap ?? 0) <= 0) continue;
@@ -2544,6 +2588,16 @@ const supportedOwnedTownsForTile = (tile: Tile): Tile[] => {
   const out: Tile[] = [];
   for (const candidate of state.tiles.values()) {
     if (!candidate.town || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
+    if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
+    out.push(candidate);
+  }
+  return out.sort((a, b) => a.x - b.x || a.y - b.y);
+};
+
+const supportedOwnedDocksForTile = (tile: Tile): Tile[] => {
+  const out: Tile[] = [];
+  for (const candidate of state.tiles.values()) {
+    if (!candidate.dockId || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
     if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
     out.push(candidate);
   }
@@ -4854,6 +4908,18 @@ type TileActionDef = {
     | "build_mine"
     | "build_market"
     | "build_granary"
+    | "build_bank"
+    | "build_airport"
+    | "build_caravanary"
+    | "build_quartermaster"
+    | "build_ironworks"
+    | "build_crystal_synthesizer"
+    | "build_fuel_plant"
+    | "build_foundry"
+    | "build_garrison_hall"
+    | "build_customs_house"
+    | "build_governors_office"
+    | "build_radar_system"
     | "abandon_territory"
     | "build_siege_camp"
     | "deep_strike"
@@ -4917,6 +4983,18 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_mine") return "⛏";
   if (id === "build_market") return "▣";
   if (id === "build_granary") return "◫";
+  if (id === "build_bank") return "◧";
+  if (id === "build_airport") return "✈";
+  if (id === "build_caravanary") return "⇄";
+  if (id === "build_quartermaster") return "▤";
+  if (id === "build_ironworks") return "⚒";
+  if (id === "build_crystal_synthesizer") return "◇";
+  if (id === "build_fuel_plant") return "⬢";
+  if (id === "build_foundry") return "⚙";
+  if (id === "build_garrison_hall") return "🛡";
+  if (id === "build_customs_house") return "⚓";
+  if (id === "build_governors_office") return "⌘";
+  if (id === "build_radar_system") return "◌";
   if (id === "abandon_territory") return "✕";
   if (id === "deep_strike") return "✦";
   if (id === "naval_infiltration") return "≈";
@@ -5128,8 +5206,26 @@ const buildDetailTextForAction = (actionId: TileActionDef["id"], tile: Tile, sup
   }
   if (actionId === "build_granary") {
     const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +50% gold storage cap.`;
+    return `Build on this support tile for the ${townLabel}. Grants +20% population growth and +20% gold storage cap.`;
   }
+  if (actionId === "build_bank") {
+    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
+    return `Build on this support tile for the ${townLabel}. Grants +50% city income and +1 flat income.`;
+  }
+  if (actionId === "build_airport") return "Build an airport on empty settled land. Bombard enemy tiles within 30 tiles for oil.";
+  if (actionId === "build_caravanary") {
+    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
+    return `Build on this support tile for the ${townLabel}. Boosts its connected-town income bonus by 25%.`;
+  }
+  if (actionId === "build_quartermaster") return "Convert heavy gold upkeep into steady supply output on this support tile.";
+  if (actionId === "build_ironworks") return "Convert heavy gold upkeep into steady iron output on this support tile.";
+  if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile.";
+  if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
+  if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
+  if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
+  if (actionId === "build_customs_house") return "Build next to a dock. Increases income from that dock by 50%.";
+  if (actionId === "build_governors_office") return "Administrative center. Reduces local food upkeep and settled-tile upkeep within 10 tiles.";
+  if (actionId === "build_radar_system") return "Air defense grid. Blocks enemy airport bombardment within 30 tiles and reveals the attack origin.";
   return undefined;
 };
 
@@ -5666,7 +5762,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false));
     const hasGold = state.gold >= FRONTIER_CLAIM_COST;
     const frontierCostLabel = frontierClaimCostLabelForTile(tile.x, tile.y);
-    return [
+    const out: TileActionDef[] = [
       {
         id: "settle_land",
         label: "Settle Land",
@@ -5675,9 +5771,27 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           !reachable ? "Must touch your territory" : `Need ${FRONTIER_CLAIM_COST} gold`,
           frontierCostLabel
         )
-      },
-      createMountainAction()
+      }
     ];
+    out.push({
+      id: "build_foundry",
+      label: "Build Foundry",
+      detail: buildDetailTextForAction("build_foundry", tile),
+      ...tileActionAvailabilityWithDevelopmentSlot(
+        reachable && state.techIds.includes("industrial-extraction") && state.gold >= 1800 && !tile.resource && !tile.town && !tile.dockId,
+        !reachable
+          ? "Must touch your territory"
+          : !state.techIds.includes("industrial-extraction")
+            ? "Requires Industrial Extraction"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty land"
+              : "Need 1800 gold",
+        `1800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • doubles mines within 10 tiles`,
+        developmentSlotSummary()
+      )
+    });
+    out.push(createMountainAction());
+    return out;
   }
   if (tile.ownerId === state.me) {
     const slots = developmentSlotSummary();
@@ -5688,6 +5802,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     const supportedTowns = tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
     const supportedTown = supportedTowns.length === 1 ? supportedTowns[0] : undefined;
+    const supportedDocks = tile.ownershipState === "SETTLED" ? supportedOwnedDocksForTile(tile) : [];
+    const supportedDock = supportedDocks.length === 1 ? supportedDocks[0] : undefined;
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
     if (tile.ownershipState === "FRONTIER")
       out.push({
@@ -5740,6 +5856,131 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
                     ? "Need 45 CRYSTAL"
                     : "Unavailable",
           `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`,
+          slots
+        )
+      });
+    }
+    if (tile.ownershipState === "SETTLED" && !tile.economicStructure) {
+      out.push({
+        id: "build_airport",
+        label: "Build Airport",
+        detail: buildDetailTextForAction("build_airport", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("aeronautics") &&
+            state.gold >= 900 &&
+            (state.strategicResources.CRYSTAL ?? 0) >= 60 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("aeronautics")
+            ? "Requires Aeronautics"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : state.gold < 900
+                  ? "Need 900 gold"
+                  : "Need 60 CRYSTAL",
+          `900 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+          slots
+        )
+      });
+      out.push({
+        id: "build_radar_system",
+        label: "Build Radar System",
+        detail: buildDetailTextForAction("build_radar_system", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("radar") &&
+            state.gold >= 1600 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("radar")
+            ? "Requires Radar"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : "Need 1600 gold",
+          `1600 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • blocks bombardment within 30 tiles`,
+          slots
+        )
+      });
+      out.push({
+        id: "build_governors_office",
+        label: "Build Governor's Office",
+        detail: buildDetailTextForAction("build_governors_office", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("civil-service") &&
+            state.gold >= 1300 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("civil-service")
+            ? "Requires Civil Service"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : "Need 1300 gold",
+          `1300 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • reduces local upkeep`,
+          slots
+        )
+      });
+      out.push({
+        id: "build_foundry",
+        label: "Build Foundry",
+        detail: buildDetailTextForAction("build_foundry", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("industrial-extraction") &&
+            state.gold >= 1800 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("industrial-extraction")
+            ? "Requires Industrial Extraction"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : "Need 1800 gold",
+          `1800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • doubles mines within 10 tiles`,
+          slots
+        )
+      });
+      out.push({
+        id: "build_garrison_hall",
+        label: "Build Garrison Hall",
+        detail: buildDetailTextForAction("build_garrison_hall", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("standing-army") &&
+            state.gold >= 1700 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("standing-army")
+            ? "Requires Standing Army"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : "Need 1700 gold",
+          `1700 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +20% defense within 10 tiles • 20 gold / 10m`,
           slots
         )
       });
@@ -5841,6 +6082,80 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
             slots
           )
         });
+        out.push({
+          id: "build_bank",
+          label: "Build Bank",
+          detail: buildDetailTextForAction("build_bank", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && !supportedTown.town?.hasBank && state.techIds.includes("coinage") && state.gold >= 700 && (state.strategicResources.CRYSTAL ?? 0) >= 45,
+            hasBlockingStructure
+              ? "Tile already has structure"
+              : supportedTown.town?.hasBank
+                ? "Nearby town already has Bank"
+                : !state.techIds.includes("coinage")
+                  ? "Requires Coinage"
+                  : state.gold < 700
+                    ? "Need 700 gold"
+                    : "Need 45 CRYSTAL",
+            `700 gold + 45 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_caravanary",
+          label: "Build Caravanary",
+          detail: buildDetailTextForAction("build_caravanary", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("ledger-keeping") && state.gold >= 1200,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : "Need 1200 gold",
+            `1200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +25% connected-town bonus • 12 gold / 10m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_quartermaster",
+          label: "Build Quartermaster",
+          detail: buildDetailTextForAction("build_quartermaster", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1000,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1000 gold",
+            `1000 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 SUPPLY/day • 120 gold / 10m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_ironworks",
+          label: "Build Ironworks",
+          detail: buildDetailTextForAction("build_ironworks", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1100,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1100 gold",
+            `1100 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 IRON/day • 120 gold / 10m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_crystal_synthesizer",
+          label: "Build Crystal Synthesizer",
+          detail: buildDetailTextForAction("build_crystal_synthesizer", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1300,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1300 gold",
+            `1300 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 12 CRYSTAL/day • 160 gold / 10m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_fuel_plant",
+          label: "Build Fuel Plant",
+          detail: buildDetailTextForAction("build_fuel_plant", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("plastics") && state.gold >= 1400,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 1400 gold",
+            `1400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 10 OIL/day • 180 gold / 10m`,
+            slots
+          )
+        });
       } else if (supportedTowns.length > 1) {
         out.push({
           id: "build_market",
@@ -5854,6 +6169,27 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           disabled: true,
           disabledReason: "Support tile touches multiple towns"
         });
+        out.push({ id: "build_bank", label: "Build Bank", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_caravanary", label: "Build Caravanary", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_quartermaster", label: "Build Quartermaster", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_ironworks", label: "Build Ironworks", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_crystal_synthesizer", label: "Build Crystal Synthesizer", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_fuel_plant", label: "Build Fuel Plant", disabled: true, disabledReason: "Support tile touches multiple towns" });
+      }
+      if (supportedDock) {
+        out.push({
+          id: "build_customs_house",
+          label: "Build Customs House",
+          detail: buildDetailTextForAction("build_customs_house", tile, supportedDock),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("global-trade-networks") && state.gold >= 1400,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("global-trade-networks") ? "Requires Global Trade Networks" : "Need 1400 gold",
+            `1400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +50% dock income • 10 gold / 10m`,
+            slots
+          )
+        });
+      } else if (supportedDocks.length > 1) {
+        out.push({ id: "build_customs_house", label: "Build Customs House", disabled: true, disabledReason: "Tile touches multiple docks" });
       }
     }
     out.push(createMountainAction());
@@ -6275,6 +6611,18 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
   if (actionId === "build_mine") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MINE"));
   if (actionId === "build_market") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MARKET"));
   if (actionId === "build_granary") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY"));
+  if (actionId === "build_bank") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "BANK"));
+  if (actionId === "build_airport") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AIRPORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AIRPORT"));
+  if (actionId === "build_caravanary") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CARAVANARY"));
+  if (actionId === "build_quartermaster") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "QUARTERMASTER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "QUARTERMASTER"));
+  if (actionId === "build_ironworks") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IRONWORKS"));
+  if (actionId === "build_crystal_synthesizer") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CRYSTAL_SYNTHESIZER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CRYSTAL_SYNTHESIZER"));
+  if (actionId === "build_fuel_plant") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUEL_PLANT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FUEL_PLANT"));
+  if (actionId === "build_foundry") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FOUNDRY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FOUNDRY"));
+  if (actionId === "build_garrison_hall") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GARRISON_HALL" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GARRISON_HALL"));
+  if (actionId === "build_customs_house") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CUSTOMS_HOUSE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CUSTOMS_HOUSE"));
+  if (actionId === "build_governors_office") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GOVERNORS_OFFICE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GOVERNORS_OFFICE"));
+  if (actionId === "build_radar_system") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "RADAR_SYSTEM" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "RADAR_SYSTEM"));
   if (actionId === "build_siege_camp") sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"));
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
@@ -6839,7 +7187,7 @@ ws.addEventListener("message", (ev) => {
     } else {
       state.goldAnimDir = 0;
     }
-    for (const k of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    for (const k of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
       const prev = prevStrategic[k] ?? 0;
       const next = state.strategicResources[k] ?? 0;
       if (next > prev) {
@@ -6988,11 +7336,17 @@ ws.addEventListener("message", (ev) => {
     const x = Number(msg.x ?? -1);
     const y = Number(msg.y ?? -1);
     const resolvesAt = Number(msg.resolvesAt ?? Date.now() + 3000);
+    const fromX = typeof msg.fromX === "number" ? Number(msg.fromX) : undefined;
+    const fromY = typeof msg.fromY === "number" ? Number(msg.fromY) : undefined;
     if (x >= 0 && y >= 0) {
       state.incomingAttacksByTile.set(key(x, y), { attackerName, resolvesAt });
     }
     state.unreadAttackAlerts += 1;
-    pushFeed(`Under attack: ${attackerName} is striking (${x}, ${y}).`, "combat", "error");
+    pushFeed(
+      `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
+      "combat",
+      "error"
+    );
     renderHud();
   }
   if (msg.type === "COMBAT_CANCELLED") {

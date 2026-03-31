@@ -50,6 +50,7 @@ export interface TechEffects {
   revealUpkeepMult?: number;
   revealCapacityBonus?: number;
   visionRadiusBonus?: number;
+  buildCapacityAdd?: number;
   dockGoldOutputMult?: number;
   dockGoldCapMult?: number;
   dockConnectionBonusPerLink?: number;
@@ -66,6 +67,7 @@ export interface TechEffects {
     supply?: number;
     crystal?: number;
     shard?: number;
+    oil?: number;
   };
 }
 
@@ -138,6 +140,7 @@ const TechEffectsSchema = z
     revealUpkeepMult: z.number().positive().optional(),
     revealCapacityBonus: z.number().int().min(0).optional(),
     visionRadiusBonus: z.number().int().min(0).optional(),
+    buildCapacityAdd: z.number().int().min(0).optional(),
     dockGoldOutputMult: z.number().positive().optional(),
     dockGoldCapMult: z.number().positive().optional(),
     dockConnectionBonusPerLink: z.number().nonnegative().optional(),
@@ -154,7 +157,8 @@ const TechEffectsSchema = z
         iron: z.number().positive().optional(),
         supply: z.number().positive().optional(),
         crystal: z.number().positive().optional(),
-        shard: z.number().positive().optional()
+        shard: z.number().positive().optional(),
+        oil: z.number().positive().optional()
       })
       .partial()
       .optional()
@@ -177,7 +181,8 @@ const TechSchema = z.object({
       iron: z.number().nonnegative().optional(),
       supply: z.number().nonnegative().optional(),
       crystal: z.number().nonnegative().optional(),
-      shard: z.number().nonnegative().optional()
+      shard: z.number().nonnegative().optional(),
+      oil: z.number().nonnegative().optional()
     })
     .optional(),
   researchTimeSeconds: z.number().int().positive().optional(),
