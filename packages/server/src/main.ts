@@ -1528,6 +1528,14 @@ interface PendingCapture {
   actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | "DEEP_STRIKE_ATTACK" | "NAVAL_INFILTRATION_ATTACK";
   startedAt?: number;
   traceId?: string;
+  precomputedCombat?: {
+    atkEff: number;
+    defEff: number;
+    winChance: number;
+    win: boolean;
+    previewChanges: CombatResultChange[];
+    previewWinnerId?: string;
+  };
   timeout?: NodeJS.Timeout;
 }
 type CombatResultChange = {
@@ -13748,6 +13756,53 @@ app.post("/admin/world/regenerate", async () => {
       startAbilityCooldown(actor.id, "naval_infiltration");
     }
     if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
+    let precomputedCombat:
+      | {
+          atkEff: number;
+          defEff: number;
+          winChance: number;
+          win: boolean;
+          previewChanges: CombatResultChange[];
+          previewWinnerId?: string;
+        }
+      | undefined;
+    if (defender || defenderIsBarbarian) {
+      const specialAttackMult = isDeepStrikeAttack ? DEEP_STRIKE_ATTACK_MULT : isNavalInfiltrationAttack ? NAVAL_INFILTRATION_ATTACK_MULT : 1;
+      const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
+      const shock = breachShockByTile.get(tk);
+      const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
+      const defMultRaw = defender ? playerDefensiveness(defender) * shockMult : 1;
+      const defMult = isBreakthroughAttack ? defMultRaw * BREAKTHROUGH_DEF_MULT_FACTOR : defMultRaw;
+      const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
+      const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
+      const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
+      const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
+      const combat = await resolveCombatViaWorker({
+        attackBase:
+          10 *
+          actor.mods.attack *
+          activeAttackBuffMult(actor.id) *
+          attackMultiplierForTarget(actor.id, to) *
+          specialAttackMult *
+          siegeAtkMult,
+        defenseBase: defenderIsBarbarian
+          ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
+          : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult
+      });
+      const previewChanges = combat.win
+        ? [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }]
+        : applyFailedAttackTerritoryOutcome(actor.id, defender?.id, defenderIsBarbarian, from, to, fk, tk).resultChanges;
+      const previewWinnerId = combat.win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id;
+      precomputedCombat = {
+        atkEff: combat.atkEff,
+        defEff: combat.defEff,
+        winChance: combat.winChance,
+        win: combat.win,
+        previewChanges,
+        ...(previewWinnerId ? { previewWinnerId } : {})
+      };
+    }
     const resolvesAt = now() + (msg.type === "EXPAND" && !to.ownerId ? frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
     const pending: PendingCapture = {
       resolvesAt,
@@ -13760,12 +13815,32 @@ app.post("/admin/world/regenerate", async () => {
       actionType: msg.type,
       startedAt: nowMs
     };
+    if (precomputedCombat) pending.precomputedCombat = precomputedCombat;
     if (expandTraceId) pending.traceId = expandTraceId;
     combatLocks.set(fk, pending);
     combatLocks.set(tk, pending);
     app.log.info({ playerId: actor.id, action: msg.type, from: fk, to: tk, resolvesAt }, "action accepted");
     logExpandTrace("queued", pending);
-    socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y }, resolvesAt }));
+    socket.send(
+      JSON.stringify({
+        type: "COMBAT_START",
+        origin: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        resolvesAt,
+        ...(pending.precomputedCombat
+          ? {
+              predictedResult: {
+                attackType: msg.type,
+                attackerWon: pending.precomputedCombat.win,
+                winnerId: pending.precomputedCombat.previewWinnerId,
+                origin: { x: from.x, y: from.y },
+                target: { x: to.x, y: to.y },
+                changes: pending.precomputedCombat.previewChanges
+              }
+            }
+          : {})
+      })
+    );
     logExpandTrace("combat_start_sent", pending);
     if (isBreakthroughAttack || isDeepStrikeAttack || isNavalInfiltrationAttack) sendPlayerUpdate(actor, 0);
     if (defender && !defenderIsBarbarian) {
@@ -13825,34 +13900,11 @@ app.post("/admin/world/regenerate", async () => {
       }
       actor.stamina -= staminaCost;
 
-      const specialAttackMult = isDeepStrikeAttack ? DEEP_STRIKE_ATTACK_MULT : isNavalInfiltrationAttack ? NAVAL_INFILTRATION_ATTACK_MULT : 1;
-      const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
       applyTownWarShock(tk);
-      const shock = breachShockByTile.get(tk);
-      const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
-      const defMultRaw = defender ? playerDefensiveness(defender) * shockMult : 1;
-      const defMult = isBreakthroughAttack ? defMultRaw * BREAKTHROUGH_DEF_MULT_FACTOR : defMultRaw;
-      const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
-      const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
-      const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
-      const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
-      const combat = await resolveCombatViaWorker({
-        attackBase:
-          10 *
-          actor.mods.attack *
-          activeAttackBuffMult(actor.id) *
-          attackMultiplierForTarget(actor.id, to) *
-          specialAttackMult *
-          siegeAtkMult,
-        defenseBase: defenderIsBarbarian
-          ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
-          : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult
-      });
-      const atkEffWithSiege = combat.atkEff;
-      const defEff = combat.defEff;
-      const p = combat.winChance;
-      const win = combat.win;
+      const atkEffWithSiege = pending.precomputedCombat?.atkEff ?? 1;
+      const defEff = pending.precomputedCombat?.defEff ?? 1;
+      const p = pending.precomputedCombat?.winChance ?? 0.5;
+      const win = pending.precomputedCombat?.win ?? false;
 
       let pointsDelta = 0;
       let manpowerDelta = 0;
