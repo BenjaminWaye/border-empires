@@ -479,7 +479,26 @@ export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
     biomeCacheReady[idx] = 1;
     return undefined;
   }
-  const biome = isCoastalLandAt(wx, wy) ? "COASTAL_SAND" : valueNoise(wx, wy, 42, worldSeed() + 303) > 0.62 ? "SAND" : "GRASS";
+  const region = regionTypeAt(wx, wy);
+  let biome: LandBiome;
+  if (isCoastalLandAt(wx, wy)) {
+    biome = "COASTAL_SAND";
+  } else if (region === "DEEP_FOREST") {
+    biome = "GRASS";
+  } else {
+    const macro = valueNoise(wx, wy, 72, worldSeed() + 303);
+    const micro = valueNoise(wx - 41, wy + 29, 26, worldSeed() + 317);
+    const sandField = macro * 0.7 + micro * 0.3;
+    const sandThreshold =
+      region === "CRYSTAL_WASTES"
+        ? 0.52
+        : region === "BROKEN_HIGHLANDS"
+          ? 0.58
+          : region === "ANCIENT_HEARTLAND"
+            ? 0.72
+            : 0.78;
+    biome = sandField > sandThreshold ? "SAND" : "GRASS";
+  }
   biomeCache[idx] = encodeBiome(biome);
   biomeCacheReady[idx] = 1;
   return biome;
@@ -525,10 +544,18 @@ export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined
     return undefined;
   }
   const region = regionTypeAt(wx, wy);
-  const macro = valueNoise(wx + 41, wy - 23, 110, worldSeed() + 99);
-  const micro = valueNoise(wx - 17, wy + 61, 34, worldSeed() + 109);
-  const forestField = macro * 0.7 + micro * 0.3;
-  const darkThreshold = region === "DEEP_FOREST" ? 0.82 : 0.22;
+  const macro = valueNoise(wx + 41, wy - 23, 84, worldSeed() + 99);
+  const micro = valueNoise(wx - 17, wy + 61, 26, worldSeed() + 109);
+  const scatter = valueNoise(wx + 73, wy - 91, 11, worldSeed() + 131);
+  const forestField = macro * 0.5 + micro * 0.3 + scatter * 0.2;
+  const darkThreshold =
+    region === "DEEP_FOREST"
+      ? 0.36
+      : region === "BROKEN_HIGHLANDS"
+        ? 0.24
+        : region === "ANCIENT_HEARTLAND"
+          ? 0.2
+          : 0.16;
   const shade = forestField < darkThreshold ? "DARK" : "LIGHT";
   grassShadeCache[idx] = encodeGrassShade(shade);
   grassShadeCacheReady[idx] = 1;
