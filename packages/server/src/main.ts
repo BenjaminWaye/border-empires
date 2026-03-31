@@ -959,10 +959,10 @@ const FOUNDRY_BUILD_GOLD_COST = 1800;
 const TOWN_CAPTURED_MANPOWER_MULT = 0.25;
 const MANPOWER_EPSILON = 1e-6;
 const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
-  TOWN: { cap: 300, regenPerMinute: 60 },
-  CITY: { cap: 600, regenPerMinute: 120 },
-  GREAT_CITY: { cap: 1_200, regenPerMinute: 240 },
-  METROPOLIS: { cap: 2_400, regenPerMinute: 480 }
+  TOWN: { cap: 300, regenPerMinute: 15 },
+  CITY: { cap: 600, regenPerMinute: 30 },
+  GREAT_CITY: { cap: 1_200, regenPerMinute: 60 },
+  METROPOLIS: { cap: 2_400, regenPerMinute: 120 }
 };
 const QUARTERMASTER_GOLD_UPKEEP = 120;
 const IRONWORKS_GOLD_UPKEEP = 120;
