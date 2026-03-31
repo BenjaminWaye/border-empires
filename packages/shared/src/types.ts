@@ -91,6 +91,7 @@ export interface Tile {
   x: number;
   y: number;
   terrain: Terrain;
+  detailLevel?: "summary" | "full";
   fogged?: boolean;
   resource?: ResourceType;
   ownerId?: PlayerId;

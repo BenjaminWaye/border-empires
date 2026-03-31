@@ -95,6 +95,7 @@ export const createInitialState = () => ({
   settledT: 1,
   settledE: 4,
   selected: undefined as { x: number; y: number } | undefined,
+  tileDetailRequestedAt: new Map<string, number>(),
   hover: undefined as { x: number; y: number } | undefined,
   homeTile: undefined as { x: number; y: number } | undefined,
   tiles: new Map<string, Tile>(),

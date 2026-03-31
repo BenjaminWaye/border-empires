@@ -538,6 +538,30 @@ const storedYieldSummary = (tile: Tile): string => {
 };
 
 const inspectionHtmlForTile = (tile: Tile): string => {
+  if (!tile.fogged && tile.detailLevel !== "full") {
+    const ownerLabel = tile.ownerId ? (playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : "neutral";
+    const terrainAndResource = (() => {
+      const terrainText = prettyToken(terrainLabel(tile.x, tile.y, tile.terrain));
+      if (!tile.resource) return terrainText;
+      return `${terrainText} - ${prettyToken(resourceLabel(tile.resource))}`;
+    })();
+    const tags = [
+      tile.ownershipState ? prettyToken(tile.ownershipState) : "",
+      tile.regionType ? prettyToken(tile.regionType) : "",
+      tile.clusterType ? prettyToken(tile.clusterType) : "",
+      tile.capital ? "Capital" : "",
+      tile.dockId ? "Dock" : "",
+      tile.fort ? `Fort ${prettyToken(tile.fort.status)}` : "",
+      tile.observatory ? `Observatory ${prettyToken(tile.observatory.status)}` : "",
+      tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} ${prettyToken(tile.economicStructure.status)}` : "",
+      tile.siegeOutpost ? `Siege ${prettyToken(tile.siegeOutpost.status)}` : ""
+    ].filter(Boolean);
+    return `
+      <div class="hover-line"><strong>${tile.x}, ${tile.y}</strong> · ${terrainAndResource}</div>
+      <div class="hover-subline">Owner ${ownerLabel}${tags.length > 0 ? ` · ${tags.join(" · ")}` : ""}</div>
+      <div class="hover-subline hover-accent">Syncing tile details...</div>
+    `;
+  }
   const ownerLabel = tile.ownerId ? (playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : "neutral";
   const tags = [
     tile.ownershipState ? prettyToken(tile.ownershipState) : "",
@@ -2315,15 +2339,91 @@ const bindTechTreeDragScroll = (): void => {
 const selectedTile = (): Tile | undefined => {
   if (!state.selected) return undefined;
   const existing = state.tiles.get(key(state.selected.x, state.selected.y));
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.fogged && existing.detailLevel !== "full") requestTileDetail(existing.x, existing.y);
+    return existing;
+  }
   const visibility = tileVisibilityStateAt(state.selected.x, state.selected.y);
   if (visibility === "unexplored") return undefined;
-  return {
+  const fallback: Tile = {
     x: state.selected.x,
     y: state.selected.y,
     terrain: terrainAt(state.selected.x, state.selected.y),
     fogged: visibility !== "visible"
   };
+  if (visibility === "visible") fallback.detailLevel = "summary";
+  return fallback;
+};
+
+const requestTileDetail = (x: number, y: number, force = false): void => {
+  if (!state.authSessionReady || ws.readyState !== ws.OPEN) return;
+  const tileKey = key(x, y);
+  const lastRequestedAt = state.tileDetailRequestedAt.get(tileKey) ?? 0;
+  if (!force && Date.now() - lastRequestedAt < 800) return;
+  state.tileDetailRequestedAt.set(tileKey, Date.now());
+  ws.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x, y }));
+};
+
+const sameStructureSummary = (
+  left?: { ownerId: string; status: string; type?: string },
+  right?: { ownerId: string; status: string; type?: string }
+): boolean => {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  return left.ownerId === right.ownerId && left.status === right.status && left.type === right.type;
+};
+
+const canRetainFullTileDetail = (existing: Tile | undefined, incoming: Tile): existing is Tile => {
+  if (!existing || existing.detailLevel !== "full" || incoming.detailLevel !== "summary") return false;
+  const sameTownSummary =
+    (!existing.town && !incoming.town) ||
+    Boolean(
+      existing.town &&
+        incoming.town &&
+        existing.town.type === incoming.town.type &&
+        existing.town.populationTier === incoming.town.populationTier &&
+        existing.town.isFed === incoming.town.isFed
+    );
+  return (
+    existing.terrain === incoming.terrain &&
+    existing.ownerId === incoming.ownerId &&
+    existing.ownershipState === incoming.ownershipState &&
+    existing.resource === incoming.resource &&
+    existing.capital === incoming.capital &&
+    existing.clusterId === incoming.clusterId &&
+    existing.clusterType === incoming.clusterType &&
+    existing.regionType === incoming.regionType &&
+    existing.dockId === incoming.dockId &&
+    sameTownSummary &&
+    sameStructureSummary(existing.fort, incoming.fort) &&
+    sameStructureSummary(existing.observatory, incoming.observatory) &&
+    sameStructureSummary(existing.siegeOutpost, incoming.siegeOutpost) &&
+    sameStructureSummary(existing.economicStructure, incoming.economicStructure) &&
+    Boolean(existing.sabotage) === Boolean(incoming.sabotage)
+  );
+};
+
+const mergeIncomingTileDetail = (existing: Tile | undefined, incoming: Tile): Tile => {
+  if (!canRetainFullTileDetail(existing, incoming)) return incoming;
+  const merged: Tile = {
+    ...incoming,
+    detailLevel: "full"
+  };
+  if (existing.town && incoming.town) {
+    merged.town = {
+      ...existing.town,
+      type: incoming.town.type,
+      isFed: incoming.town.isFed,
+      population: incoming.town.population,
+      maxPopulation: incoming.town.maxPopulation,
+      populationTier: incoming.town.populationTier
+    };
+  }
+  if (existing.yield) merged.yield = existing.yield;
+  if (existing.yieldRate) merged.yieldRate = existing.yieldRate;
+  if (existing.yieldCap) merged.yieldCap = existing.yieldCap;
+  if (existing.history) merged.history = existing.history;
+  return merged;
 };
 
 const applyOptimisticTileState = (
@@ -6716,9 +6816,10 @@ ws.addEventListener("message", (ev) => {
     let sawVisibleTile = false;
     let sawOwnedTile = false;
     for (const t of tiles) {
-      const mergedTile = mergeServerTileWithOptimisticState(t);
+      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(state.tiles.get(key(t.x, t.y)), t));
       state.tiles.set(key(mergedTile.x, mergedTile.y), mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(key(mergedTile.x, mergedTile.y));
+      if (mergedTile.detailLevel === "full") state.tileDetailRequestedAt.delete(key(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
       if (!mergedTile.fogged) state.discoveredTiles.add(key(mergedTile.x, mergedTile.y));
       if (!mergedTile.fogged) sawVisibleTile = true;
@@ -7043,8 +7144,13 @@ ws.addEventListener("message", (ev) => {
         if (update.history) merged.history = update.history;
         else delete merged.history;
       }
+      if ("detailLevel" in update) {
+        if (update.detailLevel) merged.detailLevel = update.detailLevel;
+        else delete merged.detailLevel;
+      }
       const resolved = mergeServerTileWithOptimisticState(merged);
       state.tiles.set(updateKey, resolved);
+      if (resolved.detailLevel === "full") state.tileDetailRequestedAt.delete(updateKey);
       if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
       markDockDiscovered(resolved);
       if (!resolved.fogged) state.discoveredTiles.add(updateKey);
