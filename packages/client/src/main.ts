@@ -2930,18 +2930,32 @@ const renderCaptureProgress = (): void => {
   state.captureAlert = undefined;
 
   if (state.capture) {
+    const captureTargetKey = key(state.capture.target.x, state.capture.target.y);
     captureCardEl.dataset.state = "progress";
     const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
     const elapsed = Date.now() - state.capture.startAt;
     const pct = Math.max(0, Math.min(1, elapsed / total));
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
+    const awaitingResult = Date.now() > state.capture.resolvesAt;
+    if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
+      showCaptureAlert(state.pendingCombatReveal.title, state.pendingCombatReveal.detail, state.pendingCombatReveal.tone);
+      pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
+      state.pendingCombatReveal.revealed = true;
+      return;
+    }
     captureCardEl.style.display = "grid";
     captureWrapEl.style.display = "block";
     captureCancelBtn.style.display = "inline-flex";
-    captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
-    captureTitleEl.textContent = isForestTile(state.capture.target.x, state.capture.target.y) ? "Capturing Forest..." : "Capturing Territory...";
-    captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
-    captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
+    captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
+    captureTitleEl.textContent = awaitingResult
+      ? "Resolving battle..."
+      : isForestTile(state.capture.target.x, state.capture.target.y)
+        ? "Capturing Forest..."
+        : "Capturing Territory...";
+    captureTimeEl.textContent = awaitingResult ? "" : `${remaining.toFixed(1)}s`;
+    captureTargetEl.textContent = awaitingResult
+      ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
+      : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
   } else {
     captureCardEl.style.display = "none";
     captureWrapEl.style.display = "none";
@@ -5082,7 +5096,7 @@ const formatCountdownClock = (ms: number): string => {
 const SETTLEMENT_CONFIRM_REFRESH_MS = 1_250;
 const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 1_250;
 const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
-const COMBAT_RESULT_GRACE_MS = 900;
+const COMBAT_RESULT_GRACE_MS = 5_000;
 
 const clearSettlementProgressByKey = (tileKey: string): void => {
   if (!tileKey) return;
@@ -7098,8 +7112,8 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "COMBAT_RESULT") {
+    const target = msg.target as { x: number; y: number } | undefined;
     const targetBefore = (() => {
-      const target = msg.target as { x: number; y: number } | undefined;
       return target ? state.tiles.get(key(target.x, target.y)) : undefined;
     })();
     const originBefore = (() => {
@@ -7132,8 +7146,19 @@ ws.addEventListener("message", (ev) => {
       targetTileBefore: targetBefore,
       originTileBefore: originBefore
     });
-    pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
-    showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone);
+    const resultTargetKey = target ? key(target.x, target.y) : "";
+    const predictedAlreadyShown = Boolean(
+      state.pendingCombatReveal &&
+        state.pendingCombatReveal.targetKey === resultTargetKey &&
+        state.pendingCombatReveal.revealed &&
+        state.pendingCombatReveal.title === resultAlert.title &&
+        state.pendingCombatReveal.detail === resultAlert.detail
+    );
+    if (!predictedAlreadyShown) {
+      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
+      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone);
+    }
+    if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
     let handedOffToSettle = false;
@@ -7176,8 +7201,26 @@ ws.addEventListener("message", (ev) => {
     const existingCapture =
       state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
     const startAt = existingCapture?.startAt ?? Date.now();
-    const effectiveResolvesAt = existingCapture?.resolvesAt ?? Math.max(resolvesAt, startAt + 100);
-    state.capture = { startAt, resolvesAt: effectiveResolvesAt, target };
+    state.capture = { startAt, resolvesAt, target };
+    const predictedResult = msg.predictedResult as Record<string, unknown> | undefined;
+    if (predictedResult) {
+      const predictedAlert = combatResolutionAlert(predictedResult, {
+        targetTileBefore: state.tiles.get(key(target.x, target.y)),
+        originTileBefore: (() => {
+          const origin = predictedResult.origin as { x: number; y: number } | undefined;
+          return origin ? state.tiles.get(key(origin.x, origin.y)) : undefined;
+        })()
+      });
+      state.pendingCombatReveal = {
+        targetKey: key(target.x, target.y),
+        title: predictedAlert.title,
+        detail: predictedAlert.detail,
+        tone: predictedAlert.tone,
+        revealed: false
+      };
+    } else if (state.pendingCombatReveal?.targetKey === key(target.x, target.y)) {
+      state.pendingCombatReveal = undefined;
+    }
     state.actionInFlight = true;
     if (!state.actionStartedAt) state.actionStartedAt = startAt;
     state.actionTargetKey = key(target.x, target.y);
@@ -7198,6 +7241,7 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COMBAT_CANCELLED") {
     const cancelledCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -7532,6 +7576,7 @@ ws.addEventListener("message", (ev) => {
       errorCode === "EXPAND_TARGET_OWNED";
     const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -8425,6 +8470,7 @@ setInterval(() => {
     const current = state.actionCurrent;
     const currentKey = current ? key(current.x, current.y) : "";
     state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
