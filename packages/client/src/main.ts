@@ -8355,12 +8355,6 @@ const draw = (): void => {
         ctx.strokeStyle = "rgba(255,255,255,0.55)";
         ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
       }
-      if (state.capture && state.capture.target.x === wx && state.capture.target.y === wy) {
-        const phase = (Date.now() % 600) / 600;
-        const alpha = 0.25 + 0.55 * Math.sin(phase * Math.PI);
-        ctx.fillStyle = `rgba(255, 209, 102, ${alpha.toFixed(3)})`;
-        ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-      }
       const incomingAttack = state.incomingAttacksByTile.get(wk);
       if (incomingAttack) {
         if (incomingAttack.resolvesAt <= Date.now()) {
