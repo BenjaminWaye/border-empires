@@ -4,7 +4,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("AUTH"), token: z.string().min(1) }),
   z.object({ type: z.literal("PING"), t: z.number() }),
   z.object({ type: z.literal("SUBSCRIBE_CHUNKS"), cx: z.number(), cy: z.number(), radius: z.number().int().min(0).max(8) }),
-  z.object({ type: z.literal("REQUEST_TILE_DETAIL"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("EXPAND"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
   z.object({ type: z.literal("ATTACK"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), powerupId: z.string().optional() }),
   z.object({ type: z.literal("ATTACK_PREVIEW"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
@@ -36,7 +35,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "IRONWORKS",
       "CRYSTAL_SYNTHESIZER",
       "FUEL_PLANT",
+      "CARAVANARY",
       "FOUNDRY",
+      "GARRISON_HALL",
+      "CUSTOMS_HOUSE",
       "GOVERNORS_OFFICE",
       "RADAR_SYSTEM"
     ])
