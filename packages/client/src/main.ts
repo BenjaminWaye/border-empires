@@ -2065,7 +2065,7 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
 };
 
 const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error"): void => {
-  state.captureAlert = { title, detail, until: Date.now() + 1800, tone };
+  state.captureAlert = { title, detail, until: Date.now() + 3200, tone };
 };
 
 const playerNameOrFallback = (ownerId: string | undefined): string => {
@@ -5096,9 +5096,10 @@ const formatCountdownClock = (ms: number): string => {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
-const SETTLEMENT_CONFIRM_REFRESH_MS = 4_000;
-const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
+const SETTLEMENT_CONFIRM_REFRESH_MS = 1_250;
+const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 1_250;
 const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
+const COMBAT_RESULT_GRACE_MS = 900;
 
 const clearSettlementProgressByKey = (tileKey: string): void => {
   if (!tileKey) return;
@@ -7596,10 +7597,10 @@ ws.addEventListener("message", (ev) => {
     if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
     state.attackPreview = preview;
     state.attackPreviewPendingKey = "";
-    if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.selected) {
-      const selectedTile = state.tiles.get(key(state.selected.x, state.selected.y));
-      if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
-        openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y);
+    if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
+      const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
+      if (menuTile && menuTile.ownerId && menuTile.ownerId !== state.me && !isTileOwnedByAlly(menuTile)) {
+        openSingleTileActionMenu(menuTile, state.tileActionMenu.x, state.tileActionMenu.y);
       }
     }
     renderHud();
@@ -8462,7 +8463,7 @@ setInterval(() => {
   }
   if (!state.capture) return;
   // Stage 2: combat started but result got dropped.
-  if (Date.now() > state.capture.resolvesAt + 4_000) {
+  if (Date.now() > state.capture.resolvesAt + COMBAT_RESULT_GRACE_MS) {
     const timedOutCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const keepOptimisticExpand = shouldPreserveOptimisticExpand(timedOutCurrentKey);
     state.capture = undefined;
@@ -8472,6 +8473,7 @@ setInterval(() => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     if (timedOutCurrentKey) dropQueuedTargetKeyIfAbsent(timedOutCurrentKey);
+    requestViewRefresh(2, true);
     if (timedOutCurrentKey && !keepOptimisticExpand) clearOptimisticTileState(timedOutCurrentKey, true);
     pushFeed(
       keepOptimisticExpand
