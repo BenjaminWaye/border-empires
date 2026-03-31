@@ -2903,12 +2903,19 @@ const playerManpowerCap = (player: Player): number => {
   return Math.max(MANPOWER_BASE_CAP, cap);
 };
 
+const manpowerRegenWeightForSettlementIndex = (index: number): number => {
+  if (index < 5) return 1;
+  if (index < 15) return 0.5;
+  return 0.2;
+};
+
 const playerManpowerRegenPerMinute = (player: Player): number => {
   let regen = MANPOWER_BASE_REGEN_PER_MINUTE;
-  for (const tk of ownedTownKeysForPlayer(player.id)) {
+  const townKeys = ownedTownKeysForPlayer(player.id);
+  for (const [index, tk] of townKeys.entries()) {
     const town = townsByTile.get(tk);
     if (!town) continue;
-    regen += townManpowerSnapshotForOwner(town, player.id).regenPerMinute;
+    regen += townManpowerSnapshotForOwner(town, player.id).regenPerMinute * manpowerRegenWeightForSettlementIndex(index);
   }
   return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
 };
@@ -12890,6 +12897,7 @@ app.post("/admin/world/regenerate", async () => {
       const strategicProduction = strategicProductionPerMinute(player);
       const dockPairs = exportDockPairs();
       completeDueResearchForPlayer(player);
+      applyManpowerRegen(player);
       socket.send(
         JSON.stringify({
           type: "INIT",
