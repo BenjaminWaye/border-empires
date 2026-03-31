@@ -3770,6 +3770,112 @@ const runtimeTileCore = (x: number, y: number): RuntimeTileCore => {
   return { x: wx, y: wy, tileKey, terrain, ownerId, ownershipState, resource };
 };
 
+const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => ({
+  type: town.type,
+  baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
+  supportCurrent: 0,
+  supportMax: 0,
+  goldPerMinute: 0,
+  cap: 0,
+  isFed: ownerId ? isTownFedForOwner(town.tileKey, ownerId) : false,
+  population: town.population,
+  maxPopulation: town.maxPopulation,
+  populationTier: townPopulationTier(town.population),
+  connectedTownCount: 0,
+  connectedTownBonus: 0,
+  hasMarket: false,
+  marketActive: false,
+  hasGranary: false,
+  granaryActive: false,
+  hasBank: false,
+  bankActive: false
+});
+
+const playerTileSummary = (x: number, y: number): Tile => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const tk = key(wx, wy);
+  const terrain = terrainAtRuntime(wx, wy);
+  const ownerId = ownership.get(tk);
+  const ownershipState = ownershipStateByTile.get(tk);
+  const baseResource = terrain === "LAND" ? resourceAt(wx, wy) : undefined;
+  const resource = terrain === "LAND" ? applyClusterResources(wx, wy, baseResource) : undefined;
+  const clusterId = clusterByTile.get(tk);
+  const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
+  const dock = terrain === "LAND" ? docksByTile.get(tk) : undefined;
+  const town = terrain === "LAND" ? townsByTile.get(tk) : undefined;
+  const fort = terrain === "LAND" ? fortsByTile.get(tk) : undefined;
+  const observatory = terrain === "LAND" ? observatoriesByTile.get(tk) : undefined;
+  const siegeOutpost = terrain === "LAND" ? siegeOutpostsByTile.get(tk) : undefined;
+  const sabotage = sabotageByTile.get(tk);
+  const breachShock = breachShockByTile.get(tk);
+  const tile: Tile = {
+    x: wx,
+    y: wy,
+    terrain,
+    detailLevel: "summary",
+    lastChangedAt: now()
+  };
+  const continentId = continentIdAt(wx, wy);
+  const regionType = regionTypeAtLocal(wx, wy);
+  if (resource && !dock) tile.resource = resource;
+  if (ownerId) {
+    tile.ownerId = ownerId;
+    tile.ownershipState = ownershipState ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
+    if (ownerId !== BARBARIAN_OWNER_ID && players.get(ownerId)?.capitalTileKey === tk) tile.capital = true;
+  }
+  if (continentId !== undefined) tile.continentId = continentId;
+  if (terrain === "LAND" && regionType) (tile as Tile & { regionType?: string }).regionType = regionType;
+  if (terrain === "LAND" && clusterId) tile.clusterId = clusterId;
+  if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
+  if (dock) tile.dockId = dock.dockId;
+  if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
+  if (town) tile.town = townSummaryForTile(town, ownerId);
+  if (fort) {
+    const fortView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
+      ownerId: fort.ownerId,
+      status: fort.status
+    };
+    if (fort.status === "under_construction") fortView.completesAt = fort.completesAt;
+    tile.fort = fortView;
+  }
+  if (observatory) {
+    const status = observatoryStatusForTile(observatory.ownerId, observatory.tileKey);
+    tile.observatory = {
+      ownerId: observatory.ownerId,
+      status
+    };
+    if (status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
+  }
+  if (siegeOutpost) {
+    const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
+      ownerId: siegeOutpost.ownerId,
+      status: siegeOutpost.status
+    };
+    if (siegeOutpost.status === "under_construction") siegeView.completesAt = siegeOutpost.completesAt;
+    tile.siegeOutpost = siegeView;
+  }
+  if (sabotage && sabotage.endsAt > now()) {
+    tile.sabotage = {
+      ownerId: sabotage.casterPlayerId,
+      endsAt: sabotage.endsAt,
+      outputMultiplier: sabotage.outputMultiplier
+    };
+  }
+  const economicStructure = economicStructuresByTile.get(tk);
+  if (economicStructure) {
+    tile.economicStructure = {
+      ownerId: economicStructure.ownerId,
+      type: economicStructure.type,
+      status: economicStructure.status
+    };
+    if (economicStructure.status === "under_construction" && economicStructure.completesAt !== undefined) {
+      tile.economicStructure.completesAt = economicStructure.completesAt;
+    }
+  }
+  return tile;
+};
+
 const playerTile = (x: number, y: number): Tile => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
@@ -3793,6 +3899,7 @@ const playerTile = (x: number, y: number): Tile => {
     x: wx,
     y: wy,
     terrain,
+    detailLevel: "full",
     lastChangedAt: now()
   };
   const continentId = continentIdAt(wx, wy);
@@ -8510,7 +8617,7 @@ const chunkSnapshotPayload = (
       const wx = wrapX(x, WORLD_WIDTH);
       const wy = wrapY(y, WORLD_HEIGHT);
       if (visibleInSnapshot(snapshot, wx, wy)) {
-        const tile = playerTile(wx, wy);
+        const tile = playerTileSummary(wx, wy);
         tile.fogged = false;
         chunkTiles[tileIndexInChunk] = tile;
       }
@@ -12818,6 +12925,18 @@ app.post("/admin/world/regenerate", async () => {
         return;
       }
       sendChunkSnapshot(socket, actor, sub);
+      return;
+    }
+
+    if (msg.type === "REQUEST_TILE_DETAIL") {
+      const wx = wrapX(msg.x, WORLD_WIDTH);
+      const wy = wrapY(msg.y, WORLD_HEIGHT);
+      const snapshot = visibilitySnapshotForPlayer(actor);
+      if (!visibleInSnapshot(snapshot, wx, wy)) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TILE_DETAIL_UNAVAILABLE", message: "tile detail requires current vision" }));
+        return;
+      }
+      sendToPlayer(actor.id, { type: "TILE_DELTA", updates: [playerTile(wx, wy)] });
       return;
     }
 
