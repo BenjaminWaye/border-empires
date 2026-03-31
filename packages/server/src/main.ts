@@ -8828,7 +8828,13 @@ const chunkKeyAtTile = (x: number, y: number): string => `${Math.floor(wrapX(x, 
 const tileIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const CHUNK_SNAPSHOT_WARN_MS = 60;
 const CHUNK_SNAPSHOT_BATCH_SIZE = 4;
-const INITIAL_CHUNK_BOOTSTRAP_RADIUS = 1;
+const INITIAL_CHUNK_BOOTSTRAP_RADIUS = 0;
+
+type ChunkFollowUpStage = {
+  sub: { cx: number; cy: number; radius: number };
+  chunkCoords: Array<{ cx: number; cy: number }>;
+  next?: ChunkFollowUpStage;
+};
 const chunkDist = (a: number, b: number, mod: number): number => {
   const d = Math.abs(a - b);
   return Math.min(d, mod - d);
@@ -9015,11 +9021,29 @@ const chunkSnapshotPayload = (
   };
 };
 
+const buildBootstrapChunkStages = (sub: { cx: number; cy: number; radius: number }): ChunkFollowUpStage | undefined => {
+  if (sub.radius <= INITIAL_CHUNK_BOOTSTRAP_RADIUS) return undefined;
+  const stageRadii: number[] = [];
+  for (let radius = INITIAL_CHUNK_BOOTSTRAP_RADIUS + 1; radius <= sub.radius; radius += 1) {
+    stageRadii.push(radius);
+  }
+  let next: ChunkFollowUpStage | undefined;
+  for (let index = stageRadii.length - 1; index >= 0; index -= 1) {
+    const radius = stageRadii[index]!;
+    next = {
+      sub: { ...sub, radius },
+      chunkCoords: chunkCoordsForSubscription({ ...sub, radius }, radius),
+      ...(next ? { next } : {})
+    };
+  }
+  return next;
+};
+
 const sendChunkSnapshot = (
   socket: Ws,
   actor: Player,
   sub: { cx: number; cy: number; radius: number },
-  followUpSub?: { cx: number; cy: number; radius: number },
+  followUpStage?: ChunkFollowUpStage,
   chunkCoordsOverride?: Array<{ cx: number; cy: number }>
 ): void => {
   const startedAt = now();
@@ -9103,7 +9127,7 @@ const sendChunkSnapshot = (
       );
     }
     if (
-      followUpSub &&
+      followUpStage &&
       socket.readyState === socket.OPEN &&
       chunkSnapshotGenerationByPlayer.get(actor.id) === generation
     ) {
@@ -9112,13 +9136,13 @@ const sendChunkSnapshot = (
         const currentSub = chunkSubscriptionByPlayer.get(actor.id);
         if (!currentSub) return;
         if (
-          currentSub.cx !== followUpSub.cx ||
-          currentSub.cy !== followUpSub.cy ||
-          currentSub.radius !== followUpSub.radius
+          currentSub.cx !== followUpStage.sub.cx ||
+          currentSub.cy !== followUpStage.sub.cy ||
+          currentSub.radius !== followUpStage.sub.radius
         ) {
           return;
         }
-        sendChunkSnapshot(socket, actor, followUpSub, undefined, chunkCoordsForSubscription(followUpSub, INITIAL_CHUNK_BOOTSTRAP_RADIUS + 1));
+        sendChunkSnapshot(socket, actor, followUpStage.sub, followUpStage.next, followUpStage.chunkCoords);
       }, 0);
     }
   };
@@ -13383,7 +13407,13 @@ app.post("/admin/world/regenerate", async () => {
         return;
       }
       if (authSync && authSync.firstChunkSentAt === undefined && sub.radius > INITIAL_CHUNK_BOOTSTRAP_RADIUS) {
-        sendChunkSnapshot(socket, actor, { ...sub, radius: INITIAL_CHUNK_BOOTSTRAP_RADIUS }, sub);
+        sendChunkSnapshot(
+          socket,
+          actor,
+          { ...sub, radius: INITIAL_CHUNK_BOOTSTRAP_RADIUS },
+          buildBootstrapChunkStages(sub),
+          chunkCoordsForSubscription({ ...sub, radius: INITIAL_CHUNK_BOOTSTRAP_RADIUS })
+        );
         return;
       }
       sendChunkSnapshot(socket, actor, sub);
