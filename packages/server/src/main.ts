@@ -463,6 +463,7 @@ type AiCompetitionContext = {
   incomeByPlayerId: Map<string, number>;
   townsTarget: number;
   settledTilesTarget: number;
+  analysisByPlayerId: Map<string, AiTurnAnalysis>;
 };
 
 type AiTurnAnalysis = {
@@ -3903,6 +3904,7 @@ const runtimeTileCore = (x: number, y: number): RuntimeTileCore => {
   return { x: wx, y: wy, tileKey, terrain, ownerId, ownershipState, resource };
 };
 
+// Summary chunks intentionally avoid derived town economy state; detail requests fill it in on demand.
 const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => ({
   type: town.type,
   baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
@@ -3910,7 +3912,7 @@ const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): 
   supportMax: 0,
   goldPerMinute: 0,
   cap: 0,
-  isFed: ownerId ? isTownFedForOwner(town.tileKey, ownerId) : false,
+  isFed: Boolean(ownerId),
   population: town.population,
   maxPopulation: town.maxPopulation,
   populationTier: townPopulationTier(town.population),
@@ -3973,12 +3975,11 @@ const playerTileSummary = (x: number, y: number): Tile => {
     tile.fort = fortView;
   }
   if (observatory) {
-    const status = observatoryStatusForTile(observatory.ownerId, observatory.tileKey);
     tile.observatory = {
       ownerId: observatory.ownerId,
-      status
+      status: observatory.status
     };
-    if (status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
+    if (observatory.status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
   }
   if (siegeOutpost) {
     const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
@@ -7416,6 +7417,17 @@ const buildAiTurnAnalysis = (
   };
 };
 
+const cachedAiTurnAnalysisForPlayer = (
+  actor: Player,
+  competitionContext: AiCompetitionContext
+): AiTurnAnalysis => {
+  const cached = competitionContext.analysisByPlayerId.get(actor.id);
+  if (cached) return cached;
+  const analysis = buildAiTurnAnalysis(actor, competitionContext.competitionMetrics, competitionContext.incomeByPlayerId);
+  competitionContext.analysisByPlayerId.set(actor.id, analysis);
+  return analysis;
+};
+
 type SimulationCommand =
   | { type: "EXPAND"; fromX: number; fromY: number; toX: number; toY: number }
   | { type: "ATTACK"; fromX: number; fromY: number; toX: number; toY: number }
@@ -7486,9 +7498,9 @@ const markAiTerritoryDirtyForPlayers = (playerIds: Iterable<string>): void => {
 const queueSimulationDrain = (): void => {
   if (simulationCommandWorkerState.draining) return;
   simulationCommandWorkerState.draining = true;
-  queueMicrotaskFn(() => {
+  setTimeout(() => {
     void drainSimulationCommandQueue();
-  });
+  }, 0);
 };
 
 const hasQueuedSystemSimulationCommand = (predicate: (job: SimulationCommandJob) => boolean): boolean =>
@@ -7571,9 +7583,9 @@ const drainSimulationCommandQueue = async (): Promise<void> => {
     simulationCommandWorkerState.lastDequeuedPriority = "idle";
     return;
   }
-  queueMicrotaskFn(() => {
+  setTimeout(() => {
     void drainSimulationCommandQueue();
-  });
+  }, 0);
 };
 
 const enqueueSimulationCommand = (
@@ -7730,8 +7742,10 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   }
 
   const territoryMetrics = tickContext?.competitionMetrics ?? collectPlayerCompetitionMetrics();
-  const analysis =
-    tickContext?.analysisByPlayerId.get(actor.id) ?? buildAiTurnAnalysis(actor, territoryMetrics, tickContext?.incomeByPlayerId ?? new Map<string, number>());
+  const analysis = tickContext
+    ? (tickContext.analysisByPlayerId.get(actor.id) ??
+      buildAiTurnAnalysis(actor, territoryMetrics, tickContext.incomeByPlayerId))
+    : buildAiTurnAnalysis(actor, territoryMetrics, new Map<string, number>());
   const aiIncome = analysis.aiIncome;
   const runnerUpIncome = analysis.runnerUpIncome;
   maybePickAiTech(actor);
@@ -8399,7 +8413,7 @@ const runAiTick = (): void => {
   const incomeByPlayerId = competitionContext.incomeByPlayerId;
   const analysisByPlayerId = new Map<string, AiTurnAnalysis>();
   for (const actor of selectedAiPlayers) {
-    analysisByPlayerId.set(actor.id, buildAiTurnAnalysis(actor, competitionMetrics, incomeByPlayerId));
+    analysisByPlayerId.set(actor.id, cachedAiTurnAnalysisForPlayer(actor, competitionContext));
   }
   const tickContext: AiTickContext = {
     cycleId: ++aiCycleCounter,
@@ -8751,6 +8765,7 @@ const chunkKeyAtTile = (x: number, y: number): string => `${Math.floor(wrapX(x, 
 const tileIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const CHUNK_SNAPSHOT_WARN_MS = 60;
 const CHUNK_SNAPSHOT_BATCH_SIZE = 4;
+const INITIAL_CHUNK_BOOTSTRAP_RADIUS = 1;
 const chunkDist = (a: number, b: number, mod: number): number => {
   const d = Math.abs(a - b);
   return Math.min(d, mod - d);
@@ -8900,7 +8915,12 @@ const chunkSnapshotPayload = (
   };
 };
 
-const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: number; radius: number }): void => {
+const sendChunkSnapshot = (
+  socket: Ws,
+  actor: Player,
+  sub: { cx: number; cy: number; radius: number },
+  followUpSub?: { cx: number; cy: number; radius: number }
+): void => {
   const startedAt = now();
   const authSync = authSyncTimingByPlayer.get(actor.id);
   const snapshot = visibilitySnapshotForPlayer(actor);
@@ -8952,9 +8972,9 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
       socket.send(serializeChunkBatchBodies(chunkBatchBodies));
     }
     if (index < chunkCoords.length) {
-      queueMicrotaskFn(() => {
+      setTimeout(() => {
         void streamNext();
-      });
+      }, 0);
       return;
     }
     const elapsed = now() - startedAt;
@@ -8989,6 +9009,25 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
         { playerId: actor.id, elapsedMs: elapsed, chunks: chunkCount, tiles: tileCount, radius: sub.radius, ...memory },
         "slow chunk snapshot"
       );
+    }
+    if (
+      followUpSub &&
+      socket.readyState === socket.OPEN &&
+      chunkSnapshotGenerationByPlayer.get(actor.id) === generation
+    ) {
+      setTimeout(() => {
+        if (socket.readyState !== socket.OPEN) return;
+        const currentSub = chunkSubscriptionByPlayer.get(actor.id);
+        if (!currentSub) return;
+        if (
+          currentSub.cx !== followUpSub.cx ||
+          currentSub.cy !== followUpSub.cy ||
+          currentSub.radius !== followUpSub.radius
+        ) {
+          return;
+        }
+        sendChunkSnapshot(socket, actor, followUpSub);
+      }, 0);
     }
   };
 
@@ -9319,28 +9358,17 @@ const claimableLandTileCount = (): number => {
 };
 
 const collectPlayerCompetitionMetrics = (nowMs = now()): PlayerCompetitionMetrics[] => {
-  const townCounts = new Map<string, number>();
-  for (const tk of townsByTile.keys()) {
-    const ownerId = ownership.get(tk);
-    if (!ownerId) continue;
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    townCounts.set(ownerId, (townCounts.get(ownerId) ?? 0) + 1);
-  }
-
   const metrics: PlayerCompetitionMetrics[] = [];
   for (const player of players.values()) {
-    let settledTiles = 0;
-    for (const tk of player.territoryTiles) {
-      if (ownershipStateByTile.get(tk) === "SETTLED") settledTiles += 1;
-    }
+    const territoryStructure = cachedAiTerritoryStructureForPlayer(player);
     metrics.push({
       playerId: player.id,
       name: player.name,
       tiles: player.T,
-      settledTiles,
+      settledTiles: territoryStructure.settledTileCount,
       incomePerMinute: currentIncomePerMinute(player),
       techs: player.techIds.size,
-      controlledTowns: townCounts.get(player.id) ?? 0
+      controlledTowns: territoryStructure.controlledTowns
     });
   }
   return metrics;
@@ -9357,7 +9385,8 @@ const getAiCompetitionContext = (nowMs = now()): AiCompetitionContext => {
     competitionMetrics,
     incomeByPlayerId: new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute])),
     townsTarget: Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE)),
-    settledTilesTarget: Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE))
+    settledTilesTarget: Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE)),
+    analysisByPlayerId: new Map<string, AiTurnAnalysis>()
   };
   cachedAiCompetitionContext = context;
   return context;
@@ -13256,6 +13285,10 @@ app.post("/admin/world/regenerate", async () => {
       }
       const last = chunkSnapshotSentAtByPlayer.get(actor.id);
       if (last && last.cx === sub.cx && last.cy === sub.cy && last.radius === sub.radius && now() - last.sentAt < 2500) {
+        return;
+      }
+      if (authSync && authSync.firstChunkSentAt === undefined && sub.radius > INITIAL_CHUNK_BOOTSTRAP_RADIUS) {
+        sendChunkSnapshot(socket, actor, { ...sub, radius: INITIAL_CHUNK_BOOTSTRAP_RADIUS }, sub);
         return;
       }
       sendChunkSnapshot(socket, actor, sub);
