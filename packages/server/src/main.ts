@@ -102,7 +102,7 @@ import { loadDomainTree } from "./domain-tree.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
-import { serializeChunkBatchBodies, serializeChunkBody, type ChunkPayloadChunk } from "./chunk/serializer-shared.js";
+import { buildChunkFromInput, serializeChunkBatchBodies, serializeChunkBody, type ChunkBuildInput, type ChunkPayloadChunk } from "./chunk/serializer-shared.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
@@ -8138,6 +8138,7 @@ const resolveCombatViaWorker = async (request: CombatResolutionRequest): Promise
 
 type ChunkSerializerResponse =
   | { id: number; payload: string }
+  | { id: number; payloads: string[] }
   | { id: number; error: string };
 
 const chunkSerializerWorkerState: {
@@ -8150,7 +8151,7 @@ const chunkSerializerWorkerState: {
   lastUsedWorker: boolean;
   lastFallbackReason: string | undefined;
   nextRequestId: number;
-  inflight: Map<number, { startedAt: number; resolve: (payload: string) => void; reject: (err: Error) => void; timeout: NodeJS.Timeout }>;
+  inflight: Map<number, { startedAt: number; resolve: (payload: unknown) => void; reject: (err: Error) => void; timeout: NodeJS.Timeout }>;
 } = {
   worker: undefined,
   enabled: CHUNK_SERIALIZER_WORKER_ENABLED,
@@ -8168,6 +8169,12 @@ const serializeChunkFallback = (chunk: ChunkPayloadChunk, reason: string): strin
   chunkSerializerWorkerState.lastUsedWorker = false;
   chunkSerializerWorkerState.lastFallbackReason = reason;
   return serializeChunkBody(chunk);
+};
+
+const serializeChunkBatchFallback = (chunks: ChunkBuildInput[], reason: string): string[] => {
+  chunkSerializerWorkerState.lastUsedWorker = false;
+  chunkSerializerWorkerState.lastFallbackReason = reason;
+  return chunks.map((chunk) => serializeChunkBody(buildChunkFromInput(chunk)));
 };
 
 const clearChunkSerializerInflight = (error: Error): void => {
@@ -8197,7 +8204,7 @@ const ensureChunkSerializerWorker = (): Worker | undefined => {
       }
       chunkSerializerWorkerState.lastUsedWorker = true;
       chunkSerializerWorkerState.lastFallbackReason = undefined;
-      entry.resolve(message.payload);
+      entry.resolve("payloads" in message ? message.payloads : message.payload);
     });
     worker.on("error", (err) => {
       chunkSerializerWorkerState.available = false;
@@ -8237,7 +8244,12 @@ const serializeChunkViaWorker = async (chunk: ChunkPayloadChunk): Promise<string
       chunkSerializerWorkerState.pending = chunkSerializerWorkerState.inflight.size;
       reject(new Error("chunk serializer worker timed out"));
     }, CHUNK_SERIALIZER_TIMEOUT_MS);
-    chunkSerializerWorkerState.inflight.set(requestId, { startedAt, resolve, reject, timeout });
+    chunkSerializerWorkerState.inflight.set(requestId, {
+      startedAt,
+      resolve: (payload) => resolve(payload as string),
+      reject,
+      timeout
+    });
     chunkSerializerWorkerState.pending = chunkSerializerWorkerState.inflight.size;
   });
   worker.postMessage({ id: requestId, chunk });
@@ -8245,6 +8257,34 @@ const serializeChunkViaWorker = async (chunk: ChunkPayloadChunk): Promise<string
     return await promise;
   } catch (err) {
     return serializeChunkFallback(chunk, err instanceof Error ? err.message : "worker_error");
+  }
+};
+
+const serializeChunkBatchViaWorker = async (chunks: ChunkBuildInput[]): Promise<string[]> => {
+  if (chunks.length === 0) return [];
+  const worker = ensureChunkSerializerWorker();
+  if (!worker) return serializeChunkBatchFallback(chunks, "worker_unavailable");
+  const requestId = ++chunkSerializerWorkerState.nextRequestId;
+  const startedAt = now();
+  const promise = new Promise<string[]>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      chunkSerializerWorkerState.inflight.delete(requestId);
+      chunkSerializerWorkerState.pending = chunkSerializerWorkerState.inflight.size;
+      reject(new Error("chunk serializer worker timed out"));
+    }, CHUNK_SERIALIZER_TIMEOUT_MS);
+    chunkSerializerWorkerState.inflight.set(requestId, {
+      startedAt,
+      resolve: (payload) => resolve(payload as string[]),
+      reject,
+      timeout
+    });
+    chunkSerializerWorkerState.pending = chunkSerializerWorkerState.inflight.size;
+  });
+  worker.postMessage({ id: requestId, chunks });
+  try {
+    return await promise;
+  } catch (err) {
+    return serializeChunkBatchFallback(chunks, err instanceof Error ? err.message : "worker_error");
   }
 };
 
@@ -8906,45 +8946,48 @@ const fogChunkTiles = (worldCx: number, worldCy: number): readonly Tile[] => {
   return tiles;
 };
 
+const chunkVisibilityMask = (snapshot: VisibilitySnapshot, worldCx: number, worldCy: number): Uint8Array => {
+  const startX = worldCx * CHUNK_SIZE;
+  const startY = worldCy * CHUNK_SIZE;
+  const mask = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+  let index = 0;
+  for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+    for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+      const wx = wrapX(x, WORLD_WIDTH);
+      const wy = wrapY(y, WORLD_HEIGHT);
+      mask[index] = visibleInSnapshot(snapshot, wx, wy) ? 1 : 0;
+      index += 1;
+    }
+  }
+  return mask;
+};
+
 const chunkSnapshotPayload = (
   actor: Player,
   snapshot: VisibilitySnapshot,
   worldCx: number,
   worldCy: number,
-): { chunk: ChunkPayloadChunk; payload?: string; tileCount: number; chunkKey: string } => {
+): { buildInput?: ChunkBuildInput; payload?: string; tileCount: number; chunkKey: string } => {
   const payloadByChunkKey = chunkSnapshotCacheForPlayer(actor.id, snapshot);
   const chunkKey = `${worldCx},${worldCy}`;
   const cachedPayload = payloadByChunkKey.get(chunkKey);
   if (cachedPayload) {
     return {
-      chunk: { cx: worldCx, cy: worldCy, tilesMaskedByFog: [] },
       payload: cachedPayload,
       tileCount: CHUNK_SIZE * CHUNK_SIZE,
       chunkKey
     };
   }
 
-  const startX = worldCx * CHUNK_SIZE;
-  const startY = worldCy * CHUNK_SIZE;
-  const fogTiles = fogChunkTiles(worldCx, worldCy);
-  const visibleTiles = summaryChunkTiles(worldCx, worldCy);
-  const chunkTiles = [...fogTiles];
-
-  let tileIndexInChunk = 0;
-  for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-    for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-      const wx = wrapX(x, WORLD_WIDTH);
-      const wy = wrapY(y, WORLD_HEIGHT);
-      if (visibleInSnapshot(snapshot, wx, wy)) {
-        chunkTiles[tileIndexInChunk] = visibleTiles[tileIndexInChunk]!;
-      }
-      tileIndexInChunk += 1;
-    }
-  }
-
   return {
-    chunk: { cx: worldCx, cy: worldCy, tilesMaskedByFog: chunkTiles },
-    tileCount: chunkTiles.length,
+    buildInput: {
+      cx: worldCx,
+      cy: worldCy,
+      fogTiles: [...fogChunkTiles(worldCx, worldCy)],
+      visibleTiles: [...summaryChunkTiles(worldCx, worldCy)],
+      visibleMask: chunkVisibilityMask(snapshot, worldCx, worldCy)
+    },
+    tileCount: CHUNK_SIZE * CHUNK_SIZE,
     chunkKey
   };
 };
@@ -8971,18 +9014,28 @@ const sendChunkSnapshot = (
     if (chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) return;
     if (socket.readyState !== socket.OPEN) return;
     const chunkBatchBodies: string[] = [];
+    const pendingBuilds: Array<{ chunkKey: string; buildInput: ChunkBuildInput }> = [];
     const end = Math.min(index + CHUNK_STREAM_BATCH_SIZE, chunkCoords.length);
     for (; index < end; index += 1) {
       const coords = chunkCoords[index]!;
       const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy);
-      let payload = chunk.payload;
-      if (!payload) {
-        payload = await serializeChunkViaWorker(chunk.chunk);
-        chunkSnapshotCacheForPlayer(actor.id, snapshot).set(chunk.chunkKey, payload);
+      if (chunk.payload) {
+        chunkBatchBodies.push(chunk.payload);
+      } else if (chunk.buildInput) {
+        pendingBuilds.push({ chunkKey: chunk.chunkKey, buildInput: chunk.buildInput });
       }
-      chunkBatchBodies.push(payload);
       chunkCount += 1;
       tileCount += chunk.tileCount;
+    }
+    if (pendingBuilds.length > 0) {
+      const payloads = await serializeChunkBatchViaWorker(pendingBuilds.map((chunk) => chunk.buildInput));
+      const payloadCache = chunkSnapshotCacheForPlayer(actor.id, snapshot);
+      for (let payloadIndex = 0; payloadIndex < payloads.length; payloadIndex += 1) {
+        const pending = pendingBuilds[payloadIndex]!;
+        const payload = payloads[payloadIndex]!;
+        payloadCache.set(pending.chunkKey, payload);
+        chunkBatchBodies.push(payload);
+      }
     }
     if (chunkBatchBodies.length > 0) {
       socket.send(serializeChunkBatchBodies(chunkBatchBodies));
