@@ -1,5 +1,5 @@
 import { parentPort } from "node:worker_threads";
-import { serializeChunkFull, type ChunkPayloadChunk } from "./serializer-shared.js";
+import { serializeChunkBody, type ChunkPayloadChunk } from "./serializer-shared.js";
 
 type ChunkSerializerRequest = {
   id: number;
@@ -15,7 +15,7 @@ const port = parentPort;
 if (port) {
   port.on("message", (message: ChunkSerializerRequest) => {
     try {
-      const payload = serializeChunkFull(message.chunk);
+      const payload = serializeChunkBody(message.chunk);
       const response: ChunkSerializerResponse = { id: message.id, payload };
       port.postMessage(response);
     } catch (err) {
