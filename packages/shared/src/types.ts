@@ -1,9 +1,9 @@
 export type Terrain = "LAND" | "SEA" | "MOUNTAIN";
-export type ResourceType = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR";
+export type ResourceType = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | "OIL";
 export type TileKey = `${number},${number}`;
 export type PlayerId = string;
 export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND";
-export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS";
+export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS" | "OIL_FIELD";
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
 export type FortStatus = "under_construction" | "active";
 export type SiegeOutpostStatus = "under_construction" | "active";
@@ -14,7 +14,24 @@ export type TownType = "MARKET" | "FARMING" | "ANCIENT";
 export type EmpireVisualTint = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
 export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
 export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
-export type EconomicStructureType = "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY";
+export type EconomicStructureType =
+  | "FARMSTEAD"
+  | "CAMP"
+  | "MINE"
+  | "MARKET"
+  | "GRANARY"
+  | "BANK"
+  | "AIRPORT"
+  | "QUARTERMASTER"
+  | "IRONWORKS"
+  | "CRYSTAL_SYNTHESIZER"
+  | "FUEL_PLANT"
+  | "CARAVANARY"
+  | "FOUNDRY"
+  | "GARRISON_HALL"
+  | "CUSTOMS_HOUSE"
+  | "GOVERNORS_OFFICE"
+  | "RADAR_SYSTEM";
 export type PopulationTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"
@@ -107,16 +124,18 @@ export interface Tile {
     marketActive: boolean;
     hasGranary: boolean;
     granaryActive: boolean;
+    hasBank: boolean;
+    bankActive: boolean;
     foodUpkeepPerMinute?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   };
   yield?: {
     gold?: number;
-    strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
   };
   yieldRate?: {
     goldPerMinute?: number;
-    strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
   };
   yieldCap?: {
     gold: number;
@@ -180,6 +199,12 @@ export interface MissionStats {
   maxTechPicks: number;
 }
 
+export interface PendingResearch {
+  techId: string;
+  startedAt: number;
+  completesAt: number;
+}
+
 export interface Player {
   id: PlayerId;
   name: string;
@@ -192,6 +217,7 @@ export interface Player {
   domainIds: Set<string>;
   mods: StatsMods;
   powerups: Record<string, number>;
+  currentResearch?: PendingResearch;
   tileColor?: string;
   missions: MissionState[];
   missionStats: MissionStats;

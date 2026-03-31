@@ -9,6 +9,7 @@ import type {
   LeaderboardMetricEntry,
   LeaderboardOverallEntry,
   MissionState,
+  PendingResearch,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   TechInfo,
@@ -58,14 +59,15 @@ export const createInitialState = () => ({
   } as Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>,
   expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
   incomePerMinute: 0,
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
-  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
-  upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
+  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
+  upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
   upkeepLastTick: {
     food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
     iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
     supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
     crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
+    oil: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
     gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
     foodCoverage: 1
   },
@@ -79,7 +81,8 @@ export const createInitialState = () => ({
     IRON: { until: 0, dir: 0 as -1 | 0 | 1 },
     CRYSTAL: { until: 0, dir: 0 as -1 | 0 | 1 },
     SUPPLY: { until: 0, dir: 0 as -1 | 0 | 1 },
-    SHARD: { until: 0, dir: 0 as -1 | 0 | 1 }
+    SHARD: { until: 0, dir: 0 as -1 | 0 | 1 },
+    OIL: { until: 0, dir: 0 as -1 | 0 | 1 }
   },
   stamina: 0,
   availableTechPicks: 0,
@@ -100,6 +103,7 @@ export const createInitialState = () => ({
   domainIds: [] as string[],
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
+  currentResearch: undefined as PendingResearch | undefined,
   domainChoices: [] as string[],
   domainCatalog: [] as DomainInfo[],
   domainUiSelectedId: "" as string,
@@ -123,13 +127,13 @@ export const createInitialState = () => ({
   pendingCollectVisibleKeys: new Set<string>(),
   pendingCollectVisibleDelta: {
     gold: 0,
-    strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
+    strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>
   },
   pendingCollectTileDelta: new Map<
     string,
     {
       gold: number;
-      strategic: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+      strategic: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
       previousYield?: { gold: number; strategic: Record<string, number> };
     }
   >(),
@@ -203,6 +207,11 @@ export const createInitialState = () => ({
     ability: "deep_strike" as CrystalTargetingAbility,
     validTargets: new Set<string>(),
     originByTarget: new Map<string, string>()
+  },
+  airportTargeting: {
+    active: false,
+    originKey: "",
+    validTargets: new Set<string>()
   },
   guide: {
     open: storageGet(GUIDE_STORAGE_KEY) !== "1",
