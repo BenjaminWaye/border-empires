@@ -123,6 +123,15 @@ export const createInitialState = () => ({
   incomingAllianceRequests: [] as AllianceRequest[],
   feed: [] as FeedEntry[],
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
+  pendingCombatReveal: undefined as
+    | {
+        targetKey: string;
+        title: string;
+        detail: string;
+        tone: "success" | "warn";
+        revealed: boolean;
+      }
+    | undefined,
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
