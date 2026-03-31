@@ -757,6 +757,9 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   revealUpkeepMult: 1,
   revealCapacityBonus: 0,
   visionRadiusBonus: 0,
+  observatoryProtectionRadiusBonus: 0,
+  observatoryCastRadiusBonus: 0,
+  observatoryVisionBonus: 0,
   dockGoldOutputMult: 1,
   dockGoldCapMult: 1,
   dockConnectionBonusPerLink: 0.5,
@@ -817,6 +820,9 @@ interface PlayerEffects {
   revealUpkeepMult: number;
   revealCapacityBonus: number;
   visionRadiusBonus: number;
+  observatoryProtectionRadiusBonus: number;
+  observatoryCastRadiusBonus: number;
+  observatoryVisionBonus: number;
   dockGoldOutputMult: number;
   dockGoldCapMult: number;
   dockConnectionBonusPerLink: number;
@@ -2126,7 +2132,7 @@ const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean
   const shade = grassShadeAt(x, y);
   const region = regionTypeAtLocal(x, y);
   if (resource === "FISH") return biome === "COASTAL_SAND";
-  if (resource === "IRON") return biome === "SAND" && isNearMountain(x, y, 4);
+  if (resource === "IRON") return (biome === "SAND" || biome === "GRASS") && isNearMountain(x, y, 4);
   if (resource === "GEMS") return biome === "SAND";
   if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
   if (resource === "FUR") return biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST" && !isCoastalLand(x, y);
@@ -2138,7 +2144,7 @@ const clusterRuleMatchRelaxed = (x: number, y: number, resource: ResourceType): 
   const biome = landBiomeAt(x, y);
   const shade = grassShadeAt(x, y);
   if (resource === "FISH") return biome === "COASTAL_SAND";
-  if (resource === "IRON") return biome === "SAND";
+  if (resource === "IRON") return (biome === "SAND" || biome === "GRASS") && isNearMountain(x, y, 5);
   if (resource === "GEMS") return biome === "SAND";
   if (resource === "FARM") return biome === "GRASS";
   if (resource === "FUR") return biome === "GRASS" && shade === "DARK";
@@ -2962,6 +2968,56 @@ const structureForSupportedTown = (townKey: TileKey, ownerId: string | undefined
     }
   }
   return undefined;
+};
+
+const SUPPORT_ONLY_STRUCTURE_TYPES: EconomicStructureType[] = [
+  "MARKET",
+  "GRANARY",
+  "BANK",
+  "QUARTERMASTER",
+  "IRONWORKS",
+  "CRYSTAL_SYNTHESIZER",
+  "FUEL_PLANT"
+];
+
+const isSupportOnlyStructureType = (structureType: EconomicStructureType): boolean => SUPPORT_ONLY_STRUCTURE_TYPES.includes(structureType);
+
+const availableSupportTileKeysForTown = (
+  townKey: TileKey,
+  ownerId: string | undefined,
+  structureType: EconomicStructureType
+): TileKey[] => {
+  if (!ownerId || !isSupportOnlyStructureType(structureType)) return [];
+  if (structureForSupportedTown(townKey, ownerId, structureType)) return [];
+  const [x, y] = parseKey(townKey);
+  const out: TileKey[] = [];
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = wrapX(x + dx, WORLD_WIDTH);
+      const ny = wrapY(y + dy, WORLD_HEIGHT);
+      const nk = key(nx, ny);
+      const tile = playerTile(nx, ny);
+      if (tile.terrain !== "LAND") continue;
+      if (tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+      if (tile.resource || townsByTile.has(nk) || docksByTile.has(nk)) continue;
+      if (fortsByTile.has(nk) || siegeOutpostsByTile.has(nk) || observatoriesByTile.has(nk) || economicStructuresByTile.has(nk)) continue;
+      const supportedTowns = supportedTownKeysForTile(nk, ownerId);
+      if (supportedTowns.length !== 1 || supportedTowns[0] !== townKey) continue;
+      out.push(nk);
+    }
+  }
+  return out;
+};
+
+const pickRandomAvailableSupportTileForTown = (
+  townKey: TileKey,
+  ownerId: string | undefined,
+  structureType: EconomicStructureType
+): TileKey | undefined => {
+  const candidates = availableSupportTileKeysForTown(townKey, ownerId, structureType);
+  if (candidates.length === 0) return undefined;
+  return candidates[Math.floor(Math.random() * candidates.length)];
 };
 
 const ownedTownKeysForPlayer = (playerId: string): TileKey[] =>
@@ -4524,6 +4580,9 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.revealUpkeepMult === "number") next.revealUpkeepMult *= effects.revealUpkeepMult;
     if (typeof effects.revealCapacityBonus === "number") next.revealCapacityBonus += effects.revealCapacityBonus;
     if (typeof effects.visionRadiusBonus === "number") next.visionRadiusBonus += effects.visionRadiusBonus;
+    if (typeof effects.observatoryProtectionRadiusBonus === "number") next.observatoryProtectionRadiusBonus += effects.observatoryProtectionRadiusBonus;
+    if (typeof effects.observatoryCastRadiusBonus === "number") next.observatoryCastRadiusBonus += effects.observatoryCastRadiusBonus;
+    if (typeof effects.observatoryVisionBonus === "number") next.observatoryVisionBonus += effects.observatoryVisionBonus;
     if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
     if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
     if (typeof effects.attackVsFortsMult === "number") next.attackVsFortsMult *= effects.attackVsFortsMult;
@@ -4656,16 +4715,18 @@ const hostileObservatoryProtectingTile = (actor: Player, x: number, y: number): 
     if (observatory.ownerId === actor.id || actor.allies.has(observatory.ownerId)) continue;
     if (observatoryStatusForTile(observatory.ownerId, tk) !== "active") continue;
     const [ox, oy] = parseKey(tk);
-    if (chebyshevDistance(ox, oy, x, y) <= OBSERVATORY_PROTECTION_RADIUS) return tk;
+    const protectionRadius = OBSERVATORY_PROTECTION_RADIUS + getPlayerEffectsForPlayer(observatory.ownerId).observatoryProtectionRadiusBonus;
+    if (chebyshevDistance(ox, oy, x, y) <= protectionRadius) return tk;
   }
   return undefined;
 };
 
 const ownedActiveObservatoryWithinRange = (playerId: string, x: number, y: number, range = OBSERVATORY_CAST_RADIUS): boolean => {
+  const castRadius = range + getPlayerEffectsForPlayer(playerId).observatoryCastRadiusBonus;
   for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
     if (observatoryStatusForTile(playerId, tk) !== "active") continue;
     const [ox, oy] = parseKey(tk);
-    if (chebyshevDistance(ox, oy, x, y) <= range) return true;
+    if (chebyshevDistance(ox, oy, x, y) <= castRadius) return true;
   }
   return false;
 };
@@ -4895,32 +4956,35 @@ const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: Econom
   if (structureType === "RADAR_SYSTEM" || structureType === "GOVERNORS_OFFICE" || structureType === "FOUNDRY") {
     if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} requires empty land` };
   }
-  if (
-    structureType === "MARKET" ||
-    structureType === "GRANARY" ||
-    structureType === "BANK" ||
-    structureType === "QUARTERMASTER" ||
-    structureType === "IRONWORKS" ||
-    structureType === "CRYSTAL_SYNTHESIZER" ||
-    structureType === "FUEL_PLANT"
-  ) {
-    if (townsByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} must be built on a town support tile` };
-    const supportedTowns = supportedTownKeysForTile(tk, actor.id);
-    if (supportedTowns.length === 0) return { ok: false, reason: `${structureType.toLowerCase()} requires a support tile next to your town` };
-    if (supportedTowns.length > 1) return { ok: false, reason: "support tile touches multiple towns" };
-    const supportedTownKey = supportedTowns[0];
-    if (supportedTownKey && structureForSupportedTown(supportedTownKey, actor.id, structureType)) {
-      return { ok: false, reason: `town already has ${structureType.toLowerCase()}` };
+  if (isSupportOnlyStructureType(structureType)) {
+    if (townsByTile.has(tk)) {
+      const supportTileKey = pickRandomAvailableSupportTileForTown(tk, actor.id, structureType);
+      if (!supportTileKey) return { ok: false, reason: `${structureType.toLowerCase()} needs an open support tile next to this town` };
+    } else {
+      const supportedTowns = supportedTownKeysForTile(tk, actor.id);
+      if (supportedTowns.length === 0) return { ok: false, reason: `${structureType.toLowerCase()} requires a support tile next to your town` };
+      if (supportedTowns.length > 1) return { ok: false, reason: "support tile touches multiple towns" };
+      const supportedTownKey = supportedTowns[0];
+      if (supportedTownKey && structureForSupportedTown(supportedTownKey, actor.id, structureType)) {
+        return { ok: false, reason: `town already has ${structureType.toLowerCase()}` };
+      }
     }
   }
   return { ok: true };
 };
 
 const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
-  const t = playerTile(x, y);
-  const tk = key(t.x, t.y);
-  const placed = canPlaceEconomicStructure(actor, t, structureType);
+  const clickedTile = playerTile(x, y);
+  const placed = canPlaceEconomicStructure(actor, clickedTile, structureType);
   if (!placed.ok) return placed;
+  let t = clickedTile;
+  if (isSupportOnlyStructureType(structureType) && townsByTile.has(key(clickedTile.x, clickedTile.y))) {
+    const supportTileKey = pickRandomAvailableSupportTileForTown(key(clickedTile.x, clickedTile.y), actor.id, structureType);
+    if (!supportTileKey) return { ok: false, reason: `${structureType.toLowerCase()} needs an open support tile next to this town` };
+    const [sx, sy] = parseKey(supportTileKey);
+    t = playerTile(sx, sy);
+  }
+  const tk = key(t.x, t.y);
 
   if (structureType === "FARMSTEAD" && !actor.techIds.has("agriculture")) return { ok: false, reason: "unlock farmsteads via Agriculture first" };
   if (structureType === "CAMP" && !actor.techIds.has("leatherworking")) return { ok: false, reason: "unlock camps via Leatherworking first" };

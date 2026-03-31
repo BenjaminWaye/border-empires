@@ -115,7 +115,8 @@
       "requiresTechId": "signal-fires",
       "cost": { "gold": 14000, "crystal": 180, "shard": 1 },
       "effects": {
-        "observatoryProtectionRadiusBonus": 1
+        "observatoryProtectionRadiusBonus": 1,
+        "observatoryCastRadiusBonus": 6
       }
     },
     {

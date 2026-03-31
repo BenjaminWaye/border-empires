@@ -304,7 +304,7 @@ export type TileActionDef = {
   originKey?: string;
 };
 
-export type TileMenuTab = "overview" | "actions" | "progress";
+export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress";
 
 export type TileMenuProgressView = {
   title: string;
@@ -322,5 +322,7 @@ export type TileMenuView = {
   overviewKicker?: string;
   overviewLines: string[];
   actions: TileActionDef[];
+  buildingActions?: TileActionDef[];
+  crystalActions?: TileActionDef[];
   progress?: TileMenuProgressView;
 };
