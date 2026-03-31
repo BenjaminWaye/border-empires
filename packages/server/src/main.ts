@@ -108,6 +108,7 @@ const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
+const AI_DISPATCH_INTERVAL_MS = Math.max(100, Number(process.env.AI_DISPATCH_INTERVAL_MS ?? 250));
 const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
 const AI_HUMAN_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_HUMAN_PRIORITY_BATCH_SIZE ?? 1));
 const AI_HUMAN_DEFENSE_BATCH_SIZE = Math.max(
@@ -7472,9 +7473,10 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   });
 };
 
-let aiTickInFlight = false;
 let aiRoundRobinOffset = 0;
 let aiCycleCounter = 0;
+const aiNextDueAtByPlayer = new Map<string, number>();
+const aiTurnsInFlight = new Set<string>();
 const aiSchedulerState: {
   at: number;
   batchSize: number;
@@ -7926,6 +7928,17 @@ const aiDefensePriorityCount = (aiPlayers: readonly Player[], nowMs = now()): nu
   return count;
 };
 
+const ensureAiDueAt = (playerId: string, nowMs = now()): number => {
+  const dueAt = aiNextDueAtByPlayer.get(playerId);
+  if (dueAt !== undefined) return dueAt;
+  aiNextDueAtByPlayer.set(playerId, nowMs);
+  return nowMs;
+};
+
+const scheduleNextAiTurn = (playerId: string, nowMs = now()): void => {
+  aiNextDueAtByPlayer.set(playerId, nowMs + AI_TICK_MS);
+};
+
 const chooseAiBatchSize = (totalAiPlayers: number): number => {
   if (totalAiPlayers <= 0) return 0;
   const vitals = latestRuntimeVitalsSample();
@@ -7980,11 +7993,10 @@ const chooseAiBatchSize = (totalAiPlayers: number): number => {
 };
 
 const runAiTick = (): void => {
-  if (aiTickInFlight) return;
   const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
   if (aiPlayers.length === 0) return;
-  const batchSize = Math.min(aiPlayers.length, chooseAiBatchSize(aiPlayers.length));
   const nowMs = now();
+  const batchSize = Math.min(aiPlayers.length, chooseAiBatchSize(aiPlayers.length));
   const urgentAiPlayers = aiPlayers.filter((actor) => aiHasDefensePriority(actor.id, nowMs));
   const orderedAiPlayers = urgentAiPlayers.length
     ? [
@@ -7992,17 +8004,22 @@ const runAiTick = (): void => {
         ...aiPlayers.filter((actor) => !urgentAiPlayers.some((urgent) => urgent.id === actor.id))
       ]
     : aiPlayers;
+  const eligibleAiPlayers = orderedAiPlayers.filter((actor) => {
+    if (aiTurnsInFlight.has(actor.id)) return false;
+    if (aiHasDefensePriority(actor.id, nowMs)) return true;
+    return ensureAiDueAt(actor.id, nowMs) <= nowMs;
+  });
+  if (eligibleAiPlayers.length === 0) return;
   const selectedAiPlayers =
-    batchSize >= orderedAiPlayers.length
-      ? orderedAiPlayers
-      : Array.from({ length: batchSize }, (_, index) => orderedAiPlayers[(aiRoundRobinOffset + index) % orderedAiPlayers.length]).filter(
+    batchSize >= eligibleAiPlayers.length
+      ? eligibleAiPlayers
+      : Array.from({ length: batchSize }, (_, index) => eligibleAiPlayers[(aiRoundRobinOffset + index) % eligibleAiPlayers.length]).filter(
           (actor): actor is Player => Boolean(actor)
         );
   if (selectedAiPlayers.length === 0) return;
   aiSchedulerState.at = now();
   aiSchedulerState.selectedAiPlayers = selectedAiPlayers.length;
-  aiRoundRobinOffset = (aiRoundRobinOffset + batchSize) % orderedAiPlayers.length;
-  aiTickInFlight = true;
+  aiRoundRobinOffset = (aiRoundRobinOffset + batchSize) % eligibleAiPlayers.length;
   const startedAt = now();
   const competitionMetrics = collectPlayerCompetitionMetrics();
   const incomeByPlayerId = new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute]));
@@ -8018,21 +8035,23 @@ const runAiTick = (): void => {
     settledTilesTarget: Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE)),
     analysisByPlayerId
   };
-  const slotMs = Math.max(25, Math.floor(AI_TICK_MS / Math.max(1, selectedAiPlayers.length)));
+  const slotMs = Math.max(10, Math.floor(AI_DISPATCH_INTERVAL_MS / Math.max(1, selectedAiPlayers.length)));
   let pending = selectedAiPlayers.length;
   let activeElapsedMs = 0;
 
   selectedAiPlayers.forEach((actor, index) => {
-    const delayMs = Math.min(AI_TICK_MS - 1, index * slotMs);
+    aiTurnsInFlight.add(actor.id);
+    scheduleNextAiTurn(actor.id, nowMs);
+    const delayMs = Math.min(AI_DISPATCH_INTERVAL_MS - 1, index * slotMs);
     setTimeout(() => {
       enqueueAiWorkerJob({
         actor,
         tickContext,
         onComplete: (elapsedMs) => {
+          aiTurnsInFlight.delete(actor.id);
           activeElapsedMs += elapsedMs;
           pending -= 1;
           if (pending > 0) return;
-          aiTickInFlight = false;
           const memory = runtimeMemoryStats();
           const elapsedMsTotal = activeElapsedMs;
           const wallElapsedMs = now() - startedAt;
@@ -11393,7 +11412,7 @@ registerInterval(() => {
   lastSnapshotAt = nowMs;
 }, 30_000);
 registerInterval(runBarbarianTick, BARBARIAN_TICK_MS);
-registerInterval(runAiTick, AI_TICK_MS);
+registerInterval(runAiTick, AI_DISPATCH_INTERVAL_MS);
 registerInterval(enqueueBarbarianMaintenance, BARBARIAN_MAINTENANCE_INTERVAL_MS);
 registerInterval(() => {
   const vitals = sampleRuntimeVitals();
@@ -11607,6 +11626,8 @@ const runtimeDashboardPayload = (): {
   };
   aiScheduler: {
     at: number;
+    dispatchIntervalMs: number;
+    targetCadenceMs: number;
     batchSize: number;
     selectedAiPlayers: number;
     totalAiPlayers: number;
@@ -11690,6 +11711,8 @@ const runtimeDashboardPayload = (): {
       ...(chunkSerializerWorkerState.lastFallbackReason ? { chunkSerializerLastFallbackReason: chunkSerializerWorkerState.lastFallbackReason } : {})
     },
     aiScheduler: {
+      dispatchIntervalMs: AI_DISPATCH_INTERVAL_MS,
+      targetCadenceMs: AI_TICK_MS,
       ...aiSchedulerState
     },
     hotspots: runtimeHotspotDiagnostics(),
