@@ -3358,16 +3358,35 @@ h4 {
 
   #stats-chips {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+      "gold def manpower dev"
+      "resources resources resources resources";
     gap: 5px;
+  }
+
+  .stat-chip-gold {
+    grid-area: gold;
+  }
+
+  .stat-chip-def {
+    grid-area: def;
+  }
+
+  .stat-chip-manpower {
+    grid-area: manpower;
   }
 
   .stat-chip-player {
     display: none;
   }
 
+  .stat-chip-dev {
+    grid-area: dev;
+  }
+
   .resource-ribbon {
-    grid-column: 1 / -1;
+    grid-area: resources;
     margin-left: 0;
     padding-left: 0;
     border-left: 0;
@@ -3384,12 +3403,12 @@ h4 {
 
   .stat-chip {
     min-width: 0;
-    padding: 4px 5px;
+    padding: 4px;
     border-radius: 12px;
   }
 
   .stat-chip strong {
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1.05;
   }
 
@@ -3399,13 +3418,13 @@ h4 {
   }
 
   .stat-chip span {
-    font-size: 8px;
+    font-size: 7px;
   }
 
   .stat-chip-rate {
     display: block;
     margin-top: 1px;
-    font-size: 9px;
+    font-size: 8px;
   }
 
   .stat-chip-dev-pips {
