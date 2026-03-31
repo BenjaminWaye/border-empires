@@ -7354,6 +7354,28 @@ const buildAiPlanningSnapshot = (
 ): AiPlanningSnapshot => {
   const territorySummary = analysis.territorySummary;
   const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);
+  const openingScoutCandidate = bestAiOpeningScoutExpand(actor, territorySummary);
+  const neutralExpandCandidate = bestAiEconomicExpand(actor, primaryVictoryPath, territorySummary);
+  const scoutExpandCandidate = bestAiScoutExpand(actor, territorySummary);
+  const scaffoldExpandCandidate = bestAiScaffoldExpand(actor, primaryVictoryPath, territorySummary);
+  const barbarianAttackCandidate = bestAiFrontierAction(
+    actor,
+    "ATTACK",
+    (tile) => tile.ownerId === BARBARIAN_OWNER_ID,
+    primaryVictoryPath,
+    territorySummary
+  );
+  const enemyAttackCandidate = bestAiFrontierAction(
+    actor,
+    "ATTACK",
+    (tile) => Boolean(tile.ownerId && tile.ownerId !== actor.id && tile.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(tile.ownerId)),
+    primaryVictoryPath,
+    territorySummary
+  );
+  const pressureAttackCandidate = bestAiEnemyPressureAttack(actor, primaryVictoryPath, territorySummary);
+  const settlementCandidate = bestAiSettlementTile(actor, primaryVictoryPath, territorySummary);
+  const fortCandidate = bestAiFortTile(actor, territorySummary);
+  const economicBuildCandidate = bestAiEconomicStructure(actor, territorySummary);
 
   return {
     primaryVictoryPath,
@@ -7374,27 +7396,27 @@ const buildAiPlanningSnapshot = (
     hasActiveDock: analysis.worldFlags.has("active_dock"),
     points: actor.points,
     stamina: actor.stamina,
-    openingScoutAvailable: planningStatic.openingScoutAvailable,
-    neutralExpandAvailable: planningStatic.neutralExpandAvailable,
-    scoutExpandAvailable: planningStatic.scoutExpandAvailable,
-    scaffoldExpandAvailable: planningStatic.scaffoldExpandAvailable,
-    barbarianAttackAvailable: planningStatic.barbarianAttackAvailable,
-    enemyAttackAvailable: planningStatic.enemyAttackAvailable,
-    pressureAttackAvailable: planningStatic.pressureAttackScore >= 80,
-    pressureAttackScore: planningStatic.pressureAttackScore,
-    settlementAvailable: planningStatic.settlementAvailable,
-    fortAvailable: planningStatic.fortAvailable,
-    fortProtectsCore: planningStatic.fortProtectsCore,
-    fortIsDockChokePoint: planningStatic.fortIsDockChokePoint,
-    economicBuildAvailable: planningStatic.economicBuildAvailable,
+    openingScoutAvailable: Boolean(openingScoutCandidate),
+    neutralExpandAvailable: Boolean(neutralExpandCandidate),
+    scoutExpandAvailable: Boolean(scoutExpandCandidate),
+    scaffoldExpandAvailable: Boolean(scaffoldExpandCandidate),
+    barbarianAttackAvailable: Boolean(barbarianAttackCandidate),
+    enemyAttackAvailable: Boolean(enemyAttackCandidate),
+    pressureAttackAvailable: Boolean(pressureAttackCandidate),
+    pressureAttackScore: pressureAttackCandidate?.score ?? planningStatic.pressureAttackScore,
+    settlementAvailable: Boolean(settlementCandidate),
+    fortAvailable: Boolean(fortCandidate),
+    fortProtectsCore: fortTileProtectsCore(actor, fortCandidate),
+    fortIsDockChokePoint: fortTileIsDockChokePoint(fortCandidate),
+    economicBuildAvailable: Boolean(economicBuildCandidate),
     frontierOpportunityEconomic: planningStatic.frontierOpportunityEconomic,
     frontierOpportunityScout: planningStatic.frontierOpportunityScout,
     frontierOpportunityScaffold: planningStatic.frontierOpportunityScaffold,
     frontierOpportunityWaste: planningStatic.frontierOpportunityWaste,
     canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
     canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
-    canBuildFort: planningStatic.fortAvailable && actor.points >= FORT_BUILD_COST,
-    canBuildEconomy: planningStatic.economicBuildAvailable,
+    canBuildFort: Boolean(fortCandidate) && actor.points >= FORT_BUILD_COST,
+    canBuildEconomy: Boolean(economicBuildCandidate),
     goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
   };
 };
@@ -7799,6 +7821,12 @@ const executeAiGoapAction = (
 ): boolean => {
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
+    const candidate = candidates?.neutralExpand ?? bestAiEconomicExpand(actor, victoryPath, territorySummary);
+    if (!candidate) return false;
+    executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
+    return true;
+  }
+  if (actionKey === "claim_food_border_tile") {
     const candidate = candidates?.neutralExpand ?? bestAiEconomicExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
