@@ -26,7 +26,10 @@ export type EconomicStructureType =
   | "IRONWORKS"
   | "CRYSTAL_SYNTHESIZER"
   | "FUEL_PLANT"
+  | "CARAVANARY"
   | "FOUNDRY"
+  | "GARRISON_HALL"
+  | "CUSTOMS_HOUSE"
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM";
 export type PopulationTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
@@ -91,7 +94,6 @@ export interface Tile {
   x: number;
   y: number;
   terrain: Terrain;
-  detailLevel?: "summary" | "full";
   fogged?: boolean;
   resource?: ResourceType;
   ownerId?: PlayerId;
@@ -105,25 +107,25 @@ export interface Tile {
   dockId?: string;
   town?: {
     type: TownType;
-    baseGoldPerMinute?: number;
-    supportCurrent?: number;
-    supportMax?: number;
-    goldPerMinute?: number;
-    cap?: number;
+    baseGoldPerMinute: number;
+    supportCurrent: number;
+    supportMax: number;
+    goldPerMinute: number;
+    cap: number;
     isFed: boolean;
     population: number;
-    maxPopulation?: number;
+    maxPopulation: number;
     populationGrowthPerMinute?: number;
     populationTier: PopulationTier;
-    connectedTownCount?: number;
-    connectedTownBonus?: number;
+    connectedTownCount: number;
+    connectedTownBonus: number;
     connectedTownNames?: string[];
-    hasMarket?: boolean;
-    marketActive?: boolean;
-    hasGranary?: boolean;
-    granaryActive?: boolean;
-    hasBank?: boolean;
-    bankActive?: boolean;
+    hasMarket: boolean;
+    marketActive: boolean;
+    hasGranary: boolean;
+    granaryActive: boolean;
+    hasBank: boolean;
+    bankActive: boolean;
     foodUpkeepPerMinute?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   };
@@ -226,8 +228,6 @@ export interface Player {
   Es: number;
   stamina: number;
   staminaUpdatedAt: number;
-  manpower: number;
-  manpowerUpdatedAt: number;
   allies: Set<PlayerId>;
   spawnOrigin?: TileKey;
   capitalTileKey?: TileKey | undefined;
