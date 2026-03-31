@@ -121,6 +121,7 @@ const AI_WORKER_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_WORKER_QUEU
 const AI_SIM_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_SIM_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 3));
 const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ?? 60));
 const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ?? 65));
+const AI_COMPETITION_CONTEXT_TTL_MS = Math.max(250, Number(process.env.AI_COMPETITION_CONTEXT_TTL_MS ?? 2_000));
 const AI_PLANNER_WORKER_ENABLED = process.env.AI_PLANNER_WORKER !== "0";
 const AI_PLANNER_TIMEOUT_MS = Math.max(50, Number(process.env.AI_PLANNER_TIMEOUT_MS ?? 750));
 const SIM_COMBAT_WORKER_ENABLED = process.env.SIM_COMBAT_WORKER !== "0";
@@ -454,6 +455,14 @@ type AiTickContext = {
   townsTarget: number;
   settledTilesTarget: number;
   analysisByPlayerId: Map<string, AiTurnAnalysis>;
+};
+
+type AiCompetitionContext = {
+  computedAt: number;
+  competitionMetrics: PlayerCompetitionMetrics[];
+  incomeByPlayerId: Map<string, number>;
+  townsTarget: number;
+  settledTilesTarget: number;
 };
 
 type AiTurnAnalysis = {
@@ -6843,6 +6852,139 @@ const aiFrontierOpportunityCounts = (
   return counts;
 };
 
+const buildAiPlanningSnapshot = (
+  actor: Player,
+  primaryVictoryPath: AiSeasonVictoryPathId | undefined,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): AiPlanningSnapshot => {
+  const territorySummary = analysis.territorySummary;
+  const visibility = territorySummary.visibility;
+  const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
+  const settledTiles = analysis.settledTiles;
+  const structureCandidateCount = territorySummary.structureCandidateTiles.length;
+  let openingScoutAvailable = false;
+  let neutralExpandAvailable = false;
+  let scoutExpandAvailable = false;
+  let scaffoldExpandAvailable = false;
+  let barbarianAttackAvailable = false;
+  let enemyAttackAvailable = false;
+  let settlementAvailable = false;
+  let frontierOpportunityEconomic = 0;
+  let frontierOpportunityScout = 0;
+  let frontierOpportunityScaffold = 0;
+  let frontierOpportunityWaste = 0;
+
+  for (const tile of territorySummary.frontierTiles) {
+    const tileKey = key(tile.x, tile.y);
+    const ownedNeighbors = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id ? 1 : 0), 0);
+    const exposedSides = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+      if (neighbor.terrain !== "LAND") return count + 1;
+      if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
+      return count;
+    }, 0);
+    const hasTownSupport = supportedTownKeysForTile(tileKey, actor.id).length > 0;
+    if (townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey) || hasTownSupport || (ownedNeighbors >= 3 && exposedSides <= 1)) {
+      settlementAvailable = true;
+      break;
+    }
+  }
+
+  for (const { from, to } of territorySummary.expandCandidates) {
+    if (to.terrain !== "LAND" || to.ownerId) continue;
+    neutralExpandAvailable = true;
+    const tileKey = key(to.x, to.y);
+    const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id ? 1 : 0), 0);
+    const exposedSides = adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => {
+      if (neighbor.terrain !== "LAND") return count + 1;
+      if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
+      return count;
+    }, 0);
+    const scoutRevealCount = countAiScoutRevealTiles(to, visibility, territorySummary);
+    if (settledTiles <= 2 && scoutRevealCount > 0) openingScoutAvailable = true;
+    if (scoutRevealCount > 0) scoutExpandAvailable = true;
+    const economic = isAiVisibleEconomicFrontierTile(actor, to, territorySummary);
+    const scaffold =
+      supportedTownKeysForTile(tileKey, actor.id).length > 0 ||
+      (ownedNeighbors >= 3 && exposedSides <= 1) ||
+      townsByTile.has(tileKey) ||
+      Boolean(to.resource) ||
+      docksByTile.has(tileKey);
+    if (economic) {
+      frontierOpportunityEconomic += 1;
+    } else if (scaffold) {
+      scaffoldExpandAvailable = true;
+      frontierOpportunityScaffold += 1;
+    } else if (scoutRevealCount > 0 || !visibleToActor(to.x, to.y)) {
+      frontierOpportunityScout += 1;
+    } else {
+      frontierOpportunityWaste += 1;
+    }
+  }
+
+  for (const { to } of territorySummary.attackCandidates) {
+    if (to.terrain !== "LAND" || !to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId)) continue;
+    if (to.ownerId === BARBARIAN_OWNER_ID) barbarianAttackAvailable = true;
+    else enemyAttackAvailable = true;
+    if (barbarianAttackAvailable && enemyAttackAvailable) break;
+  }
+
+  const pressureCandidate = bestAiEnemyPressureAttack(actor, primaryVictoryPath, territorySummary);
+  const fortCandidate = structureCandidateCount > 0 ? bestAiFortTile(actor, territorySummary) : undefined;
+  const economicBuildAvailable =
+    structureCandidateCount > 0 &&
+    territorySummary.structureCandidateTiles.some((tile) => {
+      const tileKey = key(tile.x, tile.y);
+      if (economicStructuresByTile.has(tileKey)) return false;
+      if (tile.resource || townsByTile.has(tileKey)) return true;
+      return supportedTownKeysForTile(tileKey, actor.id).length > 0;
+    });
+
+  return {
+    primaryVictoryPath,
+    aiIncome: analysis.aiIncome,
+    runnerUpIncome: analysis.runnerUpIncome,
+    controlledTowns: analysis.controlledTowns,
+    townsTarget,
+    settledTiles,
+    settledTilesTarget,
+    frontierTiles: analysis.frontierTiles,
+    underThreat: analysis.underThreat,
+    threatCritical: analysis.threatCritical,
+    economyWeak: analysis.economyWeak,
+    frontierDebt: analysis.frontierDebt,
+    foodCoverage: analysis.foodCoverage,
+    foodCoverageLow: analysis.foodCoverageLow,
+    hasActiveTown: analysis.worldFlags.has("active_town"),
+    hasActiveDock: analysis.worldFlags.has("active_dock"),
+    points: actor.points,
+    stamina: actor.stamina,
+    openingScoutAvailable,
+    neutralExpandAvailable,
+    scoutExpandAvailable,
+    scaffoldExpandAvailable,
+    barbarianAttackAvailable,
+    enemyAttackAvailable,
+    pressureAttackAvailable: Boolean(pressureCandidate),
+    pressureAttackScore: pressureCandidate?.score ?? 0,
+    settlementAvailable,
+    fortAvailable: Boolean(fortCandidate),
+    fortProtectsCore: fortTileProtectsCore(actor, fortCandidate),
+    fortIsDockChokePoint: fortTileIsDockChokePoint(fortCandidate),
+    economicBuildAvailable,
+    frontierOpportunityEconomic,
+    frontierOpportunityScout,
+    frontierOpportunityScaffold,
+    frontierOpportunityWaste,
+    canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
+    canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
+    canBuildFort: Boolean(fortCandidate) && actor.points >= FORT_BUILD_COST,
+    canBuildEconomy: economicBuildAvailable,
+    goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
+  };
+};
+
 const bestAiSettlementTile = (
   actor: Player,
   victoryPath?: AiSeasonVictoryPathId,
@@ -7363,178 +7505,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
       goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
       staminaHealthy: actor.stamina >= 0
     })[0]?.id;
-  let openingScoutExpandCache: ReturnType<typeof bestAiOpeningScoutExpand> | undefined;
-  let openingScoutExpandLoaded = false;
-  const openingScoutExpand = (): ReturnType<typeof bestAiOpeningScoutExpand> => {
-    if (!openingScoutExpandLoaded) {
-      openingScoutExpandCache = bestAiOpeningScoutExpand(actor, territorySummary);
-      openingScoutExpandLoaded = true;
-    }
-    return openingScoutExpandCache;
-  };
-  let bestScoutExpandCache: ReturnType<typeof bestAiScoutExpand> | undefined;
-  let bestScoutExpandLoaded = false;
-  const scoutExpand = (): ReturnType<typeof bestAiScoutExpand> => {
-    if (!bestScoutExpandLoaded) {
-      bestScoutExpandCache = bestAiScoutExpand(actor, territorySummary);
-      bestScoutExpandLoaded = true;
-    }
-    return bestScoutExpandCache;
-  };
-  let bestBarbarianAttackCache: ReturnType<typeof bestAiFrontierAction> | undefined;
-  let bestBarbarianAttackLoaded = false;
-  const barbarianAttack = (): ReturnType<typeof bestAiFrontierAction> => {
-    if (!bestBarbarianAttackLoaded) {
-      bestBarbarianAttackCache = bestAiFrontierAction(actor, "ATTACK", (tile) => tile.ownerId === BARBARIAN_OWNER_ID, undefined, territorySummary);
-      bestBarbarianAttackLoaded = true;
-    }
-    return bestBarbarianAttackCache;
-  };
-  let bestEnemyAttackCache: ReturnType<typeof bestAiFrontierAction> | undefined;
-  let bestEnemyAttackLoaded = false;
-  const enemyAttack = (): ReturnType<typeof bestAiFrontierAction> => {
-    if (!bestEnemyAttackLoaded) {
-      bestEnemyAttackCache = bestAiFrontierAction(
-        actor,
-        "ATTACK",
-        (tile) => Boolean(tile.ownerId && tile.ownerId !== actor.id && tile.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(tile.ownerId)),
-        undefined,
-        territorySummary
-      );
-      bestEnemyAttackLoaded = true;
-    }
-    return bestEnemyAttackCache;
-  };
-  let bestSettlementCache: ReturnType<typeof bestAiSettlementTile> | undefined;
-  let bestSettlementLoaded = false;
-  const settlementTile = (): ReturnType<typeof bestAiSettlementTile> => {
-    if (!bestSettlementLoaded) {
-      bestSettlementCache = bestAiSettlementTile(actor, primaryVictoryPath, territorySummary);
-      bestSettlementLoaded = true;
-    }
-    return bestSettlementCache;
-  };
-  let bestFortAnchorCache: ReturnType<typeof bestAiFortTile> | undefined;
-  let bestFortAnchorLoaded = false;
-  const fortAnchor = (): ReturnType<typeof bestAiFortTile> => {
-    if (!bestFortAnchorLoaded) {
-      bestFortAnchorCache = bestAiFortTile(actor, territorySummary);
-      bestFortAnchorLoaded = true;
-    }
-    return bestFortAnchorCache;
-  };
-  let bestEconomicBuildCache: ReturnType<typeof bestAiEconomicStructure> | undefined;
-  let bestEconomicBuildLoaded = false;
-  const economicBuild = (): ReturnType<typeof bestAiEconomicStructure> => {
-    if (!bestEconomicBuildLoaded) {
-      bestEconomicBuildCache = bestAiEconomicStructure(actor, territorySummary);
-      bestEconomicBuildLoaded = true;
-    }
-    return bestEconomicBuildCache;
-  };
-  let bestNeutralExpandCache: ReturnType<typeof bestAiEconomicExpand> | undefined;
-  let bestNeutralExpandLoaded = false;
-  const neutralExpand = (): ReturnType<typeof bestAiEconomicExpand> => {
-    if (!bestNeutralExpandLoaded) {
-      bestNeutralExpandCache = bestAiEconomicExpand(actor, primaryVictoryPath, territorySummary);
-      bestNeutralExpandLoaded = true;
-    }
-    return bestNeutralExpandCache;
-  };
-  let bestScaffoldExpandCache: ReturnType<typeof bestAiScaffoldExpand> | undefined;
-  let bestScaffoldExpandLoaded = false;
-  const scaffoldExpand = (): ReturnType<typeof bestAiScaffoldExpand> => {
-    if (!bestScaffoldExpandLoaded) {
-      bestScaffoldExpandCache = bestAiScaffoldExpand(actor, primaryVictoryPath, territorySummary);
-      bestScaffoldExpandLoaded = true;
-    }
-    return bestScaffoldExpandCache;
-  };
-  let bestPressureAttackCache: ReturnType<typeof bestAiEnemyPressureAttack> | undefined;
-  let bestPressureAttackLoaded = false;
-  const pressureAttack = (): ReturnType<typeof bestAiEnemyPressureAttack> => {
-    if (!bestPressureAttackLoaded) {
-      bestPressureAttackCache = bestAiEnemyPressureAttack(actor, primaryVictoryPath, territorySummary);
-      bestPressureAttackLoaded = true;
-    }
-    return bestPressureAttackCache;
-  };
-  let frontierOpportunityCountsCache: AiFrontierOpportunityCounts | undefined;
-  let frontierOpportunityCountsLoaded = false;
-  const frontierOpportunityCounts = (): AiFrontierOpportunityCounts => {
-    if (!frontierOpportunityCountsLoaded) {
-      frontierOpportunityCountsCache = aiFrontierOpportunityCounts(actor, primaryVictoryPath, territorySummary);
-      frontierOpportunityCountsLoaded = true;
-    }
-    return frontierOpportunityCountsCache!;
-  };
-  const economicPushReady = (): boolean => frontierOpportunityCounts().economic > 0 && Boolean(neutralExpand());
-  const aiActionCandidates = () => ({
-    neutralExpand: neutralExpand(),
-    scoutExpand: scoutExpand(),
-    scaffoldExpand: scaffoldExpand(),
-    barbarianAttack: barbarianAttack(),
-    enemyAttack: enemyAttack(),
-    settlementTile: settlementTile(),
-    fortAnchor: fortAnchor(),
-    economicBuild: economicBuild(),
-    pressureAttack: pressureAttack()
-  });
-  const pressureCandidate = pressureAttack();
-  const enemyAttackCandidate = enemyAttack();
-  const settlementCandidate = settlementTile();
-  const fortAnchorTile = fortAnchor();
-  const economicBuildCandidate = economicBuild();
-  const neutralExpandCandidate = neutralExpand();
-  const scaffoldExpandCandidate = scaffoldExpand();
-  const scoutExpandCandidate = scoutExpand();
-  const barbarianAttackCandidate = barbarianAttack();
-  const openingScoutCandidate = openingScoutExpand();
-  const frontierCounts = frontierOpportunityCounts();
-  const coreFortAnchor = fortTileProtectsCore(actor, fortAnchorTile);
-  const dockFortAnchor = fortTileIsDockChokePoint(fortAnchorTile);
-  const planningSnapshot: AiPlanningSnapshot = {
-    primaryVictoryPath,
-    aiIncome,
-    runnerUpIncome,
-    controlledTowns,
-    townsTarget,
-    settledTiles,
-    settledTilesTarget,
-    frontierTiles,
-    underThreat,
-    threatCritical,
-    economyWeak,
-    frontierDebt,
-    foodCoverage,
-    foodCoverageLow,
-    hasActiveTown: worldFlags.has("active_town"),
-    hasActiveDock: worldFlags.has("active_dock"),
-    points: actor.points,
-    stamina: actor.stamina,
-    openingScoutAvailable: Boolean(openingScoutCandidate),
-    neutralExpandAvailable: Boolean(neutralExpandCandidate),
-    scoutExpandAvailable: Boolean(scoutExpandCandidate),
-    scaffoldExpandAvailable: Boolean(scaffoldExpandCandidate),
-    barbarianAttackAvailable: Boolean(barbarianAttackCandidate),
-    enemyAttackAvailable: Boolean(enemyAttackCandidate),
-    pressureAttackAvailable: Boolean(pressureCandidate),
-    pressureAttackScore: pressureCandidate?.score ?? 0,
-    settlementAvailable: Boolean(settlementCandidate),
-    fortAvailable: Boolean(fortAnchorTile),
-    fortProtectsCore: coreFortAnchor,
-    fortIsDockChokePoint: dockFortAnchor,
-    economicBuildAvailable: Boolean(economicBuildCandidate),
-    frontierOpportunityEconomic: frontierCounts.economic,
-    frontierOpportunityScout: frontierCounts.scout,
-    frontierOpportunityScaffold: frontierCounts.scaffold,
-    frontierOpportunityWaste: frontierCounts.waste,
-    canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
-    canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
-    canBuildFort: Boolean(fortAnchorTile) && actor.points >= FORT_BUILD_COST,
-    canBuildEconomy: Boolean(economicBuildCandidate),
-    goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
-  };
+  const planningSnapshot = buildAiPlanningSnapshot(actor, primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
   const decision = await planAiDecisionViaWorker(planningSnapshot);
   const debugDetails = {
     hasNeutralLandOpportunity: planningSnapshot.neutralExpandAvailable,
@@ -7587,7 +7558,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   }
 
   if (decision.actionKey === "opening_scout_expand") {
-    const opening = openingScoutCandidate;
+    const opening = bestAiOpeningScoutExpand(actor, territorySummary);
     const executed = Boolean(
       opening &&
         tryQueueBasicFrontierAction(actor, "EXPAND", opening.from.x, opening.from.y, opening.to.x, opening.to.y)
@@ -7604,17 +7575,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     return;
   }
 
-  const executed = executeAiGoapAction(actor, decision.actionKey, primaryVictoryPath, territorySummary, {
-    neutralExpand: neutralExpandCandidate,
-    scoutExpand: scoutExpandCandidate,
-    scaffoldExpand: scaffoldExpandCandidate,
-    barbarianAttack: barbarianAttackCandidate,
-    enemyAttack: enemyAttackCandidate,
-    settlementTile: settlementCandidate,
-    fortAnchor: fortAnchorTile,
-    economicBuild: economicBuildCandidate,
-    pressureAttack: pressureCandidate
-  });
+  const executed = executeAiGoapAction(actor, decision.actionKey, primaryVictoryPath, territorySummary);
   setAiTurnDebug(actor, resolvedReason(executed), {
     incomePerMinute: aiIncome,
     controlledTowns,
@@ -8175,8 +8136,9 @@ const runAiTick = (): void => {
   aiSchedulerState.selectedAiPlayers = selectedAiPlayers.length;
   aiRoundRobinOffset = (aiRoundRobinOffset + batchSize) % eligibleAiPlayers.length;
   const startedAt = now();
-  const competitionMetrics = collectPlayerCompetitionMetrics();
-  const incomeByPlayerId = new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute]));
+  const competitionContext = getAiCompetitionContext(nowMs);
+  const competitionMetrics = competitionContext.competitionMetrics;
+  const incomeByPlayerId = competitionContext.incomeByPlayerId;
   const analysisByPlayerId = new Map<string, AiTurnAnalysis>();
   for (const actor of selectedAiPlayers) {
     analysisByPlayerId.set(actor.id, buildAiTurnAnalysis(actor, competitionMetrics, incomeByPlayerId));
@@ -8185,8 +8147,8 @@ const runAiTick = (): void => {
     cycleId: ++aiCycleCounter,
     competitionMetrics,
     incomeByPlayerId,
-    townsTarget: Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE)),
-    settledTilesTarget: Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE)),
+    townsTarget: competitionContext.townsTarget,
+    settledTilesTarget: competitionContext.settledTilesTarget,
     analysisByPlayerId
   };
   const slotMs = Math.max(10, Math.floor(AI_DISPATCH_INTERVAL_MS / Math.max(1, selectedAiPlayers.length)));
@@ -9123,6 +9085,23 @@ const collectPlayerCompetitionMetrics = (nowMs = now()): PlayerCompetitionMetric
     });
   }
   return metrics;
+};
+
+let cachedAiCompetitionContext: AiCompetitionContext | undefined;
+const getAiCompetitionContext = (nowMs = now()): AiCompetitionContext => {
+  if (cachedAiCompetitionContext && nowMs - cachedAiCompetitionContext.computedAt <= AI_COMPETITION_CONTEXT_TTL_MS) {
+    return cachedAiCompetitionContext;
+  }
+  const competitionMetrics = collectPlayerCompetitionMetrics(nowMs);
+  const context: AiCompetitionContext = {
+    computedAt: nowMs,
+    competitionMetrics,
+    incomeByPlayerId: new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute])),
+    townsTarget: Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE)),
+    settledTilesTarget: Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE))
+  };
+  cachedAiCompetitionContext = context;
+  return context;
 };
 
 const uniqueLeaderFromMetrics = (
