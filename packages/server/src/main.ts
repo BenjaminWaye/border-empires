@@ -6852,6 +6852,40 @@ const aiFrontierOpportunityCounts = (
   return counts;
 };
 
+const estimateAiPressureAttackScore = (
+  actor: Player,
+  territorySummary: Pick<AiTerritorySummary, "attackCandidates" | "visibility">
+): number => {
+  let bestScore = 0;
+  for (const { to } of territorySummary.attackCandidates) {
+    if (
+      to.terrain !== "LAND" ||
+      !to.ownerId ||
+      to.ownerId === actor.id ||
+      to.ownerId === BARBARIAN_OWNER_ID ||
+      actor.allies.has(to.ownerId)
+    ) {
+      continue;
+    }
+    const tk = key(to.x, to.y);
+    let score = 0;
+    const ownedAdjacency = adjacentNeighborCores(to.x, to.y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id ? 1 : 0), 0);
+    const settledAdjacency = adjacentNeighborCores(to.x, to.y).reduce(
+      (count, neighbor) => count + (neighbor.ownerId === actor.id && neighbor.ownershipState === "SETTLED" ? 1 : 0),
+      0
+    );
+    score += ownedAdjacency * 95 + settledAdjacency * 70;
+    if (to.ownershipState === "FRONTIER") score += 220;
+    if (visibleInSnapshot(territorySummary.visibility, to.x, to.y)) {
+      if (townsByTile.has(tk)) score += 160;
+      if (to.resource) score += 100 + baseTileValue(to.resource);
+      if (docksByTile.has(tk)) score += 130;
+    }
+    if (score > bestScore) bestScore = score;
+  }
+  return bestScore;
+};
+
 const buildAiPlanningSnapshot = (
   actor: Player,
   primaryVictoryPath: AiSeasonVictoryPathId | undefined,
@@ -6930,7 +6964,7 @@ const buildAiPlanningSnapshot = (
     if (barbarianAttackAvailable && enemyAttackAvailable) break;
   }
 
-  const pressureCandidate = bestAiEnemyPressureAttack(actor, primaryVictoryPath, territorySummary);
+  const pressureAttackScore = estimateAiPressureAttackScore(actor, territorySummary);
   const fortCandidate = structureCandidateCount > 0 ? bestAiFortTile(actor, territorySummary) : undefined;
   const economicBuildAvailable =
     structureCandidateCount > 0 &&
@@ -6966,8 +7000,8 @@ const buildAiPlanningSnapshot = (
     scaffoldExpandAvailable,
     barbarianAttackAvailable,
     enemyAttackAvailable,
-    pressureAttackAvailable: Boolean(pressureCandidate),
-    pressureAttackScore: pressureCandidate?.score ?? 0,
+    pressureAttackAvailable: pressureAttackScore >= 80,
+    pressureAttackScore,
     settlementAvailable,
     fortAvailable: Boolean(fortCandidate),
     fortProtectsCore: fortTileProtectsCore(actor, fortCandidate),
