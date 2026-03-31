@@ -14174,10 +14174,6 @@ app.post("/admin/world/regenerate", async () => {
             logBarbarianEvent(`progress ${barbarianAgent.id} ${progressBefore} -> ${barbarianAgent.progress} on defense ${from.x},${from.y}`);
           } else {
             resultChanges = failedOutcome.resultChanges;
-            resultChanges = failedOutcome.resultChanges;
-            logBarbarianEvent(`progress ${barbarianAgent.id} ${progressBefore} -> ${barbarianAgent.progress} on defense ${from.x},${from.y}`);
-          } else {
-            resultChanges = failedOutcome.resultChanges;
           }
           pointsDelta = 0;
         } else if (defender) {
