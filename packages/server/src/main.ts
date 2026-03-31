@@ -13792,28 +13792,34 @@ app.post("/admin/world/regenerate", async () => {
         if (defenderIsBarbarian) {
           const barbarianAgentId = barbarianAgentByTileKey.get(tk);
           const barbarianAgent = barbarianAgentId ? barbarianAgents.get(barbarianAgentId) : undefined;
+          const originFort = fortsByTile.get(fk);
+          const fortHeldOrigin = originFort?.ownerId === actor.id && originFort.status === "active";
           if (barbarianAgent) {
             const progressBefore = barbarianAgent.progress;
             barbarianAgent.progress += getBarbarianProgressGain(from);
-            updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
+            if (!fortHeldOrigin) updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
             barbarianAgent.x = from.x;
             barbarianAgent.y = from.y;
             barbarianAgent.lastActionAt = now();
             barbarianAgent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
             upsertBarbarianAgent(barbarianAgent);
             updateOwnership(to.x, to.y, undefined);
-            resultChanges = [
-              { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
-              { x: to.x, y: to.y }
-            ];
+            resultChanges = fortHeldOrigin
+              ? [{ x: to.x, y: to.y }]
+              : [
+                  { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
+                  { x: to.x, y: to.y }
+                ];
             logBarbarianEvent(`progress ${barbarianAgent.id} ${progressBefore} -> ${barbarianAgent.progress} on defense ${from.x},${from.y}`);
           } else {
-            updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
+            if (!fortHeldOrigin) updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
             updateOwnership(to.x, to.y, undefined);
-            resultChanges = [
-              { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
-              { x: to.x, y: to.y }
-            ];
+            resultChanges = fortHeldOrigin
+              ? [{ x: to.x, y: to.y }]
+              : [
+                  { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
+                  { x: to.x, y: to.y }
+                ];
           }
           pointsDelta = 0;
         } else if (defender) {
