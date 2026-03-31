@@ -6,10 +6,13 @@ export type ChunkPayloadChunk = {
   tilesMaskedByFog: Tile[];
 };
 
-export const serializeChunkFull = (chunk: ChunkPayloadChunk): string =>
+export const serializeChunkBody = (chunk: ChunkPayloadChunk): string => JSON.stringify(chunk);
+
+export const serializeChunkBatch = (chunks: ChunkPayloadChunk[]): string =>
   JSON.stringify({
-    type: "CHUNK_FULL",
-    cx: chunk.cx,
-    cy: chunk.cy,
-    tilesMaskedByFog: chunk.tilesMaskedByFog
+    type: "CHUNK_BATCH",
+    chunks
   });
+
+export const serializeChunkBatchBodies = (chunkBodies: string[]): string =>
+  `{"type":"CHUNK_BATCH","chunks":[${chunkBodies.join(",")}]}`
