@@ -1596,6 +1596,8 @@ const cachedChunkSnapshotByPlayer = new Map<
     payloadByChunkKey: Map<string, string>;
   }
 >();
+const summaryChunkVersionByChunkKey = new Map<string, number>();
+const cachedSummaryChunkByChunkKey = new Map<string, { version: number; tiles: readonly Tile[] }>();
 const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
 const aiDefensePriorityUntilByPlayer = new Map<string, number>();
 const chunkSnapshotGenerationByPlayer = new Map<string, number>();
@@ -1652,6 +1654,7 @@ const runtimeCollectionDiagnostics = (): Array<{ name: string; entries: number }
     { name: "chunkSubscriptionByPlayer", entries: chunkSubscriptionByPlayer.size },
     { name: "cachedVisibilitySnapshotByPlayer", entries: cachedVisibilitySnapshotByPlayer.size },
     { name: "cachedChunkSnapshotByPlayer", entries: cachedChunkSnapshotByPlayer.size },
+    { name: "cachedSummaryChunkByChunkKey", entries: cachedSummaryChunkByChunkKey.size },
     { name: "chunkSnapshotGenerationByPlayer", entries: chunkSnapshotGenerationByPlayer.size },
     { name: "chunkSnapshotSentAtByPlayer", entries: chunkSnapshotSentAtByPlayer.size },
     { name: "actionTimestampsByPlayer", entries: actionTimestampsByPlayer.size },
@@ -3646,6 +3649,7 @@ const applyBreachShockAround = (x: number, y: number, defenderId: string): void 
     if (t.ownerId !== defenderId) continue;
     if (t.ownershipState !== "SETTLED") continue;
     breachShockByTile.set(key(nx, ny), { ownerId: defenderId, expiresAt: now() + BREACH_SHOCK_MS });
+    markSummaryChunkDirtyAtTile(nx, ny);
   }
 };
 
@@ -3682,6 +3686,8 @@ const clearWorldProgressForSeason = (): void => {
   aiTerritoryVersionByPlayer.clear();
   cachedAiCompetitionContext = undefined;
   cachedChunkSnapshotByPlayer.clear();
+  cachedSummaryChunkByChunkKey.clear();
+  summaryChunkVersionByChunkKey.clear();
   chunkSnapshotGenerationByPlayer.clear();
   revealWatchersByTarget.clear();
   economyIndexByPlayer.clear();
@@ -3933,7 +3939,27 @@ const playerTileSummary = (x: number, y: number): Tile => {
       tile.economicStructure.completesAt = economicStructure.completesAt;
     }
   }
+  tile.fogged = false;
   return tile;
+};
+
+const summaryChunkTiles = (worldCx: number, worldCy: number): readonly Tile[] => {
+  const chunkKey = `${worldCx},${worldCy}`;
+  const version = summaryChunkVersionByChunkKey.get(chunkKey) ?? 0;
+  const cached = cachedSummaryChunkByChunkKey.get(chunkKey);
+  if (cached?.version === version) return cached.tiles;
+  const startX = worldCx * CHUNK_SIZE;
+  const startY = worldCy * CHUNK_SIZE;
+  const tiles: Tile[] = [];
+  for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+    for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+      const wx = wrapX(x, WORLD_WIDTH);
+      const wy = wrapY(y, WORLD_HEIGHT);
+      tiles.push(Object.freeze(playerTileSummary(wx, wy)));
+    }
+  }
+  cachedSummaryChunkByChunkKey.set(chunkKey, { version, tiles });
+  return tiles;
 };
 
 const playerTile = (x: number, y: number): Tile => {
@@ -4566,6 +4592,12 @@ const markVisibilityDirty = (playerId: string): void => {
   chunkSnapshotGenerationByPlayer.delete(playerId);
 };
 
+const markSummaryChunkDirtyAtTile = (x: number, y: number): void => {
+  const chunkKey = chunkKeyAtTile(x, y);
+  summaryChunkVersionByChunkKey.set(chunkKey, (summaryChunkVersionByChunkKey.get(chunkKey) ?? 0) + 1);
+  cachedSummaryChunkByChunkKey.delete(chunkKey);
+};
+
 const markVisibilityDirtyForPlayers = (playerIds: Iterable<string>): void => {
   for (const playerId of playerIds) markVisibilityDirty(playerId);
 };
@@ -5010,6 +5042,7 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
     completesAt,
     nextUpkeepAt: completesAt + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS
   });
+  markSummaryChunkDirtyAtTile(t.x, t.y);
   trackOwnedTileKey(economicStructureTileKeysByPlayer, actor.id, tk);
   recordTileStructureHistory(tk, structureType);
   const timer = setTimeout(() => {
@@ -5027,6 +5060,7 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
     current.status = "active";
     delete current.completesAt;
     economicStructureBuildTimers.delete(tk);
+    markSummaryChunkDirtyAtTile(t.x, t.y);
     if (current.type === "AIRPORT") discoverOilFieldNearAirport(actor.id, tk);
     updateOwnership(t.x, t.y, actor.id);
   }, ECONOMIC_STRUCTURE_BUILD_MS);
@@ -8638,6 +8672,7 @@ const chunkCountX = Math.ceil(WORLD_WIDTH / CHUNK_SIZE);
 const chunkCountY = Math.ceil(WORLD_HEIGHT / CHUNK_SIZE);
 const wrapChunkX = (cx: number): number => ((cx % chunkCountX) + chunkCountX) % chunkCountX;
 const wrapChunkY = (cy: number): number => ((cy % chunkCountY) + chunkCountY) % chunkCountY;
+const chunkKeyAtTile = (x: number, y: number): string => `${Math.floor(wrapX(x, WORLD_WIDTH) / CHUNK_SIZE)},${Math.floor(wrapY(y, WORLD_HEIGHT) / CHUNK_SIZE)}`;
 const tileIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const CHUNK_SNAPSHOT_WARN_MS = 60;
 const CHUNK_SNAPSHOT_BATCH_SIZE = 4;
@@ -8767,7 +8802,9 @@ const chunkSnapshotPayload = (
 
   const startX = worldCx * CHUNK_SIZE;
   const startY = worldCy * CHUNK_SIZE;
-  const chunkTiles = [...fogChunkTiles(worldCx, worldCy)];
+  const fogTiles = fogChunkTiles(worldCx, worldCy);
+  const visibleTiles = summaryChunkTiles(worldCx, worldCy);
+  const chunkTiles = [...fogTiles];
 
   let tileIndexInChunk = 0;
   for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
@@ -8775,9 +8812,7 @@ const chunkSnapshotPayload = (
       const wx = wrapX(x, WORLD_WIDTH);
       const wy = wrapY(y, WORLD_HEIGHT);
       if (visibleInSnapshot(snapshot, wx, wy)) {
-        const tile = playerTileSummary(wx, wy);
-        tile.fogged = false;
-        chunkTiles[tileIndexInChunk] = tile;
+        chunkTiles[tileIndexInChunk] = visibleTiles[tileIndexInChunk]!;
       }
       tileIndexInChunk += 1;
     }
@@ -10031,7 +10066,11 @@ const cancelFortBuild = (tileKey: TileKey): void => {
   if (timer) clearTimeout(timer);
   fortBuildTimers.delete(tileKey);
   const fort = fortsByTile.get(tileKey);
-  if (fort?.status === "under_construction") fortsByTile.delete(tileKey);
+  if (fort?.status === "under_construction") {
+    fortsByTile.delete(tileKey);
+    const [x, y] = parseKey(tileKey);
+    markSummaryChunkDirtyAtTile(x, y);
+  }
 };
 
 const cancelSiegeOutpostBuild = (tileKey: TileKey): void => {
@@ -10039,7 +10078,11 @@ const cancelSiegeOutpostBuild = (tileKey: TileKey): void => {
   if (timer) clearTimeout(timer);
   siegeOutpostBuildTimers.delete(tileKey);
   const siege = siegeOutpostsByTile.get(tileKey);
-  if (siege?.status === "under_construction") siegeOutpostsByTile.delete(tileKey);
+  if (siege?.status === "under_construction") {
+    siegeOutpostsByTile.delete(tileKey);
+    const [x, y] = parseKey(tileKey);
+    markSummaryChunkDirtyAtTile(x, y);
+  }
 };
 
 const cancelObservatoryBuild = (tileKey: TileKey): void => {
@@ -10050,6 +10093,8 @@ const cancelObservatoryBuild = (tileKey: TileKey): void => {
   if (observatory?.status === "under_construction") {
     untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, tileKey);
     observatoriesByTile.delete(tileKey);
+    const [x, y] = parseKey(tileKey);
+    markSummaryChunkDirtyAtTile(x, y);
   }
 };
 
@@ -10061,6 +10106,8 @@ const cancelEconomicStructureBuild = (tileKey: TileKey): void => {
   if (structure?.status === "under_construction") {
     untrackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, tileKey);
     economicStructuresByTile.delete(tileKey);
+    const [x, y] = parseKey(tileKey);
+    markSummaryChunkDirtyAtTile(x, y);
   }
 };
 
@@ -10242,6 +10289,7 @@ const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean
     status: "under_construction",
     completesAt
   });
+  markSummaryChunkDirtyAtTile(t.x, t.y);
   trackOwnedTileKey(observatoryTileKeysByPlayer, actor.id, tk);
   markVisibilityDirty(actor.id);
   recordTileStructureHistory(tk, "OBSERVATORY");
@@ -10268,6 +10316,7 @@ const trySabotageTile = (actor: Player, x: number, y: number): { ok: boolean; re
     endsAt: now() + SABOTAGE_DURATION_MS,
     outputMultiplier: SABOTAGE_OUTPUT_MULT
   });
+  markSummaryChunkDirtyAtTile(t.x, t.y);
   startAbilityCooldown(actor.id, "sabotage");
   return { ok: true };
 };
@@ -10331,6 +10380,7 @@ const tryCreateMountain = (actor: Player, x: number, y: number): { ok: boolean; 
   if (previousOwnerId) updateOwnership(t.x, t.y, undefined);
   else tileYieldByTile.delete(tk);
   terrainShapesByTile.set(tk, { terrain: "MOUNTAIN", createdByPlayer: true });
+  markSummaryChunkDirtyAtTile(t.x, t.y);
   recordMountainShapeHistory(tk, "created");
   recalcPlayerDerived(actor);
   if (previousOwnerId && previousOwnerId !== actor.id) {
@@ -10365,6 +10415,7 @@ const tryRemoveMountain = (actor: Player, x: number, y: number): { ok: boolean; 
   if (originalTerrain === "MOUNTAIN") terrainShapesByTile.set(tk, { terrain: "LAND", createdByPlayer: false });
   else terrainShapesByTile.delete(tk);
   tileYieldByTile.delete(tk);
+  markSummaryChunkDirtyAtTile(wx, wy);
   recordMountainShapeHistory(tk, "removed");
   recalcPlayerDerived(actor);
   return { ok: true };
@@ -10450,6 +10501,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
     completesAt: now() + FORT_BUILD_MS
   };
   fortsByTile.set(tk, fort);
+  markSummaryChunkDirtyAtTile(t.x, t.y);
   recordTileStructureHistory(tk, "FORT");
   const timer = setTimeout(() => {
     const current = fortsByTile.get(tk);
@@ -10457,6 +10509,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
     const tileNow = runtimeTileCore(t.x, t.y);
     if (tileNow.ownerId !== actor.id) {
       fortsByTile.delete(tk);
+      markSummaryChunkDirtyAtTile(t.x, t.y);
       fortBuildTimers.delete(tk);
       return;
     }
@@ -10496,6 +10549,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
     completesAt: now() + SIEGE_OUTPOST_BUILD_MS
   };
   siegeOutpostsByTile.set(tk, siegeOutpost);
+  markSummaryChunkDirtyAtTile(t.x, t.y);
   recordTileStructureHistory(tk, "SIEGE_OUTPOST");
   const timer = setTimeout(() => {
     const current = siegeOutpostsByTile.get(tk);
@@ -10503,6 +10557,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
     const tileNow = runtimeTileCore(t.x, t.y);
     if (tileNow.ownerId !== actor.id) {
       siegeOutpostsByTile.delete(tk);
+      markSummaryChunkDirtyAtTile(t.x, t.y);
       siegeOutpostBuildTimers.delete(tk);
       return;
     }
@@ -10674,6 +10729,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     for (const watcherPlayerId of revealWatchersByTarget.get(newOwner) ?? []) visibilityAffectedPlayers.add(watcherPlayerId);
   }
   markVisibilityDirtyForPlayers(visibilityAffectedPlayers);
+  markSummaryChunkDirtyAtTile(t.x, t.y);
 
   sendVisibleTileDeltaSquare(t.x, t.y, 1);
 };
@@ -11308,6 +11364,8 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   });
   cachedVisibilitySnapshotByPlayer.clear();
   cachedChunkSnapshotByPlayer.clear();
+  cachedSummaryChunkByChunkKey.clear();
+  summaryChunkVersionByChunkKey.clear();
   chunkSnapshotGenerationByPlayer.clear();
   revealWatchersByTarget.clear();
   observatoryTileKeysByPlayer.clear();
@@ -11713,7 +11771,11 @@ registerInterval(() => {
 
 registerInterval(() => {
   for (const [tk, shock] of breachShockByTile) {
-    if (shock.expiresAt <= now()) breachShockByTile.delete(tk);
+    if (shock.expiresAt <= now()) {
+      breachShockByTile.delete(tk);
+      const [x, y] = parseKey(tk);
+      markSummaryChunkDirtyAtTile(x, y);
+    }
   }
   for (const [tk, defense] of settlementDefenseByTile) {
     if (defense.expiresAt <= now()) settlementDefenseByTile.delete(tk);
@@ -11737,6 +11799,7 @@ registerInterval(() => {
     if (sabotage.endsAt > now()) continue;
     sabotageByTile.delete(tk);
     const [sx, sy] = parseKey(tk);
+    markSummaryChunkDirtyAtTile(sx, sy);
     for (const p of players.values()) {
       if (!tileInSubscription(p.id, sx, sy)) continue;
       if (!visible(p, sx, sy)) continue;
