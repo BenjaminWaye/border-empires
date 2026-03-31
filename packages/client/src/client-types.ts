@@ -329,12 +329,17 @@ export type TileMenuProgressView = {
   cancelLabel?: string;
 };
 
+export type TileOverviewLine = {
+  html: string;
+  kind?: "effect";
+};
+
 export type TileMenuView = {
   title: string;
   subtitle: string;
   tabs: TileMenuTab[];
   overviewKicker?: string;
-  overviewLines: string[];
+  overviewLines: TileOverviewLine[];
   actions: TileActionDef[];
   progress?: TileMenuProgressView;
 };
