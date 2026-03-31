@@ -13,7 +13,10 @@ export type OptimisticStructureKind =
   | "IRONWORKS"
   | "CRYSTAL_SYNTHESIZER"
   | "FUEL_PLANT"
+  | "CARAVANARY"
   | "FOUNDRY"
+  | "GARRISON_HALL"
+  | "CUSTOMS_HOUSE"
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM";
 
@@ -21,7 +24,6 @@ export type Tile = {
   x: number;
   y: number;
   terrain: "LAND" | "SEA" | "MOUNTAIN";
-  detailLevel?: "summary" | "full";
   fogged?: boolean;
   resource?: string;
   ownerId?: string;
@@ -34,25 +36,25 @@ export type Tile = {
   dockId?: string;
   town?: {
     type: "MARKET" | "FARMING" | "ANCIENT";
-    baseGoldPerMinute?: number;
-    supportCurrent?: number;
-    supportMax?: number;
-    goldPerMinute?: number;
-    cap?: number;
+    baseGoldPerMinute: number;
+    supportCurrent: number;
+    supportMax: number;
+    goldPerMinute: number;
+    cap: number;
     isFed: boolean;
     population: number;
-    maxPopulation?: number;
+    maxPopulation: number;
     populationGrowthPerMinute?: number;
     populationTier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    connectedTownCount?: number;
-    connectedTownBonus?: number;
+    connectedTownCount: number;
+    connectedTownBonus: number;
     connectedTownNames?: string[];
-    hasMarket?: boolean;
-    marketActive?: boolean;
-    hasGranary?: boolean;
-    granaryActive?: boolean;
-    hasBank?: boolean;
-    bankActive?: boolean;
+    hasMarket: boolean;
+    marketActive: boolean;
+    hasGranary: boolean;
+    granaryActive: boolean;
+    hasBank: boolean;
+    bankActive: boolean;
     foodUpkeepPerMinute?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   };
@@ -73,7 +75,10 @@ export type Tile = {
       | "IRONWORKS"
       | "CRYSTAL_SYNTHESIZER"
       | "FUEL_PLANT"
+      | "CARAVANARY"
       | "FOUNDRY"
+      | "GARRISON_HALL"
+      | "CUSTOMS_HOUSE"
       | "GOVERNORS_OFFICE"
       | "RADAR_SYSTEM";
     status: "under_construction" | "active" | "inactive";
@@ -100,7 +105,10 @@ export type Tile = {
       | "IRONWORKS"
       | "CRYSTAL_SYNTHESIZER"
       | "FUEL_PLANT"
+      | "CARAVANARY"
       | "FOUNDRY"
+      | "GARRISON_HALL"
+      | "CUSTOMS_HOUSE"
       | "GOVERNORS_OFFICE"
       | "RADAR_SYSTEM"
       | null;
@@ -119,7 +127,10 @@ export type Tile = {
       | "IRONWORKS"
       | "CRYSTAL_SYNTHESIZER"
       | "FUEL_PLANT"
+      | "CARAVANARY"
       | "FOUNDRY"
+      | "GARRISON_HALL"
+      | "CUSTOMS_HOUSE"
       | "GOVERNORS_OFFICE"
       | "RADAR_SYSTEM"
     >;
@@ -285,7 +296,10 @@ export type TileActionDef = {
     | "build_ironworks"
     | "build_crystal_synthesizer"
     | "build_fuel_plant"
+    | "build_caravanary"
     | "build_foundry"
+    | "build_garrison_hall"
+    | "build_customs_house"
     | "build_governors_office"
     | "build_radar_system"
     | "abandon_territory"
@@ -304,7 +318,7 @@ export type TileActionDef = {
   originKey?: string;
 };
 
-export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress";
+export type TileMenuTab = "overview" | "actions" | "progress";
 
 export type TileMenuProgressView = {
   title: string;
@@ -322,7 +336,5 @@ export type TileMenuView = {
   overviewKicker?: string;
   overviewLines: string[];
   actions: TileActionDef[];
-  buildingActions?: TileActionDef[];
-  crystalActions?: TileActionDef[];
   progress?: TileMenuProgressView;
 };

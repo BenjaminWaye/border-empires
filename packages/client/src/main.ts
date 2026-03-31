@@ -17,10 +17,7 @@ import {
   type User
 } from "firebase/auth";
 import {
-  ATTACK_MANPOWER_MIN,
-  BREAKTHROUGH_ATTACK_MANPOWER_MIN,
   CHUNK_SIZE,
-  DEEP_STRIKE_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
   ECONOMIC_STRUCTURE_BUILD_MS,
   FORT_BUILD_COST,
@@ -29,7 +26,6 @@ import {
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
   OBSERVATORY_BUILD_MS,
-  NAVAL_INFILTRATION_MANPOWER_MIN,
   SETTLE_COST,
   SETTLE_MS,
   SIEGE_OUTPOST_ATTACK_MULT,
@@ -50,12 +46,10 @@ import {
   MAX_ZOOM,
   MIN_ZOOM,
   OBSERVATORY_BUILD_COST,
-  OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS,
   canAffordCost,
   formatGoldAmount,
-  formatManpowerAmount,
   frontierClaimCostLabelForTile,
   frontierClaimDurationMsForTile,
   guideSteps,
@@ -63,7 +57,6 @@ import {
   settleDurationMsForTile
 } from "./client-constants.js";
 import { initClientDom } from "./client-dom.js";
-import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import {
   allianceRequestsHtml,
   alliesHtml,
@@ -73,19 +66,7 @@ import {
   strategicRibbonHtml
 } from "./client-panel-html.js";
 import { createInitialState, storageSet } from "./client-state.js";
-import {
-  currentDomainChoiceTier,
-  domainOwnedHtml,
-  formatDomainBenefitSummary,
-  formatTechBenefitSummary,
-  ownedDomainByTier,
-  renderDomainChoiceGridHtml,
-  renderDomainDetailCardHtml,
-  renderTechChoiceDetailsHtml,
-  renderTechDetailCardHtml,
-  techCurrentModsHtml,
-  techOwnedHtml
-} from "./client-tech-html.js";
+import { domainOwnedHtml, formatDomainBenefitSummary, formatTechBenefitSummary, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html.js";
 import type {
   AllianceRequest,
   CrystalTargetingAbility,
@@ -459,7 +440,27 @@ const tileHistoryLines = (tile: Tile): string[] => {
                 ? "Former Camp site"
                 : history.lastStructureType === "MINE"
                   ? "Former Mine site"
-                  : "Former Market site";
+                  : history.lastStructureType === "MARKET"
+                    ? "Former Market site"
+                    : history.lastStructureType === "GRANARY"
+                      ? "Former Granary site"
+                      : history.lastStructureType === "BANK"
+                        ? "Former Bank site"
+                        : history.lastStructureType === "AIRPORT"
+                          ? "Former Airport site"
+                          : history.lastStructureType === "QUARTERMASTER"
+                            ? "Former Quartermaster site"
+                            : history.lastStructureType === "IRONWORKS"
+                              ? "Former Ironworks site"
+                              : history.lastStructureType === "CRYSTAL_SYNTHESIZER"
+                                ? "Former Crystal Synthesizer site"
+                                : history.lastStructureType === "FUEL_PLANT"
+                                  ? "Former Fuel Plant site"
+                                  : history.lastStructureType === "FOUNDRY"
+                                    ? "Former Foundry site"
+                                    : history.lastStructureType === "GOVERNORS_OFFICE"
+                                      ? "Former Governor's Office site"
+                                      : "Former Radar System site";
     lines.push(label);
   }
   return lines;
@@ -476,12 +477,36 @@ const economicStructureName = (type: Tile["economicStructure"] extends infer T ?
   if (type === "CAMP") return "Camp";
   if (type === "MINE") return "Mine";
   if (type === "GRANARY") return "Granary";
+  if (type === "BANK") return "Bank";
+  if (type === "AIRPORT") return "Airport";
+  if (type === "CARAVANARY") return "Caravanary";
+  if (type === "QUARTERMASTER") return "Quartermaster";
+  if (type === "IRONWORKS") return "Ironworks";
+  if (type === "CRYSTAL_SYNTHESIZER") return "Crystal Synthesizer";
+  if (type === "FUEL_PLANT") return "Fuel Plant";
+  if (type === "FOUNDRY") return "Foundry";
+  if (type === "GARRISON_HALL") return "Garrison Hall";
+  if (type === "CUSTOMS_HOUSE") return "Customs House";
+  if (type === "GOVERNORS_OFFICE") return "Governor's Office";
+  if (type === "RADAR_SYSTEM") return "Radar System";
   return "Market";
 };
 
 const economicStructureBenefitText = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
   if (type === "MARKET") return "Nearby town: +50% fed gold output and +50% gold storage cap.";
-  if (type === "GRANARY") return "Nearby town: +50% population growth.";
+  if (type === "GRANARY") return "Nearby town: +20% population growth and +20% gold storage cap.";
+  if (type === "BANK") return "Nearby town: +50% city income and +1 flat income.";
+  if (type === "AIRPORT") return "Launches oil-fueled bombardment against enemy territory.";
+  if (type === "CARAVANARY") return "Boosts the nearby town's connected-town income bonus by 25%.";
+  if (type === "QUARTERMASTER") return "Converts gold into steady supply output.";
+  if (type === "IRONWORKS") return "Converts gold into steady iron output.";
+  if (type === "CRYSTAL_SYNTHESIZER") return "Converts gold into steady crystal output.";
+  if (type === "FUEL_PLANT") return "Converts gold into steady oil output.";
+  if (type === "FOUNDRY") return "Doubles active mine output in a 10-tile radius.";
+  if (type === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius.";
+  if (type === "CUSTOMS_HOUSE") return "Boosts income from a nearby dock by 50%.";
+  if (type === "GOVERNORS_OFFICE") return "Reduces food and settled-tile upkeep in a 10-tile radius.";
+  if (type === "RADAR_SYSTEM") return "Blocks enemy airport bombardment in a 30-tile radius.";
   if (type === "FARMSTEAD") return "Improves food output on this tile.";
   if (type === "CAMP") return "Improves supply output on this tile.";
   if (type === "MINE") return "Improves iron or crystal output on this tile.";
@@ -492,17 +517,12 @@ type StructureInfoKey = "FORT" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" |
 
 const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: string } => {
   if (type === "FORT") return { title: "Fort", detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails." };
-  if (type === "OBSERVATORY") {
-    return {
-      title: "Observatory",
-      detail: "Observatories add local vision, project a protection field that blocks hostile crystal actions nearby, and let you cast your own crystal abilities within observatory range."
-    };
-  }
+  if (type === "OBSERVATORY") return { title: "Observatory", detail: "Observatories add local vision and project a protection field that blocks hostile crystal actions in the area." };
   if (type === "FARMSTEAD") return { title: "Farmstead", detail: "Farmsteads increase food yield on farm and fish tiles by 50%." };
   if (type === "CAMP") return { title: "Camp", detail: "Camps increase supply yield on wood and fur tiles by 50%." };
   if (type === "MINE") return { title: "Mine", detail: "Mines increase iron or crystal yield on mineral tiles by 50%." };
   if (type === "MARKET") return { title: "Market", detail: "Markets are built on a support tile for a town. They increase that fed town's gold output by 50% and its gold storage cap by 50%." };
-  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's population growth by 50%." };
+  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's population growth and gold storage cap by 20%." };
   return { title: "Siege Outpost", detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile." };
 };
 
@@ -511,7 +531,7 @@ const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string
 
 const displayTownGoldPerMinute = (tile: Tile): number => {
   if (!tile.town) return 0;
-  return tile.town.goldPerMinute ?? 0;
+  return tile.town.goldPerMinute;
 };
 
 const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | undefined => {
@@ -544,30 +564,6 @@ const storedYieldSummary = (tile: Tile): string => {
 };
 
 const inspectionHtmlForTile = (tile: Tile): string => {
-  if (!tile.fogged && tile.detailLevel !== "full") {
-    const ownerLabel = tile.ownerId ? (playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : "neutral";
-    const terrainAndResource = (() => {
-      const terrainText = prettyToken(terrainLabel(tile.x, tile.y, tile.terrain));
-      if (!tile.resource) return terrainText;
-      return `${terrainText} - ${prettyToken(resourceLabel(tile.resource))}`;
-    })();
-    const tags = [
-      tile.ownershipState ? prettyToken(tile.ownershipState) : "",
-      tile.regionType ? prettyToken(tile.regionType) : "",
-      tile.clusterType ? prettyToken(tile.clusterType) : "",
-      tile.capital ? "Capital" : "",
-      tile.dockId ? "Dock" : "",
-      tile.fort ? `Fort ${prettyToken(tile.fort.status)}` : "",
-      tile.observatory ? `Observatory ${prettyToken(tile.observatory.status)}` : "",
-      tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} ${prettyToken(tile.economicStructure.status)}` : "",
-      tile.siegeOutpost ? `Siege ${prettyToken(tile.siegeOutpost.status)}` : ""
-    ].filter(Boolean);
-    return `
-      <div class="hover-line"><strong>${tile.x}, ${tile.y}</strong> · ${terrainAndResource}</div>
-      <div class="hover-subline">Owner ${ownerLabel}${tags.length > 0 ? ` · ${tags.join(" · ")}` : ""}</div>
-      <div class="hover-subline hover-accent">Syncing tile details...</div>
-    `;
-  }
   const ownerLabel = tile.ownerId ? (playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : "neutral";
   const tags = [
     tile.ownershipState ? prettyToken(tile.ownershipState) : "",
@@ -599,7 +595,7 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     townBits.push(
       `Population ${Math.round(tile.town.population).toLocaleString()} (${growthPctLabel}) (${prettyToken(tile.town.populationTier)})`
     );
-    townBits.push(`Connected towns ${tile.town.connectedTownCount ?? 0} (+${Math.round((tile.town.connectedTownBonus ?? 0) * 100)}%)`);
+    townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
     if (!tile.town.isFed) townBits.push("Unfed");
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
       upkeepLine = `Upkeep: ${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`;
@@ -687,7 +683,7 @@ const visibleCollectSummary = (): { tileCount: number; gold: number; resourceKin
 
 const clearPendingCollectVisibleDelta = (): void => {
   state.pendingCollectVisibleDelta.gold = 0;
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     state.pendingCollectVisibleDelta.strategic[resource] = 0;
   }
 };
@@ -703,7 +699,7 @@ const clearPendingCollectTileDelta = (tileKey?: string): void => {
 const revertOptimisticVisibleCollectDelta = (): void => {
   const delta = state.pendingCollectVisibleDelta;
   if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = delta.strategic[resource] ?? 0;
     if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
   }
@@ -714,7 +710,7 @@ const revertOptimisticTileCollectDelta = (tileKey: string): void => {
   const delta = state.pendingCollectTileDelta.get(tileKey);
   if (!delta) return;
   if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = delta.strategic[resource] ?? 0;
     if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
   }
@@ -740,7 +736,7 @@ const applyOptimisticVisibleCollect = (): number => {
       state.goldAnimUntil = Date.now() + 350;
       state.goldAnimDir = 1;
     }
-    for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
       const amount = Number(tile.yield?.strategic?.[resource] ?? 0);
       if (amount <= 0) continue;
       state.strategicResources[resource] += amount;
@@ -761,8 +757,7 @@ const applyOptimisticTileCollect = (tile: Tile): boolean => {
     IRON: Number(tile.yield?.strategic?.IRON ?? 0),
     CRYSTAL: Number(tile.yield?.strategic?.CRYSTAL ?? 0),
     SUPPLY: Number(tile.yield?.strategic?.SUPPLY ?? 0),
-    SHARD: Number(tile.yield?.strategic?.SHARD ?? 0),
-    OIL: Number(tile.yield?.strategic?.OIL ?? 0)
+    SHARD: Number(tile.yield?.strategic?.SHARD ?? 0)
   } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
   const touched = gold > 0 || Object.values(strategic).some((amount) => amount > 0);
   if (!touched) return false;
@@ -779,7 +774,7 @@ const applyOptimisticTileCollect = (tile: Tile): boolean => {
     state.goldAnimUntil = Date.now() + 350;
     state.goldAnimDir = 1;
   }
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = strategic[resource] ?? 0;
     if (amount <= 0) continue;
     state.strategicResources[resource] += amount;
@@ -1183,50 +1178,6 @@ const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: numbe
   ctx.stroke();
   ctx.restore();
 };
-
-const drawFrontierCaptureOverlay = (wx: number, wy: number, px: number, py: number, size: number, startAt: number, resolvesAt: number): void => {
-  if (size < 10) return;
-  const now = Date.now();
-  const totalMs = Math.max(1, resolvesAt - startAt);
-  const progress = Math.max(0, Math.min(1, (now - startAt) / totalMs));
-  const remainingMs = Math.max(0, resolvesAt - now);
-  const pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(now / 180 + wx * 0.7 + wy * 0.45));
-  const fillAlpha = isForestTile(wx, wy) ? 0.26 + pulse * 0.18 : 0.18 + pulse * 0.12;
-  const barHeight = Math.max(4, Math.floor(size * 0.14));
-  const barWidth = size - 4;
-  const barX = px + 2;
-  const barY = py + size - barHeight - 2;
-  const filledWidth = Math.max(2, Math.floor(barWidth * progress));
-
-  ctx.save();
-  ctx.fillStyle = `rgba(255, 209, 102, ${fillAlpha.toFixed(3)})`;
-  ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-
-  ctx.fillStyle = "rgba(8, 14, 22, 0.76)";
-  ctx.fillRect(barX, barY, barWidth, barHeight);
-  ctx.fillStyle = isForestTile(wx, wy) ? "rgba(224, 104, 56, 0.98)" : "rgba(255, 209, 102, 0.98)";
-  ctx.fillRect(barX, barY, filledWidth, barHeight);
-  ctx.strokeStyle = "rgba(255, 245, 214, 0.82)";
-  ctx.strokeRect(barX + 0.5, barY + 0.5, barWidth - 1, barHeight - 1);
-
-  if (size >= 22) {
-    const label = `${(Math.ceil(remainingMs / 100) / 10).toFixed(1)}s`;
-    const badgeW = Math.max(18, Math.floor(size * 0.52));
-    const badgeH = Math.max(11, Math.floor(size * 0.22));
-    const badgeX = px + size - badgeW - 2;
-    const badgeY = py + 2;
-    ctx.fillStyle = "rgba(8, 14, 22, 0.8)";
-    ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
-    ctx.strokeStyle = "rgba(255, 244, 207, 0.52)";
-    ctx.strokeRect(badgeX + 0.5, badgeY + 0.5, badgeW - 1, badgeH - 1);
-    ctx.fillStyle = "rgba(255, 244, 207, 0.98)";
-    ctx.font = `${Math.max(8, Math.floor(size * 0.18))}px system-ui`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(label, badgeX + badgeW / 2, badgeY + badgeH / 2 + 0.5);
-  }
-  ctx.restore();
-};
 const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
   if (!tile.town) return;
   if (size < 16) {
@@ -1331,86 +1282,6 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
   }
 
   drawTownMarker(px, py, size, false);
-};
-
-const drawWeakDefensibilityOverlay = (px: number, py: number, size: number, entry: WeakDefTile, nowMs: number): void => {
-  const pulse = 0.5 + 0.5 * Math.sin(nowMs / 420);
-  const critical = entry.severity === "critical";
-  const stroke = critical
-    ? `rgba(255, 86, 86, ${(0.62 + pulse * 0.18).toFixed(3)})`
-    : `rgba(255, 173, 92, ${(0.52 + pulse * 0.14).toFixed(3)})`;
-  const glow = critical
-    ? `rgba(92, 8, 8, ${(0.26 + pulse * 0.08).toFixed(3)})`
-    : `rgba(92, 46, 8, ${(0.18 + pulse * 0.06).toFixed(3)})`;
-  const inset = Math.max(1, Math.floor(size * 0.08));
-  const lineWidth = Math.max(2, Math.floor(size * 0.11));
-  ctx.save();
-  ctx.strokeStyle = glow;
-  ctx.lineWidth = lineWidth + 2;
-  ctx.lineCap = "round";
-  for (const side of entry.exposedSides) {
-    ctx.beginPath();
-    if (side === "N") {
-      ctx.moveTo(px + inset, py + inset);
-      ctx.lineTo(px + size - inset, py + inset);
-    } else if (side === "E") {
-      ctx.moveTo(px + size - inset, py + inset);
-      ctx.lineTo(px + size - inset, py + size - inset);
-    } else if (side === "S") {
-      ctx.moveTo(px + inset, py + size - inset);
-      ctx.lineTo(px + size - inset, py + size - inset);
-    } else {
-      ctx.moveTo(px + inset, py + inset);
-      ctx.lineTo(px + inset, py + size - inset);
-    }
-    ctx.stroke();
-  }
-  ctx.strokeStyle = stroke;
-  ctx.lineWidth = lineWidth;
-  for (const side of entry.exposedSides) {
-    ctx.beginPath();
-    if (side === "N") {
-      ctx.moveTo(px + inset, py + inset);
-      ctx.lineTo(px + size - inset, py + inset);
-    } else if (side === "E") {
-      ctx.moveTo(px + size - inset, py + inset);
-      ctx.lineTo(px + size - inset, py + size - inset);
-    } else if (side === "S") {
-      ctx.moveTo(px + inset, py + size - inset);
-      ctx.lineTo(px + size - inset, py + size - inset);
-    } else {
-      ctx.moveTo(px + inset, py + inset);
-      ctx.lineTo(px + inset, py + size - inset);
-    }
-    ctx.stroke();
-  }
-  ctx.restore();
-};
-
-const drawStructureGlyph = (
-  px: number,
-  py: number,
-  size: number,
-  glyph: string,
-  fill: string,
-  stroke: string,
-  active: boolean
-): void => {
-  const badge = Math.max(12, Math.floor(size * 0.34));
-  const bx = px + size - badge - 3;
-  const by = py + 3;
-  ctx.save();
-  ctx.fillStyle = active ? "rgba(9, 14, 24, 0.84)" : "rgba(14, 18, 29, 0.74)";
-  ctx.fillRect(bx, by, badge, badge);
-  ctx.strokeStyle = stroke;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(bx + 0.5, by + 0.5, badge - 1, badge - 1);
-  ctx.font = `${Math.max(9, Math.floor(badge * 0.7))}px system-ui`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = fill;
-  ctx.fillText(glyph, bx + badge / 2, by + badge / 2 + 0.5);
-  ctx.restore();
 };
 const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void => {
   if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
@@ -1594,7 +1465,7 @@ const formatYieldSummary = (tile: Tile): string => {
   if (gold > 0.01 || (goldCap ?? 0) > 0) {
     parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${(goldCap ?? 0).toFixed(1)}`);
   }
-  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = Number(tile.yield?.strategic?.[key] ?? 0);
     const cap = yieldCapForResource(tile, key);
     if (amount <= 0.01 && (cap ?? 0) <= 0) continue;
@@ -1602,6 +1473,22 @@ const formatYieldSummary = (tile: Tile): string => {
   }
   return parts.length > 0 ? `Yield: ${parts.join("  ")}` : "";
 };
+const formatUpkeepSummary = (upkeep: typeof state.upkeepPerMinute): string => {
+  const parts: string[] = [];
+  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${upkeep.food.toFixed(2)}/m`);
+  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeep.iron.toFixed(2)}/m`);
+  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeep.supply.toFixed(2)}/m`);
+  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
+  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
+  return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
+};
+type EconomyBucket = {
+  label: string;
+  amountPerMinute: number;
+  count: number;
+  note?: string;
+};
+
 type DefensibilityBreakdown = {
   settledTiles: number;
   exposedEdges: number;
@@ -1613,41 +1500,8 @@ type DefensibilityBreakdown = {
   tips: string[];
 };
 
-type WeakDefTile = {
-  tile: Tile;
-  exposedSides: Array<"N" | "E" | "S" | "W">;
-  severity: "weak" | "critical";
-};
-
 const settledOwnedTiles = (): Tile[] =>
   [...state.tiles.values()].filter((tile) => tile.ownerId === state.me && tile.terrain === "LAND" && tile.ownershipState === "SETTLED" && !tile.fogged);
-
-const weakDefensibilityTiles = (): WeakDefTile[] => {
-  const out: WeakDefTile[] = [];
-  for (const tile of settledOwnedTiles()) {
-    const exposedSides: Array<"N" | "E" | "S" | "W"> = [];
-    const neighbors: Array<{ side: "N" | "E" | "S" | "W"; x: number; y: number }> = [
-      { side: "N", x: wrapX(tile.x), y: wrapY(tile.y - 1) },
-      { side: "E", x: wrapX(tile.x + 1), y: wrapY(tile.y) },
-      { side: "S", x: wrapX(tile.x), y: wrapY(tile.y + 1) },
-      { side: "W", x: wrapX(tile.x - 1), y: wrapY(tile.y) }
-    ];
-    for (const neighbor of neighbors) {
-      const neighborTile = state.tiles.get(key(neighbor.x, neighbor.y));
-      if (neighborTile?.ownerId === state.me && neighborTile.terrain === "LAND" && neighborTile.ownershipState === "SETTLED" && !neighborTile.fogged) continue;
-      const terrain = terrainAt(neighbor.x, neighbor.y);
-      if (terrain === "SEA" || terrain === "MOUNTAIN") continue;
-      exposedSides.push(neighbor.side);
-    }
-    if (exposedSides.length < 2) continue;
-    out.push({
-      tile,
-      exposedSides,
-      severity: exposedSides.length >= 3 ? "critical" : "weak"
-    });
-  }
-  return out;
-};
 
 const defensibilityBreakdown = (): DefensibilityBreakdown => {
   const tiles = settledOwnedTiles();
@@ -1690,9 +1544,6 @@ const defensibilityBreakdown = (): DefensibilityBreakdown => {
 const defensibilityPanelHtml = (): string => {
   const summary = defensibilityBreakdown();
   const rounded = Math.round(state.defensibilityPct);
-  const weakTiles = weakDefensibilityTiles();
-  const weakCount = weakTiles.filter((entry) => entry.severity === "weak").length;
-  const criticalCount = weakTiles.filter((entry) => entry.severity === "critical").length;
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
@@ -1703,17 +1554,6 @@ const defensibilityPanelHtml = (): string => {
         <span class="defense-rating defense-rating-${summary.rating.toLowerCase().replace(/ /g, "-")}">${summary.rating}</span>
       </div>
       <p class="defense-copy">Compact settled land with fewer exposed sides defends better. Coastlines and mountains count as safer borders than open land.</p>
-    </article>
-    <article class="card defense-breakdown-card">
-      <div class="defense-toggle-head">
-        <div>
-          <strong>Weak-tile overlay</strong>
-          <p class="defense-copy">Highlights your settled tiles with many exposed land borders.</p>
-        </div>
-        <button class="panel-btn defense-toggle-btn${state.showWeakDefensibility ? " active" : ""}" type="button" data-toggle-weak-def="true">${state.showWeakDefensibility ? "Hide Weak Tiles" : "Show Weak Tiles"}</button>
-      </div>
-      <div class="defense-line"><span>Critical tiles</span><strong class="is-negative">${criticalCount}</strong></div>
-      <div class="defense-line"><span>Weak tiles</span><strong>${weakCount}</strong></div>
     </article>
     <article class="card defense-breakdown-card">
       <div class="defense-stat-grid">
@@ -1736,30 +1576,174 @@ const defensibilityPanelHtml = (): string => {
   </div>`;
 };
 
+const economySourceLabelForTile = (tile: Tile, resource: Exclude<EconomyFocusKey, "ALL">): string => {
+  if (resource === "GOLD") {
+    if (tile.town) return "Towns";
+    if (tile.dockId) return "Docks";
+    if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
+    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Settled land";
+  }
+  if (resource === "SHARD") return tile.town ? "Ancient towns" : "Shard sites";
+  if (tile.resource) return prettyToken(resourceLabel(tile.resource));
+  if (tile.town && resource === "FOOD") return "Town support";
+  return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";
+};
+
+const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string, amountPerMinute: number): void => {
+  if (amountPerMinute <= 0.0001) return;
+  const current = map.get(label);
+  if (current) {
+    current.amountPerMinute += amountPerMinute;
+    current.count += 1;
+    return;
+  }
+  map.set(label, { label, amountPerMinute, count: 1 });
+};
+
+const setEconomyBucketNote = (map: Map<string, EconomyBucket>, label: string, note: string): void => {
+  const bucket = map.get(label);
+  if (bucket) bucket.note = note;
+};
+
+const resourceUpkeepPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
+  if (resource === "GOLD") return state.upkeepPerMinute.gold;
+  if (resource === "FOOD") return state.upkeepPerMinute.food;
+  if (resource === "IRON") return state.upkeepPerMinute.iron;
+  if (resource === "CRYSTAL") return state.upkeepPerMinute.crystal;
+  if (resource === "SUPPLY") return state.upkeepPerMinute.supply;
+  return 0;
+};
+
+const resourceNetPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
+  if (resource === "GOLD") return state.incomePerMinute - state.upkeepPerMinute.gold;
+  return state.strategicProductionPerMinute[resource] - resourceUpkeepPerMinute(resource);
+};
+
+const economyDetailForResource = (resource: Exclude<EconomyFocusKey, "ALL">): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
+  const sources = new Map<string, EconomyBucket>();
+  const sinks = new Map<string, EconomyBucket>();
+  let settledTileCount = 0;
+  let fortCount = 0;
+  let outpostCount = 0;
+  let observatoryCount = 0;
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
+    if (tile.fogged) continue;
+    settledTileCount += 1;
+    const amountPerMinute =
+      resource === "GOLD"
+        ? tile.yieldRate?.goldPerMinute ?? 0
+        : Number(tile.yieldRate?.strategicPerDay?.[resource] ?? 0) / 1440;
+    accumulateEconomyBucket(sources, economySourceLabelForTile(tile, resource), amountPerMinute);
+    if (resource === "FOOD" && tile.town?.foodUpkeepPerMinute) {
+      accumulateEconomyBucket(sinks, "Town upkeep", tile.town.foodUpkeepPerMinute);
+    }
+    if (tile.fort?.ownerId === state.me && tile.fort.status === "active") fortCount += 1;
+    if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") outpostCount += 1;
+    if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") observatoryCount += 1;
+  }
+  if (resource === "GOLD") {
+    const settledUpkeep = (settledTileCount / 40) * 0.1;
+    const fortUpkeep = fortCount * 0.2;
+    const outpostUpkeep = outpostCount * 0.2;
+    accumulateEconomyBucket(sinks, "Settled land upkeep", settledUpkeep);
+    accumulateEconomyBucket(sinks, "Fort upkeep", fortUpkeep);
+    accumulateEconomyBucket(sinks, "Siege outpost upkeep", outpostUpkeep);
+    if (settledTileCount > 0) setEconomyBucketNote(sinks, "Settled land upkeep", `${settledTileCount} settled tiles`);
+    if (fortCount > 0) setEconomyBucketNote(sinks, "Fort upkeep", `${fortCount} active fort${fortCount === 1 ? "" : "s"}`);
+    if (outpostCount > 0) setEconomyBucketNote(sinks, "Siege outpost upkeep", `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`);
+  } else if (resource === "CRYSTAL") {
+    const revealUpkeep = Math.min(1, state.activeRevealTargets.length) * 0.015;
+    const observatoryUpkeep = observatoryCount * 0.025;
+    accumulateEconomyBucket(sinks, "Empire reveal upkeep", revealUpkeep);
+    accumulateEconomyBucket(sinks, "Observatory upkeep", observatoryUpkeep);
+    if (state.activeRevealTargets.length > 0) setEconomyBucketNote(sinks, "Empire reveal upkeep", `${Math.min(1, state.activeRevealTargets.length)} active reveal`);
+    if (observatoryCount > 0) setEconomyBucketNote(sinks, "Observatory upkeep", `${observatoryCount} active observator${observatoryCount === 1 ? "y" : "ies"}`);
+  } else if (resource === "IRON") {
+    const fortUpkeep = fortCount * 0.025;
+    accumulateEconomyBucket(sinks, "Fort upkeep", fortUpkeep);
+    if (fortCount > 0) setEconomyBucketNote(sinks, "Fort upkeep", `${fortCount} active fort${fortCount === 1 ? "" : "s"}`);
+  } else if (resource === "SUPPLY") {
+    const outpostUpkeep = outpostCount * 0.025;
+    accumulateEconomyBucket(sinks, "Siege outpost upkeep", outpostUpkeep);
+    if (outpostCount > 0) setEconomyBucketNote(sinks, "Siege outpost upkeep", `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`);
+  }
+  const totalUpkeep = resourceUpkeepPerMinute(resource);
+  const knownUpkeep = [...sinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0);
+  const residualUpkeep = Math.max(0, totalUpkeep - knownUpkeep);
+  if (residualUpkeep > 0.0001) {
+    accumulateEconomyBucket(sinks, resource === "FOOD" ? "Other empire upkeep" : "Other upkeep modifiers", residualUpkeep);
+  }
+  return {
+    sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
+    sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
+  };
+};
+
 const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
   state.economyFocus = focus;
   setActivePanel("economy");
 };
 
+const economySummaryCardHtml = (resource: Exclude<EconomyFocusKey, "ALL">, selected: boolean): string => {
+  const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
+  const gross = resource === "GOLD" ? state.incomePerMinute : state.strategicProductionPerMinute[resource];
+  const upkeep = resourceUpkeepPerMinute(resource);
+  const net = resourceNetPerMinute(resource);
+  const icon = resourceIconForKey(resource);
+  const label = prettyToken(resource);
+  return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
+    <div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>
+    <div class="economy-summary-stock">${stock.toFixed(1)}</div>
+    <div class="economy-summary-rates">
+      <span>Gross ${gross.toFixed(2)}/m</span>
+      <span>Upkeep ${upkeep.toFixed(2)}/m</span>
+      <span class="economy-rate ${rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</span>
+    </div>
+  </button>`;
+};
+
 const economyPanelHtml = (): string => {
-  return renderEconomyPanelHtml({
-    focus: state.economyFocus,
-    gold: state.gold,
-    me: state.me,
-    incomePerMinute: state.incomePerMinute,
-    strategicResources: state.strategicResources,
-    strategicProductionPerMinute: state.strategicProductionPerMinute,
-    upkeepPerMinute: state.upkeepPerMinute,
-    upkeepLastTick: state.upkeepLastTick,
-    activeRevealTargetsCount: state.activeRevealTargets.length,
-    tiles: state.tiles.values(),
-    isMobile: window.matchMedia("(max-width: 900px)").matches,
-    prettyToken,
-    resourceIconForKey,
-    rateToneClass,
-    resourceLabel,
-    economicStructureName
-  });
+  const focus = state.economyFocus;
+  const resources: Array<Exclude<EconomyFocusKey, "ALL">> = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
+  const mobile = window.matchMedia("(max-width: 900px)").matches;
+  const visibleResources = mobile ? [focus === "ALL" ? "GOLD" : focus] : focus === "ALL" ? resources : [focus];
+  const totals = formatUpkeepSummary(state.upkeepPerMinute);
+  return `
+    <div class="economy-panel">
+      <div class="economy-summary-grid">
+        ${resources.map((resource) => economySummaryCardHtml(resource, resource === focus)).join("")}
+      </div>
+      ${totals ? `<div class="economy-overview-note">${mobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : mobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
+      ${visibleResources
+        .map((resource) => {
+          const detail = economyDetailForResource(resource);
+          const net = resourceNetPerMinute(resource);
+          const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
+          return `<section class="economy-detail-card card">
+            <div class="economy-detail-head">
+              <div>
+                <div class="economy-detail-kicker">${resourceIconForKey(resource)} ${prettyToken(resource)}</div>
+                <strong>${stock.toFixed(1)} in reserve</strong>
+              </div>
+              <div class="economy-rate ${rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
+            </div>
+            <div class="economy-detail-columns">
+              <div class="economy-detail-column">
+                <h4>Income Sources</h4>
+                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
+              </div>
+              <div class="economy-detail-column">
+                <h4>Upkeep</h4>
+                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
+              </div>
+            </div>
+            ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((state.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
+          </section>`;
+        })
+        .join("")}
+    </div>
+  `;
 };
 const rateToneClass = (rate: number): string => {
   if (rate > 0.001) return "positive";
@@ -1783,9 +1767,6 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
   const defEff = typeof msg.defEff === "number" ? msg.defEff : undefined;
   const winChance = typeof msg.winChance === "number" ? msg.winChance : undefined;
   const pointsDelta = typeof msg.pointsDelta === "number" ? msg.pointsDelta : 0;
-  const manpowerDelta = typeof msg.manpowerDelta === "number" ? msg.manpowerDelta : 0;
-  const pillagedGold = typeof msg.pillagedGold === "number" ? msg.pillagedGold : 0;
-  const pillagedStrategic = msg.pillagedStrategic as Partial<Record<string, number>> | undefined;
   const bits = [`${attackType}: ${attackerWon ? "you captured the target" : "your attack failed"}`];
   if (origin && target) {
     bits.push(`from (${origin.x}, ${origin.y})`);
@@ -1808,14 +1789,6 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
   if (typeof winChance === "number") bits.push(`roll ${(winChance * 100).toFixed(0)}%`);
   if (typeof atkEff === "number" && typeof defEff === "number") bits.push(`atk ${atkEff.toFixed(1)} vs def ${defEff.toFixed(1)}`);
   if (pointsDelta > 0) bits.push(`+${pointsDelta.toFixed(1)} pts`);
-  if (manpowerDelta < -0.001) bits.push(`${formatManpowerAmount(manpowerDelta)} manpower`);
-  if (pillagedGold > 0.001) bits.push(`pillaged ${formatGoldAmount(pillagedGold)} gold`);
-  if (pillagedStrategic) {
-    const stolen = Object.entries(pillagedStrategic)
-      .filter(([, amount]) => typeof amount === "number" && amount > 0.001)
-      .map(([resource, amount]) => `${resourceIconForKey(resource)} ${Number(amount).toFixed(1)}`);
-    if (stolen.length > 0) bits.push(`pillaged ${stolen.join(" ")}`);
-  }
   return bits.join(" · ");
 };
 const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
@@ -2064,46 +2037,8 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
   state.feed = state.feed.slice(0, 18);
 };
 
-const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error"): void => {
-  state.captureAlert = { title, detail, until: Date.now() + 4500, tone };
-};
-
-const playerNameOrFallback = (ownerId: string | undefined): string => {
-  if (!ownerId) return "neutral territory";
-  if (ownerId === "barbarian") return "Barbarians";
-  return playerNameForOwner(ownerId) ?? ownerId.slice(0, 8);
-};
-
-const conqueredTileLabel = (tile: Tile | undefined, target: { x: number; y: number } | undefined): string => {
-  if (tile?.town) return "Town";
-  if (tile?.resource) return prettyToken(resourceLabel(tile.resource));
-  if (target) return prettyToken(terrainLabel(target.x, target.y, tile?.terrain ?? terrainAt(target.x, target.y)));
-  return "Territory";
-};
-
-const combatResolutionAlert = (
-  msg: Record<string, unknown>,
-  context?: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined }
-): { title: string; detail: string; tone: "success" | "warn" } => {
-  const origin = msg.origin as { x: number; y: number } | undefined;
-  const target = msg.target as { x: number; y: number } | undefined;
-  const attackerWon = Boolean(msg.attackerWon);
-  const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
-  const targetOwnerName = playerNameOrFallback(context?.targetTileBefore?.ownerId);
-  const targetLabel = conqueredTileLabel(context?.targetTileBefore, target);
-  if (attackerWon) {
-    return {
-      title: "Victory",
-      detail: `${targetLabel} was conquered from ${targetOwnerName}.`,
-      tone: "success"
-    };
-  }
-  const originLost = Boolean(origin && changes.some((change) => change.x === origin.x && change.y === origin.y));
-  return {
-    title: "Attack Beaten Back",
-    detail: originLost && origin ? `Attack on ${targetOwnerName} was beaten back and we lost (${origin.x}, ${origin.y}).` : `Attack on ${targetOwnerName} was beaten back.`,
-    tone: "warn"
-  };
+const showCaptureAlert = (title: string, detail: string, tone: "error" | "warn" = "error"): void => {
+  state.captureAlert = { title, detail, until: Date.now() + 2200, tone };
 };
 
 const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void => {
@@ -2345,91 +2280,15 @@ const bindTechTreeDragScroll = (): void => {
 const selectedTile = (): Tile | undefined => {
   if (!state.selected) return undefined;
   const existing = state.tiles.get(key(state.selected.x, state.selected.y));
-  if (existing) {
-    if (!existing.fogged && existing.detailLevel !== "full") requestTileDetail(existing.x, existing.y);
-    return existing;
-  }
+  if (existing) return existing;
   const visibility = tileVisibilityStateAt(state.selected.x, state.selected.y);
   if (visibility === "unexplored") return undefined;
-  const fallback: Tile = {
+  return {
     x: state.selected.x,
     y: state.selected.y,
     terrain: terrainAt(state.selected.x, state.selected.y),
     fogged: visibility !== "visible"
   };
-  if (visibility === "visible") fallback.detailLevel = "summary";
-  return fallback;
-};
-
-const requestTileDetail = (x: number, y: number, force = false): void => {
-  if (!state.authSessionReady || ws.readyState !== ws.OPEN) return;
-  const tileKey = key(x, y);
-  const lastRequestedAt = state.tileDetailRequestedAt.get(tileKey) ?? 0;
-  if (!force && Date.now() - lastRequestedAt < 800) return;
-  state.tileDetailRequestedAt.set(tileKey, Date.now());
-  ws.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x, y }));
-};
-
-const sameStructureSummary = (
-  left?: { ownerId: string; status: string; type?: string },
-  right?: { ownerId: string; status: string; type?: string }
-): boolean => {
-  if (!left && !right) return true;
-  if (!left || !right) return false;
-  return left.ownerId === right.ownerId && left.status === right.status && left.type === right.type;
-};
-
-const canRetainFullTileDetail = (existing: Tile | undefined, incoming: Tile): existing is Tile => {
-  if (!existing || existing.detailLevel !== "full" || incoming.detailLevel !== "summary") return false;
-  const sameTownSummary =
-    (!existing.town && !incoming.town) ||
-    Boolean(
-      existing.town &&
-        incoming.town &&
-        existing.town.type === incoming.town.type &&
-        existing.town.populationTier === incoming.town.populationTier &&
-        existing.town.isFed === incoming.town.isFed
-    );
-  return (
-    existing.terrain === incoming.terrain &&
-    existing.ownerId === incoming.ownerId &&
-    existing.ownershipState === incoming.ownershipState &&
-    existing.resource === incoming.resource &&
-    (incoming.capital === undefined || existing.capital === incoming.capital) &&
-    (incoming.clusterId === undefined || existing.clusterId === incoming.clusterId) &&
-    (incoming.clusterType === undefined || existing.clusterType === incoming.clusterType) &&
-    (incoming.regionType === undefined || existing.regionType === incoming.regionType) &&
-    existing.dockId === incoming.dockId &&
-    sameTownSummary &&
-    sameStructureSummary(existing.fort, incoming.fort) &&
-    sameStructureSummary(existing.observatory, incoming.observatory) &&
-    sameStructureSummary(existing.siegeOutpost, incoming.siegeOutpost) &&
-    sameStructureSummary(existing.economicStructure, incoming.economicStructure) &&
-    Boolean(existing.sabotage) === Boolean(incoming.sabotage)
-  );
-};
-
-const mergeIncomingTileDetail = (existing: Tile | undefined, incoming: Tile): Tile => {
-  if (!canRetainFullTileDetail(existing, incoming)) return incoming;
-  const merged: Tile = {
-    ...incoming,
-    detailLevel: "full"
-  };
-  if (existing.town && incoming.town) {
-    merged.town = {
-      ...existing.town,
-      type: incoming.town.type,
-      isFed: incoming.town.isFed,
-      population: incoming.town.population,
-      populationTier: incoming.town.populationTier
-    };
-    if (incoming.town.maxPopulation !== undefined) merged.town.maxPopulation = incoming.town.maxPopulation;
-  }
-  if (existing.yield) merged.yield = existing.yield;
-  if (existing.yieldRate) merged.yieldRate = existing.yieldRate;
-  if (existing.yieldCap) merged.yieldCap = existing.yieldCap;
-  if (existing.history) merged.history = existing.history;
-  return merged;
 };
 
 const applyOptimisticTileState = (
@@ -2735,24 +2594,14 @@ const supportedOwnedTownsForTile = (tile: Tile): Tile[] => {
   return out.sort((a, b) => a.x - b.x || a.y - b.y);
 };
 
-const availableSupportTilesForTownClient = (townTile: Tile): Tile[] => {
-  if (!townTile.town || townTile.ownerId !== state.me || townTile.ownershipState !== "SETTLED") return [];
+const supportedOwnedDocksForTile = (tile: Tile): Tile[] => {
   const out: Tile[] = [];
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const candidate = state.tiles.get(key(wrapX(townTile.x + dx), wrapY(townTile.y + dy)));
-      if (!candidate) continue;
-      if (candidate.terrain !== "LAND") continue;
-      if (candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
-      if (candidate.resource || candidate.town || candidate.dockId) continue;
-      if (candidate.fort || candidate.siegeOutpost || candidate.observatory || candidate.economicStructure) continue;
-      const supportedTowns = supportedOwnedTownsForTile(candidate);
-      if (supportedTowns.length !== 1 || supportedTowns[0]?.x !== townTile.x || supportedTowns[0]?.y !== townTile.y) continue;
-      out.push(candidate);
-    }
+  for (const candidate of state.tiles.values()) {
+    if (!candidate.dockId || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
+    if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
+    out.push(candidate);
   }
-  return out;
+  return out.sort((a, b) => a.x - b.x || a.y - b.y);
 };
 
 const growthDeltaPctLabel = (population: number, deltaPerMinute: number): string => {
@@ -2908,11 +2757,44 @@ const startingExpansionArrowTargets = (): Array<{ x: number; y: number; dx: numb
 };
 
 const renderCaptureProgress = (): void => {
-  if (state.captureAlert && state.captureAlert.until > Date.now()) {
-    if (state.captureAlert.title === "Collect Visible Cooldown") {
-      const remaining = state.collectVisibleCooldownUntil - Date.now();
-      if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
-      else state.captureAlert = undefined;
+  if (state.capture) {
+    captureCardEl.dataset.state = "progress";
+    const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
+    const elapsed = Date.now() - state.capture.startAt;
+    const pct = Math.max(0, Math.min(1, elapsed / total));
+    const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
+    captureCardEl.style.display = "grid";
+    captureWrapEl.style.display = "block";
+    captureCancelBtn.style.display = "inline-flex";
+    captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
+    captureTitleEl.textContent = isForestTile(state.capture.target.x, state.capture.target.y) ? "Capturing Forest..." : "Capturing Territory...";
+    captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
+    captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
+  } else {
+    const settlement = primarySettlementProgress();
+    const settlementCount = state.settleProgressByTile.size;
+    if (settlement) {
+    captureCardEl.dataset.state = "progress";
+    const total = Math.max(1, settlement.resolvesAt - settlement.startAt);
+    const elapsed = Date.now() - settlement.startAt;
+    const pct = Math.max(0, Math.min(1, elapsed / total));
+    const remaining = Math.max(0, Math.ceil((settlement.resolvesAt - Date.now()) / 100) / 10);
+    captureCardEl.style.display = "grid";
+    captureWrapEl.style.display = "block";
+    captureCancelBtn.style.display = "none";
+    captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
+    captureTitleEl.textContent = settlementCount > 1 ? `Settling Land... (${settlementCount})` : "Settling Land...";
+    captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
+    captureTargetEl.textContent =
+      settlementCount > 1
+        ? `Target: (${settlement.target.x}, ${settlement.target.y}) • ${settlementCount} active`
+        : `Target: (${settlement.target.x}, ${settlement.target.y})`;
+    } else if (state.captureAlert && state.captureAlert.until > Date.now()) {
+      if (state.captureAlert.title === "Collect Visible Cooldown") {
+        const remaining = state.collectVisibleCooldownUntil - Date.now();
+        if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
+        else state.captureAlert = undefined;
+      }
     }
   }
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
@@ -2924,39 +2806,9 @@ const renderCaptureProgress = (): void => {
     captureTitleEl.textContent = state.captureAlert.title;
     captureTimeEl.textContent = "";
     captureTargetEl.textContent = state.captureAlert.detail;
-    return;
-  }
-  delete captureCardEl.dataset.state;
-  state.captureAlert = undefined;
-
-  if (state.capture) {
-    const captureTargetKey = key(state.capture.target.x, state.capture.target.y);
-    captureCardEl.dataset.state = "progress";
-    const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
-    const elapsed = Date.now() - state.capture.startAt;
-    const pct = Math.max(0, Math.min(1, elapsed / total));
-    const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
-    const awaitingResult = Date.now() > state.capture.resolvesAt;
-    if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
-      showCaptureAlert(state.pendingCombatReveal.title, state.pendingCombatReveal.detail, state.pendingCombatReveal.tone);
-      pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
-      state.pendingCombatReveal.revealed = true;
-      return;
-    }
-    captureCardEl.style.display = "grid";
-    captureWrapEl.style.display = "block";
-    captureCancelBtn.style.display = "inline-flex";
-    captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
-    captureTitleEl.textContent = awaitingResult
-      ? "Resolving battle..."
-      : isForestTile(state.capture.target.x, state.capture.target.y)
-        ? "Capturing Forest..."
-        : "Capturing Territory...";
-    captureTimeEl.textContent = awaitingResult ? "" : `${remaining.toFixed(1)}s`;
-    captureTargetEl.textContent = awaitingResult
-      ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
-      : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
   } else {
+    delete captureCardEl.dataset.state;
+    state.captureAlert = undefined;
     captureCardEl.style.display = "none";
     captureWrapEl.style.display = "none";
     captureCancelBtn.style.display = "none";
@@ -3592,67 +3444,234 @@ const renderTechDetailCard = (): string => {
   const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value || state.techCatalog[0]?.id;
   const byId = new Map(state.techCatalog.map((tech) => [tech.id, tech]));
   const tierMemo = new Map<string, number>();
-  const tech = state.techCatalog.find((entry) => entry.id === selectedId);
-  if (!tech) {
-    return renderTechDetailCardHtml({
-      tech,
-      pendingUnlock: false,
-      canUnlock: false,
-      prereqs: [],
-      prereqText: "",
-      unlocks: [],
-      relatedStructuresHtml: ""
-    });
+  const t = state.techCatalog.find((x) => x.id === selectedId);
+  if (!t) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
+  const checklist = t.requirements.checklist ?? [];
+  const checks = checklist
+    .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
+    .join("");
+  const prereqs = techPrereqIds(t);
+  const unlocks = unlockedByTech(t.id);
+  const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
+  const pendingUnlock = isPendingTechUnlock(t.id);
+  const canUnlock = t.requirements.canResearch && !state.pendingTechUnlockId;
+  const effectSummary = formatTechBenefitSummary(t);
+  const relatedStructures = relatedStructureTypesForTech(t);
+  return `<article class="card tech-detail-card">
+    <div class="tech-detail-head">
+      <div>
+        <strong>${t.name}</strong>
+        <p class="tech-detail-effect">${effectSummary}</p>
+        <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
+        ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
+      </div>
+      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock) ? "" : "disabled"}>${pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked"}</button>
+    </div>
+    <p class="tech-detail-flavor">${t.description}</p>
+    ${relatedStructures.length > 0 ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>` : ""}
+    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${techTier(next.id, byId, tierMemo)})`).join(", ")}</p>` : ""}
+    <p><strong>Requirements:</strong></p>
+    <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
+  </article>`;
+};
+
+const formatDomainCost = (d: DomainInfo): string => {
+  const checklist = d.requirements.checklist ?? [];
+  const costBits = checklist.filter((c) => /gold|food|iron|crystal|supply|shard/i.test(c.label)).map((c) => c.label);
+  if (costBits.length > 0) return costBits.join(" · ");
+  return "Cost not listed";
+};
+
+const ownedDomainByTier = (): Map<number, DomainInfo> => {
+  const catalogById = new Map(state.domainCatalog.map((d) => [d.id, d]));
+  const out = new Map<number, DomainInfo>();
+  for (const id of state.domainIds) {
+    const domain = catalogById.get(id);
+    if (domain) out.set(domain.tier, domain);
   }
-  const prereqs = techPrereqIds(tech);
-  const unlocks = unlockedByTech(tech.id).map((next) => ({ name: next.name, tier: techTier(next.id, byId, tierMemo) }));
-  const relatedStructures = relatedStructureTypesForTech(tech);
-  return renderTechDetailCardHtml({
-    tech,
-    pendingUnlock: isPendingTechUnlock(tech.id),
-    canUnlock: Boolean(tech.requirements.canResearch) && !state.pendingTechUnlockId,
-    prereqs,
-    prereqText: prereqs.length > 0 ? techNameList(prereqs) : "Entry tech",
-    unlocks,
-    relatedStructuresHtml:
-      relatedStructures.length > 0
-        ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>`
-        : ""
-  });
+  return out;
+};
+
+const currentDomainChoiceTier = (): number | undefined => {
+  const byId = new Map(state.domainCatalog.map((d) => [d.id, d]));
+  const first = state.domainChoices.map((id) => byId.get(id)).find((d): d is DomainInfo => Boolean(d));
+  return first?.tier;
+};
+
+const domainTierStatus = (
+  tier: number,
+  ownedByTier: Map<number, DomainInfo>,
+  currentTier?: number
+): {
+  tone: "chosen" | "current" | "locked";
+  badge: string;
+  detail: string;
+} => {
+  const owned = ownedByTier.get(tier);
+  if (owned) {
+    return {
+      tone: "chosen",
+      badge: "Chosen",
+      detail: `Tier ${tier} is already committed to ${owned.name}. You cannot choose another domain at this tier.`
+    };
+  }
+  if (currentTier === tier) {
+    return {
+      tone: "current",
+      badge: "Choose 1",
+      detail: `Pick exactly one domain for Tier ${tier}. Once chosen, the other domains in this tier are closed.`
+    };
+  }
+  return {
+    tone: "locked",
+    badge: "Locked",
+    detail: tier < (currentTier ?? 0) ? `This tier is no longer available because your choice is already set.` : `Unlock Tier ${Math.max(1, tier - 1)} first to reach this tier.`
+  };
+};
+
+const domainCardBlockedReason = (
+  domain: DomainInfo,
+  ownedByTier: Map<number, DomainInfo>,
+  currentTier?: number
+): string | undefined => {
+  const owned = ownedByTier.get(domain.tier);
+  if (owned && owned.id !== domain.id) return `Tier ${domain.tier} already committed to ${owned.name}`;
+  if (currentTier !== undefined && domain.tier > currentTier) return `Locked until Tier ${domain.tier - 1} is chosen`;
+  if (currentTier !== undefined && domain.tier < currentTier && !owned) return "Tier no longer available";
+  const unmet = (domain.requirements.checklist ?? []).find((check) => !check.met);
+  return unmet?.label;
 };
 
 const renderDomainChoiceGrid = (): string => {
-  const ownedByTier = ownedDomainByTier(state.domainCatalog, state.domainIds);
-  return renderDomainChoiceGridHtml({
-    domainCatalog: state.domainCatalog,
-    domainIds: state.domainIds,
-    domainUiSelectedId: state.domainUiSelectedId,
-    ownedByTier,
-    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices)
-  });
+  if (state.domainCatalog.length === 0) return `<article class="card"><p>No domains available right now.</p></article>`;
+  const grouped = new Map<number, DomainInfo[]>();
+  for (const d of state.domainCatalog) {
+    const arr = grouped.get(d.tier) ?? [];
+    arr.push(d);
+    grouped.set(d.tier, arr);
+  }
+  const ownedByTier = ownedDomainByTier();
+  const currentTier = currentDomainChoiceTier();
+  const tiers = [...grouped.keys()].sort((a, b) => a - b);
+  const summary =
+    currentTier !== undefined
+      ? `<article class="card domain-summary-card">
+          <div class="domain-summary-kicker">Domains</div>
+          <strong>Choose one domain for Tier ${currentTier}</strong>
+          <p>Each tier allows exactly one domain. Choosing one locks the others in that tier and advances you to the next tier later.</p>
+        </article>`
+      : `<article class="card domain-summary-card">
+          <div class="domain-summary-kicker">Domains</div>
+          <strong>All current domain tiers are committed</strong>
+          <p>You can only choose one domain per tier. Review your picks below and unlock the next tier when it becomes available.</p>
+        </article>`;
+  const sections = tiers
+    .map((tier) => {
+      const status = domainTierStatus(tier, ownedByTier, currentTier);
+      const cards = (grouped.get(tier) ?? [])
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((d) => {
+          const selected = state.domainUiSelectedId === d.id ? " selected" : "";
+          const owned = state.domainIds.includes(d.id) ? " owned" : "";
+          const blockedReason = domainCardBlockedReason(d, ownedByTier, currentTier);
+          const blocked = blockedReason && !owned ? " blocked" : "";
+          const cardBadge = owned ? "Chosen" : currentTier === tier ? "Candidate" : "Unavailable";
+          return `<button class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${d.id}">
+            <div class="tech-card-top">
+              <strong>${d.name}</strong>
+              <span class="domain-card-badge">${cardBadge}</span>
+            </div>
+            <p>${formatDomainBenefitSummary(d)}</p>
+            <p class="tech-card-cost">${owned ? "Tier locked in" : blockedReason ? blockedReason : formatDomainCost(d)}</p>
+          </button>`;
+        })
+        .join("");
+      return `<section class="tech-tier-block domain-tier-block domain-tier-block-${status.tone}">
+        <div class="domain-tier-head">
+          <div>
+            <h4>Tier ${tier}</h4>
+            <p>${status.detail}</p>
+          </div>
+          <span class="domain-tier-badge domain-tier-badge-${status.tone}">${status.badge}</span>
+        </div>
+        <div class="tech-card-grid">${cards}</div>
+      </section>`;
+    })
+    .join("");
+  return `${summary}${sections}`;
 };
 
 const renderDomainDetailCard = (): string => {
-  const domain = state.domainCatalog.find((entry) => entry.id === state.domainUiSelectedId);
-  const ownedByTier = ownedDomainByTier(state.domainCatalog, state.domainIds);
-  return renderDomainDetailCardHtml({
-    domain,
-    domainIds: state.domainIds,
-    chosenInTier: domain ? ownedByTier.get(domain.tier) : undefined,
-    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices),
-    requiresTechName: domain ? techNameList([domain.requiresTechId]) : ""
-  });
+  const d = state.domainCatalog.find((x) => x.id === state.domainUiSelectedId);
+  if (!d) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
+  const checklist = d.requirements.checklist ?? [];
+  const checks = checklist
+    .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
+    .join("");
+  const ownedByTier = ownedDomainByTier();
+  const currentTier = currentDomainChoiceTier();
+  const chosenInTier = ownedByTier.get(d.tier);
+  const canUnlock = d.requirements.canResearch;
+  const requiresTechName = techNameList([d.requiresTechId]);
+  const tierRuleText =
+    chosenInTier && chosenInTier.id !== d.id
+      ? `Tier ${d.tier} is already filled by ${chosenInTier.name}.`
+      : currentTier === d.tier
+        ? `This is one of the current Tier ${d.tier} choices. You may choose exactly one.`
+        : chosenInTier?.id === d.id
+          ? `You already chose this for Tier ${d.tier}.`
+          : `This domain will only become choosable when Tier ${d.tier} opens.`;
+  return `<article class="card tech-detail-card">
+    <div class="tech-detail-head">
+      <div>
+        <strong>${d.name}</strong>
+        <p class="muted">Tier ${d.tier} · Requires ${requiresTechName}</p>
+        <p class="domain-detail-tier-rule">${tierRuleText}</p>
+      </div>
+      <button class="panel-btn domain-unlock-btn" data-domain-unlock="${d.id}" ${canUnlock ? "" : "disabled"}>${state.domainIds.includes(d.id) ? "Chosen" : canUnlock ? `Choose Tier ${d.tier}` : "Locked"}</button>
+    </div>
+    <p>${d.description}</p>
+    <p><strong>Benefits:</strong> ${formatDomainBenefitSummary(d)}</p>
+    <p><strong>Cost:</strong> ${formatDomainCost(d)}</p>
+    <p><strong>Requirements:</strong></p>
+    <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
+  </article>`;
 };
 
 const renderTechChoiceDetails = (): string => {
   const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
-  const tech = state.techCatalog.find((entry) => entry.id === selectedId);
-  return renderTechChoiceDetailsHtml({
-    tech,
-    pendingUnlock: tech ? isPendingTechUnlock(tech.id) : false,
-    currentMods: state.mods,
-    prereqs: tech ? techPrereqIds(tech) : []
-  });
+  const t = state.techCatalog.find((x) => x.id === selectedId);
+  if (!t) return `<p class="muted">No tech selected.</p>`;
+  const pendingUnlock = isPendingTechUnlock(t.id);
+  const mods = Object.entries(t.mods ?? {})
+    .map(([k, v]) => `${k} x${Number(v).toFixed(3)}`)
+    .join(" | ");
+  const projected = {
+    attack: state.mods.attack * (t.mods.attack ?? 1),
+    defense: state.mods.defense * (t.mods.defense ?? 1),
+    income: state.mods.income * (t.mods.income ?? 1),
+    vision: state.mods.vision * (t.mods.vision ?? 1)
+  };
+  const checklist = t.requirements.checklist ?? [];
+  const checklistHtml =
+    checklist.length > 0
+      ? `<ul>${checklist
+          .map((c) => `<li style="color:${c.met ? "#84f2b8" : "#ff9f9f"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
+          .join("")}</ul>`
+      : "<p class=\"muted\">No requirements listed.</p>";
+  const prereqs = techPrereqIds(t);
+  return `<article class="card">
+    <strong>${t.name}</strong>
+    ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for authoritative update...</p>` : ""}
+    <p>${t.description}</p>
+    <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
+    <p><strong>Requirements:</strong></p>
+    ${checklistHtml}
+    <p><strong>Modifiers:</strong> ${mods || "None"}</p>
+    <p><strong>Current:</strong> atk x${state.mods.attack.toFixed(3)} | def x${state.mods.defense.toFixed(3)} | inc x${state.mods.income.toFixed(3)} | vis x${state.mods.vision.toFixed(3)}</p>
+    <p><strong>Projected:</strong> atk x${projected.attack.toFixed(3)} | def x${projected.defense.toFixed(3)} | inc x${projected.income.toFixed(3)} | vis x${projected.vision.toFixed(3)}</p>
+    ${t.grantsPowerup ? `<p><strong>Powerup:</strong> ${t.grantsPowerup.id} (+${t.grantsPowerup.charges})</p>` : ""}
+  </article>`;
 };
 
 const affordableTechChoicesCount = (): number => {
@@ -3783,21 +3802,15 @@ const renderHud = (): void => {
       : "";
   const netGoldPerMinute = state.incomePerMinute - state.upkeepPerMinute.gold;
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
-  const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
-  const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}/m`;
-  const mobileManpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}`;
-  const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   statsChipsEl.innerHTML = `
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
-    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    <div class="stat-chip stat-chip-manpower" title="Manpower gates attacks. Settled towns raise your cap and regeneration; recently captured towns contribute less until they stabilize."><span>${mobile ? "MP" : "Manpower"}</span><strong>${mobile ? formatManpowerAmount(state.manpower) : `${formatManpowerAmount(state.manpower)} / ${formatManpowerAmount(state.manpowerCap)}`} <em class="stat-chip-rate ${manpowerRateClass}">${mobile ? mobileManpowerRateText : manpowerRateText}</em></strong></div>
+    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
     </div>
-    ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-hide-weak-def="true"><span>${mobile ? "Overlay" : "Weak Tiles"}</span><strong>Hide</strong></button>` : ""}
     ${strategicRibbonHtml(
       state.strategicResources,
       state.strategicProductionPerMinute,
@@ -3825,13 +3838,6 @@ const renderHud = (): void => {
   defensibilityButtons.forEach((btn) => {
     btn.onclick = () => {
       setActivePanel("defensibility");
-    };
-  });
-  const weakDefHideButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-hide-weak-def]");
-  weakDefHideButtons.forEach((btn) => {
-    btn.onclick = () => {
-      state.showWeakDefensibility = false;
-      renderHud();
     };
   });
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
@@ -4095,13 +4101,6 @@ const renderHud = (): void => {
   mobilePanelMissionsEl.innerHTML = missionCardsHtml(state.missions);
   panelDefensibilityEl.innerHTML = defensibilityPanelHtml();
   mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml();
-  const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
-  weakDefButtons.forEach((btn) => {
-    btn.onclick = () => {
-      state.showWeakDefensibility = !state.showWeakDefensibility;
-      renderHud();
-    };
-  });
   panelEconomyEl.innerHTML = economyPanelHtml();
   mobilePanelEconomyEl.innerHTML = economyPanelHtml();
   leaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
@@ -4346,8 +4345,6 @@ const chooseTech = (techIdRaw?: string): void => {
 
 const explainActionFailure = (code: string, message: string): string => {
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
-  if (code === "DOCK_COOLDOWN") return `Dock crossing cooling down: ${message}.`;
-  if (code === "INSUFFICIENT_MANPOWER") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
   if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build observatory: ${message}.`;
@@ -4370,8 +4367,6 @@ const explainActionFailure = (code: string, message: string): string => {
   if (message.includes("development slots are busy")) return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   return `Error ${code}: ${message}`;
 };
-
-const hasEnoughManpower = (required: number): boolean => state.manpower + 1e-6 >= required;
 
 const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean => {
   const k = key(x, y);
@@ -4631,10 +4626,10 @@ const ensureDevelopmentSlotBeforeAction = (): boolean => {
   return false;
 };
 
-const sendDevelopmentBuild = (payload: unknown, optimistic?: () => void): boolean => {
+const sendDevelopmentBuild = (payload: unknown, optimistic: () => void): boolean => {
   if (!ensureDevelopmentSlotBeforeAction()) return false;
   if (!sendGameMessage(payload)) return false;
-  optimistic?.();
+  optimistic();
   renderHud();
   return true;
 };
@@ -4801,13 +4796,10 @@ const attackPreviewDetailForTarget = (to: Tile, mode: "normal" | "breakthrough" 
     return undefined;
   }
   if (!state.attackPreview.valid) return state.attackPreview.reason ? `Attack ${state.attackPreview.reason}` : undefined;
-  const manpowerMin = mode === "breakthrough" ? state.attackPreview.breakthroughManpowerMin : state.attackPreview.manpowerMin;
   if (mode === "breakthrough" && typeof state.attackPreview.breakthroughWinChance === "number") {
-    return `${Math.round(state.attackPreview.breakthroughWinChance * 100)}% breach win chance${typeof manpowerMin === "number" ? ` • min ${formatManpowerAmount(manpowerMin)} manpower` : ""}`;
+    return `${Math.round(state.attackPreview.breakthroughWinChance * 100)}% breach win chance`;
   }
-  if (typeof state.attackPreview.winChance === "number") {
-    return `${Math.round(state.attackPreview.winChance * 100)}% win chance${typeof manpowerMin === "number" ? ` • min ${formatManpowerAmount(manpowerMin)} manpower` : ""}`;
-  }
+  if (typeof state.attackPreview.winChance === "number") return `${Math.round(state.attackPreview.winChance * 100)}% win chance`;
   return undefined;
 };
 const buildFortOnSelected = (): void => {
@@ -4916,6 +4908,18 @@ type TileActionDef = {
     | "build_mine"
     | "build_market"
     | "build_granary"
+    | "build_bank"
+    | "build_airport"
+    | "build_caravanary"
+    | "build_quartermaster"
+    | "build_ironworks"
+    | "build_crystal_synthesizer"
+    | "build_fuel_plant"
+    | "build_foundry"
+    | "build_garrison_hall"
+    | "build_customs_house"
+    | "build_governors_office"
+    | "build_radar_system"
     | "abandon_territory"
     | "build_siege_camp"
     | "deep_strike"
@@ -4932,7 +4936,7 @@ type TileActionDef = {
   originKey?: string;
 };
 
-type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress";
+type TileMenuTab = "overview" | "actions" | "progress";
 
 type TileMenuProgressView = {
   title: string;
@@ -4949,6 +4953,8 @@ type DevelopmentSlotSummary = {
   available: number;
 };
 
+type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+
 type TileOverviewLine = {
   html: string;
   kind?: "effect";
@@ -4961,8 +4967,6 @@ type TileMenuView = {
   overviewKicker?: string;
   overviewLines: TileOverviewLine[];
   actions: TileActionDef[];
-  buildingActions?: TileActionDef[];
-  crystalActions?: TileActionDef[];
   progress?: TileMenuProgressView;
 };
 
@@ -4973,13 +4977,24 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "reveal_empire") return "◈";
   if (id === "collect_yield") return "⛃";
   if (id === "build_fortification") return "🛡";
-  if (id === "build_siege_camp") return "⚔";
   if (id === "build_observatory") return "◉";
   if (id === "build_farmstead") return "▥";
   if (id === "build_camp") return "⛺";
   if (id === "build_mine") return "⛏";
   if (id === "build_market") return "▣";
   if (id === "build_granary") return "◫";
+  if (id === "build_bank") return "◧";
+  if (id === "build_airport") return "✈";
+  if (id === "build_caravanary") return "⇄";
+  if (id === "build_quartermaster") return "▤";
+  if (id === "build_ironworks") return "⚒";
+  if (id === "build_crystal_synthesizer") return "◇";
+  if (id === "build_fuel_plant") return "⬢";
+  if (id === "build_foundry") return "⚙";
+  if (id === "build_garrison_hall") return "🛡";
+  if (id === "build_customs_house") return "⚓";
+  if (id === "build_governors_office") return "⌘";
+  if (id === "build_radar_system") return "◌";
   if (id === "abandon_territory") return "✕";
   if (id === "deep_strike") return "✦";
   if (id === "naval_infiltration") return "≈";
@@ -4988,25 +5003,6 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "remove_mountain") return "⌵";
   return "⛺";
 };
-
-const BUILDING_TAB_ACTION_IDS = new Set<TileActionDef["id"]>([
-  "build_fortification",
-  "build_observatory",
-  "build_farmstead",
-  "build_camp",
-  "build_mine",
-  "build_market",
-  "build_granary",
-  "build_siege_camp"
-]);
-const CRYSTAL_TAB_ACTION_IDS = new Set<TileActionDef["id"]>([
-  "reveal_empire",
-  "deep_strike",
-  "naval_infiltration",
-  "sabotage_tile",
-  "create_mountain",
-  "remove_mountain"
-]);
 
 const isTileOwnedByAlly = (tile: Tile): boolean => Boolean(tile.ownerId && state.allies.includes(tile.ownerId));
 
@@ -5024,26 +5020,6 @@ const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => {
     if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= OBSERVATORY_PROTECTION_RADIUS) return candidate;
   }
   return undefined;
-};
-
-const currentObservatoryCastRadius = (): number => {
-  let bonus = 0;
-  const ownedDomainIds = new Set(state.domainIds);
-  for (const domain of state.domainCatalog) {
-    if (!ownedDomainIds.has(domain.id)) continue;
-    const value = domain.effects?.observatoryCastRadiusBonus;
-    if (typeof value === "number") bonus += value;
-  }
-  return OBSERVATORY_CAST_RADIUS + bonus;
-};
-
-const isWithinOwnedObservatoryCastRange = (tile: Tile): boolean => {
-  const radius = currentObservatoryCastRadius();
-  for (const candidate of state.tiles.values()) {
-    if (candidate.fogged || candidate.ownerId !== state.me || candidate.observatory?.status !== "active") continue;
-    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= radius) return true;
-  }
-  return false;
 };
 
 const developmentSlotLimit = (): number => DEVELOPMENT_PROCESS_LIMIT;
@@ -5093,10 +5069,9 @@ const formatCountdownClock = (ms: number): string => {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
-const SETTLEMENT_CONFIRM_REFRESH_MS = 1_250;
-const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 1_250;
+const SETTLEMENT_CONFIRM_REFRESH_MS = 4_000;
+const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
 const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
-const COMBAT_RESULT_GRACE_MS = 5_000;
 
 const clearSettlementProgressByKey = (tileKey: string): void => {
   if (!tileKey) return;
@@ -5216,26 +5191,41 @@ const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
 
 const buildDetailTextForAction = (actionId: TileActionDef["id"], tile: Tile, supportedTown?: Tile): string | undefined => {
   if (actionId === "settle_land") {
-    return "Makes this tile defended and activates production.";
+    const seconds = Math.round(settleDurationMsForTile(tile.x, tile.y) / 1000);
+    return `Makes this tile defended and activates production. ${SETTLE_COST} gold • ${seconds}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`;
   }
   if (actionId === "build_fortification") return "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
-  if (actionId === "build_observatory") {
-    return `Extends local vision by ${OBSERVATORY_VISION_BONUS}, protects nearby tiles from hostile crystal abilities, and lets you cast crystal abilities in observatory range.`;
-  }
+  if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
   if (actionId === "build_siege_camp") return "Adds an offensive staging point on this border tile. Attacks from here hit 25% harder.";
   if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
   if (actionId === "build_camp") return "Improves supply output on this tile by 50%.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} output on this tile by 50%.`;
   if (actionId === "build_market") {
-    if (tile.town) return "Build on a random open support tile for this town. Grants +50% fed gold output and +50% gold storage cap.";
     const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
     return `Build on this support tile for the ${townLabel}. Grants +50% fed gold output and +50% gold storage cap.`;
   }
   if (actionId === "build_granary") {
-    if (tile.town) return "Build on a random open support tile for this town. Grants +50% population growth.";
     const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +50% population growth.`;
+    return `Build on this support tile for the ${townLabel}. Grants +20% population growth and +20% gold storage cap.`;
   }
+  if (actionId === "build_bank") {
+    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
+    return `Build on this support tile for the ${townLabel}. Grants +50% city income and +1 flat income.`;
+  }
+  if (actionId === "build_airport") return "Build an airport on empty settled land. Bombard enemy tiles within 30 tiles for oil.";
+  if (actionId === "build_caravanary") {
+    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
+    return `Build on this support tile for the ${townLabel}. Boosts its connected-town income bonus by 25%.`;
+  }
+  if (actionId === "build_quartermaster") return "Convert heavy gold upkeep into steady supply output on this support tile.";
+  if (actionId === "build_ironworks") return "Convert heavy gold upkeep into steady iron output on this support tile.";
+  if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile.";
+  if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
+  if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
+  if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
+  if (actionId === "build_customs_house") return "Build next to a dock. Increases income from that dock by 50%.";
+  if (actionId === "build_governors_office") return "Administrative center. Reduces local food upkeep and settled-tile upkeep within 10 tiles.";
+  if (actionId === "build_radar_system") return "Air defense grid. Blocks enemy airport bombardment within 30 tiles and reveals the attack origin.";
   return undefined;
 };
 
@@ -5334,27 +5324,22 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
-    if (tile.detailLevel !== "full") {
-      pushLine(tile.town.isFed ? "Town is fed. Syncing town detail..." : "Town is unfed. Syncing town detail...");
-      pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
-    } else {
-      pushLine(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
-      const growthPct =
-        tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
-          ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
-          : 0;
-      const growthLabel = `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`;
-      pushLine(`Support ${tile.town.supportCurrent ?? 0}/${tile.town.supportMax ?? 0}`);
-      pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
-      pushLine(`Growth ${growthLabel}`);
-      pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
-      for (const modifier of tile.town.growthModifiers ?? []) {
-        const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
-        pushEffectLine(modifier.label, growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute), tone);
-      }
-      if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
-      if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% population growth" : "Built", tile.town.granaryActive ? "positive" : "neutral");
+    pushLine(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
+    const growthPct =
+      tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
+        ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
+        : 0;
+    const growthLabel = `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`;
+    pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
+    pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
+    pushLine(`Growth ${growthLabel}`);
+    pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
+    for (const modifier of tile.town.growthModifiers ?? []) {
+      const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
+      pushEffectLine(modifier.label, growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute), tone);
     }
+    if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
+    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
   } else if (tile.resource) {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
     if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
@@ -5385,12 +5370,7 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
 };
 
 const tileMenuViewForTile = (tile: Tile): TileMenuView => {
-  const allActions = menuActionsForSingleTile(tile);
-  const actions = allActions.filter((action) => !BUILDING_TAB_ACTION_IDS.has(action.id) && !CRYSTAL_TAB_ACTION_IDS.has(action.id));
-  const buildingActions = allActions.filter((action) => BUILDING_TAB_ACTION_IDS.has(action.id));
-  const crystalActions = isWithinOwnedObservatoryCastRange(tile)
-    ? allActions.filter((action) => CRYSTAL_TAB_ACTION_IDS.has(action.id))
-    : [];
+  const actions = menuActionsForSingleTile(tile);
   const settlement = settlementProgressForTile(tile.x, tile.y);
   const construction = constructionProgressForTile(tile);
   const progress =
@@ -5411,10 +5391,6 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
       : construction;
   const tabs: TileMenuTab[] = progress ? ["progress"] : actions.length > 0 ? ["actions"] : ["overview"];
   if (progress && actions.length > 0) tabs.push("actions");
-  if (buildingActions.length > 0 && tile.ownerId === state.me && tile.ownershipState === "SETTLED") {
-    tabs.push("buildings");
-  }
-  if (crystalActions.length > 0) tabs.push("crystal");
   if (!tabs.includes("overview")) tabs.push("overview");
   const ownerLabel =
     tile.terrain === "SEA"
@@ -5437,8 +5413,6 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: menuOverviewForTile(tile),
     actions,
-    ...(buildingActions.length > 0 ? { buildingActions } : {}),
-    ...(crystalActions.length > 0 ? { crystalActions } : {}),
     ...(progress ? { progress } : {}),
     };
 };
@@ -5788,7 +5762,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false));
     const hasGold = state.gold >= FRONTIER_CLAIM_COST;
     const frontierCostLabel = frontierClaimCostLabelForTile(tile.x, tile.y);
-    return [
+    const out: TileActionDef[] = [
       {
         id: "settle_land",
         label: "Settle Land",
@@ -5797,9 +5771,27 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           !reachable ? "Must touch your territory" : `Need ${FRONTIER_CLAIM_COST} gold`,
           frontierCostLabel
         )
-      },
-      createMountainAction()
+      }
     ];
+    out.push({
+      id: "build_foundry",
+      label: "Build Foundry",
+      detail: buildDetailTextForAction("build_foundry", tile),
+      ...tileActionAvailabilityWithDevelopmentSlot(
+        reachable && state.techIds.includes("industrial-extraction") && state.gold >= 1800 && !tile.resource && !tile.town && !tile.dockId,
+        !reachable
+          ? "Must touch your territory"
+          : !state.techIds.includes("industrial-extraction")
+            ? "Requires Industrial Extraction"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty land"
+              : "Need 1800 gold",
+        `1800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • doubles mines within 10 tiles`,
+        developmentSlotSummary()
+      )
+    });
+    out.push(createMountainAction());
+    return out;
   }
   if (tile.ownerId === state.me) {
     const slots = developmentSlotSummary();
@@ -5810,7 +5802,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     const supportedTowns = tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
     const supportedTown = supportedTowns.length === 1 ? supportedTowns[0] : undefined;
-    const townSupportTiles = tile.town ? availableSupportTilesForTownClient(tile) : [];
+    const supportedDocks = tile.ownershipState === "SETTLED" ? supportedOwnedDocksForTile(tile) : [];
+    const supportedDock = supportedDocks.length === 1 ? supportedDocks[0] : undefined;
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
     if (tile.ownershipState === "FRONTIER")
       out.push({
@@ -5863,6 +5856,131 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
                     ? "Need 45 CRYSTAL"
                     : "Unavailable",
           `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`,
+          slots
+        )
+      });
+    }
+    if (tile.ownershipState === "SETTLED" && !tile.economicStructure) {
+      out.push({
+        id: "build_airport",
+        label: "Build Airport",
+        detail: buildDetailTextForAction("build_airport", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("aeronautics") &&
+            state.gold >= 900 &&
+            (state.strategicResources.CRYSTAL ?? 0) >= 60 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("aeronautics")
+            ? "Requires Aeronautics"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : state.gold < 900
+                  ? "Need 900 gold"
+                  : "Need 60 CRYSTAL",
+          `900 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+          slots
+        )
+      });
+      out.push({
+        id: "build_radar_system",
+        label: "Build Radar System",
+        detail: buildDetailTextForAction("build_radar_system", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("radar") &&
+            state.gold >= 1600 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("radar")
+            ? "Requires Radar"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : "Need 1600 gold",
+          `1600 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • blocks bombardment within 30 tiles`,
+          slots
+        )
+      });
+      out.push({
+        id: "build_governors_office",
+        label: "Build Governor's Office",
+        detail: buildDetailTextForAction("build_governors_office", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("civil-service") &&
+            state.gold >= 1300 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("civil-service")
+            ? "Requires Civil Service"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : "Need 1300 gold",
+          `1300 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • reduces local upkeep`,
+          slots
+        )
+      });
+      out.push({
+        id: "build_foundry",
+        label: "Build Foundry",
+        detail: buildDetailTextForAction("build_foundry", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("industrial-extraction") &&
+            state.gold >= 1800 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("industrial-extraction")
+            ? "Requires Industrial Extraction"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : "Need 1800 gold",
+          `1800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • doubles mines within 10 tiles`,
+          slots
+        )
+      });
+      out.push({
+        id: "build_garrison_hall",
+        label: "Build Garrison Hall",
+        detail: buildDetailTextForAction("build_garrison_hall", tile),
+        ...tileActionAvailabilityWithDevelopmentSlot(
+          state.techIds.includes("standing-army") &&
+            state.gold >= 1700 &&
+            !tile.resource &&
+            !tile.town &&
+            !tile.dockId &&
+            !tile.fort &&
+            !tile.siegeOutpost &&
+            !tile.observatory,
+          !state.techIds.includes("standing-army")
+            ? "Requires Standing Army"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty settled land"
+              : tile.fort || tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : "Need 1700 gold",
+          `1700 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +20% defense within 10 tiles • 20 gold / 10m`,
           slots
         )
       });
@@ -5925,46 +6043,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           )
         });
       }
-      if (tile.town) {
-        out.push({
-          id: "build_market",
-          label: "Build Market",
-          detail: buildDetailTextForAction("build_market", tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            townSupportTiles.length > 0 && !(tile.town.hasMarket ?? false) && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
-            townSupportTiles.length === 0
-              ? "No open support tile for this town"
-              : tile.town.hasMarket
-                ? "This town already has Market"
-                : !state.techIds.includes("trade")
-                  ? "Requires Trade"
-                  : state.gold < 600
-                    ? "Need 600 gold"
-                    : "Need 40 CRYSTAL",
-            `600 gold + 40 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
-            slots
-          )
-        });
-        out.push({
-          id: "build_granary",
-          label: "Build Granary",
-          detail: buildDetailTextForAction("build_granary", tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            townSupportTiles.length > 0 && !(tile.town.hasGranary ?? false) && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
-            townSupportTiles.length === 0
-              ? "No open support tile for this town"
-              : tile.town.hasGranary
-                ? "This town already has Granary"
-                : !state.techIds.includes("pottery")
-                  ? "Requires Pottery"
-                  : state.gold < 400
-                    ? "Need 400 gold"
-                    : "Need 40 FOOD",
-            `400 gold + 40 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
-            slots
-          )
-        });
-      } else if (supportedTown) {
+      if (supportedTown) {
         out.push({
           id: "build_market",
           label: "Build Market",
@@ -6003,6 +6082,80 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
             slots
           )
         });
+        out.push({
+          id: "build_bank",
+          label: "Build Bank",
+          detail: buildDetailTextForAction("build_bank", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && !supportedTown.town?.hasBank && state.techIds.includes("coinage") && state.gold >= 700 && (state.strategicResources.CRYSTAL ?? 0) >= 45,
+            hasBlockingStructure
+              ? "Tile already has structure"
+              : supportedTown.town?.hasBank
+                ? "Nearby town already has Bank"
+                : !state.techIds.includes("coinage")
+                  ? "Requires Coinage"
+                  : state.gold < 700
+                    ? "Need 700 gold"
+                    : "Need 45 CRYSTAL",
+            `700 gold + 45 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_caravanary",
+          label: "Build Caravanary",
+          detail: buildDetailTextForAction("build_caravanary", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("ledger-keeping") && state.gold >= 1200,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : "Need 1200 gold",
+            `1200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +25% connected-town bonus • 12 gold / 10m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_quartermaster",
+          label: "Build Quartermaster",
+          detail: buildDetailTextForAction("build_quartermaster", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1000,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1000 gold",
+            `1000 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 SUPPLY/day • 120 gold / 10m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_ironworks",
+          label: "Build Ironworks",
+          detail: buildDetailTextForAction("build_ironworks", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1100,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1100 gold",
+            `1100 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 IRON/day • 120 gold / 10m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_crystal_synthesizer",
+          label: "Build Crystal Synthesizer",
+          detail: buildDetailTextForAction("build_crystal_synthesizer", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1300,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1300 gold",
+            `1300 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 12 CRYSTAL/day • 160 gold / 10m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_fuel_plant",
+          label: "Build Fuel Plant",
+          detail: buildDetailTextForAction("build_fuel_plant", tile, supportedTown),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("plastics") && state.gold >= 1400,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 1400 gold",
+            `1400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 10 OIL/day • 180 gold / 10m`,
+            slots
+          )
+        });
       } else if (supportedTowns.length > 1) {
         out.push({
           id: "build_market",
@@ -6016,6 +6169,27 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           disabled: true,
           disabledReason: "Support tile touches multiple towns"
         });
+        out.push({ id: "build_bank", label: "Build Bank", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_caravanary", label: "Build Caravanary", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_quartermaster", label: "Build Quartermaster", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_ironworks", label: "Build Ironworks", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_crystal_synthesizer", label: "Build Crystal Synthesizer", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_fuel_plant", label: "Build Fuel Plant", disabled: true, disabledReason: "Support tile touches multiple towns" });
+      }
+      if (supportedDock) {
+        out.push({
+          id: "build_customs_house",
+          label: "Build Customs House",
+          detail: buildDetailTextForAction("build_customs_house", tile, supportedDock),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            !hasBlockingStructure && state.techIds.includes("global-trade-networks") && state.gold >= 1400,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("global-trade-networks") ? "Requires Global Trade Networks" : "Need 1400 gold",
+            `1400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +50% dock income • 10 gold / 10m`,
+            slots
+          )
+        });
+      } else if (supportedDocks.length > 1) {
+        out.push({ id: "build_customs_house", label: "Build Customs House", disabled: true, disabledReason: "Tile touches multiple docks" });
       }
     }
     out.push(createMountainAction());
@@ -6033,9 +6207,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         label: "Launch Attack",
         ...(previewDetail ? { detail: previewDetail } : {}),
         ...tileActionAvailability(
-          reachable && state.gold >= FRONTIER_CLAIM_COST && hasEnoughManpower(ATTACK_MANPOWER_MIN),
-          !reachable ? "No bordering origin tile or linked dock" : state.gold < FRONTIER_CLAIM_COST ? `Need ${FRONTIER_CLAIM_COST} gold` : `Need ${formatManpowerAmount(ATTACK_MANPOWER_MIN)} manpower`,
-          `${FRONTIER_CLAIM_COST} gold • min ${formatManpowerAmount(ATTACK_MANPOWER_MIN)} manpower`
+          reachable && state.gold >= FRONTIER_CLAIM_COST,
+          !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
+          `${FRONTIER_CLAIM_COST} gold`
         )
       },
       {
@@ -6043,17 +6217,15 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         label: "Launch Breach Attack",
         ...(breachPreviewDetail ? { detail: breachPreviewDetail } : {}),
         ...tileActionAvailability(
-          (Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId)) && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1 && hasEnoughManpower(BREAKTHROUGH_ATTACK_MANPOWER_MIN),
+          (Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId)) && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
           !(Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId))
             ? "No bordering origin tile or linked dock"
             : !hasBreakthroughCapability()
               ? "Requires Breach Doctrine"
               : state.gold < 2
                 ? "Need 2 gold"
-                : (state.strategicResources.IRON ?? 0) < 1
-                  ? "Need 1 IRON"
-                  : `Need ${formatManpowerAmount(BREAKTHROUGH_ATTACK_MANPOWER_MIN)} manpower`,
-          `2 gold + 1 IRON • min ${formatManpowerAmount(BREAKTHROUGH_ATTACK_MANPOWER_MIN)} manpower`
+                : "Need 1 IRON",
+          "2 gold + 1 IRON"
         )
       },
       createMountainAction()
@@ -6066,9 +6238,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       label: "Launch Attack",
       ...(attackPreviewDetailForTarget(tile) ? { detail: attackPreviewDetailForTarget(tile) } : {}),
       ...tileActionAvailability(
-        reachable && state.gold >= FRONTIER_CLAIM_COST && hasEnoughManpower(ATTACK_MANPOWER_MIN),
-        !reachable ? "No bordering origin tile or linked dock" : state.gold < FRONTIER_CLAIM_COST ? `Need ${FRONTIER_CLAIM_COST} gold` : `Need ${formatManpowerAmount(ATTACK_MANPOWER_MIN)} manpower`,
-        `${FRONTIER_CLAIM_COST} gold • min ${formatManpowerAmount(ATTACK_MANPOWER_MIN)} manpower`
+        reachable && state.gold >= FRONTIER_CLAIM_COST,
+        !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
+        `${FRONTIER_CLAIM_COST} gold`
       )
     },
     {
@@ -6076,9 +6248,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       label: "Launch Breach Attack",
       ...(attackPreviewDetailForTarget(tile, "breakthrough") ? { detail: attackPreviewDetailForTarget(tile, "breakthrough") } : {}),
       ...tileActionAvailability(
-        reachable && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1 && hasEnoughManpower(BREAKTHROUGH_ATTACK_MANPOWER_MIN),
-        !reachable ? "No bordering origin tile or linked dock" : !hasBreakthroughCapability() ? "Requires Breach Doctrine" : state.gold < 2 ? "Need 2 gold" : (state.strategicResources.IRON ?? 0) < 1 ? "Need 1 IRON" : `Need ${formatManpowerAmount(BREAKTHROUGH_ATTACK_MANPOWER_MIN)} manpower`,
-        `2 gold + 1 IRON • min ${formatManpowerAmount(BREAKTHROUGH_ATTACK_MANPOWER_MIN)} manpower`
+        reachable && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
+        !reachable ? "No bordering origin tile or linked dock" : !hasBreakthroughCapability() ? "Requires Breach Doctrine" : state.gold < 2 ? "Need 2 gold" : "Need 1 IRON",
+        "2 gold + 1 IRON"
       )
     }
   ];
@@ -6089,7 +6261,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     id: "deep_strike",
     label: "Deep Strike",
     ...tileActionAvailability(
-      hasDeepStrikeCapability() && !observatoryProtection && Boolean(deepStrikeOrigin) && deepStrikeCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25 && hasEnoughManpower(DEEP_STRIKE_MANPOWER_MIN),
+      hasDeepStrikeCapability() && !observatoryProtection && Boolean(deepStrikeOrigin) && deepStrikeCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25,
       !hasDeepStrikeCapability()
         ? "Requires Deep Operations"
         : observatoryProtection
@@ -6098,10 +6270,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ? "Need valid 2-tile origin"
           : deepStrikeCooldown > 0
             ? `Cooldown ${formatCooldownShort(deepStrikeCooldown)}`
-            : (state.strategicResources.CRYSTAL ?? 0) < 25
-              ? "Need 25 CRYSTAL"
-              : `Need ${formatManpowerAmount(DEEP_STRIKE_MANPOWER_MIN)} manpower`,
-      `25 CRYSTAL • min ${formatManpowerAmount(DEEP_STRIKE_MANPOWER_MIN)} manpower • -10% ATK`
+            : "Need 25 CRYSTAL",
+      "25 CRYSTAL • -10% ATK"
     )
   });
   const navalCooldown = abilityCooldownRemainingMs("naval_infiltration");
@@ -6110,7 +6280,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     id: "naval_infiltration",
     label: "Naval Infiltration",
     ...tileActionAvailability(
-      hasNavalInfiltrationCapability() && !observatoryProtection && Boolean(navalOrigin) && navalCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30 && hasEnoughManpower(NAVAL_INFILTRATION_MANPOWER_MIN),
+      hasNavalInfiltrationCapability() && !observatoryProtection && Boolean(navalOrigin) && navalCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
       !hasNavalInfiltrationCapability()
         ? "Requires Navigation"
         : observatoryProtection
@@ -6119,10 +6289,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           ? "Need water crossing origin"
           : navalCooldown > 0
             ? `Cooldown ${formatCooldownShort(navalCooldown)}`
-            : (state.strategicResources.CRYSTAL ?? 0) < 30
-              ? "Need 30 CRYSTAL"
-              : `Need ${formatManpowerAmount(NAVAL_INFILTRATION_MANPOWER_MIN)} manpower`,
-      `30 CRYSTAL • min ${formatManpowerAmount(NAVAL_INFILTRATION_MANPOWER_MIN)} manpower • -15% ATK`
+            : "Need 30 CRYSTAL",
+      "30 CRYSTAL • -15% ATK"
     )
   });
   if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
@@ -6173,36 +6341,24 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
 const tileMenuTabLabel = (tab: TileMenuTab): string => {
   if (tab === "overview") return "Overview";
   if (tab === "actions") return "Actions";
-  if (tab === "buildings") return "Buildings";
-  if (tab === "crystal") return "Crystal";
   return "Progress";
-};
-
-const renderTileActionListHtml = (actions: TileActionDef[], emptyText: string): string => {
-  if (actions.length === 0) return `<div class="tile-menu-empty">${emptyText}</div>`;
-  return `<div class="tile-action-list">${actions
-    .map(
-      (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
-        <span class="tile-action-icon">${actionIcon(a.id)}</span>
-        <span class="tile-action-copy">
-          <span class="tile-action-label">${a.label}</span>
-          ${a.detail || a.disabledReason ? `<span class="tile-action-detail">${a.disabled ? a.disabledReason ?? a.detail ?? "" : a.detail ?? a.disabledReason ?? ""}</span>` : ""}
-        </span>
-        ${a.cost ? `<span class="tile-action-cost">${a.cost}</span>` : ""}
-      </button>`
-    )
-    .join("")}</div>`;
 };
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
   if (activeTab === "actions") {
-    return renderTileActionListHtml(view.actions, "No actions available on this tile right now.");
-  }
-  if (activeTab === "buildings") {
-    return renderTileActionListHtml(view.buildingActions ?? [], "No town or support structures are available here.");
-  }
-  if (activeTab === "crystal") {
-    return renderTileActionListHtml(view.crystalActions ?? [], "No crystal abilities can be cast on this tile.");
+    if (view.actions.length === 0) return `<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
+    return `<div class="tile-action-list">${view.actions
+      .map(
+        (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
+          <span class="tile-action-icon">${actionIcon(a.id)}</span>
+          <span class="tile-action-copy">
+            <span class="tile-action-label">${a.label}</span>
+            ${a.detail || a.disabledReason ? `<span class="tile-action-detail">${a.disabled ? a.disabledReason ?? a.detail ?? "" : a.detail ?? a.disabledReason ?? ""}</span>` : ""}
+          </span>
+          ${a.cost ? `<span class="tile-action-cost">${a.cost}</span>` : ""}
+        </button>`
+      )
+      .join("")}</div>`;
   }
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
@@ -6453,20 +6609,20 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
   ) sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"));
   if (actionId === "build_camp") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"));
   if (actionId === "build_mine") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MINE"));
-  if (actionId === "build_market") {
-    const optimistic = !selected.town;
-    sendDevelopmentBuild(
-      { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" },
-      optimistic ? () => applyOptimisticStructureBuild(selected.x, selected.y, "MARKET") : undefined
-    );
-  }
-  if (actionId === "build_granary") {
-    const optimistic = !selected.town;
-    sendDevelopmentBuild(
-      { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" },
-      optimistic ? () => applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY") : undefined
-    );
-  }
+  if (actionId === "build_market") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MARKET"));
+  if (actionId === "build_granary") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY"));
+  if (actionId === "build_bank") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "BANK"));
+  if (actionId === "build_airport") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AIRPORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AIRPORT"));
+  if (actionId === "build_caravanary") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CARAVANARY"));
+  if (actionId === "build_quartermaster") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "QUARTERMASTER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "QUARTERMASTER"));
+  if (actionId === "build_ironworks") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IRONWORKS"));
+  if (actionId === "build_crystal_synthesizer") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CRYSTAL_SYNTHESIZER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CRYSTAL_SYNTHESIZER"));
+  if (actionId === "build_fuel_plant") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUEL_PLANT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FUEL_PLANT"));
+  if (actionId === "build_foundry") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FOUNDRY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FOUNDRY"));
+  if (actionId === "build_garrison_hall") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GARRISON_HALL" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GARRISON_HALL"));
+  if (actionId === "build_customs_house") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CUSTOMS_HOUSE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CUSTOMS_HOUSE"));
+  if (actionId === "build_governors_office") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GOVERNORS_OFFICE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GOVERNORS_OFFICE"));
+  if (actionId === "build_radar_system") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "RADAR_SYSTEM" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "RADAR_SYSTEM"));
   if (actionId === "build_siege_camp") sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"));
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
@@ -6610,7 +6766,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
       </button>
       <button class="hold-menu-btn" data-build="granary" ${canBuildGranary ? "" : "disabled"}>
         <span>Granary</span>
-        <small>400 gold + 40 FOOD • +50% town population growth • 1 gold / 10m</small>
+        <small>400 gold + 40 FOOD • +50% town gold cap • 1 gold / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="siege" ${hasDevelopmentSlot && canAffordSiege ? "" : "disabled"}>
         <span>Siege Outpost</span>
@@ -6867,9 +7023,6 @@ ws.addEventListener("message", (ev) => {
     state.strategicProductionPerMinute =
       (p.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
     state.stamina = p.stamina as number;
-    state.manpower = (p.manpower as number) ?? state.manpower;
-    state.manpowerCap = (p.manpowerCap as number) ?? state.manpowerCap;
-    state.manpowerRegenPerMinute = (p.manpowerRegenPerMinute as number) ?? state.manpowerRegenPerMinute;
     state.territoryT = (p.T as number) ?? state.territoryT;
     state.exposureE = (p.E as number) ?? state.exposureE;
     state.settledT = (p.Ts as number) ?? state.settledT;
@@ -6967,10 +7120,9 @@ ws.addEventListener("message", (ev) => {
     let sawVisibleTile = false;
     let sawOwnedTile = false;
     for (const t of tiles) {
-      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(state.tiles.get(key(t.x, t.y)), t));
+      const mergedTile = mergeServerTileWithOptimisticState(t);
       state.tiles.set(key(mergedTile.x, mergedTile.y), mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(key(mergedTile.x, mergedTile.y));
-      if (mergedTile.detailLevel === "full") state.tileDetailRequestedAt.delete(key(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
       if (!mergedTile.fogged) state.discoveredTiles.add(key(mergedTile.x, mergedTile.y));
       if (!mergedTile.fogged) sawVisibleTile = true;
@@ -7035,7 +7187,7 @@ ws.addEventListener("message", (ev) => {
     } else {
       state.goldAnimDir = 0;
     }
-    for (const k of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    for (const k of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
       const prev = prevStrategic[k] ?? 0;
       const next = state.strategicResources[k] ?? 0;
       if (next > prev) {
@@ -7049,11 +7201,6 @@ ws.addEventListener("message", (ev) => {
       }
     }
     state.stamina = msg.stamina as number;
-    if (typeof (msg.manpower as number | undefined) === "number") state.manpower = msg.manpower as number;
-    if (typeof (msg.manpowerCap as number | undefined) === "number") state.manpowerCap = msg.manpowerCap as number;
-    if (typeof (msg.manpowerRegenPerMinute as number | undefined) === "number") {
-      state.manpowerRegenPerMinute = msg.manpowerRegenPerMinute as number;
-    }
     if (typeof (msg.T as number | undefined) === "number") state.territoryT = msg.T as number;
     if (typeof (msg.E as number | undefined) === "number") state.exposureE = msg.E as number;
     if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
@@ -7112,14 +7259,6 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "COMBAT_RESULT") {
-    const target = msg.target as { x: number; y: number } | undefined;
-    const targetBefore = (() => {
-      return target ? state.tiles.get(key(target.x, target.y)) : undefined;
-    })();
-    const originBefore = (() => {
-      const origin = msg.origin as { x: number; y: number } | undefined;
-      return origin ? state.tiles.get(key(origin.x, origin.y)) : undefined;
-    })();
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     const resolvedCaptureTargetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : "";
     for (const c of changes) {
@@ -7142,23 +7281,7 @@ ws.addEventListener("message", (ev) => {
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
     }
-    const resultAlert = combatResolutionAlert(msg as Record<string, unknown>, {
-      targetTileBefore: targetBefore,
-      originTileBefore: originBefore
-    });
-    const resultTargetKey = target ? key(target.x, target.y) : "";
-    const predictedAlreadyShown = Boolean(
-      state.pendingCombatReveal &&
-        state.pendingCombatReveal.targetKey === resultTargetKey &&
-        state.pendingCombatReveal.revealed &&
-        state.pendingCombatReveal.title === resultAlert.title &&
-        state.pendingCombatReveal.detail === resultAlert.detail
-    );
-    if (!predictedAlreadyShown) {
-      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone);
-    }
-    if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
+    pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
     let handedOffToSettle = false;
@@ -7201,26 +7324,8 @@ ws.addEventListener("message", (ev) => {
     const existingCapture =
       state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
     const startAt = existingCapture?.startAt ?? Date.now();
-    state.capture = { startAt, resolvesAt, target };
-    const predictedResult = msg.predictedResult as Record<string, unknown> | undefined;
-    if (predictedResult) {
-      const predictedAlert = combatResolutionAlert(predictedResult, {
-        targetTileBefore: state.tiles.get(key(target.x, target.y)),
-        originTileBefore: (() => {
-          const origin = predictedResult.origin as { x: number; y: number } | undefined;
-          return origin ? state.tiles.get(key(origin.x, origin.y)) : undefined;
-        })()
-      });
-      state.pendingCombatReveal = {
-        targetKey: key(target.x, target.y),
-        title: predictedAlert.title,
-        detail: predictedAlert.detail,
-        tone: predictedAlert.tone,
-        revealed: false
-      };
-    } else if (state.pendingCombatReveal?.targetKey === key(target.x, target.y)) {
-      state.pendingCombatReveal = undefined;
-    }
+    const effectiveResolvesAt = existingCapture?.resolvesAt ?? Math.max(resolvesAt, startAt + 100);
+    state.capture = { startAt, resolvesAt: effectiveResolvesAt, target };
     state.actionInFlight = true;
     if (!state.actionStartedAt) state.actionStartedAt = startAt;
     state.actionTargetKey = key(target.x, target.y);
@@ -7231,17 +7336,22 @@ ws.addEventListener("message", (ev) => {
     const x = Number(msg.x ?? -1);
     const y = Number(msg.y ?? -1);
     const resolvesAt = Number(msg.resolvesAt ?? Date.now() + 3000);
+    const fromX = typeof msg.fromX === "number" ? Number(msg.fromX) : undefined;
+    const fromY = typeof msg.fromY === "number" ? Number(msg.fromY) : undefined;
     if (x >= 0 && y >= 0) {
       state.incomingAttacksByTile.set(key(x, y), { attackerName, resolvesAt });
     }
     state.unreadAttackAlerts += 1;
-    pushFeed(`Under attack: ${attackerName} is striking (${x}, ${y}).`, "combat", "error");
+    pushFeed(
+      `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
+      "combat",
+      "error"
+    );
     renderHud();
   }
   if (msg.type === "COMBAT_CANCELLED") {
     const cancelledCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
-    if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -7262,7 +7372,6 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "TILE_DELTA") {
     const updates = (msg.updates as Array<Tile>) ?? [];
     let resolvedQueuedFrontierCapture = false;
-    let resolvedFailedCombat = false;
     for (const update of updates) {
       const updateKey = key(update.x, update.y);
       state.incomingAttacksByTile.delete(updateKey);
@@ -7325,13 +7434,8 @@ ws.addEventListener("message", (ev) => {
         if (update.history) merged.history = update.history;
         else delete merged.history;
       }
-      if ("detailLevel" in update) {
-        if (update.detailLevel) merged.detailLevel = update.detailLevel;
-        else delete merged.detailLevel;
-      }
       const resolved = mergeServerTileWithOptimisticState(merged);
       state.tiles.set(updateKey, resolved);
-      if (resolved.detailLevel === "full") state.tileDetailRequestedAt.delete(updateKey);
       if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
       markDockDiscovered(resolved);
       if (!resolved.fogged) state.discoveredTiles.add(updateKey);
@@ -7352,18 +7456,6 @@ ws.addEventListener("message", (ev) => {
       ) {
         resolvedQueuedFrontierCapture = true;
       }
-      if (
-        !resolvedFailedCombat &&
-        updateKey === state.actionTargetKey &&
-        state.actionInFlight &&
-        state.capture &&
-        Date.now() >= state.capture.resolvesAt &&
-        resolved.ownerId &&
-        resolved.ownerId !== state.me &&
-        !resolved.optimisticPending
-      ) {
-        resolvedFailedCombat = true;
-      }
     }
     if (resolvedQueuedFrontierCapture) {
       const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
@@ -7377,23 +7469,6 @@ ws.addEventListener("message", (ev) => {
       if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
-      processActionQueue();
-      renderHud();
-    }
-    if (resolvedFailedCombat) {
-      const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
-      state.capture = undefined;
-      state.actionInFlight = false;
-      state.combatStartAck = false;
-      state.actionStartedAt = 0;
-      if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
-      if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey, true);
-      if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
-      if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
-      state.actionTargetKey = "";
-      state.actionCurrent = undefined;
-      pushFeed("Attack resolved as a loss; updated from server tile state.", "combat", "warn");
-      requestViewRefresh(2, true);
       processActionQueue();
       renderHud();
     }
@@ -7541,8 +7616,6 @@ ws.addEventListener("message", (ev) => {
       errorCode === "STRUCTURE_CANCEL_INVALID";
     if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
       notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
-    } else if (errorCode === "DOCK_COOLDOWN") {
-      showCaptureAlert("Dock crossing cooling down", errorMessage, "warn");
     } else if (errorCode === "SETTLE_INVALID") {
       clearOptimisticTileState(errorTileKey, true);
       clearSettlementProgressByKey(errorTileKey);
@@ -7576,7 +7649,6 @@ ws.addEventListener("message", (ev) => {
       errorCode === "EXPAND_TARGET_OWNED";
     const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
-    if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -7602,8 +7674,6 @@ ws.addEventListener("message", (ev) => {
       reason?: string;
       winChance?: number;
       breakthroughWinChance?: number;
-      manpowerMin?: number;
-      breakthroughManpowerMin?: number;
       atkEff?: number;
       defEff?: number;
       defenseEffPct?: number;
@@ -7615,25 +7685,21 @@ ws.addEventListener("message", (ev) => {
     const reason = msg.reason as string | undefined;
     const winChance = msg.winChance as number | undefined;
     const breakthroughWinChance = msg.breakthroughWinChance as number | undefined;
-    const manpowerMin = msg.manpowerMin as number | undefined;
-    const breakthroughManpowerMin = msg.breakthroughManpowerMin as number | undefined;
     const atkEff = msg.atkEff as number | undefined;
     const defEff = msg.defEff as number | undefined;
     const defMult = msg.defMult as number | undefined;
     if (reason) preview.reason = reason;
     if (typeof winChance === "number") preview.winChance = winChance;
     if (typeof breakthroughWinChance === "number") preview.breakthroughWinChance = breakthroughWinChance;
-    if (typeof manpowerMin === "number") preview.manpowerMin = manpowerMin;
-    if (typeof breakthroughManpowerMin === "number") preview.breakthroughManpowerMin = breakthroughManpowerMin;
     if (typeof atkEff === "number") preview.atkEff = atkEff;
     if (typeof defEff === "number") preview.defEff = defEff;
     if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
     state.attackPreview = preview;
     state.attackPreviewPendingKey = "";
-    if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
-      const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
-      if (menuTile && menuTile.ownerId && menuTile.ownerId !== state.me && !isTileOwnedByAlly(menuTile)) {
-        openSingleTileActionMenu(menuTile, state.tileActionMenu.x, state.tileActionMenu.y);
+    if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.selected) {
+      const selectedTile = state.tiles.get(key(state.selected.x, state.selected.y));
+      if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
+        openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y);
       }
     }
     renderHud();
@@ -7916,9 +7982,6 @@ const draw = (): void => {
   }
   const crystalTargetingActive = state.crystalTargeting.active;
   const crystalTone = crystalTargetingActive ? crystalTargetingTone(state.crystalTargeting.ability) : "amber";
-  const weakDefByTile = state.showWeakDefensibility
-    ? new Map(weakDefensibilityTiles().map((entry) => [key(entry.tile.x, entry.tile.y), entry] as const))
-    : new Map<string, WeakDefTile>();
   const queueIndex = new Map<string, number>();
   const startingArrowTargets = new Map(
     startingExpansionArrowTargets().map((target) => [key(target.x, target.y), target] as const)
@@ -8043,28 +8106,14 @@ const draw = (): void => {
       }
 
       if (t && vis === "visible" && t.fort) {
-        const active = t.fort.status === "active";
-        drawStructureGlyph(
-          px,
-          py,
-          size,
-          actionIcon("build_fortification"),
-          structureAccentColor(t.ownerId ?? "", active ? "rgba(255, 216, 153, 0.98)" : "rgba(255, 223, 166, 0.88)"),
-          structureAccentColor(t.ownerId ?? "", active ? "rgba(239,71,111,0.92)" : "rgba(255,209,102,0.88)"),
-          active
-        );
+        ctx.fillStyle = structureAccentColor(t.ownerId ?? "", t.fort.status === "active" ? "rgba(239,71,111,0.8)" : "rgba(255,209,102,0.75)");
+        const dot = Math.max(3, Math.floor(size * 0.25));
+        ctx.fillRect(px + size - dot - 2, py + 2, dot, dot);
       }
       if (t && vis === "visible" && t.siegeOutpost) {
-        const active = t.siegeOutpost.status === "active";
-        drawStructureGlyph(
-          px,
-          py,
-          size,
-          actionIcon("build_siege_camp"),
-          structureAccentColor(t.ownerId ?? "", active ? "rgba(255, 225, 180, 0.98)" : "rgba(255, 214, 160, 0.9)"),
-          structureAccentColor(t.ownerId ?? "", active ? "rgba(255, 123, 0, 0.96)" : "rgba(255, 178, 97, 0.88)"),
-          active
-        );
+        ctx.fillStyle = structureAccentColor(t.ownerId ?? "", t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)");
+        const dot = Math.max(3, Math.floor(size * 0.25));
+        ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
       }
       if (t && vis === "visible" && t.observatory) {
         const overlay = structureOverlayImages.OBSERVATORY;
@@ -8117,10 +8166,6 @@ const draw = (): void => {
           ctx.textBaseline = "top";
           ctx.fillText(timerLabel, px + 4, py + size - 11);
         }
-      }
-      if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId === state.me && t.ownershipState === "SETTLED") {
-        const weakDefEntry = weakDefByTile.get(wk);
-        if (weakDefEntry) drawWeakDefensibilityOverlay(px, py, size, weakDefEntry, nowMs);
       }
       if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
         ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
@@ -8233,7 +8278,10 @@ const draw = (): void => {
         ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
       }
       if (state.capture && state.capture.target.x === wx && state.capture.target.y === wy) {
-        drawFrontierCaptureOverlay(wx, wy, px, py, size, state.capture.startAt, state.capture.resolvesAt);
+        const phase = (Date.now() % 600) / 600;
+        const alpha = 0.25 + 0.55 * Math.sin(phase * Math.PI);
+        ctx.fillStyle = `rgba(255, 209, 102, ${alpha.toFixed(3)})`;
+        ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
       }
       const incomingAttack = state.incomingAttacksByTile.get(wk);
       if (incomingAttack) {
@@ -8470,7 +8518,6 @@ setInterval(() => {
     const current = state.actionCurrent;
     const currentKey = current ? key(current.x, current.y) : "";
     state.capture = undefined;
-    if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -8497,7 +8544,7 @@ setInterval(() => {
   }
   if (!state.capture) return;
   // Stage 2: combat started but result got dropped.
-  if (Date.now() > state.capture.resolvesAt + COMBAT_RESULT_GRACE_MS) {
+  if (Date.now() > state.capture.resolvesAt + 4_000) {
     const timedOutCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const keepOptimisticExpand = shouldPreserveOptimisticExpand(timedOutCurrentKey);
     state.capture = undefined;
@@ -8507,7 +8554,6 @@ setInterval(() => {
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
     if (timedOutCurrentKey) dropQueuedTargetKeyIfAbsent(timedOutCurrentKey);
-    requestViewRefresh(2, true);
     if (timedOutCurrentKey && !keepOptimisticExpand) clearOptimisticTileState(timedOutCurrentKey, true);
     pushFeed(
       keepOptimisticExpand
