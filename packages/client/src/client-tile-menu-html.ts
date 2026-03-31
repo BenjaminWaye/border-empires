@@ -38,15 +38,22 @@ const actionIcon = (id: TileActionDef["id"]): string => {
 const tileMenuTabLabel = (tab: TileMenuTab): string => {
   if (tab === "overview") return "Overview";
   if (tab === "actions") return "Actions";
+  if (tab === "buildings") return "Buildings";
+  if (tab === "crystal") return "Crystal";
   return "Progress";
 };
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
-  if (activeTab === "actions") {
-    if (view.actions.length === 0) return `<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
-    return `<div class="tile-action-list">${view.actions
+  const actionsForTab =
+    activeTab === "actions" ? view.actions : activeTab === "buildings" ? view.buildings : activeTab === "crystal" ? view.crystal : undefined;
+  if (actionsForTab) {
+    if (actionsForTab.length === 0) {
+      const label = activeTab === "buildings" ? "buildings" : activeTab === "crystal" ? "crystal actions" : "actions";
+      return `<div class="tile-menu-empty">No ${label} available on this tile right now.</div>`;
+    }
+    return `<div class="tile-action-list">${actionsForTab
       .map(
-        (action) => `<button class="tile-action-btn" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
+        (action: TileActionDef) => `<button class="tile-action-btn" data-action="${action.id}" ${action.targetKey ? `data-target-key="${action.targetKey}"` : ""} ${action.originKey ? `data-origin-key="${action.originKey}"` : ""} ${action.disabled ? "disabled" : ""}>
           <span class="tile-action-icon">${actionIcon(action.id)}</span>
           <span class="tile-action-copy">
             <span class="tile-action-label">${action.label}</span>
@@ -96,7 +103,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
         <div class="tile-action-subtitle">${view.subtitle}</div>
       </div>
       ${tabsHtml}
-      <div class="tile-menu-body">${tileMenuBodyHtml(view, activeTab)}</div>
+      <div class="tile-menu-body" data-tile-menu-scroll>${tileMenuBodyHtml(view, activeTab)}</div>
       <div class="tile-action-hint">${mobile ? "Tap outside to close" : "Right-click or ESC to close"}</div>
     </div>
   `;
