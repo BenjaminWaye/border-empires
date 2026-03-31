@@ -110,7 +110,12 @@ const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
 const AI_HUMAN_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_HUMAN_PRIORITY_BATCH_SIZE ?? 1));
+const AI_HUMAN_DEFENSE_BATCH_SIZE = Math.max(
+  AI_HUMAN_PRIORITY_BATCH_SIZE,
+  Number(process.env.AI_HUMAN_DEFENSE_BATCH_SIZE ?? Math.max(2, AI_HUMAN_PRIORITY_BATCH_SIZE))
+);
 const AI_AUTH_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_AUTH_PRIORITY_BATCH_SIZE ?? AI_HUMAN_PRIORITY_BATCH_SIZE));
+const AI_DEFENSE_PRIORITY_MS = Math.max(2_000, Number(process.env.AI_DEFENSE_PRIORITY_MS ?? 15_000));
 const AI_WORKER_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_WORKER_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 2));
 const AI_SIM_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_SIM_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 3));
 const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ?? 60));
@@ -1547,6 +1552,7 @@ const cachedChunkSnapshotByPlayer = new Map<
   }
 >();
 const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
+const aiDefensePriorityUntilByPlayer = new Map<string, number>();
 const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const allianceRequests = new Map<string, AllianceRequest>();
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
@@ -5461,6 +5467,7 @@ const tryQueueBasicFrontierAction = (
   const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
   if (defender && actor.allies.has(defender.id)) return { ok: false, code: "ALLY_TARGET", message: "cannot attack allied tile" };
   if (defender && defender.spawnShieldUntil > now()) return { ok: false, code: "SHIELDED", message: "target shielded" };
+  if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
 
   const resolvesAt = now() + (actionType === "EXPAND" && !to.ownerId ? frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
   const pending: PendingCapture = {
@@ -7473,6 +7480,7 @@ const aiSchedulerState: {
   batchSize: number;
   selectedAiPlayers: number;
   totalAiPlayers: number;
+  urgentAiPlayers: number;
   humanPlayersOnline: boolean;
   authPriorityActive: boolean;
   aiQueueBackpressure: boolean;
@@ -7484,6 +7492,7 @@ const aiSchedulerState: {
   batchSize: 0,
   selectedAiPlayers: 0,
   totalAiPlayers: 0,
+  urgentAiPlayers: 0,
   humanPlayersOnline: false,
   authPriorityActive: false,
   aiQueueBackpressure: false,
@@ -7893,10 +7902,36 @@ const onlineHumanPlayerCount = (): number => {
   return count;
 };
 
+const markAiDefensePriority = (playerId: string, durationMs = AI_DEFENSE_PRIORITY_MS): void => {
+  const player = players.get(playerId);
+  if (!player?.isAi) return;
+  aiDefensePriorityUntilByPlayer.set(playerId, now() + durationMs);
+};
+
+const aiHasDefensePriority = (playerId: string, nowMs = now()): boolean => {
+  const expiresAt = aiDefensePriorityUntilByPlayer.get(playerId);
+  if (!expiresAt) return false;
+  if (expiresAt <= nowMs) {
+    aiDefensePriorityUntilByPlayer.delete(playerId);
+    return false;
+  }
+  return true;
+};
+
+const aiDefensePriorityCount = (aiPlayers: readonly Player[], nowMs = now()): number => {
+  let count = 0;
+  for (const actor of aiPlayers) {
+    if (aiHasDefensePriority(actor.id, nowMs)) count += 1;
+  }
+  return count;
+};
+
 const chooseAiBatchSize = (totalAiPlayers: number): number => {
   if (totalAiPlayers <= 0) return 0;
   const vitals = latestRuntimeVitalsSample();
   const humanPlayersOnline = onlineHumanPlayerCount() > 0;
+  const nowMs = now();
+  const urgentAiCount = aiDefensePriorityCount([...players.values()].filter((actor) => actor.isAi), nowMs);
   const authPriorityActive = pendingAuthVerifications > 0 || authPriorityUntil > now();
   const aiQueueBackpressure = aiWorkerState.queue.length >= AI_WORKER_QUEUE_SOFT_LIMIT;
   const simulationQueueBackpressure = simulationCommandQueueDepth() >= AI_SIM_QUEUE_SOFT_LIMIT;
@@ -7911,6 +7946,10 @@ const chooseAiBatchSize = (totalAiPlayers: number): number => {
   if (humanPlayersOnline) {
     batchSize = Math.min(batchSize, AI_HUMAN_PRIORITY_BATCH_SIZE);
     reason = "human_priority";
+    if (urgentAiCount > 0) {
+      batchSize = Math.min(totalAiPlayers, Math.max(batchSize, Math.min(AI_HUMAN_DEFENSE_BATCH_SIZE, urgentAiCount)));
+      reason = "human_priority+defense_priority";
+    }
   }
   if (authPriorityActive) {
     batchSize = Math.min(batchSize, AI_AUTH_PRIORITY_BATCH_SIZE);
@@ -7930,6 +7969,7 @@ const chooseAiBatchSize = (totalAiPlayers: number): number => {
   aiSchedulerState.batchSize = Math.max(1, batchSize);
   aiSchedulerState.selectedAiPlayers = Math.max(1, batchSize);
   aiSchedulerState.totalAiPlayers = totalAiPlayers;
+  aiSchedulerState.urgentAiPlayers = urgentAiCount;
   aiSchedulerState.humanPlayersOnline = humanPlayersOnline;
   aiSchedulerState.authPriorityActive = authPriorityActive;
   aiSchedulerState.aiQueueBackpressure = aiQueueBackpressure;
@@ -7944,16 +7984,24 @@ const runAiTick = (): void => {
   const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
   if (aiPlayers.length === 0) return;
   const batchSize = Math.min(aiPlayers.length, chooseAiBatchSize(aiPlayers.length));
+  const nowMs = now();
+  const urgentAiPlayers = aiPlayers.filter((actor) => aiHasDefensePriority(actor.id, nowMs));
+  const orderedAiPlayers = urgentAiPlayers.length
+    ? [
+        ...urgentAiPlayers,
+        ...aiPlayers.filter((actor) => !urgentAiPlayers.some((urgent) => urgent.id === actor.id))
+      ]
+    : aiPlayers;
   const selectedAiPlayers =
-    batchSize >= aiPlayers.length
-      ? aiPlayers
-      : Array.from({ length: batchSize }, (_, index) => aiPlayers[(aiRoundRobinOffset + index) % aiPlayers.length]).filter(
+    batchSize >= orderedAiPlayers.length
+      ? orderedAiPlayers
+      : Array.from({ length: batchSize }, (_, index) => orderedAiPlayers[(aiRoundRobinOffset + index) % orderedAiPlayers.length]).filter(
           (actor): actor is Player => Boolean(actor)
         );
   if (selectedAiPlayers.length === 0) return;
   aiSchedulerState.at = now();
   aiSchedulerState.selectedAiPlayers = selectedAiPlayers.length;
-  aiRoundRobinOffset = (aiRoundRobinOffset + batchSize) % aiPlayers.length;
+  aiRoundRobinOffset = (aiRoundRobinOffset + batchSize) % orderedAiPlayers.length;
   aiTickInFlight = true;
   const startedAt = now();
   const competitionMetrics = collectPlayerCompetitionMetrics();
@@ -11562,6 +11610,7 @@ const runtimeDashboardPayload = (): {
     batchSize: number;
     selectedAiPlayers: number;
     totalAiPlayers: number;
+    urgentAiPlayers: number;
     humanPlayersOnline: boolean;
     authPriorityActive: boolean;
     aiQueueBackpressure: boolean;
@@ -13100,6 +13149,7 @@ app.post("/admin/world/regenerate", async () => {
       }
       startAbilityCooldown(actor.id, "naval_infiltration");
     }
+    if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
     const resolvesAt = now() + (msg.type === "EXPAND" && !to.ownerId ? frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
     const pending: PendingCapture = {
       resolvesAt,
@@ -13319,6 +13369,7 @@ app.post("/admin/world/regenerate", async () => {
 
       recalcPlayerDerived(actor);
       if (defender) recalcPlayerDerived(defender);
+      if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
       updateMissionState(actor);
       if (defender) updateMissionState(defender);
       logExpandTrace("result_applied", pending, { neutralTarget: false, attackerWon: win, changes: resultChanges.length });
