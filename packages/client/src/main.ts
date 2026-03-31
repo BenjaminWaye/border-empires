@@ -1791,6 +1791,43 @@ const combatResolutionSummary = (msg: Record<string, unknown>): string => {
   if (pointsDelta > 0) bits.push(`+${pointsDelta.toFixed(1)} pts`);
   return bits.join(" · ");
 };
+const playerNameOrFallback = (ownerId: string | undefined): string => {
+  if (!ownerId) return "neutral territory";
+  if (ownerId === "barbarian") return "Barbarians";
+  return playerNameForOwner(ownerId) ?? ownerId.slice(0, 8);
+};
+
+const conqueredTileLabel = (tile: Tile | undefined, target: { x: number; y: number } | undefined): string => {
+  if (tile?.town) return "Town";
+  if (tile?.resource) return prettyToken(resourceLabel(tile.resource));
+  if (target) return prettyToken(terrainLabel(target.x, target.y, tile?.terrain ?? terrainAt(target.x, target.y)));
+  return "Territory";
+};
+
+const combatResolutionAlert = (
+  msg: Record<string, unknown>,
+  context?: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined }
+): { title: string; detail: string; tone: "success" | "warn" } => {
+  const origin = msg.origin as { x: number; y: number } | undefined;
+  const target = msg.target as { x: number; y: number } | undefined;
+  const attackerWon = Boolean(msg.attackerWon);
+  const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
+  const targetOwnerName = playerNameOrFallback(context?.targetTileBefore?.ownerId);
+  const targetLabel = conqueredTileLabel(context?.targetTileBefore, target);
+  if (attackerWon) {
+    return {
+      title: "Victory",
+      detail: `${targetLabel} was conquered from ${targetOwnerName}.`,
+      tone: "success"
+    };
+  }
+  const originLost = Boolean(origin && changes.some((change) => change.x === origin.x && change.y === origin.y));
+  return {
+    title: "Attack Beaten Back",
+    detail: originLost && origin ? `Attack on ${targetOwnerName} was beaten back and we lost (${origin.x}, ${origin.y}).` : `Attack on ${targetOwnerName} was beaten back.`,
+    tone: "warn"
+  };
+};
 const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
   if (terrain !== "LAND") return terrain;
   const biome = landBiomeAt(x, y);
@@ -2037,8 +2074,8 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
   state.feed = state.feed.slice(0, 18);
 };
 
-const showCaptureAlert = (title: string, detail: string, tone: "error" | "warn" = "error"): void => {
-  state.captureAlert = { title, detail, until: Date.now() + 2200, tone };
+const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error"): void => {
+  state.captureAlert = { title, detail, until: Date.now() + 12_000, tone };
 };
 
 const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void => {
@@ -2757,44 +2794,11 @@ const startingExpansionArrowTargets = (): Array<{ x: number; y: number; dx: numb
 };
 
 const renderCaptureProgress = (): void => {
-  if (state.capture) {
-    captureCardEl.dataset.state = "progress";
-    const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
-    const elapsed = Date.now() - state.capture.startAt;
-    const pct = Math.max(0, Math.min(1, elapsed / total));
-    const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
-    captureCardEl.style.display = "grid";
-    captureWrapEl.style.display = "block";
-    captureCancelBtn.style.display = "inline-flex";
-    captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
-    captureTitleEl.textContent = isForestTile(state.capture.target.x, state.capture.target.y) ? "Capturing Forest..." : "Capturing Territory...";
-    captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
-    captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
-  } else {
-    const settlement = primarySettlementProgress();
-    const settlementCount = state.settleProgressByTile.size;
-    if (settlement) {
-    captureCardEl.dataset.state = "progress";
-    const total = Math.max(1, settlement.resolvesAt - settlement.startAt);
-    const elapsed = Date.now() - settlement.startAt;
-    const pct = Math.max(0, Math.min(1, elapsed / total));
-    const remaining = Math.max(0, Math.ceil((settlement.resolvesAt - Date.now()) / 100) / 10);
-    captureCardEl.style.display = "grid";
-    captureWrapEl.style.display = "block";
-    captureCancelBtn.style.display = "none";
-    captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
-    captureTitleEl.textContent = settlementCount > 1 ? `Settling Land... (${settlementCount})` : "Settling Land...";
-    captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
-    captureTargetEl.textContent =
-      settlementCount > 1
-        ? `Target: (${settlement.target.x}, ${settlement.target.y}) • ${settlementCount} active`
-        : `Target: (${settlement.target.x}, ${settlement.target.y})`;
-    } else if (state.captureAlert && state.captureAlert.until > Date.now()) {
-      if (state.captureAlert.title === "Collect Visible Cooldown") {
-        const remaining = state.collectVisibleCooldownUntil - Date.now();
-        if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
-        else state.captureAlert = undefined;
-      }
+  if (state.captureAlert && state.captureAlert.until > Date.now()) {
+    if (state.captureAlert.title === "Collect Visible Cooldown") {
+      const remaining = state.collectVisibleCooldownUntil - Date.now();
+      if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
+      else state.captureAlert = undefined;
     }
   }
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
@@ -2806,9 +2810,39 @@ const renderCaptureProgress = (): void => {
     captureTitleEl.textContent = state.captureAlert.title;
     captureTimeEl.textContent = "";
     captureTargetEl.textContent = state.captureAlert.detail;
+    return;
+  }
+  delete captureCardEl.dataset.state;
+  state.captureAlert = undefined;
+
+  if (state.capture) {
+    const captureTargetKey = key(state.capture.target.x, state.capture.target.y);
+    captureCardEl.dataset.state = "progress";
+    const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
+    const elapsed = Date.now() - state.capture.startAt;
+    const pct = Math.max(0, Math.min(1, elapsed / total));
+    const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
+    const awaitingResult = Date.now() > state.capture.resolvesAt;
+    if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
+      showCaptureAlert(state.pendingCombatReveal.title, state.pendingCombatReveal.detail, state.pendingCombatReveal.tone);
+      pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
+      state.pendingCombatReveal.revealed = true;
+      return;
+    }
+    captureCardEl.style.display = "grid";
+    captureWrapEl.style.display = "block";
+    captureCancelBtn.style.display = "inline-flex";
+    captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
+    captureTitleEl.textContent = awaitingResult
+      ? "Resolving battle..."
+      : isForestTile(state.capture.target.x, state.capture.target.y)
+        ? "Capturing Forest..."
+        : "Capturing Territory...";
+    captureTimeEl.textContent = awaitingResult ? "" : `${remaining.toFixed(1)}s`;
+    captureTargetEl.textContent = awaitingResult
+      ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
+      : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
   } else {
-    delete captureCardEl.dataset.state;
-    state.captureAlert = undefined;
     captureCardEl.style.display = "none";
     captureWrapEl.style.display = "none";
     captureCancelBtn.style.display = "none";
@@ -4687,6 +4721,7 @@ const processActionQueue = (): boolean => {
     state.combatStartAck = false;
     state.actionStartedAt = Date.now();
     state.actionTargetKey = targetKey;
+    state.captureAlert = undefined;
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
     state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
     if (!to.ownerId) {
@@ -7259,6 +7294,12 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "COMBAT_RESULT") {
+    const target = msg.target as { x: number; y: number } | undefined;
+    const targetBefore = (() => (target ? state.tiles.get(key(target.x, target.y)) : undefined))();
+    const originBefore = (() => {
+      const origin = msg.origin as { x: number; y: number } | undefined;
+      return origin ? state.tiles.get(key(origin.x, origin.y)) : undefined;
+    })();
     const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
     const resolvedCaptureTargetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : "";
     for (const c of changes) {
@@ -7281,7 +7322,23 @@ ws.addEventListener("message", (ev) => {
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
     }
-    pushFeed(combatResolutionSummary(msg as Record<string, unknown>), "combat", Boolean(msg.attackerWon) ? "success" : "warn");
+    const resultAlert = combatResolutionAlert(msg as Record<string, unknown>, {
+      targetTileBefore: targetBefore,
+      originTileBefore: originBefore
+    });
+    const resultTargetKey = target ? key(target.x, target.y) : "";
+    const predictedAlreadyShown = Boolean(
+      state.pendingCombatReveal &&
+        state.pendingCombatReveal.targetKey === resultTargetKey &&
+        state.pendingCombatReveal.revealed &&
+        state.pendingCombatReveal.title === resultAlert.title &&
+        state.pendingCombatReveal.detail === resultAlert.detail
+    );
+    if (!predictedAlreadyShown) {
+      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
+      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone);
+    }
+    if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
     let handedOffToSettle = false;
@@ -7324,8 +7381,26 @@ ws.addEventListener("message", (ev) => {
     const existingCapture =
       state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
     const startAt = existingCapture?.startAt ?? Date.now();
-    const effectiveResolvesAt = existingCapture?.resolvesAt ?? Math.max(resolvesAt, startAt + 100);
-    state.capture = { startAt, resolvesAt: effectiveResolvesAt, target };
+    state.capture = { startAt, resolvesAt, target };
+    const predictedResult = msg.predictedResult as Record<string, unknown> | undefined;
+    if (predictedResult) {
+      const predictedAlert = combatResolutionAlert(predictedResult, {
+        targetTileBefore: state.tiles.get(key(target.x, target.y)),
+        originTileBefore: (() => {
+          const origin = predictedResult.origin as { x: number; y: number } | undefined;
+          return origin ? state.tiles.get(key(origin.x, origin.y)) : undefined;
+        })()
+      });
+      state.pendingCombatReveal = {
+        targetKey: key(target.x, target.y),
+        title: predictedAlert.title,
+        detail: predictedAlert.detail,
+        tone: predictedAlert.tone,
+        revealed: false
+      };
+    } else if (state.pendingCombatReveal?.targetKey === key(target.x, target.y)) {
+      state.pendingCombatReveal = undefined;
+    }
     state.actionInFlight = true;
     if (!state.actionStartedAt) state.actionStartedAt = startAt;
     state.actionTargetKey = key(target.x, target.y);
@@ -7352,6 +7427,7 @@ ws.addEventListener("message", (ev) => {
   if (msg.type === "COMBAT_CANCELLED") {
     const cancelledCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -7460,6 +7536,7 @@ ws.addEventListener("message", (ev) => {
     if (resolvedQueuedFrontierCapture) {
       const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
       state.capture = undefined;
+      if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
@@ -7649,6 +7726,7 @@ ws.addEventListener("message", (ev) => {
       errorCode === "EXPAND_TARGET_OWNED";
     const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -8518,6 +8596,7 @@ setInterval(() => {
     const current = state.actionCurrent;
     const currentKey = current ? key(current.x, current.y) : "";
     state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
@@ -8544,10 +8623,11 @@ setInterval(() => {
   }
   if (!state.capture) return;
   // Stage 2: combat started but result got dropped.
-  if (Date.now() > state.capture.resolvesAt + 4_000) {
+  if (Date.now() > state.capture.resolvesAt + 5_000) {
     const timedOutCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
     const keepOptimisticExpand = shouldPreserveOptimisticExpand(timedOutCurrentKey);
     state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === timedOutCurrentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
