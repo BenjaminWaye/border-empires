@@ -102,7 +102,7 @@ import { loadDomainTree } from "./domain-tree.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
-import { serializeChunkFull, type ChunkPayloadChunk } from "./chunk/serializer-shared.js";
+import { serializeChunkBatchBodies, serializeChunkBody, type ChunkPayloadChunk } from "./chunk/serializer-shared.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
@@ -7780,7 +7780,7 @@ const chunkSerializerWorkerState: {
 const serializeChunkFallback = (chunk: ChunkPayloadChunk, reason: string): string => {
   chunkSerializerWorkerState.lastUsedWorker = false;
   chunkSerializerWorkerState.lastFallbackReason = reason;
-  return serializeChunkFull(chunk);
+  return serializeChunkBody(chunk);
 };
 
 const clearChunkSerializerInflight = (error: Error): void => {
@@ -8487,7 +8487,6 @@ const chunkSnapshotPayload = (
   snapshot: VisibilitySnapshot,
   worldCx: number,
   worldCy: number,
-  fallbackLastChangedAt: number
 ): { chunk: ChunkPayloadChunk; payload?: string; tileCount: number; chunkKey: string } => {
   const payloadByChunkKey = chunkSnapshotCacheForPlayer(actor.id, snapshot);
   const chunkKey = `${worldCx},${worldCy}`;
@@ -8514,12 +8513,6 @@ const chunkSnapshotPayload = (
         const tile = playerTile(wx, wy);
         tile.fogged = false;
         chunkTiles[tileIndexInChunk] = tile;
-      } else if (fallbackLastChangedAt !== 0) {
-        const baseFogTile = chunkTiles[tileIndexInChunk]!;
-        chunkTiles[tileIndexInChunk] = {
-          ...baseFogTile,
-          lastChangedAt: fallbackLastChangedAt
-        };
       }
       tileIndexInChunk += 1;
     }
@@ -8539,7 +8532,6 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
   const generation = (chunkSnapshotGenerationByPlayer.get(actor.id) ?? 0) + 1;
   chunkSnapshotGenerationByPlayer.set(actor.id, generation);
   chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
-  const fallbackLastChangedAt = now();
   let chunkCount = 0;
   let tileCount = 0;
   const chunkCoords: Array<{ cx: number; cy: number }> = [];
@@ -8567,21 +8559,23 @@ const sendChunkSnapshot = (socket: Ws, actor: Player, sub: { cx: number; cy: num
   const streamNext = async (): Promise<void> => {
     if (chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) return;
     if (socket.readyState !== socket.OPEN) return;
-    const chunkBatchPayloads: string[] = [];
+    const chunkBatchBodies: string[] = [];
     const end = Math.min(index + CHUNK_STREAM_BATCH_SIZE, chunkCoords.length);
     for (; index < end; index += 1) {
       const coords = chunkCoords[index]!;
-      const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy, fallbackLastChangedAt);
+      const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy);
       let payload = chunk.payload;
       if (!payload) {
         payload = await serializeChunkViaWorker(chunk.chunk);
         chunkSnapshotCacheForPlayer(actor.id, snapshot).set(chunk.chunkKey, payload);
       }
-      chunkBatchPayloads.push(payload);
+      chunkBatchBodies.push(payload);
       chunkCount += 1;
       tileCount += chunk.tileCount;
     }
-    for (const payload of chunkBatchPayloads) socket.send(payload);
+    if (chunkBatchBodies.length > 0) {
+      socket.send(serializeChunkBatchBodies(chunkBatchBodies));
+    }
     if (index < chunkCoords.length) {
       queueMicrotaskFn(() => {
         void streamNext();
