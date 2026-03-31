@@ -2943,33 +2943,13 @@ const renderCaptureProgress = (): void => {
     captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
     captureTargetEl.textContent = `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
   } else {
-    const settlement = primarySettlementProgress();
-    const settlementCount = state.settleProgressByTile.size;
-    if (settlement) {
-      captureCardEl.dataset.state = "progress";
-      const total = Math.max(1, settlement.resolvesAt - settlement.startAt);
-      const elapsed = Date.now() - settlement.startAt;
-      const pct = Math.max(0, Math.min(1, elapsed / total));
-      const remaining = Math.max(0, Math.ceil((settlement.resolvesAt - Date.now()) / 100) / 10);
-      captureCardEl.style.display = "grid";
-      captureWrapEl.style.display = "block";
-      captureCancelBtn.style.display = "none";
-      captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
-      captureTitleEl.textContent = settlementCount > 1 ? `Settling Land... (${settlementCount})` : "Settling Land...";
-      captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
-      captureTargetEl.textContent =
-        settlementCount > 1
-          ? `Target: (${settlement.target.x}, ${settlement.target.y}) • ${settlementCount} active`
-          : `Target: (${settlement.target.x}, ${settlement.target.y})`;
-    } else {
-      captureCardEl.style.display = "none";
-      captureWrapEl.style.display = "none";
-      captureCancelBtn.style.display = "none";
-      captureBarEl.style.width = "0%";
-      captureTitleEl.textContent = "";
-      captureTimeEl.textContent = "";
-      captureTargetEl.textContent = "";
-    }
+    captureCardEl.style.display = "none";
+    captureWrapEl.style.display = "none";
+    captureCancelBtn.style.display = "none";
+    captureBarEl.style.width = "0%";
+    captureTitleEl.textContent = "";
+    captureTimeEl.textContent = "";
+    captureTargetEl.textContent = "";
   }
 };
 
