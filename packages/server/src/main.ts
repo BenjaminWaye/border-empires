@@ -3678,6 +3678,7 @@ const clearWorldProgressForSeason = (): void => {
   collectVisibleCooldownByPlayer.clear();
   cachedVisibilitySnapshotByPlayer.clear();
   cachedAiTerritoryStructureByPlayer.clear();
+  cachedAiPlanningStaticByPlayer.clear();
   aiTerritoryVersionByPlayer.clear();
   cachedAiCompetitionContext = undefined;
   cachedChunkSnapshotByPlayer.clear();
@@ -6013,6 +6014,26 @@ type AiTerritoryStructureCache = {
   controlledTowns: number;
 };
 
+type AiPlanningStaticCache = {
+  version: number;
+  openingScoutAvailable: boolean;
+  neutralExpandAvailable: boolean;
+  scoutExpandAvailable: boolean;
+  scaffoldExpandAvailable: boolean;
+  barbarianAttackAvailable: boolean;
+  enemyAttackAvailable: boolean;
+  pressureAttackScore: number;
+  settlementAvailable: boolean;
+  fortAvailable: boolean;
+  fortProtectsCore: boolean;
+  fortIsDockChokePoint: boolean;
+  economicBuildAvailable: boolean;
+  frontierOpportunityEconomic: number;
+  frontierOpportunityScout: number;
+  frontierOpportunityScaffold: number;
+  frontierOpportunityWaste: number;
+};
+
 const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
   const settledTiles: Tile[] = [];
   const frontierTiles: Tile[] = [];
@@ -6930,17 +6951,13 @@ const estimateAiPressureAttackScore = (
   return bestScore;
 };
 
-const buildAiPlanningSnapshot = (
+const buildAiPlanningStaticCache = (
   actor: Player,
-  primaryVictoryPath: AiSeasonVictoryPathId | undefined,
-  analysis: AiTurnAnalysis,
-  townsTarget: number,
-  settledTilesTarget: number
-): AiPlanningSnapshot => {
-  const territorySummary = analysis.territorySummary;
+  territorySummary: AiTerritorySummary
+): AiPlanningStaticCache => {
   const visibility = territorySummary.visibility;
   const visibleToActor = (x: number, y: number): boolean => visibleInSnapshot(visibility, x, y);
-  const settledTiles = analysis.settledTiles;
+  const settledTiles = territorySummary.settledTileCount;
   const structureCandidateCount = territorySummary.structureCandidateTiles.length;
   let openingScoutAvailable = false;
   let neutralExpandAvailable = false;
@@ -7020,12 +7037,52 @@ const buildAiPlanningSnapshot = (
     });
 
   return {
+    version: aiTerritoryVersionForPlayer(actor.id),
+    openingScoutAvailable,
+    neutralExpandAvailable,
+    scoutExpandAvailable,
+    scaffoldExpandAvailable,
+    barbarianAttackAvailable,
+    enemyAttackAvailable,
+    pressureAttackScore,
+    settlementAvailable,
+    fortAvailable: Boolean(fortCandidate),
+    fortProtectsCore: fortTileProtectsCore(actor, fortCandidate),
+    fortIsDockChokePoint: fortTileIsDockChokePoint(fortCandidate),
+    economicBuildAvailable,
+    frontierOpportunityEconomic,
+    frontierOpportunityScout,
+    frontierOpportunityScaffold,
+    frontierOpportunityWaste
+  };
+};
+
+const cachedAiPlanningStaticForPlayer = (actor: Player, territorySummary: AiTerritorySummary): AiPlanningStaticCache => {
+  const version = aiTerritoryVersionForPlayer(actor.id);
+  const cached = cachedAiPlanningStaticByPlayer.get(actor.id);
+  if (cached && cached.version === version) return cached;
+  const rebuilt = buildAiPlanningStaticCache(actor, territorySummary);
+  cachedAiPlanningStaticByPlayer.set(actor.id, rebuilt);
+  return rebuilt;
+};
+
+const buildAiPlanningSnapshot = (
+  actor: Player,
+  primaryVictoryPath: AiSeasonVictoryPathId | undefined,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): AiPlanningSnapshot => {
+  const territorySummary = analysis.territorySummary;
+  const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);
+
+  return {
     primaryVictoryPath,
     aiIncome: analysis.aiIncome,
     runnerUpIncome: analysis.runnerUpIncome,
     controlledTowns: analysis.controlledTowns,
     townsTarget,
-    settledTiles,
+    settledTiles: analysis.settledTiles,
     settledTilesTarget,
     frontierTiles: analysis.frontierTiles,
     underThreat: analysis.underThreat,
@@ -7038,27 +7095,27 @@ const buildAiPlanningSnapshot = (
     hasActiveDock: analysis.worldFlags.has("active_dock"),
     points: actor.points,
     stamina: actor.stamina,
-    openingScoutAvailable,
-    neutralExpandAvailable,
-    scoutExpandAvailable,
-    scaffoldExpandAvailable,
-    barbarianAttackAvailable,
-    enemyAttackAvailable,
-    pressureAttackAvailable: pressureAttackScore >= 80,
-    pressureAttackScore,
-    settlementAvailable,
-    fortAvailable: Boolean(fortCandidate),
-    fortProtectsCore: fortTileProtectsCore(actor, fortCandidate),
-    fortIsDockChokePoint: fortTileIsDockChokePoint(fortCandidate),
-    economicBuildAvailable,
-    frontierOpportunityEconomic,
-    frontierOpportunityScout,
-    frontierOpportunityScaffold,
-    frontierOpportunityWaste,
+    openingScoutAvailable: planningStatic.openingScoutAvailable,
+    neutralExpandAvailable: planningStatic.neutralExpandAvailable,
+    scoutExpandAvailable: planningStatic.scoutExpandAvailable,
+    scaffoldExpandAvailable: planningStatic.scaffoldExpandAvailable,
+    barbarianAttackAvailable: planningStatic.barbarianAttackAvailable,
+    enemyAttackAvailable: planningStatic.enemyAttackAvailable,
+    pressureAttackAvailable: planningStatic.pressureAttackScore >= 80,
+    pressureAttackScore: planningStatic.pressureAttackScore,
+    settlementAvailable: planningStatic.settlementAvailable,
+    fortAvailable: planningStatic.fortAvailable,
+    fortProtectsCore: planningStatic.fortProtectsCore,
+    fortIsDockChokePoint: planningStatic.fortIsDockChokePoint,
+    economicBuildAvailable: planningStatic.economicBuildAvailable,
+    frontierOpportunityEconomic: planningStatic.frontierOpportunityEconomic,
+    frontierOpportunityScout: planningStatic.frontierOpportunityScout,
+    frontierOpportunityScaffold: planningStatic.frontierOpportunityScaffold,
+    frontierOpportunityWaste: planningStatic.frontierOpportunityWaste,
     canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
     canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
-    canBuildFort: Boolean(fortCandidate) && actor.points >= FORT_BUILD_COST,
-    canBuildEconomy: economicBuildAvailable,
+    canBuildFort: planningStatic.fortAvailable && actor.points >= FORT_BUILD_COST,
+    canBuildEconomy: planningStatic.economicBuildAvailable,
     goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
   };
 };
@@ -7306,12 +7363,14 @@ const simulationCommandQueueDepth = (): number =>
 
 const aiTerritoryVersionByPlayer = new Map<string, number>();
 const cachedAiTerritoryStructureByPlayer = new Map<string, AiTerritoryStructureCache>();
+const cachedAiPlanningStaticByPlayer = new Map<string, AiPlanningStaticCache>();
 
 const aiTerritoryVersionForPlayer = (playerId: string): number => aiTerritoryVersionByPlayer.get(playerId) ?? 0;
 const markAiTerritoryDirtyForPlayers = (playerIds: Iterable<string>): void => {
   for (const playerId of playerIds) {
     aiTerritoryVersionByPlayer.set(playerId, aiTerritoryVersionForPlayer(playerId) + 1);
     cachedAiTerritoryStructureByPlayer.delete(playerId);
+    cachedAiPlanningStaticByPlayer.delete(playerId);
   }
 };
 
