@@ -50,6 +50,7 @@ import {
   MAX_ZOOM,
   MIN_ZOOM,
   OBSERVATORY_BUILD_COST,
+  OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS,
   canAffordCost,
@@ -491,7 +492,12 @@ type StructureInfoKey = "FORT" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" |
 
 const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: string } => {
   if (type === "FORT") return { title: "Fort", detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails." };
-  if (type === "OBSERVATORY") return { title: "Observatory", detail: "Observatories add local vision and project a protection field that blocks hostile crystal actions in the area." };
+  if (type === "OBSERVATORY") {
+    return {
+      title: "Observatory",
+      detail: "Observatories add local vision, project a protection field that blocks hostile crystal actions nearby, and let you cast your own crystal abilities within observatory range."
+    };
+  }
   if (type === "FARMSTEAD") return { title: "Farmstead", detail: "Farmsteads increase food yield on farm and fish tiles by 50%." };
   if (type === "CAMP") return { title: "Camp", detail: "Camps increase supply yield on wood and fur tiles by 50%." };
   if (type === "MINE") return { title: "Mine", detail: "Mines increase iron or crystal yield on mineral tiles by 50%." };
@@ -2729,6 +2735,26 @@ const supportedOwnedTownsForTile = (tile: Tile): Tile[] => {
   return out.sort((a, b) => a.x - b.x || a.y - b.y);
 };
 
+const availableSupportTilesForTownClient = (townTile: Tile): Tile[] => {
+  if (!townTile.town || townTile.ownerId !== state.me || townTile.ownershipState !== "SETTLED") return [];
+  const out: Tile[] = [];
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const candidate = state.tiles.get(key(wrapX(townTile.x + dx), wrapY(townTile.y + dy)));
+      if (!candidate) continue;
+      if (candidate.terrain !== "LAND") continue;
+      if (candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
+      if (candidate.resource || candidate.town || candidate.dockId) continue;
+      if (candidate.fort || candidate.siegeOutpost || candidate.observatory || candidate.economicStructure) continue;
+      const supportedTowns = supportedOwnedTownsForTile(candidate);
+      if (supportedTowns.length !== 1 || supportedTowns[0]?.x !== townTile.x || supportedTowns[0]?.y !== townTile.y) continue;
+      out.push(candidate);
+    }
+  }
+  return out;
+};
+
 const growthDeltaPctLabel = (population: number, deltaPerMinute: number): string => {
   if (population <= 0) return "0.00%/m";
   const pct = (deltaPerMinute / population) * 100;
@@ -4606,10 +4632,10 @@ const ensureDevelopmentSlotBeforeAction = (): boolean => {
   return false;
 };
 
-const sendDevelopmentBuild = (payload: unknown, optimistic: () => void): boolean => {
+const sendDevelopmentBuild = (payload: unknown, optimistic?: () => void): boolean => {
   if (!ensureDevelopmentSlotBeforeAction()) return false;
   if (!sendGameMessage(payload)) return false;
-  optimistic();
+  optimistic?.();
   renderHud();
   return true;
 };
@@ -4907,7 +4933,7 @@ type TileActionDef = {
   originKey?: string;
 };
 
-type TileMenuTab = "overview" | "actions" | "progress";
+type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress";
 
 type TileMenuProgressView = {
   title: string;
@@ -4936,6 +4962,8 @@ type TileMenuView = {
   overviewKicker?: string;
   overviewLines: TileOverviewLine[];
   actions: TileActionDef[];
+  buildingActions?: TileActionDef[];
+  crystalActions?: TileActionDef[];
   progress?: TileMenuProgressView;
 };
 
@@ -4962,6 +4990,25 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   return "⛺";
 };
 
+const BUILDING_TAB_ACTION_IDS = new Set<TileActionDef["id"]>([
+  "build_fortification",
+  "build_observatory",
+  "build_farmstead",
+  "build_camp",
+  "build_mine",
+  "build_market",
+  "build_granary",
+  "build_siege_camp"
+]);
+const CRYSTAL_TAB_ACTION_IDS = new Set<TileActionDef["id"]>([
+  "reveal_empire",
+  "deep_strike",
+  "naval_infiltration",
+  "sabotage_tile",
+  "create_mountain",
+  "remove_mountain"
+]);
+
 const isTileOwnedByAlly = (tile: Tile): boolean => Boolean(tile.ownerId && state.allies.includes(tile.ownerId));
 
 const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number => {
@@ -4978,6 +5025,26 @@ const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => {
     if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= OBSERVATORY_PROTECTION_RADIUS) return candidate;
   }
   return undefined;
+};
+
+const currentObservatoryCastRadius = (): number => {
+  let bonus = 0;
+  const ownedDomainIds = new Set(state.domainIds);
+  for (const domain of state.domainCatalog) {
+    if (!ownedDomainIds.has(domain.id)) continue;
+    const value = domain.effects?.observatoryCastRadiusBonus;
+    if (typeof value === "number") bonus += value;
+  }
+  return OBSERVATORY_CAST_RADIUS + bonus;
+};
+
+const isWithinOwnedObservatoryCastRange = (tile: Tile): boolean => {
+  const radius = currentObservatoryCastRadius();
+  for (const candidate of state.tiles.values()) {
+    if (candidate.fogged || candidate.ownerId !== state.me || candidate.observatory?.status !== "active") continue;
+    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= radius) return true;
+  }
+  return false;
 };
 
 const developmentSlotLimit = (): number => DEVELOPMENT_PROCESS_LIMIT;
@@ -5152,16 +5219,20 @@ const buildDetailTextForAction = (actionId: TileActionDef["id"], tile: Tile, sup
     return "Makes this tile defended and activates production.";
   }
   if (actionId === "build_fortification") return "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
-  if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
+  if (actionId === "build_observatory") {
+    return `Extends local vision by ${OBSERVATORY_VISION_BONUS}, protects nearby tiles from hostile crystal abilities, and lets you cast crystal abilities in observatory range.`;
+  }
   if (actionId === "build_siege_camp") return "Adds an offensive staging point on this border tile. Attacks from here hit 25% harder.";
   if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
   if (actionId === "build_camp") return "Improves supply output on this tile by 50%.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} output on this tile by 50%.`;
   if (actionId === "build_market") {
+    if (tile.town) return "Build on a random open support tile for this town. Grants +50% fed gold output and +50% gold storage cap.";
     const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
     return `Build on this support tile for the ${townLabel}. Grants +50% fed gold output and +50% gold storage cap.`;
   }
   if (actionId === "build_granary") {
+    if (tile.town) return "Build on a random open support tile for this town. Grants +50% population growth.";
     const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
     return `Build on this support tile for the ${townLabel}. Grants +50% population growth.`;
   }
@@ -5309,7 +5380,12 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
 };
 
 const tileMenuViewForTile = (tile: Tile): TileMenuView => {
-  const actions = menuActionsForSingleTile(tile);
+  const allActions = menuActionsForSingleTile(tile);
+  const actions = allActions.filter((action) => !BUILDING_TAB_ACTION_IDS.has(action.id) && !CRYSTAL_TAB_ACTION_IDS.has(action.id));
+  const buildingActions = allActions.filter((action) => BUILDING_TAB_ACTION_IDS.has(action.id));
+  const crystalActions = isWithinOwnedObservatoryCastRange(tile)
+    ? allActions.filter((action) => CRYSTAL_TAB_ACTION_IDS.has(action.id))
+    : [];
   const settlement = settlementProgressForTile(tile.x, tile.y);
   const construction = constructionProgressForTile(tile);
   const progress =
@@ -5330,6 +5406,10 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
       : construction;
   const tabs: TileMenuTab[] = progress ? ["progress"] : actions.length > 0 ? ["actions"] : ["overview"];
   if (progress && actions.length > 0) tabs.push("actions");
+  if (buildingActions.length > 0 && tile.ownerId === state.me && tile.ownershipState === "SETTLED") {
+    tabs.push("buildings");
+  }
+  if (crystalActions.length > 0) tabs.push("crystal");
   if (!tabs.includes("overview")) tabs.push("overview");
   const ownerLabel =
     tile.terrain === "SEA"
@@ -5352,6 +5432,8 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: menuOverviewForTile(tile),
     actions,
+    ...(buildingActions.length > 0 ? { buildingActions } : {}),
+    ...(crystalActions.length > 0 ? { crystalActions } : {}),
     ...(progress ? { progress } : {}),
     };
 };
@@ -5723,6 +5805,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     const supportedTowns = tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
     const supportedTown = supportedTowns.length === 1 ? supportedTowns[0] : undefined;
+    const townSupportTiles = tile.town ? availableSupportTilesForTownClient(tile) : [];
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
     if (tile.ownershipState === "FRONTIER")
       out.push({
@@ -5837,7 +5920,46 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           )
         });
       }
-      if (supportedTown) {
+      if (tile.town) {
+        out.push({
+          id: "build_market",
+          label: "Build Market",
+          detail: buildDetailTextForAction("build_market", tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            townSupportTiles.length > 0 && !tile.town.hasMarket && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
+            townSupportTiles.length === 0
+              ? "No open support tile for this town"
+              : tile.town.hasMarket
+                ? "This town already has Market"
+                : !state.techIds.includes("trade")
+                  ? "Requires Trade"
+                  : state.gold < 600
+                    ? "Need 600 gold"
+                    : "Need 40 CRYSTAL",
+            `600 gold + 40 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
+          )
+        });
+        out.push({
+          id: "build_granary",
+          label: "Build Granary",
+          detail: buildDetailTextForAction("build_granary", tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            townSupportTiles.length > 0 && !tile.town.hasGranary && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
+            townSupportTiles.length === 0
+              ? "No open support tile for this town"
+              : tile.town.hasGranary
+                ? "This town already has Granary"
+                : !state.techIds.includes("pottery")
+                  ? "Requires Pottery"
+                  : state.gold < 400
+                    ? "Need 400 gold"
+                    : "Need 40 FOOD",
+            `400 gold + 40 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            slots
+          )
+        });
+      } else if (supportedTown) {
         out.push({
           id: "build_market",
           label: "Build Market",
@@ -6046,24 +6168,36 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
 const tileMenuTabLabel = (tab: TileMenuTab): string => {
   if (tab === "overview") return "Overview";
   if (tab === "actions") return "Actions";
+  if (tab === "buildings") return "Buildings";
+  if (tab === "crystal") return "Crystal";
   return "Progress";
+};
+
+const renderTileActionListHtml = (actions: TileActionDef[], emptyText: string): string => {
+  if (actions.length === 0) return `<div class="tile-menu-empty">${emptyText}</div>`;
+  return `<div class="tile-action-list">${actions
+    .map(
+      (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
+        <span class="tile-action-icon">${actionIcon(a.id)}</span>
+        <span class="tile-action-copy">
+          <span class="tile-action-label">${a.label}</span>
+          ${a.detail || a.disabledReason ? `<span class="tile-action-detail">${a.disabled ? a.disabledReason ?? a.detail ?? "" : a.detail ?? a.disabledReason ?? ""}</span>` : ""}
+        </span>
+        ${a.cost ? `<span class="tile-action-cost">${a.cost}</span>` : ""}
+      </button>`
+    )
+    .join("")}</div>`;
 };
 
 const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string => {
   if (activeTab === "actions") {
-    if (view.actions.length === 0) return `<div class="tile-menu-empty">No actions available on this tile right now.</div>`;
-    return `<div class="tile-action-list">${view.actions
-      .map(
-        (a) => `<button class="tile-action-btn" data-action="${a.id}" ${a.targetKey ? `data-target-key="${a.targetKey}"` : ""} ${a.originKey ? `data-origin-key="${a.originKey}"` : ""} ${a.disabled ? "disabled" : ""}>
-          <span class="tile-action-icon">${actionIcon(a.id)}</span>
-          <span class="tile-action-copy">
-            <span class="tile-action-label">${a.label}</span>
-            ${a.detail || a.disabledReason ? `<span class="tile-action-detail">${a.disabled ? a.disabledReason ?? a.detail ?? "" : a.detail ?? a.disabledReason ?? ""}</span>` : ""}
-          </span>
-          ${a.cost ? `<span class="tile-action-cost">${a.cost}</span>` : ""}
-        </button>`
-      )
-      .join("")}</div>`;
+    return renderTileActionListHtml(view.actions, "No actions available on this tile right now.");
+  }
+  if (activeTab === "buildings") {
+    return renderTileActionListHtml(view.buildingActions ?? [], "No town or support structures are available here.");
+  }
+  if (activeTab === "crystal") {
+    return renderTileActionListHtml(view.crystalActions ?? [], "No crystal abilities can be cast on this tile.");
   }
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
@@ -6314,8 +6448,20 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
   ) sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"));
   if (actionId === "build_camp") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"));
   if (actionId === "build_mine") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MINE"));
-  if (actionId === "build_market") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MARKET"));
-  if (actionId === "build_granary") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY"));
+  if (actionId === "build_market") {
+    const optimistic = !selected.town;
+    sendDevelopmentBuild(
+      { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" },
+      optimistic ? () => applyOptimisticStructureBuild(selected.x, selected.y, "MARKET") : undefined
+    );
+  }
+  if (actionId === "build_granary") {
+    const optimistic = !selected.town;
+    sendDevelopmentBuild(
+      { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" },
+      optimistic ? () => applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY") : undefined
+    );
+  }
   if (actionId === "build_siege_camp") sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"));
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
