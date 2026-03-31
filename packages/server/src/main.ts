@@ -8829,6 +8829,40 @@ const visibleInSnapshot = (snapshot: VisibilitySnapshot, x: number, y: number): 
   return snapshot.visibleMask[tileIndex(x, y)] === 1;
 };
 
+const chunkCoordsForSubscription = (
+  sub: { cx: number; cy: number; radius: number },
+  minChebyshevRadius = 0
+): Array<{ cx: number; cy: number }> => {
+  const coords: Array<{ cx: number; cy: number }> = [];
+  for (let cy = sub.cy - sub.radius; cy <= sub.cy + sub.radius; cy += 1) {
+    for (let cx = sub.cx - sub.radius; cx <= sub.cx + sub.radius; cx += 1) {
+      const wrappedCx = wrapChunkX(cx);
+      const wrappedCy = wrapChunkY(cy);
+      const distance = Math.max(
+        chunkDist(wrappedCx, wrapChunkX(sub.cx), chunkCountX),
+        chunkDist(wrappedCy, wrapChunkY(sub.cy), chunkCountY)
+      );
+      if (distance < minChebyshevRadius) continue;
+      coords.push({ cx: wrappedCx, cy: wrappedCy });
+    }
+  }
+  coords.sort((a, b) => {
+    const adx = chunkDist(a.cx, wrapChunkX(sub.cx), chunkCountX);
+    const ady = chunkDist(a.cy, wrapChunkY(sub.cy), chunkCountY);
+    const bdx = chunkDist(b.cx, wrapChunkX(sub.cx), chunkCountX);
+    const bdy = chunkDist(b.cy, wrapChunkY(sub.cy), chunkCountY);
+    const aChebyshev = Math.max(adx, ady);
+    const bChebyshev = Math.max(bdx, bdy);
+    if (aChebyshev !== bChebyshev) return aChebyshev - bChebyshev;
+    const aManhattan = adx + ady;
+    const bManhattan = bdx + bdy;
+    if (aManhattan !== bManhattan) return aManhattan - bManhattan;
+    if (a.cy !== b.cy) return a.cy - b.cy;
+    return a.cx - b.cx;
+  });
+  return coords;
+};
+
 const chunkSnapshotCacheForPlayer = (
   playerId: string,
   visibility: VisibilitySnapshot
@@ -8919,7 +8953,8 @@ const sendChunkSnapshot = (
   socket: Ws,
   actor: Player,
   sub: { cx: number; cy: number; radius: number },
-  followUpSub?: { cx: number; cy: number; radius: number }
+  followUpSub?: { cx: number; cy: number; radius: number },
+  chunkCoordsOverride?: Array<{ cx: number; cy: number }>
 ): void => {
   const startedAt = now();
   const authSync = authSyncTimingByPlayer.get(actor.id);
@@ -8929,26 +8964,7 @@ const sendChunkSnapshot = (
   chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
   let chunkCount = 0;
   let tileCount = 0;
-  const chunkCoords: Array<{ cx: number; cy: number }> = [];
-  for (let cy = sub.cy - sub.radius; cy <= sub.cy + sub.radius; cy += 1) {
-    for (let cx = sub.cx - sub.radius; cx <= sub.cx + sub.radius; cx += 1) {
-      chunkCoords.push({ cx: wrapChunkX(cx), cy: wrapChunkY(cy) });
-    }
-  }
-  chunkCoords.sort((a, b) => {
-    const adx = chunkDist(a.cx, wrapChunkX(sub.cx), chunkCountX);
-    const ady = chunkDist(a.cy, wrapChunkY(sub.cy), chunkCountY);
-    const bdx = chunkDist(b.cx, wrapChunkX(sub.cx), chunkCountX);
-    const bdy = chunkDist(b.cy, wrapChunkY(sub.cy), chunkCountY);
-    const aChebyshev = Math.max(adx, ady);
-    const bChebyshev = Math.max(bdx, bdy);
-    if (aChebyshev !== bChebyshev) return aChebyshev - bChebyshev;
-    const aManhattan = adx + ady;
-    const bManhattan = bdx + bdy;
-    if (aManhattan !== bManhattan) return aManhattan - bManhattan;
-    if (a.cy !== b.cy) return a.cy - b.cy;
-    return a.cx - b.cx;
-  });
+  const chunkCoords = chunkCoordsOverride ?? chunkCoordsForSubscription(sub);
 
   let index = 0;
   const streamNext = async (): Promise<void> => {
@@ -9026,7 +9042,7 @@ const sendChunkSnapshot = (
         ) {
           return;
         }
-        sendChunkSnapshot(socket, actor, followUpSub);
+        sendChunkSnapshot(socket, actor, followUpSub, undefined, chunkCoordsForSubscription(followUpSub, INITIAL_CHUNK_BOOTSTRAP_RADIUS + 1));
       }, 0);
     }
   };
