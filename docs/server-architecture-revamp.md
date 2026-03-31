@@ -49,6 +49,7 @@ Split responsibilities into two services:
 6. Move AI/simulation onto a separate worker or service while keeping websocket gateway stable.
    - Status: worker-backed in-process bridge.
    - AI ticks now build one shared cycle snapshot for the selected batch and enqueue turn execution onto an internal AI worker queue.
+   - AI dispatch now runs continuously in bounded slices, while `AI_TICK_MS` acts as a per-AI cadence target instead of a single global batch window.
    - AI actions now enqueue simulation commands onto a separate internal simulation-command queue instead of mutating world state inline from the AI decision path.
    - Human and AI simulation queue pressure is now visible independently in `/admin/runtime/debug`.
    - AI scheduling now exposes runtime scheduler state so starvation/backpressure is visible in `/admin/runtime/debug`.
