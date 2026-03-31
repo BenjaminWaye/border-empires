@@ -3677,6 +3677,9 @@ const clearWorldProgressForSeason = (): void => {
   repeatFights.clear();
   collectVisibleCooldownByPlayer.clear();
   cachedVisibilitySnapshotByPlayer.clear();
+  cachedAiTerritoryStructureByPlayer.clear();
+  aiTerritoryVersionByPlayer.clear();
+  cachedAiCompetitionContext = undefined;
   cachedChunkSnapshotByPlayer.clear();
   chunkSnapshotGenerationByPlayer.clear();
   revealWatchersByTarget.clear();
@@ -5995,8 +5998,22 @@ type AiTerritorySummary = {
   scoutRevealStamp: number;
 };
 
-const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
-  const visibility = visibilitySnapshotForPlayer(actor);
+type AiTerritoryStructureCache = {
+  version: number;
+  settledTileCount: number;
+  frontierTileCount: number;
+  settledTiles: Tile[];
+  frontierTiles: Tile[];
+  expandCandidates: AiFrontierCandidatePair[];
+  attackCandidates: AiFrontierCandidatePair[];
+  borderSettledTileKeys: Set<TileKey>;
+  structureCandidateTiles: Tile[];
+  underThreat: boolean;
+  worldFlags: Set<string>;
+  controlledTowns: number;
+};
+
+const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
   const settledTiles: Tile[] = [];
   const frontierTiles: Tile[] = [];
   const expandCandidates: AiFrontierCandidatePair[] = [];
@@ -6033,7 +6050,7 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
   });
 
   return {
-    visibility,
+    version: aiTerritoryVersionForPlayer(actor.id),
     settledTileCount: settledTiles.length,
     frontierTileCount: frontierTiles.length,
     settledTiles,
@@ -6043,6 +6060,33 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     borderSettledTileKeys,
     structureCandidateTiles,
     underThreat,
+    worldFlags: playerWorldFlags(actor),
+    controlledTowns: countControlledTowns(actor.id)
+  };
+};
+
+const cachedAiTerritoryStructureForPlayer = (actor: Player): AiTerritoryStructureCache => {
+  const version = aiTerritoryVersionForPlayer(actor.id);
+  const cached = cachedAiTerritoryStructureByPlayer.get(actor.id);
+  if (cached && cached.version === version) return cached;
+  const rebuilt = buildAiTerritoryStructureCache(actor);
+  cachedAiTerritoryStructureByPlayer.set(actor.id, rebuilt);
+  return rebuilt;
+};
+
+const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
+  const cached = cachedAiTerritoryStructureForPlayer(actor);
+  return {
+    visibility: visibilitySnapshotForPlayer(actor),
+    settledTileCount: cached.settledTileCount,
+    frontierTileCount: cached.frontierTileCount,
+    settledTiles: cached.settledTiles,
+    frontierTiles: cached.frontierTiles,
+    expandCandidates: cached.expandCandidates,
+    attackCandidates: cached.attackCandidates,
+    borderSettledTileKeys: cached.borderSettledTileKeys,
+    structureCandidateTiles: cached.structureCandidateTiles,
+    underThreat: cached.underThreat,
     foodPressure: aiFoodPressureSignal(actor),
     settlementEvaluationByKey: new Map<string, AiSettlementCandidateEvaluation>(),
     scoutRevealCountByTileKey: new Map<TileKey, number>(),
@@ -7162,15 +7206,16 @@ const buildAiTurnAnalysis = (
   incomeByPlayerId: Map<string, number>
 ): AiTurnAnalysis => {
   const territorySummary = collectAiTerritorySummary(actor);
+  const territoryStructure = cachedAiTerritoryStructureForPlayer(actor);
   const aiIncome = incomeByPlayerId.get(actor.id) ?? competitionMetrics.find((metric) => metric.playerId === actor.id)?.incomePerMinute ?? currentIncomePerMinute(actor);
   const runnerUpIncome = competitionMetrics.reduce((best, metric) => {
     if (metric.playerId === actor.id) return best;
     return Math.max(best, metric.incomePerMinute);
   }, 0);
-  const controlledTowns = countControlledTowns(actor.id);
+  const controlledTowns = territoryStructure.controlledTowns;
   const settledTiles = territorySummary.settledTileCount;
   const frontierTiles = territorySummary.frontierTileCount;
-  const worldFlags = playerWorldFlags(actor);
+  const worldFlags = territoryStructure.worldFlags;
   const underThreat = territorySummary.underThreat && settledTiles > 2;
   const foodCoverage = currentFoodCoverageForPlayer(actor.id);
   const foodCoverageLow = controlledTowns > 0 && foodCoverage < 1.05;
@@ -7258,6 +7303,17 @@ const simulationCommandQueueDepth = (): number =>
   simulationCommandWorkerState.humanQueue.length +
   simulationCommandWorkerState.systemQueue.length +
   simulationCommandWorkerState.aiQueue.length;
+
+const aiTerritoryVersionByPlayer = new Map<string, number>();
+const cachedAiTerritoryStructureByPlayer = new Map<string, AiTerritoryStructureCache>();
+
+const aiTerritoryVersionForPlayer = (playerId: string): number => aiTerritoryVersionByPlayer.get(playerId) ?? 0;
+const markAiTerritoryDirtyForPlayers = (playerIds: Iterable<string>): void => {
+  for (const playerId of playerIds) {
+    aiTerritoryVersionByPlayer.set(playerId, aiTerritoryVersionForPlayer(playerId) + 1);
+    cachedAiTerritoryStructureByPlayer.delete(playerId);
+  }
+};
 
 const queueSimulationDrain = (): void => {
   if (simulationCommandWorkerState.draining) return;
@@ -10540,6 +10596,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   }
 
   for (const pid of affectedPlayers) refreshVisibleOwnedTownsForPlayer(pid);
+  markAiTerritoryDirtyForPlayers(affectedPlayers);
 
   const changedFoodTile = t.resource === "FARM" || t.resource === "FISH";
   const changedTownTile = townsByTile.has(k);
