@@ -1530,6 +1530,12 @@ interface PendingCapture {
   traceId?: string;
   timeout?: NodeJS.Timeout;
 }
+type CombatResultChange = {
+  x: number;
+  y: number;
+  ownerId?: string;
+  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+};
 interface PendingSettlement {
   tileKey: TileKey;
   ownerId: string;
@@ -2249,6 +2255,7 @@ const collectClusterTilesRelaxed = (cx: number, cy: number, resource: ResourceTy
 
 const clusterTileCountForResource = (resource: ResourceType, x: number, y: number): number => {
   if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 4;
+  if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 4;
   return 8;
 };
 
@@ -5393,6 +5400,42 @@ const settledDefenseMultiplierForTarget = (defenderId: string, target: Tile): nu
   return getPlayerEffectsForPlayer(defenderId).settledDefenseMult;
 };
 
+const originTileHeldByActiveFort = (actorId: string, tileKey: TileKey): boolean => {
+  const fort = fortsByTile.get(tileKey);
+  return Boolean(fort?.ownerId === actorId && fort.status === "active");
+};
+
+const applyFailedAttackTerritoryOutcome = (
+  actorId: string,
+  defenderOwnerId: string | undefined,
+  defenderIsBarbarian: boolean,
+  from: Tile,
+  to: Tile,
+  originTileKey: TileKey,
+  targetTileKey: TileKey
+): { resultChanges: CombatResultChange[]; originLost: boolean } => {
+  const fortHeldOrigin = originTileHeldByActiveFort(actorId, originTileKey);
+  if (defenderIsBarbarian) {
+    if (!fortHeldOrigin) updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
+    updateOwnership(to.x, to.y, undefined);
+    return {
+      originLost: !fortHeldOrigin,
+      resultChanges: fortHeldOrigin
+        ? [{ x: to.x, y: to.y }]
+        : [
+            { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
+            { x: to.x, y: to.y }
+          ]
+    };
+  }
+  if (!defenderOwnerId || fortHeldOrigin) return { resultChanges: [], originLost: false };
+  updateOwnership(from.x, from.y, defenderOwnerId, "FRONTIER");
+  return {
+    originLost: true,
+    resultChanges: [{ x: from.x, y: from.y, ownerId: defenderOwnerId, ownershipState: "FRONTIER" }]
+  };
+};
+
 const incrementVendettaCount = (attackerId: string, targetId: string): void => {
   let map = vendettaCaptureCountsByPlayer.get(attackerId);
   if (!map) {
@@ -5828,7 +5871,7 @@ const tryQueueBasicFrontierAction = (
     } else if (defenderIsBarbarian) {
       const barbarianAgentId = barbarianAgentByTileKey.get(tk);
       const barbarianAgent = barbarianAgentId ? barbarianAgents.get(barbarianAgentId) : undefined;
-      updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
+      applyFailedAttackTerritoryOutcome(actor.id, undefined, true, from, to, fk, tk);
       if (barbarianAgent) {
         barbarianAgent.progress += getBarbarianProgressGain(from);
         barbarianAgent.x = from.x;
@@ -5837,9 +5880,8 @@ const tryQueueBasicFrontierAction = (
         barbarianAgent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
         upsertBarbarianAgent(barbarianAgent);
       }
-      updateOwnership(to.x, to.y, undefined);
     } else if (defender) {
-      updateOwnership(from.x, from.y, defender.id, "FRONTIER");
+      applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk);
       defender.missionStats.enemyCaptures += 1;
       defender.missionStats.combatWins += 1;
       incrementVendettaCount(defender.id, actor.id);
@@ -11666,7 +11708,10 @@ const bootstrapRuntimeState = (): void => {
   const hasFurClusters = [...clustersById.values()].some((c) => c.resourceType === "FUR");
   const hasExpectedClusterShape =
     clustersById.size === CLUSTER_COUNT_MIN &&
-    [...clustersById.values()].every((c) => (clusterTilesById.get(c.clusterId) ?? 0) === 8);
+    [...clustersById.values()].every((c) => {
+      const expected = clusterTileCountForResource(c.resourceType ?? clusterResourceType(c), c.centerX, c.centerY);
+      return (clusterTilesById.get(c.clusterId) ?? 0) === expected;
+    });
   const hasGemOnNonSand = (() => {
     for (const [tk, cid] of clusterByTile) {
       const c = clustersById.get(cid);
@@ -13841,44 +13886,25 @@ app.post("/admin/world/regenerate", async () => {
         if (defenderIsBarbarian) {
           const barbarianAgentId = barbarianAgentByTileKey.get(tk);
           const barbarianAgent = barbarianAgentId ? barbarianAgents.get(barbarianAgentId) : undefined;
-          const originFort = fortsByTile.get(fk);
-          const fortHeldOrigin = originFort?.ownerId === actor.id && originFort.status === "active";
+          const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, undefined, true, from, to, fk, tk);
           if (barbarianAgent) {
             const progressBefore = barbarianAgent.progress;
             barbarianAgent.progress += getBarbarianProgressGain(from);
-            if (!fortHeldOrigin) updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
             barbarianAgent.x = from.x;
             barbarianAgent.y = from.y;
             barbarianAgent.lastActionAt = now();
             barbarianAgent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
             upsertBarbarianAgent(barbarianAgent);
-            updateOwnership(to.x, to.y, undefined);
-            resultChanges = fortHeldOrigin
-              ? [{ x: to.x, y: to.y }]
-              : [
-                  { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
-                  { x: to.x, y: to.y }
-                ];
+            resultChanges = failedOutcome.resultChanges;
             logBarbarianEvent(`progress ${barbarianAgent.id} ${progressBefore} -> ${barbarianAgent.progress} on defense ${from.x},${from.y}`);
           } else {
-            if (!fortHeldOrigin) updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
-            updateOwnership(to.x, to.y, undefined);
-            resultChanges = fortHeldOrigin
-              ? [{ x: to.x, y: to.y }]
-              : [
-                  { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
-                  { x: to.x, y: to.y }
-                ];
+            resultChanges = failedOutcome.resultChanges;
           }
           pointsDelta = 0;
         } else if (defender) {
-          const originFort = fortsByTile.get(fk);
-          const fortHeldOrigin = originFort?.ownerId === actor.id && originFort.status === "active";
-          if (fortHeldOrigin) {
-            resultChanges = [];
-          } else {
-            updateOwnership(from.x, from.y, defender.id, "FRONTIER");
-            resultChanges = [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" }];
+          const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk);
+          resultChanges = failedOutcome.resultChanges;
+          if (failedOutcome.originLost) {
             defender.missionStats.enemyCaptures += 1;
             maybeIssueResourceMission(defender, from.resource);
           }
