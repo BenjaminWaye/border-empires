@@ -1213,7 +1213,7 @@ const drawFrontierCaptureOverlay = (wx: number, wy: number, px: number, py: numb
     const label = `${(Math.ceil(remainingMs / 100) / 10).toFixed(1)}s`;
     const badgeW = Math.max(18, Math.floor(size * 0.52));
     const badgeH = Math.max(11, Math.floor(size * 0.22));
-    const badgeX = px + 2;
+    const badgeX = px + size - badgeW - 2;
     const badgeY = py + 2;
     ctx.fillStyle = "rgba(8, 14, 22, 0.8)";
     ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
@@ -2065,7 +2065,7 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
 };
 
 const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error"): void => {
-  state.captureAlert = { title, detail, until: Date.now() + 3200, tone };
+  state.captureAlert = { title, detail, until: Date.now() + 4500, tone };
 };
 
 const playerNameOrFallback = (ownerId: string | undefined): string => {
@@ -2908,6 +2908,27 @@ const startingExpansionArrowTargets = (): Array<{ x: number; y: number; dx: numb
 };
 
 const renderCaptureProgress = (): void => {
+  if (state.captureAlert && state.captureAlert.until > Date.now()) {
+    if (state.captureAlert.title === "Collect Visible Cooldown") {
+      const remaining = state.collectVisibleCooldownUntil - Date.now();
+      if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
+      else state.captureAlert = undefined;
+    }
+  }
+  if (state.captureAlert && state.captureAlert.until > Date.now()) {
+    captureCardEl.dataset.state = state.captureAlert.tone;
+    captureCardEl.style.display = "grid";
+    captureWrapEl.style.display = "block";
+    captureCancelBtn.style.display = "none";
+    captureBarEl.style.width = "100%";
+    captureTitleEl.textContent = state.captureAlert.title;
+    captureTimeEl.textContent = "";
+    captureTargetEl.textContent = state.captureAlert.detail;
+    return;
+  }
+  delete captureCardEl.dataset.state;
+  state.captureAlert = undefined;
+
   if (state.capture) {
     captureCardEl.dataset.state = "progress";
     const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
@@ -2925,48 +2946,30 @@ const renderCaptureProgress = (): void => {
     const settlement = primarySettlementProgress();
     const settlementCount = state.settleProgressByTile.size;
     if (settlement) {
-    captureCardEl.dataset.state = "progress";
-    const total = Math.max(1, settlement.resolvesAt - settlement.startAt);
-    const elapsed = Date.now() - settlement.startAt;
-    const pct = Math.max(0, Math.min(1, elapsed / total));
-    const remaining = Math.max(0, Math.ceil((settlement.resolvesAt - Date.now()) / 100) / 10);
-    captureCardEl.style.display = "grid";
-    captureWrapEl.style.display = "block";
-    captureCancelBtn.style.display = "none";
-    captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
-    captureTitleEl.textContent = settlementCount > 1 ? `Settling Land... (${settlementCount})` : "Settling Land...";
-    captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
-    captureTargetEl.textContent =
-      settlementCount > 1
-        ? `Target: (${settlement.target.x}, ${settlement.target.y}) • ${settlementCount} active`
-        : `Target: (${settlement.target.x}, ${settlement.target.y})`;
-    } else if (state.captureAlert && state.captureAlert.until > Date.now()) {
-      if (state.captureAlert.title === "Collect Visible Cooldown") {
-        const remaining = state.collectVisibleCooldownUntil - Date.now();
-        if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
-        else state.captureAlert = undefined;
-      }
+      captureCardEl.dataset.state = "progress";
+      const total = Math.max(1, settlement.resolvesAt - settlement.startAt);
+      const elapsed = Date.now() - settlement.startAt;
+      const pct = Math.max(0, Math.min(1, elapsed / total));
+      const remaining = Math.max(0, Math.ceil((settlement.resolvesAt - Date.now()) / 100) / 10);
+      captureCardEl.style.display = "grid";
+      captureWrapEl.style.display = "block";
+      captureCancelBtn.style.display = "none";
+      captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
+      captureTitleEl.textContent = settlementCount > 1 ? `Settling Land... (${settlementCount})` : "Settling Land...";
+      captureTimeEl.textContent = `${remaining.toFixed(1)}s`;
+      captureTargetEl.textContent =
+        settlementCount > 1
+          ? `Target: (${settlement.target.x}, ${settlement.target.y}) • ${settlementCount} active`
+          : `Target: (${settlement.target.x}, ${settlement.target.y})`;
+    } else {
+      captureCardEl.style.display = "none";
+      captureWrapEl.style.display = "none";
+      captureCancelBtn.style.display = "none";
+      captureBarEl.style.width = "0%";
+      captureTitleEl.textContent = "";
+      captureTimeEl.textContent = "";
+      captureTargetEl.textContent = "";
     }
-  }
-  if (state.captureAlert && state.captureAlert.until > Date.now()) {
-    captureCardEl.dataset.state = state.captureAlert.tone;
-    captureCardEl.style.display = "grid";
-    captureWrapEl.style.display = "block";
-    captureCancelBtn.style.display = "none";
-    captureBarEl.style.width = "100%";
-    captureTitleEl.textContent = state.captureAlert.title;
-    captureTimeEl.textContent = "";
-    captureTargetEl.textContent = state.captureAlert.detail;
-  } else {
-    delete captureCardEl.dataset.state;
-    state.captureAlert = undefined;
-    captureCardEl.style.display = "none";
-    captureWrapEl.style.display = "none";
-    captureCancelBtn.style.display = "none";
-    captureBarEl.style.width = "0%";
-    captureTitleEl.textContent = "";
-    captureTimeEl.textContent = "";
-    captureTargetEl.textContent = "";
   }
 };
 
