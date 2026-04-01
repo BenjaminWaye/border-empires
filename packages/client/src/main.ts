@@ -92,6 +92,8 @@ import type {
   TileTimedProgress
 } from "./client-types.js";
 
+const formatManpowerAmount = (value: number): string => Math.round(value).toString();
+
 const {
   allianceBreakBtn,
   allianceBreakIdEl,
@@ -3942,10 +3944,15 @@ const renderHud = (): void => {
       : "";
   const netGoldPerMinute = state.incomePerMinute - state.upkeepPerMinute.gold;
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
+  const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
+  const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}/m`;
+  const mobileManpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}`;
+  const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   statsChipsEl.innerHTML = `
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
-    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${goldRateText}</em></strong></button>
+    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
+    <div class="stat-chip stat-chip-manpower" title="Manpower gates attacks. Settled towns raise your cap and regeneration; recently captured towns contribute less until they stabilize."><span>${mobile ? "MP" : "Manpower"}</span><strong>${mobile ? formatManpowerAmount(state.manpower) : `${formatManpowerAmount(state.manpower)} / ${formatManpowerAmount(state.manpowerCap)}`} <em class="stat-chip-rate ${manpowerRateClass}">${mobile ? mobileManpowerRateText : manpowerRateText}</em></strong></div>
     <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
