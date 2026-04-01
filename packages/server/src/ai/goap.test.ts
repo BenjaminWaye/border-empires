@@ -35,7 +35,7 @@ describe("planBestGoal", () => {
 
     const plan = planBestGoal(state, AI_EMPIRE_GOALS, AI_EMPIRE_ACTIONS);
 
-    expect(plan?.goalId).toBe("fortify_capital");
+    expect(plan?.goalId).toBe("fortify_core_chokepoint");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["build_fort_on_exposed_tile"]);
   });
 
@@ -63,7 +63,7 @@ describe("planBestGoal", () => {
 
     const plan = planBestGoal(state, AI_EMPIRE_GOALS, AI_EMPIRE_ACTIONS);
 
-    expect(plan?.goalId).toBe("recover_resources");
+    expect(plan?.goalId).toBe("stabilize_reserves");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["wait_and_recover"]);
   });
 
@@ -172,7 +172,7 @@ describe("planBestGoal", () => {
 
     const plan = planBestGoal(state, goalsForVictoryPath("ECONOMIC_HEGEMONY"), AI_EMPIRE_ACTIONS);
 
-    expect(plan?.goalId).toBe("expand_frontier");
+    expect(plan?.goalId).toBe("secure_high_value_frontier");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_neutral_border_tile"]);
   });
 
@@ -228,7 +228,7 @@ describe("planBestGoal", () => {
 
     const plan = planBestGoal(state, goalsForVictoryPath("SETTLED_TERRITORY"), AI_EMPIRE_ACTIONS);
 
-    expect(plan?.goalId).toBe("claim_settlement_scaffold");
+    expect(plan?.goalId).toBe("secure_high_value_frontier");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_scaffold_border_tile"]);
   });
 
@@ -284,11 +284,11 @@ describe("planBestGoal", () => {
 
     const plan = planBestGoal(
       state,
-      [{ id: "harass_enemy_border", priority: 12, desired: { hasWeakEnemyBorder: false } }],
+      [{ id: "remove_core_threat", priority: 12, desired: { hasWeakEnemyBorder: false } }],
       AI_EMPIRE_ACTIONS
     );
 
-    expect(plan?.goalId).toBe("harass_enemy_border");
+    expect(plan?.goalId).toBe("remove_core_threat");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["attack_enemy_border_tile"]);
   });
 
@@ -342,9 +342,9 @@ describe("planBestGoal", () => {
       staminaHealthy: true
     };
 
-    const plan = planBestGoal(state, [{ id: "scout_frontier", priority: 8, desired: { hasScoutOpportunity: false } }], AI_EMPIRE_ACTIONS);
+    const plan = planBestGoal(state, [{ id: "expand_vision_for_value", priority: 8, desired: { hasScoutOpportunity: false } }], AI_EMPIRE_ACTIONS);
 
-    expect(plan?.goalId).toBe("scout_frontier");
+    expect(plan?.goalId).toBe("expand_vision_for_value");
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_scout_border_tile"]);
   });
 });
