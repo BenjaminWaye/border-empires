@@ -105,7 +105,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   }
 
   const goapState = {
-    hasNeutralLandOpportunity: snapshot.neutralExpandAvailable,
+    hasNeutralLandOpportunity: snapshot.frontierOpportunityEconomic > 0,
     hasScoutOpportunity: snapshot.scoutExpandAvailable,
     hasScaffoldOpportunity: snapshot.scaffoldExpandAvailable,
     hasBarbarianTarget: snapshot.barbarianAttackAvailable,
