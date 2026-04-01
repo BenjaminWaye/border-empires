@@ -1234,10 +1234,20 @@ body {
   border: 1px solid rgba(191, 206, 184, 0.18);
   background: linear-gradient(180deg, rgba(41, 47, 41, 0.98), rgba(34, 39, 34, 0.98));
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
   color: #f3f6f1;
+  overflow: hidden;
+}
+
+.guide-modal-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
   overflow: auto;
+  padding-right: 4px;
 }
 
 .guide-close-btn {
@@ -3424,10 +3434,22 @@ h4 {
   .stat-chip-def,
   .stat-chip-dev {
     min-width: 0;
+    padding: 3px 4px;
   }
 
   .stat-chip span {
     font-size: 7px;
+  }
+
+  .stat-chip-def span,
+  .stat-chip-dev span {
+    font-size: 6px;
+  }
+
+  .stat-chip-def strong,
+  .stat-chip-dev strong {
+    font-size: 9px;
+    line-height: 1;
   }
 
   .stat-chip-rate {
@@ -3500,15 +3522,20 @@ h4 {
   }
 
   #guide-overlay {
-    padding: 12px;
+    align-items: end;
+    padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
   }
 
   .guide-modal {
     width: min(100vw - 24px, 560px);
-    max-height: calc(100dvh - 24px);
+    max-height: min(82dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px));
     padding: 20px 18px 18px;
     gap: 16px;
     border-radius: 20px;
+  }
+
+  .guide-modal-scroll {
+    padding-bottom: max(2px, env(safe-area-inset-bottom));
   }
 
   .guide-title {
