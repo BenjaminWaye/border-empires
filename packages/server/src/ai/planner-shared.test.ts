@@ -96,4 +96,18 @@ describe("planAiDecision", () => {
     expect(decision.actionKey).toBe("claim_neutral_border_tile");
     expect(decision.reason).not.toBe("no_goap_step");
   });
+
+  it("does not choose food-goap expansion when only waste neutral land exists", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      controlledTowns: 1,
+      foodCoverage: 0,
+      foodCoverageLow: true,
+      neutralExpandAvailable: true,
+      frontierOpportunityEconomic: 0,
+      frontierOpportunityWaste: 9
+    });
+
+    expect(decision.actionKey).not.toBe("claim_food_border_tile");
+  });
 });
