@@ -983,7 +983,6 @@ const GOVERNORS_OFFICE_BUILD_GOLD_COST = structureBaseGoldCost("GOVERNORS_OFFICE
 const RADAR_SYSTEM_BUILD_GOLD_COST = structureBaseGoldCost("RADAR_SYSTEM");
 const RADAR_SYSTEM_BUILD_CRYSTAL_COST = 120;
 const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
-const TOWN_CAPTURED_MANPOWER_MULT = 0.25;
 const MANPOWER_EPSILON = 1e-6;
 const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
   TOWN: { cap: 300, regenPerMinute: 15 },
@@ -1525,6 +1524,7 @@ const ensureAiPlayers = (): void => {
       staminaUpdatedAt: now(),
       manpower: MANPOWER_BASE_CAP,
       manpowerUpdatedAt: now(),
+      manpowerCapSnapshot: MANPOWER_BASE_CAP,
       allies: new Set<string>(),
       spawnShieldUntil: now() + 120_000,
       isEliminated: false,
@@ -2929,10 +2929,7 @@ const townManpowerSnapshotForOwner = (
   if (!isTownFedForOwner(town.tileKey, ownerId)) return { cap: 0, regenPerMinute: 0 };
   const base = TOWN_MANPOWER_BY_TIER[townPopulationTier(town.population)];
   if ((townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now()) {
-    return {
-      cap: base.cap * TOWN_CAPTURED_MANPOWER_MULT,
-      regenPerMinute: base.regenPerMinute * TOWN_CAPTURED_MANPOWER_MULT
-    };
+    return { cap: 0, regenPerMinute: 0 };
   }
   return base;
 };
@@ -3023,14 +3020,20 @@ const townGoldIncomeEnabledForPlayer = (player: Player, nowMs = now()): boolean 
 const applyManpowerRegen = (player: Player): void => {
   const cap = playerManpowerCap(player);
   if (!Number.isFinite(player.manpower)) player.manpower = cap;
+  const previousCap = Number.isFinite(player.manpowerCapSnapshot) ? player.manpowerCapSnapshot! : cap;
+  if (cap > previousCap) {
+    player.manpower = Math.min(cap, Math.max(0, player.manpower) + (cap - previousCap));
+  }
   if (!Number.isFinite(player.manpowerUpdatedAt)) {
     player.manpower = Math.min(cap, Math.max(0, player.manpower));
     player.manpowerUpdatedAt = now();
+    player.manpowerCapSnapshot = cap;
     return;
   }
   const nowMs = now();
   player.manpower = effectiveManpowerAt(player, nowMs);
   player.manpowerUpdatedAt = nowMs;
+  player.manpowerCapSnapshot = cap;
 };
 
 const manpowerCostForAction = (actionType: PendingCapture["actionType"] | ClientMessage["type"]): number => {
@@ -3298,13 +3301,18 @@ const dockCapForOwner = (dock: Dock, ownerId: string | undefined): number => {
   return dockIncomeForOwner(dock, ownerId) * 60 * 8 * getPlayerEffectsForPlayer(ownerId).dockGoldCapMult;
 };
 
-const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): number => {
+const townPotentialIncomeForOwner = (
+  town: TownDefinition,
+  ownerId: string | undefined,
+  options?: { ignoreSuppression?: boolean; ignoreManpowerGate?: boolean }
+): number => {
   if (!ownerId) return 0;
   if (ownership.get(town.tileKey) !== ownerId) return 0;
   if (ownershipStateByTile.get(town.tileKey) !== "SETTLED") return 0;
-  if (townIncomeSuppressed(town.tileKey)) return 0;
+  if (!options?.ignoreSuppression && townIncomeSuppressed(town.tileKey)) return 0;
   const owner = players.get(ownerId);
-  if (!owner || !townGoldIncomeEnabledForPlayer(owner)) return 0;
+  if (!owner) return 0;
+  if (!options?.ignoreManpowerGate && !townGoldIncomeEnabledForPlayer(owner)) return 0;
   const { supportCurrent, supportMax } = townSupport(town.tileKey, ownerId);
   const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
   if (!isTownFedForOwner(town.tileKey, ownerId)) return 0;
@@ -3323,10 +3331,12 @@ const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): 
   ) + bankFlatIncomeBonusAt(town.tileKey, ownerId);
 };
 
+const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): number => townPotentialIncomeForOwner(town, ownerId);
+
 const townCapForOwner = (town: TownDefinition, ownerId: string | undefined): number => {
   if (!ownerId) return TILE_YIELD_CAP_GOLD;
   const effects = getPlayerEffectsForPlayer(ownerId);
-  const income = townIncomeForOwner(town, ownerId);
+  const income = townPotentialIncomeForOwner(town, ownerId, { ignoreSuppression: true, ignoreManpowerGate: true });
   return income * 60 * 8 * effects.townGoldCapMult * marketCapMultiplierAt(town.tileKey, ownerId);
 };
 
@@ -3920,6 +3930,7 @@ const clearWorldProgressForSeason = (): void => {
     p.staminaUpdatedAt = now();
     p.manpower = playerManpowerCap(p);
     p.manpowerUpdatedAt = now();
+    p.manpowerCapSnapshot = playerManpowerCap(p);
     p.isEliminated = false;
     p.respawnPending = false;
     p.missions = [];
@@ -4070,6 +4081,8 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
 const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => {
   const support = ownerId ? townSupport(town.tileKey, ownerId) : { supportCurrent: 0, supportMax: 0 };
   const isFed = isTownFedForOwner(town.tileKey, ownerId);
+  const owner = ownerId ? players.get(ownerId) : undefined;
+  const manpowerGoldPaused = Boolean(owner && !townGoldIncomeEnabledForPlayer(owner));
   const market = structureForSupportedTown(town.tileKey, ownerId, "MARKET");
   const granary = structureForSupportedTown(town.tileKey, ownerId, "GRANARY");
   const bank = structureForSupportedTown(town.tileKey, ownerId, "BANK");
@@ -4088,6 +4101,13 @@ const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): 
     connectedTownCount: town.connectedTownCount,
     connectedTownBonus: town.connectedTownBonus,
     connectedTownNames: [],
+    ...(manpowerGoldPaused && owner
+      ? {
+          goldIncomePausedReason: "MANPOWER_NOT_FULL" as const,
+          manpowerCurrent: Math.round(effectiveManpowerAt(owner)),
+          manpowerCap: Math.round(playerManpowerCap(owner))
+        }
+      : {}),
     hasMarket: Boolean(market),
     marketActive: Boolean(market && market.status === "active" && isFed),
     hasGranary: Boolean(granary),
@@ -4243,6 +4263,8 @@ const playerTile = (x: number, y: number): Tile => {
     const support = owner ? townSupport(town.tileKey, owner) : { supportCurrent: 0, supportMax: 0 };
     const goldPerMinute = townIncomeForOwner(town, owner) * sabotageMultiplierAt(town.tileKey);
     const isFed = isTownFedForOwner(town.tileKey, owner);
+    const ownerPlayer = owner ? players.get(owner) : undefined;
+    const manpowerGoldPaused = Boolean(ownerPlayer && !townGoldIncomeEnabledForPlayer(ownerPlayer));
     const connectedTownKeys = owner ? directlyConnectedTownKeysForTown(owner, town.tileKey) : [];
     const market = structureForSupportedTown(town.tileKey, owner, "MARKET");
     const granary = structureForSupportedTown(town.tileKey, owner, "GRANARY");
@@ -4264,6 +4286,13 @@ const playerTile = (x: number, y: number): Tile => {
       connectedTownNames: connectedTownKeys
         .map((townKey) => townsByTile.get(townKey)?.townId)
         .filter((label): label is string => Boolean(label)),
+      ...(manpowerGoldPaused && ownerPlayer
+        ? {
+            goldIncomePausedReason: "MANPOWER_NOT_FULL" as const,
+            manpowerCurrent: Math.round(effectiveManpowerAt(ownerPlayer)),
+            manpowerCap: Math.round(playerManpowerCap(ownerPlayer))
+          }
+        : {}),
       hasMarket: Boolean(market),
       marketActive: Boolean(market && market.status === "active" && isFed),
       hasGranary: Boolean(granary),
@@ -10711,6 +10740,7 @@ const completeDueResearchForPlayer = (player: Player): void => {
     return;
   }
   grantTech(player, tech);
+  applyManpowerRegen(player);
   recomputeClusterBonusForPlayer(player);
   sendTechUpdate(player, "completed");
   broadcast({ type: "PLAYER_STYLE", playerId: player.id, tileColor: player.tileColor, visualStyle: empireStyleFromPlayer(player) });
@@ -11677,6 +11707,7 @@ const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefine
       staminaUpdatedAt: now(),
       manpower: MANPOWER_BASE_CAP,
       manpowerUpdatedAt: now(),
+      manpowerCapSnapshot: MANPOWER_BASE_CAP,
       allies: new Set<string>(),
       spawnShieldUntil: now() + 120_000,
       isEliminated: false,

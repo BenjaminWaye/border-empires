@@ -681,21 +681,19 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   const townBits: string[] = [];
   let upkeepLine = "";
   if (tile.town) {
-    const growthPct =
-      tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
-        ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
-        : 0;
-    const growthPctLabel =
-      Math.abs(growthPct) < 0.05
-        ? `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`
-        : `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%/m`;
+    const growthLabel = populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0);
     townBits.push(`${prettyToken(tile.town.type)} town`);
     townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
     townBits.push(
-      `Population ${Math.round(tile.town.population).toLocaleString()} (${growthPctLabel}) (${prettyToken(tile.town.populationTier)})`
+      `Population ${Math.round(tile.town.population).toLocaleString()} (${growthLabel}) (${prettyToken(tile.town.populationTier)})`
     );
     townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
     if (!tile.town.isFed) townBits.push("Unfed");
+    if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") {
+      const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
+      const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
+      townBits.push(`Gold paused until manpower is full (${current}/${cap})`);
+    }
     if (typeof tile.town.foodUpkeepPerMinute === "number") {
       upkeepLine = `Upkeep: ${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`;
     }
@@ -2843,11 +2841,12 @@ const supportedOwnedDocksForTile = (tile: Tile): Tile[] => {
   return out.sort((a, b) => a.x - b.x || a.y - b.y);
 };
 
-const growthDeltaPctLabel = (population: number, deltaPerMinute: number): string => {
-  if (population <= 0) return "0.00%/m";
-  const pct = (deltaPerMinute / population) * 100;
-  const sign = pct > 0 ? "+" : "";
-  return `${sign}${pct.toFixed(2)}%/m`;
+const populationPerMinuteLabel = (deltaPerMinute: number): string => {
+  const abs = Math.abs(deltaPerMinute);
+  const sign = deltaPerMinute > 0 ? "+" : deltaPerMinute < 0 ? "-" : "";
+  if (abs >= 100) return `${sign}${Math.round(abs).toLocaleString()}/m`;
+  if (abs >= 10) return `${sign}${abs.toFixed(1)}/m`;
+  return `${sign}${abs.toFixed(2)}/m`;
 };
 
 const townNextPopulationMilestone = (
@@ -5644,19 +5643,22 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
-    pushLine(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
-    const growthPct =
-      tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
-        ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
-        : 0;
-    const growthLabel = `${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(2)}%/m`;
+    if (!tile.town.isFed) {
+      pushLine("Town is unfed. Needs settled fish or grain nearby.");
+    } else if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") {
+      const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
+      const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
+      pushLine(`Town is fed but gold is paused until manpower is full (${current}/${cap}).`);
+    } else {
+      pushLine(`Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
+    }
     pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
-    pushLine(`Growth ${growthLabel}`);
+    pushLine(`Growth ${populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
     pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
     for (const modifier of tile.town.growthModifiers ?? []) {
       const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
-      pushEffectLine(modifier.label, growthDeltaPctLabel(tile.town.population, modifier.deltaPerMinute), tone);
+      pushEffectLine(modifier.label, populationPerMinuteLabel(modifier.deltaPerMinute), tone);
     }
     if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
     if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
