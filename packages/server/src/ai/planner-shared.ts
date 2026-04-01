@@ -87,7 +87,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   if (snapshot.foodCoverageLow && economicPushReady && snapshot.canAffordFrontierAction) {
     return { reason: "executed_food_expand_priority", actionKey: "claim_food_border_tile", goapActionKey: "claim_food_border_tile" };
   }
-  if ((snapshot.economyWeak || snapshot.frontierDebt) && snapshot.settlementAvailable && snapshot.canAffordSettlement) {
+  if ((snapshot.economyWeak || snapshot.foodCoverageLow || snapshot.controlledTowns > 0 || snapshot.hasActiveDock) && snapshot.settlementAvailable && snapshot.canAffordSettlement) {
     return { reason: "executed_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
   }
   if (pressureAttackReady && (snapshot.primaryVictoryPath === "TOWN_CONTROL" || snapshot.pressureAttackScore >= 150)) {
@@ -127,6 +127,12 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   const goapPlan = planBestGoal(goapState, goalsForVictoryPath(snapshot.primaryVictoryPath), AI_EMPIRE_ACTIONS);
   const nextStep = goapPlan?.steps[0];
   if (!nextStep) {
+    if (snapshot.economicBuildAvailable && snapshot.canBuildEconomy && (!snapshot.underThreat || !snapshot.threatCritical)) {
+      return { reason: "executed_economic_recovery_fallback", actionKey: "build_economic_structure", goapActionKey: "build_economic_structure" };
+    }
+    if (snapshot.settlementAvailable && snapshot.canAffordSettlement) {
+      return { reason: "executed_settlement_fallback", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
+    }
     if (snapshot.openingScoutAvailable && snapshot.canAffordFrontierAction) {
       return { reason: "executed_opening_scout", actionKey: "opening_scout_expand", goapActionKey: "claim_neutral_border_tile" };
     }
@@ -141,6 +147,12 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     }
     if (snapshot.economyWeak && snapshot.neutralExpandAvailable && snapshot.canAffordFrontierAction) {
       return { reason: "executed_expand_fallback", actionKey: "claim_neutral_border_tile", goapActionKey: "claim_neutral_border_tile" };
+    }
+    if (snapshot.frontierOpportunityWaste > 0 && snapshot.scoutExpandAvailable && snapshot.canAffordFrontierAction) {
+      return { reason: "executed_visibility_expand_fallback", actionKey: "claim_scout_border_tile", goapActionKey: "claim_scout_border_tile" };
+    }
+    if (snapshot.frontierOpportunityWaste > 0 && snapshot.neutralExpandAvailable && snapshot.canAffordFrontierAction) {
+      return { reason: "executed_neutral_expand_fallback", actionKey: "claim_neutral_border_tile", goapActionKey: "claim_neutral_border_tile" };
     }
     return { reason: "no_goap_step" };
   }
