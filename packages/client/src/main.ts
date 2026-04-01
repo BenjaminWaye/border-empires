@@ -196,6 +196,7 @@ const {
   sidePanelBodyEl,
   sidePanelEl,
   statsChipsEl,
+  techDetailOverlayEl,
   targetingOverlayEl,
   techChoiceDetailsEl,
   techChoicesGridEl,
@@ -3607,6 +3608,17 @@ const renderExpandedTechChoiceTree = (): string => {
 
 const renderTechChoiceGrid = (): string => (state.techTreeExpanded ? renderExpandedTechChoiceTree() : renderCompactTechChoiceGrid());
 
+const selectedTechInfo = (): TechInfo | undefined => {
+  const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value || state.techCatalog[0]?.id;
+  return state.techCatalog.find((x) => x.id === selectedId);
+};
+
+const renderTechDetailPrompt = (): string =>
+  `<article class="card tech-detail-placeholder">
+    <strong>Inspect Technology</strong>
+    <p>Tap any tech card to open its full description, related structures, prerequisites, and unlock action.</p>
+  </article>`;
+
 const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
   const out = new Set<StructureInfoKey>();
   const effects = tech.effects ?? {};
@@ -3636,11 +3648,10 @@ const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
 };
 
 const renderTechDetailCard = (): string => {
-  const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value || state.techCatalog[0]?.id;
   const byId = new Map(state.techCatalog.map((tech) => [tech.id, tech]));
   const tierMemo = new Map<string, number>();
-  const t = state.techCatalog.find((x) => x.id === selectedId);
-  if (!t) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
+  const t = selectedTechInfo();
+  if (!t) return renderTechDetailPrompt();
   const checklist = t.requirements.checklist ?? [];
   const checks = checklist
     .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
@@ -3664,7 +3675,6 @@ const renderTechDetailCard = (): string => {
         <p class="tech-detail-effect">${effectSummary}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
         ${researchingThis ? `<p class="muted">Researching now. Completes in ${formatCooldownShort(researchRemaining)}.</p>` : pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
-        ${researchingThis ? `<p class="muted">Researching now. Completes in ${formatCooldownShort(researchRemaining)}.</p>` : pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
       </div>
       <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock || researchingThis) ? "" : "disabled"}>${researchingThis ? "Researching" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : state.currentResearch ? "Busy" : "Locked"}</button>
     </div>
@@ -3674,6 +3684,19 @@ const renderTechDetailCard = (): string => {
     <p><strong>Requirements:</strong></p>
     <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
   </article>`;
+};
+
+const renderTechDetailOverlay = (): string => {
+  if (!state.techDetailOpen) return "";
+  const t = selectedTechInfo();
+  if (!t) return "";
+  return `<div class="tech-detail-backdrop" data-tech-detail-close="backdrop"></div>
+    <div class="tech-detail-modal">
+      <button class="tech-detail-close" type="button" aria-label="Close tech details" data-tech-detail-close="button">×</button>
+      <div class="tech-detail-scroll">
+        ${renderTechDetailCard()}
+      </div>
+    </div>`;
 };
 
 const formatDomainCost = (d: DomainInfo): string => {
@@ -4211,8 +4234,10 @@ const renderHud = (): void => {
   mobileTechCurrentModsEl.innerHTML = techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown);
   techChoicesGridEl.innerHTML = renderTechChoiceGrid();
   mobileTechChoicesGridEl.innerHTML = renderTechChoiceGrid();
-  techDetailCardEl.innerHTML = renderTechDetailCard();
-  mobileTechDetailCardEl.innerHTML = renderTechDetailCard();
+  techDetailCardEl.innerHTML = renderTechDetailPrompt();
+  mobileTechDetailCardEl.innerHTML = renderTechDetailPrompt();
+  techDetailOverlayEl.innerHTML = renderTechDetailOverlay();
+  techDetailOverlayEl.style.display = state.techDetailOpen ? "grid" : "none";
   techOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
   mobileTechOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
   techDomainsEl.innerHTML = `${renderDomainChoiceGrid()}${renderDomainDetailCard()}${domainOwnedHtml(state.domainCatalog, state.domainIds)}`;
@@ -4268,6 +4293,13 @@ const renderHud = (): void => {
       showCaptureAlert(info.title, info.detail, "warn");
     };
   });
+  const techDetailCloseButtons = hud.querySelectorAll<HTMLElement>("[data-tech-detail-close]");
+  techDetailCloseButtons.forEach((btn) => {
+    btn.onclick = () => {
+      state.techDetailOpen = false;
+      renderHud();
+    };
+  });
   const selectedTech = state.techCatalog.find((t) => t.id === state.techUiSelectedId);
   const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch && !state.pendingTechUnlockId);
   techChooseBtn.disabled = !canPick;
@@ -4279,6 +4311,7 @@ const renderHud = (): void => {
       const id = btn.dataset.techCard;
       if (!id) return;
       state.techUiSelectedId = id;
+      state.techDetailOpen = true;
       if (visibleTechChoices.includes(id)) {
         techPickEl.value = id;
         mobileTechPickEl.value = id;
