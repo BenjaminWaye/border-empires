@@ -498,6 +498,7 @@ type LeaderboardOverallEntry = {
   incomePerMinute: number;
   techs: number;
   score: number;
+  rank: number;
 };
 
 type LeaderboardMetricEntry = {
@@ -508,6 +509,7 @@ type LeaderboardMetricEntry = {
 
 type LeaderboardSnapshotView = {
   overall: LeaderboardOverallEntry[];
+  selfOverall: LeaderboardOverallEntry | undefined;
   byTiles: LeaderboardMetricEntry[];
   byIncome: LeaderboardMetricEntry[];
   byTechs: LeaderboardMetricEntry[];
@@ -9825,9 +9827,11 @@ const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
     incomePerMinute: metric.incomePerMinute,
     techs: metric.techs
   }));
-  const overall = [...rows]
+  const overallRanked = [...rows]
     .map((r) => ({ ...r, score: r.tiles * 1 + r.incomePerMinute * 3 + r.techs * 8 }))
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute || b.techs - a.techs || a.id.localeCompare(b.id))
+    .map((r, index) => ({ ...r, rank: index + 1 }));
+  const overall = overallRanked
     .slice(0, limitTop);
   const byTiles = [...rows]
     .sort((a, b) => b.tiles - a.tiles)
@@ -9842,7 +9846,26 @@ const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
     .slice(0, limitTop)
     .map((r) => ({ id: r.id, name: r.name, value: r.techs }));
 
-  return { overall, byTiles, byIncome, byTechs };
+  return { overall, selfOverall: undefined, byTiles, byIncome, byTechs };
+};
+
+const leaderboardSnapshotForPlayer = (playerId: string | undefined): LeaderboardSnapshotView => {
+  const base = cachedLeaderboardSnapshot;
+  if (!playerId) return { ...base, selfOverall: undefined };
+  if (base.overall.some((entry) => entry.id === playerId)) return { ...base, selfOverall: undefined };
+  const rows = collectPlayerCompetitionMetrics().map((metric) => ({
+    id: metric.playerId,
+    name: metric.name,
+    tiles: metric.settledTiles,
+    incomePerMinute: metric.incomePerMinute,
+    techs: metric.techs,
+    score: metric.settledTiles * 1 + metric.incomePerMinute * 3 + metric.techs * 8
+  }));
+  const ranked = rows
+    .sort((a, b) => b.score - a.score || b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute || b.techs - a.techs || a.id.localeCompare(b.id))
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+  const selfOverall = ranked.find((entry) => entry.id === playerId);
+  return selfOverall ? { ...base, selfOverall } : { ...base, selfOverall: undefined };
 };
 
 const trimFrontierSettlementsWindow = (playerId: string, nowMs = now()): number[] => {
@@ -9940,28 +9963,71 @@ const controlledResourceTileCounts = (playerId: string): Record<ResourceType, nu
   return counts;
 };
 
-const continentLandCounts = (): Map<number, number> => {
-  const counts = new Map<number, number>();
+let cachedIslandMap:
+  | {
+      seed: number;
+      islandIdByTile: Map<TileKey, number>;
+      landCounts: Map<number, number>;
+    }
+  | undefined;
+
+const buildIslandMap = (): { islandIdByTile: Map<TileKey, number>; landCounts: Map<number, number> } => {
+  const islandIdByTile = new Map<TileKey, number>();
+  const landCounts = new Map<number, number>();
+  let nextIslandId = 0;
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
       if (terrainAtRuntime(x, y) !== "LAND") continue;
-      const continentId = continentIdAt(x, y);
-      if (continentId === undefined) continue;
-      counts.set(continentId, (counts.get(continentId) ?? 0) + 1);
+      const startKey = key(x, y);
+      if (islandIdByTile.has(startKey)) continue;
+      const islandId = nextIslandId;
+      nextIslandId += 1;
+      const queue: Array<{ x: number; y: number }> = [{ x, y }];
+      islandIdByTile.set(startKey, islandId);
+      let islandLand = 0;
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        islandLand += 1;
+        for (let dy = -1; dy <= 1; dy += 1) {
+          for (let dx = -1; dx <= 1; dx += 1) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = wrapX(current.x + dx, WORLD_WIDTH);
+            const ny = wrapY(current.y + dy, WORLD_HEIGHT);
+            if (terrainAtRuntime(nx, ny) !== "LAND") continue;
+            const neighborKey = key(nx, ny);
+            if (islandIdByTile.has(neighborKey)) continue;
+            islandIdByTile.set(neighborKey, islandId);
+            queue.push({ x: nx, y: ny });
+          }
+        }
+      }
+      landCounts.set(islandId, islandLand);
     }
   }
-  return counts;
+  return { islandIdByTile, landCounts };
 };
 
-const continentSettledCounts = (playerId: string): Map<number, number> => {
+const islandMap = (): { islandIdByTile: Map<TileKey, number>; landCounts: Map<number, number> } => {
+  if (cachedIslandMap?.seed === activeSeason.worldSeed) {
+    return { islandIdByTile: cachedIslandMap.islandIdByTile, landCounts: cachedIslandMap.landCounts };
+  }
+  const next = buildIslandMap();
+  cachedIslandMap = { seed: activeSeason.worldSeed, ...next };
+  return next;
+};
+
+const islandLandCounts = (): Map<number, number> => islandMap().landCounts;
+
+const islandSettledCounts = (playerId: string): Map<number, number> => {
   const counts = new Map<number, number>();
+  const ids = islandMap().islandIdByTile;
   for (const tk of players.get(playerId)?.territoryTiles ?? []) {
     const [x, y] = parseKey(tk);
     if (terrainAtRuntime(x, y) !== "LAND") continue;
     if (ownership.get(tk) !== playerId || ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    const continentId = continentIdAt(x, y);
-    if (continentId === undefined) continue;
-    counts.set(continentId, (counts.get(continentId) ?? 0) + 1);
+    const islandId = ids.get(tk);
+    if (islandId === undefined) continue;
+    counts.set(islandId, (counts.get(islandId) ?? 0) + 1);
   }
   return counts;
 };
@@ -10039,7 +10105,7 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
   const metrics = collectPlayerCompetitionMetrics(nowMs);
   const totalResourceCounts = worldResourceTileCounts();
-  const allContinents = continentLandCounts();
+  const allIslands = islandLandCounts();
   return VICTORY_PRESSURE_DEFS.map((def) => {
     const tracker = getVictoryPressureTracker(def.id);
     let leaderPlayerId: string | undefined;
@@ -10105,21 +10171,21 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
       let bestQualifiedCount = 0;
       let bestRatio = -1;
       let bestMinPct = 0;
-      const totalIslands = Math.max(1, allContinents.size);
+      const totalIslands = Math.max(1, allIslands.size);
       for (const metric of metrics) {
-        const settled = continentSettledCounts(metric.playerId);
+        const settled = islandSettledCounts(metric.playerId);
         let minRatio = Number.POSITIVE_INFINITY;
-        let validContinents = 0;
+        let validIslands = 0;
         let qualifiedCount = 0;
-        for (const [continentId, totalLand] of allContinents) {
+        for (const [islandId, totalLand] of allIslands) {
           if (totalLand <= 0) continue;
-          validContinents += 1;
-          const owned = settled.get(continentId) ?? 0;
+          validIslands += 1;
+          const owned = settled.get(islandId) ?? 0;
           const ratio = owned / totalLand;
           if (ratio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) qualifiedCount += 1;
           minRatio = Math.min(minRatio, ratio);
         }
-        if (validContinents === 0) continue;
+        if (validIslands === 0) continue;
         if (
           qualifiedCount > bestQualifiedCount ||
           (qualifiedCount === bestQualifiedCount &&
@@ -10174,7 +10240,7 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   });
 };
 
-let cachedLeaderboardSnapshot: LeaderboardSnapshotView = { overall: [], byTiles: [], byIncome: [], byTechs: [] };
+let cachedLeaderboardSnapshot: LeaderboardSnapshotView = { overall: [], selfOverall: undefined, byTiles: [], byIncome: [], byTechs: [] };
 let cachedVictoryPressureObjectives: SeasonVictoryObjectiveView[] = [];
 let globalStatusCacheExpiresAt = 0;
 let lastGlobalStatusBroadcastSig = "";
@@ -10209,12 +10275,14 @@ const broadcastGlobalStatusUpdate = (force = false): void => {
   const nextSig = globalStatusBroadcastSignature();
   if (!force && nextSig === lastGlobalStatusBroadcastSig) return;
   lastGlobalStatusBroadcastSig = nextSig;
-  broadcast({
-    type: "GLOBAL_STATUS_UPDATE",
-    leaderboard: cachedLeaderboardSnapshot,
-    seasonVictory: cachedVictoryPressureObjectives,
-    seasonWinner
-  });
+  for (const player of players.values()) {
+    sendToPlayer(player.id, {
+      type: "GLOBAL_STATUS_UPDATE",
+      leaderboard: leaderboardSnapshotForPlayer(player.id),
+      seasonVictory: cachedVictoryPressureObjectives,
+      seasonWinner
+    });
+  }
 };
 
 const broadcastVictoryPressureUpdate = (announcement?: string): void => {
