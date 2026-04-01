@@ -241,9 +241,11 @@ const hudMarkup = `
         </div>
         <div id="allies-list"></div>
         <div id="alliance-requests"></div>
+        <div id="alliance-player-inspect"></div>
       </section>
       <section id="panel-defensibility" class="panel-body"></section>
       <section id="panel-economy" class="panel-body"></section>
+      <section id="panel-manpower" class="panel-body"></section>
       <section id="panel-leaderboard" class="panel-body">
         <div id="leaderboard"></div>
       </section>
@@ -294,9 +296,11 @@ const hudMarkup = `
       </div>
       <div id="mobile-allies-list"></div>
       <div id="mobile-alliance-requests"></div>
+      <div id="mobile-alliance-player-inspect"></div>
     </section>
     <section id="mobile-panel-defensibility" class="mobile-panel"></section>
     <section id="mobile-panel-economy" class="mobile-panel"></section>
+    <section id="mobile-panel-manpower" class="mobile-panel"></section>
     <section id="mobile-panel-intel" class="mobile-panel">
       <div id="mobile-leaderboard"></div>
       <div id="mobile-feed"></div>
@@ -369,6 +373,7 @@ export const initClientDom = () => {
   const panelAllianceEl = requireElement<HTMLDivElement>("#panel-alliance");
   const panelDefensibilityEl = requireElement<HTMLDivElement>("#panel-defensibility");
   const panelEconomyEl = requireElement<HTMLDivElement>("#panel-economy");
+  const panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower");
   const panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard");
   const panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
   const panelSettingsEl = requireElement<HTMLDivElement>("#panel-settings");
@@ -386,6 +391,7 @@ export const initClientDom = () => {
   const allianceBreakIdEl = requireElement<HTMLInputElement>("#alliance-break-id");
   const alliesListEl = requireElement<HTMLDivElement>("#allies-list");
   const allianceRequestsEl = requireElement<HTMLDivElement>("#alliance-requests");
+  const alliancePlayerInspectEl = requireElement<HTMLDivElement>("#alliance-player-inspect");
   const missionsEl = requireElement<HTMLDivElement>("#panel-missions");
   const leaderboardEl = requireElement<HTMLDivElement>("#leaderboard");
   const allianceSendBtn = requireElement<HTMLButtonElement>("#alliance-send");
@@ -401,6 +407,7 @@ export const initClientDom = () => {
   const mobilePanelSocialEl = requireElement<HTMLDivElement>("#mobile-panel-social");
   const mobilePanelDefensibilityEl = requireElement<HTMLDivElement>("#mobile-panel-defensibility");
   const mobilePanelEconomyEl = requireElement<HTMLDivElement>("#mobile-panel-economy");
+  const mobilePanelManpowerEl = requireElement<HTMLDivElement>("#mobile-panel-manpower");
   const mobilePanelIntelEl = requireElement<HTMLDivElement>("#mobile-panel-intel");
   const mobileFeedEl = requireElement<HTMLDivElement>("#mobile-feed");
   const mobileLeaderboardEl = requireElement<HTMLDivElement>("#mobile-leaderboard");
@@ -420,6 +427,7 @@ export const initClientDom = () => {
   const mobileAllianceBreakBtn = requireElement<HTMLButtonElement>("#mobile-alliance-break");
   const mobileAllianceRequestsEl = requireElement<HTMLDivElement>("#mobile-alliance-requests");
   const mobileAlliesListEl = requireElement<HTMLDivElement>("#mobile-allies-list");
+  const mobileAlliancePlayerInspectEl = requireElement<HTMLDivElement>("#mobile-alliance-player-inspect");
   const centerMeBtn = requireElement<HTMLButtonElement>("#center-me");
   const collectVisibleMobileBtn = requireElement<HTMLButtonElement>("#collect-visible-mobile");
   const centerMeDesktopBtn = requireElement<HTMLButtonElement>("#center-me-desktop");
@@ -436,6 +444,7 @@ export const initClientDom = () => {
   return {
     allianceBreakBtn,
     allianceBreakIdEl,
+    alliancePlayerInspectEl,
     allianceRequestsEl,
     allianceSendBtn,
     allianceTargetEl,
@@ -493,6 +502,7 @@ export const initClientDom = () => {
     missionsEl,
     mobileAllianceBreakBtn,
     mobileAllianceBreakIdEl,
+    mobileAlliancePlayerInspectEl,
     mobileAllianceRequestsEl,
     mobileAllianceSendBtn,
     mobileAllianceTargetEl,
@@ -504,6 +514,7 @@ export const initClientDom = () => {
     mobileLeaderboardEl,
     mobilePanelCoreEl,
     mobilePanelEconomyEl,
+    mobilePanelManpowerEl,
     mobilePanelIntelEl,
     mobilePanelMissionsEl,
     mobilePanelSocialEl,
@@ -524,6 +535,7 @@ export const initClientDom = () => {
     panelCloseBtn,
     panelDefensibilityEl,
     panelEconomyEl,
+    panelManpowerEl,
     panelFeedEl,
     panelLeaderboardEl,
     panelMissionsEl,

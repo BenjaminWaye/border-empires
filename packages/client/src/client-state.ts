@@ -115,6 +115,10 @@ export const createInitialState = () => ({
   revealCapacity: 1,
   activeRevealTargets: [] as string[],
   abilityCooldowns: {} as Partial<Record<"deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain", number>>,
+  manpowerBreakdown: {
+    cap: [{ label: "Base", amount: MANPOWER_BASE_CAP }],
+    regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
+  } as { cap: Array<{ label: string; amount: number; note?: string }>; regen: Array<{ label: string; amount: number; note?: string }> },
   revealTargetId: "" as string,
   allies: [] as string[],
   playerNames: new Map<string, string>(),
@@ -122,6 +126,8 @@ export const createInitialState = () => ({
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
   incomingAllianceRequests: [] as AllianceRequest[],
+  outgoingAllianceRequests: [] as AllianceRequest[],
+  socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[],
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
   pendingCombatReveal: undefined as
@@ -160,8 +166,8 @@ export const createInitialState = () => ({
   seasonVictory: [] as SeasonVictoryObjectiveView[],
   seasonWinner: undefined as SeasonWinnerView | undefined,
   missions: [] as MissionState[],
-  mobilePanel: "core" as "core" | "missions" | "tech" | "social" | "economy" | "defensibility" | "intel",
-  activePanel: null as "missions" | "tech" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "settings" | null,
+  mobilePanel: "core" as "core" | "missions" | "tech" | "social" | "economy" | "defensibility" | "intel" | "manpower",
+  activePanel: null as "missions" | "tech" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "settings" | "manpower" | null,
   showWeakDefensibility: false,
   structureInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD",

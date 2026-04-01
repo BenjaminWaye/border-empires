@@ -96,6 +96,7 @@ const formatManpowerAmount = (value: number): string => Math.round(value).toStri
 const {
   allianceBreakBtn,
   allianceBreakIdEl,
+  alliancePlayerInspectEl,
   allianceRequestsEl,
   allianceSendBtn,
   allianceTargetEl,
@@ -153,6 +154,7 @@ const {
   missionsEl,
   mobileAllianceBreakBtn,
   mobileAllianceBreakIdEl,
+  mobileAlliancePlayerInspectEl,
   mobileAllianceRequestsEl,
   mobileAllianceSendBtn,
   mobileAllianceTargetEl,
@@ -164,6 +166,7 @@ const {
   mobileLeaderboardEl,
   mobilePanelCoreEl,
   mobilePanelEconomyEl,
+  mobilePanelManpowerEl,
   mobilePanelIntelEl,
   mobilePanelMissionsEl,
   mobilePanelSocialEl,
@@ -185,6 +188,7 @@ const {
   panelCloseBtn,
   panelDefensibilityEl,
   panelEconomyEl,
+  panelManpowerEl,
   panelFeedEl,
   panelLeaderboardEl,
   panelMissionsEl,
@@ -1870,6 +1874,65 @@ const economyPanelHtml = (): string => {
     </div>
   `;
 };
+
+const manpowerPanelHtml = (): string => {
+  const current = formatManpowerAmount(state.manpower);
+  const cap = formatManpowerAmount(state.manpowerCap);
+  const regen = state.manpowerRegenPerMinute;
+  const regenText = `${regen >= 0 ? "+" : ""}${regen.toFixed(1)}/m`;
+  const sectionHtml = (
+    title: string,
+    lines: Array<{ label: string; amount: number; note?: string }>,
+    tone: "positive" | "neutral"
+  ): string => `
+    <section class="card manpower-detail-card">
+      <h4>${title}</h4>
+      ${lines.map((line) => `<div class="economy-line${tone === "positive" ? "" : ""}"><span>${line.label}${line.note ? `<small>${line.note}</small>` : ""}</span><strong>${line.amount >= 0 ? "+" : ""}${line.amount.toFixed(line.amount % 1 === 0 ? 0 : 1)}</strong></div>`).join("")}
+    </section>
+  `;
+  return `
+    <div class="economy-panel">
+      <section class="card manpower-summary-card">
+        <div class="economy-detail-head">
+          <div>
+            <div class="economy-detail-kicker">Manpower</div>
+            <strong>${current}/${cap}</strong>
+          </div>
+          <div class="economy-rate ${rateToneClass(regen)}">${regenText}</div>
+        </div>
+        <div class="economy-footnote">Manpower gates attacks. Fed towns raise cap and regeneration. Recently captured towns contribute less until they stabilize.</div>
+      </section>
+      ${sectionHtml("Cap modifiers", state.manpowerBreakdown.cap, "neutral")}
+      ${sectionHtml("Regen modifiers", state.manpowerBreakdown.regen, "positive")}
+    </div>
+  `;
+};
+
+const socialInspectCardHtml = (): string => {
+  if (!state.socialInspectPlayerId) return "";
+  const id = state.socialInspectPlayerId;
+  const entry = state.leaderboard.overall.find((player) => player.id === id);
+  const name = playerNameForOwner(id) ?? entry?.name ?? id.slice(0, 8);
+  return `<article class="card social-inspect-card">
+    <div class="economy-detail-head">
+      <div>
+        <div class="economy-detail-kicker">Player</div>
+        <strong>${name}</strong>
+      </div>
+      <div class="economy-rate">${state.allies.includes(id) ? "Allied" : "Empire"}</div>
+    </div>
+    <div class="economy-detail-columns">
+      <div class="economy-detail-column">
+        <div class="economy-line"><span>Score</span><strong>${entry ? entry.score.toFixed(0) : "?"}</strong></div>
+        <div class="economy-line"><span>Tiles</span><strong>${entry ? entry.tiles.toFixed(0) : "?"}</strong></div>
+      </div>
+      <div class="economy-detail-column">
+        <div class="economy-line"><span>Income</span><strong>${entry ? `${entry.incomePerMinute.toFixed(1)}/m` : "?"}</strong></div>
+        <div class="economy-line"><span>Techs</span><strong>${entry ? entry.techs.toFixed(0) : "?"}</strong></div>
+      </div>
+    </div>
+  </article>`;
+};
 const rateToneClass = (rate: number): string => {
   if (rate > 0.001) return "positive";
   if (rate < -0.001) return "negative";
@@ -2284,6 +2347,7 @@ const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => {
   if (panel === "tech") return "Technology Tree";
   if (panel === "alliance") return "Alliances";
   if (panel === "economy") return "Economy";
+  if (panel === "manpower") return "Manpower";
   if (panel === "defensibility") return "Defensibility";
   if (panel === "leaderboard") return "Leaderboard";
   if (panel === "feed") return "Activity Feed";
@@ -2296,6 +2360,7 @@ const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof sta
   if (panel === "alliance") return "social";
   if (panel === "defensibility") return "defensibility";
   if (panel === "economy") return "economy";
+  if (panel === "manpower") return "manpower";
   return "intel";
 };
 
@@ -2371,6 +2436,7 @@ const renderMobilePanels = (): void => {
     [mobilePanelSocialEl, "social"],
     [mobilePanelDefensibilityEl, "defensibility"],
     [mobilePanelEconomyEl, "economy"],
+    [mobilePanelManpowerEl, "manpower"],
     [mobilePanelIntelEl, "intel"]
   ];
   for (const [el, panel] of mobileSections) {
@@ -2382,6 +2448,7 @@ const renderMobilePanels = (): void => {
   else if (state.mobilePanel === "social") mobileSheetHeadEl.textContent = "Alliances";
   else if (state.mobilePanel === "defensibility") mobileSheetHeadEl.textContent = "Defensibility";
   else if (state.mobilePanel === "economy") mobileSheetHeadEl.textContent = "Economy";
+  else if (state.mobilePanel === "manpower") mobileSheetHeadEl.textContent = "Manpower";
   else if (state.mobilePanel === "intel") mobileSheetHeadEl.textContent = "Intel";
   else mobileSheetHeadEl.textContent = "Core";
 
@@ -4029,12 +4096,12 @@ const renderHud = (): void => {
   const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
   const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}/m`;
-  const mobileManpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}`;
+  const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   statsChipsEl.innerHTML = `
     ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    <div class="stat-chip stat-chip-manpower" title="Manpower gates attacks. Settled towns raise your cap and regeneration; recently captured towns contribute less until they stabilize."><span>${mobile ? "MP" : "Manpower"}</span><strong>${mobile ? formatManpowerAmount(state.manpower) : `${formatManpowerAmount(state.manpower)} / ${formatManpowerAmount(state.manpowerCap)}`} <em class="stat-chip-rate ${manpowerRateClass}">${mobile ? mobileManpowerRateText : manpowerRateText}</em></strong></div>
+    <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}</strong></button>
     <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
     <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
       <span>${mobile ? "Dev" : "Development"}</span>
@@ -4068,6 +4135,14 @@ const renderHud = (): void => {
   defensibilityButtons.forEach((btn) => {
     btn.onclick = () => {
       setActivePanel("defensibility");
+    };
+  });
+  const statPanelButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-panel]");
+  statPanelButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const panel = btn.dataset.panel as typeof state.activePanel;
+      if (!panel) return;
+      setActivePanel(panel);
     };
   });
   const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
@@ -4346,8 +4421,10 @@ const renderHud = (): void => {
   });
   alliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}`;
   mobileAlliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}`;
-  allianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}`;
-  mobileAllianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}`;
+  allianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming")}<h4>Outgoing Requests</h4>${allianceRequestsHtml(state.outgoingAllianceRequests, playerNameForOwner, "outgoing")}`;
+  mobileAllianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming")}<h4>Outgoing Requests</h4>${allianceRequestsHtml(state.outgoingAllianceRequests, playerNameForOwner, "outgoing")}`;
+  alliancePlayerInspectEl.innerHTML = socialInspectCardHtml();
+  mobileAlliancePlayerInspectEl.innerHTML = socialInspectCardHtml();
 
   missionsEl.innerHTML = missionCardsHtml(state.missions);
   mobilePanelMissionsEl.innerHTML = missionCardsHtml(state.missions);
@@ -4355,6 +4432,8 @@ const renderHud = (): void => {
   mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml();
   panelEconomyEl.innerHTML = economyPanelHtml();
   mobilePanelEconomyEl.innerHTML = economyPanelHtml();
+  panelManpowerEl.innerHTML = manpowerPanelHtml();
+  mobilePanelManpowerEl.innerHTML = manpowerPanelHtml();
   leaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
   mobileLeaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
   feedEl.innerHTML = feedHtml(state.feed);
@@ -4389,6 +4468,16 @@ const renderHud = (): void => {
       const id = btn.dataset.allyId;
       if (!id) return;
       sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing alliances.");
+    };
+  });
+  const inspectButtons = hud.querySelectorAll<HTMLButtonElement>("[data-inspect-player]");
+  inspectButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const id = btn.dataset.inspectPlayer;
+      if (!id) return;
+      state.socialInspectPlayerId = id;
+      if (!isMobile()) state.activePanel = "alliance";
+      renderHud();
     };
   });
 
@@ -7210,6 +7299,9 @@ ws.addEventListener("message", (ev) => {
     state.strategicProductionPerMinute =
       (p.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
     state.stamina = p.stamina as number;
+    state.manpower = (p.manpower as number | undefined) ?? state.manpower;
+    state.manpowerCap = (p.manpowerCap as number | undefined) ?? state.manpowerCap;
+    state.manpowerRegenPerMinute = (p.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
     state.territoryT = (p.T as number) ?? state.territoryT;
     state.exposureE = (p.E as number) ?? state.exposureE;
     state.settledT = (p.Ts as number) ?? state.settledT;
@@ -7232,10 +7324,13 @@ ws.addEventListener("message", (ev) => {
     state.activeRevealTargets = (p.activeRevealTargets as string[]) ?? state.activeRevealTargets;
     state.abilityCooldowns =
       (p.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
+    state.manpowerBreakdown =
+      (p.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
     applyPendingSettlementsFromServer(
       (p.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
     );
     state.allies = (p.allies as string[]) ?? [];
+    state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as AllianceRequest[] | undefined) ?? [];
     const myTileColor = p.tileColor as string | undefined;
     if (myTileColor) {
       state.playerColors.set(state.me, myTileColor);
@@ -7274,7 +7369,8 @@ ws.addEventListener("message", (ev) => {
     if (state.profileSetupRequired) {
       setAuthStatus("Choose a display name and nation color to begin.");
     }
-    state.incomingAllianceRequests = (msg.allianceRequests as AllianceRequest[]) ?? [];
+    state.incomingAllianceRequests =
+      (msg.incomingAllianceRequests as AllianceRequest[] | undefined) ?? (msg.allianceRequests as AllianceRequest[] | undefined) ?? [];
     const cfg = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
     const season = cfg.season;
     if (typeof season?.worldSeed === "number") {
@@ -7349,13 +7445,22 @@ ws.addEventListener("message", (ev) => {
       (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
     state.strategicProductionPerMinute =
       (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
+    state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
+    state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
+    state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
     state.upkeepPerMinute =
       (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
     state.upkeepLastTick =
       (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
+    state.manpowerBreakdown =
+      (msg.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
     applyPendingSettlementsFromServer(
       (msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
     );
+    state.incomingAllianceRequests =
+      (msg.incomingAllianceRequests as AllianceRequest[] | undefined) ?? state.incomingAllianceRequests;
+    state.outgoingAllianceRequests =
+      (msg.outgoingAllianceRequests as AllianceRequest[] | undefined) ?? state.outgoingAllianceRequests;
     clearPendingCollectVisibleDelta();
     if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
       pushFeed(
@@ -7763,7 +7868,7 @@ ws.addEventListener("message", (ev) => {
   }
   if (msg.type === "ALLIANCE_REQUEST_INCOMING") {
     const request = (msg.request as AllianceRequest) ?? undefined;
-    if (request) {
+    if (request && !state.incomingAllianceRequests.some((existing) => existing.id === request.id)) {
       const fromName = msg.fromName as string | undefined;
       if (fromName) request.fromName = fromName;
       state.incomingAllianceRequests.push(request);
@@ -7773,6 +7878,9 @@ ws.addEventListener("message", (ev) => {
   }
   if (msg.type === "ALLIANCE_REQUESTED") {
     const request = msg.request as AllianceRequest | undefined;
+    if (request && !state.outgoingAllianceRequests.some((existing) => existing.id === request.id)) {
+      state.outgoingAllianceRequests.push(request);
+    }
     const targetName =
       (msg.targetName as string | undefined) ??
       request?.toName ??
@@ -7782,6 +7890,8 @@ ws.addEventListener("message", (ev) => {
   }
   if (msg.type === "ALLIANCE_UPDATE") {
     state.allies = (msg.allies as string[]) ?? [];
+    state.incomingAllianceRequests = (msg.incomingAllianceRequests as AllianceRequest[] | undefined) ?? state.incomingAllianceRequests;
+    state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as AllianceRequest[] | undefined) ?? state.outgoingAllianceRequests;
     pushFeed(`Alliances updated (${state.allies.length})`, "alliance", "info");
     renderHud();
   }
