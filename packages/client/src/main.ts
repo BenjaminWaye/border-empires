@@ -1263,7 +1263,19 @@ const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock
 const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MARKET: loadOverlayImage("market-overlay.svg"),
-  GRANARY: loadOverlayImage("granary-overlay.svg")
+  GRANARY: loadOverlayImage("granary-overlay.svg"),
+  BANK: loadOverlayImage("bank-overlay.svg"),
+  AIRPORT: loadOverlayImage("airport-overlay.svg"),
+  QUARTERMASTER: loadOverlayImage("quartermaster-overlay.svg"),
+  IRONWORKS: loadOverlayImage("ironworks-overlay.svg"),
+  CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg"),
+  FUEL_PLANT: loadOverlayImage("fuel-plant-overlay.svg"),
+  CARAVANARY: loadOverlayImage("caravanary-overlay.svg"),
+  FOUNDRY: loadOverlayImage("foundry-overlay.svg"),
+  GARRISON_HALL: loadOverlayImage("garrison-hall-overlay.svg"),
+  CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),
+  GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),
+  RADAR_SYSTEM: loadOverlayImage("radar-system-overlay.svg")
 } as const;
 const builtResourceOverlayVariants = {
   FARM_FARMSTEAD: createOverlayVariantSet(["farm-farmstead-overlay-1.svg", "farm-farmstead-overlay-2.svg", "farm-farmstead-overlay-3.svg"]),
@@ -8582,10 +8594,10 @@ const draw = (): void => {
         const markerSize = Math.max(3, Math.floor(size * 0.2));
         const active = t.economicStructure.status === "active";
         const hasBuiltResourceOverlay = Boolean(builtResourceOverlayForTile(t));
-        if ((t.economicStructure.type === "MARKET" || t.economicStructure.type === "GRANARY")) {
-          const overlay = t.economicStructure.type === "MARKET" ? structureOverlayImages.MARKET : structureOverlayImages.GRANARY;
+        const overlay = structureOverlayImages[t.economicStructure.type as keyof typeof structureOverlayImages];
+        if (overlay) {
           if (overlay.complete && overlay.naturalWidth) {
-            drawCenteredOverlay(overlay, px, py, size, 1.02);
+            drawCenteredOverlayWithAlpha(overlay, px, py, size, 1.02, economicStructureOverlayAlpha(t));
           }
         } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
           ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)");
