@@ -26,6 +26,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_customs_house") return "⚓";
   if (id === "build_radar_system") return "◌";
   if (id === "build_governors_office") return "⌘";
+  if (id === "remove_structure") return "⌫";
   if (id === "abandon_territory") return "✕";
   if (id === "deep_strike") return "✦";
   if (id === "naval_infiltration") return "≈";
@@ -76,7 +77,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
         </div>
         <div class="tile-progress-bar"><div style="width:${Math.round(view.progress.progress * 100)}%"></div></div>
         <div class="tile-progress-note">${view.progress.note}</div>
-        ${view.progress.cancelLabel ? `<button class="tile-progress-cancel" type="button" data-progress-action="cancel_structure_build">${view.progress.cancelLabel}</button>` : ""}
+        ${view.progress.cancelLabel ? `<button class="tile-progress-cancel" type="button" data-progress-action="${view.progress.cancelActionId ?? "cancel_structure_build"}">${view.progress.cancelLabel}</button>` : ""}
       </div>
     `;
   }
