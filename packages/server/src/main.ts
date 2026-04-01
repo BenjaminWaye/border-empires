@@ -6503,6 +6503,7 @@ type AiTerritorySummary = {
   foodPressure: number;
   settlementEvaluationByKey: Map<string, AiSettlementCandidateEvaluation>;
   scoutRevealCountByTileKey: Map<TileKey, number>;
+  scoutRevealValueByTileKey: Map<TileKey, number>;
   supportedTownKeysByTileKey: Map<TileKey, TileKey[]>;
   dockSignalByTileKey: Map<TileKey, number>;
   economicSignalByTileKey: Map<TileKey, number>;
@@ -6625,6 +6626,7 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     foodPressure: aiFoodPressureSignal(actor),
     settlementEvaluationByKey: new Map<string, AiSettlementCandidateEvaluation>(),
     scoutRevealCountByTileKey: new Map<TileKey, number>(),
+    scoutRevealValueByTileKey: new Map<TileKey, number>(),
     supportedTownKeysByTileKey: new Map<TileKey, TileKey[]>(),
     dockSignalByTileKey: new Map<TileKey, number>(),
     economicSignalByTileKey: new Map<TileKey, number>(),
@@ -6668,6 +6670,78 @@ const countAiScoutRevealTiles = (
   }
   territorySummary.scoutRevealCountByTileKey.set(tk, count);
   return count;
+};
+
+const scoreAiScoutRevealValue = (
+  actor: Player,
+  to: Tile,
+  visibility: ReturnType<typeof visibilitySnapshotForPlayer>,
+  territorySummary: AiTerritorySummary
+): number => {
+  const tk = key(to.x, to.y);
+  const cached = territorySummary.scoutRevealValueByTileKey.get(tk);
+  if (cached !== undefined) return cached;
+
+  territorySummary.scoutRevealStamp += 1;
+  if (territorySummary.scoutRevealStamp === 0) {
+    territorySummary.scoutRevealMarks.fill(0);
+    territorySummary.scoutRevealStamp = 1;
+  }
+  const stamp = territorySummary.scoutRevealStamp;
+  const foodPressure = territorySummary.foodPressure;
+  const { economyWeak } = aiEconomyPriorityState(actor, territorySummary);
+  let score = 0;
+
+  const considerReveal = (x: number, y: number): void => {
+    const revealIndex = tileIndex(x, y);
+    if (territorySummary.scoutRevealMarks[revealIndex] === stamp) return;
+    territorySummary.scoutRevealMarks[revealIndex] = stamp;
+    if (visibleInSnapshot(visibility, x, y)) return;
+    if (terrainAt(x, y) !== "LAND") return;
+
+    const revealKey = key(x, y);
+    score += 4;
+    if (townsByTile.has(revealKey)) {
+      score += 90;
+      return;
+    }
+    if (docksByTile.has(revealKey)) {
+      score += 85;
+      return;
+    }
+    const cluster = clusterByTile.get(revealKey);
+    if (cluster) {
+      const resource = clusterResourceType(cluster);
+      score += 50 + Math.round(baseTileValue(resource) * 0.7);
+      if (foodPressure > 0 && (resource === "FARM" || resource === "FISH")) score += 60;
+      return;
+    }
+
+    const biome = landBiomeAt(x, y);
+    const shade = grassShadeAt(x, y);
+    if (biome === "COASTAL_SAND") {
+      score += foodPressure > 0 ? 26 : 14;
+      score += 12;
+    } else if (biome === "GRASS") {
+      score += shade === "LIGHT" ? (foodPressure > 0 ? 22 : 12) : 8;
+    } else if (biome === "SAND") {
+      score += economyWeak ? 12 : 8;
+    }
+    if (isNearMountain(x, y, 2)) score += 8;
+    if (adjacentNeighborCores(x, y).some((neighbor) => neighbor.terrain === "SEA")) score += 8;
+  };
+
+  for (const next of adjacentNeighborCores(to.x, to.y)) {
+    if (next.terrain !== "LAND") continue;
+    considerReveal(next.x, next.y);
+    for (const secondRing of adjacentNeighborCores(next.x, next.y)) {
+      if (secondRing.terrain !== "LAND") continue;
+      considerReveal(secondRing.x, secondRing.y);
+    }
+  }
+
+  territorySummary.scoutRevealValueByTileKey.set(tk, score);
+  return score;
 };
 
 const bestAiFrontierAction = (
@@ -6858,6 +6932,7 @@ const bestAiOpeningScoutExpand = (
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
     const unseenNeighbors = countAiScoutRevealTiles(to, visibility, territorySummary);
+    const revealValue = scoreAiScoutRevealValue(actor, to, visibility, territorySummary);
     const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
       if (next.ownerId !== actor.id) return count;
       return count + 1;
@@ -6880,7 +6955,8 @@ const bestAiOpeningScoutExpand = (
       return score + 18;
     }, 0);
     const score =
-      unseenNeighbors * 26 +
+      unseenNeighbors * 22 +
+      revealValue +
       coastlineDiscoveryValue +
       (ownedNeighbors <= 2 ? 16 : 0) +
       (from.ownershipState === "FRONTIER" ? 10 : 0) -
@@ -6930,8 +7006,10 @@ const scoreAiScoutExpandCandidate = (
     if (next.terrain !== "SEA") return score;
     return score + 18;
   }, 0);
+  const revealValue = territorySummary ? scoreAiScoutRevealValue(actor, to, visibility, territorySummary) : 0;
   return (
     unseenNeighbors * 18 +
+    revealValue +
     coastlineDiscoveryValue +
     (ownedNeighbors <= 2 ? 16 : 0) +
     (from.ownershipState === "FRONTIER" ? 10 : 0) -
