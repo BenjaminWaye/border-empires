@@ -5493,8 +5493,7 @@ const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
 
 const buildDetailTextForAction = (actionId: TileActionDef["id"], tile: Tile, supportedTown?: Tile): string | undefined => {
   if (actionId === "settle_land") {
-    const seconds = Math.round(settleDurationMsForTile(tile.x, tile.y) / 1000);
-    return `Makes this tile defended and activates production. ${SETTLE_COST} gold • ${seconds}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`;
+    return "Makes this tile defended and activates production.";
   }
   if (actionId === "build_fortification") return "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
   if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
