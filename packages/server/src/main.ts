@@ -5871,6 +5871,49 @@ const tryQueueBasicFrontierAction = (
   if (defender && defender.spawnShieldUntil > now()) return { ok: false, code: "SHIELDED", message: "target shielded" };
   if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
 
+  let precomputedCombat: PendingCapture["precomputedCombat"] | undefined;
+  if (defender || defenderIsBarbarian) {
+    const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
+    const atkEff =
+      10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to) * siegeAtkMult * randomFactor();
+    const shock = breachShockByTile.get(tk);
+    const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
+    const defMult = defender ? playerDefensiveness(defender) * shockMult : 1;
+    const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
+    const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
+    const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
+    const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
+    const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
+    const defEff = defenderIsBarbarian
+      ? 10 * BARBARIAN_DEFENSE_POWER * dockMult * randomFactor()
+      : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult * randomFactor();
+    const winChance = combatWinChance(atkEff, defEff);
+    const win = Math.random() < winChance;
+    const previewChanges = (() => {
+      if (win) return [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }];
+      const fortHeldOrigin = originTileHeldByActiveFort(actor.id, fk);
+      if (defenderIsBarbarian) {
+        return fortHeldOrigin
+          ? [{ x: to.x, y: to.y }]
+          : [
+              { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" as const },
+              { x: to.x, y: to.y }
+            ];
+      }
+      if (defender) return fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" as const }];
+      return [];
+    })();
+    const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id;
+    precomputedCombat = {
+      atkEff,
+      defEff,
+      winChance,
+      win,
+      previewChanges,
+      ...(previewWinnerId ? { previewWinnerId } : {})
+    };
+  }
+
   const resolvesAt = now() + (actionType === "EXPAND" && !to.ownerId ? frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
   const pending: PendingCapture = {
     resolvesAt,
@@ -5881,6 +5924,7 @@ const tryQueueBasicFrontierAction = (
     manpowerCost,
     cancelled: false
   };
+  if (precomputedCombat) pending.precomputedCombat = precomputedCombat;
   combatLocks.set(fk, pending);
   combatLocks.set(tk, pending);
 
@@ -5908,26 +5952,23 @@ const tryQueueBasicFrontierAction = (
     actor.points -= FRONTIER_ACTION_GOLD_COST;
     actor.stamina -= pending.staminaCost;
 
-    const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
-    const atkEff =
-      10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to) * siegeAtkMult * randomFactor();
-    const shock = breachShockByTile.get(tk);
-    const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
-    const defMult = defender ? playerDefensiveness(defender) * shockMult : 1;
-    const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
-    const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
-    const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
-    const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-    const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
-    const defEff = defenderIsBarbarian
-      ? 10 * BARBARIAN_DEFENSE_POWER * dockMult * randomFactor()
-      : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult * randomFactor();
-    const win = Math.random() < combatWinChance(atkEff, defEff);
+    const atkEff = pending.precomputedCombat?.atkEff ?? 10;
+    const defEff = pending.precomputedCombat?.defEff ?? 10;
+    const winChance = pending.precomputedCombat?.winChance ?? 0.5;
+    const win = pending.precomputedCombat?.win ?? false;
     settleAttackManpower(actor, pending.manpowerCost, win, atkEff, defEff);
     applyTownWarShock(tk);
 
+    let resultChanges: Array<{
+      x: number;
+      y: number;
+      ownerId?: string;
+      ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+    }> = [];
+
     if (win) {
       updateOwnership(to.x, to.y, actor.id, "FRONTIER");
+      resultChanges = [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }];
       if (defenderIsBarbarian) {
         actor.points += BARBARIAN_CLEAR_GOLD_REWARD;
         logBarbarianEvent(`cleared by ${actor.id} @ ${to.x},${to.y}`);
@@ -5952,7 +5993,8 @@ const tryQueueBasicFrontierAction = (
     } else if (defenderIsBarbarian) {
       const barbarianAgentId = barbarianAgentByTileKey.get(tk);
       const barbarianAgent = barbarianAgentId ? barbarianAgents.get(barbarianAgentId) : undefined;
-      applyFailedAttackTerritoryOutcome(actor.id, undefined, true, from, to, fk, tk);
+      const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, undefined, true, from, to, fk, tk);
+      resultChanges = failedOutcome.resultChanges;
       if (barbarianAgent) {
         barbarianAgent.progress += getBarbarianProgressGain(from);
         barbarianAgent.x = from.x;
@@ -5962,7 +6004,8 @@ const tryQueueBasicFrontierAction = (
         upsertBarbarianAgent(barbarianAgent);
       }
     } else if (defender) {
-      applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk);
+      const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk);
+      resultChanges = failedOutcome.resultChanges;
       defender.missionStats.enemyCaptures += 1;
       defender.missionStats.combatWins += 1;
       incrementVendettaCount(defender.id, actor.id);
@@ -5979,6 +6022,18 @@ const tryQueueBasicFrontierAction = (
     if (defender) updateMissionState(defender);
     resolveEliminationIfNeeded(actor, socketsByPlayer.has(actor.id) || actor.isAi === true);
     if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id) || defender.isAi === true);
+    sendToPlayer(actor.id, {
+      type: "COMBAT_RESULT",
+      attackType: actionType,
+      attackerWon: win,
+      winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+      origin: { x: from.x, y: from.y },
+      target: { x: to.x, y: to.y },
+      atkEff,
+      defEff,
+      winChance,
+      changes: resultChanges
+    });
     sendPlayerUpdate(actor, 0);
     if (defender) sendPlayerUpdate(defender, 0);
     const changedCenters = [{ x: from.x, y: from.y }, { x: to.x, y: to.y }];
@@ -6201,7 +6256,27 @@ const executeUnifiedGameplayMessage = async (
     if (!result.ok) {
       socket.send(JSON.stringify({ type: "ERROR", code: result.code, message: result.message }));
     } else {
-      socket.send(JSON.stringify({ type: "COMBAT_START", origin: { x: msg.fromX, y: msg.fromY }, target: { x: msg.toX, y: msg.toY }, resolvesAt: result.resolvesAt }));
+      const pending = combatLocks.get(key(msg.fromX, msg.fromY));
+      socket.send(
+        JSON.stringify({
+          type: "COMBAT_START",
+          origin: { x: msg.fromX, y: msg.fromY },
+          target: { x: msg.toX, y: msg.toY },
+          resolvesAt: result.resolvesAt,
+          ...(pending?.precomputedCombat
+            ? {
+                predictedResult: {
+                  attackType: msg.type,
+                  attackerWon: pending.precomputedCombat.win,
+                  winnerId: pending.precomputedCombat.previewWinnerId,
+                  origin: { x: msg.fromX, y: msg.fromY },
+                  target: { x: msg.toX, y: msg.toY },
+                  changes: pending.precomputedCombat.previewChanges
+                }
+              }
+            : {})
+        })
+      );
     }
     return true;
   }
