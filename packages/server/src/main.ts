@@ -10797,7 +10797,10 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
   }
   sendToPlayer(liveActor.id, {
     type: "COMBAT_RESULT",
+    attackType: "SETTLE",
+    attackerWon: true,
     winnerId: liveActor.id,
+    target: { x, y },
     changes: [{ x, y, ownerId: liveActor.id, ownershipState: "SETTLED" }],
     pointsDelta: 0,
     levelDelta: 0
