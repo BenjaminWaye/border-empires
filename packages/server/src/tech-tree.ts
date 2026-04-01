@@ -35,8 +35,11 @@ export interface TechEffects {
   unlockBreachAttack?: boolean;
   settlementSpeedMult?: number;
   operationalTempoMult?: number;
+  researchTimeMult?: number;
+  abilityCooldownMult?: number;
   populationGrowthMult?: number;
   firstThreeTownsPopulationGrowthMult?: number;
+  firstThreeTownsGoldOutputMult?: number;
   populationCapFirst3TownsMult?: number;
   growthPauseDurationMult?: number;
   townFoodUpkeepMult?: number;
@@ -63,15 +66,18 @@ export interface TechEffects {
   revealCapacityBonus?: number;
   visionRadiusBonus?: number;
   buildCapacityAdd?: number;
+  developmentProcessCapacityAdd?: number;
   dockGoldOutputMult?: number;
   dockGoldCapMult?: number;
   dockConnectionBonusPerLink?: number;
   dockRoutesVisible?: boolean;
   marketCrystalUpkeepMult?: number;
+  frontierDefenseAdd?: number;
   settledDefenseMult?: number;
   attackVsSettledMult?: number;
   attackVsFortsMult?: number;
   newSettlementDefenseMult?: number;
+  sabotageCooldownMult?: number;
   resourceOutputMult?: {
     farm?: number;
     fish?: number;
@@ -137,8 +143,11 @@ const TechEffectsSchema = z
     unlockBreachAttack: z.boolean().optional(),
     settlementSpeedMult: z.number().positive().optional(),
     operationalTempoMult: z.number().positive().optional(),
+    researchTimeMult: z.number().positive().optional(),
+    abilityCooldownMult: z.number().positive().optional(),
     populationGrowthMult: z.number().positive().optional(),
     firstThreeTownsPopulationGrowthMult: z.number().positive().optional(),
+    firstThreeTownsGoldOutputMult: z.number().positive().optional(),
     populationCapFirst3TownsMult: z.number().positive().optional(),
     growthPauseDurationMult: z.number().positive().optional(),
     townFoodUpkeepMult: z.number().positive().optional(),
@@ -165,15 +174,18 @@ const TechEffectsSchema = z
     revealCapacityBonus: z.number().int().min(0).optional(),
     visionRadiusBonus: z.number().int().min(0).optional(),
     buildCapacityAdd: z.number().int().min(0).optional(),
+    developmentProcessCapacityAdd: z.number().int().optional(),
     dockGoldOutputMult: z.number().positive().optional(),
     dockGoldCapMult: z.number().positive().optional(),
     dockConnectionBonusPerLink: z.number().nonnegative().optional(),
     dockRoutesVisible: z.boolean().optional(),
     marketCrystalUpkeepMult: z.number().positive().optional(),
+    frontierDefenseAdd: z.number().nonnegative().optional(),
     settledDefenseMult: z.number().positive().optional(),
     attackVsSettledMult: z.number().positive().optional(),
     attackVsFortsMult: z.number().positive().optional(),
     newSettlementDefenseMult: z.number().positive().optional(),
+    sabotageCooldownMult: z.number().positive().optional(),
     resourceOutputMult: z
       .object({
         farm: z.number().positive().optional(),
