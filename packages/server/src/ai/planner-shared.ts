@@ -66,6 +66,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     (snapshot.controlledTowns > 0 || snapshot.hasActiveDock || snapshot.aiIncome >= 16);
   const fortifyChokePoint =
     snapshot.fortAvailable &&
+    snapshot.canBuildFort &&
     snapshot.fortProtectsCore &&
     !pressureAttackReady &&
     !urgentPressureAttackReady &&
