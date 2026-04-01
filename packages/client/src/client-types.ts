@@ -49,6 +49,9 @@ export type Tile = {
     connectedTownCount: number;
     connectedTownBonus: number;
     connectedTownNames?: string[];
+    goldIncomePausedReason?: "MANPOWER_NOT_FULL";
+    manpowerCurrent?: number;
+    manpowerCap?: number;
     hasMarket: boolean;
     marketActive: boolean;
     hasGranary: boolean;
