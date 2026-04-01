@@ -58,6 +58,8 @@ import {
   regionTypeAt,
   resourceAt,
   setWorldSeed,
+  structureBaseGoldCost,
+  structureBuildGoldCost,
   continentIdAt,
   exposureWeightFromSides,
   terrainAt,
@@ -934,40 +936,47 @@ const FORT_BUILD_IRON_COST = 45;
 const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
 const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
 const BREAKTHROUGH_REQUIRED_TECH_ID = "breach-doctrine";
-const OBSERVATORY_BUILD_COST = 600;
+const OBSERVATORY_BUILD_COST = structureBaseGoldCost("OBSERVATORY");
 const OBSERVATORY_VISION_BONUS = 5;
 const OBSERVATORY_BUILD_CRYSTAL_COST = 45;
 const OBSERVATORY_UPKEEP_PER_MIN = 0.025;
 const OBSERVATORY_PROTECTION_RADIUS = 10;
 const OBSERVATORY_CAST_RADIUS = 30;
 const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
-const FARMSTEAD_BUILD_GOLD_COST = 400;
+const FARMSTEAD_BUILD_GOLD_COST = structureBaseGoldCost("FARMSTEAD");
 const FARMSTEAD_BUILD_FOOD_COST = 20;
 const FARMSTEAD_GOLD_UPKEEP = 1;
-const CAMP_BUILD_GOLD_COST = 500;
+const CAMP_BUILD_GOLD_COST = structureBaseGoldCost("CAMP");
 const CAMP_BUILD_SUPPLY_COST = 30;
 const CAMP_GOLD_UPKEEP = 1.2;
-const MINE_BUILD_GOLD_COST = 500;
+const MINE_BUILD_GOLD_COST = structureBaseGoldCost("MINE");
 const MINE_BUILD_RESOURCE_COST = 30;
 const MINE_GOLD_UPKEEP = 1.2;
-const MARKET_BUILD_GOLD_COST = 600;
+const MARKET_BUILD_GOLD_COST = structureBaseGoldCost("MARKET");
 const MARKET_BUILD_CRYSTAL_COST = 40;
 const MARKET_CRYSTAL_UPKEEP = 0.05;
-const GRANARY_BUILD_GOLD_COST = 400;
+const GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("GRANARY");
 const GRANARY_BUILD_FOOD_COST = 40;
 const GRANARY_GOLD_UPKEEP = 1;
-const BANK_BUILD_GOLD_COST = 700;
-const BANK_BUILD_CRYSTAL_COST = 45;
+const BANK_BUILD_GOLD_COST = structureBaseGoldCost("BANK");
+const BANK_BUILD_CRYSTAL_COST = 60;
 const BANK_CRYSTAL_UPKEEP = 0.05;
-const AIRPORT_BUILD_GOLD_COST = 900;
-const AIRPORT_BUILD_CRYSTAL_COST = 60;
-const QUARTERMASTER_BUILD_GOLD_COST = 1000;
-const IRONWORKS_BUILD_GOLD_COST = 1100;
-const CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST = 1300;
-const FUEL_PLANT_BUILD_GOLD_COST = 1400;
-const GOVERNORS_OFFICE_BUILD_GOLD_COST = 1300;
-const RADAR_SYSTEM_BUILD_GOLD_COST = 1600;
-const FOUNDRY_BUILD_GOLD_COST = 1800;
+const AIRPORT_BUILD_GOLD_COST = structureBaseGoldCost("AIRPORT");
+const AIRPORT_BUILD_CRYSTAL_COST = 80;
+const QUARTERMASTER_BUILD_GOLD_COST = structureBaseGoldCost("QUARTERMASTER");
+const IRONWORKS_BUILD_GOLD_COST = structureBaseGoldCost("IRONWORKS");
+const CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("CRYSTAL_SYNTHESIZER");
+const FUEL_PLANT_BUILD_GOLD_COST = structureBaseGoldCost("FUEL_PLANT");
+const CARAVANARY_BUILD_GOLD_COST = structureBaseGoldCost("CARAVANARY");
+const CARAVANARY_BUILD_CRYSTAL_COST = 60;
+const CUSTOMS_HOUSE_BUILD_GOLD_COST = structureBaseGoldCost("CUSTOMS_HOUSE");
+const CUSTOMS_HOUSE_BUILD_CRYSTAL_COST = 60;
+const GARRISON_HALL_BUILD_GOLD_COST = structureBaseGoldCost("GARRISON_HALL");
+const GARRISON_HALL_BUILD_CRYSTAL_COST = 80;
+const GOVERNORS_OFFICE_BUILD_GOLD_COST = structureBaseGoldCost("GOVERNORS_OFFICE");
+const RADAR_SYSTEM_BUILD_GOLD_COST = structureBaseGoldCost("RADAR_SYSTEM");
+const RADAR_SYSTEM_BUILD_CRYSTAL_COST = 120;
+const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
 const TOWN_CAPTURED_MANPOWER_MULT = 0.25;
 const MANPOWER_EPSILON = 1e-6;
 const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
@@ -980,6 +989,9 @@ const QUARTERMASTER_GOLD_UPKEEP = 120;
 const IRONWORKS_GOLD_UPKEEP = 120;
 const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 160;
 const FUEL_PLANT_GOLD_UPKEEP = 180;
+const CARAVANARY_GOLD_UPKEEP = 15;
+const CUSTOMS_HOUSE_GOLD_UPKEEP = 15;
+const GARRISON_HALL_GOLD_UPKEEP = 25;
 const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
 const RADAR_SYSTEM_GOLD_UPKEEP = 45;
 const FOUNDRY_GOLD_UPKEEP = 50;
@@ -4469,6 +4481,30 @@ const untrackOwnedTileKey = (index: Map<string, Set<TileKey>>, playerId: string,
   if (set.size === 0) index.delete(playerId);
 };
 
+const ownedStructureCountForPlayer = (playerId: string, structureType: "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | EconomicStructureType): number => {
+  if (structureType === "FORT") {
+    let count = 0;
+    for (const fort of fortsByTile.values()) {
+      if (fort.ownerId === playerId) count += 1;
+    }
+    return count;
+  }
+  if (structureType === "OBSERVATORY") return observatoryTileKeysByPlayer.get(playerId)?.size ?? 0;
+  if (structureType === "SIEGE_OUTPOST") {
+    let count = 0;
+    for (const outpost of siegeOutpostsByTile.values()) {
+      if (outpost.ownerId === playerId) count += 1;
+    }
+    return count;
+  }
+  let count = 0;
+  for (const tileKey of economicStructureTileKeysByPlayer.get(playerId) ?? []) {
+    const structure = economicStructuresByTile.get(tileKey);
+    if (structure?.ownerId === playerId && structure.type === structureType) count += 1;
+  }
+  return count;
+};
+
 const rebuildEconomyIndexForPlayer = (playerId: string): void => {
   const player = players.get(playerId);
   if (!player) {
@@ -5084,8 +5120,8 @@ const upkeepPerMinuteForPlayer = (player: Player): {
     // 0.25 / 10 min for each active empire reveal.
     crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN,
     oil: airportCount * AIRPORT_OIL_UPKEEP_PER_MIN,
-    // 2 gold / 10 min per fort + 2 gold / 10 min per outpost + 1 gold / 10 min per 40 settled tiles.
-    gold: fortCount * 0.2 * effects.fortGoldUpkeepMult + outpostCount * 0.2 * effects.outpostGoldUpkeepMult + settledTileGoldUpkeep * effects.settledGoldUpkeepMult
+    // 10 gold / 10 min per fort + 10 gold / 10 min per outpost + 1 gold / 10 min per 40 settled tiles.
+    gold: fortCount * 1 * effects.fortGoldUpkeepMult + outpostCount * 1 * effects.outpostGoldUpkeepMult + settledTileGoldUpkeep * effects.settledGoldUpkeepMult
   };
 };
 
@@ -5181,58 +5217,72 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
   }
   if (structureType === "FUEL_PLANT" && !actor.techIds.has("plastics")) return { ok: false, reason: "unlock fuel plants via Plastics first" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
+  const goldCost = structureBuildGoldCost(structureType, ownedStructureCountForPlayer(actor.id, structureType));
 
   if (structureType === "FARMSTEAD") {
-    if (actor.points < FARMSTEAD_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for farmstead" };
+    if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for farmstead" };
     if (!consumeStrategicResource(actor, "FOOD", FARMSTEAD_BUILD_FOOD_COST)) return { ok: false, reason: "insufficient FOOD for farmstead" };
-    actor.points -= FARMSTEAD_BUILD_GOLD_COST;
+    actor.points -= goldCost;
   } else if (structureType === "CAMP") {
-    if (actor.points < CAMP_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for camp" };
+    if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for camp" };
     if (!consumeStrategicResource(actor, "SUPPLY", CAMP_BUILD_SUPPLY_COST)) return { ok: false, reason: "insufficient SUPPLY for camp" };
-    actor.points -= CAMP_BUILD_GOLD_COST;
+    actor.points -= goldCost;
   } else if (structureType === "MINE") {
-    if (actor.points < MINE_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for mine" };
+    if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for mine" };
     const matching = t.resource === "IRON" ? "IRON" : "CRYSTAL";
     if (!consumeStrategicResource(actor, matching, MINE_BUILD_RESOURCE_COST)) return { ok: false, reason: `insufficient ${matching} for mine` };
-    actor.points -= MINE_BUILD_GOLD_COST;
+    actor.points -= goldCost;
   } else {
     if (structureType === "MARKET") {
-      if (actor.points < MARKET_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for market" };
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for market" };
       if (!consumeStrategicResource(actor, "CRYSTAL", MARKET_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for market" };
-      actor.points -= MARKET_BUILD_GOLD_COST;
+      actor.points -= goldCost;
     } else if (structureType === "GRANARY") {
-      if (actor.points < GRANARY_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for granary" };
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for granary" };
       if (!consumeStrategicResource(actor, "FOOD", GRANARY_BUILD_FOOD_COST)) return { ok: false, reason: "insufficient FOOD for granary" };
-      actor.points -= GRANARY_BUILD_GOLD_COST;
+      actor.points -= goldCost;
     } else if (structureType === "BANK") {
-      if (actor.points < BANK_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for bank" };
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for bank" };
       if (!consumeStrategicResource(actor, "CRYSTAL", BANK_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for bank" };
-      actor.points -= BANK_BUILD_GOLD_COST;
+      actor.points -= goldCost;
+    } else if (structureType === "CARAVANARY") {
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for caravanary" };
+      if (!consumeStrategicResource(actor, "CRYSTAL", CARAVANARY_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for caravanary" };
+      actor.points -= goldCost;
     } else if (structureType === "QUARTERMASTER") {
-      if (actor.points < QUARTERMASTER_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for quartermaster" };
-      actor.points -= QUARTERMASTER_BUILD_GOLD_COST;
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for quartermaster" };
+      actor.points -= goldCost;
     } else if (structureType === "IRONWORKS") {
-      if (actor.points < IRONWORKS_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for ironworks" };
-      actor.points -= IRONWORKS_BUILD_GOLD_COST;
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for ironworks" };
+      actor.points -= goldCost;
     } else if (structureType === "CRYSTAL_SYNTHESIZER") {
-      if (actor.points < CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for crystal synthesizer" };
-      actor.points -= CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST;
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for crystal synthesizer" };
+      actor.points -= goldCost;
     } else if (structureType === "FUEL_PLANT") {
-      if (actor.points < FUEL_PLANT_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for fuel plant" };
-      actor.points -= FUEL_PLANT_BUILD_GOLD_COST;
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fuel plant" };
+      actor.points -= goldCost;
     } else if (structureType === "FOUNDRY") {
-      if (actor.points < FOUNDRY_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for foundry" };
-      actor.points -= FOUNDRY_BUILD_GOLD_COST;
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for foundry" };
+      actor.points -= goldCost;
+    } else if (structureType === "GARRISON_HALL") {
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for garrison hall" };
+      if (!consumeStrategicResource(actor, "CRYSTAL", GARRISON_HALL_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for garrison hall" };
+      actor.points -= goldCost;
+    } else if (structureType === "CUSTOMS_HOUSE") {
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for customs house" };
+      if (!consumeStrategicResource(actor, "CRYSTAL", CUSTOMS_HOUSE_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for customs house" };
+      actor.points -= goldCost;
     } else if (structureType === "GOVERNORS_OFFICE") {
-      if (actor.points < GOVERNORS_OFFICE_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for governor's office" };
-      actor.points -= GOVERNORS_OFFICE_BUILD_GOLD_COST;
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for governor's office" };
+      actor.points -= goldCost;
     } else if (structureType === "RADAR_SYSTEM") {
-      if (actor.points < RADAR_SYSTEM_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for radar system" };
-      actor.points -= RADAR_SYSTEM_BUILD_GOLD_COST;
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for radar system" };
+      if (!consumeStrategicResource(actor, "CRYSTAL", RADAR_SYSTEM_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for radar system" };
+      actor.points -= goldCost;
     } else {
-      if (actor.points < AIRPORT_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for airport" };
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for airport" };
       if (!consumeStrategicResource(actor, "CRYSTAL", AIRPORT_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for airport" };
-      actor.points -= AIRPORT_BUILD_GOLD_COST;
+      actor.points -= goldCost;
     }
   }
 
@@ -5311,19 +5361,25 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
               ? MINE_GOLD_UPKEEP
               : structure.type === "GRANARY"
                 ? GRANARY_GOLD_UPKEEP
+                : structure.type === "CARAVANARY"
+                  ? CARAVANARY_GOLD_UPKEEP
                 : structure.type === "QUARTERMASTER"
                   ? QUARTERMASTER_GOLD_UPKEEP
-                  : structure.type === "IRONWORKS"
-                    ? IRONWORKS_GOLD_UPKEEP
-                    : structure.type === "CRYSTAL_SYNTHESIZER"
-                      ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
-                      : structure.type === "FUEL_PLANT"
-                        ? FUEL_PLANT_GOLD_UPKEEP
-                        : structure.type === "FOUNDRY"
-                          ? FOUNDRY_GOLD_UPKEEP
-                          : structure.type === "GOVERNORS_OFFICE"
-                            ? GOVERNORS_OFFICE_GOLD_UPKEEP
-                            : structure.type === "RADAR_SYSTEM"
+                : structure.type === "IRONWORKS"
+                  ? IRONWORKS_GOLD_UPKEEP
+                : structure.type === "CRYSTAL_SYNTHESIZER"
+                  ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
+                : structure.type === "FUEL_PLANT"
+                  ? FUEL_PLANT_GOLD_UPKEEP
+                : structure.type === "FOUNDRY"
+                  ? FOUNDRY_GOLD_UPKEEP
+                  : structure.type === "GARRISON_HALL"
+                    ? GARRISON_HALL_GOLD_UPKEEP
+                    : structure.type === "CUSTOMS_HOUSE"
+                      ? CUSTOMS_HOUSE_GOLD_UPKEEP
+                  : structure.type === "GOVERNORS_OFFICE"
+                    ? GOVERNORS_OFFICE_GOLD_UPKEEP
+                    : structure.type === "RADAR_SYSTEM"
                               ? RADAR_SYSTEM_GOLD_UPKEEP
                 : 0;
       if (player.points >= upkeep) {
@@ -7558,7 +7614,7 @@ const buildAiPlanningSnapshot = (
     frontierOpportunityWaste: planningStatic.frontierOpportunityWaste,
     canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
     canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
-    canBuildFort: Boolean(fortCandidate) && actor.points >= FORT_BUILD_COST,
+    canBuildFort: Boolean(fortCandidate) && actor.points >= structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")),
     canBuildEconomy: Boolean(economicBuildCandidate),
     goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
   };
@@ -10850,9 +10906,10 @@ const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
-  if (actor.points < OBSERVATORY_BUILD_COST) return { ok: false, reason: "insufficient gold for observatory" };
+  const goldCost = structureBuildGoldCost("OBSERVATORY", ownedStructureCountForPlayer(actor.id, "OBSERVATORY"));
+  if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for observatory" };
   if (!consumeStrategicResource(actor, "CRYSTAL", OBSERVATORY_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for observatory" };
-  actor.points -= OBSERVATORY_BUILD_COST;
+  actor.points -= goldCost;
   recalcPlayerDerived(actor);
   const completesAt = now() + OBSERVATORY_BUILD_MS;
   observatoriesByTile.set(tk, {
@@ -11062,7 +11119,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   const dock = docksByTile.get(tk);
   if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
-  const goldCost = Math.ceil(FORT_BUILD_COST * effects.fortBuildGoldCostMult);
+  const goldCost = Math.ceil(structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")) * effects.fortBuildGoldCostMult);
   if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fort" };
   if (!consumeStrategicResource(actor, "IRON", FORT_BUILD_IRON_COST)) return { ok: false, reason: "insufficient IRON for fort" };
   actor.points -= goldCost;
@@ -11108,10 +11165,11 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
   if (!isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
-  if (actor.points < SIEGE_OUTPOST_BUILD_COST) return { ok: false, reason: "insufficient gold for siege outpost" };
+  const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST"));
+  if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for siege outpost" };
   if (!consumeStrategicResource(actor, "SUPPLY", SIEGE_OUTPOST_BUILD_SUPPLY_COST))
     return { ok: false, reason: "insufficient SUPPLY for siege outpost" };
-  actor.points -= SIEGE_OUTPOST_BUILD_COST;
+  actor.points -= goldCost;
   recalcPlayerDerived(actor);
   const siegeOutpost: SiegeOutpost = {
     siegeOutpostId: crypto.randomUUID(),

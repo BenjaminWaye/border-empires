@@ -2,7 +2,7 @@ import { FRONTIER_CLAIM_COST, FRONTIER_CLAIM_MS, SETTLE_MS, grassShadeAt, landBi
 
 import type { GuideStep } from "./client-types.js";
 
-export const OBSERVATORY_BUILD_COST = 600;
+export const OBSERVATORY_BUILD_COST = 800;
 export const OBSERVATORY_VISION_BONUS = 5;
 export const OBSERVATORY_PROTECTION_RADIUS = 10;
 export const OBSERVATORY_CAST_RADIUS = 30;
