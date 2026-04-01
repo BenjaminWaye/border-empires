@@ -4006,31 +4006,37 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
   return tile;
 };
 
-// Summary chunks intentionally avoid derived town economy state; detail requests fill it in on demand.
-const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => ({
-  type: town.type,
-  baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
-  supportCurrent: 0,
-  supportMax: 0,
-  goldPerMinute: 0,
-  cap: townCapForOwner(town, ownerId),
-  isFed: Boolean(ownerId),
-  population: town.population,
-  maxPopulation: town.maxPopulation,
-  populationGrowthPerMinute: 0,
-  populationTier: townPopulationTier(town.population),
-  connectedTownCount: town.connectedTownCount,
-  connectedTownBonus: town.connectedTownBonus,
-  connectedTownNames: [],
-  hasMarket: false,
-  marketActive: false,
-  hasGranary: false,
-  granaryActive: false,
-  hasBank: false,
-  bankActive: false,
-  foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
-  growthModifiers: []
-});
+const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => {
+  const support = ownerId ? townSupport(town.tileKey, ownerId) : { supportCurrent: 0, supportMax: 0 };
+  const isFed = isTownFedForOwner(town.tileKey, ownerId);
+  const market = structureForSupportedTown(town.tileKey, ownerId, "MARKET");
+  const granary = structureForSupportedTown(town.tileKey, ownerId, "GRANARY");
+  const bank = structureForSupportedTown(town.tileKey, ownerId, "BANK");
+  return {
+    type: town.type,
+    baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
+    supportCurrent: support.supportCurrent,
+    supportMax: support.supportMax,
+    goldPerMinute: townIncomeForOwner(town, ownerId),
+    cap: townCapForOwner(town, ownerId),
+    isFed,
+    population: town.population,
+    maxPopulation: town.maxPopulation,
+    populationGrowthPerMinute: townPopulationGrowthPerMinuteForOwner(town, ownerId),
+    populationTier: townPopulationTier(town.population),
+    connectedTownCount: town.connectedTownCount,
+    connectedTownBonus: town.connectedTownBonus,
+    connectedTownNames: [],
+    hasMarket: Boolean(market),
+    marketActive: Boolean(market && market.status === "active" && isFed),
+    hasGranary: Boolean(granary),
+    granaryActive: Boolean(granary && granary.status === "active"),
+    hasBank: Boolean(bank),
+    bankActive: Boolean(bank && bank.status === "active"),
+    foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
+    growthModifiers: townGrowthModifiersForOwner(town, ownerId)
+  };
+};
 
 const playerTileSummary = (x: number, y: number): Tile => {
   const wx = wrapX(x, WORLD_WIDTH);
