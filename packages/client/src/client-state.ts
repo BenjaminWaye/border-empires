@@ -64,12 +64,12 @@ export const createInitialState = () => ({
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
   upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
   upkeepLastTick: {
-    food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    oil: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
-    gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0 },
+    food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+    iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+    supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+    crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+    oil: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+    gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     foodCoverage: 1
   },
   foodCoverageWarned: false,

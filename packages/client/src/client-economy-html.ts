@@ -20,7 +20,14 @@ type EconomyPanelArgs = {
   strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
   strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
   upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
-  upkeepLastTick: { foodCoverage?: number };
+  upkeepLastTick: {
+    foodCoverage?: number;
+    gold?: { contributors?: EconomyBucket[] };
+    food?: { contributors?: EconomyBucket[] };
+    iron?: { contributors?: EconomyBucket[] };
+    crystal?: { contributors?: EconomyBucket[] };
+    supply?: { contributors?: EconomyBucket[] };
+  };
   activeRevealTargetsCount: number;
   tiles: Iterable<Tile>;
   isMobile: boolean;
@@ -100,17 +107,24 @@ const resourceNetPerMinute = (
   return strategicProductionPerMinute[resource] - resourceUpkeepPerMinute(resource, upkeepPerMinute);
 };
 
+const upkeepBreakdownForResource = (
+  args: EconomyPanelArgs,
+  resource: EconomyResource
+): { contributors?: EconomyBucket[] } | undefined => {
+  if (resource === "GOLD") return args.upkeepLastTick.gold;
+  if (resource === "FOOD") return args.upkeepLastTick.food;
+  if (resource === "IRON") return args.upkeepLastTick.iron;
+  if (resource === "CRYSTAL") return args.upkeepLastTick.crystal;
+  if (resource === "SUPPLY") return args.upkeepLastTick.supply;
+  return undefined;
+};
+
 const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResource): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
   const sources = new Map<string, EconomyBucket>();
   const sinks = new Map<string, EconomyBucket>();
-  let settledTileCount = 0;
-  let fortCount = 0;
-  let outpostCount = 0;
-  let observatoryCount = 0;
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
-    settledTileCount += 1;
     const amountPerMinute =
       resource === "GOLD"
         ? tile.yieldRate?.goldPerMinute ?? 0
@@ -120,44 +134,10 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
       economySourceLabelForTile(tile, resource, args.prettyToken, args.resourceLabel, args.economicStructureName),
       amountPerMinute
     );
-    if (resource === "FOOD" && tile.town?.foodUpkeepPerMinute) {
-      accumulateEconomyBucket(sinks, "Town upkeep", tile.town.foodUpkeepPerMinute);
-    }
-    if (tile.fort?.ownerId === args.me && tile.fort.status === "active") fortCount += 1;
-    if (tile.siegeOutpost?.ownerId === args.me && tile.siegeOutpost.status === "active") outpostCount += 1;
-    if (tile.observatory?.ownerId === args.me && tile.observatory.status === "active") observatoryCount += 1;
   }
-  if (resource === "GOLD") {
-    const settledUpkeep = (settledTileCount / 40) * 0.1;
-    const fortUpkeep = fortCount * 0.2;
-    const outpostUpkeep = outpostCount * 0.2;
-    accumulateEconomyBucket(sinks, "Settled land upkeep", settledUpkeep);
-    accumulateEconomyBucket(sinks, "Fort upkeep", fortUpkeep);
-    accumulateEconomyBucket(sinks, "Siege outpost upkeep", outpostUpkeep);
-    if (settledTileCount > 0) setEconomyBucketNote(sinks, "Settled land upkeep", `${settledTileCount} settled tiles`);
-    if (fortCount > 0) setEconomyBucketNote(sinks, "Fort upkeep", `${fortCount} active fort${fortCount === 1 ? "" : "s"}`);
-    if (outpostCount > 0) setEconomyBucketNote(sinks, "Siege outpost upkeep", `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`);
-  } else if (resource === "CRYSTAL") {
-    const revealUpkeep = Math.min(1, args.activeRevealTargetsCount) * 0.015;
-    const observatoryUpkeep = observatoryCount * 0.025;
-    accumulateEconomyBucket(sinks, "Empire reveal upkeep", revealUpkeep);
-    accumulateEconomyBucket(sinks, "Observatory upkeep", observatoryUpkeep);
-    if (args.activeRevealTargetsCount > 0) setEconomyBucketNote(sinks, "Empire reveal upkeep", `${Math.min(1, args.activeRevealTargetsCount)} active reveal`);
-    if (observatoryCount > 0) setEconomyBucketNote(sinks, "Observatory upkeep", `${observatoryCount} active observator${observatoryCount === 1 ? "y" : "ies"}`);
-  } else if (resource === "IRON") {
-    const fortUpkeep = fortCount * 0.025;
-    accumulateEconomyBucket(sinks, "Fort upkeep", fortUpkeep);
-    if (fortCount > 0) setEconomyBucketNote(sinks, "Fort upkeep", `${fortCount} active fort${fortCount === 1 ? "" : "s"}`);
-  } else if (resource === "SUPPLY") {
-    const outpostUpkeep = outpostCount * 0.025;
-    accumulateEconomyBucket(sinks, "Siege outpost upkeep", outpostUpkeep);
-    if (outpostCount > 0) setEconomyBucketNote(sinks, "Siege outpost upkeep", `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`);
-  }
-  const totalUpkeep = resourceUpkeepPerMinute(resource, args.upkeepPerMinute);
-  const knownUpkeep = [...sinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0);
-  const residualUpkeep = Math.max(0, totalUpkeep - knownUpkeep);
-  if (residualUpkeep > 0.0001) {
-    accumulateEconomyBucket(sinks, resource === "FOOD" ? "Other empire upkeep" : "Other upkeep modifiers", residualUpkeep);
+  for (const contributor of upkeepBreakdownForResource(args, resource)?.contributors ?? []) {
+    accumulateEconomyBucket(sinks, contributor.label, contributor.amountPerMinute);
+    if (contributor.note) setEconomyBucketNote(sinks, contributor.label, contributor.note);
   }
   return {
     sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
