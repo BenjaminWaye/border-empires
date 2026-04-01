@@ -10,6 +10,18 @@ export interface TechEffects {
   unlockMine?: boolean;
   unlockMarket?: boolean;
   unlockGranary?: boolean;
+  unlockBank?: boolean;
+  unlockCaravanary?: boolean;
+  unlockQuartermaster?: boolean;
+  unlockIronworks?: boolean;
+  unlockCrystalSynthesizer?: boolean;
+  unlockFuelPlant?: boolean;
+  unlockFoundry?: boolean;
+  unlockCustomsHouse?: boolean;
+  unlockGovernorsOffice?: boolean;
+  unlockGarrisonHall?: boolean;
+  unlockAirport?: boolean;
+  unlockRadarSystem?: boolean;
   unlockObservatory?: boolean;
   unlockForts?: boolean;
   unlockSiegeOutposts?: boolean;
@@ -100,6 +112,18 @@ const TechEffectsSchema = z
     unlockMine: z.boolean().optional(),
     unlockMarket: z.boolean().optional(),
     unlockGranary: z.boolean().optional(),
+    unlockBank: z.boolean().optional(),
+    unlockCaravanary: z.boolean().optional(),
+    unlockQuartermaster: z.boolean().optional(),
+    unlockIronworks: z.boolean().optional(),
+    unlockCrystalSynthesizer: z.boolean().optional(),
+    unlockFuelPlant: z.boolean().optional(),
+    unlockFoundry: z.boolean().optional(),
+    unlockCustomsHouse: z.boolean().optional(),
+    unlockGovernorsOffice: z.boolean().optional(),
+    unlockGarrisonHall: z.boolean().optional(),
+    unlockAirport: z.boolean().optional(),
+    unlockRadarSystem: z.boolean().optional(),
     unlockForts: z.boolean().optional(),
     unlockObservatory: z.boolean().optional(),
     unlockSiegeOutposts: z.boolean().optional(),
