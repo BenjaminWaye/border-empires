@@ -1983,6 +1983,12 @@ const playerNameOrFallback = (ownerId: string | undefined): string => {
   return playerNameForOwner(ownerId) ?? ownerId.slice(0, 8);
 };
 
+const territoryLabelForOwner = (ownerId: string | undefined): string => {
+  if (!ownerId) return "neutral territory";
+  if (ownerId === "barbarian") return "barbarian territory";
+  return playerNameOrFallback(ownerId);
+};
+
 const conqueredTileLabel = (tile: Tile | undefined, target: { x: number; y: number } | undefined): string => {
   if (tile?.town) return "Town";
   if (tile?.resource) return prettyToken(resourceLabel(tile.resource));
@@ -1998,7 +2004,9 @@ const combatResolutionAlert = (
   const origin = msg.origin as { x: number; y: number } | undefined;
   const target = msg.target as { x: number; y: number } | undefined;
   const attackerWon = Boolean(msg.attackerWon);
+  const defenderOwnerId = typeof msg.defenderOwnerId === "string" ? msg.defenderOwnerId : context?.targetTileBefore?.ownerId;
   const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
+  const manpowerDelta = typeof msg.manpowerDelta === "number" ? msg.manpowerDelta : 0;
   if (attackType === "SETTLE") {
     const settledChange = changes.find((change) => change.ownershipState === "SETTLED");
     const settledTarget = settledChange ? { x: settledChange.x, y: settledChange.y } : target;
@@ -2008,19 +2016,24 @@ const combatResolutionAlert = (
       tone: "success"
     };
   }
-  const targetOwnerName = playerNameOrFallback(context?.targetTileBefore?.ownerId);
+  const targetOwnerName = playerNameOrFallback(defenderOwnerId);
+  const targetTerritoryLabel = territoryLabelForOwner(defenderOwnerId);
   const targetLabel = conqueredTileLabel(context?.targetTileBefore, target);
+  const manpowerLossLabel = manpowerDelta < -0.01 ? ` Manpower lost ${Math.round(Math.abs(manpowerDelta))}.` : "";
   if (attackerWon) {
     return {
       title: "Victory",
-      detail: `${targetLabel} was conquered from ${targetOwnerName}.`,
+      detail: `${targetLabel} was conquered from ${targetOwnerName}.${manpowerLossLabel}`,
       tone: "success"
     };
   }
   const originLost = Boolean(origin && changes.some((change) => change.x === origin.x && change.y === origin.y));
   return {
     title: "Attack Beaten Back",
-    detail: originLost && origin ? `Attack on ${targetOwnerName} was beaten back and we lost (${origin.x}, ${origin.y}).` : `Attack on ${targetOwnerName} was beaten back.`,
+    detail:
+      originLost && origin
+        ? `Attack on ${targetTerritoryLabel} was beaten back and we lost (${origin.x}, ${origin.y}).${manpowerLossLabel}`
+        : `Attack on ${targetTerritoryLabel} was beaten back.${manpowerLossLabel}`,
     tone: "warn"
   };
 };
