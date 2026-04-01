@@ -7337,6 +7337,32 @@ const bestAiEconomicExpand = (
   );
 };
 
+const bestAiAnyNeutralExpand = (
+  actor: Player,
+  victoryPath?: AiSeasonVictoryPathId,
+  territorySummary = collectAiTerritorySummary(actor)
+): { from: Tile; to: Tile } | undefined => {
+  let best: { score: number; from: Tile; to: Tile } | undefined;
+  for (const { from, to } of territorySummary.expandCandidates) {
+    if (to.terrain !== "LAND" || to.ownerId) continue;
+    const frontierClass = classifyAiNeutralFrontierOpportunity(actor, from, to, victoryPath, territorySummary);
+    const economicSignal = aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
+    const scoutScore = scoreAiScoutExpandCandidate(actor, from, to, territorySummary.visibility, territorySummary);
+    const settlementEvaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([key(to.x, to.y)]), territorySummary);
+    let score =
+      frontierClass === "economic"
+        ? 260 + economicSignal
+        : frontierClass === "scaffold"
+          ? 180 + settlementEvaluation.score
+          : frontierClass === "scout"
+            ? 120 + scoutScore
+            : 50 + scoutScore + Math.max(0, settlementEvaluation.score);
+    if (from.ownershipState === "SETTLED") score += 6;
+    if (!best || score > best.score) best = { score, from, to };
+  }
+  return best;
+};
+
 const bestAiEnemyPressureAttack = (
   actor: Player,
   victoryPath?: AiSeasonVictoryPathId,
@@ -7557,6 +7583,7 @@ const buildAiPlanningSnapshot = (
   const neutralExpandCandidate = bestAiEconomicExpand(actor, primaryVictoryPath, territorySummary);
   const scoutExpandCandidate = bestAiScoutExpand(actor, territorySummary);
   const scaffoldExpandCandidate = bestAiScaffoldExpand(actor, primaryVictoryPath, territorySummary);
+  const anyNeutralExpandCandidate = bestAiAnyNeutralExpand(actor, primaryVictoryPath, territorySummary);
   const barbarianAttackCandidate = bestAiFrontierAction(
     actor,
     "ATTACK",
@@ -7596,7 +7623,7 @@ const buildAiPlanningSnapshot = (
     points: actor.points,
     stamina: actor.stamina,
     openingScoutAvailable: Boolean(openingScoutCandidate),
-    neutralExpandAvailable: Boolean(neutralExpandCandidate),
+    neutralExpandAvailable: Boolean(anyNeutralExpandCandidate),
     scoutExpandAvailable: Boolean(scoutExpandCandidate),
     scaffoldExpandAvailable: Boolean(scaffoldExpandCandidate),
     barbarianAttackAvailable: Boolean(barbarianAttackCandidate),
@@ -7614,7 +7641,11 @@ const buildAiPlanningSnapshot = (
     frontierOpportunityWaste: planningStatic.frontierOpportunityWaste,
     canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
     canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
-    canBuildFort: Boolean(fortCandidate) && actor.points >= structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")),
+    canBuildFort:
+      Boolean(fortCandidate) &&
+      getPlayerEffectsForPlayer(actor.id).unlockForts &&
+      actor.points >= structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")) &&
+      (getOrInitStrategicStocks(actor.id).IRON ?? 0) >= FORT_BUILD_IRON_COST,
     canBuildEconomy: Boolean(economicBuildCandidate),
     goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
   };
@@ -8008,6 +8039,7 @@ const executeAiGoapAction = (
   territorySummary?: AiTerritorySummary,
   candidates?: {
     neutralExpand?: ReturnType<typeof bestAiEconomicExpand>;
+    anyNeutralExpand?: ReturnType<typeof bestAiAnyNeutralExpand>;
     scoutExpand?: ReturnType<typeof bestAiScoutExpand>;
     scaffoldExpand?: ReturnType<typeof bestAiScaffoldExpand>;
     barbarianAttack?: ReturnType<typeof bestAiFrontierAction>;
@@ -8020,7 +8052,7 @@ const executeAiGoapAction = (
 ): boolean => {
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
-    const candidate = candidates?.neutralExpand ?? bestAiEconomicExpand(actor, victoryPath, territorySummary);
+    const candidate = candidates?.neutralExpand ?? candidates?.anyNeutralExpand ?? bestAiEconomicExpand(actor, victoryPath, territorySummary) ?? bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
@@ -8075,6 +8107,9 @@ const executeAiGoapAction = (
   if (actionKey === "build_fort_on_exposed_tile") {
     const tile = candidates?.fortAnchor ?? bestAiFortTile(actor, territorySummary);
     if (!tile) return false;
+    if (!getPlayerEffectsForPlayer(actor.id).unlockForts) return false;
+    if ((getOrInitStrategicStocks(actor.id).IRON ?? 0) < FORT_BUILD_IRON_COST) return false;
+    if (actor.points < structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT"))) return false;
     executeSimulationCommand(actor, { type: "BUILD_FORT", x: tile.x, y: tile.y });
     return true;
   }
