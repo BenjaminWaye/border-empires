@@ -34,17 +34,26 @@ export const feedHtml = (feed: FeedEntry[]): string => {
 
 export const allianceRequestsHtml = (
   requests: AllianceRequest[],
-  playerNameForOwner: (ownerId?: string | null) => string | undefined
+  playerNameForOwner: (ownerId?: string | null) => string | undefined,
+  kind: "incoming" | "outgoing" = "incoming"
 ): string => {
-  if (requests.length === 0) return `<article class="card"><p>No incoming requests.</p></article>`;
+  if (requests.length === 0) return `<article class="card"><p>No ${kind} requests.</p></article>`;
   return requests
     .map(
       (request) => `<article class="card alliance-row">
       <div>
-        <strong>${request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)}</strong>
-        <p>Request ${request.id.slice(0, 8)}</p>
+        <button class="player-link" type="button" data-inspect-player="${kind === "incoming" ? request.fromPlayerId : request.toPlayerId}">${
+          kind === "incoming"
+            ? request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)
+            : request.toName ?? playerNameForOwner(request.toPlayerId) ?? request.toPlayerId.slice(0, 8)
+        }</button>
+        <p>${kind === "incoming" ? "Incoming" : "Outgoing"} · Request ${request.id.slice(0, 8)}</p>
       </div>
-      <button class="panel-btn accept-request" data-request-id="${request.id}">Accept</button>
+      ${
+        kind === "incoming"
+          ? `<button class="panel-btn accept-request" data-request-id="${request.id}">Accept</button>`
+          : `<button class="panel-btn" disabled>Pending</button>`
+      }
     </article>`
     )
     .join("");
@@ -55,7 +64,7 @@ export const alliesHtml = (allies: string[], playerNameForOwner: (ownerId?: stri
   return allies
     .map(
       (id) => `<article class="card alliance-row">
-      <div><strong>${playerNameForOwner(id) ?? id.slice(0, 8)}</strong><p>Allied</p></div>
+      <div><button class="player-link" type="button" data-inspect-player="${id}">${playerNameForOwner(id) ?? id.slice(0, 8)}</button><p>Allied</p></div>
       <button class="panel-btn break-ally" data-ally-id="${id}">Break</button>
     </article>`
     )

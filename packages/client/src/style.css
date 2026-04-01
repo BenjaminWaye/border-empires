@@ -3622,9 +3622,32 @@ button:disabled,
     grid-area: def;
   }
 
-  .stat-chip-manpower {
-    grid-area: manpower;
-  }
+.stat-chip-manpower {
+  grid-area: manpower;
+}
+
+.player-link {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-link:hover {
+  color: #8fd3ff;
+}
+
+.social-inspect-card,
+.manpower-summary-card,
+.manpower-detail-card {
+  margin-top: 12px;
+}
 
   .stat-chip-player {
     display: none;
