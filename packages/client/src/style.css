@@ -1755,6 +1755,13 @@ body {
   justify-content: space-between;
   color: rgba(255, 255, 255, 0.94);
 }
+
+#capture-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 #capture-title {
   font-weight: 700;
   font-size: 16px;
@@ -1763,6 +1770,26 @@ body {
   font-size: 14px;
   font-weight: 800;
   color: rgba(6, 16, 28, 0.95);
+}
+
+.capture-close-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(219, 236, 255, 0.35);
+  background: rgba(15, 29, 45, 0.64);
+  color: #f6f7fa;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.capture-close-btn:hover {
+  background: rgba(27, 45, 68, 0.8);
 }
 
 #capture-wrap {
