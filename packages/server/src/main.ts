@@ -28,12 +28,10 @@ import {
   FORT_BUILD_COST,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
-  FORT_MAX_PER_PLAYER,
   OBSERVATORY_BUILD_MS,
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_COST,
   SIEGE_OUTPOST_BUILD_MS,
-  SIEGE_OUTPOST_MAX_PER_PLAYER,
   PVP_REPEAT_FLOOR,
   PVP_REPEAT_WINDOW_MS,
   SEASON_LENGTH_DAYS,
@@ -734,8 +732,12 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   unlockBreachAttack: false,
   settlementSpeedMult: 1,
   operationalTempoMult: 1,
+  researchTimeMult: 1,
+  abilityCooldownMult: 1,
+  sabotageCooldownMult: 1,
   populationGrowthMult: 1,
   firstThreeTownsPopulationGrowthMult: 1,
+  firstThreeTownsGoldOutputMult: 1,
   populationCapFirst3TownsMult: 1,
   growthPauseDurationMult: 1,
   townFoodUpkeepMult: 1,
@@ -772,6 +774,8 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   attackVsFortsMult: 1,
   newSettlementDefenseMult: 1,
   buildCapacityAdd: 0,
+  developmentProcessCapacityAdd: 0,
+  frontierDefenseAdd: 0,
   resourceOutputMult: { FARM: 1, FISH: 1, IRON: 1, CRYSTAL: 1, SUPPLY: 1, SHARD: 1, OIL: 1 }
 });
 
@@ -797,8 +801,12 @@ interface PlayerEffects {
   unlockBreachAttack: boolean;
   settlementSpeedMult: number;
   operationalTempoMult: number;
+  researchTimeMult: number;
+  abilityCooldownMult: number;
+  sabotageCooldownMult: number;
   populationGrowthMult: number;
   firstThreeTownsPopulationGrowthMult: number;
+  firstThreeTownsGoldOutputMult: number;
   populationCapFirst3TownsMult: number;
   growthPauseDurationMult: number;
   townFoodUpkeepMult: number;
@@ -835,6 +843,8 @@ interface PlayerEffects {
   attackVsFortsMult: number;
   newSettlementDefenseMult: number;
   buildCapacityAdd: number;
+  developmentProcessCapacityAdd: number;
+  frontierDefenseAdd: number;
   resourceOutputMult: { FARM: number; FISH: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number; OIL: number };
 }
 
@@ -3237,6 +3247,7 @@ const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): 
   const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
   if (!isTownFedForOwner(town.tileKey, ownerId)) return 0;
   const effects = getPlayerEffectsForPlayer(ownerId);
+  const firstThreeTownKeys = firstThreeTownKeySetForPlayer(ownerId);
   return (
     TOWN_BASE_GOLD_PER_MIN *
     supportRatio *
@@ -3244,6 +3255,7 @@ const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): 
     (1 + town.connectedTownBonus) *
     marketIncomeMultiplierAt(town.tileKey, ownerId) *
     bankIncomeMultiplierAt(town.tileKey, ownerId) *
+    (firstThreeTownKeys.has(town.tileKey) ? effects.firstThreeTownsGoldOutputMult : 1) *
     effects.townGoldOutputMult *
     effects.populationIncomeMult
   ) + bankFlatIncomeBonusAt(town.tileKey, ownerId);
@@ -4625,9 +4637,15 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (effects.unlockBreachAttack) next.unlockBreachAttack = true;
     if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
     if (typeof effects.operationalTempoMult === "number") next.operationalTempoMult *= effects.operationalTempoMult;
+    if (typeof effects.researchTimeMult === "number") next.researchTimeMult *= effects.researchTimeMult;
+    if (typeof effects.abilityCooldownMult === "number") next.abilityCooldownMult *= effects.abilityCooldownMult;
+    if (typeof effects.sabotageCooldownMult === "number") next.sabotageCooldownMult *= effects.sabotageCooldownMult;
     if (typeof effects.populationGrowthMult === "number") next.populationGrowthMult *= effects.populationGrowthMult;
     if (typeof effects.firstThreeTownsPopulationGrowthMult === "number") {
       next.firstThreeTownsPopulationGrowthMult *= effects.firstThreeTownsPopulationGrowthMult;
+    }
+    if (typeof effects.firstThreeTownsGoldOutputMult === "number") {
+      next.firstThreeTownsGoldOutputMult *= effects.firstThreeTownsGoldOutputMult;
     }
     if (typeof effects.populationCapFirst3TownsMult === "number") next.populationCapFirst3TownsMult *= effects.populationCapFirst3TownsMult;
     if (typeof effects.growthPauseDurationMult === "number") next.growthPauseDurationMult *= effects.growthPauseDurationMult;
@@ -4657,11 +4675,13 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.revealUpkeepMult === "number") next.revealUpkeepMult *= effects.revealUpkeepMult;
     if (typeof effects.revealCapacityBonus === "number") next.revealCapacityBonus += effects.revealCapacityBonus;
     if (typeof effects.visionRadiusBonus === "number") next.visionRadiusBonus += effects.visionRadiusBonus;
+    if (typeof effects.developmentProcessCapacityAdd === "number") next.developmentProcessCapacityAdd += effects.developmentProcessCapacityAdd;
     if (typeof effects.dockGoldOutputMult === "number") next.dockGoldOutputMult *= effects.dockGoldOutputMult;
     if (typeof effects.dockGoldCapMult === "number") next.dockGoldCapMult *= effects.dockGoldCapMult;
     if (typeof effects.dockConnectionBonusPerLink === "number") next.dockConnectionBonusPerLink = effects.dockConnectionBonusPerLink;
     if (effects.dockRoutesVisible) next.dockRoutesVisible = true;
     if (typeof effects.marketCrystalUpkeepMult === "number") next.marketCrystalUpkeepMult *= effects.marketCrystalUpkeepMult;
+    if (typeof effects.frontierDefenseAdd === "number") next.frontierDefenseAdd += effects.frontierDefenseAdd;
     if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
     if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
     if (typeof effects.attackVsFortsMult === "number") next.attackVsFortsMult *= effects.attackVsFortsMult;
@@ -4680,11 +4700,18 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     const effects = domain?.effects;
     if (!effects) continue;
     if (effects.unlockRevealEmpire) next.unlockRevealEmpire = true;
+    if (typeof effects.developmentProcessCapacityAdd === "number") next.developmentProcessCapacityAdd += effects.developmentProcessCapacityAdd;
     if (typeof effects.buildCapacityAdd === "number") next.buildCapacityAdd += effects.buildCapacityAdd;
     if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
+    if (typeof effects.researchTimeMult === "number") next.researchTimeMult *= effects.researchTimeMult;
+    if (typeof effects.abilityCooldownMult === "number") next.abilityCooldownMult *= effects.abilityCooldownMult;
+    if (typeof effects.sabotageCooldownMult === "number") next.sabotageCooldownMult *= effects.sabotageCooldownMult;
     if (typeof effects.populationGrowthMult === "number") next.populationGrowthMult *= effects.populationGrowthMult;
     if (typeof effects.firstThreeTownsPopulationGrowthMult === "number") {
       next.firstThreeTownsPopulationGrowthMult *= effects.firstThreeTownsPopulationGrowthMult;
+    }
+    if (typeof effects.firstThreeTownsGoldOutputMult === "number") {
+      next.firstThreeTownsGoldOutputMult *= effects.firstThreeTownsGoldOutputMult;
     }
     if (typeof effects.populationCapFirst3TownsMult === "number") next.populationCapFirst3TownsMult *= effects.populationCapFirst3TownsMult;
     if (typeof effects.growthPauseDurationMult === "number") next.growthPauseDurationMult *= effects.growthPauseDurationMult;
@@ -4713,6 +4740,7 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.observatoryProtectionRadiusBonus === "number") next.observatoryProtectionRadiusBonus += effects.observatoryProtectionRadiusBonus;
     if (typeof effects.observatoryCastRadiusBonus === "number") next.observatoryCastRadiusBonus += effects.observatoryCastRadiusBonus;
     if (typeof effects.observatoryVisionBonus === "number") next.observatoryVisionBonus += effects.observatoryVisionBonus;
+    if (typeof effects.frontierDefenseAdd === "number") next.frontierDefenseAdd += effects.frontierDefenseAdd;
     if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
     if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
     if (typeof effects.attackVsFortsMult === "number") next.attackVsFortsMult *= effects.attackVsFortsMult;
@@ -4730,7 +4758,8 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
 };
 
 const revealCapacityForPlayer = (player: Player): number => {
-  return playerHasTechIds(player, ABILITY_DEFS.reveal_empire.requiredTechIds) || getOrInitRevealTargets(player.id).size > 0 ? 1 : 0;
+  const baseCapacity = playerHasTechIds(player, ABILITY_DEFS.reveal_empire.requiredTechIds) || getOrInitRevealTargets(player.id).size > 0 ? 1 : 0;
+  return baseCapacity + getPlayerEffectsForPlayer(player.id).revealCapacityBonus;
 };
 
 const effectiveVisionRadiusForPlayer = (player: Player): number =>
@@ -4805,7 +4834,10 @@ const abilityOnCooldown = (playerId: string, abilityId: AbilityDefinition["id"])
 const startAbilityCooldown = (playerId: string, abilityId: AbilityDefinition["id"]): void => {
   const def = ABILITY_DEFS[abilityId];
   if (def.cooldownMs <= 0) return;
-  getAbilityCooldowns(playerId).set(abilityId, now() + def.cooldownMs);
+  const effects = getPlayerEffectsForPlayer(playerId);
+  let cooldownMs = def.cooldownMs * effects.abilityCooldownMult;
+  if (abilityId === "sabotage") cooldownMs *= effects.sabotageCooldownMult;
+  getAbilityCooldowns(playerId).set(abilityId, now() + Math.max(1, Math.round(cooldownMs)));
 };
 
 const playerHasTechIds = (player: Player, techIds: string[]): boolean => techIds.every((id) => player.techIds.has(id));
@@ -5019,7 +5051,7 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   let airportCount = 0;
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    settledTileGoldUpkeep += 0.0025 * governorUpkeepMultiplierAtTile(player.id, tk);
+    settledTileGoldUpkeep += 0.04 * governorUpkeepMultiplierAtTile(player.id, tk);
     const town = townsByTile.get(tk);
     if (town) townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
     const fort = fortsByTile.get(tk);
@@ -5139,7 +5171,7 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
     return { ok: false, reason: "unlock converters via Workshops first" };
   }
   if (structureType === "FUEL_PLANT" && !actor.techIds.has("plastics")) return { ok: false, reason: "unlock fuel plants via Plastics first" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
 
   if (structureType === "FARMSTEAD") {
     if (actor.points < FARMSTEAD_BUILD_GOLD_COST) return { ok: false, reason: "insufficient gold for farmstead" };
@@ -5460,6 +5492,11 @@ const settlementDefenseMultAt = (defenderId: string, tileKey: TileKey): number =
 
 const ownershipDefenseMultiplierForTarget = (target: Tile): number => {
   return target.ownershipState === "FRONTIER" ? 0 : 1;
+};
+
+const frontierDefenseAddForTarget = (defenderId: string, target: Tile): number => {
+  if (target.ownershipState !== "FRONTIER") return 0;
+  return getPlayerEffectsForPlayer(defenderId).frontierDefenseAdd;
 };
 
 const outpostAttackMultAt = (attackerId: string, tileKey: TileKey): number => {
@@ -5884,9 +5921,12 @@ const tryQueueBasicFrontierAction = (
     const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
     const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
     const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
+    const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
     const defEff = defenderIsBarbarian
       ? 10 * BARBARIAN_DEFENSE_POWER * dockMult * randomFactor()
-      : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult * randomFactor();
+      : (10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
+          frontierDefenseAdd) *
+        randomFactor();
     const winChance = combatWinChance(atkEff, defEff);
     const win = Math.random() < winChance;
     const previewChanges = (() => {
@@ -10444,10 +10484,11 @@ const startTechResearch = (player: Player, techId: string): { ok: boolean; reaso
     stock[r] = Math.max(0, stock[r] - amount);
   }
   const startedAt = now();
+  const researchDurationMs = Math.max(1_000, Math.round((tech.researchTimeSeconds ?? 1) * 1000 * getPlayerEffectsForPlayer(player.id).researchTimeMult));
   player.currentResearch = {
     techId: tech.id,
     startedAt,
-    completesAt: startedAt + (tech.researchTimeSeconds ?? 1) * 1000
+    completesAt: startedAt + researchDurationMs
   };
   return { ok: true, tech };
 };
@@ -10490,22 +10531,6 @@ const completeDueResearchForPlayer = (player: Player): void => {
   sendPlayerUpdate(player, 0);
 };
 
-const countPlayerForts = (playerId: string): number => {
-  let n = 0;
-  for (const f of fortsByTile.values()) {
-    if (f.ownerId === playerId) n += 1;
-  }
-  return n;
-};
-
-const countPlayerSiegeOutposts = (playerId: string): number => {
-  let n = 0;
-  for (const s of siegeOutpostsByTile.values()) {
-    if (s.ownerId === playerId) n += 1;
-  }
-  return n;
-};
-
 const activeDevelopmentProcessCountForPlayer = (playerId: string): number => {
   let n = 0;
   for (const pending of pendingSettlementsByTile.values()) {
@@ -10526,16 +10551,14 @@ const activeDevelopmentProcessCountForPlayer = (playerId: string): number => {
   return n;
 };
 
+const developmentProcessCapacityForPlayer = (playerId: string): number =>
+  Math.max(1, DEVELOPMENT_PROCESS_LIMIT + getPlayerEffectsForPlayer(playerId).developmentProcessCapacityAdd);
+
 const canStartDevelopmentProcess = (playerId: string): boolean =>
-  activeDevelopmentProcessCountForPlayer(playerId) < DEVELOPMENT_PROCESS_LIMIT;
+  activeDevelopmentProcessCountForPlayer(playerId) < developmentProcessCapacityForPlayer(playerId);
 
-const fortCapacityForPlayer = (playerId: string): number => {
-  return Math.max(1, FORT_MAX_PER_PLAYER + getPlayerEffectsForPlayer(playerId).buildCapacityAdd);
-};
-
-const siegeOutpostCapacityForPlayer = (playerId: string): number => {
-  return Math.max(1, SIEGE_OUTPOST_MAX_PER_PLAYER + getPlayerEffectsForPlayer(playerId).buildCapacityAdd);
-};
+const developmentSlotsBusyReason = (playerId: string): string =>
+  `all ${developmentProcessCapacityForPlayer(playerId)} development slots are busy`;
 
 const isBorderTile = (x: number, y: number, ownerId: string): boolean => {
   const n = cardinalNeighborCores(x, y);
@@ -10681,7 +10704,7 @@ const startSettlement = (
   const tk = key(t.x, t.y);
   if (pendingSettlementsByTile.has(tk)) return { ok: false, reason: "tile already settling" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile is locked in combat" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
 
   const startedAt = now();
   const resolvesAt = startedAt + settleMs;
@@ -10757,7 +10780,7 @@ const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   if (actor.points < OBSERVATORY_BUILD_COST) return { ok: false, reason: "insufficient gold for observatory" };
   if (!consumeStrategicResource(actor, "CRYSTAL", OBSERVATORY_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for observatory" };
   actor.points -= OBSERVATORY_BUILD_COST;
@@ -10940,8 +10963,11 @@ const tryAirportBombard = (
       const settledDefenseMult = settledDefenseMultiplierForTarget(defender.id, tile);
       const newSettlementDefenseMult = settlementDefenseMultAt(defender.id, tk);
       const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(tile);
+      const frontierDefenseAdd = frontierDefenseAddForTarget(defender.id, tile);
       const defEff =
-        10 * defender.mods.defense * playerDefensiveness(defender) * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult * randomFactor();
+        (10 * defender.mods.defense * playerDefensiveness(defender) * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
+          frontierDefenseAdd) *
+        randomFactor();
       const win = Math.random() < combatWinChance(atkEff, defEff);
       if (!win) continue;
       updateOwnership(wx, wy, undefined);
@@ -10966,8 +10992,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
   const dock = docksByTile.get(tk);
   if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
-  if (countPlayerForts(actor.id) >= fortCapacityForPlayer(actor.id)) return { ok: false, reason: "fort cap reached" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = Math.ceil(FORT_BUILD_COST * effects.fortBuildGoldCostMult);
   if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fort" };
   if (!consumeStrategicResource(actor, "IRON", FORT_BUILD_IRON_COST)) return { ok: false, reason: "insufficient IRON for fort" };
@@ -11013,9 +11038,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
   if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
   if (!isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile" };
-  if (countPlayerSiegeOutposts(actor.id) >= siegeOutpostCapacityForPlayer(actor.id))
-    return { ok: false, reason: "siege outpost cap reached" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: `all ${DEVELOPMENT_PROCESS_LIMIT} development slots are busy` };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   if (actor.points < SIEGE_OUTPOST_BUILD_COST) return { ok: false, reason: "insufficient gold for siege outpost" };
   if (!consumeStrategicResource(actor, "SUPPLY", SIEGE_OUTPOST_BUILD_SUPPLY_COST))
     return { ok: false, reason: "insufficient SUPPLY for siege outpost" };
@@ -13785,9 +13808,11 @@ app.post("/admin/world/regenerate", async () => {
       const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
       const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
       const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
+      const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
       const defEff = defenderIsBarbarian
         ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
-        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult;
+        : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
+          frontierDefenseAdd;
       const breakthroughDefEff = defenderIsBarbarian ? defEff : defEff * BREAKTHROUGH_DEF_MULT_FACTOR;
       socket.send(
         JSON.stringify({
@@ -14068,6 +14093,7 @@ app.post("/admin/world/regenerate", async () => {
       const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
       const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
       const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
+      const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
       const combat = await resolveCombatViaWorker({
         attackBase:
           10 *
@@ -14078,7 +14104,8 @@ app.post("/admin/world/regenerate", async () => {
           siegeAtkMult,
         defenseBase: defenderIsBarbarian
           ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
-          : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult
+          : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
+            frontierDefenseAdd
       });
       const atkEffWithSiege = combat.atkEff;
       const defEff = combat.defEff;
