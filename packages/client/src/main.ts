@@ -4339,6 +4339,14 @@ const renderHud = (): void => {
   weakDefButtons.forEach((btn) => {
     btn.onclick = () => {
       state.showWeakDefensibility = !state.showWeakDefensibility;
+      pushFeed(
+        state.showWeakDefensibility
+          ? `Weak defensibility overlay enabled (${weakDefensibilityTiles().length} tiles highlighted).`
+          : "Weak defensibility overlay hidden.",
+        "info",
+        "info"
+      );
+      requestViewRefresh();
       renderHud();
     };
   });
@@ -8602,8 +8610,10 @@ const draw = (): void => {
         const exposedSides = exposedSidesForTile(t);
         if (exposedSides.length >= 2) {
           const critical = exposedSides.length >= 3;
+          ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
+          ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
           ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
-          ctx.lineWidth = critical ? 3 : 2;
+          ctx.lineWidth = critical ? 4 : 3;
           ctx.beginPath();
           if (exposedSides.includes("north")) {
             ctx.moveTo(px + 1, py + 2);
@@ -8622,6 +8632,12 @@ const draw = (): void => {
             ctx.lineTo(px + 2, py + size - 1);
           }
           ctx.stroke();
+          if (size >= 12) {
+            ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.96)" : "rgba(255, 196, 92, 0.96)";
+            ctx.beginPath();
+            ctx.arc(px + size * 0.5, py + size * 0.5, critical ? 2.3 : 1.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
           ctx.lineWidth = 1;
         }
       }
