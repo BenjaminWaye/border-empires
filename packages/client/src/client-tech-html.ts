@@ -320,14 +320,15 @@ const domainCardBlockedReason = (
 
 export const renderTechDetailCardHtml = (args: {
   tech: TechInfo | undefined;
-  pendingUnlock: boolean;
-  canUnlock: boolean;
+  statusText: string | undefined;
+  buttonLabel: string;
+  buttonDisabled: boolean;
   prereqs: string[];
   prereqText: string;
   unlocks: Array<{ name: string; tier: number }>;
   relatedStructuresHtml: string;
 }): string => {
-  const { tech, pendingUnlock, canUnlock, prereqs, prereqText, unlocks, relatedStructuresHtml } = args;
+  const { tech, statusText, buttonLabel, buttonDisabled, prereqs, prereqText, unlocks, relatedStructuresHtml } = args;
   if (!tech) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
   const checklist = tech.requirements.checklist ?? [];
   return `<article class="card tech-detail-card">
@@ -336,9 +337,9 @@ export const renderTechDetailCardHtml = (args: {
         <strong>${tech.name}</strong>
         <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
-        ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
+        ${statusText ? `<p class="muted">${statusText}</p>` : ""}
       </div>
-      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${tech.id}" ${(canUnlock || pendingUnlock) ? "" : "disabled"}>${pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked"}</button>
+      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${tech.id}" ${buttonDisabled ? "disabled" : ""}>${buttonLabel}</button>
     </div>
     <p class="tech-detail-flavor">${tech.description}</p>
     ${relatedStructuresHtml}
@@ -450,11 +451,11 @@ export const renderDomainDetailCardHtml = (args: {
 
 export const renderTechChoiceDetailsHtml = (args: {
   tech: TechInfo | undefined;
-  pendingUnlock: boolean;
+  statusText: string | undefined;
   currentMods: Record<ModKey, number>;
   prereqs: string[];
 }): string => {
-  const { tech, pendingUnlock, currentMods, prereqs } = args;
+  const { tech, statusText, currentMods, prereqs } = args;
   if (!tech) return `<p class="muted">No tech selected.</p>`;
   const mods = Object.entries(tech.mods ?? {})
     .map(([key, value]) => `${key} x${Number(value).toFixed(3)}`)
@@ -467,7 +468,7 @@ export const renderTechChoiceDetailsHtml = (args: {
   };
   return `<article class="card">
     <strong>${tech.name}</strong>
-    ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for authoritative update...</p>` : ""}
+    ${statusText ? `<p class="muted">${statusText}</p>` : ""}
     <p>${tech.description}</p>
     <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
     <p><strong>Requirements:</strong></p>
