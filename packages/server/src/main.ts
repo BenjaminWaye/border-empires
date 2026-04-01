@@ -1597,6 +1597,13 @@ interface UpkeepBreakdown {
   fromYield: number;
   fromStock: number;
   remaining: number;
+  contributors: UpkeepContributor[];
+}
+interface UpkeepContributor {
+  label: string;
+  amountPerMinute: number;
+  count?: number;
+  note?: string;
 }
 interface UpkeepDiagnostics {
   food: UpkeepBreakdown;
@@ -2958,6 +2965,25 @@ const prettyTownTypeLabel = (type: TownDefinition["type"]): string => {
   if (type === "MARKET") return "Market";
   if (type === "FARMING") return "Farming";
   return "Ancient";
+};
+
+const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
+  if (type === "FARMSTEAD") return "Farmstead";
+  if (type === "CAMP") return "Camp";
+  if (type === "MINE") return "Mine";
+  if (type === "MARKET") return "Market";
+  if (type === "GRANARY") return "Granary";
+  if (type === "BANK") return "Bank";
+  if (type === "AIRPORT") return "Airport";
+  if (type === "QUARTERMASTER") return "Quartermaster";
+  if (type === "IRONWORKS") return "Ironworks";
+  if (type === "CRYSTAL_SYNTHESIZER") return "Crystal Synthesizer";
+  if (type === "FUEL_PLANT") return "Fuel Plant";
+  if (type === "CARAVANARY") return "Caravanary";
+  if (type === "CUSTOMS_HOUSE") return "Customs House";
+  if (type === "GARRISON_HALL") return "Garrison Hall";
+  if (type === "GOVERNORS_OFFICE") return "Governor's Office";
+  return "Radar System";
 };
 
 const prettyTownName = (town: TownDefinition, tileKey = town.tileKey): string => {
@@ -4670,7 +4696,7 @@ const getOrInitTileYield = (tileKey: TileKey): TileYieldBuffer => {
   return y;
 };
 
-const emptyUpkeepBreakdown = (): UpkeepBreakdown => ({ need: 0, fromYield: 0, fromStock: 0, remaining: 0 });
+const emptyUpkeepBreakdown = (): UpkeepBreakdown => ({ need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] });
 const emptyUpkeepDiagnostics = (): UpkeepDiagnostics => ({
   food: emptyUpkeepBreakdown(),
   iron: emptyUpkeepBreakdown(),
@@ -5207,6 +5233,193 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   };
 };
 
+const settledTileGoldUpkeepPerMinuteAt = (playerId: string, tileKey: TileKey): number => 0.04 * governorUpkeepMultiplierAtTile(playerId, tileKey);
+
+const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number =>
+  structureType === "FARMSTEAD"
+    ? FARMSTEAD_GOLD_UPKEEP
+    : structureType === "CAMP"
+      ? CAMP_GOLD_UPKEEP
+      : structureType === "MINE"
+        ? MINE_GOLD_UPKEEP
+        : structureType === "GRANARY"
+          ? GRANARY_GOLD_UPKEEP
+          : structureType === "CARAVANARY"
+            ? CARAVANARY_GOLD_UPKEEP
+            : structureType === "QUARTERMASTER"
+              ? QUARTERMASTER_GOLD_UPKEEP
+              : structureType === "IRONWORKS"
+                ? IRONWORKS_GOLD_UPKEEP
+                : structureType === "CRYSTAL_SYNTHESIZER"
+                  ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
+                  : structureType === "FUEL_PLANT"
+                    ? FUEL_PLANT_GOLD_UPKEEP
+                    : structureType === "FOUNDRY"
+                      ? FOUNDRY_GOLD_UPKEEP
+                      : structureType === "GARRISON_HALL"
+                        ? GARRISON_HALL_GOLD_UPKEEP
+                        : structureType === "CUSTOMS_HOUSE"
+                          ? CUSTOMS_HOUSE_GOLD_UPKEEP
+                          : structureType === "GOVERNORS_OFFICE"
+                            ? GOVERNORS_OFFICE_GOLD_UPKEEP
+                            : structureType === "RADAR_SYSTEM"
+                              ? RADAR_SYSTEM_GOLD_UPKEEP
+                              : 0;
+
+const economicStructureCrystalUpkeepPerInterval = (structureType: EconomicStructureType, playerId: string): number =>
+  structureType === "MARKET" || structureType === "BANK"
+    ? (structureType === "MARKET" ? MARKET_CRYSTAL_UPKEEP : BANK_CRYSTAL_UPKEEP) * getPlayerEffectsForPlayer(playerId).marketCrystalUpkeepMult
+    : 0;
+
+const pushUpkeepContributor = (
+  map: Map<string, UpkeepContributor>,
+  label: string,
+  amountPerMinute: number,
+  options: { count?: number; note?: string } = {}
+): void => {
+  if (amountPerMinute <= 0.0001) return;
+  const existing = map.get(label);
+  if (existing) {
+    existing.amountPerMinute += amountPerMinute;
+    existing.count = (existing.count ?? 0) + (options.count ?? 0);
+    if (options.note) existing.note = options.note;
+    return;
+  }
+  const contributor: UpkeepContributor = { label, amountPerMinute };
+  if (options.count !== undefined) contributor.count = options.count;
+  if (options.note !== undefined) contributor.note = options.note;
+  map.set(label, contributor);
+};
+
+const sortedUpkeepContributors = (map: Map<string, UpkeepContributor>): UpkeepContributor[] =>
+  [...map.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+
+const upkeepContributorsForPlayer = (player: Player): Record<"food" | "iron" | "supply" | "crystal" | "oil" | "gold", UpkeepContributor[]> => {
+  const food = new Map<string, UpkeepContributor>();
+  const iron = new Map<string, UpkeepContributor>();
+  const supply = new Map<string, UpkeepContributor>();
+  const crystal = new Map<string, UpkeepContributor>();
+  const oil = new Map<string, UpkeepContributor>();
+  const gold = new Map<string, UpkeepContributor>();
+  const effects = getPlayerEffectsForPlayer(player.id);
+  let townCount = 0;
+  let settledTileCount = 0;
+  let settledTileGoldUpkeep = 0;
+  let fortCount = 0;
+  let outpostCount = 0;
+  let observatoryCount = 0;
+  let airportCount = 0;
+  const goldStructureCounts = new Map<EconomicStructureType, number>();
+  const crystalStructureCounts = new Map<EconomicStructureType, number>();
+
+  for (const tk of player.territoryTiles) {
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
+    settledTileCount += 1;
+    settledTileGoldUpkeep += settledTileGoldUpkeepPerMinuteAt(player.id, tk);
+    if (townsByTile.has(tk)) townCount += 1;
+    const fort = fortsByTile.get(tk);
+    if (fort?.ownerId === player.id && fort.status === "active") fortCount += 1;
+    const siege = siegeOutpostsByTile.get(tk);
+    if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
+    const observatory = observatoriesByTile.get(tk);
+    if (observatory?.ownerId === player.id && observatory.status === "active") observatoryCount += 1;
+    const structure = economicStructuresByTile.get(tk);
+    if (structure?.ownerId === player.id && structure.status === "active") {
+      const goldPerMinute = economicStructureGoldUpkeepPerInterval(structure.type) / 10;
+      const crystalPerMinute = economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;
+      if (goldPerMinute > 0) goldStructureCounts.set(structure.type, (goldStructureCounts.get(structure.type) ?? 0) + 1);
+      if (crystalPerMinute > 0) crystalStructureCounts.set(structure.type, (crystalStructureCounts.get(structure.type) ?? 0) + 1);
+      if (structure.type === "AIRPORT") airportCount += 1;
+    }
+  }
+
+  if (townCount > 0) {
+    let townFoodUpkeep = 0;
+    for (const tk of player.territoryTiles) {
+      if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
+      const town = townsByTile.get(tk);
+      if (!town) continue;
+      townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
+    }
+    pushUpkeepContributor(food, "Town upkeep", townFoodUpkeep * effects.townFoodUpkeepMult, {
+      count: townCount,
+      note: `${townCount} town${townCount === 1 ? "" : "s"}`
+    });
+  }
+
+  pushUpkeepContributor(gold, "Settled land upkeep", settledTileGoldUpkeep * effects.settledGoldUpkeepMult, {
+    count: settledTileCount,
+    note: `${settledTileCount} settled tiles`
+  });
+
+  if (fortCount > 0) {
+    pushUpkeepContributor(gold, "Fort upkeep", fortCount * effects.fortGoldUpkeepMult, {
+      count: fortCount,
+      note: `${fortCount} active fort${fortCount === 1 ? "" : "s"}`
+    });
+    pushUpkeepContributor(iron, "Fort upkeep", fortCount * 0.025 * effects.fortIronUpkeepMult, {
+      count: fortCount,
+      note: `${fortCount} active fort${fortCount === 1 ? "" : "s"}`
+    });
+  }
+
+  if (outpostCount > 0) {
+    pushUpkeepContributor(gold, "Siege outpost upkeep", outpostCount * effects.outpostGoldUpkeepMult, {
+      count: outpostCount,
+      note: `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`
+    });
+    pushUpkeepContributor(supply, "Siege outpost upkeep", outpostCount * 0.025 * effects.outpostSupplyUpkeepMult, {
+      count: outpostCount,
+      note: `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`
+    });
+  }
+
+  const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
+  if (activeRevealCount > 0) {
+    pushUpkeepContributor(crystal, "Empire reveal upkeep", activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult, {
+      count: activeRevealCount,
+      note: `${activeRevealCount} active reveal`
+    });
+  }
+
+  if (observatoryCount > 0) {
+    pushUpkeepContributor(crystal, "Observatory upkeep", observatoryCount * OBSERVATORY_UPKEEP_PER_MIN, {
+      count: observatoryCount,
+      note: `${observatoryCount} active observator${observatoryCount === 1 ? "y" : "ies"}`
+    });
+  }
+
+  if (airportCount > 0) {
+    pushUpkeepContributor(oil, "Airport upkeep", airportCount * AIRPORT_OIL_UPKEEP_PER_MIN, {
+      count: airportCount,
+      note: `${airportCount} active airport${airportCount === 1 ? "" : "s"}`
+    });
+  }
+
+  for (const [type, count] of goldStructureCounts) {
+    pushUpkeepContributor(gold, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureGoldUpkeepPerInterval(type) / 10) * count, {
+      count,
+      note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}`
+    });
+  }
+
+  for (const [type, count] of crystalStructureCounts) {
+    pushUpkeepContributor(crystal, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureCrystalUpkeepPerInterval(type, player.id) / 10) * count, {
+      count,
+      note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}`
+    });
+  }
+
+  return {
+    food: sortedUpkeepContributors(food),
+    iron: sortedUpkeepContributors(iron),
+    supply: sortedUpkeepContributors(supply),
+    crystal: sortedUpkeepContributors(crystal),
+    oil: sortedUpkeepContributors(oil),
+    gold: sortedUpkeepContributors(gold)
+  };
+};
+
 function currentFoodCoverageForPlayer(playerId: string): number {
   const player = players.get(playerId);
   if (!player) return foodUpkeepCoverageByPlayer.get(playerId) ?? 1;
@@ -5494,7 +5707,7 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
     const fromStock = Math.min(afterYield, have);
     stock[resource] = Math.max(0, have - fromStock);
     const remaining = Math.max(0, need - fromYield - fromStock);
-    return { need, fromYield, fromStock, remaining };
+    return { need, fromYield, fromStock, remaining, contributors: [] };
   };
 
   diag.food = payResource("FOOD", upkeep.food);
@@ -5502,6 +5715,12 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
   diag.supply = payResource("SUPPLY", upkeep.supply);
   diag.crystal = payResource("CRYSTAL", upkeep.crystal);
   diag.oil = payResource("OIL", upkeep.oil);
+  const upkeepContributors = upkeepContributorsForPlayer(player);
+  diag.food.contributors = upkeepContributors.food;
+  diag.iron.contributors = upkeepContributors.iron;
+  diag.supply.contributors = upkeepContributors.supply;
+  diag.crystal.contributors = upkeepContributors.crystal;
+  diag.oil.contributors = upkeepContributors.oil;
   diag.foodCoverage = foodFeedingState.foodCoverage;
   foodUpkeepCoverageByPlayer.set(player.id, diag.foodCoverage);
   townFeedingStateByPlayer.set(player.id, foodFeedingState);
@@ -5542,7 +5761,8 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
     need: goldNeed,
     fromYield: goldFromYield,
     fromStock: goldFromWallet,
-    remaining: Math.max(0, goldNeed - goldFromYield - goldFromWallet)
+    remaining: Math.max(0, goldNeed - goldFromYield - goldFromWallet),
+    contributors: upkeepContributors.gold
   };
 
   lastUpkeepByPlayer.set(player.id, diag);
