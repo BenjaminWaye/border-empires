@@ -2151,13 +2151,19 @@ const isNearMountain = (x: number, y: number, r = 4): boolean => {
   return false;
 };
 
+const isGrassIronTile = (x: number, y: number, relaxed = false): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  if (landBiomeAt(x, y) !== "GRASS") return false;
+  return isNearMountain(x, y, relaxed ? 2 : 1);
+};
+
 const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean => {
   if (terrainAt(x, y) !== "LAND") return false;
   const biome = landBiomeAt(x, y);
   const shade = grassShadeAt(x, y);
   const region = regionTypeAtLocal(x, y);
   if (resource === "FISH") return biome === "COASTAL_SAND";
-  if (resource === "IRON") return (biome === "SAND" || biome === "GRASS") && isNearMountain(x, y, 4);
+  if (resource === "IRON") return (biome === "SAND" && isNearMountain(x, y, 4)) || isGrassIronTile(x, y);
   if (resource === "GEMS") return biome === "SAND";
   if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
   if (resource === "FUR") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST") || biome === "SAND");
@@ -2169,7 +2175,7 @@ const clusterRuleMatchRelaxed = (x: number, y: number, resource: ResourceType): 
   const biome = landBiomeAt(x, y);
   const shade = grassShadeAt(x, y);
   if (resource === "FISH") return biome === "COASTAL_SAND";
-  if (resource === "IRON") return (biome === "SAND" || biome === "GRASS") && isNearMountain(x, y, 5);
+  if (resource === "IRON") return (biome === "SAND" && isNearMountain(x, y, 5)) || isGrassIronTile(x, y, true);
   if (resource === "GEMS") return biome === "SAND";
   if (resource === "FARM") return biome === "GRASS";
   if (resource === "FUR") return biome === "SAND" || (biome === "GRASS" && shade === "DARK");
@@ -2212,7 +2218,7 @@ const collectClusterTiles = (cx: number, cy: number, resource: ResourceType, cou
   const out: TileKey[] = [];
   const q: Array<{ x: number; y: number; d: number }> = [{ x: cx, y: cy, d: 0 }];
   const seen = new Set<string>([key(cx, cy)]);
-  const maxDist = 5;
+  const maxDist = resource === "IRON" && landBiomeAt(cx, cy) === "GRASS" ? 3 : 5;
   while (q.length > 0 && out.length < count) {
     const cur = q.shift()!;
     if (cur.d > maxDist) continue;
@@ -2242,7 +2248,7 @@ const collectClusterTilesRelaxed = (cx: number, cy: number, resource: ResourceTy
   const out: TileKey[] = [];
   const q: Array<{ x: number; y: number; d: number }> = [{ x: cx, y: cy, d: 0 }];
   const seen = new Set<string>([key(cx, cy)]);
-  const maxDist = 6;
+  const maxDist = resource === "IRON" && landBiomeAt(cx, cy) === "GRASS" ? 4 : 6;
   while (q.length > 0 && out.length < count) {
     const cur = q.shift()!;
     if (cur.d > maxDist) continue;
@@ -2276,6 +2282,7 @@ const clusterTileCountForResource = (resource: ResourceType, x: number, y: numbe
 
 const clusterRadiusForResource = (resource: ResourceType, x: number, y: number): number => {
   if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 2;
+  if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 2;
   return 3;
 };
 
@@ -11114,7 +11121,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   const changedFoodTile = t.resource === "FARM" || t.resource === "FISH";
   const changedTownTile = townsByTile.has(k);
   const changedSupportAdjacency = adjacentNeighborCores(t.x, t.y).some((neighbor) => townsByTile.has(key(neighbor.x, neighbor.y)));
-  if (!changedFoodTile && (changedTownTile || changedSupportAdjacency)) {
+  if (changedFoodTile || changedTownTile || changedSupportAdjacency) {
     refreshVisibleNearbyTownDeltas(t.x, t.y);
   }
 

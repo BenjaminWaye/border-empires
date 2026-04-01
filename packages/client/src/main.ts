@@ -566,6 +566,42 @@ const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: s
 const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
   `<button class="inline-info-link" type="button" data-structure-info="${type}">${label ?? structureInfoForKey(type).title}</button>`;
 
+const ownedSpecialSiteCount = (): number => {
+  let count = 0;
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me) continue;
+    if (tile.town || tile.dockId || tile.resource) count += 1;
+  }
+  return count;
+};
+
+const wrappedTileDistance = (x: number, y: number, focus: { x: number; y: number }): number => {
+  const dx = Math.min(Math.abs(x - focus.x), WORLD_WIDTH - Math.abs(x - focus.x));
+  const dy = Math.min(Math.abs(y - focus.y), WORLD_HEIGHT - Math.abs(y - focus.y));
+  return dx + dy;
+};
+
+const firstCaptureGuidanceTarget = (): { tile: Tile; label: string } | undefined => {
+  if (!state.authSessionReady) return undefined;
+  if (ownedSpecialSiteCount() > 0) return undefined;
+  const focus = state.homeTile ?? state.selected ?? { x: Math.round(state.camX), y: Math.round(state.camY) };
+  const targets = [...state.tiles.values()]
+    .filter((tile) => !tile.fogged && tile.terrain === "LAND" && tile.ownerId !== state.me && !isTileOwnedByAlly(tile))
+    .filter((tile) => tile.town || tile.dockId || tile.resource)
+    .map((tile) => {
+      const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
+      const label = tile.town
+        ? "Capture a town"
+        : tile.dockId
+          ? "Capture a dock"
+          : `Capture ${prettyToken(resourceLabel(tile.resource!)).toLowerCase()}`;
+      const kindRank = tile.town ? 0 : tile.dockId ? 1 : 2;
+      return { tile, label, reachable, kindRank, distance: wrappedTileDistance(tile.x, tile.y, focus) };
+    })
+    .sort((a, b) => Number(b.reachable) - Number(a.reachable) || a.kindRank - b.kindRank || a.distance - b.distance);
+  return targets[0] ? { tile: targets[0].tile, label: targets[0].label } : undefined;
+};
+
 const displayTownGoldPerMinute = (tile: Tile): number => {
   if (!tile.town) return 0;
   return tile.town.goldPerMinute;
@@ -3211,7 +3247,8 @@ const renderCompactTechChoiceGrid = (): string => {
           const selected = state.techUiSelectedId === t.id ? " selected" : "";
           const owned = ownedTechIds.includes(t.id) ? " owned" : "";
           const blocked = t.requirements.canResearch || isPendingTechUnlock(t.id) ? "" : " blocked";
-          const costLabel = isPendingTechUnlock(t.id) ? "Unlocking..." : formatTechCost(t);
+          const researchingThis = state.currentResearch?.techId === t.id;
+          const costLabel = researchingThis ? `Researching • ${formatCooldownShort(Math.max(0, state.currentResearch!.completesAt - Date.now()))}` : isPendingTechUnlock(t.id) ? "Unlocking..." : formatTechCost(t);
           return `<button class="tech-card${selected}${owned}${blocked}" data-tech-card="${t.id}">
             <div class="tech-card-top">
               <strong>${t.name}</strong>
@@ -3440,13 +3477,16 @@ const renderExpandedTechChoiceTree = (): string => {
       const selected = state.techUiSelectedId === tech.id ? " selected" : "";
       const owned = ownedSet.has(tech.id) ? " owned" : "";
       const pending = isPendingTechUnlock(tech.id) ? " pending" : "";
+      const researchingThis = state.currentResearch?.techId === tech.id;
       const available = tech.requirements.canResearch && !isPendingTechUnlock(tech.id) ? " available" : "";
       const choice = choicesSet.has(tech.id) ? " choice" : "";
       const blocked = owned || available || pending ? "" : " blocked";
       const prereqs = techPrereqIds(tech);
-      const stateLabel = pending ? "Unlocking" : owned ? "Unlocked" : tech.requirements.canResearch ? "Available" : "Locked";
+      const stateLabel = researchingThis ? "Researching" : pending ? "Unlocking" : owned ? "Unlocked" : tech.requirements.canResearch ? "Available" : "Locked";
       const costLabel =
-        pending
+        researchingThis
+          ? `Researching • ${formatCooldownShort(Math.max(0, state.currentResearch!.completesAt - Date.now()))}`
+          : pending
           ? "Waiting for server confirmation..."
           : tech.requirements.canResearch
             ? formatTechCost(tech)
@@ -3537,7 +3577,12 @@ const renderTechDetailCard = (): string => {
   const unlocks = unlockedByTech(t.id);
   const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
   const pendingUnlock = isPendingTechUnlock(t.id);
-  const canUnlock = t.requirements.canResearch && !state.pendingTechUnlockId;
+  const researchingThis = state.currentResearch?.techId === t.id;
+  const researchRemaining =
+    researchingThis && typeof state.currentResearch?.completesAt === "number"
+      ? Math.max(0, state.currentResearch.completesAt - Date.now())
+      : 0;
+  const canUnlock = t.requirements.canResearch && !state.pendingTechUnlockId && !state.currentResearch;
   const effectSummary = formatTechBenefitSummary(t);
   const relatedStructures = relatedStructureTypesForTech(t);
   return `<article class="card tech-detail-card">
@@ -3546,9 +3591,9 @@ const renderTechDetailCard = (): string => {
         <strong>${t.name}</strong>
         <p class="tech-detail-effect">${effectSummary}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
-        ${pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
+        ${researchingThis ? `<p class="muted">Researching now. Completes in ${formatCooldownShort(researchRemaining)}.</p>` : pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
       </div>
-      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock) ? "" : "disabled"}>${pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked"}</button>
+      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock || researchingThis) ? "" : "disabled"}>${researchingThis ? "Researching" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : state.currentResearch ? "Busy" : "Locked"}</button>
     </div>
     <p class="tech-detail-flavor">${t.description}</p>
     ${relatedStructures.length > 0 ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>` : ""}
@@ -3988,7 +4033,12 @@ const renderHud = (): void => {
 
   const selected = selectedTile();
   if (!selected) {
-    selectedEl.innerHTML = `<div class="hover-line"><strong>No tile selected</strong></div><div class="hover-subline">Click a tile for actions. Yellow pulse dot on your settled tile means collectable yield.</div>`;
+    const captureGuidance = firstCaptureGuidanceTarget();
+    selectedEl.innerHTML = `<div class="hover-line"><strong>No tile selected</strong></div><div class="hover-subline">${
+      captureGuidance
+        ? `${captureGuidance.label}. It is marked in green on the map.`
+        : "Click a tile for actions. Yellow pulse dot on your settled tile means collectable yield."
+    }</div>`;
   } else {
     const selectedVisibility = tileVisibilityStateAt(selected.x, selected.y, selected);
     if (selectedVisibility === "unexplored") {
@@ -4248,17 +4298,19 @@ const renderHud = (): void => {
       <div class="guide-backdrop" id="guide-backdrop"></div>
       <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="guide-title">
         <button id="guide-close" class="guide-close-btn" type="button" aria-label="Close guide">×</button>
-        <div class="guide-kicker">Step ${state.guide.stepIndex + 1} of ${guideSteps.length}</div>
-        <h2 id="guide-title" class="guide-title">${step.title}</h2>
-        <p class="guide-body">${step.body}</p>
-        <div class="guide-progress">
-          ${guideSteps.map((_, index) => `<span class="guide-progress-segment${index <= state.guide.stepIndex ? " is-active" : ""}"></span>`).join("")}
-        </div>
-        <div class="guide-actions">
-          <button id="guide-skip" class="guide-link-btn" type="button">Skip Tutorial</button>
-          <div class="guide-actions-right">
-            ${state.guide.stepIndex > 0 ? '<button id="guide-back" class="panel-btn guide-secondary-btn" type="button">Back</button>' : ""}
-            <button id="guide-next" class="panel-btn guide-primary-btn" type="button">${state.guide.stepIndex === guideSteps.length - 1 ? "Get Started" : "Next"}</button>
+        <div class="guide-modal-scroll">
+          <div class="guide-kicker">Step ${state.guide.stepIndex + 1} of ${guideSteps.length}</div>
+          <h2 id="guide-title" class="guide-title">${step.title}</h2>
+          <p class="guide-body">${step.body}</p>
+          <div class="guide-progress">
+            ${guideSteps.map((_, index) => `<span class="guide-progress-segment${index <= state.guide.stepIndex ? " is-active" : ""}"></span>`).join("")}
+          </div>
+          <div class="guide-actions">
+            <button id="guide-skip" class="guide-link-btn" type="button">Skip Tutorial</button>
+            <div class="guide-actions-right">
+              ${state.guide.stepIndex > 0 ? '<button id="guide-back" class="panel-btn guide-secondary-btn" type="button">Back</button>' : ""}
+              <button id="guide-next" class="panel-btn guide-primary-btn" type="button">${state.guide.stepIndex === guideSteps.length - 1 ? "Get Started" : "Next"}</button>
+            </div>
           </div>
         </div>
       </div>
@@ -4419,10 +4471,22 @@ const chooseTech = (techIdRaw?: string): void => {
     pushFeed("Already unlocking a technology. Waiting for server confirmation...", "tech", "warn");
     return;
   }
+  const tech = state.techCatalog.find((item) => item.id === techId);
+  if (!tech) {
+    pushFeed("That technology is no longer available.", "tech", "warn");
+    return;
+  }
   state.techUiSelectedId = techId;
   state.pendingTechUnlockId = techId;
+  const startedAt = Date.now();
+  state.currentResearch = {
+    techId,
+    startedAt,
+    completesAt: startedAt + ((tech.researchTimeSeconds ?? 1) * 1000)
+  };
   console.info("[tech] sending CHOOSE_TECH", { techId });
   ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
+  pushFeed(`Research started: ${tech.name}.`, "tech", "info");
   renderHud();
 };
 
@@ -7028,6 +7092,7 @@ ws.addEventListener("message", (ev) => {
     state.availableTechPicks = (p.availableTechPicks as number) ?? 0;
     state.techRootId = p.techRootId as string | undefined;
     state.techIds = (p.techIds as string[]) ?? [];
+    state.currentResearch = (p.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
     state.domainIds = (p.domainIds as string[]) ?? [];
     state.revealCapacity = (p.revealCapacity as number) ?? state.revealCapacity;
     state.activeRevealTargets = (p.activeRevealTargets as string[]) ?? state.activeRevealTargets;
@@ -7209,6 +7274,7 @@ ws.addEventListener("message", (ev) => {
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
     state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
     state.techCatalog = (msg.techCatalog as TechInfo[]) ?? state.techCatalog;
+    state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? state.currentResearch;
     if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
     state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
     state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
@@ -7514,6 +7580,7 @@ ws.addEventListener("message", (ev) => {
     });
     state.techRootId = msg.techRootId as string | undefined;
     state.pendingTechUnlockId = "";
+    state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
     state.techIds = (msg.techIds as string[]) ?? [];
     state.techChoices = (msg.nextChoices as string[]) ?? [];
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
@@ -7608,7 +7675,10 @@ ws.addEventListener("message", (ev) => {
     });
     const errorCode = String(msg.code ?? "");
     const errorMessage = String(msg.message ?? "unknown failure");
-    if (errorCode === "TECH_INVALID" && state.pendingTechUnlockId) state.pendingTechUnlockId = "";
+    if (errorCode.startsWith("TECH_") && state.pendingTechUnlockId) {
+      state.pendingTechUnlockId = "";
+      state.currentResearch = undefined;
+    }
     const errorTileKey =
       typeof msg.x === "number" && typeof msg.y === "number" ? key(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
     if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
@@ -7730,8 +7800,8 @@ ws.addEventListener("message", (ev) => {
     if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
     state.attackPreview = preview;
     state.attackPreviewPendingKey = "";
-    if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.selected) {
-      const selectedTile = state.tiles.get(key(state.selected.x, state.selected.y));
+    if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
+      const selectedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
       if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
         openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y);
       }
@@ -8030,6 +8100,7 @@ const draw = (): void => {
     if (!q) continue;
     queueIndex.set(key(q.x, q.y), i + 1 + queueOffset);
   }
+  const firstCaptureTarget = firstCaptureGuidanceTarget();
 
   for (let y = -halfH; y <= halfH; y += 1) {
     for (let x = -halfW; x <= halfW; x += 1) {
@@ -8306,6 +8377,15 @@ const draw = (): void => {
             ctx.lineWidth = 1;
           }
         }
+      }
+      if (firstCaptureTarget && firstCaptureTarget.tile.x === wx && firstCaptureTarget.tile.y === wy && vis === "visible") {
+        const pulse = 0.58 + 0.42 * (0.5 + 0.5 * Math.sin(Date.now() / 260));
+        ctx.fillStyle = `rgba(81, 224, 113, ${0.06 + pulse * 0.08})`;
+        ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
+        ctx.strokeStyle = `rgba(140, 255, 167, ${0.66 + pulse * 0.2})`;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 1.5, py + 1.5, size - 3, size - 3);
+        ctx.lineWidth = 1;
       }
       if (state.hover && state.hover.x === wx && state.hover.y === wy) {
         ctx.strokeStyle = "rgba(255,255,255,0.55)";
