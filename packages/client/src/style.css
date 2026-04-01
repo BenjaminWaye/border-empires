@@ -3823,14 +3823,19 @@ button:disabled,
 
   .guide-modal {
     width: min(100vw - 24px, 560px);
-    max-height: min(82dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px));
+    max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px);
     padding: 20px 18px 18px;
     gap: 16px;
     border-radius: 20px;
+    box-sizing: border-box;
   }
 
   .guide-modal-scroll {
-    padding-bottom: max(2px, env(safe-area-inset-bottom));
+    min-height: 0;
+    max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 96px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 
   .guide-title {
@@ -3888,11 +3893,13 @@ button:disabled,
   .guide-actions {
     align-items: stretch;
     flex-direction: column;
+    padding-bottom: max(2px, env(safe-area-inset-bottom));
   }
 
   .guide-actions-right {
     width: 100%;
     justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   #floating-info {
