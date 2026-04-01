@@ -3167,6 +3167,27 @@ h4 {
   text-transform: uppercase;
 }
 
+button,
+[role="button"],
+.tech-card,
+.tile-menu-tab,
+.tile-action-btn,
+.resource-pill,
+.economy-summary-card,
+.hold-menu-btn,
+.inline-info-link,
+.auth-color-preset,
+.mobile-nav button {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+.tile-action-btn:disabled,
+.hold-menu-btn:disabled {
+  cursor: not-allowed;
+}
+
 .panel-btn,
 #hud input,
 #hud select {
@@ -3199,6 +3220,10 @@ h4 {
 
 .panel-btn:disabled {
   cursor: not-allowed;
+}
+
+.defense-toggle-btn {
+  align-self: flex-start;
 }
 
 .utility-btn {
