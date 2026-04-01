@@ -405,7 +405,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
 export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
   {
     id: "fortify_core_chokepoint",
-    priority: 9,
+    priority: 11,
     desired: { underThreat: false, needsFortifiedAnchor: false }
   },
   {
