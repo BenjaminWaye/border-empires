@@ -7675,6 +7675,7 @@ const buildAiPlanningSnapshot = (
     points: actor.points,
     stamina: actor.stamina,
     openingScoutAvailable: Boolean(openingScoutCandidate),
+    economicExpandAvailable: Boolean(neutralExpandCandidate),
     neutralExpandAvailable: Boolean(anyNeutralExpandCandidate),
     scoutExpandAvailable: Boolean(scoutExpandCandidate),
     scaffoldExpandAvailable: Boolean(scaffoldExpandCandidate),

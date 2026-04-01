@@ -21,6 +21,7 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   points: 300,
   stamina: 100,
   openingScoutAvailable: false,
+  economicExpandAvailable: false,
   neutralExpandAvailable: false,
   scoutExpandAvailable: false,
   scaffoldExpandAvailable: false,
@@ -62,6 +63,7 @@ describe("planAiDecision", () => {
       controlledTowns: 1,
       foodCoverage: 0,
       foodCoverageLow: true,
+      economicExpandAvailable: true,
       hasActiveTown: true,
       neutralExpandAvailable: true,
       frontierOpportunityEconomic: 2
