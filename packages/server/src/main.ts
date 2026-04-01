@@ -6709,7 +6709,8 @@ const scoreAiScoutRevealValue = (
       score += 85;
       return;
     }
-    const cluster = clusterByTile.get(revealKey);
+    const clusterId = clusterByTile.get(revealKey);
+    const cluster = clusterId ? clustersById.get(clusterId) : undefined;
     if (cluster) {
       const resource = clusterResourceType(cluster);
       score += 50 + Math.round(baseTileValue(resource) * 0.7);
