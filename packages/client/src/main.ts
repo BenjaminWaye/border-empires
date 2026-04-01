@@ -2465,6 +2465,21 @@ const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
   return incoming;
 };
 
+const mergeIncomingTileDetail = (existing: Tile | undefined, incoming: Tile): Tile => {
+  if (!existing || existing.detailLevel !== "full" || incoming.detailLevel === "full") return incoming;
+  const merged: Tile = {
+    ...existing,
+    ...incoming,
+    detailLevel: "full"
+  };
+  if (!("town" in incoming) && existing.town) merged.town = existing.town;
+  if (!("yield" in incoming) && existing.yield) merged.yield = existing.yield;
+  if (!("yieldRate" in incoming) && existing.yieldRate) merged.yieldRate = existing.yieldRate;
+  if (!("yieldCap" in incoming) && existing.yieldCap) merged.yieldCap = existing.yieldCap;
+  if (!("history" in incoming) && existing.history) merged.history = existing.history;
+  return merged;
+};
+
 const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
   if (holdActivated) {
     holdActivated = false;
@@ -3815,6 +3830,7 @@ const renderHud = (): void => {
     } else if (selectedVisibility === "fogged") {
       selectedEl.innerHTML = `<div class="hover-line"><strong>${selected.x}, ${selected.y}</strong> Fogged</div><div class="hover-subline">Last seen only.</div>`;
     } else {
+      requestTileDetailIfNeeded(selected);
       selectedEl.innerHTML = inspectionHtmlForTile(selected);
     }
   }
@@ -4233,6 +4249,15 @@ const sendGameMessage = (payload: unknown, message?: string): boolean => {
   if (!requireAuthedSession(message)) return false;
   ws.send(JSON.stringify(payload));
   return true;
+};
+const requestTileDetailIfNeeded = (tile: Tile | undefined): void => {
+  if (!tile || tile.fogged || tile.detailLevel === "full") return;
+  if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
+  const tileKey = key(tile.x, tile.y);
+  const lastRequestedAt = state.tileDetailRequestedAt.get(tileKey) ?? 0;
+  if (Date.now() - lastRequestedAt < 1500) return;
+  ws.send(JSON.stringify({ type: "REQUEST_TILE_DETAIL", x: tile.x, y: tile.y }));
+  state.tileDetailRequestedAt.set(tileKey, Date.now());
 };
 const clearReconnectReloadTimer = (): void => {
   if (reconnectReloadTimer !== undefined) {
@@ -7054,7 +7079,8 @@ ws.addEventListener("message", (ev) => {
     let sawVisibleTile = false;
     let sawOwnedTile = false;
     for (const t of tiles) {
-      const mergedTile = mergeServerTileWithOptimisticState(t);
+      const existing = state.tiles.get(key(t.x, t.y));
+      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, t));
       state.tiles.set(key(mergedTile.x, mergedTile.y), mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(key(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
@@ -7366,6 +7392,7 @@ ws.addEventListener("message", (ev) => {
       const existing = state.tiles.get(key(update.x, update.y));
       const merged: Tile = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
       if (update.terrain) merged.terrain = update.terrain;
+      if ("detailLevel" in update) merged.detailLevel = update.detailLevel;
       if (update.fogged !== undefined) merged.fogged = update.fogged;
       if (update.resource !== undefined) merged.resource = update.resource;
       if (update.ownerId) merged.ownerId = update.ownerId;
@@ -7421,7 +7448,7 @@ ws.addEventListener("message", (ev) => {
         if (update.history) merged.history = update.history;
         else delete merged.history;
       }
-      const resolved = mergeServerTileWithOptimisticState(merged);
+      const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
       state.tiles.set(updateKey, resolved);
       if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
       markDockDiscovered(resolved);
