@@ -1661,6 +1661,7 @@ const cachedChunkSnapshotByPlayer = new Map<
   {
     visibility: VisibilitySnapshot;
     payloadByChunkKey: Map<string, string>;
+    visibilityMaskByChunkKey: Map<string, Uint8Array>;
   }
 >();
 const summaryChunkVersionByChunkKey = new Map<string, number>();
@@ -4082,7 +4083,7 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
   if (dock) tile.dockId = dock.dockId;
   if (townsByTile.has(tk)) {
     const town = townsByTile.get(tk)!;
-    tile.town = townSummaryForTile(town, core.ownerId);
+    tile.town = thinTownSummaryForTile(town, core.ownerId);
   }
   const fort = fortsByTile.get(tk);
   if (fort) tile.fort = { ownerId: fort.ownerId, status: fort.status, ...(fort.completesAt !== undefined ? { completesAt: fort.completesAt } : {}) };
@@ -4107,6 +4108,31 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
   }
   return tile;
 };
+
+const thinTownSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => ({
+  type: town.type,
+  baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
+  supportCurrent: 0,
+  supportMax: 0,
+  goldPerMinute: 0,
+  cap: 0,
+  isFed: Boolean(ownerId),
+  population: town.population,
+  maxPopulation: town.maxPopulation,
+  populationGrowthPerMinute: 0,
+  populationTier: townPopulationTier(town.population),
+  connectedTownCount: town.connectedTownCount,
+  connectedTownBonus: 0,
+  connectedTownNames: [],
+  hasMarket: false,
+  marketActive: false,
+  hasGranary: false,
+  granaryActive: false,
+  hasBank: false,
+  bankActive: false,
+  foodUpkeepPerMinute: 0,
+  growthModifiers: []
+});
 
 const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => {
   const support = ownerId ? townSupport(town.tileKey, ownerId) : { supportCurrent: 0, supportMax: 0 };
@@ -4149,7 +4175,7 @@ const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): 
   };
 };
 
-const playerTileSummary = (x: number, y: number): Tile => {
+const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"): Tile => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
   const tk = key(wx, wy);
@@ -4172,7 +4198,7 @@ const playerTileSummary = (x: number, y: number): Tile => {
     y: wy,
     terrain,
     detailLevel: "summary",
-    lastChangedAt: now()
+    lastChangedAt: mode === "thin" ? 0 : now()
   };
   if (resource && !dock) tile.resource = resource;
   if (ownerId) {
@@ -4183,7 +4209,7 @@ const playerTileSummary = (x: number, y: number): Tile => {
   if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
   if (dock) tile.dockId = dock.dockId;
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
-  if (town) tile.town = townSummaryForTile(town, ownerId);
+  if (town) tile.town = mode === "thin" ? thinTownSummaryForTile(town, ownerId) : townSummaryForTile(town, ownerId);
   if (fort) {
     const fortView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
       ownerId: fort.ownerId,
@@ -4195,9 +4221,9 @@ const playerTileSummary = (x: number, y: number): Tile => {
   if (observatory) {
     tile.observatory = {
       ownerId: observatory.ownerId,
-      status: observatory.status
+      status: mode === "thin" ? observatory.status : observatoryStatusForTile(observatory.ownerId, observatory.tileKey)
     };
-    if (observatory.status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
+    if (tile.observatory.status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
   }
   if (siegeOutpost) {
     const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
@@ -4229,10 +4255,11 @@ const playerTileSummary = (x: number, y: number): Tile => {
   return tile;
 };
 
-const summaryChunkTiles = (worldCx: number, worldCy: number): readonly Tile[] => {
+const summaryChunkTiles = (worldCx: number, worldCy: number, mode: ChunkSummaryMode = "thin"): readonly Tile[] => {
   const chunkKey = `${worldCx},${worldCy}`;
+  const summaryCacheKey = `${mode}:${chunkKey}`;
   const version = summaryChunkVersionByChunkKey.get(chunkKey) ?? 0;
-  const cached = cachedSummaryChunkByChunkKey.get(chunkKey);
+  const cached = cachedSummaryChunkByChunkKey.get(summaryCacheKey);
   if (cached?.version === version) return cached.tiles;
   const startX = worldCx * CHUNK_SIZE;
   const startY = worldCy * CHUNK_SIZE;
@@ -4241,10 +4268,10 @@ const summaryChunkTiles = (worldCx: number, worldCy: number): readonly Tile[] =>
     for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
       const wx = wrapX(x, WORLD_WIDTH);
       const wy = wrapY(y, WORLD_HEIGHT);
-      tiles.push(Object.freeze(playerTileSummary(wx, wy)));
+      tiles.push(Object.freeze(playerTileSummary(wx, wy, mode)));
     }
   }
-  cachedSummaryChunkByChunkKey.set(chunkKey, { version, tiles });
+  cachedSummaryChunkByChunkKey.set(summaryCacheKey, { version, tiles });
   return tiles;
 };
 
@@ -9641,10 +9668,13 @@ const tileIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const CHUNK_SNAPSHOT_WARN_MS = 60;
 const CHUNK_SNAPSHOT_BATCH_SIZE = 4;
 const INITIAL_CHUNK_BOOTSTRAP_RADIUS = 0;
+type ChunkSummaryMode = "thin" | "standard";
 
 type ChunkFollowUpStage = {
   sub: { cx: number; cy: number; radius: number };
   chunkCoords: Array<{ cx: number; cy: number }>;
+  summaryMode: ChunkSummaryMode;
+  batchSize: number;
   next?: ChunkFollowUpStage;
 };
 const chunkDist = (a: number, b: number, mod: number): number => {
@@ -9754,12 +9784,21 @@ const chunkCoordsForSubscription = (
 const chunkSnapshotCacheForPlayer = (
   playerId: string,
   visibility: VisibilitySnapshot
-): Map<string, string> => {
+): {
+  payloadByChunkKey: Map<string, string>;
+  visibilityMaskByChunkKey: Map<string, Uint8Array>;
+} => {
   const cached = cachedChunkSnapshotByPlayer.get(playerId);
-  if (cached?.visibility === visibility) return cached.payloadByChunkKey;
+  if (cached?.visibility === visibility) {
+    return {
+      payloadByChunkKey: cached.payloadByChunkKey,
+      visibilityMaskByChunkKey: cached.visibilityMaskByChunkKey
+    };
+  }
   const payloadByChunkKey = new Map<string, string>();
-  cachedChunkSnapshotByPlayer.set(playerId, { visibility, payloadByChunkKey });
-  return payloadByChunkKey;
+  const visibilityMaskByChunkKey = new Map<string, Uint8Array>();
+  cachedChunkSnapshotByPlayer.set(playerId, { visibility, payloadByChunkKey, visibilityMaskByChunkKey });
+  return { payloadByChunkKey, visibilityMaskByChunkKey };
 };
 
 const fogChunkTiles = (worldCx: number, worldCy: number): readonly Tile[] => {
@@ -9794,7 +9833,11 @@ const fogChunkTiles = (worldCx: number, worldCy: number): readonly Tile[] => {
   return tiles;
 };
 
-const chunkVisibilityMask = (snapshot: VisibilitySnapshot, worldCx: number, worldCy: number): Uint8Array => {
+const chunkVisibilityMask = (playerId: string, snapshot: VisibilitySnapshot, worldCx: number, worldCy: number): Uint8Array => {
+  const chunkKey = `${worldCx},${worldCy}`;
+  const cache = chunkSnapshotCacheForPlayer(playerId, snapshot);
+  const cachedMask = cache.visibilityMaskByChunkKey.get(chunkKey);
+  if (cachedMask) return cachedMask;
   const startX = worldCx * CHUNK_SIZE;
   const startY = worldCy * CHUNK_SIZE;
   const mask = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
@@ -9807,6 +9850,7 @@ const chunkVisibilityMask = (snapshot: VisibilitySnapshot, worldCx: number, worl
       index += 1;
     }
   }
+  cache.visibilityMaskByChunkKey.set(chunkKey, mask);
   return mask;
 };
 
@@ -9815,15 +9859,17 @@ const chunkSnapshotPayload = (
   snapshot: VisibilitySnapshot,
   worldCx: number,
   worldCy: number,
+  mode: ChunkSummaryMode,
 ): { buildInput?: ChunkBuildInput; payload?: string; tileCount: number; chunkKey: string } => {
-  const payloadByChunkKey = chunkSnapshotCacheForPlayer(actor.id, snapshot);
+  const cache = chunkSnapshotCacheForPlayer(actor.id, snapshot);
   const chunkKey = `${worldCx},${worldCy}`;
-  const cachedPayload = payloadByChunkKey.get(chunkKey);
+  const payloadCacheKey = `${mode}:${chunkKey}`;
+  const cachedPayload = cache.payloadByChunkKey.get(payloadCacheKey);
   if (cachedPayload) {
     return {
       payload: cachedPayload,
       tileCount: CHUNK_SIZE * CHUNK_SIZE,
-      chunkKey
+      chunkKey: payloadCacheKey
     };
   }
 
@@ -9832,11 +9878,11 @@ const chunkSnapshotPayload = (
       cx: worldCx,
       cy: worldCy,
       fogTiles: [...fogChunkTiles(worldCx, worldCy)],
-      visibleTiles: [...summaryChunkTiles(worldCx, worldCy)],
-      visibleMask: chunkVisibilityMask(snapshot, worldCx, worldCy)
+      visibleTiles: [...summaryChunkTiles(worldCx, worldCy, mode)],
+      visibleMask: chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy)
     },
     tileCount: CHUNK_SIZE * CHUNK_SIZE,
-    chunkKey
+    chunkKey: payloadCacheKey
   };
 };
 
@@ -9852,10 +9898,22 @@ const buildBootstrapChunkStages = (sub: { cx: number; cy: number; radius: number
     next = {
       sub: { ...sub, radius },
       chunkCoords: chunkCoordsForSubscription({ ...sub, radius }, radius),
+      summaryMode: "thin",
+      batchSize: 1,
       ...(next ? { next } : {})
     };
   }
   return next;
+};
+
+const chunkBatchSizeForSnapshot = (
+  chunkCoords: Array<{ cx: number; cy: number }>,
+  followUpStage: ChunkFollowUpStage | undefined,
+  batchSizeOverride?: number
+): number => {
+  if (batchSizeOverride !== undefined) return Math.max(1, batchSizeOverride);
+  if (followUpStage || chunkCoords.length > CHUNK_SNAPSHOT_BATCH_SIZE) return 1;
+  return Math.max(1, Math.min(CHUNK_STREAM_BATCH_SIZE, CHUNK_SNAPSHOT_BATCH_SIZE));
 };
 
 const sendChunkSnapshot = (
@@ -9863,7 +9921,9 @@ const sendChunkSnapshot = (
   actor: Player,
   sub: { cx: number; cy: number; radius: number },
   followUpStage?: ChunkFollowUpStage,
-  chunkCoordsOverride?: Array<{ cx: number; cy: number }>
+  chunkCoordsOverride?: Array<{ cx: number; cy: number }>,
+  summaryMode: ChunkSummaryMode = "thin",
+  batchSizeOverride?: number
 ): void => {
   const startedAt = now();
   const authSync = authSyncTimingByPlayer.get(actor.id);
@@ -9874,6 +9934,7 @@ const sendChunkSnapshot = (
   let chunkCount = 0;
   let tileCount = 0;
   const chunkCoords = chunkCoordsOverride ?? chunkCoordsForSubscription(sub);
+  const batchSize = chunkBatchSizeForSnapshot(chunkCoords, followUpStage, batchSizeOverride);
 
   let index = 0;
   const streamNext = async (): Promise<void> => {
@@ -9881,10 +9942,10 @@ const sendChunkSnapshot = (
     if (socket.readyState !== socket.OPEN) return;
     const chunkBatchBodies: string[] = [];
     const pendingBuilds: Array<{ chunkKey: string; buildInput: ChunkBuildInput }> = [];
-    const end = Math.min(index + CHUNK_STREAM_BATCH_SIZE, chunkCoords.length);
+    const end = Math.min(index + batchSize, chunkCoords.length);
     for (; index < end; index += 1) {
       const coords = chunkCoords[index]!;
-      const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy);
+      const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy, summaryMode);
       if (chunk.payload) {
         chunkBatchBodies.push(chunk.payload);
       } else if (chunk.buildInput) {
@@ -9895,7 +9956,7 @@ const sendChunkSnapshot = (
     }
     if (pendingBuilds.length > 0) {
       const payloads = await serializeChunkBatchViaWorker(pendingBuilds.map((chunk) => chunk.buildInput));
-      const payloadCache = chunkSnapshotCacheForPlayer(actor.id, snapshot);
+      const payloadCache = chunkSnapshotCacheForPlayer(actor.id, snapshot).payloadByChunkKey;
       for (let payloadIndex = 0; payloadIndex < payloads.length; payloadIndex += 1) {
         const pending = pendingBuilds[payloadIndex]!;
         const payload = payloads[payloadIndex]!;
@@ -9957,11 +10018,19 @@ const sendChunkSnapshot = (
         if (
           currentSub.cx !== followUpStage.sub.cx ||
           currentSub.cy !== followUpStage.sub.cy ||
-          currentSub.radius !== followUpStage.sub.radius
+          currentSub.radius < followUpStage.sub.radius
         ) {
           return;
         }
-        sendChunkSnapshot(socket, actor, followUpStage.sub, followUpStage.next, followUpStage.chunkCoords);
+        sendChunkSnapshot(
+          socket,
+          actor,
+          followUpStage.sub,
+          followUpStage.next,
+          followUpStage.chunkCoords,
+          followUpStage.summaryMode,
+          followUpStage.batchSize
+        );
       }, 0);
     }
   };
