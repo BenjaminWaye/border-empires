@@ -81,7 +81,7 @@ export type Tile = {
       | "CUSTOMS_HOUSE"
       | "GOVERNORS_OFFICE"
       | "RADAR_SYSTEM";
-    status: "under_construction" | "active" | "inactive";
+    status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
   };
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
@@ -140,7 +140,7 @@ export type Tile = {
   yield?: { gold?: number; strategic?: Record<string, number> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
-  optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel";
+  optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
 };
 
 export type TileTimedProgress = {
@@ -302,6 +302,7 @@ export type TileActionDef = {
     | "build_customs_house"
     | "build_governors_office"
     | "build_radar_system"
+    | "remove_structure"
     | "abandon_territory"
     | "build_siege_camp"
     | "deep_strike"
@@ -327,6 +328,7 @@ export type TileMenuProgressView = {
   progress: number;
   note: string;
   cancelLabel?: string;
+  cancelActionId?: "cancel_structure_build";
 };
 
 export type TileOverviewLine = {
