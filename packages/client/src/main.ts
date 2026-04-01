@@ -123,6 +123,7 @@ const {
   canvas,
   captureBarEl,
   captureCancelBtn,
+  captureCloseBtn,
   captureCardEl,
   captureTargetEl,
   captureTimeEl,
@@ -3000,6 +3001,7 @@ const renderCaptureProgress = (): void => {
     captureCardEl.style.display = "grid";
     captureWrapEl.style.display = "block";
     captureCancelBtn.style.display = "none";
+    captureCloseBtn.style.display = "inline-flex";
     captureBarEl.style.width = "100%";
     captureTitleEl.textContent = state.captureAlert.title;
     captureTimeEl.textContent = "";
@@ -3026,6 +3028,7 @@ const renderCaptureProgress = (): void => {
     captureCardEl.style.display = "grid";
     captureWrapEl.style.display = "block";
     captureCancelBtn.style.display = "inline-flex";
+    captureCloseBtn.style.display = "none";
     captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
     captureTitleEl.textContent = awaitingResult
       ? "Resolving battle..."
@@ -3040,6 +3043,7 @@ const renderCaptureProgress = (): void => {
     captureCardEl.style.display = "none";
     captureWrapEl.style.display = "none";
     captureCancelBtn.style.display = "none";
+    captureCloseBtn.style.display = "none";
     captureBarEl.style.width = "0%";
     captureTitleEl.textContent = "";
     captureTimeEl.textContent = "";
@@ -7165,6 +7169,10 @@ collectVisibleMobileBtn.onclick = () => {
   collectVisibleYield();
 };
 captureCancelBtn.onclick = () => cancelOngoingCapture();
+captureCloseBtn.onclick = () => {
+  state.captureAlert = undefined;
+  renderCaptureProgress();
+};
 panelCloseBtn.onclick = () => {
   state.activePanel = null;
   renderHud();

@@ -36,7 +36,10 @@ const hudMarkup = `
       <div id="capture-card">
         <div id="capture-head">
           <div id="capture-title">Capturing Territory...</div>
-          <div id="capture-time"></div>
+          <div id="capture-head-actions">
+            <div id="capture-time"></div>
+            <button id="capture-close" class="capture-close-btn" type="button" title="Close result" aria-label="Close result">✕</button>
+          </div>
         </div>
         <div id="capture-wrap">
           <div id="capture-bar"></div>
@@ -330,6 +333,7 @@ export const initClientDom = () => {
   const miniMapEl = requireElement<HTMLCanvasElement>("#mini-map");
   const miniMapLabelEl = requireElement<HTMLDivElement>("#mini-map-label");
   const captureCancelBtn = requireElement<HTMLButtonElement>("#capture-cancel");
+  const captureCloseBtn = requireElement<HTMLButtonElement>("#capture-close");
   const captureCardEl = requireElement<HTMLDivElement>("#capture-card");
   const captureWrapEl = requireElement<HTMLDivElement>("#capture-wrap");
   const captureBarEl = requireElement<HTMLDivElement>("#capture-bar");
@@ -471,6 +475,7 @@ export const initClientDom = () => {
     canvas,
     captureBarEl,
     captureCancelBtn,
+    captureCloseBtn,
     captureCardEl,
     captureTargetEl,
     captureTimeEl,
