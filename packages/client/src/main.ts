@@ -1977,6 +1977,15 @@ const conqueredTileLabel = (tile: Tile | undefined, target: { x: number; y: numb
   return "Territory";
 };
 
+const settledTileLabel = (target: { x: number; y: number } | undefined): string => {
+  if (!target) return "Land";
+  const tile = state.tiles.get(key(target.x, target.y));
+  if (tile?.town) return "Town";
+  if (tile?.dockId) return "Dock";
+  if (tile?.resource) return prettyToken(resourceLabel(tile.resource));
+  return prettyToken(terrainLabel(target.x, target.y, tile?.terrain ?? terrainAt(target.x, target.y)));
+};
+
 const combatResolutionAlert = (
   msg: Record<string, unknown>,
   context?: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined }
@@ -1993,7 +2002,7 @@ const combatResolutionAlert = (
     const settledTarget = settledChange ? { x: settledChange.x, y: settledChange.y } : target;
     return {
       title: "Settlement Complete",
-      detail: settledTarget ? `${prettyToken(terrainLabel(settledTarget.x, settledTarget.y, terrainAt(settledTarget.x, settledTarget.y)))} was settled.` : "Land was settled.",
+      detail: `${settledTileLabel(settledTarget)} was settled.`,
       tone: "success"
     };
   }
