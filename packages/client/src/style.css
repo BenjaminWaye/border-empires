@@ -801,23 +801,27 @@ body {
   background: linear-gradient(145deg, rgba(11, 19, 32, 0.9), rgba(3, 7, 14, 0.9));
   backdrop-filter: blur(7px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
 }
 
 #stats-chips {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .resource-ribbon {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-left: 4px;
   padding-left: 10px;
   border-left: 1px solid rgba(190, 216, 255, 0.22);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .resource-pill {
@@ -825,7 +829,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 8px;
+  padding: 4px 7px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
@@ -848,7 +852,7 @@ body {
 }
 
 .resource-value {
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1;
   font-weight: 800;
   color: #f6fbff;
@@ -899,8 +903,8 @@ body {
 
 .stat-chip {
   appearance: none;
-  min-width: 86px;
-  padding: 5px 8px;
+  min-width: 74px;
+  padding: 4px 7px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.06);
@@ -918,14 +922,14 @@ body {
 }
 
 .stat-chip strong {
-  font-size: 16px;
+  font-size: 14px;
   color: #f2f7ff;
   display: block;
   min-width: 0;
 }
 
 .stat-chip-dev {
-  min-width: 104px;
+  min-width: 88px;
 }
 
 .stat-chip-dev.is-full {
@@ -1030,6 +1034,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
 }
 
 .icon-btn {
