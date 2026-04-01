@@ -242,6 +242,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       staminaHealthy: true
     },
     effects: {
+      hasNeutralLandOpportunity: false,
       foodCoverageLow: false,
       needsSettlement: true
     },
@@ -259,6 +260,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       staminaHealthy: true
     },
     effects: {
+      hasNeutralLandOpportunity: false,
       hasScoutOpportunity: false,
       needsSettlement: true
     },
