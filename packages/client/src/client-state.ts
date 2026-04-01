@@ -159,6 +159,7 @@ export const createInitialState = () => ({
   >(),
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
+    selfOverall: undefined as LeaderboardOverallEntry | undefined,
     byTiles: [] as LeaderboardMetricEntry[],
     byIncome: [] as LeaderboardMetricEntry[],
     byTechs: [] as LeaderboardMetricEntry[]
