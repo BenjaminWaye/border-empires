@@ -49,7 +49,8 @@ describe("planAiDecision", () => {
   it("uses generic neutral expansion fallback when no exact economic candidate exists", () => {
     const decision = planAiDecision({
       ...baseSnapshot(),
-      neutralExpandAvailable: false,
+      neutralExpandAvailable: true,
+      economicExpandAvailable: false,
       frontierOpportunityEconomic: 3,
       frontierOpportunityWaste: 8
     });
