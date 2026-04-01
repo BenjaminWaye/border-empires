@@ -958,10 +958,10 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     .filter(([, v]) => Number(v) > 0)
     .map(([r, v]) => `${resourceIconForKey(r)} ${Number(v).toFixed(1)}/day`);
   const prodInfo = (() => {
-    const gpm = tile.yieldRate?.goldPerMinute ?? 0;
+    const gpm = tile.town ? displayTownGoldPerMinute(tile) : tile.yieldRate?.goldPerMinute ?? 0;
     const parts: string[] = [];
     if (tile.town) {
-      parts.push(`${gpm.toFixed(2)} / m${tile.town.isFed ? "" : " - Unfed"}`);
+      parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m${tile.town.isFed ? "" : " - Unfed"}`);
     } else if (gpm > 0) {
       parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
     }
@@ -5838,6 +5838,7 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
     pushLine(tile.town.isFed ? `Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.` : "Town is unfed. Needs settled fish or grain nearby.");
+    pushLine(`Connected town bonus ${Math.round(tile.town.connectedTownBonus * 100)}% from ${tile.town.connectedTownCount} town${tile.town.connectedTownCount === 1 ? "" : "s"}.`);
     const growthPct =
       tile.town.population > 0 && typeof tile.town.populationGrowthPerMinute === "number"
         ? (tile.town.populationGrowthPerMinute / tile.town.population) * 100
