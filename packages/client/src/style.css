@@ -3000,6 +3000,12 @@ body {
   cursor: pointer;
 }
 
+.tech-card.blocked,
+.tech-card.owned,
+.tech-card.pending {
+  cursor: default;
+}
+
 .tech-card-top {
   display: flex;
   justify-content: space-between;
@@ -3346,6 +3352,10 @@ button:disabled,
     border-color 120ms ease,
     background-color 120ms ease,
     color 120ms ease;
+}
+
+.tech-unlock-btn:disabled {
+  cursor: default;
 }
 
 .panel-btn:hover:not(:disabled) {
