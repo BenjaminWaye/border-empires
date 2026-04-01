@@ -20,7 +20,6 @@ import {
   CHUNK_SIZE,
   DEVELOPMENT_PROCESS_LIMIT,
   ECONOMIC_STRUCTURE_BUILD_MS,
-  FORT_BUILD_COST,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
   FRONTIER_CLAIM_COST,
@@ -29,7 +28,6 @@ import {
   SETTLE_COST,
   SETTLE_MS,
   SIEGE_OUTPOST_ATTACK_MULT,
-  SIEGE_OUTPOST_BUILD_COST,
   SIEGE_OUTPOST_BUILD_MS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -37,6 +35,8 @@ import {
   grassShadeAt,
   landBiomeAt,
   setWorldSeed,
+  structureBuildGoldCost,
+  structureCostDefinition,
   terrainAt
 } from "@border-empires/shared";
 import {
@@ -45,7 +45,6 @@ import {
   GUIDE_STORAGE_KEY,
   MAX_ZOOM,
   MIN_ZOOM,
-  OBSERVATORY_BUILD_COST,
   OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS,
   canAffordCost,
@@ -283,6 +282,26 @@ const key = (x: number, y: number): string => `${x},${y}`;
 const parseKey = (k: string): { x: number; y: number } => {
   const [xs, ys] = k.split(",");
   return { x: Number(xs), y: Number(ys) };
+};
+type BuildableStructureId = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | NonNullable<Tile["economicStructure"]>["type"];
+const ownedStructureCount = (structureType: BuildableStructureId): number => {
+  let count = 0;
+  for (const tile of state.tiles.values()) {
+    if (tile.ownerId !== state.me) continue;
+    if (structureType === "FORT" && tile.fort) count += 1;
+    else if (structureType === "OBSERVATORY" && tile.observatory) count += 1;
+    else if (structureType === "SIEGE_OUTPOST" && tile.siegeOutpost) count += 1;
+    else if (tile.economicStructure?.type === structureType) count += 1;
+  }
+  return count;
+};
+const structureGoldCost = (structureType: BuildableStructureId): number => structureBuildGoldCost(structureType, ownedStructureCount(structureType));
+const structureCostText = (structureType: BuildableStructureId, resourceOverride?: string): string => {
+  const def = structureCostDefinition(structureType);
+  const goldCost = structureGoldCost(structureType);
+  if (resourceOverride) return `${goldCost} gold + ${resourceOverride}`;
+  if (def.resourceCost) return `${goldCost} gold + ${def.resourceCost.amount} ${def.resourceCost.resource}`;
+  return `${goldCost} gold`;
 };
 const wrapX = (x: number): number => (x + WORLD_WIDTH) % WORLD_WIDTH;
 const wrapY = (y: number): number => (y + WORLD_HEIGHT) % WORLD_HEIGHT;
@@ -5953,15 +5972,15 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       label: "Build Foundry",
       detail: buildDetailTextForAction("build_foundry", tile),
       ...tileActionAvailabilityWithDevelopmentSlot(
-        reachable && state.techIds.includes("industrial-extraction") && state.gold >= 1800 && !tile.resource && !tile.town && !tile.dockId,
+        reachable && state.techIds.includes("industrial-extraction") && state.gold >= 4500 && !tile.resource && !tile.town && !tile.dockId,
         !reachable
           ? "Must touch your territory"
           : !state.techIds.includes("industrial-extraction")
             ? "Requires Industrial Extraction"
             : tile.resource || tile.town || tile.dockId
               ? "Needs empty land"
-              : "Need 1800 gold",
-        `1800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • doubles mines within 10 tiles`,
+              : "Need 4500 gold",
+        `4500 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • doubles mines within 10 tiles`,
         developmentSlotSummary()
       )
     });
@@ -5995,7 +6014,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     if (tile.ownershipState === "SETTLED" && !tile.fort) {
       const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
       const hasTech = state.techIds.includes("masonry");
-      const hasGold = state.gold >= FORT_BUILD_COST;
+      const fortGoldCost = structureGoldCost("FORT");
+      const hasGold = state.gold >= fortGoldCost;
       const hasIron = (state.strategicResources.IRON ?? 0) >= 45;
       out.push({
         id: "build_fortification",
@@ -6003,15 +6023,16 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         detail: buildDetailTextForAction("build_fortification", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           hasTech && hasGold && hasIron && isBorderOrDock && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure,
-          !hasTech ? "Requires Masonry" : !isBorderOrDock ? "Needs border or dock tile" : tile.siegeOutpost || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${FORT_BUILD_COST} gold` : !hasIron ? "Need 45 IRON" : "Unavailable",
-          `${FORT_BUILD_COST} gold + 45 IRON • ${Math.round(FORT_BUILD_MS / 60000)}m`,
+          !hasTech ? "Requires Masonry" : !isBorderOrDock ? "Needs border or dock tile" : tile.siegeOutpost || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${fortGoldCost} gold` : !hasIron ? "Need 45 IRON" : "Unavailable",
+          `${structureCostText("FORT")} • ${Math.round(FORT_BUILD_MS / 60000)}m`,
           slots
         )
       });
     }
     if (tile.ownershipState === "SETTLED" && !tile.observatory) {
       const hasTech = state.techIds.includes("cartography");
-      const hasGold = state.gold >= OBSERVATORY_BUILD_COST;
+      const observatoryGoldCost = structureGoldCost("OBSERVATORY");
+      const hasGold = state.gold >= observatoryGoldCost;
       const hasCrystal = (state.strategicResources.CRYSTAL ?? 0) >= 45;
       out.push({
         id: "build_observatory",
@@ -6026,24 +6047,25 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
               : tile.fort || tile.siegeOutpost || tile.economicStructure
                 ? "Tile already has structure"
                 : !hasGold
-                  ? `Need ${OBSERVATORY_BUILD_COST} gold`
+                  ? `Need ${observatoryGoldCost} gold`
                   : !hasCrystal
                     ? "Need 45 CRYSTAL"
                     : "Unavailable",
-          `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`,
+          `${structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`,
           slots
         )
       });
     }
     if (tile.ownershipState === "SETTLED" && !tile.economicStructure) {
+      const airportGoldCost = structureGoldCost("AIRPORT");
       out.push({
         id: "build_airport",
         label: "Build Airport",
         detail: buildDetailTextForAction("build_airport", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("aeronautics") &&
-            state.gold >= 900 &&
-            (state.strategicResources.CRYSTAL ?? 0) >= 60 &&
+            state.gold >= airportGoldCost &&
+            (state.strategicResources.CRYSTAL ?? 0) >= 80 &&
             !tile.resource &&
             !tile.town &&
             !tile.dockId &&
@@ -6056,10 +6078,10 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
               ? "Needs empty settled land"
               : tile.fort || tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
-                : state.gold < 900
-                  ? "Need 900 gold"
-                  : "Need 60 CRYSTAL",
-          `900 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+                : state.gold < airportGoldCost
+                  ? `Need ${airportGoldCost} gold`
+                  : "Need 80 CRYSTAL",
+          `${structureCostText("AIRPORT")} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
           slots
         )
       });
@@ -6069,7 +6091,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         detail: buildDetailTextForAction("build_radar_system", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("radar") &&
-            state.gold >= 1600 &&
+            state.gold >= 4000 &&
+            (state.strategicResources.CRYSTAL ?? 0) >= 120 &&
             !tile.resource &&
             !tile.town &&
             !tile.dockId &&
@@ -6082,8 +6105,10 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
               ? "Needs empty settled land"
               : tile.fort || tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
-                : "Need 1600 gold",
-          `1600 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • blocks bombardment within 30 tiles`,
+                : state.gold < 4000
+                  ? "Need 4000 gold"
+                  : "Need 120 CRYSTAL",
+          `${structureCostText("RADAR_SYSTEM")} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • blocks bombardment within 30 tiles`,
           slots
         )
       });
@@ -6093,7 +6118,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         detail: buildDetailTextForAction("build_governors_office", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("civil-service") &&
-            state.gold >= 1300 &&
+            state.gold >= 2600 &&
             !tile.resource &&
             !tile.town &&
             !tile.dockId &&
@@ -6106,8 +6131,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
               ? "Needs empty settled land"
               : tile.fort || tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
-                : "Need 1300 gold",
-          `1300 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • reduces local upkeep`,
+                : "Need 2600 gold",
+          `${structureCostText("GOVERNORS_OFFICE")} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • reduces local upkeep`,
           slots
         )
       });
@@ -6117,7 +6142,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         detail: buildDetailTextForAction("build_foundry", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("industrial-extraction") &&
-            state.gold >= 1800 &&
+            state.gold >= 4500 &&
             !tile.resource &&
             !tile.town &&
             !tile.dockId &&
@@ -6130,8 +6155,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
               ? "Needs empty settled land"
               : tile.fort || tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
-                : "Need 1800 gold",
-          `1800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • doubles mines within 10 tiles`,
+                : "Need 4500 gold",
+          `${structureCostText("FOUNDRY")} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • doubles mines within 10 tiles`,
           slots
         )
       });
@@ -6141,7 +6166,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         detail: buildDetailTextForAction("build_garrison_hall", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("standing-army") &&
-            state.gold >= 1700 &&
+            state.gold >= 2200 &&
+            (state.strategicResources.CRYSTAL ?? 0) >= 80 &&
             !tile.resource &&
             !tile.town &&
             !tile.dockId &&
@@ -6154,15 +6180,18 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
               ? "Needs empty settled land"
               : tile.fort || tile.siegeOutpost || tile.observatory
                 ? "Tile already has structure"
-                : "Need 1700 gold",
-          `1700 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +20% defense within 10 tiles • 20 gold / 10m`,
+                : state.gold < 2200
+                  ? "Need 2200 gold"
+                  : "Need 80 CRYSTAL",
+          `${structureCostText("GARRISON_HALL")} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +20% defense within 10 tiles • 25 gold / 10m`,
           slots
         )
       });
     }
     if (tile.ownershipState === "SETTLED" && !tile.siegeOutpost) {
       const hasTech = state.techIds.includes("leatherworking");
-      const hasGold = state.gold >= SIEGE_OUTPOST_BUILD_COST;
+      const siegeGoldCost = structureGoldCost("SIEGE_OUTPOST");
+      const hasGold = state.gold >= siegeGoldCost;
       const hasSupply = (state.strategicResources.SUPPLY ?? 0) >= 45;
       const onBorder = isOwnedBorderTile(tile.x, tile.y);
       out.push({
@@ -6171,8 +6200,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         detail: buildDetailTextForAction("build_siege_camp", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           hasTech && hasGold && hasSupply && onBorder && !tile.fort && !tile.observatory && !tile.economicStructure,
-          !hasTech ? "Requires Leatherworking" : !onBorder ? "Needs border tile" : tile.fort || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${SIEGE_OUTPOST_BUILD_COST} gold` : !hasSupply ? "Need 45 SUPPLY" : "Unavailable",
-          `${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m`,
+          !hasTech ? "Requires Leatherworking" : !onBorder ? "Needs border tile" : tile.fort || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${siegeGoldCost} gold` : !hasSupply ? "Need 45 SUPPLY" : "Unavailable",
+          `${structureCostText("SIEGE_OUTPOST")} • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m`,
           slots
         )
       });
@@ -6184,9 +6213,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Farmstead",
           detail: buildDetailTextForAction("build_farmstead", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("agriculture") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 20,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("agriculture") ? "Requires Agriculture" : state.gold < 400 ? "Need 400 gold" : "Need 20 FOOD",
-            `400 gold + 20 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            !hasBlockingStructure && state.techIds.includes("agriculture") && state.gold >= 700 && (state.strategicResources.FOOD ?? 0) >= 20,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("agriculture") ? "Requires Agriculture" : state.gold < 700 ? "Need 700 gold" : "Need 20 FOOD",
+            `700 gold + 20 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
             slots
           )
         });
@@ -6197,9 +6226,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Camp",
           detail: buildDetailTextForAction("build_camp", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("leatherworking") && state.gold >= 500 && (state.strategicResources.SUPPLY ?? 0) >= 30,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("leatherworking") ? "Requires Leatherworking" : state.gold < 500 ? "Need 500 gold" : "Need 30 SUPPLY",
-            `500 gold + 30 SUPPLY • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            !hasBlockingStructure && state.techIds.includes("leatherworking") && state.gold >= 800 && (state.strategicResources.SUPPLY ?? 0) >= 30,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("leatherworking") ? "Requires Leatherworking" : state.gold < 800 ? "Need 800 gold" : "Need 30 SUPPLY",
+            `800 gold + 30 SUPPLY • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
             slots
           )
         });
@@ -6211,9 +6240,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Mine",
           detail: buildDetailTextForAction("build_mine", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("mining") && state.gold >= 500 && (state.strategicResources[matchingNeed] ?? 0) >= 30,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("mining") ? "Requires Mining" : state.gold < 500 ? "Need 500 gold" : `Need 30 ${matchingNeed}`,
-            `500 gold + 30 ${matchingNeed} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            !hasBlockingStructure && state.techIds.includes("mining") && state.gold >= 800 && (state.strategicResources[matchingNeed] ?? 0) >= 30,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("mining") ? "Requires Mining" : state.gold < 800 ? "Need 800 gold" : `Need 30 ${matchingNeed}`,
+            `800 gold + 30 ${matchingNeed} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
             slots
           )
         });
@@ -6224,17 +6253,17 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Market",
           detail: buildDetailTextForAction("build_market", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasMarket && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
+            !hasBlockingStructure && !supportedTown.town?.hasMarket && state.techIds.includes("trade") && state.gold >= 1200 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
             hasBlockingStructure
               ? "Tile already has structure"
               : supportedTown.town?.hasMarket
                 ? "Nearby town already has Market"
                 : !state.techIds.includes("trade")
                   ? "Requires Trade"
-                  : state.gold < 600
-                    ? "Need 600 gold"
+                  : state.gold < 1200
+                    ? "Need 1200 gold"
                     : "Need 40 CRYSTAL",
-            `600 gold + 40 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            `1200 gold + 40 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
             slots
           )
         });
@@ -6243,17 +6272,17 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Granary",
           detail: buildDetailTextForAction("build_granary", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasGranary && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
+            !hasBlockingStructure && !supportedTown.town?.hasGranary && state.techIds.includes("pottery") && state.gold >= 700 && (state.strategicResources.FOOD ?? 0) >= 40,
             hasBlockingStructure
               ? "Tile already has structure"
               : supportedTown.town?.hasGranary
                 ? "Nearby town already has Granary"
                 : !state.techIds.includes("pottery")
                   ? "Requires Pottery"
-                  : state.gold < 400
-                    ? "Need 400 gold"
+                  : state.gold < 700
+                    ? "Need 700 gold"
                     : "Need 40 FOOD",
-            `400 gold + 40 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+            `700 gold + 40 FOOD • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
             slots
           )
         });
@@ -6262,17 +6291,17 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Bank",
           detail: buildDetailTextForAction("build_bank", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasBank && state.techIds.includes("coinage") && state.gold >= 700 && (state.strategicResources.CRYSTAL ?? 0) >= 45,
+            !hasBlockingStructure && !supportedTown.town?.hasBank && state.techIds.includes("coinage") && state.gold >= 1600 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
             hasBlockingStructure
               ? "Tile already has structure"
               : supportedTown.town?.hasBank
                 ? "Nearby town already has Bank"
                 : !state.techIds.includes("coinage")
                   ? "Requires Coinage"
-                  : state.gold < 700
-                    ? "Need 700 gold"
-                    : "Need 45 CRYSTAL",
-            `700 gold + 45 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+                  : state.gold < 1600
+                    ? "Need 1600 gold"
+                    : "Need 60 CRYSTAL",
+            `1600 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
             slots
           )
         });
@@ -6281,9 +6310,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Caravanary",
           detail: buildDetailTextForAction("build_caravanary", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("ledger-keeping") && state.gold >= 1200,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : "Need 1200 gold",
-            `1200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +25% connected-town bonus • 12 gold / 10m`,
+            !hasBlockingStructure && state.techIds.includes("ledger-keeping") && state.gold >= 1800 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : state.gold < 1800 ? "Need 1800 gold" : "Need 60 CRYSTAL",
+            `1800 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +25% connected-town bonus • 15 gold / 10m`,
             slots
           )
         });
@@ -6292,9 +6321,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Quartermaster",
           detail: buildDetailTextForAction("build_quartermaster", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1000,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1000 gold",
-            `1000 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 SUPPLY/day • 120 gold / 10m`,
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 2200,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 2200 gold",
+            `2200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 SUPPLY/day • 120 gold / 10m`,
             slots
           )
         });
@@ -6303,9 +6332,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Ironworks",
           detail: buildDetailTextForAction("build_ironworks", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1100,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1100 gold",
-            `1100 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 IRON/day • 120 gold / 10m`,
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 2400,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 2400 gold",
+            `2400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 IRON/day • 120 gold / 10m`,
             slots
           )
         });
@@ -6314,9 +6343,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Crystal Synthesizer",
           detail: buildDetailTextForAction("build_crystal_synthesizer", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1300,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1300 gold",
-            `1300 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 12 CRYSTAL/day • 160 gold / 10m`,
+            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 2800,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 2800 gold",
+            `2800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 12 CRYSTAL/day • 160 gold / 10m`,
             slots
           )
         });
@@ -6325,9 +6354,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Fuel Plant",
           detail: buildDetailTextForAction("build_fuel_plant", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("plastics") && state.gold >= 1400,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 1400 gold",
-            `1400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 10 OIL/day • 180 gold / 10m`,
+            !hasBlockingStructure && state.techIds.includes("plastics") && state.gold >= 3200,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 3200 gold",
+            `3200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 10 OIL/day • 180 gold / 10m`,
             slots
           )
         });
@@ -6357,9 +6386,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Customs House",
           detail: buildDetailTextForAction("build_customs_house", tile, supportedDock),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("global-trade-networks") && state.gold >= 1400,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("global-trade-networks") ? "Requires Global Trade Networks" : "Need 1400 gold",
-            `1400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +50% dock income • 10 gold / 10m`,
+            !hasBlockingStructure && state.techIds.includes("global-trade-networks") && state.gold >= 1800 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
+            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("global-trade-networks") ? "Requires Global Trade Networks" : state.gold < 1800 ? "Need 1800 gold" : "Need 60 CRYSTAL",
+            `1800 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +50% dock income • 15 gold / 10m`,
             slots
           )
         });
@@ -6793,8 +6822,11 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   const development = developmentSlotSummary();
   const hasDevelopmentSlot = development.available > 0;
   const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
-  const canAffordFort = state.gold >= FORT_BUILD_COST;
-  const canAffordSiege = state.gold >= SIEGE_OUTPOST_BUILD_COST;
+  const fortGoldCost = structureGoldCost("FORT");
+  const siegeGoldCost = structureGoldCost("SIEGE_OUTPOST");
+  const observatoryGoldCost = structureGoldCost("OBSERVATORY");
+  const canAffordFort = state.gold >= fortGoldCost;
+  const canAffordSiege = state.gold >= siegeGoldCost;
   const canAffordObservatory =
     hasDevelopmentSlot &&
     tile.ownershipState === "SETTLED" &&
@@ -6803,7 +6835,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     !tile.observatory &&
     !tile.economicStructure &&
     state.techIds.includes("cartography") &&
-    state.gold >= OBSERVATORY_BUILD_COST &&
+    state.gold >= observatoryGoldCost &&
     (state.strategicResources.CRYSTAL ?? 0) >= 45;
   const canBuildFarmstead =
     hasDevelopmentSlot &&
@@ -6811,7 +6843,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     !hasBlockingStructure &&
     (tile.resource === "FARM" || tile.resource === "FISH") &&
     state.techIds.includes("agriculture") &&
-    state.gold >= 400 &&
+    state.gold >= 700 &&
     (state.strategicResources.FOOD ?? 0) >= 20;
   const canBuildCamp =
     hasDevelopmentSlot &&
@@ -6819,7 +6851,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     !hasBlockingStructure &&
     (tile.resource === "WOOD" || tile.resource === "FUR") &&
     state.techIds.includes("leatherworking") &&
-    state.gold >= 500 &&
+    state.gold >= 800 &&
     (state.strategicResources.SUPPLY ?? 0) >= 30;
   const canBuildMine =
     hasDevelopmentSlot &&
@@ -6827,7 +6859,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     !hasBlockingStructure &&
     (tile.resource === "IRON" || tile.resource === "GEMS") &&
     state.techIds.includes("mining") &&
-    state.gold >= 500 &&
+    state.gold >= 800 &&
     (state.strategicResources[tile.resource === "IRON" ? "IRON" : "CRYSTAL"] ?? 0) >= 30;
   const canBuildMarket =
     hasDevelopmentSlot &&
@@ -6835,7 +6867,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     !hasBlockingStructure &&
     Boolean(tile.town) &&
     state.techIds.includes("trade") &&
-    state.gold >= 600 &&
+    state.gold >= 1200 &&
     (state.strategicResources.CRYSTAL ?? 0) >= 40;
   const canBuildGranary =
     hasDevelopmentSlot &&
@@ -6843,7 +6875,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     !hasBlockingStructure &&
     Boolean(tile.town) &&
     state.techIds.includes("pottery") &&
-    state.gold >= 400 &&
+    state.gold >= 700 &&
     (state.strategicResources.FOOD ?? 0) >= 40;
   holdBuildMenuEl.innerHTML = `
     <div class="hold-menu-card">
@@ -6854,35 +6886,35 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
       </button>
       <button class="hold-menu-btn" data-build="fort" ${hasDevelopmentSlot && canAffordFort ? "" : "disabled"}>
         <span>Fort</span>
-        <small>${FORT_BUILD_COST} gold + 45 IRON • ${(FORT_BUILD_MS / 1000).toFixed(0)}s • def x${FORT_DEFENSE_MULT.toFixed(2)}</small>
+        <small>${structureCostText("FORT")} • ${(FORT_BUILD_MS / 1000).toFixed(0)}s • def x${FORT_DEFENSE_MULT.toFixed(2)} • 1 gold / min</small>
       </button>
       <button class="hold-menu-btn" data-build="observatory" ${canAffordObservatory ? "" : "disabled"}>
         <span>Observatory</span>
-        <small>${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL • +5 local vision • 0.25 / 10m</small>
+        <small>${structureCostText("OBSERVATORY")} • +5 local vision • 0.025 crystal / min</small>
       </button>
       <button class="hold-menu-btn" data-build="farmstead" ${canBuildFarmstead ? "" : "disabled"}>
         <span>Farmstead</span>
-        <small>400 gold + 20 FOOD • +50% food output • 1 gold / 10m</small>
+        <small>700 gold + 20 FOOD • +50% food output • 1 gold / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="camp" ${canBuildCamp ? "" : "disabled"}>
         <span>Camp</span>
-        <small>500 gold + 30 SUPPLY • +50% supply output • 1.2 gold / 10m</small>
+        <small>800 gold + 30 SUPPLY • +50% supply output • 1.2 gold / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="mine" ${canBuildMine ? "" : "disabled"}>
         <span>Mine</span>
-        <small>500 gold + 30 matching resource • +50% iron or crystal • 1.2 gold / 10m</small>
+        <small>800 gold + 30 matching resource • +50% iron or crystal • 1.2 gold / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="market" ${canBuildMarket ? "" : "disabled"}>
         <span>Market</span>
-        <small>600 gold + 40 CRYSTAL • +50% fed town gold • +50% town cap • 0.05 crystal / 10m</small>
+        <small>1200 gold + 40 CRYSTAL • +50% fed town gold • +50% town cap • 0.05 crystal / min</small>
       </button>
       <button class="hold-menu-btn" data-build="granary" ${canBuildGranary ? "" : "disabled"}>
         <span>Granary</span>
-        <small>400 gold + 40 FOOD • +50% town gold cap • 1 gold / 10m</small>
+        <small>700 gold + 40 FOOD • +50% town gold cap • 1 gold / 10m</small>
       </button>
       <button class="hold-menu-btn" data-build="siege" ${hasDevelopmentSlot && canAffordSiege ? "" : "disabled"}>
         <span>Siege Outpost</span>
-        <small>${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY • ${(SIEGE_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)} (from tile)</small>
+        <small>${structureCostText("SIEGE_OUTPOST")} • ${(SIEGE_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)} • 1 gold / min</small>
       </button>
     </div>
   `;
