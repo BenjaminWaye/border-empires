@@ -174,6 +174,7 @@ const hudMarkup = `
   <div id="tile-action-menu" style="display:none;"></div>
   <div id="targeting-overlay" style="display:none;"></div>
   <div id="guide-overlay" style="display:none;"></div>
+  <div id="structure-info-overlay" style="display:none;"></div>
 
   <div id="mobile-nav">
     <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
@@ -425,6 +426,7 @@ export const initClientDom = () => {
   const collectVisibleDesktopMetaEl = requireElement<HTMLSpanElement>("#collect-visible-desktop-meta");
   const collectVisibleMobileMetaEl = requireElement<HTMLSpanElement>("#collect-visible-mobile-meta");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
+  const structureInfoOverlayEl = requireElement<HTMLDivElement>("#structure-info-overlay");
   const miniMapCtx = miniMapEl.getContext("2d");
   if (!miniMapCtx) throw new Error("missing minimap context");
   const miniMapBase = document.createElement("canvas");
@@ -531,6 +533,7 @@ export const initClientDom = () => {
     sidePanelBodyEl,
     sidePanelEl,
     statsChipsEl,
+    structureInfoOverlayEl,
     targetingOverlayEl,
     techChoiceDetailsEl,
     techChoicesGridEl,

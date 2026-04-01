@@ -197,6 +197,7 @@ const {
   sidePanelBodyEl,
   sidePanelEl,
   statsChipsEl,
+  structureInfoOverlayEl,
   targetingOverlayEl,
   techChoiceDetailsEl,
   techChoicesGridEl,
@@ -542,31 +543,306 @@ type StructureInfoKey =
   | "RADAR_SYSTEM"
   | "SIEGE_OUTPOST";
 
-const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: string } => {
-  if (type === "FORT") return { title: "Fort", detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails." };
-  if (type === "OBSERVATORY") return { title: "Observatory", detail: "Observatories add local vision and project a protection field that blocks hostile crystal actions in the area." };
-  if (type === "FARMSTEAD") return { title: "Farmstead", detail: "Farmsteads increase food yield on farm and fish tiles by 50%." };
-  if (type === "CAMP") return { title: "Camp", detail: "Camps increase supply yield on wood and fur tiles by 50%." };
-  if (type === "MINE") return { title: "Mine", detail: "Mines increase iron or crystal yield on mineral tiles by 50%." };
-  if (type === "MARKET") return { title: "Market", detail: "Markets are built on a support tile for a town. They increase that fed town's gold output by 50% and its gold storage cap by 50%." };
-  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's population growth and gold storage cap by 20%." };
-  if (type === "BANK") return { title: "Bank", detail: "Banks are built on a support tile for a town. They increase city income by 50% and add +1 flat income." };
-  if (type === "CARAVANARY") return { title: "Caravanary", detail: "Caravanaries are built on a support tile for a town. They increase that town's connected-town income bonus by 25%." };
-  if (type === "QUARTERMASTER") return { title: "Quartermaster", detail: "Quartermasters convert heavy gold upkeep into steady supply output on a support tile." };
-  if (type === "IRONWORKS") return { title: "Ironworks", detail: "Ironworks convert heavy gold upkeep into steady iron output on a support tile." };
-  if (type === "CRYSTAL_SYNTHESIZER") return { title: "Crystal Synthesizer", detail: "Crystal Synthesizers convert heavy gold upkeep into steady crystal output on a support tile." };
-  if (type === "FUEL_PLANT") return { title: "Fuel Plant", detail: "Fuel plants convert heavy gold upkeep into steady oil output on a support tile." };
-  if (type === "FOUNDRY") return { title: "Foundry", detail: "Foundries double active mine output within 10 tiles." };
-  if (type === "CUSTOMS_HOUSE") return { title: "Customs House", detail: "Customs houses are built beside a dock and increase that dock's income by 50%." };
-  if (type === "GOVERNORS_OFFICE") return { title: "Governor's Office", detail: "Governor's offices reduce local town food upkeep and settled-tile upkeep within 10 tiles." };
-  if (type === "GARRISON_HALL") return { title: "Garrison Hall", detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles." };
-  if (type === "AIRPORT") return { title: "Airport", detail: "Airports launch oil-fueled bombardments against enemy territory within 30 tiles." };
-  if (type === "RADAR_SYSTEM") return { title: "Radar System", detail: "Radar systems block enemy airport bombardment within 30 tiles and reveal the origin." };
-  return { title: "Siege Outpost", detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile." };
+type StructureInfoMeta = {
+  title: string;
+  detail: string;
+  benefit: string;
+  cost: string;
+  buildTime: string;
+  placement: string;
+  imagePath?: string;
+  glyph: string;
+};
+
+const structureInfoForKey = (type: StructureInfoKey): StructureInfoMeta => {
+  if (type === "FORT") {
+    return {
+      title: "Fort",
+      detail: "Forts anchor exposed borders and make failed attacks from this tile less punishing.",
+      benefit: "Defense x1.35 on this tile. Active forts also prevent the origin from being counter-taken when your attack fails.",
+      cost: `${FORT_BUILD_COST} gold + 45 IRON`,
+      buildTime: `${Math.round(FORT_BUILD_MS / 60000)}m`,
+      placement: "Build on settled border land or docks.",
+      glyph: "🛡"
+    };
+  }
+  if (type === "OBSERVATORY") {
+    return {
+      title: "Observatory",
+      detail: "Observatories watch a local region and create a crystal-safe zone around your empire.",
+      benefit: `+${OBSERVATORY_VISION_BONUS} local vision. Protects against hostile crystal abilities and enables casting your own crystal abilities in range.`,
+      cost: `${OBSERVATORY_BUILD_COST} gold + 45 CRYSTAL`,
+      buildTime: `${Math.round(OBSERVATORY_BUILD_MS / 60000)}m`,
+      placement: `Build on settled empty land. Protection radius ${OBSERVATORY_PROTECTION_RADIUS} tiles.`,
+      imagePath: "/overlays/observatory-overlay.svg",
+      glyph: "🔭"
+    };
+  }
+  if (type === "FARMSTEAD") {
+    return {
+      title: "Farmstead",
+      detail: "Farmsteads specialize a food site so it feeds nearby towns more efficiently.",
+      benefit: "Food yield on this farm or fish tile +50%.",
+      cost: "400 gold + 20 FOOD",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on settled farm or fish tiles.",
+      imagePath: "/overlays/farm-farmstead-overlay-1.svg",
+      glyph: "🌾"
+    };
+  }
+  if (type === "CAMP") {
+    return {
+      title: "Camp",
+      detail: "Camps turn frontier materials into steady supply income.",
+      benefit: "Supply yield on this wood or fur tile +50%.",
+      cost: "500 gold + 30 SUPPLY",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on settled wood or fur tiles.",
+      imagePath: "/overlays/fur-camp-overlay-1.svg",
+      glyph: "🪵"
+    };
+  }
+  if (type === "MINE") {
+    return {
+      title: "Mine",
+      detail: "Mines deepen an iron or crystal deposit into a much stronger source.",
+      benefit: "Iron or crystal yield on this tile +50%.",
+      cost: "500 gold + 30 IRON / CRYSTAL",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on settled iron or crystal resource tiles.",
+      imagePath: "/overlays/iron-mine-overlay-1.svg",
+      glyph: "⛏"
+    };
+  }
+  if (type === "MARKET") {
+    return {
+      title: "Market",
+      detail: "Markets amplify the gold flow of a fed town from one of its support tiles.",
+      benefit: "Nearby fed town: +50% gold output and +50% gold storage cap.",
+      cost: "600 gold + 40 CRYSTAL",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a town support tile or choose it from the town itself.",
+      imagePath: "/overlays/market-overlay.svg",
+      glyph: "🪙"
+    };
+  }
+  if (type === "GRANARY") {
+    return {
+      title: "Granary",
+      detail: "Granaries accelerate urban growth from a support tile beside a town.",
+      benefit: "Nearby town: +20% population growth and +20% gold storage cap.",
+      cost: "400 gold + 40 FOOD",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a town support tile or choose it from the town itself.",
+      imagePath: "/overlays/granary-overlay.svg",
+      glyph: "🍞"
+    };
+  }
+  if (type === "BANK") {
+    return {
+      title: "Bank",
+      detail: "Banks turn developed cities into much stronger economic anchors.",
+      benefit: "Nearby city income +50% and +1 flat gold/min.",
+      cost: "700 gold + 45 CRYSTAL",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a city-tier town.",
+      glyph: "🏛"
+    };
+  }
+  if (type === "CARAVANARY") {
+    return {
+      title: "Caravanary",
+      detail: "Caravanaries reward connected trade networks between towns.",
+      benefit: "Nearby town connected-town bonus +25%.",
+      cost: "1200 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "🐪"
+    };
+  }
+  if (type === "QUARTERMASTER") {
+    return {
+      title: "Quartermaster",
+      detail: "Quartermasters transform treasury into military supply.",
+      benefit: "Produces 18 SUPPLY/day. Upkeep: 120 gold / 10m.",
+      cost: "1000 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "📦"
+    };
+  }
+  if (type === "IRONWORKS") {
+    return {
+      title: "Ironworks",
+      detail: "Ironworks convert financial power into a steady iron trickle.",
+      benefit: "Produces 18 IRON/day. Upkeep: 120 gold / 10m.",
+      cost: "1100 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "⚒"
+    };
+  }
+  if (type === "CRYSTAL_SYNTHESIZER") {
+    return {
+      title: "Crystal Synthesizer",
+      detail: "Crystal synthesizers funnel gold into strategic crystal reserves.",
+      benefit: "Produces 12 CRYSTAL/day. Upkeep: 160 gold / 10m.",
+      cost: "1300 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "💎"
+    };
+  }
+  if (type === "FUEL_PLANT") {
+    return {
+      title: "Fuel Plant",
+      detail: "Fuel plants refine gold into the oil needed for late-game strikes.",
+      benefit: "Produces 10 OIL/day. Upkeep: 180 gold / 10m.",
+      cost: "1400 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "🛢"
+    };
+  }
+  if (type === "FOUNDRY") {
+    return {
+      title: "Foundry",
+      detail: "Foundries turn a mining district into a true heavy-industry core.",
+      benefit: "Doubles active mine output within 10 tiles.",
+      cost: "1800 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "🏭"
+    };
+  }
+  if (type === "CUSTOMS_HOUSE") {
+    return {
+      title: "Customs House",
+      detail: "Customs houses multiply the income of a working dock.",
+      benefit: "Nearby dock income +50%. Upkeep: 10 gold / 10m.",
+      cost: "1400 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile beside a dock-linked town.",
+      glyph: "⚓"
+    };
+  }
+  if (type === "GOVERNORS_OFFICE") {
+    return {
+      title: "Governor's Office",
+      detail: "Governor's offices reduce waste across a local administrative district.",
+      benefit: "Reduces town food upkeep and settled-tile upkeep within 10 tiles.",
+      cost: "1100 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "🧾"
+    };
+  }
+  if (type === "GARRISON_HALL") {
+    return {
+      title: "Garrison Hall",
+      detail: "Garrison halls make a cluster of settled land much harder to pry loose.",
+      benefit: "Settled-tile defense +20% within 10 tiles. Upkeep: 20 gold / 10m.",
+      cost: "1700 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "🪖"
+    };
+  }
+  if (type === "AIRPORT") {
+    return {
+      title: "Airport",
+      detail: "Airports project oil-fueled bombardment beyond your direct borders.",
+      benefit: "Launches bombardment within 30 tiles.",
+      cost: "900 gold + 60 CRYSTAL",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "✈"
+    };
+  }
+  if (type === "RADAR_SYSTEM") {
+    return {
+      title: "Radar System",
+      detail: "Radar systems deny enemy air raids and expose where they came from.",
+      benefit: "Blocks bombardment within 30 tiles and reveals the attacking origin.",
+      cost: "1600 gold",
+      buildTime: `${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m`,
+      placement: "Build on a support tile for a town.",
+      glyph: "📡"
+    };
+  }
+  return {
+    title: "Siege Outpost",
+    detail: "Siege outposts are offensive launch platforms for border warfare.",
+    benefit: `Attack x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)} for attacks launched from this tile.`,
+    cost: `${SIEGE_OUTPOST_BUILD_COST} gold + 45 SUPPLY`,
+    buildTime: `${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m`,
+    placement: "Build on settled border land.",
+    glyph: "⚔"
+  };
 };
 
 const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
   `<button class="inline-info-link" type="button" data-structure-info="${type}">${label ?? structureInfoForKey(type).title}</button>`;
+
+const renderStructureInfoOverlay = (): void => {
+  const type = state.structureInfoKey as StructureInfoKey | "";
+  if (!type) {
+    structureInfoOverlayEl.style.display = "none";
+    if (structureInfoOverlayEl.innerHTML) structureInfoOverlayEl.innerHTML = "";
+    return;
+  }
+  const info = structureInfoForKey(type);
+  structureInfoOverlayEl.style.display = "grid";
+  structureInfoOverlayEl.innerHTML = `
+    <div class="structure-info-backdrop" data-structure-info-close="true"></div>
+    <div class="structure-info-modal card" role="dialog" aria-modal="true" aria-labelledby="structure-info-title">
+      <button class="structure-info-close" type="button" aria-label="Close" data-structure-info-close="true">×</button>
+      <div class="structure-info-scroll">
+        <div class="structure-info-hero">
+          <div class="structure-info-art${info.imagePath ? " has-image" : ""}">
+            ${
+              info.imagePath
+                ? `<img src="${info.imagePath}" alt="${info.title}" class="structure-info-image" />`
+                : `<div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div>`
+            }
+          </div>
+          <div class="structure-info-head">
+            <div class="structure-info-kicker">Structure Info</div>
+            <h3 id="structure-info-title">${info.title}</h3>
+            <p>${info.detail}</p>
+          </div>
+        </div>
+        <div class="structure-info-meta">
+          <div class="structure-info-meta-card">
+            <span>Cost</span>
+            <strong>${info.cost}</strong>
+          </div>
+          <div class="structure-info-meta-card">
+            <span>Build Time</span>
+            <strong>${info.buildTime}</strong>
+          </div>
+        </div>
+        <div class="structure-info-sections">
+          <div class="structure-info-section">
+            <span class="structure-info-section-label">Benefit</span>
+            <strong>${info.benefit}</strong>
+          </div>
+          <div class="structure-info-section">
+            <span class="structure-info-section-label">Placement</span>
+            <strong>${info.placement}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  const closeButtons = structureInfoOverlayEl.querySelectorAll<HTMLElement>("[data-structure-info-close]");
+  closeButtons.forEach((el) => {
+    el.onclick = () => {
+      state.structureInfoKey = "";
+      renderHud();
+    };
+  });
+};
 
 const ownedSpecialSiteCount = (): number => {
   let count = 0;
@@ -3635,7 +3911,6 @@ const renderTechDetailCard = (): string => {
         <p class="tech-detail-effect">${effectSummary}</p>
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
         ${researchingThis ? `<p class="muted">Researching now. Completes in ${formatCooldownShort(researchRemaining)}.</p>` : pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
-        ${researchingThis ? `<p class="muted">Researching now. Completes in ${formatCooldownShort(researchRemaining)}.</p>` : pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
       </div>
       <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock || researchingThis) ? "" : "disabled"}>${researchingThis ? "Researching" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : state.currentResearch ? "Busy" : "Locked"}</button>
     </div>
@@ -4235,8 +4510,8 @@ const renderHud = (): void => {
     btn.onclick = () => {
       const type = btn.dataset.structureInfo as StructureInfoKey | undefined;
       if (!type) return;
-      const info = structureInfoForKey(type);
-      showCaptureAlert(info.title, info.detail, "warn");
+      state.structureInfoKey = type;
+      renderHud();
     };
   });
   const selectedTech = state.techCatalog.find((t) => t.id === state.techUiSelectedId);
@@ -4407,6 +4682,8 @@ const renderHud = (): void => {
   } else if (guideOverlayEl.innerHTML) {
     guideOverlayEl.innerHTML = "";
   }
+
+  renderStructureInfoOverlay();
 
   syncAuthOverlay();
   renderMobilePanels();
