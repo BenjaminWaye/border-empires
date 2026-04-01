@@ -20,6 +20,7 @@ export type AiPlanningSnapshot = {
   points: number;
   stamina: number;
   openingScoutAvailable: boolean;
+  economicExpandAvailable: boolean;
   neutralExpandAvailable: boolean;
   scoutExpandAvailable: boolean;
   scaffoldExpandAvailable: boolean;
@@ -59,7 +60,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     snapshot.pressureAttackAvailable &&
     snapshot.canAffordFrontierAction &&
     (!snapshot.threatCritical || urgentPressureAttackReady);
-  const economicPushReady = snapshot.frontierOpportunityEconomic > 0 && snapshot.neutralExpandAvailable;
+  const economicPushReady = snapshot.economicExpandAvailable;
   const needsFortifiedAnchor =
     snapshot.fortAvailable &&
     snapshot.fortProtectsCore &&
@@ -105,7 +106,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   }
 
   const goapState = {
-    hasNeutralLandOpportunity: snapshot.frontierOpportunityEconomic > 0,
+    hasNeutralLandOpportunity: snapshot.economicExpandAvailable,
     hasScoutOpportunity: snapshot.scoutExpandAvailable,
     hasScaffoldOpportunity: snapshot.scaffoldExpandAvailable,
     hasBarbarianTarget: snapshot.barbarianAttackAvailable,
