@@ -56,6 +56,8 @@ import {
   settleDurationMsForTile
 } from "./client-constants.js";
 import { initClientDom } from "./client-dom.js";
+import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import {
   allianceRequestsHtml,
@@ -66,7 +68,18 @@ import {
   strategicRibbonHtml
 } from "./client-panel-html.js";
 import { createInitialState, storageSet } from "./client-state.js";
-import { domainOwnedHtml, formatDomainBenefitSummary, formatTechBenefitSummary, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html.js";
+import {
+  currentDomainChoiceTier,
+  domainOwnedHtml,
+  formatTechBenefitSummary,
+  ownedDomainByTier,
+  renderDomainChoiceGridHtml,
+  renderDomainDetailCardHtml,
+  renderTechChoiceDetailsHtml,
+  renderTechDetailCardHtml,
+  techCurrentModsHtml,
+  techOwnedHtml
+} from "./client-tech-html.js";
 import type {
   AllianceRequest,
   CrystalTargetingAbility,
@@ -1580,278 +1593,9 @@ const formatUpkeepSummary = (upkeep: typeof state.upkeepPerMinute): string => {
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
-type EconomyBucket = {
-  label: string;
-  amountPerMinute: number;
-  count: number;
-  note?: string;
-};
-
-type DefensibilityBreakdown = {
-  settledTiles: number;
-  exposedEdges: number;
-  internalEdges: number;
-  naturalShieldEdges: number;
-  borderEdges: number;
-  exposedEdgeRatio: number;
-  rating: "Strong" | "Stable" | "Fragile" | "Very Exposed";
-  tips: string[];
-};
-
-type WeakDefensibilityTile = {
-  tile: Tile;
-  exposedSides: Array<"north" | "east" | "south" | "west">;
-};
-
-const settledOwnedTiles = (): Tile[] =>
-  [...state.tiles.values()].filter((tile) => tile.ownerId === state.me && tile.terrain === "LAND" && tile.ownershipState === "SETTLED" && !tile.fogged);
-
-const exposedSidesForTile = (tile: Tile): Array<"north" | "east" | "south" | "west"> => {
-  const dirs = [
-    { name: "north" as const, x: tile.x, y: tile.y - 1 },
-    { name: "east" as const, x: tile.x + 1, y: tile.y },
-    { name: "south" as const, x: tile.x, y: tile.y + 1 },
-    { name: "west" as const, x: tile.x - 1, y: tile.y }
-  ];
-  const out: Array<"north" | "east" | "south" | "west"> = [];
-  for (const dir of dirs) {
-    const neighbor = state.tiles.get(key(wrapX(dir.x), wrapY(dir.y)));
-    if (neighbor?.ownerId === state.me && neighbor.terrain === "LAND" && neighbor.ownershipState === "SETTLED" && !neighbor.fogged) continue;
-    const terrain = terrainAt(dir.x, dir.y);
-    if (terrain === "SEA" || terrain === "MOUNTAIN") continue;
-    out.push(dir.name);
-  }
-  return out;
-};
-
-const weakDefensibilityTiles = (): WeakDefensibilityTile[] =>
-  settledOwnedTiles()
-    .map((tile) => ({ tile, exposedSides: exposedSidesForTile(tile) }))
-    .filter((entry) => entry.exposedSides.length >= 2);
-
-const defensibilityBreakdown = (): DefensibilityBreakdown => {
-  const tiles = settledOwnedTiles();
-  let exposedEdges = 0;
-  let internalEdges = 0;
-  let naturalShieldEdges = 0;
-  for (const tile of tiles) {
-    const neighbors = [
-      { x: wrapX(tile.x), y: wrapY(tile.y - 1) },
-      { x: wrapX(tile.x + 1), y: wrapY(tile.y) },
-      { x: wrapX(tile.x), y: wrapY(tile.y + 1) },
-      { x: wrapX(tile.x - 1), y: wrapY(tile.y) }
-    ];
-    for (const neighbor of neighbors) {
-      const neighborTile = state.tiles.get(key(neighbor.x, neighbor.y));
-      if (neighborTile?.ownerId === state.me && neighborTile.terrain === "LAND" && neighborTile.ownershipState === "SETTLED" && !neighborTile.fogged) {
-        internalEdges += 1;
-        continue;
-      }
-      const terrain = terrainAt(neighbor.x, neighbor.y);
-      if (terrain === "SEA" || terrain === "MOUNTAIN") {
-        naturalShieldEdges += 1;
-        continue;
-      }
-      exposedEdges += 1;
-    }
-  }
-  const borderEdges = naturalShieldEdges + exposedEdges;
-  const exposedEdgeRatio = borderEdges > 0 ? exposedEdges / borderEdges : 0;
-  const rating =
-    exposedEdgeRatio <= 0.18 ? "Strong" : exposedEdgeRatio <= 0.32 ? "Stable" : exposedEdgeRatio <= 0.5 ? "Fragile" : "Very Exposed";
-  const tips: string[] = [];
-  if (exposedEdges > naturalShieldEdges) tips.push("Anchor more of your border on coastlines or mountains to replace exposed edges with natural shields.");
-  if (tiles.length > 0 && exposedEdges / tiles.length > 1.6) tips.push("Your empire is stretched thin. Fill inward gaps and avoid long one-tile corridors.");
-  if (internalEdges < borderEdges * 1.4) tips.push("Compact blocks defend better than snakes. Settling tiles that connect nearby clusters will lift defensibility fastest.");
-  if (tips.length === 0) tips.push("Your current shape is efficient. Keep expanding in compact blocks and preserve natural barriers where possible.");
-  return { settledTiles: tiles.length, exposedEdges, internalEdges, naturalShieldEdges, borderEdges, exposedEdgeRatio, rating, tips };
-};
-
-const defensibilityPanelHtml = (): string => {
-  const summary = defensibilityBreakdown();
-  const rounded = Math.round(state.defensibilityPct);
-  const weakCount = weakDefensibilityTiles().length;
-  return `<div class="defense-panel">
-    <article class="card defense-hero-card">
-      <div class="defense-hero-head">
-        <div>
-          <div class="defense-kicker">Empire Shape</div>
-          <strong>${rounded}% defensibility</strong>
-        </div>
-        <span class="defense-rating defense-rating-${summary.rating.toLowerCase().replace(/ /g, "-")}">${summary.rating}</span>
-      </div>
-      <p class="defense-copy">Compact settled land with fewer exposed sides defends better. Coastlines and mountains count as safer borders than open land.</p>
-      <button class="panel-btn defense-toggle-btn" type="button" data-toggle-weak-def="true">${state.showWeakDefensibility ? "Hide Weak Tiles" : "Show Weak Tiles"}${weakCount > 0 ? ` (${weakCount})` : ""}</button>
-    </article>
-    <article class="card defense-breakdown-card">
-      <div class="defense-stat-grid">
-        <div class="defense-stat"><span>Settled tiles</span><strong>${summary.settledTiles}</strong></div>
-        <div class="defense-stat"><span>Exposed edges</span><strong>${summary.exposedEdges}</strong></div>
-        <div class="defense-stat"><span>Natural shields</span><strong>${summary.naturalShieldEdges}</strong></div>
-        <div class="defense-stat"><span>Connected interiors</span><strong>${Math.round(summary.internalEdges / 2)}</strong></div>
-      </div>
-    </article>
-    <article class="card defense-breakdown-card">
-      <strong>How this works</strong>
-      <div class="defense-line"><span>Open land borders</span><strong class="is-negative">${Math.round(summary.exposedEdgeRatio * 100)}%</strong></div>
-      <div class="defense-line"><span>Coast / mountain cover</span><strong class="is-positive">${summary.borderEdges > 0 ? Math.round((summary.naturalShieldEdges / summary.borderEdges) * 100) : 0}%</strong></div>
-      <div class="defense-line"><span>Shape efficiency</span><strong>${rounded >= 100 ? "Maxed" : rounded >= 70 ? "Good" : rounded >= 45 ? "Needs work" : "Very loose"}</strong></div>
-    </article>
-    <article class="card defense-breakdown-card">
-      <strong>Tips to improve</strong>
-      ${summary.tips.map((tip) => `<div class="defense-tip">${tip}</div>`).join("")}
-    </article>
-  </div>`;
-};
-
-const economySourceLabelForTile = (tile: Tile, resource: Exclude<EconomyFocusKey, "ALL">): string => {
-  if (resource === "GOLD") {
-    if (tile.town) return "Towns";
-    if (tile.dockId) return "Docks";
-    if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
-    return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Settled land";
-  }
-  if (resource === "SHARD") return tile.town ? "Ancient towns" : "Shard sites";
-  if (tile.resource) return prettyToken(resourceLabel(tile.resource));
-  if (tile.town && resource === "FOOD") return "Town support";
-  return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";
-};
-
-const accumulateEconomyBucket = (map: Map<string, EconomyBucket>, label: string, amountPerMinute: number): void => {
-  if (amountPerMinute <= 0.0001) return;
-  const current = map.get(label);
-  if (current) {
-    current.amountPerMinute += amountPerMinute;
-    current.count += 1;
-    return;
-  }
-  map.set(label, { label, amountPerMinute, count: 1 });
-};
-
-const setEconomyBucketNote = (map: Map<string, EconomyBucket>, label: string, note: string): void => {
-  const bucket = map.get(label);
-  if (bucket) bucket.note = note;
-};
-
-const resourceUpkeepPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
-  if (resource === "GOLD") return state.upkeepPerMinute.gold;
-  if (resource === "FOOD") return state.upkeepPerMinute.food;
-  if (resource === "IRON") return state.upkeepPerMinute.iron;
-  if (resource === "CRYSTAL") return state.upkeepPerMinute.crystal;
-  if (resource === "SUPPLY") return state.upkeepPerMinute.supply;
-  return 0;
-};
-
-const resourceNetPerMinute = (resource: Exclude<EconomyFocusKey, "ALL">): number => {
-  if (resource === "GOLD") return state.incomePerMinute - state.upkeepPerMinute.gold;
-  return state.strategicProductionPerMinute[resource] - resourceUpkeepPerMinute(resource);
-};
-
-const upkeepBreakdownForResource = (
-  resource: Exclude<EconomyFocusKey, "ALL">
-):
-  | {
-      need: number;
-      fromYield: number;
-      fromStock: number;
-      remaining: number;
-      contributors?: Array<{ label: string; amountPerMinute: number; count?: number; note?: string }>;
-    }
-  | undefined => {
-  if (resource === "GOLD") return state.upkeepLastTick.gold;
-  if (resource === "FOOD") return state.upkeepLastTick.food;
-  if (resource === "IRON") return state.upkeepLastTick.iron;
-  if (resource === "CRYSTAL") return state.upkeepLastTick.crystal;
-  if (resource === "SUPPLY") return state.upkeepLastTick.supply;
-  return undefined;
-};
-
-const economyDetailForResource = (resource: Exclude<EconomyFocusKey, "ALL">): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
-  const sources = new Map<string, EconomyBucket>();
-  const sinks = new Map<string, EconomyBucket>();
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
-    if (tile.fogged) continue;
-    const amountPerMinute =
-      resource === "GOLD"
-        ? tile.yieldRate?.goldPerMinute ?? 0
-        : Number(tile.yieldRate?.strategicPerDay?.[resource] ?? 0) / 1440;
-    accumulateEconomyBucket(sources, economySourceLabelForTile(tile, resource), amountPerMinute);
-  }
-  for (const contributor of upkeepBreakdownForResource(resource)?.contributors ?? []) {
-    accumulateEconomyBucket(sinks, contributor.label, contributor.amountPerMinute);
-    if (contributor.note) setEconomyBucketNote(sinks, contributor.label, contributor.note);
-  }
-  return {
-    sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
-    sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
-  };
-};
-
 const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
   state.economyFocus = focus;
   setActivePanel("economy");
-};
-
-const economySummaryCardHtml = (resource: Exclude<EconomyFocusKey, "ALL">, selected: boolean): string => {
-  const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
-  const gross = resource === "GOLD" ? state.incomePerMinute : state.strategicProductionPerMinute[resource];
-  const upkeep = resourceUpkeepPerMinute(resource);
-  const net = resourceNetPerMinute(resource);
-  const icon = resourceIconForKey(resource);
-  const label = prettyToken(resource);
-  return `<button class="economy-summary-card${selected ? " is-active" : ""}" type="button" data-economy-focus="${resource}">
-    <div class="economy-summary-head"><span>${icon}</span><strong>${label}</strong></div>
-    <div class="economy-summary-stock">${stock.toFixed(1)}</div>
-    <div class="economy-summary-rates">
-      <span>Gross ${gross.toFixed(2)}/m</span>
-      <span>Upkeep ${upkeep.toFixed(2)}/m</span>
-      <span class="economy-rate ${rateToneClass(net)}">Net ${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</span>
-    </div>
-  </button>`;
-};
-
-const economyPanelHtml = (): string => {
-  const focus = state.economyFocus;
-  const resources: Array<Exclude<EconomyFocusKey, "ALL">> = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
-  const mobile = window.matchMedia("(max-width: 900px)").matches;
-  const visibleResources = mobile ? [focus === "ALL" ? "GOLD" : focus] : focus === "ALL" ? resources : [focus];
-  const totals = formatUpkeepSummary(state.upkeepPerMinute);
-  return `
-    <div class="economy-panel">
-      <div class="economy-summary-grid">
-        ${resources.map((resource) => economySummaryCardHtml(resource, resource === focus)).join("")}
-      </div>
-      ${totals ? `<div class="economy-overview-note">${mobile ? "Tap a resource above to switch the breakdown." : totals}</div>` : mobile ? `<div class="economy-overview-note">Tap a resource above to switch the breakdown.</div>` : ""}
-      ${visibleResources
-        .map((resource) => {
-          const detail = economyDetailForResource(resource);
-          const net = resourceNetPerMinute(resource);
-          const stock = resource === "GOLD" ? state.gold : state.strategicResources[resource as Exclude<EconomyFocusKey, "ALL" | "GOLD">];
-          return `<section class="economy-detail-card card">
-            <div class="economy-detail-head">
-              <div>
-                <div class="economy-detail-kicker">${resourceIconForKey(resource)} ${prettyToken(resource)}</div>
-                <strong>${stock.toFixed(1)} in reserve</strong>
-              </div>
-              <div class="economy-rate ${rateToneClass(net)}">${net >= 0 ? "+" : ""}${net.toFixed(2)}/m</div>
-            </div>
-            <div class="economy-detail-columns">
-              <div class="economy-detail-column">
-                <h4>Income Sources</h4>
-                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
-              </div>
-              <div class="economy-detail-column">
-                <h4>Upkeep</h4>
-                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
-              </div>
-            </div>
-            ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((state.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
-          </section>`;
-        })
-        .join("")}
-    </div>
-  `;
 };
 
 const manpowerPanelHtml = (): string => {
@@ -3722,46 +3466,64 @@ const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
 const renderTechDetailCard = (): string => {
   const byId = new Map(state.techCatalog.map((tech) => [tech.id, tech]));
   const tierMemo = new Map<string, number>();
-  const t = selectedTechInfo();
-  if (!t) return renderTechDetailPrompt();
-  const checklist = t.requirements.checklist ?? [];
-  const checks = checklist
-    .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
-    .join("");
-  const prereqs = techPrereqIds(t);
-  const unlocks = unlockedByTech(t.id);
+  const tech = selectedTechInfo();
+  if (!tech) {
+    return renderTechDetailPrompt();
+  }
+  const prereqs = techPrereqIds(tech);
+  const unlocks = unlockedByTech(tech.id);
   const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
-  const pendingUnlock = isPendingTechUnlock(t.id);
-  const researchingThis = state.currentResearch?.techId === t.id;
+  const pendingUnlock = isPendingTechUnlock(tech.id);
+  const researchingThis = state.currentResearch?.techId === tech.id;
   const researchRemaining =
     researchingThis && typeof state.currentResearch?.completesAt === "number"
       ? Math.max(0, state.currentResearch.completesAt - Date.now())
       : 0;
-  const canUnlock = t.requirements.canResearch && !state.pendingTechUnlockId && !state.currentResearch;
-  const effectSummary = formatTechBenefitSummary(t);
-  const relatedStructures = relatedStructureTypesForTech(t);
-  return `<article class="card tech-detail-card">
-    <div class="tech-detail-head">
-      <div>
-        <strong>${t.name}</strong>
-        <p class="tech-detail-effect">${effectSummary}</p>
-        <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
-        ${researchingThis ? `<p class="muted">Researching now. Completes in ${formatCooldownShort(researchRemaining)}.</p>` : pendingUnlock ? `<p class="muted">Unlocking now. Waiting for server confirmation...</p>` : ""}
-      </div>
-      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${t.id}" ${(canUnlock || pendingUnlock || researchingThis) ? "" : "disabled"}>${researchingThis ? "Researching" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : state.currentResearch ? "Busy" : "Locked"}</button>
-    </div>
-    <p class="tech-detail-flavor">${t.description}</p>
-    ${relatedStructures.length > 0 ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>` : ""}
-    ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${techTier(next.id, byId, tierMemo)})`).join(", ")}</p>` : ""}
-    <p><strong>Requirements:</strong></p>
-    <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
-  </article>`;
+  const canUnlock = tech.requirements.canResearch && !state.pendingTechUnlockId && !state.currentResearch;
+  const statusText = researchingThis
+    ? `Researching now. Completes in ${formatCooldownShort(researchRemaining)}.`
+    : pendingUnlock
+      ? "Unlocking now. Waiting for server confirmation..."
+      : undefined;
+  const buttonLabel = researchingThis
+    ? `Researching ${formatCountdownClock(researchRemaining)}`
+    : pendingUnlock
+      ? "Unlocking..."
+      : canUnlock
+        ? "Unlock"
+        : state.currentResearch
+          ? "Busy"
+          : "Locked";
+  const relatedStructures = relatedStructureTypesForTech(tech);
+  const relatedStructuresHtml =
+    relatedStructures.length > 0
+      ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>`
+      : "";
+  return renderTechDetailCardHtml({
+    tech,
+    statusText,
+    buttonLabel,
+    buttonDisabled: !(canUnlock || pendingUnlock || researchingThis),
+    prereqs,
+    prereqText,
+    unlocks: unlocks.map((next) => ({ name: next.name, tier: techTier(next.id, byId, tierMemo) })),
+    relatedStructuresHtml
+  });
 };
+
+const renderDomainChoiceGrid = (): string =>
+  renderDomainChoiceGridHtml({
+    domainCatalog: state.domainCatalog,
+    domainIds: state.domainIds,
+    domainUiSelectedId: state.domainUiSelectedId,
+    ownedByTier: ownedDomainByTier(state.domainCatalog, state.domainIds),
+    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices)
+  });
 
 const renderTechDetailOverlay = (): string => {
   if (!state.techDetailOpen) return "";
-  const t = selectedTechInfo();
-  if (!t) return "";
+  const tech = selectedTechInfo();
+  if (!tech) return "";
   return `<div class="tech-detail-backdrop" data-tech-detail-close="backdrop"></div>
     <div class="tech-detail-modal">
       <button class="tech-detail-close" type="button" aria-label="Close tech details" data-tech-detail-close="button">×</button>
@@ -3771,203 +3533,28 @@ const renderTechDetailOverlay = (): string => {
     </div>`;
 };
 
-const formatDomainCost = (d: DomainInfo): string => {
-  const checklist = d.requirements.checklist ?? [];
-  const costBits = checklist.filter((c) => /gold|food|iron|crystal|supply|shard/i.test(c.label)).map((c) => c.label);
-  if (costBits.length > 0) return costBits.join(" · ");
-  return "Cost not listed";
-};
-
-const ownedDomainByTier = (): Map<number, DomainInfo> => {
-  const catalogById = new Map(state.domainCatalog.map((d) => [d.id, d]));
-  const out = new Map<number, DomainInfo>();
-  for (const id of state.domainIds) {
-    const domain = catalogById.get(id);
-    if (domain) out.set(domain.tier, domain);
-  }
-  return out;
-};
-
-const currentDomainChoiceTier = (): number | undefined => {
-  const byId = new Map(state.domainCatalog.map((d) => [d.id, d]));
-  const first = state.domainChoices.map((id) => byId.get(id)).find((d): d is DomainInfo => Boolean(d));
-  return first?.tier;
-};
-
-const domainTierStatus = (
-  tier: number,
-  ownedByTier: Map<number, DomainInfo>,
-  currentTier?: number
-): {
-  tone: "chosen" | "current" | "locked";
-  badge: string;
-  detail: string;
-} => {
-  const owned = ownedByTier.get(tier);
-  if (owned) {
-    return {
-      tone: "chosen",
-      badge: "Chosen",
-      detail: `Tier ${tier} is already committed to ${owned.name}. You cannot choose another domain at this tier.`
-    };
-  }
-  if (currentTier === tier) {
-    return {
-      tone: "current",
-      badge: "Choose 1",
-      detail: `Pick exactly one domain for Tier ${tier}. Once chosen, the other domains in this tier are closed.`
-    };
-  }
-  return {
-    tone: "locked",
-    badge: "Locked",
-    detail: tier < (currentTier ?? 0) ? `This tier is no longer available because your choice is already set.` : `Unlock Tier ${Math.max(1, tier - 1)} first to reach this tier.`
-  };
-};
-
-const domainCardBlockedReason = (
-  domain: DomainInfo,
-  ownedByTier: Map<number, DomainInfo>,
-  currentTier?: number
-): string | undefined => {
-  const owned = ownedByTier.get(domain.tier);
-  if (owned && owned.id !== domain.id) return `Tier ${domain.tier} already committed to ${owned.name}`;
-  if (currentTier !== undefined && domain.tier > currentTier) return `Locked until Tier ${domain.tier - 1} is chosen`;
-  if (currentTier !== undefined && domain.tier < currentTier && !owned) return "Tier no longer available";
-  const unmet = (domain.requirements.checklist ?? []).find((check) => !check.met);
-  return unmet?.label;
-};
-
-const renderDomainChoiceGrid = (): string => {
-  if (state.domainCatalog.length === 0) return `<article class="card"><p>No domains available right now.</p></article>`;
-  const grouped = new Map<number, DomainInfo[]>();
-  for (const d of state.domainCatalog) {
-    const arr = grouped.get(d.tier) ?? [];
-    arr.push(d);
-    grouped.set(d.tier, arr);
-  }
-  const ownedByTier = ownedDomainByTier();
-  const currentTier = currentDomainChoiceTier();
-  const tiers = [...grouped.keys()].sort((a, b) => a - b);
-  const summary =
-    currentTier !== undefined
-      ? `<article class="card domain-summary-card">
-          <div class="domain-summary-kicker">Domains</div>
-          <strong>Choose one domain for Tier ${currentTier}</strong>
-          <p>Each tier allows exactly one domain. Choosing one locks the others in that tier and advances you to the next tier later.</p>
-        </article>`
-      : `<article class="card domain-summary-card">
-          <div class="domain-summary-kicker">Domains</div>
-          <strong>All current domain tiers are committed</strong>
-          <p>You can only choose one domain per tier. Review your picks below and unlock the next tier when it becomes available.</p>
-        </article>`;
-  const sections = tiers
-    .map((tier) => {
-      const status = domainTierStatus(tier, ownedByTier, currentTier);
-      const cards = (grouped.get(tier) ?? [])
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((d) => {
-          const selected = state.domainUiSelectedId === d.id ? " selected" : "";
-          const owned = state.domainIds.includes(d.id) ? " owned" : "";
-          const blockedReason = domainCardBlockedReason(d, ownedByTier, currentTier);
-          const blocked = blockedReason && !owned ? " blocked" : "";
-          const cardBadge = owned ? "Chosen" : currentTier === tier ? "Candidate" : "Unavailable";
-          return `<button class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${d.id}">
-            <div class="tech-card-top">
-              <strong>${d.name}</strong>
-              <span class="domain-card-badge">${cardBadge}</span>
-            </div>
-            <p>${formatDomainBenefitSummary(d)}</p>
-            <p class="tech-card-cost">${owned ? "Tier locked in" : blockedReason ? blockedReason : formatDomainCost(d)}</p>
-          </button>`;
-        })
-        .join("");
-      return `<section class="tech-tier-block domain-tier-block domain-tier-block-${status.tone}">
-        <div class="domain-tier-head">
-          <div>
-            <h4>Tier ${tier}</h4>
-            <p>${status.detail}</p>
-          </div>
-          <span class="domain-tier-badge domain-tier-badge-${status.tone}">${status.badge}</span>
-        </div>
-        <div class="tech-card-grid">${cards}</div>
-      </section>`;
-    })
-    .join("");
-  return `${summary}${sections}`;
-};
-
 const renderDomainDetailCard = (): string => {
-  const d = state.domainCatalog.find((x) => x.id === state.domainUiSelectedId);
-  if (!d) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
-  const checklist = d.requirements.checklist ?? [];
-  const checks = checklist
-    .map((c) => `<li class="${c.met ? "ok" : "bad"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
-    .join("");
-  const ownedByTier = ownedDomainByTier();
-  const currentTier = currentDomainChoiceTier();
-  const chosenInTier = ownedByTier.get(d.tier);
-  const canUnlock = d.requirements.canResearch;
-  const requiresTechName = techNameList([d.requiresTechId]);
-  const tierRuleText =
-    chosenInTier && chosenInTier.id !== d.id
-      ? `Tier ${d.tier} is already filled by ${chosenInTier.name}.`
-      : currentTier === d.tier
-        ? `This is one of the current Tier ${d.tier} choices. You may choose exactly one.`
-        : chosenInTier?.id === d.id
-          ? `You already chose this for Tier ${d.tier}.`
-          : `This domain will only become choosable when Tier ${d.tier} opens.`;
-  return `<article class="card tech-detail-card">
-    <div class="tech-detail-head">
-      <div>
-        <strong>${d.name}</strong>
-        <p class="muted">Tier ${d.tier} · Requires ${requiresTechName}</p>
-        <p class="domain-detail-tier-rule">${tierRuleText}</p>
-      </div>
-      <button class="panel-btn domain-unlock-btn" data-domain-unlock="${d.id}" ${canUnlock ? "" : "disabled"}>${state.domainIds.includes(d.id) ? "Chosen" : canUnlock ? `Choose Tier ${d.tier}` : "Locked"}</button>
-    </div>
-    <p>${d.description}</p>
-    <p><strong>Benefits:</strong> ${formatDomainBenefitSummary(d)}</p>
-    <p><strong>Cost:</strong> ${formatDomainCost(d)}</p>
-    <p><strong>Requirements:</strong></p>
-    <ul class="tech-req-list">${checks || "<li>None</li>"}</ul>
-  </article>`;
+  const domain = state.domainCatalog.find((x) => x.id === state.domainUiSelectedId);
+  const chosenByTier = ownedDomainByTier(state.domainCatalog, state.domainIds);
+  const currentTier = currentDomainChoiceTier(state.domainCatalog, state.domainChoices);
+  return renderDomainDetailCardHtml({
+    domain,
+    domainIds: state.domainIds,
+    chosenInTier: domain ? chosenByTier.get(domain.tier) : undefined,
+    currentTier,
+    requiresTechName: domain ? techNameList([domain.requiresTechId]) : ""
+  });
 };
 
 const renderTechChoiceDetails = (): string => {
   const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
-  const t = state.techCatalog.find((x) => x.id === selectedId);
-  if (!t) return `<p class="muted">No tech selected.</p>`;
-  const pendingUnlock = isPendingTechUnlock(t.id);
-  const mods = Object.entries(t.mods ?? {})
-    .map(([k, v]) => `${k} x${Number(v).toFixed(3)}`)
-    .join(" | ");
-  const projected = {
-    attack: state.mods.attack * (t.mods.attack ?? 1),
-    defense: state.mods.defense * (t.mods.defense ?? 1),
-    income: state.mods.income * (t.mods.income ?? 1),
-    vision: state.mods.vision * (t.mods.vision ?? 1)
-  };
-  const checklist = t.requirements.checklist ?? [];
-  const checklistHtml =
-    checklist.length > 0
-      ? `<ul>${checklist
-          .map((c) => `<li style="color:${c.met ? "#84f2b8" : "#ff9f9f"}">${c.met ? "✓" : "✗"} ${c.label}</li>`)
-          .join("")}</ul>`
-      : "<p class=\"muted\">No requirements listed.</p>";
-  const prereqs = techPrereqIds(t);
-  return `<article class="card">
-    <strong>${t.name}</strong>
-    ${pendingUnlock ? `<p class="muted">${currentResearchStatusText()}</p>` : ""}
-    <p>${t.description}</p>
-    <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
-    <p><strong>Requirements:</strong></p>
-    ${checklistHtml}
-    <p><strong>Modifiers:</strong> ${mods || "None"}</p>
-    <p><strong>Current:</strong> atk x${state.mods.attack.toFixed(3)} | def x${state.mods.defense.toFixed(3)} | inc x${state.mods.income.toFixed(3)} | vis x${state.mods.vision.toFixed(3)}</p>
-    <p><strong>Projected:</strong> atk x${projected.attack.toFixed(3)} | def x${projected.defense.toFixed(3)} | inc x${projected.income.toFixed(3)} | vis x${projected.vision.toFixed(3)}</p>
-    ${t.grantsPowerup ? `<p><strong>Powerup:</strong> ${t.grantsPowerup.id} (+${t.grantsPowerup.charges})</p>` : ""}
-  </article>`;
+  const tech = state.techCatalog.find((x) => x.id === selectedId);
+  return renderTechChoiceDetailsHtml({
+    tech,
+    statusText: tech && isPendingTechUnlock(tech.id) ? currentResearchStatusText() : undefined,
+    currentMods: state.mods,
+    prereqs: tech ? techPrereqIds(tech) : []
+  });
 };
 
 const affordableTechChoicesCount = (): number => {
@@ -4348,9 +3935,22 @@ const renderHud = (): void => {
   weakDefButtons.forEach((btn) => {
     btn.onclick = () => {
       state.showWeakDefensibility = !state.showWeakDefensibility;
+      const weakTileCount = [...state.tiles.values()].filter((tile) => {
+        if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
+        return (
+          exposedSidesForTile(tile, {
+            tiles: state.tiles,
+            me: state.me,
+            keyFor: key,
+            wrapX,
+            wrapY,
+            terrainAt
+          }).length >= 2
+        );
+      }).length;
       pushFeed(
         state.showWeakDefensibility
-          ? `Weak defensibility overlay enabled (${weakDefensibilityTiles().length} tiles highlighted).`
+          ? `Weak defensibility overlay enabled (${weakTileCount} tiles highlighted).`
           : "Weak defensibility overlay hidden.",
         "info",
         "info"
@@ -4441,10 +4041,38 @@ const renderHud = (): void => {
 
   missionsEl.innerHTML = missionCardsHtml(state.missions);
   mobilePanelMissionsEl.innerHTML = missionCardsHtml(state.missions);
-  panelDefensibilityEl.innerHTML = defensibilityPanelHtml();
-  mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml();
-  panelEconomyEl.innerHTML = economyPanelHtml();
-  mobilePanelEconomyEl.innerHTML = economyPanelHtml();
+  const defensibilityPanelHtml = renderDefensibilityPanelHtml({
+    tiles: state.tiles,
+    me: state.me,
+    defensibilityPct: state.defensibilityPct,
+    showWeakDefensibility: state.showWeakDefensibility,
+    keyFor: key,
+    wrapX,
+    wrapY,
+    terrainAt
+  });
+  panelDefensibilityEl.innerHTML = defensibilityPanelHtml;
+  mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml;
+  const economyPanelHtml = renderEconomyPanelHtml({
+    focus: state.economyFocus,
+    gold: state.gold,
+    me: state.me,
+    incomePerMinute: state.incomePerMinute,
+    strategicResources: state.strategicResources,
+    strategicProductionPerMinute: state.strategicProductionPerMinute,
+    upkeepPerMinute: state.upkeepPerMinute,
+    upkeepLastTick: state.upkeepLastTick,
+    activeRevealTargetsCount: state.activeRevealTargets.length,
+    tiles: state.tiles.values(),
+    isMobile: window.matchMedia("(max-width: 900px)").matches,
+    prettyToken,
+    resourceIconForKey,
+    rateToneClass,
+    resourceLabel,
+    economicStructureName
+  });
+  panelEconomyEl.innerHTML = economyPanelHtml;
+  mobilePanelEconomyEl.innerHTML = economyPanelHtml;
   panelManpowerEl.innerHTML = manpowerPanelHtml();
   mobilePanelManpowerEl.innerHTML = manpowerPanelHtml();
   leaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
@@ -5311,7 +4939,6 @@ type DevelopmentSlotSummary = {
   available: number;
 };
 
-type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "reveal_empire" ||
   id === "deep_strike" ||
@@ -8616,7 +8243,14 @@ const draw = (): void => {
         ctx.lineWidth = 1;
       }
       if (state.showWeakDefensibility && t && vis === "visible" && t.ownerId === state.me && t.terrain === "LAND" && t.ownershipState === "SETTLED" && !t.fogged) {
-        const exposedSides = exposedSidesForTile(t);
+        const exposedSides = exposedSidesForTile(t, {
+          tiles: state.tiles,
+          me: state.me,
+          keyFor: key,
+          wrapX,
+          wrapY,
+          terrainAt
+        });
         if (exposedSides.length >= 2) {
           const critical = exposedSides.length >= 3;
           ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
