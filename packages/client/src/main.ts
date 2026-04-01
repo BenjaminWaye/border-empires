@@ -20,6 +20,7 @@ import {
   CHUNK_SIZE,
   DEVELOPMENT_PROCESS_LIMIT,
   ECONOMIC_STRUCTURE_BUILD_MS,
+  ECONOMIC_STRUCTURE_REMOVE_MS,
   FORT_BUILD_COST,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
@@ -37,7 +38,8 @@ import {
   grassShadeAt,
   landBiomeAt,
   setWorldSeed,
-  terrainAt
+  terrainAt,
+  type EconomicStructureType
 } from "@border-empires/shared";
 import {
   COLLECT_VISIBLE_COOLDOWN_MS,
@@ -1758,6 +1760,7 @@ const economicStructureOverlayAlpha = (tile: Tile): number => {
   const status = tile.economicStructure?.status;
   if (status === "active") return 1;
   if (status === "under_construction") return 0.8;
+  if (status === "removing") return 0.58;
   return 0.7;
 };
 const clusterTint = (clusterType: string | undefined): string | undefined => {
@@ -2810,6 +2813,19 @@ const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStr
   });
 };
 
+const applyOptimisticStructureRemoval = (x: number, y: number): void => {
+  const completesAt = Date.now() + ECONOMIC_STRUCTURE_REMOVE_MS;
+  applyOptimisticTileState(x, y, (tile) => {
+    if (!tile.economicStructure) return;
+    tile.optimisticPending = "structure_remove";
+    tile.economicStructure = {
+      ...tile.economicStructure,
+      status: "removing",
+      completesAt
+    };
+  });
+};
+
 const applyOptimisticStructureCancel = (x: number, y: number): void => {
   applyOptimisticTileState(x, y, (tile) => {
     tile.optimisticPending = "structure_cancel";
@@ -2881,6 +2897,15 @@ const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
     if (existing.fort) merged.fort = existing.fort;
     if (existing.observatory) merged.observatory = existing.observatory;
     if (existing.siegeOutpost) merged.siegeOutpost = existing.siegeOutpost;
+    if (existing.economicStructure) merged.economicStructure = existing.economicStructure;
+    return merged;
+  }
+  if (existing.optimisticPending === "structure_remove") {
+    if (!incoming.economicStructure) return incoming;
+    const merged: Tile = {
+      ...incoming,
+      optimisticPending: existing.optimisticPending
+    };
     if (existing.economicStructure) merged.economicStructure = existing.economicStructure;
     return merged;
   }
@@ -4843,6 +4868,7 @@ const explainActionFailure = (code: string, message: string): string => {
   if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build observatory: ${message}.`;
   if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build siege outpost: ${message}.`;
   if (code === "ECONOMIC_STRUCTURE_BUILD_INVALID") return `Cannot build structure: ${message}.`;
+  if (code === "ECONOMIC_STRUCTURE_REMOVE_INVALID") return `Cannot remove structure: ${message}.`;
   if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;
   if (code === "SABOTAGE_INVALID") return `Cannot sabotage tile: ${message}.`;
   if (code === "DEEP_STRIKE_INVALID") return `Cannot deep strike: ${message}.`;
@@ -5119,10 +5145,10 @@ const ensureDevelopmentSlotBeforeAction = (): boolean => {
   return false;
 };
 
-const sendDevelopmentBuild = (payload: unknown, optimistic: () => void): boolean => {
+const sendDevelopmentBuild = (payload: unknown, optimistic?: () => void): boolean => {
   if (!ensureDevelopmentSlotBeforeAction()) return false;
   if (!sendGameMessage(payload)) return false;
-  optimistic();
+  optimistic?.();
   renderHud();
   return true;
 };
@@ -5445,7 +5471,18 @@ const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "create_mountain" ||
   id === "remove_mountain";
 
-const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_");
+const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_") || (id as string) === "remove_structure";
+
+const SUPPORT_STRUCTURE_ACTION_IDS = new Set<TileActionDef["id"]>([
+  "build_market",
+  "build_granary",
+  "build_bank",
+  "build_caravanary",
+  "build_quartermaster",
+  "build_ironworks",
+  "build_crystal_synthesizer",
+  "build_fuel_plant"
+]);
 
 const hideTechLockedTileAction = (action: TileActionDef): boolean => {
   if (!action.disabled || !action.disabledReason) return false;
@@ -5630,6 +5667,9 @@ const constructionCountdownLineForTile = (tile: Tile): string => {
   if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
     return `Building ${economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
   }
+  if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
+    return `Removing ${economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
+  }
   return "";
 };
 
@@ -5643,6 +5683,8 @@ const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
           ? tile.siegeOutpost.completesAt
           : tile.economicStructure?.status === "under_construction"
             ? tile.economicStructure.completesAt
+            : tile.economicStructure?.status === "removing"
+              ? tile.economicStructure.completesAt
             : undefined;
   return typeof completesAt === "number" ? Math.max(0, completesAt - Date.now()) : undefined;
 };
@@ -5739,7 +5781,20 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, ECONOMIC_STRUCTURE_BUILD_MS))),
       note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
+      cancelLabel: "Cancel construction",
+      cancelActionId: "cancel_structure_build"
+    };
+  }
+  if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
+    const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
+    return {
+      title: `${economicStructureName(tile.economicStructure.type)} being removed`,
+      detail: "This structure is being dismantled and the tile will open up when removal completes.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, ECONOMIC_STRUCTURE_REMOVE_MS))),
+      note: "Removal is underway on this tile.",
+      cancelLabel: "Cancel removal",
+      cancelActionId: "cancel_structure_build"
     };
   }
   return undefined;
@@ -5830,6 +5885,17 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
 const tileMenuViewForTile = (tile: Tile): TileMenuView => {
   const actions = menuActionsForSingleTile(tile);
   const actionTabs = splitTileActionsIntoTabs(actions);
+  const contextHasTownSupport =
+    Boolean(tile.town) ||
+    (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && supportedOwnedTownsForTile(tile).length > 0);
+  if (contextHasTownSupport && actionTabs.buildings.length > 0) {
+    actionTabs.buildings.sort((left, right) => {
+      const leftPriority = left.id === "remove_structure" ? 0 : SUPPORT_STRUCTURE_ACTION_IDS.has(left.id) ? 1 : 2;
+      const rightPriority = right.id === "remove_structure" ? 0 : SUPPORT_STRUCTURE_ACTION_IDS.has(right.id) ? 1 : 2;
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+      return left.label.localeCompare(right.label);
+    });
+  }
   const settlement = settlementProgressForTile(tile.x, tile.y);
   const construction = constructionProgressForTile(tile);
   const progress =
@@ -6268,6 +6334,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const supportedTown = supportedTowns.length === 1 ? supportedTowns[0] : undefined;
     const supportedDocks = tile.ownershipState === "SETTLED" ? supportedOwnedDocksForTile(tile) : [];
     const supportedDock = supportedDocks.length === 1 ? supportedDocks[0] : undefined;
+    const townTarget = tile.town ? tile : supportedTown;
+    const townHasOpenSupport = townTarget?.town ? townTarget.town.supportCurrent < townTarget.town.supportMax : false;
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
     if (tile.ownershipState === "FRONTIER")
       out.push({
@@ -6507,16 +6575,26 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           )
         });
       }
-      if (supportedTown) {
+      if (townTarget) {
         out.push({
           id: "build_market",
           label: "Build Market",
-          detail: buildDetailTextForAction("build_market", tile, supportedTown),
+          detail: buildDetailTextForAction("build_market", tile, townTarget),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasMarket && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
-            hasBlockingStructure
-              ? "Tile already has structure"
-              : supportedTown.town?.hasMarket
+            (tile.town ? townHasOpenSupport : !hasBlockingStructure) && !townTarget.town?.hasMarket && state.techIds.includes("trade") && state.gold >= 600 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
+            tile.town
+              ? !townHasOpenSupport
+                ? "No open support tile"
+                : townTarget.town?.hasMarket
+                  ? "Nearby town already has Market"
+                  : !state.techIds.includes("trade")
+                    ? "Requires Trade"
+                    : state.gold < 600
+                      ? "Need 600 gold"
+                      : "Need 40 CRYSTAL"
+              : hasBlockingStructure
+                ? "Tile already has structure"
+                : townTarget.town?.hasMarket
                 ? "Nearby town already has Market"
                 : !state.techIds.includes("trade")
                   ? "Requires Trade"
@@ -6530,12 +6608,22 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_granary",
           label: "Build Granary",
-          detail: buildDetailTextForAction("build_granary", tile, supportedTown),
+          detail: buildDetailTextForAction("build_granary", tile, townTarget),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasGranary && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
-            hasBlockingStructure
-              ? "Tile already has structure"
-              : supportedTown.town?.hasGranary
+            (tile.town ? townHasOpenSupport : !hasBlockingStructure) && !townTarget.town?.hasGranary && state.techIds.includes("pottery") && state.gold >= 400 && (state.strategicResources.FOOD ?? 0) >= 40,
+            tile.town
+              ? !townHasOpenSupport
+                ? "No open support tile"
+                : townTarget.town?.hasGranary
+                  ? "Nearby town already has Granary"
+                  : !state.techIds.includes("pottery")
+                    ? "Requires Pottery"
+                    : state.gold < 400
+                      ? "Need 400 gold"
+                      : "Need 40 FOOD"
+              : hasBlockingStructure
+                ? "Tile already has structure"
+                : townTarget.town?.hasGranary
                 ? "Nearby town already has Granary"
                 : !state.techIds.includes("pottery")
                   ? "Requires Pottery"
@@ -6549,12 +6637,22 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_bank",
           label: "Build Bank",
-          detail: buildDetailTextForAction("build_bank", tile, supportedTown),
+          detail: buildDetailTextForAction("build_bank", tile, townTarget),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasBank && state.techIds.includes("coinage") && state.gold >= 700 && (state.strategicResources.CRYSTAL ?? 0) >= 45,
-            hasBlockingStructure
-              ? "Tile already has structure"
-              : supportedTown.town?.hasBank
+            (tile.town ? townHasOpenSupport : !hasBlockingStructure) && !townTarget.town?.hasBank && state.techIds.includes("coinage") && state.gold >= 700 && (state.strategicResources.CRYSTAL ?? 0) >= 45,
+            tile.town
+              ? !townHasOpenSupport
+                ? "No open support tile"
+                : townTarget.town?.hasBank
+                  ? "Nearby town already has Bank"
+                  : !state.techIds.includes("coinage")
+                    ? "Requires Coinage"
+                    : state.gold < 700
+                      ? "Need 700 gold"
+                      : "Need 45 CRYSTAL"
+              : hasBlockingStructure
+                ? "Tile already has structure"
+                : townTarget.town?.hasBank
                 ? "Nearby town already has Bank"
                 : !state.techIds.includes("coinage")
                   ? "Requires Coinage"
@@ -6568,10 +6666,16 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_caravanary",
           label: "Build Caravanary",
-          detail: buildDetailTextForAction("build_caravanary", tile, supportedTown),
+          detail: buildDetailTextForAction("build_caravanary", tile, townTarget),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("ledger-keeping") && state.gold >= 1200,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : "Need 1200 gold",
+            (tile.town ? townHasOpenSupport : !hasBlockingStructure) && state.techIds.includes("ledger-keeping") && state.gold >= 1200,
+            tile.town
+              ? !townHasOpenSupport
+                ? "No open support tile"
+                : !state.techIds.includes("ledger-keeping")
+                  ? "Requires Ledger Keeping"
+                  : "Need 1200 gold"
+              : hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : "Need 1200 gold",
             `1200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +25% connected-town bonus • 12 gold / 10m`,
             slots
           )
@@ -6579,10 +6683,16 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_quartermaster",
           label: "Build Quartermaster",
-          detail: buildDetailTextForAction("build_quartermaster", tile, supportedTown),
+          detail: buildDetailTextForAction("build_quartermaster", tile, townTarget),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1000,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1000 gold",
+            (tile.town ? townHasOpenSupport : !hasBlockingStructure) && state.techIds.includes("workshops") && state.gold >= 1000,
+            tile.town
+              ? !townHasOpenSupport
+                ? "No open support tile"
+                : !state.techIds.includes("workshops")
+                  ? "Requires Workshops"
+                  : "Need 1000 gold"
+              : hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1000 gold",
             `1000 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 SUPPLY/day • 120 gold / 10m`,
             slots
           )
@@ -6590,10 +6700,16 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_ironworks",
           label: "Build Ironworks",
-          detail: buildDetailTextForAction("build_ironworks", tile, supportedTown),
+          detail: buildDetailTextForAction("build_ironworks", tile, townTarget),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1100,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1100 gold",
+            (tile.town ? townHasOpenSupport : !hasBlockingStructure) && state.techIds.includes("workshops") && state.gold >= 1100,
+            tile.town
+              ? !townHasOpenSupport
+                ? "No open support tile"
+                : !state.techIds.includes("workshops")
+                  ? "Requires Workshops"
+                  : "Need 1100 gold"
+              : hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1100 gold",
             `1100 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 IRON/day • 120 gold / 10m`,
             slots
           )
@@ -6601,10 +6717,16 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_crystal_synthesizer",
           label: "Build Crystal Synthesizer",
-          detail: buildDetailTextForAction("build_crystal_synthesizer", tile, supportedTown),
+          detail: buildDetailTextForAction("build_crystal_synthesizer", tile, townTarget),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 1300,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1300 gold",
+            (tile.town ? townHasOpenSupport : !hasBlockingStructure) && state.techIds.includes("workshops") && state.gold >= 1300,
+            tile.town
+              ? !townHasOpenSupport
+                ? "No open support tile"
+                : !state.techIds.includes("workshops")
+                  ? "Requires Workshops"
+                  : "Need 1300 gold"
+              : hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 1300 gold",
             `1300 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 12 CRYSTAL/day • 160 gold / 10m`,
             slots
           )
@@ -6612,10 +6734,16 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         out.push({
           id: "build_fuel_plant",
           label: "Build Fuel Plant",
-          detail: buildDetailTextForAction("build_fuel_plant", tile, supportedTown),
+          detail: buildDetailTextForAction("build_fuel_plant", tile, townTarget),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("plastics") && state.gold >= 1400,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 1400 gold",
+            (tile.town ? townHasOpenSupport : !hasBlockingStructure) && state.techIds.includes("plastics") && state.gold >= 1400,
+            tile.town
+              ? !townHasOpenSupport
+                ? "No open support tile"
+                : !state.techIds.includes("plastics")
+                  ? "Requires Plastics"
+                  : "Need 1400 gold"
+              : hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 1400 gold",
             `1400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 10 OIL/day • 180 gold / 10m`,
             slots
           )
@@ -6654,6 +6782,14 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         });
       } else if (supportedDocks.length > 1) {
         out.push({ id: "build_customs_house", label: "Build Customs House", disabled: true, disabledReason: "Tile touches multiple docks" });
+      }
+      if (tile.economicStructure && tile.economicStructure.status !== "under_construction" && tile.economicStructure.status !== "removing") {
+        out.push({
+          id: "remove_structure" as TileActionDef["id"],
+          label: `Remove ${economicStructureName(tile.economicStructure.type)}`,
+          detail: supportedTown ? "Clears this support tile for a different town building." : "Dismantle this structure and free the tile for a new build.",
+          ...tileActionAvailabilityWithDevelopmentSlot(true, "Unavailable", `${Math.round(ECONOMIC_STRUCTURE_REMOVE_MS / 60000)}m`, slots)
+        });
       }
     }
     out.push(createMountainAction());
@@ -7002,6 +7138,12 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
     hideTileActionMenu();
     return;
   }
+  const sendSupportStructureBuild = (structureType: EconomicStructureType, optimisticKind: OptimisticStructureKind): void => {
+    sendDevelopmentBuild(
+      { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType },
+      selected.town ? undefined : () => applyOptimisticStructureBuild(selected.x, selected.y, optimisticKind)
+    );
+  };
   if (actionId === "collect_yield") collectSelectedYield();
   if (actionId === "build_fortification") sendDevelopmentBuild({ type: "BUILD_FORT", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FORT"));
   if (actionId === "build_observatory") sendDevelopmentBuild({ type: "BUILD_OBSERVATORY", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "OBSERVATORY"));
@@ -7010,20 +7152,26 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
   ) sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"));
   if (actionId === "build_camp") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"));
   if (actionId === "build_mine") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MINE"));
-  if (actionId === "build_market") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MARKET"));
-  if (actionId === "build_granary") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY"));
-  if (actionId === "build_bank") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "BANK"));
+  if (actionId === "build_market") sendSupportStructureBuild("MARKET", "MARKET");
+  if (actionId === "build_granary") sendSupportStructureBuild("GRANARY", "GRANARY");
+  if (actionId === "build_bank") sendSupportStructureBuild("BANK", "BANK");
   if (actionId === "build_airport") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AIRPORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AIRPORT"));
-  if (actionId === "build_caravanary") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CARAVANARY"));
-  if (actionId === "build_quartermaster") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "QUARTERMASTER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "QUARTERMASTER"));
-  if (actionId === "build_ironworks") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IRONWORKS"));
-  if (actionId === "build_crystal_synthesizer") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CRYSTAL_SYNTHESIZER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CRYSTAL_SYNTHESIZER"));
-  if (actionId === "build_fuel_plant") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUEL_PLANT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FUEL_PLANT"));
+  if (actionId === "build_caravanary") sendSupportStructureBuild("CARAVANARY", "CARAVANARY");
+  if (actionId === "build_quartermaster") sendSupportStructureBuild("QUARTERMASTER", "QUARTERMASTER");
+  if (actionId === "build_ironworks") sendSupportStructureBuild("IRONWORKS", "IRONWORKS");
+  if (actionId === "build_crystal_synthesizer") sendSupportStructureBuild("CRYSTAL_SYNTHESIZER", "CRYSTAL_SYNTHESIZER");
+  if (actionId === "build_fuel_plant") sendSupportStructureBuild("FUEL_PLANT", "FUEL_PLANT");
   if (actionId === "build_foundry") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FOUNDRY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FOUNDRY"));
   if (actionId === "build_garrison_hall") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GARRISON_HALL" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GARRISON_HALL"));
   if (actionId === "build_customs_house") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CUSTOMS_HOUSE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CUSTOMS_HOUSE"));
   if (actionId === "build_governors_office") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GOVERNORS_OFFICE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GOVERNORS_OFFICE"));
   if (actionId === "build_radar_system") sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "RADAR_SYSTEM" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "RADAR_SYSTEM"));
+  if ((actionId as string) === "remove_structure") {
+    if (sendGameMessage({ type: "REMOVE_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y })) {
+      applyOptimisticStructureRemoval(selected.x, selected.y);
+      renderHud();
+    }
+  }
   if (actionId === "build_siege_camp") sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"));
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
@@ -8076,6 +8224,7 @@ ws.addEventListener("message", (ev) => {
       errorCode === "OBSERVATORY_BUILD_INVALID" ||
       errorCode === "SIEGE_OUTPOST_BUILD_INVALID" ||
       errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
+      errorCode === "ECONOMIC_STRUCTURE_REMOVE_INVALID" ||
       errorCode === "STRUCTURE_CANCEL_INVALID";
     if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
       notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
