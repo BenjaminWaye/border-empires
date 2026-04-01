@@ -518,7 +518,27 @@ const economicStructureBenefitText = (type: Tile["economicStructure"] extends in
   return "Strengthens this tile's economy.";
 };
 
-type StructureInfoKey = "FORT" | "OBSERVATORY" | "FARMSTEAD" | "CAMP" | "MINE" | "MARKET" | "GRANARY" | "SIEGE_OUTPOST";
+type StructureInfoKey =
+  | "FORT"
+  | "OBSERVATORY"
+  | "FARMSTEAD"
+  | "CAMP"
+  | "MINE"
+  | "MARKET"
+  | "GRANARY"
+  | "BANK"
+  | "CARAVANARY"
+  | "QUARTERMASTER"
+  | "IRONWORKS"
+  | "CRYSTAL_SYNTHESIZER"
+  | "FUEL_PLANT"
+  | "FOUNDRY"
+  | "CUSTOMS_HOUSE"
+  | "GOVERNORS_OFFICE"
+  | "GARRISON_HALL"
+  | "AIRPORT"
+  | "RADAR_SYSTEM"
+  | "SIEGE_OUTPOST";
 
 const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: string } => {
   if (type === "FORT") return { title: "Fort", detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails." };
@@ -528,6 +548,18 @@ const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: s
   if (type === "MINE") return { title: "Mine", detail: "Mines increase iron or crystal yield on mineral tiles by 50%." };
   if (type === "MARKET") return { title: "Market", detail: "Markets are built on a support tile for a town. They increase that fed town's gold output by 50% and its gold storage cap by 50%." };
   if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's population growth and gold storage cap by 20%." };
+  if (type === "BANK") return { title: "Bank", detail: "Banks are built on a support tile for a town. They increase city income by 50% and add +1 flat income." };
+  if (type === "CARAVANARY") return { title: "Caravanary", detail: "Caravanaries are built on a support tile for a town. They increase that town's connected-town income bonus by 25%." };
+  if (type === "QUARTERMASTER") return { title: "Quartermaster", detail: "Quartermasters convert heavy gold upkeep into steady supply output on a support tile." };
+  if (type === "IRONWORKS") return { title: "Ironworks", detail: "Ironworks convert heavy gold upkeep into steady iron output on a support tile." };
+  if (type === "CRYSTAL_SYNTHESIZER") return { title: "Crystal Synthesizer", detail: "Crystal Synthesizers convert heavy gold upkeep into steady crystal output on a support tile." };
+  if (type === "FUEL_PLANT") return { title: "Fuel Plant", detail: "Fuel plants convert heavy gold upkeep into steady oil output on a support tile." };
+  if (type === "FOUNDRY") return { title: "Foundry", detail: "Foundries double active mine output within 10 tiles." };
+  if (type === "CUSTOMS_HOUSE") return { title: "Customs House", detail: "Customs houses are built beside a dock and increase that dock's income by 50%." };
+  if (type === "GOVERNORS_OFFICE") return { title: "Governor's Office", detail: "Governor's offices reduce local town food upkeep and settled-tile upkeep within 10 tiles." };
+  if (type === "GARRISON_HALL") return { title: "Garrison Hall", detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles." };
+  if (type === "AIRPORT") return { title: "Airport", detail: "Airports launch oil-fueled bombardments against enemy territory within 30 tiles." };
+  if (type === "RADAR_SYSTEM") return { title: "Radar System", detail: "Radar systems block enemy airport bombardment within 30 tiles and reveal the origin." };
   return { title: "Siege Outpost", detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile." };
 };
 
@@ -3474,6 +3506,18 @@ const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
     if (key === "unlockMine") out.add("MINE");
     if (key === "unlockMarket" || key.startsWith("market")) out.add("MARKET");
     if (key === "unlockGranary" || key.startsWith("granary")) out.add("GRANARY");
+    if (key === "unlockBank") out.add("BANK");
+    if (key === "unlockCaravanary") out.add("CARAVANARY");
+    if (key === "unlockQuartermaster") out.add("QUARTERMASTER");
+    if (key === "unlockIronworks") out.add("IRONWORKS");
+    if (key === "unlockCrystalSynthesizer") out.add("CRYSTAL_SYNTHESIZER");
+    if (key === "unlockFuelPlant") out.add("FUEL_PLANT");
+    if (key === "unlockFoundry") out.add("FOUNDRY");
+    if (key === "unlockCustomsHouse") out.add("CUSTOMS_HOUSE");
+    if (key === "unlockGovernorsOffice") out.add("GOVERNORS_OFFICE");
+    if (key === "unlockGarrisonHall") out.add("GARRISON_HALL");
+    if (key === "unlockAirport") out.add("AIRPORT");
+    if (key === "unlockRadarSystem") out.add("RADAR_SYSTEM");
     if (key === "unlockSiegeOutposts" || key.startsWith("outpost")) out.add("SIEGE_OUTPOST");
   }
   return [...out];

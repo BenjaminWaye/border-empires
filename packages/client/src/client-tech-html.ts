@@ -12,6 +12,18 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockObservatory" && value === true) return "Unlocks observatories";
   if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
   if (key === "unlockGranary" && value === true) return "Unlocks granaries";
+  if (key === "unlockBank" && value === true) return "Unlocks banks";
+  if (key === "unlockCaravanary" && value === true) return "Unlocks caravanaries";
+  if (key === "unlockQuartermaster" && value === true) return "Unlocks quartermasters";
+  if (key === "unlockIronworks" && value === true) return "Unlocks ironworks";
+  if (key === "unlockCrystalSynthesizer" && value === true) return "Unlocks crystal synthesizers";
+  if (key === "unlockFuelPlant" && value === true) return "Unlocks fuel plants";
+  if (key === "unlockFoundry" && value === true) return "Unlocks foundries";
+  if (key === "unlockCustomsHouse" && value === true) return "Unlocks customs houses";
+  if (key === "unlockGovernorsOffice" && value === true) return "Unlocks governor's offices";
+  if (key === "unlockGarrisonHall" && value === true) return "Unlocks garrison halls";
+  if (key === "unlockAirport" && value === true) return "Unlocks airports";
+  if (key === "unlockRadarSystem" && value === true) return "Unlocks radar systems";
   if (key === "unlockRevealRegion" && value === true) return "Unlocks reveal region";
   if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
   if (key === "unlockDeepStrike" && value === true) return "Unlocks deep strike";
