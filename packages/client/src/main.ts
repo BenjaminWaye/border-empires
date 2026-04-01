@@ -7362,6 +7362,7 @@ ws.addEventListener("message", (ev) => {
     state.leaderboard =
       (msg.leaderboard as {
         overall: LeaderboardOverallEntry[];
+        selfOverall: LeaderboardOverallEntry | undefined;
         byTiles: LeaderboardMetricEntry[];
         byIncome: LeaderboardMetricEntry[];
         byTechs: LeaderboardMetricEntry[];
@@ -7528,6 +7529,7 @@ ws.addEventListener("message", (ev) => {
     state.leaderboard =
       (msg.leaderboard as {
         overall: LeaderboardOverallEntry[];
+        selfOverall: LeaderboardOverallEntry | undefined;
         byTiles: LeaderboardMetricEntry[];
         byIncome: LeaderboardMetricEntry[];
         byTechs: LeaderboardMetricEntry[];
@@ -7548,6 +7550,7 @@ ws.addEventListener("message", (ev) => {
     state.leaderboard =
       (msg.leaderboard as {
         overall: LeaderboardOverallEntry[];
+        selfOverall: LeaderboardOverallEntry | undefined;
         byTiles: LeaderboardMetricEntry[];
         byIncome: LeaderboardMetricEntry[];
         byTechs: LeaderboardMetricEntry[];
