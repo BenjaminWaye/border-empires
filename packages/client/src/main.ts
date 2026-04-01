@@ -1575,8 +1575,36 @@ type DefensibilityBreakdown = {
   tips: string[];
 };
 
+type WeakDefensibilityTile = {
+  tile: Tile;
+  exposedSides: Array<"north" | "east" | "south" | "west">;
+};
+
 const settledOwnedTiles = (): Tile[] =>
   [...state.tiles.values()].filter((tile) => tile.ownerId === state.me && tile.terrain === "LAND" && tile.ownershipState === "SETTLED" && !tile.fogged);
+
+const exposedSidesForTile = (tile: Tile): Array<"north" | "east" | "south" | "west"> => {
+  const dirs = [
+    { name: "north" as const, x: tile.x, y: tile.y - 1 },
+    { name: "east" as const, x: tile.x + 1, y: tile.y },
+    { name: "south" as const, x: tile.x, y: tile.y + 1 },
+    { name: "west" as const, x: tile.x - 1, y: tile.y }
+  ];
+  const out: Array<"north" | "east" | "south" | "west"> = [];
+  for (const dir of dirs) {
+    const neighbor = state.tiles.get(key(wrapX(dir.x), wrapY(dir.y)));
+    if (neighbor?.ownerId === state.me && neighbor.terrain === "LAND" && neighbor.ownershipState === "SETTLED" && !neighbor.fogged) continue;
+    const terrain = terrainAt(dir.x, dir.y);
+    if (terrain === "SEA" || terrain === "MOUNTAIN") continue;
+    out.push(dir.name);
+  }
+  return out;
+};
+
+const weakDefensibilityTiles = (): WeakDefensibilityTile[] =>
+  settledOwnedTiles()
+    .map((tile) => ({ tile, exposedSides: exposedSidesForTile(tile) }))
+    .filter((entry) => entry.exposedSides.length >= 2);
 
 const defensibilityBreakdown = (): DefensibilityBreakdown => {
   const tiles = settledOwnedTiles();
@@ -1619,6 +1647,7 @@ const defensibilityBreakdown = (): DefensibilityBreakdown => {
 const defensibilityPanelHtml = (): string => {
   const summary = defensibilityBreakdown();
   const rounded = Math.round(state.defensibilityPct);
+  const weakCount = weakDefensibilityTiles().length;
   return `<div class="defense-panel">
     <article class="card defense-hero-card">
       <div class="defense-hero-head">
@@ -1629,6 +1658,7 @@ const defensibilityPanelHtml = (): string => {
         <span class="defense-rating defense-rating-${summary.rating.toLowerCase().replace(/ /g, "-")}">${summary.rating}</span>
       </div>
       <p class="defense-copy">Compact settled land with fewer exposed sides defends better. Coastlines and mountains count as safer borders than open land.</p>
+      <button class="panel-btn defense-toggle-btn" type="button" data-toggle-weak-def="true">${state.showWeakDefensibility ? "Hide Weak Tiles" : "Show Weak Tiles"}${weakCount > 0 ? ` (${weakCount})` : ""}</button>
     </article>
     <article class="card defense-breakdown-card">
       <div class="defense-stat-grid">
@@ -3958,6 +3988,7 @@ const renderHud = (): void => {
       <span>${mobile ? "Dev" : "Development"}</span>
       <strong>${development.busy}/${development.limit}</strong>
     </div>
+    ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Def</span><strong>Hide Weak</strong></button>` : ""}
     ${strategicRibbonHtml(
       state.strategicResources,
       state.strategicProductionPerMinute,
@@ -4176,6 +4207,13 @@ const renderHud = (): void => {
       const section = btn.dataset.techSection;
       if (section !== "research" && section !== "domains") return;
       state.techSection = section;
+      renderHud();
+    };
+  });
+  const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
+  weakDefButtons.forEach((btn) => {
+    btn.onclick = () => {
+      state.showWeakDefensibility = !state.showWeakDefensibility;
       renderHud();
     };
   });
@@ -8368,6 +8406,33 @@ const draw = (): void => {
         drawExposedTileBorder(t, px, py, size);
         ctx.setLineDash([]);
         ctx.lineWidth = 1;
+      }
+      if (state.showWeakDefensibility && t && vis === "visible" && t.ownerId === state.me && t.terrain === "LAND" && t.ownershipState === "SETTLED" && !t.fogged) {
+        const exposedSides = exposedSidesForTile(t);
+        if (exposedSides.length >= 2) {
+          const critical = exposedSides.length >= 3;
+          ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
+          ctx.lineWidth = critical ? 3 : 2;
+          ctx.beginPath();
+          if (exposedSides.includes("north")) {
+            ctx.moveTo(px + 1, py + 2);
+            ctx.lineTo(px + size - 1, py + 2);
+          }
+          if (exposedSides.includes("east")) {
+            ctx.moveTo(px + size - 2, py + 1);
+            ctx.lineTo(px + size - 2, py + size - 1);
+          }
+          if (exposedSides.includes("south")) {
+            ctx.moveTo(px + 1, py + size - 2);
+            ctx.lineTo(px + size - 1, py + size - 2);
+          }
+          if (exposedSides.includes("west")) {
+            ctx.moveTo(px + 2, py + 1);
+            ctx.lineTo(px + 2, py + size - 1);
+          }
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        }
       }
 
       if (t && vis === "visible" && typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now() && t.ownerId) {
