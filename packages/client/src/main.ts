@@ -214,6 +214,7 @@ const {
   sidePanelBodyEl,
   sidePanelEl,
   statsChipsEl,
+  structureInfoOverlayEl,
   techDetailOverlayEl,
   targetingOverlayEl,
   techChoiceDetailsEl,
@@ -580,27 +581,231 @@ type StructureInfoKey =
   | "RADAR_SYSTEM"
   | "SIEGE_OUTPOST";
 
-const structureInfoForKey = (type: StructureInfoKey): { title: string; detail: string } => {
-  if (type === "FORT") return { title: "Fort", detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails." };
-  if (type === "OBSERVATORY") return { title: "Observatory", detail: "Observatories add local vision and project a protection field that blocks hostile crystal actions in the area." };
-  if (type === "FARMSTEAD") return { title: "Farmstead", detail: "Farmsteads increase food yield on farm and fish tiles by 50%." };
-  if (type === "CAMP") return { title: "Camp", detail: "Camps increase supply yield on wood and fur tiles by 50%." };
-  if (type === "MINE") return { title: "Mine", detail: "Mines increase iron or crystal yield on mineral tiles by 50%." };
-  if (type === "MARKET") return { title: "Market", detail: "Markets are built on a support tile for a town. They increase that fed town's gold output by 50% and its gold storage cap by 50%." };
-  if (type === "GRANARY") return { title: "Granary", detail: "Granaries are built on a support tile for a town. They increase that town's population growth and gold storage cap by 20%." };
-  if (type === "BANK") return { title: "Bank", detail: "Banks are built on a support tile for a town. They increase city income by 50% and add +1 flat income." };
-  if (type === "CARAVANARY") return { title: "Caravanary", detail: "Caravanaries are built on a support tile for a town. They increase that town's connected-town income bonus by 25%." };
-  if (type === "QUARTERMASTER") return { title: "Quartermaster", detail: "Quartermasters convert heavy gold upkeep into steady supply output on a support tile." };
-  if (type === "IRONWORKS") return { title: "Ironworks", detail: "Ironworks convert heavy gold upkeep into steady iron output on a support tile." };
-  if (type === "CRYSTAL_SYNTHESIZER") return { title: "Crystal Synthesizer", detail: "Crystal Synthesizers convert heavy gold upkeep into steady crystal output on a support tile." };
-  if (type === "FUEL_PLANT") return { title: "Fuel Plant", detail: "Fuel plants convert heavy gold upkeep into steady oil output on a support tile." };
-  if (type === "FOUNDRY") return { title: "Foundry", detail: "Foundries double active mine output within 10 tiles." };
-  if (type === "CUSTOMS_HOUSE") return { title: "Customs House", detail: "Customs houses are built beside a dock and increase that dock's income by 50%." };
-  if (type === "GOVERNORS_OFFICE") return { title: "Governor's Office", detail: "Governor's offices reduce local town food upkeep and settled-tile upkeep within 10 tiles." };
-  if (type === "GARRISON_HALL") return { title: "Garrison Hall", detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles." };
-  if (type === "AIRPORT") return { title: "Airport", detail: "Airports launch oil-fueled bombardments against enemy territory within 30 tiles." };
-  if (type === "RADAR_SYSTEM") return { title: "Radar System", detail: "Radar systems block enemy airport bombardment within 30 tiles and reveal the origin." };
-  return { title: "Siege Outpost", detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile." };
+type StructureInfoView = {
+  title: string;
+  detail: string;
+  glyph: string;
+  placement: string;
+  image?: string;
+  costBits: string[];
+  buildTimeLabel: string;
+};
+
+const structureInfoForKey = (
+  type: StructureInfoKey
+): StructureInfoView => {
+  const structure = (base: Omit<StructureInfoView, "image">, image?: string): StructureInfoView =>
+    image ? { ...base, image } : base;
+  const buildTimeLabelFor = (key: StructureInfoKey): string => {
+    if (key === "FORT") return formatCooldownShort(FORT_BUILD_MS);
+    if (key === "OBSERVATORY") return formatCooldownShort(OBSERVATORY_BUILD_MS);
+    if (key === "SIEGE_OUTPOST") return formatCooldownShort(SIEGE_OUTPOST_BUILD_MS);
+    return formatCooldownShort(ECONOMIC_STRUCTURE_BUILD_MS);
+  };
+  const imageFor = (key: StructureInfoKey): string | undefined => {
+    if (key === "MARKET") return "/overlays/market-overlay.svg";
+    if (key === "GRANARY") return "/overlays/granary-overlay.svg";
+    if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
+    if (key === "BANK") return "/overlays/bank-overlay.svg";
+    if (key === "CARAVANARY") return "/overlays/caravanary-overlay.svg";
+    if (key === "QUARTERMASTER") return "/overlays/quartermaster-overlay.svg";
+    if (key === "IRONWORKS") return "/overlays/ironworks-overlay.svg";
+    if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
+    if (key === "FUEL_PLANT") return "/overlays/fuel-plant-overlay.svg";
+    if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
+    if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
+    if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
+    if (key === "GARRISON_HALL") return "/overlays/garrison-hall-overlay.svg";
+    if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
+    if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
+    return undefined;
+  };
+  const costBitsFor = (key: StructureInfoKey): string[] => {
+    const def = structureCostDefinition(key);
+    const bits = [`${def.baseGoldCost.toLocaleString()} gold`];
+    if (def.resourceCost) bits.push(`${def.resourceCost.amount} ${prettyToken(def.resourceCost.resource).toLowerCase()}`);
+    else if (def.resourceOptions?.length) bits.push(`30 iron or crystal`);
+    return bits;
+  };
+  if (type === "FORT")
+    return structure({
+      title: "Fort",
+      detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails.",
+      glyph: "🛡",
+      placement: "Build on a settled border tile or dock you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    });
+  if (type === "OBSERVATORY")
+    return structure({
+      title: "Observatory",
+      detail: "Observatories add local vision, protect against hostile crystal actions, and let you cast crystal abilities inside their radius.",
+      glyph: "◉",
+      placement: "Build on empty settled land only. Not on towns, docks, or resource tiles.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "FARMSTEAD")
+    return structure({
+      title: "Farmstead",
+      detail: "Farmsteads increase food yield on farm and fish tiles by 50%.",
+      glyph: "🌾",
+      placement: "Build on a settled farm or fish resource tile you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    });
+  if (type === "CAMP")
+    return structure({
+      title: "Camp",
+      detail: "Camps increase supply yield on wood and fur tiles by 50%.",
+      glyph: "🦊",
+      placement: "Build on a settled wood or fur resource tile you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    });
+  if (type === "MINE")
+    return structure({
+      title: "Mine",
+      detail: "Mines increase iron or crystal yield on mineral tiles by 50%.",
+      glyph: "⛏",
+      placement: "Build on a settled iron or crystal resource tile you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    });
+  if (type === "MARKET")
+    return structure({
+      title: "Market",
+      detail: "Markets are built on a town support tile. They increase that fed town's gold output by 50% and its gold storage cap by 50%.",
+      glyph: "◌",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "GRANARY")
+    return structure({
+      title: "Granary",
+      detail: "Granaries are built on a town support tile. They increase that town's population growth by 20% and raise its gold storage cap by 20%.",
+      glyph: "🍞",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "BANK")
+    return structure({
+      title: "Bank",
+      detail: "Banks are built on a town support tile. They increase city income by 50% and add +1 flat income.",
+      glyph: "🏦",
+      placement: "Build on an open settled support tile for a city or larger town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "CARAVANARY")
+    return structure({
+      title: "Caravanary",
+      detail: "Caravanaries are built on a town support tile. They increase that town's connected-town income bonus by 25%.",
+      glyph: "🐪",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "QUARTERMASTER")
+    return structure({
+      title: "Quartermaster",
+      detail: "Quartermasters convert gold upkeep into steady supply output on a support tile.",
+      glyph: "📦",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "IRONWORKS")
+    return structure({
+      title: "Ironworks",
+      detail: "Ironworks convert gold upkeep into steady iron output on a support tile.",
+      glyph: "⚙",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "CRYSTAL_SYNTHESIZER")
+    return structure({
+      title: "Crystal Synthesizer",
+      detail: "Crystal Synthesizers convert gold upkeep into steady crystal output on a support tile.",
+      glyph: "💎",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "FUEL_PLANT")
+    return structure({
+      title: "Fuel Plant",
+      detail: "Fuel plants convert gold upkeep into steady oil output on a support tile.",
+      glyph: "🛢",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "FOUNDRY")
+    return structure({
+      title: "Foundry",
+      detail: "Foundries double active mine output within 10 tiles.",
+      glyph: "🏭",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "CUSTOMS_HOUSE")
+    return structure({
+      title: "Customs House",
+      detail: "Customs houses are built beside a dock and increase that dock's income by 50%.",
+      glyph: "⚓",
+      placement: "Build on a settled dock support tile you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "GOVERNORS_OFFICE")
+    return structure({
+      title: "Governor's Office",
+      detail: "Governor's offices reduce local town food upkeep and settled-tile upkeep within 10 tiles.",
+      glyph: "🏛",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "GARRISON_HALL")
+    return structure({
+      title: "Garrison Hall",
+      detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles.",
+      glyph: "🪖",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "AIRPORT")
+    return structure({
+      title: "Airport",
+      detail: "Airports launch oil-fueled bombardments against enemy territory within 30 tiles.",
+      glyph: "✈",
+      placement: "Build on an open settled support tile for a large town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  if (type === "RADAR_SYSTEM")
+    return structure({
+      title: "Radar System",
+      detail: "Radar systems block enemy airport bombardment within 30 tiles and reveal the origin.",
+      glyph: "📡",
+      placement: "Build on an open settled support tile for a large town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  return structure({
+    title: "Siege Outpost",
+    detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile.",
+    glyph: "⚔",
+    placement: "Build on a settled border tile you own.",
+    costBits: costBitsFor(type),
+    buildTimeLabel: buildTimeLabelFor(type)
+  });
 };
 
 const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
@@ -3526,6 +3731,117 @@ const renderTechDetailCard = (): string => {
   });
 };
 
+const renderStructureInfoOverlay = (): string => {
+  const type = state.structureInfoKey as StructureInfoKey | "";
+  if (!type) return "";
+  const info = structureInfoForKey(type);
+  const costHtml = info.costBits.map((bit) => `<div class="structure-info-meta-card"><span>Cost</span><strong>${bit}</strong></div>`).join("");
+  const artHtml = info.image
+    ? `<div class="structure-info-art has-image"><img class="structure-info-image" src="${info.image}" alt="${info.title}" /></div>`
+    : `<div class="structure-info-art"><div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div></div>`;
+  return `<div class="structure-info-backdrop" data-structure-info-close="backdrop"></div>
+    <div class="structure-info-modal" role="dialog" aria-modal="true" aria-labelledby="structure-info-title">
+      <button class="structure-info-close" type="button" aria-label="Close structure details" data-structure-info-close="button">×</button>
+      <div class="structure-info-scroll">
+        <div class="structure-info-hero">
+          ${artHtml}
+          <div class="structure-info-head">
+            <div class="structure-info-kicker">Structure</div>
+            <h3 id="structure-info-title">${info.title}</h3>
+            <p>${info.detail}</p>
+          </div>
+        </div>
+        <div class="structure-info-meta">
+          ${costHtml}
+          <div class="structure-info-meta-card"><span>Build time</span><strong>${info.buildTimeLabel}</strong></div>
+          <div class="structure-info-meta-card"><span>Placement</span><strong>${info.placement}</strong></div>
+        </div>
+      </div>
+    </div>`;
+};
+
+const renderTechDetailModal = (): string => {
+  const tech = selectedTechInfo();
+  if (!tech) return "";
+  const byId = new Map(state.techCatalog.map((item) => [item.id, item]));
+  const tierMemo = new Map<string, number>();
+  const prereqs = techPrereqIds(tech);
+  const unlocks = unlockedByTech(tech.id);
+  const pendingUnlock = isPendingTechUnlock(tech.id);
+  const researchingThis = state.currentResearch?.techId === tech.id;
+  const researchRemaining =
+    researchingThis && typeof state.currentResearch?.completesAt === "number"
+      ? Math.max(0, state.currentResearch.completesAt - Date.now())
+      : 0;
+  const canUnlock = tech.requirements.canResearch && !state.pendingTechUnlockId && !state.currentResearch;
+  const statusText = researchingThis
+    ? `Researching now. Completes in ${formatCooldownShort(researchRemaining)}.`
+    : pendingUnlock
+      ? "Unlocking now. Waiting for server confirmation..."
+      : tech.requirements.canResearch
+        ? "Ready to unlock."
+        : prereqs.length > 0
+          ? `Requires ${techNameList(prereqs)}`
+          : "Entry tech";
+  const buttonLabel = researchingThis
+    ? `Researching ${formatCountdownClock(researchRemaining)}`
+    : pendingUnlock
+      ? "Unlocking..."
+      : canUnlock
+        ? "Unlock"
+        : state.currentResearch
+          ? "Busy"
+          : "Locked";
+  const relatedStructures = relatedStructureTypesForTech(tech);
+  const requirements = tech.requirements.checklist ?? [];
+  const requirementsHtml =
+    requirements.length > 0
+      ? `<ul class="tech-req-list">${requirements
+          .map((item) => `<li class="${item.met ? "ok" : "bad"}">${item.met ? "✓" : "✗"} ${item.label}</li>`)
+          .join("")}</ul>`
+      : `<ul class="tech-req-list"><li>None</li></ul>`;
+  return `<div class="tech-detail-backdrop" data-tech-detail-close="backdrop"></div>
+    <div class="tech-detail-modal">
+      <button class="tech-detail-close" type="button" aria-label="Close tech details" data-tech-detail-close="button">×</button>
+      <div class="tech-detail-scroll">
+        <div class="tech-detail-modal-head">
+          <div>
+            <div class="tech-detail-kicker">Technology</div>
+            <h3>${tech.name}</h3>
+            <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
+            <p class="muted">${statusText}</p>
+          </div>
+        </div>
+        <p class="tech-detail-flavor">${tech.description}</p>
+        ${
+          relatedStructures.length > 0
+            ? `<section class="structure-info-section">
+                <span class="structure-info-section-label">Structures</span>
+                <strong>${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</strong>
+              </section>`
+            : ""
+        }
+        ${
+          unlocks.length > 0
+            ? `<section class="structure-info-section">
+                <span class="structure-info-section-label">Unlocks next</span>
+                <strong>${unlocks.map((next) => `${next.name} (T${techTier(next.id, byId, tierMemo)})`).join(", ")}</strong>
+              </section>`
+            : ""
+        }
+        <section class="structure-info-section">
+          <span class="structure-info-section-label">Requirements</span>
+          ${requirementsHtml}
+        </section>
+      </div>
+      <div class="tech-detail-actions">
+        <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${tech.id}" ${
+          canUnlock || pendingUnlock || researchingThis ? "" : "disabled"
+        }>${buttonLabel}</button>
+      </div>
+    </div>`;
+};
+
 const renderDomainChoiceGrid = (): string =>
   renderDomainChoiceGridHtml({
     domainCatalog: state.domainCatalog,
@@ -3537,15 +3853,7 @@ const renderDomainChoiceGrid = (): string =>
 
 const renderTechDetailOverlay = (): string => {
   if (!state.techDetailOpen) return "";
-  const tech = selectedTechInfo();
-  if (!tech) return "";
-  return `<div class="tech-detail-backdrop" data-tech-detail-close="backdrop"></div>
-    <div class="tech-detail-modal">
-      <button class="tech-detail-close" type="button" aria-label="Close tech details" data-tech-detail-close="button">×</button>
-      <div class="tech-detail-scroll">
-        ${renderTechDetailCard()}
-      </div>
-    </div>`;
+  return renderTechDetailModal();
 };
 
 const renderDomainDetailCard = (): string => {
@@ -3919,6 +4227,8 @@ const renderHud = (): void => {
   mobileTechChoicesGridEl.innerHTML = renderTechChoiceGrid();
   techDetailCardEl.innerHTML = renderTechDetailPrompt();
   mobileTechDetailCardEl.innerHTML = renderTechDetailPrompt();
+  structureInfoOverlayEl.innerHTML = renderStructureInfoOverlay();
+  structureInfoOverlayEl.style.display = state.structureInfoKey ? "grid" : "none";
   techDetailOverlayEl.innerHTML = renderTechDetailOverlay();
   techDetailOverlayEl.style.display = state.techDetailOpen ? "grid" : "none";
   techOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
@@ -3993,8 +4303,15 @@ const renderHud = (): void => {
     btn.onclick = () => {
       const type = btn.dataset.structureInfo as StructureInfoKey | undefined;
       if (!type) return;
-      const info = structureInfoForKey(type);
-      showCaptureAlert(info.title, info.detail, "warn");
+      state.structureInfoKey = type;
+      renderHud();
+    };
+  });
+  const structureInfoCloseButtons = hud.querySelectorAll<HTMLElement>("[data-structure-info-close]");
+  structureInfoCloseButtons.forEach((btn) => {
+    btn.onclick = () => {
+      state.structureInfoKey = "";
+      renderHud();
     };
   });
   const techDetailCloseButtons = hud.querySelectorAll<HTMLElement>("[data-tech-detail-close]");
