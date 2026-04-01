@@ -122,6 +122,9 @@ export interface Tile {
     connectedTownCount: number;
     connectedTownBonus: number;
     connectedTownNames?: string[];
+    goldIncomePausedReason?: "MANPOWER_NOT_FULL";
+    manpowerCurrent?: number;
+    manpowerCap?: number;
     hasMarket: boolean;
     marketActive: boolean;
     hasGranary: boolean;
@@ -232,6 +235,7 @@ export interface Player {
   staminaUpdatedAt: number;
   manpower: number;
   manpowerUpdatedAt: number;
+  manpowerCapSnapshot?: number;
   allies: Set<PlayerId>;
   spawnOrigin?: TileKey;
   capitalTileKey?: TileKey | undefined;
