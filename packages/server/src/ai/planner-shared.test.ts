@@ -70,4 +70,30 @@ describe("planAiDecision", () => {
     expect(decision.actionKey).toBe("claim_food_border_tile");
     expect(decision.reason).toBe("executed_food_expand_priority");
   });
+
+  it("does not choose fort priority when fort building is unavailable", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      underThreat: true,
+      threatCritical: true,
+      controlledTowns: 2,
+      fortAvailable: true,
+      fortProtectsCore: true,
+      canBuildFort: false
+    });
+
+    expect(decision.actionKey).not.toBe("build_fort_on_exposed_tile");
+  });
+
+  it("falls back to neutral expansion instead of no_goap_step when only generic neutral land exists", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      neutralExpandAvailable: true,
+      frontierOpportunityWaste: 5,
+      canAffordFrontierAction: true
+    });
+
+    expect(decision.actionKey).toBe("claim_neutral_border_tile");
+    expect(decision.reason).not.toBe("no_goap_step");
+  });
 });
