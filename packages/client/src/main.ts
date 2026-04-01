@@ -1932,10 +1932,20 @@ const combatResolutionAlert = (
   msg: Record<string, unknown>,
   context?: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined }
 ): { title: string; detail: string; tone: "success" | "warn" } => {
+  const attackType = typeof msg.attackType === "string" ? msg.attackType : "";
   const origin = msg.origin as { x: number; y: number } | undefined;
   const target = msg.target as { x: number; y: number } | undefined;
   const attackerWon = Boolean(msg.attackerWon);
   const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
+  if (attackType === "SETTLE") {
+    const settledChange = changes.find((change) => change.ownershipState === "SETTLED");
+    const settledTarget = settledChange ? { x: settledChange.x, y: settledChange.y } : target;
+    return {
+      title: "Settlement Complete",
+      detail: settledTarget ? `${prettyToken(terrainLabel(settledTarget.x, settledTarget.y, terrainAt(settledTarget.x, settledTarget.y)))} was settled.` : "Land was settled.",
+      tone: "success"
+    };
+  }
   const targetOwnerName = playerNameOrFallback(context?.targetTileBefore?.ownerId);
   const targetLabel = conqueredTileLabel(context?.targetTileBefore, target);
   if (attackerWon) {
