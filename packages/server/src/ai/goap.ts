@@ -182,17 +182,15 @@ export interface AiVictoryPathScore {
 }
 
 export type AiEmpireGoalId =
-  | "fortify_capital"
+  | "fortify_core_chokepoint"
   | "secure_food_supply"
-  | "grow_income"
-  | "recover_resources"
-  | "reduce_frontier_debt"
-  | "scout_frontier"
-  | "claim_settlement_scaffold"
-  | "clear_barbarians"
-  | "settle_interior"
-  | "expand_frontier"
-  | "harass_enemy_border"
+  | "secure_core_income"
+  | "stabilize_reserves"
+  | "expand_vision_for_value"
+  | "clear_barbarian_pressure"
+  | "settle_high_value_frontier"
+  | "secure_high_value_frontier"
+  | "remove_core_threat"
   | "season_town_control"
   | "season_settled_territory"
   | "season_economic_hegemony";
@@ -248,7 +246,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["secure_food_supply", "season_economic_hegemony"],
+      goalIds: ["secure_food_supply", "secure_high_value_frontier", "season_economic_hegemony"],
       description: "Claim frontier toward food-supporting economic land."
     }
   },
@@ -265,7 +263,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["expand_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["secure_high_value_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
       description: "Claim an adjacent neutral tile."
     }
   },
@@ -282,7 +280,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["scout_frontier", "expand_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["expand_vision_for_value", "secure_high_value_frontier", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
       description: "Probe outward to reveal promising land."
     }
   },
@@ -296,11 +294,10 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     },
     effects: {
       hasScaffoldOpportunity: false,
-      needsSettlement: true,
-      frontierDebtHigh: true
+      needsSettlement: true
     },
     meta: {
-      goalIds: ["claim_settlement_scaffold", "expand_frontier", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["settle_high_value_frontier", "secure_high_value_frontier", "season_settled_territory", "season_economic_hegemony"],
       description: "Claim a border tile that sets up a strong settlement scaffold."
     }
   },
@@ -317,7 +314,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["clear_barbarians", "season_town_control", "season_economic_hegemony"],
+      goalIds: ["clear_barbarian_pressure", "season_town_control", "season_economic_hegemony"],
       description: "Clear a barbarian border tile."
     }
   },
@@ -334,7 +331,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["harass_enemy_border", "season_town_control"],
+      goalIds: ["remove_core_threat", "season_town_control"],
       description: "Push a weak neighboring border."
     }
   },
@@ -347,11 +344,10 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     },
     effects: {
       needsSettlement: false,
-      frontierDebtHigh: false,
       foodCoverageLow: false
     },
     meta: {
-      goalIds: ["settle_interior", "reduce_frontier_debt", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["settle_high_value_frontier", "secure_food_supply", "secure_core_income", "season_settled_territory", "season_economic_hegemony"],
       description: "Convert frontier territory into durable settled land."
     }
   },
@@ -367,7 +363,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsFortifiedAnchor: false
     },
     meta: {
-      goalIds: ["fortify_capital", "reduce_frontier_debt", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["fortify_core_chokepoint", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
       description: "Place a fort to stabilize an exposed edge."
     }
   },
@@ -383,7 +379,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       economyWeak: false
     },
     meta: {
-      goalIds: ["grow_income", "season_economic_hegemony"],
+      goalIds: ["secure_core_income", "season_economic_hegemony"],
       description: "Improve recurring income on secure territory."
     }
   },
@@ -398,7 +394,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       staminaHealthy: true
     },
     meta: {
-      goalIds: ["recover_resources", "fortify_capital", "season_town_control", "season_settled_territory", "season_economic_hegemony"],
+      goalIds: ["stabilize_reserves"],
       description: "Spend a tick recovering instead of forcing a bad move."
     }
   }
@@ -406,7 +402,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
 
 export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
   {
-    id: "fortify_capital",
+    id: "fortify_core_chokepoint",
     priority: 9,
     desired: { underThreat: false, needsFortifiedAnchor: false }
   },
@@ -416,49 +412,39 @@ export const AI_EMPIRE_GOALS: readonly GoapGoal<AiEmpireGoapState>[] = [
     desired: { foodCoverageLow: false }
   },
   {
-    id: "grow_income",
+    id: "secure_core_income",
     priority: 10,
     desired: { economyWeak: false }
   },
   {
-    id: "recover_resources",
+    id: "stabilize_reserves",
     priority: 8,
     desired: { goldHealthy: true, staminaHealthy: true }
   },
   {
-    id: "reduce_frontier_debt",
-    priority: 9,
-    desired: { frontierDebtHigh: false }
-  },
-  {
-    id: "scout_frontier",
+    id: "expand_vision_for_value",
     priority: 8,
     desired: { hasScoutOpportunity: false }
   },
   {
-    id: "claim_settlement_scaffold",
+    id: "secure_high_value_frontier",
     priority: 9,
-    desired: { hasScaffoldOpportunity: false, needsSettlement: true }
+    desired: { hasNeutralLandOpportunity: false, hasScaffoldOpportunity: false }
   },
   {
-    id: "clear_barbarians",
+    id: "clear_barbarian_pressure",
     priority: 7,
     desired: { hasBarbarianTarget: false }
   },
   {
-    id: "settle_interior",
-    priority: 6,
+    id: "settle_high_value_frontier",
+    priority: 9,
     desired: { needsSettlement: false }
   },
   {
-    id: "expand_frontier",
-    priority: 5,
-    desired: { needsSettlement: true }
-  },
-  {
-    id: "harass_enemy_border",
-    priority: 4,
-    desired: { hasWeakEnemyBorder: false }
+    id: "remove_core_threat",
+    priority: 10,
+    desired: { hasWeakEnemyBorder: false, threatCritical: false }
   }
 ];
 
@@ -471,12 +457,12 @@ const SEASON_GOAL_BY_VICTORY_PATH: Record<AiSeasonVictoryPathId, GoapGoal<AiEmpi
   SETTLED_TERRITORY: {
     id: "season_settled_territory",
     priority: 12,
-    desired: { needsSettlement: false, frontierDebtHigh: false }
+    desired: { needsSettlement: false }
   },
   ECONOMIC_HEGEMONY: {
     id: "season_economic_hegemony",
     priority: 13,
-    desired: { economyWeak: false, frontierDebtHigh: false, foodCoverageLow: false }
+    desired: { economyWeak: false, foodCoverageLow: false }
   }
 };
 
@@ -484,36 +470,32 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
   TOWN_CONTROL: {
     season_town_control: 5,
     secure_food_supply: 2,
-    scout_frontier: 2,
-    claim_settlement_scaffold: 1,
-    reduce_frontier_debt: 2,
-    expand_frontier: 2,
-    harass_enemy_border: 3,
-    grow_income: 1,
-    fortify_capital: 2
+    expand_vision_for_value: 2,
+    secure_high_value_frontier: 2,
+    remove_core_threat: 4,
+    secure_core_income: 1,
+    fortify_core_chokepoint: 2,
+    settle_high_value_frontier: 1
   },
   SETTLED_TERRITORY: {
     season_settled_territory: 5,
     secure_food_supply: 3,
-    scout_frontier: 1,
-    claim_settlement_scaffold: 4,
-    reduce_frontier_debt: 5,
-    expand_frontier: 1,
-    settle_interior: 4,
-    grow_income: 1,
-    recover_resources: 1
+    expand_vision_for_value: 1,
+    secure_high_value_frontier: 4,
+    settle_high_value_frontier: 5,
+    secure_core_income: 2,
+    fortify_core_chokepoint: 1,
+    stabilize_reserves: 1
   },
   ECONOMIC_HEGEMONY: {
     season_economic_hegemony: 6,
     secure_food_supply: 7,
-    scout_frontier: 3,
-    claim_settlement_scaffold: 3,
-    grow_income: 4,
-    reduce_frontier_debt: 4,
-    settle_interior: 3,
-    expand_frontier: 4,
-    clear_barbarians: 1,
-    recover_resources: -4
+    expand_vision_for_value: 3,
+    secure_core_income: 5,
+    settle_high_value_frontier: 5,
+    secure_high_value_frontier: 4,
+    clear_barbarian_pressure: 1,
+    stabilize_reserves: -2
   }
 };
 
