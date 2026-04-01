@@ -24,6 +24,7 @@ export type Tile = {
   x: number;
   y: number;
   terrain: "LAND" | "SEA" | "MOUNTAIN";
+  detailLevel?: "summary" | "full";
   fogged?: boolean;
   resource?: string;
   ownerId?: string;
