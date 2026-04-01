@@ -45,7 +45,7 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
 });
 
 describe("planAiDecision", () => {
-  it("does not choose economic expand when no exact economic candidate exists", () => {
+  it("uses generic neutral expansion fallback when no exact economic candidate exists", () => {
     const decision = planAiDecision({
       ...baseSnapshot(),
       neutralExpandAvailable: false,
@@ -53,7 +53,7 @@ describe("planAiDecision", () => {
       frontierOpportunityWaste: 8
     });
 
-    expect(decision.actionKey).not.toBe("claim_neutral_border_tile");
+    expect(decision.actionKey).toBe("claim_neutral_border_tile");
   });
 
   it("chooses food expand when an exact economic food candidate exists", () => {
