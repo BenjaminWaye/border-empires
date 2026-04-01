@@ -1572,6 +1572,8 @@ interface PendingCapture {
       ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
     }>;
     previewWinnerId?: string;
+    defenderOwnerId?: string;
+    previewManpowerDelta?: number;
   };
   timeout?: NodeJS.Timeout;
 }
@@ -6092,12 +6094,19 @@ const tryQueueBasicFrontierAction = (
       return [];
     })();
     const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id;
+    const previewManpowerDelta = -(
+      win
+        ? Math.max(10, manpowerCost * 0.16)
+        : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEff)) * 0.35)
+    );
     precomputedCombat = {
       atkEff,
       defEff,
       winChance,
       win,
       previewChanges,
+      previewManpowerDelta,
+      ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defender?.id ? { defenderOwnerId: defender.id } : {}),
       ...(previewWinnerId ? { previewWinnerId } : {})
     };
   }
@@ -6144,7 +6153,7 @@ const tryQueueBasicFrontierAction = (
     const defEff = pending.precomputedCombat?.defEff ?? 10;
     const winChance = pending.precomputedCombat?.winChance ?? 0.5;
     const win = pending.precomputedCombat?.win ?? false;
-    settleAttackManpower(actor, pending.manpowerCost, win, atkEff, defEff);
+    const manpowerDelta = -settleAttackManpower(actor, pending.manpowerCost, win, atkEff, defEff);
     applyTownWarShock(tk);
 
     let resultChanges: Array<{
@@ -6215,12 +6224,14 @@ const tryQueueBasicFrontierAction = (
       attackType: actionType,
       attackerWon: win,
       winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+      defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
       origin: { x: from.x, y: from.y },
       target: { x: to.x, y: to.y },
       atkEff,
       defEff,
       winChance,
-      changes: resultChanges
+      changes: resultChanges,
+      manpowerDelta
     });
     sendPlayerUpdate(actor, 0);
     if (defender) sendPlayerUpdate(defender, 0);
@@ -6469,9 +6480,11 @@ const executeUnifiedGameplayMessage = async (
                   attackType: msg.type,
                   attackerWon: pending.precomputedCombat.win,
                   winnerId: pending.precomputedCombat.previewWinnerId,
+                  defenderOwnerId: pending.precomputedCombat.defenderOwnerId,
                   origin: { x: msg.fromX, y: msg.fromY },
                   target: { x: msg.toX, y: msg.toY },
-                  changes: pending.precomputedCombat.previewChanges
+                  changes: pending.precomputedCombat.previewChanges,
+                  manpowerDelta: pending.precomputedCombat.previewManpowerDelta
                 }
               }
             : {})
@@ -14523,6 +14536,8 @@ app.post("/admin/world/regenerate", async () => {
             ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
           }>;
           previewWinnerId?: string;
+          defenderOwnerId?: string;
+          previewManpowerDelta?: number;
         }
       | undefined;
     if (defender || defenderIsBarbarian) {
@@ -14578,6 +14593,12 @@ app.post("/admin/world/regenerate", async () => {
         winChance,
         win,
         previewChanges,
+        previewManpowerDelta: -(
+          win
+            ? Math.max(10, manpowerCost * 0.16)
+            : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEffWithSiege)) * 0.35)
+        ),
+        ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defender?.id ? { defenderOwnerId: defender.id } : {}),
         ...(previewWinnerId ? { previewWinnerId } : {})
       };
     }
@@ -14611,9 +14632,11 @@ app.post("/admin/world/regenerate", async () => {
                 attackType: msg.type,
                 attackerWon: pending.precomputedCombat.win,
                 winnerId: pending.precomputedCombat.previewWinnerId,
+                defenderOwnerId: pending.precomputedCombat.defenderOwnerId,
                 origin: { x: from.x, y: from.y },
                 target: { x: to.x, y: to.y },
-                changes: pending.precomputedCombat.previewChanges
+                changes: pending.precomputedCombat.previewChanges,
+                manpowerDelta: pending.precomputedCombat.previewManpowerDelta
               }
             }
           : {})
@@ -14797,6 +14820,7 @@ app.post("/admin/world/regenerate", async () => {
         attackType: msg.type,
         attackerWon: win,
         winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+        defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         atkEff: atkEffWithSiege,
