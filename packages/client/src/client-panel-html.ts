@@ -155,6 +155,7 @@ export const missionCardsHtml = (missions: MissionState[]): string =>
 export const leaderboardHtml = (
   leaderboard: {
     overall: LeaderboardOverallEntry[];
+    selfOverall: LeaderboardOverallEntry | undefined;
     byTiles: LeaderboardMetricEntry[];
     byIncome: LeaderboardMetricEntry[];
     byTechs: LeaderboardMetricEntry[];
@@ -204,7 +205,8 @@ export const leaderboardHtml = (
     ${pressureCards}
     <article class="card">
       <strong>Overall</strong>
-      ${leaderboard.overall.map((entry, index) => `<div class="lb-row">${index + 1}. ${overallLine(entry)}</div>`).join("")}
+      ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLine(entry)}</div>`).join("")}
+      ${leaderboard.selfOverall ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${overallLine(leaderboard.selfOverall)}</div>` : ""}
     </article>
     <article class="card">
       <strong>Most Settled Tiles</strong>
