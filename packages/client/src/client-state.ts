@@ -169,6 +169,7 @@ export const createInitialState = () => ({
   techSection: "research" as "research" | "domains",
   techTreeExpanded: false,
   techUiSelectedId: "" as string,
+  techDetailOpen: false,
   pendingTechUnlockId: "" as string,
   techChoicesSig: "" as string,
   techTreeScrollLeft: 0,
