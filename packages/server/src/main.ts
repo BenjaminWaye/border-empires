@@ -1039,7 +1039,7 @@ const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
 const SEASON_VICTORY_SETTLED_TERRITORY_SHARE = 0.66;
 const SEASON_VICTORY_ECONOMY_MIN_INCOME = 200;
 const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
-const SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE = 0.2;
+const SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE = 0.1;
 const VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS = 2 * 60 * 60_000;
 const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
@@ -1069,7 +1069,7 @@ const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "CONTINENT_FOOTPRINT",
     name: "Continental Footprint",
-    description: "Control at least 20% of claimable land on every continent.",
+    description: "Settle at least 10% of claimable land on every island.",
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   }
 ];
@@ -9749,11 +9749,12 @@ const continentLandCounts = (): Map<number, number> => {
   return counts;
 };
 
-const continentControlledCounts = (playerId: string): Map<number, number> => {
+const continentSettledCounts = (playerId: string): Map<number, number> => {
   const counts = new Map<number, number>();
   for (const tk of players.get(playerId)?.territoryTiles ?? []) {
     const [x, y] = parseKey(tk);
     if (terrainAtRuntime(x, y) !== "LAND") continue;
+    if (ownership.get(tk) !== playerId || ownershipStateByTile.get(tk) !== "SETTLED") continue;
     const continentId = continentIdAt(x, y);
     if (continentId === undefined) continue;
     counts.set(continentId, (counts.get(continentId) ?? 0) + 1);
@@ -9897,30 +9898,40 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
       thresholdLabel = "Need 100% control of one resource type";
     } else {
       let bestLeaderId: string | undefined;
-      let bestRatio = 0;
+      let bestQualifiedCount = 0;
+      let bestRatio = -1;
       let bestMinPct = 0;
+      const totalIslands = Math.max(1, allContinents.size);
       for (const metric of metrics) {
-        const controlled = continentControlledCounts(metric.playerId);
+        const settled = continentSettledCounts(metric.playerId);
         let minRatio = Number.POSITIVE_INFINITY;
         let validContinents = 0;
+        let qualifiedCount = 0;
         for (const [continentId, totalLand] of allContinents) {
           if (totalLand <= 0) continue;
           validContinents += 1;
-          const owned = controlled.get(continentId) ?? 0;
-          minRatio = Math.min(minRatio, owned / totalLand);
+          const owned = settled.get(continentId) ?? 0;
+          const ratio = owned / totalLand;
+          if (ratio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) qualifiedCount += 1;
+          minRatio = Math.min(minRatio, ratio);
         }
         if (validContinents === 0) continue;
-        if (minRatio > bestRatio) {
+        if (
+          qualifiedCount > bestQualifiedCount ||
+          (qualifiedCount === bestQualifiedCount &&
+            (minRatio > bestRatio || (minRatio === bestRatio && metric.playerId < (bestLeaderId ?? "~"))))
+        ) {
+          bestQualifiedCount = qualifiedCount;
           bestRatio = minRatio;
           bestMinPct = Math.round(minRatio * 100);
           bestLeaderId = metric.playerId;
         }
       }
       leaderPlayerId = bestLeaderId;
-      leaderValue = bestMinPct;
+      leaderValue = bestQualifiedCount;
       conditionMet = Boolean(leaderPlayerId && bestRatio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE);
-      progressLabel = `${bestMinPct}% minimum continent share`;
-      thresholdLabel = "Need 20% of land on every continent";
+      progressLabel = `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled · weakest island ${bestMinPct}%`;
+      thresholdLabel = "Need 10% settled land on every island";
     }
 
     const winner = currentSeasonWinner();
