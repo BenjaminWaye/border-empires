@@ -445,6 +445,12 @@ interface AllianceRequest {
   toName?: string;
 }
 
+type ManpowerBreakdownLine = {
+  label: string;
+  amount: number;
+  note?: string;
+};
+
 type VictoryPressureTracker = {
   leaderPlayerId?: string;
   holdStartedAt?: number;
@@ -2947,6 +2953,17 @@ const manpowerRegenWeightForSettlementIndex = (index: number): number => {
   return 0.2;
 };
 
+const prettyTownTypeLabel = (type: TownDefinition["type"]): string => {
+  if (type === "MARKET") return "Market";
+  if (type === "FARMING") return "Farming";
+  return "Ancient";
+};
+
+const prettyTownName = (town: TownDefinition, tileKey = town.tileKey): string => {
+  const [x, y] = parseKey(tileKey);
+  return `${prettyTownTypeLabel(town.type)} town (${x}, ${y})`;
+};
+
 const playerManpowerRegenPerMinute = (player: Player): number => {
   let regen = MANPOWER_BASE_REGEN_PER_MINUTE;
   const townKeys = ownedTownKeysForPlayer(player.id);
@@ -2956,6 +2973,38 @@ const playerManpowerRegenPerMinute = (player: Player): number => {
     regen += townManpowerSnapshotForOwner(town, player.id).regenPerMinute * manpowerRegenWeightForSettlementIndex(index);
   }
   return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
+};
+
+const playerManpowerBreakdown = (
+  player: Player
+): { cap: ManpowerBreakdownLine[]; regen: ManpowerBreakdownLine[] } => {
+  const cap: ManpowerBreakdownLine[] = [{ label: "Base", amount: MANPOWER_BASE_CAP }];
+  const regen: ManpowerBreakdownLine[] = [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }];
+  const townKeys = ownedTownKeysForPlayer(player.id);
+  for (const [index, tk] of townKeys.entries()) {
+    const town = townsByTile.get(tk);
+    if (!town) continue;
+    const snapshot = townManpowerSnapshotForOwner(town, player.id);
+    if (snapshot.cap > 0) {
+      const tier = townPopulationTier(town.population);
+      const captured = (townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now();
+      cap.push({
+        label: `${prettyTownName(town, tk)} (${tier.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())})`,
+        amount: snapshot.cap,
+        ...(captured ? { note: "Recently captured" } : {})
+      });
+    }
+    if (snapshot.regenPerMinute > 0) {
+      const weight = manpowerRegenWeightForSettlementIndex(index);
+      const amount = snapshot.regenPerMinute * weight;
+      regen.push({
+        label: prettyTownName(town, tk),
+        amount,
+        ...(weight < 1 ? { note: `${Math.round(weight * 100)}% weight` } : {})
+      });
+    }
+  }
+  return { cap, regen };
 };
 
 const effectiveManpowerAt = (player: Player, nowMs = now()): number => {
@@ -5833,6 +5882,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       manpower: p.manpower,
       manpowerCap: playerManpowerCap(p),
       manpowerRegenPerMinute: playerManpowerRegenPerMinute(p),
+      manpowerBreakdown: playerManpowerBreakdown(p),
       T: p.T,
       E: p.E,
       Ts: p.Ts,
@@ -5850,6 +5900,8 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       activeRevealTargets: [...getOrInitRevealTargets(p.id)],
       abilityCooldowns: Object.fromEntries(getAbilityCooldowns(p.id)),
       pendingSettlements,
+      incomingAllianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === p.id),
+      outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === p.id),
       missions: missionPayload(p),
       leaderboard: cachedLeaderboardSnapshot,
       seasonVictory: cachedVictoryPressureObjectives,
@@ -9217,8 +9269,11 @@ const recomputeExposure = (p: Player): void => {
 const broadcastAllianceUpdate = (a: Player, b: Player): void => {
   const wa = socketsByPlayer.get(a.id);
   const wb = socketsByPlayer.get(b.id);
-  wa?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...a.allies] }));
-  wb?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...b.allies] }));
+  const outgoingFor = (playerId: string): AllianceRequest[] => [...allianceRequests.values()].filter((r) => r.fromPlayerId === playerId);
+  const incomingFor = (playerId: string): AllianceRequest[] => [...allianceRequests.values()].filter((r) => r.toPlayerId === playerId);
+  markVisibilityDirtyForPlayers([a.id, b.id, ...a.allies, ...b.allies]);
+  wa?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...a.allies], incomingAllianceRequests: incomingFor(a.id), outgoingAllianceRequests: outgoingFor(a.id) }));
+  wb?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...b.allies], incomingAllianceRequests: incomingFor(b.id), outgoingAllianceRequests: outgoingFor(b.id) }));
 };
 
 const exportPlayerStyles = (): Array<{ id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle }> => {
@@ -9264,6 +9319,19 @@ const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
   }
 
   const visibleMask = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
+  const revealRadiusForPlayer = (player: Player): void => {
+    const radius = effectiveVisionRadiusForPlayer(player);
+    for (const tk of player.territoryTiles) {
+      const [tx, ty] = parseKey(tk);
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          const vx = wrapX(tx + dx, WORLD_WIDTH);
+          const vy = wrapY(ty + dy, WORLD_HEIGHT);
+          visibleMask[tileIndex(vx, vy)] = 1;
+        }
+      }
+    }
+  };
   const forced = forcedRevealTilesByPlayer.get(p.id);
   if (forced) {
     for (const tk of forced) {
@@ -9282,17 +9350,11 @@ const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
       }
     }
   }
-
-  const radius = effectiveVisionRadiusForPlayer(p);
-  for (const tk of p.territoryTiles) {
-    const [tx, ty] = parseKey(tk);
-    for (let dy = -radius; dy <= radius; dy += 1) {
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        const vx = wrapX(tx + dx, WORLD_WIDTH);
-        const vy = wrapY(ty + dy, WORLD_HEIGHT);
-        visibleMask[tileIndex(vx, vy)] = 1;
-      }
-    }
+  revealRadiusForPlayer(p);
+  for (const allyId of p.allies) {
+    const ally = players.get(allyId);
+    if (!ally) continue;
+    revealRadiusForPlayer(ally);
   }
 
   return { allVisible: false, visibleMask };
@@ -11391,10 +11453,12 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   const visibilityAffectedPlayers = new Set<string>();
   if (oldOwner) {
     visibilityAffectedPlayers.add(oldOwner);
+    for (const allyId of players.get(oldOwner)?.allies ?? []) visibilityAffectedPlayers.add(allyId);
     for (const watcherPlayerId of revealWatchersByTarget.get(oldOwner) ?? []) visibilityAffectedPlayers.add(watcherPlayerId);
   }
   if (newOwner) {
     visibilityAffectedPlayers.add(newOwner);
+    for (const allyId of players.get(newOwner)?.allies ?? []) visibilityAffectedPlayers.add(allyId);
     for (const watcherPlayerId of revealWatchersByTarget.get(newOwner) ?? []) visibilityAffectedPlayers.add(watcherPlayerId);
   }
   markVisibilityDirtyForPlayers(visibilityAffectedPlayers);
@@ -13363,6 +13427,7 @@ app.post("/admin/world/regenerate", async () => {
             manpower: player.manpower,
             manpowerCap: playerManpowerCap(player),
             manpowerRegenPerMinute: playerManpowerRegenPerMinute(player),
+            manpowerBreakdown: playerManpowerBreakdown(player),
             T: player.T,
             E: player.E,
             Ts: player.Ts,
@@ -13411,7 +13476,8 @@ app.post("/admin/world/regenerate", async () => {
           leaderboard: currentLeaderboardSnapshot(),
           seasonVictory: currentVictoryPressureObjectives(),
           seasonWinner,
-          allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id)
+          allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id),
+          outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === player.id)
         })
       );
       const authSync = authSyncTimingByPlayer.get(player.id);
@@ -14578,12 +14644,6 @@ app.post("/admin/world/regenerate", async () => {
   socket.on("close", () => {
     if (authedPlayer) {
       for (const pcap of pendingCapturesByAttacker(authedPlayer.id)) cancelPendingCapture(pcap);
-      for (const settle of [...pendingSettlementsByTile.values()]) {
-        if (settle.ownerId !== authedPlayer.id) continue;
-        settle.cancelled = true;
-        if (settle.timeout) clearTimeout(settle.timeout);
-        pendingSettlementsByTile.delete(settle.tileKey);
-      }
       socketsByPlayer.delete(authedPlayer.id);
       chunkSubscriptionByPlayer.delete(authedPlayer.id);
       chunkSnapshotSentAtByPlayer.delete(authedPlayer.id);
