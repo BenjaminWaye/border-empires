@@ -20,6 +20,7 @@ import {
   DEEP_STRIKE_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
   ECONOMIC_STRUCTURE_BUILD_MS,
+  ECONOMIC_STRUCTURE_REMOVE_MS,
   FRONTIER_CLAIM_MS,
   DOCK_CROSSING_COOLDOWN_MS,
   DOCK_DEFENSE_MULT,
@@ -4103,7 +4104,7 @@ const playerTileSummary = (x: number, y: number): Tile => {
       type: economicStructure.type,
       status: economicStructure.status
     };
-    if (economicStructure.status === "under_construction" && economicStructure.completesAt !== undefined) {
+    if ((economicStructure.status === "under_construction" || economicStructure.status === "removing") && economicStructure.completesAt !== undefined) {
       tile.economicStructure.completesAt = economicStructure.completesAt;
     }
   }
@@ -4244,7 +4245,9 @@ const playerTile = (x: number, y: number): Tile => {
       type: economicStructure.type,
       status: economicStructure.status
     };
-    if (economicStructure.completesAt !== undefined) tile.economicStructure.completesAt = economicStructure.completesAt;
+    if ((economicStructure.status === "under_construction" || economicStructure.status === "removing") && economicStructure.completesAt !== undefined) {
+      tile.economicStructure.completesAt = economicStructure.completesAt;
+    }
   }
   if (history && (history.captureCount > 0 || history.structureHistory.length > 0 || history.lastStructureType)) {
     const historyView: NonNullable<Tile["history"]> = {
@@ -5270,7 +5273,7 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
   for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
     const structure = economicStructuresByTile.get(tk);
     if (!structure) continue;
-    if (structure.status === "under_construction") continue;
+    if (structure.status === "under_construction" || structure.status === "removing") continue;
     const [x, y] = parseKey(tk);
     const tile = playerTile(x, y);
     const canRemainActive =
@@ -6217,6 +6220,18 @@ const executeUnifiedGameplayMessage = async (
     }
     updateOwnership(msg.x, msg.y, actor.id);
     sendPlayerUpdate(actor, 0);
+    return true;
+  }
+
+  if (msg.type === "CANCEL_STRUCTURE_BUILD") {
+    const tk = key(wrapX(msg.x, WORLD_WIDTH), wrapY(msg.y, WORLD_HEIGHT));
+    const structure = economicStructuresByTile.get(tk);
+    if (!structure || structure.ownerId !== actor.id || (structure.status !== "under_construction" && structure.status !== "removing")) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "STRUCTURE_CANCEL_INVALID", message: "no removable structure action on tile" }));
+      return true;
+    }
+    cancelEconomicStructureBuild(tk);
+    updateOwnership(msg.x, msg.y, actor.id);
     return true;
   }
 
@@ -10557,7 +10572,7 @@ const activeDevelopmentProcessCountForPlayer = (playerId: string): number => {
     if (siege.ownerId === playerId && siege.status === "under_construction") n += 1;
   }
   for (const structure of economicStructuresByTile.values()) {
-    if (structure.ownerId === playerId && structure.status === "under_construction") n += 1;
+    if (structure.ownerId === playerId && (structure.status === "under_construction" || structure.status === "removing")) n += 1;
   }
   return n;
 };
@@ -10623,7 +10638,44 @@ const cancelEconomicStructureBuild = (tileKey: TileKey): void => {
     economicStructuresByTile.delete(tileKey);
     const [x, y] = parseKey(tileKey);
     markSummaryChunkDirtyAtTile(x, y);
+    return;
   }
+  if (structure?.status === "removing") {
+    structure.status = structure.previousStatus ?? "inactive";
+    delete structure.previousStatus;
+    delete structure.completesAt;
+    const [x, y] = parseKey(tileKey);
+    markSummaryChunkDirtyAtTile(x, y);
+  }
+};
+
+const completeEconomicStructureRemoval = (tileKey: TileKey): void => {
+  const structure = economicStructuresByTile.get(tileKey);
+  if (!structure || structure.status !== "removing") return;
+  economicStructureBuildTimers.delete(tileKey);
+  untrackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, tileKey);
+  economicStructuresByTile.delete(tileKey);
+  const [x, y] = parseKey(tileKey);
+  markSummaryChunkDirtyAtTile(x, y);
+  updateOwnership(x, y, structure.ownerId);
+};
+
+const tryRemoveEconomicStructure = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  const t = playerTile(x, y);
+  const tk = key(t.x, t.y);
+  const structure = economicStructuresByTile.get(tk);
+  if (!structure || structure.ownerId !== actor.id) return { ok: false, reason: "no owned structure on tile" };
+  if (structure.status === "under_construction") return { ok: false, reason: "cancel construction instead" };
+  if (structure.status === "removing") return { ok: false, reason: "structure is already being removed" };
+  if (t.terrain !== "LAND" || t.ownerId !== actor.id || t.ownershipState !== "SETTLED") return { ok: false, reason: "structure requires settled owned tile" };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
+  structure.previousStatus = structure.status;
+  structure.status = "removing";
+  structure.completesAt = now() + ECONOMIC_STRUCTURE_REMOVE_MS;
+  markSummaryChunkDirtyAtTile(x, y);
+  const timer = setTimeout(() => completeEconomicStructureRemoval(tk), ECONOMIC_STRUCTURE_REMOVE_MS);
+  economicStructureBuildTimers.set(tk, timer);
+  return { ok: true };
 };
 
 const consumeStrategicResource = (player: Player, resource: StrategicResource, amount: number): boolean => {
@@ -12209,28 +12261,39 @@ const bootstrapRuntimeState = (): void => {
     siegeOutpostBuildTimers.set(tk, timer);
   }
   for (const [tk, structure] of economicStructuresByTile.entries()) {
-    if (structure.status !== "under_construction" || structure.completesAt === undefined) continue;
+    if (structure.completesAt === undefined) continue;
     const remaining = structure.completesAt - now();
-    if (remaining <= 0) {
-      structure.status = "active";
-      delete structure.completesAt;
+    if (structure.status === "under_construction") {
+      if (remaining <= 0) {
+        structure.status = "active";
+        delete structure.completesAt;
+        continue;
+      }
+      const [sx, sy] = parseKey(tk);
+      const timer = setTimeout(() => {
+        const current = economicStructuresByTile.get(tk);
+        if (!current) return;
+        const tileNow = runtimeTileCore(sx, sy);
+        if (tileNow.ownerId !== current.ownerId || tileNow.ownershipState !== "SETTLED") {
+          cancelEconomicStructureBuild(tk);
+          return;
+        }
+        current.status = "active";
+        delete current.completesAt;
+        economicStructureBuildTimers.delete(tk);
+        updateOwnership(sx, sy, current.ownerId);
+      }, remaining);
+      economicStructureBuildTimers.set(tk, timer);
       continue;
     }
-    const [sx, sy] = parseKey(tk);
-    const timer = setTimeout(() => {
-      const current = economicStructuresByTile.get(tk);
-      if (!current) return;
-      const tileNow = runtimeTileCore(sx, sy);
-      if (tileNow.ownerId !== current.ownerId || tileNow.ownershipState !== "SETTLED") {
-        cancelEconomicStructureBuild(tk);
-        return;
+    if (structure.status === "removing") {
+      if (remaining <= 0) {
+        completeEconomicStructureRemoval(tk);
+        continue;
       }
-      current.status = "active";
-      delete current.completesAt;
-      economicStructureBuildTimers.delete(tk);
-      updateOwnership(sx, sy, current.ownerId);
-    }, remaining);
-    economicStructureBuildTimers.set(tk, timer);
+      const timer = setTimeout(() => completeEconomicStructureRemoval(tk), remaining);
+      economicStructureBuildTimers.set(tk, timer);
+    }
   }
   for (const settlement of pendingSettlementsByTile.values()) {
     if (settlement.resolvesAt <= now()) resolvePendingSettlement(settlement);
@@ -13463,6 +13526,29 @@ app.post("/admin/world/regenerate", async () => {
       }
       cancelFortBuild(tk);
       updateOwnership(msg.x, msg.y, actor.id);
+      return;
+    }
+
+    if (msg.type === "CANCEL_STRUCTURE_BUILD") {
+      const tk = key(wrapX(msg.x, WORLD_WIDTH), wrapY(msg.y, WORLD_HEIGHT));
+      const structure = economicStructuresByTile.get(tk);
+      if (!structure || structure.ownerId !== actor.id || (structure.status !== "under_construction" && structure.status !== "removing")) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "STRUCTURE_CANCEL_INVALID", message: "no removable structure action on tile" }));
+        return;
+      }
+      cancelEconomicStructureBuild(tk);
+      updateOwnership(msg.x, msg.y, actor.id);
+      return;
+    }
+
+    if (msg.type === "REMOVE_ECONOMIC_STRUCTURE") {
+      const out = tryRemoveEconomicStructure(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "ECONOMIC_STRUCTURE_REMOVE_INVALID", message: out.reason }));
+        return;
+      }
+      updateOwnership(msg.x, msg.y, actor.id);
+      sendPlayerUpdate(actor, 0);
       return;
     }
 

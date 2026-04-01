@@ -63,8 +63,9 @@ export interface EconomicStructure {
   type: EconomicStructureType;
   tileKey: TileKey;
   ownerId: PlayerId;
-  status: "under_construction" | "active" | "inactive";
+  status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number;
+  previousStatus?: "active" | "inactive";
   nextUpkeepAt: number;
 }
 
@@ -148,7 +149,7 @@ export interface Tile {
   economicStructure?: {
     ownerId: PlayerId;
     type: EconomicStructureType;
-    status: "under_construction" | "active" | "inactive";
+    status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
   };
   sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };
