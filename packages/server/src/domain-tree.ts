@@ -8,10 +8,14 @@ export type DomainResourceKey = "gold" | "food" | "iron" | "supply" | "crystal" 
 export interface DomainEffects {
   unlockRevealEmpire?: boolean;
   buildCapacityAdd?: number;
+  developmentProcessCapacityAdd?: number;
   settlementSpeedMult?: number;
   operationalTempoMult?: number;
+  researchTimeMult?: number;
+  abilityCooldownMult?: number;
   populationGrowthMult?: number;
   firstThreeTownsPopulationGrowthMult?: number;
+  firstThreeTownsGoldOutputMult?: number;
   populationCapFirst3TownsMult?: number;
   growthPauseDurationMult?: number;
   townFoodUpkeepMult?: number;
@@ -40,6 +44,7 @@ export interface DomainEffects {
   observatoryProtectionRadiusBonus?: number;
   observatoryCastRadiusBonus?: number;
   observatoryVisionBonus?: number;
+  frontierDefenseAdd?: number;
   settledDefenseMult?: number;
   attackVsSettledMult?: number;
   attackVsFortsMult?: number;
@@ -73,10 +78,14 @@ const DomainEffectsSchema = z
   .object({
     unlockRevealEmpire: z.boolean().optional(),
     buildCapacityAdd: z.number().int().optional(),
+    developmentProcessCapacityAdd: z.number().int().optional(),
     settlementSpeedMult: z.number().positive().optional(),
     operationalTempoMult: z.number().positive().optional(),
+    researchTimeMult: z.number().positive().optional(),
+    abilityCooldownMult: z.number().positive().optional(),
     populationGrowthMult: z.number().positive().optional(),
     firstThreeTownsPopulationGrowthMult: z.number().positive().optional(),
+    firstThreeTownsGoldOutputMult: z.number().positive().optional(),
     populationCapFirst3TownsMult: z.number().positive().optional(),
     growthPauseDurationMult: z.number().positive().optional(),
     townFoodUpkeepMult: z.number().positive().optional(),
@@ -105,6 +114,7 @@ const DomainEffectsSchema = z
     observatoryProtectionRadiusBonus: z.number().int().min(0).optional(),
     observatoryCastRadiusBonus: z.number().int().min(0).optional(),
     observatoryVisionBonus: z.number().int().min(0).optional(),
+    frontierDefenseAdd: z.number().nonnegative().optional(),
     settledDefenseMult: z.number().positive().optional(),
     attackVsSettledMult: z.number().positive().optional(),
     attackVsFortsMult: z.number().positive().optional(),
@@ -204,11 +214,19 @@ export const loadDomainTree = (cwd: string): LoadedDomainTree => {
       const effects: NonNullable<DomainDef["effects"]> = {};
       if (typeof d.effects.unlockRevealEmpire === "boolean") effects.unlockRevealEmpire = d.effects.unlockRevealEmpire;
       if (typeof d.effects.buildCapacityAdd === "number") effects.buildCapacityAdd = d.effects.buildCapacityAdd;
+      if (typeof d.effects.developmentProcessCapacityAdd === "number") {
+        effects.developmentProcessCapacityAdd = d.effects.developmentProcessCapacityAdd;
+      }
       if (typeof d.effects.settlementSpeedMult === "number") effects.settlementSpeedMult = d.effects.settlementSpeedMult;
       if (typeof d.effects.operationalTempoMult === "number") effects.operationalTempoMult = d.effects.operationalTempoMult;
+      if (typeof d.effects.researchTimeMult === "number") effects.researchTimeMult = d.effects.researchTimeMult;
+      if (typeof d.effects.abilityCooldownMult === "number") effects.abilityCooldownMult = d.effects.abilityCooldownMult;
       if (typeof d.effects.populationGrowthMult === "number") effects.populationGrowthMult = d.effects.populationGrowthMult;
       if (typeof d.effects.firstThreeTownsPopulationGrowthMult === "number") {
         effects.firstThreeTownsPopulationGrowthMult = d.effects.firstThreeTownsPopulationGrowthMult;
+      }
+      if (typeof d.effects.firstThreeTownsGoldOutputMult === "number") {
+        effects.firstThreeTownsGoldOutputMult = d.effects.firstThreeTownsGoldOutputMult;
       }
       if (typeof d.effects.populationCapFirst3TownsMult === "number") effects.populationCapFirst3TownsMult = d.effects.populationCapFirst3TownsMult;
       if (typeof d.effects.growthPauseDurationMult === "number") effects.growthPauseDurationMult = d.effects.growthPauseDurationMult;
@@ -250,6 +268,7 @@ export const loadDomainTree = (cwd: string): LoadedDomainTree => {
       if (typeof d.effects.observatoryVisionBonus === "number") {
         effects.observatoryVisionBonus = d.effects.observatoryVisionBonus;
       }
+      if (typeof d.effects.frontierDefenseAdd === "number") effects.frontierDefenseAdd = d.effects.frontierDefenseAdd;
       if (typeof d.effects.settledDefenseMult === "number") effects.settledDefenseMult = d.effects.settledDefenseMult;
       if (typeof d.effects.attackVsSettledMult === "number") effects.attackVsSettledMult = d.effects.attackVsSettledMult;
       if (typeof d.effects.attackVsFortsMult === "number") effects.attackVsFortsMult = d.effects.attackVsFortsMult;
