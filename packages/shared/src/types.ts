@@ -91,6 +91,34 @@ export interface SeasonWinnerView {
   objectiveName: string;
 }
 
+export interface TruceRequest {
+  id: string;
+  fromPlayerId: PlayerId;
+  toPlayerId: PlayerId;
+  createdAt: number;
+  expiresAt: number;
+  durationHours: 12 | 24;
+  fromName?: string;
+  toName?: string;
+}
+
+export interface ActiveTruceView {
+  otherPlayerId: PlayerId;
+  otherPlayerName: string;
+  startedAt: number;
+  endsAt: number;
+  createdByPlayerId: PlayerId;
+}
+
+export interface ActiveAetherBridgeView {
+  bridgeId: string;
+  ownerId: PlayerId;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  startedAt: number;
+  endsAt: number;
+}
+
 export interface Tile {
   x: number;
   y: number;

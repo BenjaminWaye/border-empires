@@ -1,4 +1,5 @@
 import type {
+  ActiveTruceView,
   AllianceRequest,
   FeedEntry,
   FeedType,
@@ -6,7 +7,8 @@ import type {
   LeaderboardOverallEntry,
   MissionState,
   SeasonVictoryObjectiveView,
-  SeasonWinnerView
+  SeasonWinnerView,
+  TruceRequest
 } from "./client-types.js";
 
 const feedIcon = (type: FeedType): string => {
@@ -59,6 +61,44 @@ export const alliesHtml = (allies: string[], playerNameForOwner: (ownerId?: stri
       <button class="panel-btn break-ally" data-ally-id="${id}">Break</button>
     </article>`
     )
+    .join("");
+};
+
+export const truceRequestsHtml = (
+  requests: TruceRequest[],
+  playerNameForOwner: (ownerId?: string | null) => string | undefined
+): string => {
+  if (requests.length === 0) return `<article class="card"><p>No incoming truces.</p></article>`;
+  return requests
+    .map(
+      (request) => `<article class="card alliance-row">
+      <div>
+        <strong>${request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)}</strong>
+        <p>${request.durationHours}h truce</p>
+      </div>
+      <button class="panel-btn accept-truce" data-truce-request-id="${request.id}">Accept</button>
+    </article>`
+    )
+    .join("");
+};
+
+export const activeTrucesHtml = (
+  truces: ActiveTruceView[],
+  playerNameForOwner: (ownerId?: string | null) => string | undefined
+): string => {
+  if (truces.length === 0) return `<article class="card"><p>No active truces.</p></article>`;
+  return truces
+    .map((truce) => {
+      const remainingMs = Math.max(0, truce.endsAt - Date.now());
+      const remainingHours = remainingMs >= 3_600_000 ? `${Math.ceil(remainingMs / 3_600_000)}h left` : `${Math.ceil(remainingMs / 60_000)}m left`;
+      return `<article class="card alliance-row">
+      <div>
+        <strong>${truce.otherPlayerName ?? playerNameForOwner(truce.otherPlayerId) ?? truce.otherPlayerId.slice(0, 8)}</strong>
+        <p>Truce · ${remainingHours}</p>
+      </div>
+      <button class="panel-btn break-truce" data-truce-player-id="${truce.otherPlayerId}">Break</button>
+    </article>`;
+    })
     .join("");
 };
 
