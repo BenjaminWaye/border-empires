@@ -110,6 +110,8 @@ import { buildChunkFromInput, serializeChunkBatchBodies, serializeChunkBody, typ
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
+const DEBUG_SPAWN_NEAR_AI = process.env.DEBUG_SPAWN_NEAR_AI === "1";
+const STARTING_MANPOWER = Math.max(MANPOWER_BASE_CAP, Number(process.env.STARTING_MANPOWER ?? MANPOWER_BASE_CAP));
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 const AI_DISPATCH_INTERVAL_MS = Math.max(100, Number(process.env.AI_DISPATCH_INTERVAL_MS ?? 250));
 const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
@@ -1593,9 +1595,9 @@ const ensureAiPlayers = (): void => {
       Es: 0,
       stamina: STAMINA_MAX,
       staminaUpdatedAt: now(),
-      manpower: MANPOWER_BASE_CAP,
+      manpower: STARTING_MANPOWER,
       manpowerUpdatedAt: now(),
-      manpowerCapSnapshot: MANPOWER_BASE_CAP,
+      manpowerCapSnapshot: STARTING_MANPOWER,
       allies: new Set<string>(),
       spawnShieldUntil: now() + 120_000,
       isEliminated: false,
@@ -4044,9 +4046,9 @@ const clearWorldProgressForSeason = (): void => {
     p.spawnShieldUntil = now() + 120_000;
     p.stamina = STAMINA_MAX;
     p.staminaUpdatedAt = now();
-    p.manpower = playerManpowerCap(p);
+    p.manpower = Math.max(playerManpowerCap(p), STARTING_MANPOWER);
     p.manpowerUpdatedAt = now();
-    p.manpowerCapSnapshot = playerManpowerCap(p);
+    p.manpowerCapSnapshot = Math.max(playerManpowerCap(p), STARTING_MANPOWER);
     p.isEliminated = false;
     p.respawnPending = false;
     p.missions = [];
@@ -6460,7 +6462,39 @@ const tryQueueBasicFrontierAction = (
   fromY: number,
   toX: number,
   toY: number
-): { ok: true; resolvesAt: number } | { ok: false; code: string; message: string } => {
+):
+  | {
+      ok: true;
+      resolvesAt: number;
+      origin: { x: number; y: number };
+      target: { x: number; y: number };
+      predictedResult?: {
+        attackType: BasicFrontierActionType;
+        attackerWon: boolean;
+        winnerId?: string;
+        defenderOwnerId?: string;
+        origin: { x: number; y: number };
+        target: { x: number; y: number };
+        changes: Array<{
+          x: number;
+          y: number;
+          ownerId?: string;
+          ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+        }>;
+        manpowerDelta?: number;
+      };
+      attackAlert?: {
+        defenderId: string;
+        attackerId: string;
+        attackerName: string;
+        x: number;
+        y: number;
+        fromX: number;
+        fromY: number;
+        resolvesAt: number;
+      };
+    }
+  | { ok: false; code: string; message: string } => {
   applyStaminaRegen(actor);
   actor.lastActiveAt = now();
 
@@ -6692,7 +6726,44 @@ const tryQueueBasicFrontierAction = (
     if (defender && !defenderIsBarbarian) sendLocalVisionDeltaForPlayer(defender.id, changedCenters);
   }, resolvesAt - now());
 
-  return { ok: true, resolvesAt };
+  const result = {
+    ok: true as const,
+    resolvesAt,
+    origin: { x: from.x, y: from.y },
+    target: { x: to.x, y: to.y }
+  };
+  const predictedResult = precomputedCombat
+    ? {
+        attackType: actionType,
+        attackerWon: precomputedCombat.win,
+        origin: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        changes: precomputedCombat.previewChanges,
+        ...(precomputedCombat.previewWinnerId ? { winnerId: precomputedCombat.previewWinnerId } : {}),
+        ...(precomputedCombat.defenderOwnerId ? { defenderOwnerId: precomputedCombat.defenderOwnerId } : {}),
+        ...(typeof precomputedCombat.previewManpowerDelta === "number" ? { manpowerDelta: precomputedCombat.previewManpowerDelta } : {})
+      }
+    : undefined;
+  if (defender && !defenderIsBarbarian && actionType === "ATTACK") {
+    return {
+      ...result,
+      ...(predictedResult ? { predictedResult } : {}),
+      attackAlert: {
+        defenderId: defender.id,
+        attackerId: actor.id,
+        attackerName: actor.name,
+        x: to.x,
+        y: to.y,
+        fromX: from.x,
+        fromY: from.y,
+        resolvesAt
+      }
+    };
+  }
+  return {
+    ...result,
+    ...(predictedResult ? { predictedResult } : {})
+  };
 };
 
 const chooseAiTech = (actor: Player): string | undefined => {
@@ -6890,7 +6961,7 @@ const executeUnifiedGameplayMessage = async (
       return true;
     }
     sendTechUpdate(actor, "started");
-    broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
+    broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
     sendPlayerUpdate(actor, 0);
     return true;
   }
@@ -6915,7 +6986,7 @@ const executeUnifiedGameplayMessage = async (
         activeRevealTargets: [...getOrInitRevealTargets(actor.id)]
       })
     );
-    broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
+    broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
     sendPlayerUpdate(actor, 0);
     return true;
   }
@@ -6928,29 +6999,27 @@ const executeUnifiedGameplayMessage = async (
     if (!result.ok) {
       socket.send(JSON.stringify({ type: "ERROR", code: result.code, message: result.message }));
     } else {
-      const pending = combatLocks.get(key(msg.fromX, msg.fromY));
       socket.send(
         JSON.stringify({
           type: "COMBAT_START",
-          origin: { x: msg.fromX, y: msg.fromY },
-          target: { x: msg.toX, y: msg.toY },
+          origin: result.origin,
+          target: result.target,
           resolvesAt: result.resolvesAt,
-          ...(pending?.precomputedCombat
-            ? {
-                predictedResult: {
-                  attackType: msg.type,
-                  attackerWon: pending.precomputedCombat.win,
-                  winnerId: pending.precomputedCombat.previewWinnerId,
-                  defenderOwnerId: pending.precomputedCombat.defenderOwnerId,
-                  origin: { x: msg.fromX, y: msg.fromY },
-                  target: { x: msg.toX, y: msg.toY },
-                  changes: pending.precomputedCombat.previewChanges,
-                  manpowerDelta: pending.precomputedCombat.previewManpowerDelta
-                }
-              }
-            : {})
+          ...(result.predictedResult ? { predictedResult: result.predictedResult } : {})
         })
       );
+      if (result.attackAlert) {
+        sendToPlayer(result.attackAlert.defenderId, {
+          type: "ATTACK_ALERT",
+          attackerId: result.attackAlert.attackerId,
+          attackerName: result.attackAlert.attackerName,
+          x: result.attackAlert.x,
+          y: result.attackAlert.y,
+          fromX: result.attackAlert.fromX,
+          fromY: result.attackAlert.fromY,
+          resolvesAt: result.attackAlert.resolvesAt
+        });
+      }
     }
     return true;
   }
@@ -9945,16 +10014,19 @@ const broadcastTruceUpdate = (a: Player, b: Player, announcement?: string): void
   );
 };
 
-const exportPlayerStyles = (): Array<{ id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle }> => {
-  return [...players.values()].map((p) => {
-    const out: { id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle } = {
-      id: p.id,
-      name: p.name,
-      visualStyle: empireStyleFromPlayer(p)
-    };
-    if (p.tileColor) out.tileColor = p.tileColor;
-    return out;
-  });
+const playerStylePayload = (player: Player): { id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle; shieldUntil: number } => {
+  const out: { id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle; shieldUntil: number } = {
+    id: player.id,
+    name: player.name,
+    visualStyle: empireStyleFromPlayer(player),
+    shieldUntil: player.spawnShieldUntil
+  };
+  if (player.tileColor) out.tileColor = player.tileColor;
+  return out;
+};
+
+const exportPlayerStyles = (): Array<{ id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle; shieldUntil: number }> => {
+  return [...players.values()].map((p) => playerStylePayload(p));
 };
 
 const chunkCountX = Math.ceil(WORLD_WIDTH / CHUNK_SIZE);
@@ -11562,7 +11634,7 @@ const completeDueResearchForPlayer = (player: Player): void => {
   applyManpowerRegen(player);
   recomputeClusterBonusForPlayer(player);
   sendTechUpdate(player, "completed");
-  broadcast({ type: "PLAYER_STYLE", playerId: player.id, tileColor: player.tileColor, visualStyle: empireStyleFromPlayer(player) });
+  broadcast({ type: "PLAYER_STYLE", playerId: player.id, ...playerStylePayload(player) });
   sendPlayerUpdate(player, 0);
 };
 
@@ -12512,9 +12584,31 @@ const spawnPlayer = (p: Player): void => {
     p.spawnShieldUntil = now() + 120_000;
     p.isEliminated = false;
     p.respawnPending = false;
+    broadcast({ type: "PLAYER_STYLE", playerId: p.id, ...playerStylePayload(p) });
     if (appRef) appRef.log.info({ playerId: p.id, x, y }, "spawned player");
     return true;
   };
+
+  if (!p.isAi && DEBUG_SPAWN_NEAR_AI) {
+    for (const other of players.values()) {
+      if (!other.isAi) continue;
+      const home = playerHomeTile(other);
+      const spawnOrigin = other.spawnOrigin;
+      const [ox, oy] = home ? [home.x, home.y] : spawnOrigin ? parseKey(spawnOrigin) : [Number.NaN, Number.NaN];
+      if (Number.isNaN(ox) || Number.isNaN(oy)) continue;
+      const neighbors: Array<[number, number]> = [
+        [ox, oy - 1],
+        [ox + 1, oy],
+        [ox, oy + 1],
+        [ox - 1, oy]
+      ];
+      for (const [nxRaw, nyRaw] of neighbors) {
+        const nx = wrapX(nxRaw, WORLD_WIDTH);
+        const ny = wrapY(nyRaw, WORLD_HEIGHT);
+        if (trySpawnAt(nx, ny)) return;
+      }
+    }
+  }
 
   for (let i = 0; i < 8000; i += 1) {
     const x = Math.floor(Math.random() * WORLD_WIDTH);
@@ -12672,9 +12766,9 @@ const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefine
       Es: 0,
       stamina: STAMINA_MAX,
       staminaUpdatedAt: now(),
-      manpower: MANPOWER_BASE_CAP,
+      manpower: STARTING_MANPOWER,
       manpowerUpdatedAt: now(),
-      manpowerCapSnapshot: MANPOWER_BASE_CAP,
+      manpowerCapSnapshot: STARTING_MANPOWER,
       allies: new Set<string>(),
       spawnShieldUntil: now() + 120_000,
       isEliminated: false,
@@ -14553,7 +14647,7 @@ app.post("/admin/world/regenerate", async () => {
 
     if (msg.type === "SET_TILE_COLOR") {
       actor.tileColor = msg.color;
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
+      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       return;
     }
 
@@ -14572,7 +14666,7 @@ app.post("/admin/world/regenerate", async () => {
           break;
         }
       }
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
+      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;
     }
@@ -14920,7 +15014,7 @@ app.post("/admin/world/regenerate", async () => {
         return;
       }
       sendTechUpdate(actor, "started");
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
+      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;
     }
@@ -14946,7 +15040,7 @@ app.post("/admin/world/regenerate", async () => {
           activeRevealTargets: [...getOrInitRevealTargets(actor.id)]
         })
       );
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, tileColor: actor.tileColor, visualStyle: empireStyleFromPlayer(actor) });
+      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;
     }
