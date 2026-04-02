@@ -9160,9 +9160,7 @@ const draw = (): void => {
                 : borderColorForOwner(ownerId, t.ownershipState);
         ctx.lineWidth = borderLineWidthForOwner(ownerId, t.ownershipState);
         ctx.lineDashOffset = 0;
-        if (visualStyleForOwner(ownerId)?.borderStyle === "DASHED") ctx.setLineDash([4, 3]);
-        else if (visualStyleForOwner(ownerId)?.borderStyle === "SOFT") ctx.setLineDash([10, 6]);
-        else ctx.setLineDash([]);
+        ctx.setLineDash([]);
         drawExposedTileBorder(t, px, py, size);
         ctx.setLineDash([]);
         ctx.lineDashOffset = 0;
