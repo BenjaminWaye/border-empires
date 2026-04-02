@@ -210,6 +210,7 @@ const {
   panelActionButtons,
   panelAllianceEl,
   panelCloseBtn,
+  panelDomainsEl,
   panelDomainsContentEl,
   panelDefensibilityEl,
   panelEconomyEl,
@@ -2776,6 +2777,7 @@ const renderMobilePanels = (): void => {
     s.style.display = s.id === `panel-${state.activePanel}` ? "grid" : "none";
   });
   sidePanelEl.classList.toggle("tech-panel-active", state.activePanel === "tech" && state.techTreeExpanded);
+  sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
   mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
 
   if (!isMobile()) {
@@ -4286,7 +4288,8 @@ const renderDomainChoiceGrid = (): string =>
     domainIds: state.domainIds,
     domainUiSelectedId: state.domainUiSelectedId,
     ownedByTier: ownedDomainByTier(state.domainCatalog, state.domainIds),
-    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices)
+    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices),
+    requiresTechNames: Object.fromEntries(state.domainCatalog.map((domain) => [domain.id, techNameList([domain.requiresTechId])]))
   });
 
 const visibleShardCacheCount = (): number =>
@@ -4679,8 +4682,10 @@ const renderHud = (): void => {
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
   panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
-  panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !techDetailsUseOverlay() && state.techSection === "research");
+  panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !techDetailsUseOverlay());
   mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
+  panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
+  hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
   const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
   weakDefButtons.forEach((btn) => {
     btn.onclick = () => {
@@ -4757,6 +4762,7 @@ const renderHud = (): void => {
       if (!id) return;
       state.techUiSelectedId = id;
       state.techDetailOpen = true;
+      state.domainDetailOpen = false;
       if (visibleTechChoices.includes(id)) {
         techPickEl.value = id;
         mobileTechPickEl.value = id;
@@ -4778,10 +4784,16 @@ const renderHud = (): void => {
       const id = btn.dataset.domainCard;
       if (!id) return;
       state.domainUiSelectedId = id;
+      state.domainDetailOpen = true;
+      state.techDetailOpen = false;
       renderHud();
-      requestAnimationFrame(() => {
-        hud.querySelector<HTMLElement>("[data-domain-detail-card]")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      });
+    };
+  });
+  const domainDetailCloseButtons = hud.querySelectorAll<HTMLElement>("[data-domain-detail-close]");
+  domainDetailCloseButtons.forEach((btn) => {
+    btn.onclick = () => {
+      state.domainDetailOpen = false;
+      renderHud();
     };
   });
   const domainUnlockButtons = hud.querySelectorAll<HTMLButtonElement>("[data-domain-unlock]");
@@ -4839,13 +4851,17 @@ const renderHud = (): void => {
   mobileFeedEl.innerHTML = feedHtml(state.feed);
 
   panelDomainsContentEl.innerHTML = `
-    ${renderDomainProgressCard()}
-    ${renderDomainChoiceGrid()}
-    ${renderDomainDetailCard()}
-    ${domainOwnedHtml(state.domainCatalog, state.domainIds)}
-    <div class="card auth-settings-card">
-      <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
-      <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
+    <div id="domains-overview-content">
+      ${renderDomainProgressCard()}
+      ${renderDomainChoiceGrid()}
+      ${domainOwnedHtml(state.domainCatalog, state.domainIds)}
+      <div class="card auth-settings-card">
+        <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
+        <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
+      </div>
+    </div>
+    <div id="domains-detail-content">
+      ${renderDomainDetailCard()}
     </div>
   `;
 

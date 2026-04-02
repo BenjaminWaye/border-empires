@@ -409,8 +409,9 @@ export const renderDomainChoiceGridHtml = (args: {
   domainUiSelectedId: string;
   ownedByTier: Map<number, DomainInfo>;
   currentTier: number | undefined;
+  requiresTechNames: Record<string, string>;
 }): string => {
-  const { domainCatalog, domainIds, domainUiSelectedId, ownedByTier, currentTier } = args;
+  const { domainCatalog, domainIds, domainUiSelectedId, ownedByTier, currentTier, requiresTechNames } = args;
   if (domainCatalog.length === 0) return `<article class="card"><p>No domains available right now.</p></article>`;
   const grouped = new Map<number, DomainInfo[]>();
   for (const domain of domainCatalog) {
@@ -443,13 +444,30 @@ export const renderDomainChoiceGridHtml = (args: {
           const blocked = blockedReason && !owned ? " blocked" : "";
           const cardBadge = owned ? "Chosen" : currentTier === tier ? "Candidate" : "Unavailable";
           const canUnlock = Boolean(domain.requirements.canResearch) && !domainIds.includes(domain.id);
+          const requiredTechName = requiresTechNames[domain.id];
+          const unmetTechRequirement =
+            !owned && !(domain.requirements.canResearch ?? false) && domain.requiresTechId
+              ? (domain.requirements.checklist ?? []).some(
+                  (item) =>
+                    !item.met &&
+                    (!!requiredTechName &&
+                      (item.label.toLowerCase().includes(requiredTechName.toLowerCase()) || item.label.toLowerCase().startsWith("requires ")))
+                )
+                ? requiredTechName || blockedReason
+                : undefined
+              : undefined;
           return `<button class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${domain.id}" data-domain-can-unlock="${canUnlock ? "true" : "false"}">
             <div class="tech-card-top">
               <strong>${domain.name}</strong>
               <span class="domain-card-badge">${cardBadge}</span>
             </div>
             <p>${formatDomainBenefitSummary(domain)}</p>
-            <p class="tech-card-cost">${owned ? "Tier locked in" : blockedReason ? blockedReason : formatDomainCost(domain)}</p>
+            ${
+              unmetTechRequirement
+                ? `<p class="tech-card-requirement tech-card-requirement-bad">✗ Requires ${unmetTechRequirement}</p>`
+                : ""
+            }
+            <p class="tech-card-cost">${owned ? "Tier locked in" : blockedReason && !unmetTechRequirement ? blockedReason : formatDomainCost(domain)}</p>
           </button>`;
         })
         .join("");
@@ -478,7 +496,7 @@ export const renderDomainDetailCardHtml = (args: {
   const { domain, domainIds, chosenInTier, currentTier, requiresTechName } = args;
   if (!domain) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
   const checklist = domain.requirements.checklist ?? [];
-  const canUnlock = domain.requirements.canResearch;
+  const canUnlock = domain.requirements.canResearch && !domainIds.includes(domain.id);
   const tierRuleText =
     chosenInTier && chosenInTier.id !== domain.id
       ? `Tier ${domain.tier} is already filled by ${chosenInTier.name}.`
@@ -487,20 +505,37 @@ export const renderDomainDetailCardHtml = (args: {
         : chosenInTier?.id === domain.id
           ? `You already chose this for Tier ${domain.tier}.`
           : `This domain will only become choosable when Tier ${domain.tier} opens.`;
-  return `<article class="card tech-detail-card" id="domain-detail-card" data-domain-detail-card>
-    <div class="tech-detail-head">
-      <div>
+  const buttonLabel = domainIds.includes(domain.id) ? "Chosen" : canUnlock ? `Choose Tier ${domain.tier}` : "Locked";
+  return `<article class="card tech-detail-card tech-detail-card-shell" id="domain-detail-card" data-domain-detail-card>
+    <div class="tech-detail-inline-head">
+      <div class="tech-detail-inline-copy">
+        <div class="tech-detail-kicker">Domain</div>
         <strong>${domain.name}</strong>
         <p class="muted">Tier ${domain.tier} · Requires ${requiresTechName}</p>
-        <p class="domain-detail-tier-rule">${tierRuleText}</p>
       </div>
-      <button class="panel-btn domain-unlock-btn" data-domain-unlock="${domain.id}" ${canUnlock ? "" : "disabled"}>${domainIds.includes(domain.id) ? "Chosen" : canUnlock ? `Choose Tier ${domain.tier}` : "Locked"}</button>
+      <button class="panel-btn tech-detail-close-inline" type="button" aria-label="Close domain details" data-domain-detail-close="button">Close</button>
     </div>
-    <p>${domain.description}</p>
-    <p><strong>Benefits:</strong> ${formatDomainBenefitSummary(domain)}</p>
-    <p><strong>Cost:</strong> ${formatDomainCost(domain)}</p>
-    <p><strong>Requirements:</strong></p>
-    ${checklistHtml(checklist)}
+    <div class="tech-detail-inline-scroll">
+      <p class="domain-detail-tier-rule">${tierRuleText}</p>
+      <p>${domain.description}</p>
+      <section class="structure-info-section">
+        <span class="structure-info-section-label">Benefits</span>
+        <strong>${formatDomainBenefitSummary(domain)}</strong>
+      </section>
+      <section class="structure-info-section">
+        <span class="structure-info-section-label">Cost</span>
+        <strong>${formatDomainCost(domain)}</strong>
+      </section>
+      <section class="structure-info-section">
+        <span class="structure-info-section-label">Requirements</span>
+        ${checklistHtml(checklist)}
+      </section>
+    </div>
+    <div class="tech-detail-actions">
+      <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal domain-unlock-btn" data-domain-unlock="${domain.id}" ${
+        canUnlock || domainIds.includes(domain.id) ? "" : "disabled"
+      }>${buttonLabel}</button>
+    </div>
   </article>`;
 };
 
