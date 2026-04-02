@@ -4569,6 +4569,7 @@ const renderHud = (): void => {
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = state.techSection === "research" ? "grid" : "none";
   if (mobileTechDomainsSectionEl) mobileTechDomainsSectionEl.style.display = state.techSection === "domains" ? "grid" : "none";
   panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
+  panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !techDetailsUseOverlay() && state.techSection === "research");
   mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   const techSectionButtons = hud.querySelectorAll<HTMLButtonElement>("[data-tech-section]");
   techSectionButtons.forEach((btn) => {
