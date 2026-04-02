@@ -3472,8 +3472,9 @@ const updateTownPopulationForPlayer = (player: Player): Set<TileKey> => {
   for (const tk of ownedTownKeysForPlayer(player.id)) {
     const town = townsByTile.get(tk);
     if (!town) continue;
-    const elapsedMinutes = Math.max(1, Math.floor((nowMs - town.lastGrowthTickAt) / POPULATION_GROWTH_TICK_MS));
-    town.lastGrowthTickAt = nowMs;
+    const elapsedMinutes = Math.floor((nowMs - town.lastGrowthTickAt) / POPULATION_GROWTH_TICK_MS);
+    if (elapsedMinutes <= 0) continue;
+    town.lastGrowthTickAt += elapsedMinutes * POPULATION_GROWTH_TICK_MS;
     town.maxPopulation = townMaxPopulationForOwner(town, player.id);
     const baseGrowth = baseTownPopulationGrowthPerMinuteForOwner(town, player.id);
     if (baseGrowth <= 0) continue;
@@ -13034,7 +13035,6 @@ registerInterval(() => {
       missions.filter((m) => m.expiresAt > now() || m.rewarded)
     );
   }
-  if (!hasOnlinePlayers()) return;
   for (const p of players.values()) {
     if (now() - p.lastActiveAt > OFFLINE_YIELD_ACCUM_MAX_MS) {
       continue;
