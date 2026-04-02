@@ -33,7 +33,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Use Abilities",
-    body: "Technologies unlock powerful Crystal-based actions like sabotage, reconnaissance, and special attacks that can break open defended borders."
+    body: "Technologies unlock powerful Crystal-based actions like Siphon, Reveal Empire, and Aether Bridge to pressure exposed economies and open sea lanes."
   },
   {
     title: "Win the Season",
