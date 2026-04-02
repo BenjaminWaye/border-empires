@@ -9159,11 +9159,13 @@ const draw = (): void => {
                 ? "rgba(255, 205, 92, 0.82)"
                 : borderColorForOwner(ownerId, t.ownershipState);
         ctx.lineWidth = borderLineWidthForOwner(ownerId, t.ownershipState);
+        ctx.lineDashOffset = 0;
         if (visualStyleForOwner(ownerId)?.borderStyle === "DASHED") ctx.setLineDash([4, 3]);
         else if (visualStyleForOwner(ownerId)?.borderStyle === "SOFT") ctx.setLineDash([10, 6]);
         else ctx.setLineDash([]);
         drawExposedTileBorder(t, px, py, size);
         ctx.setLineDash([]);
+        ctx.lineDashOffset = 0;
         ctx.lineWidth = 1;
       }
       if (state.showWeakDefensibility && t && vis === "visible" && t.ownerId === state.me && t.terrain === "LAND" && t.ownershipState === "SETTLED" && !t.fogged) {
@@ -9256,7 +9258,11 @@ const draw = (): void => {
         ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
         ctx.strokeStyle = `rgba(140, 255, 167, ${0.66 + pulse * 0.2})`;
         ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.lineDashOffset = -((Date.now() / 180) % 10);
         ctx.strokeRect(px + 1.5, py + 1.5, size - 3, size - 3);
+        ctx.setLineDash([]);
+        ctx.lineDashOffset = 0;
         ctx.lineWidth = 1;
       }
       if (state.hover && state.hover.x === wx && state.hover.y === wy) {
