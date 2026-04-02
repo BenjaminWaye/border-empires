@@ -75,7 +75,6 @@ import {
   ownedDomainByTier,
   renderDomainChoiceGridHtml,
   renderDomainDetailCardHtml,
-  renderTechChoiceDetailsHtml,
   renderTechDetailCardHtml,
   techCurrentModsHtml,
   techOwnedHtml
@@ -1928,7 +1927,7 @@ const settledTileLabel = (target: { x: number; y: number } | undefined): string 
 const combatResolutionAlert = (
   msg: Record<string, unknown>,
   context?: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined }
-): { title: string; detail: string; tone: "success" | "warn" } => {
+): { title: string; detail: string; tone: "success" | "warn"; manpowerLoss?: number } => {
   const attackType = typeof msg.attackType === "string" ? msg.attackType : "";
   const origin = msg.origin as { x: number; y: number } | undefined;
   const target = msg.target as { x: number; y: number } | undefined;
@@ -1936,6 +1935,7 @@ const combatResolutionAlert = (
   const defenderOwnerId = typeof msg.defenderOwnerId === "string" ? msg.defenderOwnerId : context?.targetTileBefore?.ownerId;
   const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
   const manpowerDelta = typeof msg.manpowerDelta === "number" ? msg.manpowerDelta : 0;
+  const manpowerLoss = manpowerDelta < -0.01 ? Math.round(Math.abs(manpowerDelta)) : undefined;
   if (attackType === "SETTLE") {
     const settledChange = changes.find((change) => change.ownershipState === "SETTLED");
     const settledTarget = settledChange ? { x: settledChange.x, y: settledChange.y } : target;
@@ -1948,12 +1948,12 @@ const combatResolutionAlert = (
   const targetOwnerName = playerNameOrFallback(defenderOwnerId);
   const targetTerritoryLabel = territoryLabelForOwner(defenderOwnerId);
   const targetLabel = conqueredTileLabel(context?.targetTileBefore, target);
-  const manpowerLossLabel = manpowerDelta < -0.01 ? ` Manpower lost ${Math.round(Math.abs(manpowerDelta))}.` : "";
   if (attackerWon) {
     return {
       title: "Victory",
-      detail: `${targetLabel} was conquered from ${targetOwnerName}.${manpowerLossLabel}`,
-      tone: "success"
+      detail: `${targetLabel} was conquered from ${targetOwnerName}.`,
+      tone: "success",
+      ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
     };
   }
   const originLost = Boolean(origin && changes.some((change) => change.x === origin.x && change.y === origin.y));
@@ -1961,9 +1961,10 @@ const combatResolutionAlert = (
     title: "Attack Beaten Back",
     detail:
       originLost && origin
-        ? `Attack on ${targetTerritoryLabel} was beaten back and we lost (${origin.x}, ${origin.y}).${manpowerLossLabel}`
-        : `Attack on ${targetTerritoryLabel} was beaten back.${manpowerLossLabel}`,
-    tone: "warn"
+        ? `Attack on ${targetTerritoryLabel} was beaten back and we lost (${origin.x}, ${origin.y}).`
+        : `Attack on ${targetTerritoryLabel} was beaten back.`,
+    tone: "warn",
+    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
   };
 };
 const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
@@ -2212,8 +2213,19 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
   state.feed = state.feed.slice(0, 18);
 };
 
-const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error"): void => {
-  state.captureAlert = { title, detail, until: Date.now() + 12_000, tone };
+const showCaptureAlert = (
+  title: string,
+  detail: string,
+  tone: "success" | "error" | "warn" = "error",
+  manpowerLoss?: number
+): void => {
+  state.captureAlert = {
+    title,
+    detail,
+    until: Date.now() + 12_000,
+    tone,
+    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
+  };
 };
 
 const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void => {
@@ -2727,25 +2739,23 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
 
   const to = clicked;
   state.selected = { x: wx, y: wy };
-  const adjacentFromOwned = pickOriginForTarget(to.x, to.y);
   const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
-  const navalOrigin = to.terrain === "LAND" ? findNavalInfiltrationOriginForTarget(to) : undefined;
-  const unreachableForeignClick =
-    to.terrain === "LAND" &&
-    !to.fogged &&
-    Boolean(to.ownerId) &&
-    to.ownerId !== state.me &&
-    !isTileOwnedByAlly(to) &&
-    !adjacentFromOwned &&
-    !to.dockId &&
-    !navalOrigin;
-  if (unreachableForeignClick) {
-    pushFeed("Target is not connected to your border.", "combat", "warn");
+  if (to.terrain === "LAND" && !to.fogged && !to.ownerId && frontierOrigin) {
+    if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
+      notifyInsufficientGoldForFrontierAction("claim");
+      requestAttackPreviewForHover();
+      renderHud();
+      return;
+    }
+    if (enqueueTarget(to.x, to.y, "normal")) {
+      processActionQueue();
+      pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
+    }
     requestAttackPreviewForHover();
     renderHud();
     return;
   }
-  if (to.terrain === "LAND" && !to.fogged && !to.ownerId && frontierOrigin) {
+  if (to.terrain === "LAND" && !to.fogged) {
     openSingleTileActionMenu(to, clientX, clientY);
     requestAttackPreviewForHover();
     renderHud();
@@ -2959,7 +2969,8 @@ const renderCaptureProgress = (): void => {
     captureCloseBtn.style.display = "inline-flex";
     captureBarEl.style.width = "100%";
     captureTitleEl.textContent = state.captureAlert.title;
-    captureTimeEl.textContent = "";
+    captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
+    captureTimeEl.classList.toggle("capture-loss", Boolean(state.captureAlert.manpowerLoss));
     captureTargetEl.textContent = state.captureAlert.detail;
     return;
   }
@@ -2969,13 +2980,19 @@ const renderCaptureProgress = (): void => {
   if (state.capture) {
     const captureTargetKey = key(state.capture.target.x, state.capture.target.y);
     captureCardEl.dataset.state = "progress";
+    captureTimeEl.classList.remove("capture-loss");
     const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
     const elapsed = Date.now() - state.capture.startAt;
     const pct = Math.max(0, Math.min(1, elapsed / total));
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
     const awaitingResult = Date.now() > state.capture.resolvesAt;
     if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
-      showCaptureAlert(state.pendingCombatReveal.title, state.pendingCombatReveal.detail, state.pendingCombatReveal.tone);
+      showCaptureAlert(
+        state.pendingCombatReveal.title,
+        state.pendingCombatReveal.detail,
+        state.pendingCombatReveal.tone,
+        state.pendingCombatReveal.manpowerLoss
+      );
       pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
       state.pendingCombatReveal.revealed = true;
       return;
@@ -3669,7 +3686,7 @@ const renderTechDetailCard = (): string => {
   const byId = new Map(state.techCatalog.map((tech) => [tech.id, tech]));
   const tierMemo = new Map<string, number>();
   const tech = selectedTechInfo();
-  if (!tech) {
+  if (!tech || !state.techDetailOpen) {
     return renderTechDetailPrompt();
   }
   const prereqs = techPrereqIds(tech);
@@ -3701,7 +3718,7 @@ const renderTechDetailCard = (): string => {
     relatedStructures.length > 0
       ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>`
       : "";
-  return renderTechDetailCardHtml({
+  const cardHtml = renderTechDetailCardHtml({
     tech,
     statusText,
     buttonLabel,
@@ -3711,6 +3728,15 @@ const renderTechDetailCard = (): string => {
     unlocks: unlocks.map((next) => ({ name: next.name, tier: techTier(next.id, byId, tierMemo) })),
     relatedStructuresHtml
   });
+  return `<article class="card tech-detail-card tech-detail-card-shell">
+    <div class="tech-detail-inline-head">
+      <div class="tech-detail-kicker">Technology</div>
+      <button class="tech-detail-close tech-detail-close-inline" type="button" aria-label="Close tech details" data-tech-detail-close="button">×</button>
+    </div>
+    <div class="tech-detail-inline-scroll">
+      ${cardHtml}
+    </div>
+  </article>`;
 };
 
 const renderStructureInfoOverlay = (): string => {
@@ -3854,14 +3880,7 @@ const renderDomainDetailCard = (): string => {
 };
 
 const renderTechChoiceDetails = (): string => {
-  const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
-  const tech = state.techCatalog.find((x) => x.id === selectedId);
-  return renderTechChoiceDetailsHtml({
-    tech,
-    statusText: tech && isPendingTechUnlock(tech.id) ? currentResearchStatusText() : undefined,
-    currentMods: state.mods,
-    prereqs: tech ? techPrereqIds(tech) : []
-  });
+  return "";
 };
 
 const affordableTechChoicesCount = (): number => {
@@ -4316,7 +4335,7 @@ const renderHud = (): void => {
       const id = btn.dataset.techCard;
       if (!id) return;
       state.techUiSelectedId = id;
-      state.techDetailOpen = techDetailsUseOverlay();
+      state.techDetailOpen = true;
       if (visibleTechChoices.includes(id)) {
         techPickEl.value = id;
         mobileTechPickEl.value = id;
@@ -5275,7 +5294,63 @@ const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
 
 const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_");
 
+const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => {
+  switch (actionId) {
+    case "build_foundry":
+      return "industrial-extraction";
+    case "build_fortification":
+      return "masonry";
+    case "build_observatory":
+      return "cartography";
+    case "build_airport":
+      return "aeronautics";
+    case "build_radar_system":
+      return "radar";
+    case "build_governors_office":
+      return "civil-service";
+    case "build_garrison_hall":
+      return "standing-army";
+    case "build_siege_camp":
+    case "build_camp":
+      return "leatherworking";
+    case "build_farmstead":
+      return "agriculture";
+    case "build_mine":
+      return "mining";
+    case "build_market":
+      return "trade";
+    case "build_granary":
+      return "pottery";
+    case "build_bank":
+      return "coinage";
+    case "build_caravanary":
+      return "ledger-keeping";
+    case "build_quartermaster":
+    case "build_ironworks":
+    case "build_crystal_synthesizer":
+      return "workshops";
+    case "build_fuel_plant":
+      return "plastics";
+    case "build_customs_house":
+      return "global-trade-networks";
+    case "reveal_empire":
+    case "sabotage_tile":
+      return "cryptography";
+    case "deep_strike":
+      return "deep-operations";
+    case "naval_infiltration":
+      return "navigation";
+    case "create_mountain":
+    case "remove_mountain":
+      return "terrain-engineering";
+    default:
+      return undefined;
+  }
+};
+
 const hideTechLockedTileAction = (action: TileActionDef): boolean => {
+  const requiredTech = requiredTechForTileAction(action.id);
+  if (requiredTech && !state.techIds.includes(requiredTech)) return true;
   if (!action.disabled || !action.disabledReason) return false;
   return /^Requires\b/i.test(action.disabledReason) || /^Need reveal capability\b/i.test(action.disabledReason);
 };
@@ -7144,6 +7219,7 @@ collectVisibleMobileBtn.onclick = () => {
 captureCancelBtn.onclick = () => cancelOngoingCapture();
 captureCloseBtn.onclick = () => {
   state.captureAlert = undefined;
+  captureTimeEl.classList.remove("capture-loss");
   renderCaptureProgress();
 };
 panelCloseBtn.onclick = () => {
@@ -7577,7 +7653,7 @@ ws.addEventListener("message", (ev) => {
     );
     if (!predictedAlreadyShown) {
       pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone);
+      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
     }
     if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
     const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
@@ -7637,6 +7713,7 @@ ws.addEventListener("message", (ev) => {
         title: predictedAlert.title,
         detail: predictedAlert.detail,
         tone: predictedAlert.tone,
+        ...(typeof predictedAlert.manpowerLoss === "number" ? { manpowerLoss: predictedAlert.manpowerLoss } : {}),
         revealed: false
       };
     } else if (state.pendingCombatReveal?.targetKey === key(target.x, target.y)) {
