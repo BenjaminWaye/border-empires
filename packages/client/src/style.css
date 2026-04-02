@@ -1213,6 +1213,7 @@ body {
 
 #selected {
   color: #ffd166;
+  display: none;
 }
 
 #hover {
