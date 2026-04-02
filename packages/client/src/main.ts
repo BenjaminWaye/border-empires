@@ -362,6 +362,8 @@ const ownerColor = (ownerId: string): string => {
 };
 const effectiveColor = (ownerId: string): string => state.playerColors.get(ownerId) ?? ownerColor(ownerId);
 const visualStyleForOwner = (ownerId: string): EmpireVisualStyle | undefined => state.playerVisualStyles.get(ownerId);
+const shieldUntilForOwner = (ownerId: string): number => state.playerShieldUntil.get(ownerId) ?? 0;
+const ownerSpawnShieldActive = (ownerId: string): boolean => shieldUntilForOwner(ownerId) > Date.now();
 const playerNameForOwner = (ownerId?: string | null): string | undefined => {
   if (!ownerId) return undefined;
   if (ownerId === state.me) return state.meName || "you";
@@ -5224,6 +5226,9 @@ const queueSpecificTargets = (
 };
 
 const attackQueueFailureReason = (tile: Tile, mode: "normal" | "breakthrough"): string => {
+  if (tile.ownerId && tile.ownerId !== state.me && ownerSpawnShieldActive(tile.ownerId)) {
+    return "That empire is still under spawn protection.";
+  }
   if (mode === "breakthrough" && !hasBreakthroughCapability()) return "Requires Breach Doctrine.";
   if (mode === "breakthrough" && (state.strategicResources.IRON ?? 0) < 1) return "Need 1 IRON.";
   if (state.gold < (mode === "breakthrough" ? 2 : FRONTIER_CLAIM_COST)) return `Need ${mode === "breakthrough" ? 2 : FRONTIER_CLAIM_COST} gold.`;
@@ -6923,7 +6928,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const previewDetail = attackPreviewDetailForTarget(tile);
     const breachPreviewDetail = attackPreviewDetailForTarget(tile, "breakthrough");
     const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
-    return [
+    const actions: TileActionDef[] = [
       {
         id: "launch_attack",
         label: "Launch Attack",
@@ -6933,49 +6938,60 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
           `${FRONTIER_CLAIM_COST} gold`
         )
-      },
-      {
+      }
+    ];
+    if (hasBreakthroughCapability()) {
+      actions.push({
         id: "launch_breach_attack",
         label: "Launch Breach Attack",
         ...(breachPreviewDetail ? { detail: breachPreviewDetail } : {}),
         ...tileActionAvailability(
-          (Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId)) && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
+          (Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId)) && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
           !(Boolean(pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId))
             ? "No bordering origin tile or linked dock"
-            : !hasBreakthroughCapability()
-              ? "Requires Breach Doctrine"
-              : state.gold < 2
-                ? "Need 2 gold"
-                : "Need 1 IRON",
+            : state.gold < 2
+              ? "Need 2 gold"
+              : "Need 1 IRON",
           "2 gold + 1 IRON"
         )
-      },
-      createMountainAction()
-    ];
+      });
+    }
+    actions.push(createMountainAction());
+    return actions;
   }
   const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
+  const targetShielded = Boolean(tile.ownerId && tile.ownerId !== state.me && ownerSpawnShieldActive(tile.ownerId));
+  const targetShieldedReason = "Empire is under spawn protection";
   const out: TileActionDef[] = [
     {
       id: "launch_attack",
       label: "Launch Attack",
       ...(attackPreviewDetailForTarget(tile) ? { detail: attackPreviewDetailForTarget(tile) } : {}),
       ...tileActionAvailability(
-        reachable && state.gold >= FRONTIER_CLAIM_COST,
-        !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
+        !targetShielded && reachable && state.gold >= FRONTIER_CLAIM_COST,
+        targetShielded ? targetShieldedReason : !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
         `${FRONTIER_CLAIM_COST} gold`
       )
     },
-    {
+  ];
+  if (hasBreakthroughCapability()) {
+    out.push({
       id: "launch_breach_attack",
       label: "Launch Breach Attack",
       ...(attackPreviewDetailForTarget(tile, "breakthrough") ? { detail: attackPreviewDetailForTarget(tile, "breakthrough") } : {}),
       ...tileActionAvailability(
-        reachable && hasBreakthroughCapability() && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
-        !reachable ? "No bordering origin tile or linked dock" : !hasBreakthroughCapability() ? "Requires Breach Doctrine" : state.gold < 2 ? "Need 2 gold" : "Need 1 IRON",
+        !targetShielded && reachable && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
+        targetShielded
+          ? targetShieldedReason
+          : !reachable
+            ? "No bordering origin tile or linked dock"
+            : state.gold < 2
+              ? "Need 2 gold"
+              : "Need 1 IRON",
         "2 gold + 1 IRON"
       )
-    }
-  ];
+    });
+  }
   const observatoryProtection = hostileObservatoryProtectingTile(tile);
   out.push({
     id: "aether_bridge",
@@ -7160,11 +7176,13 @@ const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: 
   }
   if (enemyCount > 0) {
     actions.push({ id: "launch_attack", label: `Launch Attack (${enemyCount})` });
-    actions.push({
-      id: "launch_breach_attack",
-      label: `Launch Breach Attack (${enemyCount})`,
-      cost: hasBreakthroughCapability() ? "2 gold + 1 IRON each" : "Requires Breach Doctrine"
-    });
+    if (hasBreakthroughCapability()) {
+      actions.push({
+        id: "launch_breach_attack",
+        label: `Launch Breach Attack (${enemyCount})`,
+        cost: "2 gold + 1 IRON each"
+      });
+    }
   }
   if (ownedYieldCount > 0) {
     actions.push({ id: "collect_yield", label: `Collect Yield (${ownedYieldCount})` });
@@ -7871,10 +7889,11 @@ ws.addEventListener("message", (ev) => {
     const myVisualStyle = p.visualStyle as EmpireVisualStyle | undefined;
     if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
     seedProfileSetupFields((p.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value);
-    for (const s of ((msg.playerStyles as Array<{ id: string; name?: string; tileColor?: string; visualStyle?: EmpireVisualStyle }>) ?? [])) {
+    for (const s of ((msg.playerStyles as Array<{ id: string; name?: string; tileColor?: string; visualStyle?: EmpireVisualStyle; shieldUntil?: number }>) ?? [])) {
       if (s.name) state.playerNames.set(s.id, s.name);
       if (s.tileColor) state.playerColors.set(s.id, s.tileColor);
       if (s.visualStyle) state.playerVisualStyles.set(s.id, s.visualStyle);
+      if (typeof s.shieldUntil === "number") state.playerShieldUntil.set(s.id, s.shieldUntil);
     }
     const homeTile = p.homeTile as { x: number; y: number } | undefined;
     if (homeTile) {
@@ -8648,11 +8667,13 @@ ws.addEventListener("message", (ev) => {
     const pid = msg.playerId as string;
     const color = msg.tileColor as string | undefined;
     const visualStyle = msg.visualStyle as EmpireVisualStyle | undefined;
+    const shieldUntil = msg.shieldUntil as number | undefined;
     if (pid && color) {
       state.playerColors.set(pid, color);
       if (pid === state.me) authProfileColorEl.value = color;
     }
     if (pid && visualStyle) state.playerVisualStyles.set(pid, visualStyle);
+    if (pid && typeof shieldUntil === "number") state.playerShieldUntil.set(pid, shieldUntil);
   }
   if (msg.type === "COLLECT_RESULT") {
     state.pendingCollectVisibleKeys.clear();

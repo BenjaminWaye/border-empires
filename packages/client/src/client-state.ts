@@ -129,6 +129,7 @@ export const createInitialState = () => ({
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
+  playerShieldUntil: new Map<string, number>(),
   incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
   incomingAllianceRequests: [] as AllianceRequest[],
   outgoingAllianceRequests: [] as AllianceRequest[],
