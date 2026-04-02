@@ -5998,6 +5998,39 @@ const settleAttackManpower = (player: Player, committedManpower: number, attacke
   return loss;
 };
 
+const settledTileCountForPlayer = (player: Player): number => {
+  let count = 0;
+  for (const tk of player.territoryTiles) {
+    if (ownershipStateByTile.get(tk) === "SETTLED") count += 1;
+  }
+  return count;
+};
+
+const seizeStoredYieldOnCapture = (
+  attacker: Player,
+  tileKey: TileKey
+): { gold: number; strategic: Partial<Record<StrategicResource, number>> } => {
+  const out = { gold: 0, strategic: {} as Partial<Record<StrategicResource, number>> };
+  const y = tileYieldByTile.get(tileKey);
+  if (!y) return out;
+  const gold = Math.floor(y.gold * 100) / 100;
+  if (gold > 0) {
+    attacker.points += gold;
+    out.gold = gold;
+    y.gold = 0;
+  }
+  const stock = getOrInitStrategicStocks(attacker.id);
+  for (const r of STRATEGIC_RESOURCE_KEYS) {
+    const amt = Math.floor((y.strategic[r] ?? 0) * 100) / 100;
+    if (amt <= 0) continue;
+    stock[r] += amt;
+    out.strategic[r] = amt;
+    y.strategic[r] = 0;
+  }
+  pruneEmptyTileYield(tileKey, y);
+  return out;
+};
+
 const pillageSettledTile = (
   attacker: Player,
   defender: Player,
@@ -15044,7 +15077,7 @@ app.post("/admin/world/regenerate", async () => {
       if (win) {
         const targetWasSettled = to.ownershipState === "SETTLED";
         const targetHadTown = townsByTile.has(tk);
-        const defenderTileCountBeforeCapture = defender ? Math.max(1, defender.territoryTiles.size) : 0;
+        const defenderTileCountBeforeCapture = defender ? Math.max(1, settledTileCountForPlayer(defender)) : 0;
         updateOwnership(to.x, to.y, actor.id, "FRONTIER");
         resultChanges = [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }];
         if (targetHadTown && !playerHasSettledFoodSources(actor.id)) {
@@ -15067,6 +15100,7 @@ app.post("/admin/world/regenerate", async () => {
           actor.missionStats.enemyCaptures += 1;
         }
         if (defender && targetWasSettled) {
+          seizeStoredYieldOnCapture(actor, tk);
           const pillage = pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);
           pillagedGold = pillage.gold;
           pillagedShare = pillage.share;
