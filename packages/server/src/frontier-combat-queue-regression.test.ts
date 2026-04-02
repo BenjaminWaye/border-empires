@@ -1,0 +1,46 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const serverMainSource = (): string => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(resolve(here, "./main.ts"), "utf8");
+};
+
+const functionBody = (source: string, functionName: string): string => {
+  const start = source.indexOf(`const ${functionName} =`);
+  if (start === -1) throw new Error(`Could not find function ${functionName}`);
+  const arrow = source.indexOf("=>", start);
+  if (arrow === -1) throw new Error(`Could not find arrow for ${functionName}`);
+  const open = source.indexOf("{", arrow);
+  if (open === -1) throw new Error(`Could not find opening brace for ${functionName}`);
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(open + 1, index);
+    }
+  }
+  throw new Error(`Could not find closing brace for ${functionName}`);
+};
+
+describe("frontier combat queue regression guard", () => {
+  it("returns the actual queued origin and attack alert payload from the queued frontier action helper", () => {
+    const body = functionBody(serverMainSource(), "tryQueueBasicFrontierAction");
+    expect(body).toContain("origin: { x: from.x, y: from.y }");
+    expect(body).toContain("fromX: from.x");
+    expect(body).toContain("fromY: from.y");
+    expect(body).toContain("attackAlert");
+  });
+
+  it("uses queued frontier action results to send combat start and inbound attack alerts", () => {
+    const body = functionBody(serverMainSource(), "executeUnifiedGameplayMessage");
+    expect(body).toContain("origin: result.origin");
+    expect(body).toContain("target: result.target");
+    expect(body).toContain("result.attackAlert");
+    expect(body).toContain('type: "ATTACK_ALERT"');
+  });
+});
