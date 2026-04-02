@@ -2328,19 +2328,21 @@ const advanceStrategicReplay = (nowMs: number): void => {
   rebuildStrategicReplayState(nextIndex);
 };
 
-const visibleTerritoryLabels = (): Array<{ ownerId: string; name: string; x: number; y: number }> => {
+const visibleTerritoryLabels = (): Array<{ ownerId: string; name: string; x: number; y: number; depth: number; tileCount: number }> => {
   const visited = new Set<string>();
-  const labels: Array<{ ownerId: string; name: string; x: number; y: number }> = [];
+  const labels: Array<{ ownerId: string; name: string; x: number; y: number; depth: number; tileCount: number }> = [];
   for (const tile of state.tiles.values()) {
     const tileKey = key(tile.x, tile.y);
     if (visited.has(tileKey) || tile.fogged || tile.ownerId == null || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     const ownerId = tile.ownerId;
     const queue = [tile];
     const cluster: Tile[] = [];
+    const clusterKeys = new Set<string>();
     visited.add(tileKey);
     while (queue.length > 0) {
       const current = queue.shift()!;
       cluster.push(current);
+      clusterKeys.add(key(current.x, current.y));
       for (const [nx, ny] of [
         [current.x, current.y - 1],
         [current.x + 1, current.y],
@@ -2356,11 +2358,109 @@ const visibleTerritoryLabels = (): Array<{ ownerId: string; name: string; x: num
       }
     }
     if (cluster.length < 18) continue;
+    const edgeDistances = new Map<string, number>();
+    const depthQueue: Array<{ tile: Tile; depth: number }> = [];
+    for (const entry of cluster) {
+      const isEdge = ([
+        [entry.x, entry.y - 1],
+        [entry.x + 1, entry.y],
+        [entry.x, entry.y + 1],
+        [entry.x - 1, entry.y]
+      ] as Array<[number, number]>).some(([nx, ny]) => !clusterKeys.has(key(wrapX(nx), wrapY(ny))));
+      if (!isEdge) continue;
+      const entryKey = key(entry.x, entry.y);
+      edgeDistances.set(entryKey, 0);
+      depthQueue.push({ tile: entry, depth: 0 });
+    }
+    while (depthQueue.length > 0) {
+      const current = depthQueue.shift()!;
+      for (const [nx, ny] of [
+        [current.tile.x, current.tile.y - 1],
+        [current.tile.x + 1, current.tile.y],
+        [current.tile.x, current.tile.y + 1],
+        [current.tile.x - 1, current.tile.y]
+      ] as Array<[number, number]>) {
+        const neighborKey = key(wrapX(nx), wrapY(ny));
+        if (!clusterKeys.has(neighborKey) || edgeDistances.has(neighborKey)) continue;
+        edgeDistances.set(neighborKey, current.depth + 1);
+        const neighbor = state.tiles.get(neighborKey);
+        if (neighbor) depthQueue.push({ tile: neighbor, depth: current.depth + 1 });
+      }
+    }
+    let best = cluster[0]!;
+    let bestDepth = edgeDistances.get(key(best.x, best.y)) ?? 0;
+    let bestDist = Number.POSITIVE_INFINITY;
     const avgX = cluster.reduce((sum, entry) => sum + entry.x, 0) / cluster.length;
     const avgY = cluster.reduce((sum, entry) => sum + entry.y, 0) / cluster.length;
-    labels.push({ ownerId, name: playerNameForOwner(ownerId) ?? ownerId.slice(0, 8), x: avgX, y: avgY });
+    for (const entry of cluster) {
+      const depth = edgeDistances.get(key(entry.x, entry.y)) ?? 0;
+      const dist = Math.hypot(entry.x - avgX, entry.y - avgY);
+      if (depth > bestDepth || (depth === bestDepth && dist < bestDist)) {
+        best = entry;
+        bestDepth = depth;
+        bestDist = dist;
+      }
+    }
+    labels.push({
+      ownerId,
+      name: playerNameForOwner(ownerId) ?? ownerId.slice(0, 8),
+      x: best.x,
+      y: best.y,
+      depth: bestDepth,
+      tileCount: cluster.length
+    });
   }
   return labels;
+};
+
+const fitTerritoryLabelFont = (ctx: CanvasRenderingContext2D, name: string, basePx: number, maxWidth: number): number => {
+  let fontPx = basePx;
+  while (fontPx >= 10) {
+    ctx.font = `${fontPx}px Georgia, serif`;
+    if (ctx.measureText(name).width <= maxWidth) return fontPx;
+    fontPx -= 1;
+  }
+  return 0;
+};
+
+const drawCurvedTerritoryLabel = (
+  ctx: CanvasRenderingContext2D,
+  name: string,
+  centerX: number,
+  centerY: number,
+  fontPx: number,
+  fillStyle: string,
+  strokeStyle: string
+): void => {
+  const chars = Array.from(name);
+  if (chars.length === 0) return;
+  ctx.font = `${fontPx}px Georgia, serif`;
+  const widths = chars.map((ch) => ctx.measureText(ch).width);
+  const totalWidth = widths.reduce((sum, width) => sum + width, 0);
+  const span = Math.max(totalWidth, fontPx * 2.2);
+  const curveHeight = Math.min(fontPx * 0.42, span * 0.08);
+  let cursor = -totalWidth / 2;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  for (let i = 0; i < chars.length; i += 1) {
+    const ch = chars[i]!;
+    const width = widths[i]!;
+    const charCenter = cursor + width / 2;
+    const normalized = span > 0 ? charCenter / (span / 2) : 0;
+    const yOffset = -(1 - normalized * normalized) * curveHeight;
+    const tangent = (-2 * normalized * curveHeight) / Math.max(1, span / 2);
+    ctx.save();
+    ctx.translate(centerX + charCenter, centerY + yOffset);
+    ctx.rotate(Math.atan(tangent) * 0.65);
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = Math.max(3, fontPx * 0.18);
+    ctx.strokeText(ch, 0, 0);
+    ctx.fillStyle = fillStyle;
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+    cursor += width;
+  }
 };
 
 const drawMiniMap = (): void => {
@@ -9419,16 +9519,26 @@ const draw = (): void => {
 
   for (const territoryLabel of visibleTerritoryLabels()) {
     const screen = worldToScreen(territoryLabel.x, territoryLabel.y, size, halfW, halfH);
-    if (screen.sx < -120 || screen.sy < -40 || screen.sx > canvas.width + 120 || screen.sy > canvas.height + 40) continue;
+    if (screen.sx < -120 || screen.sy < -60 || screen.sx > canvas.width + 120 || screen.sy > canvas.height + 60) continue;
     ctx.save();
-    ctx.font = `${Math.max(18, Math.min(38, size * 1.35))}px Georgia, serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = hexWithAlpha(effectiveOverlayColor(territoryLabel.ownerId), 0.22);
-    ctx.strokeStyle = "rgba(8, 12, 18, 0.45)";
-    ctx.lineWidth = 4;
-    ctx.strokeText(territoryLabel.name, screen.sx, screen.sy);
-    ctx.fillText(territoryLabel.name, screen.sx, screen.sy);
+    const insetTiles = 1.15;
+    const safeWidth = Math.max(
+      0,
+      (((territoryLabel.depth * 2) + 1) * size) - insetTiles * size * 2
+    );
+    const baseFont = Math.max(15, Math.min(34, size * 1.08 + Math.sqrt(territoryLabel.tileCount) * 0.28));
+    const fontPx = fitTerritoryLabelFont(ctx, territoryLabel.name, baseFont, safeWidth);
+    if (fontPx >= 10) {
+      drawCurvedTerritoryLabel(
+        ctx,
+        territoryLabel.name,
+        screen.sx,
+        screen.sy,
+        fontPx,
+        hexWithAlpha(effectiveOverlayColor(territoryLabel.ownerId), 0.22),
+        "rgba(8, 12, 18, 0.45)"
+      );
+    }
     ctx.restore();
   }
 
