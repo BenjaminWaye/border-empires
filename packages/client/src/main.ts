@@ -59,6 +59,7 @@ import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
+import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 import {
   activeTrucesHtml,
   allianceRequestsHtml,
@@ -2743,20 +2744,23 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
   state.selected = { x: wx, y: wy };
   const adjacentFromOwned = pickOriginForTarget(to.x, to.y);
   const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
-  const unreachableForeignClick =
-    to.terrain === "LAND" &&
-    !to.fogged &&
-    to.ownerId !== state.me &&
-    !isTileOwnedByAlly(to) &&
-    !adjacentFromOwned &&
-    !to.dockId;
-  if (unreachableForeignClick) {
+  const clickOutcome = neutralTileClickOutcome({
+    isLand: to.terrain === "LAND",
+    isFogged: Boolean(to.fogged),
+    isOwnedByEnemy: Boolean(to.ownerId && to.ownerId !== state.me),
+    isOwnedByAlly: isTileOwnedByAlly(to),
+    hasAdjacentOwnedOrigin: Boolean(adjacentFromOwned),
+    hasFrontierOrigin: Boolean(frontierOrigin),
+    hasDock: Boolean(to.dockId),
+    isNeutral: !to.ownerId
+  });
+  if (clickOutcome === "warn-unreachable-enemy") {
     pushFeed("Target is not connected to your border.", "combat", "warn");
     requestAttackPreviewForHover();
     renderHud();
     return;
   }
-  if (to.terrain === "LAND" && !to.fogged && !to.ownerId && frontierOrigin) {
+  if (clickOutcome === "queue-adjacent-neutral") {
     if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
       notifyInsufficientGoldForFrontierAction("claim");
       requestAttackPreviewForHover();
