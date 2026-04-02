@@ -1820,6 +1820,11 @@ body {
   color: rgba(6, 16, 28, 0.95);
 }
 
+#capture-time.capture-loss {
+  color: #ff9aa2;
+  text-shadow: 0 0 14px rgba(149, 14, 30, 0.32);
+}
+
 .capture-close-btn {
   display: none;
   align-items: center;
@@ -2247,7 +2252,7 @@ body {
   position: sticky;
   top: 0;
   max-height: calc(100vh - 220px);
-  overflow: auto;
+  overflow: hidden;
 }
 
 #side-panel.tech-panel-active #tech-owned {
@@ -2637,6 +2642,11 @@ body {
   background: rgba(255, 255, 255, 0.02);
   color: rgba(231, 239, 249, 0.92);
   box-shadow: none;
+}
+
+.tech-mod-chip.is-static {
+  cursor: default;
+  opacity: 0.92;
 }
 
 .tech-mod-chip::after {
@@ -3227,6 +3237,29 @@ body {
 #mobile-tech-detail-card {
   display: grid;
   gap: 8px;
+}
+
+.tech-detail-card-shell {
+  min-height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.tech-detail-inline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tech-detail-close-inline {
+  position: static;
+  justify-self: end;
+}
+
+.tech-detail-inline-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .tech-detail-placeholder {
