@@ -60,12 +60,14 @@ import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defe
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import {
+  activeTrucesHtml,
   allianceRequestsHtml,
   alliesHtml,
   feedHtml,
   leaderboardHtml,
   missionCardsHtml,
-  strategicRibbonHtml
+  strategicRibbonHtml,
+  truceRequestsHtml
 } from "./client-panel-html.js";
 import { createInitialState, storageSet } from "./client-state.js";
 import {
@@ -80,6 +82,8 @@ import {
   techOwnedHtml
 } from "./client-tech-html.js";
 import type {
+  ActiveAetherBridgeView,
+  ActiveTruceView,
   AllianceRequest,
   CrystalTargetingAbility,
   DockPair,
@@ -100,7 +104,8 @@ import type {
   TileMenuTab,
   TileMenuView,
   TileOverviewLine,
-  TileTimedProgress
+  TileTimedProgress,
+  TruceRequest
 } from "./client-types.js";
 
 const formatManpowerAmount = (value: number): string => Math.round(value).toString();
@@ -2737,6 +2742,19 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
   const to = clicked;
   state.selected = { x: wx, y: wy };
   const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
+  const unreachableForeignClick =
+    to.terrain === "LAND" &&
+    !to.fogged &&
+    to.ownerId !== state.me &&
+    !isTileOwnedByAlly(to) &&
+    !adjacentFromOwned &&
+    !to.dockId;
+  if (unreachableForeignClick) {
+    pushFeed("Target is not connected to your border.", "combat", "warn");
+    requestAttackPreviewForHover();
+    renderHud();
+    return;
+  }
   if (to.terrain === "LAND" && !to.fogged && !to.ownerId && frontierOrigin) {
     if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
       notifyInsufficientGoldForFrontierAction("claim");
@@ -4093,11 +4111,9 @@ const renderHud = (): void => {
     const selectedOrigin = selectedOriginKey ? parseKey(selectedOriginKey) : undefined;
     const validCount = state.crystalTargeting.validTargets.size;
     const detail =
-      ability === "deep_strike"
-        ? "Pick an enemy tile exactly 2 tiles deep. Mountain barriers block the strike."
-        : ability === "naval_infiltration"
-          ? "Pick an enemy land tile across up to 4 sea tiles. First landing strike is weaker."
-          : "Pick an enemy town or resource tile to cut output by 50% for 45 minutes.";
+      ability === "aether_bridge"
+        ? "Pick a coastal land tile. The server links the nearest settled coast and opens a temporary sea lane."
+        : "Pick an enemy town or resource tile to siphon 50% of its output for 30 minutes.";
     const status = selectedOrigin
       ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`
       : `Valid targets in view: ${validCount}`;
@@ -4365,12 +4381,10 @@ const renderHud = (): void => {
       sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
     };
   });
-  alliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}`;
-  mobileAlliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}`;
-  allianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming")}<h4>Outgoing Requests</h4>${allianceRequestsHtml(state.outgoingAllianceRequests, playerNameForOwner, "outgoing")}`;
-  mobileAllianceRequestsEl.innerHTML = `<h4>Incoming Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming")}<h4>Outgoing Requests</h4>${allianceRequestsHtml(state.outgoingAllianceRequests, playerNameForOwner, "outgoing")}`;
-  alliancePlayerInspectEl.innerHTML = socialInspectCardHtml();
-  mobileAlliancePlayerInspectEl.innerHTML = socialInspectCardHtml();
+  alliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`;
+  mobileAlliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`;
+  allianceRequestsEl.innerHTML = `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`;
+  mobileAllianceRequestsEl.innerHTML = `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`;
 
   missionsEl.innerHTML = missionCardsHtml(state.missions);
   mobilePanelMissionsEl.innerHTML = missionCardsHtml(state.missions);
@@ -4444,14 +4458,20 @@ const renderHud = (): void => {
       sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing alliances.");
     };
   });
-  const inspectButtons = hud.querySelectorAll<HTMLButtonElement>("[data-inspect-player]");
-  inspectButtons.forEach((btn) => {
+  const acceptTruceButtons = hud.querySelectorAll<HTMLButtonElement>(".accept-truce");
+  acceptTruceButtons.forEach((btn) => {
     btn.onclick = () => {
-      const id = btn.dataset.inspectPlayer;
+      const id = btn.dataset.truceRequestId;
       if (!id) return;
-      state.socialInspectPlayerId = id;
-      if (!isMobile()) state.activePanel = "alliance";
-      renderHud();
+      sendGameMessage({ type: "TRUCE_ACCEPT", requestId: id }, "Finish sign-in before responding to truces.");
+    };
+  });
+  const breakTruceButtons = hud.querySelectorAll<HTMLButtonElement>(".break-truce");
+  breakTruceButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const id = btn.dataset.trucePlayerId;
+      if (!id) return;
+      sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing truces.");
     };
   });
 
@@ -4622,11 +4642,23 @@ const sendAllianceRequest = (target: string): void => {
   if (!t) return;
   sendGameMessage({ type: "ALLIANCE_REQUEST", targetPlayerName: t }, "Finish sign-in before sending alliance requests.");
 };
+const sendTruceRequest = (targetPlayerName: string, durationHours: 12 | 24): void => {
+  const t = targetPlayerName.trim();
+  if (!t) return;
+  sendGameMessage({ type: "TRUCE_REQUEST", targetPlayerName: t, durationHours }, "Finish sign-in before sending truce offers.");
+};
 const breakAlliance = (target: string): void => {
   const t = target.trim();
   if (!t) return;
   sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: t }, "Finish sign-in before breaking alliances.");
 };
+const breakTruce = (targetPlayerId: string): void => {
+  const t = targetPlayerId.trim();
+  if (!t) return;
+  sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId: t }, "Finish sign-in before breaking truces.");
+};
+const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
+  playerId ? state.activeTruces.find((truce) => truce.otherPlayerId === playerId && truce.endsAt > Date.now()) : undefined;
 const currentTechPickId = (): string => {
   const byState = state.techUiSelectedId?.trim();
   if (byState) return byState;
@@ -4689,9 +4721,9 @@ const explainActionFailure = (code: string, message: string): string => {
   if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build siege outpost: ${message}.`;
   if (code === "ECONOMIC_STRUCTURE_BUILD_INVALID") return `Cannot build structure: ${message}.`;
   if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;
-  if (code === "SABOTAGE_INVALID") return `Cannot sabotage tile: ${message}.`;
-  if (code === "DEEP_STRIKE_INVALID") return `Cannot deep strike: ${message}.`;
-  if (code === "NAVAL_INFILTRATION_INVALID") return `Cannot launch naval infiltration: ${message}.`;
+  if (code === "SIPHON_INVALID") return `Cannot siphon tile: ${message}.`;
+  if (code === "PURGE_SIPHON_INVALID") return `Cannot purge siphon: ${message}.`;
+  if (code === "AETHER_BRIDGE_INVALID") return `Cannot cast Aether Bridge: ${message}.`;
   if (code === "CREATE_MOUNTAIN_INVALID") return `Cannot create mountain: ${message}.`;
   if (code === "REMOVE_MOUNTAIN_INVALID") return `Cannot remove mountain: ${message}.`;
   if (code === "NOT_ADJACENT") return "Action blocked: target must border your territory or a linked dock.";
@@ -4699,7 +4731,7 @@ const explainActionFailure = (code: string, message: string): string => {
   if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
   if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";
   if (code === "SHIELDED") return "Action blocked: that empire is still under spawn protection.";
-  if (code === "ALLY_TARGET") return "Action blocked: you cannot attack an allied empire.";
+  if (code === "ALLY_TARGET") return "Action blocked: you cannot attack an allied or truced empire.";
   if (code === "BREAKTHROUGH_TARGET_INVALID") return `Cannot launch breach attack: ${message}.`;
   if (code === "EXPAND_TARGET_OWNED") return "Frontier claim failed: that tile is already owned.";
   if (message.includes("development slots are busy")) return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
@@ -5324,9 +5356,12 @@ type TileActionDef = {
     | "build_radar_system"
     | "abandon_territory"
     | "build_siege_camp"
-    | "deep_strike"
-    | "naval_infiltration"
-    | "sabotage_tile"
+    | "offer_truce_12h"
+    | "offer_truce_24h"
+    | "break_truce"
+    | "aether_bridge"
+    | "siphon_tile"
+    | "purge_siphon"
     | "create_mountain"
     | "remove_mountain";
   label: string;
@@ -5346,9 +5381,9 @@ type DevelopmentSlotSummary = {
 
 const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "reveal_empire" ||
-  id === "deep_strike" ||
-  id === "naval_infiltration" ||
-  id === "sabotage_tile" ||
+  id === "aether_bridge" ||
+  id === "siphon_tile" ||
+  id === "purge_siphon" ||
   id === "create_mountain" ||
   id === "remove_mountain";
 
@@ -5475,7 +5510,7 @@ const developmentSlotReason = (summary = developmentSlotSummary()): string => {
 };
 
 const abilityCooldownRemainingMs = (
-  abilityId: "deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain"
+  abilityId: "aether_bridge" | "siphon" | "reveal_empire" | "create_mountain" | "remove_mountain"
 ): number =>
   Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - Date.now());
 
@@ -5875,12 +5910,9 @@ const hasRevealCapability = (): boolean => {
   return state.techIds.includes("cryptography") || state.activeRevealTargets.length > 0;
 };
 
-const hasDeepStrikeCapability = (): boolean => state.techIds.includes("deep-operations");
 const hasBreakthroughCapability = (): boolean => state.techIds.includes("breach-doctrine");
-
-const hasNavalInfiltrationCapability = (): boolean => state.techIds.includes("navigation");
-
-const hasSabotageCapability = (): boolean => state.techIds.includes("cryptography");
+const hasAetherBridgeCapability = (): boolean => state.techIds.includes("navigation");
+const hasSiphonCapability = (): boolean => state.techIds.includes("cryptography");
 
 const hasTerrainShapingCapability = (): boolean => state.techIds.includes("terrain-engineering");
 
@@ -5893,15 +5925,12 @@ const hasOwnedLandWithinClientRange = (x: number, y: number, range: number): boo
 };
 
 const crystalTargetingTitle = (ability: CrystalTargetingAbility): string => {
-  if (ability === "deep_strike") return "Deep Strike";
-  if (ability === "naval_infiltration") return "Naval Infiltration";
-  return "Sabotage";
+  if (ability === "aether_bridge") return "Aether Bridge";
+  return "Siphon";
 };
 
 const crystalTargetingTone = (ability: CrystalTargetingAbility): "amber" | "cyan" | "red" => {
-  if (ability === "deep_strike") return "amber";
-  if (ability === "naval_infiltration") return "cyan";
-  return "red";
+  return ability === "aether_bridge" ? "cyan" : "red";
 };
 
 const clearCrystalTargeting = (): void => {
@@ -5922,77 +5951,6 @@ const lineStepsBetween = (ax: number, ay: number, bx: number, by: number): Array
   return out;
 };
 
-const findDeepStrikeOriginForTarget = (target: Tile): Tile | undefined => {
-  let best: Tile | undefined;
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.terrain !== "LAND") continue;
-    const dx = Math.min(Math.abs(tile.x - target.x), WORLD_WIDTH - Math.abs(tile.x - target.x));
-    const dy = Math.min(Math.abs(tile.y - target.y), WORLD_HEIGHT - Math.abs(tile.y - target.y));
-    if (Math.max(dx, dy) < 2 || Math.max(dx, dy) > 2) continue;
-    const blocked = lineStepsBetween(tile.x, tile.y, target.x, target.y).some((step) => terrainAt(step.x, step.y) === "MOUNTAIN");
-    if (blocked) continue;
-    best = tile;
-    break;
-  }
-  return best;
-};
-
-const findNavalInfiltrationOriginForTarget = (target: Tile): Tile | undefined => {
-  let best: Tile | undefined;
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.terrain !== "LAND") continue;
-    const dx = Math.min(Math.abs(tile.x - target.x), WORLD_WIDTH - Math.abs(tile.x - target.x));
-    const dy = Math.min(Math.abs(tile.y - target.y), WORLD_HEIGHT - Math.abs(tile.y - target.y));
-    const distance = Math.max(dx, dy);
-    if (distance < 2 || distance > 5) continue;
-    const steps = lineStepsBetween(tile.x, tile.y, target.x, target.y);
-    if (steps.length === 0) continue;
-    const seaOnly = steps.every((step) => terrainAt(step.x, step.y) === "SEA");
-    if (!seaOnly) continue;
-    best = tile;
-    break;
-  }
-  return best;
-};
-
-const navalInfiltrationActionsForSeaTile = (tile: Tile): TileActionDef[] => {
-  if (tile.terrain !== "SEA" || tile.fogged) return [];
-  const out: TileActionDef[] = [];
-  const cooldown = abilityCooldownRemainingMs("naval_infiltration");
-  for (const candidate of state.tiles.values()) {
-    if (candidate.fogged || candidate.terrain !== "LAND") continue;
-    if (!candidate.ownerId || candidate.ownerId === state.me || isTileOwnedByAlly(candidate)) continue;
-    const origin = findNavalInfiltrationOriginForTarget(candidate);
-    if (!origin) continue;
-    const steps = lineStepsBetween(origin.x, origin.y, candidate.x, candidate.y);
-    if (!steps.some((step) => step.x === tile.x && step.y === tile.y)) continue;
-    const targetName = candidate.town
-      ? `${prettyToken(candidate.town.type)} Town`
-      : candidate.resource
-        ? prettyToken(resourceLabel(candidate.resource))
-        : `${terrainLabel(candidate.x, candidate.y, candidate.terrain)} Tile`;
-    const observatoryProtection = hostileObservatoryProtectingTile(candidate);
-    out.push({
-      id: "naval_infiltration",
-      label: `Naval Infiltration · ${targetName}`,
-      targetKey: key(candidate.x, candidate.y),
-      originKey: key(origin.x, origin.y),
-      ...tileActionAvailability(
-        hasNavalInfiltrationCapability() && !observatoryProtection && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
-        !hasNavalInfiltrationCapability()
-          ? "Requires Navigation"
-          : observatoryProtection
-            ? "Blocked by observatory field"
-          : cooldown > 0
-            ? `Cooldown ${formatCooldownShort(cooldown)}`
-            : "Need 30 CRYSTAL",
-        `Land at ${candidate.x}, ${candidate.y} • 30 CRYSTAL`
-      )
-    });
-  }
-  return out.slice(0, 6);
-};
-
 const computeCrystalTargets = (
   ability: CrystalTargetingAbility
 ): { validTargets: Set<string>; originByTarget: Map<string, string> } => {
@@ -6000,70 +5958,54 @@ const computeCrystalTargets = (
   const originByTarget = new Map<string, string>();
   for (const tile of state.tiles.values()) {
     if (tile.fogged || tile.terrain !== "LAND") continue;
+    if (ability === "aether_bridge") {
+      const isCoastalLand =
+        terrainAt(tile.x, tile.y) === "LAND" &&
+        [
+          terrainAt(tile.x, tile.y - 1),
+          terrainAt(tile.x + 1, tile.y),
+          terrainAt(tile.x, tile.y + 1),
+          terrainAt(tile.x - 1, tile.y)
+        ].includes("SEA");
+      if (!isCoastalLand) continue;
+      validTargets.add(key(tile.x, tile.y));
+      continue;
+    }
     if (!tile.ownerId || tile.ownerId === state.me || isTileOwnedByAlly(tile)) continue;
     if (hostileObservatoryProtectingTile(tile)) continue;
-    if (ability === "deep_strike") {
-      const origin = findDeepStrikeOriginForTarget(tile);
-      if (!origin) continue;
-      validTargets.add(key(tile.x, tile.y));
-      originByTarget.set(key(tile.x, tile.y), key(origin.x, origin.y));
-      continue;
-    }
-    if (ability === "naval_infiltration") {
-      const origin = findNavalInfiltrationOriginForTarget(tile);
-      if (!origin) continue;
-      validTargets.add(key(tile.x, tile.y));
-      originByTarget.set(key(tile.x, tile.y), key(origin.x, origin.y));
-      continue;
-    }
     if ((tile.resource || tile.town) && !tile.sabotage) validTargets.add(key(tile.x, tile.y));
   }
   return { validTargets, originByTarget };
 };
 
 const beginCrystalTargeting = (ability: CrystalTargetingAbility): void => {
-  if (ability === "deep_strike") {
-    const cooldown = abilityCooldownRemainingMs("deep_strike");
-    if (!hasDeepStrikeCapability()) {
-      pushFeed("Deep Strike requires Deep Operations.", "combat", "warn");
-      return;
-    }
-    if ((state.strategicResources.CRYSTAL ?? 0) < 25) {
-      pushFeed("Deep Strike needs 25 CRYSTAL.", "combat", "warn");
-      return;
-    }
-    if (cooldown > 0) {
-      pushFeed(`Deep Strike cooling down for ${formatCooldownShort(cooldown)}.`, "combat", "warn");
-      return;
-    }
-  }
-  if (ability === "naval_infiltration") {
-    const cooldown = abilityCooldownRemainingMs("naval_infiltration");
-    if (!hasNavalInfiltrationCapability()) {
-      pushFeed("Naval Infiltration requires Navigation.", "combat", "warn");
+  if (ability === "aether_bridge") {
+    const cooldown = abilityCooldownRemainingMs("aether_bridge");
+    if (!hasAetherBridgeCapability()) {
+      pushFeed("Aether Bridge requires Navigation.", "combat", "warn");
       return;
     }
     if ((state.strategicResources.CRYSTAL ?? 0) < 30) {
-      pushFeed("Naval Infiltration needs 30 CRYSTAL.", "combat", "warn");
+      pushFeed("Aether Bridge needs 30 CRYSTAL.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {
-      pushFeed(`Naval Infiltration cooling down for ${formatCooldownShort(cooldown)}.`, "combat", "warn");
+      pushFeed(`Aether Bridge cooling down for ${formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
   }
-  if (ability === "sabotage") {
-    const cooldown = abilityCooldownRemainingMs("sabotage");
-    if (!hasSabotageCapability()) {
-      pushFeed("Sabotage requires Cryptography.", "combat", "warn");
+  if (ability === "siphon") {
+    const cooldown = abilityCooldownRemainingMs("siphon");
+    if (!hasSiphonCapability()) {
+      pushFeed("Siphon requires Cryptography.", "combat", "warn");
       return;
     }
     if ((state.strategicResources.CRYSTAL ?? 0) < 20) {
-      pushFeed("Sabotage needs 20 CRYSTAL.", "combat", "warn");
+      pushFeed("Siphon needs 20 CRYSTAL.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {
-      pushFeed(`Sabotage cooling down for ${formatCooldownShort(cooldown)}.`, "combat", "warn");
+      pushFeed(`Siphon cooling down for ${formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
   }
@@ -6092,24 +6034,16 @@ const beginCrystalTargeting = (ability: CrystalTargetingAbility): void => {
 const executeCrystalTargeting = (tile: Tile): boolean => {
   const targetKey = key(tile.x, tile.y);
   if (!state.crystalTargeting.active || !state.crystalTargeting.validTargets.has(targetKey)) return false;
-  if (hostileObservatoryProtectingTile(tile)) {
+  if (state.crystalTargeting.ability !== "aether_bridge" && hostileObservatoryProtectingTile(tile)) {
     pushFeed("Blocked by observatory field.", "combat", "warn");
     return false;
   }
   if (!requireAuthedSession()) return false;
   const ability = state.crystalTargeting.ability;
-  if (ability === "deep_strike") {
-    const originKey = state.crystalTargeting.originByTarget.get(targetKey);
-    if (!originKey) return false;
-    const origin = parseKey(originKey);
-    ws.send(JSON.stringify({ type: "DEEP_STRIKE_ATTACK", fromX: origin.x, fromY: origin.y, toX: tile.x, toY: tile.y }));
-  } else if (ability === "naval_infiltration") {
-    const originKey = state.crystalTargeting.originByTarget.get(targetKey);
-    if (!originKey) return false;
-    const origin = parseKey(originKey);
-    ws.send(JSON.stringify({ type: "NAVAL_INFILTRATION_ATTACK", fromX: origin.x, fromY: origin.y, toX: tile.x, toY: tile.y }));
+  if (ability === "aether_bridge") {
+    ws.send(JSON.stringify({ type: "CAST_AETHER_BRIDGE", x: tile.x, y: tile.y }));
   } else {
-    ws.send(JSON.stringify({ type: "SABOTAGE_TILE", x: tile.x, y: tile.y }));
+    ws.send(JSON.stringify({ type: "SIPHON_TILE", x: tile.x, y: tile.y }));
   }
   clearCrystalTargeting();
   hideTileActionMenu();
@@ -6150,7 +6084,7 @@ const isOwnedBorderTile = (x: number, y: number): boolean => {
 
 const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
   if (tile.fogged) return [];
-  if (tile.terrain === "SEA") return navalInfiltrationActionsForSeaTile(tile);
+  if (tile.terrain === "SEA") return [];
   if (tile.terrain === "MOUNTAIN") {
     const removeCooldown = abilityCooldownRemainingMs("remove_mountain");
     const observatoryProtection = hostileObservatoryProtectingTile(tile);
@@ -6262,6 +6196,13 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     const supportedDocks = tile.ownershipState === "SETTLED" ? supportedOwnedDocksForTile(tile) : [];
     const supportedDock = supportedDocks.length === 1 ? supportedDocks[0] : undefined;
     if (tile.ownershipState === "SETTLED" && hasYield) out.push({ id: "collect_yield", label: "Collect Yield" });
+    if (tile.sabotage) {
+      out.push({
+        id: "purge_siphon",
+        label: "Purge Siphon",
+        ...tileActionAvailability((state.strategicResources.CRYSTAL ?? 0) >= 10, "Need 10 CRYSTAL", "10 CRYSTAL")
+      });
+    }
     if (tile.ownershipState === "FRONTIER")
       out.push({
         id: "settle_land",
@@ -6721,46 +6662,59 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       )
     }
   ];
-  const deepStrikeCooldown = abilityCooldownRemainingMs("deep_strike");
-  const deepStrikeOrigin = findDeepStrikeOriginForTarget(tile);
   const observatoryProtection = hostileObservatoryProtectingTile(tile);
   out.push({
-    id: "deep_strike",
-    label: "Deep Strike",
+    id: "aether_bridge",
+    label: "Aether Bridge",
     ...tileActionAvailability(
-      hasDeepStrikeCapability() && !observatoryProtection && Boolean(deepStrikeOrigin) && deepStrikeCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25,
-      !hasDeepStrikeCapability()
-        ? "Requires Deep Operations"
-        : observatoryProtection
-          ? "Blocked by observatory field"
-        : !deepStrikeOrigin
-          ? "Need valid 2-tile origin"
-          : deepStrikeCooldown > 0
-            ? `Cooldown ${formatCooldownShort(deepStrikeCooldown)}`
-            : "Need 25 CRYSTAL",
-      "25 CRYSTAL • -10% ATK"
-    )
-  });
-  const navalCooldown = abilityCooldownRemainingMs("naval_infiltration");
-  const navalOrigin = findNavalInfiltrationOriginForTarget(tile);
-  out.push({
-    id: "naval_infiltration",
-    label: "Naval Infiltration",
-    ...tileActionAvailability(
-      hasNavalInfiltrationCapability() && !observatoryProtection && Boolean(navalOrigin) && navalCooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 30,
-      !hasNavalInfiltrationCapability()
+      hasAetherBridgeCapability() &&
+        tile.terrain === "LAND" &&
+        [
+          terrainAt(tile.x, tile.y - 1),
+          terrainAt(tile.x + 1, tile.y),
+          terrainAt(tile.x, tile.y + 1),
+          terrainAt(tile.x - 1, tile.y)
+        ].includes("SEA") &&
+        (!tile.ownerId || !observatoryProtection) &&
+        abilityCooldownRemainingMs("aether_bridge") <= 0 &&
+        (state.strategicResources.CRYSTAL ?? 0) >= 30,
+      !hasAetherBridgeCapability()
         ? "Requires Navigation"
-        : observatoryProtection
-          ? "Blocked by observatory field"
-        : !navalOrigin
-          ? "Need water crossing origin"
-          : navalCooldown > 0
-            ? `Cooldown ${formatCooldownShort(navalCooldown)}`
-            : "Need 30 CRYSTAL",
-      "30 CRYSTAL • -15% ATK"
+        : tile.terrain !== "LAND" || ![
+              terrainAt(tile.x, tile.y - 1),
+              terrainAt(tile.x + 1, tile.y),
+              terrainAt(tile.x, tile.y + 1),
+              terrainAt(tile.x - 1, tile.y)
+            ].includes("SEA")
+          ? "Target must be coastal land"
+          : tile.ownerId && observatoryProtection
+            ? "Landing blocked by enemy observatory"
+            : abilityCooldownRemainingMs("aether_bridge") > 0
+              ? `Cooldown ${formatCooldownShort(abilityCooldownRemainingMs("aether_bridge"))}`
+              : "Need 30 CRYSTAL",
+      "30 CRYSTAL • crosses up to 4 sea tiles"
     )
   });
   if (tile.ownerId && tile.ownerId !== state.me && tile.ownerId !== "barbarian") {
+    const activeTruce = activeTruceWithPlayer(tile.ownerId);
+    if (activeTruce) {
+      out.push({
+        id: "break_truce",
+        label: "Break Truce",
+        ...tileActionAvailability(true, "", "Break current truce")
+      });
+    } else {
+      out.push({
+        id: "offer_truce_12h",
+        label: "Offer Truce 12h",
+        ...tileActionAvailability(state.activeTruces.length < 1, "You already have an active truce", "12h")
+      });
+      out.push({
+        id: "offer_truce_24h",
+        label: "Offer Truce 24h",
+        ...tileActionAvailability(state.activeTruces.length < 1, "You already have an active truce", "24h")
+      });
+    }
     const revealCost = 20;
     const revealActive = state.activeRevealTargets.includes(tile.ownerId);
     const hasCapability = hasRevealCapability();
@@ -6775,29 +6729,29 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         revealActive ? "Cancel current reveal" : "20 CRYSTAL • 0.15 / 10m"
       )
     });
-    const sabotageCooldown = abilityCooldownRemainingMs("sabotage");
+    const sabotageCooldown = abilityCooldownRemainingMs("siphon");
     out.push({
-      id: "sabotage_tile",
-      label: "Sabotage",
+      id: "siphon_tile",
+      label: "Siphon",
       ...tileActionAvailability(
-        hasSabotageCapability() &&
+        hasSiphonCapability() &&
           !observatoryProtection &&
           sabotageCooldown <= 0 &&
           (state.strategicResources.CRYSTAL ?? 0) >= 20 &&
           Boolean(tile.resource || tile.town) &&
           !tile.sabotage,
-        !hasSabotageCapability()
+        !hasSiphonCapability()
           ? "Requires Cryptography"
           : observatoryProtection
             ? "Blocked by observatory field"
           : tile.sabotage
-            ? "Already sabotaged"
+            ? "Already siphoned"
             : !(tile.resource || tile.town)
               ? "Town or resource only"
               : sabotageCooldown > 0
                 ? `Cooldown ${formatCooldownShort(sabotageCooldown)}`
                 : "Need 20 CRYSTAL",
-        "20 CRYSTAL • -50% for 45m"
+        "20 CRYSTAL • steals 50% for 30m"
       )
     });
   }
@@ -7148,47 +7102,23 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
   if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
+  if (actionId === "offer_truce_12h" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+    const targetName = playerNameForOwner(selected.ownerId);
+    if (targetName) sendTruceRequest(targetName, 12);
+  }
+  if (actionId === "offer_truce_24h" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+    const targetName = playerNameForOwner(selected.ownerId);
+    if (targetName) sendTruceRequest(targetName, 24);
+  }
+  if (actionId === "break_truce" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+    breakTruce(selected.ownerId);
+  }
   if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
     sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId });
   }
-  if (actionId === "deep_strike") {
-    if (hostileObservatoryProtectingTile(selected)) {
-      pushFeed("Blocked by observatory field.", "combat", "warn");
-      hideTileActionMenu();
-      return;
-    }
-    const origin = findDeepStrikeOriginForTarget(selected);
-    if (origin) {
-      sendGameMessage({ type: "DEEP_STRIKE_ATTACK", fromX: origin.x, fromY: origin.y, toX: selected.x, toY: selected.y });
-    }
-  }
-  if (actionId === "naval_infiltration") {
-    const targetTile = targetKeyOverride ? state.tiles.get(targetKeyOverride) : selected;
-    if (targetTile && hostileObservatoryProtectingTile(targetTile)) {
-      pushFeed("Blocked by observatory field.", "combat", "warn");
-      hideTileActionMenu();
-      return;
-    }
-    const origin = originKeyOverride
-      ? (() => {
-          const parsed = parseKey(originKeyOverride);
-          return state.tiles.get(originKeyOverride) ?? state.tiles.get(key(parsed.x, parsed.y));
-        })()
-      : targetTile
-        ? findNavalInfiltrationOriginForTarget(targetTile)
-        : undefined;
-    if (targetTile && origin) {
-      sendGameMessage({ type: "NAVAL_INFILTRATION_ATTACK", fromX: origin.x, fromY: origin.y, toX: targetTile.x, toY: targetTile.y });
-    }
-  }
-  if (actionId === "sabotage_tile") {
-    if (hostileObservatoryProtectingTile(selected)) {
-      pushFeed("Blocked by observatory field.", "combat", "warn");
-      hideTileActionMenu();
-      return;
-    }
-    sendGameMessage({ type: "SABOTAGE_TILE", x: selected.x, y: selected.y });
-  }
+  if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
+  if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
+  if (actionId === "purge_siphon") sendGameMessage({ type: "PURGE_SIPHON", x: selected.x, y: selected.y });
   hideTileActionMenu();
 };
 
@@ -7658,8 +7588,10 @@ ws.addEventListener("message", (ev) => {
     if (state.profileSetupRequired) {
       setAuthStatus("Choose a display name and nation color to begin.");
     }
-    state.incomingAllianceRequests =
-      (msg.incomingAllianceRequests as AllianceRequest[] | undefined) ?? (msg.allianceRequests as AllianceRequest[] | undefined) ?? [];
+    state.incomingAllianceRequests = (msg.allianceRequests as AllianceRequest[]) ?? [];
+    state.activeTruces = (msg.activeTruces as ActiveTruceView[]) ?? [];
+    state.incomingTruceRequests = (msg.truceRequests as TruceRequest[]) ?? [];
+    state.activeAetherBridges = (msg.activeAetherBridges as ActiveAetherBridgeView[]) ?? [];
     const cfg = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
     const season = cfg.season;
     if (typeof season?.worldSeed === "number") {
@@ -8187,6 +8119,33 @@ ws.addEventListener("message", (ev) => {
     state.incomingAllianceRequests = (msg.incomingAllianceRequests as AllianceRequest[] | undefined) ?? state.incomingAllianceRequests;
     state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as AllianceRequest[] | undefined) ?? state.outgoingAllianceRequests;
     pushFeed(`Alliances updated (${state.allies.length})`, "alliance", "info");
+    renderHud();
+  }
+  if (msg.type === "TRUCE_REQUEST_INCOMING") {
+    const request = (msg.request as TruceRequest | undefined) ?? undefined;
+    if (request) {
+      const fromName = msg.fromName as string | undefined;
+      if (fromName) request.fromName = fromName;
+      state.incomingTruceRequests = [...state.incomingTruceRequests.filter((entry) => entry.id !== request.id), request];
+    }
+    pushFeed(`Incoming truce offer${request?.fromName ? ` from ${request.fromName}` : ""}.`, "alliance", "info");
+    renderHud();
+  }
+  if (msg.type === "TRUCE_REQUESTED") {
+    const request = msg.request as TruceRequest | undefined;
+    const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? playerNameForOwner(request.toPlayerId) : undefined);
+    pushFeed(`Truce offered${targetName ? ` to ${targetName}` : ""}.`, "alliance", "success");
+    renderHud();
+  }
+  if (msg.type === "TRUCE_UPDATE") {
+    state.activeTruces = (msg.activeTruces as ActiveTruceView[]) ?? state.activeTruces;
+    state.incomingTruceRequests = (msg.incomingTruceRequests as TruceRequest[]) ?? state.incomingTruceRequests;
+    const announcement = msg.announcement as string | undefined;
+    if (announcement) pushFeed(announcement, "alliance", "warn");
+    renderHud();
+  }
+  if (msg.type === "AETHER_BRIDGE_UPDATE") {
+    state.activeAetherBridges = (msg.bridges as ActiveAetherBridgeView[]) ?? state.activeAetherBridges;
     renderHud();
   }
   if (msg.type === "SEASON_VICTORY_UPDATE") {
@@ -9190,6 +9149,21 @@ const draw = (): void => {
       prev = b;
       prevScreen = sb;
     }
+  }
+  const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
+  ctx.strokeStyle = "rgba(116, 227, 255, 0.92)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10, 6]);
+  ctx.lineDashOffset = -((nowMs / 120) % 16);
+  for (const bridge of visibleAetherBridges) {
+    const from = worldToScreen(bridge.from.x, bridge.from.y, size, halfW, halfH);
+    const dx = toroidDelta(bridge.from.x, bridge.to.x, WORLD_WIDTH) * size;
+    const dy = toroidDelta(bridge.from.y, bridge.to.y, WORLD_HEIGHT) * size;
+    const to = { sx: from.sx + dx, sy: from.sy + dy };
+    ctx.beginPath();
+    ctx.moveTo(from.sx, from.sy);
+    ctx.lineTo(to.sx, to.sy);
+    ctx.stroke();
   }
   ctx.setLineDash([]);
   ctx.lineDashOffset = 0;
