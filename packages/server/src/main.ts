@@ -514,7 +514,6 @@ type AiTurnAnalysis = {
   economyWeak: boolean;
   frontierDebt: boolean;
   threatCritical: boolean;
-  preferredVictoryPath: AiSeasonVictoryPathId | undefined;
 };
 
 type LeaderboardOverallEntry = {
@@ -8679,12 +8678,6 @@ const buildAiTurnAnalysis = (
     foodCoverageLow;
   const frontierDebt = frontierTiles >= Math.max(2, settledTiles);
   const threatCritical = underThreat && (controlledTowns > 0 || aiIncome >= 5 || frontierDebt);
-  const preferredVictoryPath: AiSeasonVictoryPathId | undefined = economyWeak
-    ? "ECONOMIC_HEGEMONY"
-    : controlledTowns === 0
-      ? "TOWN_CONTROL"
-      : undefined;
-
   return {
     territorySummary,
     aiIncome,
@@ -8698,8 +8691,7 @@ const buildAiTurnAnalysis = (
     foodCoverageLow,
     economyWeak,
     frontierDebt,
-    threatCritical,
-    preferredVictoryPath
+    threatCritical
   };
 };
 
@@ -9011,6 +9003,87 @@ const setAiTurnDebug = (
   });
 };
 
+const chooseOpeningAiVictoryPath = (
+  actor: Player,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): AiSeasonVictoryPathId => {
+  const territorySummary = analysis.territorySummary;
+  let townOpportunityScore = 0;
+  let economicOpportunityScore = 0;
+  let expansionOpportunityScore = 0;
+
+  for (const { to } of territorySummary.expandCandidates) {
+    if (to.terrain !== "LAND" || to.ownerId) continue;
+    const tk = key(to.x, to.y);
+    if (townsByTile.has(tk)) {
+      townOpportunityScore += 5;
+      continue;
+    }
+    if (isAiVisibleEconomicFrontierTile(actor, to, territorySummary)) {
+      economicOpportunityScore += 4;
+      continue;
+    }
+    expansionOpportunityScore += 1;
+  }
+
+  for (const { to } of territorySummary.attackCandidates) {
+    if (to.terrain !== "LAND" || !to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId) || to.ownerId === BARBARIAN_OWNER_ID) continue;
+    const tk = key(to.x, to.y);
+    if (townsByTile.has(tk)) townOpportunityScore += 6;
+    else if (Boolean(to.resource) || docksByTile.has(tk)) economicOpportunityScore += 3;
+  }
+
+  const ranked = rankSeasonVictoryPaths({
+    townsControlled: analysis.controlledTowns,
+    townsTarget,
+    incomePerMinute: analysis.aiIncome,
+    incomeLeaderGap: analysis.aiIncome - analysis.runnerUpIncome,
+    settledTiles: analysis.settledTiles,
+    settledTilesTarget,
+    underThreat: analysis.underThreat,
+    goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
+    staminaHealthy: actor.stamina >= 0
+  });
+
+  const tieBreak = [...actor.id].reduce((total, char) => total + char.charCodeAt(0), 0) % 7;
+  const openingScores: Record<AiSeasonVictoryPathId, number> = {
+    TOWN_CONTROL:
+      townOpportunityScore * 40 +
+      (analysis.controlledTowns === 0 ? 35 : 0) +
+      (analysis.underThreat ? -15 : 0),
+    ECONOMIC_HEGEMONY:
+      economicOpportunityScore * 36 +
+      (analysis.worldFlags.has("active_dock") ? 28 : 0) +
+      (analysis.worldFlags.has("active_town") ? 12 : 0) +
+      (analysis.foodCoverageLow ? 10 : 0),
+    SETTLED_TERRITORY:
+      expansionOpportunityScore * 10 +
+      territorySummary.expandCandidates.length * 0.5 +
+      (analysis.underThreat ? -8 : 8)
+  };
+
+  return [...ranked]
+    .map((entry) => ({
+      id: entry.id,
+      score: openingScores[entry.id] + entry.score * 0.2 + (entry.id === "SETTLED_TERRITORY" ? tieBreak : 0)
+    }))
+    .sort((left, right) => right.score - left.score)[0]?.id ?? "ECONOMIC_HEGEMONY";
+};
+
+const ensureAiVictoryPath = (
+  actor: Player,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): AiSeasonVictoryPathId => {
+  if (actor.aiVictoryPath) return actor.aiVictoryPath as AiSeasonVictoryPathId;
+  const selected = chooseOpeningAiVictoryPath(actor, analysis, townsTarget, settledTilesTarget);
+  actor.aiVictoryPath = selected;
+  return selected;
+};
+
 const recordAiActionFailure = (
   actor: Player,
   actionKey: string,
@@ -9090,20 +9163,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const economyWeak = analysis.economyWeak;
   const frontierDebt = analysis.frontierDebt;
   const threatCritical = analysis.threatCritical;
-  const preferredVictoryPath = analysis.preferredVictoryPath;
-  const primaryVictoryPath =
-    preferredVictoryPath ??
-    rankSeasonVictoryPaths({
-      townsControlled: controlledTowns,
-      townsTarget,
-      incomePerMinute: aiIncome,
-      incomeLeaderGap: aiIncome - runnerUpIncome,
-      settledTiles,
-      settledTilesTarget,
-      underThreat,
-      goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
-      staminaHealthy: actor.stamina >= 0
-    })[0]?.id;
+  const primaryVictoryPath = ensureAiVictoryPath(actor, analysis, townsTarget, settledTilesTarget);
   const planningSnapshot = buildAiPlanningSnapshot(actor, primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
   const decision = await planAiDecisionViaWorker(planningSnapshot);
   const debugDetails = {
