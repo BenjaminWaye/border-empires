@@ -79,6 +79,7 @@ import {
   type SeasonVictoryObjectiveView,
   type SeasonWinnerView,
   type SeasonVictoryPathId,
+  type StrategicReplayEvent,
   type Tile,
   type TileKey,
   type Fort,
@@ -435,6 +436,7 @@ const verifyFirebaseToken = async (
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
 const GLOBAL_STATUS_BROADCAST_MS = 2_000;
+const STRATEGIC_REPLAY_LIMIT = 16_000;
 
 interface AllianceRequest {
   id: string;
@@ -573,6 +575,7 @@ interface SeasonArchiveEntry {
   mostPoints: Array<{ playerId: string; name: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; name: string; value: number }>;
   winner?: SeasonWinnerView;
+  replayEvents?: StrategicReplayEvent[];
 }
 
 interface SnapshotState {
@@ -1860,6 +1863,7 @@ const settlementDefenseByTile = new Map<TileKey, { ownerId: string; expiresAt: n
 const playerBaseMods = new Map<string, { attack: number; defense: number; income: number; vision: number }>();
 const playerEffectsByPlayer = new Map<string, PlayerEffects>();
 const seasonArchives: SeasonArchiveEntry[] = [];
+const strategicReplayEvents: StrategicReplayEvent[] = [];
 let seasonWinner: SeasonWinnerView | undefined;
 const telemetryCounters: TelemetryCounters = {
   frontierClaims: 0,
@@ -4016,6 +4020,7 @@ const clearWorldProgressForSeason = (): void => {
   siphonByTile.clear();
   siphonCacheByPlayer.clear();
   activeAetherBridgesById.clear();
+  strategicReplayEvents.length = 0;
   abilityCooldownsByPlayer.clear();
   revealedEmpireTargetsByPlayer.clear();
   breachShockByTile.clear();
@@ -4077,10 +4082,12 @@ const archiveCurrentSeason = (): void => {
     endedAt,
     mostTerritory: topBy((p) => p.T),
     mostPoints: topBy((p) => p.points),
-    longestSurvivalMs: topBy((p) => Math.max(0, endedAt - p.lastActiveAt))
+    longestSurvivalMs: topBy((p) => Math.max(0, endedAt - p.lastActiveAt)),
+    replayEvents: strategicReplayEvents.slice()
   };
   if (seasonWinner) archiveEntry.winner = seasonWinner;
   seasonArchives.push(archiveEntry);
+  strategicReplayEvents.length = 0;
 };
 
 const startNewSeason = (): void => {
@@ -10771,6 +10778,14 @@ const getVictoryPressureTracker = (id: SeasonVictoryPathId): VictoryPressureTrac
 const currentSeasonWinner = (): SeasonWinnerView | undefined => seasonWinner;
 const isFinalPushActive = (nowMs = now()): boolean => activeSeason.endAt - nowMs <= FINAL_PUSH_MS;
 
+const pushStrategicReplayEvent = (event: Omit<StrategicReplayEvent, "id">): StrategicReplayEvent => {
+  const fullEvent: StrategicReplayEvent = { ...event, id: crypto.randomUUID() };
+  strategicReplayEvents.push(fullEvent);
+  while (strategicReplayEvents.length > STRATEGIC_REPLAY_LIMIT) strategicReplayEvents.shift();
+  broadcast({ type: "STRATEGIC_REPLAY_EVENT", event: fullEvent });
+  return fullEvent;
+};
+
 const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   const nowMs = now();
   const totalTownCount = Math.max(1, townsByTile.size);
@@ -10980,6 +10995,16 @@ const crownSeasonWinner = (playerId: string, def: VictoryPressureDefinition): vo
     objectiveId: def.id,
     objectiveName: def.name
   };
+  pushStrategicReplayEvent({
+    at: seasonWinner.crownedAt,
+    type: "WINNER",
+    label: `${player.name} won the season via ${def.name}`,
+    playerId,
+    playerName: player.name,
+    objectiveId: def.id,
+    objectiveName: def.name,
+    isBookmark: true
+  });
   refreshGlobalStatusCache(true);
   lastGlobalStatusBroadcastSig = globalStatusBroadcastSignature();
   broadcast({
@@ -11034,6 +11059,16 @@ const evaluateVictoryPressure = (): void => {
       if (tracker.holdAnnouncedAt && previousLeaderPlayerId) {
         const previousLeaderName = players.get(previousLeaderPlayerId)?.name ?? previousLeaderPlayerId.slice(0, 8);
         announcement = `${previousLeaderName} lost the ${def.name} victory hold.`;
+        pushStrategicReplayEvent({
+          at: nowMs,
+          type: "HOLD_BREAK",
+          label: `${previousLeaderName} lost the ${def.name} hold`,
+          playerId: previousLeaderPlayerId,
+          playerName: previousLeaderName,
+          objectiveId: def.id,
+          objectiveName: def.name,
+          isBookmark: true
+        });
       }
       delete tracker.leaderPlayerId;
       delete tracker.holdStartedAt;
@@ -11064,6 +11099,16 @@ const evaluateVictoryPressure = (): void => {
       const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
       announcement = `${leaderName} has started a ${def.name} victory hold.`;
       tracker.holdAnnouncedAt = nowMs;
+      pushStrategicReplayEvent({
+        at: nowMs,
+        type: "HOLD_START",
+        label: `${leaderName} started a ${def.name} hold`,
+        playerId: leaderPlayerId,
+        playerName: leaderName,
+        objectiveId: def.id,
+        objectiveName: def.name,
+        isBookmark: true
+      });
     } else if (tracker.holdAnnouncedAt) {
       for (const milestoneHours of HOLD_REMAINING_BROADCAST_HOURS) {
         if (holdRemainingMs > milestoneHours * 60 * 60_000) continue;
@@ -11837,6 +11882,18 @@ const tryCastAetherBridge = (actor: Player, x: number, y: number): { ok: boolean
     endsAt: now() + AETHER_BRIDGE_DURATION_MS
   };
   activeAetherBridgesById.set(bridge.bridgeId, bridge);
+  const [fromX, fromY] = parseKey(bridge.fromTileKey);
+  const [toX, toY] = parseKey(bridge.toTileKey);
+  pushStrategicReplayEvent({
+    at: bridge.startedAt,
+    type: "AETHER_BRIDGE",
+    label: `${actor.name} opened an Aether Bridge`,
+    playerId: actor.id,
+    playerName: actor.name,
+    from: { x: fromX, y: fromY },
+    to: { x: toX, y: toY },
+    isBookmark: true
+  });
   return { ok: true, bridge };
 };
 
@@ -11929,6 +11986,17 @@ const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean
   trackOwnedTileKey(observatoryTileKeysByPlayer, actor.id, tk);
   markVisibilityDirty(actor.id);
   recordTileStructureHistory(tk, "OBSERVATORY");
+  pushStrategicReplayEvent({
+    at: now(),
+    type: "STRUCTURE",
+    label: `${actor.name} started an Observatory at (${t.x}, ${t.y})`,
+    playerId: actor.id,
+    playerName: actor.name,
+    x: t.x,
+    y: t.y,
+    structureType: "OBSERVATORY",
+    isBookmark: true
+  });
   scheduleObservatoryConstruction(tk, OBSERVATORY_BUILD_MS);
   return { ok: true };
 };
@@ -12125,6 +12193,17 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   fortsByTile.set(tk, fort);
   markSummaryChunkDirtyAtTile(t.x, t.y);
   recordTileStructureHistory(tk, "FORT");
+  pushStrategicReplayEvent({
+    at: now(),
+    type: "STRUCTURE",
+    label: `${actor.name} started a Fort at (${t.x}, ${t.y})`,
+    playerId: actor.id,
+    playerName: actor.name,
+    x: t.x,
+    y: t.y,
+    structureType: "FORT",
+    isBookmark: true
+  });
   const timer = setTimeout(() => {
     const current = fortsByTile.get(tk);
     if (!current) return;
@@ -12172,6 +12251,17 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   siegeOutpostsByTile.set(tk, siegeOutpost);
   markSummaryChunkDirtyAtTile(t.x, t.y);
   recordTileStructureHistory(tk, "SIEGE_OUTPOST");
+  pushStrategicReplayEvent({
+    at: now(),
+    type: "STRUCTURE",
+    label: `${actor.name} started a Siege Outpost at (${t.x}, ${t.y})`,
+    playerId: actor.id,
+    playerName: actor.name,
+    x: t.x,
+    y: t.y,
+    structureType: "SIEGE_OUTPOST",
+    isBookmark: true
+  });
   const timer = setTimeout(() => {
     const current = siegeOutpostsByTile.get(tk);
     if (!current) return;
@@ -12193,6 +12283,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
 const updateOwnership = (x: number, y: number, newOwner: string | undefined, newState?: OwnershipState): void => {
   const t = playerTile(x, y);
   const oldOwner = t.ownerId;
+  const oldOwnershipState = t.ownershipState;
   const k = key(t.x, t.y);
   const clusterId = t.clusterId;
   const affectedPlayers = new Set<string>();
@@ -12353,6 +12444,23 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   }
   markVisibilityDirtyForPlayers(visibilityAffectedPlayers);
   markSummaryChunkDirtyAtTile(t.x, t.y);
+
+  if (oldOwner !== newOwner || oldOwnershipState !== t.ownershipState) {
+    const ownerName = t.ownerId ? players.get(t.ownerId)?.name : undefined;
+    const replayEvent: Omit<StrategicReplayEvent, "id"> = {
+      at: now(),
+      type: "OWNERSHIP",
+      label: t.ownerId ? `${ownerName ?? t.ownerId.slice(0, 8)} ${t.ownershipState === "SETTLED" ? "settled" : "claimed"} (${t.x}, ${t.y})` : `Tile lost at (${t.x}, ${t.y})`,
+      ownerId: t.ownerId ?? null,
+      ownershipState: t.ownershipState ?? null,
+      x: t.x,
+      y: t.y,
+      isBookmark: townsByTile.has(k) && oldOwner !== newOwner
+    };
+    if (t.ownerId) replayEvent.playerId = t.ownerId;
+    if (ownerName) replayEvent.playerName = ownerName;
+    pushStrategicReplayEvent(replayEvent);
+  }
 
   sendVisibleTileDeltaSquare(t.x, t.y, 1);
 };
@@ -14380,6 +14488,7 @@ app.post("/admin/world/regenerate", async () => {
                 const [toX, toY] = parseKey(bridge.toTileKey);
                 return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
               }),
+            strategicReplayEvents,
             pendingSettlements: [...pendingSettlementsByTile.values()]
               .filter((settlement) => settlement.ownerId === player.id)
               .map((settlement) => {
@@ -14950,6 +15059,16 @@ app.post("/admin/world/regenerate", async () => {
       };
       truceRequests.delete(msg.requestId);
       trucesByPair.set(playerPairKey(actor.id, from.id), truce);
+      pushStrategicReplayEvent({
+        at: truce.startedAt,
+        type: "TRUCE_START",
+        label: `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce`,
+        playerId: actor.id,
+        playerName: actor.name,
+        targetPlayerId: from.id,
+        targetPlayerName: from.name,
+        isBookmark: true
+      });
       broadcastTruceUpdate(actor, from, `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`);
       return;
     }
@@ -14980,6 +15099,16 @@ app.post("/admin/world/regenerate", async () => {
         penalizedPlayerId: actor.id,
         targetPlayerId: target.id,
         endsAt: now() + TRUCE_BREAK_ATTACK_PENALTY_MS
+      });
+      pushStrategicReplayEvent({
+        at: now(),
+        type: "TRUCE_BREAK",
+        label: `${actor.name} broke truce with ${target.name}`,
+        playerId: actor.id,
+        playerName: actor.name,
+        targetPlayerId: target.id,
+        targetPlayerName: target.name,
+        isBookmark: true
       });
       broadcastTruceUpdate(actor, target, `${actor.name} broke the truce with ${target.name}.`);
       return;
