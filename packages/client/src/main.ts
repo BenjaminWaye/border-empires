@@ -1,4 +1,5 @@
 import "./style.css";
+import aetherBridgeAnchorUrl from "./assets/aether-bridge-anchor.svg";
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import {
   GoogleAuthProvider,
@@ -110,6 +111,8 @@ import type {
 } from "./client-types.js";
 
 const formatManpowerAmount = (value: number): string => Math.round(value).toString();
+const aetherBridgeAnchorImage = new Image();
+aetherBridgeAnchorImage.src = aetherBridgeAnchorUrl;
 
 const {
   allianceBreakBtn,
@@ -395,6 +398,33 @@ const drawAetherBridgeLane = (
   const nx = dx / distance;
   const ny = dy / distance;
   const pulseOffset = ((nowMs / 1100) % 1 + 1) % 1;
+  const laneAngle = Math.atan2(dy, dx);
+
+  const drawAnchorGlyph = (x: number, y: number, angle: number): void => {
+    if (compact || !aetherBridgeAnchorImage.complete || !aetherBridgeAnchorImage.naturalWidth) {
+      const ringColor = compact ? "rgba(192, 245, 255, 0.72)" : "rgba(192, 245, 255, 0.82)";
+      const anchorFill = compact ? "rgba(20, 82, 102, 0.78)" : "rgba(18, 74, 96, 0.72)";
+      const ringRadius = compact ? 2.4 : 8;
+      const coreRadius = compact ? 1.25 : 3.8;
+      ctx.strokeStyle = ringColor;
+      ctx.lineWidth = compact ? 1 : 2;
+      ctx.beginPath();
+      ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = anchorFill;
+      ctx.beginPath();
+      ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    const glyphSize = compact ? 8 : 28;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.globalAlpha = compact ? 0.9 : 0.98;
+    ctx.drawImage(aetherBridgeAnchorImage, -glyphSize * 0.5, -glyphSize * 0.5, glyphSize, glyphSize);
+    ctx.restore();
+  };
 
   ctx.save();
   ctx.lineCap = "round";
@@ -417,24 +447,8 @@ const drawAetherBridgeLane = (
   ctx.setLineDash([]);
   ctx.lineDashOffset = 0;
 
-  const ringColor = compact ? "rgba(192, 245, 255, 0.72)" : "rgba(192, 245, 255, 0.82)";
-  const anchorFill = compact ? "rgba(20, 82, 102, 0.78)" : "rgba(18, 74, 96, 0.72)";
-  const ringRadius = compact ? 2.4 : 8;
-  const coreRadius = compact ? 1.25 : 3.8;
-  for (const [x, y] of [
-    [fromX, fromY],
-    [toX, toY]
-  ] as Array<[number, number]>) {
-    ctx.strokeStyle = ringColor;
-    ctx.lineWidth = compact ? 1 : 2;
-    ctx.beginPath();
-    ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = anchorFill;
-    ctx.beginPath();
-    ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  drawAnchorGlyph(fromX, fromY, laneAngle);
+  drawAnchorGlyph(toX, toY, laneAngle + Math.PI);
 
   const pulseCount = compact ? 2 : 3;
   for (let i = 0; i < pulseCount; i += 1) {
