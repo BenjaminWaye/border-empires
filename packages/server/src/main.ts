@@ -446,15 +446,30 @@ interface AllianceRequest {
   toName?: string;
 }
 
-type ManpowerBreakdownLine = {
-  label: string;
-  amount: number;
-  note?: string;
-};
+interface TruceRequest {
+  id: string;
+  fromPlayerId: string;
+  toPlayerId: string;
+  createdAt: number;
+  expiresAt: number;
+  durationHours: 12 | 24;
+  fromName?: string;
+  toName?: string;
+}
+
+interface ActiveTruce {
+  playerAId: string;
+  playerBId: string;
+  startedAt: number;
+  endsAt: number;
+  createdByPlayerId: string;
+}
 
 type VictoryPressureTracker = {
   leaderPlayerId?: string;
   holdStartedAt?: number;
+  holdAnnouncedAt?: number;
+  lastRemainingMilestoneHours?: number;
 };
 
 type AiTickContext = {
@@ -707,7 +722,30 @@ interface ActiveSabotage {
   targetTileKey: TileKey;
   casterPlayerId: string;
   endsAt: number;
-  outputMultiplier: number;
+  outputMultiplier?: number;
+}
+
+interface ActiveSiphon {
+  targetTileKey: TileKey;
+  casterPlayerId: string;
+  endsAt: number;
+}
+
+interface SiphonCache {
+  siphonId: string;
+  targetTileKey: TileKey;
+  expiresAt: number;
+  strategic: Partial<Record<StrategicResource, number>>;
+  gold: number;
+}
+
+interface ActiveAetherBridge {
+  bridgeId: string;
+  ownerId: string;
+  fromTileKey: TileKey;
+  toTileKey: TileKey;
+  startedAt: number;
+  endsAt: number;
 }
 
 interface TileYieldBuffer {
@@ -739,6 +777,7 @@ const emptyPlayerEffects = (): PlayerEffects => ({
   unlockRevealRegion: false,
   unlockRevealEmpire: false,
   unlockDeepStrike: false,
+  unlockAetherBridge: false,
   unlockMountainPass: false,
   unlockTerrainShaping: false,
   unlockBreachAttack: false,
@@ -808,6 +847,7 @@ interface PlayerEffects {
   unlockRevealRegion: boolean;
   unlockRevealEmpire: boolean;
   unlockDeepStrike: boolean;
+  unlockAetherBridge: boolean;
   unlockMountainPass: boolean;
   unlockTerrainShaping: boolean;
   unlockBreachAttack: boolean;
@@ -896,7 +936,7 @@ type AiActionFailureEntry = {
 };
 
 interface AbilityDefinition {
-  id: "reveal_empire" | "deep_strike" | "naval_infiltration" | "sabotage" | "create_mountain" | "remove_mountain";
+  id: "reveal_empire" | "aether_bridge" | "siphon" | "create_mountain" | "remove_mountain";
   name: string;
   requiredTechIds: string[];
   crystalCost: number;
@@ -926,8 +966,14 @@ const parseKey = (k: TileKey): [number, number] => {
 const BARBARIAN_OWNER_ID = "barbarian";
 const BARBARIAN_TICK_MS = 5_000;
 
+const playerPairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+
 const now = (): number => Date.now();
 const ALLIANCE_REQUEST_TTL_MS = 5 * 60_000;
+const TRUCE_REQUEST_TTL_MS = 5 * 60_000;
+const TRUCE_BREAK_LOCKOUT_MS = 12 * 60 * 60_000;
+const TRUCE_BREAK_ATTACK_MULT = 0.75;
+const TRUCE_BREAK_ATTACK_PENALTY_MS = 60 * 60_000;
 const PASSIVE_INCOME_MULT = 1.0;
 const BASE_GOLD_PER_MIN = 1;
 const FRONTIER_ACTION_GOLD_COST = 1;
@@ -1042,6 +1088,15 @@ const SABOTAGE_CRYSTAL_COST = 20;
 const SABOTAGE_COOLDOWN_MS = 15 * 60_000;
 const SABOTAGE_DURATION_MS = 45 * 60_000;
 const SABOTAGE_OUTPUT_MULT = 0.5;
+const AETHER_BRIDGE_CRYSTAL_COST = 30;
+const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
+const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
+const AETHER_BRIDGE_MAX_SEA_TILES = 4;
+const SIPHON_CRYSTAL_COST = 20;
+const SIPHON_COOLDOWN_MS = 15 * 60_000;
+const SIPHON_DURATION_MS = 30 * 60_000;
+const SIPHON_SHARE = 0.5;
+const SIPHON_PURGE_CRYSTAL_COST = 10;
 const TERRAIN_SHAPING_GOLD_COST = 8000;
 const TERRAIN_SHAPING_CRYSTAL_COST = 400;
 const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
@@ -1112,27 +1167,21 @@ const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = {
     cooldownMs: 0,
     upkeepCrystalPerMinute: REVEAL_EMPIRE_UPKEEP_PER_MIN
   },
-  deep_strike: {
-    id: "deep_strike",
-    name: "Deep Strike",
-    requiredTechIds: ["deep-operations"],
-    crystalCost: DEEP_STRIKE_CRYSTAL_COST,
-    cooldownMs: DEEP_STRIKE_COOLDOWN_MS
-  },
-  naval_infiltration: {
-    id: "naval_infiltration",
-    name: "Naval Infiltration",
+  aether_bridge: {
+    id: "aether_bridge",
+    name: "Aether Bridge",
     requiredTechIds: ["navigation"],
-    crystalCost: NAVAL_INFILTRATION_CRYSTAL_COST,
-    cooldownMs: NAVAL_INFILTRATION_COOLDOWN_MS
+    crystalCost: AETHER_BRIDGE_CRYSTAL_COST,
+    cooldownMs: AETHER_BRIDGE_COOLDOWN_MS,
+    durationMs: AETHER_BRIDGE_DURATION_MS
   },
-  sabotage: {
-    id: "sabotage",
-    name: "Sabotage",
+  siphon: {
+    id: "siphon",
+    name: "Siphon",
     requiredTechIds: ["cryptography"],
-    crystalCost: SABOTAGE_CRYSTAL_COST,
-    cooldownMs: SABOTAGE_COOLDOWN_MS,
-    durationMs: SABOTAGE_DURATION_MS
+    crystalCost: SIPHON_CRYSTAL_COST,
+    cooldownMs: SIPHON_COOLDOWN_MS,
+    durationMs: SIPHON_DURATION_MS
   },
   create_mountain: {
     id: "create_mountain",
@@ -1354,7 +1403,7 @@ const currentIncomePerMinute = (player: Player): number => {
   }
   incomePerMinute += ownedDockCount;
   for (const town of townsByTile.values()) {
-    incomePerMinute += townIncomeForOwner(town, player.id) * sabotageMultiplierAt(town.tileKey);
+    incomePerMinute += townIncomeForOwner(town, player.id) * siphonMultiplierAt(town.tileKey);
   }
   let activeBankCount = 0;
   for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
@@ -1381,7 +1430,7 @@ const strategicProductionPerMinute = (player: Player): Record<StrategicResource,
     if (sr) {
       const mult = t.resource ? activeResourceIncomeMult(player.id, t.resource) : 1;
       const daily = t.resource ? (strategicDailyFromResource[t.resource] ?? 0) : 0;
-      out[sr] += (daily / 1440) * mult * sabotageMultiplierAt(tk) * economicStructureOutputMultAt(tk, player.id);
+      out[sr] += (daily / 1440) * mult * siphonMultiplierAt(tk) * economicStructureOutputMultAt(tk, player.id);
     }
   }
   for (const town of townsByTile.values()) {
@@ -1681,6 +1730,9 @@ const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
 const aiDefensePriorityUntilByPlayer = new Map<string, number>();
 const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const allianceRequests = new Map<string, AllianceRequest>();
+const truceRequests = new Map<string, TruceRequest>();
+const trucesByPair = new Map<string, ActiveTruce>();
+const truceBreakPenaltyByPair = new Map<string, { penalizedPlayerId: string; targetPlayerId: string; endsAt: number }>();
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
 const chunkSnapshotSentAtByPlayer = new Map<string, { cx: number; cy: number; radius: number; sentAt: number }>();
 const recentAiTickPerf = perfRing<{ at: number; elapsedMs: number; aiPlayers: number; rssMb: number; heapUsedMb: number }>(30);
@@ -1709,7 +1761,9 @@ const townsByTile = new Map<TileKey, TownDefinition>();
 const firstSpecialSiteCaptureClaimed = new Set<TileKey>();
 const revealedEmpireTargetsByPlayer = new Map<string, Set<string>>();
 const revealWatchersByTarget = new Map<string, Set<string>>();
-const sabotageByTile = new Map<TileKey, ActiveSabotage>();
+const siphonByTile = new Map<TileKey, ActiveSiphon>();
+const siphonCacheByPlayer = new Map<string, SiphonCache[]>();
+const activeAetherBridgesById = new Map<string, ActiveAetherBridge>();
 const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
 const victoryPressureById = new Map<SeasonVictoryPathId, VictoryPressureTracker>();
 const cachedChunkPayloadDiagnostics = (): { payloads: number; approxPayloadMb: number } => {
@@ -1858,7 +1912,10 @@ const pruneRepeatFightEntries = (pairKey: string, nowMs: number): number[] => {
   }
   return entries;
 };
-const SEASONS_ENABLED = false;
+const SEASONS_ENABLED = true;
+const FINAL_PUSH_MS = 72 * 60 * 60_000;
+const HOLD_START_BROADCAST_DELAY_MS = 10 * 60_000;
+const HOLD_REMAINING_BROADCAST_HOURS = [12, 6, 1] as const;
 
 const seeded01 = (x: number, y: number, seed: number): number => {
   const n = Math.sin((x * 12.9898 + y * 78.233 + seed * 43758.5453) % 100000) * 43758.5453123;
@@ -3514,7 +3571,7 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
   const resource = resourceAt(x, y);
   const dock = docksByTile.get(tileKey);
   const town = townsByTile.get(tileKey);
-  const sabotageMult = sabotageMultiplierAt(tileKey);
+  const sabotageMult = siphonMultiplierAt(tileKey);
   const goldPerMinute =
     ((players.get(ownerId)?.capitalTileKey === tileKey ? BASE_GOLD_PER_MIN : 0) +
       (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
@@ -3920,6 +3977,9 @@ const clearWorldProgressForSeason = (): void => {
   barbarianAgentByTileKey.clear();
   combatLocks.clear();
   allianceRequests.clear();
+  truceRequests.clear();
+  trucesByPair.clear();
+  truceBreakPenaltyByPair.clear();
   repeatFights.clear();
   collectVisibleCooldownByPlayer.clear();
   cachedVisibilitySnapshotByPlayer.clear();
@@ -3947,7 +4007,9 @@ const clearWorldProgressForSeason = (): void => {
   for (const t of economicStructureBuildTimers.values()) clearTimeout(t);
   economicStructureBuildTimers.clear();
   economicStructuresByTile.clear();
-  sabotageByTile.clear();
+  siphonByTile.clear();
+  siphonCacheByPlayer.clear();
+  activeAetherBridgesById.clear();
   abilityCooldownsByPlayer.clear();
   revealedEmpireTargetsByPlayer.clear();
   breachShockByTile.clear();
@@ -4255,7 +4317,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
   const fort = terrain === "LAND" ? fortsByTile.get(tk) : undefined;
   const observatory = terrain === "LAND" ? observatoriesByTile.get(tk) : undefined;
   const siegeOutpost = terrain === "LAND" ? siegeOutpostsByTile.get(tk) : undefined;
-  const sabotage = sabotageByTile.get(tk);
+  const sabotage = siphonByTile.get(tk);
   const breachShock = breachShockByTile.get(tk);
   const tile: Tile = {
     x: wx,
@@ -4301,7 +4363,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
     tile.sabotage = {
       ownerId: sabotage.casterPlayerId,
       endsAt: sabotage.endsAt,
-      outputMultiplier: sabotage.outputMultiplier
+      outputMultiplier: 1 - SIPHON_SHARE
     };
   }
   const economicStructure = economicStructuresByTile.get(tk);
@@ -4356,7 +4418,7 @@ const playerTile = (x: number, y: number): Tile => {
   const fort = terrain === "LAND" ? fortsByTile.get(tk) : undefined;
   const observatory = terrain === "LAND" ? observatoriesByTile.get(tk) : undefined;
   const siegeOutpost = terrain === "LAND" ? siegeOutpostsByTile.get(tk) : undefined;
-  const sabotage = sabotageByTile.get(tk);
+  const sabotage = siphonByTile.get(tk);
   const breachShock = breachShockByTile.get(tk);
   const history = tileHistoryByTile.get(tk);
   const tile: Tile = {
@@ -4383,7 +4445,7 @@ const playerTile = (x: number, y: number): Tile => {
   if (town) {
     const owner = ownerId;
     const support = owner ? townSupport(town.tileKey, owner) : { supportCurrent: 0, supportMax: 0 };
-    const goldPerMinute = townIncomeForOwner(town, owner) * sabotageMultiplierAt(town.tileKey);
+    const goldPerMinute = townIncomeForOwner(town, owner) * siphonMultiplierAt(town.tileKey);
     const isFed = isTownFedForOwner(town.tileKey, owner);
     const ownerPlayer = owner ? players.get(owner) : undefined;
     const manpowerGoldPaused = Boolean(ownerPlayer && !townGoldIncomeEnabledForPlayer(ownerPlayer));
@@ -4453,7 +4515,7 @@ const playerTile = (x: number, y: number): Tile => {
     tile.sabotage = {
       ownerId: sabotage.casterPlayerId,
       endsAt: sabotage.endsAt,
-      outputMultiplier: sabotage.outputMultiplier
+      outputMultiplier: 1 - SIPHON_SHARE
     };
   }
   const economicStructure = economicStructuresByTile.get(key(wx, wy));
@@ -4478,7 +4540,55 @@ const playerTile = (x: number, y: number): Tile => {
     if (history.lastStructureType !== undefined) historyView.lastStructureType = history.lastStructureType;
     tile.history = historyView;
   }
-  applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, Boolean(tile.capital), terrain);
+  const yieldBuf = tileYieldByTile.get(key(wx, wy));
+  const ownerEffects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
+  if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
+    const sabotageMult = siphonMultiplierAt(key(wx, wy));
+    const goldPerMinuteFromTile =
+      ((tile.capital ? BASE_GOLD_PER_MIN : 0) +
+        (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
+        (dock ? dockIncomeForOwner(dock, ownerId) : 0) +
+        (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
+      (players.get(ownerId)?.mods.income ?? 1) *
+      PASSIVE_INCOME_MULT *
+      HARVEST_GOLD_RATE_MULT;
+    const strategicPerDay: Partial<Record<StrategicResource, number>> = {};
+    const sr = toStrategicResource(resource);
+    if (sr && resource) {
+      const mult = activeResourceIncomeMult(ownerId, resource);
+      strategicPerDay[sr] =
+        (strategicDailyFromResource[resource] ?? 0) *
+        mult *
+        sabotageMult *
+        economicStructureOutputMultAt(key(wx, wy), ownerId);
+    }
+    if (town?.type === "ANCIENT") {
+      strategicPerDay.SHARD = (strategicPerDay.SHARD ?? 0) + strategicResourceRates.SHARD * ownerEffects.resourceOutputMult.SHARD;
+    }
+    const economicStructure = economicStructuresByTile.get(key(wx, wy));
+    if (economicStructure && economicStructure.ownerId === ownerId && economicStructure.status === "active") {
+      const converterDaily = converterStructureOutputFor(economicStructure.type);
+      if (converterDaily) {
+        for (const [resourceKey, amount] of Object.entries(converterDaily) as Array<[StrategicResource, number]>) {
+          strategicPerDay[resourceKey] = (strategicPerDay[resourceKey] ?? 0) + amount;
+        }
+      }
+    }
+    (tile as Tile & { yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResource, number>> } }).yieldRate = {
+      goldPerMinute: Number(goldPerMinuteFromTile.toFixed(4)),
+      strategicPerDay
+    };
+  }
+  (tile as Tile & { yieldCap?: { gold: number; strategicEach: number } }).yieldCap = tileYieldCapsFor(tk, ownerId);
+  if (yieldBuf && ownerId) {
+    const strategic = roundedPositiveStrategic(yieldBuf.strategic);
+    if (yieldBuf.gold > 0 || hasPositiveStrategicBuffer(yieldBuf.strategic)) {
+      (tile as Tile & { yield?: { gold: number; strategic: Partial<Record<StrategicResource, number>> } }).yield = {
+        gold: Number(yieldBuf.gold.toFixed(3)),
+        strategic
+      };
+    }
+  }
   return tile;
 };
 
@@ -4829,6 +4939,7 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (effects.unlockRevealRegion) next.unlockRevealRegion = true;
     if (effects.unlockRevealEmpire) next.unlockRevealEmpire = true;
     if (effects.unlockDeepStrike) next.unlockDeepStrike = true;
+    if ((effects as { unlockAetherBridge?: boolean }).unlockAetherBridge) next.unlockAetherBridge = true;
     if (effects.unlockMountainPass) next.unlockMountainPass = true;
     if (effects.unlockTerrainShaping) next.unlockTerrainShaping = true;
     if (effects.unlockBreachAttack) next.unlockBreachAttack = true;
@@ -5033,7 +5144,7 @@ const startAbilityCooldown = (playerId: string, abilityId: AbilityDefinition["id
   if (def.cooldownMs <= 0) return;
   const effects = getPlayerEffectsForPlayer(playerId);
   let cooldownMs = def.cooldownMs * effects.abilityCooldownMult;
-  if (abilityId === "sabotage") cooldownMs *= effects.sabotageCooldownMult;
+  if (abilityId === "siphon") cooldownMs *= effects.sabotageCooldownMult;
   getAbilityCooldowns(playerId).set(abilityId, now() + Math.max(1, Math.round(cooldownMs)));
 };
 
@@ -5151,13 +5262,35 @@ const converterStructureOutputFor = (structureType: EconomicStructureType): Part
   return undefined;
 };
 
-const sabotageMultiplierAt = (tileKey: TileKey): number => {
-  const sabotage = sabotageByTile.get(tileKey);
-  if (!sabotage || sabotage.endsAt <= now()) {
-    if (sabotage) sabotageByTile.delete(tileKey);
-    return 1;
+const activeSiphonAt = (tileKey: TileKey): ActiveSiphon | undefined => {
+  const siphon = siphonByTile.get(tileKey);
+  if (!siphon || siphon.endsAt <= now()) {
+    if (siphon) siphonByTile.delete(tileKey);
+    return undefined;
   }
-  return sabotage.outputMultiplier;
+  return siphon;
+};
+
+const siphonMultiplierAt = (tileKey: TileKey): number => (activeSiphonAt(tileKey) ? 1 - SIPHON_SHARE : 1);
+
+const addToSiphonCache = (
+  casterPlayerId: string,
+  targetTileKey: TileKey,
+  gold: number,
+  strategic: Partial<Record<StrategicResource, number>>,
+  expiresAt: number
+): void => {
+  const caches = siphonCacheByPlayer.get(casterPlayerId) ?? [];
+  let current = caches.find((cache) => cache.targetTileKey === targetTileKey && cache.expiresAt === expiresAt);
+  if (!current) {
+    current = { siphonId: crypto.randomUUID(), targetTileKey, expiresAt, gold: 0, strategic: {} };
+    caches.push(current);
+    siphonCacheByPlayer.set(casterPlayerId, caches);
+  }
+  current.gold += gold;
+  for (const [resource, amount] of Object.entries(strategic) as Array<[StrategicResource, number]>) {
+    current.strategic[resource] = (current.strategic[resource] ?? 0) + amount;
+  }
 };
 
 const economicStructureForTile = (tileKey: TileKey): EconomicStructure | undefined => economicStructuresByTile.get(tileKey);
@@ -5921,6 +6054,7 @@ const attackMultiplierForTarget = (attackerId: string, target: Tile): number => 
   let mult = 1;
   if (target.ownershipState === "SETTLED") mult *= effects.attackVsSettledMult;
   if (fortsByTile.get(key(target.x, target.y))?.status === "active") mult *= effects.attackVsFortsMult;
+  if (target.ownerId) mult *= truceBreakAttackMultiplier(attackerId, target.ownerId);
   return mult;
 };
 
@@ -6229,6 +6363,14 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       revealCapacity: revealCapacityForPlayer(p),
       activeRevealTargets: [...getOrInitRevealTargets(p.id)],
       abilityCooldowns: Object.fromEntries(getAbilityCooldowns(p.id)),
+      activeTruces: activeTruceViewsForPlayer(p.id),
+      activeAetherBridges: [...activeAetherBridgesById.values()]
+        .filter((bridge) => bridge.ownerId === p.id)
+        .map((bridge) => {
+          const [fromX, fromY] = parseKey(bridge.fromTileKey);
+          const [toX, toY] = parseKey(bridge.toTileKey);
+          return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
+        }),
       pendingSettlements,
       incomingAllianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === p.id),
       outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === p.id),
@@ -9668,6 +9810,43 @@ const broadcast = (payload: unknown): void => {
   }
 };
 
+const pruneExpiredTruces = (): void => {
+  const nowMs = now();
+  for (const [pairKey, truce] of trucesByPair) {
+    if (truce.endsAt > nowMs) continue;
+    trucesByPair.delete(pairKey);
+  }
+  for (const [requestId, request] of truceRequests) {
+    if (request.expiresAt > nowMs) continue;
+    truceRequests.delete(requestId);
+  }
+  for (const [pairKey, penalty] of truceBreakPenaltyByPair) {
+    if (penalty.endsAt > nowMs) continue;
+    truceBreakPenaltyByPair.delete(pairKey);
+  }
+};
+
+const activeTruceBetween = (a: string, b: string): ActiveTruce | undefined => {
+  pruneExpiredTruces();
+  return trucesByPair.get(playerPairKey(a, b));
+};
+
+const playerHasActiveTruce = (playerId: string): boolean => {
+  pruneExpiredTruces();
+  for (const truce of trucesByPair.values()) {
+    if (truce.playerAId === playerId || truce.playerBId === playerId) return true;
+  }
+  return false;
+};
+
+const truceBlocksHostility = (a: string, b: string): boolean => Boolean(activeTruceBetween(a, b));
+
+const truceBreakAttackMultiplier = (attackerId: string, defenderId: string): number => {
+  const penalty = truceBreakPenaltyByPair.get(playerPairKey(attackerId, defenderId));
+  if (!penalty || penalty.endsAt <= now()) return 1;
+  return penalty.penalizedPlayerId === attackerId && penalty.targetPlayerId === defenderId ? TRUCE_BREAK_ATTACK_MULT : 1;
+};
+
 const recomputeExposure = (p: Player): void => {
   let T = 0;
   let E = 0;
@@ -9713,6 +9892,44 @@ const broadcastAllianceUpdate = (a: Player, b: Player): void => {
   markVisibilityDirtyForPlayers([a.id, b.id, ...a.allies, ...b.allies]);
   wa?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...a.allies], incomingAllianceRequests: incomingFor(a.id), outgoingAllianceRequests: outgoingFor(a.id) }));
   wb?.send(JSON.stringify({ type: "ALLIANCE_UPDATE", allies: [...b.allies], incomingAllianceRequests: incomingFor(b.id), outgoingAllianceRequests: outgoingFor(b.id) }));
+};
+
+const activeTruceViewsForPlayer = (playerId: string): Array<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }> => {
+  pruneExpiredTruces();
+  const out: Array<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }> = [];
+  for (const truce of trucesByPair.values()) {
+    if (truce.playerAId !== playerId && truce.playerBId !== playerId) continue;
+    const otherPlayerId = truce.playerAId === playerId ? truce.playerBId : truce.playerAId;
+    out.push({
+      otherPlayerId,
+      otherPlayerName: players.get(otherPlayerId)?.name ?? otherPlayerId.slice(0, 8),
+      startedAt: truce.startedAt,
+      endsAt: truce.endsAt,
+      createdByPlayerId: truce.createdByPlayerId
+    });
+  }
+  return out.sort((a, b) => a.endsAt - b.endsAt);
+};
+
+const broadcastTruceUpdate = (a: Player, b: Player, announcement?: string): void => {
+  const wa = socketsByPlayer.get(a.id);
+  const wb = socketsByPlayer.get(b.id);
+  wa?.send(
+    JSON.stringify({
+      type: "TRUCE_UPDATE",
+      activeTruces: activeTruceViewsForPlayer(a.id),
+      incomingTruceRequests: [...truceRequests.values()].filter((request) => request.toPlayerId === a.id),
+      announcement
+    })
+  );
+  wb?.send(
+    JSON.stringify({
+      type: "TRUCE_UPDATE",
+      activeTruces: activeTruceViewsForPlayer(b.id),
+      incomingTruceRequests: [...truceRequests.values()].filter((request) => request.toPlayerId === b.id),
+      announcement
+    })
+  );
 };
 
 const exportPlayerStyles = (): Array<{ id: string; name: string; tileColor?: string; visualStyle: EmpireVisualStyle }> => {
@@ -10546,6 +10763,7 @@ const getVictoryPressureTracker = (id: SeasonVictoryPathId): VictoryPressureTrac
 };
 
 const currentSeasonWinner = (): SeasonWinnerView | undefined => seasonWinner;
+const isFinalPushActive = (nowMs = now()): boolean => activeSeason.endAt - nowMs <= FINAL_PUSH_MS;
 
 const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   const nowMs = now();
@@ -10772,14 +10990,17 @@ const evaluateVictoryPressure = (): void => {
     return;
   }
   const nowMs = now();
+  const finalPushActive = isFinalPushActive(nowMs);
   const totalTownCount = Math.max(1, townsByTile.size);
   const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
   const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
   const metrics = collectPlayerCompetitionMetrics(nowMs);
   let crowned: SeasonWinnerView | undefined;
+  let announcement: string | undefined;
 
   for (const def of VICTORY_PRESSURE_DEFS) {
     const tracker = getVictoryPressureTracker(def.id);
+    const previousLeaderPlayerId = tracker.leaderPlayerId;
     let leaderPlayerId: string | undefined;
     let conditionMet = false;
 
@@ -10804,25 +11025,55 @@ const evaluateVictoryPressure = (): void => {
     }
 
     if (!conditionMet || !leaderPlayerId) {
+      if (tracker.holdAnnouncedAt && previousLeaderPlayerId) {
+        const previousLeaderName = players.get(previousLeaderPlayerId)?.name ?? previousLeaderPlayerId.slice(0, 8);
+        announcement = `${previousLeaderName} lost the ${def.name} victory hold.`;
+      }
       delete tracker.leaderPlayerId;
       delete tracker.holdStartedAt;
+      delete tracker.holdAnnouncedAt;
+      delete tracker.lastRemainingMilestoneHours;
       continue;
     }
     if (tracker.leaderPlayerId !== leaderPlayerId) {
       tracker.leaderPlayerId = leaderPlayerId;
       tracker.holdStartedAt = nowMs;
+      delete tracker.holdAnnouncedAt;
+      delete tracker.lastRemainingMilestoneHours;
+      if (finalPushActive) {
+        const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
+        announcement = `${leaderName} took the ${def.name} lead.`;
+      }
       continue;
     }
     if (!tracker.holdStartedAt) {
       tracker.holdStartedAt = nowMs;
+      delete tracker.holdAnnouncedAt;
+      delete tracker.lastRemainingMilestoneHours;
       continue;
+    }
+    const holdElapsedMs = nowMs - tracker.holdStartedAt;
+    const holdRemainingMs = Math.max(0, def.holdDurationSeconds * 1000 - holdElapsedMs);
+    if (!tracker.holdAnnouncedAt && holdElapsedMs >= HOLD_START_BROADCAST_DELAY_MS) {
+      const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
+      announcement = `${leaderName} has started a ${def.name} victory hold.`;
+      tracker.holdAnnouncedAt = nowMs;
+    } else if (tracker.holdAnnouncedAt) {
+      for (const milestoneHours of HOLD_REMAINING_BROADCAST_HOURS) {
+        if (holdRemainingMs > milestoneHours * 60 * 60_000) continue;
+        if (tracker.lastRemainingMilestoneHours !== undefined && tracker.lastRemainingMilestoneHours <= milestoneHours) continue;
+        const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
+        announcement = `${leaderName} has ${milestoneHours}h left on ${def.name}.`;
+        tracker.lastRemainingMilestoneHours = milestoneHours;
+        break;
+      }
     }
     if (nowMs - tracker.holdStartedAt < def.holdDurationSeconds * 1000) continue;
     crownSeasonWinner(leaderPlayerId, def);
     crowned = currentSeasonWinner();
     break;
   }
-  broadcastVictoryPressureUpdate(crowned ? `${crowned.playerName} was crowned season winner via ${crowned.objectiveName}.` : undefined);
+  broadcastVictoryPressureUpdate(crowned ? `${crowned.playerName} was crowned season winner via ${crowned.objectiveName}.` : announcement);
 };
 
 const reachableTechs = (player: Player): string[] => {
@@ -11506,7 +11757,7 @@ const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: b
   if (targetPlayerId === actor.id) return { ok: false, reason: "cannot reveal yourself" };
   const target = players.get(targetPlayerId);
   if (!target) return { ok: false, reason: "target empire not found" };
-  if (actor.allies.has(targetPlayerId)) return { ok: false, reason: "cannot reveal allied empire" };
+  if (actor.allies.has(targetPlayerId) || truceBlocksHostility(actor.id, targetPlayerId)) return { ok: false, reason: "cannot reveal allied or truced empire" };
   const reveals = getOrInitRevealTargets(actor.id);
   if (reveals.has(targetPlayerId)) {
     setRevealTargetsForPlayer(actor.id, []);
@@ -11518,6 +11769,107 @@ const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: b
   if ((stock.CRYSTAL ?? 0) < REVEAL_EMPIRE_ACTIVATION_COST) return { ok: false, reason: "insufficient crystal to activate reveal" };
   stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - REVEAL_EMPIRE_ACTIVATION_COST);
   setRevealTargetsForPlayer(actor.id, [targetPlayerId]);
+  return { ok: true };
+};
+
+const coastalSettledOriginsForPlayer = (playerId: string): TileKey[] => {
+  const out: TileKey[] = [];
+  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
+    const [x, y] = parseKey(tk);
+    const tile = playerTile(x, y);
+    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
+    if (!isCoastalLand(x, y)) continue;
+    out.push(tk);
+  }
+  return out;
+};
+
+const seaTileCountBetween = (ax: number, ay: number, bx: number, by: number): number | undefined => {
+  const steps = lineTilesBetween(ax, ay, bx, by);
+  if (steps.length === 0) return undefined;
+  let seaTiles = 0;
+  for (const step of steps) {
+    const terrain = terrainAtRuntime(step.x, step.y);
+    if (terrain !== "SEA") return undefined;
+    seaTiles += 1;
+  }
+  return seaTiles;
+};
+
+const closestAetherBridgeOrigin = (actor: Player, targetX: number, targetY: number): { originTileKey: TileKey; seaTiles: number } | undefined => {
+  let best: { originTileKey: TileKey; seaTiles: number; distance: number } | undefined;
+  for (const originTileKey of coastalSettledOriginsForPlayer(actor.id)) {
+    const [ox, oy] = parseKey(originTileKey);
+    const seaTiles = seaTileCountBetween(ox, oy, targetX, targetY);
+    if (seaTiles === undefined || seaTiles > AETHER_BRIDGE_MAX_SEA_TILES) continue;
+    const distance = chebyshevDistance(ox, oy, targetX, targetY);
+    if (!best || seaTiles < best.seaTiles || (seaTiles === best.seaTiles && distance < best.distance)) {
+      best = { originTileKey, seaTiles, distance };
+    }
+  }
+  return best ? { originTileKey: best.originTileKey, seaTiles: best.seaTiles } : undefined;
+};
+
+const tryCastAetherBridge = (actor: Player, x: number, y: number): { ok: boolean; reason?: string; bridge?: ActiveAetherBridge } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.aether_bridge.requiredTechIds)) return { ok: false, reason: "requires Navigation" };
+  if (abilityOnCooldown(actor.id, "aether_bridge")) return { ok: false, reason: "aether bridge is cooling down" };
+  const target = playerTile(x, y);
+  if (target.terrain !== "LAND" || !isCoastalLand(target.x, target.y)) return { ok: false, reason: "target must be coastal land" };
+  if (target.ownerId && target.ownerId !== actor.id && !actor.allies.has(target.ownerId) && hostileObservatoryProtectingTile(actor, target.x, target.y)) {
+    return { ok: false, reason: "landing blocked by enemy observatory" };
+  }
+  const origin = closestAetherBridgeOrigin(actor, target.x, target.y);
+  if (!origin) return { ok: false, reason: "no settled coastal tile can reach this target" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for aether bridge" };
+  startAbilityCooldown(actor.id, "aether_bridge");
+  const bridge: ActiveAetherBridge = {
+    bridgeId: crypto.randomUUID(),
+    ownerId: actor.id,
+    fromTileKey: origin.originTileKey,
+    toTileKey: key(target.x, target.y),
+    startedAt: now(),
+    endsAt: now() + AETHER_BRIDGE_DURATION_MS
+  };
+  activeAetherBridgesById.set(bridge.bridgeId, bridge);
+  return { ok: true, bridge };
+};
+
+const activeAetherBridgeForTarget = (ownerId: string, targetTileKey: TileKey): ActiveAetherBridge | undefined => {
+  for (const bridge of activeAetherBridgesById.values()) {
+    if (bridge.ownerId !== ownerId || bridge.endsAt <= now()) continue;
+    if (bridge.toTileKey !== targetTileKey) continue;
+    return bridge;
+  }
+  return undefined;
+};
+
+const trySiphonTile = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.siphon.requiredTechIds)) return { ok: false, reason: "requires Cryptography" };
+  if (abilityOnCooldown(actor.id, "siphon")) return { ok: false, reason: "siphon is cooling down" };
+  const t = playerTile(x, y);
+  if (t.terrain !== "LAND") return { ok: false, reason: "siphon requires land tile" };
+  if (!t.ownerId || t.ownerId === actor.id || actor.allies.has(t.ownerId) || truceBlocksHostility(actor.id, t.ownerId))
+    return { ok: false, reason: "target enemy-controlled town or resource tile" };
+  if (!t.town && !t.resource) return { ok: false, reason: "target must be a town or resource tile" };
+  if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
+  if (hostileObservatoryProtectingTile(actor, x, y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  const tk = key(t.x, t.y);
+  if (activeSiphonAt(tk)) return { ok: false, reason: "tile already siphoned" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", SIPHON_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for siphon" };
+  siphonByTile.set(tk, { targetTileKey: tk, casterPlayerId: actor.id, endsAt: now() + SIPHON_DURATION_MS });
+  markSummaryChunkDirtyAtTile(t.x, t.y);
+  startAbilityCooldown(actor.id, "siphon");
+  return { ok: true };
+};
+
+const tryPurgeSiphon = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  const tile = playerTile(x, y);
+  if (tile.ownerId !== actor.id) return { ok: false, reason: "tile must be owned by you" };
+  const tk = key(tile.x, tile.y);
+  if (!activeSiphonAt(tk)) return { ok: false, reason: "tile is not siphoned" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", SIPHON_PURGE_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL to purge siphon" };
+  siphonByTile.delete(tk);
+  markSummaryChunkDirtyAtTile(tile.x, tile.y);
   return { ok: true };
 };
 
@@ -11572,30 +11924,6 @@ const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean
   markVisibilityDirty(actor.id);
   recordTileStructureHistory(tk, "OBSERVATORY");
   scheduleObservatoryConstruction(tk, OBSERVATORY_BUILD_MS);
-  return { ok: true };
-};
-
-const trySabotageTile = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
-  if (!playerHasTechIds(actor, ABILITY_DEFS.sabotage.requiredTechIds)) return { ok: false, reason: "requires Cryptography" };
-  if (abilityOnCooldown(actor.id, "sabotage")) return { ok: false, reason: "sabotage is cooling down" };
-  const t = playerTile(x, y);
-  if (t.terrain !== "LAND") return { ok: false, reason: "sabotage requires land tile" };
-  if (!t.ownerId || t.ownerId === actor.id || actor.allies.has(t.ownerId)) return { ok: false, reason: "target enemy-controlled town or resource tile" };
-  if (!t.town && !t.resource) return { ok: false, reason: "target must be a town or resource tile" };
-  if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
-  if (hostileObservatoryProtectingTile(actor, x, y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
-  const tk = key(t.x, t.y);
-  const current = sabotageByTile.get(tk);
-  if (current && current.endsAt > now()) return { ok: false, reason: "tile already sabotaged" };
-  if (!consumeStrategicResource(actor, "CRYSTAL", SABOTAGE_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for sabotage" };
-  sabotageByTile.set(tk, {
-    targetTileKey: tk,
-    casterPlayerId: actor.id,
-    endsAt: now() + SABOTAGE_DURATION_MS,
-    outputMultiplier: SABOTAGE_OUTPUT_MULT
-  });
-  markSummaryChunkDirtyAtTile(t.x, t.y);
-  startAbilityCooldown(actor.id, "sabotage");
   return { ok: true };
 };
 
@@ -11727,7 +12055,15 @@ const tryAirportBombard = (
       const wy = wrapY(targetY + dy, WORLD_HEIGHT);
       const tile = playerTile(wx, wy);
       const tk = key(wx, wy);
-      if (tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id || tile.ownerId === BARBARIAN_OWNER_ID || actor.allies.has(tile.ownerId)) continue;
+      if (
+        tile.terrain !== "LAND" ||
+        !tile.ownerId ||
+        tile.ownerId === actor.id ||
+        tile.ownerId === BARBARIAN_OWNER_ID ||
+        actor.allies.has(tile.ownerId) ||
+        truceBlocksHostility(actor.id, tile.ownerId)
+      )
+        continue;
       if (combatLocks.has(tk)) continue;
       const defender = players.get(tile.ownerId);
       if (!defender) continue;
@@ -11902,7 +12238,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
       cancelSiegeOutpostBuild(k);
       siegeOutpostsByTile.delete(k);
     }
-    sabotageByTile.delete(k);
+    siphonByTile.delete(k);
     breachShockByTile.delete(k);
     settlementDefenseByTile.delete(k);
     if (economic) {
@@ -11949,7 +12285,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
         economicStructuresByTile.delete(k);
       }
     }
-    sabotageByTile.delete(k);
+    siphonByTile.delete(k);
     breachShockByTile.delete(k);
     settlementDefenseByTile.delete(k);
   }
@@ -12330,7 +12666,7 @@ const buildSnapshotState = (): SnapshotState => {
     observatories: [...observatoriesByTile.values()],
     siegeOutposts: [...siegeOutpostsByTile.values()],
     economicStructures: [...economicStructuresByTile.values()],
-    sabotage: [...sabotageByTile.values()],
+    sabotage: [...siphonByTile.values()],
     abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
     docks: [...dockById.values()],
     towns: [...townsByTile.values()],
@@ -12690,7 +13026,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
     economicStructuresByTile.set(structure.tileKey, normalized);
     trackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, structure.tileKey);
   }
-  for (const sabotage of raw.sabotage ?? []) sabotageByTile.set(sabotage.targetTileKey, sabotage);
+  for (const sabotage of raw.sabotage ?? []) siphonByTile.set(sabotage.targetTileKey, sabotage);
   for (const [pid, entries] of raw.abilityCooldowns ?? []) {
     abilityCooldownsByPlayer.set(pid, new Map(entries));
   }
@@ -13086,15 +13422,16 @@ registerInterval(() => {
   for (const [id, req] of allianceRequests) {
     if (req.expiresAt < now()) allianceRequests.delete(id);
   }
+  pruneExpiredTruces();
   for (const [pid, until] of temporaryAttackBuffUntilByPlayer) {
     if (until <= now()) temporaryAttackBuffUntilByPlayer.delete(pid);
   }
   for (const [pid, buff] of temporaryIncomeBuffUntilByPlayer) {
     if (buff.until <= now()) temporaryIncomeBuffUntilByPlayer.delete(pid);
   }
-  for (const [tk, sabotage] of sabotageByTile) {
+  for (const [tk, sabotage] of siphonByTile) {
     if (sabotage.endsAt > now()) continue;
-    sabotageByTile.delete(tk);
+    siphonByTile.delete(tk);
     const [sx, sy] = parseKey(tk);
     markSummaryChunkDirtyAtTile(sx, sy);
     for (const p of players.values()) {
@@ -13104,6 +13441,19 @@ registerInterval(() => {
       current.fogged = false;
       sendToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
     }
+  }
+  for (const [playerId, caches] of siphonCacheByPlayer) {
+    const next = caches.filter((cache) => cache.expiresAt > now());
+    if (next.length > 0) siphonCacheByPlayer.set(playerId, next);
+    else siphonCacheByPlayer.delete(playerId);
+  }
+  for (const [bridgeId, bridge] of activeAetherBridgesById) {
+    if (bridge.endsAt > now()) continue;
+    activeAetherBridgesById.delete(bridgeId);
+    const [bx, by] = parseKey(bridge.fromTileKey);
+    markSummaryChunkDirtyAtTile(bx, by);
+    const [tx, ty] = parseKey(bridge.toTileKey);
+    markSummaryChunkDirtyAtTile(tx, ty);
   }
   for (const [pid, cooldowns] of abilityCooldownsByPlayer) {
     for (const [abilityId, until] of cooldowns) {
@@ -13135,12 +13485,23 @@ registerInterval(() => {
       const [x, y] = parseKey(tk);
       const resource = applyClusterResources(x, y, resourceAt(x, y));
       if (!resource) continue;
-      const sabotageMult = sabotageMultiplierAt(tk);
-      const goldDelta = (resourceRate[resource] ?? 0) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
+      const siphon = activeSiphonAt(tk);
+      const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
+      const goldBase = (resourceRate[resource] ?? 0) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+      const goldDelta = goldBase * ownerMult;
       const strategic: Partial<Record<StrategicResource, number>> = {};
       const sr = toStrategicResource(resource);
       if (sr) {
-        strategic[sr] = (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(p.id, resource) * HARVEST_RESOURCE_RATE_MULT * sabotageMult;
+        strategic[sr] =
+          (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(p.id, resource) * HARVEST_RESOURCE_RATE_MULT * ownerMult;
+      }
+      if (siphon) {
+        const siphonedStrategic: Partial<Record<StrategicResource, number>> = {};
+        if (sr) {
+          siphonedStrategic[sr] =
+            (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(p.id, resource) * HARVEST_RESOURCE_RATE_MULT * SIPHON_SHARE;
+        }
+        addToSiphonCache(siphon.casterPlayerId, tk, goldBase * SIPHON_SHARE, siphonedStrategic, siphon.endsAt);
       }
       if (goldDelta > 0 || hasPositiveStrategicBuffer(strategic)) addTileYield(tk, goldDelta, strategic);
     }
@@ -13153,13 +13514,26 @@ registerInterval(() => {
     for (const tk of economyIndex.settledTownTileKeys) {
       const town = townsByTile.get(tk);
       if (!town) continue;
-      const sabotageMult = sabotageMultiplierAt(tk);
-      let goldDelta = townIncomeForOwner(town, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT * sabotageMult;
+      const siphon = activeSiphonAt(tk);
+      const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
+      const townGoldBase = townIncomeForOwner(town, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+      let goldDelta = townGoldBase * ownerMult;
       let strategic: Partial<Record<StrategicResource, number>> | undefined;
       if (economyIndex.ancientTownTileKeys.has(tk)) {
         strategic = {
-          SHARD: strategicResourceRates.SHARD * getPlayerEffectsForPlayer(p.id).resourceOutputMult.SHARD * HARVEST_RESOURCE_RATE_MULT
+          SHARD: strategicResourceRates.SHARD * getPlayerEffectsForPlayer(p.id).resourceOutputMult.SHARD * HARVEST_RESOURCE_RATE_MULT * ownerMult
         };
+      }
+      if (siphon) {
+        addToSiphonCache(
+          siphon.casterPlayerId,
+          tk,
+          townGoldBase * SIPHON_SHARE,
+          economyIndex.ancientTownTileKeys.has(tk)
+            ? { SHARD: strategicResourceRates.SHARD * getPlayerEffectsForPlayer(p.id).resourceOutputMult.SHARD * HARVEST_RESOURCE_RATE_MULT * SIPHON_SHARE }
+            : {},
+          siphon.endsAt
+        );
       }
       if (goldDelta > 0 || (strategic && hasPositiveStrategicBuffer(strategic))) addTileYield(tk, goldDelta, strategic);
     }
@@ -13992,6 +14366,14 @@ app.post("/admin/world/regenerate", async () => {
             revealCapacity: revealCapacityForPlayer(player),
             activeRevealTargets: [...getOrInitRevealTargets(player.id)],
             abilityCooldowns: Object.fromEntries(getAbilityCooldowns(player.id)),
+            activeTruces: activeTruceViewsForPlayer(player.id),
+            activeAetherBridges: [...activeAetherBridgesById.values()]
+              .filter((bridge) => bridge.ownerId === player.id)
+              .map((bridge) => {
+                const [fromX, fromY] = parseKey(bridge.fromTileKey);
+                const [toX, toY] = parseKey(bridge.toTileKey);
+                return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
+              }),
             pendingSettlements: [...pendingSettlementsByTile.values()]
               .filter((settlement) => settlement.ownerId === player.id)
               .map((settlement) => {
@@ -14025,7 +14407,7 @@ app.post("/admin/world/regenerate", async () => {
           seasonVictory: currentVictoryPressureObjectives(),
           seasonWinner,
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id),
-          outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === player.id)
+          truceRequests: [...truceRequests.values()].filter((r) => r.toPlayerId === player.id)
         })
       );
       const authSync = authSyncTimingByPlayer.get(player.id);
@@ -14120,10 +14502,31 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
-    if (msg.type === "SABOTAGE_TILE") {
-      const out = trySabotageTile(actor, msg.x, msg.y);
+    if (msg.type === "CAST_AETHER_BRIDGE") {
+      const out = tryCastAetherBridge(actor, msg.x, msg.y);
       if (!out.ok) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "SABOTAGE_INVALID", message: out.reason }));
+        socket.send(JSON.stringify({ type: "ERROR", code: "AETHER_BRIDGE_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      broadcast({
+        type: "AETHER_BRIDGE_UPDATE",
+        playerId: actor.id,
+        bridges: [...activeAetherBridgesById.values()]
+          .filter((bridge) => bridge.ownerId === actor.id)
+          .map((bridge) => {
+            const [fromX, fromY] = parseKey(bridge.fromTileKey);
+            const [toX, toY] = parseKey(bridge.toTileKey);
+            return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
+          })
+      });
+      return;
+    }
+
+    if (msg.type === "SIPHON_TILE") {
+      const out = trySiphonTile(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "SIPHON_INVALID", message: out.reason }));
         return;
       }
       const target = runtimeTileCore(msg.x, msg.y);
@@ -14133,12 +14536,23 @@ app.post("/admin/world/regenerate", async () => {
         sendToPlayer(target.ownerId, {
           type: "ATTACK_ALERT",
           attackerId: actor.id,
-          attackerName: `${actor.name} sabotage`,
+          attackerName: `${actor.name} siphon`,
           x: target.x,
           y: target.y,
-          resolvesAt: now() + SABOTAGE_DURATION_MS
+          resolvesAt: now() + SIPHON_DURATION_MS
         });
       }
+      return;
+    }
+
+    if (msg.type === "PURGE_SIPHON") {
+      const out = tryPurgeSiphon(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "PURGE_SIPHON_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      sendVisibleTileDeltaAt(msg.x, msg.y);
       return;
     }
 
@@ -14448,6 +14862,41 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
+    if (msg.type === "TRUCE_REQUEST") {
+      const targetNameNeedle = msg.targetPlayerName.trim().toLocaleLowerCase();
+      const target = [...players.values()].find((p) => p.name.trim().toLocaleLowerCase() === targetNameNeedle);
+      if (!target || target.id === actor.id) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_TARGET", message: "target not found" }));
+        return;
+      }
+      if (playerHasActiveTruce(actor.id)) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_EXISTS", message: "you already have an active truce" }));
+        return;
+      }
+      if (playerHasActiveTruce(target.id)) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_EXISTS", message: "target already has an active truce" }));
+        return;
+      }
+      if (isFinalPushActive() && msg.durationHours > 12) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_INVALID", message: "Final Push only allows 12h truces" }));
+        return;
+      }
+      const request: TruceRequest = {
+        id: crypto.randomUUID(),
+        fromPlayerId: actor.id,
+        toPlayerId: target.id,
+        createdAt: now(),
+        expiresAt: now() + TRUCE_REQUEST_TTL_MS,
+        durationHours: msg.durationHours,
+        fromName: actor.name,
+        toName: target.name
+      };
+      truceRequests.set(request.id, request);
+      socket.send(JSON.stringify({ type: "TRUCE_REQUESTED", request, targetName: target.name }));
+      socketsByPlayer.get(target.id)?.send(JSON.stringify({ type: "TRUCE_REQUEST_INCOMING", request, fromName: actor.name }));
+      return;
+    }
+
     if (msg.type === "ALLIANCE_ACCEPT") {
       const request = allianceRequests.get(msg.requestId);
       if (!request || request.toPlayerId !== actor.id || request.expiresAt < now()) {
@@ -14469,6 +14918,36 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
+    if (msg.type === "TRUCE_ACCEPT") {
+      const request = truceRequests.get(msg.requestId);
+      if (!request || request.toPlayerId !== actor.id || request.expiresAt < now()) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" }));
+        return;
+      }
+      const from = players.get(request.fromPlayerId);
+      if (!from) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_REQUEST_INVALID", message: "request sender offline/unknown" }));
+        truceRequests.delete(msg.requestId);
+        return;
+      }
+      if (playerHasActiveTruce(actor.id) || playerHasActiveTruce(from.id)) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_EXISTS", message: "one player already has an active truce" }));
+        truceRequests.delete(msg.requestId);
+        return;
+      }
+      const truce: ActiveTruce = {
+        playerAId: actor.id < from.id ? actor.id : from.id,
+        playerBId: actor.id < from.id ? from.id : actor.id,
+        startedAt: now(),
+        endsAt: now() + request.durationHours * 60 * 60_000,
+        createdByPlayerId: from.id
+      };
+      truceRequests.delete(msg.requestId);
+      trucesByPair.set(playerPairKey(actor.id, from.id), truce);
+      broadcastTruceUpdate(actor, from, `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`);
+      return;
+    }
+
     if (msg.type === "ALLIANCE_BREAK") {
       const target = players.get(msg.targetPlayerId);
       if (!target || !actor.allies.has(target.id)) {
@@ -14480,6 +14959,23 @@ app.post("/admin/world/regenerate", async () => {
       recomputeExposure(actor);
       recomputeExposure(target);
       broadcastAllianceUpdate(actor, target);
+      return;
+    }
+
+    if (msg.type === "TRUCE_BREAK") {
+      const target = players.get(msg.targetPlayerId);
+      const truce = target ? activeTruceBetween(actor.id, target.id) : undefined;
+      if (!target || !truce) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_BREAK_INVALID", message: "no active truce with target" }));
+        return;
+      }
+      trucesByPair.delete(playerPairKey(actor.id, target.id));
+      truceBreakPenaltyByPair.set(playerPairKey(actor.id, target.id), {
+        penalizedPlayerId: actor.id,
+        targetPlayerId: target.id,
+        endsAt: now() + TRUCE_BREAK_ATTACK_PENALTY_MS
+      });
+      broadcastTruceUpdate(actor, target, `${actor.name} broke the truce with ${target.name}.`);
       return;
     }
 
@@ -14539,6 +15035,14 @@ app.post("/admin/world/regenerate", async () => {
       let fromDock = docksByTile.get(fk);
       let adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
       let dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
+      const aetherBridge = activeAetherBridgeForTarget(actor.id, tk);
+      let bridgeCrossing = false;
+      if (aetherBridge) {
+        const [bridgeFromX, bridgeFromY] = parseKey(aetherBridge.fromTileKey);
+        from = playerTile(bridgeFromX, bridgeFromY);
+        fk = aetherBridge.fromTileKey;
+        bridgeCrossing = true;
+      }
       if (!adjacent && !dockCrossing) {
         const altFrom = findOwnedDockOriginForCrossing(actor, to.x, to.y);
         if (altFrom) {
@@ -14566,7 +15070,7 @@ app.post("/admin/world/regenerate", async () => {
         sendInvalid("origin not owned");
         return;
       }
-      if (!adjacent && !dockCrossing) {
+      if (!adjacent && !dockCrossing && !bridgeCrossing) {
         sendInvalid("target must be adjacent or valid dock crossing");
         return;
       }
@@ -14593,7 +15097,7 @@ app.post("/admin/world/regenerate", async () => {
         );
         return;
       }
-      if (defender && actor.allies.has(defender.id)) {
+      if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
         sendInvalid("cannot attack allied tile");
         return;
       }
@@ -14648,13 +15152,7 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
-    if (
-      msg.type !== "ATTACK" &&
-      msg.type !== "EXPAND" &&
-      msg.type !== "BREAKTHROUGH_ATTACK" &&
-      msg.type !== "DEEP_STRIKE_ATTACK" &&
-      msg.type !== "NAVAL_INFILTRATION_ATTACK"
-    ) return;
+    if (msg.type !== "ATTACK" && msg.type !== "EXPAND" && msg.type !== "BREAKTHROUGH_ATTACK") return;
 
     app.log.info(
       {
@@ -14698,9 +15196,6 @@ app.post("/admin/world/regenerate", async () => {
     const manpowerMin = manpowerMinForAction(msg.type);
     const manpowerCost = manpowerCostForAction(msg.type);
     const isBreakthroughAttack = msg.type === "BREAKTHROUGH_ATTACK";
-    const isDeepStrikeAttack = msg.type === "DEEP_STRIKE_ATTACK";
-    const isNavalInfiltrationAttack = msg.type === "NAVAL_INFILTRATION_ATTACK";
-    const isSpecialCrystalAttack = isDeepStrikeAttack || isNavalInfiltrationAttack;
 
     let from = playerTile(msg.fromX, msg.fromY);
     const to = playerTile(msg.toX, msg.toY);
@@ -14717,30 +15212,6 @@ app.post("/admin/world/regenerate", async () => {
     }
     if (isBreakthroughAttack && !actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID)) {
       socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Breach Doctrine" }));
-      return;
-    }
-    if (isDeepStrikeAttack && (!to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId))) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "deep strike requires enemy tile" }));
-      return;
-    }
-    if (isDeepStrikeAttack && !ownedActiveObservatoryWithinRange(actor.id, to.x, to.y)) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "target must be within 30 tiles of your observatory" }));
-      return;
-    }
-    if (isNavalInfiltrationAttack && (!to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId))) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "naval infiltration requires enemy tile" }));
-      return;
-    }
-    if (isNavalInfiltrationAttack && !ownedActiveObservatoryWithinRange(actor.id, to.x, to.y)) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "target must be within 30 tiles of your observatory" }));
-      return;
-    }
-    if (isDeepStrikeAttack && hostileObservatoryProtectingTile(actor, to.x, to.y)) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "target is inside enemy observatory protection field" }));
-      return;
-    }
-    if (isNavalInfiltrationAttack && hostileObservatoryProtectingTile(actor, to.x, to.y)) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "landing tile is inside enemy observatory protection field" }));
       return;
     }
     if (!hasEnoughManpower(actor, manpowerMin)) {
@@ -14763,39 +15234,22 @@ app.post("/admin/world/regenerate", async () => {
       socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for breakthrough" }));
       return;
     }
-    if (isDeepStrikeAttack) {
-      if (!playerHasTechIds(actor, ABILITY_DEFS.deep_strike.requiredTechIds)) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "requires Deep Operations" }));
-        return;
-      }
-      if (abilityOnCooldown(actor.id, "deep_strike")) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "DEEP_STRIKE_INVALID", message: "deep strike is cooling down" }));
-        return;
-      }
-      if ((getOrInitStrategicStocks(actor.id).CRYSTAL ?? 0) < DEEP_STRIKE_CRYSTAL_COST) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient CRYSTAL for deep strike" }));
-        return;
-      }
-    }
-    if (isNavalInfiltrationAttack) {
-      if (!playerHasTechIds(actor, ABILITY_DEFS.naval_infiltration.requiredTechIds)) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "requires Navigation" }));
-        return;
-      }
-      if (abilityOnCooldown(actor.id, "naval_infiltration")) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "NAVAL_INFILTRATION_INVALID", message: "naval infiltration is cooling down" }));
-        return;
-      }
-      if ((getOrInitStrategicStocks(actor.id).CRYSTAL ?? 0) < NAVAL_INFILTRATION_CRYSTAL_COST) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient CRYSTAL for naval infiltration" }));
-        return;
-      }
-    }
     let fk = key(from.x, from.y);
     const tk = key(to.x, to.y);
     let fromDock = docksByTile.get(fk);
     let adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
     let dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
+    const aetherBridge = activeAetherBridgeForTarget(actor.id, tk);
+    let bridgeCrossing = false;
+    if (aetherBridge) {
+      const [bridgeFromX, bridgeFromY] = parseKey(aetherBridge.fromTileKey);
+      from = playerTile(bridgeFromX, bridgeFromY);
+      fk = aetherBridge.fromTileKey;
+      fromDock = docksByTile.get(fk);
+      adjacent = isAdjacentTile(from.x, from.y, to.x, to.y);
+      dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
+      bridgeCrossing = true;
+    }
     if (!adjacent && !dockCrossing) {
       const altFrom = findOwnedDockOriginForCrossing(actor, to.x, to.y);
       if (altFrom) {
@@ -14806,19 +15260,13 @@ app.post("/admin/world/regenerate", async () => {
         dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
       }
     }
-    const deepStrikeValid = isDeepStrikeAttack ? validDeepStrikeTarget(from, to) : false;
-    const navalInfiltrationValid = isNavalInfiltrationAttack ? validNavalInfiltrationTarget(from, to) : false;
-    if (!adjacent && !dockCrossing && !deepStrikeValid && !navalInfiltrationValid) {
+    if (!adjacent && !dockCrossing && !bridgeCrossing) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: not adjacent and not dock crossing");
       socket.send(
         JSON.stringify({
           type: "ERROR",
-          code: isDeepStrikeAttack ? "DEEP_STRIKE_INVALID" : isNavalInfiltrationAttack ? "NAVAL_INFILTRATION_INVALID" : "NOT_ADJACENT",
-          message: isDeepStrikeAttack
-            ? "target must be within 2 tiles and not through mountains"
-            : isNavalInfiltrationAttack
-              ? "target must cross up to 4 sea tiles before landing"
-              : "target must be adjacent or valid dock crossing"
+          code: "NOT_ADJACENT",
+          message: "target must be adjacent, valid dock crossing, or active aether bridge target"
         })
       );
       return;
@@ -14849,9 +15297,9 @@ app.post("/admin/world/regenerate", async () => {
 
     const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
     const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
-    if (defender && actor.allies.has(defender.id)) {
+    if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
       app.log.info({ playerId: actor.id, defenderId: defender.id }, "action rejected: allied target");
-      socket.send(JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied tile" }));
+      socket.send(JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied or truced tile" }));
       return;
     }
     if (isBreakthroughAttack) {
@@ -14863,20 +15311,6 @@ app.post("/admin/world/regenerate", async () => {
       actor.points -= BREAKTHROUGH_GOLD_COST;
       recalcPlayerDerived(actor);
       telemetryCounters.breakthroughAttacks += 1;
-    }
-    if (isDeepStrikeAttack) {
-      if (!consumeStrategicResource(actor, "CRYSTAL", DEEP_STRIKE_CRYSTAL_COST)) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient CRYSTAL for deep strike" }));
-        return;
-      }
-      startAbilityCooldown(actor.id, "deep_strike");
-    }
-    if (isNavalInfiltrationAttack) {
-      if (!consumeStrategicResource(actor, "CRYSTAL", NAVAL_INFILTRATION_CRYSTAL_COST)) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient CRYSTAL for naval infiltration" }));
-        return;
-      }
-      startAbilityCooldown(actor.id, "naval_infiltration");
     }
     if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
     let precomputedCombat:
@@ -14897,7 +15331,6 @@ app.post("/admin/world/regenerate", async () => {
         }
       | undefined;
     if (defender || defenderIsBarbarian) {
-      const specialAttackMult = isDeepStrikeAttack ? DEEP_STRIKE_ATTACK_MULT : isNavalInfiltrationAttack ? NAVAL_INFILTRATION_ATTACK_MULT : 1;
       const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
       const shock = breachShockByTile.get(tk);
       const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
@@ -14915,7 +15348,6 @@ app.post("/admin/world/regenerate", async () => {
           actor.mods.attack *
           activeAttackBuffMult(actor.id) *
           attackMultiplierForTarget(actor.id, to) *
-          specialAttackMult *
           siegeAtkMult,
         defenseBase: defenderIsBarbarian
           ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
@@ -14999,7 +15431,7 @@ app.post("/admin/world/regenerate", async () => {
       })
     );
     logExpandTrace("combat_start_sent", pending);
-    if (isBreakthroughAttack || isDeepStrikeAttack || isNavalInfiltrationAttack) sendPlayerUpdate(actor, 0);
+    if (isBreakthroughAttack || bridgeCrossing) sendPlayerUpdate(actor, 0);
     if (defender && !defenderIsBarbarian) {
       sendToPlayer(defender.id, {
         type: "ATTACK_ALERT",
