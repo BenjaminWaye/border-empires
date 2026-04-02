@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
 
 describe("development queue helpers", () => {
   it("finds the ordinal for queued settlements without counting builds separately", () => {
@@ -19,5 +19,14 @@ describe("development queue helpers", () => {
     ];
     expect(hasQueuedSettlementForTile(queue, "2,2")).toBe(true);
     expect(hasQueuedSettlementForTile(queue, "9,9")).toBe(false);
+  });
+
+  it("counts removing structures as busy development processes", () => {
+    const tiles = [
+      { ownerId: "me", economicStructure: { status: "removing" } },
+      { ownerId: "me", fort: { status: "under_construction" } },
+      { ownerId: "other", observatory: { status: "under_construction" } }
+    ];
+    expect(busyDevelopmentProcessCount(tiles, "me", 1)).toBe(3);
   });
 });
