@@ -183,6 +183,64 @@ export const createInitialState = () => ({
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,
   actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
+  developmentQueue: [] as Array<
+    | { kind: "SETTLE"; x: number; y: number; tileKey: string; label: string }
+    | {
+        kind: "BUILD";
+        x: number;
+        y: number;
+        tileKey: string;
+        label: string;
+        payload:
+          | { type: "BUILD_FORT"; x: number; y: number }
+          | { type: "BUILD_OBSERVATORY"; x: number; y: number }
+          | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
+          | {
+              type: "BUILD_ECONOMIC_STRUCTURE";
+              x: number;
+              y: number;
+              structureType:
+                | "FARMSTEAD"
+                | "CAMP"
+                | "MINE"
+                | "MARKET"
+                | "GRANARY"
+                | "BANK"
+                | "AIRPORT"
+                | "QUARTERMASTER"
+                | "IRONWORKS"
+                | "CRYSTAL_SYNTHESIZER"
+                | "FUEL_PLANT"
+                | "CARAVANARY"
+                | "FOUNDRY"
+                | "GARRISON_HALL"
+                | "CUSTOMS_HOUSE"
+                | "GOVERNORS_OFFICE"
+                | "RADAR_SYSTEM";
+            };
+        optimisticKind:
+          | "FORT"
+          | "OBSERVATORY"
+          | "SIEGE_OUTPOST"
+          | "FARMSTEAD"
+          | "CAMP"
+          | "MINE"
+          | "MARKET"
+          | "GRANARY"
+          | "BANK"
+          | "AIRPORT"
+          | "QUARTERMASTER"
+          | "IRONWORKS"
+          | "CRYSTAL_SYNTHESIZER"
+          | "FUEL_PLANT"
+          | "CARAVANARY"
+          | "FOUNDRY"
+          | "GARRISON_HALL"
+          | "CUSTOMS_HOUSE"
+          | "GOVERNORS_OFFICE"
+          | "RADAR_SYSTEM";
+      }
+  >,
   queuedTargetKeys: new Set<string>(),
   actionInFlight: false,
   combatStartAck: false,
