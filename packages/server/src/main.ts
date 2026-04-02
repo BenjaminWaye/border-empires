@@ -6819,6 +6819,7 @@ type AiPlanningStaticCache = {
   version: number;
   openingScoutAvailable: boolean;
   neutralExpandAvailable: boolean;
+  economicExpandAvailable: boolean;
   scoutExpandAvailable: boolean;
   scaffoldExpandAvailable: boolean;
   barbarianAttackAvailable: boolean;
@@ -7913,6 +7914,7 @@ const buildAiPlanningStaticCache = (
   const structureCandidateCount = territorySummary.structureCandidateTiles.length;
   let openingScoutAvailable = false;
   let neutralExpandAvailable = false;
+  let economicExpandAvailable = false;
   let scoutExpandAvailable = false;
   let scaffoldExpandAvailable = false;
   let barbarianAttackAvailable = false;
@@ -7973,6 +7975,7 @@ const buildAiPlanningStaticCache = (
 
   const pressureAttackScore = estimateAiPressureAttackScore(actor, territorySummary);
   const fortCandidate = structureCandidateCount > 0 ? bestAiFortTile(actor, territorySummary) : undefined;
+  const economicExpandCandidate = bestAiEconomicExpand(actor, undefined, territorySummary);
   const economicBuildAvailable =
     structureCandidateCount > 0 &&
     territorySummary.structureCandidateTiles.some((tile) => {
@@ -7986,6 +7989,7 @@ const buildAiPlanningStaticCache = (
     version: aiTerritoryVersionForPlayer(actor.id),
     openingScoutAvailable,
     neutralExpandAvailable,
+    economicExpandAvailable: Boolean(economicExpandCandidate),
     scoutExpandAvailable,
     scaffoldExpandAvailable,
     barbarianAttackAvailable,
@@ -8044,7 +8048,7 @@ const buildAiPlanningSnapshot = (
     points: actor.points,
     stamina: actor.stamina,
     openingScoutAvailable: planningStatic.openingScoutAvailable,
-    economicExpandAvailable: planningStatic.frontierOpportunityEconomic > 0,
+    economicExpandAvailable: planningStatic.economicExpandAvailable,
     neutralExpandAvailable: planningStatic.neutralExpandAvailable,
     scoutExpandAvailable: planningStatic.scoutExpandAvailable,
     scaffoldExpandAvailable: planningStatic.scaffoldExpandAvailable,
