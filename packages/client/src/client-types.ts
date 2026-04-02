@@ -420,7 +420,7 @@ export type TileMenuProgressView = {
   progress: number;
   note: string;
   cancelLabel?: string;
-  cancelActionId?: "cancel_structure_build";
+  cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement";
 };
 
 export type TileOverviewLine = {
