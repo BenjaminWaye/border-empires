@@ -78,6 +78,8 @@ import {
   ownedDomainByTier,
   renderDomainChoiceGridHtml,
   renderDomainDetailCardHtml,
+  renderDomainProgressCardHtml,
+  renderTechChoiceDetailsHtml,
   renderTechDetailCardHtml,
   techCurrentModsHtml,
   techOwnedHtml
@@ -199,7 +201,6 @@ const {
   mobileTechChooseBtn,
   mobileTechCurrentModsEl,
   mobileTechDetailCardEl,
-  mobileTechDomainsEl,
   mobileTechOwnedEl,
   mobileTechPickEl,
   mobileTechPointsEl,
@@ -207,14 +208,13 @@ const {
   panelActionButtons,
   panelAllianceEl,
   panelCloseBtn,
+  panelDomainsContentEl,
   panelDefensibilityEl,
   panelEconomyEl,
   panelManpowerEl,
   panelFeedEl,
   panelLeaderboardEl,
   panelMissionsEl,
-  panelSettingsEl,
-  panelSettingsPreviewEl,
   panelTechEl,
   panelTitleEl,
   selectedEl,
@@ -229,7 +229,6 @@ const {
   techChooseBtn,
   techCurrentModsEl,
   techDetailCardEl,
-  techDomainsEl,
   techOwnedEl,
   techPickEl,
   techPointsEl,
@@ -1318,7 +1317,7 @@ const createTownOverlaySet = (
   return set;
 };
 
-const overlayAssetVersion = "20260328a";
+const overlayAssetVersion = "20260402b";
 const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -1347,10 +1346,6 @@ const grassTownOverlayByTier = createTownOverlaySet({
   GREAT_CITY: overlaySrc("great-city-overlay-grass.svg"),
   METROPOLIS: overlaySrc("metropolis-overlay-grass.svg")
 });
-const ancientTownOverlayByBiome = {
-  SAND: loadOverlayImage("ancient-town-overlay-sand.svg"),
-  GRASS: loadOverlayImage("ancient-town-overlay-grass.svg")
-} as const;
 const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
 const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
@@ -1370,6 +1365,10 @@ const resourceOverlayVariants = {
   FUR: createOverlayVariantSet(["fur-overlay-1.svg", "fur-overlay-2.svg", "fur-overlay-3.svg"]),
   IRON: createOverlayVariantSet(["iron-overlay-1.svg", "iron-overlay-2.svg", "iron-overlay-3.svg"]),
   GEMS: createOverlayVariantSet(["gems-overlay-1.svg", "gems-overlay-2.svg", "gems-overlay-3.svg", "gems-overlay-4.svg"])
+} as const;
+const shardOverlayVariants = {
+  CACHE: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"]),
+  FALL: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"])
 } as const;
 const textureCanvas = (): HTMLCanvasElement => {
   const c = document.createElement("canvas");
@@ -1642,17 +1641,10 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
   const accent =
     tile.town.type === "MARKET"
       ? "rgba(255, 212, 102, 0.9)"
-      : tile.town.type === "FARMING"
-        ? "rgba(162, 241, 132, 0.88)"
-        : "rgba(198, 171, 255, 0.9)";
+      : "rgba(162, 241, 132, 0.88)";
   const biome = landBiomeAt(tile.x, tile.y);
   const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
-  const overlay =
-    tile.town.type === "ANCIENT" && tile.town.populationTier === "TOWN"
-      ? biome === "GRASS"
-        ? ancientTownOverlayByBiome.GRASS
-        : ancientTownOverlayByBiome.SAND
-      : overlaySet[tile.town.populationTier];
+  const overlay = overlaySet[tile.town.populationTier];
   if (!overlay.complete || !overlay.naturalWidth) {
     const marker = Math.max(4, Math.floor(size * 0.34));
     const mx = px + Math.floor((size - marker) / 2);
@@ -1660,8 +1652,7 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
     ctx.fillStyle = "rgba(10, 14, 24, 0.82)";
     ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
     if (tile.town.type === "MARKET") ctx.fillStyle = "rgba(255, 212, 102, 0.95)";
-    else if (tile.town.type === "FARMING") ctx.fillStyle = "rgba(162, 241, 132, 0.95)";
-    else ctx.fillStyle = "rgba(198, 171, 255, 0.95)";
+    else ctx.fillStyle = "rgba(162, 241, 132, 0.95)";
     ctx.fillRect(mx, my, marker, marker);
     return;
   }
@@ -1687,16 +1678,14 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
 
   ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
 
-  if (tile.town.type !== "ANCIENT") {
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = Math.max(2, size * 0.08);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(px + size * 0.22, py + size * 0.88);
-    ctx.lineTo(px + size * 0.78, py + size * 0.88);
-    ctx.stroke();
-    ctx.lineWidth = 1;
-  }
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(2, size * 0.08);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(px + size * 0.22, py + size * 0.88);
+  ctx.lineTo(px + size * 0.78, py + size * 0.88);
+  ctx.stroke();
+  ctx.lineWidth = 1;
 
   if (!tile.town.isFed) {
     const badgeSize = Math.max(8, size * 0.24);
@@ -1828,6 +1817,43 @@ const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined =
   if (!key) return undefined;
   const variants = builtResourceOverlayVariants[key];
   return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
+};
+const shardOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
+  if (!tile.shardSite) return undefined;
+  const variants = shardOverlayVariants[tile.shardSite.kind];
+  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
+};
+const drawShardFallback = (tile: Tile, px: number, py: number, size: number): void => {
+  const cx = px + size / 2;
+  const cy = py + size / 2;
+  ctx.fillStyle = "rgba(41, 26, 10, 0.28)";
+  ctx.beginPath();
+  ctx.ellipse(cx, py + size * 0.76, size * 0.28, size * 0.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(22, 35, 49, 0.94)";
+  ctx.beginPath();
+  ctx.moveTo(cx, py + size * 0.24);
+  ctx.lineTo(px + size * 0.7, py + size * 0.42);
+  ctx.lineTo(px + size * 0.63, py + size * 0.67);
+  ctx.lineTo(px + size * 0.37, py + size * 0.67);
+  ctx.lineTo(px + size * 0.3, py + size * 0.42);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(50, 210, 233, 0.98)";
+  ctx.beginPath();
+  ctx.moveTo(cx, py + size * 0.31);
+  ctx.lineTo(px + size * 0.62, py + size * 0.45);
+  ctx.lineTo(px + size * 0.57, py + size * 0.64);
+  ctx.lineTo(px + size * 0.43, py + size * 0.64);
+  ctx.lineTo(px + size * 0.38, py + size * 0.45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 223, 132, 0.58)";
+  ctx.lineWidth = Math.max(1.2, size * 0.045);
+  ctx.beginPath();
+  ctx.ellipse(cx, py + size * 0.68, size * 0.2, size * 0.06, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = 1;
 };
 const resourceOverlayScaleForTile = (tile: Tile): number => {
   if (tile.resource === "FISH") return 1.3;
@@ -2455,6 +2481,19 @@ const drawMiniMap = (): void => {
       );
     }
   }
+  miniMapCtx.save();
+  miniMapCtx.textAlign = "center";
+  miniMapCtx.textBaseline = "middle";
+  miniMapCtx.font = "8px monospace";
+  for (const t of state.tiles.values()) {
+    if (!t.shardSite) continue;
+    if (!state.fogDisabled && t.fogged) continue;
+    const tx = Math.floor((t.x / WORLD_WIDTH) * w);
+    const ty = Math.floor((t.y / WORLD_HEIGHT) * h);
+    miniMapCtx.fillStyle = t.shardSite.kind === "FALL" ? "rgba(255, 244, 176, 0.98)" : "rgba(147, 235, 255, 0.96)";
+    miniMapCtx.fillText(resourceIconForKey("SHARD"), tx, ty);
+  }
+  miniMapCtx.restore();
   miniMapLastDrawCamX = state.camX;
   miniMapLastDrawCamY = state.camY;
   miniMapLastDrawZoom = state.zoom;
@@ -2465,6 +2504,14 @@ const drawMiniMap = (): void => {
 const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void => {
   state.feed.unshift({ text: msg, type, severity, at: Date.now() });
   state.feed = state.feed.slice(0, 18);
+};
+
+const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => {
+  if (next.fogged || !next.shardSite) return;
+  if (previous?.shardSite?.kind === next.shardSite.kind && previous.shardSite.amount === next.shardSite.amount) return;
+  if (next.shardSite.kind === "FALL") {
+    pushFeed(`Shard rain sighted at (${next.x}, ${next.y}).`, "info", "warn");
+  }
 };
 
 const showCaptureAlert = (
@@ -2557,6 +2604,7 @@ const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
 const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => {
   if (panel === "missions") return "Missions";
   if (panel === "tech") return "Technology Tree";
+  if (panel === "domains") return "Sharding";
   if (panel === "alliance") return "Alliances";
   if (panel === "economy") return "Economy";
   if (panel === "manpower") return "Manpower";
@@ -2569,6 +2617,7 @@ const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => {
 const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof state.mobilePanel => {
   if (panel === "missions") return "missions";
   if (panel === "tech") return "tech";
+  if (panel === "domains") return "tech";
   if (panel === "alliance") return "social";
   if (panel === "defensibility") return "defensibility";
   if (panel === "economy") return "economy";
@@ -4138,6 +4187,21 @@ const renderDomainChoiceGrid = (): string =>
     currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices)
   });
 
+const visibleShardCacheCount = (): number =>
+  [...state.tiles.values()].filter((tile) => !tile.fogged && tile.shardSite?.kind === "CACHE").length;
+
+const activeShardfallCount = (): number =>
+  [...state.tiles.values()].filter((tile) => !tile.fogged && tile.shardSite?.kind === "FALL").length;
+
+const renderDomainProgressCard = (): string =>
+  renderDomainProgressCardHtml({
+    visibleShardCacheCount: visibleShardCacheCount(),
+    activeShardfallCount: activeShardfallCount(),
+    shardStock: state.strategicResources.SHARD ?? 0,
+    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices),
+    chosenDomainCount: state.domainIds.length
+  });
+
 const renderTechDetailOverlay = (): string => {
   if (!state.techDetailOpen) return "";
   return renderTechDetailModal();
@@ -4564,31 +4628,15 @@ const renderHud = (): void => {
   techDetailOverlayEl.style.display = techDetailsUseOverlay() && state.techDetailOpen ? "grid" : "none";
   techOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
   mobileTechOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
-  techDomainsEl.innerHTML = `${renderDomainChoiceGrid()}${renderDomainDetailCard()}${domainOwnedHtml(state.domainCatalog, state.domainIds)}`;
-  mobileTechDomainsEl.innerHTML = `${renderDomainChoiceGrid()}${renderDomainDetailCard()}${domainOwnedHtml(state.domainCatalog, state.domainIds)}`;
   techChoiceDetailsEl.innerHTML = renderTechChoiceDetails();
   mobileTechChoiceDetailsEl.innerHTML = renderTechChoiceDetails();
   const techResearchSectionEl = document.querySelector<HTMLDivElement>("#tech-research-section");
-  const techDomainsSectionEl = document.querySelector<HTMLDivElement>("#tech-domains-section");
   const mobileTechResearchSectionEl = document.querySelector<HTMLDivElement>("#mobile-tech-research-section");
-  const mobileTechDomainsSectionEl = document.querySelector<HTMLDivElement>("#mobile-tech-domains-section");
-  if (techResearchSectionEl) techResearchSectionEl.style.display = state.techSection === "research" ? "grid" : "none";
-  if (techDomainsSectionEl) techDomainsSectionEl.style.display = state.techSection === "domains" ? "grid" : "none";
-  if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = state.techSection === "research" ? "grid" : "none";
-  if (mobileTechDomainsSectionEl) mobileTechDomainsSectionEl.style.display = state.techSection === "domains" ? "grid" : "none";
+  if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
+  if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
   panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !techDetailsUseOverlay() && state.techSection === "research");
   mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
-  const techSectionButtons = hud.querySelectorAll<HTMLButtonElement>("[data-tech-section]");
-  techSectionButtons.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.techSection === state.techSection);
-    btn.onclick = () => {
-      const section = btn.dataset.techSection;
-      if (section !== "research" && section !== "domains") return;
-      state.techSection = section;
-      renderHud();
-    };
-  });
   const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
   weakDefButtons.forEach((btn) => {
     btn.onclick = () => {
@@ -4687,6 +4735,9 @@ const renderHud = (): void => {
       if (!id) return;
       state.domainUiSelectedId = id;
       renderHud();
+      requestAnimationFrame(() => {
+        hud.querySelector<HTMLElement>("[data-domain-detail-card]")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
     };
   });
   const domainUnlockButtons = hud.querySelectorAll<HTMLButtonElement>("[data-domain-unlock]");
@@ -4743,15 +4794,11 @@ const renderHud = (): void => {
   feedEl.innerHTML = feedHtml(state.feed);
   mobileFeedEl.innerHTML = feedHtml(state.feed);
 
-  const currentNationColor = state.playerColors.get(state.me) ?? authProfileColorEl.value;
-  panelSettingsPreviewEl.innerHTML = `
-    <div class="card">
-      <p>Nation color is locked after onboarding.</p>
-      <div class="color-preview">
-        <div class="swatch" style="background:${currentNationColor}"></div>
-        <span>${currentNationColor}</span>
-      </div>
-    </div>
+  panelDomainsContentEl.innerHTML = `
+    ${renderDomainProgressCard()}
+    ${renderDomainChoiceGrid()}
+    ${renderDomainDetailCard()}
+    ${domainOwnedHtml(state.domainCatalog, state.domainIds)}
     <div class="card auth-settings-card">
       <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
       <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
@@ -5633,6 +5680,16 @@ const collectSelectedYield = (): void => {
   sendGameMessage({ type: "COLLECT_TILE", x: sel.x, y: sel.y });
 };
 
+const collectSelectedShard = (): void => {
+  const sel = state.selected;
+  if (!sel) return;
+  const tile = state.tiles.get(key(sel.x, sel.y));
+  if (!tile?.shardSite || tile.fogged) return;
+  state.tiles.set(key(sel.x, sel.y), { ...tile, shardSite: null });
+  renderHud();
+  sendGameMessage({ type: "COLLECT_SHARD", x: sel.x, y: sel.y });
+};
+
 const hideHoldBuildMenu = (): void => {
   holdBuildMenuEl.style.display = "none";
   holdBuildMenuEl.innerHTML = "";
@@ -5654,6 +5711,7 @@ type TileActionDef = {
     | "launch_breach_attack"
     | "reveal_empire"
     | "collect_yield"
+    | "collect_shard"
     | "build_fortification"
     | "build_observatory"
     | "build_farmstead"
@@ -6117,6 +6175,13 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     pushLine("Settled land is defended and fully part of your empire.");
     if (tile.town) pushLine("Towns produce gold when fed.");
   }
+  if (tile.shardSite) {
+    pushLine(
+      tile.shardSite.kind === "FALL"
+        ? `Shard rain deposit: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be collected here for a short time.`
+        : `Shard cache: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be recovered here.`
+    );
+  }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
     if (!tile.town.isFed) {
@@ -6468,6 +6533,19 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       )
     };
   };
+  if (tile.shardSite) {
+    return [
+      {
+        id: "collect_shard",
+        label: tile.shardSite.kind === "FALL" ? "Collect Shardfall" : "Collect Shards",
+        detail:
+          tile.shardSite.kind === "FALL"
+            ? `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} from active shard rain`
+            : `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} recovered from this cache`
+      },
+      createMountainAction()
+    ];
+  }
   if (!tile.ownerId) {
     const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false));
     const hasGold = state.gold >= FRONTIER_CLAIM_COST;
@@ -7292,6 +7370,7 @@ const handleTileAction = (actionId: TileActionDef["id"], targetKeyOverride?: str
     return;
   }
   if (actionId === "collect_yield") collectSelectedYield();
+  if (actionId === "collect_shard") collectSelectedShard();
   if (actionId === "build_fortification")
     sendDevelopmentBuild({ type: "BUILD_FORT", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FORT"), {
       x: selected.x,
@@ -7965,6 +8044,7 @@ ws.addEventListener("message", (ev) => {
       const existing = state.tiles.get(key(t.x, t.y));
       const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, t));
       state.tiles.set(key(mergedTile.x, mergedTile.y), mergedTile);
+      maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(key(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
       if (!mergedTile.fogged) state.discoveredTiles.add(key(mergedTile.x, mergedTile.y));
@@ -8298,6 +8378,10 @@ ws.addEventListener("message", (ev) => {
       if (update.clusterType !== undefined) merged.clusterType = update.clusterType;
       if (update.regionType !== undefined) merged.regionType = update.regionType;
       if (update.dockId !== undefined) merged.dockId = update.dockId;
+      if ("shardSite" in update) {
+        if (update.shardSite) merged.shardSite = update.shardSite;
+        else delete merged.shardSite;
+      }
       if (update.town !== undefined) merged.town = update.town;
       if ("town" in update && !update.town) delete merged.town;
       if (update.fort !== undefined) merged.fort = update.fort;
@@ -8334,6 +8418,7 @@ ws.addEventListener("message", (ev) => {
       }
       const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
       state.tiles.set(updateKey, resolved);
+      maybeAnnounceShardSite(existing, resolved);
       if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
       markDockDiscovered(resolved);
       if (!resolved.fogged) state.discoveredTiles.add(updateKey);
@@ -8728,6 +8813,17 @@ ws.addEventListener("message", (ev) => {
     requestViewRefresh();
     renderHud();
   }
+  if (msg.type === "SHARD_RAIN_EVENT") {
+    const siteCount = (msg.siteCount as number | undefined) ?? 0;
+    const expiresAt = (msg.expiresAt as number | undefined) ?? 0;
+    const remaining = expiresAt > Date.now() ? formatCountdownClock(expiresAt - Date.now()) : "30:00";
+    pushFeed(
+      `Shard rain has begun. ${siteCount} impact site${siteCount === 1 ? "" : "s"} will remain for about ${remaining}.`,
+      "info",
+      "warn"
+    );
+    renderHud();
+  }
 });
 
 state.authConfigured = Boolean(firebaseAuth);
@@ -9047,6 +9143,46 @@ const draw = (): void => {
           ctx.fillStyle = rc;
           ctx.fillRect(mx, my, marker, marker);
           drawResourceCornerMarker(t, px, py, size);
+        }
+      }
+
+      if (t && vis === "visible" && t.terrain === "LAND" && t.shardSite) {
+        const overlay = shardOverlayForTile(t);
+        const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
+        const pulse = 0.82 + 0.18 * pulsePhase;
+        const glowRadius = size * (0.28 + pulsePhase * (t.shardSite.kind === "FALL" ? 0.3 : 0.24));
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.fillStyle =
+          t.shardSite.kind === "FALL"
+            ? `rgba(255, 220, 112, ${0.16 + pulsePhase * 0.18})`
+            : `rgba(96, 244, 255, ${0.14 + pulsePhase * 0.16})`;
+        ctx.beginPath();
+        ctx.arc(px + size / 2, py + size / 2, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = Math.max(2, size * 0.08);
+        ctx.strokeStyle =
+          t.shardSite.kind === "FALL"
+            ? `rgba(255, 245, 180, ${0.38 + pulsePhase * 0.34})`
+            : `rgba(184, 255, 255, ${0.34 + pulsePhase * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(px + size / 2, py + size / 2, size * (0.18 + pulsePhase * 0.18), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        if (overlay?.complete && overlay.naturalWidth) {
+          drawCenteredOverlayWithAlpha(
+            overlay,
+            px,
+            py,
+            size,
+            (t.shardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
+            0.86 + pulse * 0.18
+          );
+        } else {
+          const prevAlpha = ctx.globalAlpha;
+          ctx.globalAlpha = prevAlpha * (0.88 + pulse * 0.16);
+          drawShardFallback(t, px, py, size * (0.99 + pulse * 0.03));
+          ctx.globalAlpha = prevAlpha;
         }
       }
 

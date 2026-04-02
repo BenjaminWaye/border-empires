@@ -619,6 +619,7 @@ interface SnapshotState {
   abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
   docks?: Dock[];
   towns?: TownDefinition[];
+  shardSites?: ShardSiteState[];
   firstSpecialSiteCaptureClaimed?: TileKey[];
   clusters?: ClusterDefinition[];
   clusterTiles?: [TileKey, string][];
@@ -653,6 +654,7 @@ interface SnapshotTerritorySection {
   terrainShapes?: [TileKey, TerrainShapeState][];
   docks?: Dock[];
   towns?: TownDefinition[];
+  shardSites?: ShardSiteState[];
   firstSpecialSiteCaptureClaimed?: TileKey[];
   clusters?: ClusterDefinition[];
   clusterTiles?: [TileKey, string][];
@@ -710,12 +712,19 @@ interface SeasonalTechConfig {
 interface TownDefinition {
   townId: string;
   tileKey: TileKey;
-  type: "MARKET" | "FARMING" | "ANCIENT";
+  type: "MARKET" | "FARMING";
   population: number;
   maxPopulation: number;
   connectedTownCount: number;
   connectedTownBonus: number;
   lastGrowthTickAt: number;
+}
+
+interface ShardSiteState {
+  tileKey: TileKey;
+  kind: "CACHE" | "FALL";
+  amount: number;
+  expiresAt?: number;
 }
 
 type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
@@ -778,7 +787,6 @@ interface PlayerEconomyIndex {
   settledResourceTileKeys: Set<TileKey>;
   settledDockTileKeys: Set<TileKey>;
   settledTownTileKeys: Set<TileKey>;
-  ancientTownTileKeys: Set<TileKey>;
 }
 
 const emptyPlayerEffects = (): PlayerEffects => ({
@@ -997,6 +1005,11 @@ const TILE_YIELD_CAP_RESOURCE = 6;
 const OFFLINE_YIELD_ACCUM_MAX_MS = 12 * 60 * 60 * 1000;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 const IDLE_SNAPSHOT_INTERVAL_MS = 5 * 60_000;
+const SHARD_CACHE_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
+const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
+const SHARD_RAIN_SITE_MIN = 3;
+const SHARD_RAIN_SITE_MAX = 6;
+const SHARD_RAIN_TTL_MS = 30 * 60_000;
 const FIRST_SPECIAL_SITE_CAPTURE_GOLD = 6;
 const STARTING_GOLD = 100;
 const MIN_ACTIVE_BARBARIAN_AGENTS = 80;
@@ -1448,7 +1461,6 @@ const strategicProductionPerMinute = (player: Player): Record<StrategicResource,
     const [x, y] = parseKey(town.tileKey);
     const t = playerTile(x, y);
     if (t.ownerId !== player.id || t.ownershipState !== "SETTLED") continue;
-    if (town.type === "ANCIENT") out.SHARD += (strategicResourceRates.SHARD * getPlayerEffectsForPlayer(player.id).resourceOutputMult.SHARD) / 1440;
   }
   return out;
 };
@@ -1566,8 +1578,37 @@ const playerHasFogAdminAccess = (playerId: string): boolean => {
 };
 
 const ensureAiPlayers = (): void => {
-  if (AI_PLAYERS <= 0) return;
   const existing = [...players.values()].filter((player) => player.isAi);
+  if (existing.length > AI_PLAYERS) {
+    for (const player of existing.slice(AI_PLAYERS)) {
+      players.delete(player.id);
+      playerBaseMods.delete(player.id);
+      strategicResourceStockByPlayer.delete(player.id);
+      strategicResourceBufferByPlayer.delete(player.id);
+      economyIndexByPlayer.delete(player.id);
+      dynamicMissionsByPlayer.delete(player.id);
+      forcedRevealTilesByPlayer.delete(player.id);
+      revealedEmpireTargetsByPlayer.delete(player.id);
+      playerEffectsByPlayer.delete(player.id);
+      clusterControlledTilesByPlayer.delete(player.id);
+      resourceCountsByPlayer.delete(player.id);
+      frontierSettlementsByPlayer.delete(player.id);
+      temporaryAttackBuffUntilByPlayer.delete(player.id);
+      temporaryIncomeBuffUntilByPlayer.delete(player.id);
+      abilityCooldownsByPlayer.delete(player.id);
+      growthPausedUntilByPlayer.delete(player.id);
+      townFeedingStateByPlayer.delete(player.id);
+      observatoryTileKeysByPlayer.delete(player.id);
+      economicStructureTileKeysByPlayer.delete(player.id);
+      socketsByPlayer.delete(player.id);
+      chunkSubscriptionByPlayer.delete(player.id);
+      chunkSnapshotSentAtByPlayer.delete(player.id);
+      chunkSnapshotGenerationByPlayer.delete(player.id);
+      cachedVisibilitySnapshotByPlayer.delete(player.id);
+      cachedChunkSnapshotByPlayer.delete(player.id);
+    }
+  }
+  if (AI_PLAYERS <= 0) return;
   for (const player of existing) {
     if (!aiHasPlaceholderName(player.name)) continue;
     player.name = claimPlayerName(player.id, generateAiNickname());
@@ -1769,7 +1810,9 @@ const clusterByTile = new Map<TileKey, string>();
 const clustersById = new Map<string, ClusterDefinition>();
 const clusterControlledTilesByPlayer = new Map<string, Map<string, number>>();
 const townsByTile = new Map<TileKey, TownDefinition>();
+const shardSitesByTile = new Map<TileKey, ShardSiteState>();
 const firstSpecialSiteCaptureClaimed = new Set<TileKey>();
+let lastShardRainSlotKey = "";
 const revealedEmpireTargetsByPlayer = new Map<string, Set<string>>();
 const revealWatchersByTarget = new Map<string, Set<string>>();
 const siphonByTile = new Map<TileKey, ActiveSiphon>();
@@ -2736,17 +2779,16 @@ const generateDocks = (seed: number): void => {
   }
 };
 
-const townTypeAt = (x: number, y: number): "MARKET" | "FARMING" | "ANCIENT" => {
+const townTypeAt = (x: number, y: number): "MARKET" | "FARMING" => {
   const region = regionTypeAtLocal(x, y);
   if (region === "FERTILE_PLAINS") return seeded01(x, y, activeSeason.worldSeed + 881) > 0.2 ? "FARMING" : "MARKET";
-  if (region === "ANCIENT_HEARTLAND") return seeded01(x, y, activeSeason.worldSeed + 882) > 0.2 ? "ANCIENT" : "MARKET";
-  if (region === "CRYSTAL_WASTES") return seeded01(x, y, activeSeason.worldSeed + 883) > 0.45 ? "ANCIENT" : "MARKET";
-  if (region === "BROKEN_HIGHLANDS") return seeded01(x, y, activeSeason.worldSeed + 884) > 0.6 ? "ANCIENT" : "MARKET";
+  if (region === "ANCIENT_HEARTLAND") return "MARKET";
+  if (region === "CRYSTAL_WASTES") return "MARKET";
+  if (region === "BROKEN_HIGHLANDS") return seeded01(x, y, activeSeason.worldSeed + 884) > 0.72 ? "FARMING" : "MARKET";
 
   const biome = landBiomeAt(x, y);
   if (biome === "GRASS") return seeded01(x, y, activeSeason.worldSeed + 882) > 0.7 ? "MARKET" : "FARMING";
-  if (biome === "SAND") return seeded01(x, y, activeSeason.worldSeed + 883) > 0.7 ? "ANCIENT" : "MARKET";
-  return seeded01(x, y, activeSeason.worldSeed + 884) > 0.5 ? "MARKET" : "ANCIENT";
+  return "MARKET";
 };
 
 const generateTowns = (seed: number): void => {
@@ -2780,6 +2822,152 @@ const generateTowns = (seed: number): void => {
       lastGrowthTickAt: now()
     });
   }
+};
+
+const canHostShardSiteAt = (x: number, y: number): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  const tileKey = key(x, y);
+  if (docksByTile.has(tileKey) || clusterByTile.has(tileKey) || townsByTile.has(tileKey)) return false;
+  return !shardSitesByTile.has(tileKey);
+};
+
+const shardSiteViewAt = (tileKey: TileKey): Tile["shardSite"] | undefined => {
+  const site = shardSitesByTile.get(tileKey);
+  if (!site) return undefined;
+  if (typeof site.expiresAt === "number" && site.expiresAt <= now()) return undefined;
+  return {
+    kind: site.kind,
+    amount: site.amount,
+    ...(typeof site.expiresAt === "number" ? { expiresAt: site.expiresAt } : {})
+  };
+};
+
+const generateShardCaches = (seed: number): void => {
+  shardSitesByTile.clear();
+  let placed = 0;
+  for (let i = 0; i < 200_000 && placed < SHARD_CACHE_COUNT; i += 1) {
+    const x = Math.floor(seeded01(i * 41, i * 59, seed + 11_101) * WORLD_WIDTH);
+    const y = Math.floor(seeded01(i * 67, i * 71, seed + 11_171) * WORLD_HEIGHT);
+    if (!canHostShardSiteAt(x, y)) continue;
+    const amount = seeded01(x, y, seed + 11_221) > 0.84 ? 2 : 1;
+    shardSitesByTile.set(key(x, y), {
+      tileKey: key(x, y),
+      kind: "CACHE",
+      amount
+    });
+    placed += 1;
+  }
+};
+
+const ensureSpawnShardNearby = (x: number, y: number): void => {
+  for (let dy = -2; dy <= 2; dy += 1) {
+    for (let dx = -2; dx <= 2; dx += 1) {
+      const sx = wrapX(x + dx, WORLD_WIDTH);
+      const sy = wrapY(y + dy, WORLD_HEIGHT);
+      if (shardSitesByTile.has(key(sx, sy))) return;
+    }
+  }
+  const preferredOffsets: Array<[number, number]> = [
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+    [0, -1],
+    [1, 1],
+    [-1, 1],
+    [1, -1],
+    [-1, -1],
+    [2, 0],
+    [0, 2],
+    [-2, 0],
+    [0, -2]
+  ];
+  for (const [dx, dy] of preferredOffsets) {
+    const sx = wrapX(x + dx, WORLD_WIDTH);
+    const sy = wrapY(y + dy, WORLD_HEIGHT);
+    if (!canHostShardSiteAt(sx, sy)) continue;
+    const tileKey = key(sx, sy);
+    shardSitesByTile.set(tileKey, {
+      tileKey,
+      kind: "CACHE",
+      amount: 2
+    });
+    markSummaryChunkDirtyAtTile(sx, sy);
+    return;
+  }
+};
+
+const spawnShardRain = (): void => {
+  if (!hasOnlinePlayers()) return;
+  const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
+  const touched: Array<{ x: number; y: number }> = [];
+  let placed = 0;
+  let latestExpiresAt = 0;
+  let attempts = 0;
+  while (placed < count && attempts < count * 300) {
+    attempts += 1;
+    const x = Math.floor(Math.random() * WORLD_WIDTH);
+    const y = Math.floor(Math.random() * WORLD_HEIGHT);
+    if (!canHostShardSiteAt(x, y)) continue;
+    const tileKey = key(x, y);
+    shardSitesByTile.set(tileKey, {
+      tileKey,
+      kind: "FALL",
+      amount: 1 + (Math.random() > 0.8 ? 1 : 0),
+      expiresAt: now() + SHARD_RAIN_TTL_MS
+    });
+    latestExpiresAt = Math.max(latestExpiresAt, shardSitesByTile.get(tileKey)?.expiresAt ?? 0);
+    touched.push({ x, y });
+    placed += 1;
+  }
+  if (touched.length > 0) {
+    broadcast({
+      type: "SHARD_RAIN_EVENT",
+      siteCount: touched.length,
+      expiresAt: latestExpiresAt
+    });
+    broadcastLocalVisionDelta(touched);
+  }
+};
+
+const maybeSpawnScheduledShardRain = (): void => {
+  const current = new Date(now());
+  const hour = current.getHours();
+  const minute = current.getMinutes();
+  if (minute !== 0) return;
+  if (!SHARD_RAIN_SCHEDULE_HOURS.includes(hour as (typeof SHARD_RAIN_SCHEDULE_HOURS)[number])) return;
+  const slotKey = `${current.getFullYear()}-${current.getMonth() + 1}-${current.getDate()}-${hour}`;
+  if (lastShardRainSlotKey === slotKey) return;
+  lastShardRainSlotKey = slotKey;
+  spawnShardRain();
+};
+
+const expireShardSites = (): void => {
+  const touched: Array<{ x: number; y: number }> = [];
+  for (const [tileKey, site] of shardSitesByTile) {
+    if (site.kind !== "FALL" || typeof site.expiresAt !== "number" || site.expiresAt > now()) continue;
+    shardSitesByTile.delete(tileKey);
+    const [x, y] = parseKey(tileKey);
+    touched.push({ x, y });
+    markSummaryChunkDirtyAtTile(x, y);
+  }
+  if (touched.length > 0) broadcastLocalVisionDelta(touched);
+};
+
+const collectShardSite = (player: Player, x: number, y: number): { ok: boolean; amount?: number; reason?: string } => {
+  if (!visible(player, x, y)) return { ok: false, reason: "tile is not visible" };
+  const tileKey = key(x, y);
+  const site = shardSitesByTile.get(tileKey);
+  if (!site) return { ok: false, reason: "no shard cache on this tile" };
+  if (typeof site.expiresAt === "number" && site.expiresAt <= now()) {
+    shardSitesByTile.delete(tileKey);
+    return { ok: false, reason: "the shardfall has already faded" };
+  }
+  shardSitesByTile.delete(tileKey);
+  const stock = getOrInitStrategicStocks(player.id);
+  stock.SHARD += site.amount;
+  markSummaryChunkDirtyAtTile(x, y);
+  broadcastLocalVisionDelta([{ x, y }]);
+  return { ok: true, amount: site.amount };
 };
 
 const canPlaceTownAt = (x: number, y: number, ignoreTileKey?: TileKey): boolean => {
@@ -3616,8 +3804,6 @@ const claimFirstSpecialSiteCaptureBonus = (player: Player, x: number, y: number)
   if (firstSpecialSiteCaptureClaimed.has(tk)) return 0;
   const town = townsByTile.get(tk);
   if (!town) return 0;
-  const eligible = town.type === "ANCIENT" || town.type === "MARKET"; // "market" represents camps in prototype.
-  if (!eligible) return 0;
   firstSpecialSiteCaptureClaimed.add(tk);
   player.points += FIRST_SPECIAL_SITE_CAPTURE_GOLD;
   recalcPlayerDerived(player);
@@ -3668,6 +3854,7 @@ const regenerateStrategicWorld = (initialSeed: number): number => {
     generateClusters(seed);
     generateDocks(seed);
     generateTowns(seed);
+    generateShardCaches(seed);
     ensureBaselineEconomyCoverage(seed);
     ensureInterestCoverage(seed);
     normalizeTownPlacements();
@@ -4023,6 +4210,7 @@ const clearWorldProgressForSeason = (): void => {
   siphonCacheByPlayer.clear();
   activeAetherBridgesById.clear();
   strategicReplayEvents.length = 0;
+  shardSitesByTile.clear();
   abilityCooldownsByPlayer.clear();
   revealedEmpireTargetsByPlayer.clear();
   breachShockByTile.clear();
@@ -4130,6 +4318,7 @@ const regenerateWorldInPlace = (): void => {
   activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
   activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   clearWorldProgressForSeason();
+  generateShardCaches(activeSeason.worldSeed);
   for (const p of players.values()) spawnPlayer(p);
   spawnInitialBarbarians();
   for (const p of players.values()) {
@@ -4287,9 +4476,6 @@ const applyTileYieldSummary = (
         sabotageMult *
         economicStructureOutputMultAt(tk, ownerId);
     }
-    if (town?.type === "ANCIENT") {
-      strategicPerDay.SHARD = (strategicPerDay.SHARD ?? 0) + strategicResourceRates.SHARD * ownerEffects.resourceOutputMult.SHARD;
-    }
     const economicStructure = economicStructuresByTile.get(tk);
     if (economicStructure && economicStructure.ownerId === ownerId && economicStructure.status === "active") {
       const converterDaily = converterStructureOutputFor(economicStructure.type);
@@ -4328,6 +4514,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
   const clusterId = clusterByTile.get(tk);
   const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
   const dock = terrain === "LAND" ? docksByTile.get(tk) : undefined;
+  const shardSite = terrain === "LAND" ? shardSiteViewAt(tk) : undefined;
   const town = terrain === "LAND" ? townsByTile.get(tk) : undefined;
   const fort = terrain === "LAND" ? fortsByTile.get(tk) : undefined;
   const observatory = terrain === "LAND" ? observatoriesByTile.get(tk) : undefined;
@@ -4349,6 +4536,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
   }
   if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
   if (dock) tile.dockId = dock.dockId;
+  if (terrain === "LAND") tile.shardSite = shardSite ?? null;
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
   if (town) tile.town = mode === "thin" ? thinTownSummaryForTile(town, ownerId) : townSummaryForTile(town, ownerId);
   if (fort) {
@@ -4429,6 +4617,7 @@ const playerTile = (x: number, y: number): Tile => {
   const clusterId = clusterByTile.get(tk);
   const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
   const dock = terrain === "LAND" ? docksByTile.get(tk) : undefined;
+  const shardSite = terrain === "LAND" ? shardSiteViewAt(tk) : undefined;
   const town = terrain === "LAND" ? townsByTile.get(tk) : undefined;
   const fort = terrain === "LAND" ? fortsByTile.get(tk) : undefined;
   const observatory = terrain === "LAND" ? observatoriesByTile.get(tk) : undefined;
@@ -4456,6 +4645,7 @@ const playerTile = (x: number, y: number): Tile => {
   if (terrain === "LAND" && clusterId) tile.clusterId = clusterId;
   if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
   if (dock) tile.dockId = dock.dockId;
+  if (terrain === "LAND") tile.shardSite = shardSite ?? null;
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
   if (town) {
     const owner = ownerId;
@@ -4576,9 +4766,6 @@ const playerTile = (x: number, y: number): Tile => {
         mult *
         sabotageMult *
         economicStructureOutputMultAt(key(wx, wy), ownerId);
-    }
-    if (town?.type === "ANCIENT") {
-      strategicPerDay.SHARD = (strategicPerDay.SHARD ?? 0) + strategicResourceRates.SHARD * ownerEffects.resourceOutputMult.SHARD;
     }
     const economicStructure = economicStructuresByTile.get(key(wx, wy));
     if (economicStructure && economicStructure.ownerId === ownerId && economicStructure.status === "active") {
@@ -4725,8 +4912,7 @@ const emptyTileYield = (): TileYieldBuffer => ({
 const emptyPlayerEconomyIndex = (): PlayerEconomyIndex => ({
   settledResourceTileKeys: new Set<TileKey>(),
   settledDockTileKeys: new Set<TileKey>(),
-  settledTownTileKeys: new Set<TileKey>(),
-  ancientTownTileKeys: new Set<TileKey>()
+  settledTownTileKeys: new Set<TileKey>()
 });
 
 const getOrInitEconomyIndex = (playerId: string): PlayerEconomyIndex => {
@@ -4792,7 +4978,6 @@ const rebuildEconomyIndexForPlayer = (playerId: string): void => {
   index.settledResourceTileKeys.clear();
   index.settledDockTileKeys.clear();
   index.settledTownTileKeys.clear();
-  index.ancientTownTileKeys.clear();
   for (const tileKey of player.territoryTiles) {
     if (ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
     const [x, y] = parseKey(tileKey);
@@ -4801,10 +4986,7 @@ const rebuildEconomyIndexForPlayer = (playerId: string): void => {
     if (resource) index.settledResourceTileKeys.add(tileKey);
     if (docksByTile.has(tileKey)) index.settledDockTileKeys.add(tileKey);
     const town = townsByTile.get(tileKey);
-    if (town) {
-      index.settledTownTileKeys.add(tileKey);
-      if (town.type === "ANCIENT") index.ancientTownTileKeys.add(tileKey);
-    }
+    if (town) index.settledTownTileKeys.add(tileKey);
   }
 };
 
@@ -9129,6 +9311,7 @@ const ensureAiPlannerWorker = (): Worker | undefined => {
     worker.on("error", (err) => {
       aiPlannerWorkerState.available = false;
       aiPlannerWorkerState.crashed = true;
+      aiPlannerWorkerState.enabled = false;
       aiPlannerWorkerState.worker = undefined;
       clearAiPlannerInflight(err instanceof Error ? err : new Error(String(err)));
       logRuntimeError("ai planner worker failed", err);
@@ -9148,6 +9331,7 @@ const ensureAiPlannerWorker = (): Worker | undefined => {
   } catch (err) {
     aiPlannerWorkerState.available = false;
     aiPlannerWorkerState.crashed = true;
+    aiPlannerWorkerState.enabled = false;
     logRuntimeError("failed to start ai planner worker", err);
     return undefined;
   }
@@ -9360,6 +9544,7 @@ const ensureChunkSerializerWorker = (): Worker | undefined => {
     worker.on("error", (err) => {
       chunkSerializerWorkerState.available = false;
       chunkSerializerWorkerState.crashed = true;
+      chunkSerializerWorkerState.enabled = false;
       chunkSerializerWorkerState.worker = undefined;
       clearChunkSerializerInflight(err instanceof Error ? err : new Error(String(err)));
       logRuntimeError("chunk serializer worker failed", err);
@@ -9379,6 +9564,7 @@ const ensureChunkSerializerWorker = (): Worker | undefined => {
   } catch (err) {
     chunkSerializerWorkerState.available = false;
     chunkSerializerWorkerState.crashed = true;
+    chunkSerializerWorkerState.enabled = false;
     logRuntimeError("failed to start chunk serializer worker", err);
     return undefined;
   }
@@ -11231,7 +11417,6 @@ const playerWorldFlags = (player: Player): Set<string> => {
   let hasIron = false;
   let hasCrystal = false;
   let hasTown = false;
-  let hasAncient = false;
   let hasDock = false;
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
@@ -11241,15 +11426,11 @@ const playerWorldFlags = (player: Player): Set<string> => {
     if (t.resource === "GEMS") hasCrystal = true;
     if (docksByTile.has(tk)) hasDock = true;
     const town = townsByTile.get(tk);
-    if (town) {
-      hasTown = true;
-      if (town.type === "ANCIENT") hasAncient = true;
-    }
+    if (town) hasTown = true;
   }
   if (hasIron) flags.add("active_iron_site");
   if (hasCrystal) flags.add("active_crystal_site");
   if (hasTown) flags.add("active_town");
-  if (hasAncient) flags.add("active_ancient_town");
   if (hasDock) flags.add("active_dock");
   return flags;
 };
@@ -12580,6 +12761,7 @@ const spawnPlayer = (p: Player): void => {
     updateOwnership(x, y, p.id, "SETTLED");
     p.spawnOrigin = key(x, y);
     p.capitalTileKey = key(x, y);
+    ensureSpawnShardNearby(x, y);
     sendVisibleTileDeltaAt(x, y);
     p.spawnShieldUntil = now() + 120_000;
     p.isEliminated = false;
@@ -12878,6 +13060,7 @@ const buildSnapshotState = (): SnapshotState => {
     abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
     docks: [...dockById.values()],
     towns: [...townsByTile.values()],
+    shardSites: [...shardSitesByTile.values()],
     firstSpecialSiteCaptureClaimed: [...firstSpecialSiteCaptureClaimed],
     clusters: [...clustersById.values()],
     clusterTiles: [...clusterByTile.entries()],
@@ -12930,6 +13113,7 @@ const splitSnapshotState = (
     ...(snapshot.terrainShapes ? { terrainShapes: snapshot.terrainShapes } : {}),
     ...(snapshot.docks ? { docks: snapshot.docks } : {}),
     ...(snapshot.towns ? { towns: snapshot.towns } : {}),
+    ...(snapshot.shardSites ? { shardSites: snapshot.shardSites } : {}),
     ...(snapshot.firstSpecialSiteCaptureClaimed ? { firstSpecialSiteCaptureClaimed: snapshot.firstSpecialSiteCaptureClaimed } : {}),
     ...(snapshot.clusters ? { clusters: snapshot.clusters } : {}),
     ...(snapshot.clusterTiles ? { clusterTiles: snapshot.clusterTiles } : {}),
@@ -13250,6 +13434,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   }
   dockLinkedTileKeysByDockTileKey.clear();
   for (const t of raw.towns ?? []) townsByTile.set(t.tileKey, t);
+  for (const shardSite of raw.shardSites ?? []) shardSitesByTile.set(shardSite.tileKey, shardSite);
   for (const tk of raw.firstSpecialSiteCaptureClaimed ?? []) firstSpecialSiteCaptureClaimed.add(tk);
   for (const c of raw.clusters ?? []) clustersById.set(c.clusterId, c);
   for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
@@ -13258,6 +13443,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   logHydratePhase("world_maps", {
     docks: raw.docks?.length ?? 0,
     towns: raw.towns?.length ?? 0,
+    shardSites: raw.shardSites?.length ?? 0,
     clusters: raw.clusters?.length ?? 0,
     clusterTiles: raw.clusterTiles?.length ?? 0
   });
@@ -13430,6 +13616,9 @@ const bootstrapRuntimeState = (): void => {
     activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
     activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   }
+  if (shardSitesByTile.size === 0) {
+    generateShardCaches(activeSeason.worldSeed);
+  }
   logStartupPhase("validate_world_state", worldStartedAt, {
     clusters: clustersById.size,
     docks: dockById.size,
@@ -13590,6 +13779,8 @@ registerInterval(() => {
 registerInterval(runBarbarianTick, BARBARIAN_TICK_MS);
 registerInterval(runAiTick, AI_DISPATCH_INTERVAL_MS);
 registerInterval(enqueueBarbarianMaintenance, BARBARIAN_MAINTENANCE_INTERVAL_MS);
+registerInterval(expireShardSites, 5_000);
+registerInterval(maybeSpawnScheduledShardRain, 30_000);
 registerInterval(() => {
   const vitals = sampleRuntimeVitals();
   recentRuntimeVitals.push(vitals);
@@ -13725,25 +13916,17 @@ registerInterval(() => {
       const siphon = activeSiphonAt(tk);
       const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
       const townGoldBase = townIncomeForOwner(town, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
-      let goldDelta = townGoldBase * ownerMult;
-      let strategic: Partial<Record<StrategicResource, number>> | undefined;
-      if (economyIndex.ancientTownTileKeys.has(tk)) {
-        strategic = {
-          SHARD: strategicResourceRates.SHARD * getPlayerEffectsForPlayer(p.id).resourceOutputMult.SHARD * HARVEST_RESOURCE_RATE_MULT * ownerMult
-        };
-      }
+      const goldDelta = townGoldBase * ownerMult;
       if (siphon) {
         addToSiphonCache(
           siphon.casterPlayerId,
           tk,
           townGoldBase * SIPHON_SHARE,
-          economyIndex.ancientTownTileKeys.has(tk)
-            ? { SHARD: strategicResourceRates.SHARD * getPlayerEffectsForPlayer(p.id).resourceOutputMult.SHARD * HARVEST_RESOURCE_RATE_MULT * SIPHON_SHARE }
-            : {},
+          {},
           siphon.endsAt
         );
       }
-      if (goldDelta > 0 || (strategic && hasPositiveStrategicBuffer(strategic))) addTileYield(tk, goldDelta, strategic);
+      if (goldDelta > 0) addTileYield(tk, goldDelta, undefined);
     }
     for (const tk of economicStructureTileKeysByPlayer.get(p.id) ?? []) {
       const structure = economicStructuresByTile.get(tk);
@@ -14962,6 +15145,19 @@ app.post("/admin/world/regenerate", async () => {
       sendToPlayer(actor.id, { type: "TILE_DELTA", updates: [playerTile(x, y)] });
       sendToPlayer(actor.id, { type: "COLLECT_RESULT", mode: "tile", x, y, gold: got.gold, strategic: got.strategic });
       sendPlayerUpdate(actor, got.gold);
+      return;
+    }
+
+    if (msg.type === "COLLECT_SHARD") {
+      const x = wrapX(msg.x, WORLD_WIDTH);
+      const y = wrapY(msg.y, WORLD_HEIGHT);
+      const result = collectShardSite(actor, x, y);
+      if (!result.ok || !result.amount) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "COLLECT_EMPTY", message: result.reason ?? "no shard present", x, y }));
+        return;
+      }
+      sendToPlayer(actor.id, { type: "COLLECT_RESULT", mode: "tile", x, y, gold: 0, strategic: { SHARD: result.amount } });
+      sendPlayerUpdate(actor, 0);
       return;
     }
 

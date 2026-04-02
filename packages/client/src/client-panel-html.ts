@@ -120,7 +120,7 @@ export const strategicRibbonHtml = (
 ): string => {
   const nowMs = Date.now();
   const entries: Array<{
-    key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+    key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
     icon: string;
     label: string;
     source: string;
@@ -129,8 +129,7 @@ export const strategicRibbonHtml = (
     { key: "FOOD", icon: "🍞", label: "Food", source: "From Farms + Fish", className: "res-food" },
     { key: "IRON", icon: "⛏", label: "Iron", source: "From Iron nodes", className: "res-iron" },
     { key: "CRYSTAL", icon: "💎", label: "Crystal", source: "From Gem nodes", className: "res-crystal" },
-    { key: "SUPPLY", icon: "🦊", label: "Supply", source: "From Fur + Wood", className: "res-stone" },
-    { key: "SHARD", icon: "✦", label: "Shard", source: "From Ancient towns", className: "res-shard" }
+    { key: "SUPPLY", icon: "🦊", label: "Supply", source: "From Fur + Wood", className: "res-stone" }
   ];
   return `<div class="resource-ribbon">${entries
     .map((entry) => {
@@ -146,10 +145,7 @@ export const strategicRibbonHtml = (
                 ? upkeepPerMinute.supply
                 : 0;
       const net = strategicProductionPerMinute[entry.key] - upkeep;
-      const prodText =
-        entry.key === "SHARD"
-          ? `${net * 1440 > 0 ? "+" : ""}${(net * 1440).toFixed(1)}/day`
-          : `${net > 0 ? "+" : ""}${net.toFixed(2)}/m`;
+      const prodText = `${net > 0 ? "+" : ""}${net.toFixed(2)}/m`;
       const rateClass = rateToneClass(net);
       const anim = strategicAnim[entry.key];
       const deltaClass =
@@ -158,7 +154,7 @@ export const strategicRibbonHtml = (
         <span class="resource-icon" aria-hidden="true">${entry.icon}</span>
         <span class="resource-value-row">
           <span class="resource-value">${Number(stock).toFixed(1)}</span>
-          <span class="resource-rate ${rateClass}">${prodText}</span>
+          ${prodText ? `<span class="resource-rate ${rateClass}">${prodText}</span>` : ""}
         </span>
       </button>`;
     })
