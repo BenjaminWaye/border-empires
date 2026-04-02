@@ -119,6 +119,37 @@ export interface ActiveAetherBridgeView {
   endsAt: number;
 }
 
+export type StrategicReplayEventType =
+  | "OWNERSHIP"
+  | "STRUCTURE"
+  | "TRUCE_START"
+  | "TRUCE_BREAK"
+  | "AETHER_BRIDGE"
+  | "HOLD_START"
+  | "HOLD_BREAK"
+  | "WINNER";
+
+export interface StrategicReplayEvent {
+  id: string;
+  at: number;
+  type: StrategicReplayEventType;
+  label: string;
+  playerId?: PlayerId;
+  playerName?: string;
+  targetPlayerId?: PlayerId;
+  targetPlayerName?: string;
+  ownerId?: PlayerId | null;
+  ownershipState?: OwnershipState | null;
+  x?: number;
+  y?: number;
+  from?: { x: number; y: number };
+  to?: { x: number; y: number };
+  structureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType;
+  objectiveId?: SeasonVictoryPathId;
+  objectiveName?: string;
+  isBookmark?: boolean;
+}
+
 export interface Tile {
   x: number;
   y: number;
