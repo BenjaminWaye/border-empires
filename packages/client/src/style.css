@@ -1113,6 +1113,7 @@ body {
   width: 220px;
   display: grid;
   gap: 6px;
+  z-index: 20;
 }
 
 #mini-map {
@@ -1126,15 +1127,79 @@ body {
 }
 
 #mini-map-label {
-  justify-self: end;
-  padding: 4px 8px;
-  border-radius: 999px;
+  justify-self: stretch;
+}
+
+.mini-map-toolbar {
+  display: grid;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(7, 14, 24, 0.8);
+  background: rgba(7, 14, 24, 0.86);
   color: #c8ddf5;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.mini-map-btn {
+  border: 1px solid rgba(145, 214, 255, 0.28);
+  background: rgba(19, 33, 48, 0.88);
+  color: #dff4ff;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.mini-map-meta {
+  color: rgba(214, 234, 255, 0.68);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+#mini-map-replay {
+  display: grid;
+  gap: 6px;
+}
+
+.replay-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(145, 214, 255, 0.22);
+  background: rgba(7, 14, 24, 0.9);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32);
+}
+
+.replay-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.replay-slider {
+  width: 100%;
+}
+
+.replay-bookmarks {
+  display: grid;
+  gap: 6px;
+  max-height: 132px;
+  overflow: auto;
+}
+
+.replay-bookmark {
+  border: 1px solid rgba(255, 214, 112, 0.22);
+  background: rgba(28, 34, 47, 0.88);
+  color: #f7e9bc;
+  border-radius: 10px;
+  padding: 6px 8px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
 }
 
 #selected,

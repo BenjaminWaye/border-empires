@@ -98,6 +98,7 @@ import type {
   OptimisticStructureKind,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
+  StrategicReplayEvent,
   TechInfo,
   Tile,
   TileMenuProgressView,
@@ -235,6 +236,9 @@ const {
 } = initClientDom();
 
 const state = createInitialState();
+const miniMapReplayEl = document.createElement("div");
+miniMapReplayEl.id = "mini-map-replay";
+miniMapWrapEl.appendChild(miniMapReplayEl);
 
 const toggleExpandedModKey = (modKey: "attack" | "defense" | "income" | "vision"): void => {
   state.expandedModKey = state.expandedModKey === modKey ? null : modKey;
@@ -288,6 +292,7 @@ let miniMapBaseReady = false;
 let miniMapLastDrawCamX = Number.NaN;
 let miniMapLastDrawCamY = Number.NaN;
 let miniMapLastDrawZoom = Number.NaN;
+let miniMapLastReplayIndex = Number.NaN;
 let miniMapLastDrawAt = 0;
 const TERRAIN_COLOR_CACHE_LIMIT = 120_000;
 const terrainColorCache = new Map<string, string>();
@@ -300,6 +305,7 @@ const clearRenderCaches = (): void => {
   miniMapLastDrawCamX = Number.NaN;
   miniMapLastDrawCamY = Number.NaN;
   miniMapLastDrawZoom = Number.NaN;
+  miniMapLastReplayIndex = Number.NaN;
 };
 
 const key = (x: number, y: number): string => `${x},${y}`;
@@ -368,6 +374,10 @@ const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
 };
 const rgbToHex = (r: number, g: number, b: number): string =>
   `#${[r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`;
+const hexWithAlpha = (hex: string, alpha: number): string => {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 const blendHex = (base: string, target: string, amount: number): string => {
   if (!base.startsWith("#") || !target.startsWith("#")) return base;
   const a = hexToRgb(base);
@@ -2121,9 +2131,93 @@ const buildMiniMapBase = (): void => {
   miniMapLastDrawCamX = Number.NaN;
 };
 
+const resetStrategicReplayState = (): void => {
+  state.replayIndex = Math.max(0, state.strategicReplayEvents.length - 1);
+  state.replayAppliedIndex = 0;
+  state.replayOwnershipByTile.clear();
+  if (state.strategicReplayEvents.length > 0) rebuildStrategicReplayState(state.replayIndex);
+};
+
+function rebuildStrategicReplayState(targetIndex: number): void {
+  const clamped = Math.max(0, Math.min(targetIndex, Math.max(0, state.strategicReplayEvents.length - 1)));
+  state.replayOwnershipByTile.clear();
+  for (let index = 0; index <= clamped; index += 1) {
+    const event = state.strategicReplayEvents[index];
+    if (!event || event.type !== "OWNERSHIP" || event.x === undefined || event.y === undefined) continue;
+    const replayKey = key(event.x, event.y);
+    if (event.ownerId) {
+      const replayTile: { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" } = { ownerId: event.ownerId };
+      if (event.ownershipState) replayTile.ownershipState = event.ownershipState;
+      state.replayOwnershipByTile.set(replayKey, replayTile);
+    } else {
+      state.replayOwnershipByTile.delete(replayKey);
+    }
+  }
+  state.replayAppliedIndex = clamped;
+  state.replayIndex = clamped;
+}
+
+const replayBookmarkEvents = (): StrategicReplayEvent[] => state.strategicReplayEvents.filter((event) => event.isBookmark);
+
+const replayCurrentEvent = (): StrategicReplayEvent | undefined => state.strategicReplayEvents[state.replayIndex];
+
+const advanceStrategicReplay = (nowMs: number): void => {
+  if (!state.replayActive || !state.replayPlaying || state.strategicReplayEvents.length < 2) {
+    state.replayLastTickAt = nowMs;
+    return;
+  }
+  if (!state.replayLastTickAt) state.replayLastTickAt = nowMs;
+  const deltaSeconds = Math.max(0, (nowMs - state.replayLastTickAt) / 1000);
+  state.replayLastTickAt = nowMs;
+  const nextIndex = Math.min(state.strategicReplayEvents.length - 1, state.replayIndex + Math.max(1, Math.round(deltaSeconds * state.replaySpeed)));
+  if (nextIndex === state.replayIndex) return;
+  if (nextIndex >= state.strategicReplayEvents.length - 1) state.replayPlaying = false;
+  rebuildStrategicReplayState(nextIndex);
+};
+
+const visibleTerritoryLabels = (): Array<{ ownerId: string; name: string; x: number; y: number }> => {
+  const visited = new Set<string>();
+  const labels: Array<{ ownerId: string; name: string; x: number; y: number }> = [];
+  for (const tile of state.tiles.values()) {
+    const tileKey = key(tile.x, tile.y);
+    if (visited.has(tileKey) || tile.fogged || tile.ownerId == null || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
+    const ownerId = tile.ownerId;
+    const queue = [tile];
+    const cluster: Tile[] = [];
+    visited.add(tileKey);
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      cluster.push(current);
+      for (const [nx, ny] of [
+        [current.x, current.y - 1],
+        [current.x + 1, current.y],
+        [current.x, current.y + 1],
+        [current.x - 1, current.y]
+      ] as Array<[number, number]>) {
+        const neighborKey = key(wrapX(nx), wrapY(ny));
+        if (visited.has(neighborKey)) continue;
+        const neighbor = state.tiles.get(neighborKey);
+        if (!neighbor || neighbor.fogged || neighbor.ownerId !== ownerId || neighbor.ownershipState !== "SETTLED" || neighbor.terrain !== "LAND") continue;
+        visited.add(neighborKey);
+        queue.push(neighbor);
+      }
+    }
+    if (cluster.length < 18) continue;
+    const avgX = cluster.reduce((sum, entry) => sum + entry.x, 0) / cluster.length;
+    const avgY = cluster.reduce((sum, entry) => sum + entry.y, 0) / cluster.length;
+    labels.push({ ownerId, name: playerNameForOwner(ownerId) ?? ownerId.slice(0, 8), x: avgX, y: avgY });
+  }
+  return labels;
+};
+
 const drawMiniMap = (): void => {
   const nowMs = performance.now();
-  const miniMapChanged = state.camX !== miniMapLastDrawCamX || state.camY !== miniMapLastDrawCamY || state.zoom !== miniMapLastDrawZoom;
+  advanceStrategicReplay(nowMs);
+  const miniMapChanged =
+    state.camX !== miniMapLastDrawCamX ||
+    state.camY !== miniMapLastDrawCamY ||
+    state.zoom !== miniMapLastDrawZoom ||
+    (state.replayActive && state.replayIndex !== miniMapLastReplayIndex);
   if (!miniMapChanged && nowMs - miniMapLastDrawAt < 140) return;
   const w = miniMapEl.width;
   const h = miniMapEl.height;
@@ -2136,6 +2230,16 @@ const drawMiniMap = (): void => {
     return;
   }
   miniMapCtx.drawImage(miniMapBase, 0, 0);
+  if (state.replayActive) {
+    for (const [tileKey, replayTile] of state.replayOwnershipByTile) {
+      if (!replayTile.ownerId) continue;
+      const { x, y } = parseKey(tileKey);
+      const px = Math.floor((x / WORLD_WIDTH) * w);
+      const py = Math.floor((y / WORLD_HEIGHT) * h);
+      miniMapCtx.fillStyle = hexWithAlpha(effectiveOverlayColor(replayTile.ownerId), replayTile.ownershipState === "SETTLED" ? 0.9 : 0.6);
+      miniMapCtx.fillRect(px, py, 1, 1);
+    }
+  }
   if (!state.fogDisabled) {
     for (let py = 0; py < h; py += 1) {
       for (let px = 0; px < w; px += 1) {
@@ -2204,9 +2308,30 @@ const drawMiniMap = (): void => {
     miniMapCtx.arc(tx, ty, hasCollectableYield(t) ? 2.1 : 1.8, 0, Math.PI * 2);
     miniMapCtx.fill();
   }
+  if (state.replayActive) {
+    const replayEvent = replayCurrentEvent();
+    if (replayEvent && replayEvent.x !== undefined && replayEvent.y !== undefined) {
+      const ex = Math.floor((replayEvent.x / WORLD_WIDTH) * w);
+      const ey = Math.floor((replayEvent.y / WORLD_HEIGHT) * h);
+      miniMapCtx.strokeStyle = "rgba(255, 244, 171, 0.98)";
+      miniMapCtx.lineWidth = 1.6;
+      miniMapCtx.strokeRect(ex - 2, ey - 2, 5, 5);
+    }
+    if (replayEvent?.from && replayEvent?.to) {
+      miniMapCtx.strokeStyle = "rgba(116, 227, 255, 0.92)";
+      miniMapCtx.lineWidth = 1.2;
+      miniMapCtx.setLineDash([6, 4]);
+      miniMapCtx.beginPath();
+      miniMapCtx.moveTo((replayEvent.from.x / WORLD_WIDTH) * w, (replayEvent.from.y / WORLD_HEIGHT) * h);
+      miniMapCtx.lineTo((replayEvent.to.x / WORLD_WIDTH) * w, (replayEvent.to.y / WORLD_HEIGHT) * h);
+      miniMapCtx.stroke();
+      miniMapCtx.setLineDash([]);
+    }
+  }
   miniMapLastDrawCamX = state.camX;
   miniMapLastDrawCamY = state.camY;
   miniMapLastDrawZoom = state.zoom;
+  miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
   miniMapLastDrawAt = nowMs;
 };
 
@@ -3997,6 +4122,36 @@ const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
   }
 };
 
+const replayToolbarHtml = (): string => {
+  const current = replayCurrentEvent();
+  const total = state.strategicReplayEvents.length;
+  const progress = total > 0 ? `${Math.min(total, state.replayIndex + 1)}/${total}` : "0/0";
+  return `<div class="mini-map-toolbar">
+    <span>${state.replayActive ? "Replay" : `Minimap (${state.camX}, ${state.camY})`}</span>
+    <button class="mini-map-btn" type="button" data-replay-toggle>${state.replayActive ? "Live" : "Replay"}</button>
+    ${state.replayActive ? `<span class="mini-map-meta">${progress}${current ? ` · ${current.label}` : ""}</span>` : ""}
+  </div>`;
+};
+
+const replayPanelHtml = (): string => {
+  if (!state.replayActive) return "";
+  const bookmarks = replayBookmarkEvents().slice(-6).reverse();
+  return `<div class="replay-card">
+    <div class="replay-controls">
+      <button class="mini-map-btn" type="button" data-replay-play>${state.replayPlaying ? "Pause" : "Play"}</button>
+      <button class="mini-map-btn" type="button" data-replay-speed="2">2x</button>
+      <button class="mini-map-btn" type="button" data-replay-speed="8">8x</button>
+      <button class="mini-map-btn" type="button" data-replay-speed="30">30x</button>
+    </div>
+    <input class="replay-slider" type="range" min="0" max="${Math.max(0, state.strategicReplayEvents.length - 1)}" step="1" value="${state.replayIndex}" data-replay-scrub />
+    <div class="replay-bookmarks">
+      ${bookmarks
+        .map((event) => `<button class="replay-bookmark" type="button" data-replay-jump="${state.strategicReplayEvents.findIndex((entry) => entry.id === event.id)}">${event.label}</button>`)
+        .join("")}
+    </div>
+  </div>`;
+};
+
 const renderHud = (): void => {
   if (
     !state.guide.completed &&
@@ -4174,7 +4329,46 @@ const renderHud = (): void => {
   `;
 
   renderCaptureProgress();
-  miniMapLabelEl.textContent = `Minimap (${state.camX}, ${state.camY})`;
+  miniMapLabelEl.innerHTML = replayToolbarHtml();
+  miniMapReplayEl.innerHTML = replayPanelHtml();
+  const replayToggleBtn = miniMapLabelEl.querySelector<HTMLButtonElement>("[data-replay-toggle]");
+  if (replayToggleBtn) {
+    replayToggleBtn.onclick = () => {
+      state.replayActive = !state.replayActive;
+      state.replayPlaying = false;
+      if (state.replayActive) resetStrategicReplayState();
+      renderHud();
+    };
+  }
+  const replayPlayBtn = miniMapReplayEl.querySelector<HTMLButtonElement>("[data-replay-play]");
+  if (replayPlayBtn) {
+    replayPlayBtn.onclick = () => {
+      state.replayPlaying = !state.replayPlaying;
+      state.replayLastTickAt = performance.now();
+      renderHud();
+    };
+  }
+  const replayScrub = miniMapReplayEl.querySelector<HTMLInputElement>("[data-replay-scrub]");
+  if (replayScrub) {
+    replayScrub.oninput = () => {
+      state.replayPlaying = false;
+      rebuildStrategicReplayState(Number(replayScrub.value));
+      renderHud();
+    };
+  }
+  miniMapReplayEl.querySelectorAll<HTMLButtonElement>("[data-replay-speed]").forEach((btn) => {
+    btn.onclick = () => {
+      state.replaySpeed = Number(btn.dataset.replaySpeed ?? 8) as 2 | 8 | 30;
+      renderHud();
+    };
+  });
+  miniMapReplayEl.querySelectorAll<HTMLButtonElement>("[data-replay-jump]").forEach((btn) => {
+    btn.onclick = () => {
+      state.replayPlaying = false;
+      rebuildStrategicReplayState(Number(btn.dataset.replayJump ?? 0));
+      renderHud();
+    };
+  });
   const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (loadingActive) {
     mapLoadingOverlayEl.style.display = "grid";
@@ -7592,6 +7786,8 @@ ws.addEventListener("message", (ev) => {
     state.activeTruces = (msg.activeTruces as ActiveTruceView[]) ?? [];
     state.incomingTruceRequests = (msg.truceRequests as TruceRequest[]) ?? [];
     state.activeAetherBridges = (msg.activeAetherBridges as ActiveAetherBridgeView[]) ?? [];
+    state.strategicReplayEvents = (p.strategicReplayEvents as StrategicReplayEvent[] | undefined) ?? [];
+    resetStrategicReplayState();
     const cfg = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
     const season = cfg.season;
     if (typeof season?.worldSeed === "number") {
@@ -8146,6 +8342,17 @@ ws.addEventListener("message", (ev) => {
   }
   if (msg.type === "AETHER_BRIDGE_UPDATE") {
     state.activeAetherBridges = (msg.bridges as ActiveAetherBridgeView[]) ?? state.activeAetherBridges;
+    renderHud();
+  }
+  if (msg.type === "STRATEGIC_REPLAY_EVENT") {
+    const event = (msg.event as StrategicReplayEvent | undefined) ?? undefined;
+    if (event) {
+      state.strategicReplayEvents.push(event);
+      if (!state.replayActive) resetStrategicReplayState();
+      else if (!state.replayPlaying && state.replayIndex >= Math.max(0, state.strategicReplayEvents.length - 2)) {
+        resetStrategicReplayState();
+      }
+    }
     renderHud();
   }
   if (msg.type === "SEASON_VICTORY_UPDATE") {
@@ -9005,6 +9212,21 @@ const draw = (): void => {
         ctx.lineWidth = 1;
       }
     }
+  }
+
+  for (const territoryLabel of visibleTerritoryLabels()) {
+    const screen = worldToScreen(territoryLabel.x, territoryLabel.y, size, halfW, halfH);
+    if (screen.sx < -120 || screen.sy < -40 || screen.sx > canvas.width + 120 || screen.sy > canvas.height + 40) continue;
+    ctx.save();
+    ctx.font = `${Math.max(18, Math.min(38, size * 1.35))}px Georgia, serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = hexWithAlpha(effectiveOverlayColor(territoryLabel.ownerId), 0.22);
+    ctx.strokeStyle = "rgba(8, 12, 18, 0.45)";
+    ctx.lineWidth = 4;
+    ctx.strokeText(territoryLabel.name, screen.sx, screen.sy);
+    ctx.fillText(territoryLabel.name, screen.sx, screen.sy);
+    ctx.restore();
   }
 
   const selectedWorld = selectedTile();
