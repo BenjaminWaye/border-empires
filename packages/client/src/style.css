@@ -1116,6 +1116,10 @@ body {
   z-index: 20;
 }
 
+#hud.desktop-side-panel-open #side-panel {
+  right: 246px;
+}
+
 #mini-map {
   width: 220px;
   height: 220px;
@@ -2245,6 +2249,10 @@ body {
   display: none;
 }
 
+#side-panel.domain-panel-active #side-panel-head {
+  display: none;
+}
+
 #side-panel-head {
   padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
@@ -2284,10 +2292,6 @@ body {
   align-items: stretch;
 }
 
-#panel-tech.tech-tree-expanded .tech-section-tab {
-  display: none;
-}
-
 #panel-tech.tech-tree-expanded .tech-section-tabs,
 #mobile-panel-tech.tech-tree-expanded .tech-section-tabs {
   grid-template-columns: 1fr;
@@ -2320,6 +2324,23 @@ body {
 }
 
 #panel-tech.tech-detail-open .tech-detail-card-shell {
+  height: 100%;
+}
+
+#panel-domains.domain-detail-open #domains-overview-content {
+  display: none;
+}
+
+#panel-domains.domain-detail-open #domains-detail-content {
+  display: block;
+  height: calc(100vh - 84px);
+}
+
+#panel-domains.domain-detail-open [data-domain-detail-card] {
+  height: 100%;
+}
+
+#panel-domains.domain-detail-open .tech-detail-card-shell {
   height: 100%;
 }
 
@@ -2677,6 +2698,17 @@ body {
   display: grid;
   gap: 12px;
   min-width: 0;
+}
+
+#domains-overview-content,
+#domains-detail-content {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+#domains-detail-content {
+  display: none;
 }
 
 #tech-choices-grid,
@@ -3360,6 +3392,15 @@ body {
 .tech-card-cost {
   color: #ffd166;
   font-size: 12px;
+}
+
+.tech-card-requirement {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tech-card-requirement-bad {
+  color: #ff9f9f;
 }
 
 .tech-card.selected {
@@ -4321,10 +4362,6 @@ button:disabled,
   #mobile-panel-tech.tech-tree-expanded #mobile-tech-research-section {
     height: calc(100vh - 92px);
     grid-template-rows: 1fr;
-  }
-
-  #mobile-panel-tech.tech-tree-expanded .tech-section-tab {
-    display: none;
   }
 
   #mobile-panel-tech.tech-tree-expanded #mobile-tech-choices-grid {
