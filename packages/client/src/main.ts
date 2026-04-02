@@ -8957,8 +8957,6 @@ const draw = (): void => {
     if (!q) continue;
     queueIndex.set(key(q.x, q.y), i + 1 + queueOffset);
   }
-  const firstCaptureTarget = firstCaptureGuidanceTarget();
-
   for (let y = -halfH; y <= halfH; y += 1) {
     for (let x = -halfW; x <= halfW; x += 1) {
       const wx = wrapX(state.camX + x);
@@ -9276,15 +9274,6 @@ const draw = (): void => {
             ctx.lineWidth = 1;
           }
         }
-      }
-      if (firstCaptureTarget && firstCaptureTarget.tile.x === wx && firstCaptureTarget.tile.y === wy && vis === "visible") {
-        const pulse = 0.58 + 0.42 * (0.5 + 0.5 * Math.sin(Date.now() / 260));
-        ctx.fillStyle = `rgba(81, 224, 113, ${0.06 + pulse * 0.08})`;
-        ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-        ctx.strokeStyle = `rgba(140, 255, 167, ${0.66 + pulse * 0.2})`;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 1.5, py + 1.5, size - 3, size - 3);
-        ctx.lineWidth = 1;
       }
       if (state.hover && state.hover.x === wx && state.hover.y === wy) {
         ctx.strokeStyle = "rgba(255,255,255,0.55)";
