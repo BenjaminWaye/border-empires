@@ -195,8 +195,19 @@ export const techCurrentModsHtml = (
     .map(({ key, label, short, icon, value, tone }) => {
       const pct = Math.round((value - 1) * 100);
       const pctLabel = `${pct >= 0 ? "+" : ""}${pct}%`;
+      const sources = (modBreakdown[key] ?? []).filter((entry) => entry.label.trim().toLowerCase() !== "base");
+      const inspectable = sources.length > 0;
       const expanded = expandedModKey === key;
-      return `<button class="panel-btn tech-mod-chip tech-mod-chip-${tone}${expanded ? " selected" : ""}" data-mod-chip="${key}" aria-expanded="${expanded ? "true" : "false"}">
+      const chipClass = `panel-btn tech-mod-chip tech-mod-chip-${tone}${expanded ? " selected" : ""}${inspectable ? "" : " is-static"}`;
+      const chipBody = `<div class="tech-mod-chip-main">
+          <span class="tech-mod-chip-label"><span class="tech-mod-chip-icon" aria-hidden="true">${icon}</span><span>${label}</span></span>
+          <strong>${pctLabel}</strong>
+        </div>
+        <div class="tech-mod-chip-meta"><span>${short}</span><span class="tech-mod-chip-expand">${inspectable ? (expanded ? "Hide details" : "Tap to inspect") : "No extra sources"}${inspectable ? " ▾" : ""}</span></div>`;
+      if (!inspectable) {
+        return `<div class="${chipClass}" aria-disabled="true">${chipBody}</div>`;
+      }
+      return `<button class="${chipClass}" data-mod-chip="${key}" aria-expanded="${expanded ? "true" : "false"}">
         <div class="tech-mod-chip-main">
           <span class="tech-mod-chip-label"><span class="tech-mod-chip-icon" aria-hidden="true">${icon}</span><span>${label}</span></span>
           <strong>${pctLabel}</strong>
@@ -339,13 +350,15 @@ export const renderTechDetailCardHtml = (args: {
         <p class="muted">${prereqs.length > 0 ? `Requires ${prereqText}` : "Entry tech (no prerequisites)"}</p>
         ${statusText ? `<p class="muted">${statusText}</p>` : ""}
       </div>
-      <button class="panel-btn tech-unlock-btn" data-tech-unlock="${tech.id}" ${buttonDisabled ? "disabled" : ""}>${buttonLabel}</button>
     </div>
     <p class="tech-detail-flavor">${tech.description}</p>
     ${relatedStructuresHtml}
     ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${next.tier})`).join(", ")}</p>` : ""}
     <p><strong>Requirements:</strong></p>
     ${checklistHtml(checklist)}
+    <div class="tech-detail-actions">
+      <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${tech.id}" ${buttonDisabled ? "disabled" : ""}>${buttonLabel}</button>
+    </div>
   </article>`;
 };
 
