@@ -1469,6 +1469,7 @@ const authIdentityByUid = new Map<string, AuthIdentity>();
 const socketsByPlayer = new Map<string, Ws>();
 const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
 const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
+const aiVictoryPathByPlayer = new Map<string, AiSeasonVictoryPathId>();
 
 const normalizedPlayerHandle = (name: string): string => {
   const cleaned = name.replace(/\s+/g, " ").trim();
@@ -9078,9 +9079,10 @@ const ensureAiVictoryPath = (
   townsTarget: number,
   settledTilesTarget: number
 ): AiSeasonVictoryPathId => {
-  if (actor.aiVictoryPath) return actor.aiVictoryPath as AiSeasonVictoryPathId;
+  const existing = aiVictoryPathByPlayer.get(actor.id);
+  if (existing) return existing;
   const selected = chooseOpeningAiVictoryPath(actor, analysis, townsTarget, settledTilesTarget);
-  actor.aiVictoryPath = selected;
+  aiVictoryPathByPlayer.set(actor.id, selected);
   return selected;
 };
 
