@@ -1081,6 +1081,17 @@ const inspectionHtmlForTile = (tile: Tile): string => {
   `;
 };
 
+const passiveTileGuidanceHtml = (): string => {
+  const captureGuidance = firstCaptureGuidanceTarget();
+  const guidance = captureGuidance
+    ? `${captureGuidance.label}. It is marked in green on the map.`
+    : "Tap a tile to open its actions and overview.";
+  return `
+    <div class="hover-line"><strong>Tile details live in the action menu</strong></div>
+    <div class="hover-subline">${guidance}</div>
+  `;
+};
+
 const growthModifierPercentLabel = (label: "Recently captured" | "Nearby war" | "Long time peace"): string => {
   if (label === "Long time peace") return "+100% pop growth";
   return "-100% pop growth";
@@ -4413,24 +4424,8 @@ const renderHud = (): void => {
   }
 
   const selected = selectedTile();
-  if (!selected) {
-    const captureGuidance = firstCaptureGuidanceTarget();
-    selectedEl.innerHTML = `<div class="hover-line"><strong>No tile selected</strong></div><div class="hover-subline">${
-      captureGuidance
-        ? `${captureGuidance.label}. It is marked in green on the map.`
-        : "Click a tile for actions. Yellow pulse dot on your settled tile means collectable yield."
-    }</div>`;
-  } else {
-    const selectedVisibility = tileVisibilityStateAt(selected.x, selected.y, selected);
-    if (selectedVisibility === "unexplored") {
-      selectedEl.innerHTML = `<div class="hover-line"><strong>${selected.x}, ${selected.y}</strong> Unexplored</div>`;
-    } else if (selectedVisibility === "fogged") {
-      selectedEl.innerHTML = `<div class="hover-line"><strong>${selected.x}, ${selected.y}</strong> Fogged</div><div class="hover-subline">Last seen only.</div>`;
-    } else {
-      requestTileDetailIfNeeded(selected);
-      selectedEl.innerHTML = inspectionHtmlForTile(selected);
-    }
-  }
+  if (selected) requestTileDetailIfNeeded(selected);
+  selectedEl.innerHTML = passiveTileGuidanceHtml();
   if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
     const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
     if (menuTile) renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);
@@ -4441,7 +4436,7 @@ const renderHud = (): void => {
   mobileCoreHelpEl.innerHTML = `
     <div class="mobile-context-block">
       <div class="mobile-context-label">Tile</div>
-      <div class="mobile-context-value">${selectedEl.innerHTML || selectedEl.textContent || "No tile selected."}</div>
+      <div class="mobile-context-value">${passiveTileGuidanceHtml()}</div>
     </div>
   `;
 
@@ -6085,6 +6080,7 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
       html: `<span class="tile-overview-effect-name">${name}</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
     });
   };
+  if (tile.regionType) pushLine(`Region: ${prettyToken(tile.regionType)}`);
   if (!tile.ownerId) pushLine("Unclaimed land");
   else if (tile.ownerId !== state.me) pushLine(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`);
   if (tile.terrain === "SEA") {
@@ -6206,7 +6202,7 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
             : "Enemy";
   return {
     title: `${terrainLabel(tile.x, tile.y, tile.terrain)} (${tile.x}, ${tile.y})`,
-    subtitle: ownerLabel,
+    subtitle: [ownerLabel, tile.regionType ? prettyToken(tile.regionType) : ""].filter(Boolean).join(" · "),
     tabs,
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: menuOverviewForTile(tile),
