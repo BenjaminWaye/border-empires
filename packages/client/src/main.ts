@@ -58,6 +58,7 @@ import {
 import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
+import { hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
@@ -6011,6 +6012,20 @@ const settlementProgressForTile = (x: number, y: number): TileTimedProgress | un
   return progress;
 };
 
+const queuedDevelopmentEntryForTile = (tileKey: string): QueuedDevelopmentAction | undefined =>
+  state.developmentQueue.find((entry) => entry.tileKey === tileKey);
+
+const queuedSettlementIndexForTile = (tileKey: string): number => queuedSettlementOrderForTile(state.developmentQueue, tileKey);
+
+const cancelQueuedSettlement = (tileKey: string): boolean => {
+  const nextQueue = state.developmentQueue.filter((entry) => !(entry.kind === "SETTLE" && entry.tileKey === tileKey));
+  if (nextQueue.length === state.developmentQueue.length) return false;
+  state.developmentQueue = nextQueue;
+  pushFeed(`Queued settlement at ${tileKey} cancelled.`, "combat", "info");
+  renderHud();
+  return true;
+};
+
 const cleanupExpiredSettlementProgress = (): boolean => {
   const now = Date.now();
   let changed = false;
@@ -6182,6 +6197,21 @@ const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefin
   return undefined;
 };
 
+const queuedSettlementProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
+  const entry = queuedDevelopmentEntryForTile(key(tile.x, tile.y));
+  if (!entry || entry.kind !== "SETTLE") return undefined;
+  const queueIndex = queuedSettlementIndexForTile(entry.tileKey);
+  return {
+    title: "Settlement queued",
+    detail: "This frontier tile is queued to settle as soon as a development slot becomes free.",
+    remainingLabel: queueIndex >= 0 ? `Queue #${queueIndex + 1}` : "Queued",
+    progress: 0,
+    note: "Queued settlements reserve their place in line and can be cancelled before they start.",
+    cancelLabel: "Cancel queued settlement",
+    cancelActionId: "cancel_queued_settlement"
+  };
+};
+
 const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
   const pushLine = (html: string): void => {
@@ -6277,6 +6307,7 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
   const actions = menuActionsForSingleTile(tile);
   const actionTabs = splitTileActionsIntoTabs(actions);
   const settlement = settlementProgressForTile(tile.x, tile.y);
+  const queuedSettlement = queuedSettlementProgressForTile(tile);
   const construction = constructionProgressForTile(tile);
   const progress =
     settlement
@@ -6293,7 +6324,7 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
             ? "Keeping the tile settled client-side until the server responds."
             : "This tile is actively settling."
         }
-      : construction;
+      : queuedSettlement ?? construction;
   const tabs: TileMenuTab[] = [];
   if (progress) tabs.push("progress");
   if (actionTabs.actions.length > 0) tabs.push("actions");
@@ -6537,6 +6568,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     ];
   }
   if (tile.terrain !== "LAND") return [];
+  const queuedSettlement = hasQueuedSettlementForTile(state.developmentQueue, key(tile.x, tile.y));
   const createMountainAction = (): TileActionDef => {
     const createCooldown = abilityCooldownRemainingMs("create_mountain");
     const observatoryProtection = hostileObservatoryProtectingTile(tile);
@@ -6637,7 +6669,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         ...tileActionAvailability((state.strategicResources.CRYSTAL ?? 0) >= 10, "Need 10 CRYSTAL", "10 CRYSTAL")
       });
     }
-    if (tile.ownershipState === "FRONTIER")
+    if (tile.ownershipState === "FRONTIER" && !queuedSettlement)
       out.push({
         id: "settle_land",
         label: "Settle Land",
@@ -7245,9 +7277,14 @@ const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: numb
   const progressButtons = tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-progress-action]");
   progressButtons.forEach((btn) => {
     btn.onclick = () => {
-      if (btn.dataset.progressAction !== "cancel_structure_build") return;
       const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
       if (!tile) return;
+      if (btn.dataset.progressAction === "cancel_queued_settlement") {
+        cancelQueuedSettlement(key(tile.x, tile.y));
+        hideTileActionMenu();
+        return;
+      }
+      if (btn.dataset.progressAction !== "cancel_structure_build") return;
       if (sendGameMessage({ type: "CANCEL_STRUCTURE_BUILD", x: tile.x, y: tile.y })) {
         applyOptimisticStructureCancel(tile.x, tile.y);
         renderHud();
@@ -7630,12 +7667,13 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.techIds.includes("pottery") &&
     state.gold >= 700 &&
     (state.strategicResources.FOOD ?? 0) >= 40;
+  const settlementQueued = hasQueuedSettlementForTile(state.developmentQueue, key(x, y));
   holdBuildMenuEl.innerHTML = `
     <div class="hold-menu-card">
       <div class="hold-menu-title">Build on (${x}, ${y})</div>
-      <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && canAffordCost(state.gold, SETTLE_COST) ? "" : "disabled"}>
+      <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && canAffordCost(state.gold, SETTLE_COST) && !settlementQueued ? "" : "disabled"}>
         <span>Settle Tile</span>
-        <small>${SETTLE_COST} gold • ${(settleDurationMsForTile(x, y) / 1000).toFixed(0)}s${isForestTile(x, y) ? " (Forest)" : ""} • converts frontier to settled${queueableWhenBusy && tile.ownershipState === "FRONTIER" ? " • queues" : ""}</small>
+        <small>${SETTLE_COST} gold • ${(settleDurationMsForTile(x, y) / 1000).toFixed(0)}s${isForestTile(x, y) ? " (Forest)" : ""} • converts frontier to settled${settlementQueued ? " • already queued" : queueableWhenBusy && tile.ownershipState === "FRONTIER" ? " • queues" : ""}</small>
       </button>
       <button class="hold-menu-btn" data-build="fort" ${canAffordFort ? "" : "disabled"}>
         <span>Fort</span>
@@ -9077,6 +9115,7 @@ const draw = (): void => {
   const crystalTargetingActive = state.crystalTargeting.active;
   const crystalTone = crystalTargetingActive ? crystalTargetingTone(state.crystalTargeting.ability) : "amber";
   const queueIndex = new Map<string, number>();
+  const settleQueueIndex = new Map<string, number>();
   const startingArrowTargets = new Map(
     startingExpansionArrowTargets().map((target) => [key(target.x, target.y), target] as const)
   );
@@ -9089,6 +9128,11 @@ const draw = (): void => {
     const q = state.actionQueue[i];
     if (!q) continue;
     queueIndex.set(key(q.x, q.y), i + 1 + queueOffset);
+  }
+  for (let i = 0; i < state.developmentQueue.length; i += 1) {
+    const entry = state.developmentQueue[i];
+    if (!entry || entry.kind !== "SETTLE") continue;
+    settleQueueIndex.set(entry.tileKey, i + 1);
   }
   for (let y = -halfH; y <= halfH; y += 1) {
     for (let x = -halfW; x <= halfW; x += 1) {
@@ -9511,6 +9555,23 @@ const draw = (): void => {
           ctx.font = "10px monospace";
           ctx.textBaseline = "top";
           ctx.fillText(String(queuedN), px + 5, py + 4);
+        }
+        ctx.lineWidth = 1;
+      }
+      const queuedSettlementN = settleQueueIndex.get(wk);
+      if (queuedSettlementN !== undefined && !settlementProgress) {
+        ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+        if (size >= 14) {
+          const badgeWidth = Math.min(size - 6, queuedSettlementN >= 10 ? 18 : 14);
+          ctx.fillStyle = "rgba(49, 31, 4, 0.92)";
+          ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "10px monospace";
+          ctx.textBaseline = "top";
+          ctx.textAlign = "left";
+          ctx.fillText(String(queuedSettlementN), px + size - badgeWidth - 1, py + 4);
         }
         ctx.lineWidth = 1;
       }
