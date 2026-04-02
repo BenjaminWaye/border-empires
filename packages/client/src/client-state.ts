@@ -194,6 +194,7 @@ export const createInitialState = () => ({
   techTreeExpanded: false,
   techUiSelectedId: "" as string,
   techDetailOpen: false,
+  domainDetailOpen: false,
   pendingTechUnlockId: "" as string,
   techChoicesSig: "" as string,
   techTreeScrollLeft: 0,

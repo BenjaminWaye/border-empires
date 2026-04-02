@@ -210,8 +210,7 @@ const hudMarkup = `
     <div id="side-panel-body">
       <section id="panel-missions" class="panel-body"></section>
       <section id="panel-tech" class="panel-body">
-        <div class="tech-section-tabs">
-          <button class="tech-section-tab active" data-tech-section="research">Research</button>
+        <div class="tech-section-tabs tech-section-tabs-single">
           <button id="tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
         </div>
         <div id="tech-research-section" class="tech-section-panel">
@@ -261,8 +260,7 @@ const hudMarkup = `
     <div id="mobile-sheet-head">Panel</div>
     <section id="mobile-panel-missions" class="mobile-panel"></section>
     <section id="mobile-panel-tech" class="mobile-panel">
-      <div class="tech-section-tabs">
-        <button class="tech-section-tab active" data-tech-section="research">Research</button>
+      <div class="tech-section-tabs tech-section-tabs-single">
         <button id="mobile-tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
       </div>
       <div id="mobile-tech-research-section" class="tech-section-panel">
