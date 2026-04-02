@@ -378,6 +378,104 @@ const hexWithAlpha = (hex: string, alpha: number): string => {
   const { r, g, b } = hexToRgb(hex);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
+const drawAetherBridgeLane = (
+  ctx: CanvasRenderingContext2D,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  nowMs: number,
+  options?: { compact?: boolean }
+): void => {
+  const compact = options?.compact ?? false;
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 0.01) return;
+  const nx = dx / distance;
+  const ny = dy / distance;
+  const pulseOffset = ((nowMs / 1100) % 1 + 1) % 1;
+
+  ctx.save();
+  ctx.lineCap = "round";
+
+  ctx.strokeStyle = compact ? "rgba(81, 210, 255, 0.22)" : "rgba(81, 210, 255, 0.18)";
+  ctx.lineWidth = compact ? 4 : 10;
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+
+  ctx.strokeStyle = compact ? "rgba(164, 240, 255, 0.55)" : "rgba(164, 240, 255, 0.48)";
+  ctx.lineWidth = compact ? 1.6 : 3.5;
+  ctx.setLineDash(compact ? [4, 3] : [12, 8]);
+  ctx.lineDashOffset = -((nowMs / (compact ? 160 : 120)) % (compact ? 7 : 20));
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
+
+  const ringColor = compact ? "rgba(192, 245, 255, 0.72)" : "rgba(192, 245, 255, 0.82)";
+  const anchorFill = compact ? "rgba(20, 82, 102, 0.78)" : "rgba(18, 74, 96, 0.72)";
+  const ringRadius = compact ? 2.4 : 8;
+  const coreRadius = compact ? 1.25 : 3.8;
+  for (const [x, y] of [
+    [fromX, fromY],
+    [toX, toY]
+  ] as Array<[number, number]>) {
+    ctx.strokeStyle = ringColor;
+    ctx.lineWidth = compact ? 1 : 2;
+    ctx.beginPath();
+    ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = anchorFill;
+    ctx.beginPath();
+    ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const pulseCount = compact ? 2 : 3;
+  for (let i = 0; i < pulseCount; i += 1) {
+    const t = (pulseOffset + i / pulseCount) % 1;
+    const px = fromX + dx * t;
+    const py = fromY + dy * t;
+    ctx.fillStyle = compact ? "rgba(234, 252, 255, 0.9)" : "rgba(234, 252, 255, 0.96)";
+    ctx.beginPath();
+    ctx.arc(px, py, compact ? 1.5 : 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = compact ? "rgba(112, 219, 255, 0.38)" : "rgba(112, 219, 255, 0.22)";
+    ctx.beginPath();
+    ctx.arc(px, py, compact ? 2.6 : 6.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const arcCount = compact ? 1 : 2;
+  for (let i = 0; i < arcCount; i += 1) {
+    const t = (pulseOffset * 0.85 + i / arcCount) % 1;
+    const px = fromX + dx * t;
+    const py = fromY + dy * t;
+    const normalScale = compact ? 2.2 : 6;
+    const arcLength = compact ? 6 : 18;
+    const ax = px - nx * arcLength * 0.5;
+    const ay = py - ny * arcLength * 0.5;
+    const bx = px + nx * arcLength * 0.5;
+    const by = py + ny * arcLength * 0.5;
+    ctx.strokeStyle = compact ? "rgba(156, 232, 255, 0.3)" : "rgba(156, 232, 255, 0.36)";
+    ctx.lineWidth = compact ? 0.9 : 1.6;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo(px + -ny * normalScale, py + nx * normalScale, bx, by);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo(px + ny * normalScale, py + -nx * normalScale, bx, by);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+};
 const blendHex = (base: string, target: string, amount: number): string => {
   if (!base.startsWith("#") || !target.startsWith("#")) return base;
   const a = hexToRgb(base);
@@ -2318,14 +2416,15 @@ const drawMiniMap = (): void => {
       miniMapCtx.strokeRect(ex - 2, ey - 2, 5, 5);
     }
     if (replayEvent?.from && replayEvent?.to) {
-      miniMapCtx.strokeStyle = "rgba(116, 227, 255, 0.92)";
-      miniMapCtx.lineWidth = 1.2;
-      miniMapCtx.setLineDash([6, 4]);
-      miniMapCtx.beginPath();
-      miniMapCtx.moveTo((replayEvent.from.x / WORLD_WIDTH) * w, (replayEvent.from.y / WORLD_HEIGHT) * h);
-      miniMapCtx.lineTo((replayEvent.to.x / WORLD_WIDTH) * w, (replayEvent.to.y / WORLD_HEIGHT) * h);
-      miniMapCtx.stroke();
-      miniMapCtx.setLineDash([]);
+      drawAetherBridgeLane(
+        miniMapCtx,
+        (replayEvent.from.x / WORLD_WIDTH) * w,
+        (replayEvent.from.y / WORLD_HEIGHT) * h,
+        (replayEvent.to.x / WORLD_WIDTH) * w,
+        (replayEvent.to.y / WORLD_HEIGHT) * h,
+        nowMs,
+        { compact: true }
+      );
     }
   }
   miniMapLastDrawCamX = state.camX;
@@ -9373,22 +9472,13 @@ const draw = (): void => {
     }
   }
   const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
-  ctx.strokeStyle = "rgba(116, 227, 255, 0.92)";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([10, 6]);
-  ctx.lineDashOffset = -((nowMs / 120) % 16);
   for (const bridge of visibleAetherBridges) {
     const from = worldToScreen(bridge.from.x, bridge.from.y, size, halfW, halfH);
     const dx = toroidDelta(bridge.from.x, bridge.to.x, WORLD_WIDTH) * size;
     const dy = toroidDelta(bridge.from.y, bridge.to.y, WORLD_HEIGHT) * size;
     const to = { sx: from.sx + dx, sy: from.sy + dy };
-    ctx.beginPath();
-    ctx.moveTo(from.sx, from.sy);
-    ctx.lineTo(to.sx, to.sy);
-    ctx.stroke();
+    drawAetherBridgeLane(ctx, from.sx, from.sy, to.sx, to.sy, nowMs);
   }
-  ctx.setLineDash([]);
-  ctx.lineDashOffset = 0;
 
   drawMiniMap();
   maybeRefreshForCamera(false);
