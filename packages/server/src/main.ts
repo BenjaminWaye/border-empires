@@ -71,6 +71,7 @@ import {
   type MissionState,
   type MissionStats,
   type ClusterType,
+  type Terrain,
   type OwnershipState,
   type PopulationTier,
   type ResourceType,
@@ -4109,32 +4110,11 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
   return tile;
 };
 
-const thinTownSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => ({
-  type: town.type,
-  baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
-  supportCurrent: 0,
-  supportMax: 0,
-  goldPerMinute: 0,
-  cap: 0,
-  isFed: Boolean(ownerId),
-  population: town.population,
-  maxPopulation: town.maxPopulation,
-  populationGrowthPerMinute: 0,
-  populationTier: townPopulationTier(town.population),
-  connectedTownCount: town.connectedTownCount,
-  connectedTownBonus: 0,
-  connectedTownNames: [],
-  hasMarket: false,
-  marketActive: false,
-  hasGranary: false,
-  granaryActive: false,
-  hasBank: false,
-  bankActive: false,
-  foodUpkeepPerMinute: 0,
-  growthModifiers: []
-});
-
-const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> => {
+const buildTownSummaryForTile = (
+  town: TownDefinition,
+  ownerId: string | undefined,
+  includeConnectedTownNames: boolean
+): NonNullable<Tile["town"]> => {
   const support = ownerId ? townSupport(town.tileKey, ownerId) : { supportCurrent: 0, supportMax: 0 };
   const isFed = isTownFedForOwner(town.tileKey, ownerId);
   const owner = ownerId ? players.get(ownerId) : undefined;
@@ -4142,6 +4122,7 @@ const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): 
   const market = structureForSupportedTown(town.tileKey, ownerId, "MARKET");
   const granary = structureForSupportedTown(town.tileKey, ownerId, "GRANARY");
   const bank = structureForSupportedTown(town.tileKey, ownerId, "BANK");
+  const connectedTownKeys = includeConnectedTownNames && ownerId ? directlyConnectedTownKeysForTown(ownerId, town.tileKey) : [];
   return {
     type: town.type,
     baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
@@ -4156,7 +4137,9 @@ const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): 
     populationTier: townPopulationTier(town.population),
     connectedTownCount: town.connectedTownCount,
     connectedTownBonus: town.connectedTownBonus,
-    connectedTownNames: [],
+    connectedTownNames: connectedTownKeys
+      .map((townKey) => townsByTile.get(townKey)?.townId)
+      .filter((label): label is string => Boolean(label)),
     ...(manpowerGoldPaused && owner
       ? {
           goldIncomePausedReason: "MANPOWER_NOT_FULL" as const,
@@ -4173,6 +4156,76 @@ const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): 
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
     growthModifiers: townGrowthModifiersForOwner(town, ownerId)
   };
+};
+
+const thinTownSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> =>
+  buildTownSummaryForTile(town, ownerId, false);
+
+const townSummaryForTile = (town: TownDefinition, ownerId: string | undefined): NonNullable<Tile["town"]> =>
+  buildTownSummaryForTile(town, ownerId, true);
+
+const applyTileYieldSummary = (
+  tile: Tile,
+  wx: number,
+  wy: number,
+  ownerId: string | undefined,
+  ownershipState: OwnershipState | undefined,
+  resource: ResourceType | undefined,
+  dock: Dock | undefined,
+  town: TownDefinition | undefined,
+  capital: boolean,
+  terrain: Terrain
+): void => {
+  const tk = key(wx, wy);
+  const yieldBuf = tileYieldByTile.get(tk);
+  const ownerEffects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
+  if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
+    const sabotageMult = sabotageMultiplierAt(tk);
+    const goldPerMinuteFromTile =
+      ((capital ? BASE_GOLD_PER_MIN : 0) +
+        (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
+        (dock ? dockIncomeForOwner(dock, ownerId) : 0) +
+        (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
+      (players.get(ownerId)?.mods.income ?? 1) *
+      PASSIVE_INCOME_MULT *
+      HARVEST_GOLD_RATE_MULT;
+    const strategicPerDay: Partial<Record<StrategicResource, number>> = {};
+    const sr = toStrategicResource(resource);
+    if (sr && resource) {
+      const mult = activeResourceIncomeMult(ownerId, resource);
+      strategicPerDay[sr] =
+        (strategicDailyFromResource[resource] ?? 0) *
+        mult *
+        sabotageMult *
+        economicStructureOutputMultAt(tk, ownerId);
+    }
+    if (town?.type === "ANCIENT") {
+      strategicPerDay.SHARD = (strategicPerDay.SHARD ?? 0) + strategicResourceRates.SHARD * ownerEffects.resourceOutputMult.SHARD;
+    }
+    const economicStructure = economicStructuresByTile.get(tk);
+    if (economicStructure && economicStructure.ownerId === ownerId && economicStructure.status === "active") {
+      const converterDaily = converterStructureOutputFor(economicStructure.type);
+      if (converterDaily) {
+        for (const [resourceKey, amount] of Object.entries(converterDaily) as Array<[StrategicResource, number]>) {
+          strategicPerDay[resourceKey] = (strategicPerDay[resourceKey] ?? 0) + amount;
+        }
+      }
+    }
+    (tile as Tile & { yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResource, number>> } }).yieldRate = {
+      goldPerMinute: Number(goldPerMinuteFromTile.toFixed(4)),
+      strategicPerDay
+    };
+  }
+  (tile as Tile & { yieldCap?: { gold: number; strategicEach: number } }).yieldCap = tileYieldCapsFor(tk, ownerId);
+  if (yieldBuf && ownerId) {
+    const strategic = roundedPositiveStrategic(yieldBuf.strategic);
+    if (yieldBuf.gold > 0 || hasPositiveStrategicBuffer(yieldBuf.strategic)) {
+      (tile as Tile & { yield?: { gold: number; strategic: Partial<Record<StrategicResource, number>> } }).yield = {
+        gold: Number(yieldBuf.gold.toFixed(3)),
+        strategic
+      };
+    }
+  }
 };
 
 const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"): Tile => {
@@ -4251,6 +4304,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
       tile.economicStructure.completesAt = economicStructure.completesAt;
     }
   }
+  applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, Boolean(tile.capital), terrain);
   tile.fogged = false;
   return tile;
 };
@@ -4413,55 +4467,7 @@ const playerTile = (x: number, y: number): Tile => {
     if (history.lastStructureType !== undefined) historyView.lastStructureType = history.lastStructureType;
     tile.history = historyView;
   }
-  const yieldBuf = tileYieldByTile.get(key(wx, wy));
-  const ownerEffects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
-  if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
-    const sabotageMult = sabotageMultiplierAt(key(wx, wy));
-    const goldPerMinuteFromTile =
-      ((tile.capital ? BASE_GOLD_PER_MIN : 0) +
-        (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
-        (dock ? dockIncomeForOwner(dock, ownerId) : 0) +
-        (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
-      (players.get(ownerId)?.mods.income ?? 1) *
-      PASSIVE_INCOME_MULT *
-      HARVEST_GOLD_RATE_MULT;
-    const strategicPerDay: Partial<Record<StrategicResource, number>> = {};
-    const sr = toStrategicResource(resource);
-    if (sr && resource) {
-      const mult = activeResourceIncomeMult(ownerId, resource);
-      strategicPerDay[sr] =
-        (strategicDailyFromResource[resource] ?? 0) *
-        mult *
-        sabotageMult *
-        economicStructureOutputMultAt(key(wx, wy), ownerId);
-    }
-    if (town?.type === "ANCIENT") {
-      strategicPerDay.SHARD = (strategicPerDay.SHARD ?? 0) + strategicResourceRates.SHARD * ownerEffects.resourceOutputMult.SHARD;
-    }
-    const economicStructure = economicStructuresByTile.get(key(wx, wy));
-    if (economicStructure && economicStructure.ownerId === ownerId && economicStructure.status === "active") {
-      const converterDaily = converterStructureOutputFor(economicStructure.type);
-      if (converterDaily) {
-        for (const [resourceKey, amount] of Object.entries(converterDaily) as Array<[StrategicResource, number]>) {
-          strategicPerDay[resourceKey] = (strategicPerDay[resourceKey] ?? 0) + amount;
-        }
-      }
-    }
-    (tile as Tile & { yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResource, number>> } }).yieldRate = {
-      goldPerMinute: Number(goldPerMinuteFromTile.toFixed(4)),
-      strategicPerDay
-    };
-  }
-  (tile as Tile & { yieldCap?: { gold: number; strategicEach: number } }).yieldCap = tileYieldCapsFor(tk, ownerId);
-  if (yieldBuf && ownerId) {
-    const strategic = roundedPositiveStrategic(yieldBuf.strategic);
-    if (yieldBuf.gold > 0 || hasPositiveStrategicBuffer(yieldBuf.strategic)) {
-      (tile as Tile & { yield?: { gold: number; strategic: Partial<Record<StrategicResource, number>> } }).yield = {
-        gold: Number(yieldBuf.gold.toFixed(3)),
-        strategic
-      };
-    }
-  }
+  applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, Boolean(tile.capital), terrain);
   return tile;
 };
 
