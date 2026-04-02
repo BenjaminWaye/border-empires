@@ -8029,6 +8029,8 @@ const buildAiPlanningSnapshot = (
   const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);
   const playerEffects = getPlayerEffectsForPlayer(actor.id);
   const strategicStocks = getOrInitStrategicStocks(actor.id);
+  const settlementCandidate = bestAiSettlementTile(actor, primaryVictoryPath, territorySummary);
+  const economicBuildCandidate = bestAiEconomicStructure(actor, territorySummary);
 
   return {
     primaryVictoryPath,
@@ -8058,11 +8060,11 @@ const buildAiPlanningSnapshot = (
     enemyAttackAvailable: planningStatic.enemyAttackAvailable,
     pressureAttackAvailable: planningStatic.pressureAttackScore > 0,
     pressureAttackScore: planningStatic.pressureAttackScore,
-    settlementAvailable: planningStatic.settlementAvailable,
+    settlementAvailable: Boolean(settlementCandidate),
     fortAvailable: planningStatic.fortAvailable,
     fortProtectsCore: planningStatic.fortProtectsCore,
     fortIsDockChokePoint: planningStatic.fortIsDockChokePoint,
-    economicBuildAvailable: planningStatic.economicBuildAvailable,
+    economicBuildAvailable: Boolean(economicBuildCandidate),
     frontierOpportunityEconomic: planningStatic.frontierOpportunityEconomic,
     frontierOpportunityScout: planningStatic.frontierOpportunityScout,
     frontierOpportunityScaffold: planningStatic.frontierOpportunityScaffold,
