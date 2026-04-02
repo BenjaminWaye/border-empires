@@ -200,6 +200,57 @@ export type ActiveAetherBridgeView = {
   endsAt: number;
 };
 
+export type StrategicReplayEventType =
+  | "OWNERSHIP"
+  | "STRUCTURE"
+  | "TRUCE_START"
+  | "TRUCE_BREAK"
+  | "AETHER_BRIDGE"
+  | "HOLD_START"
+  | "HOLD_BREAK"
+  | "WINNER";
+
+export type StrategicReplayEvent = {
+  id: string;
+  at: number;
+  type: StrategicReplayEventType;
+  label: string;
+  playerId?: string;
+  playerName?: string;
+  targetPlayerId?: string;
+  targetPlayerName?: string;
+  ownerId?: string | null;
+  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null;
+  x?: number;
+  y?: number;
+  from?: { x: number; y: number };
+  to?: { x: number; y: number };
+  structureType?:
+    | "FORT"
+    | "SIEGE_OUTPOST"
+    | "OBSERVATORY"
+    | "FARMSTEAD"
+    | "CAMP"
+    | "MINE"
+    | "MARKET"
+    | "GRANARY"
+    | "BANK"
+    | "AIRPORT"
+    | "QUARTERMASTER"
+    | "IRONWORKS"
+    | "CRYSTAL_SYNTHESIZER"
+    | "FUEL_PLANT"
+    | "CARAVANARY"
+    | "FOUNDRY"
+    | "GARRISON_HALL"
+    | "CUSTOMS_HOUSE"
+    | "GOVERNORS_OFFICE"
+    | "RADAR_SYSTEM";
+  objectiveId?: string;
+  objectiveName?: string;
+  isBookmark?: boolean;
+};
+
 export type TechInfo = {
   id: string;
   name: string;
