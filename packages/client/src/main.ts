@@ -2519,7 +2519,13 @@ const requestViewRefresh = (radius = 2, force = false): void => {
   const cy = Math.floor(state.camY / CHUNK_SIZE);
   const elapsed = Date.now() - state.lastSubAt;
   const sameSub = cx === state.lastSubCx && cy === state.lastSubCy && effectiveRadius === state.lastSubRadius;
-  if (!force && sameSub && elapsed < 700) return;
+  const stillWaitingForInitialChunks = state.firstChunkAt === 0;
+  const forcedRetryCooldownMs = stillWaitingForInitialChunks ? 1200 : 30_000;
+  const normalRefreshCooldownMs = 700;
+  if (sameSub) {
+    if (!force && elapsed < normalRefreshCooldownMs) return;
+    if (force && elapsed < forcedRetryCooldownMs) return;
+  }
   state.lastSubCx = cx;
   state.lastSubCy = cy;
   state.lastSubRadius = effectiveRadius;
@@ -9624,8 +9630,8 @@ window.addEventListener("resize", () => renderMobilePanels());
 setInterval(() => {
   if (state.connection !== "initialized") return;
   if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
-  // Keep subscription alive, but do not spam full resubscribe.
-  if (Date.now() - state.lastSubAt > 20_000) requestViewRefresh(2, true);
+  // Do not force identical full resubscriptions while the view is already healthy.
+  if (state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 20_000) requestViewRefresh(2, true);
 }, isMobile() ? 8_000 : 5_000);
 
 setInterval(() => {
@@ -9652,7 +9658,7 @@ const setCameraFromMinimapPointer = (clientX: number, clientY: number): void => 
   state.camX = wrapX(Math.floor(nx * WORLD_WIDTH));
   state.camY = wrapY(Math.floor(ny * WORLD_HEIGHT));
   requestViewRefresh(2, true);
-  window.setTimeout(() => requestViewRefresh(2, true), 120);
+  window.setTimeout(() => maybeRefreshForCamera(), 120);
 };
 
 let minimapDragging = false;
