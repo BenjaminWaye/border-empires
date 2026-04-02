@@ -1,5 +1,4 @@
 import "./style.css";
-import aetherBridgeAnchorUrl from "./assets/aether-bridge-anchor.svg";
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import {
   GoogleAuthProvider,
@@ -112,7 +111,6 @@ import type {
 
 const formatManpowerAmount = (value: number): string => Math.round(value).toString();
 const aetherBridgeAnchorImage = new Image();
-aetherBridgeAnchorImage.src = aetherBridgeAnchorUrl;
 
 const {
   allianceBreakBtn,
@@ -1314,6 +1312,8 @@ const loadOverlayImage = (filename: string): HTMLImageElement => {
   image.src = overlaySrc(filename);
   return image;
 };
+aetherBridgeAnchorImage.decoding = "async";
+aetherBridgeAnchorImage.src = overlaySrc("aether-pylon-overlay.svg");
 const createOverlayVariantSet = (filenames: readonly string[]): HTMLImageElement[] => filenames.map(loadOverlayImage);
 const overlayVariantIndexAt = (x: number, y: number, count: number): number => {
   const hash = (((x + 1) * 374761393) ^ ((y + 1) * 668265263)) >>> 0;
