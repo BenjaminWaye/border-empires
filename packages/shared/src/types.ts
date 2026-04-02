@@ -279,6 +279,7 @@ export interface Player {
   id: PlayerId;
   name: string;
   isAi?: boolean;
+  aiVictoryPath?: SeasonVictoryPathId;
   profileComplete?: boolean;
   points: number;
   level: number;
