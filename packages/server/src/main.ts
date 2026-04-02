@@ -886,6 +886,15 @@ type AiTurnDebugEntry = {
   details?: Record<string, boolean | number | string | undefined>;
 };
 
+type AiActionFailureEntry = {
+  at: number;
+  actionKey: string;
+  code: string;
+  reason: string;
+  x?: number;
+  y?: number;
+};
+
 interface AbilityDefinition {
   id: "reveal_empire" | "deep_strike" | "naval_infiltration" | "sabotage" | "create_mountain" | "remove_mountain";
   name: string;
@@ -1388,6 +1397,7 @@ const players = new Map<string, Player>();
 const authIdentityByUid = new Map<string, AuthIdentity>();
 const socketsByPlayer = new Map<string, Ws>();
 const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
+const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
 
 const normalizedPlayerHandle = (name: string): string => {
   const cleaned = name.replace(/\s+/g, " ").trim();
@@ -6593,9 +6603,11 @@ const executeUnifiedGameplayMessage = async (
   if (msg.type === "SETTLE") {
     const out = startSettlement(actor, msg.x, msg.y);
     if (!out.ok) {
+      recordAiActionFailure(actor, "settle_owned_frontier_tile", "SETTLE_INVALID", out.reason ?? "unknown settle failure", { x: msg.x, y: msg.y });
       socket.send(JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: out.reason, x: msg.x, y: msg.y }));
       return true;
     }
+    aiLastActionFailureByPlayer.delete(actor.id);
     sendPlayerUpdate(actor, 0);
     return true;
   }
@@ -6603,9 +6615,11 @@ const executeUnifiedGameplayMessage = async (
   if (msg.type === "BUILD_FORT") {
     const out = tryBuildFort(actor, msg.x, msg.y);
     if (!out.ok) {
+      recordAiActionFailure(actor, "build_fort_on_exposed_tile", "FORT_BUILD_INVALID", out.reason ?? "unknown fort build failure", { x: msg.x, y: msg.y });
       socket.send(JSON.stringify({ type: "ERROR", code: "FORT_BUILD_INVALID", message: out.reason }));
       return true;
     }
+    aiLastActionFailureByPlayer.delete(actor.id);
     updateOwnership(msg.x, msg.y, actor.id);
     sendPlayerUpdate(actor, 0);
     return true;
@@ -6625,9 +6639,14 @@ const executeUnifiedGameplayMessage = async (
   if (msg.type === "BUILD_ECONOMIC_STRUCTURE") {
     const out = tryBuildEconomicStructure(actor, msg.x, msg.y, msg.structureType);
     if (!out.ok) {
+      recordAiActionFailure(actor, "build_economic_structure", "ECONOMIC_STRUCTURE_BUILD_INVALID", out.reason ?? "unknown economic build failure", {
+        x: msg.x,
+        y: msg.y
+      });
       socket.send(JSON.stringify({ type: "ERROR", code: "ECONOMIC_STRUCTURE_BUILD_INVALID", message: out.reason }));
       return true;
     }
+    aiLastActionFailureByPlayer.delete(actor.id);
     updateOwnership(msg.x, msg.y, actor.id);
     sendPlayerUpdate(actor, 0);
     return true;
@@ -8555,6 +8574,32 @@ const setAiTurnDebug = (
   });
 };
 
+const recordAiActionFailure = (
+  actor: Player,
+  actionKey: string,
+  code: string,
+  reason: string,
+  coords?: { x: number; y: number }
+): void => {
+  aiLastActionFailureByPlayer.set(actor.id, {
+    at: now(),
+    actionKey,
+    code,
+    reason,
+    ...(coords ? coords : {})
+  });
+  if (!actor.isAi) return;
+  setAiTurnDebug(actor, `simulation_${actionKey}_failed`, {
+    goapActionKey: actionKey,
+    executed: false,
+    details: {
+      failureCode: code,
+      failureReason: reason,
+      ...(coords ? { failureX: coords.x, failureY: coords.y } : {})
+    }
+  });
+};
+
 const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<void> => {
   if (!actor.isAi) return;
   actor.lastActiveAt = now();
@@ -8654,7 +8699,13 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     frontierTiles,
     openingScout: planningSnapshot.openingScoutAvailable,
     workerPlanned: aiPlannerWorkerState.lastUsedWorker,
-    workerFallbackReason: aiPlannerWorkerState.lastFallbackReason
+    workerFallbackReason: aiPlannerWorkerState.lastFallbackReason,
+    lastActionFailureAction: aiLastActionFailureByPlayer.get(actor.id)?.actionKey,
+    lastActionFailureCode: aiLastActionFailureByPlayer.get(actor.id)?.code,
+    lastActionFailureReason: aiLastActionFailureByPlayer.get(actor.id)?.reason,
+    lastActionFailureAt: aiLastActionFailureByPlayer.get(actor.id)?.at,
+    lastActionFailureX: aiLastActionFailureByPlayer.get(actor.id)?.x,
+    lastActionFailureY: aiLastActionFailureByPlayer.get(actor.id)?.y
   };
   const resolvedReason = (executed: boolean): string =>
     executed && decision.reason.startsWith("failed_")
