@@ -9583,8 +9583,6 @@ const draw = (): void => {
   }
 
   const routeDash = [9, 8];
-  ctx.setLineDash(routeDash);
-  ctx.lineDashOffset = -((nowMs / 140) % 17);
   for (const pair of state.dockPairs) {
     if (!isDockRouteVisibleForPlayer(pair)) continue;
     const aIsDockLand = terrainAt(pair.ax, pair.ay) === "LAND";
@@ -9593,9 +9591,12 @@ const draw = (): void => {
       state.selected &&
         ((pair.ax === state.selected.x && pair.ay === state.selected.y) || (pair.bx === state.selected.x && pair.by === state.selected.y))
     );
+    if (!selectedRoute) continue;
     if (!aIsDockLand || !bIsDockLand) continue;
 
     const route = computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by);
+    ctx.setLineDash(routeDash);
+    ctx.lineDashOffset = -((nowMs / 140) % 17);
     if (route.length < 2) {
       // Fallback so every dock pair still communicates connectivity if sea routing fails.
       const a = worldToScreen(pair.ax, pair.ay, size, halfW, halfH);
@@ -9609,6 +9610,8 @@ const draw = (): void => {
       ctx.moveTo(a.sx, a.sy);
       ctx.lineTo(b.sx, b.sy);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
       continue;
     }
     ctx.strokeStyle = selectedRoute ? "rgba(255, 246, 176, 0.9)" : "rgba(255, 233, 149, 0.45)";
@@ -9637,7 +9640,11 @@ const draw = (): void => {
       prev = b;
       prevScreen = sb;
     }
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
   }
+  ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
   const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
   for (const bridge of visibleAetherBridges) {
     const from = worldToScreen(bridge.from.x, bridge.from.y, size, halfW, halfH);
