@@ -168,6 +168,34 @@ export type AllianceRequest = {
   toName?: string;
 };
 
+export type TruceRequest = {
+  id: string;
+  fromPlayerId: string;
+  toPlayerId: string;
+  createdAt: number;
+  expiresAt: number;
+  durationHours: 12 | 24;
+  fromName?: string;
+  toName?: string;
+};
+
+export type ActiveTruceView = {
+  otherPlayerId: string;
+  otherPlayerName: string;
+  startedAt: number;
+  endsAt: number;
+  createdByPlayerId: string;
+};
+
+export type ActiveAetherBridgeView = {
+  bridgeId: string;
+  ownerId: string;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  startedAt: number;
+  endsAt: number;
+};
+
 export type TechInfo = {
   id: string;
   name: string;
@@ -259,7 +287,7 @@ export type FeedEntry = {
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number };
-export type CrystalTargetingAbility = "deep_strike" | "naval_infiltration" | "sabotage";
+export type CrystalTargetingAbility = "aether_bridge" | "siphon";
 
 export type GuideStep = {
   title: string;
@@ -305,9 +333,12 @@ export type TileActionDef = {
     | "remove_structure"
     | "abandon_territory"
     | "build_siege_camp"
-    | "deep_strike"
-    | "naval_infiltration"
-    | "sabotage_tile"
+    | "offer_truce_12h"
+    | "offer_truce_24h"
+    | "break_truce"
+    | "aether_bridge"
+    | "siphon_tile"
+    | "purge_siphon"
     | "create_mountain"
     | "remove_mountain";
   label: string;

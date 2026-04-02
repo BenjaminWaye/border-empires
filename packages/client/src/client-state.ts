@@ -2,6 +2,8 @@ import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY } from "./client-constan
 import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
 import type {
   AllianceRequest,
+  ActiveAetherBridgeView,
+  ActiveTruceView,
   CrystalTargetingAbility,
   DockPair,
   DomainInfo,
@@ -15,6 +17,7 @@ import type {
   SeasonWinnerView,
   TechInfo,
   Tile,
+  TruceRequest,
   TileActionDef,
   TileMenuTab,
   TileTimedProgress
@@ -114,14 +117,17 @@ export const createInitialState = () => ({
   domainUiSelectedId: "" as string,
   revealCapacity: 1,
   activeRevealTargets: [] as string[],
-  abilityCooldowns: {} as Partial<Record<"deep_strike" | "naval_infiltration" | "sabotage" | "reveal_empire" | "create_mountain" | "remove_mountain", number>>,
+  abilityCooldowns: {} as Partial<Record<"aether_bridge" | "siphon" | "reveal_empire" | "create_mountain" | "remove_mountain", number>>,
   revealTargetId: "" as string,
   allies: [] as string[],
+  activeTruces: [] as ActiveTruceView[],
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
   incomingAllianceRequests: [] as AllianceRequest[],
+  incomingTruceRequests: [] as TruceRequest[],
+  activeAetherBridges: [] as ActiveAetherBridgeView[],
   feed: [] as FeedEntry[],
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
   pendingCombatReveal: undefined as
@@ -223,7 +229,7 @@ export const createInitialState = () => ({
   },
   crystalTargeting: {
     active: false,
-    ability: "deep_strike" as CrystalTargetingAbility,
+    ability: "aether_bridge" as CrystalTargetingAbility,
     validTargets: new Set<string>(),
     originByTarget: new Map<string, string>()
   },
