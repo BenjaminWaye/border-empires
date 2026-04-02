@@ -2745,27 +2745,7 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
     return;
   }
   if (to.terrain === "LAND" && !to.fogged && !to.ownerId && frontierOrigin) {
-    const neutralView = tileMenuViewForTile(to);
-    const neutralHasExtraActions =
-      neutralView.buildings.length > 0 ||
-      neutralView.crystal.length > 0 ||
-      neutralView.actions.some((action) => action.id !== "settle_land");
-    if (neutralHasExtraActions) {
-      openSingleTileActionMenu(to, clientX, clientY);
-      requestAttackPreviewForHover();
-      renderHud();
-      return;
-    }
-    if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
-      notifyInsufficientGoldForFrontierAction("claim");
-      requestAttackPreviewForHover();
-      renderHud();
-      return;
-    }
-    if (enqueueTarget(to.x, to.y, "normal")) {
-      processActionQueue();
-      pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
-    }
+    openSingleTileActionMenu(to, clientX, clientY);
     requestAttackPreviewForHover();
     renderHud();
     return;
