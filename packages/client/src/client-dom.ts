@@ -184,6 +184,7 @@ const hudMarkup = `
     <button data-mobile-panel="core" title="Core" aria-label="Core"><span class="tab-icon">⌂</span></button>
     <button data-mobile-panel="missions" title="Missions" aria-label="Missions"><span class="tab-icon">◎</span></button>
     <button data-mobile-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
+    <button data-mobile-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button>
     <button data-mobile-panel="social" title="Social" aria-label="Social"><span class="tab-icon">👥</span></button>
     <button data-mobile-panel="intel" title="Intel" aria-label="Intel"><span class="tab-icon">🔔</span></button>
   </div>
@@ -278,6 +279,7 @@ const hudMarkup = `
         <div id="mobile-tech-owned"></div>
       </div>
     </section>
+    <section id="mobile-panel-domains" class="mobile-panel"></section>
     <section id="mobile-panel-social" class="mobile-panel">
       <div class="row">
         <input id="mobile-alliance-target" placeholder="ally player name" />
@@ -397,6 +399,7 @@ export const initClientDom = () => {
   const mobilePanelCoreEl = requireElement<HTMLDivElement>("#mobile-panel-core");
   const mobilePanelMissionsEl = requireElement<HTMLDivElement>("#mobile-panel-missions");
   const mobilePanelTechEl = requireElement<HTMLDivElement>("#mobile-panel-tech");
+  const mobilePanelDomainsEl = requireElement<HTMLDivElement>("#mobile-panel-domains");
   const mobilePanelSocialEl = requireElement<HTMLDivElement>("#mobile-panel-social");
   const mobilePanelDefensibilityEl = requireElement<HTMLDivElement>("#mobile-panel-defensibility");
   const mobilePanelEconomyEl = requireElement<HTMLDivElement>("#mobile-panel-economy");
@@ -512,6 +515,7 @@ export const initClientDom = () => {
     mobilePanelMissionsEl,
     mobilePanelSocialEl,
     mobilePanelTechEl,
+    mobilePanelDomainsEl,
     mobileSheetEl,
     mobileSheetHeadEl,
     mobileTechChoiceDetailsEl,

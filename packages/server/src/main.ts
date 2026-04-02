@@ -15833,26 +15833,36 @@ app.post("/admin/world/regenerate", async () => {
     combatLocks.set(tk, pending);
     app.log.info({ playerId: actor.id, action: msg.type, from: fk, to: tk, resolvesAt }, "action accepted");
     logExpandTrace("queued", pending);
+    const predictedResult =
+      pending.precomputedCombat
+        ? {
+            attackType: msg.type,
+            attackerWon: pending.precomputedCombat.win,
+            winnerId: pending.precomputedCombat.previewWinnerId,
+            defenderOwnerId: pending.precomputedCombat.defenderOwnerId,
+            origin: { x: from.x, y: from.y },
+            target: { x: to.x, y: to.y },
+            changes: pending.precomputedCombat.previewChanges,
+            manpowerDelta: pending.precomputedCombat.previewManpowerDelta
+          }
+        : msg.type === "EXPAND" && !to.ownerId
+          ? {
+              attackType: msg.type,
+              attackerWon: true,
+              winnerId: actor.id,
+              origin: { x: from.x, y: from.y },
+              target: { x: to.x, y: to.y },
+              changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }],
+              manpowerDelta: 0
+            }
+          : undefined;
     socket.send(
       JSON.stringify({
         type: "COMBAT_START",
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         resolvesAt,
-        ...(pending.precomputedCombat
-          ? {
-              predictedResult: {
-                attackType: msg.type,
-                attackerWon: pending.precomputedCombat.win,
-                winnerId: pending.precomputedCombat.previewWinnerId,
-                defenderOwnerId: pending.precomputedCombat.defenderOwnerId,
-                origin: { x: from.x, y: from.y },
-                target: { x: to.x, y: to.y },
-                changes: pending.precomputedCombat.previewChanges,
-                manpowerDelta: pending.precomputedCombat.previewManpowerDelta
-              }
-            }
-          : {})
+        ...(predictedResult ? { predictedResult } : {})
       })
     );
     logExpandTrace("combat_start_sent", pending);
@@ -15890,6 +15900,10 @@ app.post("/admin/world/regenerate", async () => {
         socket.send(
           JSON.stringify({
             type: "COMBAT_RESULT",
+            attackType: msg.type,
+            attackerWon: true,
+            origin: { x: from.x, y: from.y },
+            target: { x: to.x, y: to.y },
             winnerId: actor.id,
             changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }],
             pointsDelta: siteBonusGold,
