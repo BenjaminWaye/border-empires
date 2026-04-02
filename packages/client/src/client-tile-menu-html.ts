@@ -6,6 +6,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "launch_breach_attack") return "✦";
   if (id === "reveal_empire") return "◈";
   if (id === "collect_yield") return "⛃";
+  if (id === "collect_shard") return "✦";
   if (id === "build_fortification") return "🛡";
   if (id === "build_siege_camp") return "⚔";
   if (id === "build_observatory") return "◉";

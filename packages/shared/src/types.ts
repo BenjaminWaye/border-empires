@@ -10,7 +10,7 @@ export type SiegeOutpostStatus = "under_construction" | "active";
 export type ObservatoryStatus = "under_construction" | "active" | "inactive";
 export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
-export type TownType = "MARKET" | "FARMING" | "ANCIENT";
+export type TownType = "MARKET" | "FARMING";
 export type EmpireVisualTint = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
 export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
 export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
@@ -33,6 +33,7 @@ export type EconomicStructureType =
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM";
 export type PopulationTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+export type ShardSiteKind = "CACHE" | "FALL";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"
   | "SETTLED_TERRITORY"
@@ -166,6 +167,11 @@ export interface Tile {
   clusterType?: ClusterType;
   regionType?: RegionType;
   dockId?: string;
+  shardSite?: {
+    kind: ShardSiteKind;
+    amount: number;
+    expiresAt?: number;
+  } | null;
   town?: {
     type: TownType;
     baseGoldPerMinute: number;

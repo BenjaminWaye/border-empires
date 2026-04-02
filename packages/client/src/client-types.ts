@@ -35,8 +35,13 @@ export type Tile = {
   clusterType?: string;
   regionType?: "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
   dockId?: string;
+  shardSite?: {
+    kind: "CACHE" | "FALL";
+    amount: number;
+    expiresAt?: number;
+  } | null;
   town?: {
-    type: "MARKET" | "FARMING" | "ANCIENT";
+    type: "MARKET" | "FARMING";
     baseGoldPerMinute: number;
     supportCurrent: number;
     supportMax: number;
@@ -366,6 +371,7 @@ export type TileActionDef = {
     | "launch_breach_attack"
     | "reveal_empire"
     | "collect_yield"
+    | "collect_shard"
     | "build_fortification"
     | "build_observatory"
     | "build_farmstead"

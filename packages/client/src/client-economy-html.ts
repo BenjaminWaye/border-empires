@@ -66,7 +66,7 @@ const economySourceLabelForTile = (
     if (tile.resource) return `${prettyToken(resourceLabel(tile.resource))} sites`;
     return tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} tiles` : "Settled land";
   }
-  if (resource === "SHARD") return tile.town ? "Ancient towns" : "Shard sites";
+  if (resource === "SHARD") return "Shard sites";
   if (tile.resource) return prettyToken(resourceLabel(tile.resource));
   if (tile.town && resource === "FOOD") return "Town support";
   return tile.economicStructure ? economicStructureName(tile.economicStructure.type) : "Empire effects";

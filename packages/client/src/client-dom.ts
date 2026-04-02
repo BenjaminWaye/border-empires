@@ -7,7 +7,7 @@ const hudMarkup = `
       <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies"><span class="tab-icon">👥</span></button>
       <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks"><span class="tab-icon">🏆</span></button>
       <button class="icon-btn icon-only" data-panel="feed" title="Feed" aria-label="Feed"><span class="tab-icon">🔔</span></button>
-      <button class="icon-btn icon-only" data-panel="settings" title="Style" aria-label="Style"><span class="tab-icon">🎨</span></button>
+      <button class="icon-btn icon-only" data-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button>
     </div>
   </div>
 
@@ -212,7 +212,6 @@ const hudMarkup = `
       <section id="panel-tech" class="panel-body">
         <div class="tech-section-tabs">
           <button class="tech-section-tab active" data-tech-section="research">Research</button>
-          <button class="tech-section-tab" data-tech-section="domains">Domains</button>
           <button id="tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
         </div>
         <div id="tech-research-section" class="tech-section-panel">
@@ -229,9 +228,9 @@ const hudMarkup = `
           <div id="tech-detail-card"></div>
           <div id="tech-owned"></div>
         </div>
-        <div id="tech-domains-section" class="tech-section-panel" style="display:none">
-          <div id="tech-domains"></div>
-        </div>
+      </section>
+      <section id="panel-domains" class="panel-body">
+        <div id="panel-domains-content"></div>
       </section>
       <section id="panel-alliance" class="panel-body">
         <div class="row">
@@ -255,9 +254,6 @@ const hudMarkup = `
       <section id="panel-feed" class="panel-body">
         <div id="feed"></div>
       </section>
-      <section id="panel-settings" class="panel-body">
-        <div id="panel-settings-preview"></div>
-      </section>
     </div>
   </aside>
 
@@ -267,7 +263,6 @@ const hudMarkup = `
     <section id="mobile-panel-tech" class="mobile-panel">
       <div class="tech-section-tabs">
         <button class="tech-section-tab active" data-tech-section="research">Research</button>
-        <button class="tech-section-tab" data-tech-section="domains">Domains</button>
         <button id="mobile-tech-tree-expand-toggle" class="panel-btn tech-tree-expand-toggle" type="button">Expand Tree</button>
       </div>
       <div id="mobile-tech-research-section" class="tech-section-panel">
@@ -283,9 +278,6 @@ const hudMarkup = `
         <div id="mobile-tech-choices-grid"></div>
         <div id="mobile-tech-detail-card"></div>
         <div id="mobile-tech-owned"></div>
-      </div>
-      <div id="mobile-tech-domains-section" class="tech-section-panel" style="display:none">
-        <div id="mobile-tech-domains"></div>
       </div>
     </section>
     <section id="mobile-panel-social" class="mobile-panel">
@@ -380,8 +372,8 @@ export const initClientDom = () => {
   const panelManpowerEl = requireElement<HTMLDivElement>("#panel-manpower");
   const panelLeaderboardEl = requireElement<HTMLDivElement>("#panel-leaderboard");
   const panelFeedEl = requireElement<HTMLDivElement>("#panel-feed");
-  const panelSettingsEl = requireElement<HTMLDivElement>("#panel-settings");
-  const panelSettingsPreviewEl = requireElement<HTMLDivElement>("#panel-settings-preview");
+  const panelDomainsEl = requireElement<HTMLDivElement>("#panel-domains");
+  const panelDomainsContentEl = requireElement<HTMLDivElement>("#panel-domains-content");
   const feedEl = requireElement<HTMLDivElement>("#feed");
   const techPickEl = requireElement<HTMLSelectElement>("#tech-pick");
   const techPointsEl = requireElement<HTMLDivElement>("#tech-points");
@@ -389,7 +381,6 @@ export const initClientDom = () => {
   const techChoicesGridEl = requireElement<HTMLDivElement>("#tech-choices-grid");
   const techDetailCardEl = requireElement<HTMLDivElement>("#tech-detail-card");
   const techOwnedEl = requireElement<HTMLDivElement>("#tech-owned");
-  const techDomainsEl = requireElement<HTMLDivElement>("#tech-domains");
   const techChoiceDetailsEl = requireElement<HTMLDivElement>("#tech-choice-details");
   const allianceTargetEl = requireElement<HTMLInputElement>("#alliance-target");
   const allianceBreakIdEl = requireElement<HTMLInputElement>("#alliance-break-id");
@@ -423,7 +414,6 @@ export const initClientDom = () => {
   const mobileTechChoicesGridEl = requireElement<HTMLDivElement>("#mobile-tech-choices-grid");
   const mobileTechDetailCardEl = requireElement<HTMLDivElement>("#mobile-tech-detail-card");
   const mobileTechOwnedEl = requireElement<HTMLDivElement>("#mobile-tech-owned");
-  const mobileTechDomainsEl = requireElement<HTMLDivElement>("#mobile-tech-domains");
   const mobileTechChoiceDetailsEl = requireElement<HTMLDivElement>("#mobile-tech-choice-details");
   const mobileAllianceTargetEl = requireElement<HTMLInputElement>("#mobile-alliance-target");
   const mobileAllianceBreakIdEl = requireElement<HTMLInputElement>("#mobile-alliance-break-id");
@@ -531,7 +521,6 @@ export const initClientDom = () => {
     mobileTechChooseBtn,
     mobileTechCurrentModsEl,
     mobileTechDetailCardEl,
-    mobileTechDomainsEl,
     mobileTechOwnedEl,
     mobileTechPickEl,
     mobileTechPointsEl,
@@ -543,9 +532,9 @@ export const initClientDom = () => {
     panelManpowerEl,
     panelFeedEl,
     panelLeaderboardEl,
+    panelDomainsContentEl,
+    panelDomainsEl,
     panelMissionsEl,
-    panelSettingsEl,
-    panelSettingsPreviewEl,
     panelTechEl,
     panelTitleEl,
     selectedEl,
@@ -560,7 +549,6 @@ export const initClientDom = () => {
     techChooseBtn,
     techCurrentModsEl,
     techDetailCardEl,
-    techDomainsEl,
     techTreeExpandToggleEl,
     techOwnedEl,
     techPickEl,
