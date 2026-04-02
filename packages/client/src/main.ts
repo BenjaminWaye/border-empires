@@ -58,7 +58,7 @@ import {
 import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
-import { hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
@@ -193,6 +193,7 @@ const {
   mobilePanelEconomyEl,
   mobilePanelManpowerEl,
   mobilePanelIntelEl,
+  mobilePanelDomainsEl,
   mobilePanelMissionsEl,
   mobilePanelSocialEl,
   mobilePanelTechEl,
@@ -2115,6 +2116,13 @@ const combatResolutionAlert = (
   const targetOwnerName = playerNameOrFallback(defenderOwnerId);
   const targetTerritoryLabel = territoryLabelForOwner(defenderOwnerId);
   const targetLabel = conqueredTileLabel(context?.targetTileBefore, target);
+  if (attackType === "EXPAND" && !defenderOwnerId) {
+    return {
+      title: "Territory Claimed",
+      detail: `${targetLabel} was claimed.`,
+      tone: "success"
+    };
+  }
   if (attackerWon) {
     return {
       title: "Victory",
@@ -2720,7 +2728,7 @@ const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => {
 const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof state.mobilePanel => {
   if (panel === "missions") return "missions";
   if (panel === "tech") return "tech";
-  if (panel === "domains") return "tech";
+  if (panel === "domains") return "domains";
   if (panel === "alliance") return "social";
   if (panel === "defensibility") return "defensibility";
   if (panel === "economy") return "economy";
@@ -2736,6 +2744,7 @@ const mobileNavLabelHtml = (panel: typeof state.mobilePanel, opts?: { techReady?
       ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
       : '<span class="tab-icon">⚡</span>';
   }
+  if (panel === "domains") return '<span class="tab-icon">✦</span>';
   if (panel === "social") return '<span class="tab-icon">👥</span>';
   return opts?.attackAlertUnread
     ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
@@ -2798,6 +2807,7 @@ const renderMobilePanels = (): void => {
     [mobilePanelCoreEl, "core"],
     [mobilePanelMissionsEl, "missions"],
     [mobilePanelTechEl, "tech"],
+    [mobilePanelDomainsEl, "domains"],
     [mobilePanelSocialEl, "social"],
     [mobilePanelDefensibilityEl, "defensibility"],
     [mobilePanelEconomyEl, "economy"],
@@ -2810,6 +2820,7 @@ const renderMobilePanels = (): void => {
 
   if (state.mobilePanel === "missions") mobileSheetHeadEl.textContent = "Missions";
   else if (state.mobilePanel === "tech") mobileSheetHeadEl.textContent = "Technology Tree";
+  else if (state.mobilePanel === "domains") mobileSheetHeadEl.textContent = "Sharding";
   else if (state.mobilePanel === "social") mobileSheetHeadEl.textContent = "Alliances";
   else if (state.mobilePanel === "defensibility") mobileSheetHeadEl.textContent = "Defensibility";
   else if (state.mobilePanel === "economy") mobileSheetHeadEl.textContent = "Economy";
@@ -4864,6 +4875,7 @@ const renderHud = (): void => {
       ${renderDomainDetailCard()}
     </div>
   `;
+  mobilePanelDomainsEl.innerHTML = panelDomainsContentEl.innerHTML;
 
   const acceptButtons = hud.querySelectorAll<HTMLButtonElement>(".accept-request");
   acceptButtons.forEach((btn) => {
@@ -5921,18 +5933,7 @@ const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => {
 const developmentSlotLimit = (): number => DEVELOPMENT_PROCESS_LIMIT;
 
 const developmentSlotSummary = (): DevelopmentSlotSummary => {
-  let busy = state.settleProgressByTile.size;
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me) continue;
-    if (
-      tile.fort?.status === "under_construction" ||
-      tile.observatory?.status === "under_construction" ||
-      tile.siegeOutpost?.status === "under_construction" ||
-      tile.economicStructure?.status === "under_construction"
-    ) {
-      busy += 1;
-    }
-  }
+  const busy = busyDevelopmentProcessCount(state.tiles.values(), state.me, state.settleProgressByTile.size);
   const limit = developmentSlotLimit();
   return {
     busy,
@@ -5943,6 +5944,22 @@ const developmentSlotSummary = (): DevelopmentSlotSummary => {
 
 const developmentSlotReason = (summary = developmentSlotSummary()): string => {
   return `No available development slots (${summary.busy}/${summary.limit} busy)`;
+};
+
+const shouldResetFrontierActionStateForError = (errorCode: string): boolean => {
+  if (!errorCode) return true;
+  switch (errorCode) {
+    case "SETTLE_INVALID":
+    case "FORT_BUILD_INVALID":
+    case "OBSERVATORY_BUILD_INVALID":
+    case "SIEGE_OUTPOST_BUILD_INVALID":
+    case "ECONOMIC_STRUCTURE_BUILD_INVALID":
+    case "STRUCTURE_CANCEL_INVALID":
+    case "TOWN_UNFED":
+      return false;
+    default:
+      return true;
+  }
 };
 
 const abilityCooldownRemainingMs = (
@@ -8782,19 +8799,24 @@ ws.addEventListener("message", (ev) => {
       errorCode === "NOT_OWNER" ||
       errorCode === "EXPAND_TARGET_OWNED";
     const failedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
-    state.capture = undefined;
-    if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
-    state.actionInFlight = false;
-    state.combatStartAck = false;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
-    if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
-    if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
-    if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
+    const shouldResetFrontierAction = shouldResetFrontierActionStateForError(errorCode);
+    if (shouldResetFrontierAction) {
+      state.capture = undefined;
+      if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
+      state.actionInFlight = false;
+      state.combatStartAck = false;
+      state.actionStartedAt = 0;
+      state.actionTargetKey = "";
+      state.actionCurrent = undefined;
+      if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
+      if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
+      if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
+      if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
+    } else if (failedTargetKey) {
+      clearOptimisticTileState(failedTargetKey, true);
+    }
     state.attackPreviewPendingKey = "";
-    if (frontierActionError) requestViewRefresh(2, true);
+    if (frontierActionError || !shouldResetFrontierAction) requestViewRefresh(2, true);
     reconcileActionQueue();
     processActionQueue();
     renderHud();
@@ -8908,6 +8930,7 @@ ws.addEventListener("message", (ev) => {
     const siteCount = (msg.siteCount as number | undefined) ?? 0;
     const expiresAt = (msg.expiresAt as number | undefined) ?? 0;
     const remaining = expiresAt > Date.now() ? formatCountdownClock(expiresAt - Date.now()) : "30:00";
+    state.shardRainFxUntil = Date.now() + 8_000;
     pushFeed(
       `Shard rain has begun. ${siteCount} impact site${siteCount === 1 ? "" : "s"} will remain for about ${remaining}.`,
       "info",
@@ -9776,6 +9799,25 @@ const draw = (): void => {
     const dy = toroidDelta(bridge.from.y, bridge.to.y, WORLD_HEIGHT) * size;
     const to = { sx: from.sx + dx, sy: from.sy + dy };
     drawAetherBridgeLane(ctx, from.sx, from.sy, to.sx, to.sy, nowMs);
+  }
+
+  if (state.shardRainFxUntil > nowMs) {
+    const fxProgress = Math.max(0, (state.shardRainFxUntil - nowMs) / 8_000);
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    for (let i = 0; i < 18; i += 1) {
+      const x = ((i * 97 + nowMs * 0.08) % canvas.width);
+      const y = ((i * 59 + nowMs * 0.21) % canvas.height);
+      const len = 24 + (i % 5) * 10;
+      const alpha = (0.08 + (i % 3) * 0.03) * fxProgress;
+      ctx.strokeStyle = `rgba(102, 224, 255, ${alpha})`;
+      ctx.lineWidth = 1 + (i % 2);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 8, y + len);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   drawMiniMap();

@@ -4280,7 +4280,7 @@ button:disabled,
     right: 6px;
     bottom: var(--mobile-bottom-safe);
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 6px;
     padding: 6px;
     border-radius: 12px;
@@ -4297,6 +4297,10 @@ button:disabled,
     color: #e8f3ff;
     font-size: 12px;
     font-weight: 700;
+  }
+
+  #mobile-panel-domains {
+    overflow: auto;
   }
 
   #mobile-nav button.active {
