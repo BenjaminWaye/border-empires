@@ -58,6 +58,7 @@ import {
 import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
+import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 import {
@@ -4323,34 +4324,12 @@ const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
 };
 
 const replayToolbarHtml = (): string => {
-  const current = replayCurrentEvent();
-  const total = state.strategicReplayEvents.length;
-  const progress = total > 0 ? `${Math.min(total, state.replayIndex + 1)}/${total}` : "0/0";
   return `<div class="mini-map-toolbar">
-    <span>${state.replayActive ? "Replay" : `Minimap (${state.camX}, ${state.camY})`}</span>
-    <button class="mini-map-btn" type="button" data-replay-toggle>${state.replayActive ? "Live" : "Replay"}</button>
-    ${state.replayActive ? `<span class="mini-map-meta">${progress}${current ? ` · ${current.label}` : ""}</span>` : ""}
+    <span>Minimap (${state.camX}, ${state.camY})</span>
   </div>`;
 };
 
-const replayPanelHtml = (): string => {
-  if (!state.replayActive) return "";
-  const bookmarks = replayBookmarkEvents().slice(-6).reverse();
-  return `<div class="replay-card">
-    <div class="replay-controls">
-      <button class="mini-map-btn" type="button" data-replay-play>${state.replayPlaying ? "Pause" : "Play"}</button>
-      <button class="mini-map-btn" type="button" data-replay-speed="2">2x</button>
-      <button class="mini-map-btn" type="button" data-replay-speed="8">8x</button>
-      <button class="mini-map-btn" type="button" data-replay-speed="30">30x</button>
-    </div>
-    <input class="replay-slider" type="range" min="0" max="${Math.max(0, state.strategicReplayEvents.length - 1)}" step="1" value="${state.replayIndex}" data-replay-scrub />
-    <div class="replay-bookmarks">
-      ${bookmarks
-        .map((event) => `<button class="replay-bookmark" type="button" data-replay-jump="${state.strategicReplayEvents.findIndex((entry) => entry.id === event.id)}">${event.label}</button>`)
-        .join("")}
-    </div>
-  </div>`;
-};
+const replayPanelHtml = (): string => "";
 
 const renderHud = (): void => {
   if (
@@ -4513,46 +4492,10 @@ const renderHud = (): void => {
   `;
 
   renderCaptureProgress();
+  state.replayActive = false;
+  state.replayPlaying = false;
   miniMapLabelEl.innerHTML = replayToolbarHtml();
   miniMapReplayEl.innerHTML = replayPanelHtml();
-  const replayToggleBtn = miniMapLabelEl.querySelector<HTMLButtonElement>("[data-replay-toggle]");
-  if (replayToggleBtn) {
-    replayToggleBtn.onclick = () => {
-      state.replayActive = !state.replayActive;
-      state.replayPlaying = false;
-      if (state.replayActive) resetStrategicReplayState();
-      renderHud();
-    };
-  }
-  const replayPlayBtn = miniMapReplayEl.querySelector<HTMLButtonElement>("[data-replay-play]");
-  if (replayPlayBtn) {
-    replayPlayBtn.onclick = () => {
-      state.replayPlaying = !state.replayPlaying;
-      state.replayLastTickAt = performance.now();
-      renderHud();
-    };
-  }
-  const replayScrub = miniMapReplayEl.querySelector<HTMLInputElement>("[data-replay-scrub]");
-  if (replayScrub) {
-    replayScrub.oninput = () => {
-      state.replayPlaying = false;
-      rebuildStrategicReplayState(Number(replayScrub.value));
-      renderHud();
-    };
-  }
-  miniMapReplayEl.querySelectorAll<HTMLButtonElement>("[data-replay-speed]").forEach((btn) => {
-    btn.onclick = () => {
-      state.replaySpeed = Number(btn.dataset.replaySpeed ?? 8) as 2 | 8 | 30;
-      renderHud();
-    };
-  });
-  miniMapReplayEl.querySelectorAll<HTMLButtonElement>("[data-replay-jump]").forEach((btn) => {
-    btn.onclick = () => {
-      state.replayPlaying = false;
-      rebuildStrategicReplayState(Number(btn.dataset.replayJump ?? 0));
-      renderHud();
-    };
-  });
   const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (loadingActive) {
     mapLoadingOverlayEl.style.display = "grid";
@@ -6150,31 +6093,25 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
       html: `<span class="tile-overview-effect-name">${name}</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
     });
   };
-  if (tile.regionType) pushLine(`Region: ${prettyToken(tile.regionType)}`);
-  if (!tile.ownerId) pushLine("Unclaimed land");
-  else if (tile.ownerId !== state.me) pushLine(isTileOwnedByAlly(tile) ? "Allied land" : `${playerNameForOwner(tile.ownerId) ?? "Enemy"} land`);
-  if (tile.terrain === "SEA") {
-    pushLine(tile.dockId ? "Dock route endpoint." : "Sea tiles only support naval interactions.");
-    return lines;
-  }
-  if (tile.terrain === "MOUNTAIN") {
-    pushLine("Mountains block normal land expansion and attacks.");
-    return lines;
-  }
+  const ownerKind =
+    !tile.ownerId
+      ? "unclaimed"
+      : tile.ownerId === state.me
+        ? tile.ownershipState === "FRONTIER"
+          ? "mine-frontier"
+          : "mine-settled"
+        : isTileOwnedByAlly(tile)
+          ? "ally"
+          : "enemy";
   const productionLabel = tileProductionRequirementLabel(tile);
-  if (!tile.ownerId) {
-    pushLine("Claim this tile first to turn it into frontier land.");
-    if (productionLabel) pushLine(`After you settle it, this tile can produce ${productionLabel}.`);
-    return lines;
-  }
-  if (tile.ownershipState === "FRONTIER") {
-    pushLine("Frontier land is visible control, but it has no real defense yet.");
-    if (productionLabel) pushLine(`Needs settlement to produce ${productionLabel}.`);
-    else pushLine("Needs settlement to gain defense and full ownership strength.");
-  } else if (tile.ownershipState === "SETTLED") {
-    pushLine("Settled land is defended and fully part of your empire.");
-    if (tile.town) pushLine("Towns produce gold when fed.");
-  }
+  tileMenuOverviewIntroLines({
+    terrain: tile.terrain,
+    ownerKind,
+    productionLabel,
+    isDockEndpoint: Boolean(tile.dockId)
+  }).forEach(pushLine);
+  if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN" || !tile.ownerId) return lines;
+  if (tile.ownershipState === "SETTLED" && tile.town) pushLine("Towns produce gold when fed.");
   if (tile.shardSite) {
     pushLine(
       tile.shardSite.kind === "FALL"
@@ -6279,7 +6216,7 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
             : "Enemy";
   return {
     title: `${terrainLabel(tile.x, tile.y, tile.terrain)} (${tile.x}, ${tile.y})`,
-    subtitle: [ownerLabel, tile.regionType ? prettyToken(tile.regionType) : ""].filter(Boolean).join(" · "),
+    subtitle: tileMenuSubtitleText(ownerLabel, tile.regionType ? prettyToken(tile.regionType) : undefined),
     tabs,
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: menuOverviewForTile(tile),
