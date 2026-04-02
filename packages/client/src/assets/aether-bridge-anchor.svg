@@ -1,0 +1,32 @@
+<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="halo" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(40 40) rotate(90) scale(30)">
+      <stop stop-color="#81E6FF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#81E6FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="16" y1="16" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8FBFF"/>
+      <stop offset="0.45" stop-color="#8EE7FF"/>
+      <stop offset="1" stop-color="#53BFD9"/>
+    </linearGradient>
+    <linearGradient id="brace" x1="24" y1="12" x2="56" y2="68" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D7F9FF"/>
+      <stop offset="1" stop-color="#4CA3BD"/>
+    </linearGradient>
+    <linearGradient id="core" x1="40" y1="22" x2="40" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7FEFF"/>
+      <stop offset="0.5" stop-color="#A5F0FF"/>
+      <stop offset="1" stop-color="#62BCD4"/>
+    </linearGradient>
+  </defs>
+  <circle cx="40" cy="40" r="30" fill="url(#halo)"/>
+  <circle cx="40" cy="40" r="22" fill="#082635" fill-opacity="0.72" stroke="url(#ring)" stroke-width="3"/>
+  <path d="M40 10L48 20L40 26L32 20L40 10Z" fill="#0D3446" stroke="url(#brace)" stroke-width="2"/>
+  <path d="M70 40L60 48L54 40L60 32L70 40Z" fill="#0D3446" stroke="url(#brace)" stroke-width="2"/>
+  <path d="M40 70L32 60L40 54L48 60L40 70Z" fill="#0D3446" stroke="url(#brace)" stroke-width="2"/>
+  <path d="M10 40L20 32L26 40L20 48L10 40Z" fill="#0D3446" stroke="url(#brace)" stroke-width="2"/>
+  <path d="M40 24L54 40L40 56L26 40L40 24Z" fill="#0B4157" stroke="url(#core)" stroke-width="2.5"/>
+  <path d="M40 30L48 40L40 50L32 40L40 30Z" fill="#E9FCFF" fill-opacity="0.9"/>
+  <circle cx="40" cy="40" r="4" fill="#76DDF7"/>
+  <circle cx="40" cy="40" r="28" stroke="#DDFBFF" stroke-opacity="0.18" stroke-width="1.5" stroke-dasharray="4 6"/>
+</svg>
