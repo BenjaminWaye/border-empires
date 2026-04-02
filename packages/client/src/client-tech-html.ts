@@ -269,6 +269,47 @@ export const formatDomainCost = (domain: DomainInfo): string => {
   return costBits.length > 0 ? costBits.join(" · ") : "Cost not listed";
 };
 
+export const renderDomainProgressCardHtml = (args: {
+  visibleShardCacheCount: number;
+  activeShardfallCount: number;
+  shardStock: number;
+  currentTier: number | undefined;
+  chosenDomainCount: number;
+}): string => {
+  const { visibleShardCacheCount, activeShardfallCount, shardStock, currentTier, chosenDomainCount } = args;
+  const statusLine =
+    currentTier !== undefined
+      ? `Tier ${currentTier} is open for your next doctrine shift. Explore for shard caches and grab shardfalls before they fade.`
+      : "All open domain tiers are currently committed. Keep hunting shards to afford the next doctrine window.";
+  const scoutingLine =
+    activeShardfallCount > 0
+      ? `${activeShardfallCount} active shardfall${activeShardfallCount === 1 ? "" : "s"} marked in view. Press to collect before the rain burns out.`
+      : visibleShardCacheCount > 0
+        ? `${visibleShardCacheCount} shard cache${visibleShardCacheCount === 1 ? "" : "s"} visible in explored territory.`
+        : "No shard sites in view yet. Push exploration to uncover caches and catch the next shard rain.";
+  return `<article class="card domain-progress-card">
+    <div class="domain-progress-head">
+      <div>
+        <div class="domain-summary-kicker">Shard Network</div>
+        <strong>Shards fuel your doctrine path</strong>
+      </div>
+      <span class="domain-progress-badge">${currentTier !== undefined ? `Tier ${currentTier} live` : `${chosenDomainCount} chosen`}</span>
+    </div>
+    <p>${statusLine}</p>
+    <div class="domain-progress-metrics">
+      <div class="domain-progress-metric">
+        <span>Active shardfalls</span>
+        <strong>${activeShardfallCount}</strong>
+      </div>
+      <div class="domain-progress-metric">
+        <span>Shard stock</span>
+        <strong>${shardStock.toFixed(1)}</strong>
+      </div>
+    </div>
+    <p class="domain-progress-note">${scoutingLine}</p>
+  </article>`;
+};
+
 export const ownedDomainByTier = (domainCatalog: DomainInfo[], domainIds: string[]): Map<number, DomainInfo> => {
   const catalogById = new Map(domainCatalog.map((domain) => [domain.id, domain]));
   const out = new Map<number, DomainInfo>();
@@ -383,12 +424,12 @@ export const renderDomainChoiceGridHtml = (args: {
       ? `<article class="card domain-summary-card">
           <div class="domain-summary-kicker">Domains</div>
           <strong>Choose one domain for Tier ${currentTier}</strong>
-          <p>Each tier allows exactly one domain. Choosing one locks the others in that tier and advances you to the next tier later.</p>
+          <p>Each tier allows exactly one doctrine. Explore for shard caches and catch shard rain to fund the next machine-doctrine pick.</p>
         </article>`
       : `<article class="card domain-summary-card">
           <div class="domain-summary-kicker">Domains</div>
           <strong>All current domain tiers are committed</strong>
-          <p>You can only choose one domain per tier. Review your picks below and unlock the next tier when it becomes available.</p>
+          <p>You can only choose one doctrine per tier. Review the path you locked in below and keep feeding it with shards from exploration and shardfalls.</p>
         </article>`;
   const sections = tiers
     .map((tier) => {
@@ -401,7 +442,8 @@ export const renderDomainChoiceGridHtml = (args: {
           const blockedReason = domainCardBlockedReason(domain, ownedByTier, currentTier);
           const blocked = blockedReason && !owned ? " blocked" : "";
           const cardBadge = owned ? "Chosen" : currentTier === tier ? "Candidate" : "Unavailable";
-          return `<button class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${domain.id}">
+          const canUnlock = Boolean(domain.requirements.canResearch) && !domainIds.includes(domain.id);
+          return `<button class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${domain.id}" data-domain-can-unlock="${canUnlock ? "true" : "false"}">
             <div class="tech-card-top">
               <strong>${domain.name}</strong>
               <span class="domain-card-badge">${cardBadge}</span>
@@ -445,7 +487,7 @@ export const renderDomainDetailCardHtml = (args: {
         : chosenInTier?.id === domain.id
           ? `You already chose this for Tier ${domain.tier}.`
           : `This domain will only become choosable when Tier ${domain.tier} opens.`;
-  return `<article class="card tech-detail-card">
+  return `<article class="card tech-detail-card" id="domain-detail-card" data-domain-detail-card>
     <div class="tech-detail-head">
       <div>
         <strong>${domain.name}</strong>

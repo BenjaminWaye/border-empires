@@ -2350,6 +2350,7 @@ body {
 .panel-body {
   display: none;
   gap: 10px;
+  min-width: 0;
 }
 
 .card {
@@ -2669,6 +2670,13 @@ body {
 .tech-section-panel {
   display: grid;
   gap: 12px;
+  min-width: 0;
+}
+
+#panel-domains-content {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
 }
 
 #tech-choices-grid,
@@ -3126,6 +3134,93 @@ body {
   background: linear-gradient(180deg, rgba(9, 19, 34, 0.82), rgba(5, 12, 23, 0.74));
 }
 
+.tech-section-tabs-single {
+  align-items: center;
+}
+
+.tech-section-heading {
+  display: grid;
+  gap: 2px;
+}
+
+.tech-section-heading strong {
+  font-size: 16px;
+  color: #f4f9ff;
+}
+
+.tech-section-heading-kicker {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(154, 190, 235, 0.72);
+}
+
+.domain-progress-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border-color: rgba(250, 173, 93, 0.32);
+  background:
+    radial-gradient(circle at top right, rgba(250, 173, 93, 0.18), transparent 32%),
+    linear-gradient(180deg, rgba(23, 17, 10, 0.94), rgba(8, 13, 22, 0.9));
+}
+
+.domain-progress-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.domain-progress-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 173, 93, 0.34);
+  background: rgba(128, 72, 18, 0.24);
+  color: #ffd697;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.domain-progress-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.domain-progress-metric {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(250, 173, 93, 0.14);
+  background: rgba(255, 244, 225, 0.04);
+}
+
+.domain-progress-metric span {
+  font-size: 11px;
+  color: rgba(229, 217, 197, 0.72);
+}
+
+.domain-progress-metric strong {
+  font-size: 22px;
+  line-height: 1;
+  color: #fff2d8;
+}
+
+.domain-progress-note {
+  margin: 0;
+  color: rgba(240, 228, 207, 0.78);
+}
+
 .domain-summary-kicker {
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -3146,6 +3241,7 @@ body {
 
 .domain-tier-block {
   gap: 10px;
+  min-width: 0;
   padding: 12px;
   border-radius: 16px;
   border: 1px solid rgba(145, 176, 219, 0.18);
@@ -3167,6 +3263,7 @@ body {
   align-items: start;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 
 .domain-tier-head p {
@@ -3212,6 +3309,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  min-width: 0;
 }
 
 .tech-card {
@@ -3224,6 +3322,7 @@ body {
   display: grid;
   gap: 5px;
   cursor: pointer;
+  min-width: 0;
 }
 
 .tech-card.blocked,
@@ -3242,6 +3341,7 @@ body {
 .tech-card strong {
   font-size: 16px;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .tech-root {
@@ -3254,6 +3354,7 @@ body {
 .tech-card p {
   margin: 0;
   color: rgba(233, 242, 255, 0.8);
+  overflow-wrap: anywhere;
 }
 
 .tech-card-cost {
