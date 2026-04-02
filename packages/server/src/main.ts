@@ -7925,14 +7925,8 @@ const buildAiPlanningStaticCache = (
 
   for (const tile of territorySummary.frontierTiles) {
     const tileKey = key(tile.x, tile.y);
-    const ownedNeighbors = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id ? 1 : 0), 0);
-    const exposedSides = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
-      if (neighbor.terrain !== "LAND") return count + 1;
-      if (!neighbor.ownerId || neighbor.ownerId !== actor.id) return count + 1;
-      return count;
-    }, 0);
     const hasTownSupport = cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
-    if (townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey) || hasTownSupport || (ownedNeighbors >= 3 && exposedSides <= 1)) {
+    if (townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey) || hasTownSupport) {
       settlementAvailable = true;
       break;
     }
@@ -8029,8 +8023,6 @@ const buildAiPlanningSnapshot = (
   const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);
   const playerEffects = getPlayerEffectsForPlayer(actor.id);
   const strategicStocks = getOrInitStrategicStocks(actor.id);
-  const settlementCandidate = bestAiSettlementTile(actor, primaryVictoryPath, territorySummary);
-  const economicBuildCandidate = bestAiEconomicStructure(actor, territorySummary);
 
   return {
     primaryVictoryPath,
@@ -8060,11 +8052,11 @@ const buildAiPlanningSnapshot = (
     enemyAttackAvailable: planningStatic.enemyAttackAvailable,
     pressureAttackAvailable: planningStatic.pressureAttackScore > 0,
     pressureAttackScore: planningStatic.pressureAttackScore,
-    settlementAvailable: Boolean(settlementCandidate),
+    settlementAvailable: planningStatic.settlementAvailable,
     fortAvailable: planningStatic.fortAvailable,
     fortProtectsCore: planningStatic.fortProtectsCore,
     fortIsDockChokePoint: planningStatic.fortIsDockChokePoint,
-    economicBuildAvailable: Boolean(economicBuildCandidate),
+    economicBuildAvailable: planningStatic.economicBuildAvailable,
     frontierOpportunityEconomic: planningStatic.frontierOpportunityEconomic,
     frontierOpportunityScout: planningStatic.frontierOpportunityScout,
     frontierOpportunityScaffold: planningStatic.frontierOpportunityScaffold,
