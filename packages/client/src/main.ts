@@ -2741,6 +2741,7 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
 
   const to = clicked;
   state.selected = { x: wx, y: wy };
+  const adjacentFromOwned = pickOriginForTarget(to.x, to.y);
   const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
   const unreachableForeignClick =
     to.terrain === "LAND" &&
@@ -5429,11 +5430,10 @@ const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | unde
     case "build_customs_house":
       return "global-trade-networks";
     case "reveal_empire":
-    case "sabotage_tile":
       return "cryptography";
-    case "deep_strike":
-      return "deep-operations";
-    case "naval_infiltration":
+    case "siphon_tile":
+      return "cryptography";
+    case "aether_bridge":
       return "navigation";
     case "create_mountain":
     case "remove_mountain":

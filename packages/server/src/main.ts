@@ -446,6 +446,12 @@ interface AllianceRequest {
   toName?: string;
 }
 
+type ManpowerBreakdownLine = {
+  label: string;
+  amount: number;
+  note?: string;
+};
+
 interface TruceRequest {
   id: string;
   fromPlayerId: string;
@@ -4253,7 +4259,7 @@ const applyTileYieldSummary = (
   const yieldBuf = tileYieldByTile.get(tk);
   const ownerEffects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
   if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
-    const sabotageMult = sabotageMultiplierAt(tk);
+    const sabotageMult = siphonMultiplierAt(tk);
     const goldPerMinuteFromTile =
       ((capital ? BASE_GOLD_PER_MIN : 0) +
         (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
