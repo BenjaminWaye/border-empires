@@ -92,6 +92,10 @@ export const createInitialState = () => ({
   manpower: MANPOWER_BASE_CAP,
   manpowerCap: MANPOWER_BASE_CAP,
   manpowerRegenPerMinute: MANPOWER_BASE_REGEN_PER_MINUTE,
+  manpowerBreakdown: {
+    cap: [{ label: "Base", amount: MANPOWER_BASE_CAP }],
+    regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
+  } as { cap: Array<{ label: string; amount: number; note?: string }>; regen: Array<{ label: string; amount: number; note?: string }> },
   availableTechPicks: 0,
   defensibilityPct: 100,
   territoryT: 1,
@@ -126,8 +130,10 @@ export const createInitialState = () => ({
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
   incomingAllianceRequests: [] as AllianceRequest[],
+  outgoingAllianceRequests: [] as AllianceRequest[],
   incomingTruceRequests: [] as TruceRequest[],
   activeAetherBridges: [] as ActiveAetherBridgeView[],
+  socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[],
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number } } | undefined,
   pendingCombatReveal: undefined as
