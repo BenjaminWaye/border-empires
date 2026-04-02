@@ -852,6 +852,28 @@ const displayTownGoldPerMinute = (tile: Tile): number => {
   return tile.town.goldPerMinute;
 };
 
+const tileProductionHtml = (tile: Tile): string => {
+  const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
+    .filter(([, v]) => Number(v) > 0)
+    .map(([r, v]) => `${resourceIconForKey(r)} ${Number(v).toFixed(1)}/day`);
+  const gpm = tile.yieldRate?.goldPerMinute ?? 0;
+  const parts: string[] = [];
+  if (tile.town) {
+    parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
+  } else if (gpm > 0) {
+    parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
+  }
+  parts.push(...prodStrategic);
+  return parts.join(" · ");
+};
+
+const tileUpkeepHtml = (tile: Tile): string => {
+  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") {
+    return `${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`;
+  }
+  return "";
+};
+
 const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | undefined => {
   if (tile.resource === "FARM" || tile.resource === "FISH") return "FOOD";
   if (tile.resource === "IRON") return "IRON";
@@ -898,7 +920,6 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     tile.breachShockUntil && tile.breachShockUntil > Date.now() ? "Breach-shocked" : ""
   ].filter(Boolean);
   const townBits: string[] = [];
-  let upkeepLine = "";
   if (tile.town) {
     const growthLabel = populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0);
     townBits.push(`${prettyToken(tile.town.type)} town`);
@@ -913,24 +934,9 @@ const inspectionHtmlForTile = (tile: Tile): string => {
       const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
       townBits.push(`Gold paused until manpower is full (${current}/${cap})`);
     }
-    if (typeof tile.town.foodUpkeepPerMinute === "number") {
-      upkeepLine = `Upkeep: ${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`;
-    }
   }
-  const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
-    .filter(([, v]) => Number(v) > 0)
-    .map(([r, v]) => `${resourceIconForKey(r)} ${Number(v).toFixed(1)}/day`);
-  const prodInfo = (() => {
-    const gpm = tile.yieldRate?.goldPerMinute ?? 0;
-    const parts: string[] = [];
-    if (tile.town) {
-      parts.push(`${gpm.toFixed(2)} / m${tile.town.isFed ? "" : " - Unfed"}`);
-    } else if (gpm > 0) {
-      parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
-    }
-    parts.push(...prodStrategic);
-    return parts.length > 0 ? parts.join("  ") : "";
-  })();
+  const prodInfo = tileProductionHtml(tile);
+  const upkeepLine = tileUpkeepHtml(tile);
   const historyLines = tileHistoryLines(tile);
   const terrainAndResource = (() => {
     const terrainText = prettyToken(terrainLabel(tile.x, tile.y, tile.terrain));
@@ -945,33 +951,17 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     .join(" · ");
   const metaLine = [`Owner ${ownerLabel}`, ...tags].filter(Boolean).join(" · ");
   const extraLine = townBits.length > 0 ? townBits.join(" · ") : prodInfo;
-  const storedYield = storedYieldSummary(tile);
-  const settleProgress = settlementProgressForTile(tile.x, tile.y);
-  const settleLine = settleProgress ? `Settling... ${formatCountdownClock(settleProgress.resolvesAt - Date.now())}` : "";
-  const constructionLine = constructionCountdownLineForTile(tile);
-  const forestExpandLine =
-    tile.terrain === "LAND" && !tile.ownerId && pickOriginForTarget(tile.x, tile.y, false) && isForestTile(tile.x, tile.y)
-      ? `Forest slows frontier expansion to ${Math.round(frontierClaimDurationMsForTile(tile.x, tile.y) / 1000)}s`
-      : "";
-  const sabotageLine =
-    tile.sabotage && tile.sabotage.endsAt > Date.now()
-      ? `Output ${Math.round(tile.sabotage.outputMultiplier * 100)}% until ${new Date(tile.sabotage.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-      : "";
-  const structureLine = tile.economicStructure && tile.economicStructure.status === "inactive" ? `Inactive - upkeep not paid` : "";
   return `
     <div class="hover-line">${topLine}</div>
     <div class="hover-subline">${metaLine}</div>
     ${extraLine ? `<div class="hover-subline">${extraLine}</div>` : ""}
-    ${upkeepLine ? `<div class="hover-subline">${upkeepLine}</div>` : ""}
-    ${prodInfo ? `<div class="hover-subline">Production: ${prodInfo}</div>` : ""}
-    ${forestExpandLine ? `<div class="hover-subline hover-accent">${forestExpandLine}</div>` : ""}
-    ${settleLine ? `<div class="hover-subline hover-accent">${settleLine}</div>` : ""}
-    ${constructionLine ? `<div class="hover-subline hover-accent">${constructionLine}</div>` : ""}
-    ${storedYield ? `<div class="hover-subline">Stored yield ${storedYield}</div>` : ""}
-    ${structureLine ? `<div class="hover-subline">${structureLine}</div>` : ""}
-    ${sabotageLine ? `<div class="hover-subline hover-accent">${sabotageLine}</div>` : ""}
-    ${historyLines.map((line) => `<div class="hover-subline">${line}</div>`).join("")}
+    <div class="hover-subline">Open the tile menu for actions and full overview.</div>
   `;
+};
+
+const growthModifierPercentLabel = (label: "Recently captured" | "Nearby war" | "Long time peace"): string => {
+  if (label === "Long time peace") return "+100%";
+  return "-100%";
 };
 
 const hasCollectableYield = (t: Tile | undefined): boolean => {
@@ -2755,6 +2745,17 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
     return;
   }
   if (to.terrain === "LAND" && !to.fogged && !to.ownerId && frontierOrigin) {
+    const neutralView = tileMenuViewForTile(to);
+    const neutralHasExtraActions =
+      neutralView.buildings.length > 0 ||
+      neutralView.crystal.length > 0 ||
+      neutralView.actions.some((action) => action.id !== "settle_land");
+    if (neutralHasExtraActions) {
+      openSingleTileActionMenu(to, clientX, clientY);
+      requestAttackPreviewForHover();
+      renderHud();
+      return;
+    }
     if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
       notifyInsufficientGoldForFrontierAction("claim");
       requestAttackPreviewForHover();
@@ -3842,6 +3843,8 @@ const renderTechDetailModal = (): string => {
     </div>`;
 };
 
+const techDetailsUseOverlay = (): boolean => isMobile();
+
 const renderDomainChoiceGrid = (): string =>
   renderDomainChoiceGridHtml({
     domainCatalog: state.domainCatalog,
@@ -4225,12 +4228,12 @@ const renderHud = (): void => {
   mobileTechCurrentModsEl.innerHTML = techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown);
   techChoicesGridEl.innerHTML = renderTechChoiceGrid();
   mobileTechChoicesGridEl.innerHTML = renderTechChoiceGrid();
-  techDetailCardEl.innerHTML = renderTechDetailPrompt();
+  techDetailCardEl.innerHTML = techDetailsUseOverlay() ? renderTechDetailPrompt() : renderTechDetailCard();
   mobileTechDetailCardEl.innerHTML = renderTechDetailPrompt();
   structureInfoOverlayEl.innerHTML = renderStructureInfoOverlay();
   structureInfoOverlayEl.style.display = state.structureInfoKey ? "grid" : "none";
-  techDetailOverlayEl.innerHTML = renderTechDetailOverlay();
-  techDetailOverlayEl.style.display = state.techDetailOpen ? "grid" : "none";
+  techDetailOverlayEl.innerHTML = techDetailsUseOverlay() ? renderTechDetailOverlay() : "";
+  techDetailOverlayEl.style.display = techDetailsUseOverlay() && state.techDetailOpen ? "grid" : "none";
   techOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
   mobileTechOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
   techDomainsEl.innerHTML = `${renderDomainChoiceGrid()}${renderDomainDetailCard()}${domainOwnedHtml(state.domainCatalog, state.domainIds)}`;
@@ -4332,7 +4335,7 @@ const renderHud = (): void => {
       const id = btn.dataset.techCard;
       if (!id) return;
       state.techUiSelectedId = id;
-      state.techDetailOpen = true;
+      state.techDetailOpen = techDetailsUseOverlay();
       if (visibleTechChoices.includes(id)) {
         techPickEl.value = id;
         mobileTechPickEl.value = id;
@@ -5640,7 +5643,7 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
     for (const modifier of tile.town.growthModifiers ?? []) {
       const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
-      pushEffectLine(modifier.label, populationPerMinuteLabel(modifier.deltaPerMinute), tone);
+      pushEffectLine(modifier.label, growthModifierPercentLabel(modifier.label), tone);
     }
     if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
     if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
@@ -5648,6 +5651,10 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
     if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
   }
+  const productionHtml = tileProductionHtml(tile);
+  if (productionHtml) pushLine(`Production: ${productionHtml}`);
+  const upkeepHtml = tileUpkeepHtml(tile);
+  if (upkeepHtml) pushLine(`Upkeep: ${upkeepHtml}`);
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {
