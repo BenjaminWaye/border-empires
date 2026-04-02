@@ -9262,11 +9262,7 @@ const draw = (): void => {
         ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
         ctx.strokeStyle = `rgba(140, 255, 167, ${0.66 + pulse * 0.2})`;
         ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        ctx.lineDashOffset = -((Date.now() / 180) % 10);
         ctx.strokeRect(px + 1.5, py + 1.5, size - 3, size - 3);
-        ctx.setLineDash([]);
-        ctx.lineDashOffset = 0;
         ctx.lineWidth = 1;
       }
       if (state.hover && state.hover.x === wx && state.hover.y === wy) {
