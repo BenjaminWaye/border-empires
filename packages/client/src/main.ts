@@ -2733,6 +2733,7 @@ const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: n
   const unreachableForeignClick =
     to.terrain === "LAND" &&
     !to.fogged &&
+    Boolean(to.ownerId) &&
     to.ownerId !== state.me &&
     !isTileOwnedByAlly(to) &&
     !adjacentFromOwned &&
