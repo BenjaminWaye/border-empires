@@ -934,9 +934,6 @@ const inspectionHtmlForTile = (tile: Tile): string => {
       townBits.push(`Gold paused until manpower is full (${current}/${cap})`);
     }
   }
-  const prodInfo = tileProductionHtml(tile);
-  const upkeepLine = tileUpkeepHtml(tile);
-  const historyLines = tileHistoryLines(tile);
   const terrainAndResource = (() => {
     const terrainText = prettyToken(terrainLabel(tile.x, tile.y, tile.terrain));
     if (!tile.resource) return terrainText;
@@ -949,18 +946,18 @@ const inspectionHtmlForTile = (tile: Tile): string => {
     .filter(Boolean)
     .join(" · ");
   const metaLine = [`Owner ${ownerLabel}`, ...tags].filter(Boolean).join(" · ");
-  const extraLine = townBits.length > 0 ? townBits.join(" · ") : prodInfo;
+  const extraLine = townBits.length > 0 ? townBits.join(" · ") : "";
   return `
     <div class="hover-line">${topLine}</div>
     <div class="hover-subline">${metaLine}</div>
     ${extraLine ? `<div class="hover-subline">${extraLine}</div>` : ""}
-    <div class="hover-subline">Open the tile menu for actions and full overview.</div>
+    <div class="hover-subline">Open the tile menu for full overview and actions.</div>
   `;
 };
 
 const growthModifierPercentLabel = (label: "Recently captured" | "Nearby war" | "Long time peace"): string => {
-  if (label === "Long time peace") return "+100%";
-  return "-100%";
+  if (label === "Long time peace") return "+100% pop growth";
+  return "-100% pop growth";
 };
 
 const hasCollectableYield = (t: Tile | undefined): boolean => {
@@ -5422,10 +5419,14 @@ const splitTileActionsIntoTabs = (
   actions: TileActionDef[]
 ): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action));
+  const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
+  const actionRows = filtered.filter((action) => !tileActionIsBuilding(action.id) && !tileActionIsCrystal(action.id));
+  const buildingRows = filtered.filter((action) => tileActionIsBuilding(action.id));
+  const crystalRows = filtered.filter((action) => tileActionIsCrystal(action.id));
   return {
-    actions: filtered.filter((action) => !tileActionIsBuilding(action.id) && !tileActionIsCrystal(action.id)),
-    buildings: filtered.filter((action) => tileActionIsBuilding(action.id)),
-    crystal: filtered.filter((action) => tileActionIsCrystal(action.id))
+    actions: actionRows.some(visibleIfShown) ? actionRows : [],
+    buildings: buildingRows.some(visibleIfShown) ? buildingRows : [],
+    crystal: crystalRows.some(visibleIfShown) ? crystalRows : []
   };
 };
 const isTileOwnedByAlly = (tile: Tile): boolean => Boolean(tile.ownerId && state.allies.includes(tile.ownerId));
