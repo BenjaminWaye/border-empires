@@ -114,7 +114,7 @@ ${windsock({ x: 105, y: 82 })}
   <circle cx="90" cy="63" r="4" fill="#2F4055"/>
   <path d="M92 51L98 48L97 56" fill="#DDE6EE"/>
 `),
-  "quartermaster-overlay.svg": svg(`
+  "fur-synthesizer-overlay.svg": svg(`
 ${isoBase({ front: "#D8CFBF", side: "#A3A19F", roof: "#C6934C", x: 36, y: 98, w: 40, h: 28, depth: 18 })}
 ${crate({ x: 18, y: 89 })}
 ${barrel({ x: 84, y: 83, body: "#8B5D34" })}
