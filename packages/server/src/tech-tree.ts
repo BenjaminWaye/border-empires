@@ -14,7 +14,7 @@ export interface TechEffects {
   unlockCaravanary?: boolean;
   unlockWoodenFort?: boolean;
   unlockLightOutpost?: boolean;
-  unlockQuartermaster?: boolean;
+  unlockFurSynthesizer?: boolean;
   unlockIronworks?: boolean;
   unlockCrystalSynthesizer?: boolean;
   unlockSynthOverload?: boolean;
@@ -126,7 +126,7 @@ const TechEffectsSchema = z
     unlockCaravanary: z.boolean().optional(),
     unlockWoodenFort: z.boolean().optional(),
     unlockLightOutpost: z.boolean().optional(),
-    unlockQuartermaster: z.boolean().optional(),
+    unlockFurSynthesizer: z.boolean().optional(),
     unlockIronworks: z.boolean().optional(),
     unlockCrystalSynthesizer: z.boolean().optional(),
     unlockSynthOverload: z.boolean().optional(),

@@ -20,13 +20,13 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_bank") return "◧";
   if (id === "build_airport") return "✈";
   if (id === "build_caravanary") return "⇄";
-  if (id === "build_quartermaster") return "▤";
-  if (id === "upgrade_quartermaster") return "⤴";
+  if (id === "build_fur_synthesizer") return "▤";
+  if (id === "upgrade_fur_synthesizer") return "⤴";
   if (id === "build_ironworks") return "⚒";
   if (id === "upgrade_ironworks") return "⤴";
   if (id === "build_crystal_synthesizer") return "◇";
   if (id === "upgrade_crystal_synthesizer") return "⤴";
-  if (id === "overload_quartermaster") return "↯";
+  if (id === "overload_fur_synthesizer") return "↯";
   if (id === "overload_ironworks") return "↯";
   if (id === "overload_crystal_synthesizer") return "↯";
   if (id === "build_fuel_plant") return "⬢";
