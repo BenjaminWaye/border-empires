@@ -1471,12 +1471,50 @@ const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
 const aiVictoryPathByPlayer = new Map<string, AiSeasonVictoryPathId>();
 const aiStrategicStateByPlayer = new Map<string, AiStrategicState>();
 const aiNextTruceDecisionAtByPlayer = new Map<string, number>();
+const aiFrontPressureStatsByPair = new Map<string, AiFrontPressureStats>();
 const cachedAiShardOpportunityByPlayer = new Map<string, AiShardOpportunityCache>();
 let shardSiteTopologyVersion = 0;
 
 const invalidateAiShardOpportunityCaches = (): void => {
   shardSiteTopologyVersion += 1;
   cachedAiShardOpportunityByPlayer.clear();
+};
+
+const AI_STALLED_FRONT_WINDOW_MS = 8 * 60_000;
+
+const pruneAiFrontPressureStats = (pairKey: string, nowMs: number): AiFrontPressureStats | undefined => {
+  const stats = aiFrontPressureStatsByPair.get(pairKey);
+  if (!stats) return undefined;
+  if (nowMs - stats.updatedAt <= AI_STALLED_FRONT_WINDOW_MS) return stats;
+  aiFrontPressureStatsByPair.delete(pairKey);
+  return undefined;
+};
+
+const recordAiFrontPressureOutcome = (
+  attackerId: string,
+  defenderId: string,
+  outcome: { captured: boolean; capturedTownOrDock: boolean }
+): void => {
+  const pairKey = playerPairKey(attackerId, defenderId);
+  const nowMs = now();
+  const existing = pruneAiFrontPressureStats(pairKey, nowMs);
+  const stats: AiFrontPressureStats = existing
+    ? { ...existing, updatedAt: nowMs, attacks: existing.attacks + 1 }
+    : { windowStartedAt: nowMs, updatedAt: nowMs, attacks: 1, successfulCaptures: 0, townOrDockCaptures: 0 };
+  if (outcome.captured) stats.successfulCaptures += 1;
+  if (outcome.capturedTownOrDock) stats.townOrDockCaptures += 1;
+  aiFrontPressureStatsByPair.set(pairKey, stats);
+};
+
+const stalledFrontStatsFor = (playerId: string, opponentId: string): AiFrontPressureStats | undefined =>
+  pruneAiFrontPressureStats(playerPairKey(playerId, opponentId), now());
+
+const frontIsStalledFor = (playerId: string, opponentId: string): boolean => {
+  const stats = stalledFrontStatsFor(playerId, opponentId);
+  if (!stats) return false;
+  if (stats.attacks < 4) return false;
+  if (stats.townOrDockCaptures > 0) return false;
+  return stats.successfulCaptures <= 1;
 };
 
 const normalizedPlayerHandle = (name: string): string => {
@@ -4311,6 +4349,7 @@ const clearWorldProgressForSeason = (): void => {
   aiVictoryPathByPlayer.clear();
   aiStrategicStateByPlayer.clear();
   aiNextTruceDecisionAtByPlayer.clear();
+  aiFrontPressureStatsByPair.clear();
   cachedAiCompetitionContext = undefined;
   cachedChunkSnapshotByPlayer.clear();
   cachedSummaryChunkByChunkKey.clear();
@@ -7427,6 +7466,14 @@ type AiStrategicState = {
   truceTargetPlayerId?: string;
 };
 
+type AiFrontPressureStats = {
+  windowStartedAt: number;
+  updatedAt: number;
+  attacks: number;
+  successfulCaptures: number;
+  townOrDockCaptures: number;
+};
+
 const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
   const settledTiles: Tile[] = [];
   const frontierTiles: Tile[] = [];
@@ -9276,18 +9323,22 @@ const chooseAiStrategicState = (
 ): AiStrategicState => {
   const existing = aiStrategicStateByPlayer.get(actor.id);
   const visibleShard = bestAiVisibleShardSite(actor);
+  const stalledFrontTargetPlayerId = bestAiTruceTargetPlayerId(actor, analysis.territorySummary);
+  const stalledFront = stalledFrontTargetPlayerId ? frontIsStalledFor(actor.id, stalledFrontTargetPlayerId) : false;
   const nowMs = now();
   if (
     existing &&
     nowMs - existing.updatedAt < 60_000 &&
-    (existing.focus !== "SHARD_RUSH" || existing.shardTileKey === (visibleShard ? key(visibleShard.x, visibleShard.y) : undefined))
+    (existing.focus !== "SHARD_RUSH" || existing.shardTileKey === (visibleShard ? key(visibleShard.x, visibleShard.y) : undefined)) &&
+    (existing.focus !== "TRUCE_REBUILD" || existing.truceTargetPlayerId === stalledFrontTargetPlayerId)
   ) {
     return existing;
   }
   const victoryReachable = aiVictoryPathStillReachable(primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
   const focus: AiStrategicFocus = visibleShard && !analysis.threatCritical
     ? "SHARD_RUSH"
-    : analysis.underThreat && analysis.threatCritical && !victoryReachable && (analysis.economyWeak || analysis.foodCoverageLow) && !planningSnapshot.pressureAttackAvailable
+    : ((analysis.underThreat && analysis.threatCritical && !victoryReachable && (analysis.economyWeak || analysis.foodCoverageLow) && !planningSnapshot.pressureAttackAvailable) ||
+        (stalledFront && (analysis.economyWeak || analysis.foodCoverageLow || Boolean(visibleShard))))
       ? "TRUCE_REBUILD"
       : planningSnapshot.pressureAttackAvailable && analysis.underThreat
         ? "MILITARY_PRESSURE"
@@ -9297,7 +9348,8 @@ const chooseAiStrategicState = (
   const state: AiStrategicState = {
     focus,
     updatedAt: nowMs,
-    ...(visibleShard ? { shardTileKey: key(visibleShard.x, visibleShard.y) } : {})
+    ...(visibleShard ? { shardTileKey: key(visibleShard.x, visibleShard.y) } : {}),
+    ...(stalledFrontTargetPlayerId ? { truceTargetPlayerId: stalledFrontTargetPlayerId } : {})
   };
   aiStrategicStateByPlayer.set(actor.id, state);
   return state;
@@ -9313,8 +9365,10 @@ const bestAiTruceTargetPlayerId = (actor: Player, territorySummary: AiTerritoryS
   let bestScore = 0;
   for (const [playerId, score] of pressureByPlayerId) {
     if (playerHasActiveTruce(playerId) || truceBlocksHostility(actor.id, playerId)) continue;
-    if (score > bestScore) {
-      bestScore = score;
+    const stalledBonus = frontIsStalledFor(actor.id, playerId) ? 20 : 0;
+    const totalScore = score + stalledBonus;
+    if (totalScore > bestScore) {
+      bestScore = totalScore;
       bestPlayerId = playerId;
     }
   }
@@ -9365,11 +9419,12 @@ const maybeHandleAiShardOrTruce = async (
 
   const nextAllowedAt = aiNextTruceDecisionAtByPlayer.get(actor.id) ?? 0;
   if (nextAllowedAt > now()) return false;
-  if (planningSnapshot.pressureAttackAvailable || planningSnapshot.settlementAvailable || planningSnapshot.economicBuildAvailable) {
+  const stalledFront = strategicState.truceTargetPlayerId ? frontIsStalledFor(actor.id, strategicState.truceTargetPlayerId) : false;
+  if (!stalledFront && (planningSnapshot.pressureAttackAvailable || planningSnapshot.settlementAvailable || planningSnapshot.economicBuildAvailable)) {
     aiNextTruceDecisionAtByPlayer.set(actor.id, now() + 90_000);
     return false;
   }
-  const targetPlayerId = bestAiTruceTargetPlayerId(actor, analysis.territorySummary);
+  const targetPlayerId = strategicState.truceTargetPlayerId ?? bestAiTruceTargetPlayerId(actor, analysis.territorySummary);
   const target = targetPlayerId ? players.get(targetPlayerId) : undefined;
   if (!target) {
     aiNextTruceDecisionAtByPlayer.set(actor.id, now() + 90_000);
@@ -9383,11 +9438,12 @@ const maybeHandleAiShardOrTruce = async (
     incomePerMinute: analysis.aiIncome,
     controlledTowns: analysis.controlledTowns,
     settledTiles: analysis.settledTiles,
-    details: {
-      strategicFocus: strategicState.focus,
-      truceTargetPlayerId: target.id
-    }
-  });
+      details: {
+        strategicFocus: strategicState.focus,
+        truceTargetPlayerId: target.id,
+        stalledFront
+      }
+    });
   return true;
 };
 
@@ -9473,6 +9529,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const primaryVictoryPath = ensureAiVictoryPath(actor, analysis, townsTarget, settledTilesTarget);
   const planningSnapshot = buildAiPlanningSnapshot(actor, primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
   const strategicState = chooseAiStrategicState(actor, analysis, planningSnapshot, primaryVictoryPath, townsTarget, settledTilesTarget);
+  const stalledFront = strategicState.truceTargetPlayerId ? frontIsStalledFor(actor.id, strategicState.truceTargetPlayerId) : false;
   if (await maybeHandleAiShardOrTruce(actor, analysis, planningSnapshot, strategicState)) return;
   const decision = await planAiDecisionViaWorker(planningSnapshot);
   const debugDetails = {
@@ -9507,6 +9564,8 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     strategicFocus: strategicState.focus,
     shardOpportunity: Boolean(strategicState.shardTileKey),
     truceActive: playerHasActiveTruce(actor.id),
+    stalledFront,
+    truceTargetPlayerId: strategicState.truceTargetPlayerId,
     workerPlanned: aiPlannerWorkerState.lastUsedWorker,
     workerFallbackReason: aiPlannerWorkerState.lastFallbackReason,
     lastActionFailureAction: aiLastActionFailureByPlayer.get(actor.id)?.actionKey,
@@ -16326,6 +16385,7 @@ app.post("/admin/world/regenerate", async () => {
       let pillagedGold = 0;
       let pillagedShare = 0;
       let pillagedStrategic: Partial<Record<StrategicResource, number>> = {};
+      const targetHadDock = docksByTile.has(tk);
       let resultChanges: Array<{
         x: number;
         y: number;
@@ -16363,6 +16423,12 @@ app.post("/admin/world/regenerate", async () => {
           pillagedGold = pillage.gold;
           pillagedShare = pillage.share;
           pillagedStrategic = pillage.strategic;
+        }
+        if (defender && msg.type === "ATTACK") {
+          recordAiFrontPressureOutcome(actor.id, defender.id, {
+            captured: true,
+            capturedTownOrDock: targetHadTown || targetHadDock
+          });
         }
         actor.missionStats.combatWins += 1;
         if (defender) {
@@ -16406,6 +16472,12 @@ app.post("/admin/world/regenerate", async () => {
         } else if (defender) {
           const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk);
           resultChanges = failedOutcome.resultChanges;
+          if (msg.type === "ATTACK") {
+            recordAiFrontPressureOutcome(actor.id, defender.id, {
+              captured: false,
+              capturedTownOrDock: false
+            });
+          }
           if (failedOutcome.originLost) {
             defender.missionStats.enemyCaptures += 1;
             maybeIssueResourceMission(defender, from.resource);

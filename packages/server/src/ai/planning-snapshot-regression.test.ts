@@ -51,4 +51,14 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(body).toContain("bestAiEconomicStructure(actor, territorySummary)");
     expect(body).not.toContain("structureCandidateTiles.some");
   });
+
+  it("treats stalled fronts as a sparse truce signal instead of a per-tick planner recomputation", () => {
+    const chooseStrategicBody = functionBody(serverMainSource(), "chooseAiStrategicState");
+    const truceBody = functionBody(serverMainSource(), "maybeHandleAiShardOrTruce");
+
+    expect(chooseStrategicBody).toContain("frontIsStalledFor");
+    expect(chooseStrategicBody).toContain("\"TRUCE_REBUILD\"");
+    expect(truceBody).toContain("const stalledFront =");
+    expect(truceBody).toContain("if (!stalledFront && (planningSnapshot.pressureAttackAvailable");
+  });
 });
