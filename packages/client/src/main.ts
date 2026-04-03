@@ -62,6 +62,7 @@ import {
 import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
+import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
@@ -3098,11 +3099,8 @@ const applyOptimisticStructureCancel = (x: number, y: number): void => {
   });
 };
 
-const shouldPreserveOptimisticExpand = (tileKey: string): boolean => {
-  if (!tileKey) return false;
-  const tile = state.tiles.get(tileKey);
-  return tile?.ownerId === state.me && tile.optimisticPending === "expand";
-};
+const shouldPreserveOptimisticExpandByKey = (tileKey: string): boolean =>
+  shouldPreserveOptimisticExpand(tileKey ? state.tiles.get(tileKey) : undefined, state.me);
 
 const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
   const tileKey = key(incoming.x, incoming.y);
@@ -3522,7 +3520,7 @@ const renderCaptureProgress = (): void => {
     const pct = Math.max(0, Math.min(1, elapsed / total));
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
     const awaitingResult = Date.now() > state.capture.resolvesAt;
-    const awaitingNeutralExpand = awaitingResult && shouldPreserveOptimisticExpand(captureTargetKey);
+    const awaitingNeutralExpand = shouldHideCaptureOverlayAfterTimer(state.tiles.get(captureTargetKey), state.me, awaitingResult);
     if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
       showCaptureAlert(
         state.pendingCombatReveal.title,
@@ -3551,17 +3549,13 @@ const renderCaptureProgress = (): void => {
     captureCloseBtn.style.display = "none";
     captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
     captureTitleEl.textContent = awaitingResult
-      ? awaitingNeutralExpand
-        ? "Finalizing claim..."
-        : "Resolving battle..."
+      ? "Resolving battle..."
       : isForestTile(state.capture.target.x, state.capture.target.y)
         ? "Capturing Forest..."
         : "Capturing Territory...";
     captureTimeEl.textContent = awaitingResult ? "" : `${remaining.toFixed(1)}s`;
     captureTargetEl.textContent = awaitingResult
-      ? awaitingNeutralExpand
-        ? `Waiting for frontier confirmation at (${state.capture.target.x}, ${state.capture.target.y})`
-        : `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
+      ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
       : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
   } else {
     captureCardEl.style.display = "none";
@@ -10160,7 +10154,7 @@ setInterval(() => {
   // Stage 2: combat started but result got dropped.
   if (Date.now() > state.capture.resolvesAt + 5_000) {
     const timedOutCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
-    const keepOptimisticExpand = shouldPreserveOptimisticExpand(timedOutCurrentKey);
+    const keepOptimisticExpand = shouldPreserveOptimisticExpandByKey(timedOutCurrentKey);
     state.capture = undefined;
     if (state.pendingCombatReveal?.targetKey === timedOutCurrentKey) state.pendingCombatReveal = undefined;
     state.actionInFlight = false;
