@@ -64,6 +64,7 @@ import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defe
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
@@ -9231,7 +9232,7 @@ const draw = (): void => {
               : isTileOwnedByAlly(t)
                 ? "rgba(255, 205, 92, 0.82)"
                 : borderColorForOwner(ownerId, t.ownershipState);
-        ctx.lineWidth = borderLineWidthForOwner(ownerId, t.ownershipState);
+        ctx.lineWidth = clampOwnershipBorderWidth(borderLineWidthForOwner(ownerId, t.ownershipState), size);
         ctx.lineDashOffset = 0;
         ctx.setLineDash([]);
         drawExposedTileBorder(t, px, py, size);
