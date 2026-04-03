@@ -799,8 +799,8 @@ interface PlayerEconomyIndex {
 const emptyPlayerEffects = (): PlayerEffects => ({
   unlockForts: false,
   unlockSiegeOutposts: false,
-  unlockWoodenFort: false,
-  unlockLightOutpost: false,
+  unlockWoodenFort: true,
+  unlockLightOutpost: true,
   unlockSynthOverload: false,
   unlockAdvancedSynthesizers: false,
   unlockGranary: false,
@@ -6166,8 +6166,6 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
   if (structureType === "GRANARY" && !getPlayerEffectsForPlayer(actor.id).unlockGranary) return { ok: false, reason: "unlock granaries via Pottery first" };
   if (structureType === "BANK" && !actor.techIds.has("coinage")) return { ok: false, reason: "unlock banks via Coinage first" };
   if (structureType === "AIRPORT" && !actor.techIds.has("aeronautics")) return { ok: false, reason: "unlock airports via Aeronautics first" };
-  if (structureType === "WOODEN_FORT" && !getPlayerEffectsForPlayer(actor.id).unlockWoodenFort) return { ok: false, reason: "unlock wooden forts via Alchemy first" };
-  if (structureType === "LIGHT_OUTPOST" && !getPlayerEffectsForPlayer(actor.id).unlockLightOutpost) return { ok: false, reason: "unlock light outposts via Alchemy first" };
   if (structureType === "FOUNDRY" && !actor.techIds.has("industrial-extraction")) return { ok: false, reason: "unlock foundries via Industrial Extraction first" };
   if (structureType === "GOVERNORS_OFFICE" && !actor.techIds.has("civil-service")) return { ok: false, reason: "unlock governor's offices via Civil Service first" };
   if (structureType === "RADAR_SYSTEM" && !actor.techIds.has("radar")) return { ok: false, reason: "unlock radar systems via Radar first" };
@@ -12870,12 +12868,18 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   if (t.terrain !== "LAND") return { ok: false, reason: "fort requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "fort tile must be owned" };
   const tk = key(t.x, t.y);
+  const existingEconomic = economicStructuresByTile.get(tk);
+  const upgradingWoodenFort =
+    existingEconomic?.ownerId === actor.id &&
+    existingEconomic.type === "WOODEN_FORT" &&
+    (existingEconomic.status === "active" || existingEconomic.status === "inactive");
   if (isRelocatableSettlementTown(townsByTile.get(tk))) return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already fortified" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
-  if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
+  if (observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradingWoodenFort)) return { ok: false, reason: "tile already has structure" };
   const dock = docksByTile.get(tk);
   if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
+  if (existingEconomic?.type === "WOODEN_FORT" && !upgradingWoodenFort) return { ok: false, reason: "wooden fort is still being modified" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = Math.ceil(structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")) * effects.fortBuildGoldCostMult);
   if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fort" };
@@ -12890,6 +12894,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
     startedAt: now(),
     completesAt: now() + FORT_BUILD_MS
   };
+  if (upgradingWoodenFort) economicStructuresByTile.delete(tk);
   fortsByTile.set(tk, fort);
   markSummaryChunkDirtyAtTile(t.x, t.y);
   recordTileStructureHistory(tk, "FORT");
@@ -12929,11 +12934,17 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   if (t.terrain !== "LAND") return { ok: false, reason: "siege outpost requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "siege outpost tile must be owned" };
   const tk = key(t.x, t.y);
+  const existingEconomic = economicStructuresByTile.get(tk);
+  const upgradingLightOutpost =
+    existingEconomic?.ownerId === actor.id &&
+    existingEconomic.type === "LIGHT_OUTPOST" &&
+    (existingEconomic.status === "active" || existingEconomic.status === "inactive");
   if (isRelocatableSettlementTown(townsByTile.get(tk))) return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
-  if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
+  if (observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradingLightOutpost)) return { ok: false, reason: "tile already has structure" };
   if (!isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile" };
+  if (existingEconomic?.type === "LIGHT_OUTPOST" && !upgradingLightOutpost) return { ok: false, reason: "light outpost is still being modified" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST"));
   if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for siege outpost" };
@@ -12949,6 +12960,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
     startedAt: now(),
     completesAt: now() + SIEGE_OUTPOST_BUILD_MS
   };
+  if (upgradingLightOutpost) economicStructuresByTile.delete(tk);
   siegeOutpostsByTile.set(tk, siegeOutpost);
   markSummaryChunkDirtyAtTile(t.x, t.y);
   recordTileStructureHistory(tk, "SIEGE_OUTPOST");

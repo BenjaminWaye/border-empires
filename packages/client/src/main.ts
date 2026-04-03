@@ -2901,6 +2901,7 @@ const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStr
   applyOptimisticTileState(x, y, (tile) => {
     tile.optimisticPending = "structure_build";
     if (kind === "FORT") {
+      delete tile.economicStructure;
       tile.fort = { ownerId: state.me, status: "under_construction", completesAt };
       return;
     }
@@ -2909,6 +2910,7 @@ const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStr
       return;
     }
     if (kind === "SIEGE_OUTPOST") {
+      delete tile.economicStructure;
       tile.siegeOutpost = { ownerId: state.me, status: "under_construction", completesAt };
       return;
     }
@@ -3727,7 +3729,6 @@ const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
   const effects = tech.effects ?? {};
   for (const [key] of Object.entries(effects)) {
     if (key === "unlockForts" || key.startsWith("fort")) out.add("FORT");
-    if (key === "unlockWoodenFort") out.add("WOODEN_FORT");
     if (key === "unlockObservatory" || key.startsWith("observatory")) out.add("OBSERVATORY");
     if (key === "unlockFarmstead") out.add("FARMSTEAD");
     if (key === "unlockCamp") out.add("CAMP");
@@ -3751,7 +3752,6 @@ const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
     if (key === "unlockGarrisonHall") out.add("GARRISON_HALL");
     if (key === "unlockAirport") out.add("AIRPORT");
     if (key === "unlockRadarSystem") out.add("RADAR_SYSTEM");
-    if (key === "unlockLightOutpost") out.add("LIGHT_OUTPOST");
     if (key === "unlockSiegeOutposts" || key.startsWith("outpost")) out.add("SIEGE_OUTPOST");
   }
   return [...out];
@@ -5765,10 +5765,16 @@ const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: 
   if (actionId === "settle_land") {
     return "Makes this tile defended and activates production.";
   }
-  if (actionId === "build_fortification") return "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
+  if (actionId === "build_fortification")
+    return tile.economicStructure?.type === "WOODEN_FORT"
+      ? "Upgrade this Wooden Fort into a full fortification. +25% defense here. Active forts also stop failed attacks from losing the origin tile."
+      : "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
   if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
-  if (actionId === "build_siege_camp") return "Adds an offensive staging point on this border tile. Attacks from here hit 25% harder.";
+  if (actionId === "build_siege_camp")
+    return tile.economicStructure?.type === "LIGHT_OUTPOST"
+      ? "Upgrade this Light Outpost into a full siege outpost. Attacks from here hit 25% harder."
+      : "Adds an offensive staging point on this border tile. Attacks from here hit 25% harder.";
   if (actionId === "build_light_outpost") return "Build a light outpost on this border tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
   if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
   if (actionId === "build_camp") return "Improves supply output on this tile by 50%.";
@@ -6442,31 +6448,37 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           slots
         )
       });
-    if (!tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile) {
+    const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
+    const hasLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST";
+    if (!tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile && !state.techIds.includes("masonry")) {
       const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
       out.push({
         id: "build_wooden_fort" as TileActionDef["id"],
         label: "Build Wooden Fort",
         detail: buildDetailTextForAction("build_wooden_fort", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          state.techIds.includes("alchemy") &&
-            isBorderOrDock &&
+          isBorderOrDock &&
             !tile.resource &&
             !tile.town &&
             state.gold >= structureGoldCost("WOODEN_FORT"),
-          !state.techIds.includes("alchemy")
-            ? "Requires Alchemy"
-            : !isBorderOrDock
-              ? "Needs border or dock tile"
-              : tile.resource || tile.town
-                ? "Needs empty owned land"
-                : `Need ${structureGoldCost("WOODEN_FORT")} gold`,
+          !isBorderOrDock
+            ? "Needs border or dock tile"
+            : tile.resource || tile.town
+              ? "Needs empty owned land"
+              : `Need ${structureGoldCost("WOODEN_FORT")} gold`,
           `${structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`,
           slots
         )
       });
     }
-    if (tile.ownershipState === "SETTLED" && !tile.fort && !isSettlementTile) {
+    if (
+      tile.ownerId === state.me &&
+      !tile.fort &&
+      !tile.siegeOutpost &&
+      !tile.observatory &&
+      !isSettlementTile &&
+      (!tile.economicStructure || hasWoodenFort)
+    ) {
       const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
       const hasTech = state.techIds.includes("masonry");
       const fortGoldCost = structureGoldCost("FORT");
@@ -6474,11 +6486,21 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       const hasIron = (state.strategicResources.IRON ?? 0) >= 45;
       out.push({
         id: "build_fortification",
-        label: "Build Fortification",
+        label: hasWoodenFort ? "Upgrade to Fort" : "Build Fort",
         detail: buildDetailTextForAction("build_fortification", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          hasTech && hasGold && hasIron && isBorderOrDock && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure,
-          !hasTech ? "Requires Masonry" : !isBorderOrDock ? "Needs border or dock tile" : tile.siegeOutpost || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${fortGoldCost} gold` : !hasIron ? "Need 45 IRON" : "Unavailable",
+          hasTech && hasGold && hasIron && isBorderOrDock && (!tile.economicStructure || hasWoodenFort),
+          !hasTech
+            ? "Requires Masonry"
+            : !isBorderOrDock
+              ? "Needs border or dock tile"
+              : tile.economicStructure && !hasWoodenFort
+                ? "Tile already has structure"
+                : !hasGold
+                  ? `Need ${fortGoldCost} gold`
+                  : !hasIron
+                    ? "Need 45 IRON"
+                    : "Unavailable",
           `${structureCostText("FORT")} • ${Math.round(FORT_BUILD_MS / 60000)}m`,
           slots
         )
@@ -6643,31 +6665,35 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         )
       });
     }
-    if (tile.ownershipState !== "SETTLED" && !tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile) {
+    if (!tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile && !state.techIds.includes("leatherworking")) {
       out.push({
         id: "build_light_outpost" as TileActionDef["id"],
         label: "Build Light Outpost",
         detail: buildDetailTextForAction("build_light_outpost", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          state.techIds.includes("alchemy") &&
-            isOwnedBorderTile(tile.x, tile.y) &&
+          isOwnedBorderTile(tile.x, tile.y) &&
             !tile.resource &&
             !tile.town &&
             !tile.dockId &&
             state.gold >= structureGoldCost("LIGHT_OUTPOST"),
-          !state.techIds.includes("alchemy")
-            ? "Requires Alchemy"
-            : !isOwnedBorderTile(tile.x, tile.y)
-              ? "Needs border tile"
-              : tile.resource || tile.town || tile.dockId
-                ? "Needs empty owned land"
-                : `Need ${structureGoldCost("LIGHT_OUTPOST")} gold`,
+          !isOwnedBorderTile(tile.x, tile.y)
+            ? "Needs border tile"
+            : tile.resource || tile.town || tile.dockId
+              ? "Needs empty owned land"
+              : `Need ${structureGoldCost("LIGHT_OUTPOST")} gold`,
           `${structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`,
           slots
         )
       });
     }
-    if (tile.ownershipState === "SETTLED" && !tile.siegeOutpost && !isSettlementTile) {
+    if (
+      tile.ownerId === state.me &&
+      !tile.siegeOutpost &&
+      !tile.fort &&
+      !tile.observatory &&
+      !isSettlementTile &&
+      (!tile.economicStructure || hasLightOutpost)
+    ) {
       const hasTech = state.techIds.includes("leatherworking");
       const siegeGoldCost = structureGoldCost("SIEGE_OUTPOST");
       const hasGold = state.gold >= siegeGoldCost;
@@ -6675,11 +6701,21 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       const onBorder = isOwnedBorderTile(tile.x, tile.y);
       out.push({
         id: "build_siege_camp",
-        label: "Build Siege Camp",
+        label: hasLightOutpost ? "Upgrade to Siege Outpost" : "Build Siege Outpost",
         detail: buildDetailTextForAction("build_siege_camp", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          hasTech && hasGold && hasSupply && onBorder && !tile.fort && !tile.observatory && !tile.economicStructure,
-          !hasTech ? "Requires Leatherworking" : !onBorder ? "Needs border tile" : tile.fort || tile.observatory || tile.economicStructure ? "Tile already has structure" : !hasGold ? `Need ${siegeGoldCost} gold` : !hasSupply ? "Need 45 SUPPLY" : "Unavailable",
+          hasTech && hasGold && hasSupply && onBorder && (!tile.economicStructure || hasLightOutpost),
+          !hasTech
+            ? "Requires Leatherworking"
+            : !onBorder
+              ? "Needs border tile"
+              : tile.economicStructure && !hasLightOutpost
+                ? "Tile already has structure"
+                : !hasGold
+                  ? `Need ${siegeGoldCost} gold`
+                  : !hasSupply
+                    ? "Need 45 SUPPLY"
+                    : "Unavailable",
           `${structureCostText("SIEGE_OUTPOST")} • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m`,
           slots
         )
@@ -7474,11 +7510,58 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   const hasDevelopmentSlot = development.available > 0;
   const queueableWhenBusy = !hasDevelopmentSlot;
   const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
+  const canUpgradeWoodenFort = tile.economicStructure?.type === "WOODEN_FORT" && state.techIds.includes("masonry");
+  const canUpgradeLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST" && state.techIds.includes("leatherworking");
   const fortGoldCost = structureGoldCost("FORT");
   const siegeGoldCost = structureGoldCost("SIEGE_OUTPOST");
+  const woodenFortGoldCost = structureGoldCost("WOODEN_FORT");
+  const lightOutpostGoldCost = structureGoldCost("LIGHT_OUTPOST");
   const observatoryGoldCost = structureGoldCost("OBSERVATORY");
-  const canAffordFort = state.gold >= fortGoldCost;
-  const canAffordSiege = state.gold >= siegeGoldCost;
+  const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(x, y));
+  const isBorderTileOnly = isOwnedBorderTile(x, y);
+  const canBuildStarterWoodenFort =
+    tile.ownerId === state.me &&
+    isBorderOrDock &&
+    !tile.fort &&
+    !tile.siegeOutpost &&
+    !tile.observatory &&
+    !tile.economicStructure &&
+    !tile.resource &&
+    !tile.town &&
+    state.gold >= woodenFortGoldCost;
+  const canBuildAdvancedFort =
+    tile.ownerId === state.me &&
+    isBorderOrDock &&
+    !tile.fort &&
+    !tile.siegeOutpost &&
+    !tile.observatory &&
+    (!tile.economicStructure || canUpgradeWoodenFort) &&
+    state.techIds.includes("masonry") &&
+    state.gold >= fortGoldCost &&
+    (state.strategicResources.IRON ?? 0) >= 45;
+  const canBuildStarterLightOutpost =
+    tile.ownerId === state.me &&
+    isBorderTileOnly &&
+    !tile.fort &&
+    !tile.siegeOutpost &&
+    !tile.observatory &&
+    !tile.economicStructure &&
+    !tile.resource &&
+    !tile.town &&
+    !tile.dockId &&
+    state.gold >= lightOutpostGoldCost;
+  const canBuildAdvancedSiegeOutpost =
+    tile.ownerId === state.me &&
+    isBorderTileOnly &&
+    !tile.siegeOutpost &&
+    !tile.fort &&
+    !tile.observatory &&
+    (!tile.economicStructure || canUpgradeLightOutpost) &&
+    state.techIds.includes("leatherworking") &&
+    state.gold >= siegeGoldCost &&
+    (state.strategicResources.SUPPLY ?? 0) >= 45;
+  const canAffordFort = canBuildStarterWoodenFort || canBuildAdvancedFort;
+  const canAffordSiege = canBuildStarterLightOutpost || canBuildAdvancedSiegeOutpost;
   const canAffordObservatory =
     tile.ownershipState === "SETTLED" &&
     !tile.fort &&
@@ -7534,8 +7617,8 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
         <small>${SETTLE_COST} gold • ${(settleDurationMsForTile(x, y) / 1000).toFixed(0)}s${isForestTile(x, y) ? " (Forest)" : ""} • converts frontier to settled${settlementQueued ? " • already queued" : queueableWhenBusy && tile.ownershipState === "FRONTIER" ? " • queues" : ""}</small>
       </button>
       <button class="hold-menu-btn" data-build="fort" ${canAffordFort ? "" : "disabled"}>
-        <span>Fort</span>
-        <small>${structureCostText("FORT")} • ${(FORT_BUILD_MS / 1000).toFixed(0)}s • def x${FORT_DEFENSE_MULT.toFixed(2)} • 1 gold / min${queueableWhenBusy ? " • queues" : ""}</small>
+        <span>${canUpgradeWoodenFort ? "Upgrade to Fort" : state.techIds.includes("masonry") ? "Fort" : "Wooden Fort"}</span>
+        <small>${state.techIds.includes("masonry") ? `${structureCostText("FORT")} • ${(FORT_BUILD_MS / 1000).toFixed(0)}s • def x${FORT_DEFENSE_MULT.toFixed(2)}` : `${structureCostText("WOODEN_FORT")} • ${(WOODEN_FORT_BUILD_MS / 1000).toFixed(0)}s • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`} • 1 gold / min${queueableWhenBusy ? " • queues" : ""}</small>
       </button>
       <button class="hold-menu-btn" data-build="observatory" ${canAffordObservatory ? "" : "disabled"}>
         <span>Observatory</span>
@@ -7562,8 +7645,8 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
         <small>700 gold + 40 FOOD • +50% town gold cap • 1 gold / 10m${queueableWhenBusy && canBuildGranary ? " • queues" : ""}</small>
       </button>
       <button class="hold-menu-btn" data-build="siege" ${canAffordSiege ? "" : "disabled"}>
-        <span>Siege Outpost</span>
-        <small>${structureCostText("SIEGE_OUTPOST")} • ${(SIEGE_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)} • 1 gold / min${queueableWhenBusy ? " • queues" : ""}</small>
+        <span>${canUpgradeLightOutpost ? "Upgrade to Siege Outpost" : state.techIds.includes("leatherworking") ? "Siege Outpost" : "Light Outpost"}</span>
+        <small>${state.techIds.includes("leatherworking") ? `${structureCostText("SIEGE_OUTPOST")} • ${(SIEGE_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)}` : `${structureCostText("LIGHT_OUTPOST")} • ${(LIGHT_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`} • 1 gold / min${queueableWhenBusy ? " • queues" : ""}</small>
       </button>
     </div>
   `;
@@ -7594,23 +7677,41 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   }
   if (fortBtn) {
     fortBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_FORT", x, y }, () => applyOptimisticStructureBuild(x, y, "FORT"), {
-        x,
-        y,
-        label: `Fort at (${x}, ${y})`,
-        optimisticKind: "FORT"
-      });
+      if (canBuildAdvancedFort) {
+        sendDevelopmentBuild({ type: "BUILD_FORT", x, y }, () => applyOptimisticStructureBuild(x, y, "FORT"), {
+          x,
+          y,
+          label: `${canUpgradeWoodenFort ? "Fort upgrade" : "Fort"} at (${x}, ${y})`,
+          optimisticKind: "FORT"
+        });
+      } else if (canBuildStarterWoodenFort) {
+        sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "WOODEN_FORT" }, () => applyOptimisticStructureBuild(x, y, "WOODEN_FORT"), {
+          x,
+          y,
+          label: `Wooden Fort at (${x}, ${y})`,
+          optimisticKind: "WOODEN_FORT"
+        });
+      }
       hideHoldBuildMenu();
     };
   }
   if (siegeBtn) {
     siegeBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x, y }, () => applyOptimisticStructureBuild(x, y, "SIEGE_OUTPOST"), {
-        x,
-        y,
-        label: `Siege outpost at (${x}, ${y})`,
-        optimisticKind: "SIEGE_OUTPOST"
-      });
+      if (canBuildAdvancedSiegeOutpost) {
+        sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x, y }, () => applyOptimisticStructureBuild(x, y, "SIEGE_OUTPOST"), {
+          x,
+          y,
+          label: `${canUpgradeLightOutpost ? "Siege outpost upgrade" : "Siege outpost"} at (${x}, ${y})`,
+          optimisticKind: "SIEGE_OUTPOST"
+        });
+      } else if (canBuildStarterLightOutpost) {
+        sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "LIGHT_OUTPOST" }, () => applyOptimisticStructureBuild(x, y, "LIGHT_OUTPOST"), {
+          x,
+          y,
+          label: `Light Outpost at (${x}, ${y})`,
+          optimisticKind: "LIGHT_OUTPOST"
+        });
+      }
       hideHoldBuildMenu();
     };
   }
