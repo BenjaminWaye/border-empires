@@ -40,6 +40,8 @@ export const LEVEL_CURVE_C = 2.2;
 export const FORT_BUILD_MS = 10 * 60_000;
 export const FORT_BUILD_COST = 900;
 export const FORT_DEFENSE_MULT = 1.25;
+export const WOODEN_FORT_BUILD_MS = 10 * 60_000;
+export const WOODEN_FORT_DEFENSE_MULT = 1.12;
 
 export const OBSERVATORY_BUILD_MS = 10 * 60_000;
 export const OBSERVATORY_BUILD_COST = 800;
@@ -47,7 +49,9 @@ export const OBSERVATORY_VISION_BONUS = 5;
 
 export const ECONOMIC_STRUCTURE_BUILD_MS = 5 * 60_000;
 export const ECONOMIC_STRUCTURE_REMOVE_MS = 5 * 60_000;
-export const SIEGE_OUTPOST_BUILD_MS = 10 * 60_000;
+export const LIGHT_OUTPOST_BUILD_MS = 60_000;
+export const LIGHT_OUTPOST_ATTACK_MULT = 1.12;
+export const SIEGE_OUTPOST_BUILD_MS = 60_000;
 export const SIEGE_OUTPOST_BUILD_COST = 900;
 export const SIEGE_OUTPOST_ATTACK_MULT = 1.25;
 
