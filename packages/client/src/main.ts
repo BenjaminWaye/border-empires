@@ -628,9 +628,9 @@ const tileHistoryLines = (tile: Tile): string[] => {
                         ? "Former Bank site"
                         : history.lastStructureType === "AIRPORT"
                           ? "Former Airport site"
-                          : history.lastStructureType === "QUARTERMASTER"
+                          : history.lastStructureType === "FUR_SYNTHESIZER"
                             ? "Former Fur Synthesizer site"
-                            : history.lastStructureType === "ADVANCED_QUARTERMASTER"
+                            : history.lastStructureType === "ADVANCED_FUR_SYNTHESIZER"
                               ? "Former Advanced Fur Synthesizer site"
                               : history.lastStructureType === "IRONWORKS"
                                 ? "Former Ironworks site"
@@ -668,8 +668,8 @@ const economicStructureName = (type: Tile["economicStructure"] extends infer T ?
   if (type === "WOODEN_FORT") return "Wooden Fort";
   if (type === "LIGHT_OUTPOST") return "Light Outpost";
   if (type === "CARAVANARY") return "Caravanary";
-  if (type === "QUARTERMASTER") return "Fur Synthesizer";
-  if (type === "ADVANCED_QUARTERMASTER") return "Advanced Fur Synthesizer";
+  if (type === "FUR_SYNTHESIZER") return "Fur Synthesizer";
+  if (type === "ADVANCED_FUR_SYNTHESIZER") return "Advanced Fur Synthesizer";
   if (type === "IRONWORKS") return "Ironworks";
   if (type === "ADVANCED_IRONWORKS") return "Advanced Ironworks";
   if (type === "CRYSTAL_SYNTHESIZER") return "Crystal Synthesizer";
@@ -691,8 +691,8 @@ const economicStructureBenefitText = (type: Tile["economicStructure"] extends in
   if (type === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
   if (type === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
   if (type === "CARAVANARY") return "Boosts the nearby town's connected-town income bonus by 25%.";
-  if (type === "QUARTERMASTER") return "Converts gold into steady supply output.";
-  if (type === "ADVANCED_QUARTERMASTER") return "Converts gold into 20% stronger steady supply output.";
+  if (type === "FUR_SYNTHESIZER") return "Converts gold into steady supply output.";
+  if (type === "ADVANCED_FUR_SYNTHESIZER") return "Converts gold into 20% stronger steady supply output.";
   if (type === "IRONWORKS") return "Converts gold into steady iron output.";
   if (type === "ADVANCED_IRONWORKS") return "Converts gold into 20% stronger steady iron output.";
   if (type === "CRYSTAL_SYNTHESIZER") return "Converts gold into steady crystal output.";
@@ -727,8 +727,8 @@ type StructureInfoKey =
   | "CARAVANARY"
   | "WOODEN_FORT"
   | "LIGHT_OUTPOST"
-  | "QUARTERMASTER"
-  | "ADVANCED_QUARTERMASTER"
+  | "FUR_SYNTHESIZER"
+  | "ADVANCED_FUR_SYNTHESIZER"
   | "IRONWORKS"
   | "ADVANCED_IRONWORKS"
   | "CRYSTAL_SYNTHESIZER"
@@ -771,8 +771,8 @@ const structureInfoForKey = (
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
     if (key === "BANK") return "/overlays/bank-overlay.svg";
     if (key === "CARAVANARY") return "/overlays/caravanary-overlay.svg";
-    if (key === "QUARTERMASTER") return "/overlays/fur-synthesizer-overlay.svg";
-    if (key === "ADVANCED_QUARTERMASTER") return "/overlays/advanced-fur-synthesizer-overlay.svg";
+    if (key === "FUR_SYNTHESIZER") return "/overlays/fur-synthesizer-overlay.svg";
+    if (key === "ADVANCED_FUR_SYNTHESIZER") return "/overlays/advanced-fur-synthesizer-overlay.svg";
     if (key === "IRONWORKS") return "/overlays/ironworks-overlay.svg";
     if (key === "ADVANCED_IRONWORKS") return "/overlays/advanced-ironworks-overlay.svg";
     if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
@@ -883,7 +883,7 @@ const structureInfoForKey = (
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
-  if (type === "QUARTERMASTER")
+  if (type === "FUR_SYNTHESIZER")
     return structure({
       title: "Fur Synthesizer",
       detail: "Fur Synthesizers convert gold upkeep into steady supply output on a support tile.",
@@ -892,7 +892,7 @@ const structureInfoForKey = (
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
-  if (type === "ADVANCED_QUARTERMASTER")
+  if (type === "ADVANCED_FUR_SYNTHESIZER")
     return structure({
       title: "Advanced Fur Synthesizer",
       detail: "Advanced Fur Synthesizers upgrade an existing Fur Synthesizer into a 20% stronger supply converter.",
@@ -1440,8 +1440,8 @@ const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MARKET: loadOverlayImage("market-overlay.svg"),
   GRANARY: loadOverlayImage("granary-overlay.svg"),
-  QUARTERMASTER: loadOverlayImage("fur-synthesizer-overlay.svg"),
-  ADVANCED_QUARTERMASTER: loadOverlayImage("advanced-fur-synthesizer-overlay.svg"),
+  FUR_SYNTHESIZER: loadOverlayImage("fur-synthesizer-overlay.svg"),
+  ADVANCED_FUR_SYNTHESIZER: loadOverlayImage("advanced-fur-synthesizer-overlay.svg"),
   ADVANCED_IRONWORKS: loadOverlayImage("advanced-ironworks-overlay.svg"),
   ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg")
 } as const;
@@ -4189,11 +4189,11 @@ const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
     if (key === "unlockGranary" || key.startsWith("granary")) out.add("GRANARY");
     if (key === "unlockBank") out.add("BANK");
     if (key === "unlockCaravanary") out.add("CARAVANARY");
-    if (key === "unlockQuartermaster") out.add("QUARTERMASTER");
+    if (key === "unlockFurSynthesizer") out.add("FUR_SYNTHESIZER");
     if (key === "unlockIronworks") out.add("IRONWORKS");
     if (key === "unlockCrystalSynthesizer") out.add("CRYSTAL_SYNTHESIZER");
     if (key === "unlockAdvancedSynthesizers") {
-      out.add("ADVANCED_QUARTERMASTER");
+      out.add("ADVANCED_FUR_SYNTHESIZER");
       out.add("ADVANCED_IRONWORKS");
       out.add("ADVANCED_CRYSTAL_SYNTHESIZER");
     }
@@ -5851,7 +5851,7 @@ type TileActionDef = {
     | "build_bank"
     | "build_airport"
     | "build_caravanary"
-    | "build_quartermaster"
+    | "build_fur_synthesizer"
     | "build_ironworks"
     | "build_crystal_synthesizer"
     | "build_fuel_plant"
@@ -5926,7 +5926,7 @@ const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | unde
       return "coinage";
     case "build_caravanary":
       return "ledger-keeping";
-    case "build_quartermaster":
+    case "build_fur_synthesizer":
     case "build_ironworks":
     case "build_crystal_synthesizer":
       return "workshops";
@@ -6219,13 +6219,13 @@ const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: 
     const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
     return `Build on this support tile for the ${townLabel}. Boosts its connected-town income bonus by 25%.`;
   }
-  if (actionId === "build_quartermaster") return "Convert heavy gold upkeep into steady supply output on this support tile with a Fur Synthesizer.";
-  if (actionId === "upgrade_quartermaster") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output.";
+  if (actionId === "build_fur_synthesizer") return "Convert heavy gold upkeep into steady supply output on this support tile with a Fur Synthesizer.";
+  if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output.";
   if (actionId === "build_ironworks") return "Convert heavy gold upkeep into steady iron output on this support tile.";
   if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output.";
   if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile.";
   if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Crystal Synthesizer into an Advanced Crystal Synthesizer with 20% higher output.";
-  if (actionId === "overload_quartermaster") return "Spend 1000 gold for an instant supply burst, then shut this Fur Synthesizer down for 1 hour.";
+  if (actionId === "overload_fur_synthesizer") return "Spend 1000 gold for an instant supply burst, then shut this Fur Synthesizer down for 1 hour.";
   if (actionId === "overload_ironworks") return "Spend 1000 gold for an instant iron burst, then shut this ironworks down for 1 hour.";
   if (actionId === "overload_crystal_synthesizer") return "Spend 1000 gold for an instant crystal burst, then shut this synthesizer down for 1 hour.";
   if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
@@ -6772,11 +6772,11 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         ...tileActionAvailability((state.strategicResources.CRYSTAL ?? 0) >= 10, "Need 10 CRYSTAL", "10 CRYSTAL")
       });
     }
-    if (tile.economicStructure?.type === "QUARTERMASTER" || tile.economicStructure?.type === "ADVANCED_QUARTERMASTER") {
+    if (tile.economicStructure?.type === "FUR_SYNTHESIZER" || tile.economicStructure?.type === "ADVANCED_FUR_SYNTHESIZER") {
       out.push({
-        id: "overload_quartermaster" as TileActionDef["id"],
+        id: "overload_fur_synthesizer" as TileActionDef["id"],
         label: "Overload Fur Synth",
-        detail: buildDetailTextForAction("overload_quartermaster", tile),
+        detail: buildDetailTextForAction("overload_fur_synthesizer", tile),
         ...tileActionAvailability(
           state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction",
           !state.techIds.includes("overload-protocols") ? "Requires Overload Protocols" : tile.economicStructure.status === "under_construction" ? "Fur Synthesizer still building" : "Need 1000 gold",
@@ -6808,15 +6808,15 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         )
       });
     }
-    if (tile.economicStructure?.type === "QUARTERMASTER") {
+    if (tile.economicStructure?.type === "FUR_SYNTHESIZER") {
       out.push({
-        id: "upgrade_quartermaster" as TileActionDef["id"],
+        id: "upgrade_fur_synthesizer" as TileActionDef["id"],
         label: "Upgrade Fur Synth",
-        detail: buildDetailTextForAction("upgrade_quartermaster", tile),
+        detail: buildDetailTextForAction("upgrade_fur_synthesizer", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          state.techIds.includes("advanced-synthetication") && state.gold >= structureGoldCost("ADVANCED_QUARTERMASTER") && (state.strategicResources.SUPPLY ?? 0) >= 40,
-          !state.techIds.includes("advanced-synthetication") ? "Requires Advanced Synthetication" : state.gold < structureGoldCost("ADVANCED_QUARTERMASTER") ? `Need ${structureGoldCost("ADVANCED_QUARTERMASTER")} gold` : "Need 40 SUPPLY",
-          `${structureCostText("ADVANCED_QUARTERMASTER")} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 21.6 SUPPLY/day`,
+          state.techIds.includes("advanced-synthetication") && state.gold >= structureGoldCost("ADVANCED_FUR_SYNTHESIZER") && (state.strategicResources.SUPPLY ?? 0) >= 40,
+          !state.techIds.includes("advanced-synthetication") ? "Requires Advanced Synthetication" : state.gold < structureGoldCost("ADVANCED_FUR_SYNTHESIZER") ? `Need ${structureGoldCost("ADVANCED_FUR_SYNTHESIZER")} gold` : "Need 40 SUPPLY",
+          `${structureCostText("ADVANCED_FUR_SYNTHESIZER")} • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 21.6 SUPPLY/day`,
           slots
         )
       });
@@ -7213,9 +7213,9 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           )
         });
         out.push({
-          id: "build_quartermaster",
+          id: "build_fur_synthesizer",
           label: "Build Fur Synthesizer",
-          detail: buildDetailTextForAction("build_quartermaster", tile, supportedTown),
+          detail: buildDetailTextForAction("build_fur_synthesizer", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 2200,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 2200 gold",
@@ -7271,7 +7271,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         });
         out.push({ id: "build_bank", label: "Build Bank", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_caravanary", label: "Build Caravanary", disabled: true, disabledReason: "Support tile touches multiple towns" });
-        out.push({ id: "build_quartermaster", label: "Build Fur Synthesizer", disabled: true, disabledReason: "Support tile touches multiple towns" });
+        out.push({ id: "build_fur_synthesizer", label: "Build Fur Synthesizer", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_ironworks", label: "Build Ironworks", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_crystal_synthesizer", label: "Build Crystal Synthesizer", disabled: true, disabledReason: "Support tile touches multiple towns" });
         out.push({ id: "build_fuel_plant", label: "Build Fuel Plant", disabled: true, disabledReason: "Support tile touches multiple towns" });
@@ -7748,18 +7748,18 @@ const handleTileAction = (actionId: string, targetKeyOverride?: string, originKe
       label: `Caravanary at (${selected.x}, ${selected.y})`,
       optimisticKind: "CARAVANARY"
     });
-  if (actionId === "build_quartermaster")
-    sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "QUARTERMASTER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "QUARTERMASTER"), {
+  if (actionId === "build_fur_synthesizer")
+    sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUR_SYNTHESIZER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FUR_SYNTHESIZER"), {
       x: selected.x,
       y: selected.y,
       label: `Fur Synthesizer at (${selected.x}, ${selected.y})`,
-      optimisticKind: "QUARTERMASTER"
+      optimisticKind: "FUR_SYNTHESIZER"
     });
-  if (actionId === "upgrade_quartermaster")
+  if (actionId === "upgrade_fur_synthesizer")
     sendDevelopmentBuild(
-      { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_QUARTERMASTER" },
-      () => applyOptimisticStructureBuild(selected.x, selected.y, "ADVANCED_QUARTERMASTER"),
-      { x: selected.x, y: selected.y, label: `Advanced Fur Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_QUARTERMASTER" }
+      { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_FUR_SYNTHESIZER" },
+      () => applyOptimisticStructureBuild(selected.x, selected.y, "ADVANCED_FUR_SYNTHESIZER"),
+      { x: selected.x, y: selected.y, label: `Advanced Fur Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_FUR_SYNTHESIZER" }
     );
   if (actionId === "build_ironworks")
     sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IRONWORKS"), {
@@ -7840,7 +7840,7 @@ const handleTileAction = (actionId: string, targetKeyOverride?: string, originKe
       () => applyOptimisticStructureBuild(selected.x, selected.y, "LIGHT_OUTPOST"),
       { x: selected.x, y: selected.y, label: `Light Outpost at (${selected.x}, ${selected.y})`, optimisticKind: "LIGHT_OUTPOST" }
     );
-  if (actionId === "overload_quartermaster") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
+  if (actionId === "overload_fur_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
   if (actionId === "overload_ironworks") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
   if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
   if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
@@ -9570,19 +9570,19 @@ const draw = (): void => {
           if (overlay.complete && overlay.naturalWidth) {
             drawCenteredOverlay(overlay, px, py, size, 1.02);
           }
-        } else if (t.economicStructure.type === "QUARTERMASTER") {
-          const overlay = structureOverlayImages.QUARTERMASTER;
+        } else if (t.economicStructure.type === "FUR_SYNTHESIZER") {
+          const overlay = structureOverlayImages.FUR_SYNTHESIZER;
           if (overlay.complete && overlay.naturalWidth) {
             drawCenteredOverlay(overlay, px, py, size, 1.02);
           }
         } else if (
-          t.economicStructure.type === "ADVANCED_QUARTERMASTER" ||
+          t.economicStructure.type === "ADVANCED_FUR_SYNTHESIZER" ||
           t.economicStructure.type === "ADVANCED_IRONWORKS" ||
           t.economicStructure.type === "ADVANCED_CRYSTAL_SYNTHESIZER"
         ) {
           const overlay =
-            t.economicStructure.type === "ADVANCED_QUARTERMASTER"
-              ? structureOverlayImages.ADVANCED_QUARTERMASTER
+            t.economicStructure.type === "ADVANCED_FUR_SYNTHESIZER"
+              ? structureOverlayImages.ADVANCED_FUR_SYNTHESIZER
               : t.economicStructure.type === "ADVANCED_IRONWORKS"
                 ? structureOverlayImages.ADVANCED_IRONWORKS
                 : structureOverlayImages.ADVANCED_CRYSTAL_SYNTHESIZER;

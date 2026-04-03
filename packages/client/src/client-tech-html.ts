@@ -16,7 +16,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockCaravanary" && value === true) return "Unlocks caravanaries";
   if (key === "unlockWoodenFort" && value === true) return "Unlocks wooden forts";
   if (key === "unlockLightOutpost" && value === true) return "Unlocks light outposts";
-  if (key === "unlockQuartermaster" && value === true) return "Unlocks fur synthesizers";
+  if (key === "unlockFurSynthesizer" && value === true) return "Unlocks fur synthesizers";
   if (key === "unlockIronworks" && value === true) return "Unlocks ironworks";
   if (key === "unlockCrystalSynthesizer" && value === true) return "Unlocks crystal synthesizers";
   if (key === "unlockSynthOverload" && value === true) return "Unlocks synthesizer overload";
