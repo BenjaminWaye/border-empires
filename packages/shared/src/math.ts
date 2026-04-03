@@ -25,11 +25,18 @@ export const exposureRatio = (T: number, E: number): number => {
   return clamp(idealPerimeter / safeE, 0, 1);
 };
 
+export const defensibilityScore = (T: number, E: number): number => {
+  const ratio = exposureRatio(T, E);
+  // Raw perimeter ratio underrates ordinary frontiers. This curve keeps
+  // perfect shapes at 100% while lifting the practical mid-range.
+  return clamp(ratio / (0.4 + 0.6 * ratio), 0, 1);
+};
+
 export const defensivenessMultiplier = (T: number, E: number): number => {
   // Defensibility compares the current exposed settled perimeter against the
   // minimum possible perimeter for the same number of tiles. Compact shapes and
   // terrain-backed borders stay high; stretched or fractured shapes fall off.
-  return clamp(exposureRatio(T, E), DEF_MULT_MIN, DEF_MULT_MAX);
+  return clamp(defensibilityScore(T, E), DEF_MULT_MIN, DEF_MULT_MAX);
 };
 
 export const ratingFromPointsLevel = (points: number, level: number): number => {

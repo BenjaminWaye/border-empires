@@ -31,7 +31,7 @@ import {
   SIEGE_OUTPOST_BUILD_MS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  exposureRatio,
+  defensivenessMultiplier,
   grassShadeAt,
   landBiomeAt,
   setWorldSeed,
@@ -3587,7 +3587,7 @@ const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: n
 };
 const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
-  return Math.max(0, Math.min(100, exposureRatio(t, e) * 100));
+  return Math.max(0, Math.min(100, defensivenessMultiplier(t, e) * 100));
 };
 
 const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>): number => {
