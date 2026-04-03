@@ -3522,6 +3522,7 @@ const renderCaptureProgress = (): void => {
     const pct = Math.max(0, Math.min(1, elapsed / total));
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
     const awaitingResult = Date.now() > state.capture.resolvesAt;
+    const awaitingNeutralExpand = awaitingResult && shouldPreserveOptimisticExpand(captureTargetKey);
     if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
       showCaptureAlert(
         state.pendingCombatReveal.title,
@@ -3533,19 +3534,34 @@ const renderCaptureProgress = (): void => {
       state.pendingCombatReveal.revealed = true;
       return;
     }
+    if (awaitingNeutralExpand) {
+      captureCardEl.style.display = "none";
+      captureWrapEl.style.display = "none";
+      captureCancelBtn.style.display = "none";
+      captureCloseBtn.style.display = "none";
+      captureBarEl.style.width = "0%";
+      captureTitleEl.textContent = "";
+      captureTimeEl.textContent = "";
+      captureTargetEl.textContent = "";
+      return;
+    }
     captureCardEl.style.display = "grid";
     captureWrapEl.style.display = "block";
     captureCancelBtn.style.display = "inline-flex";
     captureCloseBtn.style.display = "none";
     captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
     captureTitleEl.textContent = awaitingResult
-      ? "Resolving battle..."
+      ? awaitingNeutralExpand
+        ? "Finalizing claim..."
+        : "Resolving battle..."
       : isForestTile(state.capture.target.x, state.capture.target.y)
         ? "Capturing Forest..."
         : "Capturing Territory...";
     captureTimeEl.textContent = awaitingResult ? "" : `${remaining.toFixed(1)}s`;
     captureTargetEl.textContent = awaitingResult
-      ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
+      ? awaitingNeutralExpand
+        ? `Waiting for frontier confirmation at (${state.capture.target.x}, ${state.capture.target.y})`
+        : `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
       : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
   } else {
     captureCardEl.style.display = "none";
@@ -8529,6 +8545,25 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "COMBAT_RESULT") {
+    const resultReceivedAt = Date.now();
+    const timing = msg.timing as { acceptedAt?: number; resolvesAt?: number; resultSentAt?: number } | undefined;
+    if (
+      msg.attackType === "EXPAND" &&
+      typeof timing?.acceptedAt === "number" &&
+      typeof timing?.resolvesAt === "number" &&
+      typeof timing?.resultSentAt === "number"
+    ) {
+      console.info("[neutral-expand-timing]", {
+        target: msg.target,
+        acceptedAt: timing.acceptedAt,
+        resolvesAt: timing.resolvesAt,
+        resultSentAt: timing.resultSentAt,
+        resultReceivedAt,
+        timerDelayMs: timing.resultSentAt - timing.resolvesAt,
+        deliveryDelayMs: resultReceivedAt - timing.resultSentAt,
+        totalElapsedMs: resultReceivedAt - timing.acceptedAt
+      });
+    }
     const target = msg.target as { x: number; y: number } | undefined;
     const targetBefore = (() => (target ? state.tiles.get(key(target.x, target.y)) : undefined))();
     const originBefore = (() => {

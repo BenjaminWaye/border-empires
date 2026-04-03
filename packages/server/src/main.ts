@@ -1716,6 +1716,11 @@ type CombatResultChange = {
   ownerId?: string;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
 };
+type NeutralExpandTiming = {
+  acceptedAt: number;
+  resolvesAt: number;
+  resultSentAt: number;
+};
 interface PendingSettlement {
   tileKey: TileKey;
   ownerId: string;
@@ -1725,6 +1730,14 @@ interface PendingSettlement {
   cancelled: boolean;
   timeout?: NodeJS.Timeout;
 }
+const buildNeutralExpandTiming = (capture: PendingCapture, sentAt: number): NeutralExpandTiming | undefined => {
+  if (capture.actionType !== "EXPAND" || typeof capture.startedAt !== "number") return undefined;
+  return {
+    acceptedAt: capture.startedAt,
+    resolvesAt: capture.resolvesAt,
+    resultSentAt: sentAt
+  };
+};
 interface UpkeepBreakdown {
   need: number;
   fromYield: number;
@@ -16314,6 +16327,20 @@ app.post("/admin/world/regenerate", async () => {
         actor.missionStats.neutralCaptures += 1;
         maybeIssueResourceMission(actor, to.resource);
         updateMissionState(actor);
+        const resultSentAt = now();
+        const neutralExpandTiming = buildNeutralExpandTiming(pending, resultSentAt);
+        if (neutralExpandTiming) {
+          app.log.info(
+            {
+              playerId: actor.id,
+              origin: { x: from.x, y: from.y },
+              target: { x: to.x, y: to.y },
+              ...neutralExpandTiming,
+              timerDelayMs: neutralExpandTiming.resultSentAt - neutralExpandTiming.resolvesAt
+            },
+            "neutral expand timing"
+          );
+        }
         socket.send(
           JSON.stringify({
             type: "COMBAT_RESULT",
@@ -16324,7 +16351,8 @@ app.post("/admin/world/regenerate", async () => {
             winnerId: actor.id,
             changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }],
             pointsDelta: siteBonusGold,
-            levelDelta: 0
+            levelDelta: 0,
+            ...(neutralExpandTiming ? { timing: neutralExpandTiming } : {})
           })
         );
         logExpandTrace("combat_result_sent", pending, { neutralTarget: true });
