@@ -22,9 +22,14 @@ export type EconomicStructureType =
   | "GRANARY"
   | "BANK"
   | "AIRPORT"
+  | "WOODEN_FORT"
+  | "LIGHT_OUTPOST"
   | "QUARTERMASTER"
+  | "ADVANCED_QUARTERMASTER"
   | "IRONWORKS"
+  | "ADVANCED_IRONWORKS"
   | "CRYSTAL_SYNTHESIZER"
+  | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "FUEL_PLANT"
   | "CARAVANARY"
   | "FOUNDRY"
@@ -66,6 +71,7 @@ export interface EconomicStructure {
   ownerId: PlayerId;
   status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number;
+  disabledUntil?: number;
   previousStatus?: "active" | "inactive";
   nextUpkeepAt: number;
 }
