@@ -81,6 +81,52 @@ import {
   strategicRibbonHtml,
   truceRequestsHtml
 } from "./client-panel-html.js";
+import {
+  economicStructureBenefitText,
+  economicStructureBuildMs,
+  economicStructureName,
+  formatUpkeepSummary,
+  formatYieldSummary,
+  resourceColor,
+  resourceIconForKey,
+  resourceLabel,
+  storedYieldSummary,
+  strategicResourceKeyForTile,
+  structureInfoButtonHtml as structureInfoButtonHtmlFromModule,
+  structureInfoForKey as structureInfoForKeyFromModule,
+  tileProductionHtml,
+  tileUpkeepHtml,
+  type StructureInfoKey
+} from "./client-map-display.js";
+import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
+import {
+  borderColorForOwner as borderColorForOwnerFromModule,
+  borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
+  builtResourceOverlayForTile,
+  dockOverlayVariants,
+  drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
+  drawBarbarianSkullOverlay as drawBarbarianSkullOverlayOnCanvas,
+  drawCenteredOverlay as drawCenteredOverlayOnCanvas,
+  drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
+  drawExposedTileBorder as drawExposedTileBorderOnCanvas,
+  drawForestOverlay as drawForestOverlayOnCanvas,
+  drawIncomingAttackOverlay as drawIncomingAttackOverlayOnCanvas,
+  drawOwnershipSignature as drawOwnershipSignatureOnCanvas,
+  drawResourceCornerMarker as drawResourceCornerMarkerOnCanvas,
+  drawShardFallback as drawShardFallbackOnCanvas,
+  drawTerrainTile as drawTerrainTileOnCanvas,
+  drawTownOverlay as drawTownOverlayOnCanvas,
+  economicStructureOverlayAlpha,
+  effectiveOverlayColor as effectiveOverlayColorFromModule,
+  initTerrainTextures,
+  overlayVariantIndexAt,
+  resourceOverlayForTile,
+  resourceOverlayScaleForTile,
+  shardOverlayForTile,
+  shouldDrawOwnershipBorder as shouldDrawOwnershipBorderFromModule,
+  structureAccentColor as structureAccentColorFromModule,
+  structureOverlayImages
+} from "./client-map-render.js";
 import { createInitialState, storageSet } from "./client-state.js";
 import {
   currentDomainChoiceTier,
@@ -125,7 +171,6 @@ import type {
 } from "./client-types.js";
 
 const formatManpowerAmount = (value: number): string => Math.round(value).toString();
-const aetherBridgeAnchorImage = new Image();
 
 const {
   allianceBreakBtn,
@@ -388,213 +433,55 @@ const playerNameForOwner = (ownerId?: string | null): string | undefined => {
   if (ownerId === "barbarian") return "Barbarians";
   return state.playerNames.get(ownerId);
 };
-const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
-  const clean = hex.replace("#", "");
-  const full = clean.length === 3 ? clean.split("").map((c) => `${c}${c}`).join("") : clean;
-  const value = Number.parseInt(full, 16);
-  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
-};
-const rgbToHex = (r: number, g: number, b: number): string =>
-  `#${[r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`;
-const hexWithAlpha = (hex: string, alpha: number): string => {
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
+const effectiveOverlayColor = (ownerId: string): string =>
+  effectiveOverlayColorFromModule(ownerId, { ownerColor, visualStyleForOwner });
+const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): string =>
+  borderColorForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
+const shouldDrawOwnershipBorder = (tile: Tile): boolean => shouldDrawOwnershipBorderFromModule(tile, visualStyleForOwner);
+const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): number =>
+  borderLineWidthForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
+const structureAccentColor = (ownerId: string, fallback: string): string =>
+  structureAccentColorFromModule(ownerId, fallback, visualStyleForOwner);
+const structureInfoForKey = (type: StructureInfoKey) =>
+  structureInfoForKeyFromModule(type, { formatCooldownShort, prettyToken });
+const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
+  structureInfoButtonHtmlFromModule(type, { formatCooldownShort, prettyToken }, label);
 const drawAetherBridgeLane = (
-  ctx: CanvasRenderingContext2D,
+  renderCtx: CanvasRenderingContext2D,
   fromX: number,
   fromY: number,
   toX: number,
   toY: number,
   nowMs: number,
   options?: { compact?: boolean }
-): void => {
-  const compact = options?.compact ?? false;
-  const dx = toX - fromX;
-  const dy = toY - fromY;
-  const distance = Math.hypot(dx, dy);
-  if (distance < 0.01) return;
-  const nx = dx / distance;
-  const ny = dy / distance;
-  const pulseOffset = ((nowMs / 1100) % 1 + 1) % 1;
-  const laneAngle = Math.atan2(dy, dx);
-
-  const drawAnchorGlyph = (x: number, y: number, angle: number): void => {
-    if (compact || !aetherBridgeAnchorImage.complete || !aetherBridgeAnchorImage.naturalWidth) {
-      const ringColor = compact ? "rgba(192, 245, 255, 0.72)" : "rgba(192, 245, 255, 0.82)";
-      const anchorFill = compact ? "rgba(20, 82, 102, 0.78)" : "rgba(18, 74, 96, 0.72)";
-      const ringRadius = compact ? 2.4 : 8;
-      const coreRadius = compact ? 1.25 : 3.8;
-      ctx.strokeStyle = ringColor;
-      ctx.lineWidth = compact ? 1 : 2;
-      ctx.beginPath();
-      ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = anchorFill;
-      ctx.beginPath();
-      ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
-      ctx.fill();
-      return;
-    }
-    const glyphSize = compact ? 8 : 28;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.globalAlpha = compact ? 0.9 : 0.98;
-    ctx.drawImage(aetherBridgeAnchorImage, -glyphSize * 0.5, -glyphSize * 0.5, glyphSize, glyphSize);
-    ctx.restore();
-  };
-
-  ctx.save();
-  ctx.lineCap = "round";
-
-  ctx.strokeStyle = compact ? "rgba(81, 210, 255, 0.22)" : "rgba(81, 210, 255, 0.18)";
-  ctx.lineWidth = compact ? 4 : 10;
-  ctx.beginPath();
-  ctx.moveTo(fromX, fromY);
-  ctx.lineTo(toX, toY);
-  ctx.stroke();
-
-  ctx.strokeStyle = compact ? "rgba(164, 240, 255, 0.55)" : "rgba(164, 240, 255, 0.48)";
-  ctx.lineWidth = compact ? 1.6 : 3.5;
-  ctx.setLineDash(compact ? [4, 3] : [12, 8]);
-  ctx.lineDashOffset = -((nowMs / (compact ? 160 : 120)) % (compact ? 7 : 20));
-  ctx.beginPath();
-  ctx.moveTo(fromX, fromY);
-  ctx.lineTo(toX, toY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.lineDashOffset = 0;
-
-  drawAnchorGlyph(fromX, fromY, laneAngle);
-  drawAnchorGlyph(toX, toY, laneAngle + Math.PI);
-
-  const pulseCount = compact ? 2 : 3;
-  for (let i = 0; i < pulseCount; i += 1) {
-    const t = (pulseOffset + i / pulseCount) % 1;
-    const px = fromX + dx * t;
-    const py = fromY + dy * t;
-    ctx.fillStyle = compact ? "rgba(234, 252, 255, 0.9)" : "rgba(234, 252, 255, 0.96)";
-    ctx.beginPath();
-    ctx.arc(px, py, compact ? 1.5 : 3.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = compact ? "rgba(112, 219, 255, 0.38)" : "rgba(112, 219, 255, 0.22)";
-    ctx.beginPath();
-    ctx.arc(px, py, compact ? 2.6 : 6.8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  const arcCount = compact ? 1 : 2;
-  for (let i = 0; i < arcCount; i += 1) {
-    const t = (pulseOffset * 0.85 + i / arcCount) % 1;
-    const px = fromX + dx * t;
-    const py = fromY + dy * t;
-    const normalScale = compact ? 2.2 : 6;
-    const arcLength = compact ? 6 : 18;
-    const ax = px - nx * arcLength * 0.5;
-    const ay = py - ny * arcLength * 0.5;
-    const bx = px + nx * arcLength * 0.5;
-    const by = py + ny * arcLength * 0.5;
-    ctx.strokeStyle = compact ? "rgba(156, 232, 255, 0.3)" : "rgba(156, 232, 255, 0.36)";
-    ctx.lineWidth = compact ? 0.9 : 1.6;
-    ctx.beginPath();
-    ctx.moveTo(ax, ay);
-    ctx.quadraticCurveTo(px + -ny * normalScale, py + nx * normalScale, bx, by);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(ax, ay);
-    ctx.quadraticCurveTo(px + ny * normalScale, py + -nx * normalScale, bx, by);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-};
-const blendHex = (base: string, target: string, amount: number): string => {
-  if (!base.startsWith("#") || !target.startsWith("#")) return base;
-  const a = hexToRgb(base);
-  const b = hexToRgb(target);
-  return rgbToHex(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount, a.b + (b.b - a.b) * amount);
-};
-const tintTargetForStyle = (style: EmpireVisualStyle | undefined): string | undefined => {
-  if (!style) return undefined;
-  if (style.secondaryTint === "IRON") return "#3d4755";
-  if (style.secondaryTint === "SUPPLY") return "#6b4f2e";
-  if (style.secondaryTint === "FOOD") return "#718b42";
-  if (style.secondaryTint === "CRYSTAL") return "#4677b8";
-  return undefined;
-};
-const effectiveOverlayColor = (ownerId: string): string => {
-  const base = effectiveColor(ownerId);
-  const tint = tintTargetForStyle(visualStyleForOwner(ownerId));
-  return tint ? blendHex(base, tint, 0.24) : base;
-};
-const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): string => {
-  if (ownerId === "barbarian") return "rgba(95, 108, 122, 0.8)";
-  const style = visualStyleForOwner(ownerId);
-  if (!style) return stateName === "FRONTIER" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.55)";
-  if (style.borderStyle === "HEAVY") return "rgba(58, 66, 82, 0.9)";
-  if (style.borderStyle === "DASHED") return "rgba(198, 167, 112, 0.82)";
-  if (style.borderStyle === "SOFT") return "rgba(176, 221, 133, 0.88)";
-  if (style.borderStyle === "GLOW") return "rgba(126, 208, 255, 0.92)";
-  return stateName === "FRONTIER" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.55)";
-};
-const shouldDrawOwnershipBorder = (tile: Tile): boolean => {
-  if (!tile.ownerId || tile.ownershipState === "FRONTIER") return false;
-  if (tile.ownerId === "barbarian") return true;
-  const style = visualStyleForOwner(tile.ownerId);
-  return Boolean(style && style.borderStyle !== "SHARP");
-};
-const borderLineWidthForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): number => {
-  const style = visualStyleForOwner(ownerId);
-  if (!style) return stateName === "SETTLED" ? 2 : 1;
-  if (style.borderStyle === "HEAVY") return 3;
-  if (style.borderStyle === "GLOW") return 2.5;
-  if (style.borderStyle === "SOFT") return 2.25;
-  return stateName === "SETTLED" ? 2 : 1.5;
-};
-const sharesBorderTerritory = (tile: Tile, neighbor?: Tile): boolean => {
-  if (!neighbor) return false;
-  if (neighbor.fogged) return false;
-  if (neighbor.ownerId !== tile.ownerId) return false;
-  return neighbor.ownershipState === tile.ownershipState;
-};
-const drawExposedTileBorder = (tile: Tile, px: number, py: number, size: number): void => {
-  const top = state.tiles.get(key(wrapX(tile.x), wrapY(tile.y - 1)));
-  const right = state.tiles.get(key(wrapX(tile.x + 1), wrapY(tile.y)));
-  const bottom = state.tiles.get(key(wrapX(tile.x), wrapY(tile.y + 1)));
-  const left = state.tiles.get(key(wrapX(tile.x - 1), wrapY(tile.y)));
-  const x1 = px + 1;
-  const y1 = py + 1;
-  const x2 = px + size - 2;
-  const y2 = py + size - 2;
-  ctx.beginPath();
-  if (!sharesBorderTerritory(tile, top)) {
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y1);
-  }
-  if (!sharesBorderTerritory(tile, right)) {
-    ctx.moveTo(x2, y1);
-    ctx.lineTo(x2, y2);
-  }
-  if (!sharesBorderTerritory(tile, bottom)) {
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x1, y2);
-  }
-  if (!sharesBorderTerritory(tile, left)) {
-    ctx.moveTo(x1, y2);
-    ctx.lineTo(x1, y1);
-  }
-  ctx.stroke();
-};
-const structureAccentColor = (ownerId: string, fallback: string): string => {
-  const style = visualStyleForOwner(ownerId);
-  if (!style) return fallback;
-  if (style.structureAccent === "IRON") return "rgba(160, 176, 196, 0.96)";
-  if (style.structureAccent === "SUPPLY") return "rgba(232, 176, 94, 0.95)";
-  if (style.structureAccent === "FOOD") return "rgba(176, 233, 122, 0.95)";
-  if (style.structureAccent === "CRYSTAL") return "rgba(131, 221, 255, 0.95)";
-  return fallback;
-};
+): void => drawAetherBridgeLaneOnCanvas(renderCtx, fromX, fromY, toX, toY, nowMs, options);
+const drawTerrainTile = (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number): void =>
+  drawTerrainTileOnCanvas(ctx, { wx, wy, terrain, px, py, size, wrapX, wrapY, cachedTerrainColorAt });
+const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
+  drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size);
+const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void =>
+  drawBarbarianSkullOverlayOnCanvas(ctx, px, py, size);
+const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void =>
+  drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt);
+const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
+  drawTownOverlayOnCanvas(ctx, tile, px, py, size);
+const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void =>
+  drawCenteredOverlayOnCanvas(ctx, overlay, px, py, size, scale);
+const drawCenteredOverlayWithAlpha = (
+  overlay: HTMLImageElement | undefined,
+  px: number,
+  py: number,
+  size: number,
+  scale = 1.08,
+  alpha = 1
+): void => drawCenteredOverlayWithAlphaOnCanvas(ctx, overlay, px, py, size, scale, alpha);
+const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void =>
+  drawResourceCornerMarkerOnCanvas(ctx, tile, px, py, size, resourceColor);
+const drawExposedTileBorder = (tile: Tile, px: number, py: number, size: number): void =>
+  drawExposedTileBorderOnCanvas(ctx, tile, px, py, size, { tiles: state.tiles, keyFor: key, wrapX, wrapY });
+const drawShardFallback = (_tile: Tile, px: number, py: number, size: number): void => drawShardFallbackOnCanvas(ctx, px, py, size);
+const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: number): void =>
+  drawOwnershipSignatureOnCanvas(ctx, ownerId, px, py, size, visualStyleForOwner);
 const shortOwnerHistoryLabel = (ownerId?: string | null): string => {
   if (!ownerId) return "Unknown";
   if (ownerId === state.me) return "you";
@@ -669,370 +556,6 @@ const economicStructureIcon = (type: Tile["economicStructure"] extends infer T ?
   if (type === "GRANARY") return "◫";
   return "▣";
 };
-const economicStructureName = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
-  if (type === "FARMSTEAD") return "Farmstead";
-  if (type === "CAMP") return "Camp";
-  if (type === "MINE") return "Mine";
-  if (type === "GRANARY") return "Granary";
-  if (type === "BANK") return "Bank";
-  if (type === "AIRPORT") return "Airport";
-  if (type === "WOODEN_FORT") return "Wooden Fort";
-  if (type === "LIGHT_OUTPOST") return "Light Outpost";
-  if (type === "CARAVANARY") return "Caravanary";
-  if (type === "FUR_SYNTHESIZER") return "Fur Synthesizer";
-  if (type === "ADVANCED_FUR_SYNTHESIZER") return "Advanced Fur Synthesizer";
-  if (type === "IRONWORKS") return "Ironworks";
-  if (type === "ADVANCED_IRONWORKS") return "Advanced Ironworks";
-  if (type === "CRYSTAL_SYNTHESIZER") return "Crystal Synthesizer";
-  if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Crystal Synthesizer";
-  if (type === "FUEL_PLANT") return "Fuel Plant";
-  if (type === "FOUNDRY") return "Foundry";
-  if (type === "GARRISON_HALL") return "Garrison Hall";
-  if (type === "CUSTOMS_HOUSE") return "Customs House";
-  if (type === "GOVERNORS_OFFICE") return "Governor's Office";
-  if (type === "RADAR_SYSTEM") return "Radar System";
-  return "Market";
-};
-
-const economicStructureBenefitText = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
-  if (type === "MARKET") return "Nearby town: +50% fed gold output and +50% gold storage cap.";
-  if (type === "GRANARY") return "Nearby town: +20% population growth and +20% gold storage cap.";
-  if (type === "BANK") return "Nearby town: +50% city income and +1 flat income.";
-  if (type === "AIRPORT") return "Launches oil-fueled bombardment against enemy territory.";
-  if (type === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
-  if (type === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
-  if (type === "CARAVANARY") return "Boosts the nearby town's connected-town income bonus by 25%.";
-  if (type === "FUR_SYNTHESIZER") return "Converts gold into steady supply output.";
-  if (type === "ADVANCED_FUR_SYNTHESIZER") return "Converts gold into 20% stronger steady supply output.";
-  if (type === "IRONWORKS") return "Converts gold into steady iron output.";
-  if (type === "ADVANCED_IRONWORKS") return "Converts gold into 20% stronger steady iron output.";
-  if (type === "CRYSTAL_SYNTHESIZER") return "Converts gold into steady crystal output.";
-  if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Converts gold into 20% stronger steady crystal output.";
-  if (type === "FUEL_PLANT") return "Converts gold into steady oil output.";
-  if (type === "FOUNDRY") return "Doubles active mine output in a 10-tile radius.";
-  if (type === "GARRISON_HALL") return "Boosts settled-tile defense by 20% in a 10-tile radius.";
-  if (type === "CUSTOMS_HOUSE") return "Boosts income from a nearby dock by 50%.";
-  if (type === "GOVERNORS_OFFICE") return "Reduces food and settled-tile upkeep in a 10-tile radius.";
-  if (type === "RADAR_SYSTEM") return "Blocks enemy airport bombardment in a 30-tile radius.";
-  if (type === "FARMSTEAD") return "Improves food output on this tile.";
-  if (type === "CAMP") return "Improves supply output on this tile.";
-  if (type === "MINE") return "Improves iron or crystal output on this tile.";
-  return "Strengthens this tile's economy.";
-};
-
-const economicStructureBuildMs = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): number => {
-  if (type === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
-  if (type === "LIGHT_OUTPOST") return LIGHT_OUTPOST_BUILD_MS;
-  return ECONOMIC_STRUCTURE_BUILD_MS;
-};
-
-type StructureInfoKey =
-  | "FORT"
-  | "OBSERVATORY"
-  | "FARMSTEAD"
-  | "CAMP"
-  | "MINE"
-  | "MARKET"
-  | "GRANARY"
-  | "BANK"
-  | "CARAVANARY"
-  | "WOODEN_FORT"
-  | "LIGHT_OUTPOST"
-  | "FUR_SYNTHESIZER"
-  | "ADVANCED_FUR_SYNTHESIZER"
-  | "IRONWORKS"
-  | "ADVANCED_IRONWORKS"
-  | "CRYSTAL_SYNTHESIZER"
-  | "ADVANCED_CRYSTAL_SYNTHESIZER"
-  | "FUEL_PLANT"
-  | "FOUNDRY"
-  | "CUSTOMS_HOUSE"
-  | "GOVERNORS_OFFICE"
-  | "GARRISON_HALL"
-  | "AIRPORT"
-  | "RADAR_SYSTEM"
-  | "SIEGE_OUTPOST";
-
-type StructureInfoView = {
-  title: string;
-  detail: string;
-  glyph: string;
-  placement: string;
-  image?: string;
-  costBits: string[];
-  buildTimeLabel: string;
-};
-
-const structureInfoForKey = (
-  type: StructureInfoKey
-): StructureInfoView => {
-  const structure = (base: Omit<StructureInfoView, "image">, image?: string): StructureInfoView =>
-    image ? { ...base, image } : base;
-  const buildTimeLabelFor = (key: StructureInfoKey): string => {
-    if (key === "FORT") return formatCooldownShort(FORT_BUILD_MS);
-    if (key === "WOODEN_FORT") return formatCooldownShort(WOODEN_FORT_BUILD_MS);
-    if (key === "OBSERVATORY") return formatCooldownShort(OBSERVATORY_BUILD_MS);
-    if (key === "LIGHT_OUTPOST") return formatCooldownShort(LIGHT_OUTPOST_BUILD_MS);
-    if (key === "SIEGE_OUTPOST") return formatCooldownShort(SIEGE_OUTPOST_BUILD_MS);
-    return formatCooldownShort(ECONOMIC_STRUCTURE_BUILD_MS);
-  };
-  const imageFor = (key: StructureInfoKey): string | undefined => {
-    if (key === "MARKET") return "/overlays/market-overlay.svg";
-    if (key === "GRANARY") return "/overlays/granary-overlay.svg";
-    if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
-    if (key === "BANK") return "/overlays/bank-overlay.svg";
-    if (key === "CARAVANARY") return "/overlays/caravanary-overlay.svg";
-    if (key === "FUR_SYNTHESIZER") return "/overlays/fur-synthesizer-overlay.svg";
-    if (key === "ADVANCED_FUR_SYNTHESIZER") return "/overlays/advanced-fur-synthesizer-overlay.svg";
-    if (key === "IRONWORKS") return "/overlays/ironworks-overlay.svg";
-    if (key === "ADVANCED_IRONWORKS") return "/overlays/advanced-ironworks-overlay.svg";
-    if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
-    if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
-    if (key === "FUEL_PLANT") return "/overlays/fuel-plant-overlay.svg";
-    if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
-    if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
-    if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
-    if (key === "GARRISON_HALL") return "/overlays/garrison-hall-overlay.svg";
-    if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
-    if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
-    return undefined;
-  };
-  const costBitsFor = (key: StructureInfoKey): string[] => {
-    const def = structureCostDefinition(key);
-    const bits = [`${def.baseGoldCost.toLocaleString()} gold`];
-    if (def.resourceCost) bits.push(`${def.resourceCost.amount} ${prettyToken(def.resourceCost.resource).toLowerCase()}`);
-    else if (def.resourceOptions?.length) bits.push(`30 iron or crystal`);
-    return bits;
-  };
-  if (type === "FORT")
-    return structure({
-      title: "Fort",
-      detail: "Forts add fortified defense on border or dock tiles. An active fort also stops that origin tile from being counter-taken when your attack fails.",
-      glyph: "🛡",
-      placement: "Build on a settled border tile or dock you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    });
-  if (type === "OBSERVATORY")
-    return structure({
-      title: "Observatory",
-      detail: "Observatories add local vision, protect against hostile crystal actions, and let you cast crystal abilities inside their radius.",
-      glyph: "◉",
-      placement: "Build on empty settled land only. Not on towns, docks, or resource tiles.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "WOODEN_FORT")
-    return structure({
-      title: "Wooden Fort",
-      detail: "Wooden forts provide a lighter defensive anchor on border and dock tiles without consuming iron upkeep.",
-      glyph: "🪵",
-      placement: "Build on an owned border tile or dock with no town, resource, or other structure.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    });
-  if (type === "FARMSTEAD")
-    return structure({
-      title: "Farmstead",
-      detail: "Farmsteads increase food yield on farm and fish tiles by 50%.",
-      glyph: "🌾",
-      placement: "Build on a settled farm or fish resource tile you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    });
-  if (type === "CAMP")
-    return structure({
-      title: "Camp",
-      detail: "Camps increase supply yield on wood and fur tiles by 50%.",
-      glyph: "🦊",
-      placement: "Build on a settled wood or fur resource tile you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    });
-  if (type === "MINE")
-    return structure({
-      title: "Mine",
-      detail: "Mines increase iron or crystal yield on mineral tiles by 50%.",
-      glyph: "⛏",
-      placement: "Build on a settled iron or crystal resource tile you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    });
-  if (type === "MARKET")
-    return structure({
-      title: "Market",
-      detail: "Markets are built on a town support tile. They increase that fed town's gold output by 50% and its gold storage cap by 50%.",
-      glyph: "◌",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "GRANARY")
-    return structure({
-      title: "Granary",
-      detail: "Granaries are built on a town support tile. They increase that town's population growth by 20% and raise its gold storage cap by 20%.",
-      glyph: "🍞",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "BANK")
-    return structure({
-      title: "Bank",
-      detail: "Banks are built on a town support tile. They increase city income by 50% and add +1 flat income.",
-      glyph: "🏦",
-      placement: "Build on an open settled support tile for a city or larger town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "CARAVANARY")
-    return structure({
-      title: "Caravanary",
-      detail: "Caravanaries are built on a town support tile. They increase that town's connected-town income bonus by 25%.",
-      glyph: "🐪",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "FUR_SYNTHESIZER")
-    return structure({
-      title: "Fur Synthesizer",
-      detail: "Fur Synthesizers convert gold upkeep into steady supply output on a support tile.",
-      glyph: "📦",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "ADVANCED_FUR_SYNTHESIZER")
-    return structure({
-      title: "Advanced Fur Synthesizer",
-      detail: "Advanced Fur Synthesizers upgrade an existing Fur Synthesizer into a 20% stronger supply converter.",
-      glyph: "🧵",
-      placement: "Upgrade an existing Fur Synthesizer on its current support tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "LIGHT_OUTPOST")
-    return structure({
-      title: "Light Outpost",
-      detail: "Light outposts are cheap offensive staging points that come online quickly but hit less hard than siege outposts.",
-      glyph: "⚑",
-      placement: "Build on an owned border tile with no town, resource, dock, or other structure.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    });
-  if (type === "IRONWORKS")
-    return structure({
-      title: "Ironworks",
-      detail: "Ironworks convert gold upkeep into steady iron output on a support tile.",
-      glyph: "⚙",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "ADVANCED_IRONWORKS")
-    return structure({
-      title: "Advanced Ironworks",
-      detail: "Advanced Ironworks upgrade an existing Ironworks into a 20% stronger iron converter.",
-      glyph: "⚙",
-      placement: "Upgrade an existing Ironworks on its current support tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "CRYSTAL_SYNTHESIZER")
-    return structure({
-      title: "Crystal Synthesizer",
-      detail: "Crystal Synthesizers convert gold upkeep into steady crystal output on a support tile.",
-      glyph: "💎",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "ADVANCED_CRYSTAL_SYNTHESIZER")
-    return structure({
-      title: "Advanced Crystal Synthesizer",
-      detail: "Advanced Crystal Synthesizers upgrade an existing Crystal Synthesizer into a 20% stronger crystal converter.",
-      glyph: "💠",
-      placement: "Upgrade an existing Crystal Synthesizer on its current support tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "FUEL_PLANT")
-    return structure({
-      title: "Fuel Plant",
-      detail: "Fuel plants convert gold upkeep into steady oil output on a support tile.",
-      glyph: "🛢",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "FOUNDRY")
-    return structure({
-      title: "Foundry",
-      detail: "Foundries double active mine output within 10 tiles.",
-      glyph: "🏭",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "CUSTOMS_HOUSE")
-    return structure({
-      title: "Customs House",
-      detail: "Customs houses are built beside a dock and increase that dock's income by 50%.",
-      glyph: "⚓",
-      placement: "Build on a settled dock support tile you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "GOVERNORS_OFFICE")
-    return structure({
-      title: "Governor's Office",
-      detail: "Governor's offices reduce local town food upkeep and settled-tile upkeep within 10 tiles.",
-      glyph: "🏛",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "GARRISON_HALL")
-    return structure({
-      title: "Garrison Hall",
-      detail: "Garrison halls increase settled-tile defense by 20% within 10 tiles.",
-      glyph: "🪖",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "AIRPORT")
-    return structure({
-      title: "Airport",
-      detail: "Airports launch oil-fueled bombardments against enemy territory within 30 tiles.",
-      glyph: "✈",
-      placement: "Build on an open settled support tile for a large town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  if (type === "RADAR_SYSTEM")
-    return structure({
-      title: "Radar System",
-      detail: "Radar systems block enemy airport bombardment within 30 tiles and reveal the origin.",
-      glyph: "📡",
-      placement: "Build on an open settled support tile for a large town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  return structure({
-    title: "Siege Outpost",
-    detail: "Siege outposts are offensive staging structures for border tiles. They improve attacks launched from their tile.",
-    glyph: "⚔",
-    placement: "Build on a settled border tile you own.",
-    costBits: costBitsFor(type),
-    buildTimeLabel: buildTimeLabelFor(type)
-  });
-};
-
-const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
-  `<button class="inline-info-link" type="button" data-structure-info="${type}">${label ?? structureInfoForKey(type).title}</button>`;
-
 const ownedSpecialSiteCount = (): number => {
   let count = 0;
   for (const tile of state.tiles.values()) {
@@ -1072,57 +595,6 @@ const firstCaptureGuidanceTarget = (): { tile: Tile; label: string } | undefined
 const displayTownGoldPerMinute = (tile: Tile): number => {
   if (!tile.town) return 0;
   return tile.town.goldPerMinute;
-};
-
-const tileProductionHtml = (tile: Tile): string => {
-  const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
-    .filter(([, v]) => Number(v) > 0)
-    .map(([r, v]) => `${resourceIconForKey(r)} ${Number(v).toFixed(1)}/day`);
-  const gpm = tile.yieldRate?.goldPerMinute ?? 0;
-  const parts: string[] = [];
-  if (tile.town) {
-    parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
-  } else if (gpm > 0) {
-    parts.push(`${resourceIconForKey("GOLD")} ${gpm.toFixed(2)}/m`);
-  }
-  parts.push(...prodStrategic);
-  return parts.join(" · ");
-};
-
-const tileUpkeepHtml = (tile: Tile): string => {
-  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") {
-    return `${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`;
-  }
-  return "";
-};
-
-const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | undefined => {
-  if (tile.resource === "FARM" || tile.resource === "FISH") return "FOOD";
-  if (tile.resource === "IRON") return "IRON";
-  if (tile.resource === "GEMS") return "CRYSTAL";
-  if (tile.resource === "WOOD" || tile.resource === "FUR") return "SUPPLY";
-  return undefined;
-};
-
-const storedYieldSummary = (tile: Tile): string => {
-  const parts: string[] = [];
-  const gold = tile.yield?.gold ?? 0;
-  const goldCap = tile.yieldCap?.gold ?? 0;
-  const canStoreGold = Boolean(tile.town || tile.dockId || (tile.yieldRate?.goldPerMinute ?? 0) > 0.01 || gold > 0.01);
-  if (canStoreGold && (gold > 0.01 || goldCap > 0)) {
-    parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${goldCap.toFixed(0)}`);
-  }
-  const strategicCap = tile.yieldCap?.strategicEach ?? 0;
-  const strategicEntries = new Map<string, number>(
-    Object.entries(tile.yield?.strategic ?? {}).map(([resource, value]) => [resource, Number(value)])
-  );
-  const primaryStrategic = strategicResourceKeyForTile(tile);
-  if (primaryStrategic && strategicCap > 0 && !strategicEntries.has(primaryStrategic)) strategicEntries.set(primaryStrategic, 0);
-  for (const [resource, value] of strategicEntries) {
-    if (Number(value) <= 0.01 && strategicCap <= 0) continue;
-    parts.push(`${resourceIconForKey(resource)} ${Number(value).toFixed(2)} / ${strategicCap.toFixed(1)}`);
-  }
-  return parts.join(" · ");
 };
 
 const inspectionHtmlForTile = (tile: Tile): string => {
@@ -1388,677 +860,7 @@ const cachedTerrainColorAt = (x: number, y: number, terrain: Tile["terrain"]): s
   return c;
 };
 
-type TerrainTextureId =
-  | "SEA_DEEP"
-  | "SEA_COAST"
-  | "SAND"
-  | "GRASS_LIGHT"
-  | "GRASS_DARK"
-  | "MOUNTAIN";
 
-const TERRAIN_TEXTURE_SIZE = 64;
-const createTownOverlaySet = (
-  sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
-): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
-  const set = {
-    SETTLEMENT: new Image(),
-    TOWN: new Image(),
-    CITY: new Image(),
-    GREAT_CITY: new Image(),
-    METROPOLIS: new Image()
-  };
-  set.SETTLEMENT.src = sources.SETTLEMENT;
-  set.TOWN.src = sources.TOWN;
-  set.CITY.src = sources.CITY;
-  set.GREAT_CITY.src = sources.GREAT_CITY;
-  set.METROPOLIS.src = sources.METROPOLIS;
-  return set;
-};
-
-const overlayAssetVersion = "20260402b";
-const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
-const loadOverlayImage = (filename: string): HTMLImageElement => {
-  const image = new Image();
-  image.decoding = "async";
-  image.src = overlaySrc(filename);
-  return image;
-};
-aetherBridgeAnchorImage.decoding = "async";
-aetherBridgeAnchorImage.src = overlaySrc("aether-pylon-overlay.svg");
-const createOverlayVariantSet = (filenames: readonly string[]): HTMLImageElement[] => filenames.map(loadOverlayImage);
-const overlayVariantIndexAt = (x: number, y: number, count: number): number => {
-  const hash = (((x + 1) * 374761393) ^ ((y + 1) * 668265263)) >>> 0;
-  return hash % count;
-};
-
-const defaultTownOverlayByTier = createTownOverlaySet({
-  SETTLEMENT: overlaySrc("settlement-overlay-sand.svg"),
-  TOWN: overlaySrc("town-overlay-sand.svg"),
-  CITY: overlaySrc("city-overlay-sand.svg"),
-  GREAT_CITY: overlaySrc("great-city-overlay-sand.svg"),
-  METROPOLIS: overlaySrc("metropolis-overlay-sand.svg")
-});
-
-const grassTownOverlayByTier = createTownOverlaySet({
-  SETTLEMENT: overlaySrc("settlement-overlay-grass.svg"),
-  TOWN: overlaySrc("town-overlay-grass.svg"),
-  CITY: overlaySrc("city-overlay-grass.svg"),
-  GREAT_CITY: overlaySrc("great-city-overlay-grass.svg"),
-  METROPOLIS: overlaySrc("metropolis-overlay-grass.svg")
-});
-const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
-const structureOverlayImages = {
-  OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
-  MARKET: loadOverlayImage("market-overlay.svg"),
-  GRANARY: loadOverlayImage("granary-overlay.svg"),
-  FUR_SYNTHESIZER: loadOverlayImage("fur-synthesizer-overlay.svg"),
-  ADVANCED_FUR_SYNTHESIZER: loadOverlayImage("advanced-fur-synthesizer-overlay.svg"),
-  ADVANCED_IRONWORKS: loadOverlayImage("advanced-ironworks-overlay.svg"),
-  ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg")
-} as const;
-const builtResourceOverlayVariants = {
-  FARM_FARMSTEAD: createOverlayVariantSet(["farm-farmstead-overlay-1.svg", "farm-farmstead-overlay-2.svg", "farm-farmstead-overlay-3.svg"]),
-  FISH_FARMSTEAD: createOverlayVariantSet(["fish-farmstead-overlay-1.svg", "fish-farmstead-overlay-2.svg", "fish-farmstead-overlay-3.svg"]),
-  FUR_CAMP: createOverlayVariantSet(["fur-camp-overlay-1.svg", "fur-camp-overlay-2.svg", "fur-camp-overlay-3.svg"]),
-  IRON_MINE: createOverlayVariantSet(["iron-mine-overlay-1.svg", "iron-mine-overlay-2.svg", "iron-mine-overlay-3.svg"]),
-  GEMS_MINE: createOverlayVariantSet(["gems-mine-overlay-1.svg", "gems-mine-overlay-2.svg", "gems-mine-overlay-3.svg", "gems-mine-overlay-4.svg"])
-} as const;
-const resourceOverlayVariants = {
-  FARM: createOverlayVariantSet(["farm-overlay-1.svg", "farm-overlay-2.svg", "farm-overlay-3.svg"]),
-  FISH: createOverlayVariantSet(["fish-overlay-1.svg", "fish-overlay-2.svg", "fish-overlay-3.svg"]),
-  FUR: createOverlayVariantSet(["fur-overlay-1.svg", "fur-overlay-2.svg", "fur-overlay-3.svg"]),
-  IRON: createOverlayVariantSet(["iron-overlay-1.svg", "iron-overlay-2.svg", "iron-overlay-3.svg"]),
-  GEMS: createOverlayVariantSet(["gems-overlay-1.svg", "gems-overlay-2.svg", "gems-overlay-3.svg", "gems-overlay-4.svg"])
-} as const;
-const shardOverlayVariants = {
-  CACHE: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"]),
-  FALL: createOverlayVariantSet(["shardfall-overlay-1.svg", "shardfall-overlay-2.svg"])
-} as const;
-const textureCanvas = (): HTMLCanvasElement => {
-  const c = document.createElement("canvas");
-  c.width = TERRAIN_TEXTURE_SIZE;
-  c.height = TERRAIN_TEXTURE_SIZE;
-  return c;
-};
-const clamp255 = (v: number): number => Math.max(0, Math.min(255, Math.round(v)));
-const tint = (r: number, g: number, b: number, d: number): [number, number, number] => [
-  clamp255(r + d),
-  clamp255(g + d),
-  clamp255(b + d)
-];
-const terrainTextures = new Map<TerrainTextureId, HTMLCanvasElement>();
-const makeTerrainTexture = (
-  base: [number, number, number],
-  opts: { grain: number; waveA?: number; waveB?: number; crack?: number; grass?: boolean; rock?: boolean }
-): HTMLCanvasElement => {
-  const c = textureCanvas();
-  const tctx = c.getContext("2d");
-  if (!tctx) return c;
-  const img = tctx.createImageData(TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE);
-  const data = img.data;
-  const [br, bg, bb] = base;
-  for (let y = 0; y < TERRAIN_TEXTURE_SIZE; y += 1) {
-    for (let x = 0; x < TERRAIN_TEXTURE_SIZE; x += 1) {
-      const i = (y * TERRAIN_TEXTURE_SIZE + x) * 4;
-      const wave =
-        Math.sin((x + y * 0.8) * (opts.waveA ?? 0)) * 0.5 +
-        Math.cos((y - x * 0.6) * (opts.waveB ?? 0)) * 0.5;
-      const grain =
-        Math.sin((x * 12.9898 + y * 78.233) * 0.017) * 0.5 +
-        Math.sin((x * 93.17 - y * 51.11) * 0.021) * 0.5;
-      let d = grain * opts.grain + wave * (opts.waveA ? 10 : 0);
-      if (opts.crack) {
-        const crack = Math.sin((x * 0.9 + y * 0.2) * 0.25) + Math.cos((y * 1.1 - x * 0.3) * 0.21);
-        d -= Math.max(0, crack) * opts.crack;
-      }
-      if (opts.grass) {
-        const blade = Math.sin((x * 0.7 + y * 1.3) * 0.33) * 8 + Math.cos((x * 1.1 - y * 0.8) * 0.27) * 6;
-        d += blade * 0.25;
-      }
-      if (opts.rock) {
-        const pebble = Math.sin((x * 0.42 + y * 0.58) * 0.9) * Math.cos((x * 0.66 - y * 0.31) * 0.8);
-        d += pebble * 14;
-      }
-      const [r, g, b] = tint(br, bg, bb, d);
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-      data[i + 3] = 255;
-    }
-  }
-  tctx.putImageData(img, 0, 0);
-  return c;
-};
-const initTerrainTextures = (): void => {
-  terrainTextures.set("SEA_DEEP", makeTerrainTexture([71, 128, 158], { grain: 9, waveA: 0.34, waveB: 0.28 }));
-  terrainTextures.set("SEA_COAST", makeTerrainTexture([103, 154, 182], { grain: 8, waveA: 0.31, waveB: 0.26 }));
-  terrainTextures.set("SAND", makeTerrainTexture([214, 184, 135], { grain: 11, waveA: 0.18, waveB: 0.14 }));
-  terrainTextures.set("GRASS_LIGHT", makeTerrainTexture([119, 142, 66], { grain: 10, grass: true }));
-  terrainTextures.set("GRASS_DARK", makeTerrainTexture([94, 124, 48], { grain: 10, grass: true }));
-  const mountain = makeTerrainTexture([126, 126, 129], { grain: 9, crack: 8, rock: true });
-  const mctx = mountain.getContext("2d");
-  if (mctx) {
-    mctx.fillStyle = "rgba(78, 79, 82, 0.82)";
-    mctx.beginPath();
-    mctx.moveTo(8, 50);
-    mctx.lineTo(28, 20);
-    mctx.lineTo(46, 50);
-    mctx.closePath();
-    mctx.fill();
-    mctx.fillStyle = "rgba(97, 99, 103, 0.85)";
-    mctx.beginPath();
-    mctx.moveTo(20, 50);
-    mctx.lineTo(41, 26);
-    mctx.lineTo(56, 50);
-    mctx.closePath();
-    mctx.fill();
-    mctx.fillStyle = "rgba(225, 228, 232, 0.75)";
-    mctx.beginPath();
-    mctx.moveTo(27, 23);
-    mctx.lineTo(32, 31);
-    mctx.lineTo(37, 23);
-    mctx.closePath();
-    mctx.fill();
-  }
-  terrainTextures.set("MOUNTAIN", mountain);
-};
-const terrainTextureIdAt = (x: number, y: number, terrain: Tile["terrain"]): TerrainTextureId => {
-  if (terrain === "SEA") return isCoastalSea(x, y) ? "SEA_COAST" : "SEA_DEEP";
-  if (terrain === "MOUNTAIN") return "MOUNTAIN";
-  const biome = landBiomeAt(x, y);
-  if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
-  return grassShadeAt(x, y) === "DARK" ? "GRASS_DARK" : "GRASS_LIGHT";
-};
-const drawTerrainTile = (wx: number, wy: number, terrain: Tile["terrain"], px: number, py: number, size: number): void => {
-  if (size < 8) {
-    ctx.fillStyle = cachedTerrainColorAt(wx, wy, terrain);
-    ctx.fillRect(px, py, size, size);
-    return;
-  }
-  const id = terrainTextureIdAt(wx, wy, terrain);
-  const tex = terrainTextures.get(id);
-  if (!tex) {
-    ctx.fillStyle = cachedTerrainColorAt(wx, wy, terrain);
-    ctx.fillRect(px, py, size, size);
-    return;
-  }
-  ctx.drawImage(tex, 0, 0, tex.width, tex.height, px, py, size, size);
-};
-
-const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void => {
-  if (size < 12 || !isForestTile(wx, wy)) return;
-  const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
-  const treeCount = size >= 44 ? 4 : size >= 24 ? 3 : 2;
-  const anchors: Array<[number, number]> =
-    treeCount === 4
-      ? [
-          [0.22, 0.6],
-          [0.42, 0.44],
-          [0.62, 0.58],
-          [0.8, 0.42]
-        ]
-      : treeCount === 3
-        ? [
-            [0.24, 0.62],
-            [0.5, 0.42],
-            [0.76, 0.58]
-          ]
-        : [
-            [0.34, 0.6],
-            [0.68, 0.5]
-          ];
-
-  ctx.save();
-  for (let i = 0; i < anchors.length; i += 1) {
-    const anchor = anchors[i];
-    if (!anchor) continue;
-    const [ax, ay] = anchor;
-    const trunkW = Math.max(1, size * 0.045);
-    const canopyW = size * (0.2 + i * 0.015);
-    const canopyH = canopyW * 0.92;
-    const tx = px + size * ax;
-    const ty = py + size * ay;
-    ctx.fillStyle = `rgba(28, 54, 27, ${0.4 + pulse * 0.16})`;
-    ctx.fillRect(tx - trunkW / 2, ty - size * 0.02, trunkW, size * 0.12);
-    ctx.fillStyle = `rgba(14, 41, 18, ${0.72 + pulse * 0.12})`;
-    ctx.beginPath();
-    ctx.moveTo(tx, ty - canopyH * 0.64);
-    ctx.lineTo(tx - canopyW * 0.46, ty + canopyH * 0.14);
-    ctx.lineTo(tx + canopyW * 0.46, ty + canopyH * 0.14);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = `rgba(52, 96, 45, ${0.32 + pulse * 0.08})`;
-    ctx.beginPath();
-    ctx.moveTo(tx, ty - canopyH * 0.52);
-    ctx.lineTo(tx - canopyW * 0.24, ty - canopyH * 0.05);
-    ctx.lineTo(tx + canopyW * 0.12, ty - canopyH * 0.14);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-};
-
-const drawBarbarianSkullOverlay = (px: number, py: number, size: number): void => {
-  if (size < 10) return;
-
-  const skullSize = Math.max(6, size * 0.48);
-  const cx = px + size / 2;
-  const cy = py + size / 2 - skullSize * 0.02;
-  const craniumRadius = skullSize * 0.28;
-  const jawWidth = skullSize * 0.38;
-  const jawHeight = skullSize * 0.2;
-  const jawX = cx - jawWidth / 2;
-  const jawY = cy + skullSize * 0.1;
-
-  ctx.save();
-  ctx.fillStyle = "rgba(196, 203, 210, 0.72)";
-  ctx.strokeStyle = "rgba(56, 62, 70, 0.5)";
-  ctx.lineWidth = Math.max(1, size * 0.04);
-
-  ctx.beginPath();
-  ctx.arc(cx, cy - skullSize * 0.08, craniumRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.roundRect(jawX, jawY, jawWidth, jawHeight, Math.max(1, skullSize * 0.05));
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(43, 48, 56, 0.82)";
-  const eyeRadius = skullSize * 0.065;
-  ctx.beginPath();
-  ctx.arc(cx - skullSize * 0.11, cy - skullSize * 0.09, eyeRadius, 0, Math.PI * 2);
-  ctx.arc(cx + skullSize * 0.11, cy - skullSize * 0.09, eyeRadius, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - skullSize * 0.01);
-  ctx.lineTo(cx - skullSize * 0.05, cy + skullSize * 0.08);
-  ctx.lineTo(cx + skullSize * 0.05, cy + skullSize * 0.08);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(43, 48, 56, 0.65)";
-  ctx.lineWidth = Math.max(1, size * 0.03);
-  const toothTop = jawY + jawHeight * 0.18;
-  const toothBottom = jawY + jawHeight * 0.82;
-  for (const offset of [-0.09, 0, 0.09]) {
-    const toothX = cx + skullSize * offset;
-    ctx.beginPath();
-    ctx.moveTo(toothX, toothTop);
-    ctx.lineTo(toothX, toothBottom);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-};
-
-const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void => {
-  if (size < 10) return;
-  const remainingMs = Math.max(0, resolvesAt - Date.now());
-  const urgency = Math.max(0.2, Math.min(1, 1 - remainingMs / 4000));
-  const phase = Date.now() / 180 + wx * 0.9 + wy * 0.7;
-  const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(phase));
-  const alpha = 0.18 + pulse * (0.16 + urgency * 0.22);
-  const ringInset = 1 + Math.max(0, Math.floor((size * 0.08) * (1 - pulse)));
-
-  ctx.save();
-  ctx.fillStyle = `rgba(255, 72, 72, ${alpha.toFixed(3)})`;
-  ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-
-  ctx.strokeStyle = `rgba(255, 214, 214, ${(0.38 + urgency * 0.34 + pulse * 0.08).toFixed(3)})`;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(px + ringInset, py + ringInset, size - ringInset * 2, size - ringInset * 2);
-
-  const cx = px + size / 2;
-  const cy = py + size / 2;
-  const arm = Math.max(3, size * 0.18);
-  ctx.strokeStyle = `rgba(72, 10, 10, ${(0.52 + urgency * 0.22).toFixed(3)})`;
-  ctx.lineWidth = Math.max(1.5, size * 0.07);
-  ctx.beginPath();
-  ctx.moveTo(cx - arm, cy - arm);
-  ctx.lineTo(cx + arm, cy + arm);
-  ctx.moveTo(cx + arm, cy - arm);
-  ctx.lineTo(cx - arm, cy + arm);
-  ctx.stroke();
-  ctx.restore();
-};
-const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void => {
-  if (!tile.town) return;
-  if (size < 16) {
-    drawTownMarker(px, py, size, true);
-    if (!tile.town.isFed) {
-      const badgeSize = Math.max(6, size * 0.24);
-      const badgeX = px + size - badgeSize - 1;
-      const badgeY = py + 1;
-      ctx.fillStyle = "rgba(201, 74, 56, 0.96)";
-      ctx.beginPath();
-      ctx.moveTo(badgeX, badgeY + badgeSize);
-      ctx.lineTo(badgeX + badgeSize * 0.5, badgeY);
-      ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize);
-      ctx.closePath();
-      ctx.fill();
-    }
-    return;
-  }
-  const accent =
-    tile.town.type === "MARKET"
-      ? "rgba(255, 212, 102, 0.9)"
-      : "rgba(162, 241, 132, 0.88)";
-  const biome = landBiomeAt(tile.x, tile.y);
-  const overlaySet = biome === "GRASS" ? grassTownOverlayByTier : defaultTownOverlayByTier;
-  const overlay = overlaySet[tile.town.populationTier];
-  if (!overlay.complete || !overlay.naturalWidth) {
-    const marker = Math.max(4, Math.floor(size * 0.34));
-    const mx = px + Math.floor((size - marker) / 2);
-    const my = py + Math.floor((size - marker) / 2);
-    ctx.fillStyle = "rgba(10, 14, 24, 0.82)";
-    ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-    if (tile.town.type === "MARKET") ctx.fillStyle = "rgba(255, 212, 102, 0.95)";
-    else ctx.fillStyle = "rgba(162, 241, 132, 0.95)";
-    ctx.fillRect(mx, my, marker, marker);
-    return;
-  }
-
-  const scaleByTier =
-    tile.town.populationTier === "SETTLEMENT"
-      ? 0.94
-      : tile.town.populationTier === "TOWN"
-      ? 1.46
-      : tile.town.populationTier === "CITY"
-        ? 1.58
-        : tile.town.populationTier === "GREAT_CITY"
-          ? 1.72
-          : 1.86;
-  const drawSize = size * scaleByTier;
-  const offsetX = (drawSize - size) / 2;
-  const offsetY =
-    tile.town.populationTier === "SETTLEMENT"
-      ? drawSize * 0.06
-      : tile.town.populationTier === "TOWN"
-      ? drawSize * 0.28
-      : tile.town.populationTier === "CITY"
-        ? drawSize * 0.32
-        : tile.town.populationTier === "GREAT_CITY"
-          ? drawSize * 0.35
-          : drawSize * 0.39;
-
-  ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
-
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = Math.max(2, size * 0.08);
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(px + size * 0.22, py + size * 0.88);
-  ctx.lineTo(px + size * 0.78, py + size * 0.88);
-  ctx.stroke();
-  ctx.lineWidth = 1;
-
-  if (!tile.town.isFed) {
-    const badgeSize = Math.max(8, size * 0.24);
-    const badgeX = px + size * 0.72;
-    const badgeY = py + size * 0.08;
-
-    ctx.fillStyle = "rgba(201, 74, 56, 0.96)";
-    ctx.beginPath();
-    ctx.moveTo(badgeX, badgeY + badgeSize);
-    ctx.lineTo(badgeX + badgeSize * 0.5, badgeY);
-    ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = "rgba(39, 14, 9, 0.78)";
-    ctx.lineWidth = Math.max(1.2, size * 0.035);
-    ctx.stroke();
-
-    ctx.fillStyle = "rgba(255, 243, 219, 0.98)";
-    ctx.font = `bold ${Math.max(8, size * 0.16)}px system-ui`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("!", badgeX + badgeSize * 0.5, badgeY + badgeSize * 0.62);
-    ctx.textAlign = "start";
-    ctx.textBaseline = "alphabetic";
-  }
-
-  drawTownMarker(px, py, size, false);
-};
-const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void => {
-  if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
-  const drawSize = size * scale;
-  const offset = (drawSize - size) / 2;
-  ctx.drawImage(overlay, px - offset, py - offset, drawSize, drawSize);
-};
-const drawCenteredOverlayWithAlpha = (
-  overlay: HTMLImageElement | undefined,
-  px: number,
-  py: number,
-  size: number,
-  scale = 1.08,
-  alpha = 1
-): void => {
-  if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
-  const prevAlpha = ctx.globalAlpha;
-  ctx.globalAlpha = prevAlpha * alpha;
-  drawCenteredOverlay(overlay, px, py, size, scale);
-  ctx.globalAlpha = prevAlpha;
-};
-const drawResourceMarkerIcon = (resource: string | undefined, x: number, y: number, badge: number): void => {
-  const icon =
-    resource === "FARM" || resource === "FISH"
-      ? "🍞"
-      : resource === "IRON"
-        ? "⛏"
-        : resource === "GEMS"
-          ? "💎"
-          : resource === "FUR"
-            ? "🦊"
-            : resource === "WOOD"
-              ? "🪵"
-              : "";
-  if (!icon) return;
-  ctx.font = `${Math.max(8, badge * 0.8)}px system-ui`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(icon, x + badge / 2, y + badge / 2 + 0.5);
-  ctx.textAlign = "start";
-  ctx.textBaseline = "alphabetic";
-};
-const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void => {
-  if (!tile.resource) return;
-  const color = resourceColor(tile.resource);
-  if (!color) return;
-  const badge = Math.max(9, size * 0.22);
-  const inset = Math.max(2, size * 0.03);
-  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
-  ctx.fillRect(px + inset - 1, py + inset - 1, badge + 2, badge + 2);
-  ctx.fillStyle = color;
-  ctx.fillRect(px + inset, py + inset, badge, badge);
-  ctx.fillStyle = "rgba(22, 24, 28, 0.95)";
-  drawResourceMarkerIcon(tile.resource, px + inset, py + inset, badge);
-};
-const drawTownMarker = (px: number, py: number, size: number, fullTile = false): void => {
-  const badge = fullTile ? Math.max(8, size - 2) : Math.max(9, size * 0.22);
-  const inset = fullTile ? 1 : Math.max(2, size * 0.03);
-  const x = px + inset;
-  const y = py + inset;
-  ctx.fillStyle = "rgba(12, 16, 28, 0.78)";
-  ctx.fillRect(x - 1, y - 1, badge + 2, badge + 2);
-  ctx.fillStyle = "rgba(255, 208, 102, 0.98)";
-  ctx.fillRect(x, y, badge, badge);
-  const coinRadius = Math.max(2, badge * 0.28);
-  const coinX = x + badge / 2;
-  const coinY = y + badge / 2;
-  ctx.fillStyle = "rgba(255, 233, 153, 0.98)";
-  ctx.beginPath();
-  ctx.arc(coinX, coinY, coinRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(173, 112, 18, 0.95)";
-  ctx.lineWidth = Math.max(1, badge * 0.08);
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(255, 247, 221, 0.88)";
-  ctx.lineWidth = Math.max(0.8, badge * 0.04);
-  ctx.beginPath();
-  ctx.arc(coinX - coinRadius * 0.18, coinY - coinRadius * 0.16, Math.max(1, coinRadius * 0.45), 0, Math.PI * 2);
-  ctx.stroke();
-};
-const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
-  if (!tile.resource) return undefined;
-  const variants = resourceOverlayVariants[tile.resource as keyof typeof resourceOverlayVariants];
-  if (!variants) return undefined;
-  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
-};
-const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
-  if (!tile.resource || !tile.economicStructure) return undefined;
-  const key =
-    tile.resource === "FARM" && tile.economicStructure.type === "FARMSTEAD"
-      ? "FARM_FARMSTEAD"
-      : tile.resource === "FISH" && tile.economicStructure.type === "FARMSTEAD"
-        ? "FISH_FARMSTEAD"
-        : tile.resource === "FUR" && tile.economicStructure.type === "CAMP"
-          ? "FUR_CAMP"
-          : tile.resource === "IRON" && tile.economicStructure.type === "MINE"
-            ? "IRON_MINE"
-            : tile.resource === "GEMS" && tile.economicStructure.type === "MINE"
-              ? "GEMS_MINE"
-              : undefined;
-  if (!key) return undefined;
-  const variants = builtResourceOverlayVariants[key];
-  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
-};
-const shardOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
-  if (!tile.shardSite) return undefined;
-  const variants = shardOverlayVariants[tile.shardSite.kind];
-  return variants[overlayVariantIndexAt(tile.x, tile.y, variants.length)];
-};
-const drawShardFallback = (tile: Tile, px: number, py: number, size: number): void => {
-  const cx = px + size / 2;
-  const cy = py + size / 2;
-  ctx.fillStyle = "rgba(41, 26, 10, 0.28)";
-  ctx.beginPath();
-  ctx.ellipse(cx, py + size * 0.76, size * 0.28, size * 0.1, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "rgba(22, 35, 49, 0.94)";
-  ctx.beginPath();
-  ctx.moveTo(cx, py + size * 0.24);
-  ctx.lineTo(px + size * 0.7, py + size * 0.42);
-  ctx.lineTo(px + size * 0.63, py + size * 0.67);
-  ctx.lineTo(px + size * 0.37, py + size * 0.67);
-  ctx.lineTo(px + size * 0.3, py + size * 0.42);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "rgba(50, 210, 233, 0.98)";
-  ctx.beginPath();
-  ctx.moveTo(cx, py + size * 0.31);
-  ctx.lineTo(px + size * 0.62, py + size * 0.45);
-  ctx.lineTo(px + size * 0.57, py + size * 0.64);
-  ctx.lineTo(px + size * 0.43, py + size * 0.64);
-  ctx.lineTo(px + size * 0.38, py + size * 0.45);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255, 223, 132, 0.58)";
-  ctx.lineWidth = Math.max(1.2, size * 0.045);
-  ctx.beginPath();
-  ctx.ellipse(cx, py + size * 0.68, size * 0.2, size * 0.06, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.lineWidth = 1;
-};
-const resourceOverlayScaleForTile = (tile: Tile): number => {
-  if (tile.resource === "FISH") return 1.3;
-  if (tile.resource === "IRON") return 1.2;
-  return 1.08;
-};
-const economicStructureOverlayAlpha = (tile: Tile): number => {
-  const status = tile.economicStructure?.status;
-  if (status === "active") return 1;
-  if (status === "under_construction") return 0.8;
-  return 0.7;
-};
-const clusterTint = (clusterType: string | undefined): string | undefined => {
-  if (clusterType === "FERTILE_PLAINS") return "rgba(233,242,123,0.28)";
-  if (clusterType === "IRON_HILLS") return "rgba(199,206,216,0.26)";
-  if (clusterType === "CRYSTAL_BASIN") return "rgba(177,117,255,0.3)";
-  if (clusterType === "HORSE_STEPPES") return "rgba(191,163,110,0.26)";
-  if (clusterType === "ANCIENT_RUINS") return "rgba(250,173,93,0.28)";
-  if (clusterType === "COASTAL_SHOALS") return "rgba(110,201,255,0.32)";
-  return undefined;
-};
-const clusterMarkerColor = (clusterType: string | undefined): string | undefined => {
-  if (clusterType === "FERTILE_PLAINS") return "#e9f27b";
-  if (clusterType === "IRON_HILLS") return "#c7ced8";
-  if (clusterType === "CRYSTAL_BASIN") return "#b175ff";
-  if (clusterType === "HORSE_STEPPES") return "#d6b48a";
-  if (clusterType === "ANCIENT_RUINS") return "#faad5d";
-  if (clusterType === "COASTAL_SHOALS") return "#6ec9ff";
-  return undefined;
-};
-const resourceColor = (resource: string | undefined): string | undefined => {
-  if (resource === "FARM") return "#e9f27b";
-  if (resource === "FISH") return "#6ec9ff";
-  if (resource === "FUR") return "#d6b48a";
-  if (resource === "WOOD") return "#7b4f2c";
-  if (resource === "IRON") return "#c7ced8";
-  if (resource === "GEMS") return "#b175ff";
-  return undefined;
-};
-const resourceLabel = (resource: string | undefined): string => {
-  if (resource === "FARM") return "GRAIN";
-  if (resource === "FUR") return "FUR";
-  if (resource === "FISH") return "FISH";
-  if (resource === "IRON") return "IRON";
-  if (resource === "GEMS") return "GEMS";
-  if (resource === "WOOD") return "WOOD";
-  return resource ?? "";
-};
-const strategicLabel = (resource: string): string => {
-  if (resource === "FOOD") return "Food";
-  if (resource === "IRON") return "Iron";
-  if (resource === "CRYSTAL") return "Crystal";
-  if (resource === "SUPPLY") return "Supply";
-  if (resource === "SHARD") return "Shard";
-  return resource;
-};
-const resourceIconForKey = (resource: string): string => {
-  if (resource === "GOLD") return "◉";
-  if (resource === "FOOD") return "🍞";
-  if (resource === "IRON") return "⛏";
-  if (resource === "CRYSTAL") return "💎";
-  if (resource === "SUPPLY") return "🦊";
-  if (resource === "SHARD") return "✦";
-  return "•";
-};
-const yieldCapForResource = (tile: Tile, resource: string): number | undefined => {
-  if (!tile.yieldCap) return undefined;
-  if (resource === "GOLD") return tile.yieldCap.gold;
-  if (resource === "FOOD" || resource === "IRON" || resource === "CRYSTAL" || resource === "SUPPLY" || resource === "SHARD") {
-    return tile.yieldCap.strategicEach;
-  }
-  return undefined;
-};
-const formatYieldSummary = (tile: Tile): string => {
-  const parts: string[] = [];
-  const gold = tile.yield?.gold ?? 0;
-  const goldCap = yieldCapForResource(tile, "GOLD");
-  if (gold > 0.01 || (goldCap ?? 0) > 0) {
-    parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${(goldCap ?? 0).toFixed(1)}`);
-  }
-  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
-    const amount = Number(tile.yield?.strategic?.[key] ?? 0);
-    const cap = yieldCapForResource(tile, key);
-    if (amount <= 0.01 && (cap ?? 0) <= 0) continue;
-    parts.push(`${resourceIconForKey(key)} ${amount.toFixed(1)} / ${(cap ?? 0).toFixed(1)}`);
-  }
-  return parts.length > 0 ? `Yield: ${parts.join("  ")}` : "";
-};
-const formatUpkeepSummary = (upkeep: typeof state.upkeepPerMinute): string => {
-  const parts: string[] = [];
-  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${upkeep.food.toFixed(2)}/m`);
-  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeep.iron.toFixed(2)}/m`);
-  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeep.supply.toFixed(2)}/m`);
-  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
-  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
-  return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
-};
 const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
   state.economyFocus = focus;
   setActivePanel("economy");
@@ -2387,135 +1189,30 @@ const advanceStrategicReplay = (nowMs: number): void => {
 const drawMiniMap = (): void => {
   const nowMs = performance.now();
   advanceStrategicReplay(nowMs);
-  const miniMapChanged =
-    state.camX !== miniMapLastDrawCamX ||
-    state.camY !== miniMapLastDrawCamY ||
-    state.zoom !== miniMapLastDrawZoom ||
-    (state.replayActive && state.replayIndex !== miniMapLastReplayIndex);
-  if (!miniMapChanged && nowMs - miniMapLastDrawAt < 140) return;
-  const w = miniMapEl.width;
-  const h = miniMapEl.height;
-  miniMapCtx.clearRect(0, 0, w, h);
-  if (!miniMapBaseReady) {
-    miniMapCtx.fillStyle = "#0b1320";
-    miniMapCtx.fillRect(0, 0, w, h);
-    miniMapCtx.strokeStyle = "rgba(255,255,255,0.25)";
-    miniMapCtx.strokeRect(0.5, 0.5, w - 1, h - 1);
-    return;
-  }
-  miniMapCtx.drawImage(miniMapBase, 0, 0);
-  if (state.replayActive) {
-    for (const [tileKey, replayTile] of state.replayOwnershipByTile) {
-      if (!replayTile.ownerId) continue;
-      const { x, y } = parseKey(tileKey);
-      const px = Math.floor((x / WORLD_WIDTH) * w);
-      const py = Math.floor((y / WORLD_HEIGHT) * h);
-      miniMapCtx.fillStyle = hexWithAlpha(effectiveOverlayColor(replayTile.ownerId), replayTile.ownershipState === "SETTLED" ? 0.9 : 0.6);
-      miniMapCtx.fillRect(px, py, 1, 1);
-    }
-  }
-  if (!state.fogDisabled) {
-    for (let py = 0; py < h; py += 1) {
-      for (let px = 0; px < w; px += 1) {
-        const wx = Math.floor((px / w) * WORLD_WIDTH);
-        const wy = Math.floor((py / h) * WORLD_HEIGHT);
-        const t = state.tiles.get(key(wx, wy));
-        const vis = tileVisibilityStateAt(wx, wy, t);
-        if (vis === "unexplored") {
-          miniMapCtx.fillStyle = "#000000";
-          miniMapCtx.fillRect(px, py, 1, 1);
-        } else if (vis === "fogged") {
-          miniMapCtx.fillStyle = "rgba(0,0,0,0.62)";
-          miniMapCtx.fillRect(px, py, 1, 1);
-        }
-      }
-    }
-  }
-
-  const viewTilesW = canvas.width / state.zoom;
-  const viewTilesH = canvas.height / state.zoom;
-  const vx = ((state.camX - viewTilesW / 2 + WORLD_WIDTH) % WORLD_WIDTH) / WORLD_WIDTH;
-  const vy = ((state.camY - viewTilesH / 2 + WORLD_HEIGHT) % WORLD_HEIGHT) / WORLD_HEIGHT;
-  const vw = Math.min(1, viewTilesW / WORLD_WIDTH);
-  const vh = Math.min(1, viewTilesH / WORLD_HEIGHT);
-
-  miniMapCtx.strokeStyle = "rgba(255, 240, 180, 0.95)";
-  miniMapCtx.lineWidth = 1.5;
-  miniMapCtx.strokeRect(vx * w, vy * h, Math.max(2, vw * w), Math.max(2, vh * h));
-
-  const px = (state.camX / WORLD_WIDTH) * w;
-  const py = (state.camY / WORLD_HEIGHT) * h;
-  miniMapCtx.fillStyle = "#ffd166";
-  miniMapCtx.beginPath();
-  miniMapCtx.arc(px, py, 2.8, 0, Math.PI * 2);
-  miniMapCtx.fill();
-
-  // Dock hints on minimap for faster navigation/discovery.
-  miniMapCtx.fillStyle = "rgba(127, 238, 255, 0.9)";
-  for (const pair of state.dockPairs) {
-    if (!isDockRouteVisibleForPlayer(pair)) continue;
-    const aKnown = state.tiles.get(key(pair.ax, pair.ay));
-    const bKnown = state.tiles.get(key(pair.bx, pair.by));
-    if (!state.fogDisabled && ((!aKnown || aKnown.fogged) && (!bKnown || bKnown.fogged))) continue;
-    const adx = Math.floor((pair.ax / WORLD_WIDTH) * w);
-    const ady = Math.floor((pair.ay / WORLD_HEIGHT) * h);
-    const bdx = Math.floor((pair.bx / WORLD_WIDTH) * w);
-    const bdy = Math.floor((pair.by / WORLD_HEIGHT) * h);
-    miniMapCtx.fillRect(adx - 1, ady - 1, 3, 3);
-    miniMapCtx.fillRect(bdx - 1, bdy - 1, 3, 3);
-  }
-  for (const t of state.tiles.values()) {
-    if (!t.town) continue;
-    if (!state.fogDisabled && t.fogged) continue;
-    const tx = Math.floor((t.x / WORLD_WIDTH) * w);
-    const ty = Math.floor((t.y / WORLD_HEIGHT) * h);
-    miniMapCtx.fillStyle = !t.town.isFed ? "rgba(255, 112, 92, 0.94)" : "rgba(6, 10, 18, 0.86)";
-    miniMapCtx.beginPath();
-    miniMapCtx.arc(tx, ty, hasCollectableYield(t) ? 3.6 : 3.2, 0, Math.PI * 2);
-    miniMapCtx.fill();
-    if (!t.town.isFed) miniMapCtx.fillStyle = "rgba(255, 167, 148, 0.96)";
-    else if (hasCollectableYield(t)) miniMapCtx.fillStyle = "rgba(255, 220, 118, 0.96)";
-    else if (t.town.type === "MARKET") miniMapCtx.fillStyle = "rgba(255, 214, 112, 0.94)";
-    else if (t.town.type === "FARMING") miniMapCtx.fillStyle = "rgba(157, 236, 130, 0.94)";
-    else miniMapCtx.fillStyle = "rgba(196, 169, 255, 0.94)";
-    miniMapCtx.beginPath();
-    miniMapCtx.arc(tx, ty, hasCollectableYield(t) ? 2.1 : 1.8, 0, Math.PI * 2);
-    miniMapCtx.fill();
-  }
-  if (state.replayActive) {
-    const replayEvent = replayCurrentEvent();
-    if (replayEvent && replayEvent.x !== undefined && replayEvent.y !== undefined) {
-      const ex = Math.floor((replayEvent.x / WORLD_WIDTH) * w);
-      const ey = Math.floor((replayEvent.y / WORLD_HEIGHT) * h);
-      miniMapCtx.strokeStyle = "rgba(255, 244, 171, 0.98)";
-      miniMapCtx.lineWidth = 1.6;
-      miniMapCtx.strokeRect(ex - 2, ey - 2, 5, 5);
-    }
-    if (replayEvent?.from && replayEvent?.to) {
-      drawAetherBridgeLane(
-        miniMapCtx,
-        (replayEvent.from.x / WORLD_WIDTH) * w,
-        (replayEvent.from.y / WORLD_HEIGHT) * h,
-        (replayEvent.to.x / WORLD_WIDTH) * w,
-        (replayEvent.to.y / WORLD_HEIGHT) * h,
-        nowMs,
-        { compact: true }
-      );
-    }
-  }
-  miniMapCtx.save();
-  miniMapCtx.textAlign = "center";
-  miniMapCtx.textBaseline = "middle";
-  miniMapCtx.font = "8px monospace";
-  for (const t of state.tiles.values()) {
-    if (!t.shardSite) continue;
-    if (!state.fogDisabled && t.fogged) continue;
-    const tx = Math.floor((t.x / WORLD_WIDTH) * w);
-    const ty = Math.floor((t.y / WORLD_HEIGHT) * h);
-    miniMapCtx.fillStyle = t.shardSite.kind === "FALL" ? "rgba(255, 244, 176, 0.98)" : "rgba(147, 235, 255, 0.96)";
-    miniMapCtx.fillText(resourceIconForKey("SHARD"), tx, ty);
-  }
-  miniMapCtx.restore();
+  const changed = drawMiniMapIntoCanvas({
+    nowMs,
+    state,
+    canvas,
+    miniMapEl,
+    miniMapCtx,
+    miniMapBase,
+    miniMapBaseReady,
+    miniMapLast: {
+      camX: miniMapLastDrawCamX,
+      camY: miniMapLastDrawCamY,
+      zoom: miniMapLastDrawZoom,
+      replayIndex: miniMapLastReplayIndex,
+      drawAt: miniMapLastDrawAt
+    },
+    parseKey,
+    keyFor: key,
+    tileVisibilityStateAt,
+    effectiveOverlayColor,
+    isDockRouteVisibleForPlayer,
+    hasCollectableYield,
+    replayCurrentEvent
+  });
+  if (!changed) return;
   miniMapLastDrawCamX = state.camX;
   miniMapLastDrawCamY = state.camY;
   miniMapLastDrawZoom = state.zoom;
@@ -3493,51 +2190,6 @@ const settlePixelWanderPoint = (
     x: Math.max(0, Math.min(1, x)),
     y: Math.max(0, Math.min(1, y))
   };
-};
-const ownershipPatternTone = (ownerId: string): string => {
-  const style = visualStyleForOwner(ownerId);
-  if (!style) return "rgba(255,255,255,0.14)";
-  if (style.secondaryTint === "IRON") return "rgba(214, 225, 239, 0.16)";
-  if (style.secondaryTint === "SUPPLY") return "rgba(238, 198, 126, 0.16)";
-  if (style.secondaryTint === "FOOD") return "rgba(186, 238, 144, 0.16)";
-  if (style.secondaryTint === "CRYSTAL") return "rgba(159, 220, 255, 0.16)";
-  return "rgba(255,255,255,0.14)";
-};
-const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: number): void => {
-  const style = visualStyleForOwner(ownerId);
-  if (!style || size < 12) return;
-  ctx.save();
-  ctx.strokeStyle = ownershipPatternTone(ownerId);
-  ctx.fillStyle = ownershipPatternTone(ownerId);
-  ctx.lineWidth = 1;
-  if (style.borderStyle === "HEAVY") {
-    ctx.fillRect(px + 2, py + 2, Math.max(2, Math.floor(size * 0.18)), size - 4);
-    ctx.fillRect(px + size - Math.max(2, Math.floor(size * 0.18)) - 2, py + 2, Math.max(2, Math.floor(size * 0.18)), size - 4);
-  } else if (style.borderStyle === "DASHED") {
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    ctx.moveTo(px + 3, py + size - 4);
-    ctx.lineTo(px + size - 4, py + 3);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  } else if (style.borderStyle === "SOFT") {
-    const r = Math.max(1.5, size * 0.1);
-    ctx.beginPath();
-    ctx.arc(px + size * 0.32, py + size * 0.32, r, 0, Math.PI * 2);
-    ctx.arc(px + size * 0.68, py + size * 0.68, r, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (style.borderStyle === "GLOW") {
-    ctx.beginPath();
-    ctx.moveTo(px + size / 2, py + 3);
-    ctx.lineTo(px + size - 3, py + size / 2);
-    ctx.lineTo(px + size / 2, py + size - 3);
-    ctx.lineTo(px + 3, py + size / 2);
-    ctx.closePath();
-    ctx.stroke();
-  } else {
-    ctx.strokeRect(px + size * 0.28, py + size * 0.28, size * 0.44, size * 0.44);
-  }
-  ctx.restore();
 };
 const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
