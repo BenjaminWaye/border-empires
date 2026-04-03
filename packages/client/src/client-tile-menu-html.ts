@@ -8,7 +8,9 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "collect_yield") return "⛃";
   if (id === "collect_shard") return "✦";
   if (id === "build_fortification") return "🛡";
+  if (id === "build_wooden_fort") return "🪵";
   if (id === "build_siege_camp") return "⚔";
+  if (id === "build_light_outpost") return "⚑";
   if (id === "build_observatory") return "◉";
   if (id === "build_farmstead") return "▥";
   if (id === "build_camp") return "⛺";
@@ -19,8 +21,14 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_airport") return "✈";
   if (id === "build_caravanary") return "⇄";
   if (id === "build_quartermaster") return "▤";
+  if (id === "upgrade_quartermaster") return "⤴";
   if (id === "build_ironworks") return "⚒";
+  if (id === "upgrade_ironworks") return "⤴";
   if (id === "build_crystal_synthesizer") return "◇";
+  if (id === "upgrade_crystal_synthesizer") return "⤴";
+  if (id === "overload_quartermaster") return "↯";
+  if (id === "overload_ironworks") return "↯";
+  if (id === "overload_crystal_synthesizer") return "↯";
   if (id === "build_fuel_plant") return "⬢";
   if (id === "build_foundry") return "⚙";
   if (id === "build_garrison_hall") return "🛡";
