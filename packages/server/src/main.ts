@@ -6134,6 +6134,7 @@ const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: Econom
     }
   } else if (isLightCombat) {
     if (t.ownerId !== actor.id) return { ok: false, reason: "structure requires owned tile" };
+    if (t.ownershipState !== "SETTLED") return { ok: false, reason: "structure requires settled owned tile" };
     if (structureType === "WOODEN_FORT" && !docksByTile.has(tk) && !isBorderTile(t.x, t.y, actor.id)) {
       return { ok: false, reason: "wooden fort must be on border tile or dock" };
     }
