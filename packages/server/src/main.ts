@@ -8557,7 +8557,6 @@ const buildAiPlanningStaticCache = (
   let economicExpandAvailable = false;
   let scoutExpandAvailable = false;
   let scaffoldExpandAvailable = false;
-  let barbarianAttackAvailable = false;
   let enemyAttackAvailable = false;
   let settlementAvailable = false;
   let frontierOpportunityEconomic = 0;
@@ -8608,11 +8607,17 @@ const buildAiPlanningStaticCache = (
 
   for (const { to } of territorySummary.attackCandidates) {
     if (to.terrain !== "LAND" || !to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId)) continue;
-    if (to.ownerId === BARBARIAN_OWNER_ID) barbarianAttackAvailable = true;
-    else enemyAttackAvailable = true;
-    if (barbarianAttackAvailable && enemyAttackAvailable) break;
+    if (to.ownerId !== BARBARIAN_OWNER_ID) enemyAttackAvailable = true;
+    if (enemyAttackAvailable) break;
   }
 
+  const barbarianAttackCandidate = bestAiFrontierAction(
+    actor,
+    "ATTACK",
+    (tile) => tile.ownerId === BARBARIAN_OWNER_ID,
+    undefined,
+    territorySummary
+  );
   const pressureAttackScore = estimateAiPressureAttackScore(actor, territorySummary);
   const fortCandidate = structureCandidateCount > 0 ? bestAiFortTile(actor, territorySummary) : undefined;
   const economicExpandCandidate = bestAiEconomicExpand(actor, undefined, territorySummary);
@@ -8625,7 +8630,7 @@ const buildAiPlanningStaticCache = (
     economicExpandAvailable: Boolean(economicExpandCandidate),
     scoutExpandAvailable,
     scaffoldExpandAvailable,
-    barbarianAttackAvailable,
+    barbarianAttackAvailable: Boolean(barbarianAttackCandidate),
     enemyAttackAvailable,
     pressureAttackScore,
     settlementAvailable,

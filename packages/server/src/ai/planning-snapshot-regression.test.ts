@@ -52,6 +52,12 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(body).not.toContain("structureCandidateTiles.some");
   });
 
+  it("derives barbarian attack availability from the exact runtime selector in the cached planning layer", () => {
+    const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
+    expect(body).toContain("const barbarianAttackCandidate = bestAiFrontierAction(");
+    expect(body).toContain("barbarianAttackAvailable: Boolean(barbarianAttackCandidate)");
+  });
+
   it("treats stalled fronts as a sparse truce signal instead of a per-tick planner recomputation", () => {
     const chooseStrategicBody = functionBody(serverMainSource(), "chooseAiStrategicState");
     const truceBody = functionBody(serverMainSource(), "maybeHandleAiShardOrTruce");
