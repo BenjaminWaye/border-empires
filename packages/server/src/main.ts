@@ -594,6 +594,7 @@ interface SnapshotState {
   >;
   ownership: [TileKey, string][];
   ownershipState?: [TileKey, OwnershipState][];
+  settledSince?: [TileKey, number][];
   barbarianAgents?: BarbarianAgent[];
   authIdentities?: AuthIdentity[];
   resources: [string, Record<ResourceType, number>][];
@@ -648,6 +649,7 @@ interface SnapshotPlayersSection {
 interface SnapshotTerritorySection {
   ownership: [TileKey, string][];
   ownershipState?: [TileKey, OwnershipState][];
+  settledSince?: [TileKey, number][];
   barbarianAgents?: BarbarianAgent[];
   tileHistory?: [TileKey, TileHistoryState][];
   terrainShapes?: [TileKey, TerrainShapeState][];
@@ -993,7 +995,6 @@ const TRUCE_BREAK_LOCKOUT_MS = 12 * 60 * 60_000;
 const TRUCE_BREAK_ATTACK_MULT = 0.75;
 const TRUCE_BREAK_ATTACK_PENALTY_MS = 60 * 60_000;
 const PASSIVE_INCOME_MULT = 1.0;
-const BASE_GOLD_PER_MIN = 1;
 const FRONTIER_ACTION_GOLD_COST = 1;
 const GOLD_COST_EPSILON = 1e-6;
 const canAffordGoldCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
@@ -1436,12 +1437,7 @@ const currentIncomePerMinute = (player: Player): number => {
     if (structure?.type === "BANK" && structure.status === "active") activeBankCount += 1;
   }
   incomePerMinute += activeBankCount;
-  const hasCapital = Boolean(
-    player.capitalTileKey &&
-      ownership.get(player.capitalTileKey) === player.id &&
-      ownershipStateByTile.get(player.capitalTileKey) === "SETTLED"
-  );
-  return incomePerMinute * player.mods.income * PASSIVE_INCOME_MULT + (hasCapital ? BASE_GOLD_PER_MIN : 0);
+  return incomePerMinute * player.mods.income * PASSIVE_INCOME_MULT;
 };
 
 const strategicProductionPerMinute = (player: Player): Record<StrategicResource, number> => {
@@ -1759,6 +1755,7 @@ const foodUpkeepCoverageByPlayer = new Map<string, number>();
 const townFeedingStateByPlayer = new Map<string, { foodCoverage: number; fedTownKeys: Set<TileKey> }>();
 const tileYieldByTile = new Map<TileKey, TileYieldBuffer>();
 const tileHistoryByTile = new Map<TileKey, TileHistoryState>();
+const settledSinceByTile = new Map<TileKey, number>();
 const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
 const lastUpkeepByPlayer = new Map<string, UpkeepDiagnostics>();
 const dynamicMissionsByPlayer = new Map<string, DynamicMissionDef[]>();
@@ -3456,6 +3453,101 @@ const ownedTownKeysForPlayer = (playerId: string): TileKey[] =>
     .sort((a, b) => a.townId.localeCompare(b.townId))
     .map((town) => town.tileKey);
 
+const initialSettlementPopulationAt = (x: number, y: number): number =>
+  POPULATION_MIN + Math.floor(seeded01(x, y, activeSeason.worldSeed + 9601) * POPULATION_START_SPREAD);
+
+const isRelocatableSettlementTown = (town: TownDefinition | undefined): town is TownDefinition =>
+  Boolean(town && townPopulationTier(town.population) === "SETTLEMENT");
+
+const oldestSettledSettlementCandidateForPlayer = (playerId: string): TileKey | undefined => {
+  const player = players.get(playerId);
+  if (!player) return undefined;
+  return [...player.territoryTiles]
+    .filter((tk) => {
+      if (ownership.get(tk) !== playerId) return false;
+      if (ownershipStateByTile.get(tk) !== "SETTLED") return false;
+      const [x, y] = parseKey(tk);
+      if (terrainAtRuntime(x, y) !== "LAND") return false;
+      if (townsByTile.has(tk) || docksByTile.has(tk)) return false;
+      if (applyClusterResources(x, y, resourceAt(x, y))) return false;
+      if (fortsByTile.has(tk) || observatoriesByTile.has(tk) || siegeOutpostsByTile.has(tk) || economicStructuresByTile.has(tk)) return false;
+      return true;
+    })
+    .sort((left, right) => {
+      const leftAge = settledSinceByTile.get(left) ?? Number.MAX_SAFE_INTEGER;
+      const rightAge = settledSinceByTile.get(right) ?? Number.MAX_SAFE_INTEGER;
+      if (leftAge !== rightAge) return leftAge - rightAge;
+      return left.localeCompare(right);
+    })[0];
+};
+
+const createSettlementAtTile = (
+  ownerId: string,
+  tileKey: TileKey,
+  previousTown?: Pick<TownDefinition, "townId" | "type">
+): TownDefinition | undefined => {
+  const [x, y] = parseKey(tileKey);
+  if (ownership.get(tileKey) !== ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED") return undefined;
+  if (terrainAtRuntime(x, y) !== "LAND") return undefined;
+  if (townsByTile.has(tileKey) || docksByTile.has(tileKey) || fortsByTile.has(tileKey) || observatoriesByTile.has(tileKey) || siegeOutpostsByTile.has(tileKey) || economicStructuresByTile.has(tileKey))
+    return undefined;
+  if (applyClusterResources(x, y, resourceAt(x, y))) return undefined;
+  const town: TownDefinition = {
+    townId: previousTown?.townId ?? `town-${townsByTile.size}`,
+    tileKey,
+    type: previousTown?.type ?? townTypeAt(x, y),
+    population: initialSettlementPopulationAt(x, y),
+    maxPopulation: POPULATION_MAX,
+    connectedTownCount: 0,
+    connectedTownBonus: 0,
+    lastGrowthTickAt: now()
+  };
+  townsByTile.set(tileKey, town);
+  markSummaryChunkDirtyAtTile(x, y);
+  sendVisibleTileDeltaAt(x, y);
+  return town;
+};
+
+const playerHasOtherGoldIncome = (playerId: string): boolean => {
+  const player = players.get(playerId);
+  if (!player) return false;
+  for (const tk of player.territoryTiles) {
+    if (ownership.get(tk) !== playerId || ownershipStateByTile.get(tk) !== "SETTLED") continue;
+    const [x, y] = parseKey(tk);
+    if (terrainAtRuntime(x, y) !== "LAND") continue;
+    const resource = resourceAt(x, y);
+    if (resource && (resourceRate[resource] ?? 0) > 0) return true;
+    const dock = docksByTile.get(tk);
+    if (dock && dockIncomeForOwner(dock, playerId) > 0) return true;
+    const town = townsByTile.get(tk);
+    if (town && townPopulationTier(town.population) !== "SETTLEMENT" && townPotentialIncomeForOwner(town, playerId, { ignoreSuppression: true, ignoreManpowerGate: true }) > 0)
+      return true;
+  }
+  return false;
+};
+
+const ensureFallbackSettlementForPlayer = (playerId: string): boolean => {
+  const player = players.get(playerId);
+  if (!player) return false;
+  if (ownedTownKeysForPlayer(playerId).some((tk) => isRelocatableSettlementTown(townsByTile.get(tk)))) return false;
+  if (playerHasOtherGoldIncome(playerId)) return false;
+  const candidate = oldestSettledSettlementCandidateForPlayer(playerId);
+  if (!candidate) return false;
+  const created = createSettlementAtTile(playerId, candidate);
+  if (!created) return false;
+  recomputeTownNetworkForPlayer(playerId);
+  return true;
+};
+
+const relocateCapturedSettlementForPlayer = (playerId: string, displacedTown: Pick<TownDefinition, "townId" | "type">): boolean => {
+  const candidate = oldestSettledSettlementCandidateForPlayer(playerId);
+  if (!candidate) return false;
+  const created = createSettlementAtTile(playerId, candidate, displacedTown);
+  if (!created) return false;
+  recomputeTownNetworkForPlayer(playerId);
+  return true;
+};
+
 const firstThreeTownKeySetForPlayer = (playerId: string): Set<TileKey> => {
   return new Set(ownedTownKeysForPlayer(playerId).slice(0, 3));
 };
@@ -3779,8 +3871,7 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
   const town = townsByTile.get(tileKey);
   const sabotageMult = siphonMultiplierAt(tileKey);
   const goldPerMinute =
-    ((players.get(ownerId)?.capitalTileKey === tileKey ? BASE_GOLD_PER_MIN : 0) +
-      (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
+    ((resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
       (dock ? dockIncomeForOwner(dock, ownerId) : 0) +
       (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
     (players.get(ownerId)?.mods.income ?? 1) *
@@ -4172,6 +4263,7 @@ const clearWorldProgressForSeason = (): void => {
   townGrowthShockUntilByTile.clear();
   tileYieldByTile.clear();
   tileHistoryByTile.clear();
+  settledSinceByTile.clear();
   terrainShapesByTile.clear();
   victoryPressureById.clear();
   frontierSettlementsByPlayer.clear();
@@ -4456,7 +4548,6 @@ const applyTileYieldSummary = (
   resource: ResourceType | undefined,
   dock: Dock | undefined,
   town: TownDefinition | undefined,
-  capital: boolean,
   terrain: Terrain
 ): void => {
   const tk = key(wx, wy);
@@ -4465,8 +4556,7 @@ const applyTileYieldSummary = (
   if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
     const sabotageMult = siphonMultiplierAt(tk);
     const goldPerMinuteFromTile =
-      ((capital ? BASE_GOLD_PER_MIN : 0) +
-        (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
+      ((resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
         (dock ? dockIncomeForOwner(dock, ownerId) : 0) +
         (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
       (players.get(ownerId)?.mods.income ?? 1) *
@@ -4586,7 +4676,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
       tile.economicStructure.completesAt = economicStructure.completesAt;
     }
   }
-  applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, Boolean(tile.capital), terrain);
+  applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, terrain);
   tile.fogged = false;
   return tile;
 };
@@ -4756,8 +4846,7 @@ const playerTile = (x: number, y: number): Tile => {
   if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
     const sabotageMult = siphonMultiplierAt(key(wx, wy));
     const goldPerMinuteFromTile =
-      ((tile.capital ? BASE_GOLD_PER_MIN : 0) +
-        (resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
+      ((resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) +
         (dock ? dockIncomeForOwner(dock, ownerId) : 0) +
         (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) *
       (players.get(ownerId)?.mods.income ?? 1) *
@@ -12607,6 +12696,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   const oldOwnershipState = t.ownershipState;
   const k = key(t.x, t.y);
   const clusterId = t.clusterId;
+  let displacedSettlement: { ownerId: string; town: Pick<TownDefinition, "townId" | "type"> } | undefined;
   const affectedPlayers = new Set<string>();
   if (oldOwner) affectedPlayers.add(oldOwner);
   if (newOwner) affectedPlayers.add(newOwner);
@@ -12615,6 +12705,12 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   }
 
   if (oldOwner && newOwner !== oldOwner) {
+    const capturedTown = townsByTile.get(k);
+    if (oldOwner !== BARBARIAN_OWNER_ID && isRelocatableSettlementTown(capturedTown)) {
+      displacedSettlement = { ownerId: oldOwner, town: { townId: capturedTown.townId, type: capturedTown.type } };
+      townsByTile.delete(k);
+      markSummaryChunkDirtyAtTile(t.x, t.y);
+    }
     if (oldOwner === BARBARIAN_OWNER_ID) {
       removeBarbarianAtTile(k);
     }
@@ -12707,6 +12803,12 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     breachShockByTile.delete(k);
     settlementDefenseByTile.delete(k);
   }
+  const finalState = ownershipStateByTile.get(k);
+  if (newOwner && newOwner !== BARBARIAN_OWNER_ID && finalState === "SETTLED") {
+    if (!(oldOwner === newOwner && oldOwnershipState === "SETTLED")) settledSinceByTile.set(k, now());
+  } else {
+    settledSinceByTile.delete(k);
+  }
   if (oldOwner !== newOwner) {
     if (!newOwner) tileYieldByTile.delete(k);
     if (oldOwner && newOwner) recordTileCaptureHistory(k, oldOwner, newOwner);
@@ -12739,10 +12841,20 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     recomputeExposure(p);
     recomputeTownNetworkForPlayer(pid);
     reconcileCapitalForPlayer(p);
+    if (!displacedSettlement || displacedSettlement.ownerId !== pid) ensureFallbackSettlementForPlayer(pid);
     rebuildEconomyIndexForPlayer(pid);
+  }
+  if (displacedSettlement) {
+    relocateCapturedSettlementForPlayer(displacedSettlement.ownerId, displacedSettlement.town);
+    const displacedPlayer = players.get(displacedSettlement.ownerId);
+    if (displacedPlayer) {
+      ensureFallbackSettlementForPlayer(displacedPlayer.id);
+      rebuildEconomyIndexForPlayer(displacedPlayer.id);
+    }
   }
 
   for (const pid of affectedPlayers) refreshVisibleOwnedTownsForPlayer(pid);
+  if (displacedSettlement) refreshVisibleOwnedTownsForPlayer(displacedSettlement.ownerId);
   markAiTerritoryDirtyForPlayers(affectedPlayers);
 
   const changedFoodTile = t.resource === "FARM" || t.resource === "FISH";
@@ -12827,6 +12939,7 @@ const spawnPlayer = (p: Player): void => {
     const owner = t.ownerId;
     if (owner && owner !== BARBARIAN_OWNER_ID) return false;
     updateOwnership(x, y, p.id, "SETTLED");
+    if (!townsByTile.has(key(x, y))) createSettlementAtTile(p.id, key(x, y));
     p.spawnOrigin = key(x, y);
     p.capitalTileKey = key(x, y);
     ensureSpawnShardNearby(x, y);
@@ -12964,6 +13077,7 @@ const rebuildOwnershipDerivedState = (): void => {
       continue;
     }
     if (!ownershipStateByTile.has(tk)) ownershipStateByTile.set(tk, "SETTLED");
+    if (ownershipStateByTile.get(tk) === "SETTLED" && !settledSinceByTile.has(tk)) settledSinceByTile.set(tk, 0);
     p.territoryTiles.add(tk);
     p.T += 1;
     if (t.resource) getOrInitResourceCounts(ownerId)[t.resource] = (getOrInitResourceCounts(ownerId)[t.resource] ?? 0) + 1;
@@ -12972,6 +13086,8 @@ const rebuildOwnershipDerivedState = (): void => {
 
   for (const p of players.values()) {
     recomputeExposure(p);
+    ensureFallbackSettlementForPlayer(p.id);
+    recomputeTownNetworkForPlayer(p.id);
     reconcileCapitalForPlayer(p);
     updateMissionState(p);
   }
@@ -13104,6 +13220,7 @@ const buildSnapshotState = (): SnapshotState => {
     players: [...players.values()].map(serializePlayer),
     ownership: [...ownership.entries()],
     ownershipState: [...ownershipStateByTile.entries()],
+    settledSince: [...settledSinceByTile.entries()],
     barbarianAgents: [...barbarianAgents.values()],
     authIdentities: [...authIdentityByUid.values()],
     resources: [...resourceCountsByPlayer.entries()],
@@ -13176,6 +13293,7 @@ const splitSnapshotState = (
   territory: {
     ownership: snapshot.ownership,
     ...(snapshot.ownershipState ? { ownershipState: snapshot.ownershipState } : {}),
+    ...(snapshot.settledSince ? { settledSince: snapshot.settledSince } : {}),
     ...(snapshot.barbarianAgents ? { barbarianAgents: snapshot.barbarianAgents } : {}),
     ...(snapshot.tileHistory ? { tileHistory: snapshot.tileHistory } : {}),
     ...(snapshot.terrainShapes ? { terrainShapes: snapshot.terrainShapes } : {}),
@@ -13347,6 +13465,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       ownershipStateByTile.set(k, ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
     }
   }
+  for (const [k, settledAt] of raw.settledSince ?? []) settledSinceByTile.set(k, settledAt);
   barbarianAgents.clear();
   barbarianAgentByTileKey.clear();
   for (const agent of raw.barbarianAgents ?? []) {
@@ -13943,11 +14062,7 @@ registerInterval(() => {
     recomputeTownNetworkForPlayer(p.id);
     const populationTouched = updateTownPopulationForPlayer(p);
     const economicTouched = syncEconomicStructuresForPlayer(p);
-    const capitalTileKey = isValidCapitalTile(p, p.capitalTileKey) ? p.capitalTileKey : undefined;
     const economyIndex = getOrInitEconomyIndex(p.id);
-    if (capitalTileKey && ownershipStateByTile.get(capitalTileKey) === "SETTLED") {
-      addTileYield(capitalTileKey, BASE_GOLD_PER_MIN, undefined);
-    }
     for (const tk of economyIndex.settledResourceTileKeys) {
       const [x, y] = parseKey(tk);
       const resource = applyClusterResources(x, y, resourceAt(x, y));
@@ -15260,6 +15375,10 @@ app.post("/admin/world/regenerate", async () => {
         return;
       }
       const tk = key(t.x, t.y);
+      if (isRelocatableSettlementTown(townsByTile.get(tk))) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "UNCAPTURE_SETTLEMENT", message: "cannot abandon your settlement" }));
+        return;
+      }
       if (combatLocks.has(tk)) {
         socket.send(JSON.stringify({ type: "ERROR", code: "LOCKED", message: "tile locked in combat" }));
         return;
