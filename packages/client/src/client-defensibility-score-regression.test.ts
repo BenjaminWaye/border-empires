@@ -11,6 +11,6 @@ const clientMainSource = (): string => {
 describe("defensibility score regression guard", () => {
   it("uses the shared defensiveness curve for the HUD percentage", () => {
     const source = clientMainSource();
-    expect(source).toContain("defensivenessMultiplier(t, e) * 100");
+    expect(source).toContain("exposureRatio(t, e) * 100");
   });
 });
