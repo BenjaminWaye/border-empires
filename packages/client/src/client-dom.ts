@@ -50,6 +50,16 @@ const hudMarkup = `
     </div>
   </div>
 
+  <div id="shard-alert-overlay">
+    <div id="shard-alert-card">
+      <div id="shard-alert-head">
+        <div id="shard-alert-title"></div>
+        <button id="shard-alert-close" class="shard-alert-close-btn" type="button" title="Close shard alert" aria-label="Close shard alert">✕</button>
+      </div>
+      <div id="shard-alert-detail"></div>
+    </div>
+  </div>
+
   <div id="map-loading-overlay">
     <div id="map-loading-row">
       <div id="map-loading-spinner" aria-hidden="true"></div>
@@ -332,6 +342,11 @@ export const initClientDom = () => {
   const captureTitleEl = requireElement<HTMLDivElement>("#capture-title");
   const captureTimeEl = requireElement<HTMLDivElement>("#capture-time");
   const captureTargetEl = requireElement<HTMLDivElement>("#capture-target");
+  const shardAlertOverlayEl = requireElement<HTMLDivElement>("#shard-alert-overlay");
+  const shardAlertCardEl = requireElement<HTMLDivElement>("#shard-alert-card");
+  const shardAlertTitleEl = requireElement<HTMLDivElement>("#shard-alert-title");
+  const shardAlertDetailEl = requireElement<HTMLDivElement>("#shard-alert-detail");
+  const shardAlertCloseBtn = requireElement<HTMLButtonElement>("#shard-alert-close");
   const mapLoadingOverlayEl = requireElement<HTMLDivElement>("#map-loading-overlay");
   const mapLoadingRowEl = requireElement<HTMLDivElement>("#map-loading-row");
   const mapLoadingSpinnerEl = requireElement<HTMLDivElement>("#map-loading-spinner");
@@ -540,6 +555,11 @@ export const initClientDom = () => {
     panelTechEl,
     panelTitleEl,
     selectedEl,
+    shardAlertCardEl,
+    shardAlertCloseBtn,
+    shardAlertDetailEl,
+    shardAlertOverlayEl,
+    shardAlertTitleEl,
     sidePanelBodyEl,
     sidePanelEl,
     statsChipsEl,
