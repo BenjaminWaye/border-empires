@@ -3233,6 +3233,7 @@ const supportedOwnedTownsForTile = (tile: Tile): Tile[] => {
   const out: Tile[] = [];
   for (const candidate of state.tiles.values()) {
     if (!candidate.town || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
+    if (candidate.town.populationTier === "SETTLEMENT") continue;
     if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
     out.push(candidate);
   }
@@ -6238,7 +6239,9 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     isDockEndpoint: Boolean(tile.dockId)
   }).forEach(pushLine);
   if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN" || !tile.ownerId) return lines;
-  if (tile.ownershipState === "SETTLED" && tile.town) pushLine("Towns produce gold when fed.");
+  if (tile.ownershipState === "SETTLED" && tile.town) {
+    pushLine(tile.town.populationTier === "SETTLEMENT" ? "Settlements provide starter gold and manpower until they grow into towns." : "Towns produce gold when fed.");
+  }
   if (tile.shardSite) {
     pushLine(
       tile.shardSite.kind === "FALL"
@@ -6248,7 +6251,9 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
   }
   const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
-    if (!tile.town.isFed) {
+    if (tile.town.populationTier === "SETTLEMENT") {
+      pushLine(`Settlement is producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
+    } else if (!tile.town.isFed) {
       pushLine("Town is unfed. Needs settled fish or grain nearby.");
     } else if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") {
       const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
@@ -6257,7 +6262,7 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     } else {
       pushLine(`Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
     }
-    pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
+    if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
     pushLine(`Growth ${populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
     pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
@@ -6650,6 +6655,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
   if (tile.ownerId === state.me) {
     const slots = developmentSlotSummary();
     const out: TileActionDef[] = [];
+    const isSettlementTile = tile.town?.populationTier === "SETTLEMENT";
     const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
     const hasYield =
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
@@ -6678,7 +6684,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           slots
         )
       });
-    if (tile.ownershipState === "SETTLED" && !tile.fort) {
+    if (tile.ownershipState === "SETTLED" && !tile.fort && !isSettlementTile) {
       const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
       const hasTech = state.techIds.includes("masonry");
       const fortGoldCost = structureGoldCost("FORT");
@@ -6855,7 +6861,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         )
       });
     }
-    if (tile.ownershipState === "SETTLED" && !tile.siegeOutpost) {
+    if (tile.ownershipState === "SETTLED" && !tile.siegeOutpost && !isSettlementTile) {
       const hasTech = state.techIds.includes("leatherworking");
       const siegeGoldCost = structureGoldCost("SIEGE_OUTPOST");
       const hasGold = state.gold >= siegeGoldCost;
@@ -7654,6 +7660,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     tile.ownershipState === "SETTLED" &&
     !hasBlockingStructure &&
     Boolean(tile.town) &&
+    tile.town?.populationTier !== "SETTLEMENT" &&
     state.techIds.includes("trade") &&
     state.gold >= 1200 &&
     (state.strategicResources.CRYSTAL ?? 0) >= 40;
@@ -7661,6 +7668,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     tile.ownershipState === "SETTLED" &&
     !hasBlockingStructure &&
     Boolean(tile.town) &&
+    tile.town?.populationTier !== "SETTLEMENT" &&
     state.techIds.includes("pottery") &&
     state.gold >= 700 &&
     (state.strategicResources.FOOD ?? 0) >= 40;

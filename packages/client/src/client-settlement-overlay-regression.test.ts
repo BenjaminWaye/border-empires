@@ -19,4 +19,11 @@ describe("settlement overlay regression guard", () => {
     const source = clientMainSource();
     expect(source).toContain('if (tile.town?.populationTier !== "SETTLEMENT") out.push({ id: "abandon_territory", label: "Abandon Territory" });');
   });
+
+  it("does not treat settlements as support-building anchors or build hosts", () => {
+    const source = clientMainSource();
+    expect(source).toContain('if (candidate.town.populationTier === "SETTLEMENT") continue;');
+    expect(source).toContain('if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);');
+    expect(source).toContain('tile.town?.populationTier !== "SETTLEMENT" &&');
+  });
 });

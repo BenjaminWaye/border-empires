@@ -37,4 +37,13 @@ describe("pre-town settlement regression guard", () => {
     expect(body).toContain('if (population >= POPULATION_TOWN_MIN) return "TOWN";');
     expect(body).toContain('return "SETTLEMENT";');
   });
+
+  it("treats settlements as a pre-town stage with no support, no upkeep, and starter economy values", () => {
+    const source = serverMainSource();
+    expect(source).toContain('SETTLEMENT: { cap: 150, regenPerMinute: 10 }');
+    expect(source).toContain('const SETTLEMENT_BASE_GOLD_PER_MIN = 1;');
+    expect(source).toContain('if (town && townPopulationTier(town.population) === "SETTLEMENT") return { supportCurrent: 0, supportMax: 0 };');
+    expect(source).toContain('if (tier === "SETTLEMENT") return 0;');
+    expect(source).toContain('if (populationTier === "SETTLEMENT") return SETTLEMENT_BASE_GOLD_PER_MIN;');
+  });
 });
