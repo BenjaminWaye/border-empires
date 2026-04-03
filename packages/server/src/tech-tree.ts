@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 export type StatsModKey = "attack" | "defense" | "income" | "vision";
@@ -261,7 +262,12 @@ export interface LoadedTechTree {
 }
 
 export const loadTechTree = (cwd: string): LoadedTechTree => {
-  const candidates = [path.resolve(cwd, "data/tech-tree.json"), path.resolve(cwd, "packages/server/data/tech-tree.json")];
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.resolve(cwd, "packages/server/data/tech-tree.json"),
+    path.resolve(moduleDir, "../data/tech-tree.json"),
+    path.resolve(cwd, "data/tech-tree.json")
+  ];
   const filePath = candidates.find((p) => fs.existsSync(p));
   if (!filePath) throw new Error(`tech-tree.json not found. tried: ${candidates.join(", ")}`);
 
