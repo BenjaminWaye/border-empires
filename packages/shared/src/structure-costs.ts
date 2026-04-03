@@ -49,8 +49,8 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     baseGoldCost: 900,
     scaling: { kind: "incremental", rate: 0.1 }
   },
-  QUARTERMASTER: { baseGoldCost: 2_200 },
-  ADVANCED_QUARTERMASTER: { baseGoldCost: 4_000, resourceCost: { resource: "SUPPLY", amount: 40 } },
+  FUR_SYNTHESIZER: { baseGoldCost: 2_200 },
+  ADVANCED_FUR_SYNTHESIZER: { baseGoldCost: 4_000, resourceCost: { resource: "SUPPLY", amount: 40 } },
   IRONWORKS: { baseGoldCost: 2_400 },
   ADVANCED_IRONWORKS: { baseGoldCost: 4_200, resourceCost: { resource: "IRON", amount: 40 } },
   CRYSTAL_SYNTHESIZER: { baseGoldCost: 2_800 },
