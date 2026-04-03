@@ -2026,10 +2026,11 @@ body {
   color: #fff2c2;
 }
 .tile-menu-body {
-  display: grid;
-  gap: 8px;
+  display: block;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 100%;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
