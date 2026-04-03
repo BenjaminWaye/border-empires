@@ -14,10 +14,10 @@ describe("resource branch regression guard", () => {
 
     expect(byId.get("toolmaking")?.cost).toEqual({ gold: 2000 });
     expect(byId.get("alchemy")?.effects).toMatchObject({
-      unlockIronworks: true,
-      unlockWoodenFort: true,
-      unlockLightOutpost: true
+      unlockIronworks: true
     });
+    expect(byId.get("alchemy")?.effects?.unlockWoodenFort).toBeUndefined();
+    expect(byId.get("alchemy")?.effects?.unlockLightOutpost).toBeUndefined();
     expect(byId.get("crystal-lattices")?.requires).toBe("alchemy");
     expect(byId.get("crystal-lattices")?.cost).toMatchObject({ gold: 6500, iron: 60 });
     expect(byId.get("crystal-lattices")?.effects).toMatchObject({ unlockCrystalSynthesizer: true });
