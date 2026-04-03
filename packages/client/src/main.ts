@@ -1340,7 +1340,7 @@ const overlayVariantIndexAt = (x: number, y: number, count: number): number => {
 };
 
 const defaultTownOverlayByTier = createTownOverlaySet({
-  SETTLEMENT: overlaySrc("ancient-town-overlay-sand.svg"),
+  SETTLEMENT: overlaySrc("settlement-overlay-sand.svg"),
   TOWN: overlaySrc("town-overlay-sand.svg"),
   CITY: overlaySrc("city-overlay-sand.svg"),
   GREAT_CITY: overlaySrc("great-city-overlay-sand.svg"),
@@ -1348,7 +1348,7 @@ const defaultTownOverlayByTier = createTownOverlaySet({
 });
 
 const grassTownOverlayByTier = createTownOverlaySet({
-  SETTLEMENT: overlaySrc("ancient-town-overlay-grass.svg"),
+  SETTLEMENT: overlaySrc("settlement-overlay-grass.svg"),
   TOWN: overlaySrc("town-overlay-grass.svg"),
   CITY: overlaySrc("city-overlay-grass.svg"),
   GREAT_CITY: overlaySrc("great-city-overlay-grass.svg"),
@@ -1667,7 +1667,7 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
 
   const scaleByTier =
     tile.town.populationTier === "SETTLEMENT"
-      ? 1.22
+      ? 0.94
       : tile.town.populationTier === "TOWN"
       ? 1.46
       : tile.town.populationTier === "CITY"
@@ -1679,7 +1679,7 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
   const offsetX = (drawSize - size) / 2;
   const offsetY =
     tile.town.populationTier === "SETTLEMENT"
-      ? drawSize * 0.18
+      ? drawSize * 0.06
       : tile.town.populationTier === "TOWN"
       ? drawSize * 0.28
       : tile.town.populationTier === "CITY"
@@ -7109,7 +7109,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       }
     }
     out.push(createMountainAction());
-    out.push({ id: "abandon_territory", label: "Abandon Territory" });
+    if (tile.town?.populationTier !== "SETTLEMENT") out.push({ id: "abandon_territory", label: "Abandon Territory" });
     return out;
   }
   if (isTileOwnedByAlly(tile)) return [];
