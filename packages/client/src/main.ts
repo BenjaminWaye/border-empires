@@ -65,6 +65,7 @@ import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-h
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
+import { townHasSupportStructureType } from "./client-support-structures.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
@@ -3132,6 +3133,11 @@ const supportedOwnedTownsForTile = (tile: Tile): Tile[] => {
   }
   return out.sort((a, b) => a.x - b.x || a.y - b.y);
 };
+
+const townHasSupportStructure = (
+  town: Tile | undefined,
+  structureType: "MARKET" | "GRANARY" | "BANK" | "CARAVANARY" | "FUR_SYNTHESIZER" | "IRONWORKS" | "CRYSTAL_SYNTHESIZER" | "FUEL_PLANT"
+): boolean => townHasSupportStructureType(state.tiles.values(), town, state.me, structureType);
 
 const supportedOwnedDocksForTile = (tile: Tile): Tile[] => {
   const out: Tile[] = [];
@@ -6679,15 +6685,23 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         });
       }
       if (supportedTown) {
+        const townHasMarket = Boolean(supportedTown.town?.hasMarket) || townHasSupportStructure(supportedTown, "MARKET");
+        const townHasGranary = Boolean(supportedTown.town?.hasGranary) || townHasSupportStructure(supportedTown, "GRANARY");
+        const townHasBank = Boolean(supportedTown.town?.hasBank) || townHasSupportStructure(supportedTown, "BANK");
+        const townHasCaravanary = townHasSupportStructure(supportedTown, "CARAVANARY");
+        const townHasFurSynth = townHasSupportStructure(supportedTown, "FUR_SYNTHESIZER");
+        const townHasIronworks = townHasSupportStructure(supportedTown, "IRONWORKS");
+        const townHasCrystalSynth = townHasSupportStructure(supportedTown, "CRYSTAL_SYNTHESIZER");
+        const townHasFuelPlant = townHasSupportStructure(supportedTown, "FUEL_PLANT");
         out.push({
           id: "build_market",
           label: "Build Market",
           detail: buildDetailTextForAction("build_market", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasMarket && state.techIds.includes("trade") && state.gold >= 1200 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
+            !hasBlockingStructure && !townHasMarket && state.techIds.includes("trade") && state.gold >= 1200 && (state.strategicResources.CRYSTAL ?? 0) >= 40,
             hasBlockingStructure
               ? "Tile already has structure"
-              : supportedTown.town?.hasMarket
+              : townHasMarket
                 ? "Nearby town already has Market"
                 : !state.techIds.includes("trade")
                   ? "Requires Trade"
@@ -6703,10 +6717,10 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Granary",
           detail: buildDetailTextForAction("build_granary", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasGranary && state.techIds.includes("pottery") && state.gold >= 700 && (state.strategicResources.FOOD ?? 0) >= 40,
+            !hasBlockingStructure && !townHasGranary && state.techIds.includes("pottery") && state.gold >= 700 && (state.strategicResources.FOOD ?? 0) >= 40,
             hasBlockingStructure
               ? "Tile already has structure"
-              : supportedTown.town?.hasGranary
+              : townHasGranary
                 ? "Nearby town already has Granary"
                 : !state.techIds.includes("pottery")
                   ? "Requires Pottery"
@@ -6722,10 +6736,10 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Bank",
           detail: buildDetailTextForAction("build_bank", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && !supportedTown.town?.hasBank && state.techIds.includes("coinage") && state.gold >= 1600 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
+            !hasBlockingStructure && !townHasBank && state.techIds.includes("coinage") && state.gold >= 1600 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
             hasBlockingStructure
               ? "Tile already has structure"
-              : supportedTown.town?.hasBank
+              : townHasBank
                 ? "Nearby town already has Bank"
                 : !state.techIds.includes("coinage")
                   ? "Requires Coinage"
@@ -6741,8 +6755,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Caravanary",
           detail: buildDetailTextForAction("build_caravanary", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("ledger-keeping") && state.gold >= 1800 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : state.gold < 1800 ? "Need 1800 gold" : "Need 60 CRYSTAL",
+            !hasBlockingStructure && !townHasCaravanary && state.techIds.includes("ledger-keeping") && state.gold >= 1800 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
+            hasBlockingStructure ? "Tile already has structure" : townHasCaravanary ? "Nearby town already has Caravanary" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : state.gold < 1800 ? "Need 1800 gold" : "Need 60 CRYSTAL",
             `1800 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +25% connected-town bonus • 15 gold / 10m`,
             slots
           )
@@ -6752,8 +6766,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Fur Synthesizer",
           detail: buildDetailTextForAction("build_fur_synthesizer", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("workshops") && state.gold >= 2200,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 2200 gold",
+            !hasBlockingStructure && !townHasFurSynth && state.techIds.includes("workshops") && state.gold >= 2200,
+            hasBlockingStructure ? "Tile already has structure" : townHasFurSynth ? "Nearby town already has Fur Synthesizer" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 2200 gold",
             `2200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 SUPPLY/day • 120 gold / 10m`,
             slots
           )
@@ -6763,8 +6777,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Ironworks",
           detail: buildDetailTextForAction("build_ironworks", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("alchemy") && state.gold >= 2400,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("alchemy") ? "Requires Alchemy" : "Need 2400 gold",
+            !hasBlockingStructure && !townHasIronworks && state.techIds.includes("alchemy") && state.gold >= 2400,
+            hasBlockingStructure ? "Tile already has structure" : townHasIronworks ? "Nearby town already has Ironworks" : !state.techIds.includes("alchemy") ? "Requires Alchemy" : "Need 2400 gold",
             `2400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 IRON/day • 120 gold / 10m`,
             slots
           )
@@ -6774,8 +6788,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Crystal Synthesizer",
           detail: buildDetailTextForAction("build_crystal_synthesizer", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("crystal-lattices") && state.gold >= 2800,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("crystal-lattices") ? "Requires Crystal Lattices" : "Need 2800 gold",
+            !hasBlockingStructure && !townHasCrystalSynth && state.techIds.includes("crystal-lattices") && state.gold >= 2800,
+            hasBlockingStructure ? "Tile already has structure" : townHasCrystalSynth ? "Nearby town already has Crystal Synthesizer" : !state.techIds.includes("crystal-lattices") ? "Requires Crystal Lattices" : "Need 2800 gold",
             `2800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 12 CRYSTAL/day • 160 gold / 10m`,
             slots
           )
@@ -6785,8 +6799,8 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
           label: "Build Fuel Plant",
           detail: buildDetailTextForAction("build_fuel_plant", tile, supportedTown),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !hasBlockingStructure && state.techIds.includes("plastics") && state.gold >= 3200,
-            hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 3200 gold",
+            !hasBlockingStructure && !townHasFuelPlant && state.techIds.includes("plastics") && state.gold >= 3200,
+            hasBlockingStructure ? "Tile already has structure" : townHasFuelPlant ? "Nearby town already has Fuel Plant" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 3200 gold",
             `3200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 10 OIL/day • 180 gold / 10m`,
             slots
           )
@@ -7053,6 +7067,12 @@ const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: numb
       hideTileActionMenu();
     };
   });
+  const scrollBody = tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
+  if (scrollBody) {
+    scrollBody.ontouchstart = (event) => event.stopPropagation();
+    scrollBody.ontouchmove = (event) => event.stopPropagation();
+    scrollBody.onwheel = (event) => event.stopPropagation();
+  }
 };
 
 const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number): void => {
