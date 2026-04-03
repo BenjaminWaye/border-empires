@@ -6450,7 +6450,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
       });
     const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
     const hasLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST";
-    if (!tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile && !state.techIds.includes("masonry")) {
+    if (tile.ownershipState === "SETTLED" && !tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile && !state.techIds.includes("masonry")) {
       const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(tile.x, tile.y));
       out.push({
         id: "build_wooden_fort" as TileActionDef["id"],
@@ -6473,6 +6473,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     }
     if (
       tile.ownerId === state.me &&
+      tile.ownershipState === "SETTLED" &&
       !tile.fort &&
       !tile.siegeOutpost &&
       !tile.observatory &&
@@ -6665,7 +6666,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
         )
       });
     }
-    if (!tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile && !state.techIds.includes("leatherworking")) {
+    if (tile.ownershipState === "SETTLED" && !tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile && !state.techIds.includes("leatherworking")) {
       out.push({
         id: "build_light_outpost" as TileActionDef["id"],
         label: "Build Light Outpost",
@@ -6688,6 +6689,7 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
     }
     if (
       tile.ownerId === state.me &&
+      tile.ownershipState === "SETTLED" &&
       !tile.siegeOutpost &&
       !tile.fort &&
       !tile.observatory &&
@@ -7521,6 +7523,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
   const isBorderTileOnly = isOwnedBorderTile(x, y);
   const canBuildStarterWoodenFort =
     tile.ownerId === state.me &&
+    tile.ownershipState === "SETTLED" &&
     isBorderOrDock &&
     !tile.fort &&
     !tile.siegeOutpost &&
@@ -7531,6 +7534,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.gold >= woodenFortGoldCost;
   const canBuildAdvancedFort =
     tile.ownerId === state.me &&
+    tile.ownershipState === "SETTLED" &&
     isBorderOrDock &&
     !tile.fort &&
     !tile.siegeOutpost &&
@@ -7541,6 +7545,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     (state.strategicResources.IRON ?? 0) >= 45;
   const canBuildStarterLightOutpost =
     tile.ownerId === state.me &&
+    tile.ownershipState === "SETTLED" &&
     isBorderTileOnly &&
     !tile.fort &&
     !tile.siegeOutpost &&
@@ -7552,6 +7557,7 @@ const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: numbe
     state.gold >= lightOutpostGoldCost;
   const canBuildAdvancedSiegeOutpost =
     tile.ownerId === state.me &&
+    tile.ownershipState === "SETTLED" &&
     isBorderTileOnly &&
     !tile.siegeOutpost &&
     !tile.fort &&
