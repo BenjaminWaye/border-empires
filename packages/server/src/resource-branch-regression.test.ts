@@ -20,7 +20,7 @@ describe("resource branch regression guard", () => {
     expect(byId.get("crystal-lattices")?.requires).toBe("alchemy");
     expect(byId.get("crystal-lattices")?.cost).toMatchObject({ gold: 6500, iron: 60 });
     expect(byId.get("crystal-lattices")?.effects).toMatchObject({ unlockCrystalSynthesizer: true });
-    expect(byId.get("workshops")?.effects).toMatchObject({ unlockQuartermaster: true });
+    expect(byId.get("workshops")?.effects).toMatchObject({ unlockFurSynthesizer: true });
     expect(byId.get("workshops")?.effects?.unlockIronworks).toBeUndefined();
     expect(byId.get("workshops")?.effects?.unlockCrystalSynthesizer).toBeUndefined();
     expect(byId.get("overload-protocols")?.requires).toBe("crystal-lattices");
@@ -39,6 +39,6 @@ describe("resource branch regression guard", () => {
     expect(serverMainSource).toContain('if (structureType === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;');
     expect(serverMainSource).toContain('structure.type !== "ADVANCED_IRONWORKS"');
     expect(serverMainSource).toContain('const baseSynthTypeForAdvanced =');
-    expect(serverMainSource).toContain('if (structureType === "ADVANCED_QUARTERMASTER") return "QUARTERMASTER";');
+    expect(serverMainSource).toContain('if (structureType === "ADVANCED_FUR_SYNTHESIZER") return "FUR_SYNTHESIZER";');
   });
 });

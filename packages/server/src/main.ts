@@ -1036,7 +1036,7 @@ const FORT_BUILD_IRON_COST = 45;
 const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
 const SYNTH_OVERLOAD_GOLD_COST = 1_000;
 const SYNTH_OVERLOAD_DISABLE_MS = 60 * 60_000;
-const QUARTERMASTER_OVERLOAD_SUPPLY = 25;
+const FUR_SYNTHESIZER_OVERLOAD_SUPPLY = 25;
 const IRONWORKS_OVERLOAD_IRON = 25;
 const CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 16;
 const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
@@ -1068,7 +1068,7 @@ const BANK_BUILD_CRYSTAL_COST = 60;
 const BANK_CRYSTAL_UPKEEP = 0.05;
 const AIRPORT_BUILD_GOLD_COST = structureBaseGoldCost("AIRPORT");
 const AIRPORT_BUILD_CRYSTAL_COST = 80;
-const QUARTERMASTER_BUILD_GOLD_COST = structureBaseGoldCost("QUARTERMASTER");
+const FUR_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("FUR_SYNTHESIZER");
 const IRONWORKS_BUILD_GOLD_COST = structureBaseGoldCost("IRONWORKS");
 const CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("CRYSTAL_SYNTHESIZER");
 const FUEL_PLANT_BUILD_GOLD_COST = structureBaseGoldCost("FUEL_PLANT");
@@ -1091,7 +1091,7 @@ const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinut
   METROPOLIS: { cap: 2_400, regenPerMinute: 120 }
 };
 const SETTLEMENT_BASE_GOLD_PER_MIN = 1;
-const QUARTERMASTER_GOLD_UPKEEP = 120;
+const FUR_SYNTHESIZER_GOLD_UPKEEP = 120;
 const IRONWORKS_GOLD_UPKEEP = 120;
 const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 160;
 const WOODEN_FORT_GOLD_UPKEEP = 5;
@@ -1103,8 +1103,8 @@ const GARRISON_HALL_GOLD_UPKEEP = 25;
 const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
 const RADAR_SYSTEM_GOLD_UPKEEP = 45;
 const FOUNDRY_GOLD_UPKEEP = 50;
-const QUARTERMASTER_SUPPLY_PER_DAY = 18;
-const ADVANCED_QUARTERMASTER_SUPPLY_PER_DAY = 21.6;
+const FUR_SYNTHESIZER_SUPPLY_PER_DAY = 18;
+const ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY = 21.6;
 const IRONWORKS_IRON_PER_DAY = 18;
 const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
 const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
@@ -3272,8 +3272,8 @@ const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
   if (type === "AIRPORT") return "Airport";
   if (type === "WOODEN_FORT") return "Wooden Fort";
   if (type === "LIGHT_OUTPOST") return "Light Outpost";
-  if (type === "QUARTERMASTER") return "Fur Synthesizer";
-  if (type === "ADVANCED_QUARTERMASTER") return "Advanced Fur Synthesizer";
+  if (type === "FUR_SYNTHESIZER") return "Fur Synthesizer";
+  if (type === "ADVANCED_FUR_SYNTHESIZER") return "Advanced Fur Synthesizer";
   if (type === "IRONWORKS") return "Ironworks";
   if (type === "ADVANCED_IRONWORKS") return "Advanced Ironworks";
   if (type === "CRYSTAL_SYNTHESIZER") return "Crystal Synthesizer";
@@ -3432,8 +3432,8 @@ const SUPPORT_ONLY_STRUCTURE_TYPES: EconomicStructureType[] = [
   "MARKET",
   "GRANARY",
   "BANK",
-  "QUARTERMASTER",
-  "ADVANCED_QUARTERMASTER",
+  "FUR_SYNTHESIZER",
+  "ADVANCED_FUR_SYNTHESIZER",
   "IRONWORKS",
   "ADVANCED_IRONWORKS",
   "CRYSTAL_SYNTHESIZER",
@@ -5599,8 +5599,8 @@ const converterStructureOutputFor = (
   structureType: EconomicStructureType,
   ownerId?: string
 ): Partial<Record<StrategicResource, number>> | undefined => {
-  if (structureType === "QUARTERMASTER") return { SUPPLY: QUARTERMASTER_SUPPLY_PER_DAY };
-  if (structureType === "ADVANCED_QUARTERMASTER") return { SUPPLY: ADVANCED_QUARTERMASTER_SUPPLY_PER_DAY };
+  if (structureType === "FUR_SYNTHESIZER") return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY };
+  if (structureType === "ADVANCED_FUR_SYNTHESIZER") return { SUPPLY: ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY };
   if (structureType === "IRONWORKS") return { IRON: IRONWORKS_IRON_PER_DAY };
   if (structureType === "ADVANCED_IRONWORKS") return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
   if (structureType === "CRYSTAL_SYNTHESIZER") return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
@@ -5662,8 +5662,8 @@ const economicStructureOutputMultAt = (tileKey: TileKey, ownerId: string | undef
     structure.type === "AIRPORT" ||
     structure.type === "WOODEN_FORT" ||
     structure.type === "LIGHT_OUTPOST" ||
-    structure.type === "QUARTERMASTER" ||
-    structure.type === "ADVANCED_QUARTERMASTER" ||
+    structure.type === "FUR_SYNTHESIZER" ||
+    structure.type === "ADVANCED_FUR_SYNTHESIZER" ||
     structure.type === "IRONWORKS" ||
     structure.type === "ADVANCED_IRONWORKS" ||
     structure.type === "CRYSTAL_SYNTHESIZER" ||
@@ -5782,14 +5782,14 @@ const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructure
           ? GRANARY_GOLD_UPKEEP
         : structureType === "CARAVANARY"
           ? CARAVANARY_GOLD_UPKEEP
-          : structureType === "ADVANCED_QUARTERMASTER"
-            ? QUARTERMASTER_GOLD_UPKEEP
+          : structureType === "ADVANCED_FUR_SYNTHESIZER"
+            ? FUR_SYNTHESIZER_GOLD_UPKEEP
           : structureType === "WOODEN_FORT"
             ? WOODEN_FORT_GOLD_UPKEEP
             : structureType === "LIGHT_OUTPOST"
               ? LIGHT_OUTPOST_GOLD_UPKEEP
-            : structureType === "QUARTERMASTER"
-              ? QUARTERMASTER_GOLD_UPKEEP
+            : structureType === "FUR_SYNTHESIZER"
+              ? FUR_SYNTHESIZER_GOLD_UPKEEP
               : structureType === "IRONWORKS"
                 ? IRONWORKS_GOLD_UPKEEP
                 : structureType === "ADVANCED_IRONWORKS"
@@ -5993,7 +5993,7 @@ const economicStructureBuildDurationMs = (structureType: EconomicStructureType):
 };
 
 const baseSynthTypeForAdvanced = (structureType: EconomicStructureType): EconomicStructureType | undefined => {
-  if (structureType === "ADVANCED_QUARTERMASTER") return "QUARTERMASTER";
+  if (structureType === "ADVANCED_FUR_SYNTHESIZER") return "FUR_SYNTHESIZER";
   if (structureType === "ADVANCED_IRONWORKS") return "IRONWORKS";
   if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
   return undefined;
@@ -6093,11 +6093,11 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
   if (structureType === "FOUNDRY" && !actor.techIds.has("industrial-extraction")) return { ok: false, reason: "unlock foundries via Industrial Extraction first" };
   if (structureType === "GOVERNORS_OFFICE" && !actor.techIds.has("civil-service")) return { ok: false, reason: "unlock governor's offices via Civil Service first" };
   if (structureType === "RADAR_SYSTEM" && !actor.techIds.has("radar")) return { ok: false, reason: "unlock radar systems via Radar first" };
-  if (structureType === "QUARTERMASTER" && !actor.techIds.has("workshops")) return { ok: false, reason: "unlock fur synthesizers via Workshops first" };
+  if (structureType === "FUR_SYNTHESIZER" && !actor.techIds.has("workshops")) return { ok: false, reason: "unlock fur synthesizers via Workshops first" };
   if (structureType === "IRONWORKS" && !actor.techIds.has("alchemy")) return { ok: false, reason: "unlock ironworks via Alchemy first" };
   if (structureType === "CRYSTAL_SYNTHESIZER" && !actor.techIds.has("crystal-lattices")) return { ok: false, reason: "unlock crystal synthesizers via Crystal Lattices first" };
   if (
-    (structureType === "ADVANCED_QUARTERMASTER" || structureType === "ADVANCED_IRONWORKS" || structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") &&
+    (structureType === "ADVANCED_FUR_SYNTHESIZER" || structureType === "ADVANCED_IRONWORKS" || structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") &&
     !getPlayerEffectsForPlayer(actor.id).unlockAdvancedSynthesizers
   ) {
     return { ok: false, reason: "unlock advanced synthesizers via Advanced Synthetication first" };
@@ -6136,10 +6136,10 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
       if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for caravanary" };
       if (!consumeStrategicResource(actor, "CRYSTAL", CARAVANARY_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for caravanary" };
       actor.points -= goldCost;
-    } else if (structureType === "QUARTERMASTER") {
+    } else if (structureType === "FUR_SYNTHESIZER") {
       if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fur synthesizer" };
       actor.points -= goldCost;
-    } else if (structureType === "ADVANCED_QUARTERMASTER") {
+    } else if (structureType === "ADVANCED_FUR_SYNTHESIZER") {
       if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for advanced fur synthesizer" };
       actor.points -= goldCost;
       if (!consumeStrategicResource(actor, "SUPPLY", 40)) return { ok: false, reason: "insufficient SUPPLY for advanced fur synthesizer" };
@@ -6280,14 +6280,14 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
                 ? GRANARY_GOLD_UPKEEP
                 : structure.type === "CARAVANARY"
                   ? CARAVANARY_GOLD_UPKEEP
-                : structure.type === "ADVANCED_QUARTERMASTER"
-                  ? QUARTERMASTER_GOLD_UPKEEP
+                : structure.type === "ADVANCED_FUR_SYNTHESIZER"
+                  ? FUR_SYNTHESIZER_GOLD_UPKEEP
                 : structure.type === "WOODEN_FORT"
                   ? WOODEN_FORT_GOLD_UPKEEP
                   : structure.type === "LIGHT_OUTPOST"
                     ? LIGHT_OUTPOST_GOLD_UPKEEP
-                : structure.type === "QUARTERMASTER"
-                  ? QUARTERMASTER_GOLD_UPKEEP
+                : structure.type === "FUR_SYNTHESIZER"
+                  ? FUR_SYNTHESIZER_GOLD_UPKEEP
                   : structure.type === "IRONWORKS"
                     ? IRONWORKS_GOLD_UPKEEP
                   : structure.type === "ADVANCED_IRONWORKS"
@@ -12278,8 +12278,8 @@ const tryOverloadSynthesizer = (actor: Player, x: number, y: number): { ok: bool
   const structure = economicStructuresByTile.get(tk);
   if (!structure || structure.ownerId !== actor.id) return { ok: false, reason: "no owned synthesizer on tile" };
   if (
-    structure.type !== "QUARTERMASTER" &&
-    structure.type !== "ADVANCED_QUARTERMASTER" &&
+    structure.type !== "FUR_SYNTHESIZER" &&
+    structure.type !== "ADVANCED_FUR_SYNTHESIZER" &&
     structure.type !== "IRONWORKS" &&
     structure.type !== "ADVANCED_IRONWORKS" &&
     structure.type !== "CRYSTAL_SYNTHESIZER" &&
@@ -12292,8 +12292,8 @@ const tryOverloadSynthesizer = (actor: Player, x: number, y: number): { ok: bool
   if (actor.points < SYNTH_OVERLOAD_GOLD_COST) return { ok: false, reason: "insufficient gold for synthesizer overload" };
   actor.points -= SYNTH_OVERLOAD_GOLD_COST;
   const stock = getOrInitStrategicStocks(actor.id);
-  if (structure.type === "QUARTERMASTER" || structure.type === "ADVANCED_QUARTERMASTER") {
-    stock.SUPPLY = (stock.SUPPLY ?? 0) + QUARTERMASTER_OVERLOAD_SUPPLY;
+  if (structure.type === "FUR_SYNTHESIZER" || structure.type === "ADVANCED_FUR_SYNTHESIZER") {
+    stock.SUPPLY = (stock.SUPPLY ?? 0) + FUR_SYNTHESIZER_OVERLOAD_SUPPLY;
   } else if (structure.type === "IRONWORKS" || structure.type === "ADVANCED_IRONWORKS") {
     stock.IRON = (stock.IRON ?? 0) + IRONWORKS_OVERLOAD_IRON;
   } else {
