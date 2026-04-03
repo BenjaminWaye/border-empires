@@ -4720,7 +4720,14 @@ window.addEventListener("resize", resize);
 window.visualViewport?.addEventListener("resize", resize);
 resize();
 
-const defaultWsUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:3001/ws`;
+const defaultWsUrl = (() => {
+  const isLocalHost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "0.0.0.0";
+  if (isLocalHost) return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:3001/ws`;
+  return "wss://border-empires.fly.dev/ws";
+})();
 const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? defaultWsUrl;
 const ws = new WebSocket(wsUrl);
 let reconnectReloadTimer: number | undefined;
