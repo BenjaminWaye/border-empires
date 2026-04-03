@@ -1067,12 +1067,13 @@ const RADAR_SYSTEM_BUILD_CRYSTAL_COST = 120;
 const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
 const MANPOWER_EPSILON = 1e-6;
 const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
-  SETTLEMENT: { cap: 150, regenPerMinute: 8 },
+  SETTLEMENT: { cap: 150, regenPerMinute: 10 },
   TOWN: { cap: 300, regenPerMinute: 15 },
   CITY: { cap: 600, regenPerMinute: 30 },
   GREAT_CITY: { cap: 1_200, regenPerMinute: 60 },
   METROPOLIS: { cap: 2_400, regenPerMinute: 120 }
 };
+const SETTLEMENT_BASE_GOLD_PER_MIN = 1;
 const QUARTERMASTER_GOLD_UPKEEP = 120;
 const IRONWORKS_GOLD_UPKEEP = 120;
 const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 160;
@@ -3166,6 +3167,8 @@ const ensureInterestCoverage = (seed: number): void => {
 };
 
 const townSupport = (townKey: TileKey, ownerId: string): { supportCurrent: number; supportMax: number } => {
+  const town = townsByTile.get(townKey);
+  if (town && townPopulationTier(town.population) === "SETTLEMENT") return { supportCurrent: 0, supportMax: 0 };
   const [x, y] = parseKey(townKey);
   let supportCurrent = 0;
   let supportMax = 0;
@@ -3216,13 +3219,13 @@ const townManpowerSnapshotForOwner = (
 };
 
 const playerManpowerCap = (player: Player): number => {
-  let cap = MANPOWER_BASE_CAP;
+  let cap = 0;
   for (const tk of ownedTownKeysForPlayer(player.id)) {
     const town = townsByTile.get(tk);
     if (!town) continue;
     cap += townManpowerSnapshotForOwner(town, player.id).cap;
   }
-  return Math.max(MANPOWER_BASE_CAP, cap);
+  return Math.max(0, cap);
 };
 
 const manpowerRegenWeightForSettlementIndex = (index: number): number => {
@@ -3262,21 +3265,21 @@ const prettyTownName = (town: TownDefinition, tileKey = town.tileKey): string =>
 };
 
 const playerManpowerRegenPerMinute = (player: Player): number => {
-  let regen = MANPOWER_BASE_REGEN_PER_MINUTE;
+  let regen = 0;
   const townKeys = ownedTownKeysForPlayer(player.id);
   for (const [index, tk] of townKeys.entries()) {
     const town = townsByTile.get(tk);
     if (!town) continue;
     regen += townManpowerSnapshotForOwner(town, player.id).regenPerMinute * manpowerRegenWeightForSettlementIndex(index);
   }
-  return Math.max(MANPOWER_BASE_REGEN_PER_MINUTE, regen);
+  return Math.max(0, regen);
 };
 
 const playerManpowerBreakdown = (
   player: Player
 ): { cap: ManpowerBreakdownLine[]; regen: ManpowerBreakdownLine[] } => {
-  const cap: ManpowerBreakdownLine[] = [{ label: "Base", amount: MANPOWER_BASE_CAP }];
-  const regen: ManpowerBreakdownLine[] = [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }];
+  const cap: ManpowerBreakdownLine[] = [];
+  const regen: ManpowerBreakdownLine[] = [];
   const townKeys = ownedTownKeysForPlayer(player.id);
   for (const [index, tk] of townKeys.entries()) {
     const town = townsByTile.get(tk);
@@ -3374,7 +3377,8 @@ const supportedTownKeysForTile = (tileKey: TileKey, ownerId: string | undefined)
       const nx = wrapX(x + dx, WORLD_WIDTH);
       const ny = wrapY(y + dy, WORLD_HEIGHT);
       const nk = key(nx, ny);
-      if (!townsByTile.has(nk)) continue;
+      const town = townsByTile.get(nk);
+      if (!town || townPopulationTier(town.population) === "SETTLEMENT") continue;
       if (ownership.get(nk) !== ownerId) continue;
       if (ownershipStateByTile.get(nk) !== "SETTLED") continue;
       out.push(nk);
@@ -3708,6 +3712,8 @@ const townPotentialIncomeForOwner = (
   const owner = players.get(ownerId);
   if (!owner) return 0;
   if (!options?.ignoreManpowerGate && !townGoldIncomeEnabledForPlayer(owner)) return 0;
+  const populationTier = townPopulationTier(town.population);
+  if (populationTier === "SETTLEMENT") return SETTLEMENT_BASE_GOLD_PER_MIN;
   const { supportCurrent, supportMax } = townSupport(town.tileKey, ownerId);
   const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
   if (!isTownFedForOwner(town.tileKey, ownerId)) return 0;
@@ -3732,6 +3738,7 @@ const townCapForOwner = (town: TownDefinition, ownerId: string | undefined): num
   if (!ownerId) return TILE_YIELD_CAP_GOLD;
   const effects = getPlayerEffectsForPlayer(ownerId);
   const income = townPotentialIncomeForOwner(town, ownerId, { ignoreSuppression: true, ignoreManpowerGate: true });
+  if (townPopulationTier(town.population) === "SETTLEMENT") return income * 60 * 8;
   return income * 60 * 8 * effects.townGoldCapMult * marketCapMultiplierAt(town.tileKey, ownerId);
 };
 
@@ -3784,7 +3791,7 @@ const recomputeTownNetworkForPlayer = (playerId: string): void => {
 const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
   const base = 0.1;
   const tier = townPopulationTier(town.population);
-  if (tier === "SETTLEMENT") return base * 0.5;
+  if (tier === "SETTLEMENT") return 0;
   if (tier === "CITY") return base * 2;
   if (tier === "GREAT_CITY") return base * 4;
   if (tier === "METROPOLIS") return base * 8;
@@ -3806,11 +3813,12 @@ const baseTownPopulationGrowthPerMinuteForOwner = (town: TownDefinition, ownerId
   if (!isTownFedForOwner(town.tileKey, ownerId)) return 0;
   const effects = getPlayerEffectsForPlayer(ownerId);
   const firstThreeTownKeys = firstThreeTownKeySetForPlayer(ownerId);
+  const populationTier = townPopulationTier(town.population);
   const growthMult =
     effects.populationGrowthMult *
     (firstThreeTownKeys.has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1) *
     granaryGrowthMultiplierAt(town.tileKey, ownerId) *
-    (townPopulationTier(town.population) === "SETTLEMENT" ? 4 : 1);
+    (populationTier === "SETTLEMENT" ? 4 : 1);
   const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
   if (logisticFactor <= 0) return 0;
   return town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
@@ -4491,6 +4499,7 @@ const buildTownSummaryForTile = (
   includeConnectedTownNames: boolean
 ): NonNullable<Tile["town"]> => {
   const support = ownerId ? townSupport(town.tileKey, ownerId) : { supportCurrent: 0, supportMax: 0 };
+  const tier = townPopulationTier(town.population);
   const isFed = isTownFedForOwner(town.tileKey, ownerId);
   const owner = ownerId ? players.get(ownerId) : undefined;
   const manpowerGoldPaused = Boolean(owner && !townGoldIncomeEnabledForPlayer(owner));
@@ -4500,7 +4509,7 @@ const buildTownSummaryForTile = (
   const connectedTownKeys = includeConnectedTownNames && ownerId ? directlyConnectedTownKeysForTown(ownerId, town.tileKey) : [];
   return {
     type: town.type,
-    baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
+    baseGoldPerMinute: tier === "SETTLEMENT" ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN,
     supportCurrent: support.supportCurrent,
     supportMax: support.supportMax,
     goldPerMinute: townIncomeForOwner(town, ownerId),
@@ -4745,7 +4754,8 @@ const playerTile = (x: number, y: number): Tile => {
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
   if (town) {
     const owner = ownerId;
-    const support = owner ? townSupport(town.tileKey, owner) : { supportCurrent: 0, supportMax: 0 };
+  const support = owner ? townSupport(town.tileKey, owner) : { supportCurrent: 0, supportMax: 0 };
+  const tier = townPopulationTier(town.population);
     const goldPerMinute = townIncomeForOwner(town, owner) * siphonMultiplierAt(town.tileKey);
     const isFed = isTownFedForOwner(town.tileKey, owner);
     const ownerPlayer = owner ? players.get(owner) : undefined;
@@ -4756,7 +4766,7 @@ const playerTile = (x: number, y: number): Tile => {
     const bank = structureForSupportedTown(town.tileKey, owner, "BANK");
     tile.town = {
       type: town.type,
-      baseGoldPerMinute: TOWN_BASE_GOLD_PER_MIN,
+      baseGoldPerMinute: tier === "SETTLEMENT" ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN,
       supportCurrent: support.supportCurrent,
       supportMax: support.supportMax,
       goldPerMinute,
@@ -5673,8 +5683,10 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   let airportCount = 0;
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    settledTileGoldUpkeep += 0.04 * governorUpkeepMultiplierAtTile(player.id, tk);
     const town = townsByTile.get(tk);
+    if (!(town && townPopulationTier(town.population) === "SETTLEMENT")) {
+      settledTileGoldUpkeep += 0.04 * governorUpkeepMultiplierAtTile(player.id, tk);
+    }
     if (town) townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
     const fort = fortsByTile.get(tk);
     if (fort?.ownerId === player.id && fort.status === "active") fortCount += 1;
@@ -5702,7 +5714,11 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   };
 };
 
-const settledTileGoldUpkeepPerMinuteAt = (playerId: string, tileKey: TileKey): number => 0.04 * governorUpkeepMultiplierAtTile(playerId, tileKey);
+const settledTileGoldUpkeepPerMinuteAt = (playerId: string, tileKey: TileKey): number => {
+  const town = townsByTile.get(tileKey);
+  if (town && townPopulationTier(town.population) === "SETTLEMENT") return 0;
+  return 0.04 * governorUpkeepMultiplierAtTile(playerId, tileKey);
+};
 
 const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number =>
   structureType === "FARMSTEAD"
@@ -5810,10 +5826,12 @@ const upkeepContributorsForPlayer = (player: Player): Record<"food" | "iron" | "
       if (!town) continue;
       townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
     }
-    pushUpkeepContributor(food, "Town upkeep", townFoodUpkeep * effects.townFoodUpkeepMult, {
-      count: townCount,
-      note: `${townCount} town${townCount === 1 ? "" : "s"}`
-    });
+    if (townFoodUpkeep > 0.0001) {
+      pushUpkeepContributor(food, "Town upkeep", townFoodUpkeep * effects.townFoodUpkeepMult, {
+        count: townCount,
+        note: `${townCount} town${townCount === 1 ? "" : "s"}`
+      });
+    }
   }
 
   pushUpkeepContributor(gold, "Settled land upkeep", settledTileGoldUpkeep * effects.settledGoldUpkeepMult, {
@@ -5929,6 +5947,10 @@ const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: Econom
   if (structureType === "MINE" && t.resource !== "IRON" && t.resource !== "GEMS") return { ok: false, reason: "mine requires IRON or CRYSTAL tile" };
   if (structureType === "AIRPORT") {
     if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: "airport requires empty settled land" };
+  }
+  const tileTown = townsByTile.get(tk);
+  if (tileTown && townPopulationTier(tileTown.population) === "SETTLEMENT") {
+    return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
   }
   if (structureType === "RADAR_SYSTEM" || structureType === "GOVERNORS_OFFICE" || structureType === "FOUNDRY") {
     if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} requires empty land` };
@@ -12561,6 +12583,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   if (t.terrain !== "LAND") return { ok: false, reason: "fort requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "fort tile must be owned" };
   const tk = key(t.x, t.y);
+  if (isRelocatableSettlementTown(townsByTile.get(tk))) return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already fortified" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
@@ -12619,6 +12642,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   if (t.terrain !== "LAND") return { ok: false, reason: "siege outpost requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "siege outpost tile must be owned" };
   const tk = key(t.x, t.y);
+  if (isRelocatableSettlementTown(townsByTile.get(tk))) return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
   if (observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) return { ok: false, reason: "tile already has structure" };
