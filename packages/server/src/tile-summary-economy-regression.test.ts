@@ -56,4 +56,10 @@ describe("tile summary economy regression guard", () => {
     const body = functionBody(serverMainSource(), "playerTileSummary");
     expect(body).toContain("applyTileYieldSummary(");
   });
+
+  it("includes region type on thin chunk tiles so tile menus do not wait for full detail", () => {
+    const body = functionBody(serverMainSource(), "playerTileSummary");
+    expect(body).toContain('const regionType = terrain === "LAND" ? regionTypeAtLocal(wx, wy) : undefined;');
+    expect(body).toContain('if (terrain === "LAND" && regionType) tile.regionType = regionType;');
+  });
 });

@@ -4686,6 +4686,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
   const siegeOutpost = terrain === "LAND" ? siegeOutpostsByTile.get(tk) : undefined;
   const sabotage = siphonByTile.get(tk);
   const breachShock = breachShockByTile.get(tk);
+  const regionType = terrain === "LAND" ? regionTypeAtLocal(wx, wy) : undefined;
   const tile: Tile = {
     x: wx,
     y: wy,
@@ -4700,6 +4701,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
     if (ownerId !== BARBARIAN_OWNER_ID && players.get(ownerId)?.capitalTileKey === tk) tile.capital = true;
   }
   if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
+  if (terrain === "LAND" && regionType) tile.regionType = regionType;
   if (dock) tile.dockId = dock.dockId;
   if (terrain === "LAND") tile.shardSite = shardSite ?? null;
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
