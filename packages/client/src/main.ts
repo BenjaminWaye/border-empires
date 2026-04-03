@@ -6332,12 +6332,17 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
           ? "ally"
           : "enemy";
   const productionLabel = tileProductionRequirementLabel(tile);
+  const resourceLabelText = tile.resource ? prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
   tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
     productionLabel,
+    resourceLabel: resourceLabelText,
     isDockEndpoint: Boolean(tile.dockId)
   }).forEach(pushLine);
+  if (tile.resource && !tile.ownerId && resourceLabelText) {
+    pushLine(`This ${resourceLabelText.toLowerCase()} node starts producing only after you claim and settle the tile.`);
+  }
   if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN" || !tile.ownerId) return lines;
   if (tile.ownershipState === "SETTLED" && tile.town) {
     pushLine(tile.town.populationTier === "SETTLEMENT" ? "Settlements provide starter gold and manpower until they grow into towns." : "Towns produce gold when fed.");
@@ -6373,8 +6378,7 @@ const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
     if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
   } else if (tile.resource) {
-    const resourceLabelText = prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource));
-    if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${resourceLabelText.toLowerCase()} once developed and collected.`);
+    if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
   }
   const productionHtml = tileProductionHtml(tile);
   if (productionHtml) pushLine(`Production: ${productionHtml}`);
@@ -6447,8 +6451,16 @@ const tileMenuViewForTile = (tile: Tile): TileMenuView => {
           : isTileOwnedByAlly(tile)
             ? "Allied"
             : "Enemy";
+  const titleLabel =
+    tile.town
+      ? prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
+      : tile.dockId
+        ? "Dock"
+        : tile.resource
+          ? prettyToken(resourceLabel(tile.resource))
+          : terrainLabel(tile.x, tile.y, tile.terrain);
   return {
-    title: `${terrainLabel(tile.x, tile.y, tile.terrain)} (${tile.x}, ${tile.y})`,
+    title: `${titleLabel} (${tile.x}, ${tile.y})`,
     subtitle: tileMenuSubtitleText(ownerLabel, tile.regionType ? prettyToken(tile.regionType) : undefined),
     tabs,
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),

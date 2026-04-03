@@ -18,4 +18,19 @@ describe("tile menu copy ownership", () => {
       "After you settle it, this tile can produce food."
     ]);
   });
+
+  it("calls out neutral resource nodes explicitly in overview copy", () => {
+    expect(
+      tileMenuOverviewIntroLines({
+        terrain: "LAND",
+        ownerKind: "unclaimed",
+        productionLabel: "iron",
+        resourceLabel: "Iron"
+      })
+    ).toEqual([
+      "Resource node: Iron.",
+      "Claim this tile first to turn it into frontier land.",
+      "After you settle it, this tile can produce iron."
+    ]);
+  });
 });
