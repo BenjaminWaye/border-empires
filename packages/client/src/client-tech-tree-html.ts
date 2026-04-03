@@ -62,6 +62,30 @@ const estimateTechNodeHeight = (tech: TechInfo, args: Pick<TechTreeArgs, "techPr
 
 const average = (values: number[]): number => values.reduce((sum, value) => sum + value, 0) / values.length;
 
+const deriveRootId = (
+  techId: string,
+  byId: Map<string, TechInfo>,
+  techPrereqIds: TechTreeArgs["techPrereqIds"],
+  memo: Map<string, string>
+): string => {
+  const cached = memo.get(techId);
+  if (cached) return cached;
+  const tech = byId.get(techId);
+  if (!tech) return techId;
+  if (tech.rootId) {
+    memo.set(techId, tech.rootId);
+    return tech.rootId;
+  }
+  const prereqs = techPrereqIds(tech);
+  if (prereqs.length === 0) {
+    memo.set(techId, tech.id);
+    return tech.id;
+  }
+  const root = deriveRootId(prereqs[0]!, byId, techPrereqIds, memo);
+  memo.set(techId, root);
+  return root;
+};
+
 export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
   const byId = new Map(args.techCatalog.map((tech) => [tech.id, tech]));
   const tierMemo = new Map<string, number>();
@@ -128,6 +152,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
   const ownedTechIds = args.effectiveOwnedTechIds;
   const ownedSet = new Set(ownedTechIds);
   const choicesSet = new Set(args.effectiveTechChoices);
+  const rootMemo = new Map<string, string>();
   if (args.techCatalog.length === 0) return `<article class="card"><p>No technologies are available this season.</p></article>`;
 
   const childrenByTech = new Map<string, string[]>();
@@ -151,13 +176,18 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
 
   const groupedByRoot = new Map<string, TechInfo[]>();
   for (const tech of args.techCatalog) {
-    const rootKey = tech.rootId || tech.id;
+    const rootKey = deriveRootId(tech.id, byId, args.techPrereqIds, rootMemo);
     const group = groupedByRoot.get(rootKey) ?? [];
     group.push(tech);
     groupedByRoot.set(rootKey, group);
   }
 
-  const currentRootId = args.techRootId || args.techCatalog.find((tech) => ownedSet.has(tech.id))?.rootId || "";
+  const currentRootId =
+    args.techRootId ||
+    (() => {
+      const owned = args.techCatalog.find((tech) => ownedSet.has(tech.id));
+      return owned ? deriveRootId(owned.id, byId, args.techPrereqIds, rootMemo) : "";
+    })();
   const rootKeys = [...groupedByRoot.keys()].sort((a, b) => {
     const aCurrent = a === currentRootId ? 1 : 0;
     const bCurrent = b === currentRootId ? 1 : 0;
@@ -181,7 +211,8 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
       return fallback;
     }
     assigning.add(techId);
-    const children = (childrenByTech.get(techId) ?? []).filter((childId) => byId.get(childId)?.rootId === (byId.get(techId)?.rootId || techId));
+      const techRoot = deriveRootId(techId, byId, args.techPrereqIds, rootMemo);
+      const children = (childrenByTech.get(techId) ?? []).filter((childId) => deriveRootId(childId, byId, args.techPrereqIds, rootMemo) === techRoot);
     let row: number;
     if (children.length === 0) {
       row = leafRow;
@@ -302,7 +333,7 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
 
   const maxTier = Math.max(...layouts.map((layout) => layout.tier));
   const stageWidth = TECH_TREE_PADDING_X * 2 + maxTier * techTierSlotWidth() + Math.max(0, maxTier - 1) * TECH_TREE_COL_GAP;
-  const contentHeight = stageHeight;
+  const contentHeight = Math.max(stageHeight, ...layouts.map((layout) => layout.y + layout.height + TECH_TREE_PADDING_Y));
   const layoutById = new Map(layouts.map((layout) => [layout.tech.id, layout]));
 
   const tierHeaders = Array.from({ length: maxTier }, (_, index) => {
@@ -354,7 +385,8 @@ export const renderExpandedTechChoiceTreeHtml = (args: TechTreeArgs): string => 
               : prereqs.length > 0
                 ? `Requires ${args.techNameList(prereqs)}`
                 : "Entry technology";
-      const rootName = byId.get(tech.rootId || tech.id)?.name ?? args.titleCaseFromId(tech.rootId || tech.id);
+      const rootId = deriveRootId(tech.id, byId, args.techPrereqIds, rootMemo);
+      const rootName = byId.get(rootId)?.name ?? args.titleCaseFromId(rootId);
       return `<button
         class="tech-card tech-tree-card tech-tree-graph-node${selected}${owned}${pending}${available}${choice}${blocked}"
         data-tech-card="${tech.id}"
