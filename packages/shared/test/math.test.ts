@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   combatWinChance,
+  defensibilityScore,
   defensivenessMultiplier,
   exposureWeightFromSides,
   pvpPointsReward,
@@ -27,8 +28,15 @@ describe("defensiveness", () => {
   });
 
   test("clamps multiplier", () => {
-    expect(defensivenessMultiplier(1, 999)).toBe(0.6);
-    expect(defensivenessMultiplier(10, 1)).toBe(2.0);
+    expect(defensivenessMultiplier(1, 999)).toBeCloseTo(0.01, 3);
+    expect(defensivenessMultiplier(10, 1)).toBe(1);
+  });
+
+  test("lifts practical mid-range shapes without maxing them out", () => {
+    expect(defensibilityScore(16, 32)).toBeCloseTo(0.714, 3);
+    expect(defensibilityScore(16, 16)).toBe(1);
+    expect(defensibilityScore(16, 40)).toBeCloseTo(0.625, 3);
+    expect(defensibilityScore(16, 64)).toBeCloseTo(0.455, 3);
   });
 });
 
