@@ -12,9 +12,13 @@ export interface TechEffects {
   unlockGranary?: boolean;
   unlockBank?: boolean;
   unlockCaravanary?: boolean;
+  unlockWoodenFort?: boolean;
+  unlockLightOutpost?: boolean;
   unlockQuartermaster?: boolean;
   unlockIronworks?: boolean;
   unlockCrystalSynthesizer?: boolean;
+  unlockSynthOverload?: boolean;
+  unlockAdvancedSynthesizers?: boolean;
   unlockFuelPlant?: boolean;
   unlockFoundry?: boolean;
   unlockCustomsHouse?: boolean;
@@ -120,9 +124,13 @@ const TechEffectsSchema = z
     unlockGranary: z.boolean().optional(),
     unlockBank: z.boolean().optional(),
     unlockCaravanary: z.boolean().optional(),
+    unlockWoodenFort: z.boolean().optional(),
+    unlockLightOutpost: z.boolean().optional(),
     unlockQuartermaster: z.boolean().optional(),
     unlockIronworks: z.boolean().optional(),
     unlockCrystalSynthesizer: z.boolean().optional(),
+    unlockSynthOverload: z.boolean().optional(),
+    unlockAdvancedSynthesizers: z.boolean().optional(),
     unlockFuelPlant: z.boolean().optional(),
     unlockFoundry: z.boolean().optional(),
     unlockCustomsHouse: z.boolean().optional(),
