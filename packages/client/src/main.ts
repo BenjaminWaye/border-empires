@@ -4668,34 +4668,6 @@ const renderHud = (): void => {
   mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
   hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
-  const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
-  weakDefButtons.forEach((btn) => {
-    btn.onclick = () => {
-      state.showWeakDefensibility = !state.showWeakDefensibility;
-      const weakTileCount = [...state.tiles.values()].filter((tile) => {
-        if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
-        return (
-          exposedSidesForTile(tile, {
-            tiles: state.tiles,
-            me: state.me,
-            keyFor: key,
-            wrapX,
-            wrapY,
-            terrainAt
-          }).length >= 2
-        );
-      }).length;
-      pushFeed(
-        state.showWeakDefensibility
-          ? `Weak defensibility overlay enabled (${weakTileCount} tiles highlighted).`
-          : "Weak defensibility overlay hidden.",
-        "info",
-        "info"
-      );
-      requestViewRefresh();
-      renderHud();
-    };
-  });
   techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
@@ -4805,6 +4777,34 @@ const renderHud = (): void => {
   });
   panelDefensibilityEl.innerHTML = defensibilityPanelHtml;
   mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml;
+  const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
+  weakDefButtons.forEach((btn) => {
+    btn.onclick = () => {
+      state.showWeakDefensibility = !state.showWeakDefensibility;
+      const weakTileCount = [...state.tiles.values()].filter((tile) => {
+        if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
+        return (
+          exposedSidesForTile(tile, {
+            tiles: state.tiles,
+            me: state.me,
+            keyFor: key,
+            wrapX,
+            wrapY,
+            terrainAt
+          }).length >= 2
+        );
+      }).length;
+      pushFeed(
+        state.showWeakDefensibility
+          ? `Weak defensibility overlay enabled (${weakTileCount} tiles highlighted).`
+          : "Weak defensibility overlay hidden.",
+        "info",
+        "info"
+      );
+      requestViewRefresh();
+      renderHud();
+    };
+  });
   const economyPanelHtml = renderEconomyPanelHtml({
     focus: state.economyFocus,
     gold: state.gold,
