@@ -2241,8 +2241,12 @@ const chooseSeasonalTechConfig = (seed: number): SeasonalTechConfig => {
 const seasonTechConfigIsCompatible = (config: SeasonalTechConfig): boolean => {
   if (config.rootNodeIds.length !== TECH_ROOTS.length) return false;
   if (config.rootNodeIds.some((id) => !TECH_ROOTS.includes(id))) return false;
+  if (config.activeNodeIds.size !== TECHS.length) return false;
   for (const id of config.activeNodeIds) {
     if (!techById.has(id)) return false;
+  }
+  for (const tech of TECHS) {
+    if (!config.activeNodeIds.has(tech.id)) return false;
   }
   return true;
 };
