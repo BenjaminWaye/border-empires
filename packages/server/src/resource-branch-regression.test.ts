@@ -43,6 +43,13 @@ describe("resource branch regression guard", () => {
     expect(serverMainSource).toContain('if (structureType === "ADVANCED_FUR_SYNTHESIZER") return "FUR_SYNTHESIZER";');
   });
 
+  it("invalidates stale season tech configs that are missing new tech nodes", () => {
+    const serverMainSource = readFileSync(resolve(here, "./main.ts"), "utf8");
+
+    expect(serverMainSource).toContain("if (config.activeNodeIds.size !== TECHS.length) return false;");
+    expect(serverMainSource).toContain("if (!config.activeNodeIds.has(tech.id)) return false;");
+  });
+
   it("prefers the packaged tech tree over a stale cwd data file", () => {
     const fakeCwd = mkdtempSync(resolve(tmpdir(), "border-empires-tech-tree-"));
     const staleTreePath = resolve(fakeCwd, "data/tech-tree.json");
