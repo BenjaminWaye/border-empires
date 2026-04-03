@@ -51,7 +51,7 @@ export type Tile = {
     population: number;
     maxPopulation: number;
     populationGrowthPerMinute?: number;
-    populationTier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+    populationTier: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     connectedTownCount: number;
     connectedTownBonus: number;
     connectedTownNames?: string[];

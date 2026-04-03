@@ -1309,11 +1309,13 @@ const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
   const set = {
+    SETTLEMENT: new Image(),
     TOWN: new Image(),
     CITY: new Image(),
     GREAT_CITY: new Image(),
     METROPOLIS: new Image()
   };
+  set.SETTLEMENT.src = sources.SETTLEMENT;
   set.TOWN.src = sources.TOWN;
   set.CITY.src = sources.CITY;
   set.GREAT_CITY.src = sources.GREAT_CITY;
@@ -1338,6 +1340,7 @@ const overlayVariantIndexAt = (x: number, y: number, count: number): number => {
 };
 
 const defaultTownOverlayByTier = createTownOverlaySet({
+  SETTLEMENT: overlaySrc("ancient-town-overlay-sand.svg"),
   TOWN: overlaySrc("town-overlay-sand.svg"),
   CITY: overlaySrc("city-overlay-sand.svg"),
   GREAT_CITY: overlaySrc("great-city-overlay-sand.svg"),
@@ -1345,6 +1348,7 @@ const defaultTownOverlayByTier = createTownOverlaySet({
 });
 
 const grassTownOverlayByTier = createTownOverlaySet({
+  SETTLEMENT: overlaySrc("ancient-town-overlay-grass.svg"),
   TOWN: overlaySrc("town-overlay-grass.svg"),
   CITY: overlaySrc("city-overlay-grass.svg"),
   GREAT_CITY: overlaySrc("great-city-overlay-grass.svg"),
@@ -1662,7 +1666,9 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
   }
 
   const scaleByTier =
-    tile.town.populationTier === "TOWN"
+    tile.town.populationTier === "SETTLEMENT"
+      ? 1.22
+      : tile.town.populationTier === "TOWN"
       ? 1.46
       : tile.town.populationTier === "CITY"
         ? 1.58
@@ -1672,7 +1678,9 @@ const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void
   const drawSize = size * scaleByTier;
   const offsetX = (drawSize - size) / 2;
   const offsetY =
-    tile.town.populationTier === "TOWN"
+    tile.town.populationTier === "SETTLEMENT"
+      ? drawSize * 0.18
+      : tile.town.populationTier === "TOWN"
       ? drawSize * 0.28
       : tile.town.populationTier === "CITY"
         ? drawSize * 0.32
@@ -3252,6 +3260,7 @@ const populationPerMinuteLabel = (deltaPerMinute: number): string => {
 const townNextPopulationMilestone = (
   town: NonNullable<Tile["town"]>
 ): { label: string; targetPopulation: number } | undefined => {
+  if (town.populationTier === "SETTLEMENT") return { label: "Town", targetPopulation: 10_000 };
   if (town.populationTier === "TOWN") return { label: "City", targetPopulation: 100_000 };
   if (town.populationTier === "CITY") return { label: "Great City", targetPopulation: 1_000_000 };
   if (town.populationTier === "GREAT_CITY") return { label: "Metropolis", targetPopulation: 5_000_000 };

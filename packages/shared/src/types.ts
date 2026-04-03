@@ -32,7 +32,7 @@ export type EconomicStructureType =
   | "CUSTOMS_HOUSE"
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM";
-export type PopulationTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type ShardSiteKind = "CACHE" | "FALL";
 export type SeasonVictoryPathId =
   | "TOWN_CONTROL"

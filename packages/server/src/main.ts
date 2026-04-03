@@ -1066,6 +1066,7 @@ const RADAR_SYSTEM_BUILD_CRYSTAL_COST = 120;
 const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
 const MANPOWER_EPSILON = 1e-6;
 const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
+  SETTLEMENT: { cap: 150, regenPerMinute: 8 },
   TOWN: { cap: 300, regenPerMinute: 15 },
   CITY: { cap: 600, regenPerMinute: 30 },
   GREAT_CITY: { cap: 1_200, regenPerMinute: 60 },
@@ -1128,9 +1129,10 @@ const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
 const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
 const POPULATION_GROWTH_BASE_RATE = 0.00032;
-const POPULATION_MIN = 15_000;
+const POPULATION_MIN = 3_000;
 const POPULATION_MAX = 10_000_000;
-const POPULATION_START_SPREAD = 10_000;
+const POPULATION_START_SPREAD = 2_000;
+const POPULATION_TOWN_MIN = 10_000;
 const POPULATION_GROWTH_TICK_MS = 60_000;
 const GROWTH_PAUSE_MS = 60 * 60_000;
 const GROWTH_PAUSE_MAX_MS = 6 * 60 * 60_000;
@@ -3190,11 +3192,13 @@ const townPopulationTier = (population: number): PopulationTier => {
   if (population >= 5_000_000) return "METROPOLIS";
   if (population >= 1_000_000) return "GREAT_CITY";
   if (population >= 100_000) return "CITY";
-  return "TOWN";
+  if (population >= POPULATION_TOWN_MIN) return "TOWN";
+  return "SETTLEMENT";
 };
 
 const townPopulationMultiplier = (population: number): number => {
   const tier = townPopulationTier(population);
+  if (tier === "SETTLEMENT") return 0.6;
   if (tier === "CITY") return 1.5;
   if (tier === "GREAT_CITY") return 2.5;
   if (tier === "METROPOLIS") return 3.2;
@@ -3688,6 +3692,7 @@ const recomputeTownNetworkForPlayer = (playerId: string): void => {
 const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
   const base = 0.1;
   const tier = townPopulationTier(town.population);
+  if (tier === "SETTLEMENT") return base * 0.5;
   if (tier === "CITY") return base * 2;
   if (tier === "GREAT_CITY") return base * 4;
   if (tier === "METROPOLIS") return base * 8;
@@ -3712,7 +3717,8 @@ const baseTownPopulationGrowthPerMinuteForOwner = (town: TownDefinition, ownerId
   const growthMult =
     effects.populationGrowthMult *
     (firstThreeTownKeys.has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1) *
-    granaryGrowthMultiplierAt(town.tileKey, ownerId);
+    granaryGrowthMultiplierAt(town.tileKey, ownerId) *
+    (townPopulationTier(town.population) === "SETTLEMENT" ? 4 : 1);
   const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
   if (logisticFactor <= 0) return 0;
   return town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
