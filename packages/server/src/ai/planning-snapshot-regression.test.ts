@@ -45,4 +45,10 @@ describe("buildAiPlanningSnapshot regression guard", () => {
       expect(body).not.toContain(forbidden);
     }
   });
+
+  it("derives economic build availability from the exact runtime selector in the cached planning layer", () => {
+    const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
+    expect(body).toContain("bestAiEconomicStructure(actor, territorySummary)");
+    expect(body).not.toContain("structureCandidateTiles.some");
+  });
 });

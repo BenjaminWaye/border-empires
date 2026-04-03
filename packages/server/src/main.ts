@@ -1469,6 +1469,15 @@ const socketsByPlayer = new Map<string, Ws>();
 const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
 const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
 const aiVictoryPathByPlayer = new Map<string, AiSeasonVictoryPathId>();
+const aiStrategicStateByPlayer = new Map<string, AiStrategicState>();
+const aiNextTruceDecisionAtByPlayer = new Map<string, number>();
+const cachedAiShardOpportunityByPlayer = new Map<string, AiShardOpportunityCache>();
+let shardSiteTopologyVersion = 0;
+
+const invalidateAiShardOpportunityCaches = (): void => {
+  shardSiteTopologyVersion += 1;
+  cachedAiShardOpportunityByPlayer.clear();
+};
 
 const normalizedPlayerHandle = (name: string): string => {
   const cleaned = name.replace(/\s+/g, " ").trim();
@@ -2844,6 +2853,7 @@ const shardSiteViewAt = (tileKey: TileKey): Tile["shardSite"] | undefined => {
 
 const generateShardCaches = (seed: number): void => {
   shardSitesByTile.clear();
+  invalidateAiShardOpportunityCaches();
   let placed = 0;
   for (let i = 0; i < 200_000 && placed < SHARD_CACHE_COUNT; i += 1) {
     const x = Math.floor(seeded01(i * 41, i * 59, seed + 11_101) * WORLD_WIDTH);
@@ -2891,6 +2901,7 @@ const ensureSpawnShardNearby = (x: number, y: number): void => {
       kind: "CACHE",
       amount: 2
     });
+    invalidateAiShardOpportunityCaches();
     markSummaryChunkDirtyAtTile(sx, sy);
     return;
   }
@@ -2920,6 +2931,7 @@ const spawnShardRain = (): void => {
     placed += 1;
   }
   if (touched.length > 0) {
+    invalidateAiShardOpportunityCaches();
     broadcast({
       type: "SHARD_RAIN_EVENT",
       siteCount: touched.length,
@@ -2950,7 +2962,10 @@ const expireShardSites = (): void => {
     touched.push({ x, y });
     markSummaryChunkDirtyAtTile(x, y);
   }
-  if (touched.length > 0) broadcastLocalVisionDelta(touched);
+  if (touched.length > 0) {
+    invalidateAiShardOpportunityCaches();
+    broadcastLocalVisionDelta(touched);
+  }
 };
 
 const collectShardSite = (player: Player, x: number, y: number): { ok: boolean; amount?: number; reason?: string } => {
@@ -2960,9 +2975,11 @@ const collectShardSite = (player: Player, x: number, y: number): { ok: boolean; 
   if (!site) return { ok: false, reason: "no shard cache on this tile" };
   if (typeof site.expiresAt === "number" && site.expiresAt <= now()) {
     shardSitesByTile.delete(tileKey);
+    invalidateAiShardOpportunityCaches();
     return { ok: false, reason: "the shardfall has already faded" };
   }
   shardSitesByTile.delete(tileKey);
+  invalidateAiShardOpportunityCaches();
   const stock = getOrInitStrategicStocks(player.id);
   stock.SHARD += site.amount;
   markSummaryChunkDirtyAtTile(x, y);
@@ -4291,6 +4308,9 @@ const clearWorldProgressForSeason = (): void => {
   cachedAiTerritoryStructureByPlayer.clear();
   cachedAiPlanningStaticByPlayer.clear();
   aiTerritoryVersionByPlayer.clear();
+  aiVictoryPathByPlayer.clear();
+  aiStrategicStateByPlayer.clear();
+  aiNextTruceDecisionAtByPlayer.clear();
   cachedAiCompetitionContext = undefined;
   cachedChunkSnapshotByPlayer.clear();
   cachedSummaryChunkByChunkKey.clear();
@@ -4317,6 +4337,7 @@ const clearWorldProgressForSeason = (): void => {
   activeAetherBridgesById.clear();
   strategicReplayEvents.length = 0;
   shardSitesByTile.clear();
+  invalidateAiShardOpportunityCaches();
   abilityCooldownsByPlayer.clear();
   revealedEmpireTargetsByPlayer.clear();
   breachShockByTile.clear();
@@ -7392,6 +7413,20 @@ type AiPlanningStaticCache = {
   frontierOpportunityWaste: number;
 };
 
+type AiShardOpportunityCache = {
+  version: string;
+  collectTileKey?: TileKey;
+};
+
+type AiStrategicFocus = "BALANCED" | "ECONOMIC_RECOVERY" | "MILITARY_PRESSURE" | "SHARD_RUSH" | "TRUCE_REBUILD";
+
+type AiStrategicState = {
+  focus: AiStrategicFocus;
+  updatedAt: number;
+  shardTileKey?: TileKey;
+  truceTargetPlayerId?: string;
+};
+
 const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
   const settledTiles: Tile[] = [];
   const frontierTiles: Tile[] = [];
@@ -8532,14 +8567,7 @@ const buildAiPlanningStaticCache = (
   const pressureAttackScore = estimateAiPressureAttackScore(actor, territorySummary);
   const fortCandidate = structureCandidateCount > 0 ? bestAiFortTile(actor, territorySummary) : undefined;
   const economicExpandCandidate = bestAiEconomicExpand(actor, undefined, territorySummary);
-  const economicBuildAvailable =
-    structureCandidateCount > 0 &&
-    territorySummary.structureCandidateTiles.some((tile) => {
-      const tileKey = key(tile.x, tile.y);
-      if (economicStructuresByTile.has(tileKey)) return false;
-      if (tile.resource || townsByTile.has(tileKey)) return true;
-      return cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
-    });
+  const economicBuildCandidate = structureCandidateCount > 0 ? bestAiEconomicStructure(actor, territorySummary) : undefined;
 
   return {
     version: aiTerritoryVersionForPlayer(actor.id),
@@ -8555,7 +8583,7 @@ const buildAiPlanningStaticCache = (
     fortAvailable: Boolean(fortCandidate),
     fortProtectsCore: fortTileProtectsCore(actor, fortCandidate),
     fortIsDockChokePoint: fortTileIsDockChokePoint(fortCandidate),
-    economicBuildAvailable,
+    economicBuildAvailable: Boolean(economicBuildCandidate),
     frontierOpportunityEconomic,
     frontierOpportunityScout,
     frontierOpportunityScaffold,
@@ -9203,6 +9231,166 @@ const ensureAiVictoryPath = (
   return selected;
 };
 
+const bestAiVisibleShardSite = (actor: Player): Tile | undefined => {
+  const cacheVersion = `${aiTerritoryVersionForPlayer(actor.id)}:${shardSiteTopologyVersion}`;
+  const cached = cachedAiShardOpportunityByPlayer.get(actor.id);
+  if (cached?.version === cacheVersion) {
+    return cached.collectTileKey ? playerTile(...parseKey(cached.collectTileKey)) : undefined;
+  }
+  let bestTileKey: TileKey | undefined;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (const site of shardSitesByTile.values()) {
+    const [x, y] = parseKey(site.tileKey);
+    if (!visible(actor, x, y)) continue;
+    const tile = playerTile(x, y);
+    if (tile.terrain !== "LAND") continue;
+    const ownedAdjacency = adjacentNeighborCores(x, y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id ? 1 : 0), 0);
+    const score = site.amount * 100 + (site.kind === "FALL" ? 25 : 0) + ownedAdjacency * 8;
+    if (score > bestScore) {
+      bestScore = score;
+      bestTileKey = site.tileKey;
+    }
+  }
+  cachedAiShardOpportunityByPlayer.set(actor.id, { version: cacheVersion, ...(bestTileKey ? { collectTileKey: bestTileKey } : {}) });
+  return bestTileKey ? playerTile(...parseKey(bestTileKey)) : undefined;
+};
+
+const aiVictoryPathStillReachable = (
+  primaryVictoryPath: AiSeasonVictoryPathId,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): boolean => {
+  if (primaryVictoryPath === "ECONOMIC_HEGEMONY") return analysis.aiIncome >= Math.max(18, analysis.runnerUpIncome - 4);
+  if (primaryVictoryPath === "TOWN_CONTROL") return townsTarget - analysis.controlledTowns <= 1;
+  return settledTilesTarget - analysis.settledTiles <= Math.max(4, Math.floor(settledTilesTarget * 0.12));
+};
+
+const chooseAiStrategicState = (
+  actor: Player,
+  analysis: AiTurnAnalysis,
+  planningSnapshot: AiPlanningSnapshot,
+  primaryVictoryPath: AiSeasonVictoryPathId,
+  townsTarget: number,
+  settledTilesTarget: number
+): AiStrategicState => {
+  const existing = aiStrategicStateByPlayer.get(actor.id);
+  const visibleShard = bestAiVisibleShardSite(actor);
+  const nowMs = now();
+  if (
+    existing &&
+    nowMs - existing.updatedAt < 60_000 &&
+    (existing.focus !== "SHARD_RUSH" || existing.shardTileKey === (visibleShard ? key(visibleShard.x, visibleShard.y) : undefined))
+  ) {
+    return existing;
+  }
+  const victoryReachable = aiVictoryPathStillReachable(primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
+  const focus: AiStrategicFocus = visibleShard && !analysis.threatCritical
+    ? "SHARD_RUSH"
+    : analysis.underThreat && analysis.threatCritical && !victoryReachable && (analysis.economyWeak || analysis.foodCoverageLow) && !planningSnapshot.pressureAttackAvailable
+      ? "TRUCE_REBUILD"
+      : planningSnapshot.pressureAttackAvailable && analysis.underThreat
+        ? "MILITARY_PRESSURE"
+        : analysis.economyWeak || analysis.foodCoverageLow
+          ? "ECONOMIC_RECOVERY"
+          : "BALANCED";
+  const state: AiStrategicState = {
+    focus,
+    updatedAt: nowMs,
+    ...(visibleShard ? { shardTileKey: key(visibleShard.x, visibleShard.y) } : {})
+  };
+  aiStrategicStateByPlayer.set(actor.id, state);
+  return state;
+};
+
+const bestAiTruceTargetPlayerId = (actor: Player, territorySummary: AiTerritorySummary): string | undefined => {
+  const pressureByPlayerId = new Map<string, number>();
+  for (const { to } of territorySummary.attackCandidates) {
+    if (to.terrain !== "LAND" || !to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId) || to.ownerId === BARBARIAN_OWNER_ID) continue;
+    pressureByPlayerId.set(to.ownerId, (pressureByPlayerId.get(to.ownerId) ?? 0) + 1);
+  }
+  let bestPlayerId: string | undefined;
+  let bestScore = 0;
+  for (const [playerId, score] of pressureByPlayerId) {
+    if (playerHasActiveTruce(playerId) || truceBlocksHostility(actor.id, playerId)) continue;
+    if (score > bestScore) {
+      bestScore = score;
+      bestPlayerId = playerId;
+    }
+  }
+  return bestPlayerId;
+};
+
+const maybeHandleAiShardOrTruce = async (
+  actor: Player,
+  analysis: AiTurnAnalysis,
+  planningSnapshot: AiPlanningSnapshot,
+  strategicState: AiStrategicState
+): Promise<boolean> => {
+  if (strategicState.focus === "SHARD_RUSH" && strategicState.shardTileKey && !analysis.threatCritical) {
+    const [x, y] = parseKey(strategicState.shardTileKey);
+    const site = shardSitesByTile.get(strategicState.shardTileKey);
+    if (site && visible(actor, x, y)) {
+      await executeUnifiedGameplayMessage(actor, { type: "COLLECT_SHARD", x, y }, NOOP_WS, false);
+      setAiTurnDebug(actor, "executed_shard_collect_priority", {
+        incomePerMinute: analysis.aiIncome,
+        controlledTowns: analysis.controlledTowns,
+        settledTiles: analysis.settledTiles,
+        details: {
+          strategicFocus: strategicState.focus,
+          shardAmount: site.amount,
+          shardX: x,
+          shardY: y
+        }
+      });
+      return true;
+    }
+  }
+
+  if (strategicState.focus !== "TRUCE_REBUILD" || playerHasActiveTruce(actor.id)) return false;
+  const incoming = [...truceRequests.values()].find((request) => request.toPlayerId === actor.id);
+  if (incoming) {
+    await executeUnifiedGameplayMessage(actor, { type: "TRUCE_ACCEPT", requestId: incoming.id }, NOOP_WS, false);
+    setAiTurnDebug(actor, "executed_truce_accept_priority", {
+      incomePerMinute: analysis.aiIncome,
+      controlledTowns: analysis.controlledTowns,
+      settledTiles: analysis.settledTiles,
+      details: {
+        strategicFocus: strategicState.focus,
+        truceFromPlayerId: incoming.fromPlayerId
+      }
+    });
+    return true;
+  }
+
+  const nextAllowedAt = aiNextTruceDecisionAtByPlayer.get(actor.id) ?? 0;
+  if (nextAllowedAt > now()) return false;
+  if (planningSnapshot.pressureAttackAvailable || planningSnapshot.settlementAvailable || planningSnapshot.economicBuildAvailable) {
+    aiNextTruceDecisionAtByPlayer.set(actor.id, now() + 90_000);
+    return false;
+  }
+  const targetPlayerId = bestAiTruceTargetPlayerId(actor, analysis.territorySummary);
+  const target = targetPlayerId ? players.get(targetPlayerId) : undefined;
+  if (!target) {
+    aiNextTruceDecisionAtByPlayer.set(actor.id, now() + 90_000);
+    return false;
+  }
+  await executeUnifiedGameplayMessage(actor, { type: "TRUCE_REQUEST", targetPlayerName: target.name, durationHours: 12 }, NOOP_WS, false);
+  aiNextTruceDecisionAtByPlayer.set(actor.id, now() + 5 * 60_000);
+  const refreshed = [...truceRequests.values()].some((request) => request.fromPlayerId === actor.id && request.toPlayerId === target.id);
+  if (!refreshed) return false;
+  setAiTurnDebug(actor, "executed_truce_request_priority", {
+    incomePerMinute: analysis.aiIncome,
+    controlledTowns: analysis.controlledTowns,
+    settledTiles: analysis.settledTiles,
+    details: {
+      strategicFocus: strategicState.focus,
+      truceTargetPlayerId: target.id
+    }
+  });
+  return true;
+};
+
 const recordAiActionFailure = (
   actor: Player,
   actionKey: string,
@@ -9284,6 +9472,8 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const threatCritical = analysis.threatCritical;
   const primaryVictoryPath = ensureAiVictoryPath(actor, analysis, townsTarget, settledTilesTarget);
   const planningSnapshot = buildAiPlanningSnapshot(actor, primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
+  const strategicState = chooseAiStrategicState(actor, analysis, planningSnapshot, primaryVictoryPath, townsTarget, settledTilesTarget);
+  if (await maybeHandleAiShardOrTruce(actor, analysis, planningSnapshot, strategicState)) return;
   const decision = await planAiDecisionViaWorker(planningSnapshot);
   const debugDetails = {
     hasNeutralLandOpportunity: planningSnapshot.neutralExpandAvailable,
@@ -9314,6 +9504,9 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     foodCoverage: planningSnapshot.foodCoverage,
     frontierTiles,
     openingScout: planningSnapshot.openingScoutAvailable,
+    strategicFocus: strategicState.focus,
+    shardOpportunity: Boolean(strategicState.shardTileKey),
+    truceActive: playerHasActiveTruce(actor.id),
     workerPlanned: aiPlannerWorkerState.lastUsedWorker,
     workerFallbackReason: aiPlannerWorkerState.lastFallbackReason,
     lastActionFailureAction: aiLastActionFailureByPlayer.get(actor.id)?.actionKey,
@@ -13626,6 +13819,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   dockLinkedTileKeysByDockTileKey.clear();
   for (const t of raw.towns ?? []) townsByTile.set(t.tileKey, t);
   for (const shardSite of raw.shardSites ?? []) shardSitesByTile.set(shardSite.tileKey, shardSite);
+  invalidateAiShardOpportunityCaches();
   for (const tk of raw.firstSpecialSiteCaptureClaimed ?? []) firstSpecialSiteCaptureClaimed.add(tk);
   for (const c of raw.clusters ?? []) clustersById.set(c.clusterId, c);
   for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
