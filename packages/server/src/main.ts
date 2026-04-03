@@ -11687,7 +11687,6 @@ const activeTechCatalog = (player?: Player): Array<{
       mods: t.mods ?? {},
       requirements: techRequirements(t)
     };
-    if (typeof t.researchTimeSeconds === "number") out.researchTimeSeconds = t.researchTimeSeconds;
     if (t.effects) out.effects = { ...t.effects };
     if (t.rootId) out.rootId = t.rootId;
     if (t.requires) out.requires = t.requires;
@@ -11927,13 +11926,8 @@ const startTechResearch = (player: Player, techId: string): { ok: boolean; reaso
   for (const [r, amount] of Object.entries(checklist.resources) as Array<[StrategicResource, number]>) {
     stock[r] = Math.max(0, stock[r] - amount);
   }
-  const startedAt = now();
-  const researchDurationMs = Math.max(1_000, Math.round((tech.researchTimeSeconds ?? 1) * 1000 * getPlayerEffectsForPlayer(player.id).researchTimeMult));
-  player.currentResearch = {
-    techId: tech.id,
-    startedAt,
-    completesAt: startedAt + researchDurationMs
-  };
+  delete player.currentResearch;
+  grantTech(player, tech);
   return { ok: true, tech };
 };
 
@@ -11960,21 +11954,7 @@ const sendTechUpdate = (player: Player, status: "started" | "completed"): void =
   });
 };
 
-const completeDueResearchForPlayer = (player: Player): void => {
-  if (!player.currentResearch || player.currentResearch.completesAt > now()) return;
-  const tech = techById.get(player.currentResearch.techId);
-  delete player.currentResearch;
-  if (!tech || player.techIds.has(tech.id)) {
-    sendPlayerUpdate(player, 0);
-    return;
-  }
-  grantTech(player, tech);
-  applyManpowerRegen(player);
-  recomputeClusterBonusForPlayer(player);
-  sendTechUpdate(player, "completed");
-  broadcast({ type: "PLAYER_STYLE", playerId: player.id, ...playerStylePayload(player) });
-  sendPlayerUpdate(player, 0);
-};
+const completeDueResearchForPlayer = (_player: Player): void => {};
 
 const activeDevelopmentProcessCountForPlayer = (playerId: string): number => {
   let n = 0;
@@ -15396,7 +15376,9 @@ app.post("/admin/world/regenerate", async () => {
         socket.send(JSON.stringify({ type: "ERROR", code: "TECH_INVALID", message: outcome.reason }));
         return;
       }
-      sendTechUpdate(actor, "started");
+      applyManpowerRegen(actor);
+      recomputeClusterBonusForPlayer(actor);
+      sendTechUpdate(actor, "completed");
       broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;

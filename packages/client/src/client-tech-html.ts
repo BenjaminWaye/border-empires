@@ -62,8 +62,6 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   }
   if (key === "settlementSpeedMult" && typeof value === "number") return `Settlement speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "developmentProcessCapacityAdd" && typeof value === "number") return `Development slots +${value}`;
-  if (key === "researchTimeMult" && typeof value === "number")
-    return `Research time ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "abilityCooldownMult" && typeof value === "number")
     return `All ability cooldowns ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "sabotageCooldownMult" && typeof value === "number")
