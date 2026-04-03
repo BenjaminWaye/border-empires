@@ -29,10 +29,14 @@ import {
   FORT_BUILD_COST,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
+  LIGHT_OUTPOST_ATTACK_MULT,
+  LIGHT_OUTPOST_BUILD_MS,
   OBSERVATORY_BUILD_MS,
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_COST,
   SIEGE_OUTPOST_BUILD_MS,
+  WOODEN_FORT_BUILD_MS,
+  WOODEN_FORT_DEFENSE_MULT,
   PVP_REPEAT_FLOOR,
   PVP_REPEAT_WINDOW_MS,
   SEASON_LENGTH_DAYS,
@@ -793,6 +797,10 @@ interface PlayerEconomyIndex {
 const emptyPlayerEffects = (): PlayerEffects => ({
   unlockForts: false,
   unlockSiegeOutposts: false,
+  unlockWoodenFort: false,
+  unlockLightOutpost: false,
+  unlockSynthOverload: false,
+  unlockAdvancedSynthesizers: false,
   unlockGranary: false,
   unlockRevealRegion: false,
   unlockRevealEmpire: false,
@@ -863,6 +871,10 @@ interface DomainRequirementChecklist {
 interface PlayerEffects {
   unlockForts: boolean;
   unlockSiegeOutposts: boolean;
+  unlockWoodenFort: boolean;
+  unlockLightOutpost: boolean;
+  unlockSynthOverload: boolean;
+  unlockAdvancedSynthesizers: boolean;
   unlockGranary: boolean;
   unlockRevealRegion: boolean;
   unlockRevealEmpire: boolean;
@@ -1022,6 +1034,11 @@ const BREAKTHROUGH_GOLD_COST = 2;
 const BREAKTHROUGH_IRON_COST = 1;
 const FORT_BUILD_IRON_COST = 45;
 const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
+const SYNTH_OVERLOAD_GOLD_COST = 1_000;
+const SYNTH_OVERLOAD_DISABLE_MS = 60 * 60_000;
+const QUARTERMASTER_OVERLOAD_SUPPLY = 25;
+const IRONWORKS_OVERLOAD_IRON = 25;
+const CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 16;
 const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
 const BREAKTHROUGH_REQUIRED_TECH_ID = "breach-doctrine";
 const OBSERVATORY_BUILD_COST = structureBaseGoldCost("OBSERVATORY");
@@ -1077,6 +1094,8 @@ const SETTLEMENT_BASE_GOLD_PER_MIN = 1;
 const QUARTERMASTER_GOLD_UPKEEP = 120;
 const IRONWORKS_GOLD_UPKEEP = 120;
 const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 160;
+const WOODEN_FORT_GOLD_UPKEEP = 5;
+const LIGHT_OUTPOST_GOLD_UPKEEP = 5;
 const FUEL_PLANT_GOLD_UPKEEP = 180;
 const CARAVANARY_GOLD_UPKEEP = 15;
 const CUSTOMS_HOUSE_GOLD_UPKEEP = 15;
@@ -1085,8 +1104,11 @@ const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
 const RADAR_SYSTEM_GOLD_UPKEEP = 45;
 const FOUNDRY_GOLD_UPKEEP = 50;
 const QUARTERMASTER_SUPPLY_PER_DAY = 18;
+const ADVANCED_QUARTERMASTER_SUPPLY_PER_DAY = 21.6;
 const IRONWORKS_IRON_PER_DAY = 18;
+const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
 const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
+const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 const FUEL_PLANT_OIL_PER_DAY = 10;
 const AIRPORT_OIL_UPKEEP_PER_MIN = 0.025;
 const AIRPORT_BOMBARD_OIL_COST = 1;
@@ -1469,53 +1491,6 @@ const socketsByPlayer = new Map<string, Ws>();
 const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
 const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
 const aiVictoryPathByPlayer = new Map<string, AiSeasonVictoryPathId>();
-const aiStrategicStateByPlayer = new Map<string, AiStrategicState>();
-const aiNextTruceDecisionAtByPlayer = new Map<string, number>();
-const aiFrontPressureStatsByPair = new Map<string, AiFrontPressureStats>();
-const cachedAiShardOpportunityByPlayer = new Map<string, AiShardOpportunityCache>();
-let shardSiteTopologyVersion = 0;
-
-const invalidateAiShardOpportunityCaches = (): void => {
-  shardSiteTopologyVersion += 1;
-  cachedAiShardOpportunityByPlayer.clear();
-};
-
-const AI_STALLED_FRONT_WINDOW_MS = 8 * 60_000;
-
-const pruneAiFrontPressureStats = (pairKey: string, nowMs: number): AiFrontPressureStats | undefined => {
-  const stats = aiFrontPressureStatsByPair.get(pairKey);
-  if (!stats) return undefined;
-  if (nowMs - stats.updatedAt <= AI_STALLED_FRONT_WINDOW_MS) return stats;
-  aiFrontPressureStatsByPair.delete(pairKey);
-  return undefined;
-};
-
-const recordAiFrontPressureOutcome = (
-  attackerId: string,
-  defenderId: string,
-  outcome: { captured: boolean; capturedTownOrDock: boolean }
-): void => {
-  const pairKey = playerPairKey(attackerId, defenderId);
-  const nowMs = now();
-  const existing = pruneAiFrontPressureStats(pairKey, nowMs);
-  const stats: AiFrontPressureStats = existing
-    ? { ...existing, updatedAt: nowMs, attacks: existing.attacks + 1 }
-    : { windowStartedAt: nowMs, updatedAt: nowMs, attacks: 1, successfulCaptures: 0, townOrDockCaptures: 0 };
-  if (outcome.captured) stats.successfulCaptures += 1;
-  if (outcome.capturedTownOrDock) stats.townOrDockCaptures += 1;
-  aiFrontPressureStatsByPair.set(pairKey, stats);
-};
-
-const stalledFrontStatsFor = (playerId: string, opponentId: string): AiFrontPressureStats | undefined =>
-  pruneAiFrontPressureStats(playerPairKey(playerId, opponentId), now());
-
-const frontIsStalledFor = (playerId: string, opponentId: string): boolean => {
-  const stats = stalledFrontStatsFor(playerId, opponentId);
-  if (!stats) return false;
-  if (stats.attacks < 4) return false;
-  if (stats.townOrDockCaptures > 0) return false;
-  return stats.successfulCaptures <= 1;
-};
 
 const normalizedPlayerHandle = (name: string): string => {
   const cleaned = name.replace(/\s+/g, " ").trim();
@@ -2891,7 +2866,6 @@ const shardSiteViewAt = (tileKey: TileKey): Tile["shardSite"] | undefined => {
 
 const generateShardCaches = (seed: number): void => {
   shardSitesByTile.clear();
-  invalidateAiShardOpportunityCaches();
   let placed = 0;
   for (let i = 0; i < 200_000 && placed < SHARD_CACHE_COUNT; i += 1) {
     const x = Math.floor(seeded01(i * 41, i * 59, seed + 11_101) * WORLD_WIDTH);
@@ -2939,7 +2913,6 @@ const ensureSpawnShardNearby = (x: number, y: number): void => {
       kind: "CACHE",
       amount: 2
     });
-    invalidateAiShardOpportunityCaches();
     markSummaryChunkDirtyAtTile(sx, sy);
     return;
   }
@@ -2969,7 +2942,6 @@ const spawnShardRain = (): void => {
     placed += 1;
   }
   if (touched.length > 0) {
-    invalidateAiShardOpportunityCaches();
     broadcast({
       type: "SHARD_RAIN_EVENT",
       siteCount: touched.length,
@@ -3000,10 +2972,7 @@ const expireShardSites = (): void => {
     touched.push({ x, y });
     markSummaryChunkDirtyAtTile(x, y);
   }
-  if (touched.length > 0) {
-    invalidateAiShardOpportunityCaches();
-    broadcastLocalVisionDelta(touched);
-  }
+  if (touched.length > 0) broadcastLocalVisionDelta(touched);
 };
 
 const collectShardSite = (player: Player, x: number, y: number): { ok: boolean; amount?: number; reason?: string } => {
@@ -3013,11 +2982,9 @@ const collectShardSite = (player: Player, x: number, y: number): { ok: boolean; 
   if (!site) return { ok: false, reason: "no shard cache on this tile" };
   if (typeof site.expiresAt === "number" && site.expiresAt <= now()) {
     shardSitesByTile.delete(tileKey);
-    invalidateAiShardOpportunityCaches();
     return { ok: false, reason: "the shardfall has already faded" };
   }
   shardSitesByTile.delete(tileKey);
-  invalidateAiShardOpportunityCaches();
   const stock = getOrInitStrategicStocks(player.id);
   stock.SHARD += site.amount;
   markSummaryChunkDirtyAtTile(x, y);
@@ -3303,9 +3270,14 @@ const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
   if (type === "GRANARY") return "Granary";
   if (type === "BANK") return "Bank";
   if (type === "AIRPORT") return "Airport";
-  if (type === "QUARTERMASTER") return "Quartermaster";
+  if (type === "WOODEN_FORT") return "Wooden Fort";
+  if (type === "LIGHT_OUTPOST") return "Light Outpost";
+  if (type === "QUARTERMASTER") return "Fur Synthesizer";
+  if (type === "ADVANCED_QUARTERMASTER") return "Advanced Fur Synthesizer";
   if (type === "IRONWORKS") return "Ironworks";
+  if (type === "ADVANCED_IRONWORKS") return "Advanced Ironworks";
   if (type === "CRYSTAL_SYNTHESIZER") return "Crystal Synthesizer";
+  if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Crystal Synthesizer";
   if (type === "FUEL_PLANT") return "Fuel Plant";
   if (type === "CARAVANARY") return "Caravanary";
   if (type === "CUSTOMS_HOUSE") return "Customs House";
@@ -3461,12 +3433,18 @@ const SUPPORT_ONLY_STRUCTURE_TYPES: EconomicStructureType[] = [
   "GRANARY",
   "BANK",
   "QUARTERMASTER",
+  "ADVANCED_QUARTERMASTER",
   "IRONWORKS",
+  "ADVANCED_IRONWORKS",
   "CRYSTAL_SYNTHESIZER",
+  "ADVANCED_CRYSTAL_SYNTHESIZER",
   "FUEL_PLANT"
 ];
 
 const isSupportOnlyStructureType = (structureType: EconomicStructureType): boolean => SUPPORT_ONLY_STRUCTURE_TYPES.includes(structureType);
+
+const isLightCombatStructureType = (structureType: EconomicStructureType): boolean =>
+  structureType === "WOODEN_FORT" || structureType === "LIGHT_OUTPOST";
 
 const availableSupportTileKeysForTown = (
   townKey: TileKey,
@@ -3943,7 +3921,7 @@ const tileYieldCapsFor = (tileKey: TileKey, ownerId: string | undefined): { gold
   const strategicResource = toStrategicResource(resource);
   const strategicBaseDaily = strategicResource && resource ? (strategicDailyFromResource[resource] ?? 0) : 0;
   const structure = economicStructuresByTile.get(tileKey);
-  const converterDaily = structure && structure.ownerId === ownerId && structure.status === "active" ? converterStructureOutputFor(structure.type) : undefined;
+  const converterDaily = structure && structure.ownerId === ownerId && structure.status === "active" ? converterStructureOutputFor(structure.type, ownerId) : undefined;
   const converterMaxDaily = converterDaily ? Math.max(0, ...Object.values(converterDaily)) : 0;
   const fallbackGoldCap = TILE_YIELD_CAP_GOLD * effects.harvestCapMult;
   const fallbackResourceCap = TILE_YIELD_CAP_RESOURCE * effects.harvestCapMult;
@@ -4346,10 +4324,6 @@ const clearWorldProgressForSeason = (): void => {
   cachedAiTerritoryStructureByPlayer.clear();
   cachedAiPlanningStaticByPlayer.clear();
   aiTerritoryVersionByPlayer.clear();
-  aiVictoryPathByPlayer.clear();
-  aiStrategicStateByPlayer.clear();
-  aiNextTruceDecisionAtByPlayer.clear();
-  aiFrontPressureStatsByPair.clear();
   cachedAiCompetitionContext = undefined;
   cachedChunkSnapshotByPlayer.clear();
   cachedSummaryChunkByChunkKey.clear();
@@ -4376,7 +4350,6 @@ const clearWorldProgressForSeason = (): void => {
   activeAetherBridgesById.clear();
   strategicReplayEvents.length = 0;
   shardSitesByTile.clear();
-  invalidateAiShardOpportunityCaches();
   abilityCooldownsByPlayer.clear();
   revealedEmpireTargetsByPlayer.clear();
   breachShockByTile.clear();
@@ -4643,7 +4616,7 @@ const applyTileYieldSummary = (
     }
     const economicStructure = economicStructuresByTile.get(tk);
     if (economicStructure && economicStructure.ownerId === ownerId && economicStructure.status === "active") {
-      const converterDaily = converterStructureOutputFor(economicStructure.type);
+      const converterDaily = converterStructureOutputFor(economicStructure.type, ownerId);
       if (converterDaily) {
         for (const [resourceKey, amount] of Object.entries(converterDaily) as Array<[StrategicResource, number]>) {
           strategicPerDay[resourceKey] = (strategicPerDay[resourceKey] ?? 0) + amount;
@@ -4936,7 +4909,7 @@ const playerTile = (x: number, y: number): Tile => {
     }
     const economicStructure = economicStructuresByTile.get(key(wx, wy));
     if (economicStructure && economicStructure.ownerId === ownerId && economicStructure.status === "active") {
-      const converterDaily = converterStructureOutputFor(economicStructure.type);
+      const converterDaily = converterStructureOutputFor(economicStructure.type, ownerId);
       if (converterDaily) {
         for (const [resourceKey, amount] of Object.entries(converterDaily) as Array<[StrategicResource, number]>) {
           strategicPerDay[resourceKey] = (strategicPerDay[resourceKey] ?? 0) + amount;
@@ -5299,6 +5272,10 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (!effects) continue;
     if (effects.unlockForts) next.unlockForts = true;
     if (effects.unlockSiegeOutposts) next.unlockSiegeOutposts = true;
+    if ((effects as { unlockWoodenFort?: boolean }).unlockWoodenFort) next.unlockWoodenFort = true;
+    if ((effects as { unlockLightOutpost?: boolean }).unlockLightOutpost) next.unlockLightOutpost = true;
+    if ((effects as { unlockSynthOverload?: boolean }).unlockSynthOverload) next.unlockSynthOverload = true;
+    if ((effects as { unlockAdvancedSynthesizers?: boolean }).unlockAdvancedSynthesizers) next.unlockAdvancedSynthesizers = true;
     if (effects.unlockGranary) next.unlockGranary = true;
     if (effects.unlockRevealRegion) next.unlockRevealRegion = true;
     if (effects.unlockRevealEmpire) next.unlockRevealEmpire = true;
@@ -5618,10 +5595,16 @@ const foundryMineOutputMultiplierAt = (ownerId: string | undefined, tileKey: Til
   return activeOwnedEconomicStructureWithinRange(ownerId, "FOUNDRY", x, y, FOUNDRY_RADIUS) ? FOUNDRY_OUTPUT_MULT : 1;
 };
 
-const converterStructureOutputFor = (structureType: EconomicStructureType): Partial<Record<StrategicResource, number>> | undefined => {
+const converterStructureOutputFor = (
+  structureType: EconomicStructureType,
+  ownerId?: string
+): Partial<Record<StrategicResource, number>> | undefined => {
   if (structureType === "QUARTERMASTER") return { SUPPLY: QUARTERMASTER_SUPPLY_PER_DAY };
+  if (structureType === "ADVANCED_QUARTERMASTER") return { SUPPLY: ADVANCED_QUARTERMASTER_SUPPLY_PER_DAY };
   if (structureType === "IRONWORKS") return { IRON: IRONWORKS_IRON_PER_DAY };
+  if (structureType === "ADVANCED_IRONWORKS") return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
   if (structureType === "CRYSTAL_SYNTHESIZER") return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
+  if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
   if (structureType === "FUEL_PLANT") return { OIL: FUEL_PLANT_OIL_PER_DAY };
   return undefined;
 };
@@ -5659,7 +5642,8 @@ const addToSiphonCache = (
 
 const economicStructureForTile = (tileKey: TileKey): EconomicStructure | undefined => economicStructuresByTile.get(tileKey);
 
-const economicStructureUpkeepDue = (structure: EconomicStructure): boolean => structure.nextUpkeepAt <= now();
+const economicStructureUpkeepDue = (structure: EconomicStructure): boolean =>
+  structure.nextUpkeepAt <= now() && (!structure.disabledUntil || structure.disabledUntil <= now());
 
 const economicStructureResourceType = (resource: ResourceType | undefined): EconomicStructureType | undefined => {
   if (resource === "FARM" || resource === "FISH") return "FARMSTEAD";
@@ -5676,9 +5660,14 @@ const economicStructureOutputMultAt = (tileKey: TileKey, ownerId: string | undef
     structure.type === "MARKET" ||
     structure.type === "BANK" ||
     structure.type === "AIRPORT" ||
+    structure.type === "WOODEN_FORT" ||
+    structure.type === "LIGHT_OUTPOST" ||
     structure.type === "QUARTERMASTER" ||
+    structure.type === "ADVANCED_QUARTERMASTER" ||
     structure.type === "IRONWORKS" ||
+    structure.type === "ADVANCED_IRONWORKS" ||
     structure.type === "CRYSTAL_SYNTHESIZER" ||
+    structure.type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
     structure.type === "FUEL_PLANT" ||
     structure.type === "FOUNDRY" ||
     structure.type === "GOVERNORS_OFFICE" ||
@@ -5789,17 +5778,27 @@ const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructure
       ? CAMP_GOLD_UPKEEP
       : structureType === "MINE"
         ? MINE_GOLD_UPKEEP
-        : structureType === "GRANARY"
+      : structureType === "GRANARY"
           ? GRANARY_GOLD_UPKEEP
-          : structureType === "CARAVANARY"
-            ? CARAVANARY_GOLD_UPKEEP
+        : structureType === "CARAVANARY"
+          ? CARAVANARY_GOLD_UPKEEP
+          : structureType === "ADVANCED_QUARTERMASTER"
+            ? QUARTERMASTER_GOLD_UPKEEP
+          : structureType === "WOODEN_FORT"
+            ? WOODEN_FORT_GOLD_UPKEEP
+            : structureType === "LIGHT_OUTPOST"
+              ? LIGHT_OUTPOST_GOLD_UPKEEP
             : structureType === "QUARTERMASTER"
               ? QUARTERMASTER_GOLD_UPKEEP
               : structureType === "IRONWORKS"
                 ? IRONWORKS_GOLD_UPKEEP
+                : structureType === "ADVANCED_IRONWORKS"
+                  ? IRONWORKS_GOLD_UPKEEP
                 : structureType === "CRYSTAL_SYNTHESIZER"
                   ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
-                  : structureType === "FUEL_PLANT"
+                  : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER"
+                    ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
+                    : structureType === "FUEL_PLANT"
                     ? FUEL_PLANT_GOLD_UPKEEP
                     : structureType === "FOUNDRY"
                       ? FOUNDRY_GOLD_UPKEEP
@@ -5987,10 +5986,34 @@ const playerHasSettledFoodSources = (playerId: string): boolean => {
   return false;
 };
 
+const economicStructureBuildDurationMs = (structureType: EconomicStructureType): number => {
+  if (structureType === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
+  if (structureType === "LIGHT_OUTPOST") return LIGHT_OUTPOST_BUILD_MS;
+  return ECONOMIC_STRUCTURE_BUILD_MS;
+};
+
+const baseSynthTypeForAdvanced = (structureType: EconomicStructureType): EconomicStructureType | undefined => {
+  if (structureType === "ADVANCED_QUARTERMASTER") return "QUARTERMASTER";
+  if (structureType === "ADVANCED_IRONWORKS") return "IRONWORKS";
+  if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
+  return undefined;
+};
+
 const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
   if (t.terrain !== "LAND") return { ok: false, reason: "structure requires land tile" };
   const tk = key(t.x, t.y);
   const isFoundry = structureType === "FOUNDRY";
+  const isLightCombat = isLightCombatStructureType(structureType);
+  const upgradeBaseType = baseSynthTypeForAdvanced(structureType);
+  const existingStructure = economicStructuresByTile.get(tk);
+  if (upgradeBaseType) {
+    if (!existingStructure || existingStructure.ownerId !== actor.id || existingStructure.type !== upgradeBaseType) {
+      return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} must upgrade an existing ${prettyEconomicStructureLabel(upgradeBaseType).toLowerCase()}` };
+    }
+    if (existingStructure.status !== "active" && existingStructure.status !== "inactive") {
+      return { ok: false, reason: `${prettyEconomicStructureLabel(upgradeBaseType).toLowerCase()} is already being modified` };
+    }
+  }
   if (isFoundry) {
     if (t.ownerId && t.ownerId !== actor.id) return { ok: false, reason: "foundry cannot be placed on enemy land" };
     if (t.ownerId === actor.id && t.ownershipState !== "SETTLED") return { ok: false, reason: "foundry requires settled owned land when placed in your territory" };
@@ -5998,15 +6021,26 @@ const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: Econom
       const touchesOwned = cardinalNeighborCores(t.x, t.y).some((neighbor) => neighbor.ownerId === actor.id);
       if (!touchesOwned) return { ok: false, reason: "foundry on neutral land must touch your territory" };
     }
+  } else if (isLightCombat) {
+    if (t.ownerId !== actor.id) return { ok: false, reason: "structure requires owned tile" };
+    if (structureType === "WOODEN_FORT" && !docksByTile.has(tk) && !isBorderTile(t.x, t.y, actor.id)) {
+      return { ok: false, reason: "wooden fort must be on border tile or dock" };
+    }
+    if (structureType === "LIGHT_OUTPOST" && !isBorderTile(t.x, t.y, actor.id)) {
+      return { ok: false, reason: "light outpost must be on border tile" };
+    }
   } else if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") {
     return { ok: false, reason: "structure requires settled owned tile" };
   }
-  if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) {
+  if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradeBaseType)) {
     return { ok: false, reason: "tile already has structure" };
   }
   if (structureType === "FARMSTEAD" && t.resource !== "FARM" && t.resource !== "FISH") return { ok: false, reason: "farmstead requires FARM or FISH tile" };
   if (structureType === "CAMP" && t.resource !== "WOOD" && t.resource !== "FUR") return { ok: false, reason: "camp requires SUPPLY tile" };
   if (structureType === "MINE" && t.resource !== "IRON" && t.resource !== "GEMS") return { ok: false, reason: "mine requires IRON or CRYSTAL tile" };
+  if (isLightCombat) {
+    if (t.resource || townsByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} requires empty owned land` };
+  }
   if (structureType === "AIRPORT") {
     if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: "airport requires empty settled land" };
   }
@@ -6054,14 +6088,19 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
   if (structureType === "GRANARY" && !getPlayerEffectsForPlayer(actor.id).unlockGranary) return { ok: false, reason: "unlock granaries via Pottery first" };
   if (structureType === "BANK" && !actor.techIds.has("coinage")) return { ok: false, reason: "unlock banks via Coinage first" };
   if (structureType === "AIRPORT" && !actor.techIds.has("aeronautics")) return { ok: false, reason: "unlock airports via Aeronautics first" };
+  if (structureType === "WOODEN_FORT" && !getPlayerEffectsForPlayer(actor.id).unlockWoodenFort) return { ok: false, reason: "unlock wooden forts via Alchemy first" };
+  if (structureType === "LIGHT_OUTPOST" && !getPlayerEffectsForPlayer(actor.id).unlockLightOutpost) return { ok: false, reason: "unlock light outposts via Alchemy first" };
   if (structureType === "FOUNDRY" && !actor.techIds.has("industrial-extraction")) return { ok: false, reason: "unlock foundries via Industrial Extraction first" };
   if (structureType === "GOVERNORS_OFFICE" && !actor.techIds.has("civil-service")) return { ok: false, reason: "unlock governor's offices via Civil Service first" };
   if (structureType === "RADAR_SYSTEM" && !actor.techIds.has("radar")) return { ok: false, reason: "unlock radar systems via Radar first" };
+  if (structureType === "QUARTERMASTER" && !actor.techIds.has("workshops")) return { ok: false, reason: "unlock fur synthesizers via Workshops first" };
+  if (structureType === "IRONWORKS" && !actor.techIds.has("alchemy")) return { ok: false, reason: "unlock ironworks via Alchemy first" };
+  if (structureType === "CRYSTAL_SYNTHESIZER" && !actor.techIds.has("crystal-lattices")) return { ok: false, reason: "unlock crystal synthesizers via Crystal Lattices first" };
   if (
-    (structureType === "QUARTERMASTER" || structureType === "IRONWORKS" || structureType === "CRYSTAL_SYNTHESIZER") &&
-    !actor.techIds.has("workshops")
+    (structureType === "ADVANCED_QUARTERMASTER" || structureType === "ADVANCED_IRONWORKS" || structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") &&
+    !getPlayerEffectsForPlayer(actor.id).unlockAdvancedSynthesizers
   ) {
-    return { ok: false, reason: "unlock converters via Workshops first" };
+    return { ok: false, reason: "unlock advanced synthesizers via Advanced Synthetication first" };
   }
   if (structureType === "FUEL_PLANT" && !actor.techIds.has("plastics")) return { ok: false, reason: "unlock fuel plants via Plastics first" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
@@ -6098,13 +6137,31 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
       if (!consumeStrategicResource(actor, "CRYSTAL", CARAVANARY_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for caravanary" };
       actor.points -= goldCost;
     } else if (structureType === "QUARTERMASTER") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for quartermaster" };
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fur synthesizer" };
       actor.points -= goldCost;
+    } else if (structureType === "ADVANCED_QUARTERMASTER") {
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for advanced fur synthesizer" };
+      actor.points -= goldCost;
+      if (!consumeStrategicResource(actor, "SUPPLY", 40)) return { ok: false, reason: "insufficient SUPPLY for advanced fur synthesizer" };
     } else if (structureType === "IRONWORKS") {
       if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for ironworks" };
       actor.points -= goldCost;
+    } else if (structureType === "ADVANCED_IRONWORKS") {
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for advanced ironworks" };
+      actor.points -= goldCost;
+      if (!consumeStrategicResource(actor, "IRON", 40)) return { ok: false, reason: "insufficient IRON for advanced ironworks" };
     } else if (structureType === "CRYSTAL_SYNTHESIZER") {
       if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for crystal synthesizer" };
+      actor.points -= goldCost;
+    } else if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") {
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for advanced crystal synthesizer" };
+      actor.points -= goldCost;
+      if (!consumeStrategicResource(actor, "CRYSTAL", 40)) return { ok: false, reason: "insufficient CRYSTAL for advanced crystal synthesizer" };
+    } else if (structureType === "WOODEN_FORT") {
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for wooden fort" };
+      actor.points -= goldCost;
+    } else if (structureType === "LIGHT_OUTPOST") {
+      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for light outpost" };
       actor.points -= goldCost;
     } else if (structureType === "FUEL_PLANT") {
       if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fuel plant" };
@@ -6135,7 +6192,9 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
   }
 
   recalcPlayerDerived(actor);
-  const completesAt = now() + ECONOMIC_STRUCTURE_BUILD_MS;
+  const buildMs = economicStructureBuildDurationMs(structureType);
+  const completesAt = now() + buildMs;
+  if (baseSynthTypeForAdvanced(structureType)) untrackOwnedTileKey(economicStructureTileKeysByPlayer, actor.id, tk);
   economicStructuresByTile.set(tk, {
     id: crypto.randomUUID(),
     type: structureType,
@@ -6155,6 +6214,8 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
     const ownsActiveSite =
       current.type === "FOUNDRY"
         ? tileNow.ownerId === actor.id && tileNow.terrain === "LAND"
+        : isLightCombatStructureType(current.type)
+          ? tileNow.ownerId === actor.id && tileNow.terrain === "LAND"
         : tileNow.ownerId === actor.id && tileNow.ownershipState === "SETTLED";
     if (!ownsActiveSite) {
       cancelEconomicStructureBuild(tk);
@@ -6166,7 +6227,7 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
     markSummaryChunkDirtyAtTile(t.x, t.y);
     if (current.type === "AIRPORT") discoverOilFieldNearAirport(actor.id, tk);
     updateOwnership(t.x, t.y, actor.id);
-  }, ECONOMIC_STRUCTURE_BUILD_MS);
+  }, buildMs);
   economicStructureBuildTimers.set(tk, timer);
   return { ok: true };
 };
@@ -6178,11 +6239,19 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
     const structure = economicStructuresByTile.get(tk);
     if (!structure) continue;
     if (structure.status === "under_construction" || structure.status === "removing") continue;
+    if (structure.disabledUntil && structure.disabledUntil > now()) {
+      structure.status = "inactive";
+      touched.add(tk);
+      continue;
+    }
+    if (structure.disabledUntil && structure.disabledUntil <= now()) delete structure.disabledUntil;
     const [x, y] = parseKey(tk);
     const tile = playerTile(x, y);
     const canRemainActive =
       structure.type === "FOUNDRY"
         ? tile.ownerId === player.id && tile.terrain === "LAND"
+        : isLightCombatStructureType(structure.type)
+          ? tile.ownerId === player.id && tile.terrain === "LAND"
         : tile.ownerId === player.id && tile.ownershipState === "SETTLED";
     if (!canRemainActive) {
       structure.status = "inactive";
@@ -6211,13 +6280,23 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
                 ? GRANARY_GOLD_UPKEEP
                 : structure.type === "CARAVANARY"
                   ? CARAVANARY_GOLD_UPKEEP
+                : structure.type === "ADVANCED_QUARTERMASTER"
+                  ? QUARTERMASTER_GOLD_UPKEEP
+                : structure.type === "WOODEN_FORT"
+                  ? WOODEN_FORT_GOLD_UPKEEP
+                  : structure.type === "LIGHT_OUTPOST"
+                    ? LIGHT_OUTPOST_GOLD_UPKEEP
                 : structure.type === "QUARTERMASTER"
                   ? QUARTERMASTER_GOLD_UPKEEP
-                : structure.type === "IRONWORKS"
-                  ? IRONWORKS_GOLD_UPKEEP
+                  : structure.type === "IRONWORKS"
+                    ? IRONWORKS_GOLD_UPKEEP
+                  : structure.type === "ADVANCED_IRONWORKS"
+                    ? IRONWORKS_GOLD_UPKEEP
                 : structure.type === "CRYSTAL_SYNTHESIZER"
                   ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
-                : structure.type === "FUEL_PLANT"
+                  : structure.type === "ADVANCED_CRYSTAL_SYNTHESIZER"
+                    ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
+                  : structure.type === "FUEL_PLANT"
                   ? FUEL_PLANT_GOLD_UPKEEP
                 : structure.type === "FOUNDRY"
                   ? FOUNDRY_GOLD_UPKEEP
@@ -6400,8 +6479,12 @@ const activeResourceIncomeMult = (playerId: string, resource: ResourceType): num
 
 const fortDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
   const fortOnTarget = fortsByTile.get(tileKey);
-  if (fortOnTarget?.status !== "active" || fortOnTarget.ownerId !== defenderId) return 1;
-  return FORT_DEFENSE_MULT * getPlayerEffectsForPlayer(defenderId).fortDefenseMult;
+  if (fortOnTarget?.status === "active" && fortOnTarget.ownerId === defenderId) {
+    return FORT_DEFENSE_MULT * getPlayerEffectsForPlayer(defenderId).fortDefenseMult;
+  }
+  const structure = economicStructuresByTile.get(tileKey);
+  if (structure?.status !== "active" || structure.ownerId !== defenderId || structure.type !== "WOODEN_FORT") return 1;
+  return WOODEN_FORT_DEFENSE_MULT;
 };
 
 const settlementDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
@@ -6421,15 +6504,25 @@ const frontierDefenseAddForTarget = (defenderId: string, target: Tile): number =
 
 const outpostAttackMultAt = (attackerId: string, tileKey: TileKey): number => {
   const siegeOnOrigin = siegeOutpostsByTile.get(tileKey);
-  if (siegeOnOrigin?.status !== "active" || siegeOnOrigin.ownerId !== attackerId) return 1;
-  return SIEGE_OUTPOST_ATTACK_MULT * getPlayerEffectsForPlayer(attackerId).outpostAttackMult;
+  if (siegeOnOrigin?.status === "active" && siegeOnOrigin.ownerId === attackerId) {
+    return SIEGE_OUTPOST_ATTACK_MULT * getPlayerEffectsForPlayer(attackerId).outpostAttackMult;
+  }
+  const structure = economicStructuresByTile.get(tileKey);
+  if (structure?.status !== "active" || structure.ownerId !== attackerId || structure.type !== "LIGHT_OUTPOST") return 1;
+  return LIGHT_OUTPOST_ATTACK_MULT;
 };
 
 const attackMultiplierForTarget = (attackerId: string, target: Tile): number => {
   const effects = getPlayerEffectsForPlayer(attackerId);
   let mult = 1;
   if (target.ownershipState === "SETTLED") mult *= effects.attackVsSettledMult;
-  if (fortsByTile.get(key(target.x, target.y))?.status === "active") mult *= effects.attackVsFortsMult;
+  const targetKey = key(target.x, target.y);
+  if (
+    fortsByTile.get(targetKey)?.status === "active" ||
+    economicStructuresByTile.get(targetKey)?.status === "active" && economicStructuresByTile.get(targetKey)?.type === "WOODEN_FORT"
+  ) {
+    mult *= effects.attackVsFortsMult;
+  }
   if (target.ownerId) mult *= truceBreakAttackMultiplier(attackerId, target.ownerId);
   return mult;
 };
@@ -6441,7 +6534,9 @@ const settledDefenseMultiplierForTarget = (defenderId: string, target: Tile): nu
 
 const originTileHeldByActiveFort = (actorId: string, tileKey: TileKey): boolean => {
   const fort = fortsByTile.get(tileKey);
-  return Boolean(fort?.ownerId === actorId && fort.status === "active");
+  if (fort?.ownerId === actorId && fort.status === "active") return true;
+  const structure = economicStructuresByTile.get(tileKey);
+  return Boolean(structure?.ownerId === actorId && structure.status === "active" && structure.type === "WOODEN_FORT");
 };
 
 const applyFailedAttackTerritoryOutcome = (
@@ -7272,6 +7367,16 @@ const executeUnifiedGameplayMessage = async (
     return true;
   }
 
+  if (msg.type === "OVERLOAD_SYNTHESIZER") {
+    const out = tryOverloadSynthesizer(actor, msg.x, msg.y);
+    if (!out.ok) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "SYNTH_OVERLOAD_INVALID", message: out.reason }));
+      return true;
+    }
+    sendPlayerUpdate(actor, 0);
+    return true;
+  }
+
   if (msg.type === "CANCEL_STRUCTURE_BUILD") {
     const tk = key(wrapX(msg.x, WORLD_WIDTH), wrapY(msg.y, WORLD_HEIGHT));
     const structure = economicStructuresByTile.get(tk);
@@ -7452,28 +7557,6 @@ type AiPlanningStaticCache = {
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
-};
-
-type AiShardOpportunityCache = {
-  version: string;
-  collectTileKey?: TileKey;
-};
-
-type AiStrategicFocus = "BALANCED" | "ECONOMIC_RECOVERY" | "MILITARY_PRESSURE" | "SHARD_RUSH" | "TRUCE_REBUILD";
-
-type AiStrategicState = {
-  focus: AiStrategicFocus;
-  updatedAt: number;
-  shardTileKey?: TileKey;
-  truceTargetPlayerId?: string;
-};
-
-type AiFrontPressureStats = {
-  windowStartedAt: number;
-  updatedAt: number;
-  attacks: number;
-  successfulCaptures: number;
-  townOrDockCaptures: number;
 };
 
 const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
@@ -8621,7 +8704,14 @@ const buildAiPlanningStaticCache = (
   const pressureAttackScore = estimateAiPressureAttackScore(actor, territorySummary);
   const fortCandidate = structureCandidateCount > 0 ? bestAiFortTile(actor, territorySummary) : undefined;
   const economicExpandCandidate = bestAiEconomicExpand(actor, undefined, territorySummary);
-  const economicBuildCandidate = structureCandidateCount > 0 ? bestAiEconomicStructure(actor, territorySummary) : undefined;
+  const economicBuildAvailable =
+    structureCandidateCount > 0 &&
+    territorySummary.structureCandidateTiles.some((tile) => {
+      const tileKey = key(tile.x, tile.y);
+      if (economicStructuresByTile.has(tileKey)) return false;
+      if (tile.resource || townsByTile.has(tileKey)) return true;
+      return cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
+    });
 
   return {
     version: aiTerritoryVersionForPlayer(actor.id),
@@ -8637,7 +8727,7 @@ const buildAiPlanningStaticCache = (
     fortAvailable: Boolean(fortCandidate),
     fortProtectsCore: fortTileProtectsCore(actor, fortCandidate),
     fortIsDockChokePoint: fortTileIsDockChokePoint(fortCandidate),
-    economicBuildAvailable: Boolean(economicBuildCandidate),
+    economicBuildAvailable,
     frontierOpportunityEconomic,
     frontierOpportunityScout,
     frontierOpportunityScaffold,
@@ -9285,175 +9375,6 @@ const ensureAiVictoryPath = (
   return selected;
 };
 
-const bestAiVisibleShardSite = (actor: Player): Tile | undefined => {
-  const cacheVersion = `${aiTerritoryVersionForPlayer(actor.id)}:${shardSiteTopologyVersion}`;
-  const cached = cachedAiShardOpportunityByPlayer.get(actor.id);
-  if (cached?.version === cacheVersion) {
-    return cached.collectTileKey ? playerTile(...parseKey(cached.collectTileKey)) : undefined;
-  }
-  let bestTileKey: TileKey | undefined;
-  let bestScore = Number.NEGATIVE_INFINITY;
-  for (const site of shardSitesByTile.values()) {
-    const [x, y] = parseKey(site.tileKey);
-    if (!visible(actor, x, y)) continue;
-    const tile = playerTile(x, y);
-    if (tile.terrain !== "LAND") continue;
-    const ownedAdjacency = adjacentNeighborCores(x, y).reduce((count, neighbor) => count + (neighbor.ownerId === actor.id ? 1 : 0), 0);
-    const score = site.amount * 100 + (site.kind === "FALL" ? 25 : 0) + ownedAdjacency * 8;
-    if (score > bestScore) {
-      bestScore = score;
-      bestTileKey = site.tileKey;
-    }
-  }
-  cachedAiShardOpportunityByPlayer.set(actor.id, { version: cacheVersion, ...(bestTileKey ? { collectTileKey: bestTileKey } : {}) });
-  return bestTileKey ? playerTile(...parseKey(bestTileKey)) : undefined;
-};
-
-const aiVictoryPathStillReachable = (
-  primaryVictoryPath: AiSeasonVictoryPathId,
-  analysis: AiTurnAnalysis,
-  townsTarget: number,
-  settledTilesTarget: number
-): boolean => {
-  if (primaryVictoryPath === "ECONOMIC_HEGEMONY") return analysis.aiIncome >= Math.max(18, analysis.runnerUpIncome - 4);
-  if (primaryVictoryPath === "TOWN_CONTROL") return townsTarget - analysis.controlledTowns <= 1;
-  return settledTilesTarget - analysis.settledTiles <= Math.max(4, Math.floor(settledTilesTarget * 0.12));
-};
-
-const chooseAiStrategicState = (
-  actor: Player,
-  analysis: AiTurnAnalysis,
-  planningSnapshot: AiPlanningSnapshot,
-  primaryVictoryPath: AiSeasonVictoryPathId,
-  townsTarget: number,
-  settledTilesTarget: number
-): AiStrategicState => {
-  const existing = aiStrategicStateByPlayer.get(actor.id);
-  const visibleShard = bestAiVisibleShardSite(actor);
-  const stalledFrontTargetPlayerId = bestAiTruceTargetPlayerId(actor, analysis.territorySummary);
-  const stalledFront = stalledFrontTargetPlayerId ? frontIsStalledFor(actor.id, stalledFrontTargetPlayerId) : false;
-  const nowMs = now();
-  if (
-    existing &&
-    nowMs - existing.updatedAt < 60_000 &&
-    (existing.focus !== "SHARD_RUSH" || existing.shardTileKey === (visibleShard ? key(visibleShard.x, visibleShard.y) : undefined)) &&
-    (existing.focus !== "TRUCE_REBUILD" || existing.truceTargetPlayerId === stalledFrontTargetPlayerId)
-  ) {
-    return existing;
-  }
-  const victoryReachable = aiVictoryPathStillReachable(primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
-  const focus: AiStrategicFocus = visibleShard && !analysis.threatCritical
-    ? "SHARD_RUSH"
-    : ((analysis.underThreat && analysis.threatCritical && !victoryReachable && (analysis.economyWeak || analysis.foodCoverageLow) && !planningSnapshot.pressureAttackAvailable) ||
-        (stalledFront && (analysis.economyWeak || analysis.foodCoverageLow || Boolean(visibleShard))))
-      ? "TRUCE_REBUILD"
-      : planningSnapshot.pressureAttackAvailable && analysis.underThreat
-        ? "MILITARY_PRESSURE"
-        : analysis.economyWeak || analysis.foodCoverageLow
-          ? "ECONOMIC_RECOVERY"
-          : "BALANCED";
-  const state: AiStrategicState = {
-    focus,
-    updatedAt: nowMs,
-    ...(visibleShard ? { shardTileKey: key(visibleShard.x, visibleShard.y) } : {}),
-    ...(stalledFrontTargetPlayerId ? { truceTargetPlayerId: stalledFrontTargetPlayerId } : {})
-  };
-  aiStrategicStateByPlayer.set(actor.id, state);
-  return state;
-};
-
-const bestAiTruceTargetPlayerId = (actor: Player, territorySummary: AiTerritorySummary): string | undefined => {
-  const pressureByPlayerId = new Map<string, number>();
-  for (const { to } of territorySummary.attackCandidates) {
-    if (to.terrain !== "LAND" || !to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId) || to.ownerId === BARBARIAN_OWNER_ID) continue;
-    pressureByPlayerId.set(to.ownerId, (pressureByPlayerId.get(to.ownerId) ?? 0) + 1);
-  }
-  let bestPlayerId: string | undefined;
-  let bestScore = 0;
-  for (const [playerId, score] of pressureByPlayerId) {
-    if (playerHasActiveTruce(playerId) || truceBlocksHostility(actor.id, playerId)) continue;
-    const stalledBonus = frontIsStalledFor(actor.id, playerId) ? 20 : 0;
-    const totalScore = score + stalledBonus;
-    if (totalScore > bestScore) {
-      bestScore = totalScore;
-      bestPlayerId = playerId;
-    }
-  }
-  return bestPlayerId;
-};
-
-const maybeHandleAiShardOrTruce = async (
-  actor: Player,
-  analysis: AiTurnAnalysis,
-  planningSnapshot: AiPlanningSnapshot,
-  strategicState: AiStrategicState
-): Promise<boolean> => {
-  if (strategicState.focus === "SHARD_RUSH" && strategicState.shardTileKey && !analysis.threatCritical) {
-    const [x, y] = parseKey(strategicState.shardTileKey);
-    const site = shardSitesByTile.get(strategicState.shardTileKey);
-    if (site && visible(actor, x, y)) {
-      await executeUnifiedGameplayMessage(actor, { type: "COLLECT_SHARD", x, y }, NOOP_WS, false);
-      setAiTurnDebug(actor, "executed_shard_collect_priority", {
-        incomePerMinute: analysis.aiIncome,
-        controlledTowns: analysis.controlledTowns,
-        settledTiles: analysis.settledTiles,
-        details: {
-          strategicFocus: strategicState.focus,
-          shardAmount: site.amount,
-          shardX: x,
-          shardY: y
-        }
-      });
-      return true;
-    }
-  }
-
-  if (strategicState.focus !== "TRUCE_REBUILD" || playerHasActiveTruce(actor.id)) return false;
-  const incoming = [...truceRequests.values()].find((request) => request.toPlayerId === actor.id);
-  if (incoming) {
-    await executeUnifiedGameplayMessage(actor, { type: "TRUCE_ACCEPT", requestId: incoming.id }, NOOP_WS, false);
-    setAiTurnDebug(actor, "executed_truce_accept_priority", {
-      incomePerMinute: analysis.aiIncome,
-      controlledTowns: analysis.controlledTowns,
-      settledTiles: analysis.settledTiles,
-      details: {
-        strategicFocus: strategicState.focus,
-        truceFromPlayerId: incoming.fromPlayerId
-      }
-    });
-    return true;
-  }
-
-  const nextAllowedAt = aiNextTruceDecisionAtByPlayer.get(actor.id) ?? 0;
-  if (nextAllowedAt > now()) return false;
-  const stalledFront = strategicState.truceTargetPlayerId ? frontIsStalledFor(actor.id, strategicState.truceTargetPlayerId) : false;
-  if (!stalledFront && (planningSnapshot.pressureAttackAvailable || planningSnapshot.settlementAvailable || planningSnapshot.economicBuildAvailable)) {
-    aiNextTruceDecisionAtByPlayer.set(actor.id, now() + 90_000);
-    return false;
-  }
-  const targetPlayerId = strategicState.truceTargetPlayerId ?? bestAiTruceTargetPlayerId(actor, analysis.territorySummary);
-  const target = targetPlayerId ? players.get(targetPlayerId) : undefined;
-  if (!target) {
-    aiNextTruceDecisionAtByPlayer.set(actor.id, now() + 90_000);
-    return false;
-  }
-  await executeUnifiedGameplayMessage(actor, { type: "TRUCE_REQUEST", targetPlayerName: target.name, durationHours: 12 }, NOOP_WS, false);
-  aiNextTruceDecisionAtByPlayer.set(actor.id, now() + 5 * 60_000);
-  const refreshed = [...truceRequests.values()].some((request) => request.fromPlayerId === actor.id && request.toPlayerId === target.id);
-  if (!refreshed) return false;
-  setAiTurnDebug(actor, "executed_truce_request_priority", {
-    incomePerMinute: analysis.aiIncome,
-    controlledTowns: analysis.controlledTowns,
-    settledTiles: analysis.settledTiles,
-      details: {
-        strategicFocus: strategicState.focus,
-        truceTargetPlayerId: target.id,
-        stalledFront
-      }
-    });
-  return true;
-};
-
 const recordAiActionFailure = (
   actor: Player,
   actionKey: string,
@@ -9535,9 +9456,6 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const threatCritical = analysis.threatCritical;
   const primaryVictoryPath = ensureAiVictoryPath(actor, analysis, townsTarget, settledTilesTarget);
   const planningSnapshot = buildAiPlanningSnapshot(actor, primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
-  const strategicState = chooseAiStrategicState(actor, analysis, planningSnapshot, primaryVictoryPath, townsTarget, settledTilesTarget);
-  const stalledFront = strategicState.truceTargetPlayerId ? frontIsStalledFor(actor.id, strategicState.truceTargetPlayerId) : false;
-  if (await maybeHandleAiShardOrTruce(actor, analysis, planningSnapshot, strategicState)) return;
   const decision = await planAiDecisionViaWorker(planningSnapshot);
   const debugDetails = {
     hasNeutralLandOpportunity: planningSnapshot.neutralExpandAvailable,
@@ -9568,11 +9486,6 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     foodCoverage: planningSnapshot.foodCoverage,
     frontierTiles,
     openingScout: planningSnapshot.openingScoutAvailable,
-    strategicFocus: strategicState.focus,
-    shardOpportunity: Boolean(strategicState.shardTileKey),
-    truceActive: playerHasActiveTruce(actor.id),
-    stalledFront,
-    truceTargetPlayerId: strategicState.truceTargetPlayerId,
     workerPlanned: aiPlannerWorkerState.lastUsedWorker,
     workerFallbackReason: aiPlannerWorkerState.lastFallbackReason,
     lastActionFailureAction: aiLastActionFailureByPlayer.get(actor.id)?.actionKey,
@@ -12358,6 +12271,43 @@ const tryRemoveEconomicStructure = (actor: Player, x: number, y: number): { ok: 
   return { ok: true };
 };
 
+const tryOverloadSynthesizer = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  const effects = getPlayerEffectsForPlayer(actor.id);
+  if (!effects.unlockSynthOverload) return { ok: false, reason: "unlock synthesizer overload via Overload Protocols first" };
+  const tk = key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
+  const structure = economicStructuresByTile.get(tk);
+  if (!structure || structure.ownerId !== actor.id) return { ok: false, reason: "no owned synthesizer on tile" };
+  if (
+    structure.type !== "QUARTERMASTER" &&
+    structure.type !== "ADVANCED_QUARTERMASTER" &&
+    structure.type !== "IRONWORKS" &&
+    structure.type !== "ADVANCED_IRONWORKS" &&
+    structure.type !== "CRYSTAL_SYNTHESIZER" &&
+    structure.type !== "ADVANCED_CRYSTAL_SYNTHESIZER"
+  ) {
+    return { ok: false, reason: "only synthesizer structures can overload" };
+  }
+  if (structure.status === "under_construction" || structure.status === "removing") return { ok: false, reason: "synthesizer is not ready" };
+  if (structure.disabledUntil && structure.disabledUntil > now()) return { ok: false, reason: "synthesizer is recovering from overload" };
+  if (actor.points < SYNTH_OVERLOAD_GOLD_COST) return { ok: false, reason: "insufficient gold for synthesizer overload" };
+  actor.points -= SYNTH_OVERLOAD_GOLD_COST;
+  const stock = getOrInitStrategicStocks(actor.id);
+  if (structure.type === "QUARTERMASTER" || structure.type === "ADVANCED_QUARTERMASTER") {
+    stock.SUPPLY = (stock.SUPPLY ?? 0) + QUARTERMASTER_OVERLOAD_SUPPLY;
+  } else if (structure.type === "IRONWORKS" || structure.type === "ADVANCED_IRONWORKS") {
+    stock.IRON = (stock.IRON ?? 0) + IRONWORKS_OVERLOAD_IRON;
+  } else {
+    stock.CRYSTAL = (stock.CRYSTAL ?? 0) + CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL;
+  }
+  structure.status = "inactive";
+  structure.disabledUntil = now() + SYNTH_OVERLOAD_DISABLE_MS;
+  structure.nextUpkeepAt = structure.disabledUntil;
+  recalcPlayerDerived(actor);
+  const [wx, wy] = parseKey(tk);
+  markSummaryChunkDirtyAtTile(wx, wy);
+  return { ok: true };
+};
+
 const consumeStrategicResource = (player: Player, resource: StrategicResource, amount: number): boolean => {
   const stock = getOrInitStrategicStocks(player.id);
   if ((stock[resource] ?? 0) < amount) return false;
@@ -13021,11 +12971,15 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     if (economic) {
       if (economic.status === "under_construction") {
         cancelEconomicStructureBuild(k);
+      } else if (isLightCombatStructureType(economic.type)) {
+        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
+        economicStructuresByTile.delete(k);
       } else if (newOwner) {
         untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
         economic.ownerId = newOwner;
         economic.status = "inactive";
         delete economic.completesAt;
+        delete economic.disabledUntil;
         economic.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
         trackOwnedTileKey(economicStructureTileKeysByPlayer, newOwner, k);
       } else {
@@ -13865,6 +13819,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       nextUpkeepAt: structure.nextUpkeepAt
     };
     if (structure.completesAt !== undefined) normalized.completesAt = structure.completesAt;
+    if (structure.disabledUntil !== undefined) normalized.disabledUntil = structure.disabledUntil;
     economicStructuresByTile.set(structure.tileKey, normalized);
     trackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, structure.tileKey);
   }
@@ -13885,7 +13840,6 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   dockLinkedTileKeysByDockTileKey.clear();
   for (const t of raw.towns ?? []) townsByTile.set(t.tileKey, t);
   for (const shardSite of raw.shardSites ?? []) shardSitesByTile.set(shardSite.tileKey, shardSite);
-  invalidateAiShardOpportunityCaches();
   for (const tk of raw.firstSpecialSiteCaptureClaimed ?? []) firstSpecialSiteCaptureClaimed.add(tk);
   for (const c of raw.clusters ?? []) clustersById.set(c.clusterId, c);
   for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
@@ -14378,7 +14332,7 @@ registerInterval(() => {
     for (const tk of economicStructureTileKeysByPlayer.get(p.id) ?? []) {
       const structure = economicStructuresByTile.get(tk);
       if (!structure || structure.ownerId !== p.id || structure.status !== "active") continue;
-      const strategicDaily = converterStructureOutputFor(structure.type);
+      const strategicDaily = converterStructureOutputFor(structure.type, structure.ownerId);
       if (!strategicDaily) continue;
       const strategic: Partial<Record<StrategicResource, number>> = {};
       for (const [resource, amount] of Object.entries(strategicDaily) as Array<[StrategicResource, number]>) {
@@ -15428,6 +15382,16 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
+    if (msg.type === "OVERLOAD_SYNTHESIZER") {
+      const out = tryOverloadSynthesizer(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "SYNTH_OVERLOAD_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
     if (msg.type === "CREATE_MOUNTAIN") {
       const out = tryCreateMountain(actor, msg.x, msg.y);
       if (!out.ok) {
@@ -16392,7 +16356,6 @@ app.post("/admin/world/regenerate", async () => {
       let pillagedGold = 0;
       let pillagedShare = 0;
       let pillagedStrategic: Partial<Record<StrategicResource, number>> = {};
-      const targetHadDock = docksByTile.has(tk);
       let resultChanges: Array<{
         x: number;
         y: number;
@@ -16430,12 +16393,6 @@ app.post("/admin/world/regenerate", async () => {
           pillagedGold = pillage.gold;
           pillagedShare = pillage.share;
           pillagedStrategic = pillage.strategic;
-        }
-        if (defender && msg.type === "ATTACK") {
-          recordAiFrontPressureOutcome(actor.id, defender.id, {
-            captured: true,
-            capturedTownOrDock: targetHadTown || targetHadDock
-          });
         }
         actor.missionStats.combatWins += 1;
         if (defender) {
@@ -16479,12 +16436,6 @@ app.post("/admin/world/regenerate", async () => {
         } else if (defender) {
           const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk);
           resultChanges = failedOutcome.resultChanges;
-          if (msg.type === "ATTACK") {
-            recordAiFrontPressureOutcome(actor.id, defender.id, {
-              captured: false,
-              capturedTownOrDock: false
-            });
-          }
           if (failedOutcome.originLost) {
             defender.missionStats.enemyCaptures += 1;
             maybeIssueResourceMission(defender, from.resource);
