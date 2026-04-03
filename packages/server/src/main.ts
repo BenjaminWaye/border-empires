@@ -723,6 +723,7 @@ interface TownDefinition {
   connectedTownCount: number;
   connectedTownBonus: number;
   lastGrowthTickAt: number;
+  isSettlement?: boolean;
 }
 
 interface ShardSiteState {
@@ -1157,6 +1158,8 @@ const POPULATION_MIN = 3_000;
 const POPULATION_MAX = 10_000_000;
 const POPULATION_START_SPREAD = 2_000;
 const POPULATION_TOWN_MIN = 10_000;
+const WORLD_TOWN_POPULATION_MIN = 15_000;
+const WORLD_TOWN_POPULATION_START_SPREAD = 10_000;
 const POPULATION_GROWTH_TICK_MS = 60_000;
 const GROWTH_PAUSE_MS = 60 * 60_000;
 const GROWTH_PAUSE_MAX_MS = 6 * 60 * 60_000;
@@ -2850,7 +2853,7 @@ const generateTowns = (seed: number): void => {
       townId: `town-${townsByTile.size}`,
       tileKey,
       type: townTypeAt(x, y),
-      population: POPULATION_MIN + Math.floor(seeded01(x, y, seed + 9601) * POPULATION_START_SPREAD),
+      population: initialTownPopulationAt(x, y, seed),
       maxPopulation: POPULATION_MAX,
       connectedTownCount: 0,
       connectedTownBonus: 0,
@@ -3058,6 +3061,21 @@ const normalizeTownPlacements = (): void => {
   }
 };
 
+const normalizeLegacySettlementTowns = (): void => {
+  for (const town of townsByTile.values()) {
+    if (town.isSettlement !== undefined) continue;
+    if (town.population >= POPULATION_TOWN_MIN) continue;
+    const ownerId = ownership.get(town.tileKey);
+    const owner = ownerId ? players.get(ownerId) : undefined;
+    if (owner && owner.capitalTileKey === town.tileKey) {
+      town.isSettlement = true;
+      continue;
+    }
+    const [x, y] = parseKey(town.tileKey);
+    town.population = initialTownPopulationAt(x, y, activeSeason.worldSeed);
+  }
+};
+
 const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
 const TOWN_CAPTURE_GROWTH_RADIUS = 20;
 
@@ -3109,7 +3127,7 @@ const ensureBaselineEconomyCoverage = (seed: number): void => {
             townId: `town-${townsByTile.size}`,
             tileKey: key(picked.x, picked.y),
             type: townTypeAt(picked.x, picked.y),
-            population: POPULATION_MIN + Math.floor(seeded01(picked.x, picked.y, seed + 9601) * POPULATION_START_SPREAD),
+            population: initialTownPopulationAt(picked.x, picked.y, seed),
             maxPopulation: POPULATION_MAX,
             connectedTownCount: 0,
             connectedTownBonus: 0,
@@ -3190,7 +3208,7 @@ const ensureInterestCoverage = (seed: number): void => {
           townId: `town-${townsByTile.size}`,
           tileKey: tk,
           type: townTypeAt(picked.x, picked.y),
-          population: POPULATION_MIN + Math.floor(seeded01(picked.x, picked.y, seed + 9601) * POPULATION_START_SPREAD),
+          population: initialTownPopulationAt(picked.x, picked.y, seed),
           maxPopulation: POPULATION_MAX,
           connectedTownCount: 0,
           connectedTownBonus: 0,
@@ -3201,9 +3219,12 @@ const ensureInterestCoverage = (seed: number): void => {
   }
 };
 
+const initialTownPopulationAt = (x: number, y: number, seed: number): number =>
+  WORLD_TOWN_POPULATION_MIN + Math.floor(seeded01(x, y, seed + 9601) * WORLD_TOWN_POPULATION_START_SPREAD);
+
 const townSupport = (townKey: TileKey, ownerId: string): { supportCurrent: number; supportMax: number } => {
   const town = townsByTile.get(townKey);
-  if (town && townPopulationTier(town.population) === "SETTLEMENT") return { supportCurrent: 0, supportMax: 0 };
+  if (town && townPopulationTierForTown(town) === "SETTLEMENT") return { supportCurrent: 0, supportMax: 0 };
   const [x, y] = parseKey(townKey);
   let supportCurrent = 0;
   let supportMax = 0;
@@ -3231,6 +3252,11 @@ const townPopulationTier = (population: number): PopulationTier => {
   return "SETTLEMENT";
 };
 
+const townPopulationTierForTown = (town: TownDefinition): PopulationTier => {
+  if (town.isSettlement && town.population < POPULATION_TOWN_MIN) return "SETTLEMENT";
+  return townPopulationTier(town.population);
+};
+
 const townPopulationMultiplier = (population: number): number => {
   const tier = townPopulationTier(population);
   if (tier === "SETTLEMENT") return 0.6;
@@ -3246,7 +3272,7 @@ const townManpowerSnapshotForOwner = (
 ): { cap: number; regenPerMinute: number } => {
   if (!ownerId) return { cap: 0, regenPerMinute: 0 };
   if (!isTownFedForOwner(town.tileKey, ownerId)) return { cap: 0, regenPerMinute: 0 };
-  const base = TOWN_MANPOWER_BY_TIER[townPopulationTier(town.population)];
+  const base = TOWN_MANPOWER_BY_TIER[townPopulationTierForTown(town)];
   if ((townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now()) {
     return { cap: 0, regenPerMinute: 0 };
   }
@@ -3326,7 +3352,7 @@ const playerManpowerBreakdown = (
     if (!town) continue;
     const snapshot = townManpowerSnapshotForOwner(town, player.id);
     if (snapshot.cap > 0) {
-      const tier = townPopulationTier(town.population);
+      const tier = townPopulationTierForTown(town);
       const captured = (townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now();
       cap.push({
         label: `${prettyTownName(town, tk)} (${tier.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())})`,
@@ -3418,7 +3444,7 @@ const supportedTownKeysForTile = (tileKey: TileKey, ownerId: string | undefined)
       const ny = wrapY(y + dy, WORLD_HEIGHT);
       const nk = key(nx, ny);
       const town = townsByTile.get(nk);
-      if (!town || townPopulationTier(town.population) === "SETTLEMENT") continue;
+      if (!town || townPopulationTierForTown(town) === "SETTLEMENT") continue;
       if (ownership.get(nk) !== ownerId) continue;
       if (ownershipStateByTile.get(nk) !== "SETTLED") continue;
       out.push(nk);
@@ -3507,7 +3533,7 @@ const initialSettlementPopulationAt = (x: number, y: number): number =>
   POPULATION_MIN + Math.floor(seeded01(x, y, activeSeason.worldSeed + 9601) * POPULATION_START_SPREAD);
 
 const isRelocatableSettlementTown = (town: TownDefinition | undefined): town is TownDefinition =>
-  Boolean(town && townPopulationTier(town.population) === "SETTLEMENT");
+  Boolean(town && town.isSettlement && townPopulationTierForTown(town) === "SETTLEMENT");
 
 const oldestSettledSettlementCandidateForPlayer = (playerId: string): TileKey | undefined => {
   const player = players.get(playerId);
@@ -3550,7 +3576,8 @@ const createSettlementAtTile = (
     maxPopulation: POPULATION_MAX,
     connectedTownCount: 0,
     connectedTownBonus: 0,
-    lastGrowthTickAt: now()
+    lastGrowthTickAt: now(),
+    isSettlement: true
   };
   townsByTile.set(tileKey, town);
   markSummaryChunkDirtyAtTile(x, y);
@@ -3570,7 +3597,7 @@ const playerHasOtherGoldIncome = (playerId: string): boolean => {
     const dock = docksByTile.get(tk);
     if (dock && dockIncomeForOwner(dock, playerId) > 0) return true;
     const town = townsByTile.get(tk);
-    if (town && townPopulationTier(town.population) !== "SETTLEMENT" && townPotentialIncomeForOwner(town, playerId, { ignoreSuppression: true, ignoreManpowerGate: true }) > 0)
+    if (town && townPopulationTierForTown(town) !== "SETTLEMENT" && townPotentialIncomeForOwner(town, playerId, { ignoreSuppression: true, ignoreManpowerGate: true }) > 0)
       return true;
   }
   return false;
@@ -3758,7 +3785,7 @@ const townPotentialIncomeForOwner = (
   const owner = players.get(ownerId);
   if (!owner) return 0;
   if (!options?.ignoreManpowerGate && !townGoldIncomeEnabledForPlayer(owner)) return 0;
-  const populationTier = townPopulationTier(town.population);
+  const populationTier = townPopulationTierForTown(town);
   if (populationTier === "SETTLEMENT") return SETTLEMENT_BASE_GOLD_PER_MIN;
   const { supportCurrent, supportMax } = townSupport(town.tileKey, ownerId);
   const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
@@ -3784,7 +3811,7 @@ const townCapForOwner = (town: TownDefinition, ownerId: string | undefined): num
   if (!ownerId) return TILE_YIELD_CAP_GOLD;
   const effects = getPlayerEffectsForPlayer(ownerId);
   const income = townPotentialIncomeForOwner(town, ownerId, { ignoreSuppression: true, ignoreManpowerGate: true });
-  if (townPopulationTier(town.population) === "SETTLEMENT") return income * 60 * 8;
+  if (townPopulationTierForTown(town) === "SETTLEMENT") return income * 60 * 8;
   return income * 60 * 8 * effects.townGoldCapMult * marketCapMultiplierAt(town.tileKey, ownerId);
 };
 
@@ -3836,7 +3863,7 @@ const recomputeTownNetworkForPlayer = (playerId: string): void => {
 
 const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
   const base = 0.1;
-  const tier = townPopulationTier(town.population);
+  const tier = townPopulationTierForTown(town);
   if (tier === "SETTLEMENT") return 0;
   if (tier === "CITY") return base * 2;
   if (tier === "GREAT_CITY") return base * 4;
@@ -3859,7 +3886,7 @@ const baseTownPopulationGrowthPerMinuteForOwner = (town: TownDefinition, ownerId
   if (!isTownFedForOwner(town.tileKey, ownerId)) return 0;
   const effects = getPlayerEffectsForPlayer(ownerId);
   const firstThreeTownKeys = firstThreeTownKeySetForPlayer(ownerId);
-  const populationTier = townPopulationTier(town.population);
+  const populationTier = townPopulationTierForTown(town);
   const growthMult =
     effects.populationGrowthMult *
     (firstThreeTownKeys.has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1) *
@@ -4545,7 +4572,7 @@ const buildTownSummaryForTile = (
   includeConnectedTownNames: boolean
 ): NonNullable<Tile["town"]> => {
   const support = ownerId ? townSupport(town.tileKey, ownerId) : { supportCurrent: 0, supportMax: 0 };
-  const tier = townPopulationTier(town.population);
+  const tier = townPopulationTierForTown(town);
   const isFed = isTownFedForOwner(town.tileKey, ownerId);
   const owner = ownerId ? players.get(ownerId) : undefined;
   const manpowerGoldPaused = Boolean(owner && !townGoldIncomeEnabledForPlayer(owner));
@@ -4564,7 +4591,7 @@ const buildTownSummaryForTile = (
     population: town.population,
     maxPopulation: town.maxPopulation,
     populationGrowthPerMinute: townPopulationGrowthPerMinuteForOwner(town, ownerId),
-    populationTier: townPopulationTier(town.population),
+    populationTier: townPopulationTierForTown(town),
     connectedTownCount: town.connectedTownCount,
     connectedTownBonus: town.connectedTownBonus,
     connectedTownNames: connectedTownKeys
@@ -4803,7 +4830,7 @@ const playerTile = (x: number, y: number): Tile => {
   if (town) {
     const owner = ownerId;
   const support = owner ? townSupport(town.tileKey, owner) : { supportCurrent: 0, supportMax: 0 };
-  const tier = townPopulationTier(town.population);
+  const tier = townPopulationTierForTown(town);
     const goldPerMinute = townIncomeForOwner(town, owner) * siphonMultiplierAt(town.tileKey);
     const isFed = isTownFedForOwner(town.tileKey, owner);
     const ownerPlayer = owner ? players.get(owner) : undefined;
@@ -4823,7 +4850,7 @@ const playerTile = (x: number, y: number): Tile => {
       population: town.population,
       maxPopulation: town.maxPopulation,
       populationGrowthPerMinute: townPopulationGrowthPerMinuteForOwner(town, owner),
-      populationTier: townPopulationTier(town.population),
+      populationTier: townPopulationTierForTown(town),
       connectedTownCount: town.connectedTownCount,
       connectedTownBonus: town.connectedTownBonus,
       connectedTownNames: connectedTownKeys
@@ -5748,7 +5775,7 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
     const town = townsByTile.get(tk);
-    if (!(town && townPopulationTier(town.population) === "SETTLEMENT")) {
+    if (!(town && townPopulationTierForTown(town) === "SETTLEMENT")) {
       settledTileGoldUpkeep += 0.04 * governorUpkeepMultiplierAtTile(player.id, tk);
     }
     if (town) townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
@@ -5780,7 +5807,7 @@ const upkeepPerMinuteForPlayer = (player: Player): {
 
 const settledTileGoldUpkeepPerMinuteAt = (playerId: string, tileKey: TileKey): number => {
   const town = townsByTile.get(tileKey);
-  if (town && townPopulationTier(town.population) === "SETTLEMENT") return 0;
+  if (town && townPopulationTierForTown(town) === "SETTLEMENT") return 0;
   return 0.04 * governorUpkeepMultiplierAtTile(playerId, tileKey);
 };
 
@@ -13858,6 +13885,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
   for (const [tk, until] of raw.townCaptureShock ?? []) townCaptureShockUntilByTile.set(tk, until);
   for (const [tk, until] of raw.townGrowthShock ?? []) townGrowthShockUntilByTile.set(tk, until);
+  normalizeLegacySettlementTowns();
   logHydratePhase("world_maps", {
     docks: raw.docks?.length ?? 0,
     towns: raw.towns?.length ?? 0,

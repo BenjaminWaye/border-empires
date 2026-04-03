@@ -26,10 +26,13 @@ const functionBody = (source: string, functionName: string): string => {
 };
 
 describe("pre-town settlement regression guard", () => {
-  it("starts town sites around 3000 population instead of jumping straight to full towns", () => {
+  it("keeps settlement-only low population while real world towns seed at the old band", () => {
     const source = serverMainSource();
     expect(source).toContain("const POPULATION_MIN = 3_000;");
     expect(source).toContain("const POPULATION_START_SPREAD = 2_000;");
+    expect(source).toContain("const WORLD_TOWN_POPULATION_MIN = 15_000;");
+    expect(source).toContain("const WORLD_TOWN_POPULATION_START_SPREAD = 10_000;");
+    expect(source).toContain("const initialTownPopulationAt = (x: number, y: number, seed: number): number =>");
   });
 
   it("keeps a settlement tier before town", () => {
@@ -42,8 +45,17 @@ describe("pre-town settlement regression guard", () => {
     const source = serverMainSource();
     expect(source).toContain('SETTLEMENT: { cap: 150, regenPerMinute: 10 }');
     expect(source).toContain('const SETTLEMENT_BASE_GOLD_PER_MIN = 1;');
-    expect(source).toContain('if (town && townPopulationTier(town.population) === "SETTLEMENT") return { supportCurrent: 0, supportMax: 0 };');
+    expect(source).toContain("isSettlement?: boolean;");
+    expect(source).toContain('if (town && townPopulationTierForTown(town) === "SETTLEMENT") return { supportCurrent: 0, supportMax: 0 };');
     expect(source).toContain('if (tier === "SETTLEMENT") return 0;');
     expect(source).toContain('if (populationTier === "SETTLEMENT") return SETTLEMENT_BASE_GOLD_PER_MIN;');
+  });
+
+  it("repairs legacy low-pop towns on hydrate instead of treating every town as a settlement", () => {
+    const source = serverMainSource();
+    expect(source).toContain("const normalizeLegacySettlementTowns = (): void => {");
+    expect(source).toContain("if (owner && owner.capitalTileKey === town.tileKey) {");
+    expect(source).toContain("town.isSettlement = true;");
+    expect(source).toContain("town.population = initialTownPopulationAt(x, y, activeSeason.worldSeed);");
   });
 });
