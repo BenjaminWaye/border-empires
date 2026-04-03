@@ -3711,17 +3711,6 @@ const effectiveTechChoices = (): string[] =>
 
 const isPendingTechUnlock = (techId: string): boolean => state.pendingTechUnlockId === techId;
 
-const currentResearchRemainingMs = (): number | undefined => {
-  if (!state.currentResearch) return undefined;
-  return Math.max(0, state.currentResearch.completesAt - Date.now());
-};
-
-const currentResearchStatusText = (): string => {
-  const remainingMs = currentResearchRemainingMs();
-  if (remainingMs === undefined) return "Research in progress.";
-  return `Research in progress. ${formatCountdownClock(remainingMs)} remaining.`;
-};
-
 const formatTechCost = (t: TechInfo): string => {
   const checklist = t.requirements.checklist ?? [];
   const costBits = checklist.filter((c) => /gold|food|iron|crystal|supply|shard/i.test(c.label)).map((c) => c.label);
@@ -3805,8 +3794,7 @@ const renderCompactTechChoiceGrid = (): string => {
           const selected = state.techUiSelectedId === t.id ? " selected" : "";
           const owned = ownedTechIds.includes(t.id) ? " owned" : "";
           const blocked = t.requirements.canResearch || isPendingTechUnlock(t.id) ? "" : " blocked";
-          const researchingThis = state.currentResearch?.techId === t.id;
-          const costLabel = researchingThis ? `Researching • ${formatCooldownShort(Math.max(0, state.currentResearch!.completesAt - Date.now()))}` : isPendingTechUnlock(t.id) ? "Unlocking..." : formatTechCost(t);
+          const costLabel = isPendingTechUnlock(t.id) ? "Unlocking..." : formatTechCost(t);
           return `<button class="tech-card${selected}${owned}${blocked}" data-tech-card="${t.id}">
             <div class="tech-card-top">
               <strong>${t.name}</strong>
@@ -4035,16 +4023,13 @@ const renderExpandedTechChoiceTree = (): string => {
       const selected = state.techUiSelectedId === tech.id ? " selected" : "";
       const owned = ownedSet.has(tech.id) ? " owned" : "";
       const pending = isPendingTechUnlock(tech.id) ? " pending" : "";
-      const researchingThis = state.currentResearch?.techId === tech.id;
       const available = tech.requirements.canResearch && !isPendingTechUnlock(tech.id) ? " available" : "";
       const choice = choicesSet.has(tech.id) ? " choice" : "";
       const blocked = owned || available || pending ? "" : " blocked";
       const prereqs = techPrereqIds(tech);
-      const stateLabel = researchingThis ? "Researching" : pending ? "Unlocking" : owned ? "Unlocked" : tech.requirements.canResearch ? "Available" : "Locked";
+      const stateLabel = pending ? "Unlocking" : owned ? "Unlocked" : tech.requirements.canResearch ? "Available" : "Locked";
       const costLabel =
-        researchingThis
-          ? `Researching • ${formatCooldownShort(Math.max(0, state.currentResearch!.completesAt - Date.now()))}`
-          : pending
+        pending
           ? "Waiting for server confirmation..."
           : tech.requirements.canResearch
             ? formatTechCost(tech)
@@ -4143,26 +4128,15 @@ const renderTechDetailCard = (): string => {
   const unlocks = unlockedByTech(tech.id);
   const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
   const pendingUnlock = isPendingTechUnlock(tech.id);
-  const researchingThis = state.currentResearch?.techId === tech.id;
-  const researchRemaining =
-    researchingThis && typeof state.currentResearch?.completesAt === "number"
-      ? Math.max(0, state.currentResearch.completesAt - Date.now())
-      : 0;
-  const canUnlock = tech.requirements.canResearch && !state.pendingTechUnlockId && !state.currentResearch;
-  const statusText = researchingThis
-    ? `Researching now. Completes in ${formatCooldownShort(researchRemaining)}.`
-    : pendingUnlock
+  const canUnlock = tech.requirements.canResearch && !state.pendingTechUnlockId;
+  const statusText = pendingUnlock
       ? "Unlocking now. Waiting for server confirmation..."
       : undefined;
-  const buttonLabel = researchingThis
-    ? `Researching ${formatCountdownClock(researchRemaining)}`
-    : pendingUnlock
+  const buttonLabel = pendingUnlock
       ? "Unlocking..."
       : canUnlock
         ? "Unlock"
-        : state.currentResearch
-          ? "Busy"
-          : "Locked";
+        : "Locked";
   const relatedStructures = relatedStructureTypesForTech(tech);
   const relatedStructuresHtml =
     relatedStructures.length > 0
@@ -4172,7 +4146,7 @@ const renderTechDetailCard = (): string => {
     tech,
     statusText,
     buttonLabel,
-    buttonDisabled: !(canUnlock || pendingUnlock || researchingThis),
+    buttonDisabled: !(canUnlock || pendingUnlock),
     prereqs,
     prereqText,
     unlocks: unlocks.map((next) => ({ name: next.name, tier: techTier(next.id, byId, tierMemo) })),
@@ -4226,30 +4200,19 @@ const renderTechDetailModal = (): string => {
   const prereqs = techPrereqIds(tech);
   const unlocks = unlockedByTech(tech.id);
   const pendingUnlock = isPendingTechUnlock(tech.id);
-  const researchingThis = state.currentResearch?.techId === tech.id;
-  const researchRemaining =
-    researchingThis && typeof state.currentResearch?.completesAt === "number"
-      ? Math.max(0, state.currentResearch.completesAt - Date.now())
-      : 0;
-  const canUnlock = tech.requirements.canResearch && !state.pendingTechUnlockId && !state.currentResearch;
-  const statusText = researchingThis
-    ? `Researching now. Completes in ${formatCooldownShort(researchRemaining)}.`
-    : pendingUnlock
+  const canUnlock = tech.requirements.canResearch && !state.pendingTechUnlockId;
+  const statusText = pendingUnlock
       ? "Unlocking now. Waiting for server confirmation..."
       : tech.requirements.canResearch
         ? "Ready to unlock."
         : prereqs.length > 0
           ? `Requires ${techNameList(prereqs)}`
           : "Entry tech";
-  const buttonLabel = researchingThis
-    ? `Researching ${formatCountdownClock(researchRemaining)}`
-    : pendingUnlock
+  const buttonLabel = pendingUnlock
       ? "Unlocking..."
       : canUnlock
         ? "Unlock"
-        : state.currentResearch
-          ? "Busy"
-          : "Locked";
+        : "Locked";
   const relatedStructures = relatedStructureTypesForTech(tech);
   const requirements = tech.requirements.checklist ?? [];
   const requirementsHtml =
@@ -4293,9 +4256,7 @@ const renderTechDetailModal = (): string => {
         </section>
       </div>
       <div class="tech-detail-actions">
-        <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${tech.id}" ${
-          canUnlock || pendingUnlock || researchingThis ? "" : "disabled"
-        }>${buttonLabel}</button>
+        <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${tech.id}" ${canUnlock || pendingUnlock ? "" : "disabled"}>${buttonLabel}</button>
       </div>
     </div>`;
 };
@@ -5145,15 +5106,9 @@ const chooseTech = (techIdRaw?: string): void => {
   }
   state.techUiSelectedId = techId;
   state.pendingTechUnlockId = techId;
-  const startedAt = Date.now();
-  state.currentResearch = {
-    techId,
-    startedAt,
-    completesAt: startedAt + ((tech.researchTimeSeconds ?? 1) * 1000)
-  };
   console.info("[tech] sending CHOOSE_TECH", { techId });
   ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
-  pushFeed(`Research started: ${tech.name}.`, "tech", "info");
+  pushFeed(`Unlocking: ${tech.name}.`, "tech", "info");
   renderHud();
 };
 
@@ -8063,8 +8018,7 @@ ws.addEventListener("message", (ev) => {
     state.techRootId = p.techRootId as string | undefined;
     state.techIds = (p.techIds as string[]) ?? [];
     state.currentResearch = (p.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
-    state.currentResearch = p.currentResearch as typeof state.currentResearch;
-    state.pendingTechUnlockId = state.currentResearch?.techId ?? "";
+    state.pendingTechUnlockId = "";
     state.domainIds = (p.domainIds as string[]) ?? [];
     state.revealCapacity = (p.revealCapacity as number) ?? state.revealCapacity;
     state.activeRevealTargets = (p.activeRevealTargets as string[]) ?? state.activeRevealTargets;
@@ -8267,7 +8221,7 @@ ws.addEventListener("message", (ev) => {
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
     state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
     state.techCatalog = (msg.techCatalog as TechInfo[]) ?? state.techCatalog;
-    state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? state.currentResearch;
+    state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
     if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
     state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
     state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
@@ -8584,7 +8538,7 @@ ws.addEventListener("message", (ev) => {
     const status = msg.status as "started" | "completed" | undefined;
     state.techRootId = msg.techRootId as string | undefined;
     state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
-    state.pendingTechUnlockId = state.currentResearch?.techId ?? "";
+    state.pendingTechUnlockId = "";
     state.techIds = (msg.techIds as string[]) ?? [];
     state.techChoices = (msg.nextChoices as string[]) ?? [];
     state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
@@ -8598,14 +8552,7 @@ ws.addEventListener("message", (ev) => {
     state.domainCatalog = (msg.domainCatalog as DomainInfo[]) ?? state.domainCatalog;
     state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
     state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
-    if (status === "started" && state.currentResearch) {
-      const startedTech = state.techCatalog.find((tech) => tech.id === state.currentResearch?.techId);
-      pushFeed(
-        `Research started: ${startedTech?.name ?? state.currentResearch.techId} (${formatCountdownClock(Math.max(0, state.currentResearch.completesAt - Date.now()))}).`,
-        "tech",
-        "info"
-      );
-    } else if (status === "completed") {
+    if (status === "completed") {
       const completedTech = state.techCatalog.find((tech) => tech.id === state.techIds[state.techIds.length - 1]);
       pushFeed(`Research completed: ${completedTech?.name ?? state.techIds[state.techIds.length - 1] ?? "unknown"}.`, "tech", "success");
     }
