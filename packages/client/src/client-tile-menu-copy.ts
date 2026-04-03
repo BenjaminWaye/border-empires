@@ -2,6 +2,7 @@ export type TileMenuOverviewIntroInput = {
   terrain: "LAND" | "SEA" | "MOUNTAIN";
   ownerKind: "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
   productionLabel?: string | undefined;
+  resourceLabel?: string | undefined;
   isDockEndpoint?: boolean;
 };
 
@@ -17,13 +18,18 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
   }
   if (input.ownerKind === "unclaimed") {
     return [
+      ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
       "Claim this tile first to turn it into frontier land.",
       ...(input.productionLabel ? [`After you settle it, this tile can produce ${input.productionLabel}.`] : [])
     ];
   }
   if (input.ownerKind === "mine-frontier") {
     return input.productionLabel
-      ? ["Frontier land is visible control, but it has no real defense yet.", `Needs settlement to produce ${input.productionLabel}.`]
+      ? [
+          ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
+          "Frontier land is visible control, but it has no real defense yet.",
+          `Needs settlement to produce ${input.productionLabel}.`
+        ]
       : ["Frontier land is visible control, but it has no real defense yet.", "Needs settlement to gain defense and full ownership strength."];
   }
   if (input.ownerKind === "mine-settled") {
