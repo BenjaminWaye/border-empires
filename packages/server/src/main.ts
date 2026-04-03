@@ -98,6 +98,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
+import { currentShardRainNotice, nextShardRainStartAt } from "./server-shard-rain.js";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
 import { z } from "zod";
@@ -1851,6 +1852,7 @@ const townsByTile = new Map<TileKey, TownDefinition>();
 const shardSitesByTile = new Map<TileKey, ShardSiteState>();
 const firstSpecialSiteCaptureClaimed = new Set<TileKey>();
 let lastShardRainSlotKey = "";
+let lastShardRainWarningSlotKey = "";
 const revealedEmpireTargetsByPlayer = new Map<string, Set<string>>();
 const revealWatchersByTarget = new Map<string, Set<string>>();
 const siphonByTile = new Map<TileKey, ActiveSiphon>();
@@ -2938,6 +2940,36 @@ const ensureSpawnShardNearby = (x: number, y: number): void => {
   }
 };
 
+const activeShardRainSummary = (): { siteCount: number; expiresAt: number | undefined } => {
+  let siteCount = 0;
+  let expiresAt: number | undefined;
+  for (const site of shardSitesByTile.values()) {
+    if (site.kind !== "FALL" || typeof site.expiresAt !== "number" || site.expiresAt <= now()) continue;
+    siteCount += 1;
+    expiresAt = Math.max(expiresAt ?? 0, site.expiresAt);
+  }
+  return { siteCount, expiresAt };
+};
+
+const shardRainNoticePayload = () => {
+  const active = activeShardRainSummary();
+  return currentShardRainNotice(now(), active.expiresAt, active.siteCount, SHARD_RAIN_TTL_MS);
+};
+
+const maybeBroadcastShardRainWarning = (): void => {
+  const currentMs = now();
+  const current = new Date(currentMs);
+  if (current.getMinutes() !== 0) return;
+  const nextStart = nextShardRainStartAt(currentMs);
+  const remaining = nextStart - currentMs;
+  if (remaining > 60 * 60 * 1000 || remaining <= 59 * 60 * 1000) return;
+  const slot = new Date(nextStart);
+  const slotKey = `${slot.getFullYear()}-${slot.getMonth() + 1}-${slot.getDate()}-${slot.getHours()}`;
+  if (lastShardRainWarningSlotKey === slotKey) return;
+  lastShardRainWarningSlotKey = slotKey;
+  broadcast({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: nextStart });
+};
+
 const spawnShardRain = (): void => {
   if (!hasOnlinePlayers()) return;
   const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
@@ -2964,6 +2996,8 @@ const spawnShardRain = (): void => {
   if (touched.length > 0) {
     broadcast({
       type: "SHARD_RAIN_EVENT",
+      phase: "started",
+      startsAt: latestExpiresAt - SHARD_RAIN_TTL_MS,
       siteCount: touched.length,
       expiresAt: latestExpiresAt
     });
@@ -14231,6 +14265,7 @@ registerInterval(runAiTick, AI_DISPATCH_INTERVAL_MS);
 registerInterval(enqueueBarbarianMaintenance, BARBARIAN_MAINTENANCE_INTERVAL_MS);
 registerInterval(expireShardSites, 5_000);
 registerInterval(maybeSpawnScheduledShardRain, 30_000);
+registerInterval(maybeBroadcastShardRainWarning, 30_000);
 registerInterval(() => {
   const vitals = sampleRuntimeVitals();
   recentRuntimeVitals.push(vitals);
@@ -15235,6 +15270,7 @@ app.post("/admin/world/regenerate", async () => {
             townCount: townsByTile.size,
             dockPairs
           },
+          shardRainNotice: shardRainNoticePayload(),
           techChoices: reachableTechs(player),
           techCatalog: activeTechCatalog(player),
           domainChoices: reachableDomains(player),

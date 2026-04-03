@@ -61,6 +61,7 @@ import {
 } from "./client-constants.js";
 import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import { shardRainAlertDetail, type ClientShardRainAlert } from "./client-shard-alert.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
@@ -231,6 +232,11 @@ const {
   panelTechEl,
   panelTitleEl,
   selectedEl,
+  shardAlertCardEl,
+  shardAlertCloseBtn,
+  shardAlertDetailEl,
+  shardAlertOverlayEl,
+  shardAlertTitleEl,
   sidePanelBodyEl,
   sidePanelEl,
   statsChipsEl,
@@ -2525,9 +2531,19 @@ const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity =
 const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => {
   if (next.fogged || !next.shardSite) return;
   if (previous?.shardSite?.kind === next.shardSite.kind && previous.shardSite.amount === next.shardSite.amount) return;
-  if (next.shardSite.kind === "FALL") {
-    pushFeed(`Shard rain sighted at (${next.x}, ${next.y}).`, "info", "warn");
-  }
+};
+
+const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string => `${phase}:${startsAt}`;
+
+const showShardAlert = (alert: ClientShardRainAlert): void => {
+  if (state.dismissedShardAlertKeys.has(alert.key)) return;
+  state.shardAlert = alert;
+};
+
+const hideShardAlert = (): void => {
+  if (state.shardAlert) state.dismissedShardAlertKeys.add(state.shardAlert.key);
+  state.shardAlert = undefined;
+  state.shardRainFxUntil = 0;
 };
 
 const showCaptureAlert = (
@@ -3385,6 +3401,31 @@ const renderCaptureProgress = (): void => {
   }
 };
 
+const renderShardAlert = (): void => {
+  const alert = state.shardAlert;
+  if (!alert) {
+    shardAlertOverlayEl.style.display = "none";
+    shardAlertTitleEl.textContent = "";
+    shardAlertDetailEl.textContent = "";
+    return;
+  }
+  const nowMs = Date.now();
+  if (
+    (alert.phase === "upcoming" && alert.startsAt <= nowMs) ||
+    (alert.phase === "started" && alert.expiresAt <= nowMs)
+  ) {
+    state.shardAlert = undefined;
+    if (alert.phase === "started") state.shardRainFxUntil = 0;
+    shardAlertOverlayEl.style.display = "none";
+    shardAlertTitleEl.textContent = "";
+    shardAlertDetailEl.textContent = "";
+    return;
+  }
+  shardAlertTitleEl.textContent = alert.phase === "upcoming" ? "Shard Rain Incoming" : "Shard Rain Begun";
+  shardAlertDetailEl.textContent = shardRainAlertDetail(alert, nowMs);
+  shardAlertOverlayEl.style.display = "block";
+};
+
 const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: number, dy: number): void => {
   const phase = (Date.now() % 1200) / 1200;
   const wave = Math.sin(phase * Math.PI * 2);
@@ -4176,6 +4217,7 @@ const renderHud = (): void => {
   `;
 
   renderCaptureProgress();
+  renderShardAlert();
   state.replayActive = false;
   state.replayPlaying = false;
   miniMapLabelEl.innerHTML = replayToolbarHtml();
@@ -7690,6 +7732,10 @@ captureCloseBtn.onclick = () => {
   captureTimeEl.classList.remove("capture-loss");
   renderCaptureProgress();
 };
+shardAlertCloseBtn.onclick = () => {
+  hideShardAlert();
+  renderShardAlert();
+};
 panelCloseBtn.onclick = () => {
   state.activePanel = null;
   renderHud();
@@ -7905,6 +7951,10 @@ ws.addEventListener("message", (ev) => {
     }
     state.fogDisabled = Boolean(cfg.fogDisabled);
     const mapMeta = (msg.mapMeta as { dockCount?: number; dockPairCount?: number; clusterCount?: number; townCount?: number; dockPairs?: DockPair[] } | undefined) ?? {};
+    const shardRainNotice =
+      (msg.shardRainNotice as
+        | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number }
+        | undefined) ?? undefined;
     state.discoveredTiles.clear();
     state.discoveredDockTiles.clear();
     state.dockPairs = mapMeta.dockPairs ?? [];
@@ -7920,6 +7970,25 @@ ws.addEventListener("message", (ev) => {
       if (typeof mapMeta.townCount === "number") {
         pushFeed(`Towns on world: ${mapMeta.townCount}.`, "info", "info");
       }
+    }
+    if (shardRainNotice?.phase === "upcoming" && typeof shardRainNotice.startsAt === "number") {
+      showShardAlert({
+        key: shardAlertKeyForPayload("upcoming", shardRainNotice.startsAt),
+        phase: "upcoming",
+        startsAt: shardRainNotice.startsAt
+      });
+    } else if (
+      shardRainNotice?.phase === "started" &&
+      typeof shardRainNotice.startsAt === "number" &&
+      typeof shardRainNotice.expiresAt === "number"
+    ) {
+      showShardAlert({
+        key: shardAlertKeyForPayload("started", shardRainNotice.startsAt),
+        phase: "started",
+        startsAt: shardRainNotice.startsAt,
+        expiresAt: shardRainNotice.expiresAt,
+        siteCount: Number(shardRainNotice.siteCount ?? 0)
+      });
     }
     requestViewRefresh();
     syncAuthOverlay();
@@ -8721,15 +8790,27 @@ ws.addEventListener("message", (ev) => {
     renderHud();
   }
   if (msg.type === "SHARD_RAIN_EVENT") {
-    const siteCount = (msg.siteCount as number | undefined) ?? 0;
-    const expiresAt = (msg.expiresAt as number | undefined) ?? 0;
-    const remaining = expiresAt > Date.now() ? formatCountdownClock(expiresAt - Date.now()) : "30:00";
-    state.shardRainFxUntil = Date.now() + 8_000;
-    pushFeed(
-      `Shard rain has begun. ${siteCount} impact site${siteCount === 1 ? "" : "s"} will remain for about ${remaining}.`,
-      "info",
-      "warn"
-    );
+    if ((msg.phase as string | undefined) === "upcoming" && typeof (msg.startsAt as number | undefined) === "number") {
+      showShardAlert({
+        key: shardAlertKeyForPayload("upcoming", msg.startsAt as number),
+        phase: "upcoming",
+        startsAt: msg.startsAt as number
+      });
+    }
+    if (
+      (msg.phase as string | undefined) === "started" &&
+      typeof (msg.startsAt as number | undefined) === "number" &&
+      typeof (msg.expiresAt as number | undefined) === "number"
+    ) {
+      state.shardRainFxUntil = Date.now() + 8_000;
+      showShardAlert({
+        key: shardAlertKeyForPayload("started", msg.startsAt as number),
+        phase: "started",
+        startsAt: msg.startsAt as number,
+        expiresAt: msg.expiresAt as number,
+        siteCount: Number(msg.siteCount ?? 0)
+      });
+    }
     renderHud();
   }
 });
@@ -9618,6 +9699,7 @@ initTerrainTextures();
 draw();
 renderHud();
 setInterval(renderCaptureProgress, 100);
+setInterval(renderShardAlert, 250);
 setInterval(() => {
   if (state.collectVisibleCooldownUntil > Date.now()) renderHud();
   const expiredSettlementProgress = cleanupExpiredSettlementProgress();

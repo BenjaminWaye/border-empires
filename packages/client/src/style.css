@@ -1276,6 +1276,66 @@ body {
   z-index: 32;
 }
 
+#shard-alert-overlay {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  width: min(560px, calc(100vw - 24px));
+  transform: translateX(-50%);
+  z-index: 33;
+  display: none;
+}
+
+#shard-alert-card {
+  display: grid;
+  gap: 10px;
+  border-radius: 24px;
+  border: 1px solid rgba(124, 212, 255, 0.46);
+  background: linear-gradient(145deg, rgba(24, 68, 112, 0.82), rgba(7, 28, 48, 0.88));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 42px rgba(4, 18, 34, 0.42);
+  padding: 14px 18px;
+}
+
+#shard-alert-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#shard-alert-title {
+  color: #f2fbff;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+#shard-alert-detail {
+  color: rgba(232, 243, 255, 0.92);
+  font-size: 14px;
+  line-height: 1.42;
+}
+
+.shard-alert-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 232, 255, 0.36);
+  background: rgba(10, 28, 47, 0.56);
+  color: #f6faff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.shard-alert-close-btn:hover {
+  background: rgba(14, 38, 63, 0.76);
+}
+
 #targeting-overlay {
   position: fixed;
   top: 72px;
@@ -4103,6 +4163,10 @@ button:disabled,
   }
 
   #capture-overlay {
+    top: 146px;
+  }
+
+  #shard-alert-overlay {
     top: 146px;
   }
 
