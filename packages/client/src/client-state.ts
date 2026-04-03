@@ -1,5 +1,6 @@
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY } from "./client-constants.js";
 import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
+import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
@@ -188,6 +189,8 @@ export const createInitialState = () => ({
   activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | null,
   showWeakDefensibility: false,
   shardRainFxUntil: 0,
+  shardAlert: undefined as ClientShardRainAlert | undefined,
+  dismissedShardAlertKeys: new Set<string>(),
   structureInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD",
   unreadAttackAlerts: 0,
