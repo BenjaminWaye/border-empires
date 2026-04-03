@@ -3573,6 +3573,9 @@ const initialSettlementPopulationAt = (x: number, y: number): number =>
 const isRelocatableSettlementTown = (town: TownDefinition | undefined): town is TownDefinition =>
   Boolean(town && town.isSettlement && townPopulationTierForTown(town) === "SETTLEMENT");
 
+const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>
+  ownedTownKeysForPlayer(playerId).find((tk) => isRelocatableSettlementTown(townsByTile.get(tk)));
+
 const oldestSettledSettlementCandidateForPlayer = (playerId: string): TileKey | undefined => {
   const player = players.get(playerId);
   if (!player) return undefined;
@@ -3623,6 +3626,32 @@ const createSettlementAtTile = (
   return town;
 };
 
+const canHostSettlementAtTile = (playerId: string, tileKey: TileKey | undefined): tileKey is TileKey => {
+  if (!tileKey) return false;
+  const [x, y] = parseKey(tileKey);
+  if (ownership.get(tileKey) !== playerId || ownershipStateByTile.get(tileKey) !== "SETTLED") return false;
+  if (terrainAtRuntime(x, y) !== "LAND") return false;
+  if (townsByTile.has(tileKey) || docksByTile.has(tileKey)) return false;
+  if (fortsByTile.has(tileKey) || observatoriesByTile.has(tileKey) || siegeOutpostsByTile.has(tileKey) || economicStructuresByTile.has(tileKey)) return false;
+  if (applyClusterResources(x, y, resourceAt(x, y))) return false;
+  return true;
+};
+
+const ensureActiveSettlementForPlayer = (playerId: string): boolean => {
+  if (activeSettlementTileKeyForPlayer(playerId)) return false;
+  const player = players.get(playerId);
+  if (!player) return false;
+  const candidates = [player.spawnOrigin, player.capitalTileKey, oldestSettledSettlementCandidateForPlayer(playerId)];
+  for (const candidate of candidates) {
+    if (!canHostSettlementAtTile(playerId, candidate)) continue;
+    const created = createSettlementAtTile(playerId, candidate);
+    if (!created) continue;
+    recomputeTownNetworkForPlayer(playerId);
+    return true;
+  }
+  return false;
+};
+
 const playerHasOtherGoldIncome = (playerId: string): boolean => {
   const player = players.get(playerId);
   if (!player) return false;
@@ -3644,7 +3673,7 @@ const playerHasOtherGoldIncome = (playerId: string): boolean => {
 const ensureFallbackSettlementForPlayer = (playerId: string): boolean => {
   const player = players.get(playerId);
   if (!player) return false;
-  if (ownedTownKeysForPlayer(playerId).some((tk) => isRelocatableSettlementTown(townsByTile.get(tk)))) return false;
+  if (activeSettlementTileKeyForPlayer(playerId)) return false;
   if (playerHasOtherGoldIncome(playerId)) return false;
   const candidate = oldestSettledSettlementCandidateForPlayer(playerId);
   if (!candidate) return false;
@@ -4749,7 +4778,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
   if (ownerId) {
     tile.ownerId = ownerId;
     tile.ownershipState = ownershipState ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
-    if (ownerId !== BARBARIAN_OWNER_ID && players.get(ownerId)?.capitalTileKey === tk) tile.capital = true;
+    if (ownerId !== BARBARIAN_OWNER_ID && activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;
   }
   if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
   if (terrain === "LAND" && regionType) tile.regionType = regionType;
@@ -4856,7 +4885,7 @@ const playerTile = (x: number, y: number): Tile => {
   if (ownerId) {
     tile.ownerId = ownerId;
     tile.ownershipState = ownershipState ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
-    if (ownerId !== BARBARIAN_OWNER_ID && players.get(ownerId)?.capitalTileKey === tk) tile.capital = true;
+    if (ownerId !== BARBARIAN_OWNER_ID && activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;
   }
   if (continentId !== undefined) tile.continentId = continentId;
   if (terrain === "LAND" && regionType) (tile as Tile & { regionType?: string }).regionType = regionType;
@@ -5036,6 +5065,8 @@ const isValidCapitalTile = (player: Player, tileKey: TileKey | undefined): tileK
 };
 
 const chooseCapitalTileKey = (player: Player): TileKey | undefined => {
+  const settlementTile = activeSettlementTileKeyForPlayer(player.id);
+  if (settlementTile) return settlementTile;
   if (isValidCapitalTile(player, player.spawnOrigin)) return player.spawnOrigin;
   const settledTowns = [...townsByTile.keys()]
     .filter((tk) => ownership.get(tk) === player.id && ownershipStateByTile.get(tk) === "SETTLED")
@@ -5081,8 +5112,10 @@ const refreshVisibleNearbyTownDeltas = (x: number, y: number): void => {
 };
 
 const reconcileCapitalForPlayer = (player: Player): void => {
+  ensureActiveSettlementForPlayer(player.id);
   const previous = player.capitalTileKey;
-  const next = isValidCapitalTile(player, previous) ? previous : chooseCapitalTileKey(player);
+  const settlementTile = activeSettlementTileKeyForPlayer(player.id);
+  const next = settlementTile ?? (isValidCapitalTile(player, previous) ? previous : chooseCapitalTileKey(player));
   if (previous === next) return;
   if (next) player.capitalTileKey = next;
   else delete player.capitalTileKey;
@@ -13243,6 +13276,7 @@ const spawnPlayer = (p: Player): void => {
   const trySpawnAt = (x: number, y: number): boolean => {
     const t = playerTile(x, y);
     if (t.terrain !== "LAND") return false;
+    if (townsByTile.has(key(x, y))) return false;
     const owner = t.ownerId;
     if (owner && owner !== BARBARIAN_OWNER_ID) return false;
     updateOwnership(x, y, p.id, "SETTLED");
@@ -13409,7 +13443,7 @@ const rebuildOwnershipDerivedState = (): void => {
 };
 
 const playerHomeTile = (p: Player): { x: number; y: number } | undefined => {
-  const first = p.spawnOrigin ?? [...p.territoryTiles][0];
+  const first = activeSettlementTileKeyForPlayer(p.id) ?? p.spawnOrigin ?? [...p.territoryTiles][0];
   if (!first) return undefined;
   const [x, y] = parseKey(first);
   return { x, y };
@@ -14008,6 +14042,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
     pendingSettlementsByTile.set(hydrated.tileKey, hydrated);
   }
   logHydratePhase("pending_settlements", { pendingSettlements: raw.pendingSettlements?.length ?? 0 });
+  for (const playerId of players.keys()) ensureActiveSettlementForPlayer(playerId);
   if (barbarianAgents.size === 0) {
     for (const [tk, ownerId] of ownership.entries()) {
       if (ownerId !== BARBARIAN_OWNER_ID) continue;
