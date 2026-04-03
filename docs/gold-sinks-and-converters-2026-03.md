@@ -131,7 +131,7 @@ Reason:
 - one real iron tile gives `60/day`
 - this gives less than one-third of a real tile
 
-### Quartermaster
+### Fur Synthesizer
 
 - Role: converts wealth and agriculture into logistics
 - Placement: empty settled land
@@ -167,7 +167,7 @@ Do not add four separate early techs just for these.
 Best fit:
 
 - Tier 2 `Preservation` or `Provisioning`
-  - unlocks `Quartermaster`
+  - unlocks `Fur Synthesizer`
 - Tier 3 `Proto-Industry`
   - unlocks `Ironworks`
   - unlocks `Crystal Synthesizer`
@@ -211,7 +211,7 @@ That is a good strategic decision.
 
 If we revise the current 1-6 table again, the cleanest additions are:
 
-- add `Quartermaster` unlock in tier 2
+- add `Fur Synthesizer` unlock in tier 2
 - add `Proto-Industry` unlock in tier 3
 - keep `Coinage -> Bank`
 - keep `Ledger Keeping` as connected-city / storage support
@@ -239,7 +239,7 @@ Best names:
 
 - `Crystal Synthesizer`
 - `Ironworks`
-- `Quartermaster`
+- `Fur Synthesizer`
 - `Synthetic Fuel Plant`
 
 If you want a more cohesive naming family:
