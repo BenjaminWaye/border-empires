@@ -23,8 +23,17 @@ describe("settlement relocation regression guard", () => {
 
   it("seeds a settlement at spawn and recreates one only through the fallback helper", () => {
     const source = serverMainSource();
+    expect(source).toContain('if (townsByTile.has(key(x, y))) return false;');
     expect(source).toContain('if (!townsByTile.has(key(x, y))) createSettlementAtTile(p.id, key(x, y));');
     expect(source).toContain("const ensureFallbackSettlementForPlayer = (playerId: string): boolean => {");
+  });
+
+  it("repairs missing settlements and keeps the active settlement authoritative for the capital marker", () => {
+    const source = serverMainSource();
+    expect(source).toContain("const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>");
+    expect(source).toContain("const ensureActiveSettlementForPlayer = (playerId: string): boolean => {");
+    expect(source).toContain("const candidates = [player.spawnOrigin, player.capitalTileKey, oldestSettledSettlementCandidateForPlayer(playerId)];");
+    expect(source).toContain("if (ownerId !== BARBARIAN_OWNER_ID && activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;");
   });
 
   it("relocates captured settlement-tier towns instead of leaving them on the captured tile", () => {
