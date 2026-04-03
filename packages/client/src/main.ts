@@ -35,7 +35,7 @@ import {
   WOODEN_FORT_DEFENSE_MULT,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  exposureRatio,
+  defensivenessMultiplier,
   grassShadeAt,
   landBiomeAt,
   setWorldSeed,
@@ -3492,7 +3492,7 @@ const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: n
 };
 const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
-  return Math.max(0, Math.min(100, exposureRatio(t, e) * 100));
+  return Math.max(0, Math.min(100, defensivenessMultiplier(t, e) * 100));
 };
 
 const techTier = (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>): number => {
@@ -4260,34 +4260,6 @@ const renderHud = (): void => {
   mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
   hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
-  const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
-  weakDefButtons.forEach((btn) => {
-    btn.onclick = () => {
-      state.showWeakDefensibility = !state.showWeakDefensibility;
-      const weakTileCount = [...state.tiles.values()].filter((tile) => {
-        if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
-        return (
-          exposedSidesForTile(tile, {
-            tiles: state.tiles,
-            me: state.me,
-            keyFor: key,
-            wrapX,
-            wrapY,
-            terrainAt
-          }).length >= 2
-        );
-      }).length;
-      pushFeed(
-        state.showWeakDefensibility
-          ? `Weak defensibility overlay enabled (${weakTileCount} tiles highlighted).`
-          : "Weak defensibility overlay hidden.",
-        "info",
-        "info"
-      );
-      requestViewRefresh();
-      renderHud();
-    };
-  });
   techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
@@ -4405,6 +4377,34 @@ const renderHud = (): void => {
   });
   panelDefensibilityEl.innerHTML = defensibilityPanelHtml;
   mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml;
+  const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
+  weakDefButtons.forEach((btn) => {
+    btn.onclick = () => {
+      state.showWeakDefensibility = !state.showWeakDefensibility;
+      const weakTileCount = [...state.tiles.values()].filter((tile) => {
+        if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
+        return (
+          exposedSidesForTile(tile, {
+            tiles: state.tiles,
+            me: state.me,
+            keyFor: key,
+            wrapX,
+            wrapY,
+            terrainAt
+          }).length >= 2
+        );
+      }).length;
+      pushFeed(
+        state.showWeakDefensibility
+          ? `Weak defensibility overlay enabled (${weakTileCount} tiles highlighted).`
+          : "Weak defensibility overlay hidden.",
+        "info",
+        "info"
+      );
+      requestViewRefresh();
+      renderHud();
+    };
+  });
   const economyPanelHtml = renderEconomyPanelHtml({
     focus: state.economyFocus,
     gold: state.gold,
