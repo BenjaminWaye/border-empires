@@ -34,6 +34,7 @@ const lateGameSnapshot = (): AiPlanningSnapshot => ({
   pressureAttackScore: 2350,
   pressureThreatensCore: true,
   settlementAvailable: true,
+  townSupportSettlementAvailable: false,
   islandExpandAvailable: false,
   islandSettlementAvailable: false,
   undercoveredIslandCount: 0,
