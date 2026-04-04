@@ -9292,6 +9292,7 @@ const bestAiFortTile = (actor: Player, territorySummary = collectAiTerritorySumm
   let best: { tile: Tile; score: number } | undefined;
   for (const tile of territorySummary.structureCandidateTiles) {
     const tk = key(tile.x, tile.y);
+    if (fortsByTile.has(tk)) continue;
     if (!territorySummary.borderSettledTileKeys.has(tk) && !docksByTile.has(tk)) continue;
     let score = 0;
     if (townsByTile.has(tk)) score += 140;
