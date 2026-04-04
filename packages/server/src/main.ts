@@ -120,6 +120,9 @@ import {
   createSimulationChunkState
 } from "./sim/chunk-state.js";
 import {
+  createChunkReadManager
+} from "./sim/chunk-read-manager.js";
+import {
   createSimulationService,
   type QueuedSimulationMessage,
   type SimulationCommand,
@@ -160,6 +163,7 @@ const SIM_COMBAT_WORKER_ENABLED = process.env.SIM_COMBAT_WORKER !== "0";
 const SIM_COMBAT_TIMEOUT_MS = Math.max(50, Number(process.env.SIM_COMBAT_TIMEOUT_MS ?? 750));
 const CHUNK_SERIALIZER_WORKER_ENABLED = process.env.CHUNK_SERIALIZER_WORKER !== "0";
 const CHUNK_SERIALIZER_TIMEOUT_MS = Math.max(50, Number(process.env.CHUNK_SERIALIZER_TIMEOUT_MS ?? 750));
+const CHUNK_READ_WORKER_ENABLED = process.env.CHUNK_READ_WORKER !== "0";
 const SIM_DRAIN_BUDGET_MS = Math.max(4, Number(process.env.SIM_DRAIN_BUDGET_MS ?? 12));
 const SIM_DRAIN_MAX_COMMANDS = Math.max(1, Number(process.env.SIM_DRAIN_MAX_COMMANDS ?? 8));
 const SIM_DRAIN_HUMAN_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_HUMAN_QUOTA ?? 6));
@@ -5470,6 +5474,11 @@ const markVisibilityDirty = (playerId: string): void => {
 
 const markSummaryChunkDirtyAtTile = (x: number, y: number): void => {
   simulationChunkState.markSummaryChunkDirtyAtTile(x, y);
+  const cx = wrapChunkX(Math.floor(wrapX(x, WORLD_WIDTH) / CHUNK_SIZE));
+  const cy = wrapChunkY(Math.floor(wrapY(y, WORLD_HEIGHT) / CHUNK_SIZE));
+  void chunkReadManager.markChunkDirty(cx, cy).catch((err) => {
+    logRuntimeError("chunk read worker update failed", err);
+  });
 };
 
 const markVisibilityDirtyForPlayers = (playerIds: Iterable<string>): void => {
@@ -10863,6 +10872,16 @@ const visibleInSnapshot = (snapshot: VisibilitySnapshot, x: number, y: number): 
   return snapshot.visibleMask[tileIndex(x, y)] === 1;
 };
 
+const chunkReadManager = createChunkReadManager({
+  enabled: CHUNK_READ_WORKER_ENABLED,
+  now,
+  chunkCountX,
+  chunkCountY,
+  onError: logRuntimeError,
+  loadChunkTilesLocal: (cx, cy, mode) => summaryChunkTiles(cx, cy, mode)
+});
+const chunkReadWorkerState = chunkReadManager.state;
+
 const {
   chunkCoordsForSubscription,
   buildBootstrapChunkStages,
@@ -10945,6 +10964,7 @@ const {
     return tiles;
   },
   summaryChunkTiles,
+  loadSummaryChunkTilesBatch: (requests) => chunkReadManager.loadBatch(requests),
   visibleInSnapshot,
   wrapX,
   wrapY,
@@ -14043,7 +14063,7 @@ const loadSnapshot = (): void => {
   hydrateSnapshotState(raw);
 };
 
-const bootstrapRuntimeState = (): void => {
+const bootstrapRuntimeState = async (): Promise<void> => {
   const loadStartedAt = Date.now();
   loadSnapshot();
   logStartupPhase("load_snapshot", loadStartedAt, { players: players.size, ownershipTiles: ownership.size });
@@ -14250,6 +14270,13 @@ const bootstrapRuntimeState = (): void => {
     observatories: observatoriesByTile.size,
     siegeOutposts: siegeOutpostsByTile.size,
     economicStructures: economicStructuresByTile.size
+  });
+
+  const chunkReadStartedAt = Date.now();
+  await chunkReadManager.hydrateAll();
+  logStartupPhase("hydrate_chunk_read_worker", chunkReadStartedAt, {
+    available: chunkReadWorkerState.available,
+    hydrated: chunkReadWorkerState.hydrated
   });
 };
 const runtimeIntervals: NodeJS.Timeout[] = [];
@@ -14493,6 +14520,7 @@ const runtimeDashboardPayload = (): {
     aiPlannerPending: number;
     combatWorkerPending: number;
     chunkSerializerPending: number;
+    chunkReadPending: number;
     simulationCommandQueueDepth: number;
     aiDraining: boolean;
     simulationCommandDraining: boolean;
@@ -14518,6 +14546,11 @@ const runtimeDashboardPayload = (): {
     chunkSerializerLastRoundTripMs: number;
     chunkSerializerLastUsedWorker: boolean;
     chunkSerializerLastFallbackReason?: string;
+    chunkReadAvailable: boolean;
+    chunkReadCrashed: boolean;
+    chunkReadLastRoundTripMs: number;
+    chunkReadLastUsedWorker: boolean;
+    chunkReadHydrated: boolean;
   };
   aiScheduler: {
     at: number;
@@ -14579,6 +14612,7 @@ const runtimeDashboardPayload = (): {
       aiPlannerPending: aiPlannerWorkerState.pending,
       combatWorkerPending: combatWorkerState.pending,
       chunkSerializerPending: chunkSerializerWorkerState.pending,
+      chunkReadPending: chunkReadWorkerState.pending,
       simulationCommandQueueDepth: simulationCommandQueueDepth(),
       aiDraining: aiWorkerState.draining,
       simulationCommandDraining: simulationCommandWorkerState.draining,
@@ -14603,7 +14637,12 @@ const runtimeDashboardPayload = (): {
       chunkSerializerCrashed: chunkSerializerWorkerState.crashed,
       chunkSerializerLastRoundTripMs: chunkSerializerWorkerState.lastRoundTripMs,
       chunkSerializerLastUsedWorker: chunkSerializerWorkerState.lastUsedWorker,
-      ...(chunkSerializerWorkerState.lastFallbackReason ? { chunkSerializerLastFallbackReason: chunkSerializerWorkerState.lastFallbackReason } : {})
+      ...(chunkSerializerWorkerState.lastFallbackReason ? { chunkSerializerLastFallbackReason: chunkSerializerWorkerState.lastFallbackReason } : {}),
+      chunkReadAvailable: chunkReadWorkerState.available,
+      chunkReadCrashed: chunkReadWorkerState.crashed,
+      chunkReadLastRoundTripMs: chunkReadWorkerState.lastRoundTripMs,
+      chunkReadLastUsedWorker: chunkReadWorkerState.lastUsedWorker,
+      chunkReadHydrated: chunkReadWorkerState.hydrated
     },
     aiScheduler: {
       dispatchIntervalMs: AI_DISPATCH_INTERVAL_MS,
@@ -16648,7 +16687,7 @@ process.once("SIGTERM", () => {
 await app.listen({ host: "0.0.0.0", port: PORT });
 logStartupPhase("server_listening", startupState.startedAt, { port: PORT });
 try {
-  bootstrapRuntimeState();
+  await bootstrapRuntimeState();
   startupState.ready = true;
   startupState.completedAt = Date.now();
   logStartupPhase("startup_ready", startupState.startedAt, {
