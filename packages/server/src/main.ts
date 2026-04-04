@@ -8923,11 +8923,12 @@ const aiFrontierOpportunityCounts = (
   return counts;
 };
 
-const estimateAiPressureAttackScore = (
+const estimateAiPressureAttackProfile = (
   actor: Player,
   territorySummary: Pick<AiTerritorySummary, "attackCandidates" | "visibility">
-): number => {
+): { score: number; threatensCore: boolean } => {
   let bestScore = 0;
+  let threatensCore = false;
   for (const { to } of territorySummary.attackCandidates) {
     if (
       to.terrain !== "LAND" ||
@@ -8953,8 +8954,21 @@ const estimateAiPressureAttackScore = (
       if (docksByTile.has(tk)) score += 130;
     }
     if (score > bestScore) bestScore = score;
+    if (!threatensCore) {
+      for (const neighbor of adjacentNeighborCores(to.x, to.y)) {
+        if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) continue;
+        const neighborKey = key(neighbor.x, neighbor.y);
+        if (townsByTile.has(neighborKey) || docksByTile.has(neighborKey) || isOwnedTownSupportRingTile(actor.id, aiTileLiteAt(neighbor.x, neighbor.y))) {
+          threatensCore = true;
+          break;
+        }
+      }
+    }
   }
-  return bestScore;
+  return {
+    score: bestScore,
+    threatensCore
+  };
 };
 
 const buildAiPlanningStaticCache = (
@@ -8970,18 +8984,34 @@ const buildAiPlanningStaticCache = (
   let economicExpandAvailable = false;
   let scoutExpandAvailable = false;
   let scaffoldExpandAvailable = false;
+  let barbarianAttackAvailable = false;
   let enemyAttackAvailable = false;
+  let settlementAvailable = false;
   let supportSettlementAvailable = false;
+  let islandExpandAvailable = false;
+  let islandSettlementAvailable = false;
+  let fortAvailable = false;
+  let fortProtectsCore = false;
+  let fortIsDockChokePoint = false;
+  let economicBuildAvailable = false;
   let frontierOpportunityEconomic = 0;
   let frontierOpportunityScout = 0;
   let frontierOpportunityScaffold = 0;
   let frontierOpportunityWaste = 0;
+  let undercoveredIslandCount = 0;
+  let weakestIslandRatio = 1;
+
+  const islandProgress = cachedAiIslandProgress(actor, territorySummary);
+  undercoveredIslandCount = islandProgress.undercoveredIslandCount;
+  weakestIslandRatio = islandProgress.weakestRatio;
 
   for (const tile of territorySummary.frontierTiles) {
     const tileKey = key(tile.x, tile.y);
     if (tileHasPendingSettlement(tileKey)) continue;
     const evaluation = evaluateAiSettlementCandidate(actor, tile, undefined, undefined, territorySummary);
+    if (evaluation.isEconomicallyInteresting || evaluation.isStrategicallyInteresting) settlementAvailable = true;
     if (evaluation.townSupportSignal > 0) supportSettlementAvailable = true;
+    if (!islandSettlementAvailable && aiIslandFootprintSignal(actor, tile, territorySummary) > 0) islandSettlementAvailable = true;
   }
 
   for (const { from, to } of territorySummary.expandCandidates) {
@@ -8998,6 +9028,8 @@ const buildAiPlanningStaticCache = (
     if (settledTiles <= 2 && scoutRevealCount > 0) openingScoutAvailable = true;
     if (scoutRevealCount > 0) scoutExpandAvailable = true;
     const economic = isAiVisibleEconomicFrontierTile(actor, to, territorySummary);
+    if (economic) economicExpandAvailable = true;
+    if (!islandExpandAvailable && aiIslandFootprintSignal(actor, to, territorySummary) > 0) islandExpandAvailable = true;
     const scaffold =
       cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ||
       (ownedNeighbors >= 3 && exposedSides <= 1) ||
@@ -9018,49 +9050,77 @@ const buildAiPlanningStaticCache = (
 
   for (const { to } of territorySummary.attackCandidates) {
     if (to.terrain !== "LAND" || !to.ownerId || to.ownerId === actor.id || actor.allies.has(to.ownerId)) continue;
-    if (to.ownerId !== BARBARIAN_OWNER_ID) enemyAttackAvailable = true;
-    if (enemyAttackAvailable) break;
+    if (to.ownerId === BARBARIAN_OWNER_ID) {
+      barbarianAttackAvailable = true;
+    } else {
+      enemyAttackAvailable = true;
+    }
+    if (barbarianAttackAvailable && enemyAttackAvailable) break;
   }
 
-  const barbarianAttackCandidate = bestAiFrontierAction(
-    actor,
-    "ATTACK",
-    (tile) => tile.ownerId === BARBARIAN_OWNER_ID,
-    undefined,
-    territorySummary
-  );
-  const pressureAttackCandidate = bestAiEnemyPressureAttack(actor, undefined, territorySummary);
-  const pressureAttackScore = pressureAttackCandidate?.score ?? estimateAiPressureAttackScore(actor, territorySummary);
-  const settlementCandidate = bestAiSettlementTile(actor, undefined, territorySummary);
-  const townSupportSettlementCandidate = bestAiTownSupportSettlementTile(actor, undefined, territorySummary);
-  const islandExpandCandidate = bestAiIslandExpand(actor, territorySummary);
-  const islandSettlementCandidate = bestAiIslandSettlementTile(actor, territorySummary);
-  const islandProgress = cachedAiIslandProgress(actor, territorySummary);
-  const fortCandidate = structureCandidateCount > 0 ? bestAiFortTile(actor, territorySummary) : undefined;
-  const economicExpandCandidate = bestAiEconomicExpand(actor, undefined, territorySummary);
-  const economicBuildCandidate = structureCandidateCount > 0 ? bestAiEconomicStructure(actor, territorySummary) : undefined;
+  if (structureCandidateCount > 0) {
+    const playerEffects = getPlayerEffectsForPlayer(actor.id);
+    const stock = getOrInitStrategicStocks(actor.id);
+    const canPlaceGranary =
+      playerEffects.unlockGranary && actor.points >= GRANARY_BUILD_GOLD_COST && (stock.FOOD ?? 0) >= GRANARY_BUILD_FOOD_COST;
+    const canPlaceFarmstead =
+      actor.techIds.has("agriculture") && actor.points >= FARMSTEAD_BUILD_GOLD_COST && (stock.FOOD ?? 0) >= FARMSTEAD_BUILD_FOOD_COST;
+    const canPlaceCamp =
+      actor.techIds.has("leatherworking") && actor.points >= CAMP_BUILD_GOLD_COST && (stock.SUPPLY ?? 0) >= CAMP_BUILD_SUPPLY_COST;
+    const canPlaceMine =
+      actor.techIds.has("mining") && actor.points >= MINE_BUILD_GOLD_COST;
+    const canPlaceMarket =
+      actor.techIds.has("trade") && actor.points >= MARKET_BUILD_GOLD_COST && (stock.CRYSTAL ?? 0) >= MARKET_BUILD_CRYSTAL_COST;
+
+    for (const tile of territorySummary.structureCandidateTiles) {
+      const tk = key(tile.x, tile.y);
+      if (!fortAvailable && !fortsByTile.has(tk) && (docksByTile.has(tk) || territorySummary.borderSettledTileKeys.has(tk))) {
+        fortAvailable = true;
+        fortProtectsCore = townsByTile.has(tk) || docksByTile.has(tk) || isOwnedTownSupportRingTile(actor.id, tile);
+        if (docksByTile.has(tk)) {
+          const adjacentLandCount = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => count + (neighbor.terrain === "LAND" ? 1 : 0), 0);
+          fortIsDockChokePoint = adjacentLandCount <= 3;
+        }
+      }
+      if (economicBuildAvailable || tile.economicStructure) continue;
+      if ((tile.resource === "FARM" || tile.resource === "FISH") && (canPlaceFarmstead || canPlaceGranary)) {
+        economicBuildAvailable = true;
+      } else if ((tile.resource === "FUR" || tile.resource === "WOOD") && (canPlaceCamp || canPlaceMarket)) {
+        economicBuildAvailable = true;
+      } else if (
+        (tile.resource === "IRON" || tile.resource === "GEMS") &&
+        (canPlaceMarket || (canPlaceMine && ((tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) >= MINE_BUILD_RESOURCE_COST))
+      ) {
+        economicBuildAvailable = true;
+      } else if (townsByTile.has(tk) && (canPlaceMarket || canPlaceGranary)) {
+        economicBuildAvailable = true;
+      }
+    }
+  }
+
+  const pressureAttackProfile = estimateAiPressureAttackProfile(actor, territorySummary);
 
   return {
     version: aiTerritoryVersionForPlayer(actor.id),
     openingScoutAvailable,
     neutralExpandAvailable,
-    economicExpandAvailable: Boolean(economicExpandCandidate),
+    economicExpandAvailable,
     scoutExpandAvailable,
     scaffoldExpandAvailable,
-    barbarianAttackAvailable: Boolean(barbarianAttackCandidate),
+    barbarianAttackAvailable,
     enemyAttackAvailable,
-    pressureAttackScore,
-    pressureThreatensCore: pressureAttackThreatensCore(actor, pressureAttackCandidate),
-    settlementAvailable: Boolean(settlementCandidate),
-    townSupportSettlementAvailable: Boolean(townSupportSettlementCandidate),
-    islandExpandAvailable: Boolean(islandExpandCandidate),
-    islandSettlementAvailable: Boolean(islandSettlementCandidate),
-    weakestIslandRatio: islandProgress.weakestRatio,
-    undercoveredIslandCount: islandProgress.undercoveredIslandCount,
-    fortAvailable: Boolean(fortCandidate),
-    fortProtectsCore: fortTileProtectsCore(actor, fortCandidate),
-    fortIsDockChokePoint: fortTileIsDockChokePoint(fortCandidate),
-    economicBuildAvailable: Boolean(economicBuildCandidate),
+    pressureAttackScore: pressureAttackProfile.score,
+    pressureThreatensCore: pressureAttackProfile.threatensCore,
+    settlementAvailable,
+    townSupportSettlementAvailable: supportSettlementAvailable,
+    islandExpandAvailable,
+    islandSettlementAvailable,
+    weakestIslandRatio,
+    undercoveredIslandCount,
+    fortAvailable,
+    fortProtectsCore,
+    fortIsDockChokePoint,
+    economicBuildAvailable,
     frontierOpportunityEconomic,
     frontierOpportunityScout,
     frontierOpportunityScaffold,
