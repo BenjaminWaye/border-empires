@@ -1,6 +1,7 @@
 import { isForestTile } from "./client-constants.js";
 import { shardRainAlertDetail, type ClientShardRainAlert } from "./client-shard-alert.js";
 import { shouldHideCaptureOverlayAfterTimer } from "./client-frontier-overlay.js";
+import { shouldFinalizePredictedCombat } from "./client-predicted-combat.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile } from "./client-types.js";
 
@@ -11,6 +12,7 @@ export const renderCaptureProgress = (
     formatCooldownShort: (ms: number) => string;
     showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number) => void;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    finalizePredictedCombat: (result: Record<string, unknown>) => void;
     captureCardEl: HTMLElement;
     captureWrapEl: HTMLElement;
     captureCancelBtn: HTMLElement;
@@ -54,7 +56,26 @@ export const renderCaptureProgress = (
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
     const awaitingResult = Date.now() > state.capture.resolvesAt;
     const awaitingNeutralExpand = shouldHideCaptureOverlayAfterTimer(state.tiles.get(captureTargetKey), state.me, awaitingResult);
-    if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
+    if (
+      shouldFinalizePredictedCombat({
+        now: Date.now(),
+        resolvesAt: state.capture.resolvesAt,
+        captureTargetKey,
+        revealTargetKey: state.pendingCombatReveal?.targetKey,
+        revealed: state.pendingCombatReveal?.revealed,
+        hasPredictedResult: Boolean(state.pendingCombatReveal?.result)
+      }) &&
+      state.pendingCombatReveal?.result
+    ) {
+      deps.finalizePredictedCombat(state.pendingCombatReveal.result);
+      return;
+    }
+    if (
+      awaitingResult &&
+      state.pendingCombatReveal &&
+      state.pendingCombatReveal.targetKey === captureTargetKey &&
+      !state.pendingCombatReveal.revealed
+    ) {
       deps.showCaptureAlert(
         state.pendingCombatReveal.title,
         state.pendingCombatReveal.detail,
