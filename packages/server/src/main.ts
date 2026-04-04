@@ -1047,7 +1047,7 @@ const TILE_YIELD_CAP_RESOURCE = 6;
 const OFFLINE_YIELD_ACCUM_MAX_MS = 12 * 60 * 60 * 1000;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 const IDLE_SNAPSHOT_INTERVAL_MS = 5 * 60_000;
-const SHARD_CACHE_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
+const INITIAL_SHARD_SCATTER_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
 const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
 const SHARD_RAIN_SITE_MIN = 3;
 const SHARD_RAIN_SITE_MAX = 6;
@@ -2914,10 +2914,10 @@ const shardSiteViewAt = (tileKey: TileKey): Tile["shardSite"] | undefined => {
   };
 };
 
-const generateShardCaches = (seed: number): void => {
+const seedInitialShardScatter = (seed: number): void => {
   shardSitesByTile.clear();
   let placed = 0;
-  for (let i = 0; i < 200_000 && placed < SHARD_CACHE_COUNT; i += 1) {
+  for (let i = 0; i < 200_000 && placed < INITIAL_SHARD_SCATTER_COUNT; i += 1) {
     const x = Math.floor(seeded01(i * 41, i * 59, seed + 11_101) * WORLD_WIDTH);
     const y = Math.floor(seeded01(i * 67, i * 71, seed + 11_171) * WORLD_HEIGHT);
     if (!canHostShardSiteAt(x, y)) continue;
@@ -2928,43 +2928,6 @@ const generateShardCaches = (seed: number): void => {
       amount
     });
     placed += 1;
-  }
-};
-
-const ensureSpawnShardNearby = (x: number, y: number): void => {
-  for (let dy = -2; dy <= 2; dy += 1) {
-    for (let dx = -2; dx <= 2; dx += 1) {
-      const sx = wrapX(x + dx, WORLD_WIDTH);
-      const sy = wrapY(y + dy, WORLD_HEIGHT);
-      if (shardSitesByTile.has(key(sx, sy))) return;
-    }
-  }
-  const preferredOffsets: Array<[number, number]> = [
-    [1, 0],
-    [0, 1],
-    [-1, 0],
-    [0, -1],
-    [1, 1],
-    [-1, 1],
-    [1, -1],
-    [-1, -1],
-    [2, 0],
-    [0, 2],
-    [-2, 0],
-    [0, -2]
-  ];
-  for (const [dx, dy] of preferredOffsets) {
-    const sx = wrapX(x + dx, WORLD_WIDTH);
-    const sy = wrapY(y + dy, WORLD_HEIGHT);
-    if (!canHostShardSiteAt(sx, sy)) continue;
-    const tileKey = key(sx, sy);
-    shardSitesByTile.set(tileKey, {
-      tileKey,
-      kind: "CACHE",
-      amount: 2
-    });
-    markSummaryChunkDirtyAtTile(sx, sy);
-    return;
   }
 };
 
@@ -4127,7 +4090,7 @@ const regenerateStrategicWorld = (initialSeed: number): number => {
     generateClusters(seed);
     generateDocks(seed);
     generateTowns(seed);
-    generateShardCaches(seed);
+    seedInitialShardScatter(seed);
     ensureBaselineEconomyCoverage(seed);
     ensureInterestCoverage(seed);
     normalizeTownPlacements();
@@ -4570,6 +4533,7 @@ const startNewSeason = (): void => {
   activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
   activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   clearWorldProgressForSeason();
+  seedInitialShardScatter(activeSeason.worldSeed);
   for (const p of players.values()) spawnPlayer(p);
   spawnInitialBarbarians();
   for (const p of players.values()) {
@@ -4593,7 +4557,7 @@ const regenerateWorldInPlace = (): void => {
   activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
   activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   clearWorldProgressForSeason();
-  generateShardCaches(activeSeason.worldSeed);
+  seedInitialShardScatter(activeSeason.worldSeed);
   for (const p of players.values()) spawnPlayer(p);
   spawnInitialBarbarians();
   for (const p of players.values()) {
@@ -13365,7 +13329,6 @@ const spawnPlayer = (p: Player): void => {
     if (!townsByTile.has(key(x, y))) createSettlementAtTile(p.id, key(x, y));
     p.spawnOrigin = key(x, y);
     p.capitalTileKey = key(x, y);
-    ensureSpawnShardNearby(x, y);
     sendVisibleTileDeltaAt(x, y);
     p.spawnShieldUntil = now() + 120_000;
     p.isEliminated = false;
@@ -14228,9 +14191,6 @@ const bootstrapRuntimeState = (): void => {
   if (activeSeasonTechConfig.rootNodeIds.length === 0 || activeSeasonTechConfig.activeNodeIds.size === 0) {
     activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
     activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
-  }
-  if (shardSitesByTile.size === 0) {
-    generateShardCaches(activeSeason.worldSeed);
   }
   logStartupPhase("validate_world_state", worldStartedAt, {
     clusters: clustersById.size,
