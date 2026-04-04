@@ -109,8 +109,10 @@ import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
-import { createAiScheduler } from "./ai/scheduler.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
+import {
+  createAiRuntime
+} from "./sim/ai-runtime.js";
 import {
   createAiIndexStore
 } from "./sim/ai-index-store.js";
@@ -4460,7 +4462,7 @@ const clearWorldProgressForSeason = (): void => {
   aiTurnDebugByPlayer.clear();
   aiLastActionFailureByPlayer.clear();
   aiVictoryPathByPlayer.clear();
-  cachedAiCompetitionContext = undefined;
+  clearAiCompetitionContext();
   cachedChunkSnapshotByPlayer.clear();
   cachedSummaryChunkByChunkKey.clear();
   summaryChunkVersionByChunkKey.clear();
@@ -4796,7 +4798,8 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
   const sabotage = siphonByTile.get(tk);
   const breachShock = breachShockByTile.get(tk);
   const regionType = terrain === "LAND" ? regionTypeAtLocal(wx, wy) : undefined;
-  const bootstrapMode = mode === "bootstrap";
+  const shellMode = mode === "shell";
+  const bootstrapMode = mode === "bootstrap" || shellMode;
   const tile: Tile = {
     x: wx,
     y: wy,
@@ -4804,15 +4807,15 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
     detailLevel: "summary",
     lastChangedAt: mode === "standard" ? now() : 0
   };
-  if (resource && !dock) tile.resource = resource;
+  if (resource && !dock && !shellMode) tile.resource = resource;
   if (ownerId) {
     tile.ownerId = ownerId;
     tile.ownershipState = ownershipState ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
     if (ownerId !== BARBARIAN_OWNER_ID && activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;
   }
-  if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
-  if (terrain === "LAND" && regionType) tile.regionType = regionType;
-  if (dock) tile.dockId = dock.dockId;
+  if (terrain === "LAND" && clusterType && !shellMode) tile.clusterType = clusterType;
+  if (terrain === "LAND" && regionType && !shellMode) tile.regionType = regionType;
+  if (dock && !shellMode) tile.dockId = dock.dockId;
   if (terrain === "LAND" && !bootstrapMode) tile.shardSite = shardSite ?? null;
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
   if (town && !bootstrapMode) tile.town = mode === "thin" ? thinTownSummaryForTile(town, ownerId) : townSummaryForTile(town, ownerId);
@@ -11456,25 +11459,13 @@ const collectPlayerCompetitionMetrics = (nowMs = now()): PlayerCompetitionMetric
   return metrics;
 };
 
-let cachedAiCompetitionContext: AiCompetitionContext | undefined;
-const getAiCompetitionContext = (nowMs = now()): AiCompetitionContext => {
-  if (cachedAiCompetitionContext && nowMs - cachedAiCompetitionContext.computedAt <= AI_COMPETITION_CONTEXT_TTL_MS) {
-    return cachedAiCompetitionContext;
-  }
-  const competitionMetrics = collectPlayerCompetitionMetrics(nowMs);
-  const context: AiCompetitionContext = {
-    computedAt: nowMs,
-    competitionMetrics,
-    incomeByPlayerId: new Map(competitionMetrics.map((metric) => [metric.playerId, metric.incomePerMinute])),
-    townsTarget: Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE)),
-    settledTilesTarget: Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE)),
-    analysisByPlayerId: new Map<string, AiTurnAnalysis>()
-  };
-  cachedAiCompetitionContext = context;
-  return context;
-};
-
-const { state: aiSchedulerState, runAiTick, markAiDefensePriority } = createAiScheduler<
+const {
+  state: aiSchedulerState,
+  runAiTick,
+  markAiDefensePriority,
+  getCompetitionContext: getAiCompetitionContext,
+  clearCompetitionContext: clearAiCompetitionContext
+} = createAiRuntime<
   Player,
   PlayerCompetitionMetrics,
   AiTurnAnalysis,
@@ -11494,6 +11485,7 @@ const { state: aiSchedulerState, runAiTick, markAiDefensePriority } = createAiSc
     eventLoopUtilizationSoftLimitPct: AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT
   },
   now,
+  contextTtlMs: AI_COMPETITION_CONTEXT_TTL_MS,
   getAllPlayers: () => [...players.values()],
   onlineHumanPlayerCount,
   latestRuntimeVitalsSample,
@@ -11502,7 +11494,13 @@ const { state: aiSchedulerState, runAiTick, markAiDefensePriority } = createAiSc
   aiQueueDepth: () => aiWorkerState.queue.length,
   simulationQueueDepth: simulationCommandQueueDepth,
   humanChunkSnapshotPriorityActive,
-  getAiCompetitionContext,
+  collectCompetitionMetrics: collectPlayerCompetitionMetrics,
+  incomeForMetric: (metric) => metric.incomePerMinute,
+  playerIdForMetric: (metric) => metric.playerId,
+  computeTargets: () => ({
+    townsTarget: Math.max(1, Math.ceil(Math.max(1, townsByTile.size) * SEASON_VICTORY_TOWN_CONTROL_SHARE)),
+    settledTilesTarget: Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE))
+  }),
   createTickContext: (cycleId, context) => ({
     cycleId,
     competitionMetrics: context.competitionMetrics,
