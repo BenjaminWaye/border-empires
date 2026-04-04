@@ -1,5 +1,6 @@
 import { SETTLE_COST } from "@border-empires/shared";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
+import { tileMenuRenderSignature } from "./client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "./client-tile-menu-scroll.js";
 import type { initClientDom } from "./client-dom.js";
 import type { ClientState } from "./client-state.js";
@@ -37,7 +38,12 @@ export const renderTileActionMenu = (
   }
   const activeTab = view.tabs.includes(state.tileActionMenu.activeTab) ? state.tileActionMenu.activeTab : (view.tabs[0] ?? "overview");
   state.tileActionMenu.activeTab = activeTab;
-  deps.tileActionMenuEl.innerHTML = tileActionMenuHtml(view, activeTab, deps.isMobile());
+  const signature = tileMenuRenderSignature(view, activeTab);
+  const shouldReuseRenderedMenu = state.tileActionMenu.visible && state.tileActionMenu.renderSignature === signature;
+  if (!shouldReuseRenderedMenu) {
+    deps.tileActionMenuEl.innerHTML = tileActionMenuHtml(view, activeTab, deps.isMobile());
+    state.tileActionMenu.renderSignature = signature;
+  }
   const { width: vw, height: vh } = deps.viewportSize();
   const menuW = Math.min(348, vw - 16);
   deps.tileActionMenuEl.style.width = `${menuW}px`;
@@ -50,55 +56,57 @@ export const renderTileActionMenu = (
   state.tileActionMenu.visible = true;
   state.tileActionMenu.x = clientX;
   state.tileActionMenu.y = clientY;
-  const closeBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
-  if (closeBtn) closeBtn.onclick = () => deps.hideTileActionMenu();
-  const tabButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-tab]");
-  tabButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const nextTab = btn.dataset.tileTab as TileMenuTab | undefined;
-      if (!nextTab) return;
-      state.tileActionMenu.activeTab = nextTab;
-      if (state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
-        const tile = state.tiles.get(state.tileActionMenu.currentTileKey);
-        if (tile) renderTileActionMenu(state, deps.tileMenuViewForTile(tile), state.tileActionMenu.x, state.tileActionMenu.y, deps);
-      }
-    };
-  });
-  const actionButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-action]");
-  actionButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const actionId = btn.dataset.action as TileActionDef["id"] | undefined;
-      if (!actionId) return;
-      deps.handleTileAction(actionId, btn.dataset.targetKey, btn.dataset.originKey);
-    };
-  });
-  const progressButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-progress-action]");
-  progressButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
-      if (!tile) return;
-      if (btn.dataset.progressAction === "cancel_queued_settlement") {
-        deps.cancelQueuedSettlement(deps.keyFor(tile.x, tile.y));
+  if (!shouldReuseRenderedMenu) {
+    const closeBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
+    if (closeBtn) closeBtn.onclick = () => deps.hideTileActionMenu();
+    const tabButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-tab]");
+    tabButtons.forEach((btn) => {
+      btn.onclick = () => {
+        const nextTab = btn.dataset.tileTab as TileMenuTab | undefined;
+        if (!nextTab) return;
+        state.tileActionMenu.activeTab = nextTab;
+        if (state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
+          const tile = state.tiles.get(state.tileActionMenu.currentTileKey);
+          if (tile) renderTileActionMenu(state, deps.tileMenuViewForTile(tile), state.tileActionMenu.x, state.tileActionMenu.y, deps);
+        }
+      };
+    });
+    const actionButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-action]");
+    actionButtons.forEach((btn) => {
+      btn.onclick = () => {
+        const actionId = btn.dataset.action as TileActionDef["id"] | undefined;
+        if (!actionId) return;
+        deps.handleTileAction(actionId, btn.dataset.targetKey, btn.dataset.originKey);
+      };
+    });
+    const progressButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-progress-action]");
+    progressButtons.forEach((btn) => {
+      btn.onclick = () => {
+        const tile = state.tileActionMenu.currentTileKey ? state.tiles.get(state.tileActionMenu.currentTileKey) : undefined;
+        if (!tile) return;
+        if (btn.dataset.progressAction === "cancel_queued_settlement") {
+          deps.cancelQueuedSettlement(deps.keyFor(tile.x, tile.y));
+          deps.hideTileActionMenu();
+          return;
+        }
+        if (btn.dataset.progressAction !== "cancel_structure_build") return;
+        if (deps.sendGameMessage({ type: "CANCEL_STRUCTURE_BUILD", x: tile.x, y: tile.y })) {
+          deps.applyOptimisticStructureCancel(tile.x, tile.y);
+          deps.renderHud();
+        }
         deps.hideTileActionMenu();
-        return;
-      }
-      if (btn.dataset.progressAction !== "cancel_structure_build") return;
-      if (deps.sendGameMessage({ type: "CANCEL_STRUCTURE_BUILD", x: tile.x, y: tile.y })) {
-        deps.applyOptimisticStructureCancel(tile.x, tile.y);
-        deps.renderHud();
-      }
-      deps.hideTileActionMenu();
-    };
-  });
-  const scrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
-  if (scrollBody) {
-    scrollBody.scrollTop = restoreTileMenuScrollTop(state.tileActionMenu.scrollTopByTab, activeTab);
-    scrollBody.ontouchstart = (event) => event.stopPropagation();
-    scrollBody.ontouchmove = (event) => event.stopPropagation();
-    scrollBody.onwheel = (event) => event.stopPropagation();
-    scrollBody.onscroll = () => {
-      state.tileActionMenu.scrollTopByTab = rememberTileMenuScrollTop(state.tileActionMenu, scrollBody.scrollTop);
-    };
+      };
+    });
+    const scrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
+    if (scrollBody) {
+      scrollBody.scrollTop = restoreTileMenuScrollTop(state.tileActionMenu.scrollTopByTab, activeTab);
+      scrollBody.ontouchstart = (event) => event.stopPropagation();
+      scrollBody.ontouchmove = (event) => event.stopPropagation();
+      scrollBody.onwheel = (event) => event.stopPropagation();
+      scrollBody.onscroll = () => {
+        state.tileActionMenu.scrollTopByTab = rememberTileMenuScrollTop(state.tileActionMenu, scrollBody.scrollTop);
+      };
+    }
   }
 };
 
@@ -114,6 +122,7 @@ export const openSingleTileActionMenu = (
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = deps.keyFor(tile.x, tile.y);
   state.tileActionMenu.scrollTopByTab = {};
+  state.tileActionMenu.renderSignature = "";
   const view = deps.tileMenuViewForTile(tile);
   state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
   renderTileActionMenu(state, view, clientX, clientY, deps);
@@ -165,6 +174,7 @@ export const openBulkTileActionMenu = (
   state.tileActionMenu.currentTileKey = "";
   state.tileActionMenu.activeTab = "actions";
   state.tileActionMenu.scrollTopByTab = {};
+  state.tileActionMenu.renderSignature = "";
   renderTileActionMenu(
     state,
     {

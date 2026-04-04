@@ -319,7 +319,8 @@ export const createInitialState = () => ({
     bulkKeys: [] as string[],
     currentTileKey: "",
     activeTab: "overview" as TileMenuTab,
-    scrollTopByTab: {} as Partial<Record<TileMenuTab, number>>
+    scrollTopByTab: {} as Partial<Record<TileMenuTab, number>>,
+    renderSignature: ""
   },
   crystalTargeting: {
     active: false,
