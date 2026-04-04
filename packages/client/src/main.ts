@@ -61,6 +61,33 @@ import {
 } from "./client-constants.js";
 import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import {
+  combatResolutionAlert as combatResolutionAlertFromModule,
+  hideShardAlert as hideShardAlertFromModule,
+  maybeAnnounceShardSite as maybeAnnounceShardSiteFromModule,
+  notifyInsufficientGoldForFrontierAction as notifyInsufficientGoldForFrontierActionFromModule,
+  pushFeed as pushFeedFromModule,
+  shardAlertKeyForPayload as shardAlertKeyForPayloadFromModule,
+  showCaptureAlert as showCaptureAlertFromModule,
+  showCollectVisibleCooldownAlert as showCollectVisibleCooldownAlertFromModule,
+  showShardAlert as showShardAlertFromModule
+} from "./client-alerts.js";
+import {
+  authLabelForUser as authLabelForUserFromModule,
+  seedProfileSetupFields as seedProfileSetupFieldsFromModule,
+  setAuthStatus as setAuthStatusFromModule,
+  syncAuthOverlay as syncAuthOverlayFromModule,
+  syncAuthPanelState as syncAuthPanelStateFromModule
+} from "./client-auth-ui.js";
+import {
+  drawStartingExpansionArrow as drawStartingExpansionArrowFromModule,
+  renderCaptureProgress as renderCaptureProgressFromModule,
+  renderShardAlert as renderShardAlertFromModule,
+  settlePixelSeed as settlePixelSeedFromModule,
+  settlePixelWanderPoint as settlePixelWanderPointFromModule,
+  settlePixelWaypoint as settlePixelWaypointFromModule,
+  triangularWave as triangularWaveFromModule
+} from "./client-capture-effects.js";
 import { shardRainAlertDetail, type ClientShardRainAlert } from "./client-shard-alert.js";
 import {
   applyOptimisticTileCollect as applyOptimisticTileCollectFromModule,
@@ -86,9 +113,70 @@ import {
   passiveTileGuidanceHtml as passiveTileGuidanceHtmlFromModule,
   tileHistoryLines as tileHistoryLinesFromModule
 } from "./client-hover-html.js";
-import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { busyDevelopmentProcessCount, hasQueuedSettlementForTile } from "./client-development-queue.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
+import {
+  bindTechTreeDragScroll as bindTechTreeDragScrollFromModule,
+  isMobile as isMobileFromModule,
+  mobileNavLabelHtml as mobileNavLabelHtmlFromModule,
+  panelTitle as panelTitleFromModule,
+  renderMobilePanels as renderMobilePanelsFromModule,
+  setActivePanel as setActivePanelFromModule,
+  viewportSize as viewportSizeFromModule
+} from "./client-panel-nav.js";
+import {
+  activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
+  applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
+  attackPreviewDetailForTarget as attackPreviewDetailForTargetFromModule,
+  attackQueueFailureReason as attackQueueFailureReasonFromModule,
+  buildFrontierQueue as buildFrontierQueueFromModule,
+  cancelQueuedSettlement as cancelQueuedSettlementFromModule,
+  cleanupExpiredSettlementProgress as cleanupExpiredSettlementProgressFromModule,
+  clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule,
+  clearSettlementProgressForTile as clearSettlementProgressForTileFromModule,
+  developmentSlotReason as developmentSlotReasonFromModule,
+  developmentSlotSummary as developmentSlotSummaryFromModule,
+  dropQueuedTargetKeyIfAbsent as dropQueuedTargetKeyIfAbsentFromModule,
+  enqueueTarget as enqueueTargetFromModule,
+  primarySettlementProgress as primarySettlementProgressFromModule,
+  processActionQueue as processActionQueueFromModule,
+  processDevelopmentQueue as processDevelopmentQueueFromModule,
+  queueDevelopmentAction as queueDevelopmentActionFromModule,
+  queueSpecificTargets as queueSpecificTargetsFromModule,
+  queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
+  queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
+  reconcileActionQueue as reconcileActionQueueFromModule,
+  requestAttackPreviewForHover as requestAttackPreviewForHoverFromModule,
+  requestAttackPreviewForTarget as requestAttackPreviewForTargetFromModule,
+  requestSettlement as requestSettlementFromModule,
+  sendDevelopmentBuild as sendDevelopmentBuildFromModule,
+  settlementProgressForTile as settlementProgressForTileFromModule,
+  syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
+  type DevelopmentSlotSummary
+} from "./client-queue-logic.js";
+import {
+  buildFortOnSelected as buildFortOnSelectedFromModule,
+  buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
+  cancelOngoingCapture as cancelOngoingCaptureFromModule,
+  collectSelectedShard as collectSelectedShardFromModule,
+  collectSelectedYield as collectSelectedYieldFromModule,
+  collectVisibleYield as collectVisibleYieldFromModule,
+  hideHoldBuildMenu as hideHoldBuildMenuFromModule,
+  hideTileActionMenu as hideTileActionMenuFromModule,
+  settleSelected as settleSelectedFromModule,
+  uncaptureSelected as uncaptureSelectedFromModule
+} from "./client-selected-actions.js";
 import { townHasSupportStructureType } from "./client-support-structures.js";
+import {
+  chebyshevDistanceClient as chebyshevDistanceClientFromModule,
+  hideTechLockedTileAction as hideTechLockedTileActionFromModule,
+  hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
+  isTileOwnedByAlly as isTileOwnedByAllyFromModule,
+  requiredTechForTileAction as requiredTechForTileActionFromModule,
+  splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
+  tileActionIsBuilding as tileActionIsBuildingFromModule,
+  tileActionIsCrystal as tileActionIsCrystalFromModule
+} from "./client-tile-action-support.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
 import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
@@ -157,7 +245,7 @@ import {
   structureAccentColor as structureAccentColorFromModule,
   structureOverlayImages
 } from "./client-map-render.js";
-import { createInitialState, storageSet } from "./client-state.js";
+import { createInitialState, storageSet, type ClientState } from "./client-state.js";
 import {
   currentDomainChoiceTier,
   domainOwnedHtml,
@@ -208,9 +296,15 @@ import type {
   TileMenuTab,
   TileMenuView,
   TileOverviewLine,
+  TileVisibilityState,
   TileTimedProgress,
   TruceRequest
 } from "./client-types.js";
+import {
+  centerOnOwnedTile as centerOnOwnedTileFromModule,
+  maybeRefreshForCamera as maybeRefreshForCameraFromModule,
+  requestViewRefresh as requestViewRefreshFromModule
+} from "./client-view-refresh.js";
 
 const formatManpowerAmount = (value: number): string => Math.round(value).toString();
 
@@ -443,7 +537,6 @@ const structureCostText = (structureType: BuildableStructureId, resourceOverride
 const wrapX = (x: number): number => (x + WORLD_WIDTH) % WORLD_WIDTH;
 const wrapY = (y: number): number => (y + WORLD_HEIGHT) % WORLD_HEIGHT;
 const FULL_MAP_CHUNK_RADIUS = Math.max(Math.ceil(WORLD_WIDTH / CHUNK_SIZE / 2), Math.ceil(WORLD_HEIGHT / CHUNK_SIZE / 2));
-type TileVisibilityState = "unexplored" | "fogged" | "visible";
 const tileVisibilityStateAt = (x: number, y: number, tile?: Tile): TileVisibilityState => {
   if (state.fogDisabled) return "visible";
   const k = key(x, y);
@@ -690,119 +783,19 @@ const prettyToken = (value: string): string =>
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-const combatResolutionSummary = (msg: Record<string, unknown>): string => {
-  const origin = msg.origin as { x: number; y: number } | undefined;
-  const target = msg.target as { x: number; y: number } | undefined;
-  const attackType = prettyToken(String(msg.attackType ?? "ATTACK"));
-  const attackerWon = Boolean(msg.attackerWon);
-  const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
-  const winnerName = playerNameForOwner(msg.winnerId as string | undefined) ?? String(msg.winnerId ?? "").slice(0, 8);
-  const atkEff = typeof msg.atkEff === "number" ? msg.atkEff : undefined;
-  const defEff = typeof msg.defEff === "number" ? msg.defEff : undefined;
-  const winChance = typeof msg.winChance === "number" ? msg.winChance : undefined;
-  const pointsDelta = typeof msg.pointsDelta === "number" ? msg.pointsDelta : 0;
-  const bits = [`${attackType}: ${attackerWon ? "you captured the target" : "your attack failed"}`];
-  if (origin && target) {
-    bits.push(`from (${origin.x}, ${origin.y})`);
-    bits.push(`into (${target.x}, ${target.y})`);
-    if (attackerWon) {
-      bits.push(`captured (${target.x}, ${target.y})`);
-    } else if (changes.length === 0) {
-      bits.push(`origin held at (${origin.x}, ${origin.y})`);
-    } else {
-      bits.push(`lost (${origin.x}, ${origin.y})`);
-    }
-  } else if (origin) {
-    bits.push(attackerWon ? "target captured" : changes.length === 0 ? `origin held at (${origin.x}, ${origin.y})` : `lost (${origin.x}, ${origin.y})`);
-  } else if (target) {
-    bits.push(attackerWon ? `captured (${target.x}, ${target.y})` : `failed to take (${target.x}, ${target.y})`);
-  } else {
-    bits.push(attackerWon ? "target captured" : "attack failed");
-  }
-  bits.push(`winner ${winnerName}`);
-  if (typeof winChance === "number") bits.push(`roll ${(winChance * 100).toFixed(0)}%`);
-  if (typeof atkEff === "number" && typeof defEff === "number") bits.push(`atk ${atkEff.toFixed(1)} vs def ${defEff.toFixed(1)}`);
-  if (pointsDelta > 0) bits.push(`+${pointsDelta.toFixed(1)} pts`);
-  return bits.join(" · ");
-};
-const playerNameOrFallback = (ownerId: string | undefined): string => {
-  if (!ownerId) return "neutral territory";
-  if (ownerId === "barbarian") return "Barbarians";
-  return playerNameForOwner(ownerId) ?? ownerId.slice(0, 8);
-};
-
-const territoryLabelForOwner = (ownerId: string | undefined): string => {
-  if (!ownerId) return "neutral territory";
-  if (ownerId === "barbarian") return "barbarian territory";
-  return playerNameOrFallback(ownerId);
-};
-
-const conqueredTileLabel = (tile: Tile | undefined, target: { x: number; y: number } | undefined): string => {
-  if (tile?.town) return "Town";
-  if (tile?.resource) return prettyToken(resourceLabel(tile.resource));
-  if (target) return prettyToken(terrainLabel(target.x, target.y, tile?.terrain ?? terrainAt(target.x, target.y)));
-  return "Territory";
-};
-
-const settledTileLabel = (target: { x: number; y: number } | undefined): string => {
-  if (!target) return "Land";
-  const tile = state.tiles.get(key(target.x, target.y));
-  if (tile?.town) return "Town";
-  if (tile?.dockId) return "Dock";
-  if (tile?.resource) return prettyToken(resourceLabel(tile.resource));
-  return prettyToken(terrainLabel(target.x, target.y, tile?.terrain ?? terrainAt(target.x, target.y)));
-};
-
 const combatResolutionAlert = (
   msg: Record<string, unknown>,
   context?: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined }
-): { title: string; detail: string; tone: "success" | "warn"; manpowerLoss?: number } => {
-  const attackType = typeof msg.attackType === "string" ? msg.attackType : "";
-  const origin = msg.origin as { x: number; y: number } | undefined;
-  const target = msg.target as { x: number; y: number } | undefined;
-  const attackerWon = Boolean(msg.attackerWon);
-  const defenderOwnerId = typeof msg.defenderOwnerId === "string" ? msg.defenderOwnerId : context?.targetTileBefore?.ownerId;
-  const changes = (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> | undefined) ?? [];
-  const manpowerDelta = typeof msg.manpowerDelta === "number" ? msg.manpowerDelta : 0;
-  const manpowerLoss = manpowerDelta < -0.01 ? Math.round(Math.abs(manpowerDelta)) : undefined;
-  if (attackType === "SETTLE") {
-    const settledChange = changes.find((change) => change.ownershipState === "SETTLED");
-    const settledTarget = settledChange ? { x: settledChange.x, y: settledChange.y } : target;
-    return {
-      title: "Settlement Complete",
-      detail: `${settledTileLabel(settledTarget)} was settled.`,
-      tone: "success"
-    };
-  }
-  const targetOwnerName = playerNameOrFallback(defenderOwnerId);
-  const targetTerritoryLabel = territoryLabelForOwner(defenderOwnerId);
-  const targetLabel = conqueredTileLabel(context?.targetTileBefore, target);
-  if (attackType === "EXPAND" && !defenderOwnerId) {
-    return {
-      title: "Territory Claimed",
-      detail: `${targetLabel} was claimed.`,
-      tone: "success"
-    };
-  }
-  if (attackerWon) {
-    return {
-      title: "Victory",
-      detail: `${targetLabel} was conquered from ${targetOwnerName}.`,
-      tone: "success",
-      ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
-    };
-  }
-  const originLost = Boolean(origin && changes.some((change) => change.x === origin.x && change.y === origin.y));
-  return {
-    title: "Attack Beaten Back",
-    detail:
-      originLost && origin
-        ? `Attack on ${targetTerritoryLabel} was beaten back and we lost (${origin.x}, ${origin.y}).`
-        : `Attack on ${targetTerritoryLabel} was beaten back.`,
-    tone: "warn",
-    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
-  };
-};
+): { title: string; detail: string; tone: "success" | "warn"; manpowerLoss?: number } =>
+  combatResolutionAlertFromModule(msg, context, {
+    playerNameForOwner,
+    prettyToken,
+    resourceLabel,
+    terrainLabel,
+    terrainAt,
+    tiles: state.tiles,
+    keyFor: key
+  });
 const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
   if (terrain !== "LAND") return terrain;
   const biome = landBiomeAt(x, y);
@@ -927,295 +920,71 @@ const drawMiniMap = (): void => {
   miniMapLastDrawAt = nowMs;
 };
 
-const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void => {
-  state.feed.unshift({ text: msg, type, severity, at: Date.now() });
-  state.feed = state.feed.slice(0, 18);
-};
+const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void =>
+  pushFeedFromModule(state, msg, type, severity);
 
-const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => {
-  if (next.fogged || !next.shardSite) return;
-  if (previous?.shardSite?.kind === next.shardSite.kind && previous.shardSite.amount === next.shardSite.amount) return;
-};
+const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => maybeAnnounceShardSiteFromModule(previous, next);
 
-const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string => `${phase}:${startsAt}`;
+const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string =>
+  shardAlertKeyForPayloadFromModule(phase, startsAt);
 
-const showShardAlert = (alert: ClientShardRainAlert): void => {
-  if (state.dismissedShardAlertKeys.has(alert.key)) return;
-  state.shardAlert = alert;
-};
+const showShardAlert = (alert: ClientShardRainAlert): void => showShardAlertFromModule(state, alert);
 
-const hideShardAlert = (): void => {
-  if (state.shardAlert) state.dismissedShardAlertKeys.add(state.shardAlert.key);
-  state.shardAlert = undefined;
-  state.shardRainFxUntil = 0;
-};
+const hideShardAlert = (): void => hideShardAlertFromModule(state);
 
 const showCaptureAlert = (
   title: string,
   detail: string,
   tone: "success" | "error" | "warn" = "error",
   manpowerLoss?: number
-): void => {
-  state.captureAlert = {
-    title,
-    detail,
-    until: Date.now() + 12_000,
-    tone,
-    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
-  };
-};
+): void => showCaptureAlertFromModule(state, title, detail, tone, manpowerLoss);
 
-const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void => {
-  const label = action === "claim" ? "Frontier claim" : "Attack";
-  const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} gold. You have ${formatGoldAmount(state.gold)}.`;
-  showCaptureAlert("Insufficient gold", detail, "error");
-  pushFeed(detail, "combat", "warn");
-};
+const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void =>
+  notifyInsufficientGoldForFrontierActionFromModule(state, action);
 
-const showCollectVisibleCooldownAlert = (): void => {
-  const remaining = state.collectVisibleCooldownUntil - Date.now();
-  if (remaining <= 0) return;
-  state.captureAlert = {
-    title: "Collect Visible Cooldown",
-    detail: `Retry in ${formatCooldownShort(remaining)}.`,
-    until: state.collectVisibleCooldownUntil,
-    tone: "warn"
-  };
-};
+const showCollectVisibleCooldownAlert = (): void => showCollectVisibleCooldownAlertFromModule(state, formatCooldownShort);
 
-const centerOnOwnedTile = (): void => {
-  const own = [...state.tiles.values()].find((t) => t.ownerId === state.me);
-  if (own) {
-    state.camX = own.x;
-    state.camY = own.y;
-    return;
-  }
-  if (state.homeTile) {
-    state.camX = state.homeTile.x;
-    state.camY = state.homeTile.y;
-  }
-};
+const centerOnOwnedTile = (): void => centerOnOwnedTileFromModule(state);
 
-const requestViewRefresh = (radius = 2, force = false): void => {
-  if (ws.readyState !== ws.OPEN) return;
-  if (!state.authSessionReady) return;
-  const effectiveRadius = state.fogDisabled ? FULL_MAP_CHUNK_RADIUS : radius;
-  const cx = Math.floor(state.camX / CHUNK_SIZE);
-  const cy = Math.floor(state.camY / CHUNK_SIZE);
-  const elapsed = Date.now() - state.lastSubAt;
-  const sameSub = cx === state.lastSubCx && cy === state.lastSubCy && effectiveRadius === state.lastSubRadius;
-  const stillWaitingForInitialChunks = state.firstChunkAt === 0;
-  const forcedRetryCooldownMs = stillWaitingForInitialChunks ? 1200 : 30_000;
-  const normalRefreshCooldownMs = 700;
-  if (sameSub) {
-    if (!force && elapsed < normalRefreshCooldownMs) return;
-    if (force && elapsed < forcedRetryCooldownMs) return;
-  }
-  state.lastSubCx = cx;
-  state.lastSubCy = cy;
-  state.lastSubRadius = effectiveRadius;
-  state.lastSubAt = Date.now();
-  ws.send(
-    JSON.stringify({
-      type: "SUBSCRIBE_CHUNKS",
-      cx,
-      cy,
-      radius: effectiveRadius
-    })
-  );
-};
+const requestViewRefresh = (radius = 2, force = false): void =>
+  requestViewRefreshFromModule(state, { ws, fullMapChunkRadius: FULL_MAP_CHUNK_RADIUS, radius, force });
 
-const maybeRefreshForCamera = (force = false): void => {
-  if (ws.readyState !== ws.OPEN) return;
-  if (!state.authSessionReady) return;
-  if (!force && (state.actionInFlight || state.capture || state.actionQueue.length > 0)) return;
-  const cx = Math.floor(state.camX / CHUNK_SIZE);
-  const cy = Math.floor(state.camY / CHUNK_SIZE);
-  const chunkChanged = cx !== state.lastSubCx || cy !== state.lastSubCy;
-  if (force || chunkChanged) requestViewRefresh();
-};
+const maybeRefreshForCamera = (force = false): void =>
+  maybeRefreshForCameraFromModule(state, { ws, requestViewRefresh, force });
 
-const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
+const isMobile = (): boolean => isMobileFromModule();
 
-const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => {
-  if (panel === "missions") return "Missions";
-  if (panel === "tech") return "Technology Tree";
-  if (panel === "domains") return "Sharding";
-  if (panel === "alliance") return "Alliances";
-  if (panel === "economy") return "Economy";
-  if (panel === "manpower") return "Manpower";
-  if (panel === "defensibility") return "Defensibility";
-  if (panel === "leaderboard") return "Leaderboard";
-  if (panel === "feed") return "Activity Feed";
-  return "Player Identity";
-};
+const panelTitle = (panel: NonNullable<typeof state.activePanel>): string => panelTitleFromModule(panel);
 
-const panelToMobile = (panel: NonNullable<typeof state.activePanel>): typeof state.mobilePanel => {
-  if (panel === "missions") return "missions";
-  if (panel === "tech") return "tech";
-  if (panel === "domains") return "domains";
-  if (panel === "alliance") return "social";
-  if (panel === "defensibility") return "defensibility";
-  if (panel === "economy") return "economy";
-  if (panel === "manpower") return "manpower";
-  return "intel";
-};
+const mobileNavLabelHtml = (panel: typeof state.mobilePanel, opts?: { techReady?: boolean; attackAlertUnread?: boolean }): string =>
+  mobileNavLabelHtmlFromModule(panel, opts);
 
-const mobileNavLabelHtml = (panel: typeof state.mobilePanel, opts?: { techReady?: boolean; attackAlertUnread?: boolean }): string => {
-  if (panel === "core") return '<span class="tab-icon">⌂</span>';
-  if (panel === "missions") return '<span class="tab-icon">◎</span>';
-  if (panel === "tech") {
-    return opts?.techReady
-      ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
-      : '<span class="tab-icon">⚡</span>';
-  }
-  if (panel === "domains") return '<span class="tab-icon">✦</span>';
-  if (panel === "social") return '<span class="tab-icon">👥</span>';
-  return opts?.attackAlertUnread
-    ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
-    : '<span class="tab-icon">🔔</span>';
-};
+const viewportSize = (): { width: number; height: number } => viewportSizeFromModule();
 
-const viewportSize = (): { width: number; height: number } => {
-  const vv = window.visualViewport;
-  if (vv) return { width: Math.round(vv.width), height: Math.round(vv.height) };
-  return { width: window.innerWidth, height: window.innerHeight };
-};
+const setActivePanel = (panel: typeof state.activePanel): void => setActivePanelFromModule(state, panel, { renderMobilePanels });
 
-const setActivePanel = (panel: typeof state.activePanel): void => {
-  if (state.activePanel === panel) {
-    state.activePanel = null;
-    renderMobilePanels();
-    return;
-  }
-  state.activePanel = panel;
-  if (panel === "feed") state.unreadAttackAlerts = 0;
-  if (isMobile() && panel) {
-    state.mobilePanel = panelToMobile(panel);
-    if (state.mobilePanel === "intel") state.unreadAttackAlerts = 0;
-  }
-  renderMobilePanels();
-};
-
-const renderMobilePanels = (): void => {
-  const nav = hud.querySelector<HTMLDivElement>("#mobile-nav");
-  if (!nav) return;
-
-  panelActionButtons.forEach((btn) => {
-    const panel = btn.dataset.panel as typeof state.activePanel;
-    btn.classList.toggle("active", panel === state.activePanel);
+const renderMobilePanels = (): void =>
+  renderMobilePanelsFromModule(state, {
+    hud,
+    panelActionButtons,
+    sidePanelBodyEl,
+    sidePanelEl,
+    panelTitleEl,
+    mobileSheetEl,
+    mobileCoreEl,
+    mobilePanelCoreEl,
+    mobilePanelMissionsEl,
+    mobilePanelTechEl,
+    mobilePanelDomainsEl,
+    mobilePanelSocialEl,
+    mobilePanelDefensibilityEl,
+    mobilePanelEconomyEl,
+    mobilePanelManpowerEl,
+    mobilePanelIntelEl,
+    mobileSheetHeadEl
   });
 
-  const sideSections = sidePanelBodyEl.querySelectorAll<HTMLElement>(".panel-body");
-  sideSections.forEach((s) => {
-    s.style.display = s.id === `panel-${state.activePanel}` ? "grid" : "none";
-  });
-  sidePanelEl.classList.toggle("tech-panel-active", state.activePanel === "tech" && state.techTreeExpanded);
-  sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
-  mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
-
-  if (!isMobile()) {
-    nav.style.display = "none";
-    mobileSheetEl.style.display = "none";
-    mobileCoreEl.style.display = "none";
-    sidePanelEl.style.display = state.activePanel ? "grid" : "none";
-    if (state.activePanel) panelTitleEl.textContent = panelTitle(state.activePanel);
-    return;
-  }
-
-  sidePanelEl.style.display = "none";
-  nav.style.display = "grid";
-  mobileCoreEl.style.display = state.mobilePanel === "core" ? "grid" : "none";
-  mobileSheetEl.style.display = state.mobilePanel === "core" ? "none" : "grid";
-
-  const mobileSections: Array<[HTMLElement, typeof state.mobilePanel]> = [
-    [mobilePanelCoreEl, "core"],
-    [mobilePanelMissionsEl, "missions"],
-    [mobilePanelTechEl, "tech"],
-    [mobilePanelDomainsEl, "domains"],
-    [mobilePanelSocialEl, "social"],
-    [mobilePanelDefensibilityEl, "defensibility"],
-    [mobilePanelEconomyEl, "economy"],
-    [mobilePanelManpowerEl, "manpower"],
-    [mobilePanelIntelEl, "intel"]
-  ];
-  for (const [el, panel] of mobileSections) {
-    el.style.display = panel === state.mobilePanel ? "grid" : "none";
-  }
-
-  if (state.mobilePanel === "missions") mobileSheetHeadEl.textContent = "Missions";
-  else if (state.mobilePanel === "tech") mobileSheetHeadEl.textContent = "Technology Tree";
-  else if (state.mobilePanel === "domains") mobileSheetHeadEl.textContent = "Sharding";
-  else if (state.mobilePanel === "social") mobileSheetHeadEl.textContent = "Alliances";
-  else if (state.mobilePanel === "defensibility") mobileSheetHeadEl.textContent = "Defensibility";
-  else if (state.mobilePanel === "economy") mobileSheetHeadEl.textContent = "Economy";
-  else if (state.mobilePanel === "manpower") mobileSheetHeadEl.textContent = "Manpower";
-  else if (state.mobilePanel === "intel") mobileSheetHeadEl.textContent = "Intel";
-  else mobileSheetHeadEl.textContent = "Core";
-
-  const buttons = nav.querySelectorAll<HTMLButtonElement>("button[data-mobile-panel]");
-  buttons.forEach((b) => {
-    const panel = b.dataset.mobilePanel as typeof state.mobilePanel | undefined;
-    if (panel) b.innerHTML = mobileNavLabelHtml(panel);
-    b.classList.toggle("active", panel === state.mobilePanel);
-  });
-};
-
-const bindTechTreeDragScroll = (): void => {
-  const scrollRegions = hud.querySelectorAll<HTMLElement>("[data-tech-tree-scroll]");
-  scrollRegions.forEach((region) => {
-    if (region.dataset.dragBound === "1") return;
-    region.dataset.dragBound = "1";
-    region.scrollLeft = state.techTreeScrollLeft;
-    region.scrollTop = state.techTreeScrollTop;
-    let pointerId = -1;
-    let startX = 0;
-    let startY = 0;
-    let startLeft = 0;
-    let startTop = 0;
-    const release = (): void => {
-      if (pointerId !== -1) {
-        try {
-          region.releasePointerCapture(pointerId);
-        } catch {
-          // Ignore if pointer capture was not established.
-        }
-      }
-      pointerId = -1;
-      region.classList.remove("dragging");
-    };
-    region.onpointerdown = (event) => {
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      const target = event.target;
-      if (event.pointerType === "mouse" && target instanceof Element && target.closest("[data-tech-card]")) return;
-      pointerId = event.pointerId;
-      startX = event.clientX;
-      startY = event.clientY;
-      startLeft = region.scrollLeft;
-      startTop = region.scrollTop;
-      region.classList.add("dragging");
-      region.setPointerCapture(event.pointerId);
-      if (event.pointerType !== "mouse") event.preventDefault();
-    };
-    region.onpointermove = (event) => {
-      if (event.pointerId !== pointerId) return;
-      const dx = event.clientX - startX;
-      const dy = event.clientY - startY;
-      region.scrollLeft = startLeft - dx;
-      region.scrollTop = startTop - dy;
-      state.techTreeScrollLeft = region.scrollLeft;
-      state.techTreeScrollTop = region.scrollTop;
-      if (event.pointerType !== "mouse") event.preventDefault();
-    };
-    region.onscroll = () => {
-      state.techTreeScrollLeft = region.scrollLeft;
-      state.techTreeScrollTop = region.scrollTop;
-    };
-    region.onpointerup = release;
-    region.onpointercancel = release;
-    region.onlostpointercapture = release;
-  });
-};
+const bindTechTreeDragScroll = (): void => bindTechTreeDragScrollFromModule(state, hud);
 
 const selectedTile = (): Tile | undefined => {
   if (!state.selected) return undefined;
@@ -1725,179 +1494,42 @@ const startingExpansionArrowTargets = (): Array<{ x: number; y: number; dx: numb
   return out;
 };
 
-const renderCaptureProgress = (): void => {
-  if (state.captureAlert && state.captureAlert.until > Date.now()) {
-    if (state.captureAlert.title === "Collect Visible Cooldown") {
-      const remaining = state.collectVisibleCooldownUntil - Date.now();
-      if (remaining > 0) state.captureAlert.detail = `Retry in ${formatCooldownShort(remaining)}.`;
-      else state.captureAlert = undefined;
-    }
-  }
-  if (state.captureAlert && state.captureAlert.until > Date.now()) {
-    captureCardEl.dataset.state = state.captureAlert.tone;
-    captureCardEl.style.display = "grid";
-    captureWrapEl.style.display = "block";
-    captureCancelBtn.style.display = "none";
-    captureCloseBtn.style.display = "inline-flex";
-    captureBarEl.style.width = "100%";
-    captureTitleEl.textContent = state.captureAlert.title;
-    captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
-    captureTimeEl.classList.toggle("capture-loss", Boolean(state.captureAlert.manpowerLoss));
-    captureTargetEl.textContent = state.captureAlert.detail;
-    return;
-  }
-  delete captureCardEl.dataset.state;
-  state.captureAlert = undefined;
+const renderCaptureProgress = (): void =>
+  renderCaptureProgressFromModule(state, {
+    keyFor: key,
+    formatCooldownShort,
+    showCaptureAlert,
+    pushFeed,
+    captureCardEl,
+    captureWrapEl,
+    captureCancelBtn,
+    captureCloseBtn,
+    captureBarEl,
+    captureTitleEl,
+    captureTimeEl,
+    captureTargetEl
+  });
 
-  if (state.capture) {
-    const captureTargetKey = key(state.capture.target.x, state.capture.target.y);
-    captureCardEl.dataset.state = "progress";
-    captureTimeEl.classList.remove("capture-loss");
-    const total = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
-    const elapsed = Date.now() - state.capture.startAt;
-    const pct = Math.max(0, Math.min(1, elapsed / total));
-    const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
-    const awaitingResult = Date.now() > state.capture.resolvesAt;
-    const awaitingNeutralExpand = shouldHideCaptureOverlayAfterTimer(state.tiles.get(captureTargetKey), state.me, awaitingResult);
-    if (awaitingResult && state.pendingCombatReveal && state.pendingCombatReveal.targetKey === captureTargetKey && !state.pendingCombatReveal.revealed) {
-      showCaptureAlert(
-        state.pendingCombatReveal.title,
-        state.pendingCombatReveal.detail,
-        state.pendingCombatReveal.tone,
-        state.pendingCombatReveal.manpowerLoss
-      );
-      pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
-      state.pendingCombatReveal.revealed = true;
-      return;
-    }
-    if (awaitingNeutralExpand) {
-      captureCardEl.style.display = "none";
-      captureWrapEl.style.display = "none";
-      captureCancelBtn.style.display = "none";
-      captureCloseBtn.style.display = "none";
-      captureBarEl.style.width = "0%";
-      captureTitleEl.textContent = "";
-      captureTimeEl.textContent = "";
-      captureTargetEl.textContent = "";
-      return;
-    }
-    captureCardEl.style.display = "grid";
-    captureWrapEl.style.display = "block";
-    captureCancelBtn.style.display = "inline-flex";
-    captureCloseBtn.style.display = "none";
-    captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
-    captureTitleEl.textContent = awaitingResult
-      ? "Resolving battle..."
-      : isForestTile(state.capture.target.x, state.capture.target.y)
-        ? "Capturing Forest..."
-        : "Capturing Territory...";
-    captureTimeEl.textContent = awaitingResult ? "" : `${remaining.toFixed(1)}s`;
-    captureTargetEl.textContent = awaitingResult
-      ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
-      : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
-  } else {
-    captureCardEl.style.display = "none";
-    captureWrapEl.style.display = "none";
-    captureCancelBtn.style.display = "none";
-    captureCloseBtn.style.display = "none";
-    captureBarEl.style.width = "0%";
-    captureTitleEl.textContent = "";
-    captureTimeEl.textContent = "";
-    captureTargetEl.textContent = "";
-  }
-};
+const renderShardAlert = (): void =>
+  renderShardAlertFromModule(state, {
+    shardAlertOverlayEl,
+    shardAlertTitleEl,
+    shardAlertDetailEl
+  });
 
-const renderShardAlert = (): void => {
-  const alert = state.shardAlert;
-  if (!alert) {
-    shardAlertOverlayEl.style.display = "none";
-    shardAlertTitleEl.textContent = "";
-    shardAlertDetailEl.textContent = "";
-    return;
-  }
-  const nowMs = Date.now();
-  if (
-    (alert.phase === "upcoming" && alert.startsAt <= nowMs) ||
-    (alert.phase === "started" && alert.expiresAt <= nowMs)
-  ) {
-    state.shardAlert = undefined;
-    if (alert.phase === "started") state.shardRainFxUntil = 0;
-    shardAlertOverlayEl.style.display = "none";
-    shardAlertTitleEl.textContent = "";
-    shardAlertDetailEl.textContent = "";
-    return;
-  }
-  shardAlertTitleEl.textContent = alert.phase === "upcoming" ? "Shard Rain Incoming" : "Shard Rain Begun";
-  shardAlertDetailEl.textContent = shardRainAlertDetail(alert, nowMs);
-  shardAlertOverlayEl.style.display = "block";
-};
+const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: number, dy: number): void =>
+  drawStartingExpansionArrowFromModule(ctx, px, py, size, dx, dy);
 
-const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: number, dy: number): void => {
-  const phase = (Date.now() % 1200) / 1200;
-  const wave = Math.sin(phase * Math.PI * 2);
-  const slide = size * 0.12 * wave;
-  const centerX = px + size / 2 + dx * slide;
-  const centerY = py + size / 2 + dy * slide;
-  const shaft = Math.max(6, size * 0.22);
-  const head = Math.max(4, size * 0.16);
-
-  ctx.save();
-  ctx.translate(centerX, centerY);
-  ctx.rotate(Math.atan2(dy, dx) + Math.PI / 2);
-  ctx.strokeStyle = "rgba(255, 213, 110, 0.96)";
-  ctx.fillStyle = "rgba(255, 241, 201, 0.98)";
-  ctx.lineWidth = Math.max(2, size * 0.06);
-  ctx.lineCap = "round";
-  ctx.shadowColor = "rgba(255, 209, 102, 0.45)";
-  ctx.shadowBlur = Math.max(4, size * 0.12);
-
-  ctx.beginPath();
-  ctx.moveTo(0, shaft * 0.6);
-  ctx.lineTo(0, -shaft * 0.25);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(0, -shaft * 0.62);
-  ctx.lineTo(-head * 0.7, -shaft * 0.08);
-  ctx.lineTo(head * 0.7, -shaft * 0.08);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-};
-
-const triangularWave = (t: number): number => 1 - Math.abs(((t % 1) * 2) - 1);
+const triangularWave = (t: number): number => triangularWaveFromModule(t);
 
 const settlePixelSeed = (wx: number, wy: number, i: number, salt: number): number =>
-  ((((wx + salt) * 92821) ^ ((wy + salt * 3) * 68917) ^ ((i + salt * 5) * 1259)) >>> 0) / 0xffffffff;
+  settlePixelSeedFromModule(wx, wy, i, salt);
 
 const settlePixelWaypoint = (wx: number, wy: number, i: number, step: number, axis: "x" | "y"): number =>
-  settlePixelSeed(wx, wy, i, axis === "x" ? 41 + step * 13 : 83 + step * 17);
+  settlePixelWaypointFromModule(wx, wy, i, step, axis);
 
-const settlePixelWanderPoint = (
-  nowMs: number,
-  wx: number,
-  wy: number,
-  i: number
-): { x: number; y: number } => {
-  const moveDurationMs = 1700;
-  const pauseDurationMs = 1000;
-  const cycleDurationMs = moveDurationMs + pauseDurationMs;
-  const offsetMs = settlePixelSeed(wx, wy, i, 11) * cycleDurationMs;
-  const localTime = nowMs + offsetMs;
-  const segment = Math.floor(localTime / cycleDurationMs);
-  const segmentTime = localTime - segment * cycleDurationMs;
-  const fromX = settlePixelWaypoint(wx, wy, i, segment, "x");
-  const fromY = settlePixelWaypoint(wx, wy, i, segment, "y");
-  const toX = settlePixelWaypoint(wx, wy, i, segment + 1, "x");
-  const toY = settlePixelWaypoint(wx, wy, i, segment + 1, "y");
-  const travel = segmentTime >= moveDurationMs ? 1 : segmentTime / moveDurationMs;
-  const x = fromX + (toX - fromX) * travel;
-  const y = fromY + (toY - fromY) * travel;
-  return {
-    x: Math.max(0, Math.min(1, x)),
-    y: Math.max(0, Math.min(1, y))
-  };
-};
+const settlePixelWanderPoint = (nowMs: number, wx: number, wy: number, i: number): { x: number; y: number } =>
+  settlePixelWanderPointFromModule(nowMs, wx, wy, i);
 const defensibilityPctFromTE = (t: number | undefined, e: number | undefined): number => {
   if (typeof t !== "number" || Number.isNaN(t) || typeof e !== "number" || Number.isNaN(e)) return state.defensibilityPct;
   return Math.max(0, Math.min(100, defensivenessMultiplier(t, e) * 100));
@@ -2132,58 +1764,52 @@ const affordableTechChoicesCount = (): number => {
   return n;
 };
 
-const setAuthStatus = (message: string, tone: "normal" | "error" = "normal"): void => {
-  state.authError = tone === "error" ? message : "";
-  authStatusEl.textContent = message;
-  authStatusEl.dataset.tone = tone;
-};
+const setAuthStatus = (message: string, tone: "normal" | "error" = "normal"): void =>
+  setAuthStatusFromModule(state, authStatusEl, message, tone);
 
-const syncAuthPanelState = (): void => {
-  authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : authEmailLinkSentTo ? "sent" : "login";
-  authEmailSentAddressEl.textContent = authEmailLinkSentTo;
-  const activeColor = authProfileColorEl.value.toLowerCase();
-  authColorPresetButtons.forEach((btn) => {
-    btn.dataset.selected = btn.dataset.color?.toLowerCase() === activeColor ? "true" : "false";
+const syncAuthPanelState = (): void =>
+  syncAuthPanelStateFromModule(state, {
+    authEmailLinkSentTo,
+    authPanelEl,
+    authEmailSentAddressEl,
+    authProfileColorEl,
+    authColorPresetButtons
   });
-};
 
-const syncAuthOverlay = (): void => {
-  authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired ? "none" : "grid";
-  authOverlayEl.dataset.busy = state.authBusy ? "true" : "false";
-  authBusyModalEl.setAttribute("aria-hidden", state.authBusy ? "false" : "true");
-  authLoginBtn.disabled = state.authBusy || !state.authConfigured;
-  authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
-  authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
-  authGoogleBtn.disabled = state.authBusy || !state.authConfigured;
-  authEmailEl.disabled = state.authBusy || !state.authConfigured;
-  authPasswordEl.disabled = state.authBusy || !state.authConfigured;
-  authDisplayNameEl.disabled = state.authBusy || !state.authConfigured;
-  authEmailResetBtn.disabled = state.authBusy;
-  authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
-  authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
-  authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
-  authBusyTitleEl.textContent = state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...";
-  authBusyCopyEl.textContent = state.authError
-    ? state.authError
-    : authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
-  syncAuthPanelState();
-  if (!state.authConfigured) {
-    setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");
-  } else if (state.profileSetupRequired && !state.authBusy && !state.authError) {
-    setAuthStatus("One last step before the campaign begins.");
-  } else if (!state.authReady && !state.authBusy && !state.authError) {
-    setAuthStatus("");
-  }
-};
+const syncAuthOverlay = (): void =>
+  syncAuthOverlayFromModule(state, {
+    authOverlayEl,
+    authBusyModalEl,
+    authLoginBtn,
+    authRegisterBtn,
+    authEmailLinkBtn,
+    authGoogleBtn,
+    authEmailEl,
+    authPasswordEl,
+    authDisplayNameEl,
+    authEmailResetBtn,
+    authProfileNameEl,
+    authProfileColorEl,
+    authProfileSaveBtn,
+    authBusyTitleEl,
+    authBusyCopyEl,
+    authStatusEl,
+    syncAuthPanelState,
+    setAuthStatus
+  });
 
-const authLabelForUser = (user: User): string => user.displayName?.trim() || user.email?.trim() || "Authenticated user";
+const authLabelForUser = (user: User): string => authLabelForUserFromModule(user);
 
-const seedProfileSetupFields = (name?: string, color?: string): void => {
-  const cleanedName = (name ?? "").trim();
-  if (cleanedName) authProfileNameEl.value = cleanedName.slice(0, 24);
-  if (color && /^#[0-9a-fA-F]{6}$/.test(color)) authProfileColorEl.value = color;
-  syncAuthPanelState();
-};
+const seedProfileSetupFields = (name?: string, color?: string): void =>
+  seedProfileSetupFieldsFromModule(
+    {
+      authProfileNameEl,
+      authProfileColorEl,
+      syncAuthPanelState
+    },
+    name,
+    color
+  );
 
 const authenticateSocket = async (forceRefresh = false): Promise<void> => {
   if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN) return;
@@ -2977,18 +2603,8 @@ const explainActionFailure = (code: string, message: string): string => {
   return `Error ${code}: ${message}`;
 };
 
-const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean => {
-  const k = key(x, y);
-  if (state.queuedTargetKeys.has(k)) {
-    const stillQueued = state.actionQueue.some((entry) => key(entry.x, entry.y) === k);
-    const currentlyExecuting = state.actionInFlight && state.actionTargetKey === k;
-    if (!stillQueued && !currentlyExecuting) state.queuedTargetKeys.delete(k);
-  }
-  if (state.queuedTargetKeys.has(k)) return false;
-  state.actionQueue.push({ x, y, mode, retries: 0 });
-  state.queuedTargetKeys.add(k);
-  return true;
-};
+const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean =>
+  enqueueTargetFromModule(state, x, y, key, mode);
 
 const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } => {
   const size = state.zoom;
@@ -3028,221 +2644,61 @@ const computeDragPreview = (): void => {
 const buildFrontierQueue = (
   candidates: string[],
   enqueue: (x: number, y: number) => boolean
-): { queued: number; skipped: number; queuedKeys: string[] } => {
-  if (candidates.length === 0) return { queued: 0, skipped: 0, queuedKeys: [] };
-  const owned = new Set<string>();
-  for (const t of state.tiles.values()) {
-    if (t.ownerId === state.me) owned.add(key(t.x, t.y));
-  }
-  const planned = new Set<string>();
-  const remaining = new Set<string>(candidates);
-  let queued = 0;
-
-  while (remaining.size > 0) {
-    const frontier: string[] = [];
-    for (const k of remaining) {
-      const { x, y } = parseKey(k);
-      const neighbors = [
-        key(wrapX(x), wrapY(y - 1)),
-        key(wrapX(x + 1), wrapY(y)),
-        key(wrapX(x), wrapY(y + 1)),
-        key(wrapX(x - 1), wrapY(y)),
-        key(wrapX(x - 1), wrapY(y - 1)),
-        key(wrapX(x + 1), wrapY(y - 1)),
-        key(wrapX(x + 1), wrapY(y + 1)),
-        key(wrapX(x - 1), wrapY(y + 1))
-      ];
-      if (neighbors.some((n) => owned.has(n) || planned.has(n))) frontier.push(k);
-    }
-    if (frontier.length === 0) break;
-    frontier.sort();
-    for (const k of frontier) {
-      const { x, y } = parseKey(k);
-      remaining.delete(k);
-      if (enqueue(x, y)) {
-        planned.add(k);
-        queued += 1;
-      }
-    }
-  }
-
-  return { queued, skipped: remaining.size, queuedKeys: [...planned] };
-};
+): { queued: number; skipped: number; queuedKeys: string[] } =>
+  buildFrontierQueueFromModule(state, candidates, { keyFor: key, parseKey, wrapX, wrapY, enqueue });
 const queueDragSelection = (): { queued: number; skipped: number } =>
   buildFrontierQueue([...state.dragPreviewKeys], (x, y) => enqueueTarget(x, y));
 
 const applyPendingSettlementsFromServer = (
   entries: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
-): void => {
-  if (!entries) return;
-  const now = Date.now();
-  const previousProgress = new Map(state.settleProgressByTile);
-  let ignoredStaleEntry = false;
-  for (const tileKey of state.settleProgressByTile.keys()) clearOptimisticTileState(tileKey);
-  state.settleProgressByTile.clear();
-  let latestKey = "";
-  let latestResolvesAt = -Infinity;
-  for (const entry of entries) {
-    if (entry.resolvesAt <= now - SETTLEMENT_CONFIRM_STALE_MS) {
-      ignoredStaleEntry = true;
-      continue;
-    }
-    const tileKey = key(entry.x, entry.y);
-    const awaitingServerConfirm = entry.resolvesAt <= now;
-    const nextProgress: TileTimedProgress = {
-      startAt: entry.startedAt,
-      resolvesAt: entry.resolvesAt,
-      target: { x: entry.x, y: entry.y },
-      awaitingServerConfirm
-    };
-    const confirmRefreshRequestedAt = previousProgress.get(tileKey)?.confirmRefreshRequestedAt;
-    if (typeof confirmRefreshRequestedAt === "number") nextProgress.confirmRefreshRequestedAt = confirmRefreshRequestedAt;
-    state.settleProgressByTile.set(tileKey, nextProgress);
-    syncOptimisticSettlementTile(entry.x, entry.y, awaitingServerConfirm);
-    if (entry.resolvesAt > latestResolvesAt) {
-      latestResolvesAt = entry.resolvesAt;
-      latestKey = tileKey;
-    }
-  }
-  state.latestSettleTargetKey = latestKey;
-  if (ignoredStaleEntry) requestViewRefresh(2, true);
-};
+): void =>
+  applyPendingSettlementsFromServerFromModule(state, entries, {
+    keyFor: key,
+    syncOptimisticSettlementTile,
+    clearOptimisticTileState,
+    requestViewRefresh
+  });
 
 const queueSpecificTargets = (
   targetKeys: string[],
   mode: "normal" | "breakthrough"
-): { queued: number; skipped: number; queuedKeys: string[] } => {
-  const neutralTargets: string[] = [];
-  const attackTargets: string[] = [];
-  for (const targetKey of targetKeys) {
-    const tile = state.tiles.get(targetKey);
-    if (!tile || tile.terrain !== "LAND" || tile.fogged) continue;
-    if (!tile.ownerId) neutralTargets.push(targetKey);
-    else if (tile.ownerId !== state.me && !isTileOwnedByAlly(tile)) attackTargets.push(targetKey);
-  }
+): { queued: number; skipped: number; queuedKeys: string[] } =>
+  queueSpecificTargetsFromModule(state, targetKeys, mode, {
+    parseKey,
+    keyFor: key,
+    isTileOwnedByAlly,
+    pickOriginForTarget,
+    enqueueTarget,
+    buildFrontierQueue
+  });
 
-  const neutralResult = buildFrontierQueue(neutralTargets, (x, y) => enqueueTarget(x, y, mode));
-  const queuedKeys = [...neutralResult.queuedKeys];
-  let queued = neutralResult.queued;
-  let skipped = neutralResult.skipped;
+const attackQueueFailureReason = (tile: Tile, mode: "normal" | "breakthrough"): string =>
+  attackQueueFailureReasonFromModule(state, tile, mode, { ownerSpawnShieldActive, hasBreakthroughCapability, pickOriginForTarget });
 
-  for (const targetKey of attackTargets) {
-    const tile = state.tiles.get(targetKey);
-    if (!tile) {
-      skipped += 1;
-      continue;
-    }
-    const { x, y } = parseKey(targetKey);
-    if (!pickOriginForTarget(x, y) && !tile.dockId) {
-      skipped += 1;
-      continue;
-    }
-    if (!enqueueTarget(x, y, mode)) {
-      skipped += 1;
-      continue;
-    }
-    queued += 1;
-    queuedKeys.push(targetKey);
-  }
+const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => dropQueuedTargetKeyIfAbsentFromModule(state, targetKey, { keyFor: key });
 
-  return { queued, skipped, queuedKeys };
-};
-
-const attackQueueFailureReason = (tile: Tile, mode: "normal" | "breakthrough"): string => {
-  if (tile.ownerId && tile.ownerId !== state.me && ownerSpawnShieldActive(tile.ownerId)) {
-    return "That empire is still under spawn protection.";
-  }
-  if (mode === "breakthrough" && !hasBreakthroughCapability()) return "Requires Breach Doctrine.";
-  if (mode === "breakthrough" && (state.strategicResources.IRON ?? 0) < 1) return "Need 1 IRON.";
-  if (state.gold < (mode === "breakthrough" ? 2 : FRONTIER_CLAIM_COST)) return `Need ${mode === "breakthrough" ? 2 : FRONTIER_CLAIM_COST} gold.`;
-  if (!pickOriginForTarget(tile.x, tile.y)) {
-    return tile.dockId ? "No owned linked dock can reach this target." : "Target must border your territory or a linked dock.";
-  }
-  return "Action could not be queued.";
-};
-
-const dropQueuedTargetKeyIfAbsent = (targetKey: string): void => {
-  if (!targetKey) return;
-  const stillQueued = state.actionQueue.some((entry) => key(entry.x, entry.y) === targetKey);
-  if (!stillQueued) state.queuedTargetKeys.delete(targetKey);
-};
-
-const reconcileActionQueue = (): void => {
-  const nextQueue: typeof state.actionQueue = [];
-  const nextQueuedKeys = new Set<string>();
-  for (const entry of state.actionQueue) {
-    const targetKey = key(entry.x, entry.y);
-    const tile = state.tiles.get(targetKey);
-    if (!tile) continue;
-    if (tile.ownerId === state.me) {
-      clearOptimisticTileState(targetKey);
-      continue;
-    }
-    const hasConfirmedOrigin = tile.ownerId
-      ? Boolean(pickOriginForTarget(tile.x, tile.y))
-      : Boolean(pickOriginForTarget(tile.x, tile.y, false, false));
-    const hasOptimisticOrigin = tile.ownerId
-      ? hasConfirmedOrigin
-      : Boolean(pickOriginForTarget(tile.x, tile.y, false, true));
-    if (!hasConfirmedOrigin && !hasOptimisticOrigin) {
-      clearOptimisticTileState(targetKey, true);
-      state.autoSettleTargets.delete(targetKey);
-      continue;
-    }
-    nextQueue.push(entry);
-    nextQueuedKeys.add(targetKey);
-  }
-  state.actionQueue = nextQueue;
-  if (state.actionInFlight && state.actionTargetKey) nextQueuedKeys.add(state.actionTargetKey);
-  state.queuedTargetKeys = nextQueuedKeys;
-};
+const reconcileActionQueue = (): void =>
+  reconcileActionQueueFromModule(state, { keyFor: key, pickOriginForTarget, clearOptimisticTileState });
 
 const requestSettlement = (
   x: number,
   y: number,
   opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean }
-): boolean => {
-  const tile = state.tiles.get(key(x, y));
-  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
-    if (!opts?.suppressWarnings) pushFeed("Cannot settle: tile is not one of your frontier tiles.", "combat", "warn");
-    renderHud();
-    return false;
-  }
-  if (!canAffordCost(state.gold, SETTLE_COST)) {
-    if (!opts?.suppressWarnings) pushFeed(`Need ${SETTLE_COST} gold to settle this tile.`, "combat", "warn");
-    renderHud();
-    return false;
-  }
-  const slots = developmentSlotSummary();
-  if (slots.available <= 0) {
-    if (opts?.allowQueueWhenBusy !== false && !opts?.fromQueue) {
-      return queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey: key(x, y), label: `Settlement at (${x}, ${y})` });
-    }
-    if (!opts?.suppressWarnings) pushFeed(developmentSlotReason(slots), "combat", "warn");
-    renderHud();
-    return false;
-  }
-  if (!sendGameMessage({ type: "SETTLE", x, y })) return false;
-  const startAt = Date.now();
-  const progress = { startAt, resolvesAt: startAt + settleDurationMsForTile(x, y), target: { x, y }, awaitingServerConfirm: false };
-  const tileKey = key(x, y);
-  state.gold = Math.max(0, state.gold - SETTLE_COST);
-  state.settleProgressByTile.set(tileKey, progress);
-  state.latestSettleTargetKey = tileKey;
-  syncOptimisticSettlementTile(x, y, false);
-  state.selected = { x, y };
-  state.attackPreview = undefined;
-  state.attackPreviewPendingKey = "";
-  renderHud();
-  return true;
-};
+): boolean =>
+  requestSettlementFromModule(state, x, y, {
+    keyFor: key,
+    pushFeed,
+    renderHud,
+    queueDevelopmentAction,
+    developmentSlotSummary,
+    developmentSlotReason,
+    sendGameMessage,
+    syncOptimisticSettlementTile,
+    ...(opts ? { opts } : {})
+  });
 
 const sendDevelopmentBuild = (
-  payload: QueuedDevelopmentAction extends infer T
-    ? T extends { kind: "BUILD"; payload: infer P }
-      ? P
-      : never
-    : never,
+  payload: ClientState["developmentQueue"][number] extends infer T ? T extends { kind: "BUILD"; payload: infer P } ? P : never : never,
   optimistic: () => void,
   opts: {
     x: number;
@@ -3253,457 +2709,102 @@ const sendDevelopmentBuild = (
     fromQueue?: boolean;
     suppressWarnings?: boolean;
   }
-): boolean => {
-  const summary = developmentSlotSummary();
-  if (summary.available <= 0) {
-    if (opts.allowQueueWhenBusy !== false && !opts.fromQueue) {
-      return queueDevelopmentAction({
-        kind: "BUILD",
-        x: opts.x,
-        y: opts.y,
-        tileKey: key(opts.x, opts.y),
-        label: opts.label,
-        payload,
-        optimisticKind: opts.optimisticKind
-      });
-    }
-    if (!opts.suppressWarnings) {
-      pushFeed(developmentSlotReason(summary), "combat", "warn");
-      renderHud();
-    }
-    return false;
-  }
-  if (!sendGameMessage(payload)) return false;
-  optimistic();
-  renderHud();
-  return true;
-};
+): boolean =>
+  sendDevelopmentBuildFromModule(state, payload, optimistic, opts, {
+    keyFor: key,
+    queueDevelopmentAction,
+    developmentSlotSummary,
+    developmentSlotReason,
+    pushFeed,
+    renderHud,
+    sendGameMessage
+  });
 
-const processDevelopmentQueue = (): boolean => {
-  if (state.developmentQueue.length === 0 || ws.readyState !== ws.OPEN || !state.authSessionReady) return false;
-  let started = false;
-  while (state.developmentQueue.length > 0 && developmentSlotSummary().available > 0) {
-    const next = state.developmentQueue[0];
-    if (!next) return started;
-    const ok =
-      next.kind === "SETTLE"
-        ? requestSettlement(next.x, next.y, { allowQueueWhenBusy: false, fromQueue: true, suppressWarnings: true })
-        : sendDevelopmentBuild(next.payload, () => applyOptimisticStructureBuild(next.x, next.y, next.optimisticKind), {
-            x: next.x,
-            y: next.y,
-            label: next.label,
-            optimisticKind: next.optimisticKind,
-            allowQueueWhenBusy: false,
-            fromQueue: true,
-            suppressWarnings: true
-          });
-    state.developmentQueue.shift();
-    if (ok) {
-      pushFeed(`${next.label} started.`, "combat", "info");
-      started = true;
-    } else {
-      pushFeed(`${next.label} could not start and was removed from queue.`, "combat", "warn");
-    }
-  }
-  if (started || state.developmentQueue.length === 0) renderHud();
-  return started;
-};
+const processDevelopmentQueue = (): boolean =>
+  processDevelopmentQueueFromModule(state, {
+    ws,
+    authSessionReady: state.authSessionReady,
+    developmentSlotSummary,
+    requestSettlement: (x, y, opts) => requestSettlement(x, y, opts),
+    sendDevelopmentBuild: (payload, optimistic, opts) => sendDevelopmentBuild(payload, optimistic, opts),
+    applyOptimisticStructureBuild,
+    pushFeed,
+    renderHud
+  });
 
-const processActionQueue = (): boolean => {
-  if (state.actionInFlight || ws.readyState !== ws.OPEN || !state.authSessionReady) return false;
-  while (state.actionQueue.length > 0) {
-    const next = state.actionQueue[0];
-    if (!next) return false;
+const processActionQueue = (): boolean =>
+  processActionQueueFromModule(state, {
+    ws,
+    authSessionReady: state.authSessionReady,
+    keyFor: key,
+    isAdjacent,
+    pickOriginForTarget,
+    notifyInsufficientGoldForFrontierAction,
+    applyOptimisticTileState,
+    pushFeed,
+    renderHud
+  });
+const requestAttackPreviewForHover = (): void =>
+  requestAttackPreviewForHoverFromModule(state, {
+    ws,
+    authSessionReady: state.authSessionReady,
+    keyFor: key
+  });
 
-    const targetKey = key(next.x, next.y);
-    const to = state.tiles.get(targetKey);
-    if (!to) {
-      state.actionQueue.shift();
-      state.queuedTargetKeys.delete(targetKey);
-      continue;
-    }
-    if (to.ownerId === state.me) {
-      state.actionQueue.shift();
-      state.queuedTargetKeys.delete(targetKey);
-      continue;
-    }
+const requestAttackPreviewForTarget = (to: Tile): void =>
+  requestAttackPreviewForTargetFromModule(state, to, {
+    ws,
+    authSessionReady: state.authSessionReady,
+    keyFor: key,
+    pickOriginForTarget
+  });
 
-    const allowOptimisticOrigin = Boolean(to.ownerId);
-    let from = to.ownerId ? pickOriginForTarget(to.x, to.y) : pickOriginForTarget(to.x, to.y, false, false);
-    const optimisticFrom = to.ownerId ? from : pickOriginForTarget(to.x, to.y, false, true);
-    const selectedFrom = state.selected ? state.tiles.get(key(state.selected.x, state.selected.y)) : undefined;
-    if (
-      !from &&
-      selectedFrom &&
-      selectedFrom.ownerId === state.me &&
-      isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y) &&
-      (allowOptimisticOrigin || selectedFrom.optimisticPending !== "expand")
-    ) {
-      from = selectedFrom;
-    }
-    if (!from && !allowOptimisticOrigin && optimisticFrom) return false;
-    if (!from && to.ownerId && to.dockId) {
-      from = to;
-    }
-    if (!from) {
-      state.actionQueue.shift();
-      state.queuedTargetKeys.delete(targetKey);
-      continue;
-    }
-    state.actionQueue.shift();
+const attackPreviewDetailForTarget = (to: Tile, mode: "normal" | "breakthrough" = "normal"): string | undefined =>
+  attackPreviewDetailForTargetFromModule(state, to, { keyFor: key, pickOriginForTarget }, mode);
+const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { pushFeed, renderHud, sendGameMessage });
+const settleSelected = (): void => settleSelectedFromModule(state, { keyFor: key, pushFeed, renderHud, requestSettlement });
+const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { pushFeed, renderHud, sendGameMessage });
+const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor: key, pushFeed, renderHud, sendGameMessage });
+const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage);
+const collectVisibleYield = (): void =>
+  collectVisibleYieldFromModule(state, {
+    formatCooldownShort,
+    showCollectVisibleCooldownAlert,
+    pushFeed,
+    renderHud,
+    applyOptimisticVisibleCollect,
+    sendGameMessage
+  });
+const collectSelectedYield = (): void =>
+  collectSelectedYieldFromModule(state, { keyFor: key, renderHud, applyOptimisticTileCollect, sendGameMessage });
 
-    state.actionCurrent = {
-      x: to.x,
-      y: to.y,
-      retries: next.retries ?? 0
-    };
-    if (next.mode) state.actionCurrent.mode = next.mode;
-    state.actionInFlight = true;
-    state.combatStartAck = false;
-    state.actionStartedAt = Date.now();
-    state.actionTargetKey = targetKey;
-    state.captureAlert = undefined;
-    const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
-    state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
-    if (!to.ownerId) {
-      applyOptimisticTileState(to.x, to.y, (tile) => {
-        tile.ownerId = state.me;
-        tile.ownershipState = "FRONTIER";
-        tile.fogged = false;
-        tile.optimisticPending = "expand";
-      });
-    }
-    state.attackPreview = undefined;
-    state.attackPreviewPendingKey = "";
-    if (!to.ownerId) {
-      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
-        notifyInsufficientGoldForFrontierAction("claim");
-        state.capture = undefined;
-        state.actionInFlight = false;
-        state.actionCurrent = undefined;
-        state.actionTargetKey = "";
-        state.combatStartAck = false;
-        state.queuedTargetKeys.delete(targetKey);
-        renderHud();
-        continue;
-      }
-      ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
-      pushFeed(`Queued expand (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
-    } else {
-      if (next.mode !== "breakthrough" && !canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
-        notifyInsufficientGoldForFrontierAction("attack");
-        state.capture = undefined;
-        state.actionInFlight = false;
-        state.actionCurrent = undefined;
-        state.actionTargetKey = "";
-        state.combatStartAck = false;
-        state.queuedTargetKeys.delete(targetKey);
-        renderHud();
-        continue;
-      }
-      if (next.mode === "breakthrough") {
-        ws.send(JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
-        pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
-      } else {
-        ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
-        pushFeed(`Queued attack (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
-      }
-    }
-    state.selected = { x: to.x, y: to.y };
-    renderHud();
-    return true;
-  }
-  return false;
-};
-const requestAttackPreviewForHover = (): void => {
-  if (ws.readyState !== ws.OPEN) return;
-  if (!state.authSessionReady) return;
-  if (state.actionInFlight || state.capture) return;
-  if (!state.selected || !state.hover) return;
-  const from = state.tiles.get(key(state.selected.x, state.selected.y));
-  const to = state.tiles.get(key(state.hover.x, state.hover.y));
-  if (!from || !to) return;
-  if (from.ownerId !== state.me) return;
-  if (!to.ownerId || to.ownerId === state.me || to.fogged) {
-    state.attackPreview = undefined;
-    state.attackPreviewPendingKey = "";
-    return;
-  }
-  const fromKey = key(from.x, from.y);
-  const toKey = key(to.x, to.y);
-  const previewKey = `${fromKey}->${toKey}`;
-  if (state.attackPreviewPendingKey === previewKey) return;
-  if (state.attackPreview && state.attackPreview.fromKey === fromKey && state.attackPreview.toKey === toKey) return;
-  const nowMs = Date.now();
-  if (nowMs - state.lastAttackPreviewAt < 120) return;
-  state.lastAttackPreviewAt = nowMs;
-  state.attackPreviewPendingKey = previewKey;
-  ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
-};
+const collectSelectedShard = (): void =>
+  collectSelectedShardFromModule(state, { keyFor: key, renderHud, sendGameMessage });
 
-const requestAttackPreviewForTarget = (to: Tile): void => {
-  if (ws.readyState !== ws.OPEN) return;
-  if (!state.authSessionReady) return;
-  if (state.actionInFlight || state.capture) return;
-  if (!to.ownerId || to.ownerId === state.me || to.fogged) return;
-  const from = pickOriginForTarget(to.x, to.y);
-  if (!from && !to.dockId) return;
-  if (from && from.ownerId !== state.me) return;
-  const fromKey = key(from?.x ?? to.x, from?.y ?? to.y);
-  const toKey = key(to.x, to.y);
-  const previewKey = `${fromKey}->${toKey}`;
-  if (state.attackPreviewPendingKey === previewKey) return;
-  if (state.attackPreview && state.attackPreview.toKey === toKey && (state.attackPreview.fromKey === fromKey || (!from && to.dockId))) return;
-  const nowMs = Date.now();
-  if (nowMs - state.lastAttackPreviewAt < 120) return;
-  state.lastAttackPreviewAt = nowMs;
-  state.attackPreviewPendingKey = previewKey;
-  ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: from?.x ?? to.x, fromY: from?.y ?? to.y, toX: to.x, toY: to.y }));
-};
+const hideHoldBuildMenu = (): void => hideHoldBuildMenuFromModule(holdBuildMenuEl);
 
-const attackPreviewDetailForTarget = (to: Tile, mode: "normal" | "breakthrough" = "normal"): string | undefined => {
-  const from = pickOriginForTarget(to.x, to.y);
-  const toKey = key(to.x, to.y);
-  if (!state.attackPreview || state.attackPreview.toKey !== toKey) return undefined;
-  if (from) {
-    const fromKey = key(from.x, from.y);
-    if (state.attackPreview.fromKey !== fromKey) return undefined;
-  } else if (!to.dockId) {
-    return undefined;
-  }
-  if (!state.attackPreview.valid) return state.attackPreview.reason ? `Attack ${state.attackPreview.reason}` : undefined;
-  if (mode === "breakthrough" && typeof state.attackPreview.breakthroughWinChance === "number") {
-    return `${Math.round(state.attackPreview.breakthroughWinChance * 100)}% breach win chance`;
-  }
-  if (typeof state.attackPreview.winChance === "number") return `${Math.round(state.attackPreview.winChance * 100)}% win chance`;
-  return undefined;
-};
-const buildFortOnSelected = (): void => {
-  const sel = state.selected;
-  if (!sel) {
-    pushFeed("Select an owned border/dock tile first.", "error", "warn");
-    renderHud();
-    return;
-  }
-  sendGameMessage({ type: "BUILD_FORT", x: sel.x, y: sel.y });
-};
-const settleSelected = (): void => {
-  const sel = state.selected;
-  if (!sel) {
-    pushFeed("Select a frontier tile first.", "error", "warn");
-    renderHud();
-    return;
-  }
-  const tile = state.tiles.get(key(sel.x, sel.y));
-  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
-    pushFeed("Selected tile is not one of your frontier tiles.", "error", "warn");
-    renderHud();
-    return;
-  }
-  if (!requestSettlement(sel.x, sel.y)) return;
-  pushFeed(`Settlement started at (${sel.x}, ${sel.y}).`, "combat", "info");
-};
-const buildSiegeOutpostOnSelected = (): void => {
-  const sel = state.selected;
-  if (!sel) {
-    pushFeed("Select an owned border tile first.", "error", "warn");
-    renderHud();
-    return;
-  }
-  sendGameMessage({ type: "BUILD_SIEGE_OUTPOST", x: sel.x, y: sel.y });
-};
-const uncaptureSelected = (): void => {
-  const sel = state.selected;
-  if (!sel) {
-    pushFeed("Select one of your tiles to uncapture.", "error", "warn");
-    renderHud();
-    return;
-  }
-  const t = state.tiles.get(key(sel.x, sel.y));
-  if (!t || t.ownerId !== state.me) {
-    pushFeed("Selected tile is not owned by you.", "error", "warn");
-    renderHud();
-    return;
-  }
-  sendGameMessage({ type: "UNCAPTURE_TILE", x: sel.x, y: sel.y });
-};
-const cancelOngoingCapture = (): void => {
-  state.actionQueue.length = 0;
-  state.queuedTargetKeys.clear();
-  state.dragPreviewKeys.clear();
-  sendGameMessage({ type: "CANCEL_CAPTURE" });
-};
-const collectVisibleYield = (): void => {
-  const remaining = state.collectVisibleCooldownUntil - Date.now();
-  if (remaining > 0) {
-    showCollectVisibleCooldownAlert();
-    pushFeed(`Collect visible cooling down for ${formatCooldownShort(remaining)}.`, "info", "warn");
-    renderHud();
-    return;
-  }
-  state.collectVisibleCooldownUntil = Date.now() + COLLECT_VISIBLE_COOLDOWN_MS;
-  applyOptimisticVisibleCollect();
-  renderHud();
-  sendGameMessage({ type: "COLLECT_VISIBLE" });
-};
-const collectSelectedYield = (): void => {
-  const sel = state.selected;
-  if (!sel) return;
-  const tile = state.tiles.get(key(sel.x, sel.y));
-  if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") return;
-  applyOptimisticTileCollect(tile);
-  renderHud();
-  sendGameMessage({ type: "COLLECT_TILE", x: sel.x, y: sel.y });
-};
+const hideTileActionMenu = (): void => hideTileActionMenuFromModule(state, tileActionMenuEl);
 
-const collectSelectedShard = (): void => {
-  const sel = state.selected;
-  if (!sel) return;
-  const tile = state.tiles.get(key(sel.x, sel.y));
-  if (!tile?.shardSite || tile.fogged) return;
-  state.tiles.set(key(sel.x, sel.y), { ...tile, shardSite: null });
-  renderHud();
-  sendGameMessage({ type: "COLLECT_SHARD", x: sel.x, y: sel.y });
-};
+const tileActionIsCrystal = (id: TileActionDef["id"]): boolean => tileActionIsCrystalFromModule(id);
 
-const hideHoldBuildMenu = (): void => {
-  holdBuildMenuEl.style.display = "none";
-  holdBuildMenuEl.innerHTML = "";
-};
+const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => tileActionIsBuildingFromModule(id);
 
-const hideTileActionMenu = (): void => {
-  state.tileActionMenu.visible = false;
-  state.tileActionMenu.bulkKeys = [];
-  state.tileActionMenu.currentTileKey = "";
-  state.tileActionMenu.activeTab = "overview";
-  state.tileActionMenu.scrollTopByTab = {};
-  tileActionMenuEl.style.display = "none";
-  tileActionMenuEl.innerHTML = "";
-};
+const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => requiredTechForTileActionFromModule(actionId);
 
-type DevelopmentSlotSummary = {
-  busy: number;
-  limit: number;
-  available: number;
-};
+const hideTechLockedTileAction = (action: TileActionDef): boolean => hideTechLockedTileActionFromModule(action, state);
 
-const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
-  id === "reveal_empire" ||
-  id === "aether_bridge" ||
-  id === "siphon_tile" ||
-  id === "purge_siphon" ||
-  id === "create_mountain" ||
-  id === "remove_mountain";
+const splitTileActionsIntoTabs = (actions: TileActionDef[]): Pick<TileMenuView, "actions" | "buildings" | "crystal"> =>
+  splitTileActionsIntoTabsFromModule(actions, state);
+const isTileOwnedByAlly = (tile: Tile): boolean => isTileOwnedByAllyFromModule(tile, state);
 
-const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_");
+const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number =>
+  chebyshevDistanceClientFromModule(ax, ay, bx, by);
 
-const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => {
-  switch (actionId) {
-    case "build_foundry":
-      return "industrial-extraction";
-    case "build_fortification":
-      return "masonry";
-    case "build_observatory":
-      return "cartography";
-    case "build_airport":
-      return "aeronautics";
-    case "build_radar_system":
-      return "radar";
-    case "build_governors_office":
-      return "civil-service";
-    case "build_garrison_hall":
-      return "standing-army";
-    case "build_siege_camp":
-    case "build_camp":
-      return "leatherworking";
-    case "build_farmstead":
-      return "agriculture";
-    case "build_mine":
-      return "mining";
-    case "build_market":
-      return "trade";
-    case "build_granary":
-      return "pottery";
-    case "build_bank":
-      return "coinage";
-    case "build_caravanary":
-      return "ledger-keeping";
-    case "build_fur_synthesizer":
-    case "build_ironworks":
-    case "build_crystal_synthesizer":
-      return "workshops";
-    case "build_fuel_plant":
-      return "plastics";
-    case "build_customs_house":
-      return "global-trade-networks";
-    case "reveal_empire":
-      return "cryptography";
-    case "siphon_tile":
-      return "cryptography";
-    case "aether_bridge":
-      return "navigation";
-    case "create_mountain":
-    case "remove_mountain":
-      return "terrain-engineering";
-    default:
-      return undefined;
-  }
-};
+const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => hostileObservatoryProtectingTileFromModule(state, tile);
 
-const hideTechLockedTileAction = (action: TileActionDef): boolean => {
-  const requiredTech = requiredTechForTileAction(action.id);
-  if (requiredTech && !state.techIds.includes(requiredTech)) return true;
-  if (!action.disabled || !action.disabledReason) return false;
-  return /^Requires\b/i.test(action.disabledReason) || /^Need reveal capability\b/i.test(action.disabledReason);
-};
+const developmentSlotSummary = (): DevelopmentSlotSummary => developmentSlotSummaryFromModule(state, { busyDevelopmentProcessCount });
 
-const splitTileActionsIntoTabs = (
-  actions: TileActionDef[]
-): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
-  const filtered = actions.filter((action) => !hideTechLockedTileAction(action));
-  const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
-  const actionRows = filtered.filter((action) => !tileActionIsBuilding(action.id) && !tileActionIsCrystal(action.id));
-  const buildingRows = filtered.filter((action) => tileActionIsBuilding(action.id));
-  const crystalRows = filtered.filter((action) => tileActionIsCrystal(action.id));
-  return {
-    actions: actionRows.some(visibleIfShown) ? actionRows : [],
-    buildings: buildingRows.some(visibleIfShown) ? buildingRows : [],
-    crystal: crystalRows.some(visibleIfShown) ? crystalRows : []
-  };
-};
-const isTileOwnedByAlly = (tile: Tile): boolean => Boolean(tile.ownerId && state.allies.includes(tile.ownerId));
-
-const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
-  const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
-  return Math.max(dx, dy);
-};
-
-const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => {
-  for (const candidate of state.tiles.values()) {
-    if (!candidate.observatory || candidate.observatory.status !== "active") continue;
-    if (!candidate.ownerId || candidate.ownerId === state.me || state.allies.includes(candidate.ownerId)) continue;
-    if (candidate.fogged) continue;
-    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= OBSERVATORY_PROTECTION_RADIUS) return candidate;
-  }
-  return undefined;
-};
-
-const developmentSlotLimit = (): number => DEVELOPMENT_PROCESS_LIMIT;
-
-const developmentSlotSummary = (): DevelopmentSlotSummary => {
-  const busy = busyDevelopmentProcessCount(state.tiles.values(), state.me, state.settleProgressByTile.size);
-  const limit = developmentSlotLimit();
-  return {
-    busy,
-    limit,
-    available: Math.max(0, limit - busy)
-  };
-};
-
-const developmentSlotReason = (summary = developmentSlotSummary()): string => {
-  return `No available development slots (${summary.busy}/${summary.limit} busy)`;
-};
+const developmentSlotReason = (summary = developmentSlotSummary()): string => developmentSlotReasonFromModule(summary);
 
 const shouldResetFrontierActionStateForError = (errorCode: string): boolean => {
   if (!errorCode) return true;
@@ -3741,126 +2842,38 @@ const formatCountdownClock = (ms: number): string => {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
-const SETTLEMENT_CONFIRM_REFRESH_MS = 4_000;
-const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
-const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
+const clearSettlementProgressByKey = (tileKey: string): void =>
+  clearSettlementProgressByKeyFromModule(state, tileKey, { clearOptimisticTileState });
 
-const clearSettlementProgressByKey = (tileKey: string): void => {
-  if (!tileKey) return;
-  state.settleProgressByTile.delete(tileKey);
-  clearOptimisticTileState(tileKey);
-  if (state.latestSettleTargetKey === tileKey) state.latestSettleTargetKey = "";
-};
+const clearSettlementProgressForTile = (x: number, y: number): void =>
+  clearSettlementProgressForTileFromModule(state, x, y, { keyFor: key, clearSettlementProgressByKey });
 
-const clearSettlementProgressForTile = (x: number, y: number): void => {
-  clearSettlementProgressByKey(key(x, y));
-};
+type QueuedDevelopmentAction = ClientState["developmentQueue"][number];
 
-type QueuedDevelopmentAction = (typeof state.developmentQueue)[number];
+const queueDevelopmentAction = (entry: QueuedDevelopmentAction): boolean =>
+  queueDevelopmentActionFromModule(state, entry, { pushFeed, renderHud });
 
-const queuedDevelopmentActionExists = (tileKey: string, kind?: QueuedDevelopmentAction["kind"]): boolean =>
-  state.developmentQueue.some((entry) => entry.tileKey === tileKey && (!kind || entry.kind === kind));
+const syncOptimisticSettlementTile = (x: number, y: number, awaitingServerConfirm: boolean): void =>
+  syncOptimisticSettlementTileFromModule(state, x, y, awaitingServerConfirm, { applyOptimisticTileState });
 
-const queueDevelopmentAction = (entry: QueuedDevelopmentAction): boolean => {
-  if (queuedDevelopmentActionExists(entry.tileKey, entry.kind)) {
-    pushFeed(`${entry.label} is already queued.`, "combat", "warn");
-    renderHud();
-    return false;
-  }
-  state.developmentQueue.push(entry);
-  pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
-  renderHud();
-  return true;
-};
-
-const syncOptimisticSettlementTile = (x: number, y: number, awaitingServerConfirm: boolean): void => {
-  applyOptimisticTileState(x, y, (tile) => {
-    tile.ownerId = state.me;
-    tile.ownershipState = awaitingServerConfirm ? "SETTLED" : tile.ownershipState === "SETTLED" ? "SETTLED" : "FRONTIER";
-    tile.fogged = false;
-    tile.optimisticPending = "settle";
-  });
-};
-
-const settlementProgressForTile = (x: number, y: number): TileTimedProgress | undefined => {
-  const tileKey = key(x, y);
-  const progress = state.settleProgressByTile.get(tileKey);
-  if (!progress) return undefined;
-  const now = Date.now();
-  if (progress.resolvesAt <= now && !progress.awaitingServerConfirm) {
-    progress.awaitingServerConfirm = true;
-    state.settleProgressByTile.set(tileKey, progress);
-    syncOptimisticSettlementTile(x, y, true);
-  }
-  if (
-    progress.awaitingServerConfirm &&
-    now - progress.resolvesAt >= SETTLEMENT_CONFIRM_REFRESH_MS &&
-    (!progress.confirmRefreshRequestedAt || now - progress.confirmRefreshRequestedAt >= SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS)
-  ) {
-    progress.confirmRefreshRequestedAt = now;
-    state.settleProgressByTile.set(tileKey, progress);
-    requestViewRefresh(2, true);
-  }
-  return progress;
-};
+const settlementProgressForTile = (x: number, y: number): TileTimedProgress | undefined =>
+  settlementProgressForTileFromModule(state, x, y, { keyFor: key, syncOptimisticSettlementTile, requestViewRefresh });
 
 const queuedDevelopmentEntryForTile = (tileKey: string): QueuedDevelopmentAction | undefined =>
-  state.developmentQueue.find((entry) => entry.tileKey === tileKey);
+  queuedDevelopmentEntryForTileFromModule(state, tileKey);
 
-const queuedSettlementIndexForTile = (tileKey: string): number => queuedSettlementOrderForTile(state.developmentQueue, tileKey);
+const queuedSettlementIndexForTile = (tileKey: string): number => queuedSettlementIndexForTileFromModule(state, tileKey);
 
-const cancelQueuedSettlement = (tileKey: string): boolean => {
-  const nextQueue = state.developmentQueue.filter((entry) => !(entry.kind === "SETTLE" && entry.tileKey === tileKey));
-  if (nextQueue.length === state.developmentQueue.length) return false;
-  state.developmentQueue = nextQueue;
-  pushFeed(`Queued settlement at ${tileKey} cancelled.`, "combat", "info");
-  renderHud();
-  return true;
-};
+const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud });
 
-const cleanupExpiredSettlementProgress = (): boolean => {
-  const now = Date.now();
-  let changed = false;
-  let requestedRefresh = false;
-  for (const [tileKey, existing] of [...state.settleProgressByTile.entries()]) {
-    const progress = { ...existing };
-    if (progress.resolvesAt <= now && !progress.awaitingServerConfirm) {
-      progress.awaitingServerConfirm = true;
-      state.settleProgressByTile.set(tileKey, progress);
-      syncOptimisticSettlementTile(progress.target.x, progress.target.y, true);
-      changed = true;
-    }
-    if (
-      progress.awaitingServerConfirm &&
-      now - progress.resolvesAt >= SETTLEMENT_CONFIRM_REFRESH_MS &&
-      (!progress.confirmRefreshRequestedAt || now - progress.confirmRefreshRequestedAt >= SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS)
-    ) {
-      progress.confirmRefreshRequestedAt = now;
-      state.settleProgressByTile.set(tileKey, progress);
-      requestedRefresh = true;
-    }
-    if (progress.awaitingServerConfirm && now - progress.resolvesAt >= SETTLEMENT_CONFIRM_STALE_MS) {
-      clearSettlementProgressByKey(tileKey);
-      changed = true;
-      requestedRefresh = true;
-    }
-  }
-  if (requestedRefresh) requestViewRefresh(2, true);
-  return changed;
-};
+const cleanupExpiredSettlementProgress = (): boolean =>
+  cleanupExpiredSettlementProgressFromModule(state, { syncOptimisticSettlementTile, clearSettlementProgressByKey, requestViewRefresh });
 
-const activeSettlementProgressEntries = (): TileTimedProgress[] => {
-  cleanupExpiredSettlementProgress();
-  return [...state.settleProgressByTile.values()].sort((a, b) => a.resolvesAt - b.resolvesAt);
-};
+const activeSettlementProgressEntries = (): TileTimedProgress[] =>
+  activeSettlementProgressEntriesFromModule(state, { cleanupExpiredSettlementProgress });
 
-const primarySettlementProgress = (): TileTimedProgress | undefined => {
-  const selected = state.selected ? settlementProgressForTile(state.selected.x, state.selected.y) : undefined;
-  if (selected) return selected;
-  const latest = state.latestSettleTargetKey ? state.settleProgressByTile.get(state.latestSettleTargetKey) : undefined;
-  if (latest) return latest;
-  return activeSettlementProgressEntries()[0];
-};
+const primarySettlementProgress = (): TileTimedProgress | undefined =>
+  primarySettlementProgressFromModule(state, { settlementProgressForTile, activeSettlementProgressEntries });
 
 const constructionCountdownLineForTile = (tile: Tile): string => {
   if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
