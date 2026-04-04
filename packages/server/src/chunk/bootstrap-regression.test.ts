@@ -9,8 +9,8 @@ const chunkSnapshotsSource = (): string => {
 };
 
 describe("chunk bootstrap regression guard", () => {
-  it("uses bootstrap summary mode for deferred outer rings", () => {
+  it("uses shell summary mode for deferred outer rings", () => {
     const source = chunkSnapshotsSource();
-    expect(source).toContain('summaryMode: radius === deps.initialBootstrapRadius + 1 ? "thin" : "bootstrap"');
+    expect(source).toContain('summaryMode: radius === deps.initialBootstrapRadius + 1 ? "thin" : "shell"');
   });
 });
