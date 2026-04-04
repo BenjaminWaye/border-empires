@@ -128,6 +128,7 @@ import {
   type StructureInfoKey
 } from "./client-map-display.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
+import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "./client-tile-menu-scroll.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
@@ -2257,7 +2258,7 @@ const renderHud = (): void => {
       : "";
   const netGoldPerMinute = state.incomePerMinute - state.upkeepPerMinute.gold;
   const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
-  const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}`;
+  const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}/m`;
   const goldRateClass = rateToneClass(netGoldPerMinute);
   const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}/m`;
   const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
@@ -3575,6 +3576,7 @@ const hideTileActionMenu = (): void => {
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = "";
   state.tileActionMenu.activeTab = "overview";
+  state.tileActionMenu.scrollTopByTab = {};
   tileActionMenuEl.style.display = "none";
   tileActionMenuEl.innerHTML = "";
 };
@@ -4994,6 +4996,10 @@ const menuActionsForSingleTile = (tile: Tile): TileActionDef[] => {
 };
 
 const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void => {
+  const previousScrollBody = tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
+  if (previousScrollBody) {
+    state.tileActionMenu.scrollTopByTab = rememberTileMenuScrollTop(state.tileActionMenu, previousScrollBody.scrollTop);
+  }
   const activeTab = view.tabs.includes(state.tileActionMenu.activeTab) ? state.tileActionMenu.activeTab : (view.tabs[0] ?? "overview");
   state.tileActionMenu.activeTab = activeTab;
   tileActionMenuEl.innerHTML = tileActionMenuHtml(view, activeTab, isMobile());
@@ -5051,9 +5057,13 @@ const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: numb
   });
   const scrollBody = tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");
   if (scrollBody) {
+    scrollBody.scrollTop = restoreTileMenuScrollTop(state.tileActionMenu.scrollTopByTab, activeTab);
     scrollBody.ontouchstart = (event) => event.stopPropagation();
     scrollBody.ontouchmove = (event) => event.stopPropagation();
     scrollBody.onwheel = (event) => event.stopPropagation();
+    scrollBody.onscroll = () => {
+      state.tileActionMenu.scrollTopByTab = rememberTileMenuScrollTop(state.tileActionMenu, scrollBody.scrollTop);
+    };
   }
 };
 
@@ -5062,6 +5072,7 @@ const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number):
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = key(tile.x, tile.y);
+  state.tileActionMenu.scrollTopByTab = {};
   const view = tileMenuViewForTile(tile);
   state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
   renderTileActionMenu(view, clientX, clientY);
@@ -5106,6 +5117,7 @@ const openBulkTileActionMenu = (targetKeys: string[], clientX: number, clientY: 
   state.tileActionMenu.bulkKeys = targetKeys;
   state.tileActionMenu.currentTileKey = "";
   state.tileActionMenu.activeTab = "actions";
+  state.tileActionMenu.scrollTopByTab = {};
   renderTileActionMenu(
     {
       title: "Tile Selection",

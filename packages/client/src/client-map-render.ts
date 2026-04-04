@@ -185,31 +185,10 @@ const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
   const parsed = Number.parseInt(full, 16);
   return { r: (parsed >> 16) & 255, g: (parsed >> 8) & 255, b: parsed & 255 };
 };
-const rgbToHex = (r: number, g: number, b: number): string =>
-  `#${[r, g, b].map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0")).join("")}`;
-const blendHex = (base: string, target: string, amount: number): string => {
-  if (!base.startsWith("#") || !target.startsWith("#")) return base;
-  const a = hexToRgb(base);
-  const b = hexToRgb(target);
-  return rgbToHex(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount, a.b + (b.b - a.b) * amount);
-};
-const tintTargetForStyle = (style: EmpireVisualStyle | undefined): string | undefined => {
-  if (!style) return undefined;
-  if (style.secondaryTint === "IRON") return "#3d4755";
-  if (style.secondaryTint === "SUPPLY") return "#6b4f2e";
-  if (style.secondaryTint === "FOOD") return "#718b42";
-  if (style.secondaryTint === "CRYSTAL") return "#4677b8";
-  return undefined;
-};
-
 export const effectiveOverlayColor = (
   ownerId: string,
   deps: { ownerColor: (ownerId: string) => string; visualStyleForOwner: VisualStyleLookup }
-): string => {
-  const base = deps.ownerColor(ownerId);
-  const tintTarget = tintTargetForStyle(deps.visualStyleForOwner(ownerId));
-  return tintTarget ? blendHex(base, tintTarget, 0.24) : base;
-};
+): string => deps.ownerColor(ownerId);
 
 export const borderColorForOwner = (
   ownerId: string,
