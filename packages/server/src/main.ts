@@ -7523,12 +7523,11 @@ const executeUnifiedGameplayMessage = async (
 
   if (msg.type === "CANCEL_STRUCTURE_BUILD") {
     const tk = key(wrapX(msg.x, WORLD_WIDTH), wrapY(msg.y, WORLD_HEIGHT));
-    const structure = economicStructuresByTile.get(tk);
-    if (!structure || structure.ownerId !== actor.id || (structure.status !== "under_construction" && structure.status !== "removing")) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "STRUCTURE_CANCEL_INVALID", message: "no removable structure action on tile" }));
+    const out = cancelInProgressBuildForPlayer(actor, tk);
+    if (!out.ok) {
+      socket.send(JSON.stringify({ type: "ERROR", code: out.code, message: out.message }));
       return true;
     }
-    cancelEconomicStructureBuild(tk);
     updateOwnership(msg.x, msg.y, actor.id);
     return true;
   }
@@ -12539,6 +12538,33 @@ const cancelEconomicStructureBuild = (tileKey: TileKey): void => {
   }
 };
 
+const cancelInProgressBuildForPlayer = (
+  actor: Player,
+  tileKey: TileKey
+): { ok: true } | { ok: false; code: string; message: string } => {
+  const fort = fortsByTile.get(tileKey);
+  if (fort?.ownerId === actor.id && fort.status === "under_construction") {
+    cancelFortBuild(tileKey);
+    return { ok: true };
+  }
+  const observatory = observatoriesByTile.get(tileKey);
+  if (observatory?.ownerId === actor.id && observatory.status === "under_construction") {
+    cancelObservatoryBuild(tileKey);
+    return { ok: true };
+  }
+  const siege = siegeOutpostsByTile.get(tileKey);
+  if (siege?.ownerId === actor.id && siege.status === "under_construction") {
+    cancelSiegeOutpostBuild(tileKey);
+    return { ok: true };
+  }
+  const structure = economicStructuresByTile.get(tileKey);
+  if (structure?.ownerId === actor.id && (structure.status === "under_construction" || structure.status === "removing")) {
+    cancelEconomicStructureBuild(tileKey);
+    return { ok: true };
+  }
+  return { ok: false, code: "STRUCTURE_CANCEL_INVALID", message: "no removable structure action on tile" };
+};
+
 const completeEconomicStructureRemoval = (tileKey: TileKey): void => {
   const structure = economicStructuresByTile.get(tileKey);
   if (!structure || structure.status !== "removing") return;
@@ -15780,12 +15806,11 @@ app.post("/admin/world/regenerate", async () => {
 
     if (msg.type === "CANCEL_STRUCTURE_BUILD") {
       const tk = key(wrapX(msg.x, WORLD_WIDTH), wrapY(msg.y, WORLD_HEIGHT));
-      const structure = economicStructuresByTile.get(tk);
-      if (!structure || structure.ownerId !== actor.id || (structure.status !== "under_construction" && structure.status !== "removing")) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "STRUCTURE_CANCEL_INVALID", message: "no removable structure action on tile" }));
+      const out = cancelInProgressBuildForPlayer(actor, tk);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: out.code, message: out.message }));
         return;
       }
-      cancelEconomicStructureBuild(tk);
       updateOwnership(msg.x, msg.y, actor.id);
       return;
     }

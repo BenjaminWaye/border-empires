@@ -15,6 +15,7 @@ export const hideTileActionMenu = (
   state.tileActionMenu.bulkKeys = [];
   state.tileActionMenu.currentTileKey = "";
   state.tileActionMenu.activeTab = "overview";
+  state.tileActionMenu.renderSignature = "";
   tileActionMenuEl.style.display = "none";
   tileActionMenuEl.innerHTML = "";
 };
