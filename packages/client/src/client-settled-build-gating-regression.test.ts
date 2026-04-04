@@ -7,7 +7,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 describe("settled build gating regression guard", () => {
   it("keeps wooden forts and light outposts restricted to settled tiles in both menus", () => {
-    const source = readFileSync(resolve(here, "./main.ts"), "utf8");
+    const source =
+      readFileSync(resolve(here, "./main.ts"), "utf8") +
+      readFileSync(resolve(here, "./client-tile-action-logic.ts"), "utf8");
 
     expect(source).toContain('if (tile.ownershipState === "SETTLED" && !tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile && !state.techIds.includes("masonry"))');
     expect(source).toContain('if (tile.ownershipState === "SETTLED" && !tile.fort && !tile.siegeOutpost && !tile.observatory && !tile.economicStructure && !isSettlementTile && !state.techIds.includes("leatherworking"))');
