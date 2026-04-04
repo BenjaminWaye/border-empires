@@ -111,6 +111,15 @@ import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { createAiScheduler } from "./ai/scheduler.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
+import {
+  createAiIndexStore
+} from "./sim/ai-index-store.js";
+import {
+  createSimulationService,
+  type QueuedSimulationMessage,
+  type SimulationCommand,
+  type SystemSimulationCommand
+} from "./sim/service.js";
 import { buildChunkFromInput, serializeChunkBatchBodies, serializeChunkBody, type ChunkBuildInput, type ChunkPayloadChunk } from "./chunk/serializer-shared.js";
 import {
   createChunkSnapshotController,
@@ -1514,7 +1523,6 @@ const socketsByPlayer = new Map<string, Ws>();
 const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
 const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
 const aiVictoryPathByPlayer = new Map<string, AiSeasonVictoryPathId>();
-const aiStrategicStateByPlayer = new Map<string, AiStrategicState>();
 
 const normalizedPlayerHandle = (name: string): string => {
   const cleaned = name.replace(/\s+/g, " ").trim();
@@ -4448,13 +4456,10 @@ const clearWorldProgressForSeason = (): void => {
   repeatFights.clear();
   collectVisibleCooldownByPlayer.clear();
   cachedVisibilitySnapshotByPlayer.clear();
-  cachedAiTerritoryStructureByPlayer.clear();
-  cachedAiPlanningStaticByPlayer.clear();
-  aiTerritoryVersionByPlayer.clear();
+  aiIndexStore.clearAll();
   aiTurnDebugByPlayer.clear();
   aiLastActionFailureByPlayer.clear();
   aiVictoryPathByPlayer.clear();
-  aiStrategicStateByPlayer.clear();
   cachedAiCompetitionContext = undefined;
   cachedChunkSnapshotByPlayer.clear();
   cachedSummaryChunkByChunkKey.clear();
@@ -4791,12 +4796,13 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
   const sabotage = siphonByTile.get(tk);
   const breachShock = breachShockByTile.get(tk);
   const regionType = terrain === "LAND" ? regionTypeAtLocal(wx, wy) : undefined;
+  const bootstrapMode = mode === "bootstrap";
   const tile: Tile = {
     x: wx,
     y: wy,
     terrain,
     detailLevel: "summary",
-    lastChangedAt: mode === "thin" ? 0 : now()
+    lastChangedAt: mode === "standard" ? now() : 0
   };
   if (resource && !dock) tile.resource = resource;
   if (ownerId) {
@@ -4807,10 +4813,10 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
   if (terrain === "LAND" && clusterType) tile.clusterType = clusterType;
   if (terrain === "LAND" && regionType) tile.regionType = regionType;
   if (dock) tile.dockId = dock.dockId;
-  if (terrain === "LAND") tile.shardSite = shardSite ?? null;
+  if (terrain === "LAND" && !bootstrapMode) tile.shardSite = shardSite ?? null;
   if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
-  if (town) tile.town = mode === "thin" ? thinTownSummaryForTile(town, ownerId) : townSummaryForTile(town, ownerId);
-  if (fort) {
+  if (town && !bootstrapMode) tile.town = mode === "thin" ? thinTownSummaryForTile(town, ownerId) : townSummaryForTile(town, ownerId);
+  if (fort && !bootstrapMode) {
     const fortView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
       ownerId: fort.ownerId,
       status: fort.status
@@ -4818,14 +4824,14 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
     if (fort.status === "under_construction") fortView.completesAt = fort.completesAt;
     tile.fort = fortView;
   }
-  if (observatory) {
+  if (observatory && !bootstrapMode) {
     tile.observatory = {
       ownerId: observatory.ownerId,
       status: mode === "thin" ? observatory.status : observatoryStatusForTile(observatory.ownerId, observatory.tileKey)
     };
     if (tile.observatory.status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
   }
-  if (siegeOutpost) {
+  if (siegeOutpost && !bootstrapMode) {
     const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
       ownerId: siegeOutpost.ownerId,
       status: siegeOutpost.status
@@ -4833,7 +4839,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
     if (siegeOutpost.status === "under_construction") siegeView.completesAt = siegeOutpost.completesAt;
     tile.siegeOutpost = siegeView;
   }
-  if (sabotage && sabotage.endsAt > now()) {
+  if (sabotage && sabotage.endsAt > now() && !bootstrapMode) {
     tile.sabotage = {
       ownerId: sabotage.casterPlayerId,
       endsAt: sabotage.endsAt,
@@ -4841,7 +4847,7 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
     };
   }
   const economicStructure = economicStructuresByTile.get(tk);
-  if (economicStructure) {
+  if (economicStructure && !bootstrapMode) {
     tile.economicStructure = {
       ownerId: economicStructure.ownerId,
       type: economicStructure.type,
@@ -4851,7 +4857,9 @@ const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"
       tile.economicStructure.completesAt = economicStructure.completesAt;
     }
   }
-  applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, terrain);
+  if (!bootstrapMode) {
+    applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, terrain);
+  }
   tile.fogged = false;
   return tile;
 };
@@ -7454,11 +7462,6 @@ const executeUnifiedGameplayMessage = async (
     return true;
   }
 
-  if (!queuedExecution && socket !== NOOP_WS && isQueuedSimulationMessage(msg)) {
-    enqueueSimulationCommand(actor, msg, socket, "human");
-    return true;
-  }
-
   if (msg.type === "SETTLE") {
     const out = startSettlement(actor, msg.x, msg.y);
     if (!out.ok) {
@@ -9566,118 +9569,18 @@ const cachedAiTurnAnalysisForPlayer = (
   return analysis;
 };
 
-type SimulationCommand =
-  | { type: "EXPAND"; fromX: number; fromY: number; toX: number; toY: number }
-  | { type: "ATTACK"; fromX: number; fromY: number; toX: number; toY: number }
-  | { type: "SETTLE"; x: number; y: number }
-  | { type: "BUILD_FORT"; x: number; y: number }
-  | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
-
-type QueuedSimulationMessage =
-  | SimulationCommand
-  | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number };
-
-type SystemSimulationCommand =
-  | { type: "BARBARIAN_ACTION"; agentId: string }
-  | { type: "BARBARIAN_MAINTENANCE" };
-
-type SimulationCommandJob = {
-  actor?: Player;
-  command: QueuedSimulationMessage | SystemSimulationCommand;
-  socket: Ws;
-  priority: "human" | "system" | "ai";
-};
-
-const simulationCommandWorkerState: {
-  humanQueue: SimulationCommandJob[];
-  systemQueue: SimulationCommandJob[];
-  aiQueue: SimulationCommandJob[];
-  draining: boolean;
-  lastDequeuedPriority: "human" | "system" | "ai" | "idle";
-  lastDrainAt: number;
-  lastDrainElapsedMs: number;
-  lastDrainCommands: number;
-  lastDrainHumanCommands: number;
-  lastDrainSystemCommands: number;
-  lastDrainAiCommands: number;
-} = {
-  humanQueue: [],
-  systemQueue: [],
-  aiQueue: [],
-  draining: false,
-  lastDequeuedPriority: "idle",
-  lastDrainAt: 0,
-  lastDrainElapsedMs: 0,
-  lastDrainCommands: 0,
-  lastDrainHumanCommands: 0,
-  lastDrainSystemCommands: 0,
-  lastDrainAiCommands: 0
-};
-
-const simulationCommandQueueDepth = (): number =>
-  simulationCommandWorkerState.humanQueue.length +
-  simulationCommandWorkerState.systemQueue.length +
-  simulationCommandWorkerState.aiQueue.length;
-
-const aiTerritoryVersionByPlayer = new Map<string, number>();
-const cachedAiTerritoryStructureByPlayer = new Map<string, AiTerritoryStructureCache>();
-const cachedAiPlanningStaticByPlayer = new Map<string, AiPlanningStaticCache>();
-const cachedAiSettlementSelectorByPlayer = new Map<string, AiSettlementSelectorCache>();
-
-const aiTerritoryVersionForPlayer = (playerId: string): number => aiTerritoryVersionByPlayer.get(playerId) ?? 0;
-const markAiTerritoryDirtyForPlayers = (playerIds: Iterable<string>): void => {
-  for (const playerId of playerIds) {
-    aiTerritoryVersionByPlayer.set(playerId, aiTerritoryVersionForPlayer(playerId) + 1);
-    cachedAiTerritoryStructureByPlayer.delete(playerId);
-    cachedAiPlanningStaticByPlayer.delete(playerId);
-    cachedAiSettlementSelectorByPlayer.delete(playerId);
-    aiStrategicStateByPlayer.delete(playerId);
-  }
-};
-
-const queueSimulationDrain = (): void => {
-  if (simulationCommandWorkerState.draining) return;
-  simulationCommandWorkerState.draining = true;
-  setTimeout(() => {
-    void drainSimulationCommandQueue();
-  }, 0);
-};
-
-const hasQueuedSystemSimulationCommand = (predicate: (job: SimulationCommandJob) => boolean): boolean =>
-  simulationCommandWorkerState.systemQueue.some(predicate);
-
-const isQueuedSimulationMessage = (msg: ClientMessage): msg is QueuedSimulationMessage =>
-  msg.type === "SETTLE" ||
-  msg.type === "BUILD_FORT" ||
-  msg.type === "BUILD_OBSERVATORY" ||
-  msg.type === "BUILD_ECONOMIC_STRUCTURE" ||
-  msg.type === "BUILD_SIEGE_OUTPOST" ||
-  msg.type === "ATTACK" ||
-  msg.type === "EXPAND";
-
-const dequeueSimulationCommandJob = (
-  drainedHumanCommands: number,
-  drainedSystemCommands: number,
-  drainedAiCommands: number
-): SimulationCommandJob | undefined => {
-  const humanPending = simulationCommandWorkerState.humanQueue.length > 0;
-  const systemPending = simulationCommandWorkerState.systemQueue.length > 0;
-  const aiPending = simulationCommandWorkerState.aiQueue.length > 0;
-  if (!humanPending && !systemPending && !aiPending) return undefined;
-  if (humanPending && (drainedHumanCommands < SIM_DRAIN_HUMAN_QUOTA || (!systemPending && !aiPending))) {
-    return simulationCommandWorkerState.humanQueue.shift();
-  }
-  if (systemPending && (drainedSystemCommands < SIM_DRAIN_SYSTEM_QUOTA || (!humanPending && !aiPending))) {
-    return simulationCommandWorkerState.systemQueue.shift();
-  }
-  if (aiPending && (drainedAiCommands < SIM_DRAIN_AI_QUOTA || !humanPending)) {
-    return simulationCommandWorkerState.aiQueue.shift();
-  }
-  if (humanPending) return simulationCommandWorkerState.humanQueue.shift();
-  if (systemPending) return simulationCommandWorkerState.systemQueue.shift();
-  return simulationCommandWorkerState.aiQueue.shift();
-};
+const aiIndexStore = createAiIndexStore<
+  AiTerritoryStructureCache,
+  AiPlanningStaticCache,
+  AiSettlementSelectorCache,
+  AiStrategicState
+>();
+const cachedAiTerritoryStructureByPlayer = aiIndexStore.territoryStructureByPlayer;
+const cachedAiPlanningStaticByPlayer = aiIndexStore.planningStaticByPlayer;
+const cachedAiSettlementSelectorByPlayer = aiIndexStore.settlementSelectorByPlayer;
+const aiStrategicStateByPlayer = aiIndexStore.strategicStateByPlayer;
+const aiTerritoryVersionForPlayer = aiIndexStore.territoryVersionForPlayer;
+const markAiTerritoryDirtyForPlayers = aiIndexStore.markTerritoryDirtyForPlayers;
 
 const executeSystemSimulationCommand = async (command: SystemSimulationCommand): Promise<void> => {
   if (command.type === "BARBARIAN_MAINTENANCE") {
@@ -9689,67 +9592,33 @@ const executeSystemSimulationCommand = async (command: SystemSimulationCommand):
   runBarbarianAction(live);
 };
 
-const drainSimulationCommandQueue = async (): Promise<void> => {
-  let drainedCommands = 0;
-  let drainedHumanCommands = 0;
-  let drainedSystemCommands = 0;
-  let drainedAiCommands = 0;
-  const drainStartedAt = now();
-  while (drainedCommands < SIM_DRAIN_MAX_COMMANDS && now() - drainStartedAt < SIM_DRAIN_BUDGET_MS) {
-    const job = dequeueSimulationCommandJob(drainedHumanCommands, drainedSystemCommands, drainedAiCommands);
-    if (!job) break;
-    simulationCommandWorkerState.lastDequeuedPriority = job.priority;
-    try {
-      if (job.priority === "system") {
-        await executeSystemSimulationCommand(job.command as SystemSimulationCommand);
-      } else {
-        await executeUnifiedGameplayMessage(job.actor!, job.command as ClientMessage, job.socket, true);
-      }
-    } catch (err) {
-      logRuntimeError("simulation command failed", err);
-    }
-    drainedCommands += 1;
-    if (job.priority === "human") drainedHumanCommands += 1;
-    else if (job.priority === "system") drainedSystemCommands += 1;
-    else drainedAiCommands += 1;
-  }
-  simulationCommandWorkerState.lastDrainAt = now();
-  simulationCommandWorkerState.lastDrainElapsedMs = simulationCommandWorkerState.lastDrainAt - drainStartedAt;
-  simulationCommandWorkerState.lastDrainCommands = drainedCommands;
-  simulationCommandWorkerState.lastDrainHumanCommands = drainedHumanCommands;
-  simulationCommandWorkerState.lastDrainSystemCommands = drainedSystemCommands;
-  simulationCommandWorkerState.lastDrainAiCommands = drainedAiCommands;
-  if (simulationCommandQueueDepth() <= 0) {
-    simulationCommandWorkerState.draining = false;
-    simulationCommandWorkerState.lastDequeuedPriority = "idle";
-    return;
-  }
-  setTimeout(() => {
-    void drainSimulationCommandQueue();
-  }, 0);
-};
+const simulationService = createSimulationService<Player, Ws>({
+  now,
+  drainBudgetMs: SIM_DRAIN_BUDGET_MS,
+  drainMaxCommands: SIM_DRAIN_MAX_COMMANDS,
+  drainHumanQuota: SIM_DRAIN_HUMAN_QUOTA,
+  drainSystemQuota: SIM_DRAIN_SYSTEM_QUOTA,
+  drainAiQuota: SIM_DRAIN_AI_QUOTA,
+  queueTask: (fn) => {
+    setTimeout(fn, 0);
+  },
+  executeGatewayMessage: executeUnifiedGameplayMessage,
+  executeSystemCommand: executeSystemSimulationCommand,
+  onError: logRuntimeError,
+  noopSocket: NOOP_WS
+});
 
-const enqueueSimulationCommand = (
-  actor: Player | undefined,
-  command: QueuedSimulationMessage | SystemSimulationCommand,
-  socket: Ws,
-  priority: "human" | "system" | "ai"
-): void => {
-  const job: SimulationCommandJob = actor
-    ? { actor, command, socket, priority }
-    : { command, socket, priority };
-  if (priority === "human") simulationCommandWorkerState.humanQueue.push(job);
-  else if (priority === "system") simulationCommandWorkerState.systemQueue.push(job);
-  else simulationCommandWorkerState.aiQueue.push(job);
-  queueSimulationDrain();
-};
+const simulationCommandWorkerState = simulationService.state;
+const simulationCommandQueueDepth = simulationService.queueDepth;
+const hasQueuedSystemSimulationCommand = simulationService.hasQueuedSystemCommand;
+const isQueuedSimulationMessage = simulationService.isQueuedSimulationMessage;
 
 const executeSimulationCommand = (actor: Player, command: SimulationCommand): void => {
-  enqueueSimulationCommand(actor, command, NOOP_WS, "ai");
+  simulationService.enqueueAiCommand(actor, command);
 };
 
 const enqueueSystemSimulationCommand = (command: SystemSimulationCommand): void => {
-  enqueueSimulationCommand(undefined, command, NOOP_WS, "system");
+  simulationService.enqueueSystemCommand(command);
 };
 
 const executeAiGoapAction = (
@@ -10893,7 +10762,7 @@ const maybeHandleAiShardOrTruce = async (
 ): Promise<boolean> => {
   const shardTile = bestAiCollectShardTile(actor);
   if (shardTile) {
-    await executeUnifiedGameplayMessage(actor, { type: "COLLECT_SHARD", x: shardTile.x, y: shardTile.y }, NOOP_WS, true);
+    await simulationService.executeDirectMessage(actor, { type: "COLLECT_SHARD", x: shardTile.x, y: shardTile.y });
     return true;
   }
 
@@ -10906,17 +10775,16 @@ const maybeHandleAiShardOrTruce = async (
 
   for (const request of truceRequests.values()) {
     if (request.toPlayerId !== actor.id || request.fromPlayerId !== target.id || request.expiresAt < now()) continue;
-    await executeUnifiedGameplayMessage(actor, { type: "TRUCE_ACCEPT", requestId: request.id }, NOOP_WS, true);
+    await simulationService.executeDirectMessage(actor, { type: "TRUCE_ACCEPT", requestId: request.id });
     return true;
   }
 
   if (!planningSnapshot.canAffordFrontierAction && !planningSnapshot.canAffordSettlement) {
-    await executeUnifiedGameplayMessage(
-      actor,
-      { type: "TRUCE_REQUEST", targetPlayerName: target.name, durationHours: isFinalPushActive() ? 12 : 24 },
-      NOOP_WS,
-      true
-    );
+    await simulationService.executeDirectMessage(actor, {
+      type: "TRUCE_REQUEST",
+      targetPlayerName: target.name,
+      durationHours: isFinalPushActive() ? 12 : 24
+    });
     return true;
   }
 
@@ -15564,7 +15432,7 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
     const actor = authedPlayer;
-    if (await executeUnifiedGameplayMessage(actor, msg, socket)) return;
+    if (await simulationService.handleGatewayMessage(actor, msg, socket)) return;
 
     if (msg.type === "PING") {
       socket.send(JSON.stringify({ type: "PONG", t: msg.t }));

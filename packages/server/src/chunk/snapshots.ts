@@ -6,7 +6,7 @@ export type VisibilitySnapshot = {
   visibleMask: Uint8Array;
 };
 
-export type ChunkSummaryMode = "thin" | "standard";
+export type ChunkSummaryMode = "bootstrap" | "thin" | "standard";
 
 export type ChunkFollowUpStage = {
   sub: { cx: number; cy: number; radius: number };
@@ -245,7 +245,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       next = {
         sub: { ...sub, radius },
         chunkCoords: chunkCoordsForSubscription({ ...sub, radius }, radius),
-        summaryMode: "thin",
+        summaryMode: radius === deps.initialBootstrapRadius + 1 ? "thin" : "bootstrap",
         batchSize: 1,
         ...(next ? { next } : {})
       };
