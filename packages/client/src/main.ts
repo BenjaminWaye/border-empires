@@ -1,24 +1,8 @@
 import "./style.css";
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
-import {
-  GoogleAuthProvider,
-  browserLocalPersistence,
-  createUserWithEmailAndPassword,
-  getAuth,
-  isSignInWithEmailLink,
-  onAuthStateChanged,
-  sendSignInLinkToEmail,
-  setPersistence,
-  signInWithEmailAndPassword,
-  signInWithEmailLink,
-  signInWithPopup,
-  signOut,
-  updateProfile,
-  type User
-} from "firebase/auth";
+import { GoogleAuthProvider, getAuth } from "firebase/auth";
 import {
   CHUNK_SIZE,
-  DEVELOPMENT_PROCESS_LIMIT,
   ECONOMIC_STRUCTURE_BUILD_MS,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
@@ -52,8 +36,7 @@ import {
   frontierClaimCostLabelForTile,
   frontierClaimDurationMsForTile,
   guideSteps,
-  isForestTile,
-  settleDurationMsForTile
+  isForestTile
 } from "./client-constants.js";
 import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
@@ -69,12 +52,8 @@ import {
   showShardAlert as showShardAlertFromModule
 } from "./client-alerts.js";
 import {
-  authLabelForUser as authLabelForUserFromModule,
-  seedProfileSetupFields as seedProfileSetupFieldsFromModule,
-  setAuthStatus as setAuthStatusFromModule,
-  syncAuthOverlay as syncAuthOverlayFromModule,
-  syncAuthPanelState as syncAuthPanelStateFromModule
-} from "./client-auth-ui.js";
+  createClientAuthFlow
+} from "./client-auth-flow.js";
 import {
   drawStartingExpansionArrow as drawStartingExpansionArrowFromModule,
   renderCaptureProgress as renderCaptureProgressFromModule,
@@ -101,6 +80,10 @@ import {
   isDockRouteVisibleForPlayer as isDockRouteVisibleForPlayerFromModule,
   markDockDiscovered as markDockDiscoveredFromModule
 } from "./client-dock-routes.js";
+import {
+  computeDragPreview as computeDragPreviewFromModule,
+  worldTileRawFromPointer as worldTileRawFromPointerFromModule
+} from "./client-drag-selection.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import { shouldFinalizePredictedCombat, wasPredictedCombatAlreadyShown } from "./client-predicted-combat.js";
@@ -110,7 +93,9 @@ import {
   passiveTileGuidanceHtml as passiveTileGuidanceHtmlFromModule,
   tileHistoryLines as tileHistoryLinesFromModule
 } from "./client-hover-html.js";
-import { busyDevelopmentProcessCount, hasQueuedSettlementForTile } from "./client-development-queue.js";
+import { renderClientHud, resizeClientViewport } from "./client-hud.js";
+import { bindClientUiControls, showClientHoldBuildMenu } from "./client-ui-controls.js";
+import { busyDevelopmentProcessCount } from "./client-development-queue.js";
 import { bindClientMapInput } from "./client-map-input.js";
 import {
   bindTechTreeDragScroll as bindTechTreeDragScrollFromModule,
@@ -121,6 +106,15 @@ import {
   setActivePanel as setActivePanelFromModule,
   viewportSize as viewportSizeFromModule
 } from "./client-panel-nav.js";
+import {
+  activeTruceWithPlayerFromState,
+  breakAllianceFromUi,
+  breakTruceFromUi,
+  chooseTechFromUi,
+  explainActionFailureFromServer,
+  sendAllianceRequestFromUi,
+  sendTruceRequestFromUi
+} from "./client-player-actions.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
@@ -506,11 +500,6 @@ const firebaseConfig = (() => {
 const firebaseApp = firebaseConfig ? (getApps()[0] ?? initializeApp(firebaseConfig)) : undefined;
 const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : undefined;
 const googleProvider = firebaseAuth ? new GoogleAuthProvider() : undefined;
-let authToken = "";
-let authUid = "";
-let authEmailLinkSentTo = "";
-let authEmailLinkPending = false;
-const EMAIL_LINK_STORAGE_KEY = "be_auth_email_link";
 miniMapBase.width = miniMapEl.width;
 miniMapBase.height = miniMapEl.height;
 const miniMapBaseCtx = miniMapBase.getContext("2d");
@@ -1758,671 +1747,7 @@ const affordableTechChoicesCount = (): number => {
   return n;
 };
 
-const setAuthStatus = (message: string, tone: "normal" | "error" = "normal"): void =>
-  setAuthStatusFromModule(state, authStatusEl, message, tone);
-
-const syncAuthPanelState = (): void =>
-  syncAuthPanelStateFromModule(state, {
-    authEmailLinkSentTo,
-    authPanelEl,
-    authEmailSentAddressEl,
-    authProfileColorEl,
-    authColorPresetButtons
-  });
-
-const syncAuthOverlay = (): void =>
-  syncAuthOverlayFromModule(state, {
-    authOverlayEl,
-    authBusyModalEl,
-    authLoginBtn,
-    authRegisterBtn,
-    authEmailLinkBtn,
-    authGoogleBtn,
-    authEmailEl,
-    authPasswordEl,
-    authDisplayNameEl,
-    authEmailResetBtn,
-    authProfileNameEl,
-    authProfileColorEl,
-    authProfileSaveBtn,
-    authBusyTitleEl,
-    authBusyCopyEl,
-    authStatusEl,
-    syncAuthPanelState,
-    setAuthStatus
-  });
-
-const authLabelForUser = (user: User): string => authLabelForUserFromModule(user);
-
-const seedProfileSetupFields = (name?: string, color?: string): void =>
-  seedProfileSetupFieldsFromModule(
-    {
-      authProfileNameEl,
-      authProfileColorEl,
-      syncAuthPanelState
-    },
-    name,
-    color
-  );
-
-const authenticateSocket = async (forceRefresh = false): Promise<void> => {
-  if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN) return;
-  authToken = await firebaseAuth.currentUser.getIdToken(forceRefresh);
-  authUid = firebaseAuth.currentUser.uid;
-  ws.send(JSON.stringify({ type: "AUTH", token: authToken }));
-};
-
-const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
-  if (!firebaseAuth) return;
-  const email = emailRaw.trim();
-  if (!email) {
-    setAuthStatus("Enter the email address that received the sign-in link.", "error");
-    syncAuthOverlay();
-    return;
-  }
-  state.authBusy = true;
-  setAuthStatus("Completing email link sign-in...");
-  syncAuthOverlay();
-  try {
-    await signInWithEmailLink(firebaseAuth, email, window.location.href);
-    authEmailLinkPending = false;
-    authEmailLinkSentTo = "";
-    window.localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
-    const cleanUrl = new URL(window.location.href);
-    cleanUrl.search = "";
-    cleanUrl.hash = "";
-    window.history.replaceState({}, document.title, cleanUrl.toString());
-  } catch (error) {
-    setAuthStatus(error instanceof Error ? error.message : "Email link sign-in failed.", "error");
-  } finally {
-    state.authBusy = false;
-    syncAuthOverlay();
-  }
-};
-
-const replayToolbarHtml = (): string => {
-  return `<div class="mini-map-toolbar">
-    <span>Minimap (${state.camX}, ${state.camY})</span>
-  </div>`;
-};
-
-const replayPanelHtml = (): string => "";
-
-const renderHud = (): void => {
-  if (
-    !state.guide.completed &&
-    !state.guide.autoOpened &&
-    state.connection === "initialized" &&
-    state.firstChunkAt > 0 &&
-    authOverlayEl.style.display !== "grid"
-  ) {
-    state.guide.open = true;
-    state.guide.autoOpened = true;
-    storageSet(GUIDE_AUTO_OPEN_STORAGE_KEY, "1");
-  }
-  const collectVisibleCooldownRemaining = Math.max(0, state.collectVisibleCooldownUntil - Date.now());
-  const collectVisibleReady = collectVisibleCooldownRemaining <= 0;
-  const collectSummary = visibleCollectSummary();
-  const development = developmentSlotSummary();
-  const mobile = isMobile();
-  const connClass = state.connection === "disconnected" ? "warning" : "normal";
-  const pointsClass =
-    Date.now() < state.goldAnimUntil ? (state.goldAnimDir > 0 ? " delta-up" : state.goldAnimDir < 0 ? " delta-down" : "") : "";
-  const defClass =
-    Date.now() < state.defensibilityAnimUntil
-      ? state.defensibilityAnimDir > 0
-        ? " delta-up"
-        : state.defensibilityAnimDir < 0
-          ? " delta-down"
-          : ""
-      : "";
-  const netGoldPerMinute = state.incomePerMinute - state.upkeepPerMinute.gold;
-  const goldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(1)}/m`;
-  const mobileGoldRateText = `${netGoldPerMinute > 0 ? "+" : ""}${netGoldPerMinute.toFixed(0)}/m`;
-  const goldRateClass = rateToneClass(netGoldPerMinute);
-  const manpowerRateText = `${state.manpowerRegenPerMinute > 0 ? "+" : ""}${state.manpowerRegenPerMinute.toFixed(0)}/m`;
-  const showManpowerRate = state.manpower + 0.001 < state.manpowerCap;
-  const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
-  statsChipsEl.innerHTML = `
-    ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
-    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
-    <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}</strong></button>
-    <button class="stat-chip stat-chip-def${defClass}" type="button" data-defensibility-open="true" title="Compact shapes with fewer exposed borders defend better. Tap for a breakdown."><span>${mobile ? "Def" : "Defensibility"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
-    <div class="stat-chip stat-chip-dev${development.available === 0 ? " is-full" : ""}" title="Development slots limit how many settles and constructions can run at once.">
-      <span>${mobile ? "Dev" : "Development"}</span>
-      <strong>${development.busy}/${development.limit}</strong>
-    </div>
-    ${state.showWeakDefensibility ? `<button class="stat-chip stat-chip-weak-def" type="button" data-toggle-weak-def="true"><span>Def</span><strong>Hide Weak</strong></button>` : ""}
-    ${strategicRibbonHtml(
-      state.strategicResources,
-      state.strategicProductionPerMinute,
-      state.upkeepPerMinute,
-      state.strategicAnim,
-      rateToneClass
-    )}
-  `;
-  collectVisibleDesktopBtn.disabled = !collectVisibleReady;
-  collectVisibleMobileBtn.disabled = !collectVisibleReady;
-  const collectReady = collectVisibleReady && collectSummary.tileCount > 0;
-  const collectMeta = !collectVisibleReady ? `Cooldown ${formatCooldownShort(collectVisibleCooldownRemaining)}` : collectReady ? "Ready to collect" : "Tap to gather";
-  collectVisibleDesktopMetaEl.textContent = collectMeta;
-  collectVisibleMobileMetaEl.textContent = collectMeta;
-  collectVisibleDesktopBtn.classList.toggle("is-attention", collectReady);
-  collectVisibleMobileBtn.classList.toggle("is-attention", collectReady);
-  const economyButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-economy-open]");
-  economyButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const focus = btn.dataset.economyOpen as EconomyFocusKey | undefined;
-      openEconomyPanel(focus ?? "ALL");
-    };
-  });
-  const defensibilityButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-defensibility-open]");
-  defensibilityButtons.forEach((btn) => {
-    btn.onclick = () => {
-      setActivePanel("defensibility");
-    };
-  });
-  const statPanelButtons = statsChipsEl.querySelectorAll<HTMLButtonElement>("[data-panel]");
-  statPanelButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const panel = btn.dataset.panel as typeof state.activePanel;
-      if (!panel) return;
-      setActivePanel(panel);
-    };
-  });
-  const techReady = state.availableTechPicks > 0 && affordableTechChoicesCount() > 0;
-  const attackAlertUnread = state.unreadAttackAlerts > 0;
-  panelActionButtons.forEach((btn) => {
-    if (btn.dataset.panel === "tech") {
-      btn.innerHTML = techReady
-        ? '<span class="tab-icon">⚡</span><span class="tech-ready-dot" aria-label="upgrade available"></span>'
-        : '<span class="tab-icon">⚡</span>';
-      return;
-    }
-    if (btn.dataset.panel === "feed") {
-      btn.innerHTML = attackAlertUnread
-        ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
-        : '<span class="tab-icon">🔔</span>';
-    }
-  });
-  const coreMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='core']");
-  if (coreMobileBtn) coreMobileBtn.innerHTML = mobileNavLabelHtml("core");
-  const missionsMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='missions']");
-  if (missionsMobileBtn) missionsMobileBtn.innerHTML = mobileNavLabelHtml("missions");
-  const techMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='tech']");
-  if (techMobileBtn) techMobileBtn.innerHTML = mobileNavLabelHtml("tech", { techReady });
-  const socialMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='social']");
-  if (socialMobileBtn) socialMobileBtn.innerHTML = mobileNavLabelHtml("social");
-  const intelMobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='intel']");
-  if (intelMobileBtn) intelMobileBtn.innerHTML = mobileNavLabelHtml("intel", { attackAlertUnread });
-
-  if (state.crystalTargeting.active) {
-    const ability = state.crystalTargeting.ability;
-    const selectedKey = state.selected ? key(state.selected.x, state.selected.y) : "";
-    const selectedOriginKey = selectedKey ? state.crystalTargeting.originByTarget.get(selectedKey) : undefined;
-    const selectedOrigin = selectedOriginKey ? parseKey(selectedOriginKey) : undefined;
-    const validCount = state.crystalTargeting.validTargets.size;
-    const detail =
-      ability === "aether_bridge"
-        ? "Pick a coastal land tile. The server links the nearest settled coast and opens a temporary sea lane."
-        : "Pick an enemy town or resource tile to siphon 50% of its output for 30 minutes.";
-    const status = selectedOrigin
-      ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`
-      : `Valid targets in view: ${validCount}`;
-    targetingOverlayEl.innerHTML = `
-      <div class="targeting-card tone-${crystalTargetingTone(ability)}">
-        <div class="targeting-kicker">Crystal Action Armed</div>
-        <div class="targeting-title">${crystalTargetingTitle(ability)}</div>
-        <div class="targeting-detail">${detail}</div>
-        <div class="targeting-status">${status}</div>
-        <button id="targeting-cancel" class="targeting-cancel-btn" type="button">Cancel</button>
-      </div>
-    `;
-    targetingOverlayEl.style.display = "block";
-    const cancelBtn = targetingOverlayEl.querySelector<HTMLButtonElement>("#targeting-cancel");
-    if (cancelBtn) {
-      cancelBtn.onclick = () => {
-        clearCrystalTargeting();
-        renderHud();
-      };
-    }
-  } else {
-    targetingOverlayEl.style.display = "none";
-    targetingOverlayEl.innerHTML = "";
-  }
-
-  const selected = selectedTile();
-  if (selected) requestTileDetailIfNeeded(selected);
-  selectedEl.innerHTML = passiveTileGuidanceHtml();
-  if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
-    const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
-    if (menuTile) renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);
-  }
-  hoverEl.innerHTML = "";
-  hoverEl.style.display = "none";
-
-  mobileCoreHelpEl.innerHTML = `
-    <div class="mobile-context-block">
-      <div class="mobile-context-label">Tile</div>
-      <div class="mobile-context-value">${passiveTileGuidanceHtml()}</div>
-    </div>
-  `;
-
-  renderCaptureProgress();
-  renderShardAlert();
-  state.replayActive = false;
-  state.replayPlaying = false;
-  miniMapLabelEl.innerHTML = replayToolbarHtml();
-  miniMapReplayEl.innerHTML = replayPanelHtml();
-  const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
-  if (loadingActive) {
-    mapLoadingOverlayEl.style.display = "grid";
-    if (state.connection === "disconnected") {
-      mapLoadingTitleEl.textContent = "Disconnected from server";
-      mapLoadingMetaEl.textContent = "Retrying connection...";
-    } else if (state.connection === "connecting") {
-      mapLoadingTitleEl.textContent = "Connecting to server...";
-      mapLoadingMetaEl.textContent = "Retrying connection...";
-    } else if (state.connection === "connected" || (state.connection === "initialized" && state.firstChunkAt === 0)) {
-      const startAt = state.mapLoadStartedAt || Date.now();
-      const elapsed = ((Date.now() - startAt) / 1000).toFixed(1);
-      mapLoadingTitleEl.textContent = state.authSessionReady ? "Loading nearby land..." : "Syncing empire...";
-      mapLoadingMetaEl.textContent = state.authSessionReady ? `Elapsed ${elapsed}s · chunks ${state.chunkFullCount}` : `Connected to ${wsUrl}`;
-    } else {
-      mapLoadingTitleEl.textContent = "Loading world...";
-      mapLoadingMetaEl.textContent = "Finalizing map render...";
-    }
-  } else {
-    mapLoadingOverlayEl.style.display = "none";
-  }
-
-  const visibleTechChoices = effectiveTechChoices();
-  const choicesSig = `${state.availableTechPicks}|${visibleTechChoices.join("|")}|${state.techCatalog.length}|${state.pendingTechUnlockId}`;
-  const focused = document.activeElement === techPickEl || document.activeElement === mobileTechPickEl;
-  const catalogById = new Map(state.techCatalog.map((t) => [t.id, t]));
-  if (choicesSig !== state.techChoicesSig && !focused) {
-    const previous = state.techUiSelectedId?.trim() || techPickEl.value || mobileTechPickEl.value;
-    techPickEl.innerHTML = "";
-    mobileTechPickEl.innerHTML = "";
-    for (const choice of visibleTechChoices) {
-      const opt = document.createElement("option");
-      opt.value = choice;
-      const info = catalogById.get(choice);
-      opt.textContent = info ? `${info.name}${info.requirements.canResearch ? "" : " (blocked)"}` : choice;
-      techPickEl.append(opt);
-      mobileTechPickEl.append(opt.cloneNode(true));
-    }
-    if (visibleTechChoices.length === 0) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent =
-        state.pendingTechUnlockId
-          ? "Unlock pending..."
-          : state.techIds.length > 0
-            ? "No further techs in your current branch this season"
-            : "No available tech choices";
-      techPickEl.append(opt);
-      mobileTechPickEl.append(opt.cloneNode(true));
-    }
-    const fallback = state.pendingTechUnlockId || visibleTechChoices[0] || state.techCatalog[0]?.id || "";
-    const nextSelected = previous && catalogById.has(previous) ? previous : fallback;
-    const nextPickerValue = visibleTechChoices.includes(nextSelected) ? nextSelected : state.pendingTechUnlockId || visibleTechChoices[0] || "";
-    techPickEl.value = nextPickerValue;
-    mobileTechPickEl.value = nextPickerValue;
-    state.techUiSelectedId = nextSelected;
-    state.techChoicesSig = choicesSig;
-  } else if (!focused) {
-    const selected = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value;
-    if (selected && catalogById.has(selected)) state.techUiSelectedId = selected;
-  }
-  techPointsEl.textContent = "Tech unlocks use gold + strategic resources";
-  mobileTechPointsEl.textContent = "Tech unlocks use gold + strategic resources";
-  techCurrentModsEl.innerHTML = techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown);
-  mobileTechCurrentModsEl.innerHTML = techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown);
-  techChoicesGridEl.innerHTML = renderTechChoiceGrid();
-  mobileTechChoicesGridEl.innerHTML = renderTechChoiceGrid();
-  techDetailCardEl.innerHTML = techDetailsUseOverlay() ? renderTechDetailPrompt() : renderTechDetailCard();
-  mobileTechDetailCardEl.innerHTML = renderTechDetailPrompt();
-  structureInfoOverlayEl.innerHTML = renderStructureInfoOverlay();
-  structureInfoOverlayEl.style.display = state.structureInfoKey ? "grid" : "none";
-  techDetailOverlayEl.innerHTML = techDetailsUseOverlay() ? renderTechDetailOverlay() : "";
-  techDetailOverlayEl.style.display = techDetailsUseOverlay() && state.techDetailOpen ? "grid" : "none";
-  techOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
-  mobileTechOwnedEl.innerHTML = techOwnedHtml(state.techCatalog, effectiveOwnedTechIds(), isPendingTechUnlock);
-  techChoiceDetailsEl.innerHTML = renderTechChoiceDetails();
-  mobileTechChoiceDetailsEl.innerHTML = renderTechChoiceDetails();
-  const techResearchSectionEl = document.querySelector<HTMLDivElement>("#tech-research-section");
-  const mobileTechResearchSectionEl = document.querySelector<HTMLDivElement>("#mobile-tech-research-section");
-  if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
-  if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
-  panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
-  panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !techDetailsUseOverlay());
-  mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
-  panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
-  hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
-  techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
-  mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
-  techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
-  mobileTechTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
-  techTreeExpandToggleEl.onclick = () => {
-    state.techTreeExpanded = !state.techTreeExpanded;
-    renderHud();
-  };
-  mobileTechTreeExpandToggleEl.onclick = () => {
-    state.techTreeExpanded = !state.techTreeExpanded;
-    renderHud();
-  };
-  bindTechTreeDragScroll();
-  const structureInfoButtons = hud.querySelectorAll<HTMLButtonElement>("[data-structure-info]");
-  structureInfoButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const type = btn.dataset.structureInfo as StructureInfoKey | undefined;
-      if (!type) return;
-      state.structureInfoKey = type;
-      renderHud();
-    };
-  });
-  const structureInfoCloseButtons = hud.querySelectorAll<HTMLElement>("[data-structure-info-close]");
-  structureInfoCloseButtons.forEach((btn) => {
-    btn.onclick = () => {
-      state.structureInfoKey = "";
-      renderHud();
-    };
-  });
-  const techDetailCloseButtons = hud.querySelectorAll<HTMLElement>("[data-tech-detail-close]");
-  techDetailCloseButtons.forEach((btn) => {
-    btn.onclick = () => {
-      state.techDetailOpen = false;
-      renderHud();
-    };
-  });
-  const selectedTech = state.techCatalog.find((t) => t.id === state.techUiSelectedId);
-  const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch && !state.pendingTechUnlockId);
-  techChooseBtn.disabled = !canPick;
-  mobileTechChooseBtn.disabled = !canPick;
-
-  const techCardButtons = hud.querySelectorAll<HTMLButtonElement>("[data-tech-card]");
-  techCardButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.dataset.techCard;
-      if (!id) return;
-      state.techUiSelectedId = id;
-      state.techDetailOpen = true;
-      state.domainDetailOpen = false;
-      if (visibleTechChoices.includes(id)) {
-        techPickEl.value = id;
-        mobileTechPickEl.value = id;
-      }
-      renderHud();
-    };
-  });
-  const techUnlockButtons = hud.querySelectorAll<HTMLButtonElement>("[data-tech-unlock]");
-  techUnlockButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.dataset.techUnlock;
-      if (!id) return;
-      chooseTech(id);
-    };
-  });
-  const domainCardButtons = hud.querySelectorAll<HTMLButtonElement>("[data-domain-card]");
-  domainCardButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.dataset.domainCard;
-      if (!id) return;
-      state.domainUiSelectedId = id;
-      state.domainDetailOpen = true;
-      state.techDetailOpen = false;
-      renderHud();
-    };
-  });
-  const domainDetailCloseButtons = hud.querySelectorAll<HTMLElement>("[data-domain-detail-close]");
-  domainDetailCloseButtons.forEach((btn) => {
-    btn.onclick = () => {
-      state.domainDetailOpen = false;
-      renderHud();
-    };
-  });
-  const domainUnlockButtons = hud.querySelectorAll<HTMLButtonElement>("[data-domain-unlock]");
-  domainUnlockButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.dataset.domainUnlock;
-      if (!id) return;
-      sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
-    };
-  });
-  alliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`;
-  mobileAlliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`;
-  allianceRequestsEl.innerHTML = `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`;
-  mobileAllianceRequestsEl.innerHTML = `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`;
-  const socialInspectCardHtml = renderSocialInspectCardHtml({
-    socialInspectPlayerId: state.socialInspectPlayerId,
-    leaderboardOverall: state.leaderboard.overall,
-    allies: state.allies,
-    playerNameForOwner
-  });
-  alliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
-  mobileAlliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
-
-  missionsEl.innerHTML = missionCardsHtml(state.missions);
-  mobilePanelMissionsEl.innerHTML = missionCardsHtml(state.missions);
-  const defensibilityPanelHtml = renderDefensibilityPanelHtml({
-    tiles: state.tiles,
-    me: state.me,
-    defensibilityPct: state.defensibilityPct,
-    showWeakDefensibility: state.showWeakDefensibility,
-    keyFor: key,
-    wrapX,
-    wrapY,
-    terrainAt
-  });
-  panelDefensibilityEl.innerHTML = defensibilityPanelHtml;
-  mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml;
-  const weakDefButtons = hud.querySelectorAll<HTMLButtonElement>("[data-toggle-weak-def]");
-  weakDefButtons.forEach((btn) => {
-    btn.onclick = () => {
-      state.showWeakDefensibility = !state.showWeakDefensibility;
-      const weakTileCount = [...state.tiles.values()].filter((tile) => {
-        if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
-        return (
-          exposedSidesForTile(tile, {
-            tiles: state.tiles,
-            me: state.me,
-            keyFor: key,
-            wrapX,
-            wrapY,
-            terrainAt
-          }).length >= 2
-        );
-      }).length;
-      pushFeed(
-        state.showWeakDefensibility
-          ? `Weak defensibility overlay enabled (${weakTileCount} tiles highlighted).`
-          : "Weak defensibility overlay hidden.",
-        "info",
-        "info"
-      );
-      if (isMobile() && state.mobilePanel === "defensibility") {
-        state.mobilePanel = "core";
-        state.activePanel = null;
-      }
-      requestViewRefresh();
-      renderHud();
-    };
-  });
-  const economyPanelHtml = renderEconomyPanelHtml({
-    focus: state.economyFocus,
-    gold: state.gold,
-    me: state.me,
-    incomePerMinute: state.incomePerMinute,
-    strategicResources: state.strategicResources,
-    strategicProductionPerMinute: state.strategicProductionPerMinute,
-    upkeepPerMinute: state.upkeepPerMinute,
-    upkeepLastTick: state.upkeepLastTick,
-    activeRevealTargetsCount: state.activeRevealTargets.length,
-    tiles: state.tiles.values(),
-    isMobile: window.matchMedia("(max-width: 900px)").matches,
-    prettyToken,
-    resourceIconForKey,
-    rateToneClass,
-    resourceLabel,
-    economicStructureName
-  });
-  panelEconomyEl.innerHTML = economyPanelHtml;
-  mobilePanelEconomyEl.innerHTML = economyPanelHtml;
-  const manpowerPanelHtml = renderManpowerPanelHtml({
-    manpower: state.manpower,
-    manpowerCap: state.manpowerCap,
-    manpowerRegenPerMinute: state.manpowerRegenPerMinute,
-    manpowerBreakdown: state.manpowerBreakdown,
-    formatManpowerAmount,
-    rateToneClass
-  });
-  panelManpowerEl.innerHTML = manpowerPanelHtml;
-  mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
-  leaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
-  mobileLeaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
-  feedEl.innerHTML = feedHtml(state.feed);
-  mobileFeedEl.innerHTML = feedHtml(state.feed);
-
-  panelDomainsContentEl.innerHTML = `
-    <div id="domains-overview-content">
-      ${renderDomainProgressCard()}
-      ${renderDomainChoiceGrid()}
-      ${domainOwnedHtml(state.domainCatalog, state.domainIds)}
-      <div class="card auth-settings-card">
-        <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
-        <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
-      </div>
-    </div>
-    <div id="domains-detail-content">
-      ${renderDomainDetailCard()}
-    </div>
-  `;
-  mobilePanelDomainsEl.innerHTML = panelDomainsContentEl.innerHTML;
-
-  const acceptButtons = hud.querySelectorAll<HTMLButtonElement>(".accept-request");
-  acceptButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.dataset.requestId;
-      if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_ACCEPT", requestId: id }, "Finish sign-in before responding to alliance requests.");
-    };
-  });
-  const breakButtons = hud.querySelectorAll<HTMLButtonElement>(".break-ally");
-  breakButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.dataset.allyId;
-      if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing alliances.");
-    };
-  });
-  const acceptTruceButtons = hud.querySelectorAll<HTMLButtonElement>(".accept-truce");
-  acceptTruceButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.dataset.truceRequestId;
-      if (!id) return;
-      sendGameMessage({ type: "TRUCE_ACCEPT", requestId: id }, "Finish sign-in before responding to truces.");
-    };
-  });
-  const breakTruceButtons = hud.querySelectorAll<HTMLButtonElement>(".break-truce");
-  breakTruceButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.dataset.trucePlayerId;
-      if (!id) return;
-      sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing truces.");
-    };
-  });
-
-  const authLogoutBtn = document.querySelector<HTMLButtonElement>("#auth-logout");
-  if (authLogoutBtn) {
-    authLogoutBtn.onclick = async () => {
-      if (!firebaseAuth) return;
-      await signOut(firebaseAuth);
-      window.location.reload();
-    };
-  }
-  const economyFocusButtons = hud.querySelectorAll<HTMLButtonElement>("[data-economy-focus]");
-  economyFocusButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const focus = btn.dataset.economyFocus as EconomyFocusKey | undefined;
-      if (!focus) return;
-      state.economyFocus = focus;
-      renderHud();
-    };
-  });
-  const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired;
-  guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
-  if (canShowGuide) {
-    const step = guideSteps[Math.min(state.guide.stepIndex, guideSteps.length - 1)]!;
-    guideOverlayEl.innerHTML = `
-      <div class="guide-backdrop" id="guide-backdrop"></div>
-      <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="guide-title">
-        <button id="guide-close" class="guide-close-btn" type="button" aria-label="Close guide">×</button>
-        <div class="guide-modal-scroll">
-          <div class="guide-kicker">Step ${state.guide.stepIndex + 1} of ${guideSteps.length}</div>
-          <h2 id="guide-title" class="guide-title">${step.title}</h2>
-          <p class="guide-body">${step.body}</p>
-          <div class="guide-progress">
-            ${guideSteps.map((_, index) => `<span class="guide-progress-segment${index <= state.guide.stepIndex ? " is-active" : ""}"></span>`).join("")}
-          </div>
-          <div class="guide-actions">
-            <button id="guide-skip" class="guide-link-btn" type="button">Skip Tutorial</button>
-            <div class="guide-actions-right">
-              ${state.guide.stepIndex > 0 ? '<button id="guide-back" class="panel-btn guide-secondary-btn" type="button">Back</button>' : ""}
-              <button id="guide-next" class="panel-btn guide-primary-btn" type="button">${state.guide.stepIndex === guideSteps.length - 1 ? "Get Started" : "Next"}</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    const closeGuide = (markComplete: boolean): void => {
-      state.guide.open = false;
-      if (markComplete) {
-        state.guide.completed = true;
-        storageSet(GUIDE_STORAGE_KEY, "1");
-      }
-      renderHud();
-    };
-    const guideCloseBtn = guideOverlayEl.querySelector<HTMLButtonElement>("#guide-close");
-    const guideBackdropBtn = guideOverlayEl.querySelector<HTMLDivElement>("#guide-backdrop");
-    const guideSkipBtn = guideOverlayEl.querySelector<HTMLButtonElement>("#guide-skip");
-    const guideBackBtn = guideOverlayEl.querySelector<HTMLButtonElement>("#guide-back");
-    const guideNextBtn = guideOverlayEl.querySelector<HTMLButtonElement>("#guide-next");
-    if (guideCloseBtn) guideCloseBtn.onclick = () => closeGuide(true);
-    if (guideBackdropBtn) guideBackdropBtn.onclick = () => closeGuide(true);
-    if (guideSkipBtn) guideSkipBtn.onclick = () => closeGuide(true);
-    if (guideBackBtn) {
-      guideBackBtn.onclick = () => {
-        state.guide.stepIndex = Math.max(0, state.guide.stepIndex - 1);
-        renderHud();
-      };
-    }
-    if (guideNextBtn) {
-      guideNextBtn.onclick = () => {
-        if (state.guide.stepIndex >= guideSteps.length - 1) {
-          closeGuide(true);
-          return;
-        }
-        state.guide.stepIndex += 1;
-        renderHud();
-      };
-    }
-  } else if (guideOverlayEl.innerHTML) {
-    guideOverlayEl.innerHTML = "";
-  }
-
-  syncAuthOverlay();
-  renderMobilePanels();
-};
-
-const resize = (): void => {
-  const { width, height } = viewportSize();
-  canvas.width = width;
-  canvas.height = height;
-};
-window.addEventListener("resize", resize);
-window.visualViewport?.addEventListener("resize", resize);
-resize();
+// HUD and auth flow are wired below after socket setup.
 
 const defaultWsUrl = (() => {
   const isLocalHost =
@@ -2436,6 +1761,290 @@ const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? defaultWsUr
 const ws = new WebSocket(wsUrl);
 let reconnectReloadTimer: number | undefined;
 let authReconnectTimer: number | undefined;
+const authFlow = createClientAuthFlow({
+  state,
+  dom: {
+    allianceBreakBtn,
+    allianceBreakIdEl,
+    alliancePlayerInspectEl,
+    allianceRequestsEl,
+    allianceSendBtn,
+    allianceTargetEl,
+    alliesListEl,
+    authColorPresetButtons,
+    authBusyCopyEl,
+    authBusyModalEl,
+    authBusyTitleEl,
+    authDisplayNameEl,
+    authEmailEl,
+    authEmailLinkBtn,
+    authEmailResetBtn,
+    authEmailSentAddressEl,
+    authGoogleBtn,
+    authLoginBtn,
+    authOverlayEl,
+    authPanelEl,
+    authPasswordEl,
+    authProfileColorEl,
+    authProfileNameEl,
+    authProfileSaveBtn,
+    authRegisterBtn,
+    authStatusEl,
+    canvas,
+    captureBarEl,
+    captureCancelBtn,
+    captureCloseBtn,
+    captureCardEl,
+    captureTargetEl,
+    captureTimeEl,
+    captureTitleEl,
+    captureWrapEl,
+    centerMeBtn,
+    centerMeDesktopBtn,
+    collectVisibleDesktopBtn,
+    collectVisibleDesktopMetaEl,
+    collectVisibleMobileBtn,
+    collectVisibleMobileMetaEl,
+    ctx,
+    feedEl,
+    guideOverlayEl,
+    holdBuildMenuEl,
+    hoverEl,
+    hud,
+    leaderboardEl,
+    mapLoadingMetaEl,
+    mapLoadingOverlayEl,
+    mapLoadingRowEl,
+    mapLoadingSpinnerEl,
+    mapLoadingTitleEl,
+    miniMapBase,
+    miniMapCtx,
+    miniMapEl,
+    miniMapLabelEl,
+    miniMapWrapEl,
+    missionsEl,
+    mobileAllianceBreakBtn,
+    mobileAllianceBreakIdEl,
+    mobileAlliancePlayerInspectEl,
+    mobileAllianceRequestsEl,
+    mobileAllianceSendBtn,
+    mobileAllianceTargetEl,
+    mobileAlliesListEl,
+    mobileCoreEl,
+    mobileCoreHelpEl,
+    mobilePanelDefensibilityEl,
+    mobileFeedEl,
+    mobileLeaderboardEl,
+    mobilePanelCoreEl,
+    mobilePanelEconomyEl,
+    mobilePanelManpowerEl,
+    mobilePanelIntelEl,
+    mobilePanelDomainsEl,
+    mobilePanelMissionsEl,
+    mobilePanelSocialEl,
+    mobilePanelTechEl,
+    mobileSheetEl,
+    mobileSheetHeadEl,
+    mobileTechChoiceDetailsEl,
+    mobileTechChoicesGridEl,
+    mobileTechChooseBtn,
+    mobileTechCurrentModsEl,
+    mobileTechDetailCardEl,
+    mobileTechOwnedEl,
+    mobileTechPickEl,
+    mobileTechPointsEl,
+    mobileTechTreeExpandToggleEl,
+    panelActionButtons,
+    panelAllianceEl,
+    panelCloseBtn,
+    panelDomainsEl,
+    panelDomainsContentEl,
+    panelDefensibilityEl,
+    panelEconomyEl,
+    panelManpowerEl,
+    panelFeedEl,
+    panelLeaderboardEl,
+    panelMissionsEl,
+    panelTechEl,
+    panelTitleEl,
+    selectedEl,
+    shardAlertCardEl,
+    shardAlertCloseBtn,
+    shardAlertDetailEl,
+    shardAlertOverlayEl,
+    shardAlertTitleEl,
+    sidePanelBodyEl,
+    sidePanelEl,
+    statsChipsEl,
+    structureInfoOverlayEl,
+    techDetailOverlayEl,
+    targetingOverlayEl,
+    techChoiceDetailsEl,
+    techChoicesGridEl,
+    techChooseBtn,
+    techCurrentModsEl,
+    techDetailCardEl,
+    techOwnedEl,
+    techPickEl,
+    techPointsEl,
+    techTreeExpandToggleEl,
+    tileActionMenuEl
+  },
+  firebaseAuth,
+  googleProvider,
+  ws,
+  wsUrl,
+  requireAuthedSession: (message?: string) => requireAuthedSession(message),
+  renderHud: () => renderHud()
+});
+const { authSession, setAuthStatus, syncAuthPanelState, syncAuthOverlay, authLabelForUser, seedProfileSetupFields, authenticateSocket } = authFlow;
+const renderHud = (): void =>
+  renderClientHud({
+    state,
+    dom: {
+      alliancePlayerInspectEl,
+      allianceRequestsEl,
+      alliesListEl,
+      authOverlayEl,
+      canvas,
+      collectVisibleDesktopBtn,
+      collectVisibleDesktopMetaEl,
+      collectVisibleMobileBtn,
+      collectVisibleMobileMetaEl,
+      feedEl,
+      guideOverlayEl,
+      hoverEl,
+      hud,
+      leaderboardEl,
+      mapLoadingMetaEl,
+      mapLoadingOverlayEl,
+      mapLoadingTitleEl,
+      miniMapLabelEl,
+      missionsEl,
+      mobileAlliancePlayerInspectEl,
+      mobileAllianceRequestsEl,
+      mobileAlliesListEl,
+      mobileCoreHelpEl,
+      mobilePanelDefensibilityEl,
+      mobileFeedEl,
+      mobileLeaderboardEl,
+      mobilePanelDomainsEl,
+      mobilePanelEconomyEl,
+      mobilePanelManpowerEl,
+      mobilePanelMissionsEl,
+      mobilePanelTechEl,
+      mobileTechChoiceDetailsEl,
+      mobileTechChoicesGridEl,
+      mobileTechChooseBtn,
+      mobileTechCurrentModsEl,
+      mobileTechDetailCardEl,
+      mobileTechOwnedEl,
+      mobileTechPickEl,
+      mobileTechPointsEl,
+      mobileTechTreeExpandToggleEl,
+      panelActionButtons,
+      panelDefensibilityEl,
+      panelDomainsEl,
+      panelDomainsContentEl,
+      panelEconomyEl,
+      panelManpowerEl,
+      panelTechEl,
+      selectedEl,
+      statsChipsEl,
+      structureInfoOverlayEl,
+      techDetailOverlayEl,
+      targetingOverlayEl,
+      techChoiceDetailsEl,
+      techChoicesGridEl,
+      techChooseBtn,
+      techCurrentModsEl,
+      techDetailCardEl,
+      techOwnedEl,
+      techPickEl,
+      techPointsEl,
+      techTreeExpandToggleEl,
+      tileActionMenuEl,
+      mapLoadingRowEl,
+      mapLoadingSpinnerEl,
+      shardAlertCardEl,
+      shardAlertCloseBtn,
+      shardAlertDetailEl,
+      shardAlertOverlayEl,
+      shardAlertTitleEl
+    },
+    miniMapReplayEl,
+    wsUrl,
+    firebaseAuth,
+    syncAuthOverlay,
+    storageSet,
+    visibleCollectSummary,
+    developmentSlotSummary,
+    isMobile,
+    rateToneClass,
+    formatGoldAmount,
+    formatManpowerAmount,
+    strategicRibbonHtml,
+    formatCooldownShort,
+    openEconomyPanel,
+    setActivePanel,
+    affordableTechChoicesCount,
+    mobileNavLabelHtml,
+    crystalTargetingTone,
+    crystalTargetingTitle,
+    clearCrystalTargeting,
+    keyFor: key,
+    parseKey,
+    selectedTile,
+    requestTileDetailIfNeeded,
+    passiveTileGuidanceHtml,
+    renderTileActionMenu,
+    tileMenuViewForTile,
+    renderCaptureProgress,
+    renderShardAlert,
+    renderTechChoiceGrid,
+    techDetailsUseOverlay,
+    renderTechDetailPrompt,
+    renderTechDetailCard,
+    renderStructureInfoOverlay,
+    renderTechDetailOverlay,
+    techOwnedHtml,
+    effectiveOwnedTechIds,
+    isPendingTechUnlock,
+    renderTechChoiceDetails,
+    techCurrentModsHtml,
+    bindTechTreeDragScroll,
+    chooseTech,
+    renderDomainProgressCard,
+    renderDomainChoiceGrid,
+    domainOwnedHtml,
+    renderDomainDetailCard,
+    sendGameMessage,
+    alliesHtml,
+    activeTrucesHtml,
+    allianceRequestsHtml,
+    truceRequestsHtml,
+    renderSocialInspectCardHtml,
+    missionCardsHtml,
+    playerNameForOwner,
+    wrapX,
+    wrapY,
+    terrainAt,
+    pushFeed,
+    requestViewRefresh,
+    prettyToken,
+    resourceIconForKey,
+    resourceLabel,
+    economicStructureName,
+    leaderboardHtml,
+    feedHtml,
+    effectiveTechChoices,
+    renderManpowerPanelHtml
+  });
+const resize = (): void => resizeClientViewport({ dom: { canvas }, viewportSize });
+window.addEventListener("resize", resize);
+window.visualViewport?.addEventListener("resize", resize);
+resize();
+authFlow.bindAuthUi();
 const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
   if (ws.readyState !== ws.OPEN) {
     setAuthStatus(`Game server unavailable at ${wsUrl}.`, "error");
@@ -2502,138 +2111,38 @@ const scheduleReconnectReload = (): void => {
   }, 4000);
 };
 
-const sendAllianceRequest = (target: string): void => {
-  const t = target.trim();
-  if (!t) return;
-  sendGameMessage({ type: "ALLIANCE_REQUEST", targetPlayerName: t }, "Finish sign-in before sending alliance requests.");
-};
-const sendTruceRequest = (targetPlayerName: string, durationHours: 12 | 24): void => {
-  const t = targetPlayerName.trim();
-  if (!t) return;
-  sendGameMessage({ type: "TRUCE_REQUEST", targetPlayerName: t, durationHours }, "Finish sign-in before sending truce offers.");
-};
-const breakAlliance = (target: string): void => {
-  const t = target.trim();
-  if (!t) return;
-  sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: t }, "Finish sign-in before breaking alliances.");
-};
-const breakTruce = (targetPlayerId: string): void => {
-  const t = targetPlayerId.trim();
-  if (!t) return;
-  sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId: t }, "Finish sign-in before breaking truces.");
-};
-const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
-  playerId ? state.activeTruces.find((truce) => truce.otherPlayerId === playerId && truce.endsAt > Date.now()) : undefined;
-const currentTechPickId = (): string => {
-  const byState = state.techUiSelectedId?.trim();
-  if (byState) return byState;
-  const byDesktop = techPickEl.value?.trim();
-  if (byDesktop) return byDesktop;
-  const byMobile = mobileTechPickEl.value?.trim();
-  if (byMobile) return byMobile;
-  return "";
-};
-const chooseTech = (techIdRaw?: string): void => {
-  const techId = (techIdRaw ?? "").trim() || currentTechPickId();
-  if (!techId) {
-    console.error("[tech] choose blocked: empty tech id", {
-      stateTechUiSelectedId: state.techUiSelectedId,
-      desktopValue: techPickEl.value,
-      mobileValue: mobileTechPickEl.value,
-      choices: state.techChoices
-    });
-    pushFeed("No tech selected.", "tech", "warn");
-    return;
-  }
-  if (ws.readyState !== ws.OPEN) {
-    console.error("[tech] choose blocked: websocket not open", { techId, readyState: ws.readyState });
-    pushFeed("Cannot choose tech while disconnected.", "tech", "error");
-    return;
-  }
-  if (!state.authSessionReady) {
-    setAuthStatus("Finish sign-in before choosing a technology.", "error");
-    syncAuthOverlay();
-    return;
-  }
-  if (state.pendingTechUnlockId) {
-    pushFeed("Already unlocking a technology. Waiting for server confirmation...", "tech", "warn");
-    return;
-  }
-  const tech = state.techCatalog.find((item) => item.id === techId);
-  if (!tech) {
-    pushFeed("That technology is no longer available.", "tech", "warn");
-    return;
-  }
-  state.techUiSelectedId = techId;
-  state.pendingTechUnlockId = techId;
-  console.info("[tech] sending CHOOSE_TECH", { techId });
-  ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
-  pushFeed(`Unlocking: ${tech.name}.`, "tech", "info");
-  renderHud();
-};
+const playerActionDeps = () => ({
+  state,
+  techPickEl,
+  mobileTechPickEl,
+  ws,
+  wsUrl,
+  setAuthStatus,
+  syncAuthOverlay,
+  pushFeed,
+  renderHud,
+  sendGameMessage
+});
 
-const explainActionFailure = (code: string, message: string): string => {
-  if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
-  if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
-  if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
-  if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build observatory: ${message}.`;
-  if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build siege outpost: ${message}.`;
-  if (code === "ECONOMIC_STRUCTURE_BUILD_INVALID") return `Cannot build structure: ${message}.`;
-  if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;
-  if (code === "SIPHON_INVALID") return `Cannot siphon tile: ${message}.`;
-  if (code === "PURGE_SIPHON_INVALID") return `Cannot purge siphon: ${message}.`;
-  if (code === "AETHER_BRIDGE_INVALID") return `Cannot cast Aether Bridge: ${message}.`;
-  if (code === "CREATE_MOUNTAIN_INVALID") return `Cannot create mountain: ${message}.`;
-  if (code === "REMOVE_MOUNTAIN_INVALID") return `Cannot remove mountain: ${message}.`;
-  if (code === "NOT_ADJACENT") return "Action blocked: target must border your territory or a linked dock.";
-  if (code === "NOT_OWNER") return "Action blocked: you need to launch from one of your own tiles.";
-  if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
-  if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";
-  if (code === "SHIELDED") return "Action blocked: that empire is still under spawn protection.";
-  if (code === "ALLY_TARGET") return "Action blocked: you cannot attack an allied or truced empire.";
-  if (code === "BREAKTHROUGH_TARGET_INVALID") return `Cannot launch breach attack: ${message}.`;
-  if (code === "EXPAND_TARGET_OWNED") return "Frontier claim failed: that tile is already owned.";
-  if (message.includes("development slots are busy")) return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
-  return `Error ${code}: ${message}`;
-};
+const sendAllianceRequest = (target: string): void => sendAllianceRequestFromUi(target, playerActionDeps());
+const sendTruceRequest = (targetPlayerName: string, durationHours: 12 | 24): void =>
+  sendTruceRequestFromUi(targetPlayerName, durationHours, playerActionDeps());
+const breakAlliance = (target: string): void => breakAllianceFromUi(target, playerActionDeps());
+const breakTruce = (targetPlayerId: string): void => breakTruceFromUi(targetPlayerId, playerActionDeps());
+const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
+  activeTruceWithPlayerFromState(state, playerId);
+const chooseTech = (techIdRaw?: string): void => chooseTechFromUi(techIdRaw, playerActionDeps());
+
+const explainActionFailure = (code: string, message: string): string => explainActionFailureFromServer(code, message);
 
 const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean =>
   enqueueTargetFromModule(state, x, y, key, mode);
 
-const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } => {
-  const size = state.zoom;
-  const halfW = Math.floor(canvas.width / size / 2);
-  const halfH = Math.floor(canvas.height / size / 2);
-  return {
-    gx: Math.floor(offsetX / size) - halfW + state.camX,
-    gy: Math.floor(offsetY / size) - halfH + state.camY
-  };
-};
+const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } =>
+  worldTileRawFromPointerFromModule(state, canvas, offsetX, offsetY);
 
-const computeDragPreview = (): void => {
-  const start = state.boxSelectStart;
-  const cur = state.boxSelectCurrent;
-  state.dragPreviewKeys.clear();
-  if (!start || !cur) return;
-  const minX = Math.min(start.gx, cur.gx);
-  const maxX = Math.max(start.gx, cur.gx);
-  const minY = Math.min(start.gy, cur.gy);
-  const maxY = Math.max(start.gy, cur.gy);
-  const area = (maxX - minX + 1) * (maxY - minY + 1);
-  if (area > 2500) return;
-  for (let gy = minY; gy <= maxY; gy += 1) {
-    for (let gx = minX; gx <= maxX; gx += 1) {
-      const wx = wrapX(gx);
-      const wy = wrapY(gy);
-      const t = state.tiles.get(key(wx, wy));
-      if (!t || t.fogged || t.terrain !== "LAND") continue;
-      if (t.ownerId === state.me) {
-        if (!hasCollectableYield(t)) continue;
-      }
-      state.dragPreviewKeys.add(key(wx, wy));
-    }
-  }
-};
+const computeDragPreview = (): void =>
+  computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor: key, hasCollectableYield });
 
 const buildFrontierQueue = (
   candidates: string[],
@@ -3434,397 +2943,73 @@ const handleTileAction = (actionId: string, targetKeyOverride?: string, originKe
   hideTileActionMenu();
 };
 
-const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: number): void => {
-  const tile = state.tiles.get(key(x, y));
-  if (!tile || tile.ownerId !== state.me || tile.terrain !== "LAND") {
-    hideHoldBuildMenu();
-    return;
-  }
-  state.selected = { x, y };
-  const development = developmentSlotSummary();
-  const hasDevelopmentSlot = development.available > 0;
-  const queueableWhenBusy = !hasDevelopmentSlot;
-  const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
-  const canUpgradeWoodenFort = tile.economicStructure?.type === "WOODEN_FORT" && state.techIds.includes("masonry");
-  const canUpgradeLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST" && state.techIds.includes("leatherworking");
-  const fortGoldCost = structureGoldCost("FORT");
-  const siegeGoldCost = structureGoldCost("SIEGE_OUTPOST");
-  const woodenFortGoldCost = structureGoldCost("WOODEN_FORT");
-  const lightOutpostGoldCost = structureGoldCost("LIGHT_OUTPOST");
-  const observatoryGoldCost = structureGoldCost("OBSERVATORY");
-  const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(x, y));
-  const isBorderTileOnly = isOwnedBorderTile(x, y);
-  const canBuildStarterWoodenFort =
-    tile.ownerId === state.me &&
-    tile.ownershipState === "SETTLED" &&
-    isBorderOrDock &&
-    !tile.fort &&
-    !tile.siegeOutpost &&
-    !tile.observatory &&
-    !tile.economicStructure &&
-    !tile.resource &&
-    !tile.town &&
-    state.gold >= woodenFortGoldCost;
-  const canBuildAdvancedFort =
-    tile.ownerId === state.me &&
-    tile.ownershipState === "SETTLED" &&
-    isBorderOrDock &&
-    !tile.fort &&
-    !tile.siegeOutpost &&
-    !tile.observatory &&
-    (!tile.economicStructure || canUpgradeWoodenFort) &&
-    state.techIds.includes("masonry") &&
-    state.gold >= fortGoldCost &&
-    (state.strategicResources.IRON ?? 0) >= 45;
-  const canBuildStarterLightOutpost =
-    tile.ownerId === state.me &&
-    tile.ownershipState === "SETTLED" &&
-    isBorderTileOnly &&
-    !tile.fort &&
-    !tile.siegeOutpost &&
-    !tile.observatory &&
-    !tile.economicStructure &&
-    !tile.resource &&
-    !tile.town &&
-    !tile.dockId &&
-    state.gold >= lightOutpostGoldCost;
-  const canBuildAdvancedSiegeOutpost =
-    tile.ownerId === state.me &&
-    tile.ownershipState === "SETTLED" &&
-    isBorderTileOnly &&
-    !tile.siegeOutpost &&
-    !tile.fort &&
-    !tile.observatory &&
-    (!tile.economicStructure || canUpgradeLightOutpost) &&
-    state.techIds.includes("leatherworking") &&
-    state.gold >= siegeGoldCost &&
-    (state.strategicResources.SUPPLY ?? 0) >= 45;
-  const canAffordFort = canBuildStarterWoodenFort || canBuildAdvancedFort;
-  const canAffordSiege = canBuildStarterLightOutpost || canBuildAdvancedSiegeOutpost;
-  const canAffordObservatory =
-    tile.ownershipState === "SETTLED" &&
-    !tile.fort &&
-    !tile.siegeOutpost &&
-    !tile.observatory &&
-    !tile.economicStructure &&
-    state.techIds.includes("cartography") &&
-    state.gold >= observatoryGoldCost &&
-    (state.strategicResources.CRYSTAL ?? 0) >= 45;
-  const canBuildFarmstead =
-    tile.ownershipState === "SETTLED" &&
-    !hasBlockingStructure &&
-    (tile.resource === "FARM" || tile.resource === "FISH") &&
-    state.techIds.includes("agriculture") &&
-    state.gold >= 700 &&
-    (state.strategicResources.FOOD ?? 0) >= 20;
-  const canBuildCamp =
-    tile.ownershipState === "SETTLED" &&
-    !hasBlockingStructure &&
-    (tile.resource === "WOOD" || tile.resource === "FUR") &&
-    state.techIds.includes("leatherworking") &&
-    state.gold >= 800 &&
-    (state.strategicResources.SUPPLY ?? 0) >= 30;
-  const canBuildMine =
-    tile.ownershipState === "SETTLED" &&
-    !hasBlockingStructure &&
-    (tile.resource === "IRON" || tile.resource === "GEMS") &&
-    state.techIds.includes("mining") &&
-    state.gold >= 800 &&
-    (state.strategicResources[tile.resource === "IRON" ? "IRON" : "CRYSTAL"] ?? 0) >= 30;
-  const canBuildMarket =
-    tile.ownershipState === "SETTLED" &&
-    !hasBlockingStructure &&
-    Boolean(tile.town) &&
-    tile.town?.populationTier !== "SETTLEMENT" &&
-    state.techIds.includes("trade") &&
-    state.gold >= 1200 &&
-    (state.strategicResources.CRYSTAL ?? 0) >= 40;
-  const canBuildGranary =
-    tile.ownershipState === "SETTLED" &&
-    !hasBlockingStructure &&
-    Boolean(tile.town) &&
-    tile.town?.populationTier !== "SETTLEMENT" &&
-    state.techIds.includes("pottery") &&
-    state.gold >= 700 &&
-    (state.strategicResources.FOOD ?? 0) >= 40;
-  const settlementQueued = hasQueuedSettlementForTile(state.developmentQueue, key(x, y));
-  holdBuildMenuEl.innerHTML = `
-    <div class="hold-menu-card">
-      <div class="hold-menu-title">Build on (${x}, ${y})</div>
-      <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && canAffordCost(state.gold, SETTLE_COST) && !settlementQueued ? "" : "disabled"}>
-        <span>Settle Tile</span>
-        <small>${SETTLE_COST} gold • ${(settleDurationMsForTile(x, y) / 1000).toFixed(0)}s${isForestTile(x, y) ? " (Forest)" : ""} • converts frontier to settled${settlementQueued ? " • already queued" : queueableWhenBusy && tile.ownershipState === "FRONTIER" ? " • queues" : ""}</small>
-      </button>
-      <button class="hold-menu-btn" data-build="fort" ${canAffordFort ? "" : "disabled"}>
-        <span>${canUpgradeWoodenFort ? "Upgrade to Fort" : state.techIds.includes("masonry") ? "Fort" : "Wooden Fort"}</span>
-        <small>${state.techIds.includes("masonry") ? `${structureCostText("FORT")} • ${(FORT_BUILD_MS / 1000).toFixed(0)}s • def x${FORT_DEFENSE_MULT.toFixed(2)}` : `${structureCostText("WOODEN_FORT")} • ${(WOODEN_FORT_BUILD_MS / 1000).toFixed(0)}s • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`} • 1 gold / min${queueableWhenBusy ? " • queues" : ""}</small>
-      </button>
-      <button class="hold-menu-btn" data-build="observatory" ${canAffordObservatory ? "" : "disabled"}>
-        <span>Observatory</span>
-        <small>${structureCostText("OBSERVATORY")} • +5 local vision • 0.025 crystal / min${queueableWhenBusy && canAffordObservatory ? " • queues" : ""}</small>
-      </button>
-      <button class="hold-menu-btn" data-build="farmstead" ${canBuildFarmstead ? "" : "disabled"}>
-        <span>Farmstead</span>
-        <small>700 gold + 20 FOOD • +50% food output • 1 gold / 10m${queueableWhenBusy && canBuildFarmstead ? " • queues" : ""}</small>
-      </button>
-      <button class="hold-menu-btn" data-build="camp" ${canBuildCamp ? "" : "disabled"}>
-        <span>Camp</span>
-        <small>800 gold + 30 SUPPLY • +50% supply output • 1.2 gold / 10m${queueableWhenBusy && canBuildCamp ? " • queues" : ""}</small>
-      </button>
-      <button class="hold-menu-btn" data-build="mine" ${canBuildMine ? "" : "disabled"}>
-        <span>Mine</span>
-        <small>800 gold + 30 matching resource • +50% iron or crystal • 1.2 gold / 10m${queueableWhenBusy && canBuildMine ? " • queues" : ""}</small>
-      </button>
-      <button class="hold-menu-btn" data-build="market" ${canBuildMarket ? "" : "disabled"}>
-        <span>Market</span>
-        <small>1200 gold + 40 CRYSTAL • +50% fed town gold • +50% town cap • 0.05 crystal / min${queueableWhenBusy && canBuildMarket ? " • queues" : ""}</small>
-      </button>
-      <button class="hold-menu-btn" data-build="granary" ${canBuildGranary ? "" : "disabled"}>
-        <span>Granary</span>
-        <small>700 gold + 40 FOOD • +50% town gold cap • 1 gold / 10m${queueableWhenBusy && canBuildGranary ? " • queues" : ""}</small>
-      </button>
-      <button class="hold-menu-btn" data-build="siege" ${canAffordSiege ? "" : "disabled"}>
-        <span>${canUpgradeLightOutpost ? "Upgrade to Siege Outpost" : state.techIds.includes("leatherworking") ? "Siege Outpost" : "Light Outpost"}</span>
-        <small>${state.techIds.includes("leatherworking") ? `${structureCostText("SIEGE_OUTPOST")} • ${(SIEGE_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${SIEGE_OUTPOST_ATTACK_MULT.toFixed(2)}` : `${structureCostText("LIGHT_OUTPOST")} • ${(LIGHT_OUTPOST_BUILD_MS / 1000).toFixed(0)}s • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`} • 1 gold / min${queueableWhenBusy ? " • queues" : ""}</small>
-      </button>
-    </div>
-  `;
-  const { width: vw, height: vh } = viewportSize();
-  const menuW = Math.min(290, vw - 16);
-  const menuH = 168;
-  const left = Math.max(8, Math.min(vw - menuW - 8, clientX + 8));
-  const top = Math.max(84, Math.min(vh - menuH - 8, clientY + 8));
-  holdBuildMenuEl.style.width = `${menuW}px`;
-  holdBuildMenuEl.style.left = `${left}px`;
-  holdBuildMenuEl.style.top = `${top}px`;
-  holdBuildMenuEl.style.display = "block";
+const showHoldBuildMenu = (x: number, y: number, clientX: number, clientY: number): void =>
+  showClientHoldBuildMenu(
+    {
+      state,
+      holdBuildMenuEl,
+      keyFor: key,
+      hideHoldBuildMenu,
+      developmentSlotSummary,
+      structureGoldCost,
+      isOwnedBorderTile,
+      structureCostText,
+      viewportSize,
+      requestSettlement,
+      sendDevelopmentBuild,
+      applyOptimisticStructureBuild,
+      renderHud
+    },
+    x,
+    y,
+    clientX,
+    clientY
+  );
 
-  const settleBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='settle']");
-  const fortBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='fort']");
-  const observatoryBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='observatory']");
-  const farmsteadBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='farmstead']");
-  const campBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='camp']");
-  const mineBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='mine']");
-  const marketBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='market']");
-  const granaryBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='granary']");
-  const siegeBtn = holdBuildMenuEl.querySelector<HTMLButtonElement>("button[data-build='siege']");
-  if (settleBtn) {
-    settleBtn.onclick = () => {
-      requestSettlement(x, y);
-      hideHoldBuildMenu();
-    };
-  }
-  if (fortBtn) {
-    fortBtn.onclick = () => {
-      if (canBuildAdvancedFort) {
-        sendDevelopmentBuild({ type: "BUILD_FORT", x, y }, () => applyOptimisticStructureBuild(x, y, "FORT"), {
-          x,
-          y,
-          label: `${canUpgradeWoodenFort ? "Fort upgrade" : "Fort"} at (${x}, ${y})`,
-          optimisticKind: "FORT"
-        });
-      } else if (canBuildStarterWoodenFort) {
-        sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "WOODEN_FORT" }, () => applyOptimisticStructureBuild(x, y, "WOODEN_FORT"), {
-          x,
-          y,
-          label: `Wooden Fort at (${x}, ${y})`,
-          optimisticKind: "WOODEN_FORT"
-        });
-      }
-      hideHoldBuildMenu();
-    };
-  }
-  if (siegeBtn) {
-    siegeBtn.onclick = () => {
-      if (canBuildAdvancedSiegeOutpost) {
-        sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x, y }, () => applyOptimisticStructureBuild(x, y, "SIEGE_OUTPOST"), {
-          x,
-          y,
-          label: `${canUpgradeLightOutpost ? "Siege outpost upgrade" : "Siege outpost"} at (${x}, ${y})`,
-          optimisticKind: "SIEGE_OUTPOST"
-        });
-      } else if (canBuildStarterLightOutpost) {
-        sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "LIGHT_OUTPOST" }, () => applyOptimisticStructureBuild(x, y, "LIGHT_OUTPOST"), {
-          x,
-          y,
-          label: `Light Outpost at (${x}, ${y})`,
-          optimisticKind: "LIGHT_OUTPOST"
-        });
-      }
-      hideHoldBuildMenu();
-    };
-  }
-  if (observatoryBtn) {
-    observatoryBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_OBSERVATORY", x, y }, () => applyOptimisticStructureBuild(x, y, "OBSERVATORY"), {
-        x,
-        y,
-        label: `Observatory at (${x}, ${y})`,
-        optimisticKind: "OBSERVATORY"
-      });
-      hideHoldBuildMenu();
-    };
-  }
-  if (farmsteadBtn) {
-    farmsteadBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "FARMSTEAD" }, () => applyOptimisticStructureBuild(x, y, "FARMSTEAD"), {
-        x,
-        y,
-        label: `Farmstead at (${x}, ${y})`,
-        optimisticKind: "FARMSTEAD"
-      });
-      hideHoldBuildMenu();
-    };
-  }
-  if (campBtn) {
-    campBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(x, y, "CAMP"), {
-        x,
-        y,
-        label: `Camp at (${x}, ${y})`,
-        optimisticKind: "CAMP"
-      });
-      hideHoldBuildMenu();
-    };
-  }
-  if (mineBtn) {
-    mineBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MINE" }, () => applyOptimisticStructureBuild(x, y, "MINE"), {
-        x,
-        y,
-        label: `Mine at (${x}, ${y})`,
-        optimisticKind: "MINE"
-      });
-      hideHoldBuildMenu();
-    };
-  }
-  if (marketBtn) {
-    marketBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(x, y, "MARKET"), {
-        x,
-        y,
-        label: `Market at (${x}, ${y})`,
-        optimisticKind: "MARKET"
-      });
-      hideHoldBuildMenu();
-    };
-  }
-  if (granaryBtn) {
-    granaryBtn.onclick = () => {
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(x, y, "GRANARY"), {
-        x,
-        y,
-        label: `Granary at (${x}, ${y})`,
-        optimisticKind: "GRANARY"
-      });
-      hideHoldBuildMenu();
-    };
-  }
-  renderHud();
-};
-
-allianceSendBtn.onclick = () => {
-  sendAllianceRequest(allianceTargetEl.value);
-};
-mobileAllianceSendBtn.onclick = () => {
-  sendAllianceRequest(mobileAllianceTargetEl.value);
-};
-allianceBreakBtn.onclick = () => {
-  breakAlliance(allianceBreakIdEl.value);
-};
-mobileAllianceBreakBtn.onclick = () => {
-  breakAlliance(mobileAllianceBreakIdEl.value);
-};
-techChooseBtn.onclick = () => {
-  chooseTech();
-};
-mobileTechChooseBtn.onclick = () => {
-  chooseTech();
-};
-techPickEl.onchange = () => {
-  state.techUiSelectedId = techPickEl.value;
-  mobileTechPickEl.value = techPickEl.value;
-  renderHud();
-};
-mobileTechPickEl.onchange = () => {
-  state.techUiSelectedId = mobileTechPickEl.value;
-  techPickEl.value = mobileTechPickEl.value;
-  renderHud();
-};
-centerMeBtn.onclick = () => {
-  centerOnOwnedTile();
-  requestViewRefresh(2, true);
-};
-centerMeDesktopBtn.onclick = () => {
-  centerOnOwnedTile();
-  requestViewRefresh(2, true);
-};
-collectVisibleDesktopBtn.onclick = () => {
-  collectVisibleYield();
-};
-
-collectVisibleMobileBtn.onclick = () => {
-  collectVisibleYield();
-};
-captureCancelBtn.onclick = () => cancelOngoingCapture();
-captureCloseBtn.onclick = () => {
-  state.captureAlert = undefined;
-  captureTimeEl.classList.remove("capture-loss");
-  renderCaptureProgress();
-};
-shardAlertCloseBtn.onclick = () => {
-  hideShardAlert();
-  renderShardAlert();
-};
-panelCloseBtn.onclick = () => {
-  state.activePanel = null;
-  renderHud();
-};
-
-panelActionButtons.forEach((btn) => {
-  btn.onclick = () => {
-    const p = btn.dataset.panel as typeof state.activePanel;
-    if (!p) return;
-    setActivePanel(p);
-  };
-});
-
-authColorPresetButtons.forEach((btn) => {
-  btn.onclick = () => {
-    const color = btn.dataset.color;
-    if (!color) return;
-    authProfileColorEl.value = color;
-    syncAuthPanelState();
-  };
-});
-
-authProfileColorEl.oninput = () => {
-  syncAuthPanelState();
-};
-
-authEmailEl.onkeydown = (event) => {
-  if (event.key === "Enter" && !state.profileSetupRequired) {
-    event.preventDefault();
-    authEmailLinkBtn.click();
-  }
-};
-
-authProfileNameEl.onkeydown = (event) => {
-  if (event.key === "Enter" && state.profileSetupRequired) {
-    event.preventDefault();
-    authProfileSaveBtn.click();
-  }
-};
-
-const mobileNavButtons = hud.querySelectorAll<HTMLButtonElement>("#mobile-nav button[data-mobile-panel]");
-mobileNavButtons.forEach((btn) => {
-  btn.onclick = () => {
-    const p = btn.dataset.mobilePanel as typeof state.mobilePanel | undefined;
-    if (!p) return;
-    state.mobilePanel = p;
-    if (p === "intel") state.unreadAttackAlerts = 0;
-    renderHud();
-  };
+bindClientUiControls({
+  state,
+  hud,
+  allianceSendBtn,
+  mobileAllianceSendBtn,
+  allianceBreakBtn,
+  mobileAllianceBreakBtn,
+  allianceTargetEl,
+  mobileAllianceTargetEl,
+  allianceBreakIdEl,
+  mobileAllianceBreakIdEl,
+  techChooseBtn,
+  mobileTechChooseBtn,
+  techPickEl,
+  mobileTechPickEl,
+  centerMeBtn,
+  centerMeDesktopBtn,
+  collectVisibleDesktopBtn,
+  collectVisibleMobileBtn,
+  captureCancelBtn,
+  captureCloseBtn,
+  captureTimeEl,
+  shardAlertCloseBtn,
+  panelCloseBtn,
+  panelActionButtons,
+  authColorPresetButtons,
+  authProfileColorEl,
+  authEmailEl,
+  authEmailLinkBtn,
+  authProfileNameEl,
+  authProfileSaveBtn,
+  sendAllianceRequest,
+  breakAlliance,
+  chooseTech,
+  renderHud,
+  centerOnOwnedTile,
+  requestViewRefresh,
+  collectVisibleYield,
+  cancelOngoingCapture,
+  hideShardAlert,
+  renderShardAlert,
+  renderCaptureProgress,
+  setActivePanel,
+  syncAuthPanelState
 });
 
 ws.addEventListener("open", () => {
@@ -4778,195 +3963,7 @@ ws.addEventListener("message", (ev) => {
   }
 });
 
-state.authConfigured = Boolean(firebaseAuth);
-syncAuthOverlay();
-
-if (firebaseAuth) {
-  void setPersistence(firebaseAuth, browserLocalPersistence);
-  onAuthStateChanged(firebaseAuth, async (user) => {
-    if (!user) {
-      state.authReady = false;
-      state.authSessionReady = false;
-      state.authUserLabel = "";
-      state.profileSetupRequired = false;
-      authToken = "";
-      authUid = "";
-      state.authBusy = false;
-      state.authRetrying = false;
-      authProfileNameEl.value = "";
-      authProfileColorEl.value = "#38b000";
-      syncAuthOverlay();
-      return;
-    }
-    authEmailLinkSentTo = "";
-    state.authReady = true;
-    state.authSessionReady = false;
-    state.authBusy = true;
-    state.authRetrying = false;
-    state.authUserLabel = authLabelForUser(user);
-    seedProfileSetupFields(user.displayName ?? user.email?.split("@")[0] ?? "", authProfileColorEl.value);
-    setAuthStatus("Authorizing empire...");
-    syncAuthOverlay();
-    try {
-      authToken = await user.getIdToken(true);
-      authUid = user.uid;
-      setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel}...`);
-      if (ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify({ type: "AUTH", token: authToken }));
-      } else {
-        state.authBusy = true;
-        setAuthStatus(`Google account connected. Waiting for the game server at ${wsUrl}...`);
-      }
-    } catch (error) {
-      state.authSessionReady = false;
-      state.authBusy = false;
-      setAuthStatus(error instanceof Error ? error.message : "Could not authorize this session.", "error");
-    } finally {
-      syncAuthOverlay();
-      renderHud();
-    }
-  });
-}
-
-const authEmailAndPassword = async (mode: "login" | "register"): Promise<void> => {
-  if (!firebaseAuth) return;
-  const email = authEmailEl.value.trim();
-  const password = authPasswordEl.value;
-  const displayName = authDisplayNameEl.value.trim();
-  if (!email || !password) {
-    setAuthStatus("Email and password are required.", "error");
-    syncAuthOverlay();
-    return;
-  }
-  if (mode === "register" && !displayName) {
-    setAuthStatus("Display name is required for new accounts.", "error");
-    syncAuthOverlay();
-    return;
-  }
-  state.authBusy = true;
-  setAuthStatus(mode === "login" ? "Signing in..." : "Creating account...");
-  syncAuthOverlay();
-  let authSucceeded = false;
-  try {
-    if (mode === "login") {
-      await signInWithEmailAndPassword(firebaseAuth, email, password);
-    } else {
-      const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-      if (displayName) await updateProfile(cred.user, { displayName });
-    }
-    authSucceeded = true;
-  } catch (error) {
-    setAuthStatus(error instanceof Error ? error.message : "Authentication failed.", "error");
-  } finally {
-    if (!authSucceeded) state.authBusy = false;
-    syncAuthOverlay();
-  }
-};
-
-authLoginBtn.onclick = () => {
-  void authEmailAndPassword("login");
-};
-
-authRegisterBtn.onclick = () => {
-  void authEmailAndPassword("register");
-};
-
-authGoogleBtn.onclick = async () => {
-  if (!firebaseAuth || !googleProvider) return;
-  authEmailLinkSentTo = "";
-  state.authBusy = true;
-  setAuthStatus("Opening Google sign-in...");
-  syncAuthOverlay();
-  let authSucceeded = false;
-  try {
-    await signInWithPopup(firebaseAuth, googleProvider);
-    authSucceeded = true;
-    setAuthStatus("Google sign-in complete. Authorizing empire...");
-  } catch (error) {
-    setAuthStatus(error instanceof Error ? error.message : "Google sign-in failed.", "error");
-  } finally {
-    if (!authSucceeded) state.authBusy = false;
-    syncAuthOverlay();
-  }
-};
-
-authEmailLinkBtn.onclick = async () => {
-  if (!firebaseAuth) return;
-  const email = authEmailEl.value.trim();
-  if (authEmailLinkPending && isSignInWithEmailLink(firebaseAuth, window.location.href)) {
-    await completeEmailLinkSignIn(email);
-    return;
-  }
-  if (!email) {
-    setAuthStatus("Enter your email first.", "error");
-    syncAuthOverlay();
-    return;
-  }
-  state.authBusy = true;
-  setAuthStatus("Sending sign-in link...");
-  syncAuthOverlay();
-  try {
-    await sendSignInLinkToEmail(firebaseAuth, email, {
-      url: window.location.href,
-      handleCodeInApp: true
-    });
-    window.localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
-    authEmailLinkSentTo = email;
-    setAuthStatus("");
-  } catch (error) {
-    authEmailLinkSentTo = "";
-    setAuthStatus(error instanceof Error ? error.message : "Could not send email link.", "error");
-  } finally {
-    state.authBusy = false;
-    syncAuthOverlay();
-  }
-};
-
-authEmailResetBtn.onclick = () => {
-  authEmailLinkSentTo = "";
-  setAuthStatus("");
-  authEmailEl.focus();
-  syncAuthOverlay();
-};
-
-authProfileSaveBtn.onclick = async () => {
-  if (!requireAuthedSession("Connection lost. Reconnect before finishing setup.")) {
-    syncAuthOverlay();
-    return;
-  }
-  const displayName = authProfileNameEl.value.trim();
-  if (displayName.length < 2) {
-    setAuthStatus("Display name must be at least 2 characters.", "error");
-    syncAuthOverlay();
-    return;
-  }
-  state.authBusy = true;
-  setAuthStatus("Raising your banner...");
-  syncAuthOverlay();
-  try {
-    ws.send(JSON.stringify({ type: "SET_PROFILE", displayName, color: authProfileColorEl.value }));
-    if (firebaseAuth?.currentUser && firebaseAuth.currentUser.displayName !== displayName) {
-      await updateProfile(firebaseAuth.currentUser, { displayName });
-    }
-  } catch (error) {
-    setAuthStatus(error instanceof Error ? error.message : "Could not save your empire profile.", "error");
-  } finally {
-    state.authBusy = false;
-    syncAuthOverlay();
-  }
-};
-
-if (firebaseAuth && isSignInWithEmailLink(firebaseAuth, window.location.href)) {
-  const storedEmail = window.localStorage.getItem(EMAIL_LINK_STORAGE_KEY) ?? authEmailEl.value.trim();
-  if (storedEmail) {
-    void completeEmailLinkSignIn(storedEmail);
-  } else {
-    authEmailLinkPending = true;
-    authEmailLinkSentTo = "";
-    setAuthStatus("Enter the email address that received the sign-in link, then press Continue with Email.");
-    syncAuthOverlay();
-  }
-}
+authFlow.bindFirebaseAuth();
 
 startClientRuntimeLoop(state, {
   canvas,
