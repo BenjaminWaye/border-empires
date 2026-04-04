@@ -109,8 +109,15 @@ import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
+import { createAiScheduler } from "./ai/scheduler.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
 import { buildChunkFromInput, serializeChunkBatchBodies, serializeChunkBody, type ChunkBuildInput, type ChunkPayloadChunk } from "./chunk/serializer-shared.js";
+import {
+  createChunkSnapshotController,
+  type ChunkFollowUpStage,
+  type ChunkSummaryMode,
+  type VisibilitySnapshot
+} from "./chunk/snapshots.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
@@ -1831,7 +1838,6 @@ const cachedChunkSnapshotByPlayer = new Map<
 const summaryChunkVersionByChunkKey = new Map<string, number>();
 const cachedSummaryChunkByChunkKey = new Map<string, { version: number; tiles: readonly Tile[] }>();
 const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
-const aiDefensePriorityUntilByPlayer = new Map<string, number>();
 const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const chunkSnapshotInFlightByPlayer = new Map<string, number>();
 const allianceRequests = new Map<string, AllianceRequest>();
@@ -10151,35 +10157,6 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   });
 };
 
-let aiRoundRobinOffset = 0;
-let aiCycleCounter = 0;
-const aiNextDueAtByPlayer = new Map<string, number>();
-const aiTurnsInFlight = new Set<string>();
-const aiSchedulerState: {
-  at: number;
-  batchSize: number;
-  selectedAiPlayers: number;
-  totalAiPlayers: number;
-  urgentAiPlayers: number;
-  humanPlayersOnline: boolean;
-  authPriorityActive: boolean;
-  aiQueueBackpressure: boolean;
-  simulationQueueBackpressure: boolean;
-  eventLoopOverloaded: boolean;
-  reason: string;
-} = {
-  at: 0,
-  batchSize: 0,
-  selectedAiPlayers: 0,
-  totalAiPlayers: 0,
-  urgentAiPlayers: 0,
-  humanPlayersOnline: false,
-  authPriorityActive: false,
-  aiQueueBackpressure: false,
-  simulationQueueBackpressure: false,
-  eventLoopOverloaded: false,
-  reason: "idle"
-};
 const queueMicrotaskFn =
   typeof setImmediate === "function"
     ? (fn: () => void): void => {
@@ -10634,200 +10611,6 @@ const humanChunkSnapshotPriorityActive = (): boolean => {
   }
   return false;
 };
-
-const markAiDefensePriority = (playerId: string, durationMs = AI_DEFENSE_PRIORITY_MS): void => {
-  const player = players.get(playerId);
-  if (!player?.isAi) return;
-  aiDefensePriorityUntilByPlayer.set(playerId, now() + durationMs);
-};
-
-const aiHasDefensePriority = (playerId: string, nowMs = now()): boolean => {
-  const expiresAt = aiDefensePriorityUntilByPlayer.get(playerId);
-  if (!expiresAt) return false;
-  if (expiresAt <= nowMs) {
-    aiDefensePriorityUntilByPlayer.delete(playerId);
-    return false;
-  }
-  return true;
-};
-
-const aiDefensePriorityCount = (aiPlayers: readonly Player[], nowMs = now()): number => {
-  let count = 0;
-  for (const actor of aiPlayers) {
-    if (aiHasDefensePriority(actor.id, nowMs)) count += 1;
-  }
-  return count;
-};
-
-const ensureAiDueAt = (playerId: string, nowMs = now()): number => {
-  const dueAt = aiNextDueAtByPlayer.get(playerId);
-  if (dueAt !== undefined) return dueAt;
-  aiNextDueAtByPlayer.set(playerId, nowMs);
-  return nowMs;
-};
-
-const scheduleNextAiTurn = (playerId: string, nowMs = now()): void => {
-  aiNextDueAtByPlayer.set(playerId, nowMs + AI_TICK_MS);
-};
-
-const chooseAiBatchSize = (totalAiPlayers: number): number => {
-  if (totalAiPlayers <= 0) return 0;
-  const vitals = latestRuntimeVitalsSample();
-  const humanPlayersOnline = onlineHumanPlayerCount() > 0;
-  const nowMs = now();
-  const urgentAiCount = aiDefensePriorityCount([...players.values()].filter((actor) => actor.isAi), nowMs);
-  const authPriorityActive = pendingAuthVerifications > 0 || authPriorityUntil > now();
-  const aiQueueBackpressure = aiWorkerState.queue.length >= AI_WORKER_QUEUE_SOFT_LIMIT;
-  const simulationQueueBackpressure = simulationCommandQueueDepth() >= AI_SIM_QUEUE_SOFT_LIMIT;
-  const eventLoopOverloaded = Boolean(
-    vitals &&
-      (vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ||
-        vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT)
-  );
-  let batchSize = Math.min(totalAiPlayers, AI_TICK_BATCH_SIZE);
-  let reason = "base";
-
-  if (humanPlayersOnline) {
-    batchSize = Math.min(batchSize, AI_HUMAN_PRIORITY_BATCH_SIZE);
-    reason = "human_priority";
-    if (urgentAiCount > 0) {
-      batchSize = Math.min(totalAiPlayers, Math.max(batchSize, Math.min(AI_HUMAN_DEFENSE_BATCH_SIZE, urgentAiCount)));
-      reason = "human_priority+defense_priority";
-    }
-  }
-  if (authPriorityActive) {
-    batchSize = Math.min(batchSize, AI_AUTH_PRIORITY_BATCH_SIZE);
-    reason = reason === "base" ? "auth_priority" : `${reason}+auth_priority`;
-  }
-  if (aiQueueBackpressure || simulationQueueBackpressure || eventLoopOverloaded) {
-    batchSize = 1;
-    const overloadReasons = [
-      aiQueueBackpressure ? "ai_queue_backpressure" : "",
-      simulationQueueBackpressure ? "simulation_queue_backpressure" : "",
-      eventLoopOverloaded ? "event_loop_overloaded" : ""
-    ].filter(Boolean);
-    reason = overloadReasons.join("+") || "overloaded";
-  }
-
-  aiSchedulerState.at = now();
-  aiSchedulerState.batchSize = Math.max(1, batchSize);
-  aiSchedulerState.selectedAiPlayers = Math.max(1, batchSize);
-  aiSchedulerState.totalAiPlayers = totalAiPlayers;
-  aiSchedulerState.urgentAiPlayers = urgentAiCount;
-  aiSchedulerState.humanPlayersOnline = humanPlayersOnline;
-  aiSchedulerState.authPriorityActive = authPriorityActive;
-  aiSchedulerState.aiQueueBackpressure = aiQueueBackpressure;
-  aiSchedulerState.simulationQueueBackpressure = simulationQueueBackpressure;
-  aiSchedulerState.eventLoopOverloaded = eventLoopOverloaded;
-  aiSchedulerState.reason = reason;
-  return Math.max(1, batchSize);
-};
-
-const runAiTick = (): void => {
-  const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
-  if (aiPlayers.length === 0) return;
-  if (humanChunkSnapshotPriorityActive()) {
-    aiSchedulerState.at = now();
-    aiSchedulerState.batchSize = 0;
-    aiSchedulerState.selectedAiPlayers = 0;
-    aiSchedulerState.totalAiPlayers = aiPlayers.length;
-    aiSchedulerState.urgentAiPlayers = 0;
-    aiSchedulerState.humanPlayersOnline = onlineHumanPlayerCount() > 0;
-    aiSchedulerState.authPriorityActive = pendingAuthVerifications > 0 || authPriorityUntil > now();
-    aiSchedulerState.aiQueueBackpressure = aiWorkerState.queue.length >= AI_WORKER_QUEUE_SOFT_LIMIT;
-    aiSchedulerState.simulationQueueBackpressure = simulationCommandQueueDepth() >= AI_SIM_QUEUE_SOFT_LIMIT;
-    aiSchedulerState.eventLoopOverloaded = false;
-    aiSchedulerState.reason = "human_chunk_snapshot_priority";
-    return;
-  }
-  const nowMs = now();
-  const batchSize = Math.min(aiPlayers.length, chooseAiBatchSize(aiPlayers.length));
-  const urgentAiPlayers = aiPlayers.filter((actor) => aiHasDefensePriority(actor.id, nowMs));
-  const orderedAiPlayers = urgentAiPlayers.length
-    ? [
-        ...urgentAiPlayers,
-        ...aiPlayers.filter((actor) => !urgentAiPlayers.some((urgent) => urgent.id === actor.id))
-      ]
-    : aiPlayers;
-  const eligibleAiPlayers = orderedAiPlayers.filter((actor) => {
-    if (aiTurnsInFlight.has(actor.id)) return false;
-    if (aiHasDefensePriority(actor.id, nowMs)) return true;
-    return ensureAiDueAt(actor.id, nowMs) <= nowMs;
-  });
-  if (eligibleAiPlayers.length === 0) return;
-  const selectedAiPlayers =
-    batchSize >= eligibleAiPlayers.length
-      ? eligibleAiPlayers
-      : Array.from({ length: batchSize }, (_, index) => eligibleAiPlayers[(aiRoundRobinOffset + index) % eligibleAiPlayers.length]).filter(
-          (actor): actor is Player => Boolean(actor)
-        );
-  if (selectedAiPlayers.length === 0) return;
-  aiSchedulerState.at = now();
-  aiSchedulerState.selectedAiPlayers = selectedAiPlayers.length;
-  aiRoundRobinOffset = (aiRoundRobinOffset + batchSize) % eligibleAiPlayers.length;
-  const startedAt = now();
-  const competitionContext = getAiCompetitionContext(nowMs);
-  const competitionMetrics = competitionContext.competitionMetrics;
-  const incomeByPlayerId = competitionContext.incomeByPlayerId;
-  const analysisByPlayerId = new Map<string, AiTurnAnalysis>();
-  for (const actor of selectedAiPlayers) {
-    analysisByPlayerId.set(actor.id, cachedAiTurnAnalysisForPlayer(actor, competitionContext));
-  }
-  const tickContext: AiTickContext = {
-    cycleId: ++aiCycleCounter,
-    competitionMetrics,
-    incomeByPlayerId,
-    townsTarget: competitionContext.townsTarget,
-    settledTilesTarget: competitionContext.settledTilesTarget,
-    analysisByPlayerId
-  };
-  const slotMs = Math.max(10, Math.floor(AI_DISPATCH_INTERVAL_MS / Math.max(1, selectedAiPlayers.length)));
-  let pending = selectedAiPlayers.length;
-  let activeElapsedMs = 0;
-
-  selectedAiPlayers.forEach((actor, index) => {
-    aiTurnsInFlight.add(actor.id);
-    scheduleNextAiTurn(actor.id, nowMs);
-    const delayMs = Math.min(AI_DISPATCH_INTERVAL_MS - 1, index * slotMs);
-    setTimeout(() => {
-      enqueueAiWorkerJob({
-        actor,
-        tickContext,
-        onComplete: (elapsedMs) => {
-          aiTurnsInFlight.delete(actor.id);
-          activeElapsedMs += elapsedMs;
-          pending -= 1;
-          if (pending > 0) return;
-          const memory = runtimeMemoryStats();
-          const elapsedMsTotal = activeElapsedMs;
-          const wallElapsedMs = now() - startedAt;
-          recentAiTickPerf.push({
-            at: now(),
-            elapsedMs: elapsedMsTotal,
-            aiPlayers: selectedAiPlayers.length,
-            rssMb: memory.rssMb,
-            heapUsedMb: memory.heapUsedMb
-          });
-          if (elapsedMsTotal >= 250) {
-            app.log.warn(
-              {
-                elapsedMs: elapsedMsTotal,
-                wallElapsedMs,
-                aiPlayers: selectedAiPlayers.length,
-                totalAiPlayers: aiPlayers.length,
-                queueDepth: aiWorkerState.queue.length,
-                cycleId: tickContext.cycleId,
-                ...memory
-              },
-              "slow ai tick"
-            );
-          }
-        }
-      });
-    }, delayMs);
-  });
-};
-
 const resolveEliminationIfNeeded = (p: Player, isOnline: boolean): void => {
   if (p.T > 0) return;
   p.isEliminated = true;
@@ -11258,24 +11041,6 @@ const tileIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const CHUNK_SNAPSHOT_WARN_MS = 60;
 const CHUNK_SNAPSHOT_BATCH_SIZE = 4;
 const INITIAL_CHUNK_BOOTSTRAP_RADIUS = 0;
-type ChunkSummaryMode = "thin" | "standard";
-
-type ChunkFollowUpStage = {
-  sub: { cx: number; cy: number; radius: number };
-  chunkCoords: Array<{ cx: number; cy: number }>;
-  summaryMode: ChunkSummaryMode;
-  batchSize: number;
-  next?: ChunkFollowUpStage;
-};
-const chunkDist = (a: number, b: number, mod: number): number => {
-  const d = Math.abs(a - b);
-  return Math.min(d, mod - d);
-};
-
-interface VisibilitySnapshot {
-  allVisible: boolean;
-  visibleMask: Uint8Array;
-}
 
 const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
   if (DISABLE_FOG || fogDisabledByPlayer.get(p.id) === true) {
@@ -11337,319 +11102,96 @@ const visibleInSnapshot = (snapshot: VisibilitySnapshot, x: number, y: number): 
   return snapshot.visibleMask[tileIndex(x, y)] === 1;
 };
 
-const chunkCoordsForSubscription = (
-  sub: { cx: number; cy: number; radius: number },
-  minChebyshevRadius = 0
-): Array<{ cx: number; cy: number }> => {
-  const coords: Array<{ cx: number; cy: number }> = [];
-  for (let cy = sub.cy - sub.radius; cy <= sub.cy + sub.radius; cy += 1) {
-    for (let cx = sub.cx - sub.radius; cx <= sub.cx + sub.radius; cx += 1) {
-      const wrappedCx = wrapChunkX(cx);
-      const wrappedCy = wrapChunkY(cy);
-      const distance = Math.max(
-        chunkDist(wrappedCx, wrapChunkX(sub.cx), chunkCountX),
-        chunkDist(wrappedCy, wrapChunkY(sub.cy), chunkCountY)
-      );
-      if (distance < minChebyshevRadius) continue;
-      coords.push({ cx: wrappedCx, cy: wrappedCy });
-    }
-  }
-  coords.sort((a, b) => {
-    const adx = chunkDist(a.cx, wrapChunkX(sub.cx), chunkCountX);
-    const ady = chunkDist(a.cy, wrapChunkY(sub.cy), chunkCountY);
-    const bdx = chunkDist(b.cx, wrapChunkX(sub.cx), chunkCountX);
-    const bdy = chunkDist(b.cy, wrapChunkY(sub.cy), chunkCountY);
-    const aChebyshev = Math.max(adx, ady);
-    const bChebyshev = Math.max(bdx, bdy);
-    if (aChebyshev !== bChebyshev) return aChebyshev - bChebyshev;
-    const aManhattan = adx + ady;
-    const bManhattan = bdx + bdy;
-    if (aManhattan !== bManhattan) return aManhattan - bManhattan;
-    if (a.cy !== b.cy) return a.cy - b.cy;
-    return a.cx - b.cx;
-  });
-  return coords;
-};
-
-const chunkSnapshotCacheForPlayer = (
-  playerId: string,
-  visibility: VisibilitySnapshot
-): {
-  payloadByChunkKey: Map<string, string>;
-  visibilityMaskByChunkKey: Map<string, Uint8Array>;
-} => {
-  const cached = cachedChunkSnapshotByPlayer.get(playerId);
-  if (cached?.visibility === visibility) {
-    return {
-      payloadByChunkKey: cached.payloadByChunkKey,
-      visibilityMaskByChunkKey: cached.visibilityMaskByChunkKey
-    };
-  }
-  const payloadByChunkKey = new Map<string, string>();
-  const visibilityMaskByChunkKey = new Map<string, Uint8Array>();
-  cachedChunkSnapshotByPlayer.set(playerId, { visibility, payloadByChunkKey, visibilityMaskByChunkKey });
-  return { payloadByChunkKey, visibilityMaskByChunkKey };
-};
-
-const fogChunkTiles = (worldCx: number, worldCy: number): readonly Tile[] => {
-  const chunkKey = `${worldCx},${worldCy}`;
-  const cached = fogChunkTilesByChunkKey.get(chunkKey);
-  if (cached) return cached;
-  const startX = worldCx * CHUNK_SIZE;
-  const startY = worldCy * CHUNK_SIZE;
-  const tiles: Tile[] = [];
-  for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-    for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-      const wx = wrapX(x, WORLD_WIDTH);
-      const wy = wrapY(y, WORLD_HEIGHT);
-      const tk = key(wx, wy);
-      const fogTile: Tile = {
-        x: wx,
-        y: wy,
-        terrain: terrainAtRuntime(wx, wy),
-        fogged: true,
-        lastChangedAt: 0
-      };
-      const dock = docksByTile.get(tk);
-      const clusterId = clusterByTile.get(tk);
-      const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
-      if (dock) fogTile.dockId = dock.dockId;
-      if (clusterId) fogTile.clusterId = clusterId;
-      if (clusterType) fogTile.clusterType = clusterType;
-      tiles.push(Object.freeze(fogTile));
-    }
-  }
-  fogChunkTilesByChunkKey.set(chunkKey, tiles);
-  return tiles;
-};
-
-const chunkVisibilityMask = (playerId: string, snapshot: VisibilitySnapshot, worldCx: number, worldCy: number): Uint8Array => {
-  const chunkKey = `${worldCx},${worldCy}`;
-  const cache = chunkSnapshotCacheForPlayer(playerId, snapshot);
-  const cachedMask = cache.visibilityMaskByChunkKey.get(chunkKey);
-  if (cachedMask) return cachedMask;
-  const startX = worldCx * CHUNK_SIZE;
-  const startY = worldCy * CHUNK_SIZE;
-  const mask = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
-  let index = 0;
-  for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-    for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-      const wx = wrapX(x, WORLD_WIDTH);
-      const wy = wrapY(y, WORLD_HEIGHT);
-      mask[index] = visibleInSnapshot(snapshot, wx, wy) ? 1 : 0;
-      index += 1;
-    }
-  }
-  cache.visibilityMaskByChunkKey.set(chunkKey, mask);
-  return mask;
-};
-
-const chunkSnapshotPayload = (
-  actor: Player,
-  snapshot: VisibilitySnapshot,
-  worldCx: number,
-  worldCy: number,
-  mode: ChunkSummaryMode,
-): { buildInput?: ChunkBuildInput; payload?: string; tileCount: number; chunkKey: string } => {
-  const cache = chunkSnapshotCacheForPlayer(actor.id, snapshot);
-  const chunkKey = `${worldCx},${worldCy}`;
-  const payloadCacheKey = `${mode}:${chunkKey}`;
-  const cachedPayload = cache.payloadByChunkKey.get(payloadCacheKey);
-  if (cachedPayload) {
-    return {
-      payload: cachedPayload,
-      tileCount: CHUNK_SIZE * CHUNK_SIZE,
-      chunkKey: payloadCacheKey
-    };
-  }
-
-  return {
-    buildInput: {
-      cx: worldCx,
-      cy: worldCy,
-      fogTiles: [...fogChunkTiles(worldCx, worldCy)],
-      visibleTiles: [...summaryChunkTiles(worldCx, worldCy, mode)],
-      visibleMask: chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy)
-    },
-    tileCount: CHUNK_SIZE * CHUNK_SIZE,
-    chunkKey: payloadCacheKey
-  };
-};
-
-const buildBootstrapChunkStages = (sub: { cx: number; cy: number; radius: number }): ChunkFollowUpStage | undefined => {
-  if (sub.radius <= INITIAL_CHUNK_BOOTSTRAP_RADIUS) return undefined;
-  const stageRadii: number[] = [];
-  for (let radius = INITIAL_CHUNK_BOOTSTRAP_RADIUS + 1; radius <= sub.radius; radius += 1) {
-    stageRadii.push(radius);
-  }
-  let next: ChunkFollowUpStage | undefined;
-  for (let index = stageRadii.length - 1; index >= 0; index -= 1) {
-    const radius = stageRadii[index]!;
-    next = {
-      sub: { ...sub, radius },
-      chunkCoords: chunkCoordsForSubscription({ ...sub, radius }, radius),
-      summaryMode: "thin",
-      batchSize: 1,
-      ...(next ? { next } : {})
-    };
-  }
-  return next;
-};
-
-const chunkBatchSizeForSnapshot = (
-  chunkCoords: Array<{ cx: number; cy: number }>,
-  followUpStage: ChunkFollowUpStage | undefined,
-  batchSizeOverride?: number
-): number => {
-  if (batchSizeOverride !== undefined) return Math.max(1, batchSizeOverride);
-  if (followUpStage || chunkCoords.length > CHUNK_SNAPSHOT_BATCH_SIZE) return 1;
-  return Math.max(1, Math.min(CHUNK_STREAM_BATCH_SIZE, CHUNK_SNAPSHOT_BATCH_SIZE));
-};
-
-const sendChunkSnapshot = (
-  socket: Ws,
-  actor: Player,
-  sub: { cx: number; cy: number; radius: number },
-  followUpStage?: ChunkFollowUpStage,
-  chunkCoordsOverride?: Array<{ cx: number; cy: number }>,
-  summaryMode: ChunkSummaryMode = "thin",
-  batchSizeOverride?: number
-): void => {
-  const startedAt = now();
-  const authSync = authSyncTimingByPlayer.get(actor.id);
-  const snapshot = visibilitySnapshotForPlayer(actor);
-  const generation = (chunkSnapshotGenerationByPlayer.get(actor.id) ?? 0) + 1;
-  chunkSnapshotGenerationByPlayer.set(actor.id, generation);
-  chunkSnapshotInFlightByPlayer.set(actor.id, generation);
-  chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
-  let chunkCount = 0;
-  let tileCount = 0;
-  const chunkCoords = chunkCoordsOverride ?? chunkCoordsForSubscription(sub);
-  const batchSize = chunkBatchSizeForSnapshot(chunkCoords, followUpStage, batchSizeOverride);
-
-  let index = 0;
-  const clearInFlight = (): void => {
-    if (chunkSnapshotInFlightByPlayer.get(actor.id) === generation) {
-      chunkSnapshotInFlightByPlayer.delete(actor.id);
-    }
-  };
-  const streamNext = async (): Promise<void> => {
-    if (chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) {
-      clearInFlight();
-      return;
-    }
-    if (socket.readyState !== socket.OPEN) {
-      clearInFlight();
-      return;
-    }
-    const chunkBatchBodies: string[] = [];
-    const pendingBuilds: Array<{ chunkKey: string; buildInput: ChunkBuildInput }> = [];
-    const end = Math.min(index + batchSize, chunkCoords.length);
-    for (; index < end; index += 1) {
-      const coords = chunkCoords[index]!;
-      const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy, summaryMode);
-      if (chunk.payload) {
-        chunkBatchBodies.push(chunk.payload);
-      } else if (chunk.buildInput) {
-        pendingBuilds.push({ chunkKey: chunk.chunkKey, buildInput: chunk.buildInput });
-      }
-      chunkCount += 1;
-      tileCount += chunk.tileCount;
-    }
-    if (pendingBuilds.length > 0) {
-      const payloads = await serializeChunkBatchViaWorker(pendingBuilds.map((chunk) => chunk.buildInput));
-      const payloadCache = chunkSnapshotCacheForPlayer(actor.id, snapshot).payloadByChunkKey;
-      for (let payloadIndex = 0; payloadIndex < payloads.length; payloadIndex += 1) {
-        const pending = pendingBuilds[payloadIndex]!;
-        const payload = payloads[payloadIndex]!;
-        payloadCache.set(pending.chunkKey, payload);
-        chunkBatchBodies.push(payload);
+const {
+  chunkCoordsForSubscription,
+  buildBootstrapChunkStages,
+  sendChunkSnapshot,
+  tileInSubscription
+} = createChunkSnapshotController<Player>({
+  chunkSize: CHUNK_SIZE,
+  chunkCountX,
+  chunkCountY,
+  initialBootstrapRadius: INITIAL_CHUNK_BOOTSTRAP_RADIUS,
+  chunkStreamBatchSize: CHUNK_STREAM_BATCH_SIZE,
+  chunkSnapshotBatchSize: CHUNK_SNAPSHOT_BATCH_SIZE,
+  chunkSnapshotWarnMs: CHUNK_SNAPSHOT_WARN_MS,
+  now,
+  wrapChunkX,
+  wrapChunkY,
+  runtimeMemoryStats,
+  pushChunkSnapshotPerf: (sample) => {
+    recentChunkSnapshotPerf.push(sample);
+  },
+  onFirstChunkSent: ({ playerId, chunkCount, tileCount, radius }) => {
+    const authSync = authSyncTimingByPlayer.get(playerId);
+    if (!authSync || authSync.firstChunkSentAt === undefined) return;
+    app.log.info(
+      {
+        playerId,
+        sinceAuthVerifiedMs: authSync.authVerifiedAt ? authSync.firstChunkSentAt - authSync.authVerifiedAt : undefined,
+        sinceInitSentMs: authSync.initSentAt ? authSync.firstChunkSentAt - authSync.initSentAt : undefined,
+        sinceFirstSubscribeMs: authSync.firstSubscribeAt ? authSync.firstChunkSentAt - authSync.firstSubscribeAt : undefined,
+        chunkCount,
+        tileCount,
+        radius
+      },
+      "auth sync first chunk sent"
+    );
+  },
+  onSlowChunkSnapshot: ({ playerId, elapsedMs, chunks, tiles, radius, memory }) => {
+    app.log.warn(
+      { playerId, elapsedMs, chunks, tiles, radius, ...memory },
+      "slow chunk snapshot"
+    );
+  },
+  visibilitySnapshotForPlayer,
+  cachedChunkSnapshotByPlayer,
+  fogChunkTilesByChunkKey,
+  chunkSnapshotGenerationByPlayer,
+  chunkSnapshotInFlightByPlayer,
+  chunkSnapshotSentAtByPlayer,
+  chunkSubscriptionByPlayer,
+  authSyncTimingByPlayer,
+  fogChunkTiles: (worldCx, worldCy) => {
+    const chunkKey = `${worldCx},${worldCy}`;
+    const cached = fogChunkTilesByChunkKey.get(chunkKey);
+    if (cached) return cached;
+    const startX = worldCx * CHUNK_SIZE;
+    const startY = worldCy * CHUNK_SIZE;
+    const tiles: Tile[] = [];
+    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+        const wx = wrapX(x, WORLD_WIDTH);
+        const wy = wrapY(y, WORLD_HEIGHT);
+        const tk = key(wx, wy);
+        const fogTile: Tile = {
+          x: wx,
+          y: wy,
+          terrain: terrainAtRuntime(wx, wy),
+          fogged: true,
+          lastChangedAt: 0
+        };
+        const dock = docksByTile.get(tk);
+        const clusterId = clusterByTile.get(tk);
+        const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
+        if (dock) fogTile.dockId = dock.dockId;
+        if (clusterId) fogTile.clusterId = clusterId;
+        if (clusterType) fogTile.clusterType = clusterType;
+        tiles.push(Object.freeze(fogTile));
       }
     }
-    if (chunkBatchBodies.length > 0) {
-      socket.send(serializeChunkBatchBodies(chunkBatchBodies));
-    }
-    if (index < chunkCoords.length) {
-      setTimeout(() => {
-        void streamNext();
-      }, 0);
-      return;
-    }
-    const elapsed = now() - startedAt;
-    const memory = runtimeMemoryStats();
-    if (authSync && authSync.firstChunkSentAt === undefined) {
-      authSync.firstChunkSentAt = now();
-      app.log.info(
-        {
-          playerId: actor.id,
-          sinceAuthVerifiedMs: authSync.authVerifiedAt ? authSync.firstChunkSentAt - authSync.authVerifiedAt : undefined,
-          sinceInitSentMs: authSync.initSentAt ? authSync.firstChunkSentAt - authSync.initSentAt : undefined,
-          sinceFirstSubscribeMs: authSync.firstSubscribeAt ? authSync.firstChunkSentAt - authSync.firstSubscribeAt : undefined,
-          chunkCount,
-          tileCount,
-          radius: sub.radius
-        },
-        "auth sync first chunk sent"
-      );
-    }
-    recentChunkSnapshotPerf.push({
-      at: now(),
-      playerId: actor.id,
-      elapsedMs: elapsed,
-      chunks: chunkCount,
-      tiles: tileCount,
-      radius: sub.radius,
-      rssMb: memory.rssMb,
-      heapUsedMb: memory.heapUsedMb
-    });
-    if (elapsed >= CHUNK_SNAPSHOT_WARN_MS) {
-      app.log.warn(
-        { playerId: actor.id, elapsedMs: elapsed, chunks: chunkCount, tiles: tileCount, radius: sub.radius, ...memory },
-        "slow chunk snapshot"
-      );
-    }
-    clearInFlight();
-    if (
-      followUpStage &&
-      socket.readyState === socket.OPEN &&
-      chunkSnapshotGenerationByPlayer.get(actor.id) === generation
-    ) {
-      setTimeout(() => {
-        if (socket.readyState !== socket.OPEN) return;
-        const currentSub = chunkSubscriptionByPlayer.get(actor.id);
-        if (!currentSub) return;
-        if (
-          currentSub.cx !== followUpStage.sub.cx ||
-          currentSub.cy !== followUpStage.sub.cy ||
-          currentSub.radius < followUpStage.sub.radius
-        ) {
-          return;
-        }
-        sendChunkSnapshot(
-          socket,
-          actor,
-          followUpStage.sub,
-          followUpStage.next,
-          followUpStage.chunkCoords,
-          followUpStage.summaryMode,
-          followUpStage.batchSize
-        );
-      }, 0);
-    }
-  };
-
-  void streamNext();
-};
-
-const tileInSubscription = (playerId: string, x: number, y: number): boolean => {
-  const sub = chunkSubscriptionByPlayer.get(playerId);
-  if (!sub) return false;
-  const tcx = wrapChunkX(Math.floor(x / CHUNK_SIZE));
-  const tcy = wrapChunkY(Math.floor(y / CHUNK_SIZE));
-  const scx = wrapChunkX(sub.cx);
-  const scy = wrapChunkY(sub.cy);
-  return chunkDist(tcx, scx, chunkCountX) <= sub.radius && chunkDist(tcy, scy, chunkCountY) <= sub.radius;
-};
+    fogChunkTilesByChunkKey.set(chunkKey, tiles);
+    return tiles;
+  },
+  summaryChunkTiles,
+  visibleInSnapshot,
+  wrapX,
+  wrapY,
+  worldWidth: WORLD_WIDTH,
+  worldHeight: WORLD_HEIGHT,
+  serializeChunkBatchViaWorker,
+  serializeChunkBatchBodies
+});
 
 const hasActiveResearch = (player: Player): boolean => Boolean(player.currentResearch && player.currentResearch.completesAt > now());
 
@@ -12064,6 +11606,64 @@ const getAiCompetitionContext = (nowMs = now()): AiCompetitionContext => {
   cachedAiCompetitionContext = context;
   return context;
 };
+
+const { state: aiSchedulerState, runAiTick, markAiDefensePriority } = createAiScheduler<
+  Player,
+  PlayerCompetitionMetrics,
+  AiTurnAnalysis,
+  AiTickContext
+>({
+  config: {
+    tickMs: AI_TICK_MS,
+    dispatchIntervalMs: AI_DISPATCH_INTERVAL_MS,
+    tickBatchSize: AI_TICK_BATCH_SIZE,
+    humanPriorityBatchSize: AI_HUMAN_PRIORITY_BATCH_SIZE,
+    humanDefenseBatchSize: AI_HUMAN_DEFENSE_BATCH_SIZE,
+    authPriorityBatchSize: AI_AUTH_PRIORITY_BATCH_SIZE,
+    defensePriorityMs: AI_DEFENSE_PRIORITY_MS,
+    workerQueueSoftLimit: AI_WORKER_QUEUE_SOFT_LIMIT,
+    simulationQueueSoftLimit: AI_SIM_QUEUE_SOFT_LIMIT,
+    eventLoopP95SoftLimitMs: AI_EVENT_LOOP_P95_SOFT_LIMIT_MS,
+    eventLoopUtilizationSoftLimitPct: AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT
+  },
+  now,
+  getAllPlayers: () => [...players.values()],
+  onlineHumanPlayerCount,
+  latestRuntimeVitalsSample,
+  pendingAuthVerifications: () => pendingAuthVerifications,
+  authPriorityUntil: () => authPriorityUntil,
+  aiQueueDepth: () => aiWorkerState.queue.length,
+  simulationQueueDepth: simulationCommandQueueDepth,
+  humanChunkSnapshotPriorityActive,
+  getAiCompetitionContext,
+  createTickContext: (cycleId, context) => ({
+    cycleId,
+    competitionMetrics: context.competitionMetrics,
+    incomeByPlayerId: context.incomeByPlayerId,
+    townsTarget: context.townsTarget,
+    settledTilesTarget: context.settledTilesTarget,
+    analysisByPlayerId: context.analysisByPlayerId
+  }),
+  enqueueAiWorkerJob,
+  runtimeMemoryStats,
+  pushAiTickPerf: (sample) => {
+    recentAiTickPerf.push(sample);
+  },
+  onSlowAiTick: ({ elapsedMs, wallElapsedMs, aiPlayers, totalAiPlayers, queueDepth, cycleId, memory }) => {
+    app.log.warn(
+      {
+        elapsedMs,
+        wallElapsedMs,
+        aiPlayers,
+        totalAiPlayers,
+        queueDepth,
+        cycleId,
+        ...memory
+      },
+      "slow ai tick"
+    );
+  }
+});
 
 const uniqueLeaderFromMetrics = (
   metrics: PlayerCompetitionMetrics[],
