@@ -10,9 +10,12 @@ const sourceFor = (name: string): string => readFileSync(resolve(here, name), "u
 describe("shard rain alert regression guard", () => {
   it("renders a dedicated shard alert and clears shard fx on dismiss", () => {
     const mainSource = sourceFor("./main.ts");
-    expect(mainSource).toContain("const renderShardAlert = (): void => {");
-    expect(mainSource).toContain("state.shardRainFxUntil = 0;");
     expect(mainSource).toContain("shardAlertCloseBtn.onclick = () => {");
+    expect(mainSource).toContain("renderShardAlertFromModule");
+
+    const captureEffectsSource = sourceFor("./client-capture-effects.ts");
+    expect(captureEffectsSource).toContain("export const renderShardAlert = (");
+    expect(captureEffectsSource).toContain("state.shardRainFxUntil = 0;");
   });
 
   it("stops using feed messages as the primary shard rain alert path", () => {
