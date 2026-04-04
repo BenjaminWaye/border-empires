@@ -32,6 +32,7 @@ export type AiPlanningSnapshot = {
   pressureAttackScore: number;
   pressureThreatensCore: boolean;
   settlementAvailable: boolean;
+  townSupportSettlementAvailable: boolean;
   islandExpandAvailable: boolean;
   islandSettlementAvailable: boolean;
   undercoveredIslandCount: number;
@@ -97,8 +98,14 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   if (snapshot.foodCoverageLow && snapshot.settlementAvailable && snapshot.canAffordSettlement) {
     return { reason: "executed_food_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
   }
+  if (snapshot.foodCoverageLow && snapshot.economicBuildAvailable && snapshot.canBuildEconomy && !snapshot.pressureThreatensCore) {
+    return { reason: "executed_food_build_priority", actionKey: "build_economic_structure", goapActionKey: "build_economic_structure" };
+  }
   if (snapshot.foodCoverageLow && economicPushReady && snapshot.canAffordFrontierAction) {
     return { reason: "executed_food_expand_priority", actionKey: "claim_food_border_tile", goapActionKey: "claim_food_border_tile" };
+  }
+  if (snapshot.townSupportSettlementAvailable && snapshot.canAffordSettlement && !snapshot.pressureThreatensCore) {
+    return { reason: "executed_town_support_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
   }
   if (
     snapshot.primaryVictoryPath === "SETTLED_TERRITORY" &&

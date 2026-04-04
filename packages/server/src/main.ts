@@ -7655,8 +7655,10 @@ type AiTerritorySummary = {
     landCounts: Map<number, number>;
     totalIslands: number;
     undercoveredIslandCount: number;
+    ownedUndercoveredIslandCount: number;
     weakestRatio: number;
   };
+  islandFocusTargetId: number | undefined;
   scoutRevealMarks: Uint32Array;
   scoutRevealStamp: number;
 };
@@ -7688,6 +7690,7 @@ type AiPlanningStaticCache = {
   pressureAttackScore: number;
   pressureThreatensCore: boolean;
   settlementAvailable: boolean;
+  townSupportSettlementAvailable: boolean;
   islandExpandAvailable: boolean;
   islandSettlementAvailable: boolean;
   weakestIslandRatio: number;
@@ -7787,6 +7790,7 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     economicSignalByTileKey: new Map<TileKey, number>(),
     pressureSignalByTileKey: new Map<TileKey, number>(),
     islandFootprintSignalByTileKey: new Map<TileKey, number>(),
+    islandFocusTargetId: undefined,
     scoutRevealMarks: new Uint32Array(WORLD_WIDTH * WORLD_HEIGHT),
     scoutRevealStamp: 1
   };
@@ -8226,7 +8230,7 @@ const aiEconomyPriorityState = (
     territorySummary?.settledTileCount ?? [...actor.territoryTiles].filter((tileKey) => ownershipStateByTile.get(tileKey) === "SETTLED").length;
   const aiIncome = currentIncomePerMinute(actor);
   const worldFlags = territorySummary?.worldFlags ?? playerWorldFlags(actor);
-  const foodCoverageLow = controlledTowns > 0 && (territorySummary ? territorySummary.foodPressure > 0 && currentFoodCoverageForPlayer(actor.id) < 1.05 : currentFoodCoverageForPlayer(actor.id) < 1.05);
+  const foodCoverageLow = controlledTowns > 0 && currentFoodCoverageForPlayer(actor.id) < 1;
   const economyWeak =
     aiIncome < (controlledTowns === 0 ? 12 : 18) ||
     (!worldFlags.has("active_town") && !worldFlags.has("active_dock") && settledTiles >= 6) ||
@@ -8260,11 +8264,15 @@ const cachedAiIslandProgress = (
     settledCounts.set(islandId, (settledCounts.get(islandId) ?? 0) + 1);
   }
   let undercoveredIslandCount = 0;
+  let ownedUndercoveredIslandCount = 0;
   let weakestRatio = Number.POSITIVE_INFINITY;
   for (const [islandId, totalLand] of landCounts) {
     if (totalLand <= 0) continue;
     const ratio = (settledCounts.get(islandId) ?? 0) / totalLand;
-    if (ratio < SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) undercoveredIslandCount += 1;
+    if (ratio < SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) {
+      undercoveredIslandCount += 1;
+      if ((ownedCounts.get(islandId) ?? 0) > 0) ownedUndercoveredIslandCount += 1;
+    }
     weakestRatio = Math.min(weakestRatio, ratio);
   }
   const progress = {
@@ -8273,6 +8281,7 @@ const cachedAiIslandProgress = (
     landCounts,
     totalIslands: landCounts.size,
     undercoveredIslandCount,
+    ownedUndercoveredIslandCount,
     weakestRatio: Number.isFinite(weakestRatio) ? weakestRatio : 1
   };
   if (territorySummary) territorySummary.islandProgress = progress;
@@ -8311,6 +8320,58 @@ const aiIslandFootprintSignal = (
   else if ((progress.settledCounts.get(islandId) ?? 0) === 0) score += 110;
   territorySummary?.islandFootprintSignalByTileKey.set(tk, score);
   return score;
+};
+
+const bestAiIslandFocusTargetId = (
+  actor: Player,
+  territorySummary: Pick<AiTerritorySummary, "expandCandidates" | "frontierTiles" | "islandProgress" | "islandFocusTargetId">
+): number | undefined => {
+  if (territorySummary.islandFocusTargetId !== undefined) return territorySummary.islandFocusTargetId;
+  const progress = cachedAiIslandProgress(actor, territorySummary);
+  const { islandIdByTile } = islandMap();
+  const candidateIslandIds = new Set<number>();
+
+  for (const tile of territorySummary.frontierTiles) {
+    const islandId = islandIdByTile.get(key(tile.x, tile.y));
+    if (islandId !== undefined) candidateIslandIds.add(islandId);
+  }
+  for (const { to } of territorySummary.expandCandidates) {
+    if (to.terrain !== "LAND" || to.ownerId) continue;
+    const islandId = islandIdByTile.get(key(to.x, to.y));
+    if (islandId !== undefined) candidateIslandIds.add(islandId);
+  }
+
+  let bestOwnedIslandId: number | undefined;
+  let bestOwnedScore = Number.NEGATIVE_INFINITY;
+  let bestNewIslandId: number | undefined;
+  let bestNewScore = Number.NEGATIVE_INFINITY;
+
+  for (const islandId of candidateIslandIds) {
+    const totalLand = progress.landCounts.get(islandId) ?? 0;
+    if (totalLand <= 0) continue;
+    const settledCount = progress.settledCounts.get(islandId) ?? 0;
+    const ownedCount = progress.ownedCounts.get(islandId) ?? 0;
+    const settledRatio = settledCount / totalLand;
+    if (settledRatio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) continue;
+    const missingShare = SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE - settledRatio;
+    if (ownedCount > 0) {
+      const score = 500 + settledRatio * 700 - missingShare * 220 + Math.min(ownedCount, 12) * 12;
+      if (score > bestOwnedScore) {
+        bestOwnedIslandId = islandId;
+        bestOwnedScore = score;
+      }
+      continue;
+    }
+    const score = 220 + missingShare * 260;
+    if (score > bestNewScore) {
+      bestNewIslandId = islandId;
+      bestNewScore = score;
+    }
+  }
+
+  const focusedIslandId = bestOwnedIslandId ?? bestNewIslandId;
+  territorySummary.islandFocusTargetId = focusedIslandId;
+  return focusedIslandId;
 };
 
 const aiDockStrategicSignal = (
@@ -8586,7 +8647,7 @@ const evaluateAiSettlementCandidate = (
       const support = townSupport(neighborKey, actor.id);
       const deficit = Math.max(0, support.supportMax - support.supportCurrent);
       if (deficit <= 0) continue;
-      townSupportSignal += 60 + deficit * 18;
+      townSupportSignal += 120 + deficit * 36;
     }
   }
   const foodSettlementSignal =
@@ -8741,18 +8802,39 @@ const bestAiIslandExpand = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
+  const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);
+  const { islandIdByTile } = islandMap();
   let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
+    const islandId = islandIdByTile.get(key(to.x, to.y));
+    if (focusIslandId !== undefined && islandId !== focusIslandId) continue;
     const islandSignal = aiIslandFootprintSignal(actor, to, territorySummary);
     if (islandSignal <= 0) continue;
     const scoutScore = scoreAiScoutExpandCandidate(actor, from, to, territorySummary.visibility, territorySummary);
     const economicSignal = aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
-    let score = islandSignal + Math.round(economicSignal * 0.55) + Math.round(scoutScore * 0.45);
+    let score = islandSignal + Math.round(economicSignal * 0.55) + Math.round(scoutScore * 0.45) + 120;
     if (from.ownershipState === "SETTLED") score += 12;
     if (!best || score > best.score) best = { score, from, to };
   }
   return best && best.score >= 150 ? best : undefined;
+};
+
+const bestAiTownSupportSettlementTile = (
+  actor: Player,
+  victoryPath?: AiSeasonVictoryPathId,
+  territorySummary = collectAiTerritorySummary(actor)
+): Tile | undefined => {
+  let best: { tile: Tile; score: number } | undefined;
+  for (const tile of territorySummary.frontierTiles) {
+    const tileKey = key(tile.x, tile.y);
+    if (tileHasPendingSettlement(tileKey)) continue;
+    const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
+    if (evaluation.townSupportSignal <= 0) continue;
+    const score = evaluation.townSupportSignal * 2 + evaluation.score;
+    if (!best || score > best.score) best = { tile, score };
+  }
+  return best && best.score >= 160 ? best.tile : undefined;
 };
 
 const bestAiAnyNeutralExpand = (
@@ -8889,7 +8971,7 @@ const buildAiPlanningStaticCache = (
   let scoutExpandAvailable = false;
   let scaffoldExpandAvailable = false;
   let enemyAttackAvailable = false;
-  let settlementAvailable = false;
+  let supportSettlementAvailable = false;
   let frontierOpportunityEconomic = 0;
   let frontierOpportunityScout = 0;
   let frontierOpportunityScaffold = 0;
@@ -8898,11 +8980,8 @@ const buildAiPlanningStaticCache = (
   for (const tile of territorySummary.frontierTiles) {
     const tileKey = key(tile.x, tile.y);
     if (tileHasPendingSettlement(tileKey)) continue;
-    const hasTownSupport = cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
-    if (townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey) || hasTownSupport) {
-      settlementAvailable = true;
-      break;
-    }
+    const evaluation = evaluateAiSettlementCandidate(actor, tile, undefined, undefined, territorySummary);
+    if (evaluation.townSupportSignal > 0) supportSettlementAvailable = true;
   }
 
   for (const { from, to } of territorySummary.expandCandidates) {
@@ -8952,6 +9031,8 @@ const buildAiPlanningStaticCache = (
   );
   const pressureAttackCandidate = bestAiEnemyPressureAttack(actor, undefined, territorySummary);
   const pressureAttackScore = pressureAttackCandidate?.score ?? estimateAiPressureAttackScore(actor, territorySummary);
+  const settlementCandidate = bestAiSettlementTile(actor, undefined, territorySummary);
+  const townSupportSettlementCandidate = bestAiTownSupportSettlementTile(actor, undefined, territorySummary);
   const islandExpandCandidate = bestAiIslandExpand(actor, territorySummary);
   const islandSettlementCandidate = bestAiIslandSettlementTile(actor, territorySummary);
   const islandProgress = cachedAiIslandProgress(actor, territorySummary);
@@ -8970,7 +9051,8 @@ const buildAiPlanningStaticCache = (
     enemyAttackAvailable,
     pressureAttackScore,
     pressureThreatensCore: pressureAttackThreatensCore(actor, pressureAttackCandidate),
-    settlementAvailable,
+    settlementAvailable: Boolean(settlementCandidate),
+    townSupportSettlementAvailable: Boolean(townSupportSettlementCandidate),
     islandExpandAvailable: Boolean(islandExpandCandidate),
     islandSettlementAvailable: Boolean(islandSettlementCandidate),
     weakestIslandRatio: islandProgress.weakestRatio,
@@ -9041,14 +9123,15 @@ const chooseAiStrategicState = (
   }
 
   let focus: AiStrategicFocus = "BALANCED";
-  if (analysis.foodCoverageLow || analysis.economyWeak) {
-    focus = "ECONOMIC_RECOVERY";
-  } else if (
+  if (
     primaryVictoryPath === "SETTLED_TERRITORY" &&
     planningStatic.undercoveredIslandCount > 0 &&
-    (planningStatic.islandExpandAvailable || planningStatic.islandSettlementAvailable)
+    (planningStatic.islandExpandAvailable || planningStatic.islandSettlementAvailable) &&
+    (!analysis.foodCoverageLow || analysis.foodCoverage >= 1)
   ) {
     focus = "ISLAND_FOOTPRINT";
+  } else if (analysis.foodCoverageLow || analysis.economyWeak) {
+    focus = "ECONOMIC_RECOVERY";
   } else if (frontPosture === "CONTAIN" || frontPosture === "TRUCE") {
     focus = "BORDER_CONTAINMENT";
   } else if (primaryVictoryPath === "TOWN_CONTROL" && planningStatic.pressureAttackScore > 0) {
@@ -9113,6 +9196,7 @@ const buildAiPlanningSnapshot = (
     pressureAttackScore: planningStatic.pressureAttackScore,
     pressureThreatensCore: planningStatic.pressureThreatensCore,
     settlementAvailable: planningStatic.settlementAvailable,
+    townSupportSettlementAvailable: planningStatic.townSupportSettlementAvailable,
     islandExpandAvailable: planningStatic.islandExpandAvailable,
     islandSettlementAvailable: planningStatic.islandSettlementAvailable,
     undercoveredIslandCount: planningStatic.undercoveredIslandCount,
@@ -9158,7 +9242,7 @@ const bestAiSettlementTile = (
     const priorityScore =
       evaluation.score +
       (hasIntrinsicEconomicValue ? 480 : 0) +
-      (evaluation.townSupportSignal > 0 ? 520 + evaluation.townSupportSignal : 0) +
+      (evaluation.townSupportSignal > 0 ? 980 + evaluation.townSupportSignal * 2 : 0) +
       (victoryPath === "SETTLED_TERRITORY" ? evaluation.islandFootprintSignal : 0);
     if (!best || priorityScore > best.priorityScore || (priorityScore === best.priorityScore && evaluation.score > best.score)) {
       best = { tile, ...evaluation, hasIntrinsicEconomicValue, priorityScore };
@@ -9189,12 +9273,16 @@ const bestAiIslandSettlementTile = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): Tile | undefined => {
+  const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);
+  const { islandIdByTile } = islandMap();
   let best: { tile: Tile; score: number } | undefined;
   for (const tile of territorySummary.frontierTiles) {
     if (tileHasPendingSettlement(key(tile.x, tile.y))) continue;
+    const islandId = islandIdByTile.get(key(tile.x, tile.y));
+    if (focusIslandId !== undefined && islandId !== focusIslandId) continue;
     const evaluation = evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary);
     if (evaluation.islandFootprintSignal <= 0) continue;
-    const score = evaluation.score + evaluation.islandFootprintSignal;
+    const score = evaluation.score + evaluation.islandFootprintSignal + (evaluation.townSupportSignal > 0 ? evaluation.townSupportSignal * 2 : 0) + 140;
     if (!best || score > best.score) best = { tile, score };
   }
   return best && best.score >= 120 ? best.tile : undefined;
@@ -9235,6 +9323,8 @@ const bestAiEconomicStructure = (
   territorySummary = collectAiTerritorySummary(actor)
 ): { tile: Tile; structureType: EconomicStructureType } | undefined => {
   const stock = getOrInitStrategicStocks(actor.id);
+  const { foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
+  const economicVictoryBias = aiVictoryPathByPlayer.get(actor.id) === "ECONOMIC_HEGEMONY";
   let best: { score: number; tile: Tile; structureType: EconomicStructureType } | undefined;
   const consider = (score: number, tile: Tile, structureType: EconomicStructureType): void => {
     if (!best || score > best.score) best = { score, tile, structureType };
@@ -9243,17 +9333,18 @@ const bestAiEconomicStructure = (
     const tileKey = key(tile.x, tile.y);
     if (tile.economicStructure) continue;
     if (tile.resource === "FARM" || tile.resource === "FISH") {
-      consider(50, tile, "FARMSTEAD");
-      consider(25, tile, "GRANARY");
+      consider(foodCoverageLow ? 190 : 60, tile, "FARMSTEAD");
+      consider(foodCoverageLow ? 140 : 28, tile, "GRANARY");
     } else if (tile.resource === "FUR" || tile.resource === "WOOD") {
-      consider(40, tile, "CAMP");
-      consider(20, tile, "MARKET");
+      consider(economicVictoryBias ? 52 : 40, tile, "CAMP");
+      consider(economicVictoryBias ? 36 : 20, tile, "MARKET");
     } else if (tile.resource === "IRON" || tile.resource === "GEMS") {
-      consider(45, tile, "MINE");
-      consider(22, tile, "MARKET");
+      consider(economicVictoryBias ? 58 : 45, tile, "MINE");
+      consider(economicVictoryBias ? 34 : 22, tile, "MARKET");
     } else if (townsByTile.has(tileKey)) {
-      consider(35, tile, "MARKET");
-      consider(18, tile, "GRANARY");
+      consider(foodCoverageLow ? 160 : economicVictoryBias ? 54 : 35, tile, foodCoverageLow ? "GRANARY" : "MARKET");
+      consider(foodCoverageLow ? 132 : 22, tile, "GRANARY");
+      consider(economicVictoryBias ? 44 : 20, tile, "MARKET");
     }
   }
   if (best) {
@@ -9317,7 +9408,7 @@ const buildAiTurnAnalysis = (
   const worldFlags = territoryStructure.worldFlags;
   const underThreat = territorySummary.underThreat && settledTiles > 2;
   const foodCoverage = currentFoodCoverageForPlayer(actor.id);
-  const foodCoverageLow = controlledTowns > 0 && foodCoverage < 1.05;
+  const foodCoverageLow = controlledTowns > 0 && foodCoverage < 1;
   const economyWeak =
     aiIncome < (controlledTowns === 0 ? 12 : 18) ||
     (settledTiles >= 10 && aiIncome < 15) ||
@@ -9550,6 +9641,7 @@ const executeAiGoapAction = (
     scaffoldExpand?: ReturnType<typeof bestAiScaffoldExpand>;
     barbarianAttack?: ReturnType<typeof bestAiFrontierAction>;
     enemyAttack?: ReturnType<typeof bestAiFrontierAction>;
+    townSupportSettlementTile?: ReturnType<typeof bestAiTownSupportSettlementTile>;
     islandSettlementTile?: ReturnType<typeof bestAiIslandSettlementTile>;
     settlementTile?: ReturnType<typeof bestAiSettlementTile>;
     fortAnchor?: ReturnType<typeof bestAiFortTile>;
@@ -9612,6 +9704,8 @@ const executeAiGoapAction = (
   }
   if (actionKey === "settle_owned_frontier_tile") {
     const tile =
+      candidates?.townSupportSettlementTile ??
+      bestAiTownSupportSettlementTile(actor, victoryPath, territorySummary) ??
       (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandSettlementTile ?? bestAiIslandSettlementTile(actor, territorySummary) : undefined) ??
       candidates?.settlementTile ??
       bestAiSettlementTile(actor, victoryPath, territorySummary);

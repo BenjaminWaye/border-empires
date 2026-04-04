@@ -76,7 +76,19 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const evaluationBody = functionBody(serverMainSource(), "evaluateAiSettlementCandidate");
 
     expect(staticBody).toContain("tileHasPendingSettlement(tileKey)");
+    expect(staticBody).toContain("bestAiSettlementTile(actor, undefined, territorySummary)");
+    expect(staticBody).toContain("bestAiTownSupportSettlementTile(actor, undefined, territorySummary)");
     expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
+  });
+
+  it("keeps island-victory focus targeted and avoids treating fully fed empires as food emergencies", () => {
+    const source = serverMainSource();
+    const turnAnalysisBody = functionBody(serverMainSource(), "buildAiTurnAnalysis");
+
+    expect(source).toContain("const bestAiIslandFocusTargetId =");
+    expect(source).toContain("const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);");
+    expect(source).toContain("const foodCoverageLow = controlledTowns > 0 && currentFoodCoverageForPlayer(actor.id) < 1;");
+    expect(turnAnalysisBody).toContain("foodCoverage < 1");
   });
 });

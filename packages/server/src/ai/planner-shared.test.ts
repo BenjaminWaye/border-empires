@@ -33,6 +33,7 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   pressureAttackScore: 0,
   pressureThreatensCore: false,
   settlementAvailable: false,
+  townSupportSettlementAvailable: false,
   islandExpandAvailable: false,
   islandSettlementAvailable: false,
   undercoveredIslandCount: 0,
@@ -79,6 +80,22 @@ describe("planAiDecision", () => {
 
     expect(decision.actionKey).toBe("claim_food_border_tile");
     expect(decision.reason).toBe("executed_food_expand_priority");
+  });
+
+  it("chooses food build before food expansion when a legal recovery structure exists", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      controlledTowns: 1,
+      foodCoverage: 0.9,
+      foodCoverageLow: true,
+      economicBuildAvailable: true,
+      canBuildEconomy: true,
+      economicExpandAvailable: true,
+      settlementAvailable: false
+    });
+
+    expect(decision.actionKey).toBe("build_economic_structure");
+    expect(decision.reason).toBe("executed_food_build_priority");
   });
 
   it("does not choose fort priority when fort building is unavailable", () => {
@@ -137,6 +154,19 @@ describe("planAiDecision", () => {
 
     expect(decision.actionKey).toBe("claim_neutral_border_tile");
     expect(decision.reason).toBe("executed_island_expand_priority");
+  });
+
+  it("prioritizes town-support settlement before generic island pressure when core support can be restored safely", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "SETTLED_TERRITORY",
+      townSupportSettlementAvailable: true,
+      islandSettlementAvailable: true,
+      pressureThreatensCore: false
+    });
+
+    expect(decision.actionKey).toBe("settle_owned_frontier_tile");
+    expect(decision.reason).toBe("executed_town_support_settlement_priority");
   });
 
   it("still counterattacks immediately when hostile pressure threatens core tiles", () => {
