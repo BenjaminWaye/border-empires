@@ -62,13 +62,42 @@ import {
 import { initClientDom } from "./client-dom.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import { shardRainAlertDetail, type ClientShardRainAlert } from "./client-shard-alert.js";
+import {
+  applyOptimisticTileCollect as applyOptimisticTileCollectFromModule,
+  applyOptimisticVisibleCollect as applyOptimisticVisibleCollectFromModule,
+  clearPendingCollectTileDelta as clearPendingCollectTileDeltaFromModule,
+  clearPendingCollectVisibleDelta as clearPendingCollectVisibleDeltaFromModule,
+  hasCollectableYield as hasCollectableYieldFromModule,
+  revertOptimisticTileCollectDelta as revertOptimisticTileCollectDeltaFromModule,
+  revertOptimisticVisibleCollectDelta as revertOptimisticVisibleCollectDeltaFromModule,
+  visibleCollectSummary as visibleCollectSummaryFromModule
+} from "./client-collect-optimism.js";
+import {
+  buildMiniMapBase as buildMiniMapBaseFromModule,
+  computeDockSeaRoute as computeDockSeaRouteFromModule,
+  isDockRouteVisibleForPlayer as isDockRouteVisibleForPlayerFromModule,
+  markDockDiscovered as markDockDiscoveredFromModule
+} from "./client-dock-routes.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
+import {
+  firstCaptureGuidanceTarget as firstCaptureGuidanceTargetFromModule,
+  inspectionHtmlForTile as inspectionHtmlForTileFromModule,
+  passiveTileGuidanceHtml as passiveTileGuidanceHtmlFromModule,
+  tileHistoryLines as tileHistoryLinesFromModule
+} from "./client-hover-html.js";
 import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { townHasSupportStructureType } from "./client-support-structures.js";
-import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import { tileActionMenuHtml } from "./client-tile-menu-html.js";
+import {
+  buildDetailTextForAction as buildDetailTextForActionFromModule,
+  constructionProgressForTile as constructionProgressForTileFromModule,
+  menuOverviewForTile as menuOverviewForTileFromModule,
+  queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
+  tileMenuViewForTile as tileMenuViewForTileFromModule,
+  tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
+} from "./client-tile-menu-view.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 import { renderManpowerPanelHtml, renderSocialInspectCardHtml } from "./client-side-panel-html.js";
 import {
@@ -142,6 +171,17 @@ import {
   techOwnedHtml
 } from "./client-tech-html.js";
 import { renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml } from "./client-tech-tree-html.js";
+import {
+  renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
+  renderDomainDetailCard as renderDomainDetailCardFromModule,
+  renderDomainProgressCard as renderDomainProgressCardFromModule,
+  renderStructureInfoOverlay as renderStructureInfoOverlayFromModule,
+  renderTechChoiceGrid as renderTechChoiceGridFromModule,
+  renderTechDetailCard as renderTechDetailCardFromModule,
+  renderTechDetailModal as renderTechDetailModalFromModule,
+  renderTechDetailPrompt as renderTechDetailPromptFromModule,
+  selectedTechInfo as selectedTechInfoFromModule
+} from "./client-tech-detail-ui.js";
 import type {
   ActiveAetherBridgeView,
   ActiveTruceView,
@@ -162,6 +202,7 @@ import type {
   StrategicReplayEvent,
   TechInfo,
   Tile,
+  TileActionDef,
   TileMenuProgressView,
   TileMenuTab,
   TileMenuView,
@@ -482,73 +523,6 @@ const drawExposedTileBorder = (tile: Tile, px: number, py: number, size: number)
 const drawShardFallback = (_tile: Tile, px: number, py: number, size: number): void => drawShardFallbackOnCanvas(ctx, px, py, size);
 const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: number): void =>
   drawOwnershipSignatureOnCanvas(ctx, ownerId, px, py, size, visualStyleForOwner);
-const shortOwnerHistoryLabel = (ownerId?: string | null): string => {
-  if (!ownerId) return "Unknown";
-  if (ownerId === state.me) return "you";
-  if (ownerId === "barbarian") return "Barbarians";
-  return playerNameForOwner(ownerId) ?? `Empire ${ownerId.slice(0, 8)}`;
-};
-const tileHistoryLines = (tile: Tile): string[] => {
-  const history = tile.history;
-  if (!history) return [];
-  const lines: string[] = [];
-  const currentStructureType =
-    tile.fort
-      ? "FORT"
-      : tile.siegeOutpost
-        ? "SIEGE_OUTPOST"
-        : tile.observatory
-          ? "OBSERVATORY"
-          : tile.economicStructure?.type;
-  if (history.captureCount > 0) lines.push(`Captured ${history.captureCount} time${history.captureCount === 1 ? "" : "s"}`);
-  if (history.lastOwnerId) lines.push(`Last held by ${shortOwnerHistoryLabel(history.lastOwnerId)}`);
-  if (history.wasMountainCreatedByPlayer) lines.push("Artificial mountain");
-  if (history.wasMountainRemovedByPlayer) lines.push("Former mountain pass");
-  if (history.lastStructureType && history.lastStructureType !== currentStructureType) {
-    const label =
-      history.lastStructureType === "FORT"
-        ? "Former Fort site"
-        : history.lastStructureType === "SIEGE_OUTPOST"
-          ? "Former Siege Outpost site"
-          : history.lastStructureType === "OBSERVATORY"
-            ? "Former Observatory site"
-            : history.lastStructureType === "FARMSTEAD"
-              ? "Former Farmstead site"
-              : history.lastStructureType === "CAMP"
-                ? "Former Camp site"
-                : history.lastStructureType === "MINE"
-                  ? "Former Mine site"
-                  : history.lastStructureType === "MARKET"
-                    ? "Former Market site"
-                    : history.lastStructureType === "GRANARY"
-                      ? "Former Granary site"
-                      : history.lastStructureType === "BANK"
-                        ? "Former Bank site"
-                        : history.lastStructureType === "AIRPORT"
-                          ? "Former Airport site"
-                          : history.lastStructureType === "FUR_SYNTHESIZER"
-                            ? "Former Fur Synthesizer site"
-                            : history.lastStructureType === "ADVANCED_FUR_SYNTHESIZER"
-                              ? "Former Advanced Fur Synthesizer site"
-                              : history.lastStructureType === "IRONWORKS"
-                                ? "Former Ironworks site"
-                                : history.lastStructureType === "ADVANCED_IRONWORKS"
-                                  ? "Former Advanced Ironworks site"
-                                  : history.lastStructureType === "CRYSTAL_SYNTHESIZER"
-                                    ? "Former Crystal Synthesizer site"
-                                    : history.lastStructureType === "ADVANCED_CRYSTAL_SYNTHESIZER"
-                                      ? "Former Advanced Crystal Synthesizer site"
-                                : history.lastStructureType === "FUEL_PLANT"
-                                  ? "Former Fuel Plant site"
-                                  : history.lastStructureType === "FOUNDRY"
-                                    ? "Former Foundry site"
-                                    : history.lastStructureType === "GOVERNORS_OFFICE"
-                                      ? "Former Governor's Office site"
-                                      : "Former Radar System site";
-    lines.push(label);
-  }
-  return lines;
-};
 const economicStructureIcon = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
   if (type === "FARMSTEAD") return "▥";
   if (type === "CAMP") return "⛺";
@@ -556,6 +530,7 @@ const economicStructureIcon = (type: Tile["economicStructure"] extends infer T ?
   if (type === "GRANARY") return "◫";
   return "▣";
 };
+const tileHistoryLines = (tile: Tile): string[] => tileHistoryLinesFromModule(tile, { me: state.me, playerNameForOwner });
 const ownedSpecialSiteCount = (): number => {
   let count = 0;
   for (const tile of state.tiles.values()) {
@@ -571,226 +546,63 @@ const wrappedTileDistance = (x: number, y: number, focus: { x: number; y: number
   return dx + dy;
 };
 
-const firstCaptureGuidanceTarget = (): { tile: Tile; label: string } | undefined => {
-  if (!state.authSessionReady) return undefined;
-  if (ownedSpecialSiteCount() > 0) return undefined;
-  const focus = state.homeTile ?? state.selected ?? { x: Math.round(state.camX), y: Math.round(state.camY) };
-  const targets = [...state.tiles.values()]
-    .filter((tile) => !tile.fogged && tile.terrain === "LAND" && tile.ownerId !== state.me && !isTileOwnedByAlly(tile))
-    .filter((tile) => tile.town || tile.dockId || tile.resource)
-    .map((tile) => {
-      const reachable = Boolean(pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
-      const label = tile.town
-        ? "Capture a town"
-        : tile.dockId
-          ? "Capture a dock"
-          : `Capture ${prettyToken(resourceLabel(tile.resource!)).toLowerCase()}`;
-      const kindRank = tile.town ? 0 : tile.dockId ? 1 : 2;
-      return { tile, label, reachable, kindRank, distance: wrappedTileDistance(tile.x, tile.y, focus) };
-    })
-    .sort((a, b) => Number(b.reachable) - Number(a.reachable) || a.kindRank - b.kindRank || a.distance - b.distance);
-  return targets[0] ? { tile: targets[0].tile, label: targets[0].label } : undefined;
-};
+const firstCaptureGuidanceTarget = (): { tile: Tile; label: string } | undefined =>
+  firstCaptureGuidanceTargetFromModule({
+    authSessionReady: state.authSessionReady,
+    tiles: state.tiles.values(),
+    me: state.me,
+    homeTile: state.homeTile,
+    selected: state.selected,
+    camX: state.camX,
+    camY: state.camY,
+    isTileOwnedByAlly,
+    pickOriginForTarget,
+    prettyToken
+  });
 
 const displayTownGoldPerMinute = (tile: Tile): number => {
   if (!tile.town) return 0;
   return tile.town.goldPerMinute;
 };
 
-const inspectionHtmlForTile = (tile: Tile): string => {
-  const ownerLabel = tile.ownerId ? (playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : "neutral";
-  const tags = [
-    tile.ownershipState ? prettyToken(tile.ownershipState) : "",
-    tile.regionType ? prettyToken(tile.regionType) : "",
-    tile.clusterType ? prettyToken(tile.clusterType) : "",
-    tile.capital ? "Capital" : "",
-    tile.dockId ? "Dock" : "",
-    tile.fort ? `Fort ${prettyToken(tile.fort.status)}` : "",
-    tile.observatory ? `Observatory ${prettyToken(tile.observatory.status)}` : "",
-    tile.economicStructure ? `${economicStructureName(tile.economicStructure.type)} ${prettyToken(tile.economicStructure.status)}` : "",
-    hostileObservatoryProtectingTile(tile) ? "Protected Field" : "",
-    tile.siegeOutpost ? `Siege ${prettyToken(tile.siegeOutpost.status)}` : "",
-    tile.sabotage && tile.sabotage.endsAt > Date.now() ? `Sabotaged ${Math.ceil((tile.sabotage.endsAt - Date.now()) / 60000)}m` : "",
-    tile.breachShockUntil && tile.breachShockUntil > Date.now() ? "Breach-shocked" : ""
-  ].filter(Boolean);
-  const townBits: string[] = [];
-  if (tile.town) {
-    const growthLabel = populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0);
-    townBits.push(`${prettyToken(tile.town.type)} town`);
-    townBits.push(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
-    townBits.push(
-      `Population ${Math.round(tile.town.population).toLocaleString()} (${growthLabel}) (${prettyToken(tile.town.populationTier)})`
-    );
-    townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
-    if (!tile.town.isFed) townBits.push("Unfed");
-    if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") {
-      const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
-      const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
-      townBits.push(`Gold paused until manpower is full (${current}/${cap})`);
-    }
-  }
-  const terrainAndResource = (() => {
-    const terrainText = prettyToken(terrainLabel(tile.x, tile.y, tile.terrain));
-    if (!tile.resource) return terrainText;
-    return `${terrainText} - ${prettyToken(resourceLabel(tile.resource))}`;
-  })();
-  const topLine = [
-    `<strong>${tile.x}, ${tile.y}</strong>`,
-    terrainAndResource
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const metaLine = [`Owner ${ownerLabel}`, ...tags].filter(Boolean).join(" · ");
-  const extraLine = townBits.length > 0 ? townBits.join(" · ") : "";
-  return `
-    <div class="hover-line">${topLine}</div>
-    <div class="hover-subline">${metaLine}</div>
-    ${extraLine ? `<div class="hover-subline">${extraLine}</div>` : ""}
-    <div class="hover-subline">Open the tile menu for full overview and actions.</div>
-  `;
-};
+const inspectionHtmlForTile = (tile: Tile): string =>
+  inspectionHtmlForTileFromModule(tile, {
+    playerNameForOwner,
+    prettyToken,
+    terrainLabel,
+    populationPerMinuteLabel,
+    hostileObservatoryProtectingTile
+  });
 
-const passiveTileGuidanceHtml = (): string => {
-  const captureGuidance = firstCaptureGuidanceTarget();
-  const guidance = captureGuidance
-    ? `${captureGuidance.label}. It is marked in green on the map.`
-    : "Tap a tile to open its actions and overview.";
-  return `
-    <div class="hover-line"><strong>Tile details live in the action menu</strong></div>
-    <div class="hover-subline">${guidance}</div>
-  `;
-};
+const passiveTileGuidanceHtml = (): string => passiveTileGuidanceHtmlFromModule({ captureGuidance: firstCaptureGuidanceTarget() });
 
 const growthModifierPercentLabel = (label: "Recently captured" | "Nearby war" | "Long time peace"): string => {
   if (label === "Long time peace") return "+100% pop growth";
   return "-100% pop growth";
 };
 
-const hasCollectableYield = (t: Tile | undefined): boolean => {
-  if (!t?.yield) return false;
-  if ((t.yield.gold ?? 0) > 0.01) return true;
-  return Object.values(t.yield.strategic ?? {}).some((v) => Number(v) > 0.01);
-};
+const hasCollectableYield = (t: Tile | undefined): boolean => hasCollectableYieldFromModule(t);
 
-const visibleCollectSummary = (): { tileCount: number; gold: number; resourceKinds: number } => {
-  let tileCount = 0;
-  let gold = 0;
-  const activeResources = new Set<string>();
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") continue;
-    if (tileVisibilityStateAt(tile.x, tile.y, tile) !== "visible") continue;
-    if (!hasCollectableYield(tile)) continue;
-    tileCount += 1;
-    gold += tile.yield?.gold ?? 0;
-    for (const [resource, amount] of Object.entries(tile.yield?.strategic ?? {})) {
-      if (Number(amount) > 0.01) activeResources.add(resource);
-    }
-  }
-  return { tileCount, gold, resourceKinds: activeResources.size };
-};
+const visibleCollectSummary = (): { tileCount: number; gold: number; resourceKinds: number } =>
+  visibleCollectSummaryFromModule({ tiles: state.tiles.values(), me: state.me, tileVisibilityStateAt });
 
-const clearPendingCollectVisibleDelta = (): void => {
-  state.pendingCollectVisibleDelta.gold = 0;
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
-    state.pendingCollectVisibleDelta.strategic[resource] = 0;
-  }
-};
+const clearPendingCollectVisibleDelta = (): void => clearPendingCollectVisibleDeltaFromModule(state);
 
-const clearPendingCollectTileDelta = (tileKey?: string): void => {
-  if (tileKey) {
-    state.pendingCollectTileDelta.delete(tileKey);
-    return;
-  }
-  state.pendingCollectTileDelta.clear();
-};
+const clearPendingCollectTileDelta = (tileKey?: string): void => clearPendingCollectTileDeltaFromModule(state, tileKey);
 
-const revertOptimisticVisibleCollectDelta = (): void => {
-  const delta = state.pendingCollectVisibleDelta;
-  if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
-    const amount = delta.strategic[resource] ?? 0;
-    if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
-  }
-  clearPendingCollectVisibleDelta();
-};
+const revertOptimisticVisibleCollectDelta = (): void => revertOptimisticVisibleCollectDeltaFromModule(state);
 
-const revertOptimisticTileCollectDelta = (tileKey: string): void => {
-  const delta = state.pendingCollectTileDelta.get(tileKey);
-  if (!delta) return;
-  if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
-    const amount = delta.strategic[resource] ?? 0;
-    if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
-  }
-  const tile = state.tiles.get(tileKey);
-  if (tile && delta.previousYield) tile.yield = delta.previousYield;
-  else if (tile) delete tile.yield;
-  state.pendingCollectTileDelta.delete(tileKey);
-};
+const revertOptimisticTileCollectDelta = (tileKey: string): void => revertOptimisticTileCollectDeltaFromModule(state, tileKey);
 
-const applyOptimisticVisibleCollect = (): number => {
-  state.pendingCollectVisibleKeys.clear();
-  clearPendingCollectVisibleDelta();
-  let touched = 0;
-  for (const tile of state.tiles.values()) {
-    if (tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") continue;
-    if (tileVisibilityStateAt(tile.x, tile.y, tile) !== "visible") continue;
-    if (!hasCollectableYield(tile)) continue;
-    state.pendingCollectVisibleKeys.add(key(tile.x, tile.y));
-    const gold = tile.yield?.gold ?? 0;
-    if (gold > 0) {
-      state.gold += gold;
-      state.pendingCollectVisibleDelta.gold += gold;
-      state.goldAnimUntil = Date.now() + 350;
-      state.goldAnimDir = 1;
-    }
-    for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
-      const amount = Number(tile.yield?.strategic?.[resource] ?? 0);
-      if (amount <= 0) continue;
-      state.strategicResources[resource] += amount;
-      state.pendingCollectVisibleDelta.strategic[resource] += amount;
-      state.strategicAnim[resource] = { until: Date.now() + 350, dir: 1 };
-    }
-    tile.yield = { gold: 0, strategic: {} };
-    touched += 1;
-  }
-  return touched;
-};
-
-const applyOptimisticTileCollect = (tile: Tile): boolean => {
-  const tileKey = key(tile.x, tile.y);
-  const gold = tile.yield?.gold ?? 0;
-  const strategic = {
-    FOOD: Number(tile.yield?.strategic?.FOOD ?? 0),
-    IRON: Number(tile.yield?.strategic?.IRON ?? 0),
-    CRYSTAL: Number(tile.yield?.strategic?.CRYSTAL ?? 0),
-    SUPPLY: Number(tile.yield?.strategic?.SUPPLY ?? 0),
-    SHARD: Number(tile.yield?.strategic?.SHARD ?? 0)
-  } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
-  const touched = gold > 0 || Object.values(strategic).some((amount) => amount > 0);
-  if (!touched) return false;
-
-  state.pendingCollectTileDelta.set(tileKey, {
-    gold,
-    strategic,
-    ...(tile.yield
-      ? { previousYield: { gold: tile.yield.gold ?? 0, strategic: { ...(tile.yield.strategic ?? {}) } } }
-      : {})
+const applyOptimisticVisibleCollect = (): number =>
+  applyOptimisticVisibleCollectFromModule({
+    state,
+    tilesIterable: state.tiles.values(),
+    tileVisibilityStateAt,
+    keyFor: key
   });
-  if (gold > 0) {
-    state.gold += gold;
-    state.goldAnimUntil = Date.now() + 350;
-    state.goldAnimDir = 1;
-  }
-  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
-    const amount = strategic[resource] ?? 0;
-    if (amount <= 0) continue;
-    state.strategicResources[resource] += amount;
-    state.strategicAnim[resource] = { until: Date.now() + 350, dir: 1 };
-  }
-  tile.yield = { gold: 0, strategic: {} };
-  return true;
-};
+
+const applyOptimisticTileCollect = (tile: Tile): boolean => applyOptimisticTileCollectFromModule({ state, keyFor: key }, tile);
 const isCoastalLand = (x: number, y: number): boolean => {
   if (terrainAt(x, y) !== "LAND") return false;
   const n = [
@@ -1011,133 +823,27 @@ const worldToScreen = (wx: number, wy: number, size: number, halfW: number, half
   };
 };
 
-const dockRouteKey = (ax: number, ay: number, bx: number, by: number): string => `${ax},${ay}->${bx},${by}`;
 const manhattanToroid = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
   const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
   return dx + dy;
 };
-const manhattanLinear = (ax: number, ay: number, bx: number, by: number): number => Math.abs(ax - bx) + Math.abs(ay - by);
-const nearestSeaNeighbor = (x: number, y: number, tx: number, ty: number): { x: number; y: number } | undefined => {
-  const candidates = [
-    { x: wrapX(x), y: wrapY(y - 1) },
-    { x: wrapX(x + 1), y: wrapY(y) },
-    { x: wrapX(x), y: wrapY(y + 1) },
-    { x: wrapX(x - 1), y: wrapY(y) }
-  ].filter((p) => terrainAt(p.x, p.y) === "SEA");
-  if (candidates.length === 0) return undefined;
-  candidates.sort((a, b) => manhattanLinear(a.x, a.y, tx, ty) - manhattanLinear(b.x, b.y, tx, ty));
-  return candidates[0];
-};
+const computeDockSeaRoute = (ax: number, ay: number, bx: number, by: number): Array<{ x: number; y: number }> =>
+  computeDockSeaRouteFromModule(ax, ay, bx, by, { dockRouteCache: state.dockRouteCache, worldIndex, wrapX, wrapY });
 
-const reconstructSeaPath = (cameFrom: Map<number, number>, endIdx: number): Array<{ x: number; y: number }> => {
-  const out: Array<{ x: number; y: number }> = [];
-  let cur = endIdx;
-  while (true) {
-    out.push({ x: cur % WORLD_WIDTH, y: Math.floor(cur / WORLD_WIDTH) });
-    const prev = cameFrom.get(cur);
-    if (prev === undefined) break;
-    cur = prev;
-  }
-  out.reverse();
-  return out;
-};
-const computeDockSeaRoute = (ax: number, ay: number, bx: number, by: number): Array<{ x: number; y: number }> => {
-  const cacheK = dockRouteKey(ax, ay, bx, by);
-  const cached = state.dockRouteCache.get(cacheK);
-  if (cached) return cached;
+const markDockDiscovered = (tile: Tile): void =>
+  markDockDiscoveredFromModule(tile, { discoveredDockTiles: state.discoveredDockTiles, keyFor: key });
 
-  const aSea = nearestSeaNeighbor(ax, ay, bx, by);
-  const bSea = nearestSeaNeighbor(bx, by, ax, ay);
-  if (!aSea || !bSea) {
-    state.dockRouteCache.set(cacheK, []);
-    return [];
-  }
-
-  const start = worldIndex(aSea.x, aSea.y);
-  const goal = worldIndex(bSea.x, bSea.y);
-  const open: number[] = [start];
-  const inOpen = new Set<number>([start]);
-  const cameFrom = new Map<number, number>();
-  const gScore = new Map<number, number>([[start, 0]]);
-  const fScore = new Map<number, number>([[start, manhattanLinear(aSea.x, aSea.y, bSea.x, bSea.y)]]);
-  const maxExpanded = 24_000;
-  let expanded = 0;
-  let solved = false;
-
-  while (open.length > 0 && expanded < maxExpanded) {
-    let bestI = 0;
-    let bestF = fScore.get(open[0]!) ?? Number.POSITIVE_INFINITY;
-    for (let i = 1; i < open.length; i += 1) {
-      const score = fScore.get(open[i]!) ?? Number.POSITIVE_INFINITY;
-      if (score < bestF) {
-        bestF = score;
-        bestI = i;
-      }
-    }
-    const current = open.splice(bestI, 1)[0]!;
-    inOpen.delete(current);
-    expanded += 1;
-    if (current === goal) {
-      solved = true;
-      break;
-    }
-    const cx = current % WORLD_WIDTH;
-    const cy = Math.floor(current / WORLD_WIDTH);
-    const neighbors = [
-      { x: cx, y: cy - 1 },
-      { x: cx + 1, y: cy },
-      { x: cx, y: cy + 1 },
-      { x: cx - 1, y: cy }
-    ];
-    for (const n of neighbors) {
-      if (n.x < 0 || n.y < 0 || n.x >= WORLD_WIDTH || n.y >= WORLD_HEIGHT) continue;
-      if (terrainAt(n.x, n.y) !== "SEA") continue;
-      const ni = worldIndex(n.x, n.y);
-      const tentative = (gScore.get(current) ?? Number.POSITIVE_INFINITY) + 1;
-      if (tentative >= (gScore.get(ni) ?? Number.POSITIVE_INFINITY)) continue;
-      cameFrom.set(ni, current);
-      gScore.set(ni, tentative);
-      fScore.set(ni, tentative + manhattanLinear(n.x, n.y, bSea.x, bSea.y));
-      if (!inOpen.has(ni)) {
-        inOpen.add(ni);
-        open.push(ni);
-      }
-    }
-  }
-
-  let seaPath: Array<{ x: number; y: number }> = [];
-  if (solved) seaPath = reconstructSeaPath(cameFrom, goal);
-  const route = seaPath;
-  state.dockRouteCache.set(cacheK, route);
-  return route;
-};
-
-const markDockDiscovered = (tile: Tile): void => {
-  if (tile.dockId && !tile.fogged) state.discoveredDockTiles.add(key(tile.x, tile.y));
-};
-
-const isDockRouteVisibleForPlayer = (pair: DockPair): boolean => {
-  if (state.fogDisabled) return true;
-  if (state.selected && ((state.selected.x === pair.ax && state.selected.y === pair.ay) || (state.selected.x === pair.bx && state.selected.y === pair.by))) {
-    return true;
-  }
-  return state.discoveredDockTiles.has(key(pair.ax, pair.ay)) && state.discoveredDockTiles.has(key(pair.bx, pair.by));
-};
+const isDockRouteVisibleForPlayer = (pair: DockPair): boolean =>
+  isDockRouteVisibleForPlayerFromModule(pair, {
+    fogDisabled: state.fogDisabled,
+    selected: state.selected,
+    discoveredDockTiles: state.discoveredDockTiles,
+    keyFor: key
+  });
 
 const buildMiniMapBase = (): void => {
-  const w = miniMapBase.width;
-  const h = miniMapBase.height;
-  miniMapBaseCtx.clearRect(0, 0, w, h);
-  for (let py = 0; py < h; py += 1) {
-    for (let px = 0; px < w; px += 1) {
-      const wx = Math.floor((px / w) * WORLD_WIDTH);
-      const wy = Math.floor((py / h) * WORLD_HEIGHT);
-      const tt = terrainAt(wx, wy);
-      miniMapBaseCtx.fillStyle = cachedTerrainColorAt(wx, wy, tt);
-      miniMapBaseCtx.fillRect(px, py, 1, 1);
-    }
-  }
+  buildMiniMapBaseFromModule({ miniMapBase, miniMapBaseCtx, cachedTerrainColorAt });
   miniMapBaseReady = true;
   miniMapLastDrawCamX = Number.NaN;
 };
@@ -2318,266 +2024,83 @@ const effectiveTechChoices = (): string[] =>
 
 const isPendingTechUnlock = (techId: string): boolean => state.pendingTechUnlockId === techId;
 
-const formatTechCost = (t: TechInfo): string => {
-  const checklist = t.requirements.checklist ?? [];
-  const costBits = checklist.filter((c) => /gold|food|iron|crystal|supply|shard/i.test(c.label)).map((c) => c.label);
-  if (costBits.length > 0) return costBits.join(" · ");
-  const fallback = checklist.map((c) => c.label);
-  return fallback.length > 0 ? fallback.join(" · ") : "Cost not listed";
-};
-
 const renderTechChoiceGrid = (): string =>
-  state.techTreeExpanded
-    ? renderExpandedTechChoiceTreeHtml({
-        techCatalog: state.techCatalog,
-        techUiSelectedId: state.techUiSelectedId,
-        techRootId: state.techRootId,
-        currentResearch: state.currentResearch,
-        effectiveOwnedTechIds: effectiveOwnedTechIds(),
-        effectiveTechChoices: effectiveTechChoices(),
-        orderedTechIdsByTier,
-        techTier,
-        techPrereqIds,
-        techNameList,
-        formatTechCost,
-        isPendingTechUnlock,
-        formatCooldownShort,
-        titleCaseFromId,
-        viewportHeight: viewportSize().height,
-        isMobile: isMobile()
-      })
-    : renderCompactTechChoiceGridHtml({
-        techCatalog: state.techCatalog,
-        techUiSelectedId: state.techUiSelectedId,
-        techRootId: state.techRootId,
-        currentResearch: state.currentResearch,
-        effectiveOwnedTechIds: effectiveOwnedTechIds(),
-        effectiveTechChoices: effectiveTechChoices(),
-        orderedTechIdsByTier,
-        techTier,
-        techPrereqIds,
-        techNameList,
-        formatTechCost,
-        isPendingTechUnlock,
-        formatCooldownShort,
-        titleCaseFromId,
-        viewportHeight: viewportSize().height,
-        isMobile: isMobile()
-      });
-
-const selectedTechInfo = (): TechInfo | undefined => {
-  const selectedId = state.techUiSelectedId || techPickEl.value || mobileTechPickEl.value || state.techCatalog[0]?.id;
-  return state.techCatalog.find((x) => x.id === selectedId);
-};
-
-const renderTechDetailPrompt = (): string =>
-  `<article class="card tech-detail-placeholder">
-    <strong>Inspect Technology</strong>
-    <p>Tap any tech card to open its full description, related structures, prerequisites, and unlock action.</p>
-  </article>`;
-
-const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[] => {
-  const out = new Set<StructureInfoKey>();
-  const effects = tech.effects ?? {};
-  for (const [key] of Object.entries(effects)) {
-    if (key === "unlockForts" || key.startsWith("fort")) out.add("FORT");
-    if (key === "unlockObservatory" || key.startsWith("observatory")) out.add("OBSERVATORY");
-    if (key === "unlockFarmstead") out.add("FARMSTEAD");
-    if (key === "unlockCamp") out.add("CAMP");
-    if (key === "unlockMine") out.add("MINE");
-    if (key === "unlockMarket" || key.startsWith("market")) out.add("MARKET");
-    if (key === "unlockGranary" || key.startsWith("granary")) out.add("GRANARY");
-    if (key === "unlockBank") out.add("BANK");
-    if (key === "unlockCaravanary") out.add("CARAVANARY");
-    if (key === "unlockFurSynthesizer") out.add("FUR_SYNTHESIZER");
-    if (key === "unlockIronworks") out.add("IRONWORKS");
-    if (key === "unlockCrystalSynthesizer") out.add("CRYSTAL_SYNTHESIZER");
-    if (key === "unlockAdvancedSynthesizers") {
-      out.add("ADVANCED_FUR_SYNTHESIZER");
-      out.add("ADVANCED_IRONWORKS");
-      out.add("ADVANCED_CRYSTAL_SYNTHESIZER");
-    }
-    if (key === "unlockFuelPlant") out.add("FUEL_PLANT");
-    if (key === "unlockFoundry") out.add("FOUNDRY");
-    if (key === "unlockCustomsHouse") out.add("CUSTOMS_HOUSE");
-    if (key === "unlockGovernorsOffice") out.add("GOVERNORS_OFFICE");
-    if (key === "unlockGarrisonHall") out.add("GARRISON_HALL");
-    if (key === "unlockAirport") out.add("AIRPORT");
-    if (key === "unlockRadarSystem") out.add("RADAR_SYSTEM");
-    if (key === "unlockSiegeOutposts" || key.startsWith("outpost")) out.add("SIEGE_OUTPOST");
-  }
-  return [...out];
-};
-
-const renderTechDetailCard = (): string => {
-  const byId = new Map(state.techCatalog.map((tech) => [tech.id, tech]));
-  const tierMemo = new Map<string, number>();
-  const tech = selectedTechInfo();
-  if (!tech || !state.techDetailOpen) {
-    return renderTechDetailPrompt();
-  }
-  const prereqs = techPrereqIds(tech);
-  const unlocks = unlockedByTech(tech.id);
-  const prereqText = prereqs.length > 0 ? techNameList(prereqs) : "Entry tech";
-  const pendingUnlock = isPendingTechUnlock(tech.id);
-  const canUnlock = tech.requirements.canResearch && !state.pendingTechUnlockId;
-  const statusText = pendingUnlock
-      ? "Unlocking now. Waiting for server confirmation..."
-      : undefined;
-  const buttonLabel = pendingUnlock
-      ? "Unlocking..."
-      : canUnlock
-        ? "Unlock"
-        : "Locked";
-  const relatedStructures = relatedStructureTypesForTech(tech);
-  const relatedStructuresHtml =
-    relatedStructures.length > 0
-      ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</p>`
-      : "";
-  const cardHtml = renderTechDetailCardHtml({
-    tech,
-    statusText,
-    buttonLabel,
-    buttonDisabled: !(canUnlock || pendingUnlock),
-    prereqs,
-    prereqText,
-    unlocks: unlocks.map((next) => ({ name: next.name, tier: techTier(next.id, byId, tierMemo) })),
-    relatedStructuresHtml
+  renderTechChoiceGridFromModule({
+    state,
+    effectiveOwnedTechIds,
+    effectiveTechChoices,
+    orderedTechIdsByTier,
+    techTier,
+    techPrereqIds,
+    techNameList,
+    isPendingTechUnlock,
+    formatCooldownShort,
+    titleCaseFromId,
+    viewportHeight: viewportSize().height,
+    isMobile: isMobile()
   });
-  return `<article class="card tech-detail-card tech-detail-card-shell">
-    <div class="tech-detail-inline-head">
-      <div class="tech-detail-kicker">Technology</div>
-      <button class="tech-detail-close tech-detail-close-inline" type="button" aria-label="Close tech details" data-tech-detail-close="button">×</button>
-    </div>
-    <div class="tech-detail-inline-scroll">
-      ${cardHtml}
-    </div>
-  </article>`;
-};
 
-const renderStructureInfoOverlay = (): string => {
-  const type = state.structureInfoKey as StructureInfoKey | "";
-  if (!type) return "";
-  const info = structureInfoForKey(type);
-  const costHtml = info.costBits.map((bit) => `<div class="structure-info-meta-card"><span>Cost</span><strong>${bit}</strong></div>`).join("");
-  const artHtml = info.image
-    ? `<div class="structure-info-art has-image"><img class="structure-info-image" src="${info.image}" alt="${info.title}" /></div>`
-    : `<div class="structure-info-art"><div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div></div>`;
-  return `<div class="structure-info-backdrop" data-structure-info-close="backdrop"></div>
-    <div class="structure-info-modal" role="dialog" aria-modal="true" aria-labelledby="structure-info-title">
-      <button class="structure-info-close" type="button" aria-label="Close structure details" data-structure-info-close="button">×</button>
-      <div class="structure-info-scroll">
-        <div class="structure-info-hero">
-          ${artHtml}
-          <div class="structure-info-head">
-            <div class="structure-info-kicker">Structure</div>
-            <h3 id="structure-info-title">${info.title}</h3>
-            <p>${info.detail}</p>
-          </div>
-        </div>
-        <div class="structure-info-meta">
-          ${costHtml}
-          <div class="structure-info-meta-card"><span>Build time</span><strong>${info.buildTimeLabel}</strong></div>
-          <div class="structure-info-meta-card"><span>Placement</span><strong>${info.placement}</strong></div>
-        </div>
-      </div>
-    </div>`;
-};
+const selectedTechInfo = (): TechInfo | undefined =>
+  selectedTechInfoFromModule({
+    techUiSelectedId: state.techUiSelectedId,
+    desktopPickValue: techPickEl.value,
+    mobilePickValue: mobileTechPickEl.value,
+    techCatalog: state.techCatalog
+  });
+
+const renderTechDetailPrompt = (): string => renderTechDetailPromptFromModule();
+
+const renderTechDetailCard = (): string =>
+  renderTechDetailCardFromModule({
+    tech: selectedTechInfo(),
+    techDetailOpen: state.techDetailOpen,
+    techCatalog: state.techCatalog,
+    techPrereqIds,
+    unlockedByTech,
+    isPendingTechUnlock,
+    pendingTechUnlockId: state.pendingTechUnlockId,
+    techNameList,
+    structureInfoButtonHtml,
+    techTier
+  });
+
+const renderStructureInfoOverlay = (): string => renderStructureInfoOverlayFromModule(state.structureInfoKey, structureInfoForKey);
 
 const renderTechDetailModal = (): string => {
   const tech = selectedTechInfo();
   if (!tech) return "";
-  const byId = new Map(state.techCatalog.map((item) => [item.id, item]));
-  const tierMemo = new Map<string, number>();
-  const prereqs = techPrereqIds(tech);
-  const unlocks = unlockedByTech(tech.id);
-  const pendingUnlock = isPendingTechUnlock(tech.id);
-  const canUnlock = tech.requirements.canResearch && !state.pendingTechUnlockId;
-  const statusText = pendingUnlock
-      ? "Unlocking now. Waiting for server confirmation..."
-      : tech.requirements.canResearch
-        ? "Ready to unlock."
-        : prereqs.length > 0
-          ? `Requires ${techNameList(prereqs)}`
-          : "Entry tech";
-  const buttonLabel = pendingUnlock
-      ? "Unlocking..."
-      : canUnlock
-        ? "Unlock"
-        : "Locked";
-  const relatedStructures = relatedStructureTypesForTech(tech);
-  const requirements = tech.requirements.checklist ?? [];
-  const requirementsHtml =
-    requirements.length > 0
-      ? `<ul class="tech-req-list">${requirements
-          .map((item) => `<li class="${item.met ? "ok" : "bad"}">${item.met ? "✓" : "✗"} ${item.label}</li>`)
-          .join("")}</ul>`
-      : `<ul class="tech-req-list"><li>None</li></ul>`;
-  return `<div class="tech-detail-backdrop" data-tech-detail-close="backdrop"></div>
-    <div class="tech-detail-modal">
-      <button class="tech-detail-close" type="button" aria-label="Close tech details" data-tech-detail-close="button">×</button>
-      <div class="tech-detail-scroll">
-        <div class="tech-detail-modal-head">
-          <div>
-            <div class="tech-detail-kicker">Technology</div>
-            <h3>${tech.name}</h3>
-            <p class="tech-detail-effect">${formatTechBenefitSummary(tech)}</p>
-            <p class="muted">${statusText}</p>
-          </div>
-        </div>
-        <p class="tech-detail-flavor">${tech.description}</p>
-        ${
-          relatedStructures.length > 0
-            ? `<section class="structure-info-section">
-                <span class="structure-info-section-label">Structures</span>
-                <strong>${relatedStructures.map((type) => structureInfoButtonHtml(type)).join(", ")}</strong>
-              </section>`
-            : ""
-        }
-        ${
-          unlocks.length > 0
-            ? `<section class="structure-info-section">
-                <span class="structure-info-section-label">Unlocks next</span>
-                <strong>${unlocks.map((next) => `${next.name} (T${techTier(next.id, byId, tierMemo)})`).join(", ")}</strong>
-              </section>`
-            : ""
-        }
-        <section class="structure-info-section">
-          <span class="structure-info-section-label">Requirements</span>
-          ${requirementsHtml}
-        </section>
-      </div>
-      <div class="tech-detail-actions">
-        <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${tech.id}" ${canUnlock || pendingUnlock ? "" : "disabled"}>${buttonLabel}</button>
-      </div>
-    </div>`;
+  return renderTechDetailModalFromModule({
+    tech,
+    techCatalog: state.techCatalog,
+    techPrereqIds,
+    unlockedByTech,
+    isPendingTechUnlock,
+    pendingTechUnlockId: state.pendingTechUnlockId,
+    techNameList,
+    structureInfoButtonHtml,
+    techTier,
+    formatTechBenefitSummary
+  });
 };
 
 const techDetailsUseOverlay = (): boolean => isMobile();
 
 const renderDomainChoiceGrid = (): string =>
-  renderDomainChoiceGridHtml({
+  renderDomainChoiceGridFromModule({
     domainCatalog: state.domainCatalog,
     domainIds: state.domainIds,
     domainUiSelectedId: state.domainUiSelectedId,
-    ownedByTier: ownedDomainByTier(state.domainCatalog, state.domainIds),
-    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices),
-    requiresTechNames: Object.fromEntries(state.domainCatalog.map((domain) => [domain.id, techNameList([domain.requiresTechId])]))
+    domainChoices: state.domainChoices,
+    techNameList
   });
 
-const visibleShardCacheCount = (): number =>
-  [...state.tiles.values()].filter((tile) => !tile.fogged && tile.shardSite?.kind === "CACHE").length;
-
-const activeShardfallCount = (): number =>
-  [...state.tiles.values()].filter((tile) => !tile.fogged && tile.shardSite?.kind === "FALL").length;
-
 const renderDomainProgressCard = (): string =>
-  renderDomainProgressCardHtml({
-    visibleShardCacheCount: visibleShardCacheCount(),
-    activeShardfallCount: activeShardfallCount(),
+  renderDomainProgressCardFromModule({
+    tiles: state.tiles.values(),
     shardStock: state.strategicResources.SHARD ?? 0,
-    currentTier: currentDomainChoiceTier(state.domainCatalog, state.domainChoices),
-    chosenDomainCount: state.domainIds.length
+    domainCatalog: state.domainCatalog,
+    domainChoices: state.domainChoices,
+    domainIds: state.domainIds
   });
 
 const renderTechDetailOverlay = (): string => {
@@ -2585,18 +2108,14 @@ const renderTechDetailOverlay = (): string => {
   return renderTechDetailModal();
 };
 
-const renderDomainDetailCard = (): string => {
-  const domain = state.domainCatalog.find((x) => x.id === state.domainUiSelectedId);
-  const chosenByTier = ownedDomainByTier(state.domainCatalog, state.domainIds);
-  const currentTier = currentDomainChoiceTier(state.domainCatalog, state.domainChoices);
-  return renderDomainDetailCardHtml({
-    domain,
+const renderDomainDetailCard = (): string =>
+  renderDomainDetailCardFromModule({
+    domainCatalog: state.domainCatalog,
+    domainUiSelectedId: state.domainUiSelectedId,
     domainIds: state.domainIds,
-    chosenInTier: domain ? chosenByTier.get(domain.tier) : undefined,
-    currentTier,
-    requiresTechName: domain ? techNameList([domain.requiresTechId]) : ""
+    domainChoices: state.domainChoices,
+    techNameList
   });
-};
 
 const renderTechChoiceDetails = (): string => {
   return "";
@@ -4060,52 +3579,6 @@ const hideTileActionMenu = (): void => {
   tileActionMenuEl.innerHTML = "";
 };
 
-type TileActionDef = {
-  id:
-    | "settle_land"
-    | "launch_attack"
-    | "launch_breach_attack"
-    | "reveal_empire"
-    | "collect_yield"
-    | "collect_shard"
-    | "build_fortification"
-    | "build_observatory"
-    | "build_farmstead"
-    | "build_camp"
-    | "build_mine"
-    | "build_market"
-    | "build_granary"
-    | "build_bank"
-    | "build_airport"
-    | "build_caravanary"
-    | "build_fur_synthesizer"
-    | "build_ironworks"
-    | "build_crystal_synthesizer"
-    | "build_fuel_plant"
-    | "build_foundry"
-    | "build_garrison_hall"
-    | "build_customs_house"
-    | "build_governors_office"
-    | "build_radar_system"
-    | "abandon_territory"
-    | "build_siege_camp"
-    | "offer_truce_12h"
-    | "offer_truce_24h"
-    | "break_truce"
-    | "aether_bridge"
-    | "siphon_tile"
-    | "purge_siphon"
-    | "create_mountain"
-    | "remove_mountain";
-  label: string;
-  cost?: string;
-  detail?: string | undefined;
-  disabled?: boolean;
-  disabledReason?: string;
-  targetKey?: string;
-  originKey?: string;
-};
-
 type DevelopmentSlotSummary = {
   busy: number;
   limit: number;
@@ -4417,293 +3890,66 @@ const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
   return typeof completesAt === "number" ? Math.max(0, completesAt - Date.now()) : undefined;
 };
 
-const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
-  if (actionId === "settle_land") {
-    return "Makes this tile defended and activates production.";
-  }
-  if (actionId === "build_fortification")
-    return tile.economicStructure?.type === "WOODEN_FORT"
-      ? "Upgrade this Wooden Fort into a full fortification. +25% defense here. Active forts also stop failed attacks from losing the origin tile."
-      : "Fortify this tile. +25% defense here. Active forts also stop failed attacks from losing the origin tile.";
-  if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
-  if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
-  if (actionId === "build_siege_camp")
-    return tile.economicStructure?.type === "LIGHT_OUTPOST"
-      ? "Upgrade this Light Outpost into a full siege outpost. Attacks from here hit 25% harder."
-      : "Adds an offensive staging point on this border tile. Attacks from here hit 25% harder.";
-  if (actionId === "build_light_outpost") return "Build a light outpost on this border tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
-  if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
-  if (actionId === "build_camp") return "Improves supply output on this tile by 50%.";
-  if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} output on this tile by 50%.`;
-  if (actionId === "build_market") {
-    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +50% fed gold output and +50% gold storage cap.`;
-  }
-  if (actionId === "build_granary") {
-    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +20% population growth and +20% gold storage cap.`;
-  }
-  if (actionId === "build_bank") {
-    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +50% city income and +1 flat income.`;
-  }
-  if (actionId === "build_airport") return "Build an airport on empty settled land. Bombard enemy tiles within 30 tiles for oil.";
-  if (actionId === "build_caravanary") {
-    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Boosts its connected-town income bonus by 25%.`;
-  }
-  if (actionId === "build_fur_synthesizer") return "Convert heavy gold upkeep into steady supply output on this support tile with a Fur Synthesizer.";
-  if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output.";
-  if (actionId === "build_ironworks") return "Convert heavy gold upkeep into steady iron output on this support tile.";
-  if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output.";
-  if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile.";
-  if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Crystal Synthesizer into an Advanced Crystal Synthesizer with 20% higher output.";
-  if (actionId === "overload_fur_synthesizer") return "Spend 1000 gold for an instant supply burst, then shut this Fur Synthesizer down for 1 hour.";
-  if (actionId === "overload_ironworks") return "Spend 1000 gold for an instant iron burst, then shut this ironworks down for 1 hour.";
-  if (actionId === "overload_crystal_synthesizer") return "Spend 1000 gold for an instant crystal burst, then shut this synthesizer down for 1 hour.";
-  if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
-  if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
-  if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
-  if (actionId === "build_customs_house") return "Build next to a dock. Increases income from that dock by 50%.";
-  if (actionId === "build_governors_office") return "Administrative center. Reduces local food upkeep and settled-tile upkeep within 10 tiles.";
-  if (actionId === "build_radar_system") return "Air defense grid. Blocks enemy airport bombardment within 30 tiles and reveals the attack origin.";
-  return undefined;
-};
+const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined =>
+  buildDetailTextForActionFromModule(actionId, tile, supportedTown);
 
-const tileProductionRequirementLabel = (tile: Tile): string | undefined => {
-  if (tile.town) return "gold";
-  const strategicKey = strategicResourceKeyForTile(tile);
-  if (strategicKey) return prettyToken(strategicKey).toLowerCase();
-  const gpm = tile.yieldRate?.goldPerMinute ?? 0;
-  if (gpm > 0.01) return "gold";
-  return undefined;
-};
+const tileProductionRequirementLabel = (tile: Tile): string | undefined => tileProductionRequirementLabelFromModule(tile, prettyToken);
 
-const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
-  const nowMs = Date.now();
-  if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
-    const remaining = Math.max(0, tile.fort.completesAt - nowMs);
-    return {
-      title: "Fortification under construction",
-      detail: "This tile will gain fortified defense when construction completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
-      note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
-    };
-  }
-  if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
-    const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
-    return {
-      title: "Observatory under construction",
-      detail: "This tile will extend vision and observatory protection when construction completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
-      note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
-    };
-  }
-  if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
-    const remaining = Math.max(0, tile.siegeOutpost.completesAt - nowMs);
-    return {
-      title: "Siege camp under construction",
-      detail: "This tile will gain an offensive staging structure when construction completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
-      note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
-    };
-  }
-  if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
-    const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
-    return {
-      title: `${economicStructureName(tile.economicStructure.type)} under construction`,
-      detail: "This tile is still being developed and is not fully online yet.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, economicStructureBuildMs(tile.economicStructure.type)))),
-      note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction"
-    };
-  }
-  return undefined;
-};
+const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
+  constructionProgressForTileFromModule(tile, formatCountdownClock);
 
-const queuedSettlementProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
-  const entry = queuedDevelopmentEntryForTile(key(tile.x, tile.y));
-  if (!entry || entry.kind !== "SETTLE") return undefined;
-  const queueIndex = queuedSettlementIndexForTile(entry.tileKey);
-  return {
-    title: "Settlement queued",
-    detail: "This frontier tile is queued to settle as soon as a development slot becomes free.",
-    remainingLabel: queueIndex >= 0 ? `Queue #${queueIndex + 1}` : "Queued",
-    progress: 0,
-    note: "Queued settlements reserve their place in line and can be cancelled before they start.",
-    cancelLabel: "Cancel queued settlement",
-    cancelActionId: "cancel_queued_settlement"
-  };
-};
+const queuedSettlementProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
+  queuedSettlementProgressForTileFromModule(tile, {
+    keyFor: key,
+    queuedDevelopmentEntryForTile,
+    queuedSettlementIndexForTile
+  });
 
-const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
-  const lines: TileOverviewLine[] = [];
-  const pushLine = (html: string): void => {
-    lines.push({ html });
-  };
-  const pushEffectLine = (name: string, mod: string, tone: "positive" | "negative" | "neutral"): void => {
-    lines.push({
-      kind: "effect",
-      html: `<span class="tile-overview-effect-name">${name}</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
-    });
-  };
-  const ownerKind =
-    !tile.ownerId
-      ? "unclaimed"
-      : tile.ownerId === state.me
-        ? tile.ownershipState === "FRONTIER"
-          ? "mine-frontier"
-          : "mine-settled"
-        : isTileOwnedByAlly(tile)
-          ? "ally"
-          : "enemy";
-  const productionLabel = tileProductionRequirementLabel(tile);
-  const resourceLabelText = tile.resource ? prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
-  tileMenuOverviewIntroLines({
-    terrain: tile.terrain,
-    ownerKind,
-    productionLabel,
-    resourceLabel: resourceLabelText,
-    isDockEndpoint: Boolean(tile.dockId)
-  }).forEach(pushLine);
-  if (tile.resource && !tile.ownerId && resourceLabelText) {
-    pushLine(`This ${resourceLabelText.toLowerCase()} node starts producing only after you claim and settle the tile.`);
-  }
-  if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN" || !tile.ownerId) return lines;
-  if (tile.ownershipState === "SETTLED" && tile.town) {
-    pushLine(tile.town.populationTier === "SETTLEMENT" ? "Settlements provide starter gold and manpower until they grow into towns." : "Towns produce gold when fed.");
-  }
-  if (tile.shardSite) {
-    pushLine(
-      tile.shardSite.kind === "FALL"
-        ? `Shard rain deposit: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be collected here for a short time.`
-        : `Shard cache: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be recovered here.`
-    );
-  }
-  const supportedTowns = tile.ownerId === state.me && tile.ownershipState === "SETTLED" ? supportedOwnedTownsForTile(tile) : [];
-  if (tile.town) {
-    if (tile.town.populationTier === "SETTLEMENT") {
-      pushLine(`Settlement is producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
-    } else if (!tile.town.isFed) {
-      pushLine("Town is unfed. Needs settled fish or grain nearby.");
-    } else if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") {
-      const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
-      const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
-      pushLine(`Town is fed but gold is paused until manpower is full (${current}/${cap}).`);
-    } else {
-      pushLine(`Town is fed and producing ${displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
-    }
-    if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
-    pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${prettyToken(tile.town.populationTier)}`);
-    pushLine(`Growth ${populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
-    pushLine(`Next size: ${townNextGrowthEtaLabel(tile.town)}.`);
-    for (const modifier of tile.town.growthModifiers ?? []) {
-      const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
-      pushEffectLine(modifier.label, growthModifierPercentLabel(modifier.label), tone);
-    }
-    if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
-    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
-  } else if (tile.resource) {
-    if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
-  }
-  const productionHtml = tileProductionHtml(tile);
-  if (productionHtml) pushLine(`Production: ${productionHtml}`);
-  const upkeepHtml = tileUpkeepHtml(tile);
-  if (upkeepHtml) pushLine(`Upkeep: ${upkeepHtml}`);
-  if (supportedTowns.length === 1) {
-    const town = supportedTowns[0];
-    if (town) {
-      pushLine(`Support tile for nearby town at (${town.x}, ${town.y}).`);
-      if (town.town?.hasMarket) pushLine("Nearby town already has a Market.");
-      if (town.town?.hasGranary) pushLine("Nearby town already has a Granary.");
-      if (!tile.economicStructure) {
-        pushLine("Town buildings like markets and granaries must be built on support tiles.");
-      }
-    }
-  } else if (supportedTowns.length > 1) {
-    pushLine("This support tile touches multiple towns.");
-  }
-  if (tile.economicStructure) {
-    pushEffectLine(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), "positive");
-  }
-  const storedYield = storedYieldSummary(tile);
-  if (storedYield) pushLine(`Stored yield: ${storedYield}`);
-  const construction = constructionCountdownLineForTile(tile);
-  if (construction) pushLine(construction);
-  const historyLines = tileHistoryLines(tile);
-  for (const historyLine of historyLines) pushLine(historyLine);
-  return lines;
-};
+const menuOverviewForTile = (tile: Tile): TileOverviewLine[] =>
+  menuOverviewForTileFromModule(tile, {
+    state,
+    prettyToken,
+    terrainLabel,
+    displayTownGoldPerMinute,
+    populationPerMinuteLabel,
+    townNextGrowthEtaLabel,
+    supportedOwnedTownsForTile,
+    hostileObservatoryProtectingTile,
+    constructionCountdownLineForTile,
+    tileHistoryLines,
+    isTileOwnedByAlly,
+    growthModifierPercentLabel
+  });
 
-const tileMenuViewForTile = (tile: Tile): TileMenuView => {
-  const actions = menuActionsForSingleTile(tile);
-  const actionTabs = splitTileActionsIntoTabs(actions);
-  const settlement = settlementProgressForTile(tile.x, tile.y);
-  const queuedSettlement = queuedSettlementProgressForTile(tile);
-  const construction = constructionProgressForTile(tile);
-  const progress =
-    settlement
-      ? {
-          title: "Settlement in progress",
-          detail: settlement.awaitingServerConfirm
-            ? "Settlement timer finished locally. Waiting for server confirmation."
-            : "Settling unlocks defense and activates town and resource production.",
-          remainingLabel: settlement.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(Math.max(0, settlement.resolvesAt - Date.now())),
-          progress: settlement.awaitingServerConfirm
-            ? 1
-            : Math.max(0, Math.min(1, (Date.now() - settlement.startAt) / Math.max(1, settlement.resolvesAt - settlement.startAt))),
-          note: settlement.awaitingServerConfirm
-            ? "Keeping the tile settled client-side until the server responds."
-            : "This tile is actively settling."
-        }
-      : queuedSettlement ?? construction;
-  const tabs: TileMenuTab[] = [];
-  if (progress) tabs.push("progress");
-  if (actionTabs.actions.length > 0) tabs.push("actions");
-  if (actionTabs.buildings.length > 0) tabs.push("buildings");
-  if (actionTabs.crystal.length > 0) tabs.push("crystal");
-  tabs.push("overview");
-  const ownerLabel =
-    tile.terrain === "SEA"
-      ? actions.length > 0
-        ? "Crossing route"
-        : "Open sea"
-      : !tile.ownerId
-        ? "Unclaimed"
-        : tile.ownerId === state.me
-          ? tile.ownershipState === "FRONTIER"
-            ? "Your frontier"
-            : "Your settled land"
-          : isTileOwnedByAlly(tile)
-            ? "Allied"
-            : "Enemy";
-  const titleLabel =
-    tile.town
-      ? prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
-      : tile.dockId
-        ? "Dock"
-        : tile.resource
-          ? prettyToken(resourceLabel(tile.resource))
-          : terrainLabel(tile.x, tile.y, tile.terrain);
-  return {
-    title: `${titleLabel} (${tile.x}, ${tile.y})`,
-    subtitle: tileMenuSubtitleText(ownerLabel, tile.regionType ? prettyToken(tile.regionType) : undefined),
-    tabs,
-    ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
-    overviewLines: menuOverviewForTile(tile),
-    actions: actionTabs.actions,
-    buildings: actionTabs.buildings,
-    crystal: actionTabs.crystal,
-    ...(progress ? { progress } : {}),
-  };
-};
+const tileMenuViewForTile = (tile: Tile): TileMenuView =>
+  tileMenuViewForTileFromModule(tile, {
+    menuActionsForSingleTile,
+    splitTileActionsIntoTabs,
+    settlementProgressForTile: (x, y) => {
+      const progress = settlementProgressForTile(x, y);
+      if (!progress) return undefined;
+      return {
+        title: "Settlement in progress",
+        detail: progress.awaitingServerConfirm
+          ? "Settlement timer finished locally. Waiting for server confirmation."
+          : "Settling unlocks defense and activates town and resource production.",
+        remainingLabel: progress.awaitingServerConfirm ? "Syncing..." : formatCountdownClock(Math.max(0, progress.resolvesAt - Date.now())),
+        progress: progress.awaitingServerConfirm
+          ? 1
+          : Math.max(0, Math.min(1, (Date.now() - progress.startAt) / Math.max(1, progress.resolvesAt - progress.startAt))),
+        note: progress.awaitingServerConfirm
+          ? "Keeping the tile settled client-side until the server responds."
+          : "This tile is actively settling."
+      };
+    },
+    queuedSettlementProgressForTile,
+    constructionProgressForTile,
+    menuOverviewForTile,
+    prettyToken,
+    terrainLabel,
+    isTileOwnedByAlly,
+    state
+  });
 
 const hasRevealCapability = (): boolean => {
   return state.techIds.includes("cryptography") || state.activeRevealTargets.length > 0;
