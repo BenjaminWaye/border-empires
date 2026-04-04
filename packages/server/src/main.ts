@@ -7038,6 +7038,8 @@ const hasPendingSettlementForPlayer = (playerId: string): boolean => {
   return false;
 };
 
+const tileHasPendingSettlement = (tileKey: TileKey): boolean => pendingSettlementsByTile.has(tileKey);
+
 const tryQueueBasicFrontierAction = (
   actor: Player,
   actionType: BasicFrontierActionType,
@@ -8895,6 +8897,7 @@ const buildAiPlanningStaticCache = (
 
   for (const tile of territorySummary.frontierTiles) {
     const tileKey = key(tile.x, tile.y);
+    if (tileHasPendingSettlement(tileKey)) continue;
     const hasTownSupport = cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
     if (townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey) || hasTownSupport) {
       settlementAvailable = true;
@@ -9148,6 +9151,7 @@ const bestAiSettlementTile = (
     | undefined;
   for (const tile of territorySummary.frontierTiles) {
     const tileKey = key(tile.x, tile.y);
+    if (tileHasPendingSettlement(tileKey)) continue;
     const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
     const hasIntrinsicEconomicValue = townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey);
     const priorityScore =
@@ -9186,6 +9190,7 @@ const bestAiIslandSettlementTile = (
 ): Tile | undefined => {
   let best: { tile: Tile; score: number } | undefined;
   for (const tile of territorySummary.frontierTiles) {
+    if (tileHasPendingSettlement(key(tile.x, tile.y))) continue;
     const evaluation = evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary);
     if (evaluation.islandFootprintSignal <= 0) continue;
     const score = evaluation.score + evaluation.islandFootprintSignal;
