@@ -8,6 +8,11 @@ const serverMainSource = (): string => {
   return readFileSync(resolve(here, "../main.ts"), "utf8");
 };
 
+const aiIndexStoreSource = (): string => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(resolve(here, "../sim/ai-index-store.ts"), "utf8");
+};
+
 const functionBody = (source: string, functionName: string): string => {
   const start = source.indexOf(`const ${functionName} =`);
   if (start === -1) throw new Error(`Could not find function ${functionName}`);
@@ -106,8 +111,9 @@ describe("buildAiPlanningSnapshot regression guard", () => {
   });
 
   it("invalidates cached settlement selectors when AI territory changes", () => {
-    const dirtyBody = functionBody(serverMainSource(), "markAiTerritoryDirtyForPlayers");
-    expect(dirtyBody).toContain("cachedAiSettlementSelectorByPlayer.delete(playerId)");
+    const body = functionBody(aiIndexStoreSource(), "markTerritoryDirtyForPlayers");
+    expect(body).toContain("settlementSelectorByPlayer.delete(playerId)");
+    expect(serverMainSource()).toContain("const markAiTerritoryDirtyForPlayers = aiIndexStore.markTerritoryDirtyForPlayers;");
   });
 
   it("keeps island-victory focus targeted and avoids treating fully fed empires as food emergencies", () => {
