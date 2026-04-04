@@ -69,4 +69,12 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(truceBody).toContain("TRUCE_REQUEST");
     expect(truceBody).toContain("TRUCE_ACCEPT");
   });
+
+  it("does not advertise or select settlement targets that are already settling", () => {
+    const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
+    const settlementBody = functionBody(serverMainSource(), "bestAiSettlementTile");
+
+    expect(staticBody).toContain("tileHasPendingSettlement(tileKey)");
+    expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
+  });
 });
