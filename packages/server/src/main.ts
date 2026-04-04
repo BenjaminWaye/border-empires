@@ -1833,6 +1833,7 @@ const cachedSummaryChunkByChunkKey = new Map<string, { version: number; tiles: r
 const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
 const aiDefensePriorityUntilByPlayer = new Map<string, number>();
 const chunkSnapshotGenerationByPlayer = new Map<string, number>();
+const chunkSnapshotInFlightByPlayer = new Map<string, number>();
 const allianceRequests = new Map<string, AllianceRequest>();
 const truceRequests = new Map<string, TruceRequest>();
 const trucesByPair = new Map<string, ActiveTruce>();
@@ -10625,6 +10626,15 @@ const onlineHumanPlayerCount = (): number => {
   return count;
 };
 
+const humanChunkSnapshotPriorityActive = (): boolean => {
+  for (const playerId of chunkSnapshotInFlightByPlayer.keys()) {
+    const player = players.get(playerId);
+    if (!player || player.isAi) continue;
+    if (socketsByPlayer.has(playerId)) return true;
+  }
+  return false;
+};
+
 const markAiDefensePriority = (playerId: string, durationMs = AI_DEFENSE_PRIORITY_MS): void => {
   const player = players.get(playerId);
   if (!player?.isAi) return;
@@ -10716,6 +10726,20 @@ const chooseAiBatchSize = (totalAiPlayers: number): number => {
 const runAiTick = (): void => {
   const aiPlayers = [...players.values()].filter((actor) => actor.isAi);
   if (aiPlayers.length === 0) return;
+  if (humanChunkSnapshotPriorityActive()) {
+    aiSchedulerState.at = now();
+    aiSchedulerState.batchSize = 0;
+    aiSchedulerState.selectedAiPlayers = 0;
+    aiSchedulerState.totalAiPlayers = aiPlayers.length;
+    aiSchedulerState.urgentAiPlayers = 0;
+    aiSchedulerState.humanPlayersOnline = onlineHumanPlayerCount() > 0;
+    aiSchedulerState.authPriorityActive = pendingAuthVerifications > 0 || authPriorityUntil > now();
+    aiSchedulerState.aiQueueBackpressure = aiWorkerState.queue.length >= AI_WORKER_QUEUE_SOFT_LIMIT;
+    aiSchedulerState.simulationQueueBackpressure = simulationCommandQueueDepth() >= AI_SIM_QUEUE_SOFT_LIMIT;
+    aiSchedulerState.eventLoopOverloaded = false;
+    aiSchedulerState.reason = "human_chunk_snapshot_priority";
+    return;
+  }
   const nowMs = now();
   const batchSize = Math.min(aiPlayers.length, chooseAiBatchSize(aiPlayers.length));
   const urgentAiPlayers = aiPlayers.filter((actor) => aiHasDefensePriority(actor.id, nowMs));
@@ -11496,6 +11520,7 @@ const sendChunkSnapshot = (
   const snapshot = visibilitySnapshotForPlayer(actor);
   const generation = (chunkSnapshotGenerationByPlayer.get(actor.id) ?? 0) + 1;
   chunkSnapshotGenerationByPlayer.set(actor.id, generation);
+  chunkSnapshotInFlightByPlayer.set(actor.id, generation);
   chunkSnapshotSentAtByPlayer.set(actor.id, { cx: sub.cx, cy: sub.cy, radius: sub.radius, sentAt: now() });
   let chunkCount = 0;
   let tileCount = 0;
@@ -11503,9 +11528,20 @@ const sendChunkSnapshot = (
   const batchSize = chunkBatchSizeForSnapshot(chunkCoords, followUpStage, batchSizeOverride);
 
   let index = 0;
+  const clearInFlight = (): void => {
+    if (chunkSnapshotInFlightByPlayer.get(actor.id) === generation) {
+      chunkSnapshotInFlightByPlayer.delete(actor.id);
+    }
+  };
   const streamNext = async (): Promise<void> => {
-    if (chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) return;
-    if (socket.readyState !== socket.OPEN) return;
+    if (chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) {
+      clearInFlight();
+      return;
+    }
+    if (socket.readyState !== socket.OPEN) {
+      clearInFlight();
+      return;
+    }
     const chunkBatchBodies: string[] = [];
     const pendingBuilds: Array<{ chunkKey: string; buildInput: ChunkBuildInput }> = [];
     const end = Math.min(index + batchSize, chunkCoords.length);
@@ -11572,6 +11608,7 @@ const sendChunkSnapshot = (
         "slow chunk snapshot"
       );
     }
+    clearInFlight();
     if (
       followUpStage &&
       socket.readyState === socket.OPEN &&
@@ -17190,6 +17227,7 @@ app.post("/admin/world/regenerate", async () => {
       chunkSubscriptionByPlayer.delete(authedPlayer.id);
       chunkSnapshotSentAtByPlayer.delete(authedPlayer.id);
       chunkSnapshotGenerationByPlayer.delete(authedPlayer.id);
+      chunkSnapshotInFlightByPlayer.delete(authedPlayer.id);
       actionTimestampsByPlayer.delete(authedPlayer.id);
       fogDisabledByPlayer.delete(authedPlayer.id);
       if (!hasOnlinePlayers()) {
