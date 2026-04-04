@@ -88,13 +88,16 @@ describe("buildAiPlanningSnapshot regression guard", () => {
   it("does not advertise or select settlement targets that are already settling", () => {
     const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
     const settlementBody = functionBody(serverMainSource(), "bestAiSettlementTile");
+    const islandSettlementBody = functionBody(serverMainSource(), "bestAiIslandSettlementTile");
     const evaluationBody = functionBody(serverMainSource(), "evaluateAiSettlementCandidate");
     const fortBody = functionBody(serverMainSource(), "bestAiFortTile");
 
     expect(staticBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(staticBody).toContain("if (evaluation.isEconomicallyInteresting || evaluation.isStrategicallyInteresting) settlementAvailable = true;");
     expect(staticBody).toContain("if (evaluation.townSupportSignal > 0) supportSettlementAvailable = true;");
+    expect(settlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
     expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
+    expect(islandSettlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
     expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
     expect(fortBody).toContain("fortsByTile.has(tk)");
     expect(fortBody).toContain("isBorderTile(tile.x, tile.y, actor.id)");

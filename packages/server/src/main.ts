@@ -7038,6 +7038,14 @@ const hasPendingSettlementForPlayer = (playerId: string): boolean => {
   return false;
 };
 
+const pendingSettlementCountForPlayer = (playerId: string): number => {
+  let count = 0;
+  for (const pending of pendingSettlementsByTile.values()) {
+    if (pending.ownerId === playerId) count += 1;
+  }
+  return count;
+};
+
 const tileHasPendingSettlement = (tileKey: TileKey): boolean => pendingSettlementsByTile.has(tileKey);
 
 const tryQueueBasicFrontierAction = (
@@ -7703,6 +7711,14 @@ type AiPlanningStaticCache = {
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
+};
+
+type AiSettlementSelectorCache = {
+  version: number;
+  pendingSettlementCount: number;
+  settlementByVictoryPath: Map<string, TileKey | null>;
+  townSupportSettlementByVictoryPath: Map<string, TileKey | null>;
+  islandSettlementByVictoryPath: Map<string, TileKey | null>;
 };
 
 const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
@@ -8825,6 +8841,11 @@ const bestAiTownSupportSettlementTile = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): Tile | undefined => {
+  const selectorCache = aiSettlementSelectorCacheForPlayer(actor);
+  const cacheKey = victoryPath ?? "";
+  if (selectorCache.townSupportSettlementByVictoryPath.has(cacheKey)) {
+    return cachedAiTileFromKey(selectorCache.townSupportSettlementByVictoryPath.get(cacheKey));
+  }
   let best: { tile: Tile; score: number } | undefined;
   for (const tile of territorySummary.frontierTiles) {
     const tileKey = key(tile.x, tile.y);
@@ -8834,7 +8855,9 @@ const bestAiTownSupportSettlementTile = (
     const score = evaluation.townSupportSignal * 2 + evaluation.score;
     if (!best || score > best.score) best = { tile, score };
   }
-  return best && best.score >= 160 ? best.tile : undefined;
+  const result = best && best.score >= 160 ? best.tile : undefined;
+  selectorCache.townSupportSettlementByVictoryPath.set(cacheKey, result ? key(result.x, result.y) : null);
+  return result;
 };
 
 const bestAiAnyNeutralExpand = (
@@ -9281,11 +9304,35 @@ const buildAiPlanningSnapshot = (
   };
 };
 
+const aiSettlementSelectorCacheForPlayer = (actor: Player): AiSettlementSelectorCache => {
+  const version = aiTerritoryVersionForPlayer(actor.id);
+  const pendingSettlementCount = pendingSettlementCountForPlayer(actor.id);
+  const cached = cachedAiSettlementSelectorByPlayer.get(actor.id);
+  if (cached && cached.version === version && cached.pendingSettlementCount === pendingSettlementCount) return cached;
+  const rebuilt: AiSettlementSelectorCache = {
+    version,
+    pendingSettlementCount,
+    settlementByVictoryPath: new Map<string, TileKey | null>(),
+    townSupportSettlementByVictoryPath: new Map<string, TileKey | null>(),
+    islandSettlementByVictoryPath: new Map<string, TileKey | null>()
+  };
+  cachedAiSettlementSelectorByPlayer.set(actor.id, rebuilt);
+  return rebuilt;
+};
+
+const cachedAiTileFromKey = (tileKey: TileKey | null | undefined): Tile | undefined =>
+  tileKey ? aiTileLiteAt(...parseKey(tileKey)) : undefined;
+
 const bestAiSettlementTile = (
   actor: Player,
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): Tile | undefined => {
+  const selectorCache = aiSettlementSelectorCacheForPlayer(actor);
+  const cacheKey = victoryPath ?? "";
+  if (selectorCache.settlementByVictoryPath.has(cacheKey)) {
+    return cachedAiTileFromKey(selectorCache.settlementByVictoryPath.get(cacheKey));
+  }
   const { foodCoverageLow, economyWeak } = aiEconomyPriorityState(actor, territorySummary);
   let best:
     | (ReturnType<typeof evaluateAiSettlementCandidate> & {
@@ -9326,13 +9373,19 @@ const bestAiSettlementTile = (
       : victoryPath === "SETTLED_TERRITORY"
         ? 32
         : 55;
-  return best.score >= minScore ? best.tile : undefined;
+  const result = best.score >= minScore ? best.tile : undefined;
+  selectorCache.settlementByVictoryPath.set(cacheKey, result ? key(result.x, result.y) : null);
+  return result;
 };
 
 const bestAiIslandSettlementTile = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): Tile | undefined => {
+  const selectorCache = aiSettlementSelectorCacheForPlayer(actor);
+  if (selectorCache.islandSettlementByVictoryPath.has("")) {
+    return cachedAiTileFromKey(selectorCache.islandSettlementByVictoryPath.get(""));
+  }
   const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);
   const { islandIdByTile } = islandMap();
   let best: { tile: Tile; score: number } | undefined;
@@ -9345,7 +9398,9 @@ const bestAiIslandSettlementTile = (
     const score = evaluation.score + evaluation.islandFootprintSignal + (evaluation.townSupportSignal > 0 ? evaluation.townSupportSignal * 2 : 0) + 140;
     if (!best || score > best.score) best = { tile, score };
   }
-  return best && best.score >= 120 ? best.tile : undefined;
+  const result = best && best.score >= 120 ? best.tile : undefined;
+  selectorCache.islandSettlementByVictoryPath.set("", result ? key(result.x, result.y) : null);
+  return result;
 };
 
 const bestAiFortTile = (actor: Player, territorySummary = collectAiTerritorySummary(actor)): Tile | undefined => {
@@ -9562,6 +9617,7 @@ const simulationCommandQueueDepth = (): number =>
 const aiTerritoryVersionByPlayer = new Map<string, number>();
 const cachedAiTerritoryStructureByPlayer = new Map<string, AiTerritoryStructureCache>();
 const cachedAiPlanningStaticByPlayer = new Map<string, AiPlanningStaticCache>();
+const cachedAiSettlementSelectorByPlayer = new Map<string, AiSettlementSelectorCache>();
 
 const aiTerritoryVersionForPlayer = (playerId: string): number => aiTerritoryVersionByPlayer.get(playerId) ?? 0;
 const markAiTerritoryDirtyForPlayers = (playerIds: Iterable<string>): void => {
@@ -9569,6 +9625,7 @@ const markAiTerritoryDirtyForPlayers = (playerIds: Iterable<string>): void => {
     aiTerritoryVersionByPlayer.set(playerId, aiTerritoryVersionForPlayer(playerId) + 1);
     cachedAiTerritoryStructureByPlayer.delete(playerId);
     cachedAiPlanningStaticByPlayer.delete(playerId);
+    cachedAiSettlementSelectorByPlayer.delete(playerId);
     aiStrategicStateByPlayer.delete(playerId);
   }
 };
