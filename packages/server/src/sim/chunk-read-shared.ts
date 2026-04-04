@@ -12,6 +12,13 @@ export type ChunkReadEntry = ChunkReadRequest & {
   tiles: Tile[];
 };
 
+export type ChunkReadTilePatch = {
+  cx: number;
+  cy: number;
+  tileIndex: number;
+  tilesByMode: Record<ChunkReadMode, Tile>;
+};
+
 export type ChunkReadWorkerMessage =
   | {
       type: "hydrate";
@@ -21,6 +28,10 @@ export type ChunkReadWorkerMessage =
       type: "read";
       id: number;
       requests: ChunkReadRequest[];
+    }
+  | {
+      type: "patch";
+      patches: ChunkReadTilePatch[];
     };
 
 export type ChunkReadWorkerResponse =
