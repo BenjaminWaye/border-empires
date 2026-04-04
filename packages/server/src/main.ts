@@ -4784,6 +4784,7 @@ const simulationChunkState = createSimulationChunkState({
 const summaryChunkVersionByChunkKey = simulationChunkState.summaryChunkVersionByChunkKey;
 const cachedSummaryChunkByChunkKey = simulationChunkState.cachedSummaryChunkByChunkKey;
 const summaryChunkTiles = simulationChunkState.summaryChunkTiles;
+const summaryTileAt = simulationChunkState.summaryTileAt;
 
 const playerTile = (x: number, y: number): Tile => {
   const wx = wrapX(x, WORLD_WIDTH);
@@ -5475,9 +5476,9 @@ const markVisibilityDirty = (playerId: string): void => {
 
 const markSummaryChunkDirtyAtTile = (x: number, y: number): void => {
   simulationChunkState.markSummaryChunkDirtyAtTile(x, y);
-  const cx = wrapChunkX(Math.floor(wrapX(x, WORLD_WIDTH) / CHUNK_SIZE));
-  const cy = wrapChunkY(Math.floor(wrapY(y, WORLD_HEIGHT) / CHUNK_SIZE));
-  void chunkReadManager.markChunkDirty(cx, cy).catch((err) => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  void chunkReadManager.patchTile(wx, wy).catch((err) => {
     logRuntimeError("chunk read worker update failed", err);
   });
 };
@@ -10878,8 +10879,10 @@ const chunkReadManager = createChunkReadManager({
   now,
   chunkCountX,
   chunkCountY,
+  chunkSize: CHUNK_SIZE,
   onError: logRuntimeError,
-  loadChunkTilesLocal: (cx, cy, mode) => summaryChunkTiles(cx, cy, mode)
+  loadChunkTilesLocal: (cx, cy, mode) => summaryChunkTiles(cx, cy, mode),
+  loadChunkTileLocal: (x, y, mode) => summaryTileAt(x, y, mode)
 });
 const chunkReadWorkerState = chunkReadManager.state;
 

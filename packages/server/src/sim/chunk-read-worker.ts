@@ -22,6 +22,20 @@ port.on("message", (message: ChunkReadWorkerMessage) => {
     return;
   }
 
+  if (message.type === "patch") {
+    for (const patch of message.patches) {
+      for (const mode of Object.keys(patch.tilesByMode) as Array<keyof typeof patch.tilesByMode>) {
+        const key = cacheKey(patch.cx, patch.cy, mode);
+        const current = chunkTilesByKey.get(key);
+        if (!current) continue;
+        const next = [...current];
+        next[patch.tileIndex] = patch.tilesByMode[mode];
+        chunkTilesByKey.set(key, next);
+      }
+    }
+    return;
+  }
+
   const chunks = message.requests.map((request) => {
     const found = chunkTilesByKey.get(cacheKey(request.cx, request.cy, request.mode));
     return found ? [...found] : [];

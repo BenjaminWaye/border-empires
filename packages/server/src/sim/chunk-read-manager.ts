@@ -3,15 +3,17 @@ import { Worker } from "node:worker_threads";
 import type { Tile } from "@border-empires/shared";
 
 import type { ChunkSummaryMode } from "../chunk/snapshots.js";
-import type { ChunkReadEntry, ChunkReadMode, ChunkReadRequest, ChunkReadWorkerResponse } from "./chunk-read-shared.js";
+import type { ChunkReadEntry, ChunkReadMode, ChunkReadRequest, ChunkReadTilePatch, ChunkReadWorkerResponse } from "./chunk-read-shared.js";
 
 type CreateChunkReadManagerDeps = {
   enabled: boolean;
   now: () => number;
   chunkCountX: number;
   chunkCountY: number;
+  chunkSize: number;
   onError: (message: string, err: unknown) => void;
   loadChunkTilesLocal: (cx: number, cy: number, mode: ChunkSummaryMode) => readonly Tile[];
+  loadChunkTileLocal: (x: number, y: number, mode: ChunkSummaryMode) => Tile;
 };
 
 type ChunkReadInflight = {
@@ -34,7 +36,7 @@ const HOT_PATH_MODES: ChunkReadMode[] = ["thin", "shell"];
 export const createChunkReadManager = (deps: CreateChunkReadManagerDeps): {
   state: ChunkReadWorkerState;
   hydrateAll: () => Promise<void>;
-  markChunkDirty: (cx: number, cy: number) => Promise<void>;
+  patchTile: (x: number, y: number) => Promise<void>;
   loadBatch: (requests: ChunkReadRequest[]) => Promise<readonly Tile[][]>;
 } => {
   const state: ChunkReadWorkerState = {
@@ -149,6 +151,23 @@ export const createChunkReadManager = (deps: CreateChunkReadManagerDeps): {
     });
   };
 
+  const tilePatchFor = (x: number, y: number): ChunkReadTilePatch => {
+    const cx = Math.floor(x / deps.chunkSize);
+    const cy = Math.floor(y / deps.chunkSize);
+    const localX = x % deps.chunkSize;
+    const localY = y % deps.chunkSize;
+    const tileIndex = localY * deps.chunkSize + localX;
+    return {
+      cx,
+      cy,
+      tileIndex,
+      tilesByMode: {
+        thin: deps.loadChunkTileLocal(x, y, "thin"),
+        shell: deps.loadChunkTileLocal(x, y, "shell")
+      }
+    };
+  };
+
   return {
     state,
     hydrateAll: async () => {
@@ -160,9 +179,14 @@ export const createChunkReadManager = (deps: CreateChunkReadManagerDeps): {
       }
       await postHydrate(chunks);
     },
-    markChunkDirty: async (cx, cy) => {
-      if (!state.hydrated) return;
-      await postHydrate(chunkEntriesFor(cx, cy));
+    patchTile: async (x, y) => {
+      const live = ensureWorker();
+      if (!live || !state.hydrated) return;
+      state.lastUsedWorker = true;
+      live.postMessage({
+        type: "patch",
+        patches: [tilePatchFor(x, y)]
+      });
     },
     loadBatch: async (requests) => {
       const live = ensureWorker();
