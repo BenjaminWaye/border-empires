@@ -1,5 +1,6 @@
 import type { Player, Tile } from "@border-empires/shared";
 import type { ChunkBuildInput } from "./serializer-shared.js";
+import type { ChunkReadRequest } from "../sim/chunk-read-shared.js";
 
 export type VisibilitySnapshot = {
   allVisible: boolean;
@@ -87,6 +88,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   >;
   fogChunkTiles: (worldCx: number, worldCy: number) => readonly Tile[];
   summaryChunkTiles: (worldCx: number, worldCy: number, mode: ChunkSummaryMode) => readonly Tile[];
+  loadSummaryChunkTilesBatch: (requests: ChunkReadRequest[]) => Promise<readonly Tile[][]>;
   visibleInSnapshot: (snapshot: VisibilitySnapshot, x: number, y: number) => boolean;
   wrapX: (value: number, mod: number) => number;
   wrapY: (value: number, mod: number) => number;
@@ -207,7 +209,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     worldCx: number,
     worldCy: number,
     mode: ChunkSummaryMode
-  ): { buildInput?: ChunkBuildInput; payload?: string; tileCount: number; chunkKey: string } => {
+  ): { payload?: string; tileCount: number; chunkKey: string; buildInput?: Omit<ChunkBuildInput, "visibleTiles"> } => {
     const cache = chunkSnapshotCacheForPlayer(actor.id, snapshot);
     const chunkKey = `${worldCx},${worldCy}`;
     const payloadCacheKey = `${mode}:${chunkKey}`;
@@ -225,7 +227,6 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         cx: worldCx,
         cy: worldCy,
         fogTiles: [...deps.fogChunkTiles(worldCx, worldCy)],
-        visibleTiles: [...deps.summaryChunkTiles(worldCx, worldCy, mode)],
         visibleMask: chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy)
       },
       tileCount: deps.chunkSize * deps.chunkSize,
@@ -302,7 +303,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       }
 
       const chunkBatchBodies: string[] = [];
-      const pendingBuilds: Array<{ chunkKey: string; buildInput: ChunkBuildInput }> = [];
+      const pendingBuilds: Array<{ chunkKey: string; buildInput: Omit<ChunkBuildInput, "visibleTiles">; request: ChunkReadRequest }> = [];
       const end = Math.min(index + batchSize, chunkCoords.length);
       for (; index < end; index += 1) {
         const coords = chunkCoords[index]!;
@@ -310,14 +311,24 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         if (chunk.payload) {
           chunkBatchBodies.push(chunk.payload);
         } else if (chunk.buildInput) {
-          pendingBuilds.push({ chunkKey: chunk.chunkKey, buildInput: chunk.buildInput });
+          pendingBuilds.push({
+            chunkKey: chunk.chunkKey,
+            buildInput: chunk.buildInput,
+            request: { cx: coords.cx, cy: coords.cy, mode: summaryMode === "shell" ? "shell" : "thin" }
+          });
         }
         chunkCount += 1;
         tileCount += chunk.tileCount;
       }
 
       if (pendingBuilds.length > 0) {
-        const payloads = await deps.serializeChunkBatchViaWorker(pendingBuilds.map((chunk) => chunk.buildInput));
+        const visibleTileBatches = await deps.loadSummaryChunkTilesBatch(pendingBuilds.map((chunk) => chunk.request));
+        const payloads = await deps.serializeChunkBatchViaWorker(
+          pendingBuilds.map((chunk, payloadIndex) => ({
+            ...chunk.buildInput,
+            visibleTiles: [...(visibleTileBatches[payloadIndex] ?? deps.summaryChunkTiles(chunk.request.cx, chunk.request.cy, summaryMode))]
+          }))
+        );
         const payloadCache = chunkSnapshotCacheForPlayer(actor.id, snapshot).payloadByChunkKey;
         for (let payloadIndex = 0; payloadIndex < payloads.length; payloadIndex += 1) {
           const pending = pendingBuilds[payloadIndex]!;
