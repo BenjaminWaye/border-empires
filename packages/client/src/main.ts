@@ -47,10 +47,6 @@ import {
   COLLECT_VISIBLE_COOLDOWN_MS,
   GUIDE_AUTO_OPEN_STORAGE_KEY,
   GUIDE_STORAGE_KEY,
-  MAX_ZOOM,
-  MIN_ZOOM,
-  OBSERVATORY_PROTECTION_RADIUS,
-  OBSERVATORY_VISION_BONUS,
   canAffordCost,
   formatGoldAmount,
   frontierClaimCostLabelForTile,
@@ -115,7 +111,7 @@ import {
   tileHistoryLines as tileHistoryLinesFromModule
 } from "./client-hover-html.js";
 import { busyDevelopmentProcessCount, hasQueuedSettlementForTile } from "./client-development-queue.js";
-import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
+import { bindClientMapInput } from "./client-map-input.js";
 import {
   bindTechTreeDragScroll as bindTechTreeDragScrollFromModule,
   isMobile as isMobileFromModule,
@@ -212,6 +208,13 @@ import {
 } from "./client-tile-menu-view.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 import { renderManpowerPanelHtml, renderSocialInspectCardHtml } from "./client-side-panel-html.js";
+import {
+  formatRoughMinutes,
+  populationPerMinuteLabel,
+  townNextGrowthEtaLabel,
+  townNextPopulationMilestone
+} from "./client-town-growth.js";
+import { startClientRuntimeLoop } from "./client-runtime-loop.js";
 import {
   activeTrucesHtml,
   allianceRequestsHtml,
@@ -1227,13 +1230,18 @@ const mergeIncomingTileDetail = (existing: Tile | undefined, incoming: Tile): Ti
   return merged;
 };
 
+const mapInteractionFlags = {
+  holdActivated: false,
+  suppressNextClick: false
+};
+
 const handleTileSelection = (wx: number, wy: number, clientX: number, clientY: number): void => {
-  if (holdActivated) {
-    holdActivated = false;
+  if (mapInteractionFlags.holdActivated) {
+    mapInteractionFlags.holdActivated = false;
     return;
   }
-  if (suppressNextClick) {
-    suppressNextClick = false;
+  if (mapInteractionFlags.suppressNextClick) {
+    mapInteractionFlags.suppressNextClick = false;
     return;
   }
   hideHoldBuildMenu();
@@ -1363,44 +1371,6 @@ const supportedOwnedDocksForTile = (tile: Tile): Tile[] => {
   return out.sort((a, b) => a.x - b.x || a.y - b.y);
 };
 
-const populationPerMinuteLabel = (deltaPerMinute: number): string => {
-  const abs = Math.abs(deltaPerMinute);
-  const sign = deltaPerMinute > 0 ? "+" : deltaPerMinute < 0 ? "-" : "";
-  if (abs >= 100) return `${sign}${Math.round(abs).toLocaleString()}/m`;
-  if (abs >= 10) return `${sign}${abs.toFixed(1)}/m`;
-  return `${sign}${abs.toFixed(2)}/m`;
-};
-
-const townNextPopulationMilestone = (
-  town: NonNullable<Tile["town"]>
-): { label: string; targetPopulation: number } | undefined => {
-  if (town.populationTier === "SETTLEMENT") return { label: "Town", targetPopulation: 10_000 };
-  if (town.populationTier === "TOWN") return { label: "City", targetPopulation: 100_000 };
-  if (town.populationTier === "CITY") return { label: "Great City", targetPopulation: 1_000_000 };
-  if (town.populationTier === "GREAT_CITY") return { label: "Metropolis", targetPopulation: 5_000_000 };
-  return undefined;
-};
-
-const formatRoughMinutes = (minutes: number): string => {
-  if (!Number.isFinite(minutes) || minutes <= 0) return "now";
-  if (minutes < 60) return `${Math.ceil(minutes)}m`;
-  const hours = minutes / 60;
-  if (hours < 24) return `${Math.ceil(hours)}h`;
-  const days = hours / 24;
-  if (days < 14) return `${Math.ceil(days)}d`;
-  const weeks = days / 7;
-  return `${Math.ceil(weeks)}w`;
-};
-
-const townNextGrowthEtaLabel = (town: NonNullable<Tile["town"]>): string => {
-  const milestone = townNextPopulationMilestone(town);
-  if (!milestone) return "Max tier reached";
-  const growth = town.populationGrowthPerMinute ?? 0;
-  if (growth <= 0) return `${milestone.label} growth paused`;
-  const remainingPopulation = Math.max(0, milestone.targetPopulation - town.population);
-  if (remainingPopulation <= 0) return `${milestone.label} ready`;
-  return `${milestone.label} in ~${formatRoughMinutes(remainingPopulation / growth)}`;
-};
 const hoverTile = (): Tile | undefined => {
   if (!state.hover) return undefined;
   return state.tiles.get(key(state.hover.x, state.hover.y));
@@ -4998,1085 +4968,96 @@ if (firebaseAuth && isSignInWithEmailLink(firebaseAuth, window.location.href)) {
   }
 }
 
-let lastDrawAt = 0;
-const draw = (): void => {
-  const nowMs = performance.now();
-  const minFrameGap = isMobile() ? 40 : 24;
-  if (nowMs - lastDrawAt < minFrameGap) {
-    requestAnimationFrame(draw);
-    return;
-  }
-  lastDrawAt = nowMs;
-
-  ctx.fillStyle = "#0b1320";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const size = state.zoom;
-  const halfW = Math.floor(canvas.width / size / 2);
-  const halfH = Math.floor(canvas.height / size / 2);
-  const dockEndpointKeys = new Set<string>();
-  for (const pair of state.dockPairs) {
-    dockEndpointKeys.add(key(pair.ax, pair.ay));
-    dockEndpointKeys.add(key(pair.bx, pair.by));
-  }
-  const crystalTargetingActive = state.crystalTargeting.active;
-  const crystalTone = crystalTargetingActive ? crystalTargetingTone(state.crystalTargeting.ability) : "amber";
-  const queueIndex = new Map<string, number>();
-  const settleQueueIndex = new Map<string, number>();
-  const startingArrowTargets = new Map(
-    startingExpansionArrowTargets().map((target) => [key(target.x, target.y), target] as const)
-  );
-  let queueOffset = 0;
-  if (state.actionInFlight && state.actionTargetKey) {
-    queueIndex.set(state.actionTargetKey, 1);
-    queueOffset = 1;
-  }
-  for (let i = 0; i < state.actionQueue.length; i += 1) {
-    const q = state.actionQueue[i];
-    if (!q) continue;
-    queueIndex.set(key(q.x, q.y), i + 1 + queueOffset);
-  }
-  for (let i = 0; i < state.developmentQueue.length; i += 1) {
-    const entry = state.developmentQueue[i];
-    if (!entry || entry.kind !== "SETTLE") continue;
-    settleQueueIndex.set(entry.tileKey, i + 1);
-  }
-  for (let y = -halfH; y <= halfH; y += 1) {
-    for (let x = -halfW; x <= halfW; x += 1) {
-      const wx = wrapX(state.camX + x);
-      const wy = wrapY(state.camY + y);
-      const wk = key(wx, wy);
-      const t = state.tiles.get(key(wx, wy));
-      const settlementProgress = t ? settlementProgressForTile(wx, wy) : undefined;
-      const vis = tileVisibilityStateAt(wx, wy, t);
-      const px = (x + halfW) * size;
-      const py = (y + halfH) * size;
-      let ownerAlpha = 1;
-
-      if (vis === "unexplored") {
-        ctx.fillStyle = "#06090f";
-        ctx.fillRect(px, py, size - 1, size - 1);
-      } else if (!t) {
-        if (state.firstChunkAt === 0 || state.fogDisabled) {
-          const tt = terrainAt(wx, wy);
-          drawTerrainTile(wx, wy, tt, px, py, size);
-        } else {
-          ctx.fillStyle = "#06090f";
-          ctx.fillRect(px, py, size - 1, size - 1);
-        }
-      } else if (vis === "fogged") {
-        drawTerrainTile(wx, wy, t.terrain, px, py, size);
-        ctx.fillStyle = "rgba(2, 5, 10, 0.72)";
-        ctx.fillRect(px, py, size - 1, size - 1);
-      } else if (t.terrain === "SEA" || t.terrain === "MOUNTAIN") {
-        drawTerrainTile(wx, wy, t.terrain, px, py, size);
-      } else {
-        drawTerrainTile(wx, wy, "LAND", px, py, size);
-      }
-
-      if (t && vis === "visible" && t.terrain === "LAND") drawForestOverlay(wx, wy, px, py, size);
-
-      // Render ownership on top of land terrain so frontier tiles stay subtle and biome remains visible.
-      if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
-        ctx.fillStyle = effectiveOverlayColor(t.ownerId);
-        ownerAlpha = t.ownershipState === "FRONTIER" ? 0.2 : 0.92;
-        if (typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now()) {
-          ownerAlpha = Math.min(ownerAlpha, 0.62);
-        }
-        ctx.globalAlpha = ownerAlpha;
-        if (t.ownershipState === "SETTLED") {
-          ctx.fillRect(px, py, size, size);
-        } else {
-          ctx.fillRect(px, py, size - 1, size - 1);
-        }
-        ctx.globalAlpha = 1;
-      }
-
-      const isDockEndpoint = dockEndpointKeys.has(wk);
-      const dockVisible = (!t && state.fogDisabled) || vis === "visible";
-      if (dockVisible && isDockEndpoint) {
-        const dockOverlay = dockOverlayVariants[overlayVariantIndexAt(wx, wy, dockOverlayVariants.length)];
-        if (dockOverlay?.complete && dockOverlay.naturalWidth) drawCenteredOverlay(dockOverlay, px, py, size, 1.14);
-        else {
-          ctx.fillStyle = "rgba(12, 22, 38, 0.42)";
-          ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-          ctx.strokeStyle = "rgba(115, 225, 255, 0.98)";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          ctx.strokeStyle = "rgba(214, 247, 255, 0.95)";
-          ctx.beginPath();
-          ctx.moveTo(px + size / 2, py + 3);
-          ctx.lineTo(px + size / 2, py + size - 3);
-          ctx.moveTo(px + 3, py + size / 2);
-          ctx.lineTo(px + size - 3, py + size / 2);
-          ctx.stroke();
-          ctx.lineWidth = 1;
-        }
-      }
-
-      if (t && vis === "visible" && t.resource && t.terrain === "LAND") {
-        const overlay = builtResourceOverlayForTile(t) ?? resourceOverlayForTile(t);
-        if (overlay?.complete && overlay.naturalWidth) {
-          const alpha = builtResourceOverlayForTile(t) ? economicStructureOverlayAlpha(t) : 1;
-          drawCenteredOverlayWithAlpha(overlay, px, py, size, resourceOverlayScaleForTile(t), alpha);
-          drawResourceCornerMarker(t, px, py, size);
-        } else {
-          const rc = resourceColor(t.resource);
-          if (!rc) continue;
-          const marker = Math.max(3, Math.floor(size * 0.22));
-          const mx = px + Math.floor((size - marker) / 2);
-          const my = py + Math.floor((size - marker) / 2);
-          ctx.fillStyle = "rgba(12, 16, 28, 0.7)";
-          ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-          ctx.fillStyle = rc;
-          ctx.fillRect(mx, my, marker, marker);
-          drawResourceCornerMarker(t, px, py, size);
-        }
-      }
-
-      if (t && vis === "visible" && t.terrain === "LAND" && t.shardSite) {
-        const overlay = shardOverlayForTile(t);
-        const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
-        const pulse = 0.82 + 0.18 * pulsePhase;
-        const glowRadius = size * (0.28 + pulsePhase * (t.shardSite.kind === "FALL" ? 0.3 : 0.24));
-        ctx.save();
-        ctx.globalCompositeOperation = "screen";
-        ctx.fillStyle =
-          t.shardSite.kind === "FALL"
-            ? `rgba(255, 220, 112, ${0.16 + pulsePhase * 0.18})`
-            : `rgba(96, 244, 255, ${0.14 + pulsePhase * 0.16})`;
-        ctx.beginPath();
-        ctx.arc(px + size / 2, py + size / 2, glowRadius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.lineWidth = Math.max(2, size * 0.08);
-        ctx.strokeStyle =
-          t.shardSite.kind === "FALL"
-            ? `rgba(255, 245, 180, ${0.38 + pulsePhase * 0.34})`
-            : `rgba(184, 255, 255, ${0.34 + pulsePhase * 0.3})`;
-        ctx.beginPath();
-        ctx.arc(px + size / 2, py + size / 2, size * (0.18 + pulsePhase * 0.18), 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-        if (overlay?.complete && overlay.naturalWidth) {
-          drawCenteredOverlayWithAlpha(
-            overlay,
-            px,
-            py,
-            size,
-            (t.shardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
-            0.86 + pulse * 0.18
-          );
-        } else {
-          const prevAlpha = ctx.globalAlpha;
-          ctx.globalAlpha = prevAlpha * (0.88 + pulse * 0.16);
-          drawShardFallback(t, px, py, size * (0.99 + pulse * 0.03));
-          ctx.globalAlpha = prevAlpha;
-        }
-      }
-
-      if (t && vis === "visible" && t.town && t.terrain === "LAND") {
-        drawTownOverlay(t, px, py, size);
-      }
-
-      if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && hasCollectableYield(t)) {
-        const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
-        const marker = Math.max(4, Math.floor(size * 0.22));
-        const mx = px + 3;
-        const my = py + 3;
-        ctx.fillStyle = `rgba(15, 18, 28, ${0.68 + pulse * 0.18})`;
-        ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
-        ctx.fillStyle = `rgba(255, 220, 90, ${0.75 + pulse * 0.25})`;
-        ctx.fillRect(mx, my, marker, marker);
-      }
-
-      if (t && vis === "visible" && t.fort) {
-        ctx.fillStyle = structureAccentColor(t.ownerId ?? "", t.fort.status === "active" ? "rgba(239,71,111,0.8)" : "rgba(255,209,102,0.75)");
-        const dot = Math.max(3, Math.floor(size * 0.25));
-        ctx.fillRect(px + size - dot - 2, py + 2, dot, dot);
-      }
-      if (t && vis === "visible" && t.siegeOutpost) {
-        ctx.fillStyle = structureAccentColor(t.ownerId ?? "", t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)");
-        const dot = Math.max(3, Math.floor(size * 0.25));
-        ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
-      }
-      if (t && vis === "visible" && t.observatory) {
-        const overlay = structureOverlayImages.OBSERVATORY;
-        if (overlay.complete && overlay.naturalWidth) drawCenteredOverlay(overlay, px, py, size, 1.02);
-        else {
-          ctx.strokeStyle = structureAccentColor(t.ownerId ?? "", t.observatory.status === "active" ? "rgba(122, 214, 255, 0.92)" : "rgba(122, 214, 255, 0.42)");
-          ctx.beginPath();
-          ctx.arc(px + size / 2, py + size / 2, Math.max(3, size * 0.22), 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
-      if (t && vis === "visible" && t.economicStructure) {
-        const markerSize = Math.max(3, Math.floor(size * 0.2));
-        const active = t.economicStructure.status === "active";
-        const hasBuiltResourceOverlay = Boolean(builtResourceOverlayForTile(t));
-        if ((t.economicStructure.type === "MARKET" || t.economicStructure.type === "GRANARY")) {
-          const overlay = t.economicStructure.type === "MARKET" ? structureOverlayImages.MARKET : structureOverlayImages.GRANARY;
-          if (overlay.complete && overlay.naturalWidth) {
-            drawCenteredOverlay(overlay, px, py, size, 1.02);
-          }
-        } else if (t.economicStructure.type === "FUR_SYNTHESIZER") {
-          const overlay = structureOverlayImages.FUR_SYNTHESIZER;
-          if (overlay.complete && overlay.naturalWidth) {
-            drawCenteredOverlay(overlay, px, py, size, 1.02);
-          }
-        } else if (
-          t.economicStructure.type === "ADVANCED_FUR_SYNTHESIZER" ||
-          t.economicStructure.type === "ADVANCED_IRONWORKS" ||
-          t.economicStructure.type === "ADVANCED_CRYSTAL_SYNTHESIZER"
-        ) {
-          const overlay =
-            t.economicStructure.type === "ADVANCED_FUR_SYNTHESIZER"
-              ? structureOverlayImages.ADVANCED_FUR_SYNTHESIZER
-              : t.economicStructure.type === "ADVANCED_IRONWORKS"
-                ? structureOverlayImages.ADVANCED_IRONWORKS
-                : structureOverlayImages.ADVANCED_CRYSTAL_SYNTHESIZER;
-          if (overlay.complete && overlay.naturalWidth) {
-            drawCenteredOverlay(overlay, px, py, size, 1.02);
-          }
-        } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
-          ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)");
-          ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-        } else if (t.economicStructure.type === "CAMP" && !hasBuiltResourceOverlay) {
-          ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(222, 174, 108, 0.95)" : "rgba(171, 134, 86, 0.74)");
-          ctx.beginPath();
-          ctx.moveTo(px + size / 2, py + 3);
-          ctx.lineTo(px + size - 4, py + markerSize + 4);
-          ctx.lineTo(px + 4, py + markerSize + 4);
-          ctx.closePath();
-          ctx.fill();
-        } else if (t.economicStructure.type === "MINE" && !hasBuiltResourceOverlay) {
-          ctx.fillStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(188, 197, 214, 0.96)" : "rgba(120, 130, 148, 0.74)");
-          ctx.fillRect(px + 2, py + 2, markerSize + 1, markerSize + 1);
-        } else {
-          ctx.strokeStyle = structureAccentColor(t.ownerId ?? "", active ? "rgba(255, 212, 111, 0.96)" : "rgba(191, 162, 102, 0.72)");
-          ctx.lineWidth = 2;
-          ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
-          ctx.lineWidth = 1;
-        }
-      }
-      if (t && vis === "visible" && t.terrain === "LAND") {
-        const remainingConstructionMs = constructionRemainingMsForTile(t);
-        if (remainingConstructionMs !== undefined && size >= 18) {
-          const timerLabel = formatCountdownClock(remainingConstructionMs);
-          ctx.fillStyle = "rgba(6, 10, 18, 0.82)";
-          ctx.fillRect(px + 2, py + size - 12, Math.min(size - 4, 30), 10);
-          ctx.fillStyle = "rgba(236, 243, 255, 0.92)";
-          ctx.font = "9px monospace";
-          ctx.textBaseline = "top";
-          ctx.fillText(timerLabel, px + 4, py + size - 11);
-        }
-      }
-      if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
-        ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
-        ctx.beginPath();
-        ctx.moveTo(px + 3, py + 3);
-        ctx.lineTo(px + size - 3, py + size - 3);
-        ctx.moveTo(px + size - 3, py + 3);
-        ctx.lineTo(px + 3, py + size - 3);
-        ctx.stroke();
-      }
-
-      if (crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
-        const fill =
-          crystalTone === "amber"
-            ? "rgba(255, 187, 72, 0.12)"
-            : crystalTone === "cyan"
-              ? "rgba(113, 223, 255, 0.13)"
-              : "rgba(255, 100, 100, 0.12)";
-        const stroke =
-          crystalTone === "amber"
-            ? "rgba(255, 201, 102, 0.88)"
-            : crystalTone === "cyan"
-              ? "rgba(116, 227, 255, 0.9)"
-              : "rgba(255, 110, 110, 0.88)";
-        ctx.fillStyle = fill;
-        ctx.fillRect(px + 1, py + 1, size - 3, size - 3);
-        ctx.strokeStyle = stroke;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        ctx.lineWidth = 1;
-      }
-
-      if (t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
-        ctx.strokeStyle = "rgba(20, 26, 36, 0.58)";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-      }
-
-      const startingArrow = startingArrowTargets.get(wk);
-      if (startingArrow && !settlementProgress && queueIndex.get(wk) === undefined) {
-        drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
-      }
-
-      if (t && vis === "visible" && t.ownerId === "barbarian") {
-        drawBarbarianSkullOverlay(px, py, size);
-      }
-
-      if (t && vis === "visible" && shouldDrawOwnershipBorder(t)) {
-        const ownerId = t.ownerId!;
-        ctx.strokeStyle =
-          ownerId === "barbarian"
-            ? "rgba(214, 222, 232, 0.45)"
-            : ownerId === state.me
-              ? borderColorForOwner(ownerId, t.ownershipState)
-              : isTileOwnedByAlly(t)
-                ? "rgba(255, 205, 92, 0.82)"
-                : borderColorForOwner(ownerId, t.ownershipState);
-        ctx.lineWidth = clampOwnershipBorderWidth(borderLineWidthForOwner(ownerId, t.ownershipState), size);
-        ctx.lineDashOffset = 0;
-        ctx.setLineDash([]);
-        drawExposedTileBorder(t, px, py, size);
-        ctx.setLineDash([]);
-        ctx.lineDashOffset = 0;
-        ctx.lineWidth = 1;
-      }
-      if (state.showWeakDefensibility && t && vis === "visible" && t.ownerId === state.me && t.terrain === "LAND" && t.ownershipState === "SETTLED" && !t.fogged) {
-        const exposedSides = exposedSidesForTile(t, {
-          tiles: state.tiles,
-          me: state.me,
-          keyFor: key,
-          wrapX,
-          wrapY,
-          terrainAt
-        });
-        if (exposedSides.length >= 2) {
-          const critical = exposedSides.length >= 3;
-          ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.18)" : "rgba(255, 173, 92, 0.12)";
-          ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-          ctx.strokeStyle = critical ? "rgba(255, 84, 84, 0.92)" : "rgba(255, 173, 92, 0.88)";
-          ctx.lineWidth = critical ? 4 : 3;
-          ctx.beginPath();
-          if (exposedSides.includes("north")) {
-            ctx.moveTo(px + 1, py + 2);
-            ctx.lineTo(px + size - 1, py + 2);
-          }
-          if (exposedSides.includes("east")) {
-            ctx.moveTo(px + size - 2, py + 1);
-            ctx.lineTo(px + size - 2, py + size - 1);
-          }
-          if (exposedSides.includes("south")) {
-            ctx.moveTo(px + 1, py + size - 2);
-            ctx.lineTo(px + size - 1, py + size - 2);
-          }
-          if (exposedSides.includes("west")) {
-            ctx.moveTo(px + 2, py + 1);
-            ctx.lineTo(px + 2, py + size - 1);
-          }
-          ctx.stroke();
-          if (size >= 12) {
-            ctx.fillStyle = critical ? "rgba(255, 84, 84, 0.96)" : "rgba(255, 196, 92, 0.96)";
-            ctx.beginPath();
-            ctx.arc(px + size * 0.5, py + size * 0.5, critical ? 2.3 : 1.8, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.lineWidth = 1;
-        }
-      }
-
-      if (t && vis === "visible" && typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now() && t.ownerId) {
-        ctx.strokeStyle = "rgba(255,255,255,0.52)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        ctx.lineWidth = 1;
-      }
-
-      if (state.selected && state.selected.x === wx && state.selected.y === wy) {
-        if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
-          ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
-          ctx.fillRect(px, py, size, size);
-        } else {
-          ctx.strokeStyle = "#ffd166";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
-          ctx.lineWidth = 1;
-        }
-      } else if (state.selected) {
-        const selected = state.tiles.get(key(state.selected.x, state.selected.y));
-      if (selected?.town && isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) && isTownSupportHighlightableTile(t)) {
-        if (t?.terrain !== "LAND") {
-          ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
-        } else if (!t?.ownerId) {
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-          } else if (t.ownerId !== state.me) {
-            ctx.strokeStyle = "rgba(255, 98, 98, 0.65)";
-          } else if (t.ownershipState === "SETTLED") {
-            ctx.strokeStyle = "rgba(155, 242, 116, 0.88)";
-          } else {
-            ctx.strokeStyle = "rgba(255, 205, 92, 0.82)";
-          }
-          if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
-            ctx.fillStyle = "rgba(155, 242, 116, 0.12)";
-            ctx.fillRect(px, py, size, size);
-          } else {
-            ctx.lineWidth = 2;
-            ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-            ctx.lineWidth = 1;
-          }
-        }
-      }
-      if (state.hover && state.hover.x === wx && state.hover.y === wy) {
-        ctx.strokeStyle = "rgba(255,255,255,0.55)";
-        ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-      }
-      const incomingAttack = state.incomingAttacksByTile.get(wk);
-      if (incomingAttack) {
-        if (incomingAttack.resolvesAt <= Date.now()) {
-          state.incomingAttacksByTile.delete(wk);
-        } else {
-          drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
-        }
-      }
-      if (settlementProgress) {
-        const totalMs = Math.max(1, settlementProgress.resolvesAt - settlementProgress.startAt);
-        const now = Date.now();
-        const progress = Math.max(0, Math.min(1, (now - settlementProgress.startAt) / totalMs));
-        const fillWidth = Math.max(2, Math.floor((size - 2) * progress));
-        const ownerFill = t?.ownerId ? effectiveOverlayColor(t.ownerId) : "#ffd166";
-        const pulse = 0.34 + 0.28 * (0.5 + 0.5 * Math.sin(now / 160));
-        const darkPixelAlpha = (0.86 + pulse * 0.12).toFixed(3);
-        ctx.fillStyle = `rgba(9, 14, 24, 0.28)`;
-        ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-        ctx.fillStyle = ownerFill;
-        ctx.globalAlpha = 0.16 + progress * 0.36;
-        ctx.fillRect(px + 1, py + 1, fillWidth, size - 2);
-        ctx.globalAlpha = 1;
-        const pixelCount = isMobile() ? Math.max(10, Math.min(22, Math.floor(size * 0.78))) : Math.max(12, Math.min(28, Math.floor(size * 0.94)));
-        const activePixels = Math.max(6, Math.round(4 + progress * pixelCount));
-        const swarmInset = Math.max(1, Math.floor(size * 0.04));
-        const swarmWidth = Math.max(3, size - swarmInset * 2);
-        const pixelSize = size <= 10 ? 1 : 2;
-        ctx.fillStyle = `rgba(6, 8, 12, ${darkPixelAlpha})`;
-        for (let i = 0; i < activePixels; i += 1) {
-          const point = settlePixelWanderPoint(now, wx, wy, i);
-          const dotX = Math.floor(px + swarmInset + point.x * (swarmWidth - pixelSize));
-          const dotY = Math.floor(py + swarmInset + point.y * (swarmWidth - pixelSize));
-          ctx.fillRect(dotX, dotY, pixelSize, pixelSize);
-        }
-        ctx.strokeStyle = `rgba(255, 241, 185, ${0.68 + pulse * 0.16})`;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 1.5, py + 1.5, size - 4, size - 4);
-        ctx.lineWidth = 1;
-      }
-
-      if (state.dragPreviewKeys.has(wk)) {
-        ctx.strokeStyle = "rgba(129, 230, 217, 0.9)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        ctx.lineWidth = 1;
-      }
-
-      const queuedN = queueIndex.get(wk);
-      if (queuedN !== undefined) {
-        ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
-        if (size >= 16) {
-          ctx.fillStyle = "rgba(20, 16, 35, 0.85)";
-          ctx.fillRect(px + 3, py + 3, Math.min(size - 6, 14), 12);
-          ctx.fillStyle = "#c4b5fd";
-          ctx.font = "10px monospace";
-          ctx.textBaseline = "top";
-          ctx.fillText(String(queuedN), px + 5, py + 4);
-        }
-        ctx.lineWidth = 1;
-      }
-      const queuedSettlementN = settleQueueIndex.get(wk);
-      if (queuedSettlementN !== undefined && !settlementProgress) {
-        ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        if (size >= 14) {
-          const badgeWidth = Math.min(size - 6, queuedSettlementN >= 10 ? 18 : 14);
-          ctx.fillStyle = "rgba(49, 31, 4, 0.92)";
-          ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "10px monospace";
-          ctx.textBaseline = "top";
-          ctx.textAlign = "left";
-          ctx.fillText(String(queuedSettlementN), px + size - badgeWidth - 1, py + 4);
-        }
-        ctx.lineWidth = 1;
-      }
-    }
-  }
-
-  const selectedWorld = selectedTile();
-  if (selectedWorld && selectedWorld.observatory) {
-    const selectedVisibility = tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
-    if (selectedVisibility === "visible") {
-      const center = worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
-      const ringRadius = OBSERVATORY_VISION_BONUS + 0.5;
-      const squareSize = ringRadius * 2 * size;
-      ctx.save();
-      ctx.strokeStyle =
-        selectedWorld.observatory.status === "active" ? "rgba(122, 214, 255, 0.55)" : "rgba(122, 214, 255, 0.28)";
-      ctx.fillStyle =
-        selectedWorld.observatory.status === "active" ? "rgba(122, 214, 255, 0.05)" : "rgba(122, 214, 255, 0.025)";
-      ctx.setLineDash([8, 6]);
-      ctx.lineWidth = 2;
-      ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
-      ctx.fillRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
-      ctx.restore();
-      if (selectedWorld.ownerId === state.me && selectedWorld.observatory.status === "active") {
-        const protectionRadius = OBSERVATORY_PROTECTION_RADIUS + 0.5;
-        const protectionSquareSize = protectionRadius * 2 * size;
-        ctx.save();
-        ctx.strokeStyle = "rgba(106, 180, 255, 0.35)";
-        ctx.fillStyle = "rgba(106, 180, 255, 0.02)";
-        ctx.setLineDash([14, 10]);
-        ctx.lineWidth = 2;
-        ctx.strokeRect(
-          center.sx - protectionSquareSize / 2,
-          center.sy - protectionSquareSize / 2,
-          protectionSquareSize,
-          protectionSquareSize
-        );
-        ctx.fillRect(
-          center.sx - protectionSquareSize / 2,
-          center.sy - protectionSquareSize / 2,
-          protectionSquareSize,
-          protectionSquareSize
-        );
-        ctx.restore();
-      }
-    }
-  }
-
-  if (crystalTargetingActive) {
-    const hoveredKey = state.hover ? key(state.hover.x, state.hover.y) : "";
-    const selectedKey = state.selected ? key(state.selected.x, state.selected.y) : "";
-    const targetKey = state.crystalTargeting.validTargets.has(hoveredKey)
-      ? hoveredKey
-      : state.crystalTargeting.validTargets.has(selectedKey)
-        ? selectedKey
-        : "";
-    if (targetKey) {
-      const target = parseKey(targetKey);
-      const targetScreen = worldToScreen(target.x, target.y, size, halfW, halfH);
-      const originKey = state.crystalTargeting.originByTarget.get(targetKey);
-      if (originKey) {
-        const origin = parseKey(originKey);
-        const originScreen = worldToScreen(origin.x, origin.y, size, halfW, halfH);
-        ctx.save();
-        ctx.strokeStyle =
-          crystalTone === "amber"
-            ? "rgba(255, 205, 98, 0.92)"
-            : crystalTone === "cyan"
-              ? "rgba(116, 227, 255, 0.92)"
-              : "rgba(255, 110, 110, 0.92)";
-        ctx.lineWidth = 2;
-        ctx.setLineDash(crystalTone === "cyan" ? [10, 6] : [7, 5]);
-        ctx.beginPath();
-        ctx.moveTo(originScreen.sx, originScreen.sy);
-        ctx.lineTo(targetScreen.sx, targetScreen.sy);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.strokeRect(originScreen.sx - size / 2 + 2, originScreen.sy - size / 2 + 2, size - 4, size - 4);
-        ctx.restore();
-      }
-      ctx.save();
-      ctx.strokeStyle =
-        crystalTone === "amber"
-          ? "rgba(255, 219, 132, 1)"
-          : crystalTone === "cyan"
-            ? "rgba(153, 240, 255, 1)"
-            : "rgba(255, 144, 144, 1)";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(targetScreen.sx - size / 2 + 1, targetScreen.sy - size / 2 + 1, size - 2, size - 2);
-      ctx.restore();
-    }
-  }
-
-  const routeDash = [9, 8];
-  for (const pair of state.dockPairs) {
-    if (!isDockRouteVisibleForPlayer(pair)) continue;
-    const aIsDockLand = terrainAt(pair.ax, pair.ay) === "LAND";
-    const bIsDockLand = terrainAt(pair.bx, pair.by) === "LAND";
-    const selectedRoute = Boolean(
-      state.selected &&
-        ((pair.ax === state.selected.x && pair.ay === state.selected.y) || (pair.bx === state.selected.x && pair.by === state.selected.y))
-    );
-    if (!selectedRoute) continue;
-    if (!aIsDockLand || !bIsDockLand) continue;
-
-    const route = computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by);
-    ctx.setLineDash(routeDash);
-    ctx.lineDashOffset = -((nowMs / 140) % 17);
-    if (route.length < 2) {
-      // Fallback so every dock pair still communicates connectivity if sea routing fails.
-      const a = worldToScreen(pair.ax, pair.ay, size, halfW, halfH);
-      const b = {
-        sx: a.sx + toroidDelta(pair.ax, pair.bx, WORLD_WIDTH) * size,
-        sy: a.sy + toroidDelta(pair.ay, pair.by, WORLD_HEIGHT) * size
-      };
-      ctx.strokeStyle = selectedRoute ? "rgba(255, 246, 176, 0.9)" : "rgba(255, 233, 149, 0.45)";
-      ctx.lineWidth = selectedRoute ? 2 : 1.2;
-      ctx.beginPath();
-      ctx.moveTo(a.sx, a.sy);
-      ctx.lineTo(b.sx, b.sy);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.lineDashOffset = 0;
-      continue;
-    }
-    ctx.strokeStyle = selectedRoute ? "rgba(255, 246, 176, 0.9)" : "rgba(255, 233, 149, 0.45)";
-    ctx.lineWidth = selectedRoute ? 2 : 1.2;
-    let prev = route[0]!;
-    let prevScreen = worldToScreen(prev.x, prev.y, size, halfW, halfH);
-    for (let i = 1; i < route.length; i += 1) {
-      const b = route[i]!;
-      const stepX = toroidDelta(prev.x, b.x, WORLD_WIDTH) * size;
-      const stepY = toroidDelta(prev.y, b.y, WORLD_HEIGHT) * size;
-      const sb = { sx: prevScreen.sx + stepX, sy: prevScreen.sy + stepY };
-      if (
-        (prevScreen.sx < -size && sb.sx < -size) ||
-        (prevScreen.sy < -size && sb.sy < -size) ||
-        (prevScreen.sx > canvas.width + size && sb.sx > canvas.width + size) ||
-        (prevScreen.sy > canvas.height + size && sb.sy > canvas.height + size)
-      ) {
-        prev = b;
-        prevScreen = sb;
-        continue;
-      }
-      ctx.beginPath();
-      ctx.moveTo(prevScreen.sx, prevScreen.sy);
-      ctx.lineTo(sb.sx, sb.sy);
-      ctx.stroke();
-      prev = b;
-      prevScreen = sb;
-    }
-    ctx.setLineDash([]);
-    ctx.lineDashOffset = 0;
-  }
-  ctx.setLineDash([]);
-  ctx.lineDashOffset = 0;
-  const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
-  for (const bridge of visibleAetherBridges) {
-    const from = worldToScreen(bridge.from.x, bridge.from.y, size, halfW, halfH);
-    const dx = toroidDelta(bridge.from.x, bridge.to.x, WORLD_WIDTH) * size;
-    const dy = toroidDelta(bridge.from.y, bridge.to.y, WORLD_HEIGHT) * size;
-    const to = { sx: from.sx + dx, sy: from.sy + dy };
-    drawAetherBridgeLane(ctx, from.sx, from.sy, to.sx, to.sy, nowMs);
-  }
-
-  if (state.shardRainFxUntil > nowMs) {
-    const fxProgress = Math.max(0, (state.shardRainFxUntil - nowMs) / 8_000);
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    for (let i = 0; i < 18; i += 1) {
-      const x = ((i * 97 + nowMs * 0.08) % canvas.width);
-      const y = ((i * 59 + nowMs * 0.21) % canvas.height);
-      const len = 24 + (i % 5) * 10;
-      const alpha = (0.08 + (i % 3) * 0.03) * fxProgress;
-      ctx.strokeStyle = `rgba(102, 224, 255, ${alpha})`;
-      ctx.lineWidth = 1 + (i % 2);
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 8, y + len);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  drawMiniMap();
-  maybeRefreshForCamera(false);
-
-  requestAnimationFrame(draw);
-};
-
-initTerrainTextures();
-draw();
-renderHud();
-setInterval(renderCaptureProgress, 100);
-setInterval(renderShardAlert, 250);
-setInterval(() => {
-  if (state.collectVisibleCooldownUntil > Date.now()) renderHud();
-  const expiredSettlementProgress = cleanupExpiredSettlementProgress();
-  const startedQueuedDevelopment = state.developmentQueue.length > 0 ? processDevelopmentQueue() : false;
-  if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment) {
-    renderHud();
-  }
-  if (!state.actionInFlight) return;
-  const started = state.actionStartedAt;
-  if (!started) return;
-  // Stage 1: waiting for server COMBAT_START ack.
-  if (!state.combatStartAck && Date.now() - started > 4_500) {
-    const current = state.actionCurrent;
-    const currentKey = current ? key(current.x, current.y) : "";
-    state.capture = undefined;
-    if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
-    state.actionInFlight = false;
-    state.combatStartAck = false;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    if (currentKey) clearOptimisticTileState(currentKey, true);
-      if (current && (current.retries ?? 0) < 3) {
-        const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
-          x: current.x,
-          y: current.y,
-          retries: (current.retries ?? 0) + 1
-      };
-      if (current.mode) retryAction.mode = current.mode;
-      state.actionQueue.unshift(retryAction);
-      state.queuedTargetKeys.add(key(current.x, current.y));
-      pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
-    } else {
-      pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
-      if (currentKey) dropQueuedTargetKeyIfAbsent(currentKey);
-    }
-    processActionQueue();
-    renderHud();
-    return;
-  }
-  if (!state.capture) return;
-  // Stage 2: combat started but result got dropped.
-  if (Date.now() > state.capture.resolvesAt + 5_000) {
-    const timedOutCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
-    const keepOptimisticExpand = shouldPreserveOptimisticExpandByKey(timedOutCurrentKey);
-    state.capture = undefined;
-    if (state.pendingCombatReveal?.targetKey === timedOutCurrentKey) state.pendingCombatReveal = undefined;
-    state.actionInFlight = false;
-    state.combatStartAck = false;
-    state.actionStartedAt = 0;
-    state.actionTargetKey = "";
-    state.actionCurrent = undefined;
-    if (timedOutCurrentKey) dropQueuedTargetKeyIfAbsent(timedOutCurrentKey);
-    if (timedOutCurrentKey && !keepOptimisticExpand) clearOptimisticTileState(timedOutCurrentKey, true);
-    pushFeed(
-      keepOptimisticExpand
-        ? "Frontier result delayed; keeping optimistic tile while continuing queue."
-        : "Combat result delayed locally; continuing queue.",
-      "combat",
-      "warn"
-    );
-    if (keepOptimisticExpand) requestViewRefresh(2, true);
-    reconcileActionQueue();
-    processActionQueue();
-    renderHud();
-  }
-}, 300);
-
-canvas.addEventListener("wheel", (ev) => {
-  ev.preventDefault();
-  state.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, state.zoom + (ev.deltaY > 0 ? -1 : 1)));
+startClientRuntimeLoop(state, {
+  canvas,
+  ctx,
+  initTerrainTextures,
+  isMobile,
+  keyFor: key,
+  wrapX,
+  wrapY,
+  parseKey,
+  selectedTile,
+  settlementProgressForTile,
+  tileVisibilityStateAt,
+  crystalTargetingTone,
+  startingExpansionArrowTargets,
+  drawTerrainTile,
+  drawForestOverlay,
+  effectiveOverlayColor,
+  overlayVariantIndexAt,
+  dockOverlayVariants,
+  drawCenteredOverlay,
+  builtResourceOverlayForTile,
+  resourceOverlayForTile,
+  economicStructureOverlayAlpha,
+  drawCenteredOverlayWithAlpha,
+  resourceOverlayScaleForTile,
+  drawResourceCornerMarker,
+  resourceColor,
+  shardOverlayForTile,
+  drawShardFallback,
+  drawTownOverlay,
+  hasCollectableYield,
+  structureAccentColor,
+  structureOverlayImages,
+  constructionRemainingMsForTile,
+  formatCountdownClock,
+  drawStartingExpansionArrow,
+  drawBarbarianSkullOverlay,
+  shouldDrawOwnershipBorder,
+  borderColorForOwner,
+  isTileOwnedByAlly,
+  borderLineWidthForOwner,
+  drawExposedTileBorder,
+  isTownSupportNeighbor,
+  isTownSupportHighlightableTile,
+  drawIncomingAttackOverlay,
+  settlePixelWanderPoint,
+  worldToScreen,
+  isDockRouteVisibleForPlayer,
+  computeDockSeaRoute,
+  toroidDelta,
+  drawAetherBridgeLane,
+  drawMiniMap,
+  maybeRefreshForCamera,
+  renderHud,
+  renderCaptureProgress,
+  renderShardAlert,
+  cleanupExpiredSettlementProgress,
+  processDevelopmentQueue,
+  clearOptimisticTileState,
+  dropQueuedTargetKeyIfAbsent,
+  pushFeed,
+  processActionQueue,
+  shouldPreserveOptimisticExpandByKey,
+  requestViewRefresh,
+  reconcileActionQueue
 });
 
-window.addEventListener("keydown", (ev) => {
-  const target = ev.target as HTMLElement | null;
-  const tagName = target?.tagName;
-  const editing =
-    target?.isContentEditable ||
-    tagName === "INPUT" ||
-    tagName === "TEXTAREA" ||
-    tagName === "SELECT";
-  if (editing) return;
-
-  if (ev.key === "Escape") {
-    cancelOngoingCapture();
-    hideHoldBuildMenu();
-    hideTileActionMenu();
-    clearCrystalTargeting();
-    return;
-  }
-
-  if (ev.key === "ArrowUp" || ev.key === "ArrowDown" || ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
-    ev.preventDefault();
-    const step = ev.shiftKey ? 8 : 3;
-    if (ev.key === "ArrowUp") state.camY = wrapY(state.camY - step);
-    if (ev.key === "ArrowDown") state.camY = wrapY(state.camY + step);
-    if (ev.key === "ArrowLeft") state.camX = wrapX(state.camX - step);
-    if (ev.key === "ArrowRight") state.camX = wrapX(state.camX + step);
-    maybeRefreshForCamera(true);
-  }
-});
-window.addEventListener("mousedown", (ev) => {
-  const target = ev.target as Node | null;
-  if (!target) return;
-  if (holdBuildMenuEl.contains(target) || tileActionMenuEl.contains(target)) return;
-  hideHoldBuildMenu();
-  hideTileActionMenu();
-});
-window.addEventListener("resize", () => renderMobilePanels());
-
-setInterval(() => {
-  if (state.connection !== "initialized") return;
-  if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
-  // Do not force identical full resubscriptions while the view is already healthy.
-  if (state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 20_000) requestViewRefresh(2, true);
-}, isMobile() ? 8_000 : 5_000);
-
-setInterval(() => {
-  const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
-  if (!loadingActive) return;
-  // Keep loading timer text fresh and recover from dropped initial subscriptions.
-  renderHud();
-  if (state.connection === "initialized" && Date.now() - state.lastSubAt > 1200) {
-    requestViewRefresh(3, true);
-  }
-}, 300);
-
-const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
-  const raw = worldTileRawFromPointer(offsetX, offsetY);
-  return { wx: wrapX(raw.gx), wy: wrapY(raw.gy) };
-};
-
-const setCameraFromMinimapPointer = (clientX: number, clientY: number): void => {
-  const rect = miniMapEl.getBoundingClientRect();
-  const px = Math.max(0, Math.min(rect.width, clientX - rect.left));
-  const py = Math.max(0, Math.min(rect.height, clientY - rect.top));
-  const nx = rect.width <= 0 ? 0 : px / rect.width;
-  const ny = rect.height <= 0 ? 0 : py / rect.height;
-  state.camX = wrapX(Math.floor(nx * WORLD_WIDTH));
-  state.camY = wrapY(Math.floor(ny * WORLD_HEIGHT));
-  requestViewRefresh(2, true);
-  window.setTimeout(() => maybeRefreshForCamera(), 120);
-};
-
-let minimapDragging = false;
-miniMapEl.addEventListener("mousedown", (ev) => {
-  minimapDragging = true;
-  setCameraFromMinimapPointer(ev.clientX, ev.clientY);
-});
-window.addEventListener("mousemove", (ev) => {
-  if (!minimapDragging) return;
-  setCameraFromMinimapPointer(ev.clientX, ev.clientY);
-});
-window.addEventListener("mouseup", () => {
-  minimapDragging = false;
-});
-miniMapEl.addEventListener(
-  "touchstart",
-  (ev) => {
-    const t = ev.touches[0];
-    if (!t) return;
-    setCameraFromMinimapPointer(t.clientX, t.clientY);
-  },
-  { passive: true }
-);
-
-canvas.addEventListener("click", (ev) => {
-  const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
-  handleTileSelection(wx, wy, ev.clientX, ev.clientY);
-});
-
-let dragActive = false;
-let dragLastKey = "";
-let suppressNextClick = false;
-let boxSelectionEngaged = false;
-let boxSelectionMode = false;
-let mousePanStart: { x: number; y: number; camX: number; camY: number } | undefined;
-let mousePanMoved = false;
-let holdOpenTimer: number | undefined;
-let holdActivated = false;
-let touchHoldStart: { x: number; y: number } | undefined;
-let touchTapCandidate: { x: number; y: number } | undefined;
-const HOLD_OPEN_MS = 420;
-const HOLD_MOVE_CANCEL_PX = 10;
-const TOUCH_TAP_MAX_MOVE_PX = 12;
-const MOUSE_PAN_THRESHOLD_PX = 4;
-const clearHoldOpenTimer = (): void => {
-  if (holdOpenTimer !== undefined) window.clearTimeout(holdOpenTimer);
-  holdOpenTimer = undefined;
-};
-const scheduleHoldBuildMenu = (_clientX: number, _clientY: number, _offsetX: number, _offsetY: number): void => {
-  clearHoldOpenTimer();
-  holdActivated = false;
-};
-
-canvas.addEventListener("mousedown", (ev) => {
-  if (ev.button !== 0) return;
-  dragActive = true;
-  mousePanMoved = false;
-  boxSelectionMode = ev.shiftKey;
-  boxSelectionEngaged = false;
-  hideHoldBuildMenu();
-  mousePanStart = { x: ev.clientX, y: ev.clientY, camX: state.camX, camY: state.camY };
-  const raw = worldTileRawFromPointer(ev.offsetX, ev.offsetY);
-  if (boxSelectionMode) {
-    state.boxSelectStart = raw;
-    state.boxSelectCurrent = raw;
-    dragLastKey = key(wrapX(raw.gx), wrapY(raw.gy));
-    computeDragPreview();
-  } else {
-    state.boxSelectStart = undefined;
-    state.boxSelectCurrent = undefined;
-    state.dragPreviewKeys.clear();
-    dragLastKey = "";
-  }
-  if (!boxSelectionMode) {
-    scheduleHoldBuildMenu(ev.clientX, ev.clientY, ev.offsetX, ev.offsetY);
-  } else {
-    clearHoldOpenTimer();
-  }
-});
-canvas.addEventListener("mousemove", (ev) => {
-  if (!dragActive) return;
-  if (!boxSelectionMode && mousePanStart) {
-    const dx = ev.clientX - mousePanStart.x;
-    const dy = ev.clientY - mousePanStart.y;
-    if (Math.abs(dx) > MOUSE_PAN_THRESHOLD_PX || Math.abs(dy) > MOUSE_PAN_THRESHOLD_PX) {
-      clearHoldOpenTimer();
-      mousePanMoved = true;
-      suppressNextClick = true;
-    }
-    if (mousePanMoved) {
-      state.camX = wrapX(Math.round(mousePanStart.camX - dx / state.zoom));
-      state.camY = wrapY(Math.round(mousePanStart.camY - dy / state.zoom));
-      maybeRefreshForCamera(false);
-    }
-    return;
-  }
-  const raw = worldTileRawFromPointer(ev.offsetX, ev.offsetY);
-  const k = key(wrapX(raw.gx), wrapY(raw.gy));
-  if (k === dragLastKey) return;
-  clearHoldOpenTimer();
-  dragLastKey = k;
-  boxSelectionEngaged = true;
-  state.boxSelectCurrent = raw;
-  computeDragPreview();
-});
-window.addEventListener("mouseup", (ev) => {
-  clearHoldOpenTimer();
-  if (dragActive && boxSelectionMode && boxSelectionEngaged) {
-    const dragKeys = [...state.dragPreviewKeys];
-    if (dragKeys.length > 0) {
-      const neutralKeys = dragKeys.filter((k) => {
-        const t = state.tiles.get(k);
-        return t && t.terrain === "LAND" && !t.fogged && !t.ownerId;
-      });
-      const enemyKeys = dragKeys.filter((k) => {
-        const t = state.tiles.get(k);
-        return t && t.terrain === "LAND" && !t.fogged && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
-      });
-      const ownedYieldKeys = dragKeys.filter((k) => {
-        const t = state.tiles.get(k);
-        if (!t || t.ownerId !== state.me) return false;
-        const y = (t as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
-        return Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
-      });
-
-      if (neutralKeys.length > 0 && enemyKeys.length === 0 && ownedYieldKeys.length === 0) {
-        const out = queueSpecificTargets(neutralKeys, "normal");
-        if (out.queued > 0) processActionQueue();
-        pushFeed(`Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`, "combat", "info");
-      } else {
-        openBulkTileActionMenu(dragKeys, ev.clientX, ev.clientY);
-      }
-    }
-    suppressNextClick = true;
-  }
-  dragActive = false;
-  boxSelectionMode = false;
-  boxSelectionEngaged = false;
-  mousePanStart = undefined;
-  mousePanMoved = false;
-  dragLastKey = "";
-  state.boxSelectStart = undefined;
-  state.boxSelectCurrent = undefined;
-  state.dragPreviewKeys.clear();
-});
-window.addEventListener("contextmenu", (ev) => {
-  const target = ev.target as Node | null;
-  if (target && (canvas.contains(target) || tileActionMenuEl.contains(target))) {
-    ev.preventDefault();
-    hideTileActionMenu();
-    hideHoldBuildMenu();
-  }
-});
-
-let touchPanStart: { x: number; y: number; camX: number; camY: number } | undefined;
-let pinchStart: { distance: number; zoom: number } | undefined;
-
-canvas.addEventListener(
-  "touchstart",
-  (ev) => {
-    if (ev.touches.length === 1) {
-      const t = ev.touches[0];
-      if (!t) return;
-      hideHoldBuildMenu();
-      touchPanStart = { x: t.clientX, y: t.clientY, camX: state.camX, camY: state.camY };
-      touchHoldStart = { x: t.clientX, y: t.clientY };
-      touchTapCandidate = { x: t.clientX, y: t.clientY };
-      const rect = canvas.getBoundingClientRect();
-      scheduleHoldBuildMenu(t.clientX, t.clientY, t.clientX - rect.left, t.clientY - rect.top);
-      pinchStart = undefined;
-    } else if (ev.touches.length === 2) {
-      const a = ev.touches[0];
-      const b = ev.touches[1];
-      if (!a || !b) return;
-      clearHoldOpenTimer();
-      touchHoldStart = undefined;
-      touchTapCandidate = undefined;
-      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      pinchStart = { distance: d, zoom: state.zoom };
-      touchPanStart = undefined;
-    }
-  },
-  { passive: true }
-);
-
-canvas.addEventListener(
-  "touchmove",
-  (ev) => {
-    if (ev.touches.length === 1 && touchPanStart) {
-      const t = ev.touches[0];
-      if (!t) return;
-      if (touchHoldStart) {
-        const moved = Math.hypot(t.clientX - touchHoldStart.x, t.clientY - touchHoldStart.y);
-        if (moved > HOLD_MOVE_CANCEL_PX) clearHoldOpenTimer();
-        if (moved > TOUCH_TAP_MAX_MOVE_PX) touchTapCandidate = undefined;
-      }
-      const dx = t.clientX - touchPanStart.x;
-      const dy = t.clientY - touchPanStart.y;
-      state.camX = wrapX(Math.round(touchPanStart.camX - dx / state.zoom));
-      state.camY = wrapY(Math.round(touchPanStart.camY - dy / state.zoom));
-      maybeRefreshForCamera(false);
-      return;
-    }
-    if (ev.touches.length === 2 && pinchStart) {
-      touchTapCandidate = undefined;
-      const a = ev.touches[0];
-      const b = ev.touches[1];
-      if (!a || !b) return;
-      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      const factor = d / Math.max(1, pinchStart.distance);
-      state.zoom = Math.max(12, Math.min(MAX_ZOOM, Math.round(pinchStart.zoom * factor)));
-    }
-  },
-  { passive: true }
-);
-
-canvas.addEventListener(
-  "touchend",
-  () => {
-    if (touchTapCandidate && !holdActivated && !pinchStart) {
-      const rect = canvas.getBoundingClientRect();
-      const offsetX = touchTapCandidate.x - rect.left;
-      const offsetY = touchTapCandidate.y - rect.top;
-      const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
-      suppressNextClick = true;
-      handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);
-    }
-    clearHoldOpenTimer();
-    touchHoldStart = undefined;
-    touchTapCandidate = undefined;
-    touchPanStart = undefined;
-    pinchStart = undefined;
-  },
-  { passive: true }
-);
-
-canvas.addEventListener("mousemove", (ev) => {
-  const size = state.zoom;
-  const halfW = Math.floor(canvas.width / size / 2);
-  const halfH = Math.floor(canvas.height / size / 2);
-  const gx = Math.floor(ev.offsetX / size) - halfW + state.camX;
-  const gy = Math.floor(ev.offsetY / size) - halfH + state.camY;
-  state.hover = { x: wrapX(gx), y: wrapY(gy) };
-  requestAttackPreviewForHover();
+bindClientMapInput(state, {
+  canvas,
+  miniMapEl,
+  holdBuildMenuEl,
+  tileActionMenuEl,
+  wrapX,
+  wrapY,
+  keyFor: key,
+  worldTileRawFromPointer,
+  computeDragPreview,
+  requestViewRefresh,
+  maybeRefreshForCamera,
+  handleTileSelection,
+  cancelOngoingCapture,
+  hideHoldBuildMenu,
+  hideTileActionMenu,
+  clearCrystalTargeting,
+  renderMobilePanels,
+  queueSpecificTargets,
+  processActionQueue,
+  pushFeed,
+  openBulkTileActionMenu,
+  isTileOwnedByAlly,
+  requestAttackPreviewForHover,
+  interactionFlags: mapInteractionFlags
 });
