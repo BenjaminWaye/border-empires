@@ -89,6 +89,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
     const settlementBody = functionBody(serverMainSource(), "bestAiSettlementTile");
     const islandSettlementBody = functionBody(serverMainSource(), "bestAiIslandSettlementTile");
+    const townSupportSettlementBody = functionBody(serverMainSource(), "bestAiTownSupportSettlementTile");
     const evaluationBody = functionBody(serverMainSource(), "evaluateAiSettlementCandidate");
     const fortBody = functionBody(serverMainSource(), "bestAiFortTile");
 
@@ -98,9 +99,15 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(settlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
     expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(islandSettlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
+    expect(townSupportSettlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
     expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
     expect(fortBody).toContain("fortsByTile.has(tk)");
     expect(fortBody).toContain("isBorderTile(tile.x, tile.y, actor.id)");
+  });
+
+  it("invalidates cached settlement selectors when AI territory changes", () => {
+    const dirtyBody = functionBody(serverMainSource(), "markAiTerritoryDirtyForPlayers");
+    expect(dirtyBody).toContain("cachedAiSettlementSelectorByPlayer.delete(playerId)");
   });
 
   it("keeps island-victory focus targeted and avoids treating fully fed empires as food emergencies", () => {
