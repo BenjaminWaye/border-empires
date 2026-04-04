@@ -46,16 +46,31 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     }
   });
 
-  it("derives economic build availability from the exact runtime selector in the cached planning layer", () => {
+  it("keeps the cached planning layer free of eager heavy selector scans", () => {
     const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
-    expect(body).toContain("bestAiEconomicStructure(actor, territorySummary)");
-    expect(body).not.toContain("structureCandidateTiles.some");
+    const forbiddenCalls = [
+      "bestAiFrontierAction(",
+      "bestAiEnemyPressureAttack(",
+      "bestAiSettlementTile(",
+      "bestAiTownSupportSettlementTile(",
+      "bestAiIslandExpand(",
+      "bestAiIslandSettlementTile(",
+      "bestAiFortTile(",
+      "bestAiEconomicExpand(",
+      "bestAiEconomicStructure("
+    ];
+
+    for (const forbidden of forbiddenCalls) {
+      expect(body).not.toContain(forbidden);
+    }
   });
 
-  it("derives barbarian attack availability from the exact runtime selector in the cached planning layer", () => {
+  it("derives cached attack and build availability from lightweight cached signals", () => {
     const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
-    expect(body).toContain("const barbarianAttackCandidate = bestAiFrontierAction(");
-    expect(body).toContain("barbarianAttackAvailable: Boolean(barbarianAttackCandidate)");
+    expect(body).toContain("barbarianAttackAvailable = true");
+    expect(body).toContain("const pressureAttackProfile = estimateAiPressureAttackProfile(actor, territorySummary);");
+    expect(body).toContain("territorySummary.borderSettledTileKeys.has(tk)");
+    expect(body).toContain("!fortsByTile.has(tk)");
   });
 
   it("uses cached strategic posture and lightweight shard-or-truce handling", () => {
@@ -77,8 +92,8 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const fortBody = functionBody(serverMainSource(), "bestAiFortTile");
 
     expect(staticBody).toContain("tileHasPendingSettlement(tileKey)");
-    expect(staticBody).toContain("bestAiSettlementTile(actor, undefined, territorySummary)");
-    expect(staticBody).toContain("bestAiTownSupportSettlementTile(actor, undefined, territorySummary)");
+    expect(staticBody).toContain("if (evaluation.isEconomicallyInteresting || evaluation.isStrategicallyInteresting) settlementAvailable = true;");
+    expect(staticBody).toContain("if (evaluation.townSupportSignal > 0) supportSettlementAvailable = true;");
     expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
     expect(fortBody).toContain("fortsByTile.has(tk)");
