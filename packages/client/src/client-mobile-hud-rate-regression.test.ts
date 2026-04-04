@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const clientSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return readFileSync(resolve(here, "./client-hud.ts"), "utf8");
 };
 
 describe("mobile HUD gold rate regression guard", () => {
