@@ -155,8 +155,10 @@ export const createInitialState = () => ({
         tone: "success" | "warn";
         manpowerLoss?: number;
         revealed: boolean;
+        result?: Record<string, unknown>;
       }
     | undefined,
+  revealedPredictedCombatByKey: new Map<string, { title: string; detail: string }>(),
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
