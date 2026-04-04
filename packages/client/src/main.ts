@@ -107,6 +107,7 @@ import {
 } from "./client-dock-routes.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
+import { shouldFinalizePredictedCombat, wasPredictedCombatAlreadyShown } from "./client-predicted-combat.js";
 import {
   firstCaptureGuidanceTarget as firstCaptureGuidanceTargetFromModule,
   inspectionHtmlForTile as inspectionHtmlForTileFromModule,
@@ -1522,6 +1523,7 @@ const renderCaptureProgress = (): void =>
     formatCooldownShort,
     showCaptureAlert,
     pushFeed,
+    finalizePredictedCombat: (result) => applyCombatOutcomeMessage(result, { predicted: true }),
     captureCardEl,
     captureWrapEl,
     captureCancelBtn,
@@ -2766,6 +2768,96 @@ const processActionQueue = (): boolean =>
     pushFeed,
     renderHud
   });
+
+const applyCombatOutcomeMessage = (msg: Record<string, unknown>, opts?: { predicted?: boolean }): void => {
+  const target = msg.target as { x: number; y: number } | undefined;
+  const targetBefore = (() => (target ? state.tiles.get(key(target.x, target.y)) : undefined))();
+  const originBefore = (() => {
+    const origin = msg.origin as { x: number; y: number } | undefined;
+    return origin ? state.tiles.get(key(origin.x, origin.y)) : undefined;
+  })();
+  const changes =
+    (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>) ??
+    [];
+  const resolvedCaptureTargetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : "";
+  for (const c of changes) {
+    const tileKey = key(c.x, c.y);
+    state.incomingAttacksByTile.delete(tileKey);
+    const existing = state.tiles.get(tileKey);
+    const incoming: Tile = {
+      ...(existing ?? { x: c.x, y: c.y, terrain: terrainAt(c.x, c.y), fogged: false }),
+      x: c.x,
+      y: c.y,
+      fogged: false
+    };
+    if (c.ownerId) incoming.ownerId = c.ownerId;
+    else delete incoming.ownerId;
+    if (c.ownershipState) incoming.ownershipState = c.ownershipState;
+    else if (!c.ownerId) delete incoming.ownershipState;
+    if (typeof c.breachShockUntil === "number") incoming.breachShockUntil = c.breachShockUntil;
+    else if ("breachShockUntil" in c && !c.breachShockUntil) delete incoming.breachShockUntil;
+    const merged = mergeServerTileWithOptimisticState(incoming);
+    if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
+    state.tiles.set(tileKey, merged);
+  }
+  const resultAlert = combatResolutionAlert(msg, {
+    targetTileBefore: targetBefore,
+    originTileBefore: originBefore
+  });
+  const resultTargetKey = target ? key(target.x, target.y) : "";
+  const predictedAlreadyShown = Boolean(
+    (state.pendingCombatReveal &&
+      state.pendingCombatReveal.targetKey === resultTargetKey &&
+      state.pendingCombatReveal.revealed &&
+      state.pendingCombatReveal.title === resultAlert.title &&
+      state.pendingCombatReveal.detail === resultAlert.detail) ||
+      (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
+  );
+  if (!predictedAlreadyShown) {
+    pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
+    showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
+  }
+  if (resultTargetKey) {
+    if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
+    else state.revealedPredictedCombatByKey.delete(resultTargetKey);
+  }
+  if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
+  const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
+  const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
+  let handedOffToSettle = false;
+  if (targetKey && state.autoSettleTargets.has(targetKey)) {
+    const settledTile = state.tiles.get(targetKey);
+    if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
+      if (requestSettlement(settledTile.x, settledTile.y)) {
+        handedOffToSettle = true;
+        pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+      }
+    }
+    state.autoSettleTargets.delete(targetKey);
+  }
+  state.capture = undefined;
+  if (!handedOffToSettle) {
+    state.actionInFlight = false;
+    state.combatStartAck = false;
+    state.actionStartedAt = 0;
+    if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
+    if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+    const startedNext = processActionQueue();
+    if (!startedNext) {
+      state.actionTargetKey = "";
+      state.actionCurrent = undefined;
+    }
+  }
+  for (const change of changes) {
+    if (change.ownerId === state.me && change.ownershipState === "SETTLED") {
+      clearSettlementProgressForTile(change.x, change.y);
+    }
+  }
+  state.attackPreview = undefined;
+  state.attackPreviewPendingKey = "";
+  renderHud();
+};
+
 const requestAttackPreviewForHover = (): void =>
   requestAttackPreviewForHoverFromModule(state, {
     ws,
@@ -4150,85 +4242,7 @@ ws.addEventListener("message", (ev) => {
         totalElapsedMs: resultReceivedAt - timing.acceptedAt
       });
     }
-    const target = msg.target as { x: number; y: number } | undefined;
-    const targetBefore = (() => (target ? state.tiles.get(key(target.x, target.y)) : undefined))();
-    const originBefore = (() => {
-      const origin = msg.origin as { x: number; y: number } | undefined;
-      return origin ? state.tiles.get(key(origin.x, origin.y)) : undefined;
-    })();
-    const changes = msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>;
-    const resolvedCaptureTargetKey = state.capture ? key(state.capture.target.x, state.capture.target.y) : "";
-    for (const c of changes) {
-      const tileKey = key(c.x, c.y);
-      state.incomingAttacksByTile.delete(tileKey);
-      const existing = state.tiles.get(tileKey);
-      const incoming: Tile = {
-        ...(existing ?? { x: c.x, y: c.y, terrain: terrainAt(c.x, c.y), fogged: false }),
-        x: c.x,
-        y: c.y,
-        fogged: false
-      };
-      if (c.ownerId) incoming.ownerId = c.ownerId;
-      else delete incoming.ownerId;
-      if (c.ownershipState) incoming.ownershipState = c.ownershipState;
-      else if (!c.ownerId) delete incoming.ownershipState;
-      if (typeof c.breachShockUntil === "number") incoming.breachShockUntil = c.breachShockUntil;
-      else if ("breachShockUntil" in c && !c.breachShockUntil) delete incoming.breachShockUntil;
-      const merged = mergeServerTileWithOptimisticState(incoming);
-      if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
-      state.tiles.set(tileKey, merged);
-    }
-    const resultAlert = combatResolutionAlert(msg as Record<string, unknown>, {
-      targetTileBefore: targetBefore,
-      originTileBefore: originBefore
-    });
-    const resultTargetKey = target ? key(target.x, target.y) : "";
-    const predictedAlreadyShown = Boolean(
-      state.pendingCombatReveal &&
-        state.pendingCombatReveal.targetKey === resultTargetKey &&
-        state.pendingCombatReveal.revealed &&
-        state.pendingCombatReveal.title === resultAlert.title &&
-        state.pendingCombatReveal.detail === resultAlert.detail
-    );
-    if (!predictedAlreadyShown) {
-      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
-    }
-    if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
-    const resolvedCurrentKey = state.actionCurrent ? key(state.actionCurrent.x, state.actionCurrent.y) : "";
-    const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
-    let handedOffToSettle = false;
-    if (targetKey && state.autoSettleTargets.has(targetKey)) {
-      const settledTile = state.tiles.get(targetKey);
-      if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (requestSettlement(settledTile.x, settledTile.y)) {
-          handedOffToSettle = true;
-          pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
-        }
-      }
-      state.autoSettleTargets.delete(targetKey);
-    }
-    state.capture = undefined;
-    if (!handedOffToSettle) {
-      state.actionInFlight = false;
-      state.combatStartAck = false;
-      state.actionStartedAt = 0;
-      if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
-      if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-      const startedNext = processActionQueue();
-      if (!startedNext) {
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-      }
-    }
-    for (const change of changes) {
-      if (change.ownerId === state.me && change.ownershipState === "SETTLED") {
-        clearSettlementProgressForTile(change.x, change.y);
-      }
-    }
-    state.attackPreview = undefined;
-    state.attackPreviewPendingKey = "";
-    renderHud();
+    applyCombatOutcomeMessage(msg as Record<string, unknown>);
   }
   if (msg.type === "COMBAT_START") {
     const target = msg.target as { x: number; y: number };
@@ -4253,6 +4267,7 @@ ws.addEventListener("message", (ev) => {
         detail: predictedAlert.detail,
         tone: predictedAlert.tone,
         ...(typeof predictedAlert.manpowerLoss === "number" ? { manpowerLoss: predictedAlert.manpowerLoss } : {}),
+        result: predictedResult,
         revealed: false
       };
     } else if (state.pendingCombatReveal?.targetKey === key(target.x, target.y)) {
