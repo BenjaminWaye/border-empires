@@ -3,6 +3,8 @@ import { planAiDecision, type AiPlanningSnapshot } from "./planner-shared.js";
 
 const baseSnapshot = (): AiPlanningSnapshot => ({
   primaryVictoryPath: "ECONOMIC_HEGEMONY",
+  strategicFocus: "BALANCED",
+  frontPosture: "BREAK",
   aiIncome: 1,
   runnerUpIncome: 1,
   controlledTowns: 0,
@@ -29,7 +31,12 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   enemyAttackAvailable: false,
   pressureAttackAvailable: false,
   pressureAttackScore: 0,
+  pressureThreatensCore: false,
   settlementAvailable: false,
+  islandExpandAvailable: false,
+  islandSettlementAvailable: false,
+  undercoveredIslandCount: 0,
+  weakestIslandRatio: 1,
   fortAvailable: false,
   fortProtectsCore: false,
   fortIsDockChokePoint: false,
@@ -112,5 +119,59 @@ describe("planAiDecision", () => {
     });
 
     expect(decision.actionKey).not.toBe("claim_food_border_tile");
+  });
+
+  it("prefers island expansion for settled-territory plans when the threatened front is non-core", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "SETTLED_TERRITORY",
+      strategicFocus: "ISLAND_FOOTPRINT",
+      frontPosture: "CONTAIN",
+      pressureAttackAvailable: true,
+      pressureAttackScore: 480,
+      pressureThreatensCore: false,
+      islandExpandAvailable: true,
+      undercoveredIslandCount: 4,
+      weakestIslandRatio: 0
+    });
+
+    expect(decision.actionKey).toBe("claim_neutral_border_tile");
+    expect(decision.reason).toBe("executed_island_expand_priority");
+  });
+
+  it("still counterattacks immediately when hostile pressure threatens core tiles", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "SETTLED_TERRITORY",
+      strategicFocus: "ISLAND_FOOTPRINT",
+      frontPosture: "CONTAIN",
+      pressureAttackAvailable: true,
+      pressureAttackScore: 480,
+      pressureThreatensCore: true,
+      islandExpandAvailable: true,
+      undercoveredIslandCount: 4,
+      weakestIslandRatio: 0
+    });
+
+    expect(decision.actionKey).toBe("attack_enemy_border_tile");
+    expect(decision.reason).toBe("executed_pressure_counterattack_priority");
+  });
+
+  it("uses containment forts instead of pointless attacks on non-core stalled borders", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      strategicFocus: "BORDER_CONTAINMENT",
+      frontPosture: "CONTAIN",
+      pressureAttackAvailable: true,
+      pressureAttackScore: 210,
+      pressureThreatensCore: false,
+      fortAvailable: true,
+      fortProtectsCore: true,
+      canBuildFort: true,
+      points: 80
+    });
+
+    expect(decision.actionKey).toBe("build_fort_on_exposed_tile");
+    expect(decision.reason).toBe("executed_containment_fort_priority");
   });
 });

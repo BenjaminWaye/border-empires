@@ -13,7 +13,7 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@border-empires/shared": ["packages/shared/dist/index.d.ts"]
+      "@border-empires/shared": ["packages/shared/dist/index"]
     }
   }
 }

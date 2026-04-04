@@ -58,13 +58,15 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(body).toContain("barbarianAttackAvailable: Boolean(barbarianAttackCandidate)");
   });
 
-  it("treats stalled fronts as a sparse truce signal instead of a per-tick planner recomputation", () => {
+  it("uses cached strategic posture and lightweight shard-or-truce handling", () => {
     const chooseStrategicBody = functionBody(serverMainSource(), "chooseAiStrategicState");
     const truceBody = functionBody(serverMainSource(), "maybeHandleAiShardOrTruce");
 
-    expect(chooseStrategicBody).toContain("frontIsStalledFor");
-    expect(chooseStrategicBody).toContain("\"TRUCE_REBUILD\"");
-    expect(truceBody).toContain("const stalledFront =");
-    expect(truceBody).toContain("if (!stalledFront && (planningSnapshot.pressureAttackAvailable");
+    expect(chooseStrategicBody).toContain("AI_STRATEGIC_STATE_TTL_MS");
+    expect(chooseStrategicBody).toContain("\"TRUCE\"");
+    expect(chooseStrategicBody).toContain("\"ISLAND_FOOTPRINT\"");
+    expect(truceBody).toContain("bestAiCollectShardTile");
+    expect(truceBody).toContain("TRUCE_REQUEST");
+    expect(truceBody).toContain("TRUCE_ACCEPT");
   });
 });
