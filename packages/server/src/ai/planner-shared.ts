@@ -2,6 +2,8 @@ import { AI_EMPIRE_ACTIONS, goalsForVictoryPath, planBestGoal, type AiSeasonVict
 
 export type AiPlanningSnapshot = {
   primaryVictoryPath: AiSeasonVictoryPathId | undefined;
+  strategicFocus: "BALANCED" | "ECONOMIC_RECOVERY" | "ISLAND_FOOTPRINT" | "MILITARY_PRESSURE" | "BORDER_CONTAINMENT";
+  frontPosture: "BREAK" | "CONTAIN" | "TRUCE";
   aiIncome: number;
   runnerUpIncome: number;
   controlledTowns: number;
@@ -28,7 +30,12 @@ export type AiPlanningSnapshot = {
   enemyAttackAvailable: boolean;
   pressureAttackAvailable: boolean;
   pressureAttackScore: number;
+  pressureThreatensCore: boolean;
   settlementAvailable: boolean;
+  islandExpandAvailable: boolean;
+  islandSettlementAvailable: boolean;
+  undercoveredIslandCount: number;
+  weakestIslandRatio: number;
   fortAvailable: boolean;
   fortProtectsCore: boolean;
   fortIsDockChokePoint: boolean;
@@ -55,10 +62,13 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   const urgentPressureAttackReady =
     snapshot.pressureAttackAvailable &&
     snapshot.canAffordFrontierAction &&
+    snapshot.frontPosture !== "TRUCE" &&
+    (snapshot.pressureThreatensCore || snapshot.frontPosture === "BREAK") &&
     ((snapshot.pressureAttackScore >= 350) || (snapshot.underThreat && snapshot.pressureAttackScore >= 220));
   const pressureAttackReady =
     snapshot.pressureAttackAvailable &&
     snapshot.canAffordFrontierAction &&
+    snapshot.frontPosture !== "TRUCE" &&
     (!snapshot.threatCritical || urgentPressureAttackReady);
   const economicPushReady = snapshot.economicExpandAvailable;
   const needsFortifiedAnchor =
@@ -72,6 +82,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     !pressureAttackReady &&
     !urgentPressureAttackReady &&
     (
+      snapshot.frontPosture === "CONTAIN" ||
       (snapshot.underThreat && snapshot.threatCritical && !snapshot.settlementAvailable) ||
       (snapshot.fortIsDockChokePoint &&
         snapshot.hasActiveDock &&
@@ -89,11 +100,40 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   if (snapshot.foodCoverageLow && economicPushReady && snapshot.canAffordFrontierAction) {
     return { reason: "executed_food_expand_priority", actionKey: "claim_food_border_tile", goapActionKey: "claim_food_border_tile" };
   }
+  if (
+    snapshot.primaryVictoryPath === "SETTLED_TERRITORY" &&
+    snapshot.islandSettlementAvailable &&
+    snapshot.canAffordSettlement &&
+    !snapshot.pressureThreatensCore
+  ) {
+    return { reason: "executed_island_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
+  }
+  if (
+    snapshot.primaryVictoryPath === "SETTLED_TERRITORY" &&
+    snapshot.islandExpandAvailable &&
+    snapshot.canAffordFrontierAction &&
+    !snapshot.pressureThreatensCore
+  ) {
+    return { reason: "executed_island_expand_priority", actionKey: "claim_neutral_border_tile", goapActionKey: "claim_neutral_border_tile" };
+  }
   if ((snapshot.economyWeak || snapshot.foodCoverageLow || snapshot.controlledTowns > 0 || snapshot.hasActiveDock) && snapshot.settlementAvailable && snapshot.canAffordSettlement) {
     return { reason: "executed_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
   }
-  if (pressureAttackReady && (snapshot.primaryVictoryPath === "TOWN_CONTROL" || snapshot.pressureAttackScore >= 150)) {
+  if (
+    pressureAttackReady &&
+    (snapshot.frontPosture === "BREAK" || snapshot.pressureThreatensCore) &&
+    (snapshot.primaryVictoryPath === "TOWN_CONTROL" || snapshot.pressureAttackScore >= 150)
+  ) {
     return { reason: "executed_pressure_attack_priority", actionKey: "attack_enemy_border_tile", goapActionKey: "attack_enemy_border_tile" };
+  }
+  if (
+    snapshot.frontPosture === "CONTAIN" &&
+    snapshot.fortAvailable &&
+    snapshot.canBuildFort &&
+    snapshot.fortProtectsCore &&
+    snapshot.points >= 45
+  ) {
+    return { reason: "executed_containment_fort_priority", actionKey: "build_fort_on_exposed_tile", goapActionKey: "build_fort_on_exposed_tile" };
   }
   if (snapshot.economyWeak && economicPushReady && snapshot.canAffordFrontierAction) {
     return { reason: "executed_economic_expand_priority", actionKey: "claim_neutral_border_tile", goapActionKey: "claim_neutral_border_tile" };
@@ -138,7 +178,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     if (snapshot.openingScoutAvailable && snapshot.canAffordFrontierAction) {
       return { reason: "executed_opening_scout", actionKey: "opening_scout_expand", goapActionKey: "claim_neutral_border_tile" };
     }
-    if (pressureAttackReady) {
+    if (pressureAttackReady && (snapshot.frontPosture === "BREAK" || snapshot.pressureThreatensCore)) {
       return { reason: "executed_pressure_attack_fallback", actionKey: "attack_enemy_border_tile", goapActionKey: "attack_enemy_border_tile" };
     }
     if (!economicPushReady && snapshot.scoutExpandAvailable && snapshot.canAffordFrontierAction) {

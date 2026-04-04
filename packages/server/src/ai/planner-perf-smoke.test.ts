@@ -4,6 +4,8 @@ import { planAiDecision, type AiPlanningSnapshot } from "./planner-shared.js";
 
 const lateGameSnapshot = (): AiPlanningSnapshot => ({
   primaryVictoryPath: "ECONOMIC_HEGEMONY",
+  strategicFocus: "MILITARY_PRESSURE",
+  frontPosture: "BREAK",
   aiIncome: 58,
   runnerUpIncome: 55,
   controlledTowns: 7,
@@ -30,7 +32,12 @@ const lateGameSnapshot = (): AiPlanningSnapshot => ({
   enemyAttackAvailable: true,
   pressureAttackAvailable: true,
   pressureAttackScore: 2350,
+  pressureThreatensCore: true,
   settlementAvailable: true,
+  islandExpandAvailable: false,
+  islandSettlementAvailable: false,
+  undercoveredIslandCount: 0,
+  weakestIslandRatio: 1,
   fortAvailable: true,
   fortProtectsCore: true,
   fortIsDockChokePoint: false,
