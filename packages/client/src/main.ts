@@ -3101,6 +3101,10 @@ const renderHud = (): void => {
         "info",
         "info"
       );
+      if (isMobile() && state.mobilePanel === "defensibility") {
+        state.mobilePanel = "core";
+        state.activePanel = null;
+      }
       requestViewRefresh();
       renderHud();
     };
