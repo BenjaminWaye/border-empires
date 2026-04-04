@@ -10,10 +10,10 @@ const sourceFor = (name: string): string => {
 
 describe("tile menu mobile scroll regression guard", () => {
   it("keeps the tile menu body vertically scrollable and isolates touch scroll from the map", () => {
-    const mainSource = sourceFor("./main.ts");
+    const menuUiSource = sourceFor("./client-tile-action-menu-ui.ts");
     const styleSource = sourceFor("./style.css");
-    expect(mainSource).toContain('const scrollBody = tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");');
-    expect(mainSource).toContain("scrollBody.ontouchmove = (event) => event.stopPropagation();");
+    expect(menuUiSource).toContain('const scrollBody = deps.tileActionMenuEl.querySelector<HTMLElement>("[data-tile-menu-scroll]");');
+    expect(menuUiSource).toContain("scrollBody.ontouchmove = (event) => event.stopPropagation();");
     expect(styleSource).toContain("overflow-y: auto;");
     expect(styleSource).toContain("touch-action: pan-y;");
   });
