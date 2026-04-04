@@ -1,0 +1,1160 @@
+import type { ClientState } from "./client-state.js";
+
+type NetworkDeps = Record<string, any> & {
+  state: ClientState;
+  ws: WebSocket;
+  wsUrl: string;
+  firebaseAuth?: any;
+};
+
+export const bindClientNetwork = (deps: NetworkDeps): void => {
+  const {
+    state,
+    ws,
+    wsUrl,
+    firebaseAuth,
+    keyFor,
+    renderHud,
+    setAuthStatus,
+    syncAuthOverlay,
+    authenticateSocket,
+    pushFeed,
+    clearOptimisticTileState,
+    requestViewRefresh,
+    applyPendingSettlementsFromServer,
+    mergeIncomingTileDetail,
+    mergeServerTileWithOptimisticState,
+    maybeAnnounceShardSite,
+    markDockDiscovered,
+    centerOnOwnedTile,
+    authProfileNameEl,
+    authProfileColorEl,
+    defensibilityPctFromTE,
+    clearPendingCollectVisibleDelta,
+    seedProfileSetupFields,
+    resetStrategicReplayState,
+    setWorldSeed,
+    clearRenderCaches,
+    buildMiniMapBase,
+    shardAlertKeyForPayload,
+    showShardAlert,
+    combatResolutionAlert,
+    wasPredictedCombatAlreadyShown,
+    showCaptureAlert,
+    requestSettlement,
+    dropQueuedTargetKeyIfAbsent,
+    processActionQueue,
+    clearSettlementProgressForTile,
+    terrainAt,
+    requestAttackPreviewForTarget,
+    openSingleTileActionMenu,
+    isTileOwnedByAlly,
+    hideShardAlert,
+    explainActionFailure,
+    notifyInsufficientGoldForFrontierAction,
+    clearSettlementProgressByKey,
+    showCollectVisibleCooldownAlert,
+    formatCooldownShort,
+    reconcileActionQueue,
+    revertOptimisticVisibleCollectDelta,
+    revertOptimisticTileCollectDelta,
+    clearPendingCollectTileDelta,
+    playerNameForOwner
+  } = deps;
+
+  let reconnectReloadTimer: number | undefined;
+  let authReconnectTimer: number | undefined;
+
+  const clearReconnectReloadTimer = (): void => {
+    if (reconnectReloadTimer !== undefined) {
+      window.clearTimeout(reconnectReloadTimer);
+      reconnectReloadTimer = undefined;
+    }
+  };
+
+  const clearAuthReconnectTimer = (): void => {
+    if (authReconnectTimer !== undefined) {
+      window.clearTimeout(authReconnectTimer);
+      authReconnectTimer = undefined;
+    }
+  };
+
+  const scheduleAuthReconnect = (message: string, forceRefresh = false): void => {
+    clearAuthReconnectTimer();
+    state.authBusy = true;
+    state.authRetrying = true;
+    setAuthStatus(message);
+    syncAuthOverlay();
+    renderHud();
+    authReconnectTimer = window.setTimeout(() => {
+      authReconnectTimer = undefined;
+      if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN || state.authSessionReady) return;
+      void authenticateSocket(forceRefresh).catch((error: unknown) => {
+        state.authBusy = false;
+        state.authRetrying = false;
+        setAuthStatus(error instanceof Error ? error.message : "Could not reconnect to the game server.", "error");
+        syncAuthOverlay();
+        renderHud();
+      });
+    }, 2000);
+  };
+
+  const scheduleReconnectReload = (): void => {
+    if (!state.hasEverInitialized) return;
+    if (reconnectReloadTimer !== undefined) return;
+    reconnectReloadTimer = window.setTimeout(() => {
+      reconnectReloadTimer = undefined;
+      if (state.connection === "initialized" || state.connection === "connected") return;
+      window.location.reload();
+    }, 4000);
+  };
+
+  const applyCombatOutcomeMessage = (msg: Record<string, unknown>, opts?: { predicted?: boolean }): void => {
+    const target = msg.target as { x: number; y: number } | undefined;
+    const targetBefore = (() => (target ? state.tiles.get(keyFor(target.x, target.y)) : undefined))();
+    const originBefore = (() => {
+      const origin = msg.origin as { x: number; y: number } | undefined;
+      return origin ? state.tiles.get(keyFor(origin.x, origin.y)) : undefined;
+    })();
+    const changes =
+      (msg.changes as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; breachShockUntil?: number }>) ??
+      [];
+    const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
+    for (const change of changes) {
+      const tileKey = keyFor(change.x, change.y);
+      state.incomingAttacksByTile.delete(tileKey);
+      const existing = state.tiles.get(tileKey);
+      const incoming: any = {
+        ...(existing ?? { x: change.x, y: change.y, terrain: terrainAt(change.x, change.y), fogged: false }),
+        x: change.x,
+        y: change.y,
+        fogged: false
+      };
+      if (change.ownerId) incoming.ownerId = change.ownerId;
+      else delete incoming.ownerId;
+      if (change.ownershipState) incoming.ownershipState = change.ownershipState;
+      else if (!change.ownerId) delete incoming.ownershipState;
+      if (typeof change.breachShockUntil === "number") incoming.breachShockUntil = change.breachShockUntil;
+      else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
+      const merged = mergeServerTileWithOptimisticState(incoming);
+      if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
+      state.tiles.set(tileKey, merged);
+    }
+    const resultAlert = combatResolutionAlert(msg, {
+      targetTileBefore: targetBefore,
+      originTileBefore: originBefore
+    });
+    const resultTargetKey = target ? keyFor(target.x, target.y) : "";
+    const predictedAlreadyShown = Boolean(
+      (state.pendingCombatReveal &&
+        state.pendingCombatReveal.targetKey === resultTargetKey &&
+        state.pendingCombatReveal.revealed &&
+        state.pendingCombatReveal.title === resultAlert.title &&
+        state.pendingCombatReveal.detail === resultAlert.detail) ||
+        (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
+    );
+    if (!predictedAlreadyShown) {
+      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
+      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
+    }
+    if (resultTargetKey) {
+      if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
+      else state.revealedPredictedCombatByKey.delete(resultTargetKey);
+    }
+    if (state.pendingCombatReveal && state.pendingCombatReveal.targetKey === resultTargetKey) state.pendingCombatReveal = undefined;
+    const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    const targetKey = resolvedCaptureTargetKey || state.actionTargetKey;
+    let handedOffToSettle = false;
+    if (targetKey && state.autoSettleTargets.has(targetKey)) {
+      const settledTile = state.tiles.get(targetKey);
+      if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
+        if (requestSettlement(settledTile.x, settledTile.y)) {
+          handedOffToSettle = true;
+          pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
+        }
+      }
+      state.autoSettleTargets.delete(targetKey);
+    }
+    state.capture = undefined;
+    if (!handedOffToSettle) {
+      state.actionInFlight = false;
+      state.combatStartAck = false;
+      state.actionStartedAt = 0;
+      if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
+      if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+      const startedNext = processActionQueue();
+      if (!startedNext) {
+        state.actionTargetKey = "";
+        state.actionCurrent = undefined;
+      }
+    }
+    for (const change of changes) {
+      if (change.ownerId === state.me && change.ownershipState === "SETTLED") {
+        clearSettlementProgressForTile(change.x, change.y);
+      }
+    }
+    state.attackPreview = undefined;
+    state.attackPreviewPendingKey = "";
+    renderHud();
+  };
+
+  const applyChunkTiles = (tiles: any[]): void => {
+    state.chunkFullCount += 1;
+    if (state.firstChunkAt === 0) state.firstChunkAt = Date.now();
+    let sawOwnedTile = false;
+    for (const tile of tiles) {
+      const existing = state.tiles.get(keyFor(tile.x, tile.y));
+      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, tile));
+      state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
+      maybeAnnounceShardSite(existing, mergedTile);
+      if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
+      markDockDiscovered(mergedTile);
+      if (!mergedTile.fogged) state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
+      if (mergedTile.ownerId === state.me) sawOwnedTile = true;
+    }
+    if (sawOwnedTile) state.hasOwnedTileInCache = true;
+    else if (!state.hasOwnedTileInCache) centerOnOwnedTile();
+    renderHud();
+  };
+
+  ws.addEventListener("open", () => {
+    state.connection = "connected";
+    if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
+    clearReconnectReloadTimer();
+    clearAuthReconnectTimer();
+    if (state.authReady && !state.authSessionReady) {
+      state.authBusy = true;
+      setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel || "empire"}...`);
+    }
+    renderHud();
+    void authenticateSocket();
+  });
+
+  ws.addEventListener("close", () => {
+    const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    state.connection = "disconnected";
+    state.actionInFlight = false;
+    state.combatStartAck = false;
+    state.actionStartedAt = 0;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
+    pushFeed("Connection lost. Retrying...", "error", "warn");
+    if (state.authReady && !state.authSessionReady) {
+      state.authBusy = true;
+      setAuthStatus(`Signed into Firebase. Reconnecting to the game server at ${wsUrl}...`);
+    }
+    clearAuthReconnectTimer();
+    scheduleReconnectReload();
+    renderHud();
+  });
+
+  ws.addEventListener("error", () => {
+    const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    state.connection = "disconnected";
+    state.actionInFlight = false;
+    state.combatStartAck = false;
+    state.actionStartedAt = 0;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
+    pushFeed("Server unreachable. Retrying...", "error", "warn");
+    if (state.authReady && !state.authSessionReady) {
+      state.authBusy = true;
+      setAuthStatus(`Signed into Firebase. Waiting for the game server at ${wsUrl}...`);
+    }
+    clearAuthReconnectTimer();
+    scheduleReconnectReload();
+    renderHud();
+  });
+
+  ws.addEventListener("message", (ev) => {
+    const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    if (msg.type === "INIT") {
+      state.connection = "initialized";
+      state.authSessionReady = true;
+      state.hasEverInitialized = true;
+      state.authBusy = false;
+      state.authRetrying = false;
+      clearAuthReconnectTimer();
+      state.mapLoadStartedAt = Date.now();
+      state.firstChunkAt = 0;
+      state.chunkFullCount = 0;
+      state.hasOwnedTileInCache = false;
+      const player = msg.player as Record<string, unknown>;
+      state.me = player.id as string;
+      state.meName = player.name as string;
+      state.playerNames.set(state.me, state.meName);
+      state.profileSetupRequired = Boolean(player.profileNeedsSetup);
+      setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
+      state.gold = (player.gold as number | undefined) ?? (player.points as number);
+      state.level = player.level as number;
+      state.mods = (player.mods as typeof state.mods) ?? state.mods;
+      state.modBreakdown = (player.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
+      state.incomePerMinute = (player.incomePerMinute as number) ?? state.incomePerMinute;
+      state.strategicResources =
+        (player.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
+      state.strategicProductionPerMinute =
+        (player.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
+      state.stamina = player.stamina as number;
+      state.manpower = (player.manpower as number | undefined) ?? state.manpower;
+      state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
+      state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
+      state.territoryT = (player.T as number) ?? state.territoryT;
+      state.exposureE = (player.E as number) ?? state.exposureE;
+      state.settledT = (player.Ts as number) ?? state.settledT;
+      state.settledE = (player.Es as number) ?? state.settledE;
+      const initDefensibility = defensibilityPctFromTE(
+        (player.Ts as number | undefined) ?? (player.T as number | undefined),
+        (player.Es as number | undefined) ?? (player.E as number | undefined)
+      );
+      state.defensibilityPct = initDefensibility;
+      state.defensibilityAnimDir = 0;
+      state.defensibilityAnimUntil = 0;
+      state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
+      state.techRootId = player.techRootId as string | undefined;
+      state.techIds = (player.techIds as string[]) ?? [];
+      state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
+      state.pendingTechUnlockId = "";
+      state.domainIds = (player.domainIds as string[]) ?? [];
+      state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
+      state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
+      state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
+      state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
+      applyPendingSettlementsFromServer(
+        (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
+      );
+      state.allies = (player.allies as string[]) ?? [];
+      state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
+      const myTileColor = player.tileColor as string | undefined;
+      if (myTileColor) {
+        state.playerColors.set(state.me, myTileColor);
+        authProfileColorEl.value = myTileColor;
+      }
+      const myVisualStyle = player.visualStyle as any;
+      if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
+      seedProfileSetupFields((player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value);
+      for (const style of ((msg.playerStyles as any[]) ?? [])) {
+        if (style.name) state.playerNames.set(style.id, style.name);
+        if (style.tileColor) state.playerColors.set(style.id, style.tileColor);
+        if (style.visualStyle) state.playerVisualStyles.set(style.id, style.visualStyle);
+        if (typeof style.shieldUntil === "number") state.playerShieldUntil.set(style.id, style.shieldUntil);
+      }
+      const homeTile = player.homeTile as { x: number; y: number } | undefined;
+      if (homeTile) {
+        state.homeTile = homeTile;
+        state.camX = homeTile.x;
+        state.camY = homeTile.y;
+        state.selected = homeTile;
+      }
+      state.techChoices = (msg.techChoices as string[]) ?? [];
+      state.techCatalog = (msg.techCatalog as any[]) ?? [];
+      state.domainChoices = (msg.domainChoices as string[]) ?? [];
+      state.domainCatalog = (msg.domainCatalog as any[]) ?? [];
+      if (!state.domainUiSelectedId && state.domainChoices.length > 0) state.domainUiSelectedId = state.domainChoices[0]!;
+      state.missions = (msg.missions as any[]) ?? [];
+      state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
+      state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
+      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
+      state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
+      state.activeTruces = (msg.activeTruces as any[]) ?? [];
+      state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
+      state.activeAetherBridges = (msg.activeAetherBridges as any[]) ?? [];
+      state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
+      resetStrategicReplayState();
+      const config = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
+      const season = config.season;
+      if (typeof season?.worldSeed === "number") {
+        setWorldSeed(season.worldSeed);
+        clearRenderCaches();
+        buildMiniMapBase();
+      }
+      state.fogDisabled = Boolean(config.fogDisabled);
+      const mapMeta = (msg.mapMeta as { dockCount?: number; dockPairCount?: number; clusterCount?: number; townCount?: number; dockPairs?: any[] } | undefined) ?? {};
+      const shardRainNotice =
+        (msg.shardRainNotice as
+          | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number }
+          | undefined) ?? undefined;
+      state.discoveredTiles.clear();
+      state.discoveredDockTiles.clear();
+      state.dockPairs = mapMeta.dockPairs ?? [];
+      state.dockRouteCache.clear();
+      pushFeed(`Spawned. ${season?.seasonId ? `Season ${season.seasonId}.` : ""} Your tile is centered.`, "info", "success");
+      if (config.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
+      if (typeof mapMeta.dockCount === "number") {
+        pushFeed(
+          `Map features: ${mapMeta.dockCount} docks (${mapMeta.dockPairCount ?? Math.floor(mapMeta.dockCount / 2)} pairs), ${mapMeta.clusterCount ?? 0} clusters.`,
+          "info",
+          "info"
+        );
+        if (typeof mapMeta.townCount === "number") pushFeed(`Towns on world: ${mapMeta.townCount}.`, "info", "info");
+      }
+      if (shardRainNotice?.phase === "upcoming" && typeof shardRainNotice.startsAt === "number") {
+        showShardAlert({
+          key: shardAlertKeyForPayload("upcoming", shardRainNotice.startsAt),
+          phase: "upcoming",
+          startsAt: shardRainNotice.startsAt
+        });
+      } else if (
+        shardRainNotice?.phase === "started" &&
+        typeof shardRainNotice.startsAt === "number" &&
+        typeof shardRainNotice.expiresAt === "number"
+      ) {
+        showShardAlert({
+          key: shardAlertKeyForPayload("started", shardRainNotice.startsAt),
+          phase: "started",
+          startsAt: shardRainNotice.startsAt,
+          expiresAt: shardRainNotice.expiresAt,
+          siteCount: Number(shardRainNotice.siteCount ?? 0)
+        });
+      }
+      requestViewRefresh();
+      syncAuthOverlay();
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "CHUNK_FULL") {
+      applyChunkTiles(msg.tilesMaskedByFog as any[]);
+      return;
+    }
+
+    if (msg.type === "CHUNK_BATCH") {
+      const chunks = (msg.chunks as Array<{ cx: number; cy: number; tilesMaskedByFog: any[] }>) ?? [];
+      for (const chunk of chunks) applyChunkTiles(chunk.tilesMaskedByFog);
+      return;
+    }
+
+    if (msg.type === "PLAYER_UPDATE") {
+      const prevGold = state.gold;
+      const prevDefensibility = state.defensibilityPct;
+      const prevStrategic = { ...state.strategicResources };
+      state.gold = (msg.gold as number | undefined) ?? (msg.points as number);
+      if (typeof msg.name === "string") {
+        state.meName = msg.name;
+        authProfileNameEl.value = msg.name;
+      }
+      state.level = msg.level as number;
+      state.mods = (msg.mods as typeof state.mods) ?? state.mods;
+      state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
+      state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
+      state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
+      state.strategicProductionPerMinute =
+        (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
+      state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
+      state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
+      state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
+      state.upkeepPerMinute = (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
+      state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
+      state.manpowerBreakdown = (msg.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
+      applyPendingSettlementsFromServer(
+        (msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
+      );
+      state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
+      state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
+      clearPendingCollectVisibleDelta();
+      if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
+        pushFeed(
+          `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing gold.`,
+          "info",
+          "warn"
+        );
+        state.foodCoverageWarned = true;
+      } else if (state.upkeepLastTick.foodCoverage >= 0.999 && state.foodCoverageWarned) {
+        pushFeed("FOOD upkeep recovered. Town income back to normal.", "info", "success");
+        state.foodCoverageWarned = false;
+      }
+      if (state.gold > prevGold) {
+        state.goldAnimUntil = Date.now() + 350;
+        state.goldAnimDir = 1;
+      } else if (state.gold < prevGold) {
+        state.goldAnimUntil = Date.now() + 350;
+        state.goldAnimDir = -1;
+      } else {
+        state.goldAnimDir = 0;
+      }
+      for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+        const prev = prevStrategic[resource] ?? 0;
+        const next = state.strategicResources[resource] ?? 0;
+        if (next > prev) {
+          state.strategicAnim[resource].until = Date.now() + 350;
+          state.strategicAnim[resource].dir = 1;
+        } else if (next < prev) {
+          state.strategicAnim[resource].until = Date.now() + 350;
+          state.strategicAnim[resource].dir = -1;
+        } else if (Date.now() >= state.strategicAnim[resource].until) {
+          state.strategicAnim[resource].dir = 0;
+        }
+      }
+      state.stamina = msg.stamina as number;
+      if (typeof (msg.T as number | undefined) === "number") state.territoryT = msg.T as number;
+      if (typeof (msg.E as number | undefined) === "number") state.exposureE = msg.E as number;
+      if (typeof (msg.Ts as number | undefined) === "number") state.settledT = msg.Ts as number;
+      if (typeof (msg.Es as number | undefined) === "number") state.settledE = msg.Es as number;
+      state.defensibilityPct = defensibilityPctFromTE(state.settledT, state.settledE);
+      if (state.defensibilityPct > prevDefensibility + 0.05) {
+        state.defensibilityAnimUntil = Date.now() + 550;
+        state.defensibilityAnimDir = 1;
+      } else if (state.defensibilityPct < prevDefensibility - 0.05) {
+        state.defensibilityAnimUntil = Date.now() + 550;
+        state.defensibilityAnimDir = -1;
+      } else if (Date.now() >= state.defensibilityAnimUntil) {
+        state.defensibilityAnimDir = 0;
+      }
+      state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
+      state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
+      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
+      state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
+      if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
+      state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
+      state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
+      state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
+      state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
+      state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
+      state.abilityCooldowns = (msg.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
+      state.missions = (msg.missions as any[]) ?? state.missions;
+      state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
+      state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
+      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      const myTileColor = msg.tileColor as string | undefined;
+      if (myTileColor) {
+        state.playerColors.set(state.me, myTileColor);
+        authProfileColorEl.value = myTileColor;
+      }
+      const myVisualStyle = msg.visualStyle as any;
+      if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
+      syncAuthOverlay();
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "GLOBAL_STATUS_UPDATE") {
+      state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
+      state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
+      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "COMBAT_RESULT") {
+      const resultReceivedAt = Date.now();
+      const timing = msg.timing as { acceptedAt?: number; resolvesAt?: number; resultSentAt?: number } | undefined;
+      if (
+        msg.attackType === "EXPAND" &&
+        typeof timing?.acceptedAt === "number" &&
+        typeof timing?.resolvesAt === "number" &&
+        typeof timing?.resultSentAt === "number"
+      ) {
+        console.info("[neutral-expand-timing]", {
+          target: msg.target,
+          acceptedAt: timing.acceptedAt,
+          resolvesAt: timing.resolvesAt,
+          resultSentAt: timing.resultSentAt,
+          resultReceivedAt,
+          timerDelayMs: timing.resultSentAt - timing.resolvesAt,
+          deliveryDelayMs: resultReceivedAt - timing.resultSentAt,
+          totalElapsedMs: resultReceivedAt - timing.acceptedAt
+        });
+      }
+      applyCombatOutcomeMessage(msg as Record<string, unknown>);
+      return;
+    }
+
+    if (msg.type === "COMBAT_START") {
+      const target = msg.target as { x: number; y: number };
+      const resolvesAt = msg.resolvesAt as number;
+      state.combatStartAck = true;
+      const existingCapture =
+        state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
+      const startAt = existingCapture?.startAt ?? Date.now();
+      state.capture = { startAt, resolvesAt, target };
+      const predictedResult = msg.predictedResult as Record<string, unknown> | undefined;
+      if (predictedResult) {
+        const predictedAlert = combatResolutionAlert(predictedResult, {
+          targetTileBefore: state.tiles.get(keyFor(target.x, target.y)),
+          originTileBefore: (() => {
+            const origin = predictedResult.origin as { x: number; y: number } | undefined;
+            return origin ? state.tiles.get(keyFor(origin.x, origin.y)) : undefined;
+          })()
+        });
+        state.pendingCombatReveal = {
+          targetKey: keyFor(target.x, target.y),
+          title: predictedAlert.title,
+          detail: predictedAlert.detail,
+          tone: predictedAlert.tone,
+          ...(typeof predictedAlert.manpowerLoss === "number" ? { manpowerLoss: predictedAlert.manpowerLoss } : {}),
+          result: predictedResult,
+          revealed: false
+        };
+      } else if (state.pendingCombatReveal?.targetKey === keyFor(target.x, target.y)) {
+        state.pendingCombatReveal = undefined;
+      }
+      state.actionInFlight = true;
+      if (!state.actionStartedAt) state.actionStartedAt = startAt;
+      state.actionTargetKey = keyFor(target.x, target.y);
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "ATTACK_ALERT") {
+      const attackerName = (msg.attackerName as string | undefined) || (msg.attackerId as string | undefined) || "Unknown attacker";
+      const x = Number(msg.x ?? -1);
+      const y = Number(msg.y ?? -1);
+      const resolvesAt = Number(msg.resolvesAt ?? Date.now() + 3000);
+      const fromX = typeof msg.fromX === "number" ? Number(msg.fromX) : undefined;
+      const fromY = typeof msg.fromY === "number" ? Number(msg.fromY) : undefined;
+      if (x >= 0 && y >= 0) {
+        state.incomingAttacksByTile.set(keyFor(x, y), { attackerName, resolvesAt });
+      }
+      state.unreadAttackAlerts += 1;
+      pushFeed(
+        `Under attack: ${attackerName} is striking (${x}, ${y})${fromX !== undefined && fromY !== undefined ? ` from (${fromX}, ${fromY})` : ""}.`,
+        "combat",
+        "error"
+      );
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "COMBAT_CANCELLED") {
+      const cancelledCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+      state.capture = undefined;
+      if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
+      state.actionInFlight = false;
+      state.combatStartAck = false;
+      state.actionStartedAt = 0;
+      state.actionTargetKey = "";
+      state.actionCurrent = undefined;
+      if (cancelledCurrentKey) state.queuedTargetKeys.delete(cancelledCurrentKey);
+      if (cancelledCurrentKey) clearOptimisticTileState(cancelledCurrentKey, true);
+      state.autoSettleTargets.clear();
+      pushFeed(`Capture cancelled (${(msg.count as number | undefined) ?? 1})`, "combat", "warn");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "FOG_UPDATE") {
+      state.fogDisabled = Boolean(msg.fogDisabled);
+      pushFeed(`Fog of war ${state.fogDisabled ? "disabled" : "enabled"}.`, "info", "info");
+      requestViewRefresh(2, true);
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "TILE_DELTA") {
+      const updates = (msg.updates as any[]) ?? [];
+      let resolvedQueuedFrontierCapture = false;
+      for (const update of updates) {
+        const updateKey = keyFor(update.x, update.y);
+        state.incomingAttacksByTile.delete(updateKey);
+        state.pendingCollectVisibleKeys.delete(keyFor(update.x, update.y));
+        const existing = state.tiles.get(keyFor(update.x, update.y));
+        const merged: any = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
+        if (update.terrain) merged.terrain = update.terrain;
+        if ("detailLevel" in update) merged.detailLevel = update.detailLevel;
+        if (update.fogged !== undefined) merged.fogged = update.fogged;
+        if (update.resource !== undefined) merged.resource = update.resource;
+        if (update.ownerId) merged.ownerId = update.ownerId;
+        else delete merged.ownerId;
+        if ("ownershipState" in update) {
+          if (update.ownershipState) merged.ownershipState = update.ownershipState;
+          else delete merged.ownershipState;
+        }
+        if ("capital" in update) {
+          if (update.capital) merged.capital = update.capital;
+          else delete merged.capital;
+        }
+        if ("breachShockUntil" in update) {
+          if (typeof update.breachShockUntil === "number") merged.breachShockUntil = update.breachShockUntil;
+          else delete merged.breachShockUntil;
+        }
+        if ("ownerId" in update && !update.ownerId) delete merged.ownershipState;
+        if (update.clusterId !== undefined) merged.clusterId = update.clusterId;
+        if (update.clusterType !== undefined) merged.clusterType = update.clusterType;
+        if (update.regionType !== undefined) merged.regionType = update.regionType;
+        if (update.dockId !== undefined) merged.dockId = update.dockId;
+        if ("shardSite" in update) {
+          if (update.shardSite) merged.shardSite = update.shardSite;
+          else delete merged.shardSite;
+        }
+        if (update.town !== undefined) merged.town = update.town;
+        if ("town" in update && !update.town) delete merged.town;
+        if (update.fort !== undefined) merged.fort = update.fort;
+        if (!update.fort) delete merged.fort;
+        if ("observatory" in update) {
+          if (update.observatory) merged.observatory = update.observatory;
+          else delete merged.observatory;
+        }
+        if ("economicStructure" in update) {
+          if (update.economicStructure) merged.economicStructure = update.economicStructure;
+          else delete merged.economicStructure;
+        }
+        if (update.siegeOutpost !== undefined) merged.siegeOutpost = update.siegeOutpost;
+        if (!update.siegeOutpost) delete merged.siegeOutpost;
+        if ("sabotage" in update) {
+          if (update.sabotage) merged.sabotage = update.sabotage;
+          else delete merged.sabotage;
+        }
+        if ("yield" in update) {
+          if (update.yield) merged.yield = update.yield;
+          else delete merged.yield;
+        }
+        if ("yieldRate" in update) {
+          if (update.yieldRate) merged.yieldRate = update.yieldRate;
+          else delete merged.yieldRate;
+        }
+        if ("yieldCap" in update) {
+          if (update.yieldCap) merged.yieldCap = update.yieldCap;
+          else delete merged.yieldCap;
+        }
+        if ("history" in update) {
+          if (update.history) merged.history = update.history;
+          else delete merged.history;
+        }
+        const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
+        state.tiles.set(updateKey, resolved);
+        maybeAnnounceShardSite(existing, resolved);
+        if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
+        markDockDiscovered(resolved);
+        if (!resolved.fogged) state.discoveredTiles.add(updateKey);
+        if (
+          deps.settlementProgressForTile(update.x, update.y) &&
+          (resolved.ownerId !== state.me || (resolved.ownershipState !== "FRONTIER" && resolved.ownershipState !== "SETTLED"))
+        ) {
+          clearSettlementProgressForTile(update.x, update.y);
+        } else if (resolved.ownerId === state.me && resolved.ownershipState === "SETTLED") {
+          clearSettlementProgressForTile(update.x, update.y);
+        }
+        if (
+          !resolvedQueuedFrontierCapture &&
+          updateKey === state.actionTargetKey &&
+          state.actionInFlight &&
+          resolved.ownerId === state.me &&
+          resolved.ownershipState === "FRONTIER"
+        ) {
+          resolvedQueuedFrontierCapture = true;
+        }
+      }
+      if (resolvedQueuedFrontierCapture) {
+        const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+        state.capture = undefined;
+        if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
+        state.actionInFlight = false;
+        state.combatStartAck = false;
+        state.actionStartedAt = 0;
+        if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
+        if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey);
+        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+        if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
+        state.actionTargetKey = "";
+        state.actionCurrent = undefined;
+        processActionQueue();
+        renderHud();
+      }
+      return;
+    }
+
+    if (msg.type === "TECH_UPDATE") {
+      console.info("[tech] TECH_UPDATE received", {
+        status: msg.status,
+        techRootId: msg.techRootId,
+        ownedTechs: (msg.techIds as string[])?.length ?? 0,
+        nextChoices: (msg.nextChoices as string[])?.length ?? 0
+      });
+      const status = msg.status as "started" | "completed" | undefined;
+      state.techRootId = msg.techRootId as string | undefined;
+      state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
+      state.pendingTechUnlockId = "";
+      state.techIds = (msg.techIds as string[]) ?? [];
+      state.techChoices = (msg.nextChoices as string[]) ?? [];
+      state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
+      state.mods = (msg.mods as typeof state.mods) ?? state.mods;
+      state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
+      state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
+      state.missions = (msg.missions as any[]) ?? state.missions;
+      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
+      state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
+      state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
+      state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
+      state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
+      state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
+      if (status === "completed") {
+        const completedTech = state.techCatalog.find((tech: any) => tech.id === state.techIds[state.techIds.length - 1]);
+        pushFeed(`Research completed: ${completedTech?.name ?? state.techIds[state.techIds.length - 1] ?? "unknown"}.`, "tech", "success");
+      }
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "DOMAIN_UPDATE") {
+      state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
+      state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
+      state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
+      state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
+      state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
+      state.mods = (msg.mods as typeof state.mods) ?? state.mods;
+      state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
+      state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
+      state.missions = (msg.missions as any[]) ?? state.missions;
+      pushFeed(`Domain chosen: ${state.domainIds[state.domainIds.length - 1] ?? "unknown"}`, "tech", "success");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "REVEAL_EMPIRE_UPDATE") {
+      state.activeRevealTargets = (msg.activeTargets as string[]) ?? state.activeRevealTargets;
+      state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "ALLIANCE_REQUEST_INCOMING") {
+      const request = (msg.request as any) ?? undefined;
+      if (request && !state.incomingAllianceRequests.some((existing: any) => existing.id === request.id)) {
+        const fromName = msg.fromName as string | undefined;
+        if (fromName) request.fromName = fromName;
+        state.incomingAllianceRequests.push(request);
+      }
+      pushFeed(`Incoming alliance request${request?.fromName ? ` from ${request.fromName}` : ""}`, "alliance", "info");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "ALLIANCE_REQUESTED") {
+      const request = msg.request as any;
+      if (request && !state.outgoingAllianceRequests.some((existing: any) => existing.id === request.id)) {
+        state.outgoingAllianceRequests.push(request);
+      }
+      const targetName =
+        (msg.targetName as string | undefined) ??
+        request?.toName ??
+        (request ? playerNameForOwner(request.toPlayerId) : undefined);
+      pushFeed(`Alliance request sent${targetName ? ` to ${targetName}` : ""}`, "alliance", "success");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "ALLIANCE_UPDATE") {
+      state.allies = (msg.allies as string[]) ?? [];
+      state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
+      state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
+      pushFeed(`Alliances updated (${state.allies.length})`, "alliance", "info");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "TRUCE_REQUEST_INCOMING") {
+      const request = (msg.request as any) ?? undefined;
+      if (request) {
+        const fromName = msg.fromName as string | undefined;
+        if (fromName) request.fromName = fromName;
+        state.incomingTruceRequests = [...state.incomingTruceRequests.filter((entry: any) => entry.id !== request.id), request];
+      }
+      pushFeed(`Incoming truce offer${request?.fromName ? ` from ${request.fromName}` : ""}.`, "alliance", "info");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "TRUCE_REQUESTED") {
+      const request = msg.request as any;
+      const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? playerNameForOwner(request.toPlayerId) : undefined);
+      pushFeed(`Truce offered${targetName ? ` to ${targetName}` : ""}.`, "alliance", "success");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "TRUCE_UPDATE") {
+      state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
+      state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
+      const announcement = msg.announcement as string | undefined;
+      if (announcement) pushFeed(announcement, "alliance", "warn");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "AETHER_BRIDGE_UPDATE") {
+      state.activeAetherBridges = (msg.bridges as any[]) ?? state.activeAetherBridges;
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "STRATEGIC_REPLAY_EVENT") {
+      const event = (msg.event as any) ?? undefined;
+      if (event) {
+        state.strategicReplayEvents.push(event);
+        if (!state.replayActive) resetStrategicReplayState();
+        else if (!state.replayPlaying && state.replayIndex >= Math.max(0, state.strategicReplayEvents.length - 2)) {
+          resetStrategicReplayState();
+        }
+      }
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "SEASON_VICTORY_UPDATE") {
+      state.seasonVictory = (msg.objectives as any[]) ?? state.seasonVictory;
+      state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      const announcement = msg.announcement as string | undefined;
+      if (announcement) pushFeed(announcement, "info", "warn");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "SEASON_WINNER_CROWNED") {
+      state.seasonWinner = (msg.winner as any | undefined) ?? state.seasonWinner;
+      state.seasonVictory = (msg.objectives as any[] | undefined) ?? state.seasonVictory;
+      state.leaderboard = (msg.leaderboard as typeof state.leaderboard | undefined) ?? state.leaderboard;
+      if (state.seasonWinner) {
+        pushFeed(`${state.seasonWinner.playerName} was crowned season winner via ${state.seasonWinner.objectiveName}.`, "info", "warn");
+        state.activePanel = "leaderboard";
+      }
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "ERROR") {
+      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
+        state.pendingCollectVisibleKeys.clear();
+        revertOptimisticVisibleCollectDelta();
+        const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
+        if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
+      }
+      const failedTargetKey = state.actionTargetKey;
+      console.error("[server-error]", {
+        code: msg.code,
+        message: msg.message,
+        actionInFlight: state.actionInFlight,
+        actionTargetKey: failedTargetKey,
+        queuedActions: state.actionQueue.length,
+        selected: state.selected,
+        hover: state.hover
+      });
+      const errorCode = String(msg.code ?? "");
+      const errorMessage = String(msg.message ?? "unknown failure");
+      if (errorCode.startsWith("TECH_") && state.pendingTechUnlockId) {
+        state.pendingTechUnlockId = "";
+        state.currentResearch = undefined;
+      }
+      const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
+      if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
+        state.authSessionReady = false;
+        if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
+          scheduleAuthReconnect(
+            errorCode === "SERVER_STARTING"
+              ? "Game server is still starting. Retrying sign-in..."
+              : "Google account connected. Waiting for the game server to finish authorizing..."
+          );
+          return;
+        }
+        if (errorCode === "AUTH_FAIL" && firebaseAuth?.currentUser && !state.authRetrying) {
+          state.authBusy = true;
+          state.authRetrying = true;
+          setAuthStatus("Refreshing Firebase session...");
+          syncAuthOverlay();
+          void authenticateSocket(true)
+            .catch(() => {
+              state.authBusy = false;
+              state.authRetrying = false;
+              setAuthStatus(errorMessage, "error");
+              syncAuthOverlay();
+            });
+          renderHud();
+          return;
+        }
+        state.authBusy = false;
+        state.authRetrying = false;
+        setAuthStatus(errorMessage, "error");
+        syncAuthOverlay();
+      }
+      const isStructureActionError =
+        errorCode === "FORT_BUILD_INVALID" ||
+        errorCode === "OBSERVATORY_BUILD_INVALID" ||
+        errorCode === "SIEGE_OUTPOST_BUILD_INVALID" ||
+        errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
+        errorCode === "STRUCTURE_CANCEL_INVALID";
+      if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
+        notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
+      } else if (errorCode === "SETTLE_INVALID") {
+        clearOptimisticTileState(errorTileKey, true);
+        clearSettlementProgressByKey(errorTileKey);
+        showCaptureAlert("Action failed", errorMessage, "warn");
+      } else if (isStructureActionError && errorTileKey) {
+        clearOptimisticTileState(errorTileKey, true);
+        showCaptureAlert("Construction failed", errorMessage, "warn");
+      } else if (errorCode === "TOWN_UNFED") {
+        showCaptureAlert("Town unfed", errorMessage, "warn");
+      }
+      if (errorCode === "COLLECT_EMPTY") {
+        pushFeed(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
+      } else if (errorCode === "COLLECT_COOLDOWN") {
+        if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + deps.COLLECT_VISIBLE_COOLDOWN_MS;
+        showCollectVisibleCooldownAlert();
+        pushFeed(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
+      } else if (errorCode === "TOWN_UNFED") {
+        pushFeed(errorMessage, "info", "warn");
+      } else {
+        pushFeed(explainActionFailure(errorCode, errorMessage), "error", "error");
+      }
+      if (errorCode === "LOCKED" && state.actionInFlight) {
+        renderHud();
+        return;
+      }
+      const frontierActionError =
+        errorCode === "ACTION_INVALID" ||
+        errorCode === "NOT_ADJACENT" ||
+        errorCode === "NOT_OWNER" ||
+        errorCode === "EXPAND_TARGET_OWNED";
+      const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+      const shouldResetFrontierAction = deps.shouldResetFrontierActionStateForError(errorCode);
+      if (shouldResetFrontierAction) {
+        state.capture = undefined;
+        if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
+        state.actionInFlight = false;
+        state.combatStartAck = false;
+        state.actionStartedAt = 0;
+        state.actionTargetKey = "";
+        state.actionCurrent = undefined;
+        if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
+        if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
+        if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
+        if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
+      } else if (failedTargetKey) {
+        clearOptimisticTileState(failedTargetKey, true);
+      }
+      state.attackPreviewPendingKey = "";
+      if (frontierActionError || !shouldResetFrontierAction) requestViewRefresh(2, true);
+      reconcileActionQueue();
+      processActionQueue();
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "ATTACK_PREVIEW_RESULT") {
+      const from = msg.from as { x: number; y: number };
+      const to = msg.to as { x: number; y: number };
+      const preview: {
+        fromKey: string;
+        toKey: string;
+        valid: boolean;
+        reason?: string;
+        winChance?: number;
+        breakthroughWinChance?: number;
+        atkEff?: number;
+        defEff?: number;
+        defenseEffPct?: number;
+      } = {
+        fromKey: keyFor(from.x, from.y),
+        toKey: keyFor(to.x, to.y),
+        valid: Boolean(msg.valid)
+      };
+      const reason = msg.reason as string | undefined;
+      const winChance = msg.winChance as number | undefined;
+      const breakthroughWinChance = msg.breakthroughWinChance as number | undefined;
+      const atkEff = msg.atkEff as number | undefined;
+      const defEff = msg.defEff as number | undefined;
+      const defMult = msg.defMult as number | undefined;
+      if (reason) preview.reason = reason;
+      if (typeof winChance === "number") preview.winChance = winChance;
+      if (typeof breakthroughWinChance === "number") preview.breakthroughWinChance = breakthroughWinChance;
+      if (typeof atkEff === "number") preview.atkEff = atkEff;
+      if (typeof defEff === "number") preview.defEff = defEff;
+      if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
+      state.attackPreview = preview;
+      state.attackPreviewPendingKey = "";
+      if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
+        const selectedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
+        if (selectedTile && selectedTile.ownerId && selectedTile.ownerId !== state.me && !isTileOwnedByAlly(selectedTile)) {
+          openSingleTileActionMenu(selectedTile, state.tileActionMenu.x, state.tileActionMenu.y);
+        }
+      }
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "PLAYER_STYLE") {
+      const playerId = msg.playerId as string;
+      const color = msg.tileColor as string | undefined;
+      const visualStyle = msg.visualStyle as any;
+      const shieldUntil = msg.shieldUntil as number | undefined;
+      if (playerId && color) {
+        state.playerColors.set(playerId, color);
+        if (playerId === state.me) authProfileColorEl.value = color;
+      }
+      if (playerId && visualStyle) state.playerVisualStyles.set(playerId, visualStyle);
+      if (playerId && typeof shieldUntil === "number") state.playerShieldUntil.set(playerId, shieldUntil);
+      return;
+    }
+
+    if (msg.type === "COLLECT_RESULT") {
+      state.pendingCollectVisibleKeys.clear();
+      if ((msg.mode as string | undefined) === "visible") clearPendingCollectVisibleDelta();
+      if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
+        clearPendingCollectTileDelta(keyFor(Number(msg.x), Number(msg.y)));
+      }
+      const gold = Number(msg.gold ?? 0);
+      const strategic = (msg.strategic as Record<string, number> | undefined) ?? {};
+      const strategicParts = Object.entries(strategic)
+        .filter(([, value]) => Number(value) > 0)
+        .map(([resource, value]) => `${Number(value).toFixed(1)} ${resource}`);
+      const bits: string[] = [];
+      if (gold > 0) bits.push(`${gold.toFixed(1)} gold`);
+      bits.push(...strategicParts);
+      pushFeed(bits.length > 0 ? `Collected ${bits.join(", ")}.` : "No collectable yield.", "info", bits.length > 0 ? "success" : "warn");
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
+      const season = msg.season as { worldSeed?: number } | undefined;
+      if (typeof season?.worldSeed === "number") {
+        setWorldSeed(season.worldSeed);
+        clearRenderCaches();
+        buildMiniMapBase();
+      }
+      if (msg.type === "SEASON_ROLLOVER") {
+        state.seasonWinner = undefined;
+        state.seasonVictory = [];
+      }
+      state.tiles.clear();
+      state.mapLoadStartedAt = Date.now();
+      state.firstChunkAt = 0;
+      state.chunkFullCount = 0;
+      state.hasOwnedTileInCache = false;
+      state.dockRouteCache.clear();
+      pushFeed(
+        msg.type === "SEASON_ROLLOVER" ? "Season rolled over. World and progression reset." : "World regenerated by admin. Fresh map loaded.",
+        "info",
+        "warn"
+      );
+      requestViewRefresh();
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "SHARD_RAIN_EVENT") {
+      if ((msg.phase as string | undefined) === "upcoming" && typeof (msg.startsAt as number | undefined) === "number") {
+        showShardAlert({
+          key: shardAlertKeyForPayload("upcoming", msg.startsAt as number),
+          phase: "upcoming",
+          startsAt: msg.startsAt as number
+        });
+      }
+      if (
+        (msg.phase as string | undefined) === "started" &&
+        typeof (msg.startsAt as number | undefined) === "number" &&
+        typeof (msg.expiresAt as number | undefined) === "number"
+      ) {
+        state.shardRainFxUntil = Date.now() + 8_000;
+        showShardAlert({
+          key: shardAlertKeyForPayload("started", msg.startsAt as number),
+          phase: "started",
+          startsAt: msg.startsAt as number,
+          expiresAt: msg.expiresAt as number,
+          siteCount: Number(msg.siteCount ?? 0)
+        });
+      }
+      renderHud();
+    }
+  });
+};
