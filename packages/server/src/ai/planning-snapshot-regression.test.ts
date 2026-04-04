@@ -82,6 +82,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
     expect(fortBody).toContain("fortsByTile.has(tk)");
+    expect(fortBody).toContain("isBorderTile(tile.x, tile.y, actor.id)");
   });
 
   it("keeps island-victory focus targeted and avoids treating fully fed empires as food emergencies", () => {
