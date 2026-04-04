@@ -9079,6 +9079,7 @@ const buildAiPlanningSnapshot = (
   const playerEffects = getPlayerEffectsForPlayer(actor.id);
   const strategicStocks = getOrInitStrategicStocks(actor.id);
   const strategicState = chooseAiStrategicState(actor, primaryVictoryPath, analysis, planningStatic);
+  const developmentAvailable = canStartDevelopmentProcess(actor.id);
 
   return {
     primaryVictoryPath,
@@ -9125,13 +9126,13 @@ const buildAiPlanningSnapshot = (
     frontierOpportunityScaffold: planningStatic.frontierOpportunityScaffold,
     frontierOpportunityWaste: planningStatic.frontierOpportunityWaste,
     canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
-    canAffordSettlement: canAffordGoldCost(actor.points, SETTLE_COST),
+    canAffordSettlement: developmentAvailable && canAffordGoldCost(actor.points, SETTLE_COST),
     canBuildFort:
       planningStatic.fortAvailable &&
       playerEffects.unlockForts &&
       actor.points >= structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")) &&
       (strategicStocks.IRON ?? 0) >= FORT_BUILD_IRON_COST,
-    canBuildEconomy: planningStatic.economicBuildAvailable,
+    canBuildEconomy: developmentAvailable && planningStatic.economicBuildAvailable,
     goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
   };
 };
@@ -9549,6 +9550,7 @@ const executeAiGoapAction = (
     scaffoldExpand?: ReturnType<typeof bestAiScaffoldExpand>;
     barbarianAttack?: ReturnType<typeof bestAiFrontierAction>;
     enemyAttack?: ReturnType<typeof bestAiFrontierAction>;
+    islandSettlementTile?: ReturnType<typeof bestAiIslandSettlementTile>;
     settlementTile?: ReturnType<typeof bestAiSettlementTile>;
     fortAnchor?: ReturnType<typeof bestAiFortTile>;
     economicBuild?: ReturnType<typeof bestAiEconomicStructure>;
@@ -9609,7 +9611,10 @@ const executeAiGoapAction = (
     return true;
   }
   if (actionKey === "settle_owned_frontier_tile") {
-    const tile = candidates?.settlementTile ?? bestAiSettlementTile(actor, victoryPath, territorySummary);
+    const tile =
+      (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandSettlementTile ?? bestAiIslandSettlementTile(actor, territorySummary) : undefined) ??
+      candidates?.settlementTile ??
+      bestAiSettlementTile(actor, victoryPath, territorySummary);
     if (!tile) return false;
     executeSimulationCommand(actor, { type: "SETTLE", x: tile.x, y: tile.y });
     return true;
