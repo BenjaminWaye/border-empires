@@ -91,6 +91,7 @@ export const createSimulationChunkState = (deps: CreateSimulationChunkStateDeps)
   summaryChunkVersionByChunkKey: Map<string, number>;
   cachedSummaryChunkByChunkKey: Map<string, SummaryChunkCacheEntry>;
   markSummaryChunkDirtyAtTile: (x: number, y: number) => void;
+  summaryTileAt: (x: number, y: number, mode?: ChunkSummaryMode) => Tile;
   summaryChunkTiles: (worldCx: number, worldCy: number, mode?: ChunkSummaryMode) => readonly Tile[];
   clear: () => void;
 } => {
@@ -212,8 +213,12 @@ export const createSimulationChunkState = (deps: CreateSimulationChunkStateDeps)
     markSummaryChunkDirtyAtTile: (x, y) => {
       const chunkKey = deps.chunkKeyAtTile(x, y);
       summaryChunkVersionByChunkKey.set(chunkKey, (summaryChunkVersionByChunkKey.get(chunkKey) ?? 0) + 1);
-      cachedSummaryChunkByChunkKey.delete(chunkKey);
+      cachedSummaryChunkByChunkKey.delete(`shell:${chunkKey}`);
+      cachedSummaryChunkByChunkKey.delete(`bootstrap:${chunkKey}`);
+      cachedSummaryChunkByChunkKey.delete(`thin:${chunkKey}`);
+      cachedSummaryChunkByChunkKey.delete(`standard:${chunkKey}`);
     },
+    summaryTileAt: playerTileSummary,
     summaryChunkTiles,
     clear: () => {
       summaryChunkVersionByChunkKey.clear();
