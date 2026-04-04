@@ -43,6 +43,8 @@ Split responsibilities into two services:
    - The queue is split into human, system, and AI lanes, with human jobs draining first and background world maintenance bounded separately.
    - The queue drain is now time-budgeted and quota-based, so large command bursts yield back to the event loop instead of recursively draining to completion.
    - Barbarian actions and barbarian maintenance now enter the bounded system lane instead of mutating world state directly from runtime intervals.
+   - AI scheduler orchestration now lives in a dedicated module instead of `main.ts`, which makes human/auth/chunk-priority rules testable without re-threading the whole server file.
+   - Chunk bootstrap and snapshot orchestration now live in a dedicated chunk module, so the gateway file only wires dependencies instead of owning the staged snapshot policy inline.
 5. Build reusable per-turn simulation indexes.
    - Cache frontier anchors, structure candidates, and other selector inputs once per AI turn.
    - Prefer incremental invalidation over recomputing territory scans in every selector.
