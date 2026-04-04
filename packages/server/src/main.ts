@@ -117,6 +117,9 @@ import {
   createAiIndexStore
 } from "./sim/ai-index-store.js";
 import {
+  createSimulationChunkState
+} from "./sim/chunk-state.js";
+import {
   createSimulationService,
   type QueuedSimulationMessage,
   type SimulationCommand,
@@ -1845,8 +1848,6 @@ const cachedChunkSnapshotByPlayer = new Map<
     visibilityMaskByChunkKey: Map<string, Uint8Array>;
   }
 >();
-const summaryChunkVersionByChunkKey = new Map<string, number>();
-const cachedSummaryChunkByChunkKey = new Map<string, { version: number; tiles: readonly Tile[] }>();
 const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
 const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const chunkSnapshotInFlightByPlayer = new Map<string, number>();
@@ -4427,8 +4428,7 @@ const clearWorldProgressForSeason = (): void => {
   aiVictoryPathByPlayer.clear();
   clearAiCompetitionContext();
   cachedChunkSnapshotByPlayer.clear();
-  cachedSummaryChunkByChunkKey.clear();
-  summaryChunkVersionByChunkKey.clear();
+  simulationChunkState.clear();
   chunkSnapshotGenerationByPlayer.clear();
   revealWatchersByTarget.clear();
   economyIndexByPlayer.clear();
@@ -4742,114 +4742,43 @@ const applyTileYieldSummary = (
   }
 };
 
-const playerTileSummary = (x: number, y: number, mode: ChunkSummaryMode = "thin"): Tile => {
-  const wx = wrapX(x, WORLD_WIDTH);
-  const wy = wrapY(y, WORLD_HEIGHT);
-  const tk = key(wx, wy);
-  const terrain = terrainAtRuntime(wx, wy);
-  const ownerId = ownership.get(tk);
-  const ownershipState = ownershipStateByTile.get(tk);
-  const baseResource = terrain === "LAND" ? resourceAt(wx, wy) : undefined;
-  const resource = terrain === "LAND" ? applyClusterResources(wx, wy, baseResource) : undefined;
-  const clusterId = clusterByTile.get(tk);
-  const clusterType = clusterId ? clustersById.get(clusterId)?.clusterType : undefined;
-  const dock = terrain === "LAND" ? docksByTile.get(tk) : undefined;
-  const shardSite = terrain === "LAND" ? shardSiteViewAt(tk) : undefined;
-  const town = terrain === "LAND" ? townsByTile.get(tk) : undefined;
-  const fort = terrain === "LAND" ? fortsByTile.get(tk) : undefined;
-  const observatory = terrain === "LAND" ? observatoriesByTile.get(tk) : undefined;
-  const siegeOutpost = terrain === "LAND" ? siegeOutpostsByTile.get(tk) : undefined;
-  const sabotage = siphonByTile.get(tk);
-  const breachShock = breachShockByTile.get(tk);
-  const regionType = terrain === "LAND" ? regionTypeAtLocal(wx, wy) : undefined;
-  const shellMode = mode === "shell";
-  const bootstrapMode = mode === "bootstrap" || shellMode;
-  const tile: Tile = {
-    x: wx,
-    y: wy,
-    terrain,
-    detailLevel: "summary",
-    lastChangedAt: mode === "standard" ? now() : 0
-  };
-  if (resource && !dock && !shellMode) tile.resource = resource;
-  if (ownerId) {
-    tile.ownerId = ownerId;
-    tile.ownershipState = ownershipState ?? (ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
-    if (ownerId !== BARBARIAN_OWNER_ID && activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;
-  }
-  if (terrain === "LAND" && clusterType && !shellMode) tile.clusterType = clusterType;
-  if (terrain === "LAND" && regionType && !shellMode) tile.regionType = regionType;
-  if (dock && !shellMode) tile.dockId = dock.dockId;
-  if (terrain === "LAND" && !bootstrapMode) tile.shardSite = shardSite ?? null;
-  if (breachShock && breachShock.expiresAt > now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
-  if (town && !bootstrapMode) tile.town = mode === "thin" ? thinTownSummaryForTile(town, ownerId) : townSummaryForTile(town, ownerId);
-  if (fort && !bootstrapMode) {
-    const fortView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
-      ownerId: fort.ownerId,
-      status: fort.status
-    };
-    if (fort.status === "under_construction") fortView.completesAt = fort.completesAt;
-    tile.fort = fortView;
-  }
-  if (observatory && !bootstrapMode) {
-    tile.observatory = {
-      ownerId: observatory.ownerId,
-      status: mode === "thin" ? observatory.status : observatoryStatusForTile(observatory.ownerId, observatory.tileKey)
-    };
-    if (tile.observatory.status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
-  }
-  if (siegeOutpost && !bootstrapMode) {
-    const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
-      ownerId: siegeOutpost.ownerId,
-      status: siegeOutpost.status
-    };
-    if (siegeOutpost.status === "under_construction") siegeView.completesAt = siegeOutpost.completesAt;
-    tile.siegeOutpost = siegeView;
-  }
-  if (sabotage && sabotage.endsAt > now() && !bootstrapMode) {
-    tile.sabotage = {
-      ownerId: sabotage.casterPlayerId,
-      endsAt: sabotage.endsAt,
-      outputMultiplier: 1 - SIPHON_SHARE
-    };
-  }
-  const economicStructure = economicStructuresByTile.get(tk);
-  if (economicStructure && !bootstrapMode) {
-    tile.economicStructure = {
-      ownerId: economicStructure.ownerId,
-      type: economicStructure.type,
-      status: economicStructure.status
-    };
-    if ((economicStructure.status === "under_construction" || economicStructure.status === "removing") && economicStructure.completesAt !== undefined) {
-      tile.economicStructure.completesAt = economicStructure.completesAt;
-    }
-  }
-  if (!bootstrapMode) {
-    applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, terrain);
-  }
-  tile.fogged = false;
-  return tile;
-};
-
-const summaryChunkTiles = (worldCx: number, worldCy: number, mode: ChunkSummaryMode = "thin"): readonly Tile[] => {
-  const chunkKey = `${worldCx},${worldCy}`;
-  const summaryCacheKey = `${mode}:${chunkKey}`;
-  const version = summaryChunkVersionByChunkKey.get(chunkKey) ?? 0;
-  const cached = cachedSummaryChunkByChunkKey.get(summaryCacheKey);
-  if (cached?.version === version) return cached.tiles;
-  const startX = worldCx * CHUNK_SIZE;
-  const startY = worldCy * CHUNK_SIZE;
-  const tiles: Tile[] = [];
-  for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-    for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-      const wx = wrapX(x, WORLD_WIDTH);
-      const wy = wrapY(y, WORLD_HEIGHT);
-      tiles.push(Object.freeze(playerTileSummary(wx, wy, mode)));
-    }
-  }
-  cachedSummaryChunkByChunkKey.set(summaryCacheKey, { version, tiles });
-  return tiles;
-};
+const simulationChunkState = createSimulationChunkState({
+  worldWidth: WORLD_WIDTH,
+  worldHeight: WORLD_HEIGHT,
+  chunkSize: CHUNK_SIZE,
+  now,
+  wrapX,
+  wrapY,
+  chunkKeyAtTile: (x, y) => chunkKeyAtTile(x, y),
+  key,
+  barbarianOwnerId: BARBARIAN_OWNER_ID,
+  terrainAtRuntime,
+  ownership,
+  ownershipStateByTile,
+  resourceAt,
+  applyClusterResources,
+  clusterByTile,
+  clustersById,
+  docksByTile,
+  shardSiteViewAt,
+  townsByTile,
+  fortsByTile,
+  observatoriesByTile,
+  siegeOutpostsByTile,
+  siphonByTile,
+  breachShockByTile,
+  regionTypeAtLocal,
+  thinTownSummaryForTile,
+  townSummaryForTile,
+  observatoryStatusForTile: (ownerId, tileKey) => observatoryStatusForTile(ownerId, tileKey),
+  applyTileYieldSummary,
+  activeSettlementTileKeyForPlayer,
+  economicStructuresByTile,
+  siphonShare: SIPHON_SHARE
+});
+const summaryChunkVersionByChunkKey = simulationChunkState.summaryChunkVersionByChunkKey;
+const cachedSummaryChunkByChunkKey = simulationChunkState.cachedSummaryChunkByChunkKey;
+const summaryChunkTiles = simulationChunkState.summaryChunkTiles;
 
 const playerTile = (x: number, y: number): Tile => {
   const wx = wrapX(x, WORLD_WIDTH);
@@ -5540,9 +5469,7 @@ const markVisibilityDirty = (playerId: string): void => {
 };
 
 const markSummaryChunkDirtyAtTile = (x: number, y: number): void => {
-  const chunkKey = chunkKeyAtTile(x, y);
-  summaryChunkVersionByChunkKey.set(chunkKey, (summaryChunkVersionByChunkKey.get(chunkKey) ?? 0) + 1);
-  cachedSummaryChunkByChunkKey.delete(chunkKey);
+  simulationChunkState.markSummaryChunkDirtyAtTile(x, y);
 };
 
 const markVisibilityDirtyForPlayers = (playerIds: Iterable<string>): void => {
@@ -13945,8 +13872,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   });
   cachedVisibilitySnapshotByPlayer.clear();
   cachedChunkSnapshotByPlayer.clear();
-  cachedSummaryChunkByChunkKey.clear();
-  summaryChunkVersionByChunkKey.clear();
+  simulationChunkState.clear();
   chunkSnapshotGenerationByPlayer.clear();
   revealWatchersByTarget.clear();
   observatoryTileKeysByPlayer.clear();
