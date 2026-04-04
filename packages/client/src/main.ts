@@ -238,6 +238,7 @@ import {
   type StructureInfoKey
 } from "./client-map-display.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
+import { resolveOwnerColor } from "./client-owner-colors.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
@@ -574,7 +575,7 @@ const ownerColor = (ownerId: string): string => {
   const h = hashString(ownerId) % 360;
   return `hsl(${h} 70% 48%)`;
 };
-const effectiveColor = (ownerId: string): string => state.playerColors.get(ownerId) ?? ownerColor(ownerId);
+const effectiveColor = (ownerId: string): string => resolveOwnerColor(ownerId, state.playerColors, ownerColor);
 const visualStyleForOwner = (ownerId: string): EmpireVisualStyle | undefined => state.playerVisualStyles.get(ownerId);
 const shieldUntilForOwner = (ownerId: string): number => state.playerShieldUntil.get(ownerId) ?? 0;
 const ownerSpawnShieldActive = (ownerId: string): boolean => shieldUntilForOwner(ownerId) > Date.now();
@@ -585,7 +586,7 @@ const playerNameForOwner = (ownerId?: string | null): string | undefined => {
   return state.playerNames.get(ownerId);
 };
 const effectiveOverlayColor = (ownerId: string): string =>
-  effectiveOverlayColorFromModule(ownerId, { ownerColor, visualStyleForOwner });
+  effectiveOverlayColorFromModule(ownerId, { ownerColor: effectiveColor, visualStyleForOwner });
 const borderColorForOwner = (ownerId: string, stateName?: Tile["ownershipState"]): string =>
   borderColorForOwnerFromModule(ownerId, stateName, visualStyleForOwner);
 const shouldDrawOwnershipBorder = (tile: Tile): boolean => shouldDrawOwnershipBorderFromModule(tile, visualStyleForOwner);
