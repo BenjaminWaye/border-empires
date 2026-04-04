@@ -16522,7 +16522,7 @@ app.post("/admin/world/regenerate", async () => {
       if (last && last.cx === sub.cx && last.cy === sub.cy && last.radius === sub.radius && now() - last.sentAt < 2500) {
         return;
       }
-      if (authSync && authSync.firstChunkSentAt === undefined && sub.radius > INITIAL_CHUNK_BOOTSTRAP_RADIUS) {
+      if (sub.radius > INITIAL_CHUNK_BOOTSTRAP_RADIUS) {
         sendChunkSnapshot(
           socket,
           actor,
