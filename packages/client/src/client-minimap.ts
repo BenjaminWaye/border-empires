@@ -5,6 +5,19 @@ import type { DockPair, StrategicReplayEvent, Tile } from "./client-types.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };
 
+export const miniMapTownMarkerPalette = (
+  tile: Tile,
+  hasCollectableYield: boolean
+): { outer: string; inner: string; radius: number } => {
+  const outer = "rgba(6, 10, 18, 0.86)";
+  const radius = hasCollectableYield ? 3.6 : 3.2;
+  let inner = "rgba(196, 169, 255, 0.94)";
+  if (hasCollectableYield) inner = "rgba(255, 220, 118, 0.96)";
+  else if (tile.town?.type === "MARKET") inner = "rgba(255, 214, 112, 0.94)";
+  else if (tile.town?.type === "FARMING") inner = "rgba(157, 236, 130, 0.94)";
+  return { outer, inner, radius };
+};
+
 export const drawMiniMap = (options: {
   nowMs: number;
   state: {
@@ -120,15 +133,12 @@ export const drawMiniMap = (options: {
     if (!options.state.fogDisabled && tile.fogged) continue;
     const tx = Math.floor((tile.x / WORLD_WIDTH) * w);
     const ty = Math.floor((tile.y / WORLD_HEIGHT) * h);
-    options.miniMapCtx.fillStyle = !tile.town.isFed ? "rgba(255, 112, 92, 0.94)" : "rgba(6, 10, 18, 0.86)";
+    const palette = miniMapTownMarkerPalette(tile, options.hasCollectableYield(tile));
+    options.miniMapCtx.fillStyle = palette.outer;
     options.miniMapCtx.beginPath();
-    options.miniMapCtx.arc(tx, ty, options.hasCollectableYield(tile) ? 3.6 : 3.2, 0, Math.PI * 2);
+    options.miniMapCtx.arc(tx, ty, palette.radius, 0, Math.PI * 2);
     options.miniMapCtx.fill();
-    if (!tile.town.isFed) options.miniMapCtx.fillStyle = "rgba(255, 167, 148, 0.96)";
-    else if (options.hasCollectableYield(tile)) options.miniMapCtx.fillStyle = "rgba(255, 220, 118, 0.96)";
-    else if (tile.town.type === "MARKET") options.miniMapCtx.fillStyle = "rgba(255, 214, 112, 0.94)";
-    else if (tile.town.type === "FARMING") options.miniMapCtx.fillStyle = "rgba(157, 236, 130, 0.94)";
-    else options.miniMapCtx.fillStyle = "rgba(196, 169, 255, 0.94)";
+    options.miniMapCtx.fillStyle = palette.inner;
     options.miniMapCtx.beginPath();
     options.miniMapCtx.arc(tx, ty, options.hasCollectableYield(tile) ? 2.1 : 1.8, 0, Math.PI * 2);
     options.miniMapCtx.fill();
