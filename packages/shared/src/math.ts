@@ -28,8 +28,8 @@ export const exposureRatio = (T: number, E: number): number => {
 export const defensibilityScore = (T: number, E: number): number => {
   const ratio = exposureRatio(T, E);
   // Raw perimeter ratio underrates ordinary frontiers. This curve keeps
-  // perfect shapes at 100% while lifting the practical mid-range.
-  return clamp(ratio / (0.4 + 0.6 * ratio), 0, 1);
+  // perfect shapes at 100% while lifting the practical mid-range much harder.
+  return clamp(ratio / (0.2 + 0.8 * ratio), 0, 1);
 };
 
 export const defensivenessMultiplier = (T: number, E: number): number => {
