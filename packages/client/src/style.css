@@ -2243,7 +2243,10 @@ body {
 }
 .tile-action-btn {
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: 22px minmax(0, 1fr);
+  grid-template-areas:
+    "icon copy"
+    ". cost";
   align-items: center;
   gap: 8px;
   border: 1px solid rgba(255, 209, 102, 0.28);
@@ -2255,6 +2258,7 @@ body {
   text-align: left;
 }
 .tile-action-copy {
+  grid-area: copy;
   display: grid;
   gap: 2px;
   min-width: 0;
@@ -2267,6 +2271,7 @@ body {
   opacity: 0.42;
 }
 .tile-action-icon {
+  grid-area: icon;
   color: #ffd166;
   font-size: 14px;
 }
@@ -2276,8 +2281,14 @@ body {
   font-weight: 700;
 }
 .tile-action-cost {
+  grid-area: cost;
+  min-width: 0;
+  max-width: 100%;
   color: rgba(142, 202, 230, 0.9);
   font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .tile-action-hint {
   color: rgba(201, 216, 236, 0.56);
@@ -4518,6 +4529,9 @@ button:disabled,
 
   .tile-action-btn {
     grid-template-columns: 20px 1fr;
+    grid-template-areas:
+      "icon copy"
+      ". cost";
   }
 
   .tile-action-cost {
