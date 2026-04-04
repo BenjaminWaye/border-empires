@@ -107,6 +107,7 @@ import { getAuth } from "firebase-admin/auth";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
+import { buildAdminPlayerListPayload } from "./player-admin-payload.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
@@ -15108,6 +15109,33 @@ app.get("/admin/ai/debug", async () => {
     entries
   };
 });
+app.get("/admin/players", async () =>
+  buildAdminPlayerListPayload(
+    [...players.values()].map((player) => {
+      const settledTiles = [...player.territoryTiles].reduce(
+        (count, tileKey) => count + (ownershipStateByTile.get(tileKey) === "SETTLED" ? 1 : 0),
+        0
+      );
+      const frontierTiles = [...player.territoryTiles].reduce(
+        (count, tileKey) => count + (ownershipStateByTile.get(tileKey) === "FRONTIER" ? 1 : 0),
+        0
+      );
+      return {
+        id: player.id,
+        name: player.name,
+        isAi: Boolean(player.isAi),
+        ...(player.tileColor ? { rawTileColor: player.tileColor } : {}),
+        effectiveTileColor: player.tileColor ?? colorFromId(player.id),
+        visualStyle: empireStyleFromPlayer(player),
+        shieldUntil: player.spawnShieldUntil,
+        territoryTiles: player.territoryTiles.size,
+        settledTiles,
+        frontierTiles
+      };
+    }),
+    now()
+  )
+);
 app.get("/admin/runtime/debug", async () => runtimeDashboardPayload());
 app.get("/admin/runtime/dashboard", async (_request, reply) => {
   reply.type("text/html; charset=utf-8");
