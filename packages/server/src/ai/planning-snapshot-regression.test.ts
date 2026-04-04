@@ -73,8 +73,10 @@ describe("buildAiPlanningSnapshot regression guard", () => {
   it("does not advertise or select settlement targets that are already settling", () => {
     const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
     const settlementBody = functionBody(serverMainSource(), "bestAiSettlementTile");
+    const evaluationBody = functionBody(serverMainSource(), "evaluateAiSettlementCandidate");
 
     expect(staticBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
+    expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
   });
 });

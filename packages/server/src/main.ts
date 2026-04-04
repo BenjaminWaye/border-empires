@@ -8540,8 +8540,8 @@ const evaluateAiSettlementCandidate = (
     if (cached) return cached;
   }
   const assumedOwned = assumedFrontierKeys?.has(tk) ?? false;
-  const actualOwnerId = assumedOwned ? actor.id : tile.ownerId;
-  const actualOwnershipState = assumedOwned ? "FRONTIER" : tile.ownershipState;
+  const actualOwnerId = assumedOwned ? actor.id : ownership.get(tk) ?? tile.ownerId;
+  const actualOwnershipState = assumedOwned ? "FRONTIER" : ownershipStateByTile.get(tk) ?? tile.ownershipState;
   if (tile.terrain !== "LAND" || actualOwnerId !== actor.id || actualOwnershipState !== "FRONTIER") {
     const invalidEvaluation = {
       score: Number.NEGATIVE_INFINITY,
