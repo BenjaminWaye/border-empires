@@ -316,7 +316,8 @@ export const createInitialState = () => ({
     mode: "single" as "single" | "bulk",
     bulkKeys: [] as string[],
     currentTileKey: "",
-    activeTab: "overview" as TileMenuTab
+    activeTab: "overview" as TileMenuTab,
+    scrollTopByTab: {} as Partial<Record<TileMenuTab, number>>
   },
   crystalTargeting: {
     active: false,
