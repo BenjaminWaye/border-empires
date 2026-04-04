@@ -74,12 +74,14 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
     const settlementBody = functionBody(serverMainSource(), "bestAiSettlementTile");
     const evaluationBody = functionBody(serverMainSource(), "evaluateAiSettlementCandidate");
+    const fortBody = functionBody(serverMainSource(), "bestAiFortTile");
 
     expect(staticBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(staticBody).toContain("bestAiSettlementTile(actor, undefined, territorySummary)");
     expect(staticBody).toContain("bestAiTownSupportSettlementTile(actor, undefined, territorySummary)");
     expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
+    expect(fortBody).toContain("fortsByTile.has(tk)");
   });
 
   it("keeps island-victory focus targeted and avoids treating fully fed empires as food emergencies", () => {
