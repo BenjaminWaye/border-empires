@@ -10350,6 +10350,9 @@ const ensureAiPlannerWorker = (): Worker | undefined => {
 };
 
 const planAiDecisionViaWorker = async (snapshot: AiPlanningSnapshot): Promise<AiPlanningDecision> => {
+  if (aiPlannerWorkerState.pending > 0) {
+    return resolveAiPlannerFallback(snapshot, "worker_backpressure");
+  }
   const worker = ensureAiPlannerWorker();
   if (!worker) return resolveAiPlannerFallback(snapshot, "worker_unavailable");
   const requestId = ++aiPlannerWorkerState.nextRequestId;
