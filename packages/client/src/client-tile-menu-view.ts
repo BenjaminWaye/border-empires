@@ -2,7 +2,8 @@ import {
   FORT_BUILD_MS,
   OBSERVATORY_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
-  SIEGE_OUTPOST_BUILD_MS
+  SIEGE_OUTPOST_BUILD_MS,
+  structureBuildDurationMs
 } from "@border-empires/shared";
 import {
   economicStructureBenefitText,
@@ -25,6 +26,14 @@ const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["
   type === "CRYSTAL_SYNTHESIZER" ||
   type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
   type === "FUEL_PLANT";
+
+const structureNameForTile = (tile: Tile): string | undefined => {
+  if (tile.fort) return "Fort";
+  if (tile.observatory) return "Observatory";
+  if (tile.siegeOutpost) return "Siege Outpost";
+  if (tile.economicStructure) return economicStructureName(tile.economicStructure.type);
+  return undefined;
+};
 
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
   if (actionId === "settle_land") return "Makes this tile defended and activates production.";
@@ -76,6 +85,16 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Increases income from that dock by 50%.";
   if (actionId === "build_governors_office") return "Administrative center. Reduces local food upkeep and settled-tile upkeep within 10 tiles.";
   if (actionId === "build_radar_system") return "Air defense grid. Blocks enemy airport bombardment within 30 tiles and reveals the attack origin.";
+  if (actionId === "remove_structure") {
+    const structureName = structureNameForTile(tile);
+    if (!structureName) return undefined;
+    if (tile.economicStructure) {
+      return `Remove this ${structureName}. Its income, upkeep, and structure effects stay disabled until removal finishes.`;
+    }
+    if (tile.fort) return "Remove this Fort. Its defense bonus is disabled until removal finishes.";
+    if (tile.observatory) return "Remove this Observatory. Its vision and protection effects are disabled until removal finishes.";
+    if (tile.siegeOutpost) return "Remove this Siege Outpost. Its attack bonus is disabled until removal finishes.";
+  }
   return undefined;
 };
 
@@ -104,6 +123,17 @@ export const constructionProgressForTile = (
       cancelLabel: "Cancel construction"
     };
   }
+  if (tile.fort?.status === "removing" && typeof tile.fort.completesAt === "number") {
+    const remaining = Math.max(0, tile.fort.completesAt - nowMs);
+    return {
+      title: "Removing Fort",
+      detail: "This fortification is being dismantled and will disappear when removal completes.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("FORT")))),
+      note: "Defense from this fort is disabled while removal is underway.",
+      cancelLabel: "Cancel removal"
+    };
+  }
   if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
     const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
     return {
@@ -113,6 +143,17 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction"
+    };
+  }
+  if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
+    const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
+    return {
+      title: "Removing Observatory",
+      detail: "This observatory is being dismantled and will disappear when removal completes.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("OBSERVATORY")))),
+      note: "Vision, observatory protection, and crystal-casting effects are disabled while removal is underway.",
+      cancelLabel: "Cancel removal"
     };
   }
   if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
@@ -126,6 +167,17 @@ export const constructionProgressForTile = (
       cancelLabel: "Cancel construction"
     };
   }
+  if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
+    const remaining = Math.max(0, tile.siegeOutpost.completesAt - nowMs);
+    return {
+      title: "Removing Siege Outpost",
+      detail: "This outpost is being dismantled and will disappear when removal completes.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("SIEGE_OUTPOST")))),
+      note: "Attack bonuses from this outpost are disabled while removal is underway.",
+      cancelLabel: "Cancel removal"
+    };
+  }
   if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
     const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
     return {
@@ -135,6 +187,17 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, economicStructureBuildMs(tile.economicStructure.type)))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction"
+    };
+  }
+  if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
+    const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
+    return {
+      title: `Removing ${economicStructureName(tile.economicStructure.type)}`,
+      detail: "This building is being dismantled and will disappear when removal completes.",
+      remainingLabel: formatCountdownClock(remaining),
+      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, economicStructureBuildMs(tile.economicStructure.type)))),
+      note: "Income, upkeep, and structure effects are paused while removal is underway.",
+      cancelLabel: "Cancel removal"
     };
   }
   return undefined;
@@ -302,7 +365,12 @@ export const menuOverviewForTile = (
     }
   }
   if (tile.economicStructure) {
-    pushEffectLine(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), "positive");
+    if (tile.economicStructure.status === "removing") {
+      pushEffectLine(economicStructureName(tile.economicStructure.type), "Removing", "neutral");
+      pushLine("Removal is underway. Income, upkeep, and structure effects are currently disabled.");
+    } else {
+      pushEffectLine(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), "positive");
+    }
     if (isSynthLikeStructureType(tile.economicStructure.type)) {
       if (tile.economicStructure.status === "active") {
         pushLine("Structure is active and currently contributing output and upkeep.");
@@ -314,6 +382,15 @@ export const menuOverviewForTile = (
     } else if (tile.economicStructure.status === "inactive") {
       pushLine("Structure is inactive and currently contributes no output or upkeep.");
     }
+  }
+  if (tile.fort?.status === "removing") {
+    pushLine("Fort removal is underway. Defensive fortification from this tile is currently disabled.");
+  }
+  if (tile.observatory?.status === "removing") {
+    pushLine("Observatory removal is underway. Vision, protection, and crystal-casting effects are currently disabled.");
+  }
+  if (tile.siegeOutpost?.status === "removing") {
+    pushLine("Siege outpost removal is underway. Attack bonuses from this tile are currently disabled.");
   }
   const storedYield = storedYieldSummary(tile);
   if (storedYield) pushLine(`Stored yield: ${storedYield}`);

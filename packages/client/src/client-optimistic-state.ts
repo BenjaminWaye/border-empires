@@ -1,6 +1,5 @@
-import { FORT_BUILD_MS, OBSERVATORY_BUILD_MS, SIEGE_OUTPOST_BUILD_MS } from "@border-empires/shared";
+import { structureBuildDurationMs } from "@border-empires/shared";
 import { shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
-import { economicStructureBuildMs } from "./client-map-display.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "./client-types.js";
 
@@ -90,15 +89,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
-    const completesAt =
-      Date.now() +
-      (kind === "FORT"
-        ? FORT_BUILD_MS
-        : kind === "OBSERVATORY"
-          ? OBSERVATORY_BUILD_MS
-          : kind === "SIEGE_OUTPOST"
-            ? SIEGE_OUTPOST_BUILD_MS
-            : economicStructureBuildMs(kind));
+    const completesAt = Date.now() + structureBuildDurationMs(kind);
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
       if (kind === "FORT") {
@@ -116,6 +107,31 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
         return;
       }
       tile.economicStructure = { ownerId: state.me, type: kind, status: "under_construction", completesAt };
+    });
+  };
+
+  const applyOptimisticStructureRemoval = (x: number, y: number): void => {
+    applyOptimisticTileState(x, y, (tile) => {
+      tile.optimisticPending = "structure_remove";
+      if (tile.fort) {
+        tile.fort = { ...tile.fort, status: "removing", completesAt: Date.now() + structureBuildDurationMs("FORT") };
+        return;
+      }
+      if (tile.observatory) {
+        tile.observatory = { ...tile.observatory, status: "removing", completesAt: Date.now() + structureBuildDurationMs("OBSERVATORY") };
+        return;
+      }
+      if (tile.siegeOutpost) {
+        tile.siegeOutpost = { ...tile.siegeOutpost, status: "removing", completesAt: Date.now() + structureBuildDurationMs("SIEGE_OUTPOST") };
+        return;
+      }
+      if (tile.economicStructure) {
+        tile.economicStructure = {
+          ...tile.economicStructure,
+          status: "removing",
+          completesAt: Date.now() + structureBuildDurationMs(tile.economicStructure.type)
+        };
+      }
     });
   };
 
@@ -214,6 +230,38 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       delete merged.economicStructure;
       return merged;
     }
+    if (existing.optimisticPending === "structure_remove") {
+      const optimisticKind =
+        existing.fort?.status === "removing"
+          ? "FORT"
+          : existing.observatory?.status === "removing"
+            ? "OBSERVATORY"
+            : existing.siegeOutpost?.status === "removing"
+              ? "SIEGE_OUTPOST"
+              : existing.economicStructure?.status === "removing"
+                ? existing.economicStructure.type
+                : undefined;
+      if (!optimisticKind) return incoming;
+      const incomingRemoving =
+        (optimisticKind === "FORT" && incoming.fort?.status === "removing") ||
+        (optimisticKind === "OBSERVATORY" && incoming.observatory?.status === "removing") ||
+        (optimisticKind === "SIEGE_OUTPOST" && incoming.siegeOutpost?.status === "removing") ||
+        (optimisticKind !== "FORT" &&
+          optimisticKind !== "OBSERVATORY" &&
+          optimisticKind !== "SIEGE_OUTPOST" &&
+          incoming.economicStructure?.type === optimisticKind &&
+          incoming.economicStructure?.status === "removing");
+      if (incomingRemoving || !tileHasStructureKind(incoming, optimisticKind)) return incoming;
+      const merged: Tile = {
+        ...incoming,
+        optimisticPending: existing.optimisticPending
+      };
+      if (existing.fort) merged.fort = existing.fort;
+      if (existing.observatory) merged.observatory = existing.observatory;
+      if (existing.siegeOutpost) merged.siegeOutpost = existing.siegeOutpost;
+      if (existing.economicStructure) merged.economicStructure = existing.economicStructure;
+      return merged;
+    }
     return incoming;
   };
 
@@ -237,6 +285,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     applyOptimisticTileState,
     clearOptimisticTileState,
     applyOptimisticStructureBuild,
+    applyOptimisticStructureRemoval,
     applyOptimisticStructureCancel,
     shouldPreserveOptimisticExpandByKey,
     mergeServerTileWithOptimisticState,

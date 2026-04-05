@@ -48,8 +48,11 @@ export const busyDevelopmentProcessCount = (
     if (tile.ownerId !== ownerId) continue;
     if (
       tile.fort?.status === "under_construction" ||
+      tile.fort?.status === "removing" ||
       tile.observatory?.status === "under_construction" ||
+      tile.observatory?.status === "removing" ||
       tile.siegeOutpost?.status === "under_construction" ||
+      tile.siegeOutpost?.status === "removing" ||
       tile.economicStructure?.status === "under_construction" ||
       tile.economicStructure?.status === "removing"
     ) {

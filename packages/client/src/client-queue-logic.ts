@@ -358,6 +358,7 @@ export const processDevelopmentQueue = (
       }
     ) => boolean;
     applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind) => void;
+    applyOptimisticStructureRemoval: (x: number, y: number) => void;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
   }
@@ -370,7 +371,10 @@ export const processDevelopmentQueue = (
     const ok =
       next.kind === "SETTLE"
         ? deps.requestSettlement(next.x, next.y, { allowQueueWhenBusy: false, fromQueue: true, suppressWarnings: true })
-        : deps.sendDevelopmentBuild(next.payload, () => deps.applyOptimisticStructureBuild(next.x, next.y, next.optimisticKind), {
+        : deps.sendDevelopmentBuild(next.payload, () => {
+            if (next.payload.type === "REMOVE_STRUCTURE") deps.applyOptimisticStructureRemoval(next.x, next.y);
+            else deps.applyOptimisticStructureBuild(next.x, next.y, next.optimisticKind);
+          }, {
             x: next.x,
             y: next.y,
             label: next.label,
