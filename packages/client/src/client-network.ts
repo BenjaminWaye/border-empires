@@ -1007,6 +1007,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "OBSERVATORY_BUILD_INVALID" ||
         errorCode === "SIEGE_OUTPOST_BUILD_INVALID" ||
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
+        errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
       if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
@@ -1016,7 +1017,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         showCaptureAlert("Action failed", errorMessage, "warn");
       } else if (isStructureActionError && errorTileKey) {
         clearOptimisticTileState(errorTileKey, true);
-        showCaptureAlert("Construction failed", errorMessage, "warn");
+        showCaptureAlert(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
       } else if (errorCode === "TOWN_UNFED") {
         showCaptureAlert("Town unfed", errorMessage, "warn");
       }

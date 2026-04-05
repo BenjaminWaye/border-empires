@@ -223,6 +223,7 @@ export const createInitialState = () => ({
           | { type: "BUILD_FORT"; x: number; y: number }
           | { type: "BUILD_OBSERVATORY"; x: number; y: number }
           | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
+          | { type: "REMOVE_STRUCTURE"; x: number; y: number }
           | {
               type: "BUILD_ECONOMIC_STRUCTURE";
               x: number;
