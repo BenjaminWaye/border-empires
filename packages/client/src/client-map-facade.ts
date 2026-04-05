@@ -215,7 +215,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void =>
     drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt);
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
-    drawTownOverlayOnCanvas(ctx, tile, px, py, size);
+    drawTownOverlayOnCanvas(ctx, tile, px, py, size, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
   const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void =>
     drawCenteredOverlayOnCanvas(ctx, overlay, px, py, size, scale);
   const drawCenteredOverlayWithAlpha = (
