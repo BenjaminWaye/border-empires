@@ -135,7 +135,7 @@ export const queuedSettlementProgressForTile = (
   tile: Tile,
   deps: {
     keyFor: (x: number, y: number) => string;
-    queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string } | undefined;
+    queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string; label?: string; optimisticKind?: string } | undefined;
     queuedSettlementIndexForTile: (tileKey: string) => number;
   }
 ): TileMenuProgressView | undefined => {
@@ -150,6 +150,27 @@ export const queuedSettlementProgressForTile = (
     note: "Queued settlements reserve their place in line and can be cancelled before they start.",
     cancelLabel: "Cancel queued settlement",
     cancelActionId: "cancel_queued_settlement"
+  };
+};
+
+export const queuedBuildProgressForTile = (
+  tile: Tile,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    queuedDevelopmentEntryForTile: (tileKey: string) => { kind: string; tileKey: string; label?: string } | undefined;
+  }
+): TileMenuProgressView | undefined => {
+  const entry = deps.queuedDevelopmentEntryForTile(deps.keyFor(tile.x, tile.y));
+  if (!entry || entry.kind !== "BUILD") return undefined;
+  const baseTitle = entry.label?.replace(/\sat\s+\(.+\)$/, "") ?? "Build";
+  return {
+    title: `${baseTitle} queued`,
+    detail: "This build is queued and will start automatically when a development slot becomes free.",
+    remainingLabel: "Queued",
+    progress: 0,
+    note: "Queued builds hold their place in line and can be cancelled before they start.",
+    cancelLabel: "Cancel queued build",
+    cancelActionId: "cancel_queued_build"
   };
 };
 
@@ -279,6 +300,7 @@ export const tileMenuViewForTile = (
     splitTileActionsIntoTabs: (actions: TileActionDef[]) => { actions: TileActionDef[]; buildings: TileActionDef[]; crystal: TileActionDef[] };
     settlementProgressForTile: (x: number, y: number) => TileMenuProgressView | undefined;
     queuedSettlementProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
+    queuedBuildProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     constructionProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     menuOverviewForTile: (tile: Tile) => TileOverviewLine[];
     prettyToken: (value: string) => string;
@@ -291,16 +313,20 @@ export const tileMenuViewForTile = (
   const actionTabs = deps.splitTileActionsIntoTabs(actions);
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
+  const queuedBuild = deps.queuedBuildProgressForTile(tile);
   const construction = deps.constructionProgressForTile(tile);
-  const progress = settlement ?? queuedSettlement ?? construction;
+  const progress = settlement ?? queuedSettlement ?? queuedBuild ?? construction;
+  const buildBlockedByQueue = Boolean(queuedBuild);
+  const visibleBuildings = buildBlockedByQueue ? [] : actionTabs.buildings;
   const tabs: TileMenuTab[] = [];
   const canShowBuildingsTab =
+    !buildBlockedByQueue &&
     tile.ownerId === deps.state.me &&
     tile.ownershipState === "SETTLED" &&
     (tile.terrain === "LAND" || Boolean(tile.dockId));
   if (progress) tabs.push("progress");
   if (actionTabs.actions.length > 0) tabs.push("actions");
-  if (actionTabs.buildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
+  if (visibleBuildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
   if (actionTabs.crystal.length > 0) tabs.push("crystal");
   tabs.push("overview");
   const ownerLabel =
@@ -332,7 +358,7 @@ export const tileMenuViewForTile = (
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: deps.menuOverviewForTile(tile),
     actions: actionTabs.actions,
-    buildings: actionTabs.buildings,
+    buildings: visibleBuildings,
     crystal: actionTabs.crystal,
     ...(progress ? { progress } : {})
   };
