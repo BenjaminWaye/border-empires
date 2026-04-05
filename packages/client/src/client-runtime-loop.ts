@@ -311,33 +311,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const markerSize = Math.max(3, Math.floor(size * 0.2));
           const active = t.economicStructure.status === "active";
           const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
-          if (t.economicStructure.type === "MARKET" || t.economicStructure.type === "GRANARY") {
-            const overlay = t.economicStructure.type === "MARKET" ? deps.structureOverlayImages.MARKET : deps.structureOverlayImages.GRANARY;
-            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "FUR_SYNTHESIZER") {
-            const overlay = deps.structureOverlayImages.FUR_SYNTHESIZER;
-            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "IRONWORKS") {
-            const overlay = deps.structureOverlayImages.IRONWORKS;
-            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "CRYSTAL_SYNTHESIZER") {
-            const overlay = deps.structureOverlayImages.CRYSTAL_SYNTHESIZER;
-            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (t.economicStructure.type === "FUEL_PLANT") {
-            const overlay = deps.structureOverlayImages.FUEL_PLANT;
-            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
-          } else if (
-            t.economicStructure.type === "ADVANCED_FUR_SYNTHESIZER" ||
-            t.economicStructure.type === "ADVANCED_IRONWORKS" ||
-            t.economicStructure.type === "ADVANCED_CRYSTAL_SYNTHESIZER"
-          ) {
-            const overlay =
-              t.economicStructure.type === "ADVANCED_FUR_SYNTHESIZER"
-                ? deps.structureOverlayImages.ADVANCED_FUR_SYNTHESIZER
-                : t.economicStructure.type === "ADVANCED_IRONWORKS"
-                  ? deps.structureOverlayImages.ADVANCED_IRONWORKS
-                  : deps.structureOverlayImages.ADVANCED_CRYSTAL_SYNTHESIZER;
-            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
+          const overlay = deps.structureOverlayImages[t.economicStructure.type];
+          if (overlay && overlay.complete && overlay.naturalWidth) {
+            deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
           } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
             deps.ctx.fillStyle = deps.structureAccentColor(
               t.ownerId ?? "",
