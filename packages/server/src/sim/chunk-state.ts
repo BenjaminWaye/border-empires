@@ -177,14 +177,17 @@ export const createSimulationChunkState = (deps: CreateSimulationChunkStateDeps)
     }
     const economicStructure = deps.economicStructuresByTile.get(tk);
     if (economicStructure && !bootstrapMode) {
-      tile.economicStructure = {
+      const economicStructureView: NonNullable<Tile["economicStructure"]> = {
         ownerId: economicStructure.ownerId,
         type: economicStructure.type,
         status: economicStructure.status
       };
+      if (economicStructure.inactiveReason !== undefined) economicStructureView.inactiveReason = economicStructure.inactiveReason;
+      if (economicStructure.disabledUntil !== undefined) economicStructureView.disabledUntil = economicStructure.disabledUntil;
       if ((economicStructure.status === "under_construction" || economicStructure.status === "removing") && economicStructure.completesAt !== undefined) {
-        tile.economicStructure.completesAt = economicStructure.completesAt;
+        economicStructureView.completesAt = economicStructure.completesAt;
       }
+      tile.economicStructure = economicStructureView;
     }
     if (!bootstrapMode) {
       deps.applyTileYieldSummary(tile, wx, wy, ownerId, ownershipState, resource, dock, town, terrain);
