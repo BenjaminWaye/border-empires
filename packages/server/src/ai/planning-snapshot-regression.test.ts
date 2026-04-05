@@ -148,4 +148,10 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(ensureBody).toContain("scoreAiVictoryPathChoices(actor, analysis, townsTarget, settledTilesTarget)");
     expect(ensureBody).toContain("best.score >= currentScore + AI_VICTORY_PATH_REPIVOT_MARGIN");
   });
+
+  it("avoids queueing behind a busy planner worker for cheap planner decisions", () => {
+    const body = functionBody(serverMainSource(), "planAiDecisionViaWorker");
+    expect(body).toContain('if (aiPlannerWorkerState.pending > 0)');
+    expect(body).toContain('return resolveAiPlannerFallback(snapshot, "worker_backpressure");');
+  });
 });
