@@ -60,6 +60,7 @@ describe("economy balance regression guard", () => {
     expect(source).toContain('if (objectiveId === "RESOURCE_MONOPOLY") {');
     expect(source).toContain('weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})');
     expect(source).toContain("const seasonVictoryObjectivesForPlayer =");
-    expect(source).toContain("selfProgressLabel: seasonVictorySelfProgressLabel(playerId, objective.id");
+    expect(source).toContain("const selfProgressLabel = seasonVictorySelfProgressLabel(playerId, objective.id");
+    expect(source).toContain("return selfProgressLabel ? { ...objective, selfProgressLabel } : objective;");
   });
 });
