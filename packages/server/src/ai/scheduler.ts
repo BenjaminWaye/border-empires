@@ -90,6 +90,12 @@ type CreateAiSchedulerDeps<TPlayer extends Player, TCompetitionMetric, TAnalysis
   }) => void;
 };
 
+const minimumBatchSizeForCadence = (tickMs: number, dispatchIntervalMs: number, aiPlayerCount: number): number => {
+  if (aiPlayerCount <= 0) return 0;
+  const dispatchSlotsPerCadence = Math.max(1, Math.floor(tickMs / Math.max(1, dispatchIntervalMs)));
+  return Math.max(1, Math.ceil(aiPlayerCount / dispatchSlotsPerCadence));
+};
+
 export const createAiScheduler = <
   TPlayer extends Player,
   TCompetitionMetric,
@@ -173,7 +179,11 @@ export const createAiScheduler = <
           vitals.eventLoopUtilizationPercent >= deps.config.eventLoopUtilizationSoftLimitPct)
     );
 
-    let batchSize = Math.min(aiPlayers.length, deps.config.tickBatchSize);
+    let batchSize = Math.min(
+      aiPlayers.length,
+      Math.max(1, minimumBatchSizeForCadence(deps.config.tickMs, deps.config.dispatchIntervalMs, aiPlayers.length)),
+      Math.max(1, deps.config.tickBatchSize)
+    );
     let reason = "base";
 
     if (humanPlayersOnline) {
