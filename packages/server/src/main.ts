@@ -7725,6 +7725,11 @@ type AiFrontierPlanningSummary = {
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
+  bestEconomicExpand?: { from: Tile; to: Tile };
+  bestScoutExpand?: { from: Tile; to: Tile };
+  bestScaffoldExpand?: { from: Tile; to: Tile };
+  bestIslandExpand?: { from: Tile; to: Tile };
+  bestAnyNeutralExpand?: { from: Tile; to: Tile };
 };
 
 const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
@@ -8232,6 +8237,8 @@ const bestAiScoutExpand = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
+  const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
+  if (frontierPlanningSummary.bestScoutExpand) return frontierPlanningSummary.bestScoutExpand;
   const { visibility } = territorySummary;
   let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
@@ -8816,6 +8823,8 @@ const bestAiScaffoldExpand = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
+  const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
+  if (frontierPlanningSummary.bestScaffoldExpand) return frontierPlanningSummary.bestScaffoldExpand;
   const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
   let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
@@ -8837,6 +8846,8 @@ const bestAiEconomicExpand = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
+  const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
+  if (frontierPlanningSummary.bestEconomicExpand) return frontierPlanningSummary.bestEconomicExpand;
   return bestAiFrontierAction(
     actor,
     "EXPAND",
@@ -8850,6 +8861,8 @@ const bestAiIslandExpand = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
+  const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
+  if (frontierPlanningSummary.bestIslandExpand) return frontierPlanningSummary.bestIslandExpand;
   const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);
   const { islandIdByTile } = islandMap();
   let best: { score: number; from: Tile; to: Tile } | undefined;
@@ -8885,8 +8898,13 @@ const frontierPlanningSummaryForPlayer = (
   let frontierOpportunityScout = 0;
   let frontierOpportunityScaffold = 0;
   let frontierOpportunityWaste = 0;
+  let bestEconomicExpand: { score: number; from: Tile; to: Tile } | undefined;
+  let bestScoutExpand: { score: number; from: Tile; to: Tile } | undefined;
+  let bestScaffoldExpand: { score: number; from: Tile; to: Tile } | undefined;
+  let bestIslandExpand: { score: number; from: Tile; to: Tile } | undefined;
+  let bestAnyNeutralExpand: { score: number; from: Tile; to: Tile } | undefined;
 
-  for (const { to } of territorySummary.expandCandidates) {
+  for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
     neutralExpandAvailable = true;
     const tileKey = key(to.x, to.y);
@@ -8897,26 +8915,68 @@ const frontierPlanningSummaryForPlayer = (
       if (neighbor.terrain !== "LAND" || !neighbor.ownerId || neighbor.ownerId !== actor.id) exposedSides += 1;
     }
     const scoutRevealCount = countAiScoutRevealTiles(to, visibility, territorySummary);
+    const scoutValue = scoreAiScoutRevealValue(actor, to, visibility, territorySummary);
+    const scoutScore = scoutValue + scoutRevealCount * 18 + (from.ownershipState === "SETTLED" ? 8 : 0);
     if (settledTiles <= 2 && scoutRevealCount > 0) openingScoutAvailable = true;
     if (scoutRevealCount > 0) scoutExpandAvailable = true;
     const economic = isAiVisibleEconomicFrontierTile(actor, to, territorySummary);
+    const economicSignal = aiEconomicFrontierSignal(actor, to, visibility, territorySummary.foodPressure, territorySummary);
     if (economic) economicExpandAvailable = true;
-    if (!islandExpandAvailable && aiIslandFootprintSignal(actor, to, territorySummary) > 0) islandExpandAvailable = true;
+    const islandSignal = aiIslandFootprintSignal(actor, to, territorySummary);
+    if (!islandExpandAvailable && islandSignal > 0) islandExpandAvailable = true;
     const scaffold =
       cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ||
       (ownedNeighbors >= 3 && exposedSides <= 1) ||
       townsByTile.has(tileKey) ||
       Boolean(to.resource) ||
       docksByTile.has(tileKey);
+    const scaffoldScore =
+      (cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ? 160 : 0) +
+      (townsByTile.has(tileKey) ? 180 : 0) +
+      (to.resource ? 120 + baseTileValue(to.resource) : 0) +
+      (docksByTile.has(tileKey) ? 130 : 0) +
+      ownedNeighbors * 20 -
+      exposedSides * 16 +
+      (from.ownershipState === "SETTLED" ? 8 : 0);
     if (economic) {
       frontierOpportunityEconomic += 1;
+      const score = 260 + economicSignal + (from.ownershipState === "SETTLED" ? 6 : 0);
+      if (!bestEconomicExpand || score > bestEconomicExpand.score) bestEconomicExpand = { score, from, to };
     } else if (scaffold) {
       scaffoldExpandAvailable = true;
       frontierOpportunityScaffold += 1;
+      if (!bestScaffoldExpand || scaffoldScore > bestScaffoldExpand.score) bestScaffoldExpand = { score: scaffoldScore, from, to };
     } else if (scoutRevealCount > 0 || !visibleInSnapshot(visibility, to.x, to.y)) {
       frontierOpportunityScout += 1;
+      if (!bestScoutExpand || scoutScore > bestScoutExpand.score) bestScoutExpand = { score: scoutScore, from, to };
     } else {
       frontierOpportunityWaste += 1;
+    }
+
+    if (islandSignal > 0) {
+      const score =
+        islandSignal + Math.round(economicSignal * 0.55) + Math.round(scoutScore * 0.45) + 120 + (from.ownershipState === "SETTLED" ? 12 : 0);
+      if (!bestIslandExpand || score > bestIslandExpand.score) bestIslandExpand = { score, from, to };
+    }
+
+    const frontierClass: AiNeutralFrontierClass = economic
+      ? "economic"
+      : scaffold
+        ? "scaffold"
+        : scoutRevealCount > 0 || !visibleInSnapshot(visibility, to.x, to.y)
+          ? "scout"
+          : "waste";
+    const anyNeutralBase =
+      frontierClass === "economic"
+        ? 260 + economicSignal
+        : frontierClass === "scaffold"
+          ? 180 + scaffoldScore
+          : frontierClass === "scout"
+            ? 120 + scoutScore
+            : 50 + scoutScore + Math.max(0, scaffoldScore / 4);
+    const anyNeutralScore = anyNeutralBase + islandSignal + (from.ownershipState === "SETTLED" ? 6 : 0);
+    if (!bestAnyNeutralExpand || anyNeutralScore > bestAnyNeutralExpand.score) {
+      bestAnyNeutralExpand = { score: anyNeutralScore, from, to };
     }
   }
 
@@ -8930,7 +8990,12 @@ const frontierPlanningSummaryForPlayer = (
     frontierOpportunityEconomic,
     frontierOpportunityScout,
     frontierOpportunityScaffold,
-    frontierOpportunityWaste
+    frontierOpportunityWaste,
+    ...(bestEconomicExpand ? { bestEconomicExpand: { from: bestEconomicExpand.from, to: bestEconomicExpand.to } } : {}),
+    ...(bestScoutExpand ? { bestScoutExpand: { from: bestScoutExpand.from, to: bestScoutExpand.to } } : {}),
+    ...(bestScaffoldExpand ? { bestScaffoldExpand: { from: bestScaffoldExpand.from, to: bestScaffoldExpand.to } } : {}),
+    ...(bestIslandExpand ? { bestIslandExpand: { from: bestIslandExpand.from, to: bestIslandExpand.to } } : {}),
+    ...(bestAnyNeutralExpand ? { bestAnyNeutralExpand: { from: bestAnyNeutralExpand.from, to: bestAnyNeutralExpand.to } } : {})
   };
   territorySummary.frontierPlanningSummary = summary;
   return summary;
@@ -8958,6 +9023,8 @@ const bestAiAnyNeutralExpand = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
+  const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
+  if (frontierPlanningSummary.bestAnyNeutralExpand) return frontierPlanningSummary.bestAnyNeutralExpand;
   let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
