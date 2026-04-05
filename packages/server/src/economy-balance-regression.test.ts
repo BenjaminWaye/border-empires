@@ -14,4 +14,17 @@ describe("economy balance regression guard", () => {
     expect(source).toContain("const TOWN_BASE_GOLD_PER_MIN = 2;");
     expect(source).toContain("const DOCK_INCOME_PER_MIN = 0.5;");
   });
+
+  it("keeps synth overload on a 24 hour downtime and includes converter output in strategic income", () => {
+    const source = serverSource();
+    expect(source).toContain("const SYNTH_OVERLOAD_DISABLE_MS = 24 * 60 * 60_000;");
+    expect(source).toContain("const output = converterStructureOutputFor(structure.type);");
+  });
+
+  it("reports continental footprint using the weakest qualifying island and a per-player comparison line", () => {
+    const source = serverSource();
+    expect(source).toContain('weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})');
+    expect(source).toContain("const seasonVictoryObjectivesForPlayer =");
+    expect(source).toContain("selfProgressLabel");
+  });
 });

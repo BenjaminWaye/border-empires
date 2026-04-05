@@ -30,4 +30,16 @@ describe("tile menu render signature", () => {
     );
     expect(signatureA).not.toBe(signatureB);
   });
+
+  it("ignores hidden-tab changes so the buildings tab can keep its scroll position", () => {
+    const signatureA = tileMenuRenderSignature(baseView(), "buildings");
+    const signatureB = tileMenuRenderSignature(
+      {
+        ...baseView(),
+        overviewLines: [{ html: "Overview changed elsewhere" }]
+      },
+      "buildings"
+    );
+    expect(signatureA).toBe(signatureB);
+  });
 });

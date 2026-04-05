@@ -599,6 +599,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       populationPerMinuteLabel: deps.populationPerMinuteLabel,
       townNextGrowthEtaLabel: deps.townNextGrowthEtaLabel,
       supportedOwnedTownsForTile,
+      connectedDockCountForTile: (dockTile: Tile) =>
+        dockTile.dockId
+          ? state.dockPairs.filter(
+              (pair) =>
+                (pair.ax === dockTile.x && pair.ay === dockTile.y) ||
+                (pair.bx === dockTile.x && pair.by === dockTile.y)
+            ).length
+          : 0,
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
