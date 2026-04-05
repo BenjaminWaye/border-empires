@@ -693,6 +693,51 @@ const drawSettlementFlag = (
   ctx.restore();
 };
 
+export const drawRoadOverlay = (
+  ctx: CanvasRenderingContext2D,
+  directions: { north?: boolean; east?: boolean; south?: boolean; west?: boolean; terminal?: boolean },
+  px: number,
+  py: number,
+  size: number
+): void => {
+  const centerX = px + size / 2;
+  const centerY = py + size / 2;
+  const inset = Math.max(2, size * 0.08);
+  const roadWidth = Math.max(1.75, size * 0.12);
+  const innerWidth = Math.max(1, roadWidth * 0.58);
+  const ends: Array<[number, number]> = [];
+  if (directions.north) ends.push([centerX, py + inset]);
+  if (directions.east) ends.push([px + size - inset, centerY]);
+  if (directions.south) ends.push([centerX, py + size - inset]);
+  if (directions.west) ends.push([px + inset, centerY]);
+  if (ends.length === 0) return;
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(88, 62, 34, 0.42)";
+  ctx.lineWidth = roadWidth;
+  for (const [endX, endY] of ends) {
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(210, 180, 120, 0.86)";
+  ctx.lineWidth = innerWidth;
+  for (const [endX, endY] of ends) {
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+  }
+  const hubRadius = directions.terminal ? Math.max(1.8, size * 0.075) : Math.max(1.2, size * 0.05);
+  ctx.fillStyle = directions.terminal ? "rgba(229, 204, 145, 0.92)" : "rgba(188, 156, 104, 0.78)";
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, hubRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+};
+
 export const drawTownOverlay = (
   ctx: CanvasRenderingContext2D,
   tile: Tile,

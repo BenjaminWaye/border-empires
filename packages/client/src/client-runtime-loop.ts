@@ -2,6 +2,7 @@ import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS } from "./clien
 import { exposedSidesForTile } from "./client-defensibility-html.js";
 import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
+import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
@@ -41,6 +42,7 @@ type StartClientRuntimeLoopDeps = {
   ) => void;
   resourceOverlayScaleForTile: (tile: Tile) => number;
   drawResourceCornerMarker: (tile: Tile, px: number, py: number, size: number) => void;
+  drawRoadOverlay: (directions: RoadDirections, px: number, py: number, size: number) => void;
   resourceColor: (resource: Tile["resource"]) => string | undefined;
   shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
   drawShardFallback: (tile: Tile, px: number, py: number, size: number) => void;
@@ -91,6 +93,8 @@ type StartClientRuntimeLoopDeps = {
 
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
   let lastDrawAt = 0;
+  let roadNetwork = new Map<string, RoadDirections>();
+  let roadNetworkBuiltAt = 0;
 
   const draw = (): void => {
     const nowMs = performance.now();
@@ -135,6 +139,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (!entry) continue;
       if (entry.kind === "SETTLE") settleQueueIndex.set(entry.tileKey, i + 1);
       if (entry.kind === "BUILD") queuedBuildIndex.set(entry.tileKey, i + 1);
+    }
+    if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
+      roadNetwork = buildRoadNetwork({
+        tiles: state.tiles,
+        keyFor: deps.keyFor,
+        wrapX: deps.wrapX,
+        wrapY: deps.wrapY
+      });
+      roadNetworkBuiltAt = nowMs;
     }
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
@@ -202,6 +215,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.stroke();
             deps.ctx.lineWidth = 1;
           }
+        }
+
+        if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
+          const roadDirections = roadNetwork.get(wk);
+          if (roadDirections) deps.drawRoadOverlay(roadDirections, px, py, size);
         }
 
         if (t && vis === "visible" && t.resource && t.terrain === "LAND") {

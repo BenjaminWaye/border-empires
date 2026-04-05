@@ -19,6 +19,7 @@ import {
   drawIncomingAttackOverlay as drawIncomingAttackOverlayOnCanvas,
   drawOwnershipSignature as drawOwnershipSignatureOnCanvas,
   drawResourceCornerMarker as drawResourceCornerMarkerOnCanvas,
+  drawRoadOverlay as drawRoadOverlayOnCanvas,
   drawShardFallback as drawShardFallbackOnCanvas,
   drawTerrainTile as drawTerrainTileOnCanvas,
   drawTownOverlay as drawTownOverlayOnCanvas,
@@ -228,6 +229,12 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   ): void => drawCenteredOverlayWithAlphaOnCanvas(ctx, overlay, px, py, size, scale, alpha);
   const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void =>
     drawResourceCornerMarkerOnCanvas(ctx, tile, px, py, size, resourceColor);
+  const drawRoadOverlay = (
+    directions: { north?: boolean; east?: boolean; south?: boolean; west?: boolean; terminal?: boolean },
+    px: number,
+    py: number,
+    size: number
+  ): void => drawRoadOverlayOnCanvas(ctx, directions, px, py, size);
   const drawExposedTileBorder = (tile: Tile, px: number, py: number, size: number): void =>
     drawExposedTileBorderOnCanvas(ctx, tile, px, py, size, { tiles: state.tiles, keyFor, wrapX, wrapY });
   const drawShardFallback = (_tile: Tile, px: number, py: number, size: number): void => drawShardFallbackOnCanvas(ctx, px, py, size);
@@ -349,6 +356,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawCenteredOverlay,
     drawCenteredOverlayWithAlpha,
     drawResourceCornerMarker,
+    drawRoadOverlay,
     drawExposedTileBorder,
     drawShardFallback,
     drawOwnershipSignature,
