@@ -13286,7 +13286,7 @@ const closestAetherBridgeOrigin = (actor: Player, targetX: number, targetY: numb
 };
 
 const tryCastAetherBridge = (actor: Player, x: number, y: number): { ok: boolean; reason?: string; bridge?: ActiveAetherBridge } => {
-  if (!playerHasTechIds(actor, ABILITY_DEFS.aether_bridge.requiredTechIds)) return { ok: false, reason: "requires Navigation" };
+  if (!playerHasTechIds(actor, ABILITY_DEFS.aether_bridge.requiredTechIds)) return { ok: false, reason: "requires Aether Bridge" };
   if (abilityOnCooldown(actor.id, "aether_bridge")) return { ok: false, reason: "aether bridge is cooling down" };
   const target = playerTile(x, y);
   if (target.terrain !== "LAND" || !isCoastalLand(target.x, target.y)) return { ok: false, reason: "target must be coastal land" };

@@ -1,4 +1,5 @@
 import { signOut } from "firebase/auth";
+import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
@@ -332,8 +333,12 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileTechChoicesGridEl.innerHTML = renderTechChoiceGrid();
   dom.techDetailCardEl.innerHTML = deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard();
   dom.mobileTechDetailCardEl.innerHTML = deps.renderTechDetailPrompt();
-  dom.structureInfoOverlayEl.innerHTML = deps.renderStructureInfoOverlay();
-  dom.structureInfoOverlayEl.style.display = state.structureInfoKey ? "grid" : "none";
+  dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
+    ? deps.renderStructureInfoOverlay()
+    : state.crystalAbilityInfoKey
+      ? renderCrystalAbilityInfoOverlay(state.crystalAbilityInfoKey, { formatCooldownShort })
+      : "";
+  dom.structureInfoOverlayEl.style.display = state.structureInfoKey || state.crystalAbilityInfoKey ? "grid" : "none";
   const mobileDetailOverlayHtml = deps.techDetailsUseOverlay()
     ? state.techDetailOpen
       ? deps.renderTechDetailOverlay()
@@ -375,6 +380,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       const type = btn.dataset.structureInfo as StructureInfoKey | undefined;
       if (!type) return;
       state.structureInfoKey = type;
+      state.crystalAbilityInfoKey = "";
       renderClientHud(deps);
     };
   });
@@ -382,6 +388,23 @@ export const renderClientHud = (deps: HudDeps): void => {
   structureInfoCloseButtons.forEach((btn: HTMLElement) => {
     btn.onclick = () => {
       state.structureInfoKey = "";
+      renderClientHud(deps);
+    };
+  });
+  const crystalAbilityInfoButtons = dom.hud.querySelectorAll("[data-crystal-ability-info]") as NodeListOf<HTMLButtonElement>;
+  crystalAbilityInfoButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      const key = btn.dataset.crystalAbilityInfo as CrystalAbilityInfoKey | undefined;
+      if (!key) return;
+      state.crystalAbilityInfoKey = key;
+      state.structureInfoKey = "";
+      renderClientHud(deps);
+    };
+  });
+  const crystalAbilityInfoCloseButtons = dom.hud.querySelectorAll("[data-crystal-ability-info-close]") as NodeListOf<HTMLElement>;
+  crystalAbilityInfoCloseButtons.forEach((btn: HTMLElement) => {
+    btn.onclick = () => {
+      state.crystalAbilityInfoKey = "";
       renderClientHud(deps);
     };
   });

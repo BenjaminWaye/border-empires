@@ -172,7 +172,7 @@ export const beginCrystalTargeting = (
   if (ability === "aether_bridge") {
     const cooldown = deps.abilityCooldownRemainingMs("aether_bridge");
     if (!hasAetherBridgeCapability(state)) {
-      deps.pushFeed("Aether Bridge requires Navigation.", "combat", "warn");
+      deps.pushFeed("Aether Bridge requires the Aether Bridge tech.", "combat", "warn");
       return;
     }
     if ((state.strategicResources.CRYSTAL ?? 0) < 30) {
@@ -1135,7 +1135,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         deps.abilityCooldownRemainingMs("aether_bridge") <= 0 &&
         (state.strategicResources.CRYSTAL ?? 0) >= 30,
       !hasAetherBridgeCapability(state)
-        ? "Requires Navigation"
+        ? "Requires Aether Bridge"
         : tile.terrain !== "LAND" || ![
               deps.terrainAt(tile.x, tile.y - 1),
               deps.terrainAt(tile.x + 1, tile.y),
