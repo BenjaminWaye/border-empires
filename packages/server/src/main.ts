@@ -7621,6 +7621,8 @@ type AiTerritorySummary = {
   worldFlags: Set<string>;
   controlledTowns: number;
   neutralTownExpandCount: number;
+  neutralEconomicExpandCount: number;
+  neutralLandExpandCount: number;
   hostileTownAttackCount: number;
   hostileEconomicAttackCount: number;
   barbarianAttackAvailable: boolean;
@@ -7663,6 +7665,8 @@ type AiTerritoryStructureCache = {
   worldFlags: Set<string>;
   controlledTowns: number;
   neutralTownExpandCount: number;
+  neutralEconomicExpandCount: number;
+  neutralLandExpandCount: number;
   hostileTownAttackCount: number;
   hostileEconomicAttackCount: number;
   barbarianAttackAvailable: boolean;
@@ -7740,6 +7744,8 @@ const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCach
   const borderSettledTileKeys = new Set<TileKey>();
   let underThreat = false;
   let neutralTownExpandCount = 0;
+  let neutralEconomicExpandCount = 0;
+  let neutralLandExpandCount = 0;
   let hostileTownAttackCount = 0;
   let hostileEconomicAttackCount = 0;
   let barbarianAttackAvailable = false;
@@ -7760,7 +7766,12 @@ const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCach
     }
     for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
       expandCandidates.push({ from, to });
-      if (to.terrain === "LAND" && !to.ownerId && townsByTile.has(key(to.x, to.y))) neutralTownExpandCount += 1;
+      if (to.terrain === "LAND" && !to.ownerId) {
+        neutralLandExpandCount += 1;
+        const targetKey = key(to.x, to.y);
+        if (townsByTile.has(targetKey)) neutralTownExpandCount += 1;
+        if (townsByTile.has(targetKey) || docksByTile.has(targetKey) || Boolean(to.resource)) neutralEconomicExpandCount += 1;
+      }
       if (from.ownerId === actor.id && from.ownershipState === "SETTLED") borderSettledTileKeys.add(tileKey);
     }
     for (const to of aiFrontierActionCandidates(actor, from, "ATTACK")) {
@@ -7798,6 +7809,8 @@ const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCach
     worldFlags: playerWorldFlags(actor),
     controlledTowns: countControlledTowns(actor.id),
     neutralTownExpandCount,
+    neutralEconomicExpandCount,
+    neutralLandExpandCount,
     hostileTownAttackCount,
     hostileEconomicAttackCount,
     barbarianAttackAvailable,
@@ -7830,6 +7843,8 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     worldFlags: cached.worldFlags,
     controlledTowns: cached.controlledTowns,
     neutralTownExpandCount: cached.neutralTownExpandCount,
+    neutralEconomicExpandCount: cached.neutralEconomicExpandCount,
+    neutralLandExpandCount: cached.neutralLandExpandCount,
     hostileTownAttackCount: cached.hostileTownAttackCount,
     hostileEconomicAttackCount: cached.hostileEconomicAttackCount,
     barbarianAttackAvailable: cached.barbarianAttackAvailable,
@@ -10047,14 +10062,9 @@ const scoreAiVictoryPathChoices = (
   settledTilesTarget: number
 ): Array<{ id: AiSeasonVictoryPathId; score: number }> => {
   const territorySummary = analysis.territorySummary;
-  const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
   const townOpportunityScore = territorySummary.neutralTownExpandCount * 5 + territorySummary.hostileTownAttackCount * 6;
-  const economicOpportunityScore =
-    frontierPlanningSummary.frontierOpportunityEconomic * 4 + territorySummary.hostileEconomicAttackCount * 3;
-  const expansionOpportunityScore =
-    frontierPlanningSummary.frontierOpportunityScout +
-    frontierPlanningSummary.frontierOpportunityScaffold +
-    frontierPlanningSummary.frontierOpportunityWaste;
+  const economicOpportunityScore = territorySummary.neutralEconomicExpandCount * 4 + territorySummary.hostileEconomicAttackCount * 3;
+  const expansionOpportunityScore = territorySummary.neutralLandExpandCount + Math.min(territorySummary.frontierTileCount, 24);
 
   const ranked = rankSeasonVictoryPaths({
     townsControlled: analysis.controlledTowns,
@@ -10084,7 +10094,7 @@ const scoreAiVictoryPathChoices = (
       (archetype === 1 ? 16 : 0),
     SETTLED_TERRITORY:
       expansionOpportunityScore * 6 +
-      Math.min(territorySummary.expandCandidates.length, 18) * 0.75 +
+      Math.min(territorySummary.neutralLandExpandCount, 18) * 0.75 +
       (analysis.underThreat ? -10 : 6) +
       (archetype === 2 ? 16 : 0)
   };

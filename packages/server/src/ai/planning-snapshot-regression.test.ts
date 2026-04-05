@@ -82,11 +82,13 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(body).not.toContain("for (const { to } of territorySummary.attackCandidates)");
   });
 
-  it("reuses the cached frontier planning summary for victory-path scoring", () => {
+  it("keeps victory-path scoring on cheap cached territory signals", () => {
     const source = serverMainSource();
-    expect(source).toContain("const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
     expect(source).toContain("const townOpportunityScore = territorySummary.neutralTownExpandCount * 5 + territorySummary.hostileTownAttackCount * 6;");
-    expect(source).toContain("frontierPlanningSummary.frontierOpportunityEconomic * 4 + territorySummary.hostileEconomicAttackCount * 3");
+    expect(source).toContain("const economicOpportunityScore = territorySummary.neutralEconomicExpandCount * 4 + territorySummary.hostileEconomicAttackCount * 3;");
+    expect(source).toContain("const expansionOpportunityScore = territorySummary.neutralLandExpandCount + Math.min(territorySummary.frontierTileCount, 24);");
+    const body = functionBody(source, "scoreAiVictoryPathChoices");
+    expect(body).not.toContain("frontierPlanningSummaryForPlayer(");
   });
 
   it("uses cached strategic posture and lightweight shard-or-truce handling", () => {
