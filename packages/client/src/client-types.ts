@@ -364,10 +364,14 @@ export type FeedType = "combat" | "mission" | "error" | "info" | "alliance" | "t
 export type FeedSeverity = "info" | "success" | "warn" | "error";
 
 export type FeedEntry = {
+  title?: string;
   text: string;
   type: FeedType;
   severity: FeedSeverity;
   at: number;
+  focusX?: number;
+  focusY?: number;
+  actionLabel?: string;
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number };
