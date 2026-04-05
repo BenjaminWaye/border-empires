@@ -38,6 +38,11 @@ describe("economy balance regression guard", () => {
     expect(source).toContain('else if (entry.label.includes("Crystal Synthesizer")) mirrorGoldUpkeep("CRYSTAL", entry);');
   });
 
+  it("labels foundry upkeep explicitly instead of falling back to radar system", () => {
+    const source = serverSource();
+    expect(source).toContain('if (type === "FOUNDRY") return "Foundry";');
+  });
+
   it("reports continental footprint using the weakest qualifying island and a per-player comparison line", () => {
     const source = serverSource();
     expect(source).toContain('weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})');
