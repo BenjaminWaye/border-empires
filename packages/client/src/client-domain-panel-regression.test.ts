@@ -16,6 +16,7 @@ describe("domain panel detail layout regression guard", () => {
     expect(styleSource).toContain("#hud.desktop-side-panel-open #mini-map-wrap");
     expect(styleSource).toContain("right: 456px;");
     expect(styleSource).not.toContain("#side-panel.domain-panel-active #panel-domains-content");
-    expect(hudSource).toContain("btn.onpointerup = (event: PointerEvent) => {");
+    expect(hudSource).toContain("const bindDomainPanelInteraction = (panel: HTMLElement): void => {");
+    expect(hudSource).toContain("bindDomainPanelInteraction(dom.panelDomainsContentEl);");
   });
 });

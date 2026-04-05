@@ -453,21 +453,24 @@ export const renderClientHud = (deps: HudDeps): void => {
     state.techDetailOpen = false;
     renderClientHud(deps);
   };
-  const domainCardButtons = dom.hud.querySelectorAll("[data-domain-card]") as NodeListOf<HTMLButtonElement>;
-  domainCardButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const id = btn.dataset.domainCard;
-      if (!id) return;
-      openDomainDetail(id);
-    };
-    btn.onpointerup = (event: PointerEvent) => {
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      const id = btn.dataset.domainCard;
+  const bindDomainPanelInteraction = (panel: HTMLElement): void => {
+    panel.onclick = (event: MouseEvent) => {
+      const trigger = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-domain-card]");
+      const id = trigger?.dataset.domainCard;
       if (!id) return;
       event.preventDefault();
       openDomainDetail(id);
     };
-  });
+    panel.onpointerup = (event: PointerEvent) => {
+      const trigger = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-domain-card]");
+      const id = trigger?.dataset.domainCard;
+      if (!id) return;
+      event.preventDefault();
+      openDomainDetail(id);
+    };
+  };
+  bindDomainPanelInteraction(dom.panelDomainsContentEl);
+  bindDomainPanelInteraction(dom.mobilePanelDomainsEl);
   const domainDetailCloseButtons = dom.hud.querySelectorAll("[data-domain-detail-close]") as NodeListOf<HTMLElement>;
   domainDetailCloseButtons.forEach((btn: HTMLElement) => {
     btn.onclick = () => {

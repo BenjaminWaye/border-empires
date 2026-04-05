@@ -446,30 +446,25 @@ export const renderDomainChoiceGridHtml = (args: {
           const blocked = blockedReason && !owned ? " blocked" : "";
           const cardBadge = owned ? "Chosen" : currentTier === tier ? "Candidate" : "Unavailable";
           const canUnlock = Boolean(domain.requirements.canResearch) && !domainIds.includes(domain.id);
-          const requiredTechName = requiresTechNames[domain.id];
-          const unmetTechRequirement =
-            !owned && !(domain.requirements.canResearch ?? false) && domain.requiresTechId
-              ? (domain.requirements.checklist ?? []).some(
-                  (item) =>
-                    !item.met &&
-                    (!!requiredTechName &&
-                      (item.label.toLowerCase().includes(requiredTechName.toLowerCase()) || item.label.toLowerCase().startsWith("requires ")))
-                )
-                ? requiredTechName || blockedReason
-                : undefined
-              : undefined;
+          const unmetChecklist = owned ? [] : (domain.requirements.checklist ?? []).filter((item) => !item.met);
+          const unmetRequirementsHtml = unmetChecklist
+            .slice(0, 2)
+            .map((item) => `<p class="tech-card-requirement tech-card-requirement-bad">✗ ${item.label}</p>`)
+            .join("");
           return `<button type="button" class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${domain.id}" data-domain-can-unlock="${canUnlock ? "true" : "false"}">
             <div class="tech-card-top">
               <strong>${domain.name}</strong>
               <span class="domain-card-badge">${cardBadge}</span>
             </div>
             <p>${formatDomainBenefitSummary(domain)}</p>
-            ${
-              unmetTechRequirement
-                ? `<p class="tech-card-requirement tech-card-requirement-bad">✗ Requires ${unmetTechRequirement}</p>`
-                : ""
-            }
-            <p class="tech-card-cost">${owned ? "Tier locked in" : blockedReason && !unmetTechRequirement ? blockedReason : formatDomainCost(domain)}</p>
+            ${unmetRequirementsHtml}
+            <p class="tech-card-cost">${
+              owned
+                ? "Tier locked in"
+                : unmetChecklist.length > 0
+                  ? blockedReason || "Requirements not met"
+                  : blockedReason || formatDomainCost(domain)
+            }</p>
           </button>`;
         })
         .join("");
