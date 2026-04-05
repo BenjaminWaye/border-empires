@@ -9,8 +9,8 @@ const sourceFor = (name: string): string => readFileSync(resolve(here, name), "u
 
 describe("shard rain alert regression guard", () => {
   it("renders a dedicated shard alert and clears shard fx on dismiss", () => {
-    const mainSource = sourceFor("./main.ts");
-    expect(mainSource).toContain("renderShardAlertFromModule");
+    const bootstrapSource = sourceFor("./client-bootstrap.ts");
+    expect(bootstrapSource).toContain("renderShardAlertFromModule");
 
     const controlsSource = sourceFor("./client-ui-controls.ts");
     expect(controlsSource).toContain("shardAlertCloseBtn.onclick = () => {");
@@ -21,8 +21,8 @@ describe("shard rain alert regression guard", () => {
   });
 
   it("stops using feed messages as the primary shard rain alert path", () => {
-    const mainSource = sourceFor("./main.ts");
-    expect(mainSource).not.toContain("Shard rain sighted at");
-    expect(mainSource).not.toContain("Shard rain has begun. ${siteCount}");
+    const alertsSource = sourceFor("./client-alerts.ts");
+    expect(alertsSource).not.toContain("Shard rain sighted at");
+    expect(alertsSource).not.toContain("Shard rain has begun. ${siteCount}");
   });
 });
