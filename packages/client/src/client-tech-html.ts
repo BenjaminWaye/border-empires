@@ -271,22 +271,19 @@ export const formatDomainCost = (domain: DomainInfo): string => {
 
 export const renderDomainProgressCardHtml = (args: {
   visibleShardCacheCount: number;
-  activeShardfallCount: number;
   shardStock: number;
   currentTier: number | undefined;
   chosenDomainCount: number;
 }): string => {
-  const { visibleShardCacheCount, activeShardfallCount, shardStock, currentTier, chosenDomainCount } = args;
+  const { visibleShardCacheCount, shardStock, currentTier, chosenDomainCount } = args;
   const statusLine =
     currentTier !== undefined
-      ? `Tier ${currentTier} is open for your next doctrine shift. Explore for shard caches and grab shardfalls before they fade.`
+      ? `Tier ${currentTier} is open for your next doctrine shift. Explore for shard caches to build toward your next doctrine pick.`
       : "All open domain tiers are currently committed. Keep hunting shards to afford the next doctrine window.";
   const scoutingLine =
-    activeShardfallCount > 0
-      ? `${activeShardfallCount} active shardfall${activeShardfallCount === 1 ? "" : "s"} marked in view. Press to collect before the rain burns out.`
-      : visibleShardCacheCount > 0
-        ? `${visibleShardCacheCount} shard cache${visibleShardCacheCount === 1 ? "" : "s"} visible in explored territory.`
-        : "No shard sites in view yet. Push exploration to uncover caches and catch the next shard rain.";
+    visibleShardCacheCount > 0
+      ? `${visibleShardCacheCount} shard cache${visibleShardCacheCount === 1 ? "" : "s"} visible in explored territory.`
+      : "No shard caches in view yet. Push exploration to uncover more shard income.";
   return `<article class="card domain-progress-card">
     <div class="domain-progress-head">
       <div>
@@ -297,10 +294,6 @@ export const renderDomainProgressCardHtml = (args: {
     </div>
     <p>${statusLine}</p>
     <div class="domain-progress-metrics">
-      <div class="domain-progress-metric">
-        <span>Active shardfalls</span>
-        <strong>${activeShardfallCount}</strong>
-      </div>
       <div class="domain-progress-metric">
         <span>Shard stock</span>
         <strong>${shardStock.toFixed(1)}</strong>
