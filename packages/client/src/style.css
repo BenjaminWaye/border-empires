@@ -3491,6 +3491,12 @@ body {
 
 .domain-card {
   gap: 8px;
+  cursor: pointer;
+}
+
+.domain-card.blocked,
+.domain-card.owned {
+  cursor: pointer;
 }
 
 .domain-card-badge {
