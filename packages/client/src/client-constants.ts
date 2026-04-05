@@ -1,18 +1,34 @@
-import { FRONTIER_CLAIM_COST, FRONTIER_CLAIM_MS, SETTLE_MS, grassShadeAt, landBiomeAt } from "@border-empires/shared";
+import {
+  AIRPORT_BOMBARD_RADIUS,
+  COLLECT_VISIBLE_COOLDOWN_MS,
+  FRONTIER_CLAIM_COST,
+  FRONTIER_CLAIM_MS,
+  GOLD_COST_EPSILON,
+  OBSERVATORY_BUILD_COST,
+  OBSERVATORY_CAST_RADIUS,
+  OBSERVATORY_PROTECTION_RADIUS,
+  OBSERVATORY_VISION_BONUS,
+  SETTLE_COST,
+  SETTLE_MS,
+  grassShadeAt,
+  landBiomeAt
+} from "@border-empires/shared";
 
 import type { GuideStep } from "./client-types.js";
 
-export const OBSERVATORY_BUILD_COST = 800;
-export const OBSERVATORY_VISION_BONUS = 5;
-export const OBSERVATORY_PROTECTION_RADIUS = 10;
-export const OBSERVATORY_CAST_RADIUS = 30;
-export const AIRPORT_BOMBARD_RADIUS = 30;
+export {
+  AIRPORT_BOMBARD_RADIUS,
+  COLLECT_VISIBLE_COOLDOWN_MS,
+  GOLD_COST_EPSILON,
+  OBSERVATORY_BUILD_COST,
+  OBSERVATORY_CAST_RADIUS,
+  OBSERVATORY_PROTECTION_RADIUS,
+  OBSERVATORY_VISION_BONUS
+};
 export const MIN_ZOOM = 10;
 export const MAX_ZOOM = 192;
-export const GOLD_COST_EPSILON = 1e-6;
 export const GUIDE_STORAGE_KEY = "border-empires-guide-complete-v1";
 export const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1";
-export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 
 export const guideSteps: GuideStep[] = [
   {
@@ -54,4 +70,9 @@ export const settleDurationMsForTile = (x: number, y: number): number => (isFore
 export const frontierClaimCostLabelForTile = (x: number, y: number): string => {
   const seconds = Math.round(frontierClaimDurationMsForTile(x, y) / 1000);
   return isForestTile(x, y) ? `${FRONTIER_CLAIM_COST} gold • ${seconds}s (Forest)` : `${FRONTIER_CLAIM_COST} gold • ${seconds}s`;
+};
+
+export const settleCostLabelForTile = (x: number, y: number): string => {
+  const seconds = Math.round(settleDurationMsForTile(x, y) / 1000);
+  return `${SETTLE_COST} gold • ${seconds}s${isForestTile(x, y) ? " (Forest)" : ""}`;
 };

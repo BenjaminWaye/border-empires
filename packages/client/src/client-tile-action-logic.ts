@@ -16,11 +16,12 @@ import {
   structureShowsOnTile,
   terrainAt
 } from "@border-empires/shared";
-import { canAffordCost, frontierClaimCostLabelForTile, isForestTile, settleDurationMsForTile } from "./client-constants.js";
+import { canAffordCost, frontierClaimCostLabelForTile, settleCostLabelForTile } from "./client-constants.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
 import { economicStructureBuildMs, economicStructureName } from "./client-map-display.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
 import type { ClientState } from "./client-state.js";
+import { tileHasAnyStructure, tileHasPendingStructureWork } from "./client-structure-state.js";
 import type {
   ActiveTruceView,
   CrystalTargetingAbility,
@@ -450,7 +451,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
     const hasYield =
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
-    const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
+    const hasBlockingStructure = tileHasAnyStructure(tile);
     const supportedTowns = tile.ownershipState === "SETTLED" ? deps.supportedOwnedTownsForTile(tile) : [];
     const supportedTown = supportedTowns.length === 1 ? supportedTowns[0] : undefined;
     const supportedDocks = tile.ownershipState === "SETTLED" ? deps.supportedOwnedDocksForTile(tile) : [];
@@ -590,17 +591,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
     }
     const removableStructure = structureLabelForRemoval(tile);
-    const structureBusyRemoving =
-      tile.fort?.status === "removing" ||
-      tile.observatory?.status === "removing" ||
-      tile.siegeOutpost?.status === "removing" ||
-      tile.economicStructure?.status === "removing";
-    const structureBusyConstructing =
-      tile.fort?.status === "under_construction" ||
-      tile.observatory?.status === "under_construction" ||
-      tile.siegeOutpost?.status === "under_construction" ||
-      tile.economicStructure?.status === "under_construction";
-    if (removableStructure && !structureBusyConstructing && !structureBusyRemoving) {
+    const hasPendingStructureWork = tileHasPendingStructureWork(tile);
+    if (removableStructure && !hasPendingStructureWork) {
       out.push({
         id: "remove_structure",
         label: `Remove ${removableStructure.label}`,
@@ -622,7 +614,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           canAffordCost(state.gold, SETTLE_COST),
           `Need ${SETTLE_COST} gold`,
-          `${SETTLE_COST} gold • ${Math.round(settleDurationMsForTile(tile.x, tile.y) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`,
+          settleCostLabelForTile(tile.x, tile.y),
           slots,
           deps
         )

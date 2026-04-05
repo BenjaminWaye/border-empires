@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatTechBenefitSummary } from "./client-tech-html.js";
-import type { TechInfo } from "./client-types.js";
+import { formatDomainBenefitSummary, formatTechBenefitSummary } from "./client-tech-html.js";
+import type { DomainInfo, TechInfo } from "./client-types.js";
 
 describe("tech benefit summaries", () => {
   it("uses the Aether Bridge label for the navigation unlock effect", () => {
@@ -25,5 +25,28 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(tech)).toBe("Unlocks Aether Bridge");
+  });
+
+  it("formats shared mod summaries consistently for domains", () => {
+    const domain: DomainInfo = {
+      id: "watchers",
+      tier: 2,
+      name: "Watchers",
+      description: "Vision-focused domain.",
+      requiresTechId: "cartography",
+      mods: {
+        attack: 1.1,
+        vision: 1.2
+      },
+      effects: {},
+      requirements: {
+        gold: 1200,
+        resources: {
+          CRYSTAL: 20
+        }
+      }
+    };
+
+    expect(formatDomainBenefitSummary(domain)).toBe("Attack +10% | Vision +20%");
   });
 });

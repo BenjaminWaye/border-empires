@@ -28,10 +28,15 @@ import {
   FORT_BUILD_COST,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
+  GOLD_COST_EPSILON,
   LIGHT_OUTPOST_ATTACK_MULT,
   LIGHT_OUTPOST_BUILD_MS,
+  COLLECT_VISIBLE_COOLDOWN_MS,
   OBSERVATORY_BUILD_MS,
+  OBSERVATORY_CAST_RADIUS,
+  OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_UPKEEP_PER_MIN,
+  OBSERVATORY_VISION_BONUS,
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_COST,
   SIEGE_OUTPOST_BUILD_MS,
@@ -39,10 +44,16 @@ import {
   WOODEN_FORT_DEFENSE_MULT,
   PVP_REPEAT_FLOOR,
   PVP_REPEAT_WINDOW_MS,
+  AETHER_BRIDGE_COOLDOWN_MS,
+  AETHER_BRIDGE_DURATION_MS,
+  AIRPORT_BOMBARD_RADIUS,
   SEASON_LENGTH_DAYS,
   SETTLE_COST,
   SETTLE_MS,
+  SIPHON_COOLDOWN_MS,
+  SIPHON_DURATION_MS,
   STAMINA_MAX,
+  TERRAIN_SHAPING_COOLDOWN_MS,
   VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -1088,14 +1099,12 @@ const TRUCE_BREAK_ATTACK_MULT = 0.75;
 const TRUCE_BREAK_ATTACK_PENALTY_MS = 60 * 60_000;
 const PASSIVE_INCOME_MULT = 1.0;
 const FRONTIER_ACTION_GOLD_COST = 1;
-const GOLD_COST_EPSILON = 1e-6;
 const canAffordGoldCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
 const HARVEST_GOLD_RATE_MULT = 1;
 const HARVEST_RESOURCE_RATE_MULT = 1 / 1440;
 const TILE_YIELD_CAP_GOLD = 24;
 const TILE_YIELD_CAP_RESOURCE = 6;
 const OFFLINE_YIELD_ACCUM_MAX_MS = 12 * 60 * 60 * 1000;
-const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 const IDLE_SNAPSHOT_INTERVAL_MS = 5 * 60_000;
 const INITIAL_SHARD_SCATTER_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
 const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
@@ -1121,11 +1130,7 @@ const IRONWORKS_OVERLOAD_IRON = 25;
 const CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 16;
 const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
 const BREAKTHROUGH_REQUIRED_TECH_ID = "breach-doctrine";
-const OBSERVATORY_BUILD_COST = structureBaseGoldCost("OBSERVATORY");
-const OBSERVATORY_VISION_BONUS = 5;
 const OBSERVATORY_BUILD_CRYSTAL_COST = 45;
-const OBSERVATORY_PROTECTION_RADIUS = 10;
-const OBSERVATORY_CAST_RADIUS = 30;
 const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 const FARMSTEAD_BUILD_GOLD_COST = structureBaseGoldCost("FARMSTEAD");
 const FARMSTEAD_BUILD_FOOD_COST = 20;
@@ -1191,7 +1196,6 @@ const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 const FUEL_PLANT_OIL_PER_DAY = 10;
 const AIRPORT_OIL_UPKEEP_PER_MIN = 0.025;
 const AIRPORT_BOMBARD_OIL_COST = 1;
-const AIRPORT_BOMBARD_RANGE = 30;
 const AIRPORT_BOMBARD_ATTACK_MULT = 0.95;
 const AIRPORT_BOMBARD_MIN_FIELD_TILES = 2;
 const AIRPORT_BOMBARD_MAX_FIELD_TILES = 4;
@@ -1216,17 +1220,12 @@ const SABOTAGE_COOLDOWN_MS = 15 * 60_000;
 const SABOTAGE_DURATION_MS = 45 * 60_000;
 const SABOTAGE_OUTPUT_MULT = 0.5;
 const AETHER_BRIDGE_CRYSTAL_COST = 30;
-const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
-const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
 const AETHER_BRIDGE_MAX_SEA_TILES = 4;
 const SIPHON_CRYSTAL_COST = 20;
-const SIPHON_COOLDOWN_MS = 15 * 60_000;
-const SIPHON_DURATION_MS = 30 * 60_000;
 const SIPHON_SHARE = 0.5;
 const SIPHON_PURGE_CRYSTAL_COST = 10;
 const TERRAIN_SHAPING_GOLD_COST = 8000;
 const TERRAIN_SHAPING_CRYSTAL_COST = 400;
-const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
 const TERRAIN_SHAPING_RANGE = 2;
 const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
@@ -13405,11 +13404,12 @@ const tryRemoveStructure = (actor: Player, x: number, y: number): { ok: boolean;
     fortBuildTimers.set(tk, timer);
     return { ok: true };
   }
-  if (observatory?.ownerId === actor.id) {
+  const ownedObservatory = observatory?.ownerId === actor.id ? observatory : undefined;
+  if (ownedObservatory) {
     const removeDurationMs = structureBuildDurationMsForRuntime("OBSERVATORY");
-    observatory.previousStatus = observatory.status === "inactive" ? "inactive" : "active";
-    observatory.status = "removing";
-    observatory.completesAt = now() + removeDurationMs;
+    ownedObservatory.previousStatus = ownedObservatory.status === "inactive" ? "inactive" : "active";
+    ownedObservatory.status = "removing";
+    ownedObservatory.completesAt = now() + removeDurationMs;
     markSummaryChunkDirtyAtTile(x, y);
     markVisibilityDirty(actor.id);
     const timer = setTimeout(() => completeObservatoryRemoval(tk), removeDurationMs);
@@ -13939,7 +13939,7 @@ const tryAirportBombard = (
   const [ax, ay] = parseKey(airportKey);
   const targetX = wrapX(toX, WORLD_WIDTH);
   const targetY = wrapY(toY, WORLD_HEIGHT);
-  if (chebyshevDistance(ax, ay, targetX, targetY) > AIRPORT_BOMBARD_RANGE) {
+  if (chebyshevDistance(ax, ay, targetX, targetY) > AIRPORT_BOMBARD_RADIUS) {
     return { ok: false, reason: "target must be within 30 tiles of the airport" };
   }
   if (hostileRadarProtectingTile(actor, targetX, targetY)) {
