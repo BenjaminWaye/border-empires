@@ -57,8 +57,9 @@ Split responsibilities into two services:
    - AI scheduling now exposes runtime scheduler state so starvation/backpressure is visible in `/admin/runtime/debug`.
    - AI action choice and GOAP planning now run in a dedicated `worker_threads` planner, with the main thread retaining authoritative world mutation.
    - Combat/frontier resolution rolls now run in a dedicated `worker_threads` simulation worker, with the main thread applying the authoritative tile/state mutations after the worker returns.
+   - Simulation command queue ownership and dispatch selection now run in a dedicated `worker_threads` command-bus worker, so the gateway no longer owns command ordering and drain policy inline.
    - Chunk payload serialization now runs in a dedicated `worker_threads` serializer, with the main thread retaining authoritative tile visibility and chunk selection.
-   - Next step is to move full simulation command execution and world-state ownership behind the same boundary or an external simulation service without changing the gateway contract.
+   - Next step is to move full simulation command execution and authoritative world-state ownership behind the same boundary or an external simulation service without changing the gateway contract.
 7. Replace snapshot-first persistence with an indexed store such as SQLite or Postgres.
 
 ## Desired invariants
