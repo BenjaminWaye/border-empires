@@ -72,10 +72,21 @@ describe("buildAiPlanningSnapshot regression guard", () => {
 
   it("derives cached attack and build availability from lightweight cached signals", () => {
     const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
-    expect(body).toContain("barbarianAttackAvailable = true");
     expect(body).toContain("const pressureAttackProfile = estimateAiPressureAttackProfile(actor, territorySummary);");
     expect(body).toContain("territorySummary.borderSettledTileKeys.has(tk)");
     expect(body).toContain("!fortsByTile.has(tk)");
+    expect(body).toContain("const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
+    expect(body).toContain("barbarianAttackAvailable: territorySummary.barbarianAttackAvailable");
+    expect(body).toContain("enemyAttackAvailable: territorySummary.enemyAttackAvailable");
+    expect(body).not.toContain("for (const { from, to } of territorySummary.expandCandidates)");
+    expect(body).not.toContain("for (const { to } of territorySummary.attackCandidates)");
+  });
+
+  it("reuses the cached frontier planning summary for victory-path scoring", () => {
+    const source = serverMainSource();
+    expect(source).toContain("const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
+    expect(source).toContain("const townOpportunityScore = territorySummary.neutralTownExpandCount * 5 + territorySummary.hostileTownAttackCount * 6;");
+    expect(source).toContain("frontierPlanningSummary.frontierOpportunityEconomic * 4 + territorySummary.hostileEconomicAttackCount * 3");
   });
 
   it("uses cached strategic posture and lightweight shard-or-truce handling", () => {
