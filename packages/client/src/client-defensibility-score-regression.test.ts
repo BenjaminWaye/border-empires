@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const clientMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return readFileSync(resolve(here, "./client-tech-panel-flow.ts"), "utf8");
 };
 
 describe("defensibility score regression guard", () => {
