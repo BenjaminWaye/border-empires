@@ -291,10 +291,11 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   const drawStartingExpansionArrow = (px: number, py: number, size: number, dx: number, dy: number): void =>
     drawStartingExpansionArrowFromModule(ctx, px, py, size, dx, dy);
 
-  const renderHud = (): void =>
-    renderClientHud({
-      state,
-      dom: {
+  const renderHud = (): void => {
+    try {
+      renderClientHud({
+        state,
+        dom: {
         alliancePlayerInspectEl: dom.alliancePlayerInspectEl,
         allianceRequestsEl: dom.allianceRequestsEl,
         alliesListEl: dom.alliesListEl,
@@ -434,9 +435,15 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       leaderboardHtml,
       feedHtml,
       renderMobilePanels,
-      effectiveTechChoices: techFlow.effectiveTechChoices,
-      renderManpowerPanelHtml
-    });
+        effectiveTechChoices: techFlow.effectiveTechChoices,
+        renderManpowerPanelHtml
+      });
+    } catch (error) {
+      console.error("[hud-render-fatal]", error);
+      setAuthStatus("The interface hit an unexpected error. Retrying UI render...", "error");
+      syncAuthOverlay();
+    }
+  };
   renderHudImpl = renderHud;
 
   const resize = (): void => resizeClientViewport({ dom: { canvas }, viewportSize });
