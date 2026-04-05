@@ -83,6 +83,7 @@ export interface SeasonVictoryObjectiveView {
   leaderPlayerId?: PlayerId;
   leaderName: string;
   progressLabel: string;
+  selfProgressLabel?: string;
   thresholdLabel: string;
   holdDurationSeconds: number;
   holdRemainingSeconds?: number;

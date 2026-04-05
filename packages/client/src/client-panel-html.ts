@@ -230,6 +230,7 @@ export const leaderboardHtml = (
             </div>
             <div class="pressure-meta">${objective.description}</div>
             <div class="pressure-meta">Leader: ${objective.leaderName} · ${objective.progressLabel}</div>
+            ${objective.selfProgressLabel ? `<div class="pressure-meta">You: ${objective.selfProgressLabel}</div>` : ""}
             <div class="pressure-meta">${objective.thresholdLabel}</div>
           </div>`
         )
@@ -242,7 +243,7 @@ export const leaderboardHtml = (
     <article class="card">
       <strong>Overall</strong>
       ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLine(entry)}</div>`).join("")}
-      ${leaderboard.selfOverall ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${overallLine(leaderboard.selfOverall)}</div>` : ""}
+      ${leaderboard.selfOverall ? `<div class="lb-row">${leaderboard.selfOverall.rank}. You | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${leaderboard.selfOverall.incomePerMinute.toFixed(1)} | tech ${leaderboard.selfOverall.techs}</div>` : ""}
     </article>
     <article class="card">
       <strong>Most Settled Tiles</strong>
