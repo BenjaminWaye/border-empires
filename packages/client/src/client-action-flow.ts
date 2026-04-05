@@ -1098,24 +1098,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
     const to = clicked;
     state.selected = { x: wx, y: wy };
-    const adjacentFromOwned = pickOriginForTarget(to.x, to.y);
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
-      isOwnedByEnemy: Boolean(to.ownerId && to.ownerId !== state.me),
-      isOwnedByAlly: isTileOwnedByAlly(to),
-      hasAdjacentOwnedOrigin: Boolean(adjacentFromOwned),
       hasFrontierOrigin: Boolean(frontierOrigin),
-      hasDock: Boolean(to.dockId),
       isNeutral: !to.ownerId
     });
-    if (clickOutcome === "warn-unreachable-enemy") {
-      pushFeed("Target is not connected to your border.", "combat", "warn");
-      requestAttackPreviewForHover();
-      renderHud();
-      return;
-    }
     if (clickOutcome === "queue-adjacent-neutral") {
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         notifyInsufficientGoldForFrontierAction("claim");
