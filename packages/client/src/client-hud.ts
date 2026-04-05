@@ -1,7 +1,8 @@
 import { signOut } from "firebase/auth";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
-import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
+import { renderEconomyPanelHtml } from "./client-economy-html.js";
+import type { EconomyFocusKey } from "./client-economy-model.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import type { StructureInfoKey } from "./client-map-display.js";
 
@@ -511,6 +512,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     incomePerMinute: state.incomePerMinute,
     strategicResources: state.strategicResources,
     strategicProductionPerMinute: state.strategicProductionPerMinute,
+    economyBreakdown: state.economyBreakdown,
     upkeepPerMinute: state.upkeepPerMinute,
     upkeepLastTick: state.upkeepLastTick,
     activeRevealTargetsCount: state.activeRevealTargets.length,
