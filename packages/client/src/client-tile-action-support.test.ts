@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { TileActionDef } from "./client-types.js";
 
-const state = { techIds: ["navigation"] };
+const state = { techIds: ["navigation", "trade", "coinage", "industrial-extraction"] };
 
 describe("splitTileActionsIntoTabs", () => {
   it("keeps crystal-only menu content visible", () => {
@@ -38,5 +38,49 @@ describe("splitTileActionsIntoTabs", () => {
       buildings: [],
       crystal: []
     });
+  });
+
+  it("keeps a disabled-only Buildings tab visible", () => {
+    const disabledBuildings: TileActionDef[] = [
+      {
+        id: "build_foundry",
+        label: "Build Foundry",
+        disabled: true,
+        disabledReason: "Need 4500 gold",
+        cost: "Need 4500 gold"
+      }
+    ];
+
+    expect(splitTileActionsIntoTabs(disabledBuildings, state)).toEqual({
+      actions: [],
+      buildings: disabledBuildings,
+      crystal: []
+    });
+  });
+
+  it("sorts support-only buildings before general settled buildings", () => {
+    const rows: TileActionDef[] = [
+      {
+        id: "build_foundry",
+        label: "Build Foundry",
+        disabled: false
+      },
+      {
+        id: "build_market",
+        label: "Build Market",
+        disabled: false
+      },
+      {
+        id: "build_bank",
+        label: "Build Bank",
+        disabled: false
+      }
+    ];
+
+    expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
+      "build_market",
+      "build_bank",
+      "build_foundry"
+    ]);
   });
 });

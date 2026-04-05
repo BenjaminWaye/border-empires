@@ -29,9 +29,9 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_siege_camp") {
     return tile.economicStructure?.type === "LIGHT_OUTPOST"
       ? "Upgrade this Light Outpost into a full siege outpost. Attacks from here hit 25% harder."
-      : "Adds an offensive staging point on this border tile. Attacks from here hit 25% harder.";
+      : "Adds an offensive staging point on this border or dock tile. Attacks from here hit 25% harder.";
   }
-  if (actionId === "build_light_outpost") return "Build a light outpost on this border tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
+  if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. It comes online fast, costs only gold, and grants a smaller attack bonus.";
   if (actionId === "build_farmstead") return "Improves food output on this tile by 50%.";
   if (actionId === "build_camp") return "Improves supply output on this tile by 50%.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} output on this tile by 50%.`;
@@ -64,7 +64,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
-  if (actionId === "build_customs_house") return "Build next to a dock. Increases income from that dock by 50%.";
+  if (actionId === "build_customs_house") return "Build on a settled dock tile. Increases income from that dock by 50%.";
   if (actionId === "build_governors_office") return "Administrative center. Reduces local food upkeep and settled-tile upkeep within 10 tiles.";
   if (actionId === "build_radar_system") return "Air defense grid. Blocks enemy airport bombardment within 30 tiles and reveals the attack origin.";
   return undefined;
@@ -288,9 +288,10 @@ export const tileMenuViewForTile = (
   const construction = deps.constructionProgressForTile(tile);
   const progress = settlement ?? queuedSettlement ?? construction;
   const tabs: TileMenuTab[] = [];
+  const canShowBuildingsTab = tile.ownerId === deps.state.me && tile.ownershipState === "SETTLED" && tile.terrain === "LAND";
   if (progress) tabs.push("progress");
   if (actionTabs.actions.length > 0) tabs.push("actions");
-  if (actionTabs.buildings.length > 0) tabs.push("buildings");
+  if (actionTabs.buildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
   if (actionTabs.crystal.length > 0) tabs.push("crystal");
   tabs.push("overview");
   const ownerLabel =
