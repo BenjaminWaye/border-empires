@@ -284,11 +284,23 @@ const buildShowsOnTile = (
     supportedDockCount
   });
 
-const buildNeedsBorderOrDock = (structureType: BuildableStructureId): boolean =>
-  structurePlacementMetadata(structureType).requiresBorder === "border_or_dock";
-
 const buildNeedsBorderOnly = (structureType: BuildableStructureId): boolean =>
   structurePlacementMetadata(structureType).requiresBorder === "border";
+
+export const isOwnedBorderTile = (
+  state: ClientState,
+  x: number,
+  y: number,
+  deps: Pick<TileActionLogicDeps, "keyFor" | "wrapX" | "wrapY">
+): boolean => {
+  const neighbors = [
+    state.tiles.get(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1))),
+    state.tiles.get(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y))),
+    state.tiles.get(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1))),
+    state.tiles.get(deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y)))
+  ];
+  return neighbors.some((tile) => !tile || tile.ownerId !== state.me);
+};
 
 export const tileActionAvailabilityWithDevelopmentSlot = (
   enabledWithoutSlot: boolean,
@@ -314,22 +326,6 @@ const isConverterStructureType = (type: NonNullable<Tile["economicStructure"]>["
   type === "CRYSTAL_SYNTHESIZER" ||
   type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
   type === "FUEL_PLANT";
-
-export const isOwnedBorderTile = (
-  state: ClientState,
-  x: number,
-  y: number,
-  deps: Pick<TileActionLogicDeps, "keyFor" | "wrapX" | "wrapY">
-): boolean => {
-  const neighbors = [
-    state.tiles.get(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1))),
-    state.tiles.get(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y))),
-    state.tiles.get(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1))),
-    state.tiles.get(deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y)))
-  ];
-  return neighbors.some((tile) => !tile || tile.ownerId !== state.me);
-};
-
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.fogged) return [];
   if (tile.terrain === "SEA") return [];
@@ -640,19 +636,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.siegeOutpost &&
       !tile.observatory &&
       !tile.economicStructure &&
-      !isSettlementTile &&
       !state.techIds.includes("masonry")
     ) {
-      const isBorderOrDock = buildNeedsBorderOrDock("WOODEN_FORT") && Boolean(tile.dockId || isOwnedBorderTile(state, tile.x, tile.y, deps));
       out.push({
         id: "build_wooden_fort" as TileActionDef["id"],
         label: "Build Wooden Fort",
         detail: deps.buildDetailTextForAction("build_wooden_fort", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          isBorderOrDock && state.gold >= deps.structureGoldCost("WOODEN_FORT"),
-          !isBorderOrDock
-            ? "Needs border or dock tile"
-            : `Need ${deps.structureGoldCost("WOODEN_FORT")} gold`,
+          state.gold >= deps.structureGoldCost("WOODEN_FORT"),
+          `Need ${deps.structureGoldCost("WOODEN_FORT")} gold`,
           `${deps.structureCostText("WOODEN_FORT")} • ${Math.round(WOODEN_FORT_BUILD_MS / 60000)}m • def x${WOODEN_FORT_DEFENSE_MULT.toFixed(2)}`,
           slots,
           deps
@@ -665,10 +657,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.fort &&
       !tile.siegeOutpost &&
       !tile.observatory &&
-      !isSettlementTile &&
       (!tile.economicStructure || hasWoodenFort)
     ) {
-      const isBorderOrDock = buildNeedsBorderOrDock("FORT") && Boolean(tile.dockId || isOwnedBorderTile(state, tile.x, tile.y, deps));
       const hasTech = state.techIds.includes("masonry");
       const fortGoldCost = deps.structureGoldCost("FORT");
       const hasGold = state.gold >= fortGoldCost;
@@ -678,12 +668,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: hasWoodenFort ? "Upgrade to Fort" : "Build Fort",
         detail: deps.buildDetailTextForAction("build_fortification", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          hasTech && hasGold && hasIron && isBorderOrDock && (!tile.economicStructure || hasWoodenFort),
+          hasTech && hasGold && hasIron && (!tile.economicStructure || hasWoodenFort),
           !hasTech
             ? "Requires Masonry"
-            : !isBorderOrDock
-              ? "Needs border or dock tile"
-              : tile.economicStructure && !hasWoodenFort
+            : tile.economicStructure && !hasWoodenFort
                 ? "Tile already has structure"
                 : !hasGold
                   ? `Need ${fortGoldCost} gold`
@@ -851,17 +839,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.siegeOutpost &&
       !tile.observatory &&
       !tile.economicStructure &&
-      !isSettlementTile &&
       !state.techIds.includes("leatherworking")
     ) {
-      const isBorderOrDock = buildNeedsBorderOrDock("LIGHT_OUTPOST") && Boolean(tile.dockId || isOwnedBorderTile(state, tile.x, tile.y, deps));
       out.push({
         id: "build_light_outpost" as TileActionDef["id"],
         label: "Build Light Outpost",
         detail: deps.buildDetailTextForAction("build_light_outpost", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          isBorderOrDock && state.gold >= deps.structureGoldCost("LIGHT_OUTPOST"),
-          !isBorderOrDock ? "Needs border or dock tile" : `Need ${deps.structureGoldCost("LIGHT_OUTPOST")} gold`,
+          state.gold >= deps.structureGoldCost("LIGHT_OUTPOST"),
+          `Need ${deps.structureGoldCost("LIGHT_OUTPOST")} gold`,
           `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`,
           slots,
           deps
@@ -874,25 +860,21 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.siegeOutpost &&
       !tile.fort &&
       !tile.observatory &&
-      !isSettlementTile &&
       (!tile.economicStructure || hasLightOutpost)
     ) {
       const hasTech = state.techIds.includes("leatherworking");
       const siegeGoldCost = deps.structureGoldCost("SIEGE_OUTPOST");
       const hasGold = state.gold >= siegeGoldCost;
       const hasSupply = (state.strategicResources.SUPPLY ?? 0) >= 45;
-      const onBorder = buildNeedsBorderOrDock("SIEGE_OUTPOST") && Boolean(tile.dockId || isOwnedBorderTile(state, tile.x, tile.y, deps));
       out.push({
         id: "build_siege_camp",
         label: hasLightOutpost ? "Upgrade to Siege Outpost" : "Build Siege Outpost",
         detail: deps.buildDetailTextForAction("build_siege_camp", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          hasTech && hasGold && hasSupply && onBorder && (!tile.economicStructure || hasLightOutpost),
+          hasTech && hasGold && hasSupply && (!tile.economicStructure || hasLightOutpost),
           !hasTech
             ? "Requires Leatherworking"
-            : !onBorder
-              ? "Needs border or dock tile"
-              : tile.economicStructure && !hasLightOutpost
+            : tile.economicStructure && !hasLightOutpost
                 ? "Tile already has structure"
                 : !hasGold
                   ? `Need ${siegeGoldCost} gold`

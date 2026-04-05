@@ -14017,8 +14017,6 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   ) {
     return { ok: false, reason: "fort cannot be built on this tile" };
   }
-  const dock = docksByTile.get(tk);
-  if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
   if (existingEconomic?.type === "WOODEN_FORT" && !upgradingWoodenFort) return { ok: false, reason: "wooden fort is still being modified" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = Math.ceil(structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")) * effects.fortBuildGoldCostMult);
@@ -14096,7 +14094,6 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   ) {
     return { ok: false, reason: "siege outpost cannot be built on this tile" };
   }
-  if (!docksByTile.has(tk) && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile or dock" };
   if (existingEconomic?.type === "LIGHT_OUTPOST" && !upgradingLightOutpost) return { ok: false, reason: "light outpost is still being modified" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST"));
