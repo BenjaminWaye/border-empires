@@ -321,9 +321,6 @@ export const renderDomainChoiceGrid = (deps: {
 export const visibleShardCacheCount = (tiles: Iterable<{ fogged?: boolean; shardSite?: { kind: string } | null }>): number =>
   [...tiles].filter((tile) => !tile.fogged && tile.shardSite?.kind === "CACHE").length;
 
-export const activeShardfallCount = (tiles: Iterable<{ fogged?: boolean; shardSite?: { kind: string } | null }>): number =>
-  [...tiles].filter((tile) => !tile.fogged && tile.shardSite?.kind === "FALL").length;
-
 export const renderDomainProgressCard = (deps: {
   tiles: Iterable<{ fogged?: boolean; shardSite?: { kind: string } | null }>;
   shardStock: number;
@@ -333,7 +330,6 @@ export const renderDomainProgressCard = (deps: {
 }): string =>
   renderDomainProgressCardHtml({
     visibleShardCacheCount: visibleShardCacheCount(deps.tiles),
-    activeShardfallCount: activeShardfallCount(deps.tiles),
     shardStock: deps.shardStock,
     currentTier: currentDomainChoiceTier(deps.domainCatalog, deps.domainChoices),
     chosenDomainCount: deps.domainIds.length

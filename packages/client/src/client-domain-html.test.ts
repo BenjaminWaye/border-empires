@@ -1,8 +1,23 @@
 import { describe, expect, it } from "vitest";
 import type { DomainInfo } from "./client-types.js";
-import { renderDomainChoiceGridHtml } from "./client-tech-html.js";
+import { renderDomainChoiceGridHtml, renderDomainProgressCardHtml } from "./client-tech-html.js";
 
 describe("domain card previews", () => {
+  it("keeps the sharding summary focused on shard stock and caches", () => {
+    const html = renderDomainProgressCardHtml({
+      visibleShardCacheCount: 0,
+      shardStock: 8.6,
+      currentTier: 1,
+      chosenDomainCount: 0
+    });
+
+    expect(html).toContain("Shard stock");
+    expect(html).toContain("8.6");
+    expect(html).toContain("No shard caches in view yet.");
+    expect(html).not.toContain("Active shardfalls");
+    expect(html).not.toContain("grab shardfalls before they fade");
+  });
+
   it("shows unmet tech requirements directly on blocked domain cards", () => {
     const domain: DomainInfo = {
       id: "expansionist",
