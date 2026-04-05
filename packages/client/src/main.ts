@@ -2037,6 +2037,7 @@ const renderHud = (): void =>
     economicStructureName,
     leaderboardHtml,
     feedHtml,
+    renderMobilePanels,
     effectiveTechChoices,
     renderManpowerPanelHtml
   });
