@@ -87,6 +87,18 @@ export const renderClientHud = (deps: HudDeps): void => {
     feedHtml
   } = deps;
 
+  const safeValue = <T>(label: string, fallback: T, render: () => T): T => {
+    try {
+      return render();
+    } catch (error) {
+      console.error(`[hud-render-error] ${label}`, error);
+      return fallback;
+    }
+  };
+
+  const fallbackCard = (label: string): string =>
+    `<article class="card"><p>${label} is temporarily unavailable.</p></article>`;
+
   const replayToolbarHtml = (): string => {
     return `<div class="mini-map-toolbar">
       <span>Minimap (${state.camX}, ${state.camY})</span>
@@ -109,8 +121,12 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const collectVisibleCooldownRemaining = Math.max(0, state.collectVisibleCooldownUntil - Date.now());
   const collectVisibleReady = collectVisibleCooldownRemaining <= 0;
-  const collectSummary = visibleCollectSummary();
-  const development = developmentSlotSummary();
+  const collectSummary = safeValue(
+    "visibleCollectSummary",
+    { tileCount: 0, totalGold: 0, totalShards: 0, totalResources: {} },
+    () => visibleCollectSummary()
+  );
+  const development = safeValue("developmentSlotSummary", { busy: 0, limit: 0, available: 0 }, () => developmentSlotSummary());
   const mobile = isMobile();
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
   const pointsClass =
@@ -261,8 +277,8 @@ export const renderClientHud = (deps: HudDeps): void => {
   `;
   dom.mobileCoreHelpEl.style.display = mobile ? "none" : "";
 
-  renderCaptureProgress();
-  renderShardAlert();
+  safeValue("renderCaptureProgress", undefined, () => renderCaptureProgress());
+  safeValue("renderShardAlert", undefined, () => renderShardAlert());
   state.replayActive = false;
   state.replayPlaying = false;
   dom.miniMapLabelEl.innerHTML = replayToolbarHtml();
@@ -331,12 +347,20 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   dom.techPointsEl.textContent = "Tech unlocks use gold + strategic resources";
   dom.mobileTechPointsEl.textContent = "Tech unlocks use gold + strategic resources";
-  dom.techCurrentModsEl.innerHTML = deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown);
-  dom.mobileTechCurrentModsEl.innerHTML = deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown);
-  dom.techChoicesGridEl.innerHTML = renderTechChoiceGrid();
-  dom.mobileTechChoicesGridEl.innerHTML = renderTechChoiceGrid();
-  dom.techDetailCardEl.innerHTML = deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard();
-  dom.mobileTechDetailCardEl.innerHTML = deps.renderTechDetailPrompt();
+  dom.techCurrentModsEl.innerHTML = safeValue(
+    "techCurrentModsHtml",
+    fallbackCard("Technology modifiers"),
+    () => deps.techCurrentModsHtml(state.mods, state.expandedModKey, state.modBreakdown)
+  );
+  dom.mobileTechCurrentModsEl.innerHTML = dom.techCurrentModsEl.innerHTML;
+  dom.techChoicesGridEl.innerHTML = safeValue("renderTechChoiceGrid", fallbackCard("Technology choices"), () => renderTechChoiceGrid());
+  dom.mobileTechChoicesGridEl.innerHTML = dom.techChoicesGridEl.innerHTML;
+  dom.techDetailCardEl.innerHTML = safeValue(
+    "renderTechDetailCard",
+    fallbackCard("Technology detail"),
+    () => (deps.techDetailsUseOverlay() ? deps.renderTechDetailPrompt() : deps.renderTechDetailCard())
+  );
+  dom.mobileTechDetailCardEl.innerHTML = safeValue("renderTechDetailPrompt", fallbackCard("Technology detail"), () => deps.renderTechDetailPrompt());
   dom.structureInfoOverlayEl.innerHTML = state.structureInfoKey
     ? deps.renderStructureInfoOverlay()
     : state.crystalAbilityInfoKey
@@ -352,10 +376,14 @@ export const renderClientHud = (deps: HudDeps): void => {
     : "";
   dom.techDetailOverlayEl.innerHTML = mobileDetailOverlayHtml;
   dom.techDetailOverlayEl.style.display = deps.techDetailsUseOverlay() && mobileDetailOverlayHtml ? "grid" : "none";
-  dom.techOwnedEl.innerHTML = deps.techOwnedHtml(state.techCatalog, deps.effectiveOwnedTechIds(), deps.isPendingTechUnlock);
-  dom.mobileTechOwnedEl.innerHTML = deps.techOwnedHtml(state.techCatalog, deps.effectiveOwnedTechIds(), deps.isPendingTechUnlock);
-  dom.techChoiceDetailsEl.innerHTML = deps.renderTechChoiceDetails();
-  dom.mobileTechChoiceDetailsEl.innerHTML = deps.renderTechChoiceDetails();
+  dom.techOwnedEl.innerHTML = safeValue(
+    "techOwnedHtml",
+    fallbackCard("Owned technologies"),
+    () => deps.techOwnedHtml(state.techCatalog, deps.effectiveOwnedTechIds(), deps.isPendingTechUnlock)
+  );
+  dom.mobileTechOwnedEl.innerHTML = dom.techOwnedEl.innerHTML;
+  dom.techChoiceDetailsEl.innerHTML = safeValue("renderTechChoiceDetails", "", () => deps.renderTechChoiceDetails());
+  dom.mobileTechChoiceDetailsEl.innerHTML = dom.techChoiceDetailsEl.innerHTML;
   const techResearchSectionEl = document.querySelector("#tech-research-section") as HTMLDivElement | null;
   const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
@@ -488,31 +516,44 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
     };
   });
-  dom.alliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`;
-  dom.mobileAlliesListEl.innerHTML = `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`;
-  dom.allianceRequestsEl.innerHTML = `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`;
-  dom.mobileAllianceRequestsEl.innerHTML = `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`;
-  const socialInspectCardHtml = renderSocialInspectCardHtml({
-    socialInspectPlayerId: state.socialInspectPlayerId,
-    leaderboardOverall: state.leaderboard.overall,
-    allies: state.allies,
-    playerNameForOwner
-  });
+  dom.alliesListEl.innerHTML = safeValue(
+    "alliesHtml",
+    fallbackCard("Alliances"),
+    () => `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`
+  );
+  dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML;
+  dom.allianceRequestsEl.innerHTML = safeValue(
+    "allianceRequestsHtml",
+    fallbackCard("Alliance requests"),
+    () =>
+      `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`
+  );
+  dom.mobileAllianceRequestsEl.innerHTML = dom.allianceRequestsEl.innerHTML;
+  const socialInspectCardHtml = safeValue("renderSocialInspectCardHtml", "", () =>
+    renderSocialInspectCardHtml({
+      socialInspectPlayerId: state.socialInspectPlayerId,
+      leaderboardOverall: state.leaderboard.overall,
+      allies: state.allies,
+      playerNameForOwner
+    })
+  );
   dom.alliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
   dom.mobileAlliancePlayerInspectEl.innerHTML = socialInspectCardHtml;
 
-  dom.missionsEl.innerHTML = deps.missionCardsHtml(state.missions);
-  dom.mobilePanelMissionsEl.innerHTML = deps.missionCardsHtml(state.missions);
-  const defensibilityPanelHtml = renderDefensibilityPanelHtml({
-    tiles: state.tiles,
-    me: state.me,
-    defensibilityPct: state.defensibilityPct,
-    showWeakDefensibility: state.showWeakDefensibility,
-    keyFor,
-    wrapX,
-    wrapY,
-    terrainAt
-  });
+  dom.missionsEl.innerHTML = safeValue("missionCardsHtml", fallbackCard("Missions"), () => deps.missionCardsHtml(state.missions));
+  dom.mobilePanelMissionsEl.innerHTML = dom.missionsEl.innerHTML;
+  const defensibilityPanelHtml = safeValue("renderDefensibilityPanelHtml", fallbackCard("Defensibility"), () =>
+    renderDefensibilityPanelHtml({
+      tiles: state.tiles,
+      me: state.me,
+      defensibilityPct: state.defensibilityPct,
+      showWeakDefensibility: state.showWeakDefensibility,
+      keyFor,
+      wrapX,
+      wrapY,
+      terrainAt
+    })
+  );
   dom.panelDefensibilityEl.innerHTML = defensibilityPanelHtml;
   dom.mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml;
   const weakDefButtons = dom.hud.querySelectorAll("[data-toggle-weak-def]") as NodeListOf<HTMLButtonElement>;
@@ -546,41 +587,49 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  const economyPanelHtml = renderEconomyPanelHtml({
-    focus: state.economyFocus,
-    gold: state.gold,
-    me: state.me,
-    incomePerMinute: state.incomePerMinute,
-    strategicResources: state.strategicResources,
-    strategicProductionPerMinute: state.strategicProductionPerMinute,
-    economyBreakdown: state.economyBreakdown,
-    upkeepPerMinute: state.upkeepPerMinute,
-    upkeepLastTick: state.upkeepLastTick,
-    activeRevealTargetsCount: state.activeRevealTargets.length,
-    tiles: state.tiles.values(),
-    isMobile: window.matchMedia("(max-width: 900px)").matches,
-    prettyToken,
-    resourceIconForKey,
-    rateToneClass,
-    resourceLabel,
-    economicStructureName
-  });
+  const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
+    renderEconomyPanelHtml({
+      focus: state.economyFocus,
+      gold: state.gold,
+      me: state.me,
+      incomePerMinute: state.incomePerMinute,
+      strategicResources: state.strategicResources,
+      strategicProductionPerMinute: state.strategicProductionPerMinute,
+      economyBreakdown: state.economyBreakdown,
+      upkeepPerMinute: state.upkeepPerMinute,
+      upkeepLastTick: state.upkeepLastTick,
+      activeRevealTargetsCount: state.activeRevealTargets.length,
+      tiles: state.tiles.values(),
+      isMobile: window.matchMedia("(max-width: 900px)").matches,
+      prettyToken,
+      resourceIconForKey,
+      rateToneClass,
+      resourceLabel,
+      economicStructureName
+    })
+  );
   dom.panelEconomyEl.innerHTML = economyPanelHtml;
   dom.mobilePanelEconomyEl.innerHTML = economyPanelHtml;
-  const manpowerPanelHtml = deps.renderManpowerPanelHtml({
-    manpower: state.manpower,
-    manpowerCap: state.manpowerCap,
-    manpowerRegenPerMinute: state.manpowerRegenPerMinute,
-    manpowerBreakdown: state.manpowerBreakdown,
-    formatManpowerAmount,
-    rateToneClass
-  });
+  const manpowerPanelHtml = safeValue("renderManpowerPanelHtml", fallbackCard("Manpower"), () =>
+    deps.renderManpowerPanelHtml({
+      manpower: state.manpower,
+      manpowerCap: state.manpowerCap,
+      manpowerRegenPerMinute: state.manpowerRegenPerMinute,
+      manpowerBreakdown: state.manpowerBreakdown,
+      formatManpowerAmount,
+      rateToneClass
+    })
+  );
   dom.panelManpowerEl.innerHTML = manpowerPanelHtml;
   dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;
-  dom.leaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
-  dom.mobileLeaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
-  dom.feedEl.innerHTML = feedHtml(state.feed);
-  dom.mobileFeedEl.innerHTML = feedHtml(state.feed);
+  dom.leaderboardEl.innerHTML = safeValue(
+    "leaderboardHtml",
+    fallbackCard("Leaderboard"),
+    () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner)
+  );
+  dom.mobileLeaderboardEl.innerHTML = dom.leaderboardEl.innerHTML;
+  dom.feedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () => feedHtml(state.feed));
+  dom.mobileFeedEl.innerHTML = dom.feedEl.innerHTML;
   const feedFocusButtons = dom.hud.querySelectorAll("[data-feed-focus-x][data-feed-focus-y]") as NodeListOf<HTMLButtonElement>;
   feedFocusButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -597,16 +646,16 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   dom.panelDomainsContentEl.innerHTML = `
     <div id="domains-overview-content">
-      ${deps.renderDomainProgressCard()}
-      ${deps.renderDomainChoiceGrid()}
-      ${deps.domainOwnedHtml(state.domainCatalog, state.domainIds)}
+      ${safeValue("renderDomainProgressCard", fallbackCard("Sharding progress"), () => deps.renderDomainProgressCard())}
+      ${safeValue("renderDomainChoiceGrid", fallbackCard("Sharding choices"), () => deps.renderDomainChoiceGrid())}
+      ${safeValue("domainOwnedHtml", fallbackCard("Owned shards"), () => deps.domainOwnedHtml(state.domainCatalog, state.domainIds))}
       <div class="card auth-settings-card">
         <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
         <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
       </div>
     </div>
     <div id="domains-detail-content">
-      ${deps.renderDomainDetailCard()}
+      ${safeValue("renderDomainDetailCard", fallbackCard("Shard detail"), () => deps.renderDomainDetailCard())}
     </div>
   `;
   dom.mobilePanelDomainsEl.innerHTML = dom.panelDomainsContentEl.innerHTML;
