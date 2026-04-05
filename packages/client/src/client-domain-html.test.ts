@@ -62,4 +62,36 @@ describe("domain card previews", () => {
     expect(html).toContain('type="button"');
     expect(html).toContain('data-domain-card="farmers-compact"');
   });
+
+  it("shows unmet domain requirements directly on the card", () => {
+    const domain: DomainInfo = {
+      id: "frontier-doctrine",
+      tier: 1,
+      name: "Frontier Doctrine",
+      description: "Speeds settlement expansion.",
+      requiresTechId: "coinage",
+      mods: {},
+      requirements: {
+        gold: 6000,
+        resources: {},
+        canResearch: false,
+        checklist: [
+          { label: "Gold 6000", met: false },
+          { label: "Requires Coinage", met: false }
+        ]
+      }
+    };
+
+    const html = renderDomainChoiceGridHtml({
+      domainCatalog: [domain],
+      domainIds: [],
+      domainUiSelectedId: "",
+      ownedByTier: new Map(),
+      currentTier: 1,
+      requiresTechNames: { "frontier-doctrine": "Coinage" }
+    });
+
+    expect(html).toContain("✗ Gold 6000");
+    expect(html).toContain("✗ Requires Coinage");
+  });
 });
