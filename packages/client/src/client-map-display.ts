@@ -3,6 +3,7 @@ import {
   FORT_BUILD_MS,
   LIGHT_OUTPOST_BUILD_MS,
   OBSERVATORY_BUILD_MS,
+  OBSERVATORY_UPKEEP_PER_MIN,
   SIEGE_OUTPOST_BUILD_MS,
   WOODEN_FORT_BUILD_MS,
   structureCostDefinition
@@ -453,10 +454,14 @@ export const tileProductionHtml = (tile: Tile): string => {
 };
 
 export const tileUpkeepHtml = (tile: Tile): string => {
+  const parts: string[] = [];
   if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") {
-    return `${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`;
+    parts.push(`${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`);
   }
-  return "";
+  if (tile.observatory?.status === "active") {
+    parts.push(`${resourceIconForKey("CRYSTAL")} ${OBSERVATORY_UPKEEP_PER_MIN.toFixed(2)}/m`);
+  }
+  return parts.join(" · ");
 };
 
 export const storedYieldSummary = (tile: Tile): string => {
