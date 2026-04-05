@@ -46,6 +46,7 @@ export type Tile = {
     expiresAt?: number;
   } | null;
   town?: {
+    name?: string;
     type: "MARKET" | "FARMING";
     baseGoldPerMinute: number;
     supportCurrent: number;
