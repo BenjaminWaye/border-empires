@@ -291,6 +291,16 @@ export const menuOverviewForTile = (
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");
   }
+  if (tile.observatory) {
+    pushEffectLine("Observatory", `+${OBSERVATORY_VISION_BONUS} vision`, tile.observatory.status === "active" ? "positive" : "neutral");
+    if (tile.observatory.status === "active") {
+      pushLine("Observatory is active here and blocks hostile crystal actions nearby.");
+    } else if (tile.observatory.status === "under_construction") {
+      pushLine("Observatory is under construction on this tile.");
+    } else {
+      pushLine("Observatory is inactive here and currently provides no vision or protection.");
+    }
+  }
   if (tile.economicStructure) {
     pushEffectLine(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), "positive");
     if (isSynthLikeStructureType(tile.economicStructure.type)) {
