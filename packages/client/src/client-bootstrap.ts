@@ -645,4 +645,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     requestAttackPreviewForHover: actionFlow.requestAttackPreviewForHover,
     interactionFlags: actionFlow.mapInteractionFlags
   });
+
+  // Paint the HUD/auth shell immediately instead of waiting for async auth/socket callbacks.
+  renderHud();
 };
