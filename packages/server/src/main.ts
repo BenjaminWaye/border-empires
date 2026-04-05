@@ -1470,6 +1470,43 @@ const strategicDailyFromResource: Partial<Record<ResourceType, number>> = {
   OIL: 48
 };
 
+type EconomyResourceKey = "GOLD" | StrategicResource;
+type EconomyBreakdownBucket = { label: string; amountPerMinute: number; count: number; note?: string };
+type EconomyBreakdownResource = { sources: EconomyBreakdownBucket[]; sinks: EconomyBreakdownBucket[] };
+type EconomyBreakdown = Record<EconomyResourceKey, EconomyBreakdownResource>;
+
+const emptyEconomyBreakdown = (): EconomyBreakdown => ({
+  GOLD: { sources: [], sinks: [] },
+  FOOD: { sources: [], sinks: [] },
+  IRON: { sources: [], sinks: [] },
+  CRYSTAL: { sources: [], sinks: [] },
+  SUPPLY: { sources: [], sinks: [] },
+  SHARD: { sources: [], sinks: [] },
+  OIL: { sources: [], sinks: [] }
+});
+
+const pushEconomyBreakdownBucket = (
+  map: Map<string, EconomyBreakdownBucket>,
+  label: string,
+  amountPerMinute: number,
+  options: { count?: number; note?: string } = {}
+): void => {
+  if (amountPerMinute <= 0.0001) return;
+  const existing = map.get(label);
+  if (existing) {
+    existing.amountPerMinute += amountPerMinute;
+    existing.count += options.count ?? 1;
+    if (options.note) existing.note = options.note;
+    return;
+  }
+  const bucket: EconomyBreakdownBucket = { label, amountPerMinute, count: options.count ?? 1 };
+  if (options.note !== undefined) bucket.note = options.note;
+  map.set(label, bucket);
+};
+
+const sortedEconomyBreakdownBuckets = (map: Map<string, EconomyBreakdownBucket>): EconomyBreakdownBucket[] =>
+  [...map.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+
 const toStrategicResource = (resource: ResourceType | undefined): StrategicResource | undefined => {
   if (!resource) return undefined;
   if (resource === "FARM" || resource === "FISH") return "FOOD";
@@ -1478,6 +1515,26 @@ const toStrategicResource = (resource: ResourceType | undefined): StrategicResou
   if (resource === "WOOD" || resource === "FUR") return "SUPPLY";
   if (resource === "OIL") return "OIL";
   return undefined;
+};
+
+const goldResourceSourceLabel = (resource: ResourceType): string => {
+  if (resource === "FARM") return "Grain sites";
+  if (resource === "FISH") return "Fish sites";
+  if (resource === "FUR") return "Fur sites";
+  if (resource === "WOOD") return "Wood sites";
+  if (resource === "IRON") return "Iron sites";
+  if (resource === "GEMS") return "Gems sites";
+  return "Oil sites";
+};
+
+const strategicResourceSourceLabel = (resource: ResourceType): string => {
+  if (resource === "FARM") return "Grain";
+  if (resource === "FISH") return "Fish";
+  if (resource === "FUR") return "Fur";
+  if (resource === "WOOD") return "Wood";
+  if (resource === "IRON") return "Iron";
+  if (resource === "GEMS") return "Gems";
+  return "Oil";
 };
 
 const baseTileValue = (resource: ResourceType | undefined): number => {
@@ -5894,6 +5951,8 @@ const upkeepPerMinuteForPlayer = (player: Player): {
   let outpostCount = 0;
   let observatoryCount = 0;
   let airportCount = 0;
+  let goldStructureUpkeep = 0;
+  let crystalStructureUpkeep = 0;
   for (const tk of player.territoryTiles) {
     if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
     const town = townsByTile.get(tk);
@@ -5907,8 +5966,12 @@ const upkeepPerMinuteForPlayer = (player: Player): {
     if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
     const observatory = observatoriesByTile.get(tk);
     if (observatory?.ownerId === player.id && observatory?.status === "active") observatoryCount += 1;
-    const airport = economicStructuresByTile.get(tk);
-    if (airport?.ownerId === player.id && airport.status === "active" && airport.type === "AIRPORT") airportCount += 1;
+    const structure = economicStructuresByTile.get(tk);
+    if (structure?.ownerId === player.id && structure.status === "active") {
+      goldStructureUpkeep += economicStructureGoldUpkeepPerInterval(structure.type) / 10;
+      crystalStructureUpkeep += economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;
+      if (structure.type === "AIRPORT") airportCount += 1;
+    }
   }
   const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
   const effects = getPlayerEffectsForPlayer(player.id);
@@ -5920,10 +5983,14 @@ const upkeepPerMinuteForPlayer = (player: Player): {
     // 0.25 / 10 min per outpost.
     supply: outpostCount * 0.025 * effects.outpostSupplyUpkeepMult,
     // 0.25 / 10 min for each active empire reveal.
-    crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN,
+    crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN + crystalStructureUpkeep,
     oil: airportCount * AIRPORT_OIL_UPKEEP_PER_MIN,
     // 10 gold / 10 min per fort + 10 gold / 10 min per outpost + 1 gold / 10 min per 40 settled tiles.
-    gold: fortCount * 1 * effects.fortGoldUpkeepMult + outpostCount * 1 * effects.outpostGoldUpkeepMult + settledTileGoldUpkeep * effects.settledGoldUpkeepMult
+    gold:
+      fortCount * 1 * effects.fortGoldUpkeepMult +
+      outpostCount * 1 * effects.outpostGoldUpkeepMult +
+      settledTileGoldUpkeep * effects.settledGoldUpkeepMult +
+      goldStructureUpkeep
   };
 };
 
@@ -6127,6 +6194,131 @@ const upkeepContributorsForPlayer = (player: Player): Record<"food" | "iron" | "
     crystal: sortedUpkeepContributors(crystal),
     oil: sortedUpkeepContributors(oil),
     gold: sortedUpkeepContributors(gold)
+  };
+};
+
+const economyBreakdownForPlayer = (
+  player: Player,
+  upkeepContributors: Record<"food" | "iron" | "supply" | "crystal" | "oil" | "gold", UpkeepContributor[]>
+): EconomyBreakdown => {
+  const breakdown = emptyEconomyBreakdown();
+  const goldSources = new Map<string, EconomyBreakdownBucket>();
+  const foodSources = new Map<string, EconomyBreakdownBucket>();
+  const ironSources = new Map<string, EconomyBreakdownBucket>();
+  const crystalSources = new Map<string, EconomyBreakdownBucket>();
+  const supplySources = new Map<string, EconomyBreakdownBucket>();
+  const shardSources = new Map<string, EconomyBreakdownBucket>();
+  const oilSources = new Map<string, EconomyBreakdownBucket>();
+  const goldMultiplier = player.mods.income * PASSIVE_INCOME_MULT;
+
+  for (const [resource, count] of Object.entries(getOrInitResourceCounts(player.id)) as Array<[ResourceType, number]>) {
+    if (count <= 0) continue;
+    const amountPerMinute = count * (resourceRate[resource] ?? 0) * goldMultiplier;
+    pushEconomyBreakdownBucket(goldSources, goldResourceSourceLabel(resource), amountPerMinute, { count });
+  }
+
+  let dockCount = 0;
+  let dockIncome = 0;
+  for (const dock of docksByTile.values()) {
+    const [dx, dy] = parseKey(dock.tileKey);
+    const tile = playerTile(dx, dy);
+    if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") continue;
+    dockCount += 1;
+    dockIncome += dockIncomeForOwner(dock, player.id);
+  }
+  pushEconomyBreakdownBucket(goldSources, "Docks", dockIncome * goldMultiplier, { count: dockCount });
+
+  let townCount = 0;
+  let townIncome = 0;
+  for (const town of townsByTile.values()) {
+    const income = townIncomeForOwner(town, player.id) * siphonMultiplierAt(town.tileKey);
+    if (income <= 0.0001) continue;
+    townCount += 1;
+    townIncome += income;
+  }
+  pushEconomyBreakdownBucket(goldSources, "Towns", townIncome * goldMultiplier, { count: townCount });
+
+  let bankCount = 0;
+  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
+    const structure = economicStructuresByTile.get(tk);
+    if (structure?.type === "BANK" && structure.status === "active") bankCount += 1;
+  }
+  pushEconomyBreakdownBucket(goldSources, "Banks", bankCount * goldMultiplier, { count: bankCount });
+
+  for (const tk of player.territoryTiles) {
+    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
+    const [x, y] = parseKey(tk);
+    const tile = playerTile(x, y);
+    if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
+    const sr = toStrategicResource(tile.resource);
+    if (sr && tile.resource) {
+      const mult = activeResourceIncomeMult(player.id, tile.resource);
+      const daily = strategicDailyFromResource[tile.resource] ?? 0;
+      const amountPerMinute = (daily / 1440) * mult * siphonMultiplierAt(tk) * economicStructureOutputMultAt(tk, player.id);
+      const label = strategicResourceSourceLabel(tile.resource);
+      if (sr === "FOOD") pushEconomyBreakdownBucket(foodSources, label, amountPerMinute);
+      if (sr === "IRON") pushEconomyBreakdownBucket(ironSources, label, amountPerMinute);
+      if (sr === "CRYSTAL") pushEconomyBreakdownBucket(crystalSources, label, amountPerMinute);
+      if (sr === "SUPPLY") pushEconomyBreakdownBucket(supplySources, label, amountPerMinute);
+      if (sr === "OIL") pushEconomyBreakdownBucket(oilSources, label, amountPerMinute);
+    }
+
+    const structure = economicStructuresByTile.get(tk);
+    if (!structure || structure.ownerId !== player.id || structure.status !== "active") continue;
+    const output = converterStructureOutputFor(structure.type, player.id) ?? {};
+    for (const [resource, daily] of Object.entries(output) as Array<[StrategicResource, number]>) {
+      const amountPerMinute = daily / 1440;
+      const label = prettyEconomicStructureLabel(structure.type);
+      if (resource === "FOOD") pushEconomyBreakdownBucket(foodSources, label, amountPerMinute);
+      if (resource === "IRON") pushEconomyBreakdownBucket(ironSources, label, amountPerMinute);
+      if (resource === "CRYSTAL") pushEconomyBreakdownBucket(crystalSources, label, amountPerMinute);
+      if (resource === "SUPPLY") pushEconomyBreakdownBucket(supplySources, label, amountPerMinute);
+      if (resource === "SHARD") pushEconomyBreakdownBucket(shardSources, label, amountPerMinute);
+      if (resource === "OIL") pushEconomyBreakdownBucket(oilSources, label, amountPerMinute);
+    }
+  }
+
+  breakdown.GOLD.sources = sortedEconomyBreakdownBuckets(goldSources);
+  breakdown.FOOD.sources = sortedEconomyBreakdownBuckets(foodSources);
+  breakdown.IRON.sources = sortedEconomyBreakdownBuckets(ironSources);
+  breakdown.CRYSTAL.sources = sortedEconomyBreakdownBuckets(crystalSources);
+  breakdown.SUPPLY.sources = sortedEconomyBreakdownBuckets(supplySources);
+  breakdown.SHARD.sources = sortedEconomyBreakdownBuckets(shardSources);
+  breakdown.OIL.sources = sortedEconomyBreakdownBuckets(oilSources);
+
+  breakdown.GOLD.sinks = upkeepContributors.gold.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
+  breakdown.FOOD.sinks = upkeepContributors.food.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
+  breakdown.IRON.sinks = upkeepContributors.iron.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
+  breakdown.CRYSTAL.sinks = upkeepContributors.crystal.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
+  breakdown.SUPPLY.sinks = upkeepContributors.supply.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
+  breakdown.OIL.sinks = upkeepContributors.oil.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
+  return breakdown;
+};
+
+const playerEconomySnapshot = (player: Player): {
+  incomePerMinute: number;
+  strategicProductionPerMinute: Record<StrategicResource, number>;
+  upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
+  upkeepLastTick: UpkeepDiagnostics;
+  economyBreakdown: EconomyBreakdown;
+} => {
+  const upkeepContributors = upkeepContributorsForPlayer(player);
+  const lastTick = lastUpkeepByPlayer.get(player.id) ?? emptyUpkeepDiagnostics();
+  const upkeepLastTick: UpkeepDiagnostics = {
+    ...lastTick,
+    food: { ...lastTick.food, contributors: upkeepContributors.food },
+    iron: { ...lastTick.iron, contributors: upkeepContributors.iron },
+    supply: { ...lastTick.supply, contributors: upkeepContributors.supply },
+    crystal: { ...lastTick.crystal, contributors: upkeepContributors.crystal },
+    oil: { ...lastTick.oil, contributors: upkeepContributors.oil },
+    gold: { ...lastTick.gold, contributors: upkeepContributors.gold }
+  };
+  return {
+    incomePerMinute: currentIncomePerMinute(player),
+    strategicProductionPerMinute: strategicProductionPerMinute(player),
+    upkeepPerMinute: upkeepPerMinuteForPlayer(player),
+    upkeepLastTick,
+    economyBreakdown: economyBreakdownForPlayer(player, upkeepContributors)
   };
 };
 
@@ -6938,10 +7130,8 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
   const ws = socketsByPlayer.get(p.id);
   if (!ws || ws.readyState !== ws.OPEN) return;
   refreshGlobalStatusCache(false);
+  const economy = playerEconomySnapshot(p);
   const strategicStocks = getOrInitStrategicStocks(p.id);
-  const strategicProduction = strategicProductionPerMinute(p);
-  const upkeepDiag = lastUpkeepByPlayer.get(p.id) ?? emptyUpkeepDiagnostics();
-  const upkeepNeed = upkeepPerMinuteForPlayer(p);
   const pendingSettlements = [...pendingSettlementsByTile.values()]
     .filter((settlement) => settlement.ownerId === p.id)
     .map((settlement) => {
@@ -6960,12 +7150,13 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       level: p.level,
       mods: p.mods,
       modBreakdown: playerModBreakdown(p),
-      incomePerMinute: currentIncomePerMinute(p),
+      incomePerMinute: economy.incomePerMinute,
       incomeDelta,
       strategicResources: strategicStocks,
-      strategicProductionPerMinute: strategicProduction,
-      upkeepPerMinute: upkeepNeed,
-      upkeepLastTick: upkeepDiag,
+      strategicProductionPerMinute: economy.strategicProductionPerMinute,
+      economyBreakdown: economy.economyBreakdown,
+      upkeepPerMinute: economy.upkeepPerMinute,
+      upkeepLastTick: economy.upkeepLastTick,
       stamina: p.stamina,
       manpower: p.manpower,
       manpowerCap: playerManpowerCap(p),
@@ -16023,11 +16214,11 @@ app.post("/admin/world/regenerate", async () => {
       authedPlayer = player;
       socketsByPlayer.set(player.id, socket);
       resumeVictoryPressureTimers();
-      const strategicStocks = getOrInitStrategicStocks(player.id);
-      const strategicProduction = strategicProductionPerMinute(player);
-      const dockPairs = exportDockPairs();
       completeDueResearchForPlayer(player);
       applyManpowerRegen(player);
+      const economy = playerEconomySnapshot(player);
+      const strategicStocks = getOrInitStrategicStocks(player.id);
+      const dockPairs = exportDockPairs();
       sendLoginPhase(socket, "PLAYER_LOADED", "Connecting your empire...", "Empire record ready. Preparing your session...");
       socket.send(
         JSON.stringify({
@@ -16041,9 +16232,12 @@ app.post("/admin/world/regenerate", async () => {
             level: player.level,
             mods: player.mods,
             modBreakdown: playerModBreakdown(player),
-            incomePerMinute: currentIncomePerMinute(player),
+            incomePerMinute: economy.incomePerMinute,
             strategicResources: strategicStocks,
-            strategicProductionPerMinute: strategicProduction,
+            strategicProductionPerMinute: economy.strategicProductionPerMinute,
+            economyBreakdown: economy.economyBreakdown,
+            upkeepPerMinute: economy.upkeepPerMinute,
+            upkeepLastTick: economy.upkeepLastTick,
             stamina: player.stamina,
             manpower: player.manpower,
             manpowerCap: playerManpowerCap(player),

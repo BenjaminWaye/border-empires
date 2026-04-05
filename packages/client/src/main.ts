@@ -85,7 +85,7 @@ import {
   computeDragPreview as computeDragPreviewFromModule,
   worldTileRawFromPointer as worldTileRawFromPointerFromModule
 } from "./client-drag-selection.js";
-import { renderEconomyPanelHtml, type EconomyFocusKey } from "./client-economy-html.js";
+import type { EconomyFocusKey } from "./client-economy-model.js";
 import { bindClientNetwork } from "./client-network.js";
 import { createClientOptimisticStateController } from "./client-optimistic-state.js";
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";

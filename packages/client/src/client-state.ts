@@ -1,5 +1,6 @@
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY } from "./client-constants.js";
 import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
+import type { EconomyBreakdown } from "./client-economy-model.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type {
   AllianceRequest,
@@ -69,6 +70,7 @@ export const createInitialState = () => ({
   incomePerMinute: 0,
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>,
+  economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
   upkeepLastTick: {
     food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
