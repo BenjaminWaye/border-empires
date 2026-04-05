@@ -33,4 +33,33 @@ describe("domain card previews", () => {
 
     expect(html).toContain("✗ Requires Cartography");
   });
+
+  it("renders domain cards as explicit buttons for detail opening", () => {
+    const domain: DomainInfo = {
+      id: "farmers-compact",
+      tier: 1,
+      name: "Farmer's Compact",
+      description: "Improves growth and food efficiency.",
+      requiresTechId: "coinage",
+      mods: {},
+      requirements: {
+        gold: 6000,
+        resources: {},
+        canResearch: true,
+        checklist: [{ label: "Gold 6000", met: true }]
+      }
+    };
+
+    const html = renderDomainChoiceGridHtml({
+      domainCatalog: [domain],
+      domainIds: [],
+      domainUiSelectedId: "",
+      ownedByTier: new Map(),
+      currentTier: 1,
+      requiresTechNames: { "farmers-compact": "Coinage" }
+    });
+
+    expect(html).toContain('type="button"');
+    expect(html).toContain('data-domain-card="farmers-compact"');
+  });
 });
