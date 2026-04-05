@@ -30,6 +30,14 @@ describe("economy balance regression guard", () => {
     expect(source).toContain("upkeepLastTick: economy.upkeepLastTick");
   });
 
+  it("mirrors synthesizer gold upkeep onto the output-resource tabs", () => {
+    const source = serverSource();
+    expect(source).toContain('resourceKey: "GOLD"');
+    expect(source).toContain('if (entry.label.includes("Fur Synthesizer")) mirrorGoldUpkeep("SUPPLY", entry);');
+    expect(source).toContain('else if (entry.label.includes("Ironworks")) mirrorGoldUpkeep("IRON", entry);');
+    expect(source).toContain('else if (entry.label.includes("Crystal Synthesizer")) mirrorGoldUpkeep("CRYSTAL", entry);');
+  });
+
   it("reports continental footprint using the weakest qualifying island and a per-player comparison line", () => {
     const source = serverSource();
     expect(source).toContain('weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})');

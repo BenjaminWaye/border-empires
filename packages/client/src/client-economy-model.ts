@@ -6,6 +6,7 @@ export type EconomyBucket = {
   label: string;
   amountPerMinute: number;
   count: number;
+  resourceKey?: EconomyResourceKey;
   note?: string;
 };
 
