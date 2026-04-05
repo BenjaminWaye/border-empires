@@ -16,7 +16,9 @@ const aiIndexStoreSource = (): string => {
 const functionBody = (source: string, functionName: string): string => {
   const start = source.indexOf(`const ${functionName} =`);
   if (start === -1) throw new Error(`Could not find function ${functionName}`);
-  const open = source.indexOf("{", start);
+  const arrow = source.indexOf("=>", start);
+  if (arrow === -1) throw new Error(`Could not find arrow for ${functionName}`);
+  const open = source.indexOf("{", arrow);
   if (open === -1) throw new Error(`Could not find opening brace for ${functionName}`);
   let depth = 0;
   for (let index = open; index < source.length; index += 1) {
@@ -87,13 +89,21 @@ describe("buildAiPlanningSnapshot regression guard", () => {
   });
 
   it("reuses cached frontier candidates during execute instead of rescanning heavy neutral expand selectors", () => {
-    const body = functionBody(serverMainSource(), "runAiTurn");
-    expect(body).toContain("const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);");
-    expect(body).toContain("neutralExpand: planningStatic.bestEconomicExpand");
-    expect(body).toContain("anyNeutralExpand: planningStatic.bestAnyNeutralExpand");
-    expect(body).toContain("scoutExpand: planningStatic.bestScoutExpand");
-    expect(body).toContain("scaffoldExpand: planningStatic.bestScaffoldExpand");
-    expect(body).toContain("islandExpand: planningStatic.bestIslandExpand");
+    const runBody = functionBody(serverMainSource(), "runAiTurn");
+    expect(runBody).toContain("const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);");
+    expect(runBody).toContain("neutralExpand: planningStatic.bestEconomicExpand");
+    expect(runBody).toContain("anyNeutralExpand: planningStatic.bestAnyNeutralExpand");
+    expect(runBody).toContain("scoutExpand: planningStatic.bestScoutExpand");
+    expect(runBody).toContain("scaffoldExpand: planningStatic.bestScaffoldExpand");
+    expect(runBody).toContain("islandExpand: planningStatic.bestIslandExpand");
+
+    const executeBody = functionBody(serverMainSource(), "executeAiGoapAction");
+    expect(executeBody).toContain("const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>");
+    expect(executeBody).not.toContain("bestAiIslandExpand(");
+    expect(executeBody).not.toContain("bestAiEconomicExpand(");
+    expect(executeBody).not.toContain("bestAiAnyNeutralExpand(");
+    expect(executeBody).not.toContain("bestAiScoutExpand(");
+    expect(executeBody).not.toContain("bestAiScaffoldExpand(");
   });
 
   it("keeps victory-path scoring on cheap cached territory signals", () => {
