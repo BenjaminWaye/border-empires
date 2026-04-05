@@ -337,6 +337,7 @@ const firebaseJwks = createRemoteJWKSet(
   }
 );
 const verifiedFirebaseTokenCache = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
+const verifiedFirebaseIdentityByUid = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
 const firebaseAdminEnabled = Boolean(
   process.env.GOOGLE_APPLICATION_CREDENTIALS ||
     (process.env.FIREBASE_ADMIN_CLIENT_EMAIL && process.env.FIREBASE_ADMIN_PRIVATE_KEY)
@@ -389,6 +390,32 @@ const cachedFirebaseIdentityForToken = (token: string): { uid: string; email?: s
   return cached.decoded;
 };
 
+const cachedFirebaseIdentityForUid = (uid: string): { uid: string; email?: string | undefined; name?: string | undefined } | undefined => {
+  const cached = verifiedFirebaseIdentityByUid.get(uid);
+  if (!cached) return undefined;
+  if (cached.expiresAt <= now()) {
+    verifiedFirebaseIdentityByUid.delete(uid);
+    return undefined;
+  }
+  return cached.decoded;
+};
+
+const cachedFirebaseIdentityForDecodedToken = (
+  token: string
+): { uid: string; email?: string | undefined; name?: string | undefined } | undefined => {
+  const exact = cachedFirebaseIdentityForToken(token);
+  if (exact) return exact;
+  const decoded = decodeFirebaseTokenFallback(token);
+  if (!decoded?.uid) return undefined;
+  const cachedByUid = cachedFirebaseIdentityForUid(decoded.uid);
+  if (!cachedByUid) return undefined;
+  return {
+    uid: cachedByUid.uid,
+    email: decoded.email ?? cachedByUid.email,
+    name: decoded.name ?? cachedByUid.name
+  };
+};
+
 const cacheVerifiedFirebaseIdentity = (
   token: string,
   decoded: { uid: string; email?: string | undefined; name?: string | undefined },
@@ -399,6 +426,7 @@ const cacheVerifiedFirebaseIdentity = (
       ? Math.max(now() + 60_000, exp * 1000)
       : now() + FIREBASE_TOKEN_CACHE_TTL_MS;
   verifiedFirebaseTokenCache.set(token, { decoded, expiresAt });
+  verifiedFirebaseIdentityByUid.set(decoded.uid, { decoded, expiresAt });
 };
 
 const decodeJwtPayload = (token: string): Record<string, unknown> | undefined => {
@@ -16128,7 +16156,7 @@ app.post("/admin/world/regenerate", async () => {
       const authStartedAt = now();
       authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
       sendLoginPhase(socket, "AUTH_RECEIVED", "Securing session", "Game server reached. Verifying your Google session...");
-      let decoded = cachedFirebaseIdentityForToken(msg.token);
+      let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);
       try {
         if (!decoded) {
           const verified = await verifyFirebaseToken(msg.token);
@@ -16141,7 +16169,7 @@ app.post("/admin/world/regenerate", async () => {
         }
       } catch (err) {
         const authError = classifyAuthError(err);
-        if (!decoded) decoded = cachedFirebaseIdentityForToken(msg.token);
+        if (!decoded) decoded = cachedFirebaseIdentityForDecodedToken(msg.token);
         if (decoded) {
           app.log.warn({ err }, "firebase token verification fallback to cached identity");
         } else {
@@ -16206,6 +16234,7 @@ app.post("/admin/world/regenerate", async () => {
           playerId: player.id,
           uid: decoded.uid,
           cachedToken: Boolean(cachedFirebaseIdentityForToken(msg.token)),
+          cachedUidIdentity: !cachedFirebaseIdentityForToken(msg.token) && Boolean(cachedFirebaseIdentityForDecodedToken(msg.token)),
           verifyElapsedMs: verifiedAt - authStartedAt
         },
         "auth verified"
