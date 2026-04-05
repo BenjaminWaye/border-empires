@@ -445,17 +445,27 @@ export const renderClientHud = (deps: HudDeps): void => {
       chooseTech(id);
     };
   });
+  const openDomainDetail = (id: string): void => {
+    state.domainUiSelectedId = id;
+    state.activePanel = "domains";
+    state.mobilePanel = "domains";
+    state.domainDetailOpen = true;
+    state.techDetailOpen = false;
+    renderClientHud(deps);
+  };
   const domainCardButtons = dom.hud.querySelectorAll("[data-domain-card]") as NodeListOf<HTMLButtonElement>;
   domainCardButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
       const id = btn.dataset.domainCard;
       if (!id) return;
-      state.domainUiSelectedId = id;
-      state.activePanel = "domains";
-      state.mobilePanel = "domains";
-      state.domainDetailOpen = true;
-      state.techDetailOpen = false;
-      renderClientHud(deps);
+      openDomainDetail(id);
+    };
+    btn.onpointerup = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const id = btn.dataset.domainCard;
+      if (!id) return;
+      event.preventDefault();
+      openDomainDetail(id);
     };
   });
   const domainDetailCloseButtons = dom.hud.querySelectorAll("[data-domain-detail-close]") as NodeListOf<HTMLElement>;
