@@ -123,11 +123,7 @@ export const selectedTechInfo = (deps: {
   return deps.techCatalog.find((tech) => tech.id === selectedId);
 };
 
-export const renderTechDetailPrompt = (): string =>
-  `<article class="card tech-detail-placeholder">
-    <strong>Inspect Technology</strong>
-    <p>Tap any tech card to open its full description, related structures, prerequisites, and unlock action.</p>
-  </article>`;
+export const renderTechDetailPrompt = (): string => "";
 
 export const renderTechDetailCard = (deps: {
   tech: TechInfo | undefined;
