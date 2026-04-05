@@ -20,4 +20,10 @@ describe("client HUD dependency wiring", () => {
     expect(hudSource).toContain('dom.mobileCoreHelpEl.innerHTML = mobile');
     expect(hudSource).toContain('dom.mobileCoreHelpEl.style.display = mobile ? "none" : "";');
   });
+
+  it("keeps expanded desktop tech trees in split layout even when a detail card is open", () => {
+    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+
+    expect(hudSource).toContain('state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded');
+  });
 });
