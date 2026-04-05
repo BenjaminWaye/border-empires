@@ -59,8 +59,11 @@ export const structureOverlayImages = {
   GRANARY: loadOverlayImage("granary-overlay.svg"),
   FUR_SYNTHESIZER: loadOverlayImage("fur-synthesizer-overlay.svg"),
   ADVANCED_FUR_SYNTHESIZER: loadOverlayImage("advanced-fur-synthesizer-overlay.svg"),
+  IRONWORKS: loadOverlayImage("ironworks-overlay.svg"),
   ADVANCED_IRONWORKS: loadOverlayImage("advanced-ironworks-overlay.svg"),
-  ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg")
+  CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg"),
+  ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg"),
+  FUEL_PLANT: loadOverlayImage("fuel-plant-overlay.svg")
 } as const;
 
 const builtResourceOverlayVariants = {

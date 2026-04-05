@@ -2,19 +2,17 @@
   "FORT": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
-    "sortGroup": "general",
-    "requiresBorder": "border_or_dock"
+    "sortGroup": "military"
   },
   "OBSERVATORY": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
-    "sortGroup": "general"
+    "sortGroup": "military"
   },
   "SIEGE_OUTPOST": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
-    "sortGroup": "general",
-    "requiresBorder": "border_or_dock"
+    "sortGroup": "military"
   },
   "FARMSTEAD": {
     "showOn": ["resource"],
@@ -57,14 +55,12 @@
   "WOODEN_FORT": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
-    "sortGroup": "general",
-    "requiresBorder": "border_or_dock"
+    "sortGroup": "military"
   },
   "LIGHT_OUTPOST": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
-    "sortGroup": "general",
-    "requiresBorder": "border_or_dock"
+    "sortGroup": "military"
   },
   "FUR_SYNTHESIZER": {
     "showOn": ["town", "support"],

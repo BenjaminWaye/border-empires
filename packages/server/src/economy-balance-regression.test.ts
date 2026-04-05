@@ -43,6 +43,13 @@ describe("economy balance regression guard", () => {
     expect(source).toContain('if (type === "FOUNDRY") return "Foundry";');
   });
 
+  it("keeps converter structures inactive after upkeep failures until they are manually enabled", () => {
+    const source = serverSource();
+    expect(source).toContain('if (isConverterStructureType(structure.type) && structure.status === "inactive" && structure.inactiveReason)');
+    expect(source).toContain('if (isConverterStructureType(structure.type)) structure.inactiveReason = "upkeep";');
+    expect(source).toContain('const trySetConverterStructureEnabled = (actor: Player, x: number, y: number, enabled: boolean)');
+  });
+
   it("reports continental footprint using the weakest qualifying island and a per-player comparison line", () => {
     const source = serverSource();
     expect(source).toContain('weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})');

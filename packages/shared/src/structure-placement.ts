@@ -4,7 +4,7 @@ import type { OwnershipState, PopulationTier, ResourceType } from "./types.js";
 
 export type StructureTileSurface = "settled" | "resource" | "town" | "support" | "dock" | "dock_support";
 export type StructurePlacementMode = "same_tile" | "town_support" | "dock_support";
-export type StructureSortGroup = "support" | "general" | "resource";
+export type StructureSortGroup = "support" | "general" | "resource" | "military";
 export type StructureBorderRule = "border" | "border_or_dock";
 
 export type StructurePlacementMetadata = {
@@ -57,5 +57,6 @@ export const structureSortRank = (type: BuildableStructureType): number => {
   const group = structurePlacementMetadata(type).sortGroup;
   if (group === "support") return 0;
   if (group === "general") return 1;
-  return 2;
+  if (group === "resource") return 2;
+  return 3;
 };
