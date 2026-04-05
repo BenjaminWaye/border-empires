@@ -199,10 +199,12 @@ export const renderClientHud = (deps: HudDeps): void => {
   if (missionsMobileBtn) missionsMobileBtn.innerHTML = mobileNavLabelHtml("missions");
   const techMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='tech']") as HTMLButtonElement | null;
   if (techMobileBtn) techMobileBtn.innerHTML = mobileNavLabelHtml("tech", { techReady });
+  const leaderboardMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='leaderboard']") as HTMLButtonElement | null;
+  if (leaderboardMobileBtn) leaderboardMobileBtn.innerHTML = mobileNavLabelHtml("leaderboard");
   const socialMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='social']") as HTMLButtonElement | null;
   if (socialMobileBtn) socialMobileBtn.innerHTML = mobileNavLabelHtml("social");
-  const intelMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='intel']") as HTMLButtonElement | null;
-  if (intelMobileBtn) intelMobileBtn.innerHTML = mobileNavLabelHtml("intel", { attackAlertUnread });
+  const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
+  if (feedMobileBtn) feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread });
 
   if (state.crystalTargeting.active) {
     const ability = state.crystalTargeting.ability;
