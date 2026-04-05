@@ -28,4 +28,11 @@ describe("client HUD dependency wiring", () => {
 
     expect(hudSource).toContain('state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded');
   });
+
+  it("rerenders the economy panel immediately when opening it from a stat chip", () => {
+    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+
+    expect(hudSource).toContain('openEconomyPanel(focus ?? "ALL");');
+    expect(hudSource).toContain("renderClientHud(deps);");
+  });
 });

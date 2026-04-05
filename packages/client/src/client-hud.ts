@@ -161,6 +161,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     btn.onclick = () => {
       const focus = btn.dataset.economyOpen as EconomyFocusKey | undefined;
       openEconomyPanel(focus ?? "ALL");
+      renderClientHud(deps);
     };
   });
   const defensibilityButtons = dom.statsChipsEl.querySelectorAll("[data-defensibility-open]") as NodeListOf<HTMLButtonElement>;

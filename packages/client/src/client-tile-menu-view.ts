@@ -17,6 +17,15 @@ import {
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "./client-types.js";
 
+const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
+  type === "FUR_SYNTHESIZER" ||
+  type === "ADVANCED_FUR_SYNTHESIZER" ||
+  type === "IRONWORKS" ||
+  type === "ADVANCED_IRONWORKS" ||
+  type === "CRYSTAL_SYNTHESIZER" ||
+  type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
+  type === "FUEL_PLANT";
+
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
   if (actionId === "settle_land") return "Makes this tile defended and activates production.";
   if (actionId === "build_fortification") {
@@ -284,6 +293,17 @@ export const menuOverviewForTile = (
   }
   if (tile.economicStructure) {
     pushEffectLine(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), "positive");
+    if (isSynthLikeStructureType(tile.economicStructure.type)) {
+      if (tile.economicStructure.status === "active") {
+        pushLine("Structure is active and currently contributing output and upkeep.");
+      } else if (tile.economicStructure.disabledUntil && tile.economicStructure.disabledUntil > Date.now()) {
+        pushLine("Structure is disabled while recovering from overload and currently contributes no output or upkeep.");
+      } else if (tile.economicStructure.status === "inactive") {
+        pushLine("Structure is disabled and currently contributes no output or upkeep.");
+      }
+    } else if (tile.economicStructure.status === "inactive") {
+      pushLine("Structure is inactive and currently contributes no output or upkeep.");
+    }
   }
   const storedYield = storedYieldSummary(tile);
   if (storedYield) pushLine(`Stored yield: ${storedYield}`);
