@@ -317,6 +317,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           } else if (t.economicStructure.type === "FUR_SYNTHESIZER") {
             const overlay = deps.structureOverlayImages.FUR_SYNTHESIZER;
             if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
+          } else if (t.economicStructure.type === "IRONWORKS") {
+            const overlay = deps.structureOverlayImages.IRONWORKS;
+            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
+          } else if (t.economicStructure.type === "CRYSTAL_SYNTHESIZER") {
+            const overlay = deps.structureOverlayImages.CRYSTAL_SYNTHESIZER;
+            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
+          } else if (t.economicStructure.type === "FUEL_PLANT") {
+            const overlay = deps.structureOverlayImages.FUEL_PLANT;
+            if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
           } else if (
             t.economicStructure.type === "ADVANCED_FUR_SYNTHESIZER" ||
             t.economicStructure.type === "ADVANCED_IRONWORKS" ||

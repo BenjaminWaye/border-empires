@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { constructionProgressForTile, menuOverviewForTile } from "./client-tile-menu-view.js";
 import type { Tile } from "./client-types.js";
 
-const settledSupportTile = (status: NonNullable<Tile["economicStructure"]>["status"], disabledUntil?: number): Tile => ({
+const settledSupportTile = (
+  status: NonNullable<Tile["economicStructure"]>["status"],
+  disabledUntil?: number,
+  inactiveReason?: NonNullable<Tile["economicStructure"]>["inactiveReason"]
+): Tile => ({
   x: 90,
   y: 329,
   terrain: "LAND",
@@ -13,7 +17,8 @@ const settledSupportTile = (status: NonNullable<Tile["economicStructure"]>["stat
     ownerId: "me",
     type: "FUR_SYNTHESIZER",
     status,
-    ...(disabledUntil !== undefined ? { disabledUntil } : {})
+    ...(disabledUntil !== undefined ? { disabledUntil } : {}),
+    ...(inactiveReason !== undefined ? { inactiveReason } : {})
   }
 });
 
@@ -59,6 +64,16 @@ describe("menuOverviewForTile", () => {
   it("distinguishes overloaded recovery from generic inactivity", () => {
     const lines = menuOverviewForTile(settledSupportTile("inactive", Date.now() + 60_000), deps);
     expect(lines.some((line) => line.html.includes("disabled while recovering from overload"))).toBe(true);
+  });
+
+  it("calls out synths shut down by missing upkeep until manually enabled", () => {
+    const lines = menuOverviewForTile(settledSupportTile("inactive", undefined, "upkeep"), deps);
+    expect(lines.some((line) => line.html.includes("must be manually re-enabled"))).toBe(true);
+  });
+
+  it("calls out manually disabled synths", () => {
+    const lines = menuOverviewForTile(settledSupportTile("inactive", undefined, "manual"), deps);
+    expect(lines.some((line) => line.html.includes("manually disabled"))).toBe(true);
   });
 
   it("describes active observatories and their crystal upkeep", () => {
