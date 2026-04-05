@@ -1367,18 +1367,18 @@ body {
 
 .guide-modal {
   position: relative;
-  width: calc(100vw - 28px);
-  max-width: 560px;
-  max-width: 100%;
-  max-height: calc(100dvh - 40px);
-  padding: 24px 24px 20px;
-  border-radius: 24px;
+  width: min(780px, calc(100vw - 40px));
+  max-height: calc(100dvh - 48px);
+  padding: 28px 28px 24px;
+  border-radius: 26px;
   border: 1px solid rgba(191, 206, 184, 0.18);
-  background: linear-gradient(180deg, rgba(41, 47, 41, 0.98), rgba(34, 39, 34, 0.98));
+  background:
+    radial-gradient(circle at top left, rgba(57, 102, 78, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(41, 47, 41, 0.98), rgba(28, 33, 28, 0.98));
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
   color: #f3f6f1;
   overflow: hidden;
 }
@@ -1386,23 +1386,28 @@ body {
 .guide-modal-scroll {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
   min-height: 0;
   overflow: auto;
-  padding-right: 4px;
+  padding-right: 2px;
 }
 
 .guide-close-btn {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 18px;
+  right: 18px;
+  width: 40px;
+  height: 40px;
   border: 0;
-  background: transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(214, 221, 214, 0.78);
-  font-size: 28px;
+  font-size: 26px;
   line-height: 1;
   cursor: pointer;
   z-index: 1;
+  display: grid;
+  place-items: center;
 }
 
 .guide-kicker {
@@ -1413,7 +1418,7 @@ body {
 
 .guide-title {
   margin: 0;
-  font-size: clamp(34px, 4vw, 52px);
+  font-size: clamp(36px, 4vw, 54px);
   line-height: 1.02;
   letter-spacing: -0.05em;
   color: #fbfdf9;
@@ -1422,8 +1427,8 @@ body {
 .guide-body {
   margin: 0;
   max-width: 46ch;
-  font-size: 16px;
-  line-height: 1.58;
+  font-size: 17px;
+  line-height: 1.62;
   color: rgba(226, 233, 226, 0.88);
 }
 
@@ -1679,6 +1684,9 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-top: 4px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(191, 206, 184, 0.12);
 }
 
 .guide-actions-right {
@@ -1707,6 +1715,68 @@ body {
   background: linear-gradient(180deg, #11c34a, #0da53d);
   border-color: rgba(78, 217, 122, 0.82);
   color: #f9fff9;
+}
+
+@media (min-width: 901px) {
+  #guide-overlay {
+    padding: 32px;
+  }
+
+  .guide-modal {
+    width: min(920px, calc(100vw - 64px));
+    padding: 32px 32px 28px;
+  }
+
+  .guide-modal::before {
+    content: "";
+    position: absolute;
+    top: 24px;
+    right: 28px;
+    bottom: 28px;
+    width: min(252px, 29vw);
+    border-radius: 24px;
+    border: 1px solid rgba(191, 206, 184, 0.12);
+    background:
+      radial-gradient(circle at 24% 22%, rgba(59, 130, 246, 0.18), transparent 26%),
+      radial-gradient(circle at 68% 74%, rgba(34, 197, 94, 0.22), transparent 28%),
+      linear-gradient(150deg, rgba(23, 33, 29, 0.98), rgba(11, 16, 14, 0.92));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 20px 50px rgba(0, 0, 0, 0.22);
+  }
+
+  .guide-modal::after {
+    content: "";
+    position: absolute;
+    top: 58px;
+    right: 56px;
+    width: min(196px, 22vw);
+    aspect-ratio: 1;
+    border-radius: 22px;
+    background:
+      linear-gradient(90deg, transparent 0 23%, rgba(255, 255, 255, 0.04) 23% 25%, transparent 25% 48%, rgba(255, 255, 255, 0.03) 48% 50%, transparent 50% 100%),
+      linear-gradient(0deg, transparent 0 21%, rgba(255, 255, 255, 0.04) 21% 23%, transparent 23% 46%, rgba(255, 255, 255, 0.03) 46% 48%, transparent 48% 100%),
+      radial-gradient(circle at 62% 66%, rgba(34, 197, 94, 0.48), rgba(34, 197, 94, 0) 18%),
+      linear-gradient(180deg, rgba(28, 38, 35, 0.94), rgba(14, 19, 17, 0.94));
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 16px 36px rgba(0, 0, 0, 0.24);
+    opacity: 0.92;
+  }
+
+  .guide-modal-scroll {
+    width: min(100%, calc(100% - min(300px, 34vw)));
+    max-width: 580px;
+    gap: 22px;
+  }
+
+  .guide-title {
+    max-width: 10.5ch;
+  }
+
+  .guide-body {
+    max-width: 42ch;
+  }
 }
 
 .targeting-card {
@@ -4221,12 +4291,19 @@ button:disabled,
     box-sizing: border-box;
   }
 
+  .guide-modal::before,
+  .guide-modal::after {
+    content: none;
+  }
+
   .guide-modal-scroll {
     min-height: 0;
     max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 96px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
   }
 
   .guide-title {
