@@ -450,6 +450,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       const id = btn.dataset.domainCard;
       if (!id) return;
       state.domainUiSelectedId = id;
+      state.activePanel = "domains";
+      state.mobilePanel = "domains";
       state.domainDetailOpen = true;
       state.techDetailOpen = false;
       renderClientHud(deps);

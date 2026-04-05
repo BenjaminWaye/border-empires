@@ -458,7 +458,7 @@ export const renderDomainChoiceGridHtml = (args: {
                 ? requiredTechName || blockedReason
                 : undefined
               : undefined;
-          return `<button class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${domain.id}" data-domain-can-unlock="${canUnlock ? "true" : "false"}">
+          return `<button type="button" class="tech-card domain-card domain-card-${status.tone}${selected}${owned}${blocked}" data-domain-card="${domain.id}" data-domain-can-unlock="${canUnlock ? "true" : "false"}">
             <div class="tech-card-top">
               <strong>${domain.name}</strong>
               <span class="domain-card-badge">${cardBadge}</span>
