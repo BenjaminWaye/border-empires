@@ -29,6 +29,8 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "overload_fur_synthesizer") return "↯";
   if (id === "overload_ironworks") return "↯";
   if (id === "overload_crystal_synthesizer") return "↯";
+  if (id === "enable_converter_structure") return "▶";
+  if (id === "disable_converter_structure") return "⏸";
   if (id === "build_fuel_plant") return "⬢";
   if (id === "build_foundry") return "⚙";
   if (id === "build_garrison_hall") return "🛡";
