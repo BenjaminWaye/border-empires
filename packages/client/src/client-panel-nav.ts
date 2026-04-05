@@ -23,7 +23,8 @@ export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): C
   if (panel === "defensibility") return "defensibility";
   if (panel === "economy") return "economy";
   if (panel === "manpower") return "manpower";
-  return "intel";
+  if (panel === "leaderboard") return "leaderboard";
+  return "feed";
 };
 
 export const mobileNavLabelHtml = (
@@ -39,6 +40,7 @@ export const mobileNavLabelHtml = (
   }
   if (panel === "domains") return '<span class="tab-icon">✦</span>';
   if (panel === "social") return '<span class="tab-icon">👥</span>';
+  if (panel === "leaderboard") return '<span class="tab-icon">🏆</span>';
   return opts?.attackAlertUnread
     ? '<span class="tab-icon">🔔</span><span class="attack-alert-dot" aria-label="under attack">🔥</span>'
     : '<span class="tab-icon">🔔</span>';
@@ -66,7 +68,7 @@ export const setActivePanel = (
   if (panel === "feed") state.unreadAttackAlerts = 0;
   if (isMobile() && panel) {
     state.mobilePanel = panelToMobile(panel);
-    if (state.mobilePanel === "intel") state.unreadAttackAlerts = 0;
+    if (state.mobilePanel === "feed") state.unreadAttackAlerts = 0;
   }
   deps.renderMobilePanels();
 };
@@ -89,7 +91,8 @@ export const renderMobilePanels = (
     mobilePanelDefensibilityEl: HTMLElement;
     mobilePanelEconomyEl: HTMLElement;
     mobilePanelManpowerEl: HTMLElement;
-    mobilePanelIntelEl: HTMLElement;
+    mobilePanelLeaderboardEl: HTMLElement;
+    mobilePanelFeedEl: HTMLElement;
     mobileSheetHeadEl: HTMLElement;
   }
 ): void => {
@@ -132,7 +135,8 @@ export const renderMobilePanels = (
     [deps.mobilePanelDefensibilityEl, "defensibility"],
     [deps.mobilePanelEconomyEl, "economy"],
     [deps.mobilePanelManpowerEl, "manpower"],
-    [deps.mobilePanelIntelEl, "intel"]
+    [deps.mobilePanelLeaderboardEl, "leaderboard"],
+    [deps.mobilePanelFeedEl, "feed"]
   ];
   for (const [element, panel] of mobileSections) {
     element.style.display = panel === state.mobilePanel ? "grid" : "none";
@@ -145,7 +149,8 @@ export const renderMobilePanels = (
   else if (state.mobilePanel === "defensibility") deps.mobileSheetHeadEl.textContent = "Defensibility";
   else if (state.mobilePanel === "economy") deps.mobileSheetHeadEl.textContent = "Economy";
   else if (state.mobilePanel === "manpower") deps.mobileSheetHeadEl.textContent = "Manpower";
-  else if (state.mobilePanel === "intel") deps.mobileSheetHeadEl.textContent = "Intel";
+  else if (state.mobilePanel === "leaderboard") deps.mobileSheetHeadEl.textContent = "Leaderboard";
+  else if (state.mobilePanel === "feed") deps.mobileSheetHeadEl.textContent = "Activity Feed";
   else deps.mobileSheetHeadEl.textContent = "Core";
 
   const buttons = nav.querySelectorAll<HTMLButtonElement>("button[data-mobile-panel]");
