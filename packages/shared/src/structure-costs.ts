@@ -1,3 +1,4 @@
+import { ECONOMIC_STRUCTURE_BUILD_MS, FORT_BUILD_MS, LIGHT_OUTPOST_BUILD_MS, OBSERVATORY_BUILD_MS, SIEGE_OUTPOST_BUILD_MS, WOODEN_FORT_BUILD_MS } from "./config.js";
 import type { EconomicStructureType } from "./types.js";
 
 export type StrategicResourceCostType = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
@@ -73,4 +74,17 @@ export const structureBuildGoldCost = (type: BuildableStructureType, existingCou
   if (!definition.scaling) return definition.baseGoldCost;
   if (definition.scaling.kind === "doubling") return definition.baseGoldCost * 2 ** existingCount;
   return Math.ceil(definition.baseGoldCost * (1 + definition.scaling.rate) ** existingCount);
+};
+
+export const economicStructureBuildDurationMs = (type: EconomicStructureType): number => {
+  if (type === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
+  if (type === "LIGHT_OUTPOST") return LIGHT_OUTPOST_BUILD_MS;
+  return ECONOMIC_STRUCTURE_BUILD_MS;
+};
+
+export const structureBuildDurationMs = (type: BuildableStructureType): number => {
+  if (type === "FORT") return FORT_BUILD_MS;
+  if (type === "OBSERVATORY") return OBSERVATORY_BUILD_MS;
+  if (type === "SIEGE_OUTPOST") return SIEGE_OUTPOST_BUILD_MS;
+  return economicStructureBuildDurationMs(type);
 };

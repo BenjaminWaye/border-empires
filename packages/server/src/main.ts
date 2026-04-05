@@ -20,7 +20,6 @@ import {
   DEEP_STRIKE_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
   ECONOMIC_STRUCTURE_BUILD_MS,
-  ECONOMIC_STRUCTURE_REMOVE_MS,
   FRONTIER_CLAIM_MS,
   DOCK_CROSSING_COOLDOWN_MS,
   DOCK_DEFENSE_MULT,
@@ -819,8 +818,9 @@ interface Observatory {
   observatoryId: string;
   ownerId: string;
   tileKey: TileKey;
-  status: "under_construction" | "active" | "inactive";
+  status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number;
+  previousStatus?: "active" | "inactive";
 }
 
 interface ActiveSabotage {
@@ -5077,11 +5077,11 @@ const playerTile = (x: number, y: number): Tile => {
     };
   }
   if (fort) {
-    const fortView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
+    const fortView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number } = {
       ownerId: fort.ownerId,
       status: fort.status
     };
-    if (fort.status === "under_construction") fortView.completesAt = fort.completesAt;
+    if ((fort.status === "under_construction" || fort.status === "removing") && fort.completesAt !== undefined) fortView.completesAt = fort.completesAt;
     tile.fort = fortView;
   }
   if (observatory) {
@@ -5090,14 +5090,16 @@ const playerTile = (x: number, y: number): Tile => {
       ownerId: observatory.ownerId,
       status
     };
-    if (status === "under_construction" && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
+    if ((status === "under_construction" || status === "removing") && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
   }
   if (siegeOutpost) {
-    const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
+    const siegeView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number } = {
       ownerId: siegeOutpost.ownerId,
       status: siegeOutpost.status
     };
-    if (siegeOutpost.status === "under_construction") siegeView.completesAt = siegeOutpost.completesAt;
+    if ((siegeOutpost.status === "under_construction" || siegeOutpost.status === "removing") && siegeOutpost.completesAt !== undefined) {
+      siegeView.completesAt = siegeOutpost.completesAt;
+    }
     tile.siegeOutpost = siegeView;
   }
   if (sabotage && sabotage.endsAt > now()) {
@@ -5747,10 +5749,11 @@ const isOwnedSettledLandTile = (playerId: string, tileKey: TileKey): boolean => 
   return ownership.get(tileKey) === playerId && ownershipStateByTile.get(tileKey) === "SETTLED";
 };
 
-const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "under_construction" | "active" | "inactive" => {
+const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "under_construction" | "active" | "inactive" | "removing" => {
   const observatory = observatoriesByTile.get(tileKey);
   if (!observatory || observatory.ownerId !== playerId) return "inactive";
   if (observatory.status === "under_construction") return "under_construction";
+  if (observatory.status === "removing") return "removing";
   return isOwnedSettledLandTile(playerId, tileKey) ? observatory.status : "inactive";
 };
 
@@ -5767,7 +5770,7 @@ const syncObservatoriesForPlayer = (playerId: string, active: boolean): void => 
   for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
     const observatory = observatoriesByTile.get(tk);
     if (!observatory) continue;
-    if (observatory.status === "under_construction") continue;
+    if (observatory.status === "under_construction" || observatory.status === "removing") continue;
     const nextStatus = active && isOwnedSettledLandTile(playerId, tk) ? "active" : "inactive";
     if (observatory.status !== nextStatus) {
       observatory.status = nextStatus;
@@ -6399,6 +6402,13 @@ const economicStructureBuildDurationMs = (structureType: EconomicStructureType):
   if (structureType === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
   if (structureType === "LIGHT_OUTPOST") return LIGHT_OUTPOST_BUILD_MS;
   return ECONOMIC_STRUCTURE_BUILD_MS;
+};
+
+const structureBuildDurationMsForRuntime = (structureType: "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | EconomicStructureType): number => {
+  if (structureType === "FORT") return FORT_BUILD_MS;
+  if (structureType === "OBSERVATORY") return OBSERVATORY_BUILD_MS;
+  if (structureType === "SIEGE_OUTPOST") return SIEGE_OUTPOST_BUILD_MS;
+  return economicStructureBuildDurationMs(structureType);
 };
 
 const baseSynthTypeForAdvanced = (structureType: EconomicStructureType): EconomicStructureType | undefined => {
@@ -13178,13 +13188,13 @@ const activeDevelopmentProcessCountForPlayer = (playerId: string): number => {
     if (pending.ownerId === playerId) n += 1;
   }
   for (const fort of fortsByTile.values()) {
-    if (fort.ownerId === playerId && fort.status === "under_construction") n += 1;
+    if (fort.ownerId === playerId && (fort.status === "under_construction" || fort.status === "removing")) n += 1;
   }
   for (const observatory of observatoriesByTile.values()) {
-    if (observatory.ownerId === playerId && observatory.status === "under_construction") n += 1;
+    if (observatory.ownerId === playerId && (observatory.status === "under_construction" || observatory.status === "removing")) n += 1;
   }
   for (const siege of siegeOutpostsByTile.values()) {
-    if (siege.ownerId === playerId && siege.status === "under_construction") n += 1;
+    if (siege.ownerId === playerId && (siege.status === "under_construction" || siege.status === "removing")) n += 1;
   }
   for (const structure of economicStructuresByTile.values()) {
     if (structure.ownerId === playerId && (structure.status === "under_construction" || structure.status === "removing")) n += 1;
@@ -13215,6 +13225,14 @@ const cancelFortBuild = (tileKey: TileKey): void => {
     fortsByTile.delete(tileKey);
     const [x, y] = parseKey(tileKey);
     markSummaryChunkDirtyAtTile(x, y);
+    return;
+  }
+  if (fort?.status === "removing") {
+    fort.status = fort.previousStatus ?? "active";
+    delete fort.previousStatus;
+    delete fort.completesAt;
+    const [x, y] = parseKey(tileKey);
+    markSummaryChunkDirtyAtTile(x, y);
   }
 };
 
@@ -13225,6 +13243,14 @@ const cancelSiegeOutpostBuild = (tileKey: TileKey): void => {
   const siege = siegeOutpostsByTile.get(tileKey);
   if (siege?.status === "under_construction") {
     siegeOutpostsByTile.delete(tileKey);
+    const [x, y] = parseKey(tileKey);
+    markSummaryChunkDirtyAtTile(x, y);
+    return;
+  }
+  if (siege?.status === "removing") {
+    siege.status = siege.previousStatus ?? "active";
+    delete siege.previousStatus;
+    delete siege.completesAt;
     const [x, y] = parseKey(tileKey);
     markSummaryChunkDirtyAtTile(x, y);
   }
@@ -13240,6 +13266,16 @@ const cancelObservatoryBuild = (tileKey: TileKey): void => {
     observatoriesByTile.delete(tileKey);
     const [x, y] = parseKey(tileKey);
     markSummaryChunkDirtyAtTile(x, y);
+    markVisibilityDirty(observatory.ownerId);
+    return;
+  }
+  if (observatory?.status === "removing") {
+    observatory.status = observatory.previousStatus ?? "active";
+    delete observatory.previousStatus;
+    delete observatory.completesAt;
+    const [x, y] = parseKey(tileKey);
+    markSummaryChunkDirtyAtTile(x, y);
+    markVisibilityDirty(observatory.ownerId);
   }
 };
 
@@ -13269,17 +13305,17 @@ const cancelInProgressBuildForPlayer = (
   tileKey: TileKey
 ): { ok: true } | { ok: false; code: string; message: string } => {
   const fort = fortsByTile.get(tileKey);
-  if (fort?.ownerId === actor.id && fort.status === "under_construction") {
+  if (fort?.ownerId === actor.id && (fort.status === "under_construction" || fort.status === "removing")) {
     cancelFortBuild(tileKey);
     return { ok: true };
   }
   const observatory = observatoriesByTile.get(tileKey);
-  if (observatory?.ownerId === actor.id && observatory.status === "under_construction") {
+  if (observatory?.ownerId === actor.id && (observatory?.status === "under_construction" || observatory?.status === "removing")) {
     cancelObservatoryBuild(tileKey);
     return { ok: true };
   }
   const siege = siegeOutpostsByTile.get(tileKey);
-  if (siege?.ownerId === actor.id && siege.status === "under_construction") {
+  if (siege?.ownerId === actor.id && (siege.status === "under_construction" || siege.status === "removing")) {
     cancelSiegeOutpostBuild(tileKey);
     return { ok: true };
   }
@@ -13302,20 +13338,104 @@ const completeEconomicStructureRemoval = (tileKey: TileKey): void => {
   updateOwnership(x, y, structure.ownerId);
 };
 
-const tryRemoveEconomicStructure = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+const completeFortRemoval = (tileKey: TileKey): void => {
+  const fort = fortsByTile.get(tileKey);
+  if (!fort || fort.status !== "removing") return;
+  fortBuildTimers.delete(tileKey);
+  fortsByTile.delete(tileKey);
+  const [x, y] = parseKey(tileKey);
+  markSummaryChunkDirtyAtTile(x, y);
+  updateOwnership(x, y, fort.ownerId);
+};
+
+const completeObservatoryRemoval = (tileKey: TileKey): void => {
+  const observatory = observatoriesByTile.get(tileKey);
+  if (!observatory || observatory.status !== "removing") return;
+  observatoryBuildTimers.delete(tileKey);
+  untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, tileKey);
+  observatoriesByTile.delete(tileKey);
+  const [x, y] = parseKey(tileKey);
+  markSummaryChunkDirtyAtTile(x, y);
+  markVisibilityDirty(observatory.ownerId);
+  updateOwnership(x, y, observatory.ownerId);
+};
+
+const completeSiegeOutpostRemoval = (tileKey: TileKey): void => {
+  const siege = siegeOutpostsByTile.get(tileKey);
+  if (!siege || siege.status !== "removing") return;
+  siegeOutpostBuildTimers.delete(tileKey);
+  siegeOutpostsByTile.delete(tileKey);
+  const [x, y] = parseKey(tileKey);
+  markSummaryChunkDirtyAtTile(x, y);
+  updateOwnership(x, y, siege.ownerId);
+};
+
+const tryRemoveStructure = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
   const t = playerTile(x, y);
   const tk = key(t.x, t.y);
-  const structure = economicStructuresByTile.get(tk);
-  if (!structure || structure.ownerId !== actor.id) return { ok: false, reason: "no owned structure on tile" };
-  if (structure.status === "under_construction") return { ok: false, reason: "cancel construction instead" };
-  if (structure.status === "removing") return { ok: false, reason: "structure is already being removed" };
   if (t.terrain !== "LAND" || t.ownerId !== actor.id || t.ownershipState !== "SETTLED") return { ok: false, reason: "structure requires settled owned tile" };
+  const fort = fortsByTile.get(tk);
+  if (fort?.ownerId === actor.id) {
+    if (fort.status === "under_construction") return { ok: false, reason: "cancel construction instead" };
+    if (fort.status === "removing") return { ok: false, reason: "structure is already being removed" };
+  }
+  const observatory = observatoriesByTile.get(tk);
+  if (observatory?.ownerId === actor.id) {
+    if (observatory.status === "under_construction") return { ok: false, reason: "cancel construction instead" };
+    if (observatory.status === "removing") return { ok: false, reason: "structure is already being removed" };
+  }
+  const siege = siegeOutpostsByTile.get(tk);
+  if (siege?.ownerId === actor.id) {
+    if (siege.status === "under_construction") return { ok: false, reason: "cancel construction instead" };
+    if (siege.status === "removing") return { ok: false, reason: "structure is already being removed" };
+  }
+  const structure = economicStructuresByTile.get(tk);
+  if (structure?.ownerId === actor.id) {
+    if (structure.status === "under_construction") return { ok: false, reason: "cancel construction instead" };
+    if (structure.status === "removing") return { ok: false, reason: "structure is already being removed" };
+  }
+  if ((!fort || fort.ownerId !== actor.id) && (!observatory || observatory.ownerId !== actor.id) && (!siege || siege.ownerId !== actor.id) && (!structure || structure.ownerId !== actor.id)) {
+    return { ok: false, reason: "no owned structure on tile" };
+  }
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
-  structure.previousStatus = structure.status;
+  if (fort?.ownerId === actor.id) {
+    const removeDurationMs = structureBuildDurationMsForRuntime("FORT");
+    fort.previousStatus = "active";
+    fort.status = "removing";
+    fort.completesAt = now() + removeDurationMs;
+    markSummaryChunkDirtyAtTile(x, y);
+    const timer = setTimeout(() => completeFortRemoval(tk), removeDurationMs);
+    fortBuildTimers.set(tk, timer);
+    return { ok: true };
+  }
+  if (observatory?.ownerId === actor.id) {
+    const removeDurationMs = structureBuildDurationMsForRuntime("OBSERVATORY");
+    observatory.previousStatus = observatory.status === "inactive" ? "inactive" : "active";
+    observatory.status = "removing";
+    observatory.completesAt = now() + removeDurationMs;
+    markSummaryChunkDirtyAtTile(x, y);
+    markVisibilityDirty(actor.id);
+    const timer = setTimeout(() => completeObservatoryRemoval(tk), removeDurationMs);
+    observatoryBuildTimers.set(tk, timer);
+    return { ok: true };
+  }
+  if (siege?.ownerId === actor.id) {
+    const removeDurationMs = structureBuildDurationMsForRuntime("SIEGE_OUTPOST");
+    siege.previousStatus = "active";
+    siege.status = "removing";
+    siege.completesAt = now() + removeDurationMs;
+    markSummaryChunkDirtyAtTile(x, y);
+    const timer = setTimeout(() => completeSiegeOutpostRemoval(tk), removeDurationMs);
+    siegeOutpostBuildTimers.set(tk, timer);
+    return { ok: true };
+  }
+  if (!structure || structure.ownerId !== actor.id) return { ok: false, reason: "no owned structure on tile" };
+  const removeDurationMs = structureBuildDurationMsForRuntime(structure.type);
+  structure.previousStatus = structure.status === "inactive" ? "inactive" : "active";
   structure.status = "removing";
-  structure.completesAt = now() + ECONOMIC_STRUCTURE_REMOVE_MS;
+  structure.completesAt = now() + removeDurationMs;
   markSummaryChunkDirtyAtTile(x, y);
-  const timer = setTimeout(() => completeEconomicStructureRemoval(tk), ECONOMIC_STRUCTURE_REMOVE_MS);
+  const timer = setTimeout(() => completeEconomicStructureRemoval(tk), removeDurationMs);
   economicStructureBuildTimers.set(tk, timer);
   return { ok: true };
 };
@@ -13916,6 +14036,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
       return;
     }
     current.status = "active";
+    delete current.completesAt;
     fortBuildTimers.delete(tk);
     updateOwnership(t.x, t.y, actor.id);
   }, FORT_BUILD_MS);
@@ -13994,6 +14115,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
       return;
     }
     current.status = "active";
+    delete current.completesAt;
     siegeOutpostBuildTimers.delete(tk);
     updateOwnership(t.x, t.y, actor.id);
   }, SIEGE_OUTPOST_BUILD_MS);
@@ -14067,8 +14189,13 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     breachShockByTile.delete(k);
     settlementDefenseByTile.delete(k);
     if (economic) {
-      if (economic.status === "under_construction") {
-        cancelEconomicStructureBuild(k);
+      if (economic.status === "under_construction" || economic.status === "removing") {
+        const timer = economicStructureBuildTimers.get(k);
+        if (timer) clearTimeout(timer);
+        economicStructureBuildTimers.delete(k);
+        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
+        economicStructuresByTile.delete(k);
+        markSummaryChunkDirtyAtTile(t.x, t.y);
       } else if (isLightCombatStructureType(economic.type)) {
         untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
         economicStructuresByTile.delete(k);
@@ -14107,8 +14234,13 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     }
     const economic = economicStructuresByTile.get(k);
     if (economic) {
-      if (economic.status === "under_construction") {
-        cancelEconomicStructureBuild(k);
+      if (economic.status === "under_construction" || economic.status === "removing") {
+        const timer = economicStructureBuildTimers.get(k);
+        if (timer) clearTimeout(timer);
+        economicStructureBuildTimers.delete(k);
+        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
+        economicStructuresByTile.delete(k);
+        markSummaryChunkDirtyAtTile(t.x, t.y);
       } else {
         untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
         economicStructuresByTile.delete(k);
@@ -15154,10 +15286,20 @@ const bootstrapRuntimeState = async (): Promise<void> => {
 
   const timersStartedAt = Date.now();
   for (const [tk, fort] of fortsByTile.entries()) {
-    if (fort.status !== "under_construction") continue;
+    if ((fort.status !== "under_construction" && fort.status !== "removing") || fort.completesAt === undefined) continue;
     const remaining = fort.completesAt - now();
+    if (fort.status === "removing") {
+      if (remaining <= 0) {
+        completeFortRemoval(tk);
+        continue;
+      }
+      const timer = setTimeout(() => completeFortRemoval(tk), remaining);
+      fortBuildTimers.set(tk, timer);
+      continue;
+    }
     if (remaining <= 0) {
       fort.status = "active";
+      delete fort.completesAt;
       continue;
     }
     const timer = setTimeout(() => {
@@ -15171,14 +15313,24 @@ const bootstrapRuntimeState = async (): Promise<void> => {
         return;
       }
       live.status = "active";
+      delete live.completesAt;
       fortBuildTimers.delete(tk);
       updateOwnership(fx, fy, live.ownerId);
     }, remaining);
     fortBuildTimers.set(tk, timer);
   }
   for (const [tk, observatory] of observatoriesByTile.entries()) {
-    if (observatory.status !== "under_construction" || observatory.completesAt === undefined) continue;
+    if ((observatory.status !== "under_construction" && observatory.status !== "removing") || observatory.completesAt === undefined) continue;
     const remaining = observatory.completesAt - now();
+    if (observatory.status === "removing") {
+      if (remaining <= 0) {
+        completeObservatoryRemoval(tk);
+        continue;
+      }
+      const timer = setTimeout(() => completeObservatoryRemoval(tk), remaining);
+      observatoryBuildTimers.set(tk, timer);
+      continue;
+    }
     if (remaining <= 0) {
       observatory.status = "active";
       delete observatory.completesAt;
@@ -15187,10 +15339,20 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     scheduleObservatoryConstruction(tk, remaining);
   }
   for (const [tk, siege] of siegeOutpostsByTile.entries()) {
-    if (siege.status !== "under_construction") continue;
+    if ((siege.status !== "under_construction" && siege.status !== "removing") || siege.completesAt === undefined) continue;
     const remaining = siege.completesAt - now();
+    if (siege.status === "removing") {
+      if (remaining <= 0) {
+        completeSiegeOutpostRemoval(tk);
+        continue;
+      }
+      const timer = setTimeout(() => completeSiegeOutpostRemoval(tk), remaining);
+      siegeOutpostBuildTimers.set(tk, timer);
+      continue;
+    }
     if (remaining <= 0) {
       siege.status = "active";
+      delete siege.completesAt;
       continue;
     }
     const timer = setTimeout(() => {
@@ -15204,6 +15366,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
         return;
       }
       live.status = "active";
+      delete live.completesAt;
       siegeOutpostBuildTimers.delete(tk);
       updateOwnership(sx, sy, live.ownerId);
     }, remaining);
@@ -16632,10 +16795,10 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
-    if (msg.type === "REMOVE_ECONOMIC_STRUCTURE") {
-      const out = tryRemoveEconomicStructure(actor, msg.x, msg.y);
+    if (msg.type === "REMOVE_STRUCTURE") {
+      const out = tryRemoveStructure(actor, msg.x, msg.y);
       if (!out.ok) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "ECONOMIC_STRUCTURE_REMOVE_INVALID", message: out.reason }));
+        socket.send(JSON.stringify({ type: "ERROR", code: "STRUCTURE_REMOVE_INVALID", message: out.reason }));
         return;
       }
       updateOwnership(msg.x, msg.y, actor.id);
