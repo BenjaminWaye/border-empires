@@ -316,6 +316,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (player.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
       state.strategicProductionPerMinute =
         (player.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
+      state.economyBreakdown = (player.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
+      state.upkeepPerMinute = (player.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
+      state.upkeepLastTick = (player.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
       state.stamina = player.stamina as number;
       state.manpower = (player.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
@@ -462,6 +465,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
       state.strategicProductionPerMinute =
         (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
+      state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
       state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
       state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
