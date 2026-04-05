@@ -152,8 +152,63 @@ describe("createAiScheduler", () => {
     scheduler.runAiTick();
     await vi.runAllTimersAsync();
 
-    expect(enqueued.map((job) => job.actor.id)).toEqual(["ai-1", "ai-2"]);
+    expect(enqueued.map((job) => job.actor.id)).toEqual(["ai-1"]);
     expect(enqueued[0]?.tickContext.cycleId).toBe(1);
-    expect(scheduler.state.selectedAiPlayers).toBe(2);
+    expect(scheduler.state.selectedAiPlayers).toBe(1);
+  });
+
+  it("still meets cadence for larger AI counts with the minimum required batch size", async () => {
+    vi.useFakeTimers();
+    let nowMs = 1_000;
+    const enqueued: string[] = [];
+    const players = Array.from({ length: 40 }, (_, index) => makeAiPlayer(`ai-${index + 1}`));
+    const scheduler = createAiScheduler<Player, { playerId: string }, { score: number }, { cycleId: number }>({
+      config: {
+        tickMs: 10_000,
+        dispatchIntervalMs: 250,
+        tickBatchSize: 2,
+        humanPriorityBatchSize: 1,
+        humanDefenseBatchSize: 2,
+        authPriorityBatchSize: 1,
+        defensePriorityMs: 15_000,
+        workerQueueSoftLimit: 4,
+        simulationQueueSoftLimit: 6,
+        eventLoopP95SoftLimitMs: 60,
+        eventLoopUtilizationSoftLimitPct: 65
+      },
+      now: () => nowMs,
+      getAllPlayers: () => players,
+      onlineHumanPlayerCount: () => 0,
+      latestRuntimeVitalsSample: () => undefined,
+      pendingAuthVerifications: () => 0,
+      authPriorityUntil: () => 0,
+      aiQueueDepth: () => 0,
+      simulationQueueDepth: () => 0,
+      humanChunkSnapshotPriorityActive: () => false,
+      getAiCompetitionContext: () => ({
+        competitionMetrics: [],
+        incomeByPlayerId: new Map(),
+        townsTarget: 0,
+        settledTilesTarget: 0,
+        analysisByPlayerId: new Map()
+      }),
+      createTickContext: (cycleId) => ({ cycleId }),
+      enqueueAiWorkerJob: (job) => {
+        enqueued.push(job.actor.id);
+        job.onComplete(5);
+      },
+      runtimeMemoryStats: () => ({ rssMb: 1, heapUsedMb: 1, heapTotalMb: 1, externalMb: 0, arrayBuffersMb: 0 }),
+      pushAiTickPerf: () => undefined,
+      onSlowAiTick: () => undefined
+    });
+
+    for (let tick = 0; tick < 40; tick += 1) {
+      scheduler.runAiTick();
+      nowMs += 250;
+      await vi.runAllTimersAsync();
+    }
+
+    expect(new Set(enqueued).size).toBe(40);
+    expect(scheduler.state.batchSize).toBe(1);
   });
 });
