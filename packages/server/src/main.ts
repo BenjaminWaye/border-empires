@@ -1499,7 +1499,7 @@ const strategicDailyFromResource: Partial<Record<ResourceType, number>> = {
 };
 
 type EconomyResourceKey = "GOLD" | StrategicResource;
-type EconomyBreakdownBucket = { label: string; amountPerMinute: number; count: number; note?: string };
+type EconomyBreakdownBucket = { label: string; amountPerMinute: number; count: number; resourceKey?: EconomyResourceKey; note?: string };
 type EconomyBreakdownResource = { sources: EconomyBreakdownBucket[]; sinks: EconomyBreakdownBucket[] };
 type EconomyBreakdown = Record<EconomyResourceKey, EconomyBreakdownResource>;
 
@@ -1517,17 +1517,19 @@ const pushEconomyBreakdownBucket = (
   map: Map<string, EconomyBreakdownBucket>,
   label: string,
   amountPerMinute: number,
-  options: { count?: number; note?: string } = {}
+  options: { count?: number; resourceKey?: EconomyResourceKey; note?: string } = {}
 ): void => {
   if (amountPerMinute <= 0.0001) return;
   const existing = map.get(label);
   if (existing) {
     existing.amountPerMinute += amountPerMinute;
     existing.count += options.count ?? 1;
+    if (options.resourceKey) existing.resourceKey = options.resourceKey;
     if (options.note) existing.note = options.note;
     return;
   }
   const bucket: EconomyBreakdownBucket = { label, amountPerMinute, count: options.count ?? 1 };
+  if (options.resourceKey !== undefined) bucket.resourceKey = options.resourceKey;
   if (options.note !== undefined) bucket.note = options.note;
   map.set(label, bucket);
 };
@@ -6320,6 +6322,30 @@ const economyBreakdownForPlayer = (
   breakdown.CRYSTAL.sinks = upkeepContributors.crystal.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
   breakdown.SUPPLY.sinks = upkeepContributors.supply.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
   breakdown.OIL.sinks = upkeepContributors.oil.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
+
+  const mirrorGoldUpkeep = (resource: Exclude<EconomyResourceKey, "GOLD">, entry: EconomyBreakdownBucket): void => {
+    const mirrored: EconomyBreakdownBucket = {
+      label: entry.label,
+      amountPerMinute: entry.amountPerMinute,
+      count: entry.count,
+      resourceKey: "GOLD"
+    };
+    if (entry.note !== undefined) mirrored.note = entry.note;
+    breakdown[resource].sinks.push(mirrored);
+  };
+
+  for (const entry of breakdown.GOLD.sinks) {
+    if (entry.label.includes("Fur Synthesizer")) mirrorGoldUpkeep("SUPPLY", entry);
+    else if (entry.label.includes("Ironworks")) mirrorGoldUpkeep("IRON", entry);
+    else if (entry.label.includes("Crystal Synthesizer")) mirrorGoldUpkeep("CRYSTAL", entry);
+    else if (entry.label.includes("Fuel Plant")) mirrorGoldUpkeep("OIL", entry);
+  }
+
+  breakdown.IRON.sinks.sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+  breakdown.CRYSTAL.sinks.sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+  breakdown.SUPPLY.sinks.sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+  breakdown.OIL.sinks.sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+
   return breakdown;
 };
 

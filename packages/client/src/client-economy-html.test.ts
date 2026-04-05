@@ -38,4 +38,34 @@ describe("renderEconomyPanelHtml", () => {
     expect(html).toContain("-1.40/m");
     expect(html).not.toContain("No upkeep on this resource");
   });
+
+  it("shows synthesizer gold upkeep on the output resource tab", () => {
+    const economyBreakdown = emptyEconomyBreakdown();
+    economyBreakdown.SUPPLY.sources = [{ label: "Fur Synthesizer", amountPerMinute: 0.9, count: 1 }];
+    economyBreakdown.SUPPLY.sinks = [{ label: "Fur Synthesizer upkeep", amountPerMinute: 12, count: 1, resourceKey: "GOLD" }];
+
+    const html = renderEconomyPanelHtml({
+      focus: "SUPPLY",
+      gold: 100,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 50, SHARD: 0, OIL: 0 },
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0.9, SHARD: 0, OIL: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 12 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [],
+      economyBreakdown,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).toContain("Fur Synthesizer upkeep");
+    expect(html).toContain("-12.00 GOLD/m");
+    expect(html).not.toContain("No upkeep on this resource");
+  });
 });
