@@ -547,7 +547,7 @@ type AiTurnAnalysis = {
   threatCritical: boolean;
 };
 
-type AiStrategicFocus = "BALANCED" | "ECONOMIC_RECOVERY" | "ISLAND_FOOTPRINT" | "MILITARY_PRESSURE" | "BORDER_CONTAINMENT";
+type AiStrategicFocus = "BALANCED" | "ECONOMIC_RECOVERY" | "ISLAND_FOOTPRINT" | "MILITARY_PRESSURE" | "BORDER_CONTAINMENT" | "SHARD_RUSH";
 type AiFrontPosture = "BREAK" | "CONTAIN" | "TRUCE";
 
 type AiStrategicState = {
@@ -1533,6 +1533,7 @@ const socketsByPlayer = new Map<string, Ws>();
 const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
 const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
 const aiVictoryPathByPlayer = new Map<string, AiSeasonVictoryPathId>();
+const aiVictoryPathUpdatedAtByPlayer = new Map<string, number>();
 
 const normalizedPlayerHandle = (name: string): string => {
   const cleaned = name.replace(/\s+/g, " ").trim();
@@ -4431,6 +4432,7 @@ const clearWorldProgressForSeason = (): void => {
   aiTurnDebugByPlayer.clear();
   aiLastActionFailureByPlayer.clear();
   aiVictoryPathByPlayer.clear();
+  aiVictoryPathUpdatedAtByPlayer.clear();
   clearAiCompetitionContext();
   cachedChunkSnapshotByPlayer.clear();
   simulationChunkState.clear();
@@ -8908,6 +8910,63 @@ const estimateAiPressureAttackProfile = (
   };
 };
 
+const qualifiesAiSettlementAvailability = (
+  actor: Player,
+  tile: Tile,
+  victoryPath: AiSeasonVictoryPathId | undefined,
+  territorySummary: AiTerritorySummary,
+  economyWeak: boolean,
+  foodCoverageLow: boolean
+): boolean => {
+  const tileKey = key(tile.x, tile.y);
+  const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
+  if (!evaluation.isEconomicallyInteresting && !evaluation.isStrategicallyInteresting) return false;
+  const hasIntrinsicEconomicValue = townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey);
+  if (
+    (economyWeak || territorySummary.underThreat || foodCoverageLow) &&
+    !hasIntrinsicEconomicValue &&
+    tile.resource !== "FARM" &&
+    tile.resource !== "FISH" &&
+    evaluation.townSupportSignal <= 0 &&
+    !(victoryPath === "SETTLED_TERRITORY" && evaluation.islandFootprintSignal >= 180 && !foodCoverageLow && !economyWeak)
+  ) {
+    return false;
+  }
+  const minScore =
+    hasIntrinsicEconomicValue || (victoryPath === "SETTLED_TERRITORY" && evaluation.islandFootprintSignal >= 180)
+      ? 20
+      : victoryPath === "SETTLED_TERRITORY"
+        ? 32
+        : 55;
+  return evaluation.score >= minScore;
+};
+
+const qualifiesAiTownSupportSettlementAvailability = (
+  actor: Player,
+  tile: Tile,
+  territorySummary: AiTerritorySummary
+): boolean => {
+  const evaluation = evaluateAiSettlementCandidate(actor, tile, undefined, undefined, territorySummary);
+  if (evaluation.townSupportSignal <= 0) return false;
+  const score = evaluation.townSupportSignal * 2 + evaluation.score;
+  return score >= 160;
+};
+
+const qualifiesAiIslandSettlementAvailability = (
+  actor: Player,
+  tile: Tile,
+  territorySummary: AiTerritorySummary,
+  focusIslandId: number | undefined
+): boolean => {
+  const { islandIdByTile } = islandMap();
+  const islandId = islandIdByTile.get(key(tile.x, tile.y));
+  if (focusIslandId !== undefined && islandId !== focusIslandId) return false;
+  const evaluation = evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary);
+  if (evaluation.islandFootprintSignal <= 0) return false;
+  const score = evaluation.score + evaluation.islandFootprintSignal + (evaluation.townSupportSignal > 0 ? evaluation.townSupportSignal * 2 : 0) + 140;
+  return score >= 120;
+};
+
 const buildAiPlanningStaticCache = (
   actor: Player,
   territorySummary: AiTerritorySummary
@@ -8940,15 +8999,27 @@ const buildAiPlanningStaticCache = (
 
   const islandProgress = cachedAiIslandProgress(actor, territorySummary);
   undercoveredIslandCount = islandProgress.undercoveredIslandCount;
-  weakestIslandRatio = islandProgress.weakestRatio;
+  const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);
+  if (focusIslandId !== undefined) {
+    const focusLand = islandProgress.landCounts.get(focusIslandId) ?? 0;
+    weakestIslandRatio = focusLand > 0 ? (islandProgress.settledCounts.get(focusIslandId) ?? 0) / focusLand : islandProgress.weakestRatio;
+  } else {
+    weakestIslandRatio = islandProgress.weakestRatio;
+  }
+  const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
 
   for (const tile of territorySummary.frontierTiles) {
     const tileKey = key(tile.x, tile.y);
     if (tileHasPendingSettlement(tileKey)) continue;
-    const evaluation = evaluateAiSettlementCandidate(actor, tile, undefined, undefined, territorySummary);
-    if (evaluation.isEconomicallyInteresting || evaluation.isStrategicallyInteresting) settlementAvailable = true;
-    if (evaluation.townSupportSignal > 0) supportSettlementAvailable = true;
-    if (!islandSettlementAvailable && aiIslandFootprintSignal(actor, tile, territorySummary) > 0) islandSettlementAvailable = true;
+    if (!settlementAvailable && qualifiesAiSettlementAvailability(actor, tile, undefined, territorySummary, economyWeak, foodCoverageLow)) {
+      settlementAvailable = true;
+    }
+    if (!supportSettlementAvailable && qualifiesAiTownSupportSettlementAvailability(actor, tile, territorySummary)) {
+      supportSettlementAvailable = true;
+    }
+    if (!islandSettlementAvailable && qualifiesAiIslandSettlementAvailability(actor, tile, territorySummary, focusIslandId)) {
+      islandSettlementAvailable = true;
+    }
   }
 
   for (const { from, to } of territorySummary.expandCandidates) {
@@ -9109,6 +9180,7 @@ const chooseAiStrategicState = (
     planningStatic.economicExpandAvailable ||
     planningStatic.settlementAvailable ||
     planningStatic.economicBuildAvailable;
+  const shardOpportunity = !analysis.underThreat && !analysis.foodCoverageLow && !analysis.economyWeak && Boolean(bestAiCollectShardTile(actor));
 
   let frontPosture: AiFrontPosture = "BREAK";
   if (!planningStatic.pressureThreatensCore && planningStatic.pressureAttackScore > 0 && canPivotToGrowth) {
@@ -9120,7 +9192,9 @@ const chooseAiStrategicState = (
   }
 
   let focus: AiStrategicFocus = "BALANCED";
-  if (
+  if (shardOpportunity && primaryVictoryPath === "ECONOMIC_HEGEMONY") {
+    focus = "SHARD_RUSH";
+  } else if (
     primaryVictoryPath === "SETTLED_TERRITORY" &&
     planningStatic.undercoveredIslandCount > 0 &&
     (planningStatic.islandExpandAvailable || planningStatic.islandSettlementAvailable) &&
@@ -9659,6 +9733,19 @@ const chooseOpeningAiVictoryPath = (
   townsTarget: number,
   settledTilesTarget: number
 ): AiSeasonVictoryPathId => {
+  const scored = scoreAiVictoryPathChoices(actor, analysis, townsTarget, settledTilesTarget);
+  return scored[0]?.id ?? "ECONOMIC_HEGEMONY";
+};
+
+const AI_VICTORY_PATH_REEVALUATE_MS = 5 * 60_000;
+const AI_VICTORY_PATH_REPIVOT_MARGIN = 22;
+
+const scoreAiVictoryPathChoices = (
+  actor: Player,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): Array<{ id: AiSeasonVictoryPathId; score: number }> => {
   const territorySummary = analysis.territorySummary;
   let townOpportunityScore = 0;
   let economicOpportunityScore = 0;
@@ -9697,29 +9784,33 @@ const chooseOpeningAiVictoryPath = (
     staminaHealthy: actor.stamina >= 0
   });
 
-  const tieBreak = [...actor.id].reduce((total, char) => total + char.charCodeAt(0), 0) % 7;
+  const tieBreak = [...actor.id].reduce((total, char) => total + char.charCodeAt(0), 0);
+  const archetype = tieBreak % 3;
   const openingScores: Record<AiSeasonVictoryPathId, number> = {
     TOWN_CONTROL:
       townOpportunityScore * 40 +
       (analysis.controlledTowns === 0 ? 35 : 0) +
-      (analysis.underThreat ? -15 : 0),
+      (analysis.underThreat ? -15 : 0) +
+      (archetype === 0 ? 16 : 0),
     ECONOMIC_HEGEMONY:
       economicOpportunityScore * 36 +
       (analysis.worldFlags.has("active_dock") ? 28 : 0) +
       (analysis.worldFlags.has("active_town") ? 12 : 0) +
-      (analysis.foodCoverageLow ? 10 : 0),
+      (analysis.foodCoverageLow ? 10 : 0) +
+      (archetype === 1 ? 16 : 0),
     SETTLED_TERRITORY:
-      expansionOpportunityScore * 10 +
-      territorySummary.expandCandidates.length * 0.5 +
-      (analysis.underThreat ? -8 : 8)
+      expansionOpportunityScore * 6 +
+      Math.min(territorySummary.expandCandidates.length, 18) * 0.75 +
+      (analysis.underThreat ? -10 : 6) +
+      (archetype === 2 ? 16 : 0)
   };
 
   return [...ranked]
     .map((entry) => ({
       id: entry.id,
-      score: openingScores[entry.id] + entry.score * 0.2 + (entry.id === "SETTLED_TERRITORY" ? tieBreak : 0)
+      score: openingScores[entry.id] + entry.score * 0.28
     }))
-    .sort((left, right) => right.score - left.score)[0]?.id ?? "ECONOMIC_HEGEMONY";
+    .sort((left, right) => right.score - left.score);
 };
 
 const ensureAiVictoryPath = (
@@ -9729,9 +9820,22 @@ const ensureAiVictoryPath = (
   settledTilesTarget: number
 ): AiSeasonVictoryPathId => {
   const existing = aiVictoryPathByPlayer.get(actor.id);
-  if (existing) return existing;
+  const updatedAt = aiVictoryPathUpdatedAtByPlayer.get(actor.id) ?? 0;
+  if (existing) {
+    if (now() - updatedAt < AI_VICTORY_PATH_REEVALUATE_MS) return existing;
+    const scored = scoreAiVictoryPathChoices(actor, analysis, townsTarget, settledTilesTarget);
+    const best = scored[0];
+    const currentScore = scored.find((entry) => entry.id === existing)?.score ?? Number.NEGATIVE_INFINITY;
+    aiVictoryPathUpdatedAtByPlayer.set(actor.id, now());
+    if (best && best.id !== existing && !analysis.underThreat && best.score >= currentScore + AI_VICTORY_PATH_REPIVOT_MARGIN) {
+      aiVictoryPathByPlayer.set(actor.id, best.id);
+      return best.id;
+    }
+    return existing;
+  }
   const selected = chooseOpeningAiVictoryPath(actor, analysis, townsTarget, settledTilesTarget);
   aiVictoryPathByPlayer.set(actor.id, selected);
+  aiVictoryPathUpdatedAtByPlayer.set(actor.id, now());
   return selected;
 };
 
@@ -9817,9 +9921,9 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const primaryVictoryPath = ensureAiVictoryPath(actor, analysis, townsTarget, settledTilesTarget);
   const planningSnapshot = buildAiPlanningSnapshot(actor, primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
   const strategicState = aiStrategicStateByPlayer.get(actor.id);
-  const pendingShardTile = bestAiCollectShardTile(actor);
-  if (strategicState && (await maybeHandleAiShardOrTruce(actor, strategicState, planningSnapshot))) {
-    setAiTurnDebug(actor, pendingShardTile ? "collected_shard_priority" : "handled_truce_priority", {
+  const shardOrTruceResult = strategicState ? await maybeHandleAiShardOrTruce(actor, strategicState, planningSnapshot) : undefined;
+  if (strategicState && shardOrTruceResult) {
+    setAiTurnDebug(actor, shardOrTruceResult === "shard" ? "collected_shard_priority" : "handled_truce_priority", {
       incomePerMinute: aiIncome,
       controlledTowns,
       settledTiles,
@@ -10664,24 +10768,24 @@ const maybeHandleAiShardOrTruce = async (
   actor: Player,
   strategicState: AiStrategicState,
   planningSnapshot: AiPlanningSnapshot
-): Promise<boolean> => {
+): Promise<"shard" | "truce" | undefined> => {
   const shardTile = bestAiCollectShardTile(actor);
-  if (shardTile) {
+  if (shardTile && strategicState.focus === "SHARD_RUSH" && !planningSnapshot.pressureThreatensCore) {
     await simulationService.executeDirectMessage(actor, { type: "COLLECT_SHARD", x: shardTile.x, y: shardTile.y });
-    return true;
+    return "shard";
   }
 
   const targetPlayerId = strategicState.targetPlayerId;
   const target = targetPlayerId ? players.get(targetPlayerId) : undefined;
-  if (!target) return false;
-  if (strategicState.frontPosture !== "TRUCE") return false;
-  if (planningSnapshot.pressureThreatensCore) return false;
-  if (activeTruceBetween(actor.id, target.id) || playerHasActiveTruce(actor.id) || playerHasActiveTruce(target.id)) return false;
+  if (!target) return undefined;
+  if (strategicState.frontPosture !== "TRUCE") return undefined;
+  if (planningSnapshot.pressureThreatensCore) return undefined;
+  if (activeTruceBetween(actor.id, target.id) || playerHasActiveTruce(actor.id) || playerHasActiveTruce(target.id)) return undefined;
 
   for (const request of truceRequests.values()) {
     if (request.toPlayerId !== actor.id || request.fromPlayerId !== target.id || request.expiresAt < now()) continue;
     await simulationService.executeDirectMessage(actor, { type: "TRUCE_ACCEPT", requestId: request.id });
-    return true;
+    return "truce";
   }
 
   if (!planningSnapshot.canAffordFrontierAction && !planningSnapshot.canAffordSettlement) {
@@ -10690,10 +10794,10 @@ const maybeHandleAiShardOrTruce = async (
       targetPlayerName: target.name,
       durationHours: isFinalPushActive() ? 12 : 24
     });
-    return true;
+    return "truce";
   }
 
-  return false;
+  return undefined;
 };
 
 const truceBlocksHostility = (a: string, b: string): boolean => Boolean(activeTruceBetween(a, b));

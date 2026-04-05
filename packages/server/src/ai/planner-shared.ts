@@ -2,7 +2,7 @@ import { AI_EMPIRE_ACTIONS, goalsForVictoryPath, planBestGoal, type AiSeasonVict
 
 export type AiPlanningSnapshot = {
   primaryVictoryPath: AiSeasonVictoryPathId | undefined;
-  strategicFocus: "BALANCED" | "ECONOMIC_RECOVERY" | "ISLAND_FOOTPRINT" | "MILITARY_PRESSURE" | "BORDER_CONTAINMENT";
+  strategicFocus: "BALANCED" | "ECONOMIC_RECOVERY" | "ISLAND_FOOTPRINT" | "MILITARY_PRESSURE" | "BORDER_CONTAINMENT" | "SHARD_RUSH";
   frontPosture: "BREAK" | "CONTAIN" | "TRUCE";
   aiIncome: number;
   runnerUpIncome: number;
