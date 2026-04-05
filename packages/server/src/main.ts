@@ -10131,32 +10131,32 @@ const executeAiGoapAction = (
     pressureAttack?: ReturnType<typeof bestAiEnemyPressureAttack>;
   }
 ): boolean => {
+  const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>
+    (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandExpand : undefined) ??
+    candidates?.neutralExpand ??
+    candidates?.anyNeutralExpand;
+
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
-    const candidate =
-      (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandExpand ?? bestAiIslandExpand(actor, territorySummary) : undefined) ??
-      candidates?.neutralExpand ??
-      candidates?.anyNeutralExpand ??
-      bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
-      bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
+    const candidate = cachedNeutralExpandCandidate();
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_food_border_tile") {
-    const candidate = candidates?.neutralExpand ?? bestAiEconomicExpand(actor, victoryPath, territorySummary);
+    const candidate = candidates?.neutralExpand ?? candidates?.anyNeutralExpand;
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_scout_border_tile") {
-    const candidate = candidates?.scoutExpand ?? bestAiScoutExpand(actor, territorySummary);
+    const candidate = candidates?.scoutExpand ?? candidates?.anyNeutralExpand;
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_scaffold_border_tile") {
-    const candidate = candidates?.scaffoldExpand ?? bestAiScaffoldExpand(actor, victoryPath, territorySummary);
+    const candidate = candidates?.scaffoldExpand ?? candidates?.anyNeutralExpand;
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
