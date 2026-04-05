@@ -1,16 +1,8 @@
+import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "./client-economy-model.js";
 import type { Tile } from "./client-types.js";
-
-export type EconomyFocusKey = "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
 
 type EconomyResource = Exclude<EconomyFocusKey, "ALL">;
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
-
-type EconomyBucket = {
-  label: string;
-  amountPerMinute: number;
-  count: number;
-  note?: string;
-};
 
 type EconomyPanelArgs = {
   focus: EconomyFocusKey;
@@ -30,6 +22,7 @@ type EconomyPanelArgs = {
   };
   activeRevealTargetsCount: number;
   tiles: Iterable<Tile>;
+  economyBreakdown: EconomyBreakdown | undefined;
   isMobile: boolean;
   prettyToken: (value: string) => string;
   resourceIconForKey: (resource: string) => string;
@@ -49,6 +42,7 @@ const formatUpkeepSummary = (
   if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeep.iron.toFixed(2)}/m`);
   if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeep.supply.toFixed(2)}/m`);
   if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeep.crystal.toFixed(2)}/m`);
+  if (upkeep.oil > 0.001) parts.push(`${resourceIconForKey("OIL")} ${upkeep.oil.toFixed(2)}/m`);
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeep.gold.toFixed(2)}/m`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
 };
@@ -120,6 +114,8 @@ const upkeepBreakdownForResource = (
 };
 
 const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResource): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
+  const sharedBreakdown = args.economyBreakdown?.[resource];
+  if (sharedBreakdown) return sharedBreakdown;
   const sources = new Map<string, EconomyBucket>();
   const sinks = new Map<string, EconomyBucket>();
   for (const tile of args.tiles) {

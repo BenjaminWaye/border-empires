@@ -18,7 +18,16 @@ describe("economy balance regression guard", () => {
   it("keeps synth overload on a 24 hour downtime and includes converter output in strategic income", () => {
     const source = serverSource();
     expect(source).toContain("const SYNTH_OVERLOAD_DISABLE_MS = 24 * 60 * 60_000;");
-    expect(source).toContain("const output = converterStructureOutputFor(structure.type);");
+    expect(source).toContain("const output = converterStructureOutputFor(structure.type) ?? {};");
+  });
+
+  it("includes structure upkeep in totals and sends the shared economy snapshot on init/update", () => {
+    const source = serverSource();
+    expect(source).toContain("goldStructureUpkeep += economicStructureGoldUpkeepPerInterval(structure.type) / 10;");
+    expect(source).toContain("crystalStructureUpkeep += economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;");
+    expect(source).toContain("economyBreakdown: economy.economyBreakdown");
+    expect(source).toContain("upkeepPerMinute: economy.upkeepPerMinute");
+    expect(source).toContain("upkeepLastTick: economy.upkeepLastTick");
   });
 
   it("reports continental footprint using the weakest qualifying island and a per-player comparison line", () => {
