@@ -53,6 +53,8 @@ export const createInitialState = () => ({
   authConfigured: false,
   authUserLabel: "",
   authError: "",
+  authBusyTitle: "",
+  authBusyDetail: "",
   profileSetupRequired: false,
   gold: 0,
   level: 0,

@@ -298,22 +298,30 @@ export const createClientAuthFlow = (deps: AuthFlowDeps) => {
         state.authBusy = true;
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
+        state.authBusyTitle = "Securing session";
+        state.authBusyDetail = "Refreshing your Google session and waiting for the realtime server connection.";
         seedProfileSetupFields(user.displayName ?? user.email?.split("@")[0] ?? "", dom.authProfileColorEl.value);
         setAuthStatus("Authorizing empire...");
         syncAuthOverlay();
         try {
           authSession.token = await user.getIdToken(true);
           authSession.uid = user.uid;
+          state.authBusyTitle = "Connecting your empire...";
+          state.authBusyDetail = `Realtime connection open. Sending your Google session for ${state.authUserLabel}...`;
           setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel}...`);
           if (ws.readyState === ws.OPEN) {
             ws.send(JSON.stringify({ type: "AUTH", token: authSession.token }));
           } else {
             state.authBusy = true;
+            state.authBusyTitle = "Securing session";
+            state.authBusyDetail = `Google account connected, but the realtime game connection to ${wsUrl} has not opened yet. The server may still be starting or overloaded.`;
             setAuthStatus(`Google account connected. Waiting for the game server at ${wsUrl}...`);
           }
         } catch (error) {
           state.authSessionReady = false;
           state.authBusy = false;
+          state.authBusyTitle = "";
+          state.authBusyDetail = "";
           setAuthStatus(error instanceof Error ? error.message : "Could not authorize this session.", "error");
         } finally {
           syncAuthOverlay();

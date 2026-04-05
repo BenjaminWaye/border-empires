@@ -31,7 +31,7 @@ export const syncAuthPanelState = (
 };
 
 export const syncAuthOverlay = (
-  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "authBusy" | "authConfigured" | "authError" | "authReady">,
+  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "authBusy" | "authConfigured" | "authError" | "authReady" | "authBusyTitle" | "authBusyDetail">,
   deps: {
     authOverlayEl: HTMLElement;
     authBusyModalEl: HTMLElement;
@@ -67,10 +67,10 @@ export const syncAuthOverlay = (
   deps.authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
   deps.authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   deps.authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
-  deps.authBusyTitleEl.textContent = state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...";
+  deps.authBusyTitleEl.textContent = state.authBusyTitle || (state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...");
   deps.authBusyCopyEl.textContent = state.authError
     ? state.authError
-    : deps.authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
+    : state.authBusyDetail || deps.authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
   deps.syncAuthPanelState();
   if (!state.authConfigured) {
     deps.setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");
