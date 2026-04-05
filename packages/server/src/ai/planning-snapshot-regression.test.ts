@@ -74,7 +74,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
     expect(body).toContain("const pressureAttackProfile = estimateAiPressureAttackProfile(actor, territorySummary);");
     expect(body).toContain("const settlementAvailability = estimateAiSettlementAvailabilityProfile(");
-    expect(body).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary, undercoveredIslandCount);");
+    expect(body).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary, focusIslandId, undercoveredIslandCount);");
     expect(body).toContain("territorySummary.borderSettledTileKeys.has(tk)");
     expect(body).toContain("!fortsByTile.has(tk)");
     expect(body).toContain("barbarianAttackAvailable: territorySummary.barbarianAttackAvailable");
@@ -84,6 +84,16 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(body).not.toContain("evaluateAiSettlementCandidate(");
     expect(body).not.toContain("for (const { from, to } of territorySummary.expandCandidates)");
     expect(body).not.toContain("for (const { to } of territorySummary.attackCandidates)");
+  });
+
+  it("reuses cached frontier candidates during execute instead of rescanning heavy neutral expand selectors", () => {
+    const body = functionBody(serverMainSource(), "runAiTurn");
+    expect(body).toContain("const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);");
+    expect(body).toContain("neutralExpand: planningStatic.bestEconomicExpand");
+    expect(body).toContain("anyNeutralExpand: planningStatic.bestAnyNeutralExpand");
+    expect(body).toContain("scoutExpand: planningStatic.bestScoutExpand");
+    expect(body).toContain("scaffoldExpand: planningStatic.bestScaffoldExpand");
+    expect(body).toContain("islandExpand: planningStatic.bestIslandExpand");
   });
 
   it("keeps victory-path scoring on cheap cached territory signals", () => {
