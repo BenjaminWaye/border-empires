@@ -2,10 +2,15 @@ import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { formatGoldAmount } from "./client-constants.js";
 import type { ClientState } from "./client-state.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
-import type { FeedSeverity, FeedType, Tile } from "./client-types.js";
+import type { FeedEntry, FeedSeverity, FeedType, Tile } from "./client-types.js";
 
 export const pushFeed = (state: Pick<ClientState, "feed">, msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void => {
   state.feed.unshift({ text: msg, type, severity, at: Date.now() });
+  state.feed = state.feed.slice(0, 18);
+};
+
+export const pushFeedEntry = (state: Pick<ClientState, "feed">, entry: FeedEntry): void => {
+  state.feed.unshift(entry);
   state.feed = state.feed.slice(0, 18);
 };
 
@@ -100,6 +105,7 @@ const conqueredTileLabel = (
     terrainAt: (x: number, y: number) => Tile["terrain"];
   }
 ): string => {
+  if (tile?.town?.name) return tile.town.name;
   if (tile?.town) return "Town";
   if (tile?.resource) return deps.prettyToken(deps.resourceLabel(tile.resource));
   if (target) return deps.prettyToken(deps.terrainLabel(target.x, target.y, tile?.terrain ?? deps.terrainAt(target.x, target.y)));
@@ -119,6 +125,7 @@ const settledTileLabel = (
 ): string => {
   if (!target) return "Land";
   const tile = deps.tiles.get(deps.keyFor(target.x, target.y));
+  if (tile?.town?.name) return tile.town.name;
   if (tile?.town) return "Town";
   if (tile?.dockId) return "Dock";
   if (tile?.resource) return deps.prettyToken(deps.resourceLabel(tile.resource));
@@ -137,7 +144,7 @@ export const combatResolutionAlert = (
     tiles: Map<string, Tile>;
     keyFor: (x: number, y: number) => string;
   }
-): { title: string; detail: string; tone: "success" | "warn"; manpowerLoss?: number } => {
+): { title: string; detail: string; tone: "success" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string } => {
   const attackType = typeof msg.attackType === "string" ? msg.attackType : "";
   const origin = msg.origin as { x: number; y: number } | undefined;
   const target = msg.target as { x: number; y: number } | undefined;
@@ -152,7 +159,8 @@ export const combatResolutionAlert = (
     return {
       title: "Settlement Complete",
       detail: `${settledTileLabel(settledTarget, deps)} was settled.`,
-      tone: "success"
+      tone: "success",
+      ...(settledTarget ? { focusX: settledTarget.x, focusY: settledTarget.y, actionLabel: "Center" } : {})
     };
   }
   const targetOwnerName = playerNameOrFallback(defenderOwnerId, deps);
@@ -162,7 +170,8 @@ export const combatResolutionAlert = (
     return {
       title: "Territory Claimed",
       detail: `${targetLabel} was claimed.`,
-      tone: "success"
+      tone: "success",
+      ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {})
     };
   }
   if (attackerWon) {
@@ -170,6 +179,7 @@ export const combatResolutionAlert = (
       title: "Victory",
       detail: `${targetLabel} was conquered from ${targetOwnerName}.`,
       tone: "success",
+      ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {}),
       ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
     };
   }
@@ -181,6 +191,7 @@ export const combatResolutionAlert = (
         ? `Attack on ${targetTerritoryLabel} was beaten back and we lost (${origin.x}, ${origin.y}).`
         : `Attack on ${targetTerritoryLabel} was beaten back.`,
     tone: "warn",
+    ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {}),
     ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
   };
 };
