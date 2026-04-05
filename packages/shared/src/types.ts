@@ -286,6 +286,17 @@ export interface PendingResearch {
   completesAt: number;
 }
 
+export interface PlayerActivityEntry {
+  id: string;
+  title: string;
+  detail: string;
+  type: "combat" | "mission" | "error" | "info" | "alliance" | "tech";
+  severity: "info" | "success" | "warn" | "error";
+  at: number;
+  tileKey?: TileKey;
+  actionLabel?: string;
+}
+
 export interface Player {
   id: PlayerId;
   name: string;
@@ -320,6 +331,7 @@ export interface Player {
   isEliminated: boolean;
   respawnPending: boolean;
   lastActiveAt: number;
+  activityInbox: PlayerActivityEntry[];
 }
 
 export interface CombatLock {
