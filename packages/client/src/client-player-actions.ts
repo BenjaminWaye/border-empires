@@ -53,6 +53,7 @@ export const currentTechPickIdFromUi = (state: ClientState, techPickEl: HTMLSele
 };
 
 export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActionDeps): void => {
+  const websocketOpenReadyState = typeof WebSocket !== "undefined" ? WebSocket.OPEN : 1;
   const techId = (techIdRaw ?? "").trim() || currentTechPickIdFromUi(deps.state, deps.techPickEl, deps.mobileTechPickEl);
   if (!techId) {
     console.error("[tech] choose blocked: empty tech id", {
@@ -64,7 +65,7 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
     deps.pushFeed("No tech selected.", "tech", "warn");
     return;
   }
-  if (deps.ws.readyState !== deps.ws.OPEN) {
+  if (deps.ws.readyState !== websocketOpenReadyState) {
     console.error("[tech] choose blocked: websocket not open", { techId, readyState: deps.ws.readyState, wsUrl: deps.wsUrl });
     deps.pushFeed("Cannot choose tech while disconnected.", "tech", "error");
     return;
