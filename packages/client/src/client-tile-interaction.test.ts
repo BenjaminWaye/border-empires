@@ -7,11 +7,7 @@ describe("neutralTileClickOutcome", () => {
       neutralTileClickOutcome({
         isLand: true,
         isFogged: false,
-        isOwnedByEnemy: false,
-        isOwnedByAlly: false,
-        hasAdjacentOwnedOrigin: true,
         hasFrontierOrigin: true,
-        hasDock: false,
         isNeutral: true
       })
     ).toBe("queue-adjacent-neutral");
@@ -22,11 +18,7 @@ describe("neutralTileClickOutcome", () => {
       neutralTileClickOutcome({
         isLand: true,
         isFogged: false,
-        isOwnedByEnemy: false,
-        isOwnedByAlly: false,
-        hasAdjacentOwnedOrigin: false,
         hasFrontierOrigin: false,
-        hasDock: false,
         isNeutral: true
       })
     ).toBe("open-menu");
@@ -37,28 +29,20 @@ describe("neutralTileClickOutcome", () => {
       neutralTileClickOutcome({
         isLand: true,
         isFogged: false,
-        isOwnedByEnemy: true,
-        isOwnedByAlly: false,
-        hasAdjacentOwnedOrigin: true,
         hasFrontierOrigin: false,
-        hasDock: false,
         isNeutral: false
       })
     ).toBe("open-menu");
   });
 
-  it("warns only for unreachable enemy land", () => {
+  it("opens the menu for unreachable visible enemy land", () => {
     expect(
       neutralTileClickOutcome({
         isLand: true,
         isFogged: false,
-        isOwnedByEnemy: true,
-        isOwnedByAlly: false,
-        hasAdjacentOwnedOrigin: false,
         hasFrontierOrigin: false,
-        hasDock: false,
         isNeutral: false
       })
-    ).toBe("warn-unreachable-enemy");
+    ).toBe("open-menu");
   });
 });
