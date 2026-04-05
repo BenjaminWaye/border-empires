@@ -140,6 +140,11 @@ export const queuedDevelopmentEntryForTile = (state: ClientState, tileKey: strin
 export const queuedSettlementIndexForTile = (state: ClientState, tileKey: string): number =>
   queuedSettlementOrderForTile(state.developmentQueue, tileKey);
 
+export const queuedBuildEntryForTile = (state: ClientState, tileKey: string): Extract<QueuedDevelopmentAction, { kind: "BUILD" }> | undefined => {
+  const entry = state.developmentQueue.find((queued) => queued.tileKey === tileKey && queued.kind === "BUILD");
+  return entry && entry.kind === "BUILD" ? entry : undefined;
+};
+
 export const cancelQueuedSettlement = (
   state: ClientState,
   tileKey: string,
@@ -152,6 +157,23 @@ export const cancelQueuedSettlement = (
   if (nextQueue.length === state.developmentQueue.length) return false;
   state.developmentQueue = nextQueue;
   deps.pushFeed(`Queued settlement at ${tileKey} cancelled.`, "combat", "info");
+  deps.renderHud();
+  return true;
+};
+
+export const cancelQueuedBuild = (
+  state: ClientState,
+  tileKey: string,
+  deps: {
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    renderHud: () => void;
+  }
+): boolean => {
+  const entry = queuedBuildEntryForTile(state, tileKey);
+  if (!entry) return false;
+  const nextQueue = state.developmentQueue.filter((queued) => queued !== entry);
+  state.developmentQueue = nextQueue;
+  deps.pushFeed(`${entry.label} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
 };
