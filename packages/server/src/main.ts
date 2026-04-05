@@ -139,6 +139,7 @@ import {
   type VisibilitySnapshot
 } from "./chunk/snapshots.js";
 import { assignMissingTownNames } from "./town-names.js";
+import { appendPlayerActivityEntry, buildTownActivityEntry } from "./player-activity.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
@@ -1846,7 +1847,8 @@ const ensureAiPlayers = (): void => {
       spawnShieldUntil: now() + 120_000,
       isEliminated: false,
       respawnPending: false,
-      lastActiveAt: now()
+      lastActiveAt: now(),
+      activityInbox: []
     };
     players.set(id, player);
     playerBaseMods.set(id, { attack: 1, defense: 1, income: 1, vision: 1 });
@@ -14174,6 +14176,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
 
   if (oldOwner && newOwner !== oldOwner) {
     const capturedTown = townsByTile.get(k);
+    if (capturedTown) queueOfflineTownCaptureActivity(oldOwner, newOwner, capturedTown);
     if (oldOwner !== BARBARIAN_OWNER_ID && isRelocatableSettlementTown(capturedTown)) {
       displacedSettlement = {
         ownerId: oldOwner,
@@ -14532,6 +14535,57 @@ const serializePlayer = (p: Player) => ({
   allies: [...p.allies]
 });
 
+const queueOfflinePlayerActivity = (playerId: string, entry: import("@border-empires/shared").PlayerActivityEntry): void => {
+  const player = players.get(playerId);
+  if (!player) return;
+  const socket = socketsByPlayer.get(playerId);
+  if (socket && socket.readyState === socket.OPEN) return;
+  player.activityInbox = appendPlayerActivityEntry(player.activityInbox ?? [], entry);
+};
+
+const consumeOfflinePlayerActivity = (playerId: string): import("@border-empires/shared").PlayerActivityEntry[] => {
+  const player = players.get(playerId);
+  if (!player || player.activityInbox.length === 0) return [];
+  const pending = [...player.activityInbox];
+  player.activityInbox = [];
+  return pending;
+};
+
+const playerActivityName = (playerId: string | undefined): string => {
+  if (!playerId) return "Neutral territory";
+  if (playerId === BARBARIAN_OWNER_ID) return "Barbarians";
+  return players.get(playerId)?.name ?? playerId.slice(0, 8);
+};
+
+const queueOfflineTownCaptureActivity = (oldOwnerId: string | undefined, newOwnerId: string | undefined, town: TownDefinition): void => {
+  if (!town.name) return;
+  const occurredAt = now();
+  if (oldOwnerId && oldOwnerId !== BARBARIAN_OWNER_ID && oldOwnerId !== newOwnerId) {
+    queueOfflinePlayerActivity(
+      oldOwnerId,
+      buildTownActivityEntry({
+        kind: "lost",
+        townName: town.name,
+        actorName: playerActivityName(newOwnerId),
+        tileKey: town.tileKey,
+        at: occurredAt
+      })
+    );
+  }
+  if (newOwnerId && newOwnerId !== BARBARIAN_OWNER_ID && newOwnerId !== oldOwnerId) {
+    queueOfflinePlayerActivity(
+      newOwnerId,
+      buildTownActivityEntry({
+        kind: "captured",
+        townName: town.name,
+        actorName: playerActivityName(oldOwnerId),
+        tileKey: town.tileKey,
+        at: occurredAt
+      })
+    );
+  }
+};
+
 const rebuildOwnershipDerivedState = (): void => {
   for (const p of players.values()) {
     p.territoryTiles.clear();
@@ -14630,7 +14684,8 @@ const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefine
       spawnShieldUntil: now() + 120_000,
       isEliminated: false,
       respawnPending: false,
-      lastActiveAt: now()
+      lastActiveAt: now(),
+      activityInbox: []
     };
     players.set(player.id, player);
     identity.playerId = player.id;
@@ -14645,6 +14700,7 @@ const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefine
     spawnPlayer(player);
   }
   if (!player) return undefined;
+  if (!Array.isArray(player.activityInbox)) player.activityInbox = [];
   if (!(player.domainIds instanceof Set)) {
     (player as unknown as { domainIds: Set<string> }).domainIds = new Set<string>();
   }
@@ -15168,7 +15224,8 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       territoryTiles: new Set(p.territoryTiles),
       allies: new Set(p.allies),
       missions: p.missions ?? [],
-      missionStats: p.missionStats ?? defaultMissionStats()
+      missionStats: p.missionStats ?? defaultMissionStats(),
+      activityInbox: p.activityInbox ?? []
     };
     ensureMissionDefaults(hydrated);
     normalizePlayerProgressionState(hydrated);
@@ -16487,6 +16544,7 @@ app.post("/admin/world/regenerate", async () => {
       const economy = playerEconomySnapshot(player);
       const strategicStocks = getOrInitStrategicStocks(player.id);
       const dockPairs = exportDockPairs();
+      const offlineActivity = consumeOfflinePlayerActivity(player.id);
       sendLoginPhase(socket, "PLAYER_LOADED", "Connecting your empire...", "Empire record ready. Preparing your session...");
       socket.send(
         JSON.stringify({
@@ -16570,7 +16628,8 @@ app.post("/admin/world/regenerate", async () => {
           seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
           seasonWinner,
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id),
-          truceRequests: [...truceRequests.values()].filter((r) => r.toPlayerId === player.id)
+          truceRequests: [...truceRequests.values()].filter((r) => r.toPlayerId === player.id),
+          offlineActivity
         })
       );
       const authSync = authSyncTimingByPlayer.get(player.id);
