@@ -109,6 +109,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }, 4000);
   };
 
+  const applyLoginPhase = (title: string, detail: string): void => {
+    state.authBusy = true;
+    state.authBusyTitle = title;
+    state.authBusyDetail = detail;
+    setAuthStatus(detail);
+    syncAuthOverlay();
+  };
+
   const applyCombatOutcomeMessage = (msg: Record<string, unknown>, opts?: { predicted?: boolean }): void => {
     const target = msg.target as { x: number; y: number } | undefined;
     const targetBefore = (() => (target ? state.tiles.get(keyFor(target.x, target.y)) : undefined))();
@@ -223,8 +231,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearReconnectReloadTimer();
     clearAuthReconnectTimer();
     if (state.authReady && !state.authSessionReady) {
-      state.authBusy = true;
-      setAuthStatus(`Connected to the game server. Syncing ${state.authUserLabel || "empire"}...`);
+      applyLoginPhase("Securing session", `Realtime connection open. Sending Google session for ${state.authUserLabel || "your empire"}...`);
     }
     renderHud();
     void authenticateSocket();
@@ -241,8 +248,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Connection lost. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
-      state.authBusy = true;
-      setAuthStatus(`Signed into Firebase. Reconnecting to the game server at ${wsUrl}...`);
+      applyLoginPhase("Securing session", `Realtime connection dropped. Reconnecting to ${wsUrl}...`);
     }
     clearAuthReconnectTimer();
     scheduleReconnectReload();
@@ -260,8 +266,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Server unreachable. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
-      state.authBusy = true;
-      setAuthStatus(`Signed into Firebase. Waiting for the game server at ${wsUrl}...`);
+      applyLoginPhase(
+        "Securing session",
+        `Google account connected, but the realtime game connection to ${wsUrl} has not opened yet. The server may still be starting or overloaded.`
+      );
     }
     clearAuthReconnectTimer();
     scheduleReconnectReload();
@@ -270,12 +278,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    if (msg.type === "LOGIN_PHASE") {
+      if (!state.authSessionReady) {
+        applyLoginPhase(
+          typeof msg.title === "string" ? msg.title : "Connecting your empire...",
+          typeof msg.detail === "string" ? msg.detail : "Waiting for the game server to finish preparing your session."
+        );
+        renderHud();
+      }
+      return;
+    }
     if (msg.type === "INIT") {
       state.connection = "initialized";
       state.authSessionReady = true;
       state.hasEverInitialized = true;
       state.authBusy = false;
       state.authRetrying = false;
+      state.authBusyTitle = "";
+      state.authBusyDetail = "";
       clearAuthReconnectTimer();
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;
@@ -940,6 +960,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
+          state.authBusyTitle = "Securing session";
+          state.authBusyDetail =
+            errorCode === "SERVER_STARTING"
+              ? "The game server is still starting. Retrying sign-in shortly..."
+              : "Google account connected, but the authentication service did not answer in time. Retrying...";
           scheduleAuthReconnect(
             errorCode === "SERVER_STARTING"
               ? "Game server is still starting. Retrying sign-in..."
@@ -950,12 +975,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (errorCode === "AUTH_FAIL" && firebaseAuth?.currentUser && !state.authRetrying) {
           state.authBusy = true;
           state.authRetrying = true;
+          state.authBusyTitle = "Securing session";
+          state.authBusyDetail = "Refreshing your Firebase session after a server auth failure.";
           setAuthStatus("Refreshing Firebase session...");
           syncAuthOverlay();
           void authenticateSocket(true)
             .catch(() => {
               state.authBusy = false;
               state.authRetrying = false;
+              state.authBusyTitle = "";
+              state.authBusyDetail = "";
               setAuthStatus(errorMessage, "error");
               syncAuthOverlay();
             });
@@ -964,6 +993,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         state.authBusy = false;
         state.authRetrying = false;
+        state.authBusyTitle = "";
+        state.authBusyDetail = "";
         setAuthStatus(errorMessage, "error");
         syncAuthOverlay();
       }

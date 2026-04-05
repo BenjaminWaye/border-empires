@@ -74,12 +74,13 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
     expect(body).toContain("const pressureAttackProfile = estimateAiPressureAttackProfile(actor, territorySummary);");
     expect(body).toContain("const settlementAvailability = estimateAiSettlementAvailabilityProfile(");
+    expect(body).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary, undercoveredIslandCount);");
     expect(body).toContain("territorySummary.borderSettledTileKeys.has(tk)");
     expect(body).toContain("!fortsByTile.has(tk)");
-    expect(body).toContain("const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
     expect(body).toContain("barbarianAttackAvailable: territorySummary.barbarianAttackAvailable");
     expect(body).toContain("enemyAttackAvailable: territorySummary.enemyAttackAvailable");
     expect(body).not.toContain("frontierSettlementSummaryForPlayer(");
+    expect(body).not.toContain("frontierPlanningSummaryForPlayer(");
     expect(body).not.toContain("evaluateAiSettlementCandidate(");
     expect(body).not.toContain("for (const { from, to } of territorySummary.expandCandidates)");
     expect(body).not.toContain("for (const { to } of territorySummary.attackCandidates)");

@@ -352,6 +352,15 @@ const firebaseAdminAuth = firebaseAdminApp ? getAuth(firebaseAdminApp) : undefin
 let pendingAuthVerifications = 0;
 let authPriorityUntil = 0;
 const authSyncTimingByPlayer = new Map<string, { authVerifiedAt?: number; initSentAt?: number; firstSubscribeAt?: number; firstChunkSentAt?: number }>();
+const sendLoginPhase = (
+  socket: Ws | undefined,
+  phase: "AUTH_RECEIVED" | "AUTH_VERIFIED" | "PLAYER_LOADED" | "INITIAL_SYNC" | "MAP_SUBSCRIBE" | "MAP_FIRST_CHUNK",
+  title: string,
+  detail: string
+): void => {
+  if (!socket || socket.readyState !== socket.OPEN) return;
+  socket.send(JSON.stringify({ type: "LOGIN_PHASE", phase, title, detail }));
+};
 const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
   const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   if (
@@ -7724,6 +7733,19 @@ type AiSettlementAvailabilityProfile = {
   islandSettlementAvailable: boolean;
 };
 
+type AiFrontierAvailabilityProfile = {
+  neutralExpandAvailable: boolean;
+  openingScoutAvailable: boolean;
+  scoutExpandAvailable: boolean;
+  economicExpandAvailable: boolean;
+  scaffoldExpandAvailable: boolean;
+  islandExpandAvailable: boolean;
+  frontierOpportunityEconomic: number;
+  frontierOpportunityScout: number;
+  frontierOpportunityScaffold: number;
+  frontierOpportunityWaste: number;
+};
+
 type AiFrontierPlanningSummary = {
   neutralExpandAvailable: boolean;
   openingScoutAvailable: boolean;
@@ -9069,6 +9091,62 @@ const estimateAiSettlementAvailabilityProfile = (
   };
 };
 
+const estimateAiFrontierAvailabilityProfile = (
+  actor: Player,
+  territorySummary: AiTerritorySummary,
+  undercoveredIslandCount: number
+): AiFrontierAvailabilityProfile => {
+  const visibility = territorySummary.visibility;
+  const frontierOpportunityEconomic = territorySummary.neutralEconomicExpandCount;
+  let frontierOpportunityScout = 0;
+  let frontierOpportunityScaffold = 0;
+
+  for (const tile of territorySummary.frontierTiles) {
+    const tileKey = key(tile.x, tile.y);
+    const supportedTownCount = cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length;
+    let ownedNeighbors = 0;
+    let exposedSides = 0;
+    let hiddenNeighbor = false;
+    for (const neighbor of adjacentNeighborCores(tile.x, tile.y)) {
+      if (neighbor.ownerId === actor.id) ownedNeighbors += 1;
+      if (neighbor.terrain !== "LAND" || !neighbor.ownerId || neighbor.ownerId !== actor.id) exposedSides += 1;
+      if (!hiddenNeighbor && !visibleInSnapshot(visibility, neighbor.x, neighbor.y)) hiddenNeighbor = true;
+    }
+    const scaffoldCandidate =
+      supportedTownCount > 0 ||
+      (ownedNeighbors >= 3 && exposedSides <= 1) ||
+      townsByTile.has(tileKey) ||
+      Boolean(tile.resource) ||
+      docksByTile.has(tileKey);
+    if (scaffoldCandidate) {
+      frontierOpportunityScaffold += 1;
+      continue;
+    }
+    if (hiddenNeighbor || !visibleInSnapshot(visibility, tile.x, tile.y)) {
+      frontierOpportunityScout += 1;
+    }
+  }
+
+  const neutralExpandAvailable = territorySummary.neutralLandExpandCount > 0;
+  const frontierOpportunityWaste = Math.max(
+    0,
+    territorySummary.neutralLandExpandCount - frontierOpportunityEconomic - frontierOpportunityScout - frontierOpportunityScaffold
+  );
+
+  return {
+    neutralExpandAvailable,
+    openingScoutAvailable: territorySummary.settledTileCount <= 2 && frontierOpportunityScout > 0,
+    scoutExpandAvailable: frontierOpportunityScout > 0,
+    economicExpandAvailable: frontierOpportunityEconomic > 0,
+    scaffoldExpandAvailable: frontierOpportunityScaffold > 0,
+    islandExpandAvailable: undercoveredIslandCount > 0 && neutralExpandAvailable,
+    frontierOpportunityEconomic,
+    frontierOpportunityScout,
+    frontierOpportunityScaffold,
+    frontierOpportunityWaste
+  };
+};
+
 const bestAiTownSupportSettlementTile = (
   actor: Player,
   victoryPath?: AiSeasonVictoryPathId,
@@ -9314,7 +9392,7 @@ const buildAiPlanningStaticCache = (
   settlementAvailable = settlementAvailability.settlementAvailable;
   supportSettlementAvailable = settlementAvailability.townSupportSettlementAvailable;
   islandSettlementAvailable = settlementAvailability.islandSettlementAvailable;
-  const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
+  const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary, undercoveredIslandCount);
 
   if (structureCandidateCount > 0) {
     const playerEffects = getPlayerEffectsForPlayer(actor.id);
@@ -9360,18 +9438,18 @@ const buildAiPlanningStaticCache = (
 
   return {
     version: aiTerritoryVersionForPlayer(actor.id),
-    openingScoutAvailable: frontierPlanningSummary.openingScoutAvailable,
-    neutralExpandAvailable: frontierPlanningSummary.neutralExpandAvailable,
-    economicExpandAvailable: frontierPlanningSummary.economicExpandAvailable,
-    scoutExpandAvailable: frontierPlanningSummary.scoutExpandAvailable,
-    scaffoldExpandAvailable: frontierPlanningSummary.scaffoldExpandAvailable,
+    openingScoutAvailable: frontierAvailability.openingScoutAvailable,
+    neutralExpandAvailable: frontierAvailability.neutralExpandAvailable,
+    economicExpandAvailable: frontierAvailability.economicExpandAvailable,
+    scoutExpandAvailable: frontierAvailability.scoutExpandAvailable,
+    scaffoldExpandAvailable: frontierAvailability.scaffoldExpandAvailable,
     barbarianAttackAvailable: territorySummary.barbarianAttackAvailable,
     enemyAttackAvailable: territorySummary.enemyAttackAvailable,
     pressureAttackScore: pressureAttackProfile.score,
     pressureThreatensCore: pressureAttackProfile.threatensCore,
     settlementAvailable,
     townSupportSettlementAvailable: supportSettlementAvailable,
-    islandExpandAvailable: frontierPlanningSummary.islandExpandAvailable,
+    islandExpandAvailable: frontierAvailability.islandExpandAvailable,
     islandSettlementAvailable,
     weakestIslandRatio,
     undercoveredIslandCount,
@@ -9379,10 +9457,10 @@ const buildAiPlanningStaticCache = (
     fortProtectsCore,
     fortIsDockChokePoint,
     economicBuildAvailable,
-    frontierOpportunityEconomic: frontierPlanningSummary.frontierOpportunityEconomic,
-    frontierOpportunityScout: frontierPlanningSummary.frontierOpportunityScout,
-    frontierOpportunityScaffold: frontierPlanningSummary.frontierOpportunityScaffold,
-    frontierOpportunityWaste: frontierPlanningSummary.frontierOpportunityWaste
+    frontierOpportunityEconomic: frontierAvailability.frontierOpportunityEconomic,
+    frontierOpportunityScout: frontierAvailability.frontierOpportunityScout,
+    frontierOpportunityScaffold: frontierAvailability.frontierOpportunityScaffold,
+    frontierOpportunityWaste: frontierAvailability.frontierOpportunityWaste
   };
 };
 
@@ -11399,6 +11477,12 @@ const {
     recentChunkSnapshotPerf.push(sample);
   },
   onFirstChunkSent: ({ playerId, chunkCount, tileCount, radius }) => {
+    sendLoginPhase(
+      socketsByPlayer.get(playerId),
+      "MAP_FIRST_CHUNK",
+      "Connecting your empire...",
+      `First map chunk arrived. Loaded ${chunkCount} chunk${chunkCount === 1 ? "" : "s"} (${tileCount.toLocaleString()} tiles).`
+    );
     const authSync = authSyncTimingByPlayer.get(playerId);
     if (!authSync || authSync.firstChunkSentAt === undefined) return;
     app.log.info(
@@ -15729,6 +15813,7 @@ app.post("/admin/world/regenerate", async () => {
     if (msg.type === "AUTH") {
       const authStartedAt = now();
       authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
+      sendLoginPhase(socket, "AUTH_RECEIVED", "Securing session", "Game server reached. Verifying your Google session...");
       let decoded = cachedFirebaseIdentityForToken(msg.token);
       try {
         if (!decoded) {
@@ -15801,6 +15886,7 @@ app.post("/admin/world/regenerate", async () => {
       }
       const verifiedAt = now();
       authSyncTimingByPlayer.set(player.id, { authVerifiedAt: verifiedAt });
+      sendLoginPhase(socket, "AUTH_VERIFIED", "Securing session", "Google session verified. Loading your empire record...");
       app.log.info(
         {
           playerId: player.id,
@@ -15819,6 +15905,7 @@ app.post("/admin/world/regenerate", async () => {
       const dockPairs = exportDockPairs();
       completeDueResearchForPlayer(player);
       applyManpowerRegen(player);
+      sendLoginPhase(socket, "PLAYER_LOADED", "Connecting your empire...", "Empire record ready. Preparing your session...");
       socket.send(
         JSON.stringify({
           type: "INIT",
@@ -15904,6 +15991,7 @@ app.post("/admin/world/regenerate", async () => {
       const authSync = authSyncTimingByPlayer.get(player.id);
       if (authSync) {
         authSync.initSentAt = now();
+        sendLoginPhase(socket, "INITIAL_SYNC", "Connecting your empire...", "Empire session ready. Waiting for your first world sync...");
         app.log.info(
           {
             playerId: player.id,
@@ -16524,6 +16612,7 @@ app.post("/admin/world/regenerate", async () => {
       const authSync = authSyncTimingByPlayer.get(actor.id);
       if (authSync && authSync.firstSubscribeAt === undefined) {
         authSync.firstSubscribeAt = now();
+        sendLoginPhase(socket, "MAP_SUBSCRIBE", "Connecting your empire...", `Requesting your world view near (${sub.cx}, ${sub.cy})...`);
         app.log.info(
           {
             playerId: actor.id,
