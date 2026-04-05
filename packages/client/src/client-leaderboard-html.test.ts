@@ -19,6 +19,30 @@ describe("leaderboard and season victory rendering", () => {
       },
       [
         {
+          id: "TOWN_CONTROL",
+          name: "Town Control",
+          description: "Hold towns.",
+          leaderName: "Ivan",
+          progressLabel: "20/87 towns",
+          selfProgressLabel: "3/87 towns",
+          thresholdLabel: "Need 87 towns",
+          holdDurationSeconds: 86400,
+          statusLabel: "Pressure building",
+          conditionMet: false
+        },
+        {
+          id: "ECONOMIC_HEGEMONY",
+          name: "Economy",
+          description: "Reach gold.",
+          leaderName: "Ivan",
+          progressLabel: "59.7 gold/m vs 47.4",
+          selfProgressLabel: "12.0 gold/m",
+          thresholdLabel: "Need at least 200 gold/m and 33% lead",
+          holdDurationSeconds: 86400,
+          statusLabel: "Pressure building",
+          conditionMet: false
+        },
+        {
           id: "CONTINENT_FOOTPRINT",
           name: "Continental Footprint",
           description: "Hold islands.",
@@ -34,6 +58,8 @@ describe("leaderboard and season victory rendering", () => {
       undefined
     );
 
+    expect(html).toContain("You: 3/87 towns");
+    expect(html).toContain("You: 12.0 gold/m");
     expect(html).toContain("You: 1/6 islands at 10%+ settled");
     expect(html).toContain("44. You | score 1.0 | settled 1 | income 1.0 | tech 1");
     expect(html).toContain("11. You (7.0)");
