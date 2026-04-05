@@ -342,3 +342,27 @@ export const renderDomainDetailCard = (deps: {
     requiresTechName: domain ? deps.techNameList([domain.requiresTechId]) : ""
   });
 };
+
+export const renderDomainDetailOverlay = (deps: {
+  domainCatalog: DomainInfo[];
+  domainUiSelectedId: string;
+  domainIds: string[];
+  domainChoices: string[];
+  techNameList: (ids: string[]) => string;
+}): string => {
+  const domain = deps.domainCatalog.find((item) => item.id === deps.domainUiSelectedId);
+  if (!domain) return "";
+  return `<div class="tech-detail-backdrop" data-domain-detail-close="backdrop"></div>
+    <div class="tech-detail-modal">
+      <button class="tech-detail-close" type="button" aria-label="Close domain details" data-domain-detail-close="button">×</button>
+      <div class="tech-detail-scroll">
+        ${renderDomainDetailCard({
+          domainCatalog: deps.domainCatalog,
+          domainUiSelectedId: deps.domainUiSelectedId,
+          domainIds: deps.domainIds,
+          domainChoices: deps.domainChoices,
+          techNameList: deps.techNameList
+        })}
+      </div>
+    </div>`;
+};

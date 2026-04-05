@@ -1086,7 +1086,7 @@ const BREAKTHROUGH_IRON_COST = 1;
 const FORT_BUILD_IRON_COST = 45;
 const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
 const SYNTH_OVERLOAD_GOLD_COST = 1_000;
-const SYNTH_OVERLOAD_DISABLE_MS = 60 * 60_000;
+const SYNTH_OVERLOAD_DISABLE_MS = 24 * 60 * 60_000;
 const FUR_SYNTHESIZER_OVERLOAD_SUPPLY = 25;
 const IRONWORKS_OVERLOAD_IRON = 25;
 const CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 16;
@@ -1530,12 +1530,51 @@ const strategicProductionPerMinute = (player: Player): Record<StrategicResource,
       out[sr] += (daily / 1440) * mult * siphonMultiplierAt(tk) * economicStructureOutputMultAt(tk, player.id);
     }
   }
-  for (const town of townsByTile.values()) {
-    const [x, y] = parseKey(town.tileKey);
-    const t = playerTile(x, y);
-    if (t.ownerId !== player.id || t.ownershipState !== "SETTLED") continue;
+  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
+    const structure = economicStructuresByTile.get(tk);
+    if (!structure || structure.status !== "active") continue;
+    const output = converterStructureOutputFor(structure.type) ?? {};
+    for (const [resource, daily] of Object.entries(output) as Array<[StrategicResource, number]>) {
+      out[resource] += daily / 1440;
+    }
   }
   return out;
+};
+
+const continentalFootprintProgressForPlayer = (
+  playerId: string,
+  allIslands: Map<number, number>
+): { qualifiedCount: number; totalIslands: number; weakestQualifiedRatio: number; weakestQualifiedOwned: number; weakestQualifiedTotal: number } => {
+  const settled = islandSettledCounts(playerId);
+  let totalIslands = 0;
+  let qualifiedCount = 0;
+  let weakestQualifiedRatio = Number.POSITIVE_INFINITY;
+  let weakestQualifiedOwned = 0;
+  let weakestQualifiedTotal = 0;
+  for (const [islandId, totalLand] of allIslands) {
+    if (totalLand <= 0) continue;
+    totalIslands += 1;
+    const owned = settled.get(islandId) ?? 0;
+    const ratio = owned / totalLand;
+    if (ratio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) {
+      qualifiedCount += 1;
+      if (
+        ratio < weakestQualifiedRatio ||
+        (ratio === weakestQualifiedRatio && (owned < weakestQualifiedOwned || weakestQualifiedTotal === 0))
+      ) {
+        weakestQualifiedRatio = ratio;
+        weakestQualifiedOwned = owned;
+        weakestQualifiedTotal = totalLand;
+      }
+    }
+  }
+  return {
+    qualifiedCount,
+    totalIslands,
+    weakestQualifiedRatio: Number.isFinite(weakestQualifiedRatio) ? weakestQualifiedRatio : 0,
+    weakestQualifiedOwned,
+    weakestQualifiedTotal
+  };
 };
 
 const players = new Map<string, Player>();
@@ -6961,7 +7000,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === p.id),
       missions: missionPayload(p),
       leaderboard: cachedLeaderboardSnapshot,
-      seasonVictory: cachedVictoryPressureObjectives,
+      seasonVictory: seasonVictoryObjectivesForPlayer(p.id),
       seasonWinner
     })
   );
@@ -12119,38 +12158,34 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
     } else {
       let bestLeaderId: string | undefined;
       let bestQualifiedCount = 0;
-      let bestRatio = -1;
-      let bestMinPct = 0;
-      const totalIslands = Math.max(1, allIslands.size);
+      let bestWeakestQualifiedRatio = -1;
+      let bestWeakestQualifiedOwned = 0;
+      let bestWeakestQualifiedTotal = 0;
       for (const metric of metrics) {
-        const settled = islandSettledCounts(metric.playerId);
-        let minRatio = Number.POSITIVE_INFINITY;
-        let validIslands = 0;
-        let qualifiedCount = 0;
-        for (const [islandId, totalLand] of allIslands) {
-          if (totalLand <= 0) continue;
-          validIslands += 1;
-          const owned = settled.get(islandId) ?? 0;
-          const ratio = owned / totalLand;
-          if (ratio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE) qualifiedCount += 1;
-          minRatio = Math.min(minRatio, ratio);
-        }
-        if (validIslands === 0) continue;
+        const progress = continentalFootprintProgressForPlayer(metric.playerId, allIslands);
+        if (progress.totalIslands === 0) continue;
         if (
-          qualifiedCount > bestQualifiedCount ||
-          (qualifiedCount === bestQualifiedCount &&
-            (minRatio > bestRatio || (minRatio === bestRatio && metric.playerId < (bestLeaderId ?? "~"))))
+          progress.qualifiedCount > bestQualifiedCount ||
+          (progress.qualifiedCount === bestQualifiedCount &&
+            (progress.weakestQualifiedRatio > bestWeakestQualifiedRatio ||
+              (progress.weakestQualifiedRatio === bestWeakestQualifiedRatio && metric.playerId < (bestLeaderId ?? "~"))))
         ) {
-          bestQualifiedCount = qualifiedCount;
-          bestRatio = minRatio;
-          bestMinPct = Math.round(minRatio * 100);
+          bestQualifiedCount = progress.qualifiedCount;
+          bestWeakestQualifiedRatio = progress.weakestQualifiedRatio;
+          bestWeakestQualifiedOwned = progress.weakestQualifiedOwned;
+          bestWeakestQualifiedTotal = progress.weakestQualifiedTotal;
           bestLeaderId = metric.playerId;
         }
       }
+      const totalIslands = Math.max(1, [...allIslands.values()].filter((count) => count > 0).length);
       leaderPlayerId = bestLeaderId;
       leaderValue = bestQualifiedCount;
-      conditionMet = Boolean(leaderPlayerId && bestRatio >= SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE);
-      progressLabel = `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled · weakest island ${bestMinPct}%`;
+      conditionMet = Boolean(leaderPlayerId && bestQualifiedCount >= totalIslands && totalIslands > 0);
+      const bestPct = Math.round(bestWeakestQualifiedRatio * 100);
+      progressLabel =
+        bestQualifiedCount > 0 && bestWeakestQualifiedTotal > 0
+          ? `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled · weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})`
+          : `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled`;
       thresholdLabel = "Need 10% settled land on every island";
     }
 
@@ -12213,6 +12248,20 @@ const currentVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   return cachedVictoryPressureObjectives;
 };
 
+const seasonVictoryObjectivesForPlayer = (playerId: string | undefined): SeasonVictoryObjectiveView[] => {
+  const objectives = currentVictoryPressureObjectives();
+  if (!playerId) return objectives;
+  return objectives.map((objective) => {
+    if (objective.id !== "CONTINENT_FOOTPRINT") return objective;
+    const progress = continentalFootprintProgressForPlayer(playerId, islandLandCounts());
+    const selfProgressLabel =
+      progress.qualifiedCount > 0 && progress.weakestQualifiedTotal > 0
+        ? `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled · weakest island ${Math.round(progress.weakestQualifiedRatio * 100)}% (${progress.weakestQualifiedOwned}/${progress.weakestQualifiedTotal})`
+        : `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled`;
+    return { ...objective, selfProgressLabel };
+  });
+};
+
 const globalStatusBroadcastSignature = (): string =>
   JSON.stringify({
     leaderboard: cachedLeaderboardSnapshot,
@@ -12229,7 +12278,7 @@ const broadcastGlobalStatusUpdate = (force = false): void => {
     sendToPlayer(player.id, {
       type: "GLOBAL_STATUS_UPDATE",
       leaderboard: leaderboardSnapshotForPlayer(player.id),
-      seasonVictory: cachedVictoryPressureObjectives,
+      seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
       seasonWinner
     });
   }
@@ -12238,12 +12287,14 @@ const broadcastGlobalStatusUpdate = (force = false): void => {
 const broadcastVictoryPressureUpdate = (announcement?: string): void => {
   refreshGlobalStatusCache(true);
   lastGlobalStatusBroadcastSig = globalStatusBroadcastSignature();
-  broadcast({
-    type: "SEASON_VICTORY_UPDATE",
-    objectives: cachedVictoryPressureObjectives,
-    announcement,
-    seasonWinner
-  });
+  for (const player of players.values()) {
+    sendToPlayer(player.id, {
+      type: "SEASON_VICTORY_UPDATE",
+      objectives: seasonVictoryObjectivesForPlayer(player.id),
+      announcement,
+      seasonWinner
+    });
+  }
 };
 
 const crownSeasonWinner = (playerId: string, def: VictoryPressureDefinition): void => {
@@ -15982,7 +16033,7 @@ app.post("/admin/world/regenerate", async () => {
           playerStyles: exportPlayerStyles(),
           missions: missionPayload(player),
           leaderboard: currentLeaderboardSnapshot(),
-          seasonVictory: currentVictoryPressureObjectives(),
+          seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
           seasonWinner,
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id),
           truceRequests: [...truceRequests.values()].filter((r) => r.toPlayerId === player.id)

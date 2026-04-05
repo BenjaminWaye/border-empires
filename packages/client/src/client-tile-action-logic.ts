@@ -452,38 +452,59 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
     }
     if (tile.economicStructure?.type === "FUR_SYNTHESIZER" || tile.economicStructure?.type === "ADVANCED_FUR_SYNTHESIZER") {
+      const downtimeRemainingMs = Math.max(0, (tile.economicStructure.disabledUntil ?? 0) - Date.now());
       out.push({
         id: "overload_fur_synthesizer" as TileActionDef["id"],
         label: "Overload Fur Synth",
         detail: deps.buildDetailTextForAction("overload_fur_synthesizer", tile),
         ...tileActionAvailability(
-          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction",
-          !state.techIds.includes("overload-protocols") ? "Requires Overload Protocols" : tile.economicStructure.status === "under_construction" ? "Fur Synthesizer still building" : "Need 1000 gold",
-          "1000 gold • instant 25 SUPPLY • 1h shutdown"
+          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
+          !state.techIds.includes("overload-protocols")
+            ? "Requires Overload Protocols"
+            : tile.economicStructure.status === "under_construction"
+              ? "Fur Synthesizer still building"
+              : downtimeRemainingMs > 0
+                ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
+                : "Need 1000 gold",
+          "1000 gold • instant 25 SUPPLY • 24h shutdown"
         )
       });
     }
     if (tile.economicStructure?.type === "IRONWORKS" || tile.economicStructure?.type === "ADVANCED_IRONWORKS") {
+      const downtimeRemainingMs = Math.max(0, (tile.economicStructure.disabledUntil ?? 0) - Date.now());
       out.push({
         id: "overload_ironworks" as TileActionDef["id"],
         label: "Overload Ironworks",
         detail: deps.buildDetailTextForAction("overload_ironworks", tile),
         ...tileActionAvailability(
-          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction",
-          !state.techIds.includes("overload-protocols") ? "Requires Overload Protocols" : tile.economicStructure.status === "under_construction" ? "Ironworks still building" : "Need 1000 gold",
-          "1000 gold • instant 25 IRON • 1h shutdown"
+          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
+          !state.techIds.includes("overload-protocols")
+            ? "Requires Overload Protocols"
+            : tile.economicStructure.status === "under_construction"
+              ? "Ironworks still building"
+              : downtimeRemainingMs > 0
+                ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
+                : "Need 1000 gold",
+          "1000 gold • instant 25 IRON • 24h shutdown"
         )
       });
     }
     if (tile.economicStructure?.type === "CRYSTAL_SYNTHESIZER" || tile.economicStructure?.type === "ADVANCED_CRYSTAL_SYNTHESIZER") {
+      const downtimeRemainingMs = Math.max(0, (tile.economicStructure.disabledUntil ?? 0) - Date.now());
       out.push({
         id: "overload_crystal_synthesizer" as TileActionDef["id"],
         label: "Overload Synthesizer",
         detail: deps.buildDetailTextForAction("overload_crystal_synthesizer", tile),
         ...tileActionAvailability(
-          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction",
-          !state.techIds.includes("overload-protocols") ? "Requires Overload Protocols" : tile.economicStructure.status === "under_construction" ? "Synthesizer still building" : "Need 1000 gold",
-          "1000 gold • instant 16 CRYSTAL • 1h shutdown"
+          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
+          !state.techIds.includes("overload-protocols")
+            ? "Requires Overload Protocols"
+            : tile.economicStructure.status === "under_construction"
+              ? "Synthesizer still building"
+              : downtimeRemainingMs > 0
+                ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
+                : "Need 1000 gold",
+          "1000 gold • instant 16 CRYSTAL • 24h shutdown"
         )
       });
     }
@@ -936,7 +957,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasCaravanary && state.techIds.includes("ledger-keeping") && state.gold >= 1800 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
             supportPlacementBlocked ? "Tile already has structure" : townHasCaravanary ? "Nearby town already has Caravanary" : !state.techIds.includes("ledger-keeping") ? "Requires Ledger Keeping" : state.gold < 1800 ? "Need 1800 gold" : "Need 60 CRYSTAL",
-            `1800 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +25% connected-town bonus • 15 gold / 10m`,
+            `1800 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +25% connected-town bonus • 1.5 gold / minute`,
             slots,
             deps
           )
@@ -948,7 +969,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasFurSynth && state.techIds.includes("workshops") && state.gold >= 2200,
             supportPlacementBlocked ? "Tile already has structure" : townHasFurSynth ? "Nearby town already has Fur Synthesizer" : !state.techIds.includes("workshops") ? "Requires Workshops" : "Need 2200 gold",
-            `2200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 SUPPLY/day • 120 gold / 10m`,
+            `2200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 SUPPLY/day • 12 gold / minute`,
             slots,
             deps
           )
@@ -960,7 +981,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasIronworks && state.techIds.includes("alchemy") && state.gold >= 2400,
             supportPlacementBlocked ? "Tile already has structure" : townHasIronworks ? "Nearby town already has Ironworks" : !state.techIds.includes("alchemy") ? "Requires Alchemy" : "Need 2400 gold",
-            `2400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 IRON/day • 120 gold / 10m`,
+            `2400 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 18 IRON/day • 12 gold / minute`,
             slots,
             deps
           )
@@ -972,7 +993,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasCrystalSynth && state.techIds.includes("crystal-lattices") && state.gold >= 2800,
             supportPlacementBlocked ? "Tile already has structure" : townHasCrystalSynth ? "Nearby town already has Crystal Synthesizer" : !state.techIds.includes("crystal-lattices") ? "Requires Crystal Lattices" : "Need 2800 gold",
-            `2800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 12 CRYSTAL/day • 160 gold / 10m`,
+            `2800 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 12 CRYSTAL/day • 16 gold / minute`,
             slots,
             deps
           )
@@ -984,7 +1005,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !supportPlacementBlocked && !townHasFuelPlant && state.techIds.includes("plastics") && state.gold >= 3200,
             supportPlacementBlocked ? "Tile already has structure" : townHasFuelPlant ? "Nearby town already has Fuel Plant" : !state.techIds.includes("plastics") ? "Requires Plastics" : "Need 3200 gold",
-            `3200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 10 OIL/day • 180 gold / 10m`,
+            `3200 gold • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • 10 OIL/day • 18 gold / minute`,
             slots,
             deps
           )
@@ -1017,7 +1038,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             !hasBlockingStructure && state.techIds.includes("global-trade-networks") && state.gold >= 1800 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
             hasBlockingStructure ? "Tile already has structure" : !state.techIds.includes("global-trade-networks") ? "Requires Global Trade Networks" : state.gold < 1800 ? "Need 1800 gold" : "Need 60 CRYSTAL",
-            `1800 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +50% dock income • 15 gold / 10m`,
+            `1800 gold + 60 CRYSTAL • ${Math.round(ECONOMIC_STRUCTURE_BUILD_MS / 60000)}m • +50% dock income • 1.5 gold / minute`,
             slots,
             deps
           )

@@ -102,6 +102,7 @@ export type Tile = {
       | "RADAR_SYSTEM";
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
+    disabledUntil?: number;
   };
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
   history?: {
@@ -170,6 +171,21 @@ export type Tile = {
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
+};
+
+export type SeasonVictoryObjectiveView = {
+  id: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "CONTINENT_FOOTPRINT";
+  name: string;
+  description: string;
+  leaderPlayerId?: string;
+  leaderName: string;
+  progressLabel: string;
+  selfProgressLabel?: string;
+  thresholdLabel: string;
+  holdDurationSeconds: number;
+  holdRemainingSeconds?: number;
+  statusLabel: string;
+  conditionMet: boolean;
 };
 
 export type TileTimedProgress = {
@@ -320,20 +336,6 @@ export type PendingResearch = {
 
 export type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number; rank: number };
 export type LeaderboardMetricEntry = { id: string; name: string; value: number };
-
-export type SeasonVictoryObjectiveView = {
-  id: "TOWN_CONTROL" | "SETTLED_TERRITORY" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "CONTINENT_FOOTPRINT";
-  name: string;
-  description: string;
-  leaderPlayerId?: string;
-  leaderName: string;
-  progressLabel: string;
-  thresholdLabel: string;
-  holdDurationSeconds: number;
-  holdRemainingSeconds?: number;
-  statusLabel: string;
-  conditionMet: boolean;
-};
 
 export type SeasonWinnerView = {
   playerId: string;
