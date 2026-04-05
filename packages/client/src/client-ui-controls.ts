@@ -13,6 +13,7 @@ import {
 } from "@border-empires/shared";
 import { canAffordCost, isForestTile, settleDurationMsForTile } from "./client-constants.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
+import { closeActivePanel, setActivePanel } from "./client-panel-nav.js";
 import type { ClientState } from "./client-state.js";
 
 type HoldBuildMenuDeps = Record<string, any> & {
@@ -462,7 +463,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     renderShardAlert();
   };
   panelCloseBtn.onclick = () => {
-    state.activePanel = null;
+    closeActivePanel(state);
     renderHud();
   };
 
