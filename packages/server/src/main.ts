@@ -14584,11 +14584,18 @@ const bootstrapRuntimeState = async (): Promise<void> => {
   });
 
   const chunkReadStartedAt = Date.now();
-  await chunkReadManager.hydrateAll();
-  logStartupPhase("hydrate_chunk_read_worker", chunkReadStartedAt, {
-    available: chunkReadWorkerState.available,
-    hydrated: chunkReadWorkerState.hydrated
-  });
+  void chunkReadManager
+    .hydrateAll()
+    .then(() => {
+      logStartupPhase("hydrate_chunk_read_worker", chunkReadStartedAt, {
+        available: chunkReadWorkerState.available,
+        hydrated: chunkReadWorkerState.hydrated,
+        deferred: true
+      });
+    })
+    .catch((err) => {
+      logRuntimeError("chunk read worker hydration failed", err);
+    });
 };
 const runtimeIntervals: NodeJS.Timeout[] = [];
 const registerInterval = (fn: () => void, ms: number): void => {
