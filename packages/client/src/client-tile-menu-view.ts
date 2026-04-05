@@ -36,6 +36,7 @@ const structureNameForTile = (tile: Tile): string | undefined => {
 };
 
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
+  const supportedTownLabel = supportedTown?.town?.name ? supportedTown.town.name : supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
   if (actionId === "settle_land") return "Makes this tile defended and activates production.";
   if (actionId === "build_fortification") {
     return tile.economicStructure?.type === "WOODEN_FORT"
@@ -54,21 +55,17 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_camp") return "Improves supply output on this tile by 50%.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} output on this tile by 50%.`;
   if (actionId === "build_market") {
-    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +50% fed gold output and +50% gold storage cap.`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants +50% fed gold output and +50% gold storage cap.`;
   }
   if (actionId === "build_granary") {
-    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +20% population growth and +20% gold storage cap.`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants +20% population growth and +20% gold storage cap.`;
   }
   if (actionId === "build_bank") {
-    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Grants +50% city income and +1 flat income.`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants +50% city income and +1 flat income.`;
   }
   if (actionId === "build_airport") return "Build an airport on empty settled land. Bombard enemy tiles within 30 tiles for oil.";
   if (actionId === "build_caravanary") {
-    const townLabel = supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-    return `Build on this support tile for the ${townLabel}. Boosts its connected-town income bonus by 25%.`;
+    return `Build on this support tile for ${supportedTownLabel}. Boosts its connected-town income bonus by 25%.`;
   }
   if (actionId === "build_fur_synthesizer") return "Convert heavy gold upkeep into steady supply output on this support tile with a Fur Synthesizer.";
   if (actionId === "upgrade_fur_synthesizer") return "Upgrade this Fur Synthesizer into an Advanced Fur Synthesizer with 20% higher output.";
@@ -348,7 +345,7 @@ export const menuOverviewForTile = (
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {
-      pushLine(`Support tile for nearby town at (${town.x}, ${town.y}).`);
+      pushLine(town.town?.name ? `Support tile for ${town.town.name}.` : `Support tile for nearby town at (${town.x}, ${town.y}).`);
       if (town.town?.hasMarket) pushLine("Nearby town already has a Market.");
       if (town.town?.hasGranary) pushLine("Nearby town already has a Granary.");
       if (!tile.economicStructure) pushLine("Town buildings like markets and granaries must be built on support tiles.");
@@ -458,7 +455,7 @@ export const tileMenuViewForTile = (
             : "Enemy";
   const titleLabel =
     tile.town
-      ? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
+      ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
       : tile.dockId
         ? "Dock"
         : tile.resource
