@@ -10,9 +10,12 @@ describe("leaderboard and season victory rendering", () => {
           { id: "p2", rank: 2, name: "Beta", score: 9, tiles: 9, incomePerMinute: 4, techs: 1 }
         ],
         selfOverall: { id: "me", rank: 44, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 1, techs: 1 },
-        byTiles: [],
-        byIncome: [],
-        byTechs: []
+        selfByTiles: { id: "me", rank: 11, name: "Nauticus", value: 7 },
+        selfByIncome: { id: "me", rank: 8, name: "Nauticus", value: 3.5 },
+        selfByTechs: { id: "me", rank: 13, name: "Nauticus", value: 2 },
+        byTiles: [{ id: "p1", rank: 1, name: "Alpha", value: 10 }],
+        byIncome: [{ id: "p1", rank: 1, name: "Alpha", value: 5 }],
+        byTechs: [{ id: "p1", rank: 1, name: "Alpha", value: 4 }]
       },
       [
         {
@@ -33,5 +36,29 @@ describe("leaderboard and season victory rendering", () => {
 
     expect(html).toContain("You: 1/6 islands at 10%+ settled");
     expect(html).toContain("44. You | score 1.0 | settled 1 | income 1.0 | tech 1");
+    expect(html).toContain("11. You (7.0)");
+    expect(html).toContain("8. You (3.5)");
+    expect(html).toContain("13. You (2.0)");
+  });
+
+  it("does not duplicate self metric rows when the player is already in the visible top five", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [{ id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 }],
+        selfOverall: undefined,
+        selfByTiles: undefined,
+        selfByIncome: undefined,
+        selfByTechs: undefined,
+        byTiles: [{ id: "me", rank: 1, name: "Nauticus", value: 10 }],
+        byIncome: [{ id: "me", rank: 1, name: "Nauticus", value: 5 }],
+        byTechs: [{ id: "me", rank: 1, name: "Nauticus", value: 4 }]
+      },
+      [],
+      undefined
+    );
+
+    expect(html).not.toContain("1. You (10.0)");
+    expect(html).not.toContain("1. You (5.0)");
+    expect(html).not.toContain("1. You (4.0)");
   });
 });
