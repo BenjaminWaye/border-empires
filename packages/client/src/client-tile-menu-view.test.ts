@@ -17,6 +17,18 @@ const settledSupportTile = (status: NonNullable<Tile["economicStructure"]>["stat
   }
 });
 
+const settledObservatoryTile = (status: NonNullable<Tile["observatory"]>["status"]): Tile => ({
+  x: 85,
+  y: 164,
+  terrain: "LAND",
+  ownerId: "me",
+  ownershipState: "SETTLED",
+  observatory: {
+    ownerId: "me",
+    status
+  }
+});
+
 const deps = {
   state: { me: "me" },
   prettyToken: (value: string) => value,
@@ -47,5 +59,12 @@ describe("menuOverviewForTile", () => {
   it("distinguishes overloaded recovery from generic inactivity", () => {
     const lines = menuOverviewForTile(settledSupportTile("inactive", Date.now() + 60_000), deps);
     expect(lines.some((line) => line.html.includes("disabled while recovering from overload"))).toBe(true);
+  });
+
+  it("describes active observatories and their crystal upkeep", () => {
+    const lines = menuOverviewForTile(settledObservatoryTile("active"), deps);
+    expect(lines.some((line) => line.html.includes("Observatory"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("blocks hostile crystal actions nearby"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("0.03/m"))).toBe(true);
   });
 });
