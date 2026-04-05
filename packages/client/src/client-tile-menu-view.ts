@@ -58,9 +58,9 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output.";
   if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile.";
   if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Crystal Synthesizer into an Advanced Crystal Synthesizer with 20% higher output.";
-  if (actionId === "overload_fur_synthesizer") return "Spend 1000 gold for an instant supply burst, then shut this Fur Synthesizer down for 1 hour.";
-  if (actionId === "overload_ironworks") return "Spend 1000 gold for an instant iron burst, then shut this ironworks down for 1 hour.";
-  if (actionId === "overload_crystal_synthesizer") return "Spend 1000 gold for an instant crystal burst, then shut this synthesizer down for 1 hour.";
+  if (actionId === "overload_fur_synthesizer") return "Spend 1000 gold for an instant supply burst, then shut this Fur Synthesizer down for 24 hours.";
+  if (actionId === "overload_ironworks") return "Spend 1000 gold for an instant iron burst, then shut this ironworks down for 24 hours.";
+  if (actionId === "overload_crystal_synthesizer") return "Spend 1000 gold for an instant crystal burst, then shut this synthesizer down for 24 hours.";
   if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
@@ -163,6 +163,7 @@ export const menuOverviewForTile = (
     populationPerMinuteLabel: (value: number) => string;
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
+    connectedDockCountForTile: (tile: Tile) => number;
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
@@ -226,6 +227,7 @@ export const menuOverviewForTile = (
     } else {
       pushLine(`Town is fed and producing ${deps.displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
     }
+    pushLine(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
     if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${deps.prettyToken(tile.town.populationTier)}`);
     pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
@@ -239,6 +241,10 @@ export const menuOverviewForTile = (
     if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
   } else if (tile.resource) {
     if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
+  }
+  if (tile.dockId && tile.ownershipState === "SETTLED") {
+    const connectedDockCount = deps.connectedDockCountForTile(tile);
+    pushLine(`Connected docks ${connectedDockCount}`);
   }
   const productionHtml = tileProductionHtml(tile);
   if (productionHtml) pushLine(`Production: ${productionHtml}`);
@@ -288,7 +294,10 @@ export const tileMenuViewForTile = (
   const construction = deps.constructionProgressForTile(tile);
   const progress = settlement ?? queuedSettlement ?? construction;
   const tabs: TileMenuTab[] = [];
-  const canShowBuildingsTab = tile.ownerId === deps.state.me && tile.ownershipState === "SETTLED" && tile.terrain === "LAND";
+  const canShowBuildingsTab =
+    tile.ownerId === deps.state.me &&
+    tile.ownershipState === "SETTLED" &&
+    (tile.terrain === "LAND" || Boolean(tile.dockId));
   if (progress) tabs.push("progress");
   if (actionTabs.actions.length > 0) tabs.push("actions");
   if (actionTabs.buildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
