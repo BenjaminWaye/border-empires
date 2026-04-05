@@ -398,6 +398,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       renderTechDetailCard: techFlow.renderTechDetailCard,
       renderStructureInfoOverlay: techFlow.renderStructureInfoOverlay,
       renderTechDetailOverlay: techFlow.renderTechDetailOverlay,
+      renderDomainDetailOverlay: techFlow.renderDomainDetailOverlay,
       techOwnedHtml,
       effectiveOwnedTechIds: techFlow.effectiveOwnedTechIds,
       isPendingTechUnlock: techFlow.isPendingTechUnlock,

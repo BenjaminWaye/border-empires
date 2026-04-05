@@ -3,6 +3,7 @@ import { currentDomainChoiceTier, formatTechBenefitSummary } from "./client-tech
 import {
   renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
   renderDomainDetailCard as renderDomainDetailCardFromModule,
+  renderDomainDetailOverlay as renderDomainDetailOverlayFromModule,
   renderDomainProgressCard as renderDomainProgressCardFromModule,
   renderStructureInfoOverlay as renderStructureInfoOverlayFromModule,
   renderTechChoiceGrid as renderTechChoiceGridFromModule,
@@ -258,6 +259,15 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       techNameList
     });
 
+  const renderDomainDetailOverlay = (): string =>
+    renderDomainDetailOverlayFromModule({
+      domainCatalog: state.domainCatalog,
+      domainUiSelectedId: state.domainUiSelectedId,
+      domainIds: state.domainIds,
+      domainChoices: state.domainChoices,
+      techNameList
+    });
+
   const renderTechChoiceDetails = (): string => "";
 
   const affordableTechChoicesCount = (): number => {
@@ -293,6 +303,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     renderDomainProgressCard,
     renderTechDetailOverlay,
     renderDomainDetailCard,
+    renderDomainDetailOverlay,
     renderTechChoiceDetails,
     affordableTechChoicesCount
   };
