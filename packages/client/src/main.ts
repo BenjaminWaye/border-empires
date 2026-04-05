@@ -45,6 +45,7 @@ import {
   maybeAnnounceShardSite as maybeAnnounceShardSiteFromModule,
   notifyInsufficientGoldForFrontierAction as notifyInsufficientGoldForFrontierActionFromModule,
   pushFeed as pushFeedFromModule,
+  pushFeedEntry as pushFeedEntryFromModule,
   shardAlertKeyForPayload as shardAlertKeyForPayloadFromModule,
   showCaptureAlert as showCaptureAlertFromModule,
   showCollectVisibleCooldownAlert as showCollectVisibleCooldownAlertFromModule,
@@ -521,6 +522,7 @@ const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string =>
 };
 const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void =>
   pushFeedFromModule(state, msg, type, severity);
+const pushFeedEntry = (entry: FeedEntry): void => pushFeedEntryFromModule(state, entry);
 
 const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => maybeAnnounceShardSiteFromModule(previous, next);
 
