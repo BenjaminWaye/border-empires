@@ -79,6 +79,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "overload_fur_synthesizer") return "Spend 1000 gold for an instant supply burst, then shut this Fur Synthesizer down for 24 hours.";
   if (actionId === "overload_ironworks") return "Spend 1000 gold for an instant iron burst, then shut this ironworks down for 24 hours.";
   if (actionId === "overload_crystal_synthesizer") return "Spend 1000 gold for an instant crystal burst, then shut this synthesizer down for 24 hours.";
+  if (actionId === "enable_converter_structure") return "Resume this converter. It immediately pays the next upkeep tick, then starts producing again.";
+  if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
   if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine output within 10 tiles.";
   if (actionId === "build_garrison_hall") return "Defensive command center. Boosts settled-tile defense by 20% within 10 tiles.";
@@ -376,6 +378,10 @@ export const menuOverviewForTile = (
         pushLine("Structure is active and currently contributing output and upkeep.");
       } else if (tile.economicStructure.disabledUntil && tile.economicStructure.disabledUntil > Date.now()) {
         pushLine("Structure is disabled while recovering from overload and currently contributes no output or upkeep.");
+      } else if (tile.economicStructure.inactiveReason === "upkeep") {
+        pushLine("Structure shut down after gold upkeep ran out and must be manually re-enabled before it contributes output or upkeep again.");
+      } else if (tile.economicStructure.inactiveReason === "manual") {
+        pushLine("Structure is manually disabled and currently contributes no output or upkeep until you re-enable it.");
       } else if (tile.economicStructure.status === "inactive") {
         pushLine("Structure is disabled and currently contributes no output or upkeep.");
       }

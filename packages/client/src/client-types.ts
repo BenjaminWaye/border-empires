@@ -103,6 +103,7 @@ export type Tile = {
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
     disabledUntil?: number;
+    inactiveReason?: "manual" | "upkeep";
   };
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
   history?: {
@@ -424,6 +425,8 @@ export type TileActionDef = {
     | "overload_fur_synthesizer"
     | "overload_ironworks"
     | "overload_crystal_synthesizer"
+    | "enable_converter_structure"
+    | "disable_converter_structure"
     | "offer_truce_12h"
     | "offer_truce_24h"
     | "break_truce"

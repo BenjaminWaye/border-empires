@@ -3685,6 +3685,15 @@ const isDockSupportOnlyStructureType = (structureType: EconomicStructureType): b
 const isLightCombatStructureType = (structureType: EconomicStructureType): boolean =>
   structureType === "WOODEN_FORT" || structureType === "LIGHT_OUTPOST";
 
+const isConverterStructureType = (structureType: EconomicStructureType): boolean =>
+  structureType === "FUR_SYNTHESIZER" ||
+  structureType === "ADVANCED_FUR_SYNTHESIZER" ||
+  structureType === "IRONWORKS" ||
+  structureType === "ADVANCED_IRONWORKS" ||
+  structureType === "CRYSTAL_SYNTHESIZER" ||
+  structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
+  structureType === "FUEL_PLANT";
+
 const availableSupportTileKeysForTown = (
   townKey: TileKey,
   ownerId: string | undefined,
@@ -4829,6 +4838,8 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
       ownerId: economic.ownerId,
       type: economic.type,
       status: economic.status,
+      ...(economic.inactiveReason !== undefined ? { inactiveReason: economic.inactiveReason } : {}),
+      ...(economic.disabledUntil !== undefined ? { disabledUntil: economic.disabledUntil } : {}),
       ...(economic.completesAt !== undefined ? { completesAt: economic.completesAt } : {})
     };
   }
@@ -5111,14 +5122,17 @@ const playerTile = (x: number, y: number): Tile => {
   }
   const economicStructure = economicStructuresByTile.get(key(wx, wy));
   if (economicStructure) {
-    tile.economicStructure = {
+    const economicStructureView: NonNullable<Tile["economicStructure"]> = {
       ownerId: economicStructure.ownerId,
       type: economicStructure.type,
       status: economicStructure.status
     };
+    if (economicStructure.inactiveReason !== undefined) economicStructureView.inactiveReason = economicStructure.inactiveReason;
+    if (economicStructure.disabledUntil !== undefined) economicStructureView.disabledUntil = economicStructure.disabledUntil;
     if ((economicStructure.status === "under_construction" || economicStructure.status === "removing") && economicStructure.completesAt !== undefined) {
-      tile.economicStructure.completesAt = economicStructure.completesAt;
+      economicStructureView.completesAt = economicStructure.completesAt;
     }
+    tile.economicStructure = economicStructureView;
   }
   if (history && (history.captureCount > 0 || history.structureHistory.length > 0 || history.lastStructureType)) {
     const historyView: NonNullable<Tile["history"]> = {
@@ -6632,6 +6646,7 @@ const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structur
       return;
     }
     current.status = "active";
+    delete current.inactiveReason;
     delete current.completesAt;
     economicStructureBuildTimers.delete(tk);
     markSummaryChunkDirtyAtTile(t.x, t.y);
@@ -6668,6 +6683,10 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
       touched.add(tk);
       continue;
     }
+    if (isConverterStructureType(structure.type) && structure.status === "inactive" && structure.inactiveReason) {
+      touched.add(tk);
+      continue;
+    }
     if (!economicStructureUpkeepDue(structure)) continue;
     if (structure.type === "MARKET" || structure.type === "BANK") {
       const crystalUpkeep =
@@ -6679,51 +6698,18 @@ const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
         structure.status = "inactive";
       }
     } else {
-      const upkeep =
-        structure.type === "FARMSTEAD"
-          ? FARMSTEAD_GOLD_UPKEEP
-          : structure.type === "CAMP"
-            ? CAMP_GOLD_UPKEEP
-            : structure.type === "MINE"
-              ? MINE_GOLD_UPKEEP
-              : structure.type === "GRANARY"
-                ? GRANARY_GOLD_UPKEEP
-                : structure.type === "CARAVANARY"
-                  ? CARAVANARY_GOLD_UPKEEP
-                : structure.type === "ADVANCED_FUR_SYNTHESIZER"
-                  ? FUR_SYNTHESIZER_GOLD_UPKEEP
-                : structure.type === "WOODEN_FORT"
-                  ? WOODEN_FORT_GOLD_UPKEEP
-                  : structure.type === "LIGHT_OUTPOST"
-                    ? LIGHT_OUTPOST_GOLD_UPKEEP
-                : structure.type === "FUR_SYNTHESIZER"
-                  ? FUR_SYNTHESIZER_GOLD_UPKEEP
-                  : structure.type === "IRONWORKS"
-                    ? IRONWORKS_GOLD_UPKEEP
-                  : structure.type === "ADVANCED_IRONWORKS"
-                    ? IRONWORKS_GOLD_UPKEEP
-                : structure.type === "CRYSTAL_SYNTHESIZER"
-                  ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
-                  : structure.type === "ADVANCED_CRYSTAL_SYNTHESIZER"
-                    ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
-                  : structure.type === "FUEL_PLANT"
-                  ? FUEL_PLANT_GOLD_UPKEEP
-                : structure.type === "FOUNDRY"
-                  ? FOUNDRY_GOLD_UPKEEP
-                  : structure.type === "GARRISON_HALL"
-                    ? GARRISON_HALL_GOLD_UPKEEP
-                    : structure.type === "CUSTOMS_HOUSE"
-                      ? CUSTOMS_HOUSE_GOLD_UPKEEP
-                  : structure.type === "GOVERNORS_OFFICE"
-                    ? GOVERNORS_OFFICE_GOLD_UPKEEP
-                    : structure.type === "RADAR_SYSTEM"
-                              ? RADAR_SYSTEM_GOLD_UPKEEP
-                : 0;
+      const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
       if (player.points >= upkeep) {
         player.points = Math.max(0, player.points - upkeep);
-        if (structure.type !== "AIRPORT") structure.status = "active";
+        if (structure.type !== "AIRPORT") {
+          structure.status = "active";
+          delete structure.inactiveReason;
+        }
       } else {
-        if (structure.type !== "AIRPORT") structure.status = "inactive";
+        if (structure.type !== "AIRPORT") {
+          structure.status = "inactive";
+          if (isConverterStructureType(structure.type)) structure.inactiveReason = "upkeep";
+        }
       }
     }
     structure.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
@@ -7787,6 +7773,17 @@ const executeUnifiedGameplayMessage = async (
       socket.send(JSON.stringify({ type: "ERROR", code: "SYNTH_OVERLOAD_INVALID", message: out.reason }));
       return true;
     }
+    sendPlayerUpdate(actor, 0);
+    return true;
+  }
+
+  if (msg.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
+    const out = trySetConverterStructureEnabled(actor, msg.x, msg.y, msg.enabled);
+    if (!out.ok) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "CONVERTER_TOGGLE_INVALID", message: out.reason }));
+      return true;
+    }
+    updateOwnership(msg.x, msg.y, actor.id);
     sendPlayerUpdate(actor, 0);
     return true;
   }
@@ -13469,10 +13466,37 @@ const tryOverloadSynthesizer = (actor: Player, x: number, y: number): { ok: bool
     stock.CRYSTAL = (stock.CRYSTAL ?? 0) + CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL;
   }
   structure.status = "inactive";
+  delete structure.inactiveReason;
   structure.disabledUntil = now() + SYNTH_OVERLOAD_DISABLE_MS;
   structure.nextUpkeepAt = structure.disabledUntil;
   recalcPlayerDerived(actor);
   const [wx, wy] = parseKey(tk);
+  markSummaryChunkDirtyAtTile(wx, wy);
+  return { ok: true };
+};
+
+const trySetConverterStructureEnabled = (actor: Player, x: number, y: number, enabled: boolean): { ok: boolean; reason?: string } => {
+  const tk = key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
+  const structure = economicStructuresByTile.get(tk);
+  if (!structure || structure.ownerId !== actor.id) return { ok: false, reason: "no owned converter on tile" };
+  if (!isConverterStructureType(structure.type)) return { ok: false, reason: "only converter structures can be toggled" };
+  if (structure.status === "under_construction" || structure.status === "removing") return { ok: false, reason: "converter is not ready" };
+  if (structure.disabledUntil && structure.disabledUntil > now()) return { ok: false, reason: "converter is recovering from overload" };
+  const [wx, wy] = parseKey(tk);
+  const tile = playerTile(wx, wy);
+  if (enabled) {
+    if (tile.ownerId !== actor.id || tile.ownershipState !== "SETTLED") return { ok: false, reason: "converter requires settled owned tile" };
+    const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
+    if (actor.points < upkeep) return { ok: false, reason: "insufficient gold for converter upkeep" };
+    actor.points -= upkeep;
+    structure.status = "active";
+    delete structure.inactiveReason;
+  } else {
+    structure.status = "inactive";
+    structure.inactiveReason = "manual";
+  }
+  structure.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
+  recalcPlayerDerived(actor);
   markSummaryChunkDirtyAtTile(wx, wy);
   return { ok: true };
 };
@@ -13993,8 +14017,6 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   ) {
     return { ok: false, reason: "fort cannot be built on this tile" };
   }
-  const dock = docksByTile.get(tk);
-  if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
   if (existingEconomic?.type === "WOODEN_FORT" && !upgradingWoodenFort) return { ok: false, reason: "wooden fort is still being modified" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = Math.ceil(structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")) * effects.fortBuildGoldCostMult);
@@ -14072,7 +14094,6 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   ) {
     return { ok: false, reason: "siege outpost cannot be built on this tile" };
   }
-  if (!docksByTile.has(tk) && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile or dock" };
   if (existingEconomic?.type === "LIGHT_OUTPOST" && !upgradingLightOutpost) return { ok: false, reason: "light outpost is still being modified" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST"));
@@ -14205,6 +14226,8 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
         economic.status = "inactive";
         delete economic.completesAt;
         delete economic.disabledUntil;
+        if (isConverterStructureType(economic.type)) economic.inactiveReason = "manual";
+        else delete economic.inactiveReason;
         economic.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
         trackOwnedTileKey(economicStructureTileKeysByPlayer, newOwner, k);
       } else {
@@ -15049,6 +15072,8 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
     };
     if (structure.completesAt !== undefined) normalized.completesAt = structure.completesAt;
     if (structure.disabledUntil !== undefined) normalized.disabledUntil = structure.disabledUntil;
+    if (structure.inactiveReason !== undefined) normalized.inactiveReason = structure.inactiveReason;
+    else if (normalized.status === "inactive" && isConverterStructureType(normalized.type) && normalized.disabledUntil === undefined) normalized.inactiveReason = "manual";
     economicStructuresByTile.set(structure.tileKey, normalized);
     trackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, structure.tileKey);
   }
@@ -15378,6 +15403,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     if (structure.status === "under_construction") {
       if (remaining <= 0) {
         structure.status = "active";
+        delete structure.inactiveReason;
         delete structure.completesAt;
         continue;
       }
@@ -15391,6 +15417,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
           return;
         }
         current.status = "active";
+        delete current.inactiveReason;
         delete current.completesAt;
         economicStructureBuildTimers.delete(tk);
         updateOwnership(sx, sy, current.ownerId);
@@ -16710,6 +16737,17 @@ app.post("/admin/world/regenerate", async () => {
         socket.send(JSON.stringify({ type: "ERROR", code: "SYNTH_OVERLOAD_INVALID", message: out.reason }));
         return;
       }
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
+      const out = trySetConverterStructureEnabled(actor, msg.x, msg.y, msg.enabled);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "CONVERTER_TOGGLE_INVALID", message: out.reason }));
+        return;
+      }
+      updateOwnership(msg.x, msg.y, actor.id);
       sendPlayerUpdate(actor, 0);
       return;
     }
