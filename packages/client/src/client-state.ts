@@ -196,6 +196,7 @@ export const createInitialState = () => ({
   shardAlert: undefined as ClientShardRainAlert | undefined,
   dismissedShardAlertKeys: new Set<string>(),
   structureInfoKey: "" as string,
+  crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD",
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
