@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { constructionProgressForTile, menuOverviewForTile, tileMenuViewForTile } from "./client-tile-menu-view.js";
+import type { TileAreaEffectModifier } from "./client-structure-effects.js";
 import type { Tile } from "./client-types.js";
 
 const settledSupportTile = (
@@ -47,7 +48,8 @@ const deps = {
   constructionCountdownLineForTile: () => "",
   tileHistoryLines: () => [] as string[],
   isTileOwnedByAlly: () => false,
-  growthModifierPercentLabel: () => "0%"
+  growthModifierPercentLabel: () => "0%",
+  areaEffectModifiersForTile: () => [] as TileAreaEffectModifier[]
 };
 
 describe("menuOverviewForTile", () => {
@@ -87,6 +89,31 @@ describe("menuOverviewForTile", () => {
     const lines = menuOverviewForTile(settledSupportTile("removing"), deps);
     expect(lines.some((line) => line.html.includes("Removal is underway"))).toBe(true);
     expect(lines.some((line) => line.html.includes("effects are currently disabled"))).toBe(true);
+  });
+
+  it("shows area-effect modifiers in the overview", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 12,
+        y: 14,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        resource: "IRON",
+        economicStructure: {
+          ownerId: "me",
+          type: "MINE",
+          status: "active"
+        }
+      },
+      {
+        ...deps,
+        areaEffectModifiersForTile: () => [{ name: "Foundry", mod: "+6.0/day iron", tone: "positive" }]
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Foundry"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+6.0/day iron"))).toBe(true);
   });
 
   it("shows building-specific removal progress timing", () => {

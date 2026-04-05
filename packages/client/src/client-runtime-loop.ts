@@ -1,5 +1,6 @@
 import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { exposedSidesForTile } from "./client-defensibility-html.js";
+import { structureAreaPreviewForTile } from "./client-structure-effects.js";
 import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import type { ClientState } from "./client-state.js";
@@ -638,6 +639,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           );
           deps.ctx.restore();
         }
+      }
+    }
+    const selectedStructurePreview = selectedWorld ? structureAreaPreviewForTile(selectedWorld) : undefined;
+    if (selectedWorld && selectedStructurePreview) {
+      const selectedVisibility = deps.tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
+      if (selectedVisibility === "visible") {
+        const center = deps.worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
+        const ringRadius = selectedStructurePreview.radius + 0.5;
+        const squareSize = ringRadius * 2 * size;
+        deps.ctx.save();
+        deps.ctx.strokeStyle = selectedStructurePreview.strokeStyle;
+        deps.ctx.fillStyle = selectedStructurePreview.fillStyle;
+        deps.ctx.setLineDash(selectedStructurePreview.lineDash);
+        deps.ctx.lineWidth = 2;
+        deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
+        deps.ctx.fillRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
+        deps.ctx.restore();
       }
     }
 
