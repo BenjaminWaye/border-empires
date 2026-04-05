@@ -19,6 +19,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     syncAuthOverlay,
     authenticateSocket,
     pushFeed,
+    pushFeedEntry,
     clearOptimisticTileState,
     requestViewRefresh,
     applyPendingSettlementsFromServer,
@@ -162,7 +163,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
     );
     if (!predictedAlreadyShown) {
-      pushFeed(resultAlert.detail, "combat", resultAlert.tone === "success" ? "success" : "warn");
+      pushFeedEntry({
+        title: resultAlert.title,
+        text: resultAlert.detail,
+        type: "combat",
+        severity: resultAlert.tone === "success" ? "success" : "warn",
+        at: Date.now(),
+        ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
+          ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
+          : {})
+      });
       showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
     }
     if (resultTargetKey) {
@@ -399,6 +409,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (msg.shardRainNotice as
           | { phase?: "upcoming" | "started"; startsAt?: number; expiresAt?: number; siteCount?: number }
           | undefined) ?? undefined;
+      const offlineActivity =
+        (msg.offlineActivity as
+          | Array<{ title?: string; detail?: string; type?: string; severity?: string; at?: number; tileKey?: string; actionLabel?: string }>
+          | undefined) ?? [];
       state.discoveredTiles.clear();
       state.discoveredDockTiles.clear();
       state.dockPairs = mapMeta.dockPairs ?? [];
@@ -412,6 +426,36 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           "info"
         );
         if (typeof mapMeta.townCount === "number") pushFeed(`Towns on world: ${mapMeta.townCount}.`, "info", "info");
+      }
+      if (offlineActivity.length > 0) {
+        for (let index = offlineActivity.length - 1; index >= 0; index -= 1) {
+          const entry = offlineActivity[index]!;
+          const tileKey = typeof entry.tileKey === "string" ? entry.tileKey : undefined;
+          const parsedFocus = tileKey ? (() => {
+            const [xText, yText] = tileKey.split(",");
+            const x = Number(xText);
+            const y = Number(yText);
+            return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+          })() : undefined;
+          pushFeedEntry({
+            title: typeof entry.title === "string" ? entry.title : undefined,
+            text: typeof entry.detail === "string" ? entry.detail : "Activity update",
+            type: entry.type === "combat" || entry.type === "mission" || entry.type === "error" || entry.type === "info" || entry.type === "alliance" || entry.type === "tech" ? entry.type : "info",
+            severity:
+              entry.severity === "info" || entry.severity === "success" || entry.severity === "warn" || entry.severity === "error"
+                ? entry.severity
+                : "info",
+            at: typeof entry.at === "number" ? entry.at : Date.now(),
+            ...(parsedFocus ? { focusX: parsedFocus.x, focusY: parsedFocus.y, actionLabel: typeof entry.actionLabel === "string" ? entry.actionLabel : "Center" } : {})
+          });
+        }
+        showCaptureAlert(
+          "While you were away",
+          offlineActivity.length === 1 && typeof offlineActivity[0]?.detail === "string"
+            ? offlineActivity[0].detail
+            : `${offlineActivity.length} empire updates happened while you were away.`,
+          "warn"
+        );
       }
       if (shardRainNotice?.phase === "upcoming" && typeof shardRainNotice.startsAt === "number") {
         showShardAlert({
