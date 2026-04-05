@@ -8,6 +8,11 @@ const serverMainSource = (): string => {
   return readFileSync(resolve(here, "./main.ts"), "utf8");
 };
 
+const chunkStateSource = (): string => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(resolve(here, "./sim/chunk-state.ts"), "utf8");
+};
+
 const functionBody = (source: string, functionName: string): string => {
   const start = source.indexOf(`const ${functionName} =`);
   if (start === -1) throw new Error(`Could not find function ${functionName}`);
@@ -53,13 +58,13 @@ describe("tile summary economy regression guard", () => {
   });
 
   it("keeps tile yield summary data on thin chunk tiles", () => {
-    const body = functionBody(serverMainSource(), "playerTileSummary");
+    const body = functionBody(chunkStateSource(), "playerTileSummary");
     expect(body).toContain("applyTileYieldSummary(");
   });
 
   it("includes region type on thin chunk tiles so tile menus do not wait for full detail", () => {
-    const body = functionBody(serverMainSource(), "playerTileSummary");
-    expect(body).toContain('const regionType = terrain === "LAND" ? regionTypeAtLocal(wx, wy) : undefined;');
-    expect(body).toContain('if (terrain === "LAND" && regionType) tile.regionType = regionType;');
+    const body = functionBody(chunkStateSource(), "playerTileSummary");
+    expect(body).toContain('const regionType = terrain === "LAND" ? deps.regionTypeAtLocal(wx, wy) : undefined;');
+    expect(body).toContain('if (terrain === "LAND" && regionType && !shellMode) tile.regionType = regionType;');
   });
 });

@@ -85,7 +85,9 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(chooseStrategicBody).toContain("AI_STRATEGIC_STATE_TTL_MS");
     expect(chooseStrategicBody).toContain("\"TRUCE\"");
     expect(chooseStrategicBody).toContain("\"ISLAND_FOOTPRINT\"");
+    expect(chooseStrategicBody).toContain("\"SHARD_RUSH\"");
     expect(truceBody).toContain("bestAiCollectShardTile");
+    expect(truceBody).toContain("strategicState.focus === \"SHARD_RUSH\"");
     expect(truceBody).toContain("TRUCE_REQUEST");
     expect(truceBody).toContain("TRUCE_ACCEPT");
   });
@@ -99,8 +101,9 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const fortBody = functionBody(serverMainSource(), "bestAiFortTile");
 
     expect(staticBody).toContain("tileHasPendingSettlement(tileKey)");
-    expect(staticBody).toContain("if (evaluation.isEconomicallyInteresting || evaluation.isStrategicallyInteresting) settlementAvailable = true;");
-    expect(staticBody).toContain("if (evaluation.townSupportSignal > 0) supportSettlementAvailable = true;");
+    expect(staticBody).toContain("qualifiesAiSettlementAvailability(actor, tile, undefined, territorySummary, economyWeak, foodCoverageLow)");
+    expect(staticBody).toContain("qualifiesAiTownSupportSettlementAvailability(actor, tile, territorySummary)");
+    expect(staticBody).toContain("qualifiesAiIslandSettlementAvailability(actor, tile, territorySummary, focusIslandId)");
     expect(settlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
     expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(islandSettlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
@@ -119,10 +122,21 @@ describe("buildAiPlanningSnapshot regression guard", () => {
   it("keeps island-victory focus targeted and avoids treating fully fed empires as food emergencies", () => {
     const source = serverMainSource();
     const turnAnalysisBody = functionBody(serverMainSource(), "buildAiTurnAnalysis");
+    const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
 
     expect(source).toContain("const bestAiIslandFocusTargetId =");
     expect(source).toContain("const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);");
     expect(source).toContain("const foodCoverageLow = controlledTowns > 0 && currentFoodCoverageForPlayer(actor.id) < 1;");
+    expect(staticBody).toContain("const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);");
+    expect(staticBody).toContain("weakestIslandRatio = focusLand > 0 ? (islandProgress.settledCounts.get(focusIslandId) ?? 0) / focusLand : islandProgress.weakestRatio;");
     expect(turnAnalysisBody).toContain("foodCoverage < 1");
+  });
+
+  it("rarely re-evaluates locked victory paths instead of freezing them forever", () => {
+    const ensureBody = functionBody(serverMainSource(), "ensureAiVictoryPath");
+
+    expect(ensureBody).toContain("AI_VICTORY_PATH_REEVALUATE_MS");
+    expect(ensureBody).toContain("scoreAiVictoryPathChoices(actor, analysis, townsTarget, settledTilesTarget)");
+    expect(ensureBody).toContain("best.score >= currentScore + AI_VICTORY_PATH_REPIVOT_MARGIN");
   });
 });
