@@ -1,4 +1,8 @@
 import {
+  crystalAbilityInfoButtonHtml,
+  relatedCrystalAbilitiesForTech,
+} from "./client-crystal-ability-info.js";
+import {
   currentDomainChoiceTier,
   ownedDomainByTier,
   renderDomainChoiceGridHtml,
@@ -148,9 +152,14 @@ export const renderTechDetailCard = (deps: {
   const statusText = pendingUnlock ? "Unlocking now. Waiting for server confirmation..." : undefined;
   const buttonLabel = pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked";
   const relatedStructures = relatedStructureTypesForTech(deps.tech);
+  const relatedCrystalAbilities = relatedCrystalAbilitiesForTech(deps.tech);
   const relatedStructuresHtml =
     relatedStructures.length > 0
       ? `<p class="muted"><strong>Structures:</strong> ${relatedStructures.map((type) => deps.structureInfoButtonHtml(type)).join(", ")}</p>`
+      : "";
+  const relatedCrystalAbilitiesHtml =
+    relatedCrystalAbilities.length > 0
+      ? `<p class="muted"><strong>Crystal abilities:</strong> ${relatedCrystalAbilities.map((key) => crystalAbilityInfoButtonHtml(key)).join(", ")}</p>`
       : "";
   const cardHtml = renderTechDetailCardHtml({
     tech: deps.tech,
@@ -160,7 +169,8 @@ export const renderTechDetailCard = (deps: {
     prereqs,
     prereqText,
     unlocks: unlocks.map((next) => ({ name: next.name, tier: deps.techTier(next.id, byId, tierMemo) })),
-    relatedStructuresHtml
+    relatedStructuresHtml,
+    relatedCrystalAbilitiesHtml
   });
   return `<article class="card tech-detail-card tech-detail-card-shell">
     <div class="tech-detail-inline-head">
@@ -240,6 +250,7 @@ export const renderTechDetailModal = (deps: {
         : "Entry tech";
   const buttonLabel = pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked";
   const relatedStructures = relatedStructureTypesForTech(deps.tech);
+  const relatedCrystalAbilities = relatedCrystalAbilitiesForTech(deps.tech);
   const requirements = deps.tech.requirements.checklist ?? [];
   const requirementsHtml =
     requirements.length > 0
@@ -265,6 +276,14 @@ export const renderTechDetailModal = (deps: {
             ? `<section class="structure-info-section">
                 <span class="structure-info-section-label">Structures</span>
                 <strong>${relatedStructures.map((type) => deps.structureInfoButtonHtml(type)).join(", ")}</strong>
+              </section>`
+            : ""
+        }
+        ${
+          relatedCrystalAbilities.length > 0
+            ? `<section class="structure-info-section">
+                <span class="structure-info-section-label">Crystal abilities</span>
+                <strong>${relatedCrystalAbilities.map((key) => crystalAbilityInfoButtonHtml(key)).join(", ")}</strong>
               </section>`
             : ""
         }
