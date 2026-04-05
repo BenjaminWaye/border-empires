@@ -1,4 +1,4 @@
-import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "./client-economy-model.js";
+import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "./client-economy-model.js";
 import type { Tile } from "./client-types.js";
 
 type EconomyResource = Exclude<EconomyFocusKey, "ALL">;
@@ -159,6 +159,19 @@ const economySummaryCardHtml = (args: EconomyPanelArgs, resource: EconomyResourc
   </button>`;
 };
 
+const economyBucketAmountLabel = (
+  args: EconomyPanelArgs,
+  bucket: EconomyBucket,
+  resource: EconomyResource,
+  positive: boolean
+): string => {
+  const prefix = positive ? "+" : "-";
+  if (bucket.resourceKey && bucket.resourceKey !== resource) {
+    return `${prefix}${bucket.amountPerMinute.toFixed(2)} ${args.prettyToken(bucket.resourceKey)}/m`;
+  }
+  return `${prefix}${bucket.amountPerMinute.toFixed(2)}/m`;
+};
+
 export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
   const visibleResources = args.isMobile ? [args.focus === "ALL" ? "GOLD" : args.focus] : args.focus === "ALL" ? resources : [args.focus];
   const totals = formatUpkeepSummary(args.upkeepPerMinute, args.resourceIconForKey);
@@ -184,11 +197,11 @@ export const renderEconomyPanelHtml = (args: EconomyPanelArgs): string => {
             <div class="economy-detail-columns">
               <div class="economy-detail-column">
                 <h4>Income Sources</h4>
-                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>+${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
+                ${detail.sources.length > 0 ? detail.sources.map((bucket) => `<div class="economy-line"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>${economyBucketAmountLabel(args, bucket, resource, true)}</strong></div>`).join("") : '<div class="economy-line muted"><span>No current income</span></div>'}
               </div>
               <div class="economy-detail-column">
                 <h4>Upkeep</h4>
-                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>-${bucket.amountPerMinute.toFixed(2)}/m</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
+                ${detail.sinks.length > 0 ? detail.sinks.map((bucket) => `<div class="economy-line is-negative"><span>${bucket.label}${bucket.count > 1 ? ` · ${bucket.count}` : ""}${bucket.note ? `<small>${bucket.note}</small>` : ""}</span><strong>${economyBucketAmountLabel(args, bucket, resource, false)}</strong></div>`).join("") : '<div class="economy-line muted"><span>No upkeep on this resource</span></div>'}
               </div>
             </div>
             ${resource === "FOOD" ? `<div class="economy-footnote">Food coverage ${Math.round((args.upkeepLastTick.foodCoverage ?? 1) * 100)}% · unfed towns stop producing until food support catches up.</div>` : ""}
