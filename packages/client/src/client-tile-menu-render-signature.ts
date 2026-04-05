@@ -6,10 +6,16 @@ export const tileMenuRenderSignature = (view: TileMenuView, activeTab: TileMenuT
     title: view.title,
     subtitle: view.subtitle,
     tabs: view.tabs,
-    overviewKicker: view.overviewKicker,
-    overviewLines: view.overviewLines,
-    actions: view.actions,
-    buildings: view.buildings,
-    crystal: view.crystal,
-    progress: view.progress
+    ...(activeTab === "overview"
+      ? {
+          overviewKicker: view.overviewKicker,
+          overviewLines: view.overviewLines
+        }
+      : activeTab === "actions"
+        ? { actions: view.actions }
+        : activeTab === "buildings"
+          ? { buildings: view.buildings }
+          : activeTab === "crystal"
+            ? { crystal: view.crystal }
+            : { progress: view.progress })
   });

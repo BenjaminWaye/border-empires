@@ -52,6 +52,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     renderTechDetailCard,
     renderStructureInfoOverlay,
     renderTechDetailOverlay,
+    renderDomainDetailOverlay,
     techOwnedHtml,
     effectiveOwnedTechIds,
     isPendingTechUnlock,
@@ -245,12 +246,15 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.hoverEl.innerHTML = "";
   dom.hoverEl.style.display = "none";
 
-  dom.mobileCoreHelpEl.innerHTML = `
+  dom.mobileCoreHelpEl.innerHTML = mobile
+    ? ""
+    : `
     <div class="mobile-context-block">
       <div class="mobile-context-label">Tile</div>
       <div class="mobile-context-value">${passiveTileGuidanceHtml()}</div>
     </div>
   `;
+  dom.mobileCoreHelpEl.style.display = mobile ? "none" : "";
 
   renderCaptureProgress();
   renderShardAlert();
@@ -330,8 +334,15 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileTechDetailCardEl.innerHTML = deps.renderTechDetailPrompt();
   dom.structureInfoOverlayEl.innerHTML = deps.renderStructureInfoOverlay();
   dom.structureInfoOverlayEl.style.display = state.structureInfoKey ? "grid" : "none";
-  dom.techDetailOverlayEl.innerHTML = deps.techDetailsUseOverlay() ? deps.renderTechDetailOverlay() : "";
-  dom.techDetailOverlayEl.style.display = deps.techDetailsUseOverlay() && state.techDetailOpen ? "grid" : "none";
+  const mobileDetailOverlayHtml = deps.techDetailsUseOverlay()
+    ? state.techDetailOpen
+      ? deps.renderTechDetailOverlay()
+      : state.domainDetailOpen
+        ? deps.renderDomainDetailOverlay()
+        : ""
+    : "";
+  dom.techDetailOverlayEl.innerHTML = mobileDetailOverlayHtml;
+  dom.techDetailOverlayEl.style.display = deps.techDetailsUseOverlay() && mobileDetailOverlayHtml ? "grid" : "none";
   dom.techOwnedEl.innerHTML = deps.techOwnedHtml(state.techCatalog, deps.effectiveOwnedTechIds(), deps.isPendingTechUnlock);
   dom.mobileTechOwnedEl.innerHTML = deps.techOwnedHtml(state.techCatalog, deps.effectiveOwnedTechIds(), deps.isPendingTechUnlock);
   dom.techChoiceDetailsEl.innerHTML = deps.renderTechChoiceDetails();
