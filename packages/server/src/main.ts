@@ -64,6 +64,8 @@ import {
   setWorldSeed,
   structureBaseGoldCost,
   structureBuildGoldCost,
+  structurePlacementMetadata,
+  structureShowsOnTile,
   continentIdAt,
   exposureWeightFromSides,
   terrainAt,
@@ -3505,20 +3507,44 @@ const structureForSupportedTown = (townKey: TileKey, ownerId: string | undefined
   return undefined;
 };
 
-const SUPPORT_ONLY_STRUCTURE_TYPES: EconomicStructureType[] = [
-  "MARKET",
-  "GRANARY",
-  "BANK",
-  "FUR_SYNTHESIZER",
-  "ADVANCED_FUR_SYNTHESIZER",
-  "IRONWORKS",
-  "ADVANCED_IRONWORKS",
-  "CRYSTAL_SYNTHESIZER",
-  "ADVANCED_CRYSTAL_SYNTHESIZER",
-  "FUEL_PLANT"
-];
+const supportedDockKeysForTile = (tileKey: TileKey, ownerId: string | undefined): TileKey[] => {
+  if (!ownerId) return [];
+  const [x, y] = parseKey(tileKey);
+  const out: TileKey[] = [];
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = wrapX(x + dx, WORLD_WIDTH);
+      const ny = wrapY(y + dy, WORLD_HEIGHT);
+      const nk = key(nx, ny);
+      if (!docksByTile.has(nk)) continue;
+      if (ownership.get(nk) !== ownerId) continue;
+      if (ownershipStateByTile.get(nk) !== "SETTLED") continue;
+      out.push(nk);
+    }
+  }
+  return out;
+};
 
-const isSupportOnlyStructureType = (structureType: EconomicStructureType): boolean => SUPPORT_ONLY_STRUCTURE_TYPES.includes(structureType);
+const structureForSupportedDock = (dockKey: TileKey, ownerId: string | undefined, type: EconomicStructureType): EconomicStructure | undefined => {
+  if (!ownerId) return undefined;
+  const [x, y] = parseKey(dockKey);
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nk = key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
+      const structure = economicStructuresByTile.get(nk);
+      if (structure && structure.type === type && structure.ownerId === ownerId) return structure;
+    }
+  }
+  return undefined;
+};
+
+const isSupportOnlyStructureType = (structureType: EconomicStructureType): boolean =>
+  structurePlacementMetadata(structureType).placementMode === "town_support";
+
+const isDockSupportOnlyStructureType = (structureType: EconomicStructureType): boolean =>
+  structurePlacementMetadata(structureType).placementMode === "dock_support";
 
 const isLightCombatStructureType = (structureType: EconomicStructureType): boolean =>
   structureType === "WOODEN_FORT" || structureType === "LIGHT_OUTPOST";
@@ -3551,12 +3577,50 @@ const availableSupportTileKeysForTown = (
   return out;
 };
 
+const availableSupportTileKeysForDock = (
+  dockKey: TileKey,
+  ownerId: string | undefined,
+  structureType: EconomicStructureType
+): TileKey[] => {
+  if (!ownerId || !isDockSupportOnlyStructureType(structureType)) return [];
+  if (structureForSupportedDock(dockKey, ownerId, structureType)) return [];
+  const [x, y] = parseKey(dockKey);
+  const out: TileKey[] = [];
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = wrapX(x + dx, WORLD_WIDTH);
+      const ny = wrapY(y + dy, WORLD_HEIGHT);
+      const nk = key(nx, ny);
+      const tile = playerTile(nx, ny);
+      if (tile.terrain !== "LAND") continue;
+      if (tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+      if (tile.resource || townsByTile.has(nk) || docksByTile.has(nk)) continue;
+      if (fortsByTile.has(nk) || siegeOutpostsByTile.has(nk) || observatoriesByTile.has(nk) || economicStructuresByTile.has(nk)) continue;
+      const supportedDocks = supportedDockKeysForTile(nk, ownerId);
+      if (supportedDocks.length !== 1 || supportedDocks[0] !== dockKey) continue;
+      out.push(nk);
+    }
+  }
+  return out;
+};
+
 const pickRandomAvailableSupportTileForTown = (
   townKey: TileKey,
   ownerId: string | undefined,
   structureType: EconomicStructureType
 ): TileKey | undefined => {
   const candidates = availableSupportTileKeysForTown(townKey, ownerId, structureType);
+  if (candidates.length === 0) return undefined;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+};
+
+const pickRandomAvailableSupportTileForDock = (
+  dockKey: TileKey,
+  ownerId: string | undefined,
+  structureType: EconomicStructureType
+): TileKey | undefined => {
+  const candidates = availableSupportTileKeysForDock(dockKey, ownerId, structureType);
   if (candidates.length === 0) return undefined;
   return candidates[Math.floor(Math.random() * candidates.length)];
 };
@@ -6052,10 +6116,20 @@ const baseSynthTypeForAdvanced = (structureType: EconomicStructureType): Economi
 const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
   if (t.terrain !== "LAND") return { ok: false, reason: "structure requires land tile" };
   const tk = key(t.x, t.y);
-  const isFoundry = structureType === "FOUNDRY";
   const isLightCombat = isLightCombatStructureType(structureType);
   const upgradeBaseType = baseSynthTypeForAdvanced(structureType);
   const existingStructure = economicStructuresByTile.get(tk);
+  const placementMode = structurePlacementMetadata(structureType).placementMode;
+  const supportedTowns = supportedTownKeysForTile(tk, actor.id);
+  const supportedDocks = supportedDockKeysForTile(tk, actor.id);
+  const showsOnTile = structureShowsOnTile(structureType, {
+    ownershipState: t.ownershipState,
+    resource: t.resource,
+    dockId: t.dockId,
+    townPopulationTier: townsByTile.get(tk) ? townPopulationTierForTown(townsByTile.get(tk)!) : undefined,
+    supportedTownCount: supportedTowns.length,
+    supportedDockCount: supportedDocks.length
+  });
   if (upgradeBaseType) {
     if (!existingStructure || existingStructure.ownerId !== actor.id || existingStructure.type !== upgradeBaseType) {
       return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} must upgrade an existing ${prettyEconomicStructureLabel(upgradeBaseType).toLowerCase()}` };
@@ -6064,50 +6138,32 @@ const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: Econom
       return { ok: false, reason: `${prettyEconomicStructureLabel(upgradeBaseType).toLowerCase()} is already being modified` };
     }
   }
-  if (isFoundry) {
-    if (t.ownerId && t.ownerId !== actor.id) return { ok: false, reason: "foundry cannot be placed on enemy land" };
-    if (t.ownerId === actor.id && t.ownershipState !== "SETTLED") return { ok: false, reason: "foundry requires settled owned land when placed in your territory" };
-    if (!t.ownerId) {
-      const touchesOwned = cardinalNeighborCores(t.x, t.y).some((neighbor) => neighbor.ownerId === actor.id);
-      if (!touchesOwned) return { ok: false, reason: "foundry on neutral land must touch your territory" };
-    }
-  } else if (isLightCombat) {
-    if (t.ownerId !== actor.id) return { ok: false, reason: "structure requires owned tile" };
-    if (t.ownershipState !== "SETTLED") return { ok: false, reason: "structure requires settled owned tile" };
-    if (structureType === "WOODEN_FORT" && !docksByTile.has(tk) && !isBorderTile(t.x, t.y, actor.id)) {
-      return { ok: false, reason: "wooden fort must be on border tile or dock" };
-    }
-    if (structureType === "LIGHT_OUTPOST" && !isBorderTile(t.x, t.y, actor.id)) {
-      return { ok: false, reason: "light outpost must be on border tile" };
-    }
-  } else if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") {
+  if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") {
     return { ok: false, reason: "structure requires settled owned tile" };
   }
-  if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradeBaseType)) {
+  if (!showsOnTile) return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} cannot be built on this tile` };
+  if (structurePlacementMetadata(structureType).requiresBorder === "border_or_dock" && !docksByTile.has(tk) && !isBorderTile(t.x, t.y, actor.id)) {
+    return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} must be on border tile or dock` };
+  }
+  if (structurePlacementMetadata(structureType).requiresBorder === "border" && !isBorderTile(t.x, t.y, actor.id)) {
+    return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} must be on border tile` };
+  }
+  const usingTownSource = placementMode === "town_support" && townsByTile.has(tk);
+  if (!usingTownSource && (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradeBaseType))) {
     return { ok: false, reason: "tile already has structure" };
   }
   if (structureType === "FARMSTEAD" && t.resource !== "FARM" && t.resource !== "FISH") return { ok: false, reason: "farmstead requires FARM or FISH tile" };
   if (structureType === "CAMP" && t.resource !== "WOOD" && t.resource !== "FUR") return { ok: false, reason: "camp requires SUPPLY tile" };
   if (structureType === "MINE" && t.resource !== "IRON" && t.resource !== "GEMS") return { ok: false, reason: "mine requires IRON or CRYSTAL tile" };
-  if (isLightCombat) {
-    if (t.resource || townsByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} requires empty owned land` };
-  }
-  if (structureType === "AIRPORT") {
-    if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: "airport requires empty settled land" };
-  }
   const tileTown = townsByTile.get(tk);
   if (tileTown && townPopulationTier(tileTown.population) === "SETTLEMENT") {
     return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
-  }
-  if (structureType === "RADAR_SYSTEM" || structureType === "GOVERNORS_OFFICE" || structureType === "FOUNDRY") {
-    if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} requires empty land` };
   }
   if (isSupportOnlyStructureType(structureType)) {
     if (townsByTile.has(tk)) {
       const supportTileKey = pickRandomAvailableSupportTileForTown(tk, actor.id, structureType);
       if (!supportTileKey) return { ok: false, reason: `${structureType.toLowerCase()} needs an open support tile next to this town` };
     } else {
-      const supportedTowns = supportedTownKeysForTile(tk, actor.id);
       if (supportedTowns.length === 0) return { ok: false, reason: `${structureType.toLowerCase()} requires a support tile next to your town` };
       if (supportedTowns.length > 1) return { ok: false, reason: "support tile touches multiple towns" };
       const supportedTownKey = supportedTowns[0];
@@ -12995,7 +13051,18 @@ const tryBuildObservatory = (actor: Player, x: number, y: number): { ok: boolean
   if (t.terrain !== "LAND") return { ok: false, reason: "observatory requires land tile" };
   if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") return { ok: false, reason: "observatory requires settled owned tile" };
   const tk = key(t.x, t.y);
-  if (t.resource || townsByTile.has(tk) || docksByTile.has(tk)) return { ok: false, reason: "observatory requires empty settled land" };
+  if (
+    !structureShowsOnTile("OBSERVATORY", {
+      ownershipState: t.ownershipState,
+      resource: t.resource,
+      dockId: t.dockId,
+      townPopulationTier: townsByTile.get(tk) ? townPopulationTierForTown(townsByTile.get(tk)!) : undefined,
+      supportedTownCount: supportedTownKeysForTile(tk, actor.id).length,
+      supportedDockCount: supportedDockKeysForTile(tk, actor.id).length
+    })
+  ) {
+    return { ok: false, reason: "observatory cannot be built on this tile" };
+  }
   if (observatoriesByTile.has(tk)) return { ok: false, reason: "tile already has observatory" };
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
@@ -13212,6 +13279,18 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already fortified" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradingWoodenFort)) return { ok: false, reason: "tile already has structure" };
+  if (
+    !structureShowsOnTile("FORT", {
+      ownershipState: t.ownershipState,
+      resource: t.resource,
+      dockId: t.dockId,
+      townPopulationTier: townsByTile.get(tk) ? townPopulationTierForTown(townsByTile.get(tk)!) : undefined,
+      supportedTownCount: supportedTownKeysForTile(tk, actor.id).length,
+      supportedDockCount: supportedDockKeysForTile(tk, actor.id).length
+    })
+  ) {
+    return { ok: false, reason: "fort cannot be built on this tile" };
+  }
   const dock = docksByTile.get(tk);
   if (!dock && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "fort must be on border tile or dock" };
   if (existingEconomic?.type === "WOODEN_FORT" && !upgradingWoodenFort) return { ok: false, reason: "wooden fort is still being modified" };
@@ -13278,7 +13357,19 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
   if (observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradingLightOutpost)) return { ok: false, reason: "tile already has structure" };
-  if (!isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile" };
+  if (
+    !structureShowsOnTile("SIEGE_OUTPOST", {
+      ownershipState: t.ownershipState,
+      resource: t.resource,
+      dockId: t.dockId,
+      townPopulationTier: townsByTile.get(tk) ? townPopulationTierForTown(townsByTile.get(tk)!) : undefined,
+      supportedTownCount: supportedTownKeysForTile(tk, actor.id).length,
+      supportedDockCount: supportedDockKeysForTile(tk, actor.id).length
+    })
+  ) {
+    return { ok: false, reason: "siege outpost cannot be built on this tile" };
+  }
+  if (!docksByTile.has(tk) && !isBorderTile(t.x, t.y, actor.id)) return { ok: false, reason: "siege outpost must be on border tile or dock" };
   if (existingEconomic?.type === "LIGHT_OUTPOST" && !upgradingLightOutpost) return { ok: false, reason: "light outpost is still being modified" };
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST"));

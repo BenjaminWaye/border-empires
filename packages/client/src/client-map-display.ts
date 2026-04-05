@@ -342,7 +342,7 @@ export const structureInfoForKey = (
       title: "Customs House",
       detail: "Customs houses are built beside a dock and increase that dock's income by 50%.",
       glyph: "⚓",
-      placement: "Build on a settled dock support tile you own.",
+      placement: "Build on a settled dock tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

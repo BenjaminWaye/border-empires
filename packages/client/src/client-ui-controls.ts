@@ -7,7 +7,9 @@ import {
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_MS,
   WOODEN_FORT_BUILD_MS,
-  WOODEN_FORT_DEFENSE_MULT
+  WOODEN_FORT_DEFENSE_MULT,
+  structureShowsOnTile,
+  type ResourceType
 } from "@border-empires/shared";
 import { canAffordCost, isForestTile, settleDurationMsForTile } from "./client-constants.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
@@ -86,17 +88,21 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   const lightOutpostGoldCost = structureGoldCost("LIGHT_OUTPOST");
   const observatoryGoldCost = structureGoldCost("OBSERVATORY");
   const isBorderOrDock = Boolean(tile.dockId || isOwnedBorderTile(x, y));
-  const isBorderTileOnly = isOwnedBorderTile(x, y);
+  const settledShowInput = {
+    ownershipState: tile.ownershipState,
+    resource: tile.resource as ResourceType | undefined,
+    dockId: tile.dockId,
+    townPopulationTier: tile.town?.populationTier
+  };
   const canBuildStarterWoodenFort =
     tile.ownerId === state.me &&
     tile.ownershipState === "SETTLED" &&
+    structureShowsOnTile("WOODEN_FORT", settledShowInput) &&
     isBorderOrDock &&
     !tile.fort &&
     !tile.siegeOutpost &&
     !tile.observatory &&
     !tile.economicStructure &&
-    !tile.resource &&
-    !tile.town &&
     state.gold >= woodenFortGoldCost;
   const canBuildAdvancedFort =
     tile.ownerId === state.me &&
@@ -112,19 +118,18 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   const canBuildStarterLightOutpost =
     tile.ownerId === state.me &&
     tile.ownershipState === "SETTLED" &&
-    isBorderTileOnly &&
+    structureShowsOnTile("LIGHT_OUTPOST", settledShowInput) &&
+    isBorderOrDock &&
     !tile.fort &&
     !tile.siegeOutpost &&
     !tile.observatory &&
     !tile.economicStructure &&
-    !tile.resource &&
-    !tile.town &&
-    !tile.dockId &&
     state.gold >= lightOutpostGoldCost;
   const canBuildAdvancedSiegeOutpost =
     tile.ownerId === state.me &&
     tile.ownershipState === "SETTLED" &&
-    isBorderTileOnly &&
+    structureShowsOnTile("SIEGE_OUTPOST", settledShowInput) &&
+    isBorderOrDock &&
     !tile.siegeOutpost &&
     !tile.fort &&
     !tile.observatory &&
@@ -136,6 +141,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   const canAffordSiege = canBuildStarterLightOutpost || canBuildAdvancedSiegeOutpost;
   const canAffordObservatory =
     tile.ownershipState === "SETTLED" &&
+    structureShowsOnTile("OBSERVATORY", settledShowInput) &&
     !tile.fort &&
     !tile.siegeOutpost &&
     !tile.observatory &&
