@@ -75,6 +75,7 @@ import {
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support.js";
+import { tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule } from "./client-structure-effects.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui.js";
 import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
@@ -638,7 +639,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       constructionCountdownLineForTile,
       tileHistoryLines,
       isTileOwnedByAlly,
-      growthModifierPercentLabel
+      growthModifierPercentLabel,
+      areaEffectModifiersForTile: (targetTile: Tile) => tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values())
     });
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView =>

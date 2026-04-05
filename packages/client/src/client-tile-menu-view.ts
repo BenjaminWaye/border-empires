@@ -16,6 +16,7 @@ import {
   tileUpkeepHtml
 } from "./client-map-display.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
+import type { TileAreaEffectModifier } from "./client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "./client-types.js";
 
 const isSynthLikeStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
@@ -261,6 +262,7 @@ export const menuOverviewForTile = (
     tileHistoryLines: (tile: Tile) => string[];
     isTileOwnedByAlly: (tile: Tile) => boolean;
     growthModifierPercentLabel: (label: "Recently captured" | "Nearby war" | "Long time peace") => string;
+    areaEffectModifiersForTile: (tile: Tile) => TileAreaEffectModifier[];
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
@@ -385,6 +387,9 @@ export const menuOverviewForTile = (
     } else if (tile.economicStructure.status === "inactive") {
       pushLine("Structure is inactive and currently contributes no output or upkeep.");
     }
+  }
+  for (const modifier of deps.areaEffectModifiersForTile(tile)) {
+    pushEffectLine(modifier.name, modifier.mod, modifier.tone);
   }
   if (tile.fort?.status === "removing") {
     pushLine("Fort removal is underway. Defensive fortification from this tile is currently disabled.");
