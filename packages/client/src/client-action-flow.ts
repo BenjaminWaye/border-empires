@@ -1060,6 +1060,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "overload_fur_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "overload_ironworks") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
+    if (actionId === "enable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: true });
+    if (actionId === "disable_converter_structure") sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: selected.x, y: selected.y, enabled: false });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });

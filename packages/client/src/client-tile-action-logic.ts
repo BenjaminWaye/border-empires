@@ -306,6 +306,15 @@ export const tileActionAvailabilityWithDevelopmentSlot = (
   return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
 };
 
+const isConverterStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
+  type === "FUR_SYNTHESIZER" ||
+  type === "ADVANCED_FUR_SYNTHESIZER" ||
+  type === "IRONWORKS" ||
+  type === "ADVANCED_IRONWORKS" ||
+  type === "CRYSTAL_SYNTHESIZER" ||
+  type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
+  type === "FUEL_PLANT";
+
 export const isOwnedBorderTile = (
   state: ClientState,
   x: number,
@@ -516,6 +525,31 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           "1000 gold • instant 16 CRYSTAL • 24h shutdown"
         )
       });
+    }
+    if (tile.economicStructure && isConverterStructureType(tile.economicStructure.type)) {
+      const downtimeRemainingMs = Math.max(0, (tile.economicStructure.disabledUntil ?? 0) - Date.now());
+      if (tile.economicStructure.status === "active") {
+        out.push({
+          id: "disable_converter_structure" as TileActionDef["id"],
+          label: `Disable ${economicStructureName(tile.economicStructure.type)}`,
+          detail: deps.buildDetailTextForAction("disable_converter_structure", tile)
+        });
+      } else {
+        out.push({
+          id: "enable_converter_structure" as TileActionDef["id"],
+          label: `Enable ${economicStructureName(tile.economicStructure.type)}`,
+          detail: deps.buildDetailTextForAction("enable_converter_structure", tile),
+          ...tileActionAvailability(
+            tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
+            tile.economicStructure.status === "under_construction"
+              ? `${economicStructureName(tile.economicStructure.type)} still building`
+              : downtimeRemainingMs > 0
+                ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
+                : "Needs enough gold for one upkeep tick",
+            "Pays one upkeep tick immediately"
+          )
+        });
+      }
     }
     if (tile.economicStructure?.type === "FUR_SYNTHESIZER") {
       out.push({
