@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc -w -p tsconfig.json",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp src/structure-placement-metadata.json dist/structure-placement-metadata.json",
     "test": "vitest run",
     "lint": "tsc --noEmit -p tsconfig.json"
   },
