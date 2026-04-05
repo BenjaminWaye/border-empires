@@ -9,12 +9,13 @@ const sourceFor = (name: string): string => {
 };
 
 describe("domain panel detail layout regression guard", () => {
-  it("keeps desktop domain detail open in a split overview and detail layout", () => {
+  it("keeps desktop domain detail open as a fixed-width cover and shifts the minimap instead of the panel", () => {
     const styleSource = sourceFor("./style.css");
+    const hudSource = sourceFor("./client-hud.ts");
 
-    expect(styleSource).toContain("#side-panel.domain-panel-active #panel-domains-content");
-    expect(styleSource).toContain("grid-template-columns: minmax(0, 1fr) 320px;");
-    expect(styleSource).toContain("#side-panel.domain-panel-active #panel-domains.domain-detail-open #domains-overview-content");
-    expect(styleSource).toContain("#side-panel.domain-panel-active #panel-domains.domain-detail-open #domains-detail-content");
+    expect(styleSource).toContain("#hud.desktop-side-panel-open #mini-map-wrap");
+    expect(styleSource).toContain("right: 456px;");
+    expect(styleSource).not.toContain("#side-panel.domain-panel-active #panel-domains-content");
+    expect(hudSource).toContain("btn.onpointerup = (event: PointerEvent) => {");
   });
 });
