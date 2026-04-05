@@ -28,7 +28,16 @@ export const feedHtml = (feed: FeedEntry[]): string => {
       const age = ageSec < 60 ? `${ageSec}s` : `${Math.floor(ageSec / 60)}m`;
       return `<article class="card feed-card severity-${entry.severity}">
         <div class="feed-icon">${feedIcon(entry.type)}</div>
-        <div><div>${entry.text}</div><span>${age} ago</span></div>
+        <div>
+          ${entry.title ? `<strong>${entry.title}</strong>` : ""}
+          <div>${entry.text}</div>
+          <span>${age} ago</span>
+          ${
+            typeof entry.focusX === "number" && typeof entry.focusY === "number"
+              ? `<div><button class="panel-btn" type="button" data-feed-focus-x="${entry.focusX}" data-feed-focus-y="${entry.focusY}">${entry.actionLabel ?? "Center"}</button></div>`
+              : ""
+          }
+        </div>
       </article>`;
     })
     .join("");
