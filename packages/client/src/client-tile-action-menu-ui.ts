@@ -16,6 +16,7 @@ type TileActionMenuUiDeps = {
   tileMenuViewForTile: (tile: Tile) => TileMenuView;
   handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
   cancelQueuedSettlement: (tileKey: string) => boolean;
+  cancelQueuedBuild: (tileKey: string) => boolean;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   applyOptimisticStructureCancel: (x: number, y: number) => void;
   renderHud: () => void;
@@ -86,6 +87,11 @@ export const renderTileActionMenu = (
         if (!tile) return;
         if (btn.dataset.progressAction === "cancel_queued_settlement") {
           deps.cancelQueuedSettlement(deps.keyFor(tile.x, tile.y));
+          deps.hideTileActionMenu();
+          return;
+        }
+        if (btn.dataset.progressAction === "cancel_queued_build") {
+          deps.cancelQueuedBuild(deps.keyFor(tile.x, tile.y));
           deps.hideTileActionMenu();
           return;
         }
