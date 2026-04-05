@@ -3641,10 +3641,6 @@ body {
   padding-right: 4px;
 }
 
-.tech-detail-placeholder {
-  min-height: 88px;
-}
-
 .tech-detail-card .tech-detail-head {
   display: flex;
   align-items: start;
