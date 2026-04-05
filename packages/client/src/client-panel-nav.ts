@@ -73,6 +73,14 @@ export const setActivePanel = (
   deps.renderMobilePanels();
 };
 
+export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domainDetailOpen">): void => {
+  if (state.activePanel === "domains" && state.domainDetailOpen) {
+    state.domainDetailOpen = false;
+    return;
+  }
+  state.activePanel = null;
+};
+
 export const renderMobilePanels = (
   state: Pick<ClientState, "activePanel" | "mobilePanel" | "techTreeExpanded" | "domainDetailOpen">,
   deps: {
