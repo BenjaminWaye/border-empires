@@ -6,7 +6,7 @@ type TileMap = Map<string, Tile>;
 type TerrainTextureId = "SEA_DEEP" | "SEA_COAST" | "SAND" | "GRASS_LIGHT" | "GRASS_DARK" | "MOUNTAIN";
 
 const TERRAIN_TEXTURE_SIZE = 64;
-const overlayAssetVersion = "20260402b";
+const overlayAssetVersion = "20260405a";
 const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -630,7 +630,69 @@ export const drawTownMarker = (ctx: CanvasRenderingContext2D, px: number, py: nu
   ctx.stroke();
 };
 
-export const drawTownOverlay = (ctx: CanvasRenderingContext2D, tile: Tile, px: number, py: number, size: number): void => {
+const drawSettlementFlag = (
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  size: number,
+  flagColor: string
+): void => {
+  const poleX = px + size * 0.72;
+  const poleTopY = py + size * 0.18;
+  const poleBottomY = py + size * 0.5;
+  const flagLeft = poleX + size * 0.015;
+  const flagTop = py + size * 0.2;
+  const flagMidY = py + size * 0.27;
+  const flagBottom = py + size * 0.34;
+  const flagRight = flagLeft + size * 0.11;
+  const notchX = flagLeft + size * 0.07;
+  ctx.save();
+  ctx.strokeStyle = "rgba(92, 66, 40, 0.96)";
+  ctx.lineWidth = Math.max(1.5, size * 0.026);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(poleX, poleBottomY);
+  ctx.lineTo(poleX, poleTopY);
+  ctx.stroke();
+
+  ctx.fillStyle = flagColor;
+  ctx.beginPath();
+  ctx.moveTo(flagLeft, flagTop);
+  ctx.lineTo(flagRight, flagTop);
+  ctx.lineTo(notchX, flagMidY);
+  ctx.lineTo(flagRight, flagBottom);
+  ctx.lineTo(flagLeft, flagBottom);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.24)";
+  ctx.beginPath();
+  ctx.moveTo(flagLeft + size * 0.008, flagTop + size * 0.008);
+  ctx.lineTo(flagRight - size * 0.03, flagTop + size * 0.008);
+  ctx.lineTo(notchX - size * 0.012, flagMidY);
+  ctx.lineTo(flagLeft + size * 0.008, flagMidY - size * 0.01);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(18, 24, 33, 0.16)";
+  ctx.beginPath();
+  ctx.moveTo(flagLeft + size * 0.01, flagMidY + size * 0.006);
+  ctx.lineTo(notchX, flagMidY);
+  ctx.lineTo(flagRight - size * 0.012, flagBottom - size * 0.008);
+  ctx.lineTo(flagLeft + size * 0.01, flagBottom - size * 0.008);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+};
+
+export const drawTownOverlay = (
+  ctx: CanvasRenderingContext2D,
+  tile: Tile,
+  px: number,
+  py: number,
+  size: number,
+  ownerColor = "#C44937"
+): void => {
   if (!tile.town) return;
   if (size < 16) {
     drawTownMarker(ctx, px, py, size, true);
@@ -677,6 +739,9 @@ export const drawTownOverlay = (ctx: CanvasRenderingContext2D, tile: Tile, px: n
     : tile.town.populationTier === "GREAT_CITY" ? drawSize * 0.35
     : drawSize * 0.39;
   ctx.drawImage(overlay, px - offsetX, py - offsetY, drawSize, drawSize);
+  if (tile.town.populationTier === "SETTLEMENT") {
+    drawSettlementFlag(ctx, px, py, size, ownerColor);
+  }
   ctx.strokeStyle = accent;
   ctx.lineWidth = Math.max(2, size * 0.08);
   ctx.lineCap = "round";
