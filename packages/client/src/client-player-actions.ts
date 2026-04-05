@@ -99,6 +99,7 @@ export const explainActionFailureFromServer = (code: string, message: string): s
   if (code === "OBSERVATORY_BUILD_INVALID") return `Cannot build observatory: ${message}.`;
   if (code === "SIEGE_OUTPOST_BUILD_INVALID") return `Cannot build siege outpost: ${message}.`;
   if (code === "ECONOMIC_STRUCTURE_BUILD_INVALID") return `Cannot build structure: ${message}.`;
+  if (code === "STRUCTURE_REMOVE_INVALID") return `Cannot remove structure: ${message}.`;
   if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;
   if (code === "SIPHON_INVALID") return `Cannot siphon tile: ${message}.`;
   if (code === "PURGE_SIPHON_INVALID") return `Cannot purge siphon: ${message}.`;

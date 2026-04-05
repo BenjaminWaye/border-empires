@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { menuOverviewForTile } from "./client-tile-menu-view.js";
+import { constructionProgressForTile, menuOverviewForTile } from "./client-tile-menu-view.js";
 import type { Tile } from "./client-types.js";
 
 const settledSupportTile = (status: NonNullable<Tile["economicStructure"]>["status"], disabledUntil?: number): Tile => ({
@@ -66,5 +66,53 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Observatory"))).toBe(true);
     expect(lines.some((line) => line.html.includes("blocks hostile crystal actions nearby"))).toBe(true);
     expect(lines.some((line) => line.html.includes("0.03/m"))).toBe(true);
+  });
+
+  it("calls out removal as disabling structure income, upkeep, and effects", () => {
+    const lines = menuOverviewForTile(settledSupportTile("removing"), deps);
+    expect(lines.some((line) => line.html.includes("Removal is underway"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("effects are currently disabled"))).toBe(true);
+  });
+
+  it("shows building-specific removal progress timing", () => {
+    const progress = constructionProgressForTile(
+      {
+        ...settledSupportTile("removing"),
+        economicStructure: {
+          ownerId: "me",
+          type: "LIGHT_OUTPOST",
+          status: "removing",
+          completesAt: Date.now() + 45_000
+        }
+      },
+      () => "0:45"
+    );
+
+    expect(progress?.title).toBe("Removing Light Outpost");
+    expect(progress?.remainingLabel).toBe("0:45");
+    expect(progress?.cancelLabel).toBe("Cancel removal");
+    expect(progress?.note).toContain("Income, upkeep, and structure effects are paused");
+    expect(progress?.progress).toBeCloseTo(0.25, 2);
+  });
+
+  it("shows fort removal progress with disabled-defense copy", () => {
+    const progress = constructionProgressForTile(
+      {
+        x: 4,
+        y: 4,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        fort: {
+          ownerId: "me",
+          status: "removing",
+          completesAt: Date.now() + 5 * 60_000
+        }
+      },
+      () => "5:00"
+    );
+
+    expect(progress?.title).toBe("Removing Fort");
+    expect(progress?.note).toContain("Defense from this fort is disabled");
   });
 });

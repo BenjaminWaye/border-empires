@@ -23,7 +23,7 @@ type TownLike = {
 type ObservatoryLike = {
   ownerId: string;
   tileKey: TileKey;
-  status: "under_construction" | "active" | "inactive";
+  status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number;
 };
 
@@ -140,11 +140,13 @@ export const createSimulationChunkState = (deps: CreateSimulationChunkStateDeps)
     if (breachShock && breachShock.expiresAt > deps.now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
     if (town && !bootstrapMode) tile.town = mode === "thin" ? deps.thinTownSummaryForTile(town, ownerId) : deps.townSummaryForTile(town, ownerId);
     if (fort && !bootstrapMode) {
-      const fortView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
+      const fortView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number } = {
         ownerId: fort.ownerId,
         status: fort.status
       };
-      if (fort.status === "under_construction") fortView.completesAt = fort.completesAt;
+      if ((fort.status === "under_construction" || fort.status === "removing") && fort.completesAt !== undefined) {
+        fortView.completesAt = fort.completesAt;
+      }
       tile.fort = fortView;
     }
     if (observatory && !bootstrapMode) {
@@ -152,16 +154,18 @@ export const createSimulationChunkState = (deps: CreateSimulationChunkStateDeps)
         ownerId: observatory.ownerId,
         status: mode === "thin" ? observatory.status : deps.observatoryStatusForTile(observatory.ownerId, observatory.tileKey)
       };
-      if (tile.observatory.status === "under_construction" && observatory.completesAt !== undefined) {
+      if ((tile.observatory.status === "under_construction" || tile.observatory.status === "removing") && observatory.completesAt !== undefined) {
         tile.observatory.completesAt = observatory.completesAt;
       }
     }
     if (siegeOutpost && !bootstrapMode) {
-      const siegeView: { ownerId: string; status: "under_construction" | "active"; completesAt?: number } = {
+      const siegeView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number } = {
         ownerId: siegeOutpost.ownerId,
         status: siegeOutpost.status
       };
-      if (siegeOutpost.status === "under_construction") siegeView.completesAt = siegeOutpost.completesAt;
+      if ((siegeOutpost.status === "under_construction" || siegeOutpost.status === "removing") && siegeOutpost.completesAt !== undefined) {
+        siegeView.completesAt = siegeOutpost.completesAt;
+      }
       tile.siegeOutpost = siegeView;
     }
     if (sabotage && sabotage.endsAt > deps.now() && !bootstrapMode) {

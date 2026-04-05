@@ -5,9 +5,9 @@ export type PlayerId = string;
 export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND";
 export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS" | "OIL_FIELD";
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
-export type FortStatus = "under_construction" | "active";
-export type SiegeOutpostStatus = "under_construction" | "active";
-export type ObservatoryStatus = "under_construction" | "active" | "inactive";
+export type FortStatus = "under_construction" | "active" | "removing";
+export type SiegeOutpostStatus = "under_construction" | "active" | "removing";
+export type ObservatoryStatus = "under_construction" | "active" | "inactive" | "removing";
 export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
 export type TownType = "MARKET" | "FARMING";
@@ -375,7 +375,8 @@ export interface Fort {
   tileKey: TileKey;
   status: FortStatus;
   startedAt: number;
-  completesAt: number;
+  completesAt?: number;
+  previousStatus?: "active";
 }
 
 export interface SiegeOutpost {
@@ -384,7 +385,8 @@ export interface SiegeOutpost {
   tileKey: TileKey;
   status: SiegeOutpostStatus;
   startedAt: number;
-  completesAt: number;
+  completesAt?: number;
+  previousStatus?: "active";
 }
 
 export interface Observatory {
@@ -393,6 +395,7 @@ export interface Observatory {
   tileKey: TileKey;
   status: ObservatoryStatus;
   completesAt?: number;
+  previousStatus?: "active" | "inactive";
 }
 
 export interface ActiveRevealEmpire {

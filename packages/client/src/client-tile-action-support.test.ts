@@ -83,4 +83,20 @@ describe("splitTileActionsIntoTabs", () => {
       "build_foundry"
     ]);
   });
+
+  it("keeps remove-structure actions in the Buildings tab", () => {
+    const rows: TileActionDef[] = [
+      {
+        id: "remove_structure",
+        label: "Remove Mine",
+        disabled: false
+      }
+    ];
+
+    expect(splitTileActionsIntoTabs(rows, state)).toEqual({
+      actions: [],
+      buildings: rows,
+      crystal: []
+    });
+  });
 });
