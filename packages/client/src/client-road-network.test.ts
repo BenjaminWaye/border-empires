@@ -38,7 +38,7 @@ const makeTile = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => 
 });
 
 describe("buildRoadNetwork", () => {
-  it("connects non-settlement towns through settled land", () => {
+  it("connects towns through settled land", () => {
     const tiles = new Map<string, Tile>([
       [keyFor(0, 0), makeTile(0, 0, { town: makeTown("TOWN") })],
       [keyFor(1, 0), makeTile(1, 0)],
@@ -53,7 +53,7 @@ describe("buildRoadNetwork", () => {
     expect(roads.get("3,0")).toMatchObject({ west: true, terminal: true });
   });
 
-  it("ignores pre-town settlements when building roads", () => {
+  it("includes settlements as valid road endpoints", () => {
     const tiles = new Map<string, Tile>([
       [keyFor(0, 0), makeTile(0, 0, { town: makeTown("SETTLEMENT") })],
       [keyFor(1, 0), makeTile(1, 0)],
@@ -61,6 +61,8 @@ describe("buildRoadNetwork", () => {
     ]);
 
     const roads = buildRoadNetwork({ tiles, keyFor, wrapX, wrapY });
-    expect(roads.size).toBe(0);
+    expect(roads.get("0,0")).toMatchObject({ east: true, terminal: true });
+    expect(roads.get("1,0")).toMatchObject({ west: true, east: true });
+    expect(roads.get("2,0")).toMatchObject({ west: true, terminal: true });
   });
 });
