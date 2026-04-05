@@ -115,6 +115,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const queueIndex = new Map<string, number>();
+    const queuedBuildIndex = new Map<string, number>();
     const settleQueueIndex = new Map<string, number>();
     const startingArrowTargets = new Map(
       deps.startingExpansionArrowTargets().map((target) => [deps.keyFor(target.x, target.y), target] as const)
@@ -131,8 +132,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     for (let i = 0; i < state.developmentQueue.length; i += 1) {
       const entry = state.developmentQueue[i];
-      if (!entry || entry.kind !== "SETTLE") continue;
-      settleQueueIndex.set(entry.tileKey, i + 1);
+      if (!entry) continue;
+      if (entry.kind === "SETTLE") settleQueueIndex.set(entry.tileKey, i + 1);
+      if (entry.kind === "BUILD") queuedBuildIndex.set(entry.tileKey, i + 1);
     }
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
@@ -589,6 +591,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.textBaseline = "top";
             deps.ctx.textAlign = "left";
             deps.ctx.fillText(String(queuedSettlementN), px + size - badgeWidth - 1, py + 4);
+          }
+          deps.ctx.lineWidth = 1;
+        }
+        const queuedBuildN = queuedBuildIndex.get(wk);
+        if (queuedBuildN !== undefined && !settlementProgress) {
+          deps.ctx.strokeStyle = "rgba(122, 214, 255, 0.95)";
+          deps.ctx.lineWidth = 2;
+          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+          if (size >= 14) {
+            const badgeWidth = Math.min(size - 6, queuedBuildN >= 10 ? 18 : 14);
+            deps.ctx.fillStyle = "rgba(7, 26, 39, 0.92)";
+            deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
+            deps.ctx.fillStyle = "#7dd3fc";
+            deps.ctx.font = "10px monospace";
+            deps.ctx.textBaseline = "top";
+            deps.ctx.textAlign = "left";
+            deps.ctx.fillText(String(queuedBuildN), px + size - badgeWidth - 1, py + 4);
           }
           deps.ctx.lineWidth = 1;
         }
