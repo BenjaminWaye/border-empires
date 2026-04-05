@@ -194,6 +194,7 @@ import { renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml } fro
 import {
   renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
   renderDomainDetailCard as renderDomainDetailCardFromModule,
+  renderDomainDetailOverlay as renderDomainDetailOverlayFromModule,
   renderDomainProgressCard as renderDomainProgressCardFromModule,
   renderStructureInfoOverlay as renderStructureInfoOverlayFromModule,
   renderTechChoiceGrid as renderTechChoiceGridFromModule,
@@ -1340,6 +1341,15 @@ const renderDomainDetailCard = (): string =>
     techNameList
   });
 
+const renderDomainDetailOverlay = (): string =>
+  renderDomainDetailOverlayFromModule({
+    domainCatalog: state.domainCatalog,
+    domainUiSelectedId: state.domainUiSelectedId,
+    domainIds: state.domainIds,
+    domainChoices: state.domainChoices,
+    techNameList
+  });
+
 const renderTechChoiceDetails = (): string => {
   return "";
 };
@@ -1612,6 +1622,7 @@ const renderHud = (): void =>
     renderTechDetailCard,
     renderStructureInfoOverlay,
     renderTechDetailOverlay,
+    renderDomainDetailOverlay,
     techOwnedHtml,
     effectiveOwnedTechIds,
     isPendingTechUnlock,
