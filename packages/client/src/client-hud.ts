@@ -579,6 +579,19 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobileLeaderboardEl.innerHTML = leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner);
   dom.feedEl.innerHTML = feedHtml(state.feed);
   dom.mobileFeedEl.innerHTML = feedHtml(state.feed);
+  const feedFocusButtons = dom.hud.querySelectorAll("[data-feed-focus-x][data-feed-focus-y]") as NodeListOf<HTMLButtonElement>;
+  feedFocusButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      const x = Number(btn.dataset.feedFocusX);
+      const y = Number(btn.dataset.feedFocusY);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      state.camX = wrapX(x);
+      state.camY = wrapY(y);
+      state.selected = { x: wrapX(x), y: wrapY(y) };
+      requestViewRefresh();
+      renderClientHud(deps);
+    };
+  });
 
   dom.panelDomainsContentEl.innerHTML = `
     <div id="domains-overview-content">
