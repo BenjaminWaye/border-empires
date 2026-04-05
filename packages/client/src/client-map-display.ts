@@ -1,11 +1,7 @@
 import {
-  ECONOMIC_STRUCTURE_BUILD_MS,
-  FORT_BUILD_MS,
-  LIGHT_OUTPOST_BUILD_MS,
-  OBSERVATORY_BUILD_MS,
   OBSERVATORY_UPKEEP_PER_MIN,
-  SIEGE_OUTPOST_BUILD_MS,
-  WOODEN_FORT_BUILD_MS,
+  economicStructureBuildDurationMs,
+  structureBuildDurationMs,
   structureCostDefinition
 } from "@border-empires/shared";
 import type { Tile } from "./client-types.js";
@@ -101,9 +97,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType): strin
 };
 
 export const economicStructureBuildMs = (type: EconomicStructureType): number => {
-  if (type === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
-  if (type === "LIGHT_OUTPOST") return LIGHT_OUTPOST_BUILD_MS;
-  return ECONOMIC_STRUCTURE_BUILD_MS;
+  return economicStructureBuildDurationMs(type);
 };
 
 export const structureInfoForKey = (
@@ -112,14 +106,7 @@ export const structureInfoForKey = (
 ): StructureInfoView => {
   const structure = (base: Omit<StructureInfoView, "image">, image?: string): StructureInfoView =>
     image ? { ...base, image } : base;
-  const buildTimeLabelFor = (key: StructureInfoKey): string => {
-    if (key === "FORT") return deps.formatCooldownShort(FORT_BUILD_MS);
-    if (key === "WOODEN_FORT") return deps.formatCooldownShort(WOODEN_FORT_BUILD_MS);
-    if (key === "OBSERVATORY") return deps.formatCooldownShort(OBSERVATORY_BUILD_MS);
-    if (key === "LIGHT_OUTPOST") return deps.formatCooldownShort(LIGHT_OUTPOST_BUILD_MS);
-    if (key === "SIEGE_OUTPOST") return deps.formatCooldownShort(SIEGE_OUTPOST_BUILD_MS);
-    return deps.formatCooldownShort(ECONOMIC_STRUCTURE_BUILD_MS);
-  };
+  const buildTimeLabelFor = (key: StructureInfoKey): string => deps.formatCooldownShort(structureBuildDurationMs(key));
   const imageFor = (key: StructureInfoKey): string | undefined => {
     if (key === "MARKET") return "/overlays/market-overlay.svg";
     if (key === "GRANARY") return "/overlays/granary-overlay.svg";
