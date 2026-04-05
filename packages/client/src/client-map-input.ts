@@ -33,6 +33,15 @@ type BindClientMapInputDeps = {
   interactionFlags: { holdActivated: boolean; suppressNextClick: boolean };
 };
 
+export const shouldCommitMouseSelection = (args: {
+  button: number;
+  boxSelectionMode: boolean;
+  boxSelectionEngaged: boolean;
+  mousePanMoved: boolean;
+}): boolean => {
+  return args.button === 0 && !args.boxSelectionMode && !args.boxSelectionEngaged && !args.mousePanMoved;
+};
+
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
   const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
     const raw = deps.worldTileRawFromPointer(offsetX, offsetY);
@@ -74,6 +83,10 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   );
 
   deps.canvas.addEventListener("click", (ev) => {
+    if (deps.interactionFlags.suppressNextClick) {
+      deps.interactionFlags.suppressNextClick = false;
+      return;
+    }
     const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
     deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);
   });
@@ -188,6 +201,26 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   });
   window.addEventListener("mouseup", (ev) => {
     clearHoldOpenTimer();
+    if (shouldCommitMouseSelection({
+      button: ev.button,
+      boxSelectionMode,
+      boxSelectionEngaged,
+      mousePanMoved
+    })) {
+      const rect = deps.canvas.getBoundingClientRect();
+      const insideCanvas =
+        ev.clientX >= rect.left &&
+        ev.clientX <= rect.right &&
+        ev.clientY >= rect.top &&
+        ev.clientY <= rect.bottom;
+      if (insideCanvas) {
+        const offsetX = ev.clientX - rect.left;
+        const offsetY = ev.clientY - rect.top;
+        const { wx, wy } = worldTileFromPointer(offsetX, offsetY);
+        deps.interactionFlags.suppressNextClick = true;
+        deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);
+      }
+    }
     if (dragActive && boxSelectionMode && boxSelectionEngaged) {
       const dragKeys = [...state.dragPreviewKeys];
       if (dragKeys.length > 0) {
