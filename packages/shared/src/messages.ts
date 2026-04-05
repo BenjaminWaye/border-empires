@@ -53,7 +53,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_STRUCTURE_BUILD"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("REMOVE_ECONOMIC_STRUCTURE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("REMOVE_STRUCTURE"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("OVERLOAD_SYNTHESIZER"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("SETTLE"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("BUILD_SIEGE_OUTPOST"), x: z.number().int(), y: z.number().int() }),

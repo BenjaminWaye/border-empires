@@ -11,7 +11,7 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "create_mountain" ||
   id === "remove_mountain";
 
-export const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_");
+export const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_") || id === "remove_structure";
 
 export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
   switch (actionId) {

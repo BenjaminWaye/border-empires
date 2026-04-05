@@ -24,9 +24,11 @@ describe("development queue helpers", () => {
   it("counts removing structures as busy development processes", () => {
     const tiles = [
       { ownerId: "me", economicStructure: { status: "removing" } },
-      { ownerId: "me", fort: { status: "under_construction" } },
+      { ownerId: "me", fort: { status: "removing" } },
+      { ownerId: "me", observatory: { status: "removing" } },
+      { ownerId: "me", siegeOutpost: { status: "removing" } },
       { ownerId: "other", observatory: { status: "under_construction" } }
     ];
-    expect(busyDevelopmentProcessCount(tiles, "me", 1)).toBe(3);
+    expect(busyDevelopmentProcessCount(tiles, "me", 1)).toBe(5);
   });
 });

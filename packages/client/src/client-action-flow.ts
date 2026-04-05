@@ -127,6 +127,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     applyOptimisticTileState,
     clearOptimisticTileState,
     applyOptimisticStructureBuild,
+    applyOptimisticStructureRemoval,
     applyOptimisticStructureCancel,
     mergeServerTileWithOptimisticState,
     hideTileActionMenu: hideTileActionMenuFromDeps,
@@ -302,6 +303,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       requestSettlement: (x, y, opts) => requestSettlement(x, y, opts),
       sendDevelopmentBuild: (payload, optimistic, opts) => sendDevelopmentBuild(payload, optimistic, opts),
       applyOptimisticStructureBuild,
+      applyOptimisticStructureRemoval,
       pushFeed,
       renderHud
     });
@@ -556,27 +558,39 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
       return `Fortifying... ${formatCountdownClock(tile.fort.completesAt - Date.now())}`;
     }
+    if (tile.fort?.status === "removing" && typeof tile.fort.completesAt === "number") {
+      return `Removing Fort... ${formatCountdownClock(tile.fort.completesAt - Date.now())}`;
+    }
     if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
       return `Building Observatory... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
+    }
+    if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
+      return `Removing Observatory... ${formatCountdownClock(tile.observatory.completesAt - Date.now())}`;
     }
     if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
       return `Building Siege Camp... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
     }
+    if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
+      return `Removing Siege Outpost... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
+    }
     if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
       return `Building ${deps.economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
+    }
+    if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
+      return `Removing ${deps.economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;
     }
     return "";
   };
 
   const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
     const completesAt =
-      tile.fort?.status === "under_construction"
+      tile.fort?.status === "under_construction" || tile.fort?.status === "removing"
         ? tile.fort.completesAt
-        : tile.observatory?.status === "under_construction"
+        : tile.observatory?.status === "under_construction" || tile.observatory?.status === "removing"
           ? tile.observatory.completesAt
-          : tile.siegeOutpost?.status === "under_construction"
+          : tile.siegeOutpost?.status === "under_construction" || tile.siegeOutpost?.status === "removing"
             ? tile.siegeOutpost.completesAt
-            : tile.economicStructure?.status === "under_construction"
+            : tile.economicStructure?.status === "under_construction" || tile.economicStructure?.status === "removing"
               ? tile.economicStructure.completesAt
               : undefined;
     return typeof completesAt === "number" ? Math.max(0, completesAt - Date.now()) : undefined;
@@ -1015,6 +1029,34 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         () => applyOptimisticStructureBuild(selected.x, selected.y, "LIGHT_OUTPOST"),
         { x: selected.x, y: selected.y, label: `Light Outpost at (${selected.x}, ${selected.y})`, optimisticKind: "LIGHT_OUTPOST" }
       );
+    if (actionId === "remove_structure") {
+      const optimisticKind =
+        selected.fort
+          ? "FORT"
+          : selected.observatory
+            ? "OBSERVATORY"
+            : selected.siegeOutpost
+              ? "SIEGE_OUTPOST"
+              : selected.economicStructure?.type;
+      const structureLabel =
+        selected.fort
+          ? "Fort"
+          : selected.observatory
+            ? "Observatory"
+            : selected.siegeOutpost
+              ? "Siege Outpost"
+              : selected.economicStructure
+                ? deps.economicStructureName(selected.economicStructure.type)
+                : undefined;
+      if (optimisticKind && structureLabel) {
+        sendDevelopmentBuild({ type: "REMOVE_STRUCTURE", x: selected.x, y: selected.y }, () => applyOptimisticStructureRemoval(selected.x, selected.y), {
+          x: selected.x,
+          y: selected.y,
+          label: `Remove ${structureLabel} at (${selected.x}, ${selected.y})`,
+          optimisticKind
+        });
+      }
+    }
     if (actionId === "overload_fur_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "overload_ironworks") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
     if (actionId === "overload_crystal_synthesizer") sendGameMessage({ type: "OVERLOAD_SYNTHESIZER", x: selected.x, y: selected.y });
