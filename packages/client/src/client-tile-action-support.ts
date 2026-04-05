@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
 import { OBSERVATORY_PROTECTION_RADIUS } from "./client-constants.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "./client-types.js";
@@ -12,6 +12,57 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "remove_mountain";
 
 export const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => id.startsWith("build_");
+
+export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
+  switch (actionId) {
+    case "build_fortification":
+      return "FORT";
+    case "build_observatory":
+      return "OBSERVATORY";
+    case "build_siege_camp":
+      return "SIEGE_OUTPOST";
+    case "build_farmstead":
+      return "FARMSTEAD";
+    case "build_camp":
+      return "CAMP";
+    case "build_mine":
+      return "MINE";
+    case "build_market":
+      return "MARKET";
+    case "build_granary":
+      return "GRANARY";
+    case "build_bank":
+      return "BANK";
+    case "build_airport":
+      return "AIRPORT";
+    case "build_wooden_fort":
+      return "WOODEN_FORT";
+    case "build_light_outpost":
+      return "LIGHT_OUTPOST";
+    case "build_fur_synthesizer":
+      return "FUR_SYNTHESIZER";
+    case "build_ironworks":
+      return "IRONWORKS";
+    case "build_crystal_synthesizer":
+      return "CRYSTAL_SYNTHESIZER";
+    case "build_fuel_plant":
+      return "FUEL_PLANT";
+    case "build_caravanary":
+      return "CARAVANARY";
+    case "build_foundry":
+      return "FOUNDRY";
+    case "build_garrison_hall":
+      return "GARRISON_HALL";
+    case "build_customs_house":
+      return "CUSTOMS_HOUSE";
+    case "build_governors_office":
+      return "GOVERNORS_OFFICE";
+    case "build_radar_system":
+      return "RADAR_SYSTEM";
+    default:
+      return undefined;
+  }
+};
 
 export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => {
   switch (actionId) {
@@ -82,11 +133,19 @@ export const splitTileActionsIntoTabs = (
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
   const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
   const actionRows = filtered.filter((action) => !tileActionIsBuilding(action.id) && !tileActionIsCrystal(action.id));
-  const buildingRows = filtered.filter((action) => tileActionIsBuilding(action.id));
+  const buildingRows = filtered
+    .filter((action) => tileActionIsBuilding(action.id))
+    .sort((a, b) => {
+      const aType = structureTypeForTileAction(a.id);
+      const bType = structureTypeForTileAction(b.id);
+      const rankDiff = (aType ? structureSortRank(aType) : 99) - (bType ? structureSortRank(bType) : 99);
+      if (rankDiff !== 0) return rankDiff;
+      return 0;
+    });
   const crystalRows = filtered.filter((action) => tileActionIsCrystal(action.id));
   return {
     actions: actionRows.some(visibleIfShown) ? actionRows : [],
-    buildings: buildingRows.some(visibleIfShown) ? buildingRows : [],
+    buildings: buildingRows.length ? buildingRows : [],
     crystal: crystalRows.some(visibleIfShown) ? crystalRows : []
   };
 };

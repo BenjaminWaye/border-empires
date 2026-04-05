@@ -4,4 +4,5 @@ export * from "./messages.js";
 export * from "./math.js";
 export * from "./exposure.js";
 export * from "./structure-costs.js";
+export * from "./structure-placement.js";
 export * from "./worldgen.js";

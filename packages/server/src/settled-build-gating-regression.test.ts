@@ -6,10 +6,13 @@ import { describe, expect, it } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe("settled build gating regression guard", () => {
-  it("requires settled owned land for light combat structures while still allowing mines on gems", () => {
+  it("routes placement through shared structure metadata", () => {
     const source = readFileSync(resolve(here, "./main.ts"), "utf8");
 
-    expect(source).toContain('if (t.ownershipState !== "SETTLED") return { ok: false, reason: "structure requires settled owned tile" };');
-    expect(source).toContain('if (structureType === "MINE" && t.resource !== "IRON" && t.resource !== "GEMS") return { ok: false, reason: "mine requires IRON or CRYSTAL tile" };');
+    expect(source).toContain('structureShowsOnTile(structureType');
+    expect(source).toContain('const supportedDocks = supportedDockKeysForTile(tk, actor.id);');
+    expect(source).not.toContain('placementMode === "dock_support" && docksByTile.has(tk)');
+    expect(source).not.toContain('if (t.resource || townsByTile.has(tk)) return { ok: false, reason: `${structureType.toLowerCase()} requires empty owned land` };');
+    expect(source).not.toContain('if (structureType === "RADAR_SYSTEM" || structureType === "GOVERNORS_OFFICE" || structureType === "FOUNDRY") {');
   });
 });
