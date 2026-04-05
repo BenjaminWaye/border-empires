@@ -149,6 +149,7 @@ import {
   type ChunkSummaryMode,
   type VisibilitySnapshot
 } from "./chunk/snapshots.js";
+import { assignMissingTownNames } from "./town-names.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const DISABLE_FOG = process.env.DISABLE_FOG === "1";
@@ -806,6 +807,7 @@ interface SeasonalTechConfig {
 interface TownDefinition {
   townId: string;
   tileKey: TileKey;
+  name?: string;
   type: "MARKET" | "FARMING";
   population: number;
   maxPopulation: number;
@@ -3250,6 +3252,10 @@ const normalizeLegacySettlementTowns = (): void => {
   }
 };
 
+const assignMissingTownNamesForWorld = (): void => {
+  assignMissingTownNames(townsByTile.values(), islandMap().islandIdByTile, activeSeason.worldSeed);
+};
+
 const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
 const TOWN_CAPTURE_GROWTH_RADIUS = 20;
 
@@ -3501,6 +3507,7 @@ const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
 };
 
 const prettyTownName = (town: TownDefinition, tileKey = town.tileKey): string => {
+  if (town.name?.trim()) return town.name;
   const [x, y] = parseKey(tileKey);
   return `${prettyTownTypeLabel(town.type)} town (${x}, ${y})`;
 };
@@ -3809,7 +3816,7 @@ const oldestSettledSettlementCandidateForPlayer = (playerId: string): TileKey | 
 const createSettlementAtTile = (
   ownerId: string,
   tileKey: TileKey,
-  previousTown?: Pick<TownDefinition, "townId" | "type">
+  previousTown?: Pick<TownDefinition, "townId" | "type" | "name">
 ): TownDefinition | undefined => {
   const [x, y] = parseKey(tileKey);
   if (ownership.get(tileKey) !== ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED") return undefined;
@@ -3820,6 +3827,7 @@ const createSettlementAtTile = (
   const town: TownDefinition = {
     townId: previousTown?.townId ?? `town-${townsByTile.size}`,
     tileKey,
+    ...(previousTown?.name ? { name: previousTown.name } : {}),
     type: previousTown?.type ?? townTypeAt(x, y),
     population: initialSettlementPopulationAt(x, y),
     maxPopulation: POPULATION_MAX,
@@ -3829,6 +3837,7 @@ const createSettlementAtTile = (
     isSettlement: true
   };
   townsByTile.set(tileKey, town);
+  assignMissingTownNamesForWorld();
   markSummaryChunkDirtyAtTile(x, y);
   sendVisibleTileDeltaAt(x, y);
   return town;
@@ -3891,7 +3900,7 @@ const ensureFallbackSettlementForPlayer = (playerId: string): boolean => {
   return true;
 };
 
-const relocateCapturedSettlementForPlayer = (playerId: string, displacedTown: Pick<TownDefinition, "townId" | "type">): boolean => {
+const relocateCapturedSettlementForPlayer = (playerId: string, displacedTown: Pick<TownDefinition, "townId" | "type" | "name">): boolean => {
   const candidate = oldestSettledSettlementCandidateForPlayer(playerId);
   if (!candidate) return false;
   const created = createSettlementAtTile(playerId, candidate, displacedTown);
@@ -4311,6 +4320,7 @@ const regenerateStrategicWorld = (initialSeed: number): number => {
     ensureBaselineEconomyCoverage(seed);
     ensureInterestCoverage(seed);
     normalizeTownPlacements();
+    assignMissingTownNamesForWorld();
     if (!worldLooksBland()) return seed;
     seed = Math.floor(seeded01(seed + i * 101, seed + i * 137, seed + 9001) * 1_000_000_000);
   }
@@ -4860,6 +4870,7 @@ const buildTownSummaryForTile = (
   const bank = structureForSupportedTown(town.tileKey, ownerId, "BANK");
   const connectedTownKeys = includeConnectedTownNames && ownerId ? directlyConnectedTownKeysForTown(ownerId, town.tileKey) : [];
   return {
+    name: prettyTownName(town),
     type: town.type,
     baseGoldPerMinute: tier === "SETTLEMENT" ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN,
     supportCurrent: support.supportCurrent,
@@ -4874,7 +4885,8 @@ const buildTownSummaryForTile = (
     connectedTownCount: town.connectedTownCount,
     connectedTownBonus: town.connectedTownBonus,
     connectedTownNames: connectedTownKeys
-      .map((townKey) => townsByTile.get(townKey)?.townId)
+      .map((townKey) => townsByTile.get(townKey))
+      .map((connectedTown) => (connectedTown ? prettyTownName(connectedTown) : undefined))
       .filter((label): label is string => Boolean(label)),
     ...(manpowerGoldPaused && owner
       ? {
@@ -5053,6 +5065,7 @@ const playerTile = (x: number, y: number): Tile => {
     const granary = structureForSupportedTown(town.tileKey, owner, "GRANARY");
     const bank = structureForSupportedTown(town.tileKey, owner, "BANK");
     tile.town = {
+      name: prettyTownName(town),
       type: town.type,
       baseGoldPerMinute: tier === "SETTLEMENT" ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN,
       supportCurrent: support.supportCurrent,
@@ -5067,7 +5080,8 @@ const playerTile = (x: number, y: number): Tile => {
       connectedTownCount: town.connectedTownCount,
       connectedTownBonus: town.connectedTownBonus,
       connectedTownNames: connectedTownKeys
-        .map((townKey) => townsByTile.get(townKey)?.townId)
+        .map((townKey) => townsByTile.get(townKey))
+        .map((connectedTown) => (connectedTown ? prettyTownName(connectedTown) : undefined))
         .filter((label): label is string => Boolean(label)),
       ...(manpowerGoldPaused && ownerPlayer
         ? {
@@ -14150,7 +14164,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   const oldOwnershipState = t.ownershipState;
   const k = key(t.x, t.y);
   const clusterId = t.clusterId;
-  let displacedSettlement: { ownerId: string; town: Pick<TownDefinition, "townId" | "type"> } | undefined;
+  let displacedSettlement: { ownerId: string; town: Pick<TownDefinition, "townId" | "type" | "name"> } | undefined;
   const affectedPlayers = new Set<string>();
   if (oldOwner) affectedPlayers.add(oldOwner);
   if (newOwner) affectedPlayers.add(newOwner);
@@ -14161,7 +14175,14 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   if (oldOwner && newOwner !== oldOwner) {
     const capturedTown = townsByTile.get(k);
     if (oldOwner !== BARBARIAN_OWNER_ID && isRelocatableSettlementTown(capturedTown)) {
-      displacedSettlement = { ownerId: oldOwner, town: { townId: capturedTown.townId, type: capturedTown.type } };
+      displacedSettlement = {
+        ownerId: oldOwner,
+        town: {
+          townId: capturedTown.townId,
+          type: capturedTown.type,
+          ...(capturedTown.name ? { name: capturedTown.name } : {})
+        }
+      };
       townsByTile.delete(k);
       markSummaryChunkDirtyAtTile(t.x, t.y);
     }
@@ -15114,6 +15135,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   } else {
     logHydratePhase("town_normalization", { normalized: 0, towns: raw.towns?.length ?? 0 });
   }
+  assignMissingTownNamesForWorld();
   if (raw.season) activeSeason = raw.season;
   if (raw.seasonWinner) seasonWinner = raw.seasonWinner;
   if (raw.seasonArchives) seasonArchives.push(...raw.seasonArchives);

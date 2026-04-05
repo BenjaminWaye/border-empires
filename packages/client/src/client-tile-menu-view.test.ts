@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { constructionProgressForTile, menuOverviewForTile } from "./client-tile-menu-view.js";
+import { constructionProgressForTile, menuOverviewForTile, tileMenuViewForTile } from "./client-tile-menu-view.js";
 import type { Tile } from "./client-types.js";
 
 const settledSupportTile = (
@@ -129,5 +129,50 @@ describe("menuOverviewForTile", () => {
 
     expect(progress?.title).toBe("Removing Fort");
     expect(progress?.note).toContain("Defense from this fort is disabled");
+  });
+
+  it("uses the generated town name in the pressed-town title", () => {
+    const menu = tileMenuViewForTile(
+      {
+        x: 18,
+        y: 42,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Aetherwick",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 0,
+          supportMax: 0,
+          goldPerMinute: 2,
+          cap: 40,
+          isFed: true,
+          population: 18_000,
+          maxPopulation: 50_000,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        }
+      },
+      {
+        ...deps,
+        menuActionsForSingleTile: () => [],
+        splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+        settlementProgressForTile: () => undefined,
+        queuedSettlementProgressForTile: () => undefined,
+        queuedBuildProgressForTile: () => undefined,
+        constructionProgressForTile: () => undefined,
+        menuOverviewForTile: () => []
+      }
+    );
+
+    expect(menu.title).toBe("Aetherwick (18, 42)");
   });
 });

@@ -181,6 +181,7 @@ export interface Tile {
     expiresAt?: number;
   } | null;
   town?: {
+    name?: string;
     type: TownType;
     baseGoldPerMinute: number;
     supportCurrent: number;
