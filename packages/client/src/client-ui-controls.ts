@@ -3,6 +3,8 @@ import {
   FORT_DEFENSE_MULT,
   LIGHT_OUTPOST_ATTACK_MULT,
   LIGHT_OUTPOST_BUILD_MS,
+  OBSERVATORY_BUILD_MS,
+  OBSERVATORY_VISION_BONUS,
   SETTLE_COST,
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_MS,
@@ -11,9 +13,10 @@ import {
   structureShowsOnTile,
   type ResourceType
 } from "@border-empires/shared";
-import { canAffordCost, isForestTile, settleDurationMsForTile } from "./client-constants.js";
+import { canAffordCost, settleCostLabelForTile } from "./client-constants.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
 import type { ClientState } from "./client-state.js";
+import { tileHasAnyStructure } from "./client-structure-state.js";
 
 type HoldBuildMenuDeps = Record<string, any> & {
   state: ClientState;
@@ -79,7 +82,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
   const development = developmentSlotSummary();
   const hasDevelopmentSlot = development.available > 0;
   const queueableWhenBusy = !hasDevelopmentSlot;
-  const hasBlockingStructure = Boolean(tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
+  const hasBlockingStructure = tileHasAnyStructure(tile);
   const canUpgradeWoodenFort = tile.economicStructure?.type === "WOODEN_FORT" && state.techIds.includes("masonry");
   const canUpgradeLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST" && state.techIds.includes("leatherworking");
   const fortGoldCost = structureGoldCost("FORT");
@@ -192,7 +195,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
       <div class="hold-menu-title">Build on (${x}, ${y})</div>
       <button class="hold-menu-btn" data-build="settle" ${tile.ownershipState === "FRONTIER" && canAffordCost(state.gold, SETTLE_COST) && !settlementQueued ? "" : "disabled"}>
         <span>Settle Tile</span>
-        <small>${SETTLE_COST} gold • ${(settleDurationMsForTile(x, y) / 1000).toFixed(0)}s${isForestTile(x, y) ? " (Forest)" : ""} • converts frontier to settled${settlementQueued ? " • already queued" : queueableWhenBusy && tile.ownershipState === "FRONTIER" ? " • queues" : ""}</small>
+        <small>${settleCostLabelForTile(x, y)} • converts frontier to settled${settlementQueued ? " • already queued" : queueableWhenBusy && tile.ownershipState === "FRONTIER" ? " • queues" : ""}</small>
       </button>
       <button class="hold-menu-btn" data-build="fort" ${canAffordFort ? "" : "disabled"}>
         <span>${canUpgradeWoodenFort ? "Upgrade to Fort" : state.techIds.includes("masonry") ? "Fort" : "Wooden Fort"}</span>
@@ -200,7 +203,7 @@ export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: n
       </button>
       <button class="hold-menu-btn" data-build="observatory" ${canAffordObservatory ? "" : "disabled"}>
         <span>Observatory</span>
-        <small>${structureCostText("OBSERVATORY")} • +5 local vision • 0.025 crystal / min${queueableWhenBusy && canAffordObservatory ? " • queues" : ""}</small>
+        <small>${structureCostText("OBSERVATORY")} • ${(OBSERVATORY_BUILD_MS / 1000).toFixed(0)}s • +${OBSERVATORY_VISION_BONUS} local vision • 0.025 crystal / min${queueableWhenBusy && canAffordObservatory ? " • queues" : ""}</small>
       </button>
       <button class="hold-menu-btn" data-build="farmstead" ${canBuildFarmstead ? "" : "disabled"}>
         <span>Farmstead</span>

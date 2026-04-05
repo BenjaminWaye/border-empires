@@ -1,3 +1,5 @@
+import { tileHasPendingStructureWork } from "./client-structure-state.js";
+
 export type QueuedDevelopmentActionLike =
   | { kind: "SETTLE"; tileKey: string; label?: string; optimisticKind?: string }
   | { kind: "BUILD"; tileKey: string; label?: string; optimisticKind?: string };
@@ -46,18 +48,7 @@ export const busyDevelopmentProcessCount = (
   let busy = pendingSettlementCount;
   for (const tile of tiles) {
     if (tile.ownerId !== ownerId) continue;
-    if (
-      tile.fort?.status === "under_construction" ||
-      tile.fort?.status === "removing" ||
-      tile.observatory?.status === "under_construction" ||
-      tile.observatory?.status === "removing" ||
-      tile.siegeOutpost?.status === "under_construction" ||
-      tile.siegeOutpost?.status === "removing" ||
-      tile.economicStructure?.status === "under_construction" ||
-      tile.economicStructure?.status === "removing"
-    ) {
-      busy += 1;
-    }
+    if (tileHasPendingStructureWork(tile)) busy += 1;
   }
   return busy;
 };

@@ -1,3 +1,11 @@
+import {
+  AETHER_BRIDGE_COOLDOWN_MS,
+  AETHER_BRIDGE_DURATION_MS,
+  SIPHON_COOLDOWN_MS,
+  SIPHON_DURATION_MS,
+  TERRAIN_SHAPING_COOLDOWN_MS
+} from "@border-empires/shared";
+
 import type { TechInfo } from "./client-types.js";
 
 export type CrystalAbilityInfoKey = "reveal_empire" | "aether_bridge" | "siphon" | "create_mountain" | "remove_mountain";
@@ -12,12 +20,6 @@ export type CrystalAbilityInfoView = {
   durationLabel?: string;
   upkeepLabel?: string;
 };
-
-const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
-const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
-const SIPHON_COOLDOWN_MS = 15 * 60_000;
-const SIPHON_DURATION_MS = 30 * 60_000;
-const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
 
 export const crystalAbilityNameForKey = (key: CrystalAbilityInfoKey): string => {
   if (key === "reveal_empire") return "Reveal Empire";

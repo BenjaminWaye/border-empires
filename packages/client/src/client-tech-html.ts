@@ -3,6 +3,15 @@ import type { DomainInfo, TechInfo } from "./client-types.js";
 type ModKey = "attack" | "defense" | "income" | "vision";
 type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
 
+const formatModLines = (mods: Partial<Record<ModKey, number>>): string[] => {
+  const lines: string[] = [];
+  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
+  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
+  return lines;
+};
+
 const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads";
   if (key === "unlockCamp" && value === true) return "Unlocks camps";
@@ -112,26 +121,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   return null;
 };
 
-const formatTechModifiers = (mods: TechInfo["mods"]): string[] => {
-  const lines: string[] = [];
-  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
-  return lines;
-};
-
-const formatDomainModifiers = (mods: DomainInfo["mods"]): string[] => {
-  const lines: string[] = [];
-  if (typeof mods.attack === "number" && mods.attack !== 1) lines.push(`Attack ${mods.attack > 1 ? "+" : ""}${((mods.attack - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.defense === "number" && mods.defense !== 1) lines.push(`Defense ${mods.defense > 1 ? "+" : ""}${((mods.defense - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.income === "number" && mods.income !== 1) lines.push(`Income ${mods.income > 1 ? "+" : ""}${((mods.income - 1) * 100).toFixed(0)}%`);
-  if (typeof mods.vision === "number" && mods.vision !== 1) lines.push(`Vision ${mods.vision > 1 ? "+" : ""}${((mods.vision - 1) * 100).toFixed(0)}%`);
-  return lines;
-};
-
 export const formatTechBenefitSummary = (tech: TechInfo): string => {
-  const lines = formatTechModifiers(tech.mods);
+  const lines = formatModLines(tech.mods);
   if (tech.effects) {
     for (const [key, value] of Object.entries(tech.effects)) {
       const label = effectSummaryLabel(key, value);
@@ -143,7 +134,7 @@ export const formatTechBenefitSummary = (tech: TechInfo): string => {
 };
 
 export const formatDomainBenefitSummary = (domain: DomainInfo): string => {
-  const lines = formatDomainModifiers(domain.mods);
+  const lines = formatModLines(domain.mods);
   if (domain.effects) {
     for (const [key, value] of Object.entries(domain.effects)) {
       const label = effectSummaryLabel(key, value);
