@@ -57,13 +57,21 @@ export const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
   MARKET: loadOverlayImage("market-overlay.svg"),
   GRANARY: loadOverlayImage("granary-overlay.svg"),
+  BANK: loadOverlayImage("bank-overlay.svg"),
+  AIRPORT: loadOverlayImage("airport-overlay.svg"),
   FUR_SYNTHESIZER: loadOverlayImage("fur-synthesizer-overlay.svg"),
   ADVANCED_FUR_SYNTHESIZER: loadOverlayImage("advanced-fur-synthesizer-overlay.svg"),
   IRONWORKS: loadOverlayImage("ironworks-overlay.svg"),
   ADVANCED_IRONWORKS: loadOverlayImage("advanced-ironworks-overlay.svg"),
   CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg"),
   ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg"),
-  FUEL_PLANT: loadOverlayImage("fuel-plant-overlay.svg")
+  FUEL_PLANT: loadOverlayImage("fuel-plant-overlay.svg"),
+  CARAVANARY: loadOverlayImage("caravanary-overlay.svg"),
+  FOUNDRY: loadOverlayImage("foundry-overlay.svg"),
+  GARRISON_HALL: loadOverlayImage("garrison-hall-overlay.svg"),
+  CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),
+  GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),
+  RADAR_SYSTEM: loadOverlayImage("radar-system-overlay.svg")
 } as const;
 
 const builtResourceOverlayVariants = {

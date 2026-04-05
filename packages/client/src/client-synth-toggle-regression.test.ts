@@ -21,7 +21,26 @@ describe("converter toggle regression guard", () => {
     const render = clientSource("./client-map-render.ts");
     const loop = clientSource("./client-runtime-loop.ts");
     expect(render).toContain('CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg")');
-    expect(loop).toContain('} else if (t.economicStructure.type === "CRYSTAL_SYNTHESIZER") {');
-    expect(loop).toContain("deps.structureOverlayImages.CRYSTAL_SYNTHESIZER");
+    expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
+  });
+
+  it("keeps live-map overlays in sync with dedicated structure art", () => {
+    const render = clientSource("./client-map-render.ts");
+    const loop = clientSource("./client-runtime-loop.ts");
+    const dedicatedStructureOverlays = [
+      ["BANK", "bank-overlay.svg"],
+      ["AIRPORT", "airport-overlay.svg"],
+      ["CARAVANARY", "caravanary-overlay.svg"],
+      ["FOUNDRY", "foundry-overlay.svg"],
+      ["GARRISON_HALL", "garrison-hall-overlay.svg"],
+      ["CUSTOMS_HOUSE", "customs-house-overlay.svg"],
+      ["GOVERNORS_OFFICE", "governors-office-overlay.svg"],
+      ["RADAR_SYSTEM", "radar-system-overlay.svg"]
+    ] as const;
+
+    for (const [structureType, asset] of dedicatedStructureOverlays) {
+      expect(render).toContain(`${structureType}: loadOverlayImage("${asset}")`);
+    }
+    expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
   });
 });
