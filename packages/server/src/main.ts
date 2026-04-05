@@ -7635,6 +7635,16 @@ type AiSettlementSelectorCache = {
   settlementByVictoryPath: Map<string, TileKey | null>;
   townSupportSettlementByVictoryPath: Map<string, TileKey | null>;
   islandSettlementByVictoryPath: Map<string, TileKey | null>;
+  frontierSummaryByKey: Map<string, AiFrontierSettlementSummary>;
+};
+
+type AiFrontierSettlementSummary = {
+  bestSettlementKey: TileKey | null;
+  settlementAvailable: boolean;
+  bestTownSupportSettlementKey: TileKey | null;
+  townSupportSettlementAvailable: boolean;
+  bestIslandSettlementKey: TileKey | null;
+  islandSettlementAvailable: boolean;
 };
 
 const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
@@ -8757,23 +8767,16 @@ const bestAiTownSupportSettlementTile = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): Tile | undefined => {
-  const selectorCache = aiSettlementSelectorCacheForPlayer(actor);
-  const cacheKey = victoryPath ?? "";
-  if (selectorCache.townSupportSettlementByVictoryPath.has(cacheKey)) {
-    return cachedAiTileFromKey(selectorCache.townSupportSettlementByVictoryPath.get(cacheKey));
-  }
-  let best: { tile: Tile; score: number } | undefined;
-  for (const tile of territorySummary.frontierTiles) {
-    const tileKey = key(tile.x, tile.y);
-    if (tileHasPendingSettlement(tileKey)) continue;
-    const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
-    if (evaluation.townSupportSignal <= 0) continue;
-    const score = evaluation.townSupportSignal * 2 + evaluation.score;
-    if (!best || score > best.score) best = { tile, score };
-  }
-  const result = best && best.score >= 160 ? best.tile : undefined;
-  selectorCache.townSupportSettlementByVictoryPath.set(cacheKey, result ? key(result.x, result.y) : null);
-  return result;
+  const { foodCoverageLow, economyWeak } = aiEconomyPriorityState(actor, territorySummary);
+  const summary = frontierSettlementSummaryForPlayer(
+    actor,
+    victoryPath,
+    territorySummary,
+    undefined,
+    economyWeak,
+    foodCoverageLow
+  );
+  return cachedAiTileFromKey(summary.bestTownSupportSettlementKey);
 };
 
 const bestAiAnyNeutralExpand = (
@@ -9007,20 +9010,17 @@ const buildAiPlanningStaticCache = (
     weakestIslandRatio = islandProgress.weakestRatio;
   }
   const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
-
-  for (const tile of territorySummary.frontierTiles) {
-    const tileKey = key(tile.x, tile.y);
-    if (tileHasPendingSettlement(tileKey)) continue;
-    if (!settlementAvailable && qualifiesAiSettlementAvailability(actor, tile, undefined, territorySummary, economyWeak, foodCoverageLow)) {
-      settlementAvailable = true;
-    }
-    if (!supportSettlementAvailable && qualifiesAiTownSupportSettlementAvailability(actor, tile, territorySummary)) {
-      supportSettlementAvailable = true;
-    }
-    if (!islandSettlementAvailable && qualifiesAiIslandSettlementAvailability(actor, tile, territorySummary, focusIslandId)) {
-      islandSettlementAvailable = true;
-    }
-  }
+  const frontierSettlementSummary = frontierSettlementSummaryForPlayer(
+    actor,
+    undefined,
+    territorySummary,
+    focusIslandId,
+    economyWeak,
+    foodCoverageLow
+  );
+  settlementAvailable = frontierSettlementSummary.settlementAvailable;
+  supportSettlementAvailable = frontierSettlementSummary.townSupportSettlementAvailable;
+  islandSettlementAvailable = frontierSettlementSummary.islandSettlementAvailable;
 
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
@@ -9140,7 +9140,22 @@ const cachedAiPlanningStaticForPlayer = (actor: Player, territorySummary: AiTerr
   const version = aiTerritoryVersionForPlayer(actor.id);
   const cached = cachedAiPlanningStaticByPlayer.get(actor.id);
   if (cached && cached.version === version) return cached;
+  const startedAt = now();
   const rebuilt = buildAiPlanningStaticCache(actor, territorySummary);
+  const elapsedMs = now() - startedAt;
+  if (elapsedMs >= 150) {
+    appRef?.log.warn(
+      {
+        playerId: actor.id,
+        frontierTiles: territorySummary.frontierTileCount,
+        expandCandidates: territorySummary.expandCandidates.length,
+        attackCandidates: territorySummary.attackCandidates.length,
+        structureCandidates: territorySummary.structureCandidateTiles.length,
+        elapsedMs
+      },
+      "slow ai planning static cache"
+    );
+  }
   cachedAiPlanningStaticByPlayer.set(actor.id, rebuilt);
   return rebuilt;
 };
@@ -9302,7 +9317,8 @@ const aiSettlementSelectorCacheForPlayer = (actor: Player): AiSettlementSelector
     pendingSettlementCount,
     settlementByVictoryPath: new Map<string, TileKey | null>(),
     townSupportSettlementByVictoryPath: new Map<string, TileKey | null>(),
-    islandSettlementByVictoryPath: new Map<string, TileKey | null>()
+    islandSettlementByVictoryPath: new Map<string, TileKey | null>(),
+    frontierSummaryByKey: new Map<string, AiFrontierSettlementSummary>()
   };
   cachedAiSettlementSelectorByPlayer.set(actor.id, rebuilt);
   return rebuilt;
@@ -9311,84 +9327,185 @@ const aiSettlementSelectorCacheForPlayer = (actor: Player): AiSettlementSelector
 const cachedAiTileFromKey = (tileKey: TileKey | null | undefined): Tile | undefined =>
   tileKey ? aiTileLiteAt(...parseKey(tileKey)) : undefined;
 
+const frontierSettlementSummaryCacheKey = (
+  victoryPath: AiSeasonVictoryPathId | undefined,
+  focusIslandId: number | undefined,
+  economyWeak: boolean,
+  foodCoverageLow: boolean
+): string => `${victoryPath ?? "none"}|${focusIslandId ?? -1}|${economyWeak ? 1 : 0}|${foodCoverageLow ? 1 : 0}`;
+
+const frontierSettlementSummaryForPlayer = (
+  actor: Player,
+  victoryPath: AiSeasonVictoryPathId | undefined,
+  territorySummary: AiTerritorySummary,
+  focusIslandId: number | undefined,
+  economyWeak: boolean,
+  foodCoverageLow: boolean
+): AiFrontierSettlementSummary => {
+  const selectorCache = aiSettlementSelectorCacheForPlayer(actor);
+  const cacheKey = frontierSettlementSummaryCacheKey(victoryPath, focusIslandId, economyWeak, foodCoverageLow);
+  const cached = selectorCache.frontierSummaryByKey.get(cacheKey);
+  if (cached) return cached;
+  const startedAt = now();
+
+  const { islandIdByTile } = islandMap();
+  let bestSettlement:
+    | (AiSettlementCandidateEvaluation & {
+        tileKey: TileKey;
+        priorityScore: number;
+      })
+    | undefined;
+  let bestTownSupport:
+    | (AiSettlementCandidateEvaluation & {
+        tileKey: TileKey;
+        totalScore: number;
+      })
+    | undefined;
+  let bestIsland:
+    | (AiSettlementCandidateEvaluation & {
+        tileKey: TileKey;
+        totalScore: number;
+      })
+    | undefined;
+
+  for (const tile of territorySummary.frontierTiles) {
+    const tileKey = key(tile.x, tile.y);
+    if (tileHasPendingSettlement(tileKey)) continue;
+
+    const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
+    const hasIntrinsicEconomicValue = townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey);
+    const settlementPriorityScore =
+      evaluation.score +
+      (hasIntrinsicEconomicValue ? 480 : 0) +
+      (evaluation.townSupportSignal > 0 ? 980 + evaluation.townSupportSignal * 2 : 0) +
+      (victoryPath === "SETTLED_TERRITORY" ? evaluation.islandFootprintSignal : 0);
+
+    if (
+      (evaluation.isEconomicallyInteresting || evaluation.isStrategicallyInteresting) &&
+      !(
+        (economyWeak || territorySummary.underThreat || foodCoverageLow) &&
+        !hasIntrinsicEconomicValue &&
+        tile.resource !== "FARM" &&
+        tile.resource !== "FISH" &&
+        evaluation.townSupportSignal <= 0 &&
+        !(victoryPath === "SETTLED_TERRITORY" && evaluation.islandFootprintSignal >= 180 && !foodCoverageLow && !economyWeak)
+      )
+    ) {
+      const minScore =
+        hasIntrinsicEconomicValue || (victoryPath === "SETTLED_TERRITORY" && evaluation.islandFootprintSignal >= 180)
+          ? 20
+          : victoryPath === "SETTLED_TERRITORY"
+            ? 32
+            : 55;
+      if (
+        evaluation.score >= minScore &&
+        (!bestSettlement ||
+          settlementPriorityScore > bestSettlement.priorityScore ||
+          (settlementPriorityScore === bestSettlement.priorityScore && evaluation.score > bestSettlement.score))
+      ) {
+        bestSettlement = {
+          ...evaluation,
+          tileKey,
+          priorityScore: settlementPriorityScore
+        };
+      }
+    }
+
+    if (evaluation.townSupportSignal > 0) {
+      const townSupportScore = evaluation.townSupportSignal * 2 + evaluation.score;
+      if (townSupportScore >= 160 && (!bestTownSupport || townSupportScore > bestTownSupport.totalScore)) {
+        bestTownSupport = {
+          ...evaluation,
+          tileKey,
+          totalScore: townSupportScore
+        };
+      }
+    }
+
+    const islandId = islandIdByTile.get(tileKey);
+    if (focusIslandId !== undefined && islandId !== focusIslandId) continue;
+    const islandEvaluation =
+      victoryPath === "SETTLED_TERRITORY"
+        ? evaluation
+        : evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary);
+    if (islandEvaluation.islandFootprintSignal <= 0) continue;
+    const islandScore =
+      islandEvaluation.score +
+      islandEvaluation.islandFootprintSignal +
+      (islandEvaluation.townSupportSignal > 0 ? islandEvaluation.townSupportSignal * 2 : 0) +
+      140;
+    if (islandScore >= 120 && (!bestIsland || islandScore > bestIsland.totalScore)) {
+      bestIsland = {
+        ...islandEvaluation,
+        tileKey,
+        totalScore: islandScore
+      };
+    }
+  }
+
+  const summary: AiFrontierSettlementSummary = {
+    bestSettlementKey: bestSettlement?.tileKey ?? null,
+    settlementAvailable: Boolean(bestSettlement),
+    bestTownSupportSettlementKey: bestTownSupport?.tileKey ?? null,
+    townSupportSettlementAvailable: Boolean(bestTownSupport),
+    bestIslandSettlementKey: bestIsland?.tileKey ?? null,
+    islandSettlementAvailable: Boolean(bestIsland)
+  };
+
+  selectorCache.frontierSummaryByKey.set(cacheKey, summary);
+  selectorCache.settlementByVictoryPath.set(victoryPath ?? "", summary.bestSettlementKey);
+  selectorCache.townSupportSettlementByVictoryPath.set(victoryPath ?? "", summary.bestTownSupportSettlementKey);
+  if (focusIslandId !== undefined || victoryPath === "SETTLED_TERRITORY") {
+    selectorCache.islandSettlementByVictoryPath.set(victoryPath ?? "", summary.bestIslandSettlementKey);
+  }
+  const elapsedMs = now() - startedAt;
+  if (elapsedMs >= 150) {
+    appRef?.log.warn(
+      {
+        playerId: actor.id,
+        victoryPath: victoryPath ?? "none",
+        frontierTiles: territorySummary.frontierTileCount,
+        focusIslandId,
+        elapsedMs
+      },
+      "slow ai frontier settlement summary"
+    );
+  }
+  return summary;
+};
+
 const bestAiSettlementTile = (
   actor: Player,
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): Tile | undefined => {
-  const selectorCache = aiSettlementSelectorCacheForPlayer(actor);
-  const cacheKey = victoryPath ?? "";
-  if (selectorCache.settlementByVictoryPath.has(cacheKey)) {
-    return cachedAiTileFromKey(selectorCache.settlementByVictoryPath.get(cacheKey));
-  }
   const { foodCoverageLow, economyWeak } = aiEconomyPriorityState(actor, territorySummary);
-  let best:
-    | (ReturnType<typeof evaluateAiSettlementCandidate> & {
-        tile: Tile;
-        hasIntrinsicEconomicValue: boolean;
-        priorityScore: number;
-      })
-    | undefined;
-  for (const tile of territorySummary.frontierTiles) {
-    const tileKey = key(tile.x, tile.y);
-    if (tileHasPendingSettlement(tileKey)) continue;
-    const evaluation = evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
-    const hasIntrinsicEconomicValue = townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey);
-    const priorityScore =
-      evaluation.score +
-      (hasIntrinsicEconomicValue ? 480 : 0) +
-      (evaluation.townSupportSignal > 0 ? 980 + evaluation.townSupportSignal * 2 : 0) +
-      (victoryPath === "SETTLED_TERRITORY" ? evaluation.islandFootprintSignal : 0);
-    if (!best || priorityScore > best.priorityScore || (priorityScore === best.priorityScore && evaluation.score > best.score)) {
-      best = { tile, ...evaluation, hasIntrinsicEconomicValue, priorityScore };
-    }
-  }
-  if (!best) return undefined;
-  if (!best.isEconomicallyInteresting && !best.isStrategicallyInteresting) return undefined;
-  if (
-    (economyWeak || territorySummary.underThreat || foodCoverageLow) &&
-    !best.hasIntrinsicEconomicValue &&
-    best.tile.resource !== "FARM" &&
-    best.tile.resource !== "FISH" &&
-    best.townSupportSignal <= 0 &&
-    !(victoryPath === "SETTLED_TERRITORY" && best.islandFootprintSignal >= 180 && !foodCoverageLow && !economyWeak)
-  ) {
-    return undefined;
-  }
-  const minScore =
-    best.hasIntrinsicEconomicValue || (victoryPath === "SETTLED_TERRITORY" && best.islandFootprintSignal >= 180)
-      ? 20
-      : victoryPath === "SETTLED_TERRITORY"
-        ? 32
-        : 55;
-  const result = best.score >= minScore ? best.tile : undefined;
-  selectorCache.settlementByVictoryPath.set(cacheKey, result ? key(result.x, result.y) : null);
-  return result;
+  const summary = frontierSettlementSummaryForPlayer(
+    actor,
+    victoryPath,
+    territorySummary,
+    undefined,
+    economyWeak,
+    foodCoverageLow
+  );
+  return cachedAiTileFromKey(summary.bestSettlementKey);
 };
 
 const bestAiIslandSettlementTile = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): Tile | undefined => {
-  const selectorCache = aiSettlementSelectorCacheForPlayer(actor);
-  if (selectorCache.islandSettlementByVictoryPath.has("")) {
-    return cachedAiTileFromKey(selectorCache.islandSettlementByVictoryPath.get(""));
-  }
   const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);
-  const { islandIdByTile } = islandMap();
-  let best: { tile: Tile; score: number } | undefined;
-  for (const tile of territorySummary.frontierTiles) {
-    if (tileHasPendingSettlement(key(tile.x, tile.y))) continue;
-    const islandId = islandIdByTile.get(key(tile.x, tile.y));
-    if (focusIslandId !== undefined && islandId !== focusIslandId) continue;
-    const evaluation = evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary);
-    if (evaluation.islandFootprintSignal <= 0) continue;
-    const score = evaluation.score + evaluation.islandFootprintSignal + (evaluation.townSupportSignal > 0 ? evaluation.townSupportSignal * 2 : 0) + 140;
-    if (!best || score > best.score) best = { tile, score };
-  }
-  const result = best && best.score >= 120 ? best.tile : undefined;
-  selectorCache.islandSettlementByVictoryPath.set("", result ? key(result.x, result.y) : null);
-  return result;
+  const { foodCoverageLow, economyWeak } = aiEconomyPriorityState(actor, territorySummary);
+  const summary = frontierSettlementSummaryForPlayer(
+    actor,
+    "SETTLED_TERRITORY",
+    territorySummary,
+    focusIslandId,
+    economyWeak,
+    foodCoverageLow
+  );
+  return cachedAiTileFromKey(summary.bestIslandSettlementKey);
 };
 
 const bestAiFortTile = (actor: Player, territorySummary = collectAiTerritorySummary(actor)): Tile | undefined => {

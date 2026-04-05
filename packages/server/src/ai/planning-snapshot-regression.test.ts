@@ -94,20 +94,18 @@ describe("buildAiPlanningSnapshot regression guard", () => {
 
   it("does not advertise or select settlement targets that are already settling", () => {
     const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
+    const frontierSummaryBody = functionBody(serverMainSource(), "frontierSettlementSummaryForPlayer");
     const settlementBody = functionBody(serverMainSource(), "bestAiSettlementTile");
     const islandSettlementBody = functionBody(serverMainSource(), "bestAiIslandSettlementTile");
     const townSupportSettlementBody = functionBody(serverMainSource(), "bestAiTownSupportSettlementTile");
     const evaluationBody = functionBody(serverMainSource(), "evaluateAiSettlementCandidate");
     const fortBody = functionBody(serverMainSource(), "bestAiFortTile");
 
-    expect(staticBody).toContain("tileHasPendingSettlement(tileKey)");
-    expect(staticBody).toContain("qualifiesAiSettlementAvailability(actor, tile, undefined, territorySummary, economyWeak, foodCoverageLow)");
-    expect(staticBody).toContain("qualifiesAiTownSupportSettlementAvailability(actor, tile, territorySummary)");
-    expect(staticBody).toContain("qualifiesAiIslandSettlementAvailability(actor, tile, territorySummary, focusIslandId)");
-    expect(settlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
-    expect(settlementBody).toContain("tileHasPendingSettlement(tileKey)");
-    expect(islandSettlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
-    expect(townSupportSettlementBody).toContain("aiSettlementSelectorCacheForPlayer(actor)");
+    expect(staticBody).toContain("frontierSettlementSummaryForPlayer(");
+    expect(frontierSummaryBody).toContain("tileHasPendingSettlement(tileKey)");
+    expect(settlementBody).toContain("frontierSettlementSummaryForPlayer(");
+    expect(islandSettlementBody).toContain("frontierSettlementSummaryForPlayer(");
+    expect(townSupportSettlementBody).toContain("frontierSettlementSummaryForPlayer(");
     expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
     expect(fortBody).toContain("fortsByTile.has(tk)");
     expect(fortBody).toContain("isBorderTile(tile.x, tile.y, actor.id)");
