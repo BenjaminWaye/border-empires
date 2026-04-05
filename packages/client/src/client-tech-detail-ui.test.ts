@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderTechDetailCard, renderTechDetailModal } from "./client-tech-detail-ui.js";
+import { renderTechDetailCard, renderTechDetailModal, renderTechDetailPrompt } from "./client-tech-detail-ui.js";
 import type { TechInfo } from "./client-types.js";
 
 const cryptographyTech: TechInfo = {
@@ -24,6 +24,10 @@ const cryptographyTech: TechInfo = {
 };
 
 describe("tech detail crystal ability previews", () => {
+  it("does not render the tech detail helper placeholder", () => {
+    expect(renderTechDetailPrompt()).toBe("");
+  });
+
   it("shows crystal ability preview buttons in the inline tech detail card", () => {
     const html = renderTechDetailCard({
       tech: cryptographyTech,
