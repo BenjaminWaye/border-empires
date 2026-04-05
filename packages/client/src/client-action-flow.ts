@@ -8,6 +8,7 @@ import {
   attackQueueFailureReason as attackQueueFailureReasonFromModule,
   buildFrontierQueue as buildFrontierQueueFromModule,
   cancelQueuedSettlement as cancelQueuedSettlementFromModule,
+  cancelQueuedBuild as cancelQueuedBuildFromModule,
   cleanupExpiredSettlementProgress as cleanupExpiredSettlementProgressFromModule,
   clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule,
   clearSettlementProgressForTile as clearSettlementProgressForTileFromModule,
@@ -21,6 +22,7 @@ import {
   queueDevelopmentAction as queueDevelopmentActionFromModule,
   queueSpecificTargets as queueSpecificTargetsFromModule,
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
+  queuedBuildEntryForTile as queuedBuildEntryForTileFromModule,
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
   reconcileActionQueue as reconcileActionQueueFromModule,
   requestAttackPreviewForHover as requestAttackPreviewForHoverFromModule,
@@ -78,6 +80,7 @@ import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
   constructionProgressForTile as constructionProgressForTileFromModule,
   menuOverviewForTile as menuOverviewForTileFromModule,
+  queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
   queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
@@ -534,7 +537,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const queuedSettlementIndexForTile = (tileKey: string): number => queuedSettlementIndexForTileFromModule(state, tileKey);
 
+  const queuedBuildEntryForTile = (tileKey: string) => queuedBuildEntryForTileFromModule(state, tileKey);
+
   const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud });
+
+  const cancelQueuedBuild = (tileKey: string): boolean => cancelQueuedBuildFromModule(state, tileKey, { pushFeed, renderHud });
 
   const cleanupExpiredSettlementProgress = (): boolean =>
     cleanupExpiredSettlementProgressFromModule(state, { syncOptimisticSettlementTile, clearSettlementProgressByKey, requestViewRefresh });
@@ -590,6 +597,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       queuedSettlementIndexForTile
     });
 
+  const queuedBuildProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
+    queuedBuildProgressForTileFromModule(tile, {
+      keyFor,
+      queuedDevelopmentEntryForTile
+    });
+
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] =>
     menuOverviewForTileFromModule(tile, {
       state,
@@ -636,6 +649,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         };
       },
       queuedSettlementProgressForTile,
+      queuedBuildProgressForTile,
       constructionProgressForTile,
       menuOverviewForTile,
       prettyToken,
@@ -728,6 +742,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     tileMenuViewForTile,
     handleTileAction,
     cancelQueuedSettlement,
+    cancelQueuedBuild,
     sendGameMessage,
     applyOptimisticStructureCancel,
     renderHud,
