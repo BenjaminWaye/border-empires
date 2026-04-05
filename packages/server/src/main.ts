@@ -3494,6 +3494,7 @@ const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
   if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Crystal Synthesizer";
   if (type === "FUEL_PLANT") return "Fuel Plant";
   if (type === "CARAVANARY") return "Caravanary";
+  if (type === "FOUNDRY") return "Foundry";
   if (type === "CUSTOMS_HOUSE") return "Customs House";
   if (type === "GARRISON_HALL") return "Garrison Hall";
   if (type === "GOVERNORS_OFFICE") return "Governor's Office";
