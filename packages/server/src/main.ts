@@ -614,11 +614,15 @@ type LeaderboardMetricEntry = {
   id: string;
   name: string;
   value: number;
+  rank: number;
 };
 
 type LeaderboardSnapshotView = {
   overall: LeaderboardOverallEntry[];
   selfOverall: LeaderboardOverallEntry | undefined;
+  selfByTiles: LeaderboardMetricEntry | undefined;
+  selfByIncome: LeaderboardMetricEntry | undefined;
+  selfByTechs: LeaderboardMetricEntry | undefined;
   byTiles: LeaderboardMetricEntry[];
   byIncome: LeaderboardMetricEntry[];
   byTechs: LeaderboardMetricEntry[];
@@ -12098,28 +12102,33 @@ const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
     .map((r) => ({ ...r, score: r.tiles * 1 + r.incomePerMinute * 3 + r.techs * 8 }))
     .sort((a, b) => b.score - a.score || b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute || b.techs - a.techs || a.id.localeCompare(b.id))
     .map((r, index) => ({ ...r, rank: index + 1 }));
-  const overall = overallRanked
-    .slice(0, limitTop);
-  const byTiles = [...rows]
-    .sort((a, b) => b.tiles - a.tiles)
-    .slice(0, limitTop)
-    .map((r) => ({ id: r.id, name: r.name, value: r.tiles }));
-  const byIncome = [...rows]
-    .sort((a, b) => b.incomePerMinute - a.incomePerMinute)
-    .slice(0, limitTop)
-    .map((r) => ({ id: r.id, name: r.name, value: r.incomePerMinute }));
-  const byTechs = [...rows]
-    .sort((a, b) => b.techs - a.techs)
-    .slice(0, limitTop)
-    .map((r) => ({ id: r.id, name: r.name, value: r.techs }));
+  const overall = overallRanked.slice(0, limitTop);
+  const rankMetricEntries = (
+    valueFor: (row: (typeof rows)[number]) => number,
+    tieBreak: (a: (typeof rows)[number], b: (typeof rows)[number]) => number = () => 0
+  ): LeaderboardMetricEntry[] =>
+    [...rows]
+      .sort((a, b) => valueFor(b) - valueFor(a) || tieBreak(a, b) || a.id.localeCompare(b.id))
+      .map((r, index) => ({ id: r.id, name: r.name, value: valueFor(r), rank: index + 1 }));
+  const byTiles = rankMetricEntries((row) => row.tiles, (a, b) => b.incomePerMinute - a.incomePerMinute || b.techs - a.techs).slice(0, limitTop);
+  const byIncome = rankMetricEntries((row) => row.incomePerMinute, (a, b) => b.tiles - a.tiles || b.techs - a.techs).slice(0, limitTop);
+  const byTechs = rankMetricEntries((row) => row.techs, (a, b) => b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute).slice(0, limitTop);
 
-  return { overall, selfOverall: undefined, byTiles, byIncome, byTechs };
+  return {
+    overall,
+    selfOverall: undefined,
+    selfByTiles: undefined,
+    selfByIncome: undefined,
+    selfByTechs: undefined,
+    byTiles,
+    byIncome,
+    byTechs
+  };
 };
 
 const leaderboardSnapshotForPlayer = (playerId: string | undefined): LeaderboardSnapshotView => {
   const base = cachedLeaderboardSnapshot;
-  if (!playerId) return { ...base, selfOverall: undefined };
-  if (base.overall.some((entry) => entry.id === playerId)) return { ...base, selfOverall: undefined };
+  if (!playerId) return { ...base, selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined };
   const rows = collectPlayerCompetitionMetrics().map((metric) => ({
     id: metric.playerId,
     name: metric.name,
@@ -12131,8 +12140,24 @@ const leaderboardSnapshotForPlayer = (playerId: string | undefined): Leaderboard
   const ranked = rows
     .sort((a, b) => b.score - a.score || b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute || b.techs - a.techs || a.id.localeCompare(b.id))
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  const selfOverall = ranked.find((entry) => entry.id === playerId);
-  return selfOverall ? { ...base, selfOverall } : { ...base, selfOverall: undefined };
+  const rankMetricEntries = (
+    valueFor: (row: (typeof rows)[number]) => number,
+    tieBreak: (a: (typeof rows)[number], b: (typeof rows)[number]) => number = () => 0
+  ): LeaderboardMetricEntry[] =>
+    [...rows]
+      .sort((a, b) => valueFor(b) - valueFor(a) || tieBreak(a, b) || a.id.localeCompare(b.id))
+      .map((entry, index) => ({ id: entry.id, name: entry.name, value: valueFor(entry), rank: index + 1 }));
+  const selfOverall = base.overall.some((entry) => entry.id === playerId) ? undefined : ranked.find((entry) => entry.id === playerId);
+  const selfByTiles = base.byTiles.some((entry) => entry.id === playerId)
+    ? undefined
+    : rankMetricEntries((row) => row.tiles, (a, b) => b.incomePerMinute - a.incomePerMinute || b.techs - a.techs).find((entry) => entry.id === playerId);
+  const selfByIncome = base.byIncome.some((entry) => entry.id === playerId)
+    ? undefined
+    : rankMetricEntries((row) => row.incomePerMinute, (a, b) => b.tiles - a.tiles || b.techs - a.techs).find((entry) => entry.id === playerId);
+  const selfByTechs = base.byTechs.some((entry) => entry.id === playerId)
+    ? undefined
+    : rankMetricEntries((row) => row.techs, (a, b) => b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute).find((entry) => entry.id === playerId);
+  return { ...base, selfOverall, selfByTiles, selfByIncome, selfByTechs };
 };
 
 const trimFrontierSettlementsWindow = (playerId: string, nowMs = now()): number[] => {
@@ -12566,7 +12591,16 @@ const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   });
 };
 
-let cachedLeaderboardSnapshot: LeaderboardSnapshotView = { overall: [], selfOverall: undefined, byTiles: [], byIncome: [], byTechs: [] };
+let cachedLeaderboardSnapshot: LeaderboardSnapshotView = {
+  overall: [],
+  selfOverall: undefined,
+  selfByTiles: undefined,
+  selfByIncome: undefined,
+  selfByTechs: undefined,
+  byTiles: [],
+  byIncome: [],
+  byTechs: []
+};
 let cachedVictoryPressureObjectives: SeasonVictoryObjectiveView[] = [];
 let globalStatusCacheExpiresAt = 0;
 let lastGlobalStatusBroadcastSig = "";

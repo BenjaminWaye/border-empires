@@ -1,5 +1,3 @@
-import "./style.css";
-
 // Client entrypoint:
 // 1. load global client styles
 // 2. hand app assembly to the client app module

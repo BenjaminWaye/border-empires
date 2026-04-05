@@ -201,6 +201,9 @@ export const leaderboardHtml = (
   leaderboard: {
     overall: LeaderboardOverallEntry[];
     selfOverall: LeaderboardOverallEntry | undefined;
+    selfByTiles: LeaderboardMetricEntry | undefined;
+    selfByIncome: LeaderboardMetricEntry | undefined;
+    selfByTechs: LeaderboardMetricEntry | undefined;
     byTiles: LeaderboardMetricEntry[];
     byIncome: LeaderboardMetricEntry[];
     byTechs: LeaderboardMetricEntry[];
@@ -211,6 +214,10 @@ export const leaderboardHtml = (
   const overallLine = (entry: LeaderboardOverallEntry): string =>
     `${entry.name} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs}`;
   const metricLine = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
+  const metricRows = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): string =>
+    `${entries.map((entry) => `<div class="lb-row">${entry.rank}. ${metricLine(entry)}</div>`).join("")}${
+      selfEntry ? `<div class="lb-row">${selfEntry.rank}. You (${selfEntry.value.toFixed(1)})</div>` : ""
+    }`;
   const winnerCard = seasonWinner
     ? `
     <article class="card pressure-card">
@@ -256,15 +263,15 @@ export const leaderboardHtml = (
     </article>
     <article class="card">
       <strong>Most Settled Tiles</strong>
-      ${leaderboard.byTiles.map((entry, index) => `<div class="lb-row">${index + 1}. ${metricLine(entry)}</div>`).join("")}
+      ${metricRows(leaderboard.byTiles, leaderboard.selfByTiles)}
     </article>
     <article class="card">
       <strong>Most Income</strong>
-      ${leaderboard.byIncome.map((entry, index) => `<div class="lb-row">${index + 1}. ${metricLine(entry)}</div>`).join("")}
+      ${metricRows(leaderboard.byIncome, leaderboard.selfByIncome)}
     </article>
     <article class="card">
       <strong>Most Techs</strong>
-      ${leaderboard.byTechs.map((entry, index) => `<div class="lb-row">${index + 1}. ${metricLine(entry)}</div>`).join("")}
+      ${metricRows(leaderboard.byTechs, leaderboard.selfByTechs)}
     </article>
   `;
 };

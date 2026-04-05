@@ -507,7 +507,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
       const panel = btn.dataset.mobilePanel as typeof state.mobilePanel | undefined;
       if (!panel) return;
       state.mobilePanel = panel;
-      if (panel === "intel") state.unreadAttackAlerts = 0;
+      if (panel === "feed") state.unreadAttackAlerts = 0;
       renderHud();
     };
   });

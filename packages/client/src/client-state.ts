@@ -184,6 +184,9 @@ export const createInitialState = () => ({
   leaderboard: {
     overall: [] as LeaderboardOverallEntry[],
     selfOverall: undefined as LeaderboardOverallEntry | undefined,
+    selfByTiles: undefined as LeaderboardMetricEntry | undefined,
+    selfByIncome: undefined as LeaderboardMetricEntry | undefined,
+    selfByTechs: undefined as LeaderboardMetricEntry | undefined,
     byTiles: [] as LeaderboardMetricEntry[],
     byIncome: [] as LeaderboardMetricEntry[],
     byTechs: [] as LeaderboardMetricEntry[]
@@ -191,7 +194,7 @@ export const createInitialState = () => ({
   seasonVictory: [] as SeasonVictoryObjectiveView[],
   seasonWinner: undefined as SeasonWinnerView | undefined,
   missions: [] as MissionState[],
-  mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "intel" | "manpower",
+  mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower",
   activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | null,
   showWeakDefensibility: false,
   shardRainFxUntil: 0,
