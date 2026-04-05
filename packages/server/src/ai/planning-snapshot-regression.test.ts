@@ -73,11 +73,14 @@ describe("buildAiPlanningSnapshot regression guard", () => {
   it("derives cached attack and build availability from lightweight cached signals", () => {
     const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
     expect(body).toContain("const pressureAttackProfile = estimateAiPressureAttackProfile(actor, territorySummary);");
+    expect(body).toContain("const settlementAvailability = estimateAiSettlementAvailabilityProfile(");
     expect(body).toContain("territorySummary.borderSettledTileKeys.has(tk)");
     expect(body).toContain("!fortsByTile.has(tk)");
     expect(body).toContain("const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
     expect(body).toContain("barbarianAttackAvailable: territorySummary.barbarianAttackAvailable");
     expect(body).toContain("enemyAttackAvailable: territorySummary.enemyAttackAvailable");
+    expect(body).not.toContain("frontierSettlementSummaryForPlayer(");
+    expect(body).not.toContain("evaluateAiSettlementCandidate(");
     expect(body).not.toContain("for (const { from, to } of territorySummary.expandCandidates)");
     expect(body).not.toContain("for (const { to } of territorySummary.attackCandidates)");
   });
@@ -107,6 +110,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
 
   it("does not advertise or select settlement targets that are already settling", () => {
     const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
+    const availabilityBody = functionBody(serverMainSource(), "estimateAiSettlementAvailabilityProfile");
     const frontierSummaryBody = functionBody(serverMainSource(), "frontierSettlementSummaryForPlayer");
     const settlementBody = functionBody(serverMainSource(), "bestAiSettlementTile");
     const islandSettlementBody = functionBody(serverMainSource(), "bestAiIslandSettlementTile");
@@ -114,7 +118,8 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const evaluationBody = functionBody(serverMainSource(), "evaluateAiSettlementCandidate");
     const fortBody = functionBody(serverMainSource(), "bestAiFortTile");
 
-    expect(staticBody).toContain("frontierSettlementSummaryForPlayer(");
+    expect(staticBody).toContain("estimateAiSettlementAvailabilityProfile(");
+    expect(availabilityBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(frontierSummaryBody).toContain("tileHasPendingSettlement(tileKey)");
     expect(settlementBody).toContain("frontierSettlementSummaryForPlayer(");
     expect(islandSettlementBody).toContain("frontierSettlementSummaryForPlayer(");

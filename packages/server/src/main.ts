@@ -7718,6 +7718,12 @@ type AiFrontierSettlementSummary = {
   islandSettlementAvailable: boolean;
 };
 
+type AiSettlementAvailabilityProfile = {
+  settlementAvailable: boolean;
+  townSupportSettlementAvailable: boolean;
+  islandSettlementAvailable: boolean;
+};
+
 type AiFrontierPlanningSummary = {
   neutralExpandAvailable: boolean;
   openingScoutAvailable: boolean;
@@ -9016,6 +9022,53 @@ const frontierPlanningSummaryForPlayer = (
   return summary;
 };
 
+const estimateAiSettlementAvailabilityProfile = (
+  actor: Player,
+  territorySummary: AiTerritorySummary,
+  focusIslandId: number | undefined,
+  economyWeak: boolean,
+  foodCoverageLow: boolean
+): AiSettlementAvailabilityProfile => {
+  const { islandIdByTile } = islandMap();
+  let settlementAvailable = false;
+  let townSupportSettlementAvailable = false;
+  let islandSettlementAvailable = false;
+
+  for (const tile of territorySummary.frontierTiles) {
+    const tileKey = key(tile.x, tile.y);
+    if (tileHasPendingSettlement(tileKey)) continue;
+
+    const hasTownSupport = cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0;
+    const hasIntrinsicEconomicValue = townsByTile.has(tileKey) || Boolean(tile.resource) || docksByTile.has(tileKey);
+    const isFoodTile = tile.resource === "FARM" || tile.resource === "FISH";
+
+    if (!townSupportSettlementAvailable && hasTownSupport) townSupportSettlementAvailable = true;
+
+    if (!settlementAvailable) {
+      if (hasIntrinsicEconomicValue || hasTownSupport || isFoodTile || (!economyWeak && !foodCoverageLow && !territorySummary.underThreat)) {
+        settlementAvailable = true;
+      }
+    }
+
+    if (!islandSettlementAvailable) {
+      const islandId = islandIdByTile.get(tileKey);
+      if (focusIslandId !== undefined) {
+        if (islandId === focusIslandId) islandSettlementAvailable = true;
+      } else if (islandId !== undefined) {
+        islandSettlementAvailable = true;
+      }
+    }
+
+    if (settlementAvailable && townSupportSettlementAvailable && islandSettlementAvailable) break;
+  }
+
+  return {
+    settlementAvailable,
+    townSupportSettlementAvailable,
+    islandSettlementAvailable
+  };
+};
+
 const bestAiTownSupportSettlementTile = (
   actor: Player,
   victoryPath?: AiSeasonVictoryPathId,
@@ -9251,17 +9304,16 @@ const buildAiPlanningStaticCache = (
     weakestIslandRatio = islandProgress.weakestRatio;
   }
   const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
-  const frontierSettlementSummary = frontierSettlementSummaryForPlayer(
+  const settlementAvailability = estimateAiSettlementAvailabilityProfile(
     actor,
-    undefined,
     territorySummary,
     focusIslandId,
     economyWeak,
     foodCoverageLow
   );
-  settlementAvailable = frontierSettlementSummary.settlementAvailable;
-  supportSettlementAvailable = frontierSettlementSummary.townSupportSettlementAvailable;
-  islandSettlementAvailable = frontierSettlementSummary.islandSettlementAvailable;
+  settlementAvailable = settlementAvailability.settlementAvailable;
+  supportSettlementAvailable = settlementAvailability.townSupportSettlementAvailable;
+  islandSettlementAvailable = settlementAvailability.islandSettlementAvailable;
   const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
 
   if (structureCandidateCount > 0) {
