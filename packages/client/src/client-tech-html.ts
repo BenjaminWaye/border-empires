@@ -29,7 +29,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockRevealRegion" && value === true) return "Unlocks reveal region";
   if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
   if (key === "unlockDeepStrike" && value === true) return "Unlocks deep strike";
-  if (key === "unlockNavalInfiltration" && value === true) return "Unlocks naval infiltration";
+  if (key === "unlockNavalInfiltration" && value === true) return "Unlocks Aether Bridge";
   if (key === "unlockSabotage" && value === true) return "Unlocks sabotage";
   if (key === "unlockMountainPass" && value === true) return "Unlocks mountain pass";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain shaping";
@@ -379,8 +379,9 @@ export const renderTechDetailCardHtml = (args: {
   prereqText: string;
   unlocks: Array<{ name: string; tier: number }>;
   relatedStructuresHtml: string;
+  relatedCrystalAbilitiesHtml: string;
 }): string => {
-  const { tech, statusText, buttonLabel, buttonDisabled, prereqs, prereqText, unlocks, relatedStructuresHtml } = args;
+  const { tech, statusText, buttonLabel, buttonDisabled, prereqs, prereqText, unlocks, relatedStructuresHtml, relatedCrystalAbilitiesHtml } = args;
   if (!tech) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
   const checklist = tech.requirements.checklist ?? [];
   return `<article class="card tech-detail-card">
@@ -394,6 +395,7 @@ export const renderTechDetailCardHtml = (args: {
     </div>
     <p class="tech-detail-flavor">${tech.description}</p>
     ${relatedStructuresHtml}
+    ${relatedCrystalAbilitiesHtml}
     ${unlocks.length > 0 ? `<p class="muted"><strong>Unlocks next:</strong> ${unlocks.map((next) => `${next.name} (T${next.tier})`).join(", ")}</p>` : ""}
     <p><strong>Requirements:</strong></p>
     ${checklistHtml(checklist)}
