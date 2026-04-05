@@ -21,10 +21,10 @@ describe("settlement overlay regression guard", () => {
   });
 
   it("does not treat settlements as support-building anchors or build hosts", () => {
-    const mainSource = clientSource("./main.ts");
+    const originSelectionSource = clientSource("./client-origin-selection.ts");
     const tileActionLogicSource = clientSource("./client-tile-action-logic.ts");
     const tileMenuSource = clientSource("./client-tile-menu-view.ts");
-    expect(mainSource).toContain('if (candidate.town.populationTier === "SETTLEMENT") continue;');
+    expect(originSelectionSource).toContain('if (candidate.town.populationTier === "SETTLEMENT") continue;');
     expect(tileMenuSource).toContain('if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);');
     expect(tileActionLogicSource).toContain('tile.town?.populationTier !== "SETTLEMENT"');
   });
