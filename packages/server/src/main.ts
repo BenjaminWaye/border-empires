@@ -8207,11 +8207,24 @@ type AiFrontierPlanningSummary = {
   bestAnyNeutralExpand?: { from: Tile; to: Tile };
 };
 
+const preferAiFrontierCandidate = (
+  current: AiFrontierCandidatePair | undefined,
+  next: AiFrontierCandidatePair
+): AiFrontierCandidatePair => {
+  if (!current) return next;
+  const currentSettled = current.from.ownershipState === "SETTLED";
+  const nextSettled = next.from.ownershipState === "SETTLED";
+  if (currentSettled !== nextSettled) return nextSettled ? next : current;
+  if (next.from.y !== current.from.y) return next.from.y < current.from.y ? next : current;
+  if (next.from.x !== current.from.x) return next.from.x < current.from.x ? next : current;
+  return current;
+};
+
 const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
   const settledTiles: Tile[] = [];
   const frontierTiles: Tile[] = [];
-  const expandCandidates: AiFrontierCandidatePair[] = [];
-  const attackCandidates: AiFrontierCandidatePair[] = [];
+  const expandCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();
+  const attackCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();
   const borderSettledTileKeys = new Set<TileKey>();
   let underThreat = false;
   let neutralTownExpandCount = 0;
@@ -8236,23 +8249,27 @@ const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCach
       });
     }
     for (const to of aiFrontierActionCandidates(actor, from, "EXPAND")) {
-      expandCandidates.push({ from, to });
-      if (to.terrain === "LAND" && !to.ownerId) {
+      const targetKey = key(to.x, to.y);
+      const pair = { from, to };
+      const firstSeenTarget = !expandCandidateByTarget.has(targetKey);
+      expandCandidateByTarget.set(targetKey, preferAiFrontierCandidate(expandCandidateByTarget.get(targetKey), pair));
+      if (firstSeenTarget && to.terrain === "LAND" && !to.ownerId) {
         neutralLandExpandCount += 1;
-        const targetKey = key(to.x, to.y);
         if (townsByTile.has(targetKey)) neutralTownExpandCount += 1;
         if (townsByTile.has(targetKey) || docksByTile.has(targetKey) || Boolean(to.resource)) neutralEconomicExpandCount += 1;
       }
       if (from.ownerId === actor.id && from.ownershipState === "SETTLED") borderSettledTileKeys.add(tileKey);
     }
     for (const to of aiFrontierActionCandidates(actor, from, "ATTACK")) {
-      attackCandidates.push({ from, to });
-      if (to.terrain === "LAND" && to.ownerId && to.ownerId !== actor.id && !actor.allies.has(to.ownerId)) {
+      const targetKey = key(to.x, to.y);
+      const pair = { from, to };
+      const firstSeenTarget = !attackCandidateByTarget.has(targetKey);
+      attackCandidateByTarget.set(targetKey, preferAiFrontierCandidate(attackCandidateByTarget.get(targetKey), pair));
+      if (firstSeenTarget && to.terrain === "LAND" && to.ownerId && to.ownerId !== actor.id && !actor.allies.has(to.ownerId)) {
         if (to.ownerId === BARBARIAN_OWNER_ID) {
           barbarianAttackAvailable = true;
         } else {
           enemyAttackAvailable = true;
-          const targetKey = key(to.x, to.y);
           if (townsByTile.has(targetKey)) hostileTownAttackCount += 1;
           else if (Boolean(to.resource) || docksByTile.has(targetKey)) hostileEconomicAttackCount += 1;
         }
@@ -8260,6 +8277,9 @@ const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCach
       if (from.ownerId === actor.id && from.ownershipState === "SETTLED") borderSettledTileKeys.add(tileKey);
     }
   }
+
+  const expandCandidates = [...expandCandidateByTarget.values()];
+  const attackCandidates = [...attackCandidateByTarget.values()];
 
   const structureCandidateTiles = settledTiles.filter((tile) => {
     const tileKey = key(tile.x, tile.y);
@@ -10039,6 +10059,14 @@ const chooseAiStrategicState = (
     frontPosture = "BREAK";
   }
 
+  const islandMeaningfulOpportunity =
+    planningStatic.islandSettlementAvailable ||
+    planningStatic.frontierOpportunityEconomic > 0 ||
+    planningStatic.frontierOpportunityScaffold >= 3;
+  const islandWasteDominated =
+    planningStatic.frontierOpportunityWaste >
+    planningStatic.frontierOpportunityEconomic * 8 + planningStatic.frontierOpportunityScaffold * 10 + 160;
+
   let focus: AiStrategicFocus = "BALANCED";
   if (shardOpportunity && primaryVictoryPath === "ECONOMIC_HEGEMONY") {
     focus = "SHARD_RUSH";
@@ -10046,7 +10074,10 @@ const chooseAiStrategicState = (
     primaryVictoryPath === "SETTLED_TERRITORY" &&
     planningStatic.undercoveredIslandCount > 0 &&
     (planningStatic.islandExpandAvailable || planningStatic.islandSettlementAvailable) &&
-    (!analysis.foodCoverageLow || analysis.foodCoverage >= 1)
+    (!analysis.foodCoverageLow || analysis.foodCoverage >= 1) &&
+    islandMeaningfulOpportunity &&
+    !islandWasteDominated &&
+    !planningStatic.pressureThreatensCore
   ) {
     focus = "ISLAND_FOOTPRINT";
   } else if (analysis.foodCoverageLow || analysis.economyWeak) {
@@ -10689,6 +10720,20 @@ const chooseOpeningAiVictoryPath = (
 
 const AI_VICTORY_PATH_REEVALUATE_MS = 5 * 60_000;
 const AI_VICTORY_PATH_REPIVOT_MARGIN = 22;
+const AI_VICTORY_PATH_ARCHETYPE_BONUS = 34;
+const AI_VICTORY_PATH_POPULATION_PENALTY = 18;
+
+const aiVictoryPathPopulationCounts = (): Record<AiSeasonVictoryPathId, number> => {
+  const counts: Record<AiSeasonVictoryPathId, number> = {
+    TOWN_CONTROL: 0,
+    ECONOMIC_HEGEMONY: 0,
+    SETTLED_TERRITORY: 0
+  };
+  for (const path of aiVictoryPathByPlayer.values()) {
+    counts[path] += 1;
+  }
+  return counts;
+};
 
 const scoreAiVictoryPathChoices = (
   actor: Player,
@@ -10715,29 +10760,35 @@ const scoreAiVictoryPathChoices = (
 
   const tieBreak = [...actor.id].reduce((total, char) => total + char.charCodeAt(0), 0);
   const archetype = tieBreak % 3;
+  const populationCounts = aiVictoryPathPopulationCounts();
+  const minimumPopulation = Math.min(populationCounts.TOWN_CONTROL, populationCounts.ECONOMIC_HEGEMONY, populationCounts.SETTLED_TERRITORY);
   const openingScores: Record<AiSeasonVictoryPathId, number> = {
     TOWN_CONTROL:
-      townOpportunityScore * 40 +
+      townOpportunityScore * 42 +
       (analysis.controlledTowns === 0 ? 35 : 0) +
       (analysis.underThreat ? -15 : 0) +
-      (archetype === 0 ? 16 : 0),
+      (archetype === 0 ? AI_VICTORY_PATH_ARCHETYPE_BONUS : 0),
     ECONOMIC_HEGEMONY:
-      economicOpportunityScore * 36 +
+      economicOpportunityScore * 40 +
       (analysis.worldFlags.has("active_dock") ? 28 : 0) +
       (analysis.worldFlags.has("active_town") ? 12 : 0) +
       (analysis.foodCoverageLow ? 10 : 0) +
-      (archetype === 1 ? 16 : 0),
+      (archetype === 1 ? AI_VICTORY_PATH_ARCHETYPE_BONUS : 0),
     SETTLED_TERRITORY:
-      expansionOpportunityScore * 6 +
-      Math.min(territorySummary.neutralLandExpandCount, 18) * 0.75 +
+      expansionOpportunityScore * 3.5 +
+      Math.min(territorySummary.neutralLandExpandCount, 18) * 0.3 +
       (analysis.underThreat ? -10 : 6) +
-      (archetype === 2 ? 16 : 0)
+      (analysis.worldFlags.has("active_town") ? 6 : 0) +
+      (archetype === 2 ? AI_VICTORY_PATH_ARCHETYPE_BONUS : 0)
   };
 
   return [...ranked]
     .map((entry) => ({
       id: entry.id,
-      score: openingScores[entry.id] + entry.score * 0.28
+      score:
+        openingScores[entry.id] +
+        entry.score * 0.28 -
+        Math.max(0, populationCounts[entry.id] - minimumPopulation) * AI_VICTORY_PATH_POPULATION_PENALTY
     }))
     .sort((left, right) => right.score - left.score);
 };

@@ -108,6 +108,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     return { reason: "executed_town_support_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
   }
   if (
+    snapshot.strategicFocus === "ISLAND_FOOTPRINT" &&
     snapshot.primaryVictoryPath === "SETTLED_TERRITORY" &&
     snapshot.islandSettlementAvailable &&
     snapshot.canAffordSettlement &&
@@ -116,6 +117,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     return { reason: "executed_island_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
   }
   if (
+    snapshot.strategicFocus === "ISLAND_FOOTPRINT" &&
     snapshot.primaryVictoryPath === "SETTLED_TERRITORY" &&
     snapshot.islandExpandAvailable &&
     snapshot.canAffordFrontierAction &&
