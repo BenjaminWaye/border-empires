@@ -433,6 +433,7 @@ export const tileMenuViewForTile = (
     constructionProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     menuOverviewForTile: (tile: Tile) => TileOverviewLine[];
     prettyToken: (value: string) => string;
+    playerNameForOwner: (ownerId?: string | null) => string | undefined;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     state: { me: string };
@@ -469,9 +470,10 @@ export const tileMenuViewForTile = (
           ? tile.ownershipState === "FRONTIER"
             ? "Your frontier"
             : "Your settled land"
-          : deps.isTileOwnedByAlly(tile)
+          : deps.playerNameForOwner(tile.ownerId) ??
+            (deps.isTileOwnedByAlly(tile)
             ? "Allied"
-            : "Enemy";
+            : "Enemy");
   const titleLabel =
     tile.town
       ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
