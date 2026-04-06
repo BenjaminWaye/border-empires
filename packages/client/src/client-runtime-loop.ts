@@ -1299,7 +1299,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
         deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
-        deps.requestViewRefresh(2, true);
+        deps.requestViewRefresh(1, true);
       } else if (current && (current.retries ?? 0) < 3) {
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
           x: current.x,
@@ -1342,7 +1342,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 6_000);
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== timedOutCurrentKey);
         state.queuedTargetKeys.delete(timedOutCurrentKey);
-        deps.requestViewRefresh(2, true);
+        deps.requestViewRefresh(1, true);
       }
       deps.reconcileActionQueue();
       deps.processActionQueue();

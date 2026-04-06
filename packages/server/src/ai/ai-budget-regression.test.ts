@@ -58,7 +58,14 @@ describe("AI budget regression guard", () => {
     const body = functionBody(serverMainSource(), "bestAiScoutExpand");
     expect(body).toContain("const startedAt = now();");
     expect(body).toContain("let scannedCandidates = 0;");
+    expect(body).toContain("if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0)");
     expect(body).toContain("if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
     expect(body).toContain('"ai frontier selector budget hit"');
+  });
+
+  it("reuses cached scout adjacency in frontier planning availability instead of rescanning neighbors", () => {
+    const body = functionBody(serverMainSource(), "estimateAiFrontierAvailabilityProfile");
+    expect(body).toContain("const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);");
+    expect(body).toContain("countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0");
   });
 });
