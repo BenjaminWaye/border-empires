@@ -91,19 +91,19 @@ describe("buildAiPlanningSnapshot regression guard", () => {
   it("reuses cached frontier candidates during execute instead of rescanning heavy neutral expand selectors", () => {
     const runBody = functionBody(serverMainSource(), "runAiTurn");
     expect(runBody).toContain("const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);");
-    expect(runBody).toContain("neutralExpand: planningStatic.bestEconomicExpand");
-    expect(runBody).toContain("anyNeutralExpand: planningStatic.bestAnyNeutralExpand");
-    expect(runBody).toContain("scoutExpand: planningStatic.bestScoutExpand");
-    expect(runBody).toContain("scaffoldExpand: planningStatic.bestScaffoldExpand");
-    expect(runBody).toContain("islandExpand: planningStatic.bestIslandExpand");
+    expect(runBody).not.toContain("neutralExpand: planningStatic.bestEconomicExpand");
+    expect(runBody).not.toContain("anyNeutralExpand: planningStatic.bestAnyNeutralExpand");
+    expect(runBody).not.toContain("scoutExpand: planningStatic.bestScoutExpand");
+    expect(runBody).not.toContain("scaffoldExpand: planningStatic.bestScaffoldExpand");
+    expect(runBody).not.toContain("islandExpand: planningStatic.bestIslandExpand");
 
     const executeBody = functionBody(serverMainSource(), "executeAiGoapAction");
     expect(executeBody).toContain("const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>");
-    expect(executeBody).not.toContain("bestAiIslandExpand(");
-    expect(executeBody).not.toContain("bestAiEconomicExpand(");
-    expect(executeBody).not.toContain("bestAiAnyNeutralExpand(");
-    expect(executeBody).not.toContain("bestAiScoutExpand(");
-    expect(executeBody).not.toContain("bestAiScaffoldExpand(");
+    expect(executeBody).toContain("bestAiIslandExpand(actor, territorySummary)");
+    expect(executeBody).toContain("bestAiEconomicExpand(actor, victoryPath, territorySummary)");
+    expect(executeBody).toContain("bestAiAnyNeutralExpand(actor, victoryPath, territorySummary)");
+    expect(executeBody).toContain("bestAiScoutExpand(actor, territorySummary)");
+    expect(executeBody).toContain("bestAiScaffoldExpand(actor, victoryPath, territorySummary)");
   });
 
   it("keeps victory-path scoring on cheap cached territory signals", () => {
