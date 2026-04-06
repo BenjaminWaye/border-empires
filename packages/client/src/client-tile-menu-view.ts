@@ -6,7 +6,6 @@ import {
   structureBuildDurationMs
 } from "@border-empires/shared";
 import {
-  economicStructureBenefitText,
   economicStructureBuildMs,
   economicStructureName,
   resourceLabel,
@@ -15,6 +14,7 @@ import {
   tileProductionHtml,
   tileUpkeepHtml
 } from "./client-map-display.js";
+import { tileSelfOverviewModifiers } from "./client-tile-overview-modifiers.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
 import type { TileAreaEffectModifier } from "./client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "./client-types.js";
@@ -261,7 +261,6 @@ export const menuOverviewForTile = (
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
     isTileOwnedByAlly: (tile: Tile) => boolean;
-    growthModifierPercentLabel: (label: "Recently captured" | "Nearby war" | "Long time peace") => string;
     areaEffectModifiersForTile: (tile: Tile) => TileAreaEffectModifier[];
   }
 ): TileOverviewLine[] => {
@@ -273,13 +272,8 @@ export const menuOverviewForTile = (
   const pushEffectLine = (name: string, mod: string, tone: "positive" | "negative" | "neutral"): void => {
     modifierLines.push({
       kind: "effect",
-      html: `<span class="tile-overview-effect-name">${name}</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
+      html: `<span class="tile-overview-effect-name">${name}:</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
     });
-  };
-  const dockModifierLabel = (modifier: NonNullable<NonNullable<Tile["dock"]>["modifiers"]>[number]): string => {
-    const rate = `${modifier.deltaGoldPerMinute >= 0 ? "+" : ""}${Math.abs(modifier.deltaGoldPerMinute).toFixed(2)}/m`;
-    const percent = `${modifier.percent >= 0 ? "+" : ""}${Math.round(modifier.percent)}%`;
-    return `${percent} (${rate})`;
   };
   const ownerKind =
     !tile.ownerId
@@ -327,28 +321,17 @@ export const menuOverviewForTile = (
     } else {
       pushLine(`Town is fed and producing ${deps.displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
     }
-    pushLine(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
+    pushLine(`Connected towns ${tile.town.connectedTownCount}`);
     if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${deps.prettyToken(tile.town.populationTier)}`);
     pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
     pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town)}.`);
-    for (const modifier of tile.town.growthModifiers ?? []) {
-      const tone = modifier.deltaPerMinute > 0 ? "positive" : modifier.deltaPerMinute < 0 ? "negative" : "neutral";
-      const mod = deps.growthModifierPercentLabel(modifier.label);
-      pushEffectLine(modifier.label, mod, tone);
-    }
-    if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
-    if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
-    if (tile.town.hasBank) pushEffectLine("Bank", tile.town.bankActive ? "+50% city income and +1 gold/m" : "Built", tile.town.bankActive ? "positive" : "neutral");
   } else if (tile.resource) {
     if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
     pushLine(`Connected docks ${connectedDockCount}`);
-    for (const modifier of tile.dock?.modifiers ?? []) {
-      pushEffectLine(modifier.label, dockModifierLabel(modifier), modifier.deltaGoldPerMinute > 0 ? "positive" : "neutral");
-    }
   }
   const productionHtml = tileProductionHtml(tile);
   if (productionHtml) pushLine(`Production: ${productionHtml}`);
@@ -366,7 +349,6 @@ export const menuOverviewForTile = (
     pushLine("This support tile touches multiple towns.");
   }
   if (tile.observatory) {
-    pushEffectLine("Observatory", `+${OBSERVATORY_VISION_BONUS} vision`, tile.observatory.status === "active" ? "positive" : "neutral");
     if (tile.observatory.status === "active") {
       pushLine("Observatory is active here and blocks hostile crystal actions nearby.");
     } else if (tile.observatory.status === "under_construction") {
@@ -376,12 +358,7 @@ export const menuOverviewForTile = (
     }
   }
   if (tile.economicStructure) {
-    if (tile.economicStructure.status === "removing") {
-      pushEffectLine(economicStructureName(tile.economicStructure.type), "Removing", "neutral");
-      pushLine("Removal is underway. Income, upkeep, and structure effects are currently disabled.");
-    } else {
-      pushEffectLine(economicStructureName(tile.economicStructure.type), economicStructureBenefitText(tile.economicStructure.type), "positive");
-    }
+    if (tile.economicStructure.status === "removing") pushLine("Removal is underway. Income, upkeep, and structure effects are currently disabled.");
     if (isSynthLikeStructureType(tile.economicStructure.type)) {
       if (tile.economicStructure.status === "active") {
         pushLine("Structure is active and currently contributing output and upkeep.");
@@ -398,8 +375,11 @@ export const menuOverviewForTile = (
       pushLine("Structure is inactive and currently contributes no output or upkeep.");
     }
   }
+  for (const modifier of tileSelfOverviewModifiers(tile)) {
+    pushEffectLine(modifier.reason, modifier.effect, modifier.tone);
+  }
   for (const modifier of deps.areaEffectModifiersForTile(tile)) {
-    pushEffectLine(modifier.name, modifier.mod, modifier.tone);
+    pushEffectLine(modifier.reason, modifier.effect, modifier.tone);
   }
   if (modifierLines.length > 0) {
     lines.push({ html: "Modifiers", kind: "section" });
