@@ -110,12 +110,13 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(runBody).not.toContain("islandExpand: planningStatic.bestIslandExpand");
 
     const executeBody = functionBody(serverMainSource(), "executeAiGoapAction");
-    expect(executeBody).toContain("const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>");
-    expect(executeBody).toContain("bestAiIslandExpand(actor, territorySummary)");
-    expect(executeBody).toContain("bestAiEconomicExpand(actor, victoryPath, territorySummary)");
-    expect(executeBody).toContain("bestAiAnyNeutralExpand(actor, victoryPath, territorySummary)");
-    expect(executeBody).toContain("bestAiScoutExpand(actor, territorySummary)");
-    expect(executeBody).toContain("bestAiScaffoldExpand(actor, victoryPath, territorySummary)");
+    expect(executeBody).toContain("const cachedFrontierPlanningSummary = (): AiFrontierPlanningSummary =>");
+    expect(executeBody).toContain("frontierPlanningSummaryForPlayer(actor, territorySummary ?? collectAiTerritorySummary(actor))");
+    expect(executeBody).toContain("cachedFrontierPlanningSummary().bestIslandExpand");
+    expect(executeBody).toContain("cachedFrontierPlanningSummary().bestEconomicExpand");
+    expect(executeBody).toContain("cachedFrontierPlanningSummary().bestAnyNeutralExpand");
+    expect(executeBody).toContain("cachedFrontierPlanningSummary().bestScoutExpand");
+    expect(executeBody).toContain("cachedFrontierPlanningSummary().bestScaffoldExpand");
   });
 
   it("does not fall back from scout execute into heavy any-neutral frontier scans", () => {
@@ -124,7 +125,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(scoutBranchStart).toBeGreaterThanOrEqual(0);
     const scoutBranch = body.slice(scoutBranchStart, body.indexOf('if (actionKey === "claim_scaffold_border_tile")', scoutBranchStart));
     expect(scoutBranch).toContain("candidates?.scoutExpand ??");
-    expect(scoutBranch).toContain("bestAiScoutExpand(actor, territorySummary)");
+    expect(scoutBranch).toContain("cachedFrontierPlanningSummary().bestScoutExpand");
     expect(scoutBranch).not.toContain("bestAiAnyNeutralExpand(");
   });
 
