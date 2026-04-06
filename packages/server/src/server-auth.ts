@@ -16,6 +16,7 @@ const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
 const FIREBASE_TOKEN_CACHE_TTL_MS = 55 * 60 * 1000;
 const FIREBASE_JWKS_TIMEOUT_MS = Math.max(1_500, Number(process.env.FIREBASE_JWKS_TIMEOUT_MS ?? 4_000));
 const FIREBASE_JWKS_COOLDOWN_MS = Math.max(5_000, Number(process.env.FIREBASE_JWKS_COOLDOWN_MS ?? 15_000));
+export const AUTH_VERIFY_TIMEOUT_MS = Math.max(750, Number(process.env.AUTH_VERIFY_TIMEOUT_MS ?? 1_500));
 export const AUTH_PRIORITY_WINDOW_MS = Math.max(2_000, Number(process.env.AUTH_PRIORITY_WINDOW_MS ?? 10_000));
 
 const firebaseJwks = createRemoteJWKSet(
@@ -170,37 +171,52 @@ export const verifyFirebaseToken = async (
   authPressureState.pendingAuthVerifications += 1;
   authPressureState.authPriorityUntil = Math.max(authPressureState.authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
   try {
-    if (firebaseAdminAuth) {
-      try {
-        const verified = await firebaseAdminAuth.verifyIdToken(token, true);
-        const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
-          uid: String(verified.uid ?? "")
-        };
-        if (typeof verified.email === "string") decoded.email = verified.email;
-        if (typeof verified.name === "string") decoded.name = verified.name;
-        if (typeof verified.exp === "number") decoded.exp = verified.exp;
-        return decoded;
-      } catch (err) {
-        const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-        const adminCredentialUnavailable =
-          text.includes("Could not load the default credentials") ||
-          text.includes("app/invalid-credential") ||
-          text.includes("MetadataLookupWarning");
-        if (!adminCredentialUnavailable) throw err;
+    const verifyPromise = (async (): Promise<{
+      uid: string;
+      email?: string | undefined;
+      name?: string | undefined;
+      exp?: number;
+    }> => {
+      if (firebaseAdminAuth) {
+        try {
+          const verified = await firebaseAdminAuth.verifyIdToken(token, true);
+          const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
+            uid: String(verified.uid ?? "")
+          };
+          if (typeof verified.email === "string") decoded.email = verified.email;
+          if (typeof verified.name === "string") decoded.name = verified.name;
+          if (typeof verified.exp === "number") decoded.exp = verified.exp;
+          return decoded;
+        } catch (err) {
+          const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+          const adminCredentialUnavailable =
+            text.includes("Could not load the default credentials") ||
+            text.includes("app/invalid-credential") ||
+            text.includes("MetadataLookupWarning");
+          if (!adminCredentialUnavailable) throw err;
+        }
       }
-    }
 
-    const verified = await jwtVerify(token, firebaseJwks, {
-      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
-      audience: FIREBASE_PROJECT_ID
-    });
-    const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
-      uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
-    };
-    if (typeof verified.payload.email === "string") decoded.email = verified.payload.email;
-    if (typeof verified.payload.name === "string") decoded.name = verified.payload.name;
-    if (typeof verified.payload.exp === "number") decoded.exp = verified.payload.exp;
-    return decoded;
+      const verified = await jwtVerify(token, firebaseJwks, {
+        issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+        audience: FIREBASE_PROJECT_ID
+      });
+      const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
+        uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
+      };
+      if (typeof verified.payload.email === "string") decoded.email = verified.payload.email;
+      if (typeof verified.payload.name === "string") decoded.name = verified.payload.name;
+      if (typeof verified.payload.exp === "number") decoded.exp = verified.payload.exp;
+      return decoded;
+    })();
+
+    return await Promise.race([
+      verifyPromise,
+      new Promise<never>((_, reject) => {
+        const timer = setTimeout(() => reject(new Error(`AuthVerifyTimeout after ${AUTH_VERIFY_TIMEOUT_MS}ms`)), AUTH_VERIFY_TIMEOUT_MS);
+        timer.unref?.();
+      })
+    ]);
   } finally {
     authPressureState.pendingAuthVerifications = Math.max(0, authPressureState.pendingAuthVerifications - 1);
   }
