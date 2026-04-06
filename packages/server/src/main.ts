@@ -14819,6 +14819,9 @@ app.post("/admin/world/regenerate", async () => {
       const strategicStocks = getOrInitStrategicStocks(player.id);
       const dockPairs = exportDockPairs();
       const offlineActivity = consumeOfflinePlayerActivity(player.id);
+      const baseDomainIds = [...player.domainIds];
+      const baseTechIds = [...player.techIds];
+      const baseRevealTargets = [...getOrInitRevealTargets(player.id)];
       sendLoginPhase(socket, "PLAYER_LOADED", "Connecting your empire...", "Empire record ready. Preparing your session...");
       socket.send(
         JSON.stringify({
@@ -14848,16 +14851,16 @@ app.post("/admin/world/regenerate", async () => {
             Ts: player.Ts,
             Es: player.Es,
             techRootId: player.techRootId,
-            techIds: [...player.techIds],
+            techIds: baseTechIds,
             currentResearch: player.currentResearch,
-            domainIds: [...player.domainIds],
+            domainIds: baseDomainIds,
             allies: [...player.allies],
             tileColor: player.tileColor,
             visualStyle: empireStyleFromPlayer(player),
             homeTile: playerHomeTile(player),
             availableTechPicks: availableTechPicks(player),
             revealCapacity: revealCapacityForPlayer(player),
-            activeRevealTargets: [...getOrInitRevealTargets(player.id)],
+            activeRevealTargets: baseRevealTargets,
             abilityCooldowns: Object.fromEntries(getAbilityCooldowns(player.id)),
             activeTruces: activeTruceViewsForPlayer(player.id),
             activeAetherBridges: [...activeAetherBridgesById.values()]
@@ -14892,15 +14895,7 @@ app.post("/admin/world/regenerate", async () => {
             dockPairs
           },
           shardRainNotice: shardRainNoticePayload(),
-          techChoices: reachableTechs(player),
-          techCatalog: activeTechCatalog(player),
-          domainChoices: reachableDomains(player),
-          domainCatalog: activeDomainCatalog(player),
           playerStyles: exportPlayerStyles(),
-          missions: missionPayload(player),
-          leaderboard: leaderboardSnapshotForPlayer(player.id),
-          seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
-          seasonWinner,
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id),
           truceRequests: [...truceRequests.values()].filter((r) => r.toPlayerId === player.id),
           offlineActivity
@@ -14918,6 +14913,37 @@ app.post("/admin/world/regenerate", async () => {
           "auth sync init sent"
         );
       }
+      setTimeout(() => {
+        if (socket.readyState !== socket.OPEN || socketsByPlayer.get(player.id) !== socket) return;
+        socket.send(
+          JSON.stringify({
+            type: "TECH_UPDATE",
+            techRootId: player.techRootId,
+            currentResearch: player.currentResearch,
+            techIds: baseTechIds,
+            nextChoices: reachableTechs(player),
+            availableTechPicks: availableTechPicks(player),
+            mods: player.mods,
+            modBreakdown: playerModBreakdown(player),
+            incomePerMinute: economy.incomePerMinute,
+            missions: missionPayload(player),
+            techCatalog: activeTechCatalog(player),
+            domainIds: baseDomainIds,
+            domainChoices: reachableDomains(player),
+            domainCatalog: activeDomainCatalog(player),
+            revealCapacity: revealCapacityForPlayer(player),
+            activeRevealTargets: baseRevealTargets
+          })
+        );
+        socket.send(
+          JSON.stringify({
+            type: "GLOBAL_STATUS_UPDATE",
+            leaderboard: leaderboardSnapshotForPlayer(player.id),
+            seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
+            seasonWinner
+          })
+        );
+      }, 0);
       return;
     }
 
