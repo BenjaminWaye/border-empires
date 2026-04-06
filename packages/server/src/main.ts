@@ -10670,12 +10670,20 @@ const executeAiGoapAction = (
     pressureAttack?: ReturnType<typeof bestAiEnemyPressureAttack>;
   }
 ): boolean => {
+  let frontierPlanningSummary: AiFrontierPlanningSummary | undefined;
+  const cachedFrontierPlanningSummary = (): AiFrontierPlanningSummary => {
+    if (frontierPlanningSummary) return frontierPlanningSummary;
+    frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary ?? collectAiTerritorySummary(actor));
+    return frontierPlanningSummary;
+  };
   const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>
-    (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandExpand ?? bestAiIslandExpand(actor, territorySummary) : undefined) ??
+    (victoryPath === "SETTLED_TERRITORY"
+      ? candidates?.islandExpand ?? cachedFrontierPlanningSummary().bestIslandExpand
+      : undefined) ??
     candidates?.neutralExpand ??
-    bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
+    cachedFrontierPlanningSummary().bestEconomicExpand ??
     candidates?.anyNeutralExpand ??
-    bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
+    cachedFrontierPlanningSummary().bestAnyNeutralExpand;
 
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
@@ -10687,9 +10695,9 @@ const executeAiGoapAction = (
   if (actionKey === "claim_food_border_tile") {
     const candidate =
       candidates?.neutralExpand ??
-      bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
+      cachedFrontierPlanningSummary().bestEconomicExpand ??
       candidates?.anyNeutralExpand ??
-      bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
+      cachedFrontierPlanningSummary().bestAnyNeutralExpand;
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
@@ -10697,7 +10705,7 @@ const executeAiGoapAction = (
   if (actionKey === "claim_scout_border_tile") {
     const candidate =
       candidates?.scoutExpand ??
-      bestAiScoutExpand(actor, territorySummary);
+      cachedFrontierPlanningSummary().bestScoutExpand;
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
@@ -10705,9 +10713,9 @@ const executeAiGoapAction = (
   if (actionKey === "claim_scaffold_border_tile") {
     const candidate =
       candidates?.scaffoldExpand ??
-      bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
+      cachedFrontierPlanningSummary().bestScaffoldExpand ??
       candidates?.anyNeutralExpand ??
-      bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
+      cachedFrontierPlanningSummary().bestAnyNeutralExpand;
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
