@@ -11,7 +11,7 @@ const clientSource = (filename: string): string => {
 describe("converter toggle regression guard", () => {
   it("wires enable and disable converter actions through the tile menu and action flow", () => {
     const logic = clientSource("./client-tile-action-logic.ts");
-    const flow = clientSource("./client-action-flow.ts");
+    const flow = clientSource("./client-action-flow-dispatch.ts");
     expect(logic).toContain('id: "disable_converter_structure" as TileActionDef["id"]');
     expect(logic).toContain('id: "enable_converter_structure" as TileActionDef["id"]');
     expect(flow).toContain('type: "SET_CONVERTER_STRUCTURE_ENABLED"');

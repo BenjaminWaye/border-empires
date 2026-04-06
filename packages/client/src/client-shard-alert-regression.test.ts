@@ -9,7 +9,7 @@ const sourceFor = (name: string): string => readFileSync(resolve(here, name), "u
 
 describe("shard rain alert regression guard", () => {
   it("renders a dedicated shard alert and clears shard fx on dismiss", () => {
-    const bootstrapSource = sourceFor("./client-bootstrap.ts");
+    const bootstrapSource = sourceFor("./client-bootstrap-render.ts");
     expect(bootstrapSource).toContain("renderShardAlertFromModule");
 
     const controlsSource = sourceFor("./client-ui-controls.ts");
