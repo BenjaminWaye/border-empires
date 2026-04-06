@@ -266,14 +266,20 @@ export const menuOverviewForTile = (
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
+  const modifierLines: TileOverviewLine[] = [];
   const pushLine = (html: string): void => {
     lines.push({ html });
   };
   const pushEffectLine = (name: string, mod: string, tone: "positive" | "negative" | "neutral"): void => {
-    lines.push({
+    modifierLines.push({
       kind: "effect",
       html: `<span class="tile-overview-effect-name">${name}</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
     });
+  };
+  const dockModifierLabel = (modifier: NonNullable<NonNullable<Tile["dock"]>["modifiers"]>[number]): string => {
+    const rate = `${modifier.deltaGoldPerMinute >= 0 ? "+" : ""}${Math.abs(modifier.deltaGoldPerMinute).toFixed(2)}/m`;
+    const percent = `${modifier.percent >= 0 ? "+" : ""}${Math.round(modifier.percent)}%`;
+    return `${percent} (${rate})`;
   };
   const ownerKind =
     !tile.ownerId
@@ -333,12 +339,16 @@ export const menuOverviewForTile = (
     }
     if (tile.town.hasMarket) pushEffectLine("Market", tile.town.marketActive ? "+50% fed gold and +50% cap" : "Built", tile.town.marketActive ? "positive" : "neutral");
     if (tile.town.hasGranary) pushEffectLine("Granary", tile.town.granaryActive ? "+50% gold storage cap" : "Built", tile.town.granaryActive ? "positive" : "neutral");
+    if (tile.town.hasBank) pushEffectLine("Bank", tile.town.bankActive ? "+50% city income and +1 gold/m" : "Built", tile.town.bankActive ? "positive" : "neutral");
   } else if (tile.resource) {
     if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
-    const connectedDockCount = deps.connectedDockCountForTile(tile);
+    const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
     pushLine(`Connected docks ${connectedDockCount}`);
+    for (const modifier of tile.dock?.modifiers ?? []) {
+      pushEffectLine(modifier.label, dockModifierLabel(modifier), modifier.deltaGoldPerMinute > 0 ? "positive" : "neutral");
+    }
   }
   const productionHtml = tileProductionHtml(tile);
   if (productionHtml) pushLine(`Production: ${productionHtml}`);
@@ -390,6 +400,10 @@ export const menuOverviewForTile = (
   }
   for (const modifier of deps.areaEffectModifiersForTile(tile)) {
     pushEffectLine(modifier.name, modifier.mod, modifier.tone);
+  }
+  if (modifierLines.length > 0) {
+    lines.push({ html: "Modifiers", kind: "section" });
+    lines.push(...modifierLines);
   }
   if (tile.fort?.status === "removing") {
     pushLine("Fort removal is underway. Defensive fortification from this tile is currently disabled.");

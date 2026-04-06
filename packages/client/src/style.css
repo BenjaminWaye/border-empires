@@ -2179,6 +2179,14 @@ body {
   gap: 6px;
   flex-wrap: wrap;
 }
+.tile-overview-line-section {
+  margin-top: 6px;
+  color: #ffd166;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 .tile-overview-effect-name {
   color: rgba(241, 247, 255, 0.9);
   font-weight: 700;
