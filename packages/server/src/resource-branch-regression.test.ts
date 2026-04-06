@@ -44,7 +44,10 @@ describe("resource branch regression guard", () => {
   });
 
   it("invalidates stale season tech configs that are missing new tech nodes", () => {
-    const serverMainSource = readFileSync(resolve(here, "./main.ts"), "utf8");
+    const serverMainSource = [
+      readFileSync(resolve(here, "./main.ts"), "utf8"),
+      readFileSync(resolve(here, "./server-season-tech.ts"), "utf8")
+    ].join("\n");
 
     expect(serverMainSource).toContain("if (config.activeNodeIds.size !== TECHS.length) return false;");
     expect(serverMainSource).toContain("if (!config.activeNodeIds.has(tech.id)) return false;");
