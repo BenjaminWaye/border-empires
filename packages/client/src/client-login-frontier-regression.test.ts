@@ -28,6 +28,14 @@ describe("login and frontier retry regression guard", () => {
     expect(source).toContain("state.actionQueue.push(blocked);");
   });
 
+  it("clears queued frontier retries once combat or tile updates confirm the tile is now yours", () => {
+    const source = clientSource("./client-network.ts");
+    expect(source).toContain('state.frontierSyncWaitUntilByTarget.delete(tileKey);');
+    expect(source).toContain('state.frontierSyncWaitUntilByTarget.delete(updateKey);');
+    expect(source).toContain('state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);');
+    expect(source).toContain('state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);');
+  });
+
   it("uses a local radius-1 refresh while waiting for delayed frontier confirmation", () => {
     const source = clientSource("./client-runtime-loop.ts");
     const occurrences = [...source.matchAll(/requestViewRefresh\(1, true\);/g)].length;

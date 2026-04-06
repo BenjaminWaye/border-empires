@@ -156,6 +156,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
+      if (merged.ownerId === state.me && (merged.ownershipState === "FRONTIER" || merged.ownershipState === "SETTLED")) {
+        state.frontierSyncWaitUntilByTarget.delete(tileKey);
+        state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
+        state.queuedTargetKeys.delete(tileKey);
+      }
     }
     const resultAlert = combatResolutionAlert(msg, {
       targetTileBefore: targetBefore,
@@ -819,6 +824,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
+        if (resolved.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
+          state.frontierSyncWaitUntilByTarget.delete(updateKey);
+          state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
+          state.queuedTargetKeys.delete(updateKey);
+        }
         maybeAnnounceShardSite(existing, resolved);
         if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
         markDockDiscovered(resolved);
