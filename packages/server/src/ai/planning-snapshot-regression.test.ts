@@ -76,25 +76,28 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
     expect(body).toContain("const pressureAttackProfile = estimateAiPressureAttackProfile(actor, territorySummary);");
     expect(body).toContain("const settlementAvailability = estimateAiSettlementAvailabilityProfile(");
-    expect(body).toContain("const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
+    expect(body).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary);");
     expect(body).toContain("islandExpandAvailable: hasAiFocusedIslandExpand(territorySummary, focusIslandId, undercoveredIslandCount)");
     expect(body).toContain("territorySummary.borderSettledTileKeys.has(tk)");
     expect(body).toContain("!fortsByTile.has(tk)");
     expect(body).toContain("barbarianAttackAvailable: territorySummary.barbarianAttackAvailable");
     expect(body).toContain("enemyAttackAvailable: territorySummary.enemyAttackAvailable");
     expect(body).not.toContain("frontierSettlementSummaryForPlayer(");
+    expect(body).not.toContain("frontierPlanningSummaryForPlayer(");
     expect(body).not.toContain("evaluateAiSettlementCandidate(");
-    expect(body).not.toContain("for (const { from, to } of territorySummary.expandCandidates)");
     expect(body).not.toContain("for (const { to } of territorySummary.attackCandidates)");
   });
 
-  it("does not duplicate frontier availability scans inside planning static cache", () => {
+  it("keeps frontier availability in planning static cache on a lightweight path", () => {
     const source = serverMainSource();
-    expect(source).not.toContain("const estimateAiFrontierAvailabilityProfile =");
+    expect(source).toContain("const estimateAiFrontierAvailabilityProfile =");
     const body = functionBody(source, "buildAiPlanningStaticCache");
-    expect(body).toContain("const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
-    expect(body).toContain("frontierPlanningSummary.frontierOpportunityEconomic");
-    expect(body).toContain("frontierPlanningSummary.bestEconomicExpand");
+    const availabilityBody = functionBody(source, "estimateAiFrontierAvailabilityProfile");
+    expect(body).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary);");
+    expect(availabilityBody).not.toContain("frontierPlanningSummaryForPlayer(");
+    expect(availabilityBody).not.toContain("aiEconomicFrontierSignal(");
+    expect(availabilityBody).not.toContain("scoreAiScoutRevealValue(");
+    expect(availabilityBody).not.toContain("cachedSupportedTownKeysForTile(");
   });
 
   it("reuses cached frontier candidates during execute instead of rescanning heavy neutral expand selectors", () => {
