@@ -95,6 +95,8 @@ describe("AI budget regression guard", () => {
     expect(executeBody).toContain("const candidate = bestAiEconomicStructure(actor, territorySummary);");
     expect(scoutBody).not.toContain("frontierPlanningSummaryForPlayer(");
     expect(scoutBody).toContain('"ai scout selector budget hit"');
+    expect(scoutBody).toContain("const shortlist:");
+    expect(scoutBody).toContain("AI_SCOUT_SHORTLIST_SIZE");
   });
 
   it("keys settlement candidate assumptions by tile index instead of allocating singleton sets", () => {
