@@ -345,6 +345,10 @@ const firebaseJwks = createRemoteJWKSet(
 );
 const verifiedFirebaseTokenCache = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
 const verifiedFirebaseIdentityByUid = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
+const inFlightFirebaseVerificationByToken = new Map<
+  string,
+  Promise<{ uid: string; email?: string | undefined; name?: string | undefined; exp?: number }>
+>();
 const firebaseAdminEnabled = Boolean(
   process.env.GOOGLE_APPLICATION_CREDENTIALS ||
     (process.env.FIREBASE_ADMIN_CLIENT_EMAIL && process.env.FIREBASE_ADMIN_PRIVATE_KEY)
@@ -359,6 +363,7 @@ const firebaseAdminApp = firebaseAdminEnabled
 const firebaseAdminAuth = firebaseAdminApp ? getAuth(firebaseAdminApp) : undefined;
 let pendingAuthVerifications = 0;
 let authPriorityUntil = 0;
+const AUTH_BACKLOG_FALLBACK_THRESHOLD = Math.max(1, Number(process.env.AUTH_BACKLOG_FALLBACK_THRESHOLD ?? 2));
 const authSyncTimingByPlayer = new Map<string, { authVerifiedAt?: number; initSentAt?: number; firstSubscribeAt?: number; firstChunkSentAt?: number }>();
 const sendLoginPhase = (
   socket: Ws | undefined,
@@ -474,43 +479,50 @@ const decodeFirebaseTokenFallback = (
 const verifyFirebaseToken = async (
   token: string
 ): Promise<{ uid: string; email?: string | undefined; name?: string | undefined; exp?: number }> => {
-  pendingAuthVerifications += 1;
-  authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
-  try {
-    if (firebaseAdminAuth) {
-      try {
-        const verified = await firebaseAdminAuth.verifyIdToken(token, true);
-        const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
-          uid: String(verified.uid ?? "")
-        };
-        if (typeof verified.email === "string") decoded.email = verified.email;
-        if (typeof verified.name === "string") decoded.name = verified.name;
-        if (typeof verified.exp === "number") decoded.exp = verified.exp;
-        return decoded;
-      } catch (err) {
-        const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-        const adminCredentialUnavailable =
-          text.includes("Could not load the default credentials") ||
-          text.includes("app/invalid-credential") ||
-          text.includes("MetadataLookupWarning");
-        if (!adminCredentialUnavailable) throw err;
+  const existing = inFlightFirebaseVerificationByToken.get(token);
+  if (existing) return existing;
+  const verificationPromise = (async (): Promise<{ uid: string; email?: string | undefined; name?: string | undefined; exp?: number }> => {
+    pendingAuthVerifications += 1;
+    authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
+    try {
+      if (firebaseAdminAuth) {
+        try {
+          const verified = await firebaseAdminAuth.verifyIdToken(token, true);
+          const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
+            uid: String(verified.uid ?? "")
+          };
+          if (typeof verified.email === "string") decoded.email = verified.email;
+          if (typeof verified.name === "string") decoded.name = verified.name;
+          if (typeof verified.exp === "number") decoded.exp = verified.exp;
+          return decoded;
+        } catch (err) {
+          const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+          const adminCredentialUnavailable =
+            text.includes("Could not load the default credentials") ||
+            text.includes("app/invalid-credential") ||
+            text.includes("MetadataLookupWarning");
+          if (!adminCredentialUnavailable) throw err;
+        }
       }
-    }
 
-    const verified = await jwtVerify(token, firebaseJwks, {
-      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
-      audience: FIREBASE_PROJECT_ID
-    });
-    const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
-      uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
-    };
-    if (typeof verified.payload.email === "string") decoded.email = verified.payload.email;
-    if (typeof verified.payload.name === "string") decoded.name = verified.payload.name;
-    if (typeof verified.payload.exp === "number") decoded.exp = verified.payload.exp;
-    return decoded;
-  } finally {
-    pendingAuthVerifications = Math.max(0, pendingAuthVerifications - 1);
-  }
+      const verified = await jwtVerify(token, firebaseJwks, {
+        issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+        audience: FIREBASE_PROJECT_ID
+      });
+      const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
+        uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
+      };
+      if (typeof verified.payload.email === "string") decoded.email = verified.payload.email;
+      if (typeof verified.payload.name === "string") decoded.name = verified.payload.name;
+      if (typeof verified.payload.exp === "number") decoded.exp = verified.payload.exp;
+      return decoded;
+    } finally {
+      pendingAuthVerifications = Math.max(0, pendingAuthVerifications - 1);
+      inFlightFirebaseVerificationByToken.delete(token);
+    }
+  })();
+  inFlightFirebaseVerificationByToken.set(token, verificationPromise);
+  return verificationPromise;
 };
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
@@ -16761,15 +16773,33 @@ app.post("/admin/world/regenerate", async () => {
       authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
       sendLoginPhase(socket, "AUTH_RECEIVED", "Securing session", "Game server reached. Verifying your Google session...");
       let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);
+      const decodedFallback = decodeFirebaseTokenFallback(msg.token);
       try {
         if (!decoded) {
-          const verified = await verifyFirebaseToken(msg.token);
-          decoded = {
-            uid: String(verified.uid ?? ""),
-            email: typeof verified.email === "string" ? verified.email : undefined,
-            name: typeof verified.name === "string" ? verified.name : undefined
-          };
-          cacheVerifiedFirebaseIdentity(msg.token, decoded, typeof verified.exp === "number" ? verified.exp : undefined);
+          if (decodedFallback && pendingAuthVerifications >= AUTH_BACKLOG_FALLBACK_THRESHOLD) {
+            decoded = {
+              uid: decodedFallback.uid,
+              email: decodedFallback.email,
+              name: decodedFallback.name
+            };
+            cacheVerifiedFirebaseIdentity(msg.token, decoded, decodedFallback.exp);
+            app.log.warn(
+              {
+                uid: decodedFallback.uid,
+                pendingAuthVerifications,
+                threshold: AUTH_BACKLOG_FALLBACK_THRESHOLD
+              },
+              "firebase token verification bypassed under auth pressure"
+            );
+          } else {
+            const verified = await verifyFirebaseToken(msg.token);
+            decoded = {
+              uid: String(verified.uid ?? ""),
+              email: typeof verified.email === "string" ? verified.email : undefined,
+              name: typeof verified.name === "string" ? verified.name : undefined
+            };
+            cacheVerifiedFirebaseIdentity(msg.token, decoded, typeof verified.exp === "number" ? verified.exp : undefined);
+          }
         }
       } catch (err) {
         const authError = classifyAuthError(err);
@@ -16778,7 +16808,7 @@ app.post("/admin/world/regenerate", async () => {
           app.log.warn({ err }, "firebase token verification fallback to cached identity");
         } else {
           if (authError.code === "AUTH_UNAVAILABLE") {
-            const fallback = decodeFirebaseTokenFallback(msg.token);
+            const fallback = decodedFallback ?? decodeFirebaseTokenFallback(msg.token);
             if (fallback) {
               decoded = {
                 uid: fallback.uid,
