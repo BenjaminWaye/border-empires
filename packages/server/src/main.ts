@@ -4050,13 +4050,58 @@ const dockConnectedOwnedSettledCount = (dock: Dock, ownerId: string | undefined)
   return count;
 };
 
+const dockCustomsHouseIncomeMultiplierAt = (dockKey: TileKey, ownerId: string | undefined): number => {
+  const structure = structureForSupportedDock(dockKey, ownerId, "CUSTOMS_HOUSE");
+  return structure && structure.status === "active" ? 1.5 : 1;
+};
+
+const dockGoldRateMultiplierForOwner = (ownerId: string | undefined): number =>
+  (ownerId ? players.get(ownerId)?.mods.income ?? 1 : 1) * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+
+const dockSummaryForOwner = (dock: Dock, ownerId: string | undefined): Tile["dock"] | undefined => {
+  if (!ownerId) return undefined;
+  if (ownership.get(dock.tileKey) !== ownerId) return undefined;
+  if (ownershipStateByTile.get(dock.tileKey) !== "SETTLED") return undefined;
+  const effects = getPlayerEffectsForPlayer(ownerId);
+  const connectedDockCount = dockConnectedOwnedSettledCount(dock, ownerId);
+  const outputMult = effects.dockGoldOutputMult;
+  const connectionMult = 1 + effects.dockConnectionBonusPerLink * connectedDockCount;
+  const customsMult = dockCustomsHouseIncomeMultiplierAt(dock.tileKey, ownerId);
+  const rateMult = dockGoldRateMultiplierForOwner(ownerId);
+  const baseGoldPerMinute = DOCK_INCOME_PER_MIN * rateMult;
+  const modifiers: NonNullable<Tile["dock"]>["modifiers"] = [];
+  const pushModifier = (label: string, percent: number, deltaGoldPerMinute: number): void => {
+    if (deltaGoldPerMinute <= 0.0001 || percent <= 0) return;
+    modifiers.push({
+      label,
+      percent,
+      deltaGoldPerMinute: Number(deltaGoldPerMinute.toFixed(4))
+    });
+  };
+
+  pushModifier("Dock income bonus", (outputMult - 1) * 100, DOCK_INCOME_PER_MIN * (outputMult - 1) * rateMult);
+  pushModifier(
+    connectedDockCount === 1 ? "Connected dock route" : "Connected dock routes",
+    (connectionMult - 1) * 100,
+    DOCK_INCOME_PER_MIN * outputMult * (connectionMult - 1) * rateMult
+  );
+  pushModifier("Customs House", (customsMult - 1) * 100, DOCK_INCOME_PER_MIN * outputMult * connectionMult * (customsMult - 1) * rateMult);
+
+  return {
+    baseGoldPerMinute: Number(baseGoldPerMinute.toFixed(4)),
+    goldPerMinute: Number((DOCK_INCOME_PER_MIN * outputMult * connectionMult * customsMult * rateMult).toFixed(4)),
+    connectedDockCount,
+    ...(modifiers.length > 0 ? { modifiers } : {})
+  };
+};
+
 const dockIncomeForOwner = (dock: Dock, ownerId: string | undefined): number => {
   if (!ownerId) return 0;
   if (ownership.get(dock.tileKey) !== ownerId) return 0;
   if (ownershipStateByTile.get(dock.tileKey) !== "SETTLED") return 0;
   const effects = getPlayerEffectsForPlayer(ownerId);
   const connectionCount = dockConnectedOwnedSettledCount(dock, ownerId);
-  return DOCK_INCOME_PER_MIN * effects.dockGoldOutputMult * (1 + effects.dockConnectionBonusPerLink * connectionCount);
+  return DOCK_INCOME_PER_MIN * effects.dockGoldOutputMult * (1 + effects.dockConnectionBonusPerLink * connectionCount) * dockCustomsHouseIncomeMultiplierAt(dock.tileKey, ownerId);
 };
 
 const dockCapForOwner = (dock: Dock, ownerId: string | undefined): number => {
@@ -4932,7 +4977,13 @@ const applyTileYieldSummary = (
 ): void => {
   const tk = key(wx, wy);
   const yieldBuf = tileYieldByTile.get(tk);
-  const ownerEffects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
+  if (dock) {
+    const dockSummary = dockSummaryForOwner(dock, ownerId);
+    if (dockSummary) tile.dock = dockSummary;
+    else delete tile.dock;
+  } else {
+    delete tile.dock;
+  }
   if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
     const sabotageMult = siphonMultiplierAt(tk);
     const goldPerMinuteFromTile =

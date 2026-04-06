@@ -175,6 +175,16 @@ export interface Tile {
   clusterType?: ClusterType;
   regionType?: RegionType;
   dockId?: string;
+  dock?: {
+    baseGoldPerMinute: number;
+    goldPerMinute: number;
+    connectedDockCount: number;
+    modifiers?: Array<{
+      label: string;
+      percent: number;
+      deltaGoldPerMinute: number;
+    }>;
+  };
   shardSite?: {
     kind: ShardSiteKind;
     amount: number;
