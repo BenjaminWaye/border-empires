@@ -35,6 +35,7 @@ describe("queued build regression", () => {
       constructionProgressForTile: () => undefined,
       menuOverviewForTile: () => [],
       prettyToken: (value) => value,
+      playerNameForOwner: () => undefined,
       terrainLabel: () => "Grass",
       isTileOwnedByAlly: () => false,
       state: { me: "me" }
