@@ -9447,10 +9447,17 @@ const estimateAiSettlementAvailabilityProfile = (
 
     if (!islandSettlementAvailable) {
       const islandId = islandIdByTile.get(tileKey);
-      if (focusIslandId !== undefined) {
-        if (islandId === focusIslandId) islandSettlementAvailable = true;
-      } else if (islandId !== undefined) {
-        islandSettlementAvailable = true;
+      const matchesFocus = focusIslandId !== undefined ? islandId === focusIslandId : islandId !== undefined;
+      if (matchesFocus) {
+        const evaluation = evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary);
+        if (evaluation.islandFootprintSignal > 0) {
+          const islandScore =
+            evaluation.score +
+            evaluation.islandFootprintSignal +
+            (evaluation.townSupportSignal > 0 ? evaluation.townSupportSignal * 2 : 0) +
+            140;
+          if (islandScore >= 120) islandSettlementAvailable = true;
+        }
       }
     }
 
