@@ -5,7 +5,11 @@ import { describe, expect, it } from "vitest";
 
 const serverMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return [
+    readFileSync(resolve(here, "./main.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-game-constants.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-shared-types.ts"), "utf8")
+  ].join("\n");
 };
 
 const functionBody = (source: string, functionName: string): string => {

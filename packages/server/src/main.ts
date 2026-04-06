@@ -140,424 +140,308 @@ import {
 } from "./chunk/snapshots.js";
 import { assignMissingTownNames } from "./town-names.js";
 import { appendPlayerActivityEntry, buildTownActivityEntry } from "./player-activity.js";
-
-const PORT = Number(process.env.PORT ?? 3001);
-const DISABLE_FOG = process.env.DISABLE_FOG === "1";
-const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
-const DEBUG_SPAWN_NEAR_AI = process.env.DEBUG_SPAWN_NEAR_AI === "1";
-const STARTING_MANPOWER = Math.max(MANPOWER_BASE_CAP, Number(process.env.STARTING_MANPOWER ?? MANPOWER_BASE_CAP));
-const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
-const AI_DISPATCH_INTERVAL_MS = Math.max(100, Number(process.env.AI_DISPATCH_INTERVAL_MS ?? 250));
-const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
-const AI_TICK_BUDGET_MS = Math.max(250, Number(process.env.AI_TICK_BUDGET_MS ?? 1_000));
-const AI_FRONTIER_SELECTOR_BUDGET_MS = Math.max(
-  50,
-  Number(process.env.AI_FRONTIER_SELECTOR_BUDGET_MS ?? Math.max(150, Math.floor(AI_TICK_BUDGET_MS / 4)))
-);
-const AI_HUMAN_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_HUMAN_PRIORITY_BATCH_SIZE ?? 1));
-const AI_HUMAN_DEFENSE_BATCH_SIZE = Math.max(
+import {
+  AI_AUTH_PRIORITY_BATCH_SIZE,
+  AI_COMPETITION_CONTEXT_TTL_MS,
+  AI_DEFENSE_PRIORITY_MS,
+  AI_DISPATCH_INTERVAL_MS,
+  AI_EVENT_LOOP_P95_SOFT_LIMIT_MS,
+  AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT,
+  AI_FRONTIER_SELECTOR_BUDGET_MS,
+  AI_HUMAN_DEFENSE_BATCH_SIZE,
   AI_HUMAN_PRIORITY_BATCH_SIZE,
-  Number(process.env.AI_HUMAN_DEFENSE_BATCH_SIZE ?? Math.max(2, AI_HUMAN_PRIORITY_BATCH_SIZE))
-);
-const AI_AUTH_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_AUTH_PRIORITY_BATCH_SIZE ?? AI_HUMAN_PRIORITY_BATCH_SIZE));
-const AI_DEFENSE_PRIORITY_MS = Math.max(2_000, Number(process.env.AI_DEFENSE_PRIORITY_MS ?? 15_000));
-const AI_WORKER_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_WORKER_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 2));
-const AI_SIM_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_SIM_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 3));
-const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ?? 60));
-const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ?? 65));
-const AI_COMPETITION_CONTEXT_TTL_MS = Math.max(250, Number(process.env.AI_COMPETITION_CONTEXT_TTL_MS ?? 2_000));
-const AI_YIELD_COLLECTION_INTERVAL_MS = Math.max(250, Number(process.env.AI_YIELD_COLLECTION_INTERVAL_MS ?? 2_000));
-const AI_PLANNER_WORKER_ENABLED = process.env.AI_PLANNER_WORKER !== "0";
-const AI_PLANNER_TIMEOUT_MS = Math.max(50, Number(process.env.AI_PLANNER_TIMEOUT_MS ?? 750));
-const SIM_COMBAT_WORKER_ENABLED = process.env.SIM_COMBAT_WORKER !== "0";
-const SIM_COMBAT_TIMEOUT_MS = Math.max(50, Number(process.env.SIM_COMBAT_TIMEOUT_MS ?? 750));
-const CHUNK_SERIALIZER_WORKER_ENABLED = process.env.CHUNK_SERIALIZER_WORKER !== "0";
-const CHUNK_SERIALIZER_TIMEOUT_MS = Math.max(50, Number(process.env.CHUNK_SERIALIZER_TIMEOUT_MS ?? 750));
-const CHUNK_READ_WORKER_ENABLED = process.env.CHUNK_READ_WORKER !== "0";
-const SIM_DRAIN_BUDGET_MS = Math.max(4, Number(process.env.SIM_DRAIN_BUDGET_MS ?? 12));
-const SIM_DRAIN_MAX_COMMANDS = Math.max(1, Number(process.env.SIM_DRAIN_MAX_COMMANDS ?? 8));
-const SIM_DRAIN_HUMAN_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_HUMAN_QUOTA ?? 6));
-const SIM_DRAIN_SYSTEM_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_SYSTEM_QUOTA ?? 2));
-const SIM_DRAIN_AI_QUOTA = Math.max(1, Number(process.env.SIM_DRAIN_AI_QUOTA ?? 2));
-const MAX_SUBSCRIBE_RADIUS = Number(process.env.MAX_SUBSCRIBE_RADIUS ?? 2);
-const CHUNK_STREAM_BATCH_SIZE = Math.max(1, Number(process.env.CHUNK_STREAM_BATCH_SIZE ?? 2));
-const FOG_ADMIN_EMAIL = "bw199005@gmail.com";
-const SNAPSHOT_DIR = path.resolve(process.env.SNAPSHOT_DIR ?? path.join(process.cwd(), "snapshots"));
-const SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, "state.json");
-const SNAPSHOT_INDEX_FILE = path.join(SNAPSHOT_DIR, "state.index.json");
-const SNAPSHOT_SECTION_FILES = {
-  meta: "state.meta.json",
-  players: "state.players.json",
-  territory: "state.territory.json",
-  economy: "state.economy.json",
-  systems: "state.systems.json"
-} as const;
-const snapshotSectionFile = (name: keyof typeof SNAPSHOT_SECTION_FILES): string => path.join(SNAPSHOT_DIR, SNAPSHOT_SECTION_FILES[name]);
-
-let appRef: FastifyInstance | undefined;
-const startupState: {
-  ready: boolean;
-  startedAt: number;
-  completedAt?: number;
-  currentPhase?: string;
-} = {
-  ready: false,
-  startedAt: Date.now()
-};
-const logRuntimeError = (message: string, err: unknown): void => {
-  if (appRef) {
-    appRef.log.error({ err }, message);
-    return;
-  }
-  console.error(message, err);
-};
-const perfRing = <T>(limit: number): { push: (value: T) => void; values: () => T[] } => {
-  const entries: T[] = [];
-  return {
-    push: (value: T): void => {
-      entries.push(value);
-      if (entries.length > limit) entries.shift();
-    },
-    values: (): T[] => [...entries]
-  };
-};
-const roundTo = (value: number, digits = 1): number => {
-  const scale = 10 ** digits;
-  return Math.round(value * scale) / scale;
-};
-const percentile = (values: number[], ratio: number): number => {
-  if (!values.length) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * ratio) - 1));
-  return sorted[index] ?? 0;
-};
-const runtimeMemoryStats = (): {
-  rssMb: number;
-  heapUsedMb: number;
-  heapTotalMb: number;
-  externalMb: number;
-  arrayBuffersMb: number;
-} => {
-  const usage = process.memoryUsage();
-  const toMb = (value: number): number => Math.round((value / (1024 * 1024)) * 10) / 10;
-  return {
-    rssMb: toMb(usage.rss),
-    heapUsedMb: toMb(usage.heapUsed),
-    heapTotalMb: toMb(usage.heapTotal),
-    externalMb: toMb(usage.external),
-    arrayBuffersMb: toMb(usage.arrayBuffers)
-  };
-};
-const runtimeCpuCount = Math.max(1, typeof os.availableParallelism === "function" ? os.availableParallelism() : os.cpus().length);
-const eventLoopDelayMonitor = monitorEventLoopDelay({ resolution: 20 });
-eventLoopDelayMonitor.enable();
-let lastRuntimeCpuSampleAt = Date.now();
-let lastRuntimeCpuUsage = process.cpuUsage();
-let lastEventLoopUtilization = performance.eventLoopUtilization();
-const getActiveHandleCount = (): number => {
-  const getHandles = (process as NodeJS.Process & { _getActiveHandles?: () => unknown[] })._getActiveHandles;
-  return typeof getHandles === "function" ? getHandles().length : 0;
-};
-const getActiveRequestCount = (): number => {
-  const getRequests = (process as NodeJS.Process & { _getActiveRequests?: () => unknown[] })._getActiveRequests;
-  return typeof getRequests === "function" ? getRequests().length : 0;
-};
-const sampleRuntimeVitals = (): {
-  at: number;
-  uptimeSec: number;
-  cpuPercent: number;
-  cpuSingleCorePercent: number;
-  systemCpuPercent: number;
-  eventLoopUtilizationPercent: number;
-  eventLoopDelayP95Ms: number;
-  eventLoopDelayMaxMs: number;
-  activeHandles: number;
-  activeRequests: number;
-  rssMb: number;
-  heapUsedMb: number;
-  heapTotalMb: number;
-  externalMb: number;
-  arrayBuffersMb: number;
-} => {
-  const at = Date.now();
-  const elapsedMs = Math.max(1, at - lastRuntimeCpuSampleAt);
-  const elapsedMicros = elapsedMs * 1_000;
-  const cpuUsage = process.cpuUsage(lastRuntimeCpuUsage);
-  lastRuntimeCpuUsage = process.cpuUsage();
-  lastRuntimeCpuSampleAt = at;
-  const totalCpuMicros = cpuUsage.user + cpuUsage.system;
-  const currentElu = performance.eventLoopUtilization();
-  const deltaElu = performance.eventLoopUtilization(currentElu, lastEventLoopUtilization);
-  lastEventLoopUtilization = currentElu;
-  const memory = runtimeMemoryStats();
-  const eventLoopDelayP95Ms = Number.isFinite(eventLoopDelayMonitor.percentile(95))
-    ? eventLoopDelayMonitor.percentile(95) / 1_000_000
-    : 0;
-  const eventLoopDelayMaxMs = Number.isFinite(eventLoopDelayMonitor.max) ? eventLoopDelayMonitor.max / 1_000_000 : 0;
-  eventLoopDelayMonitor.reset();
-  return {
-    at,
-    uptimeSec: roundTo(process.uptime(), 1),
-    cpuPercent: roundTo((totalCpuMicros / elapsedMicros / runtimeCpuCount) * 100, 1),
-    cpuSingleCorePercent: roundTo((totalCpuMicros / elapsedMicros) * 100, 1),
-    systemCpuPercent: roundTo((cpuUsage.system / elapsedMicros / runtimeCpuCount) * 100, 1),
-    eventLoopUtilizationPercent: roundTo((deltaElu.utilization || 0) * 100, 1),
-    eventLoopDelayP95Ms: roundTo(eventLoopDelayP95Ms, 1),
-    eventLoopDelayMaxMs: roundTo(eventLoopDelayMaxMs, 1),
-    activeHandles: getActiveHandleCount(),
-    activeRequests: getActiveRequestCount(),
-    ...memory
-  };
-};
-
-type Ws = import("ws").WebSocket;
-const NOOP_WS = { send: () => undefined, readyState: 1, OPEN: 1 } as unknown as Ws;
-
-const logStartupPhase = (phase: string, startedAt: number, extra?: Record<string, unknown>): void => {
-  startupState.currentPhase = phase;
-  const elapsedMs = Date.now() - startedAt;
-  if (appRef) {
-    appRef.log.info({ phase, elapsedMs, startupElapsedMs: Date.now() - startupState.startedAt, ...extra }, "startup phase");
-    return;
-  }
-  console.log("startup phase", { phase, elapsedMs, startupElapsedMs: Date.now() - startupState.startedAt, ...extra });
-};
-
-interface AuthIdentity {
-  uid: string;
-  playerId: string;
-  name: string;
-  email?: string | undefined;
-}
-
-const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? "border-empires";
-const FIREBASE_TOKEN_CACHE_TTL_MS = 55 * 60 * 1000;
-const FIREBASE_JWKS_TIMEOUT_MS = Math.max(1_500, Number(process.env.FIREBASE_JWKS_TIMEOUT_MS ?? 4_000));
-const FIREBASE_JWKS_COOLDOWN_MS = Math.max(5_000, Number(process.env.FIREBASE_JWKS_COOLDOWN_MS ?? 15_000));
-const AUTH_PRIORITY_WINDOW_MS = Math.max(2_000, Number(process.env.AUTH_PRIORITY_WINDOW_MS ?? 10_000));
-const firebaseJwks = createRemoteJWKSet(
-  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
-  {
-    timeoutDuration: FIREBASE_JWKS_TIMEOUT_MS,
-    cooldownDuration: FIREBASE_JWKS_COOLDOWN_MS,
-    cacheMaxAge: 12 * 60 * 60 * 1000
-  }
-);
-const verifiedFirebaseTokenCache = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
-const verifiedFirebaseIdentityByUid = new Map<string, { decoded: { uid: string; email?: string | undefined; name?: string | undefined }; expiresAt: number }>();
-const firebaseAdminEnabled = Boolean(
-  process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-    (process.env.FIREBASE_ADMIN_CLIENT_EMAIL && process.env.FIREBASE_ADMIN_PRIVATE_KEY)
-);
-const firebaseAdminApp = firebaseAdminEnabled
-  ? getApps()[0] ??
-    initializeApp({
-      credential: applicationDefault(),
-      projectId: FIREBASE_PROJECT_ID
-    })
-  : undefined;
-const firebaseAdminAuth = firebaseAdminApp ? getAuth(firebaseAdminApp) : undefined;
-let pendingAuthVerifications = 0;
-let authPriorityUntil = 0;
-const authSyncTimingByPlayer = new Map<string, { authVerifiedAt?: number; initSentAt?: number; firstSubscribeAt?: number; firstChunkSentAt?: number }>();
-const sendLoginPhase = (
-  socket: Ws | undefined,
-  phase: "AUTH_RECEIVED" | "AUTH_VERIFIED" | "PLAYER_LOADED" | "INITIAL_SYNC" | "MAP_SUBSCRIBE" | "MAP_FIRST_CHUNK",
-  title: string,
-  detail: string
-): void => {
-  if (!socket || socket.readyState !== socket.OPEN) return;
-  socket.send(JSON.stringify({ type: "LOGIN_PHASE", phase, title, detail }));
-};
-const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
-  const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-  if (
-    text.includes("JWKSTimeout") ||
-    text.includes("ERR_JWKS_TIMEOUT") ||
-    text.includes("fetch failed") ||
-    text.includes("ECONNREFUSED") ||
-    text.includes("ECONNRESET") ||
-    text.includes("ENOTFOUND") ||
-    text.includes("ETIMEDOUT") ||
-    text.includes("timed out") ||
-    text.includes("network")
-  ) {
-    return { code: "AUTH_UNAVAILABLE", message: "Authentication service temporarily unavailable." };
-  }
-  return { code: "AUTH_FAIL", message: "Firebase token verification failed." };
-};
-
-const cachedFirebaseIdentityForToken = (token: string): { uid: string; email?: string | undefined; name?: string | undefined } | undefined => {
-  const cached = verifiedFirebaseTokenCache.get(token);
-  if (!cached) return undefined;
-  if (cached.expiresAt <= now()) {
-    verifiedFirebaseTokenCache.delete(token);
-    return undefined;
-  }
-  return cached.decoded;
-};
-
-const cachedFirebaseIdentityForUid = (uid: string): { uid: string; email?: string | undefined; name?: string | undefined } | undefined => {
-  const cached = verifiedFirebaseIdentityByUid.get(uid);
-  if (!cached) return undefined;
-  if (cached.expiresAt <= now()) {
-    verifiedFirebaseIdentityByUid.delete(uid);
-    return undefined;
-  }
-  return cached.decoded;
-};
-
-const cachedFirebaseIdentityForDecodedToken = (
-  token: string
-): { uid: string; email?: string | undefined; name?: string | undefined } | undefined => {
-  const exact = cachedFirebaseIdentityForToken(token);
-  if (exact) return exact;
-  const decoded = decodeFirebaseTokenFallback(token);
-  if (!decoded?.uid) return undefined;
-  const cachedByUid = cachedFirebaseIdentityForUid(decoded.uid);
-  if (!cachedByUid) return undefined;
-  return {
-    uid: cachedByUid.uid,
-    email: decoded.email ?? cachedByUid.email,
-    name: decoded.name ?? cachedByUid.name
-  };
-};
-
-const cacheVerifiedFirebaseIdentity = (
-  token: string,
-  decoded: { uid: string; email?: string | undefined; name?: string | undefined },
-  exp?: number
-): void => {
-  const expiresAt =
-    typeof exp === "number" && Number.isFinite(exp)
-      ? Math.max(now() + 60_000, exp * 1000)
-      : now() + FIREBASE_TOKEN_CACHE_TTL_MS;
-  verifiedFirebaseTokenCache.set(token, { decoded, expiresAt });
-  verifiedFirebaseIdentityByUid.set(decoded.uid, { decoded, expiresAt });
-};
-
-const decodeJwtPayload = (token: string): Record<string, unknown> | undefined => {
-  const parts = token.split(".");
-  if (parts.length < 2) return undefined;
-  try {
-    const json = Buffer.from(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
-    const parsed = JSON.parse(json) as Record<string, unknown>;
-    return parsed && typeof parsed === "object" ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-const decodeFirebaseTokenFallback = (
-  token: string
-): { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } | undefined => {
-  const payload = decodeJwtPayload(token);
-  if (!payload) return undefined;
-  const issuer = typeof payload.iss === "string" ? payload.iss : "";
-  const audience = typeof payload.aud === "string" ? payload.aud : "";
-  const uid = typeof payload.user_id === "string" ? payload.user_id : typeof payload.sub === "string" ? payload.sub : "";
-  const exp = typeof payload.exp === "number" ? payload.exp : undefined;
-  const iat = typeof payload.iat === "number" ? payload.iat : undefined;
-  if (issuer !== `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`) return undefined;
-  if (audience !== FIREBASE_PROJECT_ID) return undefined;
-  if (!uid) return undefined;
-  const nowSec = Math.floor(now() / 1000);
-  if (typeof exp === "number" && exp <= nowSec) return undefined;
-  if (typeof iat === "number" && iat > nowSec + 60) return undefined;
-  const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = { uid };
-  if (typeof payload.email === "string") decoded.email = payload.email;
-  if (typeof payload.name === "string") decoded.name = payload.name;
-  if (typeof exp === "number") decoded.exp = exp;
-  return decoded;
-};
-
-const verifyFirebaseToken = async (
-  token: string
-): Promise<{ uid: string; email?: string | undefined; name?: string | undefined; exp?: number }> => {
-  pendingAuthVerifications += 1;
-  authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
-  try {
-    if (firebaseAdminAuth) {
-      try {
-        const verified = await firebaseAdminAuth.verifyIdToken(token, true);
-        const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
-          uid: String(verified.uid ?? "")
-        };
-        if (typeof verified.email === "string") decoded.email = verified.email;
-        if (typeof verified.name === "string") decoded.name = verified.name;
-        if (typeof verified.exp === "number") decoded.exp = verified.exp;
-        return decoded;
-      } catch (err) {
-        const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-        const adminCredentialUnavailable =
-          text.includes("Could not load the default credentials") ||
-          text.includes("app/invalid-credential") ||
-          text.includes("MetadataLookupWarning");
-        if (!adminCredentialUnavailable) throw err;
-      }
-    }
-
-    const verified = await jwtVerify(token, firebaseJwks, {
-      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
-      audience: FIREBASE_PROJECT_ID
-    });
-    const decoded: { uid: string; email?: string | undefined; name?: string | undefined; exp?: number } = {
-      uid: String(verified.payload.user_id ?? verified.payload.sub ?? "")
-    };
-    if (typeof verified.payload.email === "string") decoded.email = verified.payload.email;
-    if (typeof verified.payload.name === "string") decoded.name = verified.payload.name;
-    if (typeof verified.payload.exp === "number") decoded.exp = verified.payload.exp;
-    return decoded;
-  } finally {
-    pendingAuthVerifications = Math.max(0, pendingAuthVerifications - 1);
-  }
-};
+  AI_PLANNER_TIMEOUT_MS,
+  AI_PLANNER_WORKER_ENABLED,
+  AI_PLAYERS,
+  AI_SIM_QUEUE_SOFT_LIMIT,
+  AI_TICK_BATCH_SIZE,
+  AI_TICK_BUDGET_MS,
+  AI_TICK_MS,
+  AI_WORKER_QUEUE_SOFT_LIMIT,
+  AI_YIELD_COLLECTION_INTERVAL_MS,
+  CHUNK_READ_WORKER_ENABLED,
+  CHUNK_SERIALIZER_TIMEOUT_MS,
+  CHUNK_SERIALIZER_WORKER_ENABLED,
+  CHUNK_STREAM_BATCH_SIZE,
+  DEBUG_SPAWN_NEAR_AI,
+  DISABLE_FOG,
+  FOG_ADMIN_EMAIL,
+  MAX_SUBSCRIBE_RADIUS,
+  NOOP_WS,
+  PORT,
+  SIM_COMBAT_TIMEOUT_MS,
+  SIM_COMBAT_WORKER_ENABLED,
+  SIM_DRAIN_AI_QUOTA,
+  SIM_DRAIN_BUDGET_MS,
+  SIM_DRAIN_HUMAN_QUOTA,
+  SIM_DRAIN_MAX_COMMANDS,
+  SIM_DRAIN_SYSTEM_QUOTA,
+  SNAPSHOT_DIR,
+  SNAPSHOT_FILE,
+  SNAPSHOT_INDEX_FILE,
+  SNAPSHOT_SECTION_FILES,
+  STARTING_MANPOWER,
+  logRuntimeError,
+  logStartupPhase,
+  perfRing,
+  percentile,
+  roundTo,
+  runtimeState,
+  runtimeCpuCount,
+  runtimeMemoryStats,
+  sampleRuntimeVitals,
+  snapshotSectionFile,
+  startupState,
+  type Ws
+} from "./server-runtime-config.js";
+import {
+  AUTH_PRIORITY_WINDOW_MS,
+  AuthIdentity,
+  authPressureState,
+  authSyncTimingByPlayer,
+  cacheVerifiedFirebaseIdentity,
+  cachedFirebaseIdentityForDecodedToken,
+  cachedFirebaseIdentityForToken,
+  classifyAuthError,
+  decodeFirebaseTokenFallback,
+  sendLoginPhase,
+  verifiedFirebaseTokenCacheSize,
+  verifyFirebaseToken
+} from "./server-auth.js";
+import {
+  type AbilityDefinition,
+  type ActiveAetherBridge,
+  type ActiveSabotage,
+  type ActiveSiphon,
+  type ActiveTruce,
+  type AllianceRequest,
+  type ClusterDefinition,
+  type DynamicMissionDef,
+  type LeaderboardMetricEntry,
+  type LeaderboardOverallEntry,
+  type LeaderboardSnapshotView,
+  type ManpowerBreakdownLine,
+  type MissionDef,
+  type Observatory,
+  type PlayerCompetitionMetrics,
+  type PlayerEconomyIndex,
+  type RuntimeTileCore,
+  type SeasonArchiveEntry,
+  type SeasonalTechConfig,
+  type ShardSiteState,
+  type SiphonCache,
+  type SnapshotEconomySection,
+  type SnapshotMetaSection,
+  type SnapshotPlayersSection,
+  type SnapshotSectionIndex,
+  type SnapshotState,
+  type SnapshotSystemsSection,
+  type SnapshotTerritorySection,
+  STRATEGIC_RESOURCE_KEYS,
+  type StrategicResource,
+  type TerrainShapeState,
+  type TileHistoryState,
+  type TileYieldBuffer,
+  type TownDefinition,
+  type TruceRequest,
+  type VictoryPressureDefinition,
+  type VictoryPressureTracker
+} from "./server-shared-types.js";
+import {
+  type AiActionFailureEntry,
+  type AiTurnDebugEntry,
+  type DomainRequirementChecklist,
+  emptyPlayerEffects,
+  type PlayerEffects,
+  type StatsModBreakdown,
+  type TelemetryCounters,
+  type TechRequirementChecklist
+} from "./server-effects.js";
+import {
+  ABILITY_DEFS,
+  AETHER_BRIDGE_COOLDOWN_MS,
+  AETHER_BRIDGE_CRYSTAL_COST,
+  AETHER_BRIDGE_DURATION_MS,
+  AETHER_BRIDGE_MAX_SEA_TILES,
+  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  ADVANCED_IRONWORKS_IRON_PER_DAY,
+  AIRPORT_BOMBARD_ATTACK_MULT,
+  AIRPORT_BOMBARD_MAX_FIELD_TILES,
+  AIRPORT_BOMBARD_MIN_FIELD_TILES,
+  AIRPORT_BOMBARD_OIL_COST,
+  AIRPORT_BOMBARD_RANGE,
+  AIRPORT_BUILD_CRYSTAL_COST,
+  AIRPORT_BUILD_GOLD_COST,
+  AIRPORT_OIL_UPKEEP_PER_MIN,
+  ALLIANCE_REQUEST_TTL_MS,
+  BARBARIAN_MAINTENANCE_INTERVAL_MS,
+  BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS,
+  BARBARIAN_OWNER_ID,
+  BARBARIAN_TICK_MS,
+  BANK_BUILD_CRYSTAL_COST,
+  BANK_BUILD_GOLD_COST,
+  BANK_CRYSTAL_UPKEEP,
+  BREAKTHROUGH_DEF_MULT_FACTOR,
+  BREAKTHROUGH_GOLD_COST,
+  BREAKTHROUGH_IRON_COST,
+  BREAKTHROUGH_REQUIRED_TECH_ID,
+  BREACH_SHOCK_DEF_MULT,
+  BREACH_SHOCK_MS,
+  CAMP_BUILD_GOLD_COST,
+  CAMP_BUILD_SUPPLY_COST,
+  CAMP_GOLD_UPKEEP,
+  canAffordGoldCost,
+  CARAVANARY_BUILD_CRYSTAL_COST,
+  CARAVANARY_BUILD_GOLD_COST,
+  CARAVANARY_GOLD_UPKEEP,
+  COLLECT_VISIBLE_COOLDOWN_MS,
+  colorFromId,
+  CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST,
+  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
+  CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
+  CUSTOMS_HOUSE_BUILD_CRYSTAL_COST,
+  CUSTOMS_HOUSE_BUILD_GOLD_COST,
+  CUSTOMS_HOUSE_GOLD_UPKEEP,
+  DEEP_STRIKE_ATTACK_MULT,
+  DEEP_STRIKE_COOLDOWN_MS,
+  DEEP_STRIKE_CRYSTAL_COST,
+  DEEP_STRIKE_MAX_DISTANCE,
+  DOCK_INCOME_PER_MIN,
+  DYNAMIC_MISSION_MS,
+  ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
+  FARMSTEAD_BUILD_FOOD_COST,
+  FARMSTEAD_BUILD_GOLD_COST,
+  FARMSTEAD_GOLD_UPKEEP,
+  FIRST_SPECIAL_SITE_CAPTURE_GOLD,
+  FORT_BUILD_IRON_COST,
+  FOUNDRY_BUILD_GOLD_COST,
+  FOUNDRY_GOLD_UPKEEP,
+  FOUNDRY_OUTPUT_MULT,
+  FOUNDRY_RADIUS,
+  FRONTIER_ACTION_GOLD_COST,
+  FUEL_PLANT_BUILD_GOLD_COST,
+  FUEL_PLANT_GOLD_UPKEEP,
+  FUEL_PLANT_OIL_PER_DAY,
+  FUR_SYNTHESIZER_BUILD_GOLD_COST,
+  FUR_SYNTHESIZER_GOLD_UPKEEP,
+  FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
+  FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  GARRISON_HALL_BUILD_CRYSTAL_COST,
+  GARRISON_HALL_BUILD_GOLD_COST,
+  GARRISON_HALL_GOLD_UPKEEP,
+  GOLD_COST_EPSILON,
+  GOVERNORS_OFFICE_BUILD_GOLD_COST,
+  GOVERNORS_OFFICE_GOLD_UPKEEP,
+  GOVERNORS_OFFICE_RADIUS,
+  GOVERNORS_OFFICE_UPKEEP_MULT,
+  GRANARY_BUILD_FOOD_COST,
+  GRANARY_BUILD_GOLD_COST,
+  GRANARY_GOLD_UPKEEP,
+  GROWTH_PAUSE_MAX_MS,
+  GROWTH_PAUSE_MS,
+  HARVEST_GOLD_RATE_MULT,
+  HARVEST_RESOURCE_RATE_MULT,
+  IDLE_SNAPSHOT_INTERVAL_MS,
+  INITIAL_SHARD_SCATTER_COUNT,
+  IRONWORKS_BUILD_GOLD_COST,
+  IRONWORKS_GOLD_UPKEEP,
+  IRONWORKS_IRON_PER_DAY,
+  IRONWORKS_OVERLOAD_IRON,
+  key,
+  LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
+  LIGHT_OUTPOST_GOLD_UPKEEP,
+  MANPOWER_EPSILON,
+  MARKET_BUILD_CRYSTAL_COST,
+  MARKET_BUILD_GOLD_COST,
+  MARKET_CRYSTAL_UPKEEP,
+  MINE_BUILD_GOLD_COST,
+  MINE_BUILD_RESOURCE_COST,
+  MINE_GOLD_UPKEEP,
+  MIN_ACTIVE_BARBARIAN_AGENTS,
+  MISSION_DEFS,
+  NAVAL_INFILTRATION_ATTACK_MULT,
+  NAVAL_INFILTRATION_COOLDOWN_MS,
+  NAVAL_INFILTRATION_CRYSTAL_COST,
+  NAVAL_INFILTRATION_MAX_RANGE,
+  NEW_SETTLEMENT_DEFENSE_MS,
+  now,
+  OBSERVATORY_BUILD_COST,
+  OBSERVATORY_BUILD_CRYSTAL_COST,
+  OBSERVATORY_CAST_RADIUS,
+  OBSERVATORY_PROTECTION_RADIUS,
+  OBSERVATORY_VISION_BONUS,
+  OFFLINE_YIELD_ACCUM_MAX_MS,
+  parseKey,
+  PASSIVE_INCOME_MULT,
+  playerPairKey,
+  PLAYER_MOUNTAIN_DENSITY_LIMIT,
+  PLAYER_MOUNTAIN_DENSITY_RADIUS,
+  POPULATION_GROWTH_BASE_RATE,
+  POPULATION_GROWTH_TICK_MS,
+  POPULATION_MAX,
+  POPULATION_MIN,
+  POPULATION_START_SPREAD,
+  POPULATION_TOWN_MIN,
+  PVP_REWARD_MULT,
+  RADAR_SYSTEM_BUILD_CRYSTAL_COST,
+  RADAR_SYSTEM_BUILD_GOLD_COST,
+  RADAR_SYSTEM_GOLD_UPKEEP,
+  RADAR_SYSTEM_RADIUS,
+  RESOURCE_CHAIN_BUFF_MS,
+  RESOURCE_CHAIN_MULT,
+  REVEAL_EMPIRE_ACTIVATION_COST,
+  REVEAL_EMPIRE_UPKEEP_PER_MIN,
+  SABOTAGE_COOLDOWN_MS,
+  SABOTAGE_CRYSTAL_COST,
+  SABOTAGE_DURATION_MS,
+  SABOTAGE_OUTPUT_MULT,
+  SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE,
+  SEASON_VICTORY_ECONOMY_LEAD_MULT,
+  SEASON_VICTORY_ECONOMY_MIN_INCOME,
+  SEASON_VICTORY_HOLD_MS,
+  SEASON_VICTORY_SETTLED_TERRITORY_SHARE,
+  SEASON_VICTORY_TOWN_CONTROL_SHARE,
+  SETTLEMENT_BASE_GOLD_PER_MIN,
+  SHARD_RAIN_SCHEDULE_HOURS,
+  SHARD_RAIN_SITE_MAX,
+  SHARD_RAIN_SITE_MIN,
+  SHARD_RAIN_TTL_MS,
+  SIEGE_OUTPOST_BUILD_SUPPLY_COST,
+  SIPHON_COOLDOWN_MS,
+  SIPHON_CRYSTAL_COST,
+  SIPHON_DURATION_MS,
+  SIPHON_PURGE_CRYSTAL_COST,
+  SIPHON_SHARE,
+  STARTING_GOLD,
+  STRUCTURE_OUTPUT_MULT,
+  SYNTH_OVERLOAD_DISABLE_MS,
+  SYNTH_OVERLOAD_GOLD_COST,
+  TERRAIN_SHAPING_COOLDOWN_MS,
+  TERRAIN_SHAPING_CRYSTAL_COST,
+  TERRAIN_SHAPING_GOLD_COST,
+  TERRAIN_SHAPING_RANGE,
+  TILE_YIELD_CAP_GOLD,
+  TILE_YIELD_CAP_RESOURCE,
+  TOWN_BASE_GOLD_PER_MIN,
+  TOWN_MANPOWER_BY_TIER,
+  TRUCE_BREAK_ATTACK_MULT,
+  TRUCE_BREAK_ATTACK_PENALTY_MS,
+  TRUCE_BREAK_LOCKOUT_MS,
+  TRUCE_REQUEST_TTL_MS,
+  VENDETTA_ATTACK_BUFF_MS,
+  VENDETTA_ATTACK_BUFF_MULT,
+  VICTORY_PRESSURE_DEFS,
+  VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS,
+  WORLD_TOWN_POPULATION_MIN,
+  WORLD_TOWN_POPULATION_START_SPREAD,
+  WOODEN_FORT_GOLD_UPKEEP
+} from "./server-game-constants.js";
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
 const GLOBAL_STATUS_BROADCAST_MS = 2_000;
 const STRATEGIC_REPLAY_LIMIT = 16_000;
-
-interface AllianceRequest {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt: number;
-  fromName?: string;
-  toName?: string;
-}
-
-type ManpowerBreakdownLine = {
-  label: string;
-  amount: number;
-  note?: string;
-};
-
-interface TruceRequest {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt: number;
-  durationHours: 12 | 24;
-  fromName?: string;
-  toName?: string;
-}
-
-interface ActiveTruce {
-  playerAId: string;
-  playerBId: string;
-  startedAt: number;
-  endsAt: number;
-  createdByPlayerId: string;
-}
-
-type VictoryPressureTracker = {
-  leaderPlayerId?: string;
-  holdStartedAt?: number;
-  holdAnnouncedAt?: number;
-  lastRemainingMilestoneHours?: number;
-};
 
 type AiTickContext = {
   cycleId: number;
@@ -603,879 +487,6 @@ type AiStrategicState = {
   weakestIslandRatio: number;
   undercoveredIslandCount: number;
   updatedAt: number;
-};
-
-type LeaderboardOverallEntry = {
-  id: string;
-  name: string;
-  tiles: number;
-  incomePerMinute: number;
-  techs: number;
-  score: number;
-  rank: number;
-};
-
-type LeaderboardMetricEntry = {
-  id: string;
-  name: string;
-  value: number;
-  rank: number;
-};
-
-type LeaderboardSnapshotView = {
-  overall: LeaderboardOverallEntry[];
-  selfOverall: LeaderboardOverallEntry | undefined;
-  selfByTiles: LeaderboardMetricEntry | undefined;
-  selfByIncome: LeaderboardMetricEntry | undefined;
-  selfByTechs: LeaderboardMetricEntry | undefined;
-  byTiles: LeaderboardMetricEntry[];
-  byIncome: LeaderboardMetricEntry[];
-  byTechs: LeaderboardMetricEntry[];
-};
-
-type PlayerCompetitionMetrics = {
-  playerId: string;
-  name: string;
-  tiles: number;
-  settledTiles: number;
-  incomePerMinute: number;
-  techs: number;
-  controlledTowns: number;
-};
-
-type VictoryPressureDefinition = {
-  id: SeasonVictoryPathId;
-  name: string;
-  description: string;
-  holdDurationSeconds: number;
-};
-
-interface MissionDef {
-  id: string;
-  kind: MissionKind;
-  name: string;
-  description: string;
-  unlockPoints: number;
-  prerequisiteId?: string;
-  target: number;
-  rewardPoints: number;
-  rewardLabel?: string;
-}
-
-interface SeasonArchiveEntry {
-  seasonId: string;
-  endedAt: number;
-  mostTerritory: Array<{ playerId: string; name: string; value: number }>;
-  mostPoints: Array<{ playerId: string; name: string; value: number }>;
-  longestSurvivalMs: Array<{ playerId: string; name: string; value: number }>;
-  winner?: SeasonWinnerView;
-  replayEvents?: StrategicReplayEvent[];
-}
-
-interface SnapshotState {
-  world: { width: number; height: number };
-  townPlacementsNormalized?: boolean;
-  players: Array<
-    Omit<Player, "techIds" | "domainIds" | "territoryTiles" | "allies"> & {
-      techIds: string[];
-      domainIds?: string[];
-      territoryTiles: TileKey[];
-      allies: string[];
-      missions?: MissionState[];
-      missionStats?: MissionStats;
-    }
-  >;
-  ownership: [TileKey, string][];
-  ownershipState?: [TileKey, OwnershipState][];
-  settledSince?: [TileKey, number][];
-  barbarianAgents?: BarbarianAgent[];
-  authIdentities?: AuthIdentity[];
-  resources: [string, Record<ResourceType, number>][];
-  strategicResources?: [string, Record<StrategicResource, number>][];
-  strategicResourceBuffer?: [string, Record<StrategicResource, number>][];
-  tileYield?: [TileKey, TileYieldBuffer][];
-  tileHistory?: [TileKey, TileHistoryState][];
-  terrainShapes?: [TileKey, TerrainShapeState][];
-  seasonVictory?: [SeasonVictoryPathId, VictoryPressureTracker][];
-  frontierSettlements?: [string, number[]][];
-  dynamicMissions?: [string, DynamicMissionDef[]][];
-  temporaryAttackBuffUntil?: [string, number][];
-  temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
-  forcedReveal?: [string, TileKey[]][];
-  revealedEmpireTargets?: [string, string[]][];
-  allianceRequests?: AllianceRequest[];
-  forts?: Fort[];
-  observatories?: Observatory[];
-  siegeOutposts?: SiegeOutpost[];
-  economicStructures?: EconomicStructure[];
-  sabotage?: ActiveSabotage[];
-  abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
-  docks?: Dock[];
-  towns?: TownDefinition[];
-  shardSites?: ShardSiteState[];
-  firstSpecialSiteCaptureClaimed?: TileKey[];
-  clusters?: ClusterDefinition[];
-  clusterTiles?: [TileKey, string][];
-  pendingSettlements?: Array<{ tileKey: TileKey; ownerId: string; startedAt: number; resolvesAt: number; goldCost: number }>;
-  townCaptureShock?: [TileKey, number][];
-  townGrowthShock?: [TileKey, number][];
-  season?: Season;
-  seasonWinner?: SeasonWinnerView;
-  seasonArchives?: SeasonArchiveEntry[];
-  seasonTechConfig?: Omit<SeasonalTechConfig, "activeNodeIds"> & { activeNodeIds: string[] };
-}
-
-interface SnapshotMetaSection {
-  world: { width: number; height: number };
-  townPlacementsNormalized?: boolean;
-  season?: Season;
-  seasonWinner?: SeasonWinnerView;
-  seasonArchives?: SeasonArchiveEntry[];
-  seasonTechConfig?: Omit<SeasonalTechConfig, "activeNodeIds"> & { activeNodeIds: string[] };
-}
-
-interface SnapshotPlayersSection {
-  players: SnapshotState["players"];
-  authIdentities?: AuthIdentity[];
-}
-
-interface SnapshotTerritorySection {
-  ownership: [TileKey, string][];
-  ownershipState?: [TileKey, OwnershipState][];
-  settledSince?: [TileKey, number][];
-  barbarianAgents?: BarbarianAgent[];
-  tileHistory?: [TileKey, TileHistoryState][];
-  terrainShapes?: [TileKey, TerrainShapeState][];
-  docks?: Dock[];
-  towns?: TownDefinition[];
-  shardSites?: ShardSiteState[];
-  firstSpecialSiteCaptureClaimed?: TileKey[];
-  clusters?: ClusterDefinition[];
-  clusterTiles?: [TileKey, string][];
-  townCaptureShock?: [TileKey, number][];
-  townGrowthShock?: [TileKey, number][];
-}
-
-interface SnapshotEconomySection {
-  resources: [string, Record<ResourceType, number>][];
-  strategicResources?: [string, Record<StrategicResource, number>][];
-  strategicResourceBuffer?: [string, Record<StrategicResource, number>][];
-  tileYield?: [TileKey, TileYieldBuffer][];
-  frontierSettlements?: [string, number[]][];
-  dynamicMissions?: [string, DynamicMissionDef[]][];
-  temporaryAttackBuffUntil?: [string, number][];
-  temporaryIncomeBuff?: [string, { until: number; resources: [ResourceType, ResourceType] }][];
-  pendingSettlements?: Array<{ tileKey: TileKey; ownerId: string; startedAt: number; resolvesAt: number; goldCost: number }>;
-}
-
-interface SnapshotSystemsSection {
-  seasonVictory?: [SeasonVictoryPathId, VictoryPressureTracker][];
-  forcedReveal?: [string, TileKey[]][];
-  revealedEmpireTargets?: [string, string[]][];
-  allianceRequests?: AllianceRequest[];
-  forts?: Fort[];
-  observatories?: Observatory[];
-  siegeOutposts?: SiegeOutpost[];
-  economicStructures?: EconomicStructure[];
-  sabotage?: ActiveSabotage[];
-  abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
-}
-
-interface SnapshotSectionIndex {
-  formatVersion: 2;
-  sections: Record<keyof typeof SNAPSHOT_SECTION_FILES, string>;
-}
-
-interface ClusterDefinition {
-  clusterId: string;
-  clusterType: ClusterType;
-  resourceType?: ResourceType;
-  centerX: number;
-  centerY: number;
-  radius: number;
-  controlThreshold: number;
-}
-
-interface SeasonalTechConfig {
-  configId: string;
-  rootNodeIds: string[];
-  activeNodeIds: Set<string>;
-  balanceConstants: Record<string, number>;
-}
-
-interface TownDefinition {
-  townId: string;
-  tileKey: TileKey;
-  name?: string;
-  type: "MARKET" | "FARMING";
-  population: number;
-  maxPopulation: number;
-  connectedTownCount: number;
-  connectedTownBonus: number;
-  lastGrowthTickAt: number;
-  isSettlement?: boolean;
-}
-
-interface ShardSiteState {
-  tileKey: TileKey;
-  kind: "CACHE" | "FALL";
-  amount: number;
-  expiresAt?: number;
-}
-
-type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
-const STRATEGIC_RESOURCE_KEYS: readonly StrategicResource[] = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"];
-
-interface Observatory {
-  observatoryId: string;
-  ownerId: string;
-  tileKey: TileKey;
-  status: "under_construction" | "active" | "inactive" | "removing";
-  completesAt?: number;
-  previousStatus?: "active" | "inactive";
-}
-
-interface ActiveSabotage {
-  targetTileKey: TileKey;
-  casterPlayerId: string;
-  endsAt: number;
-  outputMultiplier?: number;
-}
-
-interface ActiveSiphon {
-  targetTileKey: TileKey;
-  casterPlayerId: string;
-  endsAt: number;
-}
-
-interface SiphonCache {
-  siphonId: string;
-  targetTileKey: TileKey;
-  expiresAt: number;
-  strategic: Partial<Record<StrategicResource, number>>;
-  gold: number;
-}
-
-interface ActiveAetherBridge {
-  bridgeId: string;
-  ownerId: string;
-  fromTileKey: TileKey;
-  toTileKey: TileKey;
-  startedAt: number;
-  endsAt: number;
-}
-
-interface TileYieldBuffer {
-  gold: number;
-  strategic: Record<StrategicResource, number>;
-}
-
-interface RuntimeTileCore {
-  x: number;
-  y: number;
-  tileKey: TileKey;
-  terrain: Tile["terrain"];
-  ownerId: string | undefined;
-  ownershipState: OwnershipState | undefined;
-  resource: ResourceType | undefined;
-}
-
-interface PlayerEconomyIndex {
-  settledResourceTileKeys: Set<TileKey>;
-  settledDockTileKeys: Set<TileKey>;
-  settledTownTileKeys: Set<TileKey>;
-}
-
-const emptyPlayerEffects = (): PlayerEffects => ({
-  unlockForts: false,
-  unlockSiegeOutposts: false,
-  unlockWoodenFort: true,
-  unlockLightOutpost: true,
-  unlockSynthOverload: false,
-  unlockAdvancedSynthesizers: false,
-  unlockGranary: false,
-  unlockRevealRegion: false,
-  unlockRevealEmpire: false,
-  unlockDeepStrike: false,
-  unlockAetherBridge: false,
-  unlockMountainPass: false,
-  unlockTerrainShaping: false,
-  unlockBreachAttack: false,
-  settlementSpeedMult: 1,
-  operationalTempoMult: 1,
-  researchTimeMult: 1,
-  abilityCooldownMult: 1,
-  sabotageCooldownMult: 1,
-  populationGrowthMult: 1,
-  firstThreeTownsPopulationGrowthMult: 1,
-  firstThreeTownsGoldOutputMult: 1,
-  populationCapFirst3TownsMult: 1,
-  growthPauseDurationMult: 1,
-  townFoodUpkeepMult: 1,
-  settledFoodUpkeepMult: 1,
-  settledGoldUpkeepMult: 1,
-  townGoldOutputMult: 1,
-  townGoldCapMult: 1,
-  marketIncomeBonusAdd: 0.5,
-  marketCapBonusAdd: 0.5,
-  granaryCapBonusAdd: 0.2,
-  populationIncomeMult: 1,
-  connectedTownStepBonusAdd: 0,
-  harvestCapMult: 1,
-  fortBuildGoldCostMult: 1,
-  fortDefenseMult: 1,
-  fortIronUpkeepMult: 1,
-  fortGoldUpkeepMult: 1,
-  outpostAttackMult: 1,
-  outpostSupplyUpkeepMult: 1,
-  outpostGoldUpkeepMult: 1,
-  revealUpkeepMult: 1,
-  revealCapacityBonus: 0,
-  visionRadiusBonus: 0,
-  observatoryProtectionRadiusBonus: 0,
-  observatoryCastRadiusBonus: 0,
-  observatoryVisionBonus: 0,
-  dockGoldOutputMult: 1,
-  dockGoldCapMult: 1,
-  dockConnectionBonusPerLink: 0.5,
-  dockRoutesVisible: false,
-  marketCrystalUpkeepMult: 1,
-  settledDefenseMult: 1,
-  attackVsSettledMult: 1,
-  attackVsFortsMult: 1,
-  newSettlementDefenseMult: 1,
-  buildCapacityAdd: 0,
-  developmentProcessCapacityAdd: 0,
-  frontierDefenseAdd: 0,
-  resourceOutputMult: { FARM: 1, FISH: 1, IRON: 1, CRYSTAL: 1, SUPPLY: 1, SHARD: 1, OIL: 1 }
-});
-
-interface TechRequirementChecklist {
-  label: string;
-  met: boolean;
-}
-
-interface DomainRequirementChecklist {
-  label: string;
-  met: boolean;
-}
-
-interface PlayerEffects {
-  unlockForts: boolean;
-  unlockSiegeOutposts: boolean;
-  unlockWoodenFort: boolean;
-  unlockLightOutpost: boolean;
-  unlockSynthOverload: boolean;
-  unlockAdvancedSynthesizers: boolean;
-  unlockGranary: boolean;
-  unlockRevealRegion: boolean;
-  unlockRevealEmpire: boolean;
-  unlockDeepStrike: boolean;
-  unlockAetherBridge: boolean;
-  unlockMountainPass: boolean;
-  unlockTerrainShaping: boolean;
-  unlockBreachAttack: boolean;
-  settlementSpeedMult: number;
-  operationalTempoMult: number;
-  researchTimeMult: number;
-  abilityCooldownMult: number;
-  sabotageCooldownMult: number;
-  populationGrowthMult: number;
-  firstThreeTownsPopulationGrowthMult: number;
-  firstThreeTownsGoldOutputMult: number;
-  populationCapFirst3TownsMult: number;
-  growthPauseDurationMult: number;
-  townFoodUpkeepMult: number;
-  settledFoodUpkeepMult: number;
-  settledGoldUpkeepMult: number;
-  townGoldOutputMult: number;
-  townGoldCapMult: number;
-  marketIncomeBonusAdd: number;
-  marketCapBonusAdd: number;
-  granaryCapBonusAdd: number;
-  populationIncomeMult: number;
-  connectedTownStepBonusAdd: number;
-  harvestCapMult: number;
-  fortBuildGoldCostMult: number;
-  fortDefenseMult: number;
-  fortIronUpkeepMult: number;
-  fortGoldUpkeepMult: number;
-  outpostAttackMult: number;
-  outpostSupplyUpkeepMult: number;
-  outpostGoldUpkeepMult: number;
-  revealUpkeepMult: number;
-  revealCapacityBonus: number;
-  visionRadiusBonus: number;
-  observatoryProtectionRadiusBonus: number;
-  observatoryCastRadiusBonus: number;
-  observatoryVisionBonus: number;
-  dockGoldOutputMult: number;
-  dockGoldCapMult: number;
-  dockConnectionBonusPerLink: number;
-  dockRoutesVisible: boolean;
-  marketCrystalUpkeepMult: number;
-  settledDefenseMult: number;
-  attackVsSettledMult: number;
-  attackVsFortsMult: number;
-  newSettlementDefenseMult: number;
-  buildCapacityAdd: number;
-  developmentProcessCapacityAdd: number;
-  frontierDefenseAdd: number;
-  resourceOutputMult: { FARM: number; FISH: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number; OIL: number };
-}
-
-interface TelemetryCounters {
-  frontierClaims: number;
-  settlements: number;
-  breakthroughAttacks: number;
-  techUnlocks: number;
-}
-
-type StatsModBreakdownEntry = { label: string; mult: number };
-type StatsModBreakdown = Record<StatsModKey, StatsModBreakdownEntry[]>;
-
-type AiTurnDebugEntry = {
-  at: number;
-  playerId: string;
-  name: string;
-  reason: string;
-  points: number;
-  incomePerMinute?: number;
-  controlledTowns?: number;
-  settledTiles?: number;
-  primaryVictoryPath?: AiSeasonVictoryPathId;
-  goapGoalId?: string;
-  goapActionKey?: string;
-  executed?: boolean;
-  details?: Record<string, boolean | number | string | undefined>;
-};
-
-type AiActionFailureEntry = {
-  at: number;
-  actionKey: string;
-  code: string;
-  reason: string;
-  x?: number;
-  y?: number;
-};
-
-interface AbilityDefinition {
-  id: "reveal_empire" | "aether_bridge" | "siphon" | "create_mountain" | "remove_mountain";
-  name: string;
-  requiredTechIds: string[];
-  crystalCost: number;
-  cooldownMs: number;
-  upkeepCrystalPerMinute?: number;
-  durationMs?: number;
-}
-
-interface DynamicMissionDef {
-  id: string;
-  type: "VENDETTA" | "DOCK_HUNT" | "RESOURCE_CHAIN" | "TOWN_SUPREMACY" | "SETTLER_SURGE";
-  expiresAt: number;
-  targetPlayerId?: string;
-  targetDockCount?: number;
-  focusResources?: [ResourceType, ResourceType];
-  targetSettlements?: number;
-  targetTowns?: number;
-  completed: boolean;
-  rewarded: boolean;
-}
-
-const key = (x: number, y: number): TileKey => `${x},${y}`;
-const parseKey = (k: TileKey): [number, number] => {
-  const [xs, ys] = k.split(",");
-  return [Number(xs), Number(ys)];
-};
-const BARBARIAN_OWNER_ID = "barbarian";
-const BARBARIAN_TICK_MS = 5_000;
-
-const playerPairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
-
-const now = (): number => Date.now();
-const ALLIANCE_REQUEST_TTL_MS = 5 * 60_000;
-const TRUCE_REQUEST_TTL_MS = 5 * 60_000;
-const TRUCE_BREAK_LOCKOUT_MS = 12 * 60 * 60_000;
-const TRUCE_BREAK_ATTACK_MULT = 0.75;
-const TRUCE_BREAK_ATTACK_PENALTY_MS = 60 * 60_000;
-const PASSIVE_INCOME_MULT = 1.0;
-const FRONTIER_ACTION_GOLD_COST = 1;
-const GOLD_COST_EPSILON = 1e-6;
-const canAffordGoldCost = (gold: number, cost: number): boolean => gold + GOLD_COST_EPSILON >= cost;
-const HARVEST_GOLD_RATE_MULT = 1;
-const HARVEST_RESOURCE_RATE_MULT = 1 / 1440;
-const TILE_YIELD_CAP_GOLD = 24;
-const TILE_YIELD_CAP_RESOURCE = 6;
-const OFFLINE_YIELD_ACCUM_MAX_MS = 12 * 60 * 60 * 1000;
-const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
-const IDLE_SNAPSHOT_INTERVAL_MS = 5 * 60_000;
-const INITIAL_SHARD_SCATTER_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
-const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;
-const SHARD_RAIN_SITE_MIN = 3;
-const SHARD_RAIN_SITE_MAX = 6;
-const SHARD_RAIN_TTL_MS = 30 * 60_000;
-const FIRST_SPECIAL_SITE_CAPTURE_GOLD = 6;
-const STARTING_GOLD = 100;
-const MIN_ACTIVE_BARBARIAN_AGENTS = 80;
-const BARBARIAN_MAINTENANCE_INTERVAL_MS = 10_000;
-const BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS = 6;
-const PVP_REWARD_MULT = 0.55;
-const TOWN_BASE_GOLD_PER_MIN = 2;
-const DOCK_INCOME_PER_MIN = 0.5;
-const BREAKTHROUGH_GOLD_COST = 2;
-const BREAKTHROUGH_IRON_COST = 1;
-const FORT_BUILD_IRON_COST = 45;
-const SIEGE_OUTPOST_BUILD_SUPPLY_COST = 45;
-const SYNTH_OVERLOAD_GOLD_COST = 1_000;
-const SYNTH_OVERLOAD_DISABLE_MS = 24 * 60 * 60_000;
-const FUR_SYNTHESIZER_OVERLOAD_SUPPLY = 25;
-const IRONWORKS_OVERLOAD_IRON = 25;
-const CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 16;
-const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
-const BREAKTHROUGH_REQUIRED_TECH_ID = "breach-doctrine";
-const OBSERVATORY_BUILD_COST = structureBaseGoldCost("OBSERVATORY");
-const OBSERVATORY_VISION_BONUS = 5;
-const OBSERVATORY_BUILD_CRYSTAL_COST = 45;
-const OBSERVATORY_PROTECTION_RADIUS = 10;
-const OBSERVATORY_CAST_RADIUS = 30;
-const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
-const FARMSTEAD_BUILD_GOLD_COST = structureBaseGoldCost("FARMSTEAD");
-const FARMSTEAD_BUILD_FOOD_COST = 20;
-const FARMSTEAD_GOLD_UPKEEP = 1;
-const CAMP_BUILD_GOLD_COST = structureBaseGoldCost("CAMP");
-const CAMP_BUILD_SUPPLY_COST = 30;
-const CAMP_GOLD_UPKEEP = 1.2;
-const MINE_BUILD_GOLD_COST = structureBaseGoldCost("MINE");
-const MINE_BUILD_RESOURCE_COST = 30;
-const MINE_GOLD_UPKEEP = 1.2;
-const MARKET_BUILD_GOLD_COST = structureBaseGoldCost("MARKET");
-const MARKET_BUILD_CRYSTAL_COST = 40;
-const MARKET_CRYSTAL_UPKEEP = 0.05;
-const GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("GRANARY");
-const GRANARY_BUILD_FOOD_COST = 40;
-const GRANARY_GOLD_UPKEEP = 1;
-const BANK_BUILD_GOLD_COST = structureBaseGoldCost("BANK");
-const BANK_BUILD_CRYSTAL_COST = 60;
-const BANK_CRYSTAL_UPKEEP = 0.05;
-const AIRPORT_BUILD_GOLD_COST = structureBaseGoldCost("AIRPORT");
-const AIRPORT_BUILD_CRYSTAL_COST = 80;
-const FUR_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("FUR_SYNTHESIZER");
-const IRONWORKS_BUILD_GOLD_COST = structureBaseGoldCost("IRONWORKS");
-const CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("CRYSTAL_SYNTHESIZER");
-const FUEL_PLANT_BUILD_GOLD_COST = structureBaseGoldCost("FUEL_PLANT");
-const CARAVANARY_BUILD_GOLD_COST = structureBaseGoldCost("CARAVANARY");
-const CARAVANARY_BUILD_CRYSTAL_COST = 60;
-const CUSTOMS_HOUSE_BUILD_GOLD_COST = structureBaseGoldCost("CUSTOMS_HOUSE");
-const CUSTOMS_HOUSE_BUILD_CRYSTAL_COST = 60;
-const GARRISON_HALL_BUILD_GOLD_COST = structureBaseGoldCost("GARRISON_HALL");
-const GARRISON_HALL_BUILD_CRYSTAL_COST = 80;
-const GOVERNORS_OFFICE_BUILD_GOLD_COST = structureBaseGoldCost("GOVERNORS_OFFICE");
-const RADAR_SYSTEM_BUILD_GOLD_COST = structureBaseGoldCost("RADAR_SYSTEM");
-const RADAR_SYSTEM_BUILD_CRYSTAL_COST = 120;
-const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
-const MANPOWER_EPSILON = 1e-6;
-const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
-  SETTLEMENT: { cap: 150, regenPerMinute: 10 },
-  TOWN: { cap: 300, regenPerMinute: 15 },
-  CITY: { cap: 600, regenPerMinute: 30 },
-  GREAT_CITY: { cap: 1_200, regenPerMinute: 60 },
-  METROPOLIS: { cap: 2_400, regenPerMinute: 120 }
-};
-const SETTLEMENT_BASE_GOLD_PER_MIN = 1;
-const FUR_SYNTHESIZER_GOLD_UPKEEP = 120;
-const IRONWORKS_GOLD_UPKEEP = 120;
-const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 160;
-const WOODEN_FORT_GOLD_UPKEEP = 5;
-const LIGHT_OUTPOST_GOLD_UPKEEP = 5;
-const FUEL_PLANT_GOLD_UPKEEP = 180;
-const CARAVANARY_GOLD_UPKEEP = 15;
-const CUSTOMS_HOUSE_GOLD_UPKEEP = 15;
-const GARRISON_HALL_GOLD_UPKEEP = 25;
-const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
-const RADAR_SYSTEM_GOLD_UPKEEP = 45;
-const FOUNDRY_GOLD_UPKEEP = 50;
-const FUR_SYNTHESIZER_SUPPLY_PER_DAY = 18;
-const ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY = 21.6;
-const IRONWORKS_IRON_PER_DAY = 18;
-const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
-const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
-const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
-const FUEL_PLANT_OIL_PER_DAY = 10;
-const AIRPORT_OIL_UPKEEP_PER_MIN = 0.025;
-const AIRPORT_BOMBARD_OIL_COST = 1;
-const AIRPORT_BOMBARD_RANGE = 30;
-const AIRPORT_BOMBARD_ATTACK_MULT = 0.95;
-const AIRPORT_BOMBARD_MIN_FIELD_TILES = 2;
-const AIRPORT_BOMBARD_MAX_FIELD_TILES = 4;
-const STRUCTURE_OUTPUT_MULT = 1.5;
-const FOUNDRY_RADIUS = 10;
-const FOUNDRY_OUTPUT_MULT = 2;
-const GOVERNORS_OFFICE_RADIUS = 10;
-const GOVERNORS_OFFICE_UPKEEP_MULT = 0.8;
-const RADAR_SYSTEM_RADIUS = 30;
-const REVEAL_EMPIRE_ACTIVATION_COST = 20;
-const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
-const DEEP_STRIKE_CRYSTAL_COST = 25;
-const DEEP_STRIKE_COOLDOWN_MS = 20 * 60_000;
-const DEEP_STRIKE_ATTACK_MULT = 0.9;
-const DEEP_STRIKE_MAX_DISTANCE = 2;
-const NAVAL_INFILTRATION_CRYSTAL_COST = 30;
-const NAVAL_INFILTRATION_COOLDOWN_MS = 30 * 60_000;
-const NAVAL_INFILTRATION_ATTACK_MULT = 0.85;
-const NAVAL_INFILTRATION_MAX_RANGE = 5;
-const SABOTAGE_CRYSTAL_COST = 20;
-const SABOTAGE_COOLDOWN_MS = 15 * 60_000;
-const SABOTAGE_DURATION_MS = 45 * 60_000;
-const SABOTAGE_OUTPUT_MULT = 0.5;
-const AETHER_BRIDGE_CRYSTAL_COST = 30;
-const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
-const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
-const AETHER_BRIDGE_MAX_SEA_TILES = 4;
-const SIPHON_CRYSTAL_COST = 20;
-const SIPHON_COOLDOWN_MS = 15 * 60_000;
-const SIPHON_DURATION_MS = 30 * 60_000;
-const SIPHON_SHARE = 0.5;
-const SIPHON_PURGE_CRYSTAL_COST = 10;
-const TERRAIN_SHAPING_GOLD_COST = 8000;
-const TERRAIN_SHAPING_CRYSTAL_COST = 400;
-const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
-const TERRAIN_SHAPING_RANGE = 2;
-const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
-const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
-const NEW_SETTLEMENT_DEFENSE_MS = 15 * 60_000;
-const POPULATION_GROWTH_BASE_RATE = 0.00032;
-const POPULATION_MIN = 3_000;
-const POPULATION_MAX = 10_000_000;
-const POPULATION_START_SPREAD = 2_000;
-const POPULATION_TOWN_MIN = 10_000;
-const WORLD_TOWN_POPULATION_MIN = 15_000;
-const WORLD_TOWN_POPULATION_START_SPREAD = 10_000;
-const POPULATION_GROWTH_TICK_MS = 60_000;
-const GROWTH_PAUSE_MS = 60 * 60_000;
-const GROWTH_PAUSE_MAX_MS = 6 * 60 * 60_000;
-const LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD = 250;
-const BREACH_SHOCK_MS = 180_000;
-const BREACH_SHOCK_DEF_MULT = 0.72;
-const DYNAMIC_MISSION_MS = 7 * 24 * 60 * 60 * 1000;
-const VENDETTA_ATTACK_BUFF_MULT = 1.15;
-const VENDETTA_ATTACK_BUFF_MS = 24 * 60 * 60 * 1000;
-const RESOURCE_CHAIN_BUFF_MS = 24 * 60 * 60 * 1000;
-const RESOURCE_CHAIN_MULT = 1.4;
-const SEASON_VICTORY_HOLD_MS = 24 * 60 * 60_000;
-const SEASON_VICTORY_TOWN_CONTROL_SHARE = 0.5;
-const SEASON_VICTORY_SETTLED_TERRITORY_SHARE = 0.66;
-const SEASON_VICTORY_ECONOMY_MIN_INCOME = 200;
-const SEASON_VICTORY_ECONOMY_LEAD_MULT = 1.33;
-const SEASON_VICTORY_CONTINENT_FOOTPRINT_SHARE = 0.1;
-const VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS = 2 * 60 * 60_000;
-const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
-  {
-    id: "TOWN_CONTROL",
-    name: "Town Control",
-    description: "Control 50% of all towns in the world.",
-    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
-  },
-  {
-    id: "SETTLED_TERRITORY",
-    name: "Settled Territory",
-    description: "Control 66% of all claimable land tiles as settled territory.",
-    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
-  },
-  {
-    id: "ECONOMIC_HEGEMONY",
-    name: "Economy",
-    description: "Reach at least 200 gold per minute and stay 33% ahead of second place.",
-    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
-  },
-  {
-    id: "RESOURCE_MONOPOLY",
-    name: "Resource Monopoly",
-    description: "Control all tiles of at least one world resource type.",
-    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
-  },
-  {
-    id: "CONTINENT_FOOTPRINT",
-    name: "Continental Footprint",
-    description: "Settle at least 10% of claimable land on every island.",
-    holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
-  }
-];
-const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = {
-  reveal_empire: {
-    id: "reveal_empire",
-    name: "Reveal Empire",
-    requiredTechIds: ["cryptography"],
-    crystalCost: REVEAL_EMPIRE_ACTIVATION_COST,
-    cooldownMs: 0,
-    upkeepCrystalPerMinute: REVEAL_EMPIRE_UPKEEP_PER_MIN
-  },
-  aether_bridge: {
-    id: "aether_bridge",
-    name: "Aether Bridge",
-    requiredTechIds: ["navigation"],
-    crystalCost: AETHER_BRIDGE_CRYSTAL_COST,
-    cooldownMs: AETHER_BRIDGE_COOLDOWN_MS,
-    durationMs: AETHER_BRIDGE_DURATION_MS
-  },
-  siphon: {
-    id: "siphon",
-    name: "Siphon",
-    requiredTechIds: ["cryptography"],
-    crystalCost: SIPHON_CRYSTAL_COST,
-    cooldownMs: SIPHON_COOLDOWN_MS,
-    durationMs: SIPHON_DURATION_MS
-  },
-  create_mountain: {
-    id: "create_mountain",
-    name: "Create Mountain",
-    requiredTechIds: ["terrain-engineering"],
-    crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
-    cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
-  },
-  remove_mountain: {
-    id: "remove_mountain",
-    name: "Remove Mountain",
-    requiredTechIds: ["terrain-engineering"],
-    crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
-    cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
-  }
-};
-const MISSION_DEFS: MissionDef[] = [
-  {
-    id: "frontier-scout",
-    kind: "NEUTRAL_CAPTURES",
-    name: "Frontier Scout",
-    description: "Capture 6 neutral tiles.",
-    unlockPoints: 0,
-    target: 6,
-    rewardPoints: 0,
-    rewardLabel: "Reward: +1 FOOD +1 SUPPLY"
-  },
-  {
-    id: "frontier-commander",
-    kind: "NEUTRAL_CAPTURES",
-    name: "Frontier Commander",
-    description: "Capture 16 neutral tiles.",
-    unlockPoints: 50,
-    prerequisiteId: "frontier-scout",
-    target: 16,
-    rewardPoints: 0,
-    rewardLabel: "Reward: +1 IRON +1 CRYSTAL"
-  },
-  {
-    id: "regional-footprint",
-    kind: "SETTLED_TILES_HELD",
-    name: "Regional Footprint",
-    description: "Hold 20 settled tiles at once.",
-    unlockPoints: 80,
-    target: 20,
-    rewardPoints: 0,
-    rewardLabel: "Reward: +1 SHARD"
-  },
-  {
-    id: "breadbasket-protocol",
-    kind: "FARMS_HELD",
-    name: "Breadbasket Protocol",
-    description: "Control 4 farms at once.",
-    unlockPoints: 140,
-    target: 4,
-    rewardPoints: 150
-  },
-  {
-    id: "first-bloodline",
-    kind: "ENEMY_CAPTURES",
-    name: "First Bloodline",
-    description: "Capture 3 enemy-owned tiles.",
-    unlockPoints: 200,
-    target: 3,
-    rewardPoints: 220
-  },
-  {
-    id: "victory-rhythm",
-    kind: "COMBAT_WINS",
-    name: "Victory Rhythm",
-    description: "Win 10 combats.",
-    unlockPoints: 320,
-    target: 10,
-    rewardPoints: 300
-  },
-  {
-    id: "tech-apprentice",
-    kind: "TECH_PICKS",
-    name: "Tech Apprentice",
-    description: "Select 3 techs.",
-    unlockPoints: 250,
-    target: 3,
-    rewardPoints: 260
-  },
-  {
-    id: "tech-master",
-    kind: "TECH_PICKS",
-    name: "Tech Master",
-    description: "Select 8 techs.",
-    unlockPoints: 600,
-    prerequisiteId: "tech-apprentice",
-    target: 8,
-    rewardPoints: 700
-  },
-  {
-    id: "continental-triad",
-    kind: "CONTINENTS_HELD",
-    name: "Continental Triad",
-    description: "Hold land on 3 continents at once.",
-    unlockPoints: 450,
-    target: 3,
-    rewardPoints: 700
-  },
-  {
-    id: "continental-grip",
-    kind: "TILES_HELD",
-    name: "Continental Grip",
-    description: "Hold 50 tiles at once.",
-    unlockPoints: 700,
-    target: 50,
-    rewardPoints: 600
-  },
-  {
-    id: "agri-hegemon",
-    kind: "FARMS_HELD",
-    name: "Agri Hegemon",
-    description: "Control 10 farms at once.",
-    unlockPoints: 1100,
-    target: 10,
-    rewardPoints: 900
-  },
-  {
-    id: "war-ledger",
-    kind: "ENEMY_CAPTURES",
-    name: "War Ledger",
-    description: "Capture 20 enemy-owned tiles.",
-    unlockPoints: 1500,
-    target: 20,
-    rewardPoints: 1200
-  }
-];
-const colorFromId = (id: string): string => {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i += 1) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const hue = (h >>> 0) % 360;
-  const c = (1 - Math.abs((2 * 0.48) - 1)) * 0.7;
-  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = 0.48 - c / 2;
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  if (hue < 60) [r, g, b] = [c, x, 0];
-  else if (hue < 120) [r, g, b] = [x, c, 0];
-  else if (hue < 180) [r, g, b] = [0, c, x];
-  else if (hue < 240) [r, g, b] = [0, x, c];
-  else if (hue < 300) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  const toHex = (n: number): string => Math.round((n + m) * 255).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 };
 
 const { techs: TECHS, techById, childrenByTech, roots: TECH_ROOTS } = loadTechTree(process.cwd());
@@ -1954,20 +965,6 @@ interface UpkeepDiagnostics {
   gold: UpkeepBreakdown;
   foodCoverage: number;
 }
-interface TileHistoryState {
-  lastOwnerId?: string | null;
-  previousOwners: string[];
-  captureCount: number;
-  lastCapturedAt?: number | null;
-  lastStructureType?: "FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType | null;
-  structureHistory: Array<"FORT" | "SIEGE_OUTPOST" | "OBSERVATORY" | EconomicStructureType>;
-  wasMountainCreatedByPlayer?: boolean;
-  wasMountainRemovedByPlayer?: boolean;
-}
-interface TerrainShapeState {
-  terrain: "LAND" | "MOUNTAIN";
-  createdByPlayer: boolean;
-}
 type EmpireVisualStyle = {
   primaryOverlay: string;
   secondaryTint: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
@@ -2085,7 +1082,7 @@ const runtimeCollectionDiagnostics = (): Array<{ name: string; entries: number }
     { name: "chunkSnapshotSentAtByPlayer", entries: chunkSnapshotSentAtByPlayer.size },
     { name: "actionTimestampsByPlayer", entries: actionTimestampsByPlayer.size },
     { name: "authIdentityByUid", entries: authIdentityByUid.size },
-    { name: "verifiedFirebaseTokenCache", entries: verifiedFirebaseTokenCache.size },
+    { name: "verifiedFirebaseTokenCache", entries: verifiedFirebaseTokenCacheSize() },
     { name: "townFeedingStateByPlayer", entries: townFeedingStateByPlayer.size },
     { name: "tileYieldByTile", entries: tileYieldByTile.size },
     { name: "tileHistoryByTile", entries: tileHistoryByTile.size },
@@ -2151,7 +1148,7 @@ const recordAiBudgetBreach = (
     ...(extras?.actionKey ? { actionKey: extras.actionKey } : {})
   };
   recentAiBudgetBreachPerf.push(sample);
-  appRef?.log.warn(sample, "ai budget breach");
+  runtimeState.appRef?.log.warn(sample, "ai budget breach");
 };
 const runtimeHotspotDiagnostics = (): {
   aiTicks: ReturnType<typeof perfSummary> & { lastAiPlayers: number };
@@ -8867,8 +7864,8 @@ const bestAiScoutExpand = (
       Math.max(0, adjacency.alliedSettledNeighbors - 1) * 20 -
       Math.max(0, adjacency.frontierNeighbors - 1) * 12;
     if (!best || score > best.score) best = { score, from, to };
-    if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      appRef?.log.warn(
+    if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
         {
           playerId: actor.id,
           scannedCandidates,
@@ -10053,7 +9050,7 @@ const cachedAiPlanningStaticForPlayer = (actor: Player, territorySummary: AiTerr
   const rebuilt = buildAiPlanningStaticCache(actor, territorySummary);
   const elapsedMs = now() - startedAt;
   if (elapsedMs >= 150) {
-    appRef?.log.warn(
+    runtimeState.appRef?.log.warn(
       {
         playerId: actor.id,
         frontierTiles: territorySummary.frontierTileCount,
@@ -10380,7 +9377,7 @@ const frontierSettlementSummaryForPlayer = (
   }
   const elapsedMs = now() - startedAt;
   if (elapsedMs >= 150) {
-    appRef?.log.warn(
+    runtimeState.appRef?.log.warn(
       {
         playerId: actor.id,
         victoryPath: victoryPath ?? "none",
@@ -10987,7 +9984,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     const totalElapsedMs = now() - turnStartedAt;
     recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: shardOrTruceResult });
     if (totalElapsedMs >= 500) {
-      appRef?.log.warn({ playerId: actor.id, totalElapsedMs, phases: phaseTimings, reason: shardOrTruceResult, msg: "slow ai turn phases" });
+      runtimeState.appRef?.log.warn({ playerId: actor.id, totalElapsedMs, phases: phaseTimings, reason: shardOrTruceResult, msg: "slow ai turn phases" });
     }
     setAiTurnDebug(actor, shardOrTruceResult === "shard" ? "collected_shard_priority" : "handled_truce_priority", {
       incomePerMinute: aiIncome,
@@ -11064,7 +10061,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     const totalElapsedMs = now() - turnStartedAt;
     recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason });
     if (totalElapsedMs >= 500) {
-      appRef?.log.warn({ playerId: actor.id, totalElapsedMs, phases: phaseTimings, reason: decision.reason, msg: "slow ai turn phases" });
+      runtimeState.appRef?.log.warn({ playerId: actor.id, totalElapsedMs, phases: phaseTimings, reason: decision.reason, msg: "slow ai turn phases" });
     }
     setAiTurnDebug(actor, decision.reason, {
       incomePerMinute: aiIncome,
@@ -11087,7 +10084,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     const totalElapsedMs = now() - turnStartedAt;
     recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason, actionKey: decision.actionKey });
     if (totalElapsedMs >= 500) {
-      appRef?.log.warn(
+      runtimeState.appRef?.log.warn(
         { playerId: actor.id, totalElapsedMs, phases: phaseTimings, actionKey: decision.actionKey, executed, msg: "slow ai turn phases" }
       );
     }
@@ -11110,7 +10107,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const totalElapsedMs = now() - turnStartedAt;
   recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason, actionKey: decision.actionKey });
   if (totalElapsedMs >= 500) {
-    appRef?.log.warn(
+    runtimeState.appRef?.log.warn(
       { playerId: actor.id, totalElapsedMs, phases: phaseTimings, actionKey: decision.actionKey, executed, msg: "slow ai turn phases" }
     );
   }
@@ -12631,8 +11628,8 @@ const {
   getAllPlayers: () => [...players.values()],
   onlineHumanPlayerCount,
   latestRuntimeVitalsSample,
-  pendingAuthVerifications: () => pendingAuthVerifications,
-  authPriorityUntil: () => authPriorityUntil,
+  pendingAuthVerifications: () => authPressureState.pendingAuthVerifications,
+  authPriorityUntil: () => authPressureState.authPriorityUntil,
   aiQueueDepth: () => aiWorkerState.queue.length,
   simulationQueueDepth: simulationCommandQueueDepth,
   humanChunkSnapshotPriorityActive,
@@ -14768,7 +13765,7 @@ const spawnPlayer = (p: Player): void => {
     p.isEliminated = false;
     p.respawnPending = false;
     broadcast({ type: "PLAYER_STYLE", playerId: p.id, ...playerStylePayload(p) });
-    if (appRef) appRef.log.info({ playerId: p.id, x, y }, "spawned player");
+    if (runtimeState.appRef) runtimeState.appRef.log.info({ playerId: p.id, x, y }, "spawned player");
     return true;
   };
 
@@ -14849,7 +13846,7 @@ const spawnPlayer = (p: Player): void => {
     }
   }
 
-  if (appRef) appRef.log.error({ playerId: p.id }, "failed to find any land tile for spawn");
+  if (runtimeState.appRef) runtimeState.appRef.log.error({ playerId: p.id }, "failed to find any land tile for spawn");
   else console.error("failed to find any land tile for spawn", { playerId: p.id });
 };
 
@@ -15289,8 +14286,8 @@ const loadSectionedSnapshot = (): SnapshotState | undefined => {
   const territory = readSnapshotJsonSync<SnapshotTerritorySection>(path.join(SNAPSHOT_DIR, index.data.sections.territory));
   const economy = readSnapshotJsonSync<SnapshotEconomySection>(path.join(SNAPSHOT_DIR, index.data.sections.economy));
   const systems = readSnapshotJsonSync<SnapshotSystemsSection>(path.join(SNAPSHOT_DIR, index.data.sections.systems));
-  if (appRef) {
-    appRef.log.info(
+  if (runtimeState.appRef) {
+    runtimeState.appRef.log.info(
       {
         sections: {
           meta: { bytes: meta.bytes, elapsedMs: meta.elapsedMs },
@@ -15322,12 +14319,12 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   const hydrateStartedAt = Date.now();
   let phaseStartedAt = hydrateStartedAt;
   const logHydratePhase = (phase: string, extra: Record<string, number> = {}): void => {
-    if (!appRef) {
+    if (!runtimeState.appRef) {
       phaseStartedAt = Date.now();
       return;
     }
     const nowMs = Date.now();
-    appRef.log.info(
+    runtimeState.appRef.log.info(
       {
         phase: `hydrate_snapshot:${phase}`,
         elapsedMs: nowMs - phaseStartedAt,
@@ -16158,7 +15155,7 @@ const runtimeDashboardPayload = (): {
       cachedChunkPayloadMb: cachePayloads.approxPayloadMb
     },
     queuePressure: {
-      pendingAuthVerifications,
+      pendingAuthVerifications: authPressureState.pendingAuthVerifications,
       runtimeIntervals: runtimeIntervals.length,
       humanSimulationQueueDepth: simulationCommandWorkerState.humanQueue.length,
       systemSimulationQueueDepth: simulationCommandWorkerState.systemQueue.length,
@@ -16610,7 +15607,7 @@ const renderRuntimeDashboardHtml = (): string => `<!doctype html>
 </html>`;
 
 const app = Fastify({ logger: true });
-appRef = app;
+runtimeState.appRef = app;
 await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
@@ -16758,7 +15755,7 @@ app.post("/admin/world/regenerate", async () => {
 
     if (msg.type === "AUTH") {
       const authStartedAt = now();
-      authPriorityUntil = Math.max(authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
+      authPressureState.authPriorityUntil = Math.max(authPressureState.authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
       sendLoginPhase(socket, "AUTH_RECEIVED", "Securing session", "Game server reached. Verifying your Google session...");
       let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);
       try {
