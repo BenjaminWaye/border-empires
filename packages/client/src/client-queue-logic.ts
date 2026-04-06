@@ -636,11 +636,21 @@ export const processActionQueue = (
   }
 ): boolean => {
   if (state.actionInFlight || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
+  let deferredFrontierSyncTargets = 0;
   while (state.actionQueue.length > 0) {
     const next = state.actionQueue[0];
     if (!next) return false;
 
     const targetKey = deps.keyFor(next.x, next.y);
+    const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
+    if (frontierSyncWaitUntil > Date.now()) {
+      const blocked = state.actionQueue.shift();
+      if (!blocked) return false;
+      state.actionQueue.push(blocked);
+      deferredFrontierSyncTargets += 1;
+      if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
+      continue;
+    }
     const to = state.tiles.get(targetKey);
     if (!to) {
       state.actionQueue.shift();
