@@ -8804,7 +8804,7 @@ const bestAiScoutExpand = (
     scannedCandidates += 1;
     const score = scoreAiScoutExpandCandidate(actor, from, to, visibility, territorySummary);
     if (!best || score > best.score) best = { score, from, to };
-    if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+    if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
       appRef?.log.warn(
         {
           playerId: actor.id,
