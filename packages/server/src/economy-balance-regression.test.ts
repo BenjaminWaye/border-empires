@@ -15,6 +15,15 @@ describe("economy balance regression guard", () => {
     expect(source).toContain("const DOCK_INCOME_PER_MIN = 0.5;");
   });
 
+  it("includes customs houses in dock income and exposes dock modifier summaries", () => {
+    const source = serverSource();
+    expect(source).toContain('const dockCustomsHouseIncomeMultiplierAt = (dockKey: TileKey, ownerId: string | undefined): number => {');
+    expect(source).toContain('const dockSummaryForOwner = (dock: Dock, ownerId: string | undefined): Tile["dock"] | undefined => {');
+    expect(source).toContain('pushModifier("Customs House"');
+    expect(source).toContain('* dockCustomsHouseIncomeMultiplierAt(dock.tileKey, ownerId);');
+    expect(source).toContain("if (dockSummary) tile.dock = dockSummary;");
+  });
+
   it("keeps synth overload on a 24 hour downtime and includes converter output in strategic income", () => {
     const source = serverSource();
     expect(source).toContain("const SYNTH_OVERLOAD_DISABLE_MS = 24 * 60 * 60_000;");
