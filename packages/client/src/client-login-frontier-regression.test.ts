@@ -19,4 +19,17 @@ describe("login and frontier retry regression guard", () => {
     expect(source).toContain('No combat start from server yet; waiting for frontier sync instead of retrying the same tile.');
     expect(source).toContain("frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 6_000);");
   });
+
+  it("does not re-dispatch a queued frontier target while that target is still waiting on server sync", () => {
+    const source = clientSource("./client-queue-logic.ts");
+    expect(source).toContain("const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;");
+    expect(source).toContain("if (frontierSyncWaitUntil > Date.now()) {");
+    expect(source).toContain("state.actionQueue.push(blocked);");
+  });
+
+  it("uses a local radius-1 refresh while waiting for delayed frontier confirmation", () => {
+    const source = clientSource("./client-runtime-loop.ts");
+    const occurrences = [...source.matchAll(/requestViewRefresh\(1, true\);/g)].length;
+    expect(occurrences).toBeGreaterThanOrEqual(3);
+  });
 });
