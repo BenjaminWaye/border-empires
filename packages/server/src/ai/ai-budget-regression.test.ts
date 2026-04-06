@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 
 const serverMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "../main.ts"), "utf8");
+  return [
+    readFileSync(resolve(here, "../main.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-runtime-config.ts"), "utf8")
+  ].join("\n");
 };
 
 const functionBody = (source: string, functionName: string): string => {
@@ -60,6 +63,7 @@ describe("AI budget regression guard", () => {
     expect(body).toContain("let scannedCandidates = 0;");
     expect(body).toContain("if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0)");
     expect(body).toContain("if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
+    expect(body).toContain("if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
     expect(body).toContain('"ai frontier selector budget hit"');
   });
 
