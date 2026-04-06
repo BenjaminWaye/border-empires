@@ -40,6 +40,16 @@ export type Tile = {
   clusterType?: string;
   regionType?: "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
   dockId?: string;
+  dock?: {
+    baseGoldPerMinute: number;
+    goldPerMinute: number;
+    connectedDockCount: number;
+    modifiers?: Array<{
+      label: string;
+      percent: number;
+      deltaGoldPerMinute: number;
+    }>;
+  };
   shardSite?: {
     kind: "CACHE" | "FALL";
     amount: number;
@@ -463,7 +473,7 @@ export type TileMenuProgressView = {
 
 export type TileOverviewLine = {
   html: string;
-  kind?: "effect";
+  kind?: "effect" | "section";
 };
 
 export type TileMenuView = {
