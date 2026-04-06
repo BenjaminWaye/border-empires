@@ -8166,6 +8166,18 @@ type AiSettlementAvailabilityProfile = {
   islandSettlementAvailable: boolean;
 };
 
+type AiFrontierAvailabilityProfile = {
+  neutralExpandAvailable: boolean;
+  openingScoutAvailable: boolean;
+  scoutExpandAvailable: boolean;
+  economicExpandAvailable: boolean;
+  scaffoldExpandAvailable: boolean;
+  frontierOpportunityEconomic: number;
+  frontierOpportunityScout: number;
+  frontierOpportunityScaffold: number;
+  frontierOpportunityWaste: number;
+};
+
 type AiFrontierPlanningSummary = {
   neutralExpandAvailable: boolean;
   openingScoutAvailable: boolean;
@@ -9545,6 +9557,51 @@ const hasAiFocusedIslandExpand = (
   return false;
 };
 
+const estimateAiFrontierAvailabilityProfile = (
+  actor: Player,
+  territorySummary: AiTerritorySummary
+): AiFrontierAvailabilityProfile => {
+  let frontierOpportunityScaffold = 0;
+  let frontierOpportunityScout = 0;
+
+  for (const { to } of territorySummary.expandCandidates) {
+    if (to.terrain !== "LAND" || to.ownerId) continue;
+    const tileKey = key(to.x, to.y);
+    if (townsByTile.has(tileKey) || docksByTile.has(tileKey) || Boolean(to.resource)) continue;
+    let ownedNeighbors = 0;
+    let exposedSides = 0;
+    for (const neighbor of adjacentNeighborCores(to.x, to.y)) {
+      if (neighbor.ownerId === actor.id) ownedNeighbors += 1;
+      if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) exposedSides += 1;
+    }
+    if (ownedNeighbors >= 3 && exposedSides <= 1) {
+      frontierOpportunityScaffold += 1;
+    } else {
+      frontierOpportunityScout += 1;
+    }
+  }
+
+  const neutralExpandAvailable = territorySummary.neutralLandExpandCount > 0;
+  const economicExpandAvailable = territorySummary.neutralEconomicExpandCount > 0;
+  const frontierOpportunityEconomic = territorySummary.neutralEconomicExpandCount;
+  const frontierOpportunityWaste = Math.max(
+    0,
+    territorySummary.neutralLandExpandCount - frontierOpportunityEconomic - frontierOpportunityScout - frontierOpportunityScaffold
+  );
+
+  return {
+    neutralExpandAvailable,
+    openingScoutAvailable: territorySummary.settledTileCount <= 2 && frontierOpportunityScout > 0,
+    scoutExpandAvailable: frontierOpportunityScout > 0,
+    economicExpandAvailable,
+    scaffoldExpandAvailable: frontierOpportunityScaffold > 0,
+    frontierOpportunityEconomic,
+    frontierOpportunityScout,
+    frontierOpportunityScaffold,
+    frontierOpportunityWaste
+  };
+};
+
 const bestAiTownSupportSettlementTile = (
   actor: Player,
   victoryPath?: AiSeasonVictoryPathId,
@@ -9790,7 +9847,7 @@ const buildAiPlanningStaticCache = (
   settlementAvailable = settlementAvailability.settlementAvailable;
   supportSettlementAvailable = settlementAvailability.townSupportSettlementAvailable;
   islandSettlementAvailable = settlementAvailability.islandSettlementAvailable;
-  const frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
+  const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary);
 
   if (structureCandidateCount > 0) {
     const playerEffects = getPlayerEffectsForPlayer(actor.id);
@@ -9836,11 +9893,11 @@ const buildAiPlanningStaticCache = (
 
   return {
     version: aiTerritoryVersionForPlayer(actor.id),
-    openingScoutAvailable: frontierPlanningSummary.openingScoutAvailable,
-    neutralExpandAvailable: frontierPlanningSummary.neutralExpandAvailable,
-    economicExpandAvailable: frontierPlanningSummary.economicExpandAvailable,
-    scoutExpandAvailable: frontierPlanningSummary.scoutExpandAvailable,
-    scaffoldExpandAvailable: frontierPlanningSummary.scaffoldExpandAvailable,
+    openingScoutAvailable: frontierAvailability.openingScoutAvailable,
+    neutralExpandAvailable: frontierAvailability.neutralExpandAvailable,
+    economicExpandAvailable: frontierAvailability.economicExpandAvailable,
+    scoutExpandAvailable: frontierAvailability.scoutExpandAvailable,
+    scaffoldExpandAvailable: frontierAvailability.scaffoldExpandAvailable,
     barbarianAttackAvailable: territorySummary.barbarianAttackAvailable,
     enemyAttackAvailable: territorySummary.enemyAttackAvailable,
     pressureAttackScore: pressureAttackProfile.score,
@@ -9855,15 +9912,10 @@ const buildAiPlanningStaticCache = (
     fortProtectsCore,
     fortIsDockChokePoint,
     economicBuildAvailable,
-    frontierOpportunityEconomic: frontierPlanningSummary.frontierOpportunityEconomic,
-    frontierOpportunityScout: frontierPlanningSummary.frontierOpportunityScout,
-    frontierOpportunityScaffold: frontierPlanningSummary.frontierOpportunityScaffold,
-    frontierOpportunityWaste: frontierPlanningSummary.frontierOpportunityWaste,
-    ...(frontierPlanningSummary.bestEconomicExpand ? { bestEconomicExpand: frontierPlanningSummary.bestEconomicExpand } : {}),
-    ...(frontierPlanningSummary.bestScoutExpand ? { bestScoutExpand: frontierPlanningSummary.bestScoutExpand } : {}),
-    ...(frontierPlanningSummary.bestScaffoldExpand ? { bestScaffoldExpand: frontierPlanningSummary.bestScaffoldExpand } : {}),
-    ...(frontierPlanningSummary.bestIslandExpand ? { bestIslandExpand: frontierPlanningSummary.bestIslandExpand } : {}),
-    ...(frontierPlanningSummary.bestAnyNeutralExpand ? { bestAnyNeutralExpand: frontierPlanningSummary.bestAnyNeutralExpand } : {})
+    frontierOpportunityEconomic: frontierAvailability.frontierOpportunityEconomic,
+    frontierOpportunityScout: frontierAvailability.frontierOpportunityScout,
+    frontierOpportunityScaffold: frontierAvailability.frontierOpportunityScaffold,
+    frontierOpportunityWaste: frontierAvailability.frontierOpportunityWaste
   };
 };
 
