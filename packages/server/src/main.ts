@@ -8838,7 +8838,34 @@ const bestAiScoutExpand = (
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
     scannedCandidates += 1;
-    const score = scoreAiScoutExpandCandidate(actor, from, to, visibility, territorySummary);
+    const scoutRevealCount = countAiScoutRevealTiles(to, visibility, territorySummary);
+    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
+    if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0) {
+      if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+        appRef?.log.warn(
+          {
+            playerId: actor.id,
+            scannedCandidates,
+            frontierCandidates: territorySummary.expandCandidates.length,
+            elapsedMs: now() - startedAt,
+            budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+          },
+          "ai frontier selector budget hit"
+        );
+        break;
+      }
+      continue;
+    }
+    const revealValue = scoreAiScoutRevealValue(actor, to, visibility, territorySummary);
+    const score =
+      scoutRevealCount * 18 +
+      revealValue +
+      adjacency.coastlineDiscoveryValue +
+      (adjacency.ownedNeighbors <= 2 ? 16 : 0) +
+      (from.ownershipState === "FRONTIER" ? 10 : 0) -
+      Math.max(0, adjacency.ownedNeighbors - 2) * 34 -
+      Math.max(0, adjacency.alliedSettledNeighbors - 1) * 20 -
+      Math.max(0, adjacency.frontierNeighbors - 1) * 12;
     if (!best || score > best.score) best = { score, from, to };
     if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
       appRef?.log.warn(
@@ -9510,12 +9537,9 @@ const frontierPlanningSummaryForPlayer = (
     if (to.terrain !== "LAND" || to.ownerId) continue;
     neutralExpandAvailable = true;
     const tileKey = key(to.x, to.y);
-    let ownedNeighbors = 0;
-    let exposedSides = 0;
-    for (const neighbor of adjacentNeighborCores(to.x, to.y)) {
-      if (neighbor.ownerId === actor.id) ownedNeighbors += 1;
-      if (neighbor.terrain !== "LAND" || !neighbor.ownerId || neighbor.ownerId !== actor.id) exposedSides += 1;
-    }
+    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
+    const ownedNeighbors = adjacency.ownedNeighbors;
+    const exposedSides = adjacency.exposedSides;
     const scoutRevealCount = countAiScoutRevealTiles(to, visibility, territorySummary);
     const scoutValue = scoreAiScoutRevealValue(actor, to, visibility, territorySummary);
     const scoutScore = scoutValue + scoutRevealCount * 18 + (from.ownershipState === "SETTLED" ? 8 : 0);
@@ -9675,15 +9699,12 @@ const estimateAiFrontierAvailabilityProfile = (
     if (to.terrain !== "LAND" || to.ownerId) continue;
     const tileKey = key(to.x, to.y);
     if (townsByTile.has(tileKey) || docksByTile.has(tileKey) || Boolean(to.resource)) continue;
-    let ownedNeighbors = 0;
-    let exposedSides = 0;
-    for (const neighbor of adjacentNeighborCores(to.x, to.y)) {
-      if (neighbor.ownerId === actor.id) ownedNeighbors += 1;
-      if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) exposedSides += 1;
-    }
+    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
+    const ownedNeighbors = adjacency.ownedNeighbors;
+    const exposedSides = adjacency.exposedSides;
     if (ownedNeighbors >= 3 && exposedSides <= 1) {
       frontierOpportunityScaffold += 1;
-    } else {
+    } else if (countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0) {
       frontierOpportunityScout += 1;
     }
   }
