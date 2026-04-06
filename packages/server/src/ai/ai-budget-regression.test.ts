@@ -31,6 +31,7 @@ describe("AI budget regression guard", () => {
   it("defines a soft AI tick budget and records budget breaches without throttling turns", () => {
     const source = serverMainSource();
     expect(source).toContain("const AI_TICK_BUDGET_MS = Math.max(250, Number(process.env.AI_TICK_BUDGET_MS ?? 1_000));");
+    expect(source).toContain("const AI_FRONTIER_SELECTOR_BUDGET_MS = Math.max(");
     expect(source).toContain("const recentAiBudgetBreachPerf = perfRing<");
     expect(source).toContain('appRef?.log.warn(sample, "ai budget breach");');
   });
@@ -51,5 +52,13 @@ describe("AI budget regression guard", () => {
     expect(dashboardBody).toContain("recent: recentAiBudgetBreaches");
     expect(source).toContain('metricRow("AI budget breaches"');
     expect(source).toContain('renderHotspotBlock("AI budget breaches"');
+  });
+
+  it("hard-caps scout frontier selector scans so one AI execute path cannot monopolize the process", () => {
+    const body = functionBody(serverMainSource(), "bestAiScoutExpand");
+    expect(body).toContain("const startedAt = now();");
+    expect(body).toContain("let scannedCandidates = 0;");
+    expect(body).toContain("if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
+    expect(body).toContain('"ai frontier selector budget hit"');
   });
 });

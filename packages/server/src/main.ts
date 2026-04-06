@@ -150,6 +150,10 @@ const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 const AI_DISPATCH_INTERVAL_MS = Math.max(100, Number(process.env.AI_DISPATCH_INTERVAL_MS ?? 250));
 const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
 const AI_TICK_BUDGET_MS = Math.max(250, Number(process.env.AI_TICK_BUDGET_MS ?? 1_000));
+const AI_FRONTIER_SELECTOR_BUDGET_MS = Math.max(
+  50,
+  Number(process.env.AI_FRONTIER_SELECTOR_BUDGET_MS ?? Math.max(150, Math.floor(AI_TICK_BUDGET_MS / 4)))
+);
 const AI_HUMAN_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_HUMAN_PRIORITY_BATCH_SIZE ?? 1));
 const AI_HUMAN_DEFENSE_BATCH_SIZE = Math.max(
   AI_HUMAN_PRIORITY_BATCH_SIZE,
@@ -8792,11 +8796,27 @@ const bestAiScoutExpand = (
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
   const { visibility } = territorySummary;
+  const startedAt = now();
+  let scannedCandidates = 0;
   let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
+    scannedCandidates += 1;
     const score = scoreAiScoutExpandCandidate(actor, from, to, visibility, territorySummary);
     if (!best || score > best.score) best = { score, from, to };
+    if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      appRef?.log.warn(
+        {
+          playerId: actor.id,
+          scannedCandidates,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai frontier selector budget hit"
+      );
+      break;
+    }
   }
   return best && best.score >= 30 ? best : undefined;
 };
