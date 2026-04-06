@@ -7321,6 +7321,7 @@ const refreshSubscribedViewForPlayer = (playerId: string): void => {
   const p = players.get(playerId);
   const sub = chunkSubscriptionByPlayer.get(playerId);
   if (!ws || ws.readyState !== ws.OPEN || !p || !sub) return;
+  if (chunkSnapshotInFlightByPlayer.has(playerId)) return;
   sendChunkSnapshot(ws, p, sub);
 };
 
@@ -17513,6 +17514,15 @@ app.post("/admin/world/regenerate", async () => {
 
     if (msg.type === "SUBSCRIBE_CHUNKS") {
       const sub = { cx: msg.cx, cy: msg.cy, radius: Math.max(0, Math.min(msg.radius, MAX_SUBSCRIBE_RADIUS)) };
+      const existingSub = chunkSubscriptionByPlayer.get(actor.id);
+      const sameRequestedSub =
+        existingSub &&
+        existingSub.cx === sub.cx &&
+        existingSub.cy === sub.cy &&
+        existingSub.radius === sub.radius;
+      if (sameRequestedSub && chunkSnapshotInFlightByPlayer.has(actor.id)) {
+        return;
+      }
       chunkSubscriptionByPlayer.set(actor.id, sub);
       const authSync = authSyncTimingByPlayer.get(actor.id);
       if (authSync && authSync.firstSubscribeAt === undefined) {

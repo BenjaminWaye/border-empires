@@ -1284,6 +1284,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!state.combatStartAck && Date.now() - started > 4_500) {
       const current = state.actionCurrent;
       const currentKey = current ? deps.keyFor(current.x, current.y) : "";
+      const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(currentKey);
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
@@ -1291,8 +1292,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
-      if (currentKey) deps.clearOptimisticTileState(currentKey, true);
-      if (current && (current.retries ?? 0) < 3) {
+      if (currentKey && !keepOptimisticExpand) deps.clearOptimisticTileState(currentKey, true);
+      if (keepOptimisticExpand) {
+        if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
+        deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
+        deps.requestViewRefresh(2, true);
+      } else if (current && (current.retries ?? 0) < 3) {
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
           x: current.x,
           y: current.y,
