@@ -67,9 +67,24 @@ describe("AI budget regression guard", () => {
     expect(body).toContain('"ai frontier selector budget hit"');
   });
 
+  it("hard-caps generic frontier action scans so neutral and attack execute paths cannot monopolize the process", () => {
+    const source = serverMainSource();
+    const start = source.indexOf("const bestAiFrontierAction =");
+    const end = source.indexOf("const bestAiOpeningScoutExpand =", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const body = source.slice(start, end);
+    expect(body).toContain("const startedAt = now();");
+    expect(body).toContain("let scannedCandidates = 0;");
+    expect(body).toContain("if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
+    expect(body).toContain('"ai frontier action selector budget hit"');
+  });
+
   it("reuses cached scout adjacency in frontier planning availability instead of rescanning neighbors", () => {
     const body = functionBody(serverMainSource(), "estimateAiFrontierAvailabilityProfile");
     expect(body).toContain("const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);");
+    expect(body).toContain("const scanLimit = Math.min(territorySummary.expandCandidates.length, 192);");
+    expect(body).toContain("const opportunityCap = 24;");
     expect(body).toContain("countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0");
   });
 });
