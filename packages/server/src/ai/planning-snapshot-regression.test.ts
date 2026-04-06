@@ -118,6 +118,16 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(executeBody).toContain("bestAiScaffoldExpand(actor, victoryPath, territorySummary)");
   });
 
+  it("does not fall back from scout execute into heavy any-neutral frontier scans", () => {
+    const body = functionBody(serverMainSource(), "executeAiGoapAction");
+    const scoutBranchStart = body.indexOf('if (actionKey === "claim_scout_border_tile")');
+    expect(scoutBranchStart).toBeGreaterThanOrEqual(0);
+    const scoutBranch = body.slice(scoutBranchStart, body.indexOf('if (actionKey === "claim_scaffold_border_tile")', scoutBranchStart));
+    expect(scoutBranch).toContain("candidates?.scoutExpand ??");
+    expect(scoutBranch).toContain("bestAiScoutExpand(actor, territorySummary)");
+    expect(scoutBranch).not.toContain("bestAiAnyNeutralExpand(");
+  });
+
   it("keeps execute-time frontier selectors off the heavy frontier planning summary path", () => {
     const source = serverMainSource();
     const selectorNames = [
