@@ -21,4 +21,13 @@ describe("auth verification regression guard", () => {
     expect(source).toContain("verifiedFirebaseIdentityByUid.set(decoded.uid, { decoded, expiresAt });");
     expect(source).toContain("let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);");
   });
+
+  it("falls back to cached or decoded Firebase identity when verification is unavailable", () => {
+    const source = serverMainSource();
+    expect(source).toContain("const verified = await verifyFirebaseToken(msg.token);");
+    expect(source).toContain("if (!decoded) decoded = cachedFirebaseIdentityForDecodedToken(msg.token);");
+    expect(source).toContain('app.log.warn({ err }, "firebase token verification fallback to cached identity");');
+    expect(source).toContain('const fallback = decodeFirebaseTokenFallback(msg.token);');
+    expect(source).toContain('\"firebase token verification fallback to unverified payload\"');
+  });
 });
