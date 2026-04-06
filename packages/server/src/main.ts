@@ -8140,11 +8140,6 @@ type AiPlanningStaticCache = {
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
-  bestEconomicExpand?: { from: Tile; to: Tile };
-  bestScoutExpand?: { from: Tile; to: Tile };
-  bestScaffoldExpand?: { from: Tile; to: Tile };
-  bestIslandExpand?: { from: Tile; to: Tile };
-  bestAnyNeutralExpand?: { from: Tile; to: Tile };
 };
 
 type AiSettlementSelectorCache = {
@@ -8182,11 +8177,6 @@ type AiFrontierAvailabilityProfile = {
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
-  bestEconomicExpand?: { from: Tile; to: Tile };
-  bestScoutExpand?: { from: Tile; to: Tile };
-  bestScaffoldExpand?: { from: Tile; to: Tile };
-  bestIslandExpand?: { from: Tile; to: Tile };
-  bestAnyNeutralExpand?: { from: Tile; to: Tile };
 };
 
 type AiFrontierPlanningSummary = {
@@ -9572,11 +9562,6 @@ const estimateAiFrontierAvailabilityProfile = (
   let frontierOpportunityEconomic = 0;
   let frontierOpportunityScout = 0;
   let frontierOpportunityScaffold = 0;
-  let bestEconomicExpand: { score: number; from: Tile; to: Tile } | undefined;
-  let bestScoutExpand: { score: number; from: Tile; to: Tile } | undefined;
-  let bestScaffoldExpand: { score: number; from: Tile; to: Tile } | undefined;
-  let bestIslandExpand: { score: number; from: Tile; to: Tile } | undefined;
-  let bestAnyNeutralExpand: { score: number; from: Tile; to: Tile } | undefined;
 
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
@@ -9602,43 +9587,12 @@ const estimateAiFrontierAvailabilityProfile = (
     const islandId = islandIdByTile.get(tileKey);
     const islandCandidate = undercoveredIslandCount > 0 && (focusIslandId === undefined ? islandId !== undefined : islandId === focusIslandId);
 
-    let bestClassScore = 40;
     if (economicCandidate) {
       frontierOpportunityEconomic += 1;
-      const score =
-        280 +
-        (townsByTile.has(tileKey) ? 180 : 0) +
-        (docksByTile.has(tileKey) ? 130 : 0) +
-        (supportedTownCount > 0 ? 120 : 0) +
-        (to.resource ? 100 + baseTileValue(to.resource) : 0) +
-        (fromSettled ? 12 : 0);
-      if (!bestEconomicExpand || score > bestEconomicExpand.score) bestEconomicExpand = { score, from, to };
-      bestClassScore = Math.max(bestClassScore, score);
     } else if (scaffoldCandidate) {
       frontierOpportunityScaffold += 1;
-      const score =
-        (supportedTownCount > 0 ? 200 : 0) +
-        (townsByTile.has(tileKey) ? 180 : 0) +
-        (to.resource ? 110 + baseTileValue(to.resource) : 0) +
-        (docksByTile.has(tileKey) ? 130 : 0) +
-        ownedNeighbors * 20 -
-        exposedSides * 14 +
-        (fromSettled ? 10 : 0);
-      if (!bestScaffoldExpand || score > bestScaffoldExpand.score) bestScaffoldExpand = { score, from, to };
-      bestClassScore = Math.max(bestClassScore, 180 + score);
     } else if (scoutCandidate) {
       frontierOpportunityScout += 1;
-      const score = 150 + (hiddenNeighbor ? 90 : 0) + ownedNeighbors * 14 + (fromSettled ? 8 : 0);
-      if (!bestScoutExpand || score > bestScoutExpand.score) bestScoutExpand = { score, from, to };
-      bestClassScore = Math.max(bestClassScore, score);
-    }
-    if (islandCandidate) {
-      const score = 220 + (focusIslandId !== undefined ? 80 : 0) + (economicCandidate ? 40 : 0) + (scoutCandidate ? 25 : 0) + (fromSettled ? 12 : 0);
-      if (!bestIslandExpand || score > bestIslandExpand.score) bestIslandExpand = { score, from, to };
-      bestClassScore = Math.max(bestClassScore, score);
-    }
-    if (!bestAnyNeutralExpand || bestClassScore > bestAnyNeutralExpand.score) {
-      bestAnyNeutralExpand = { score: bestClassScore, from, to };
     }
   }
 
@@ -9658,12 +9612,7 @@ const estimateAiFrontierAvailabilityProfile = (
     frontierOpportunityEconomic,
     frontierOpportunityScout,
     frontierOpportunityScaffold,
-    frontierOpportunityWaste,
-    ...(bestEconomicExpand ? { bestEconomicExpand: { from: bestEconomicExpand.from, to: bestEconomicExpand.to } } : {}),
-    ...(bestScoutExpand ? { bestScoutExpand: { from: bestScoutExpand.from, to: bestScoutExpand.to } } : {}),
-    ...(bestScaffoldExpand ? { bestScaffoldExpand: { from: bestScaffoldExpand.from, to: bestScaffoldExpand.to } } : {}),
-    ...(bestIslandExpand ? { bestIslandExpand: { from: bestIslandExpand.from, to: bestIslandExpand.to } } : {}),
-    ...(bestAnyNeutralExpand ? { bestAnyNeutralExpand: { from: bestAnyNeutralExpand.from, to: bestAnyNeutralExpand.to } } : {})
+    frontierOpportunityWaste
   };
 };
 
@@ -9980,12 +9929,7 @@ const buildAiPlanningStaticCache = (
     frontierOpportunityEconomic: frontierAvailability.frontierOpportunityEconomic,
     frontierOpportunityScout: frontierAvailability.frontierOpportunityScout,
     frontierOpportunityScaffold: frontierAvailability.frontierOpportunityScaffold,
-    frontierOpportunityWaste: frontierAvailability.frontierOpportunityWaste,
-    ...(frontierAvailability.bestEconomicExpand ? { bestEconomicExpand: frontierAvailability.bestEconomicExpand } : {}),
-    ...(frontierAvailability.bestScoutExpand ? { bestScoutExpand: frontierAvailability.bestScoutExpand } : {}),
-    ...(frontierAvailability.bestScaffoldExpand ? { bestScaffoldExpand: frontierAvailability.bestScaffoldExpand } : {}),
-    ...(frontierAvailability.bestIslandExpand ? { bestIslandExpand: frontierAvailability.bestIslandExpand } : {}),
-    ...(frontierAvailability.bestAnyNeutralExpand ? { bestAnyNeutralExpand: frontierAvailability.bestAnyNeutralExpand } : {})
+    frontierOpportunityWaste: frontierAvailability.frontierOpportunityWaste
   };
 };
 
@@ -10603,9 +10547,11 @@ const executeAiGoapAction = (
   }
 ): boolean => {
   const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>
-    (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandExpand : undefined) ??
+    (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandExpand ?? bestAiIslandExpand(actor, territorySummary) : undefined) ??
     candidates?.neutralExpand ??
-    candidates?.anyNeutralExpand;
+    bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
+    candidates?.anyNeutralExpand ??
+    bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
 
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
@@ -10615,19 +10561,31 @@ const executeAiGoapAction = (
     return true;
   }
   if (actionKey === "claim_food_border_tile") {
-    const candidate = candidates?.neutralExpand ?? candidates?.anyNeutralExpand;
+    const candidate =
+      candidates?.neutralExpand ??
+      bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
+      candidates?.anyNeutralExpand ??
+      bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_scout_border_tile") {
-    const candidate = candidates?.scoutExpand ?? candidates?.anyNeutralExpand;
+    const candidate =
+      candidates?.scoutExpand ??
+      bestAiScoutExpand(actor, territorySummary) ??
+      candidates?.anyNeutralExpand ??
+      bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_scaffold_border_tile") {
-    const candidate = candidates?.scaffoldExpand ?? candidates?.anyNeutralExpand;
+    const candidate =
+      candidates?.scaffoldExpand ??
+      bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
+      candidates?.anyNeutralExpand ??
+      bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
@@ -11034,13 +10992,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
 
   const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);
   const executeStartedAt = now();
-  const executed = executeAiGoapAction(actor, decision.actionKey, primaryVictoryPath, territorySummary, {
-    neutralExpand: planningStatic.bestEconomicExpand,
-    anyNeutralExpand: planningStatic.bestAnyNeutralExpand,
-    scoutExpand: planningStatic.bestScoutExpand,
-    scaffoldExpand: planningStatic.bestScaffoldExpand,
-    islandExpand: planningStatic.bestIslandExpand
-  });
+  const executed = executeAiGoapAction(actor, decision.actionKey, primaryVictoryPath, territorySummary);
   markAiTurnPhase("execute", executeStartedAt);
   const totalElapsedMs = now() - turnStartedAt;
   if (totalElapsedMs >= 500) {
