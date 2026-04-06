@@ -149,6 +149,7 @@ const STARTING_MANPOWER = Math.max(MANPOWER_BASE_CAP, Number(process.env.STARTIN
 const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 const AI_DISPATCH_INTERVAL_MS = Math.max(100, Number(process.env.AI_DISPATCH_INTERVAL_MS ?? 250));
 const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
+const AI_TICK_BUDGET_MS = Math.max(250, Number(process.env.AI_TICK_BUDGET_MS ?? 1_000));
 const AI_HUMAN_PRIORITY_BATCH_SIZE = Math.max(1, Number(process.env.AI_HUMAN_PRIORITY_BATCH_SIZE ?? 1));
 const AI_HUMAN_DEFENSE_BATCH_SIZE = Math.max(
   AI_HUMAN_PRIORITY_BATCH_SIZE,
@@ -2010,6 +2011,16 @@ const truceBreakPenaltyByPair = new Map<string, { penalizedPlayerId: string; tar
 const chunkSubscriptionByPlayer = new Map<string, { cx: number; cy: number; radius: number }>();
 const chunkSnapshotSentAtByPlayer = new Map<string, { cx: number; cy: number; radius: number; sentAt: number }>();
 const recentAiTickPerf = perfRing<{ at: number; elapsedMs: number; aiPlayers: number; rssMb: number; heapUsedMb: number }>(30);
+const recentAiBudgetBreachPerf = perfRing<{
+  at: number;
+  playerId: string;
+  elapsedMs: number;
+  overBudgetMs: number;
+  phase: string;
+  phaseElapsedMs: number;
+  reason?: string;
+  actionKey?: string;
+}>(30);
 const recentChunkSnapshotPerf = perfRing<{ at: number; playerId: string; elapsedMs: number; chunks: number; tiles: number; radius: number; rssMb: number; heapUsedMb: number }>(50);
 const recentRuntimeVitals = perfRing<ReturnType<typeof sampleRuntimeVitals>>(180);
 const aiYieldCollectDueAtByPlayer = new Map<string, number>();
@@ -2107,16 +2118,64 @@ const perfSummary = <T,>(
     lastMs: roundTo(elapsed[elapsed.length - 1] ?? 0, 1)
   };
 };
+const hottestAiTurnPhase = (phaseTimings: Record<string, number>): { phase: string; elapsedMs: number } => {
+  let phase = "unknown";
+  let elapsedMs = 0;
+  for (const [phaseName, phaseDuration] of Object.entries(phaseTimings)) {
+    if (phaseDuration <= elapsedMs) continue;
+    phase = phaseName;
+    elapsedMs = phaseDuration;
+  }
+  return { phase, elapsedMs };
+};
+const recordAiBudgetBreach = (
+  actor: Player,
+  totalElapsedMs: number,
+  phaseTimings: Record<string, number>,
+  extras?: { reason?: string; actionKey?: string }
+): void => {
+  if (totalElapsedMs < AI_TICK_BUDGET_MS) return;
+  const hottestPhase = hottestAiTurnPhase(phaseTimings);
+  const sample = {
+    at: now(),
+    playerId: actor.id,
+    elapsedMs: totalElapsedMs,
+    overBudgetMs: totalElapsedMs - AI_TICK_BUDGET_MS,
+    phase: hottestPhase.phase,
+    phaseElapsedMs: hottestPhase.elapsedMs,
+    ...(extras?.reason ? { reason: extras.reason } : {}),
+    ...(extras?.actionKey ? { actionKey: extras.actionKey } : {})
+  };
+  recentAiBudgetBreachPerf.push(sample);
+  appRef?.log.warn(sample, "ai budget breach");
+};
 const runtimeHotspotDiagnostics = (): {
   aiTicks: ReturnType<typeof perfSummary> & { lastAiPlayers: number };
+  aiBudget: ReturnType<typeof perfSummary> & {
+    budgetMs: number;
+    breaches: number;
+    lastPhase?: string;
+    lastReason?: string;
+    lastActionKey?: string;
+  };
   chunkSnapshots: ReturnType<typeof perfSummary> & { maxChunks: number; maxTiles: number };
 } => {
   const aiEntries = recentAiTickPerf.values();
+  const aiBudgetEntries = recentAiBudgetBreachPerf.values();
   const chunkEntries = recentChunkSnapshotPerf.values();
+  const lastAiBudgetEntry = aiBudgetEntries[aiBudgetEntries.length - 1];
   return {
     aiTicks: {
       ...perfSummary(aiEntries, (entry) => entry.elapsedMs),
       lastAiPlayers: aiEntries[aiEntries.length - 1]?.aiPlayers ?? 0
+    },
+    aiBudget: {
+      ...perfSummary(aiBudgetEntries, (entry) => entry.elapsedMs),
+      budgetMs: AI_TICK_BUDGET_MS,
+      breaches: aiBudgetEntries.length,
+      ...(lastAiBudgetEntry?.phase ? { lastPhase: lastAiBudgetEntry.phase } : {}),
+      ...(lastAiBudgetEntry?.reason ? { lastReason: lastAiBudgetEntry.reason } : {}),
+      ...(lastAiBudgetEntry?.actionKey ? { lastActionKey: lastAiBudgetEntry.actionKey } : {})
     },
     chunkSnapshots: {
       ...perfSummary(chunkEntries, (entry) => entry.elapsedMs),
@@ -10861,6 +10920,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   markAiTurnPhase("shardOrTruce", shardOrTruceStartedAt);
   if (strategicState && shardOrTruceResult) {
     const totalElapsedMs = now() - turnStartedAt;
+    recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: shardOrTruceResult });
     if (totalElapsedMs >= 500) {
       appRef?.log.warn({ playerId: actor.id, totalElapsedMs, phases: phaseTimings, reason: shardOrTruceResult, msg: "slow ai turn phases" });
     }
@@ -10937,6 +10997,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
 
   if (!decision.actionKey) {
     const totalElapsedMs = now() - turnStartedAt;
+    recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason });
     if (totalElapsedMs >= 500) {
       appRef?.log.warn({ playerId: actor.id, totalElapsedMs, phases: phaseTimings, reason: decision.reason, msg: "slow ai turn phases" });
     }
@@ -10959,6 +11020,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     );
     markAiTurnPhase("execute", executeStartedAt);
     const totalElapsedMs = now() - turnStartedAt;
+    recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason, actionKey: decision.actionKey });
     if (totalElapsedMs >= 500) {
       appRef?.log.warn(
         { playerId: actor.id, totalElapsedMs, phases: phaseTimings, actionKey: decision.actionKey, executed, msg: "slow ai turn phases" }
@@ -10981,6 +11043,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const executed = executeAiGoapAction(actor, decision.actionKey, primaryVictoryPath, territorySummary);
   markAiTurnPhase("execute", executeStartedAt);
   const totalElapsedMs = now() - turnStartedAt;
+  recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason, actionKey: decision.actionKey });
   if (totalElapsedMs >= 500) {
     appRef?.log.warn(
       { playerId: actor.id, totalElapsedMs, phases: phaseTimings, actionKey: decision.actionKey, executed, msg: "slow ai turn phases" }
@@ -15983,6 +16046,14 @@ const runtimeDashboardPayload = (): {
     eventLoopOverloaded: boolean;
     reason: string;
   };
+  aiBudget: {
+    budgetMs: number;
+    breaches: number;
+    lastPhase?: string;
+    lastReason?: string;
+    lastActionKey?: string;
+    recent: ReturnType<typeof recentAiBudgetBreachPerf.values>;
+  };
   hotspots: ReturnType<typeof runtimeHotspotDiagnostics>;
   collections: Array<{ name: string; entries: number }>;
   history: {
@@ -15993,6 +16064,8 @@ const runtimeDashboardPayload = (): {
 } => {
   const latestVitals = recentRuntimeVitals.values().at(-1) ?? sampleRuntimeVitals();
   const cachePayloads = cachedChunkPayloadDiagnostics();
+  const recentAiBudgetBreaches = recentAiBudgetBreachPerf.values();
+  const lastAiBudgetBreach = recentAiBudgetBreaches.at(-1);
   return {
     ok: true,
     at: now(),
@@ -16064,6 +16137,14 @@ const runtimeDashboardPayload = (): {
       dispatchIntervalMs: AI_DISPATCH_INTERVAL_MS,
       targetCadenceMs: AI_TICK_MS,
       ...aiSchedulerState
+    },
+    aiBudget: {
+      budgetMs: AI_TICK_BUDGET_MS,
+      breaches: recentAiBudgetBreaches.length,
+      ...(lastAiBudgetBreach?.phase ? { lastPhase: lastAiBudgetBreach.phase } : {}),
+      ...(lastAiBudgetBreach?.reason ? { lastReason: lastAiBudgetBreach.reason } : {}),
+      ...(lastAiBudgetBreach?.actionKey ? { lastActionKey: lastAiBudgetBreach.actionKey } : {}),
+      recent: recentAiBudgetBreaches
     },
     hotspots: runtimeHotspotDiagnostics(),
     collections: runtimeCollectionDiagnostics(),
@@ -16381,6 +16462,7 @@ const renderRuntimeDashboardHtml = (): string => `<!doctype html>
             \${metricRow("Event loop max", fmt(runtime.eventLoopDelayMaxMs, " ms"))}
             \${metricRow("Pending auth verifications", fmt(data.queuePressure.pendingAuthVerifications))}
             \${metricRow("Runtime intervals", fmt(data.queuePressure.runtimeIntervals))}
+            \${metricRow("AI budget breaches", fmt(data.aiBudget.breaches), healthFlag(data.aiBudget.breaches, 1, 3))}
             \${metricRow("Chunk cache payload", fmt(data.caches.cachedChunkPayloadMb, " MB"))}
           \`);
 
@@ -16426,6 +16508,9 @@ const renderRuntimeDashboardHtml = (): string => `<!doctype html>
             \${renderHotspotBlock("AI tick loop", data.hotspots.aiTicks, \`
               <div class="muted" style="margin-top:8px">Last AI player count: \${fmt(data.hotspots.aiTicks.lastAiPlayers)}</div>
             \`)}
+            \${renderHotspotBlock("AI budget breaches", data.hotspots.aiBudget, \`
+              <div class="muted" style="margin-top:8px">Budget: \${fmt(data.hotspots.aiBudget.budgetMs, " ms")} • Last phase: \${data.hotspots.aiBudget.lastPhase || "n/a"} • Last action: \${data.hotspots.aiBudget.lastActionKey || "n/a"}</div>
+            \`)}
             \${renderHotspotBlock("Chunk snapshot generation", data.hotspots.chunkSnapshots, \`
               <div class="muted" style="margin-top:8px">Largest recent snapshot: \${fmt(data.hotspots.chunkSnapshots.maxChunks)} chunks / \${fmt(data.hotspots.chunkSnapshots.maxTiles)} tiles</div>
             \`)}
@@ -16441,6 +16526,7 @@ const renderRuntimeDashboardHtml = (): string => `<!doctype html>
               <thead><tr><th>Category</th><th>Latest</th><th>P95</th><th>Samples</th></tr></thead>
               <tbody>
                 <tr><td>AI ticks</td><td>\${fmt(data.hotspots.aiTicks.lastMs, " ms")}</td><td>\${fmt(data.hotspots.aiTicks.p95Ms, " ms")}</td><td>\${fmt(data.hotspots.aiTicks.samples)}</td></tr>
+                <tr><td>AI budget</td><td>\${fmt(data.hotspots.aiBudget.lastMs, " ms")}</td><td>\${fmt(data.hotspots.aiBudget.p95Ms, " ms")}</td><td>\${fmt(data.hotspots.aiBudget.samples)}</td></tr>
                 <tr><td>Chunk snapshots</td><td>\${fmt(data.hotspots.chunkSnapshots.lastMs, " ms")}</td><td>\${fmt(data.hotspots.chunkSnapshots.p95Ms, " ms")}</td><td>\${fmt(data.hotspots.chunkSnapshots.samples)}</td></tr>
                 <tr><td>Last AI sample at</td><td colspan="3">\${aiHistory.length ? fmtTime(aiHistory[aiHistory.length - 1].at) : "n/a"}</td></tr>
                 <tr><td>Last chunk snapshot at</td><td colspan="3">\${chunkHistory.length ? fmtTime(chunkHistory[chunkHistory.length - 1].at) : "n/a"}</td></tr>
