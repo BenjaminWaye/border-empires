@@ -9690,7 +9690,7 @@ const executeAiGoapAction = (
   if (actionKey === "claim_scout_border_tile") {
     const candidate =
       candidates?.scoutExpand ??
-      cachedFrontierPlanningSummary().bestScoutExpand;
+      bestAiScoutExpand(actor, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
