@@ -331,6 +331,7 @@ export interface Player {
   isEliminated: boolean;
   respawnPending: boolean;
   lastActiveAt: number;
+  lastEconomyWakeAt?: number;
   activityInbox: PlayerActivityEntry[];
 }
 
