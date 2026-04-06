@@ -344,7 +344,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.lastSubCy = Number.NaN;
       state.lastSubRadius = -1;
       state.fogDisabled = Boolean(((msg.config as { fogDisabled?: boolean } | undefined) ?? {}).fogDisabled);
-      requestViewRefresh(1, true);
       const player = msg.player as Record<string, unknown>;
       state.me = player.id as string;
       state.meName = player.name as string;
@@ -414,6 +413,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.camY = homeTile.y;
         state.selected = homeTile;
       }
+      requestViewRefresh(1, true);
       state.techChoices = (msg.techChoices as string[]) ?? [];
       state.techCatalog = (msg.techCatalog as any[]) ?? [];
       state.domainChoices = (msg.domainChoices as string[]) ?? [];
