@@ -19,14 +19,14 @@ describe("converter toggle regression guard", () => {
 
   it("preloads and renders the base crystal synthesizer overlay", () => {
     const render = clientSource("./client-map-render.ts");
-    const loop = clientSource("./client-runtime-loop.ts");
+    const loop = clientSource("./client-runtime-tile-render.ts");
     expect(render).toContain('CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg")');
     expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
   });
 
   it("keeps live-map overlays in sync with dedicated structure art", () => {
     const render = clientSource("./client-map-render.ts");
-    const loop = clientSource("./client-runtime-loop.ts");
+    const loop = clientSource("./client-runtime-tile-render.ts");
     const dedicatedStructureOverlays = [
       ["BANK", "bank-overlay.svg"],
       ["AIRPORT", "airport-overlay.svg"],
