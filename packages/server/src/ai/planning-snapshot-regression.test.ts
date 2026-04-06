@@ -115,7 +115,6 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestIslandExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestEconomicExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestAnyNeutralExpand");
-    expect(executeBody).toContain("cachedFrontierPlanningSummary().bestScoutExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestScaffoldExpand");
   });
 
@@ -125,7 +124,8 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(scoutBranchStart).toBeGreaterThanOrEqual(0);
     const scoutBranch = body.slice(scoutBranchStart, body.indexOf('if (actionKey === "claim_scaffold_border_tile")', scoutBranchStart));
     expect(scoutBranch).toContain("candidates?.scoutExpand ??");
-    expect(scoutBranch).toContain("cachedFrontierPlanningSummary().bestScoutExpand");
+    expect(scoutBranch).toContain("bestAiScoutExpand(actor, territorySummary)");
+    expect(scoutBranch).not.toContain("cachedFrontierPlanningSummary().bestScoutExpand");
     expect(scoutBranch).not.toContain("bestAiAnyNeutralExpand(");
   });
 
