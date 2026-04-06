@@ -339,6 +339,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.firstChunkAt = 0;
       state.chunkFullCount = 0;
       state.hasOwnedTileInCache = false;
+      state.lastSubAt = 0;
+      state.lastSubCx = Number.NaN;
+      state.lastSubCy = Number.NaN;
+      state.lastSubRadius = -1;
       state.fogDisabled = Boolean(((msg.config as { fogDisabled?: boolean } | undefined) ?? {}).fogDisabled);
       requestViewRefresh(1, true);
       const player = msg.player as Record<string, unknown>;
