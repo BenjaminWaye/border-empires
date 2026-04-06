@@ -7699,7 +7699,13 @@ const estimateAiFrontierAvailabilityProfile = (
     const exposedSides = adjacency.exposedSides;
     if (ownedNeighbors >= 3 && exposedSides <= 1) {
       frontierOpportunityScaffold = Math.min(opportunityCap, frontierOpportunityScaffold + 1);
-    } else if (countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0) {
+    } else {
+      const cachedRevealCount = territorySummary.scoutRevealCountByTileKey.get(tileKey) ?? 0;
+      const likelyScoutOpportunity =
+        cachedRevealCount > 0 ||
+        adjacency.coastlineDiscoveryValue > 0 ||
+        (!visibleInSnapshot(territorySummary.visibility, to.x, to.y) && (exposedSides >= 2 || ownedNeighbors <= 2));
+      if (!likelyScoutOpportunity) continue;
       frontierOpportunityScout = Math.min(opportunityCap, frontierOpportunityScout + 1);
     }
     if (
@@ -8103,7 +8109,7 @@ const cachedAiPlanningStaticForPlayer = (
 };
 
 const AI_STRATEGIC_STATE_TTL_MS = 30_000;
-const AI_SCOUT_SHORTLIST_SIZE = 24;
+const AI_SCOUT_SHORTLIST_SIZE = 12;
 
 const dominantAiEnemyFrontPlayerId = (actor: Player, territorySummary: Pick<AiTerritorySummary, "attackCandidates">): string | undefined => {
   const scores = new Map<string, number>();

@@ -97,6 +97,7 @@ describe("AI budget regression guard", () => {
     expect(scoutBody).toContain('"ai scout selector budget hit"');
     expect(scoutBody).toContain("const shortlist:");
     expect(scoutBody).toContain("AI_SCOUT_SHORTLIST_SIZE");
+    expect(planningBody).not.toContain("countAiScoutRevealTiles(");
   });
 
   it("keys settlement candidate assumptions by tile index instead of allocating singleton sets", () => {
