@@ -161,9 +161,9 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(evaluationBody).toContain("ownershipStateByTile.get(tk)");
     expect(fortBody).toContain("fortsByTile.has(tk)");
     expect(fortBody).toContain("isBorderTile(tile.x, tile.y, actor.id)");
-    expect(availabilityBody).toContain('evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary)');
-    expect(availabilityBody).toContain("const islandScore =");
-    expect(availabilityBody).toContain("if (islandScore >= 120) islandSettlementAvailable = true;");
+    expect(availabilityBody).not.toContain('evaluateAiSettlementCandidate(actor, tile, "SETTLED_TERRITORY", undefined, territorySummary)');
+    expect(availabilityBody).toContain("if (matchesFocus && (hasIntrinsicEconomicValue || hasTownSupport || isFoodTile || (!economyWeak && !foodCoverageLow && !territorySummary.underThreat))) {");
+    expect(availabilityBody).toContain("islandSettlementAvailable = true;");
   });
 
   it("invalidates cached settlement selectors when AI territory changes", () => {
