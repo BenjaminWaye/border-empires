@@ -58,7 +58,7 @@ describe("AI budget regression guard", () => {
     const body = functionBody(serverMainSource(), "bestAiScoutExpand");
     expect(body).toContain("const startedAt = now();");
     expect(body).toContain("let scannedCandidates = 0;");
-    expect(body).toContain("if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
+    expect(body).toContain("if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
     expect(body).toContain('"ai frontier selector budget hit"');
   });
 });
