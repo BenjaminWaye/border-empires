@@ -7722,10 +7722,27 @@ const bestAiFrontierAction = (
 
   let best: { score: number; from: Tile; to: Tile } | undefined;
   const frontierCandidates = kind === "ATTACK" ? territorySummary.attackCandidates : territorySummary.expandCandidates;
+  const startedAt = now();
+  let scannedCandidates = 0;
   for (const { from, to } of frontierCandidates) {
     if (to.terrain !== "LAND" || !filter(to)) continue;
+    scannedCandidates += 1;
     const score = scoreFrontierAction(from, to);
     if (!best || score > best.score) best = { score, from, to };
+    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: kind,
+          scannedCandidates,
+          frontierCandidates: frontierCandidates.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai frontier action selector budget hit"
+      );
+      break;
+    }
   }
   if (!best) return undefined;
   if (kind === "EXPAND" && earlyExpansionMode && best.score > Number.NEGATIVE_INFINITY) {
@@ -8689,26 +8706,37 @@ const estimateAiFrontierAvailabilityProfile = (
   actor: Player,
   territorySummary: AiTerritorySummary
 ): AiFrontierAvailabilityProfile => {
+  const scanLimit = Math.min(territorySummary.expandCandidates.length, 192);
+  const opportunityCap = 24;
   let frontierOpportunityScaffold = 0;
   let frontierOpportunityScout = 0;
+  let scannedCandidates = 0;
 
   for (const { to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
+    scannedCandidates += 1;
     const tileKey = key(to.x, to.y);
     if (townsByTile.has(tileKey) || docksByTile.has(tileKey) || Boolean(to.resource)) continue;
     const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
     const ownedNeighbors = adjacency.ownedNeighbors;
     const exposedSides = adjacency.exposedSides;
     if (ownedNeighbors >= 3 && exposedSides <= 1) {
-      frontierOpportunityScaffold += 1;
+      frontierOpportunityScaffold = Math.min(opportunityCap, frontierOpportunityScaffold + 1);
     } else if (countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0) {
-      frontierOpportunityScout += 1;
+      frontierOpportunityScout = Math.min(opportunityCap, frontierOpportunityScout + 1);
+    }
+    if (
+      scannedCandidates >= scanLimit &&
+      frontierOpportunityScout >= opportunityCap &&
+      frontierOpportunityScaffold >= opportunityCap
+    ) {
+      break;
     }
   }
 
   const neutralExpandAvailable = territorySummary.neutralLandExpandCount > 0;
   const economicExpandAvailable = territorySummary.neutralEconomicExpandCount > 0;
-  const frontierOpportunityEconomic = territorySummary.neutralEconomicExpandCount;
+  const frontierOpportunityEconomic = Math.min(opportunityCap, territorySummary.neutralEconomicExpandCount);
   const frontierOpportunityWaste = Math.max(
     0,
     territorySummary.neutralLandExpandCount - frontierOpportunityEconomic - frontierOpportunityScout - frontierOpportunityScaffold
@@ -9655,12 +9683,6 @@ const executeAiGoapAction = (
     pressureAttack?: ReturnType<typeof bestAiEnemyPressureAttack>;
   }
 ): boolean => {
-  let frontierPlanningSummary: AiFrontierPlanningSummary | undefined;
-  const cachedFrontierPlanningSummary = (): AiFrontierPlanningSummary => {
-    if (frontierPlanningSummary) return frontierPlanningSummary;
-    frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary ?? collectAiTerritorySummary(actor));
-    return frontierPlanningSummary;
-  };
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
     const candidate =
@@ -9674,9 +9696,7 @@ const executeAiGoapAction = (
   if (actionKey === "claim_food_border_tile") {
     const candidate =
       candidates?.neutralExpand ??
-      cachedFrontierPlanningSummary().bestEconomicExpand ??
-      candidates?.anyNeutralExpand ??
-      cachedFrontierPlanningSummary().bestAnyNeutralExpand;
+      bestAiEconomicExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
@@ -9693,8 +9713,8 @@ const executeAiGoapAction = (
     const candidate =
       candidates?.scaffoldExpand ??
       bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
-      candidates?.anyNeutralExpand ??
-      cachedFrontierPlanningSummary().bestAnyNeutralExpand;
+      candidates?.neutralExpand ??
+      bestAiEconomicExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
