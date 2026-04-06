@@ -37,4 +37,12 @@ describe("auth verification regression guard", () => {
     expect(source).toContain('const fallback = decodeFirebaseTokenFallback(msg.token);');
     expect(source).toContain('\"firebase token verification fallback to unverified payload\"');
   });
+
+  it("defers heavy init supplement work until after the base init is sent", () => {
+    const source = serverMainSource();
+    expect(source).toContain('type: "INIT"');
+    expect(source).toContain("setTimeout(() => {");
+    expect(source).toContain('type: "TECH_UPDATE"');
+    expect(source).toContain('type: "GLOBAL_STATUS_UPDATE"');
+  });
 });
