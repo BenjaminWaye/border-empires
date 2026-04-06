@@ -65,6 +65,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
+  let deferredBootstrapRefreshTimer: number | undefined;
 
   const clearReconnectReloadTimer = (): void => {
     if (reconnectReloadTimer !== undefined) {
@@ -77,6 +78,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (authReconnectTimer !== undefined) {
       window.clearTimeout(authReconnectTimer);
       authReconnectTimer = undefined;
+    }
+  };
+
+  const clearDeferredBootstrapRefreshTimer = (): void => {
+    if (deferredBootstrapRefreshTimer !== undefined) {
+      window.clearTimeout(deferredBootstrapRefreshTimer);
+      deferredBootstrapRefreshTimer = undefined;
     }
   };
 
@@ -217,6 +225,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   const applyChunkTiles = (tiles: any[]): void => {
+    const firstChunkArriving = state.firstChunkAt === 0;
     state.chunkFullCount += 1;
     if (state.firstChunkAt === 0) state.firstChunkAt = Date.now();
     let sawOwnedTile = false;
@@ -232,6 +241,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (sawOwnedTile) state.hasOwnedTileInCache = true;
     else if (!state.hasOwnedTileInCache) centerOnOwnedTile();
+    if (
+      firstChunkArriving &&
+      !state.fogDisabled &&
+      state.lastSubRadius < 2 &&
+      !state.actionInFlight &&
+      !state.capture &&
+      state.actionQueue.length === 0
+    ) {
+      clearDeferredBootstrapRefreshTimer();
+      deferredBootstrapRefreshTimer = window.setTimeout(() => {
+        deferredBootstrapRefreshTimer = undefined;
+        if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
+        if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
+        requestViewRefresh(2, true);
+      }, 400);
+    }
     renderHud();
   };
 
@@ -248,6 +273,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   });
 
   ws.addEventListener("close", () => {
+    clearDeferredBootstrapRefreshTimer();
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
     state.connection = "disconnected";
     state.actionInFlight = false;
@@ -299,6 +325,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "INIT") {
+      clearDeferredBootstrapRefreshTimer();
       state.connection = "initialized";
       state.authSessionReady = true;
       state.hasEverInitialized = true;
@@ -477,6 +504,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           siteCount: Number(shardRainNotice.siteCount ?? 0)
         });
       }
+      requestViewRefresh(1, true);
       syncAuthOverlay();
       renderHud();
       return;
@@ -1190,6 +1218,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
+      clearDeferredBootstrapRefreshTimer();
       const season = msg.season as { worldSeed?: number } | undefined;
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed);
@@ -1211,7 +1240,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         "info",
         "warn"
       );
-      requestViewRefresh();
+      requestViewRefresh(1, true);
       renderHud();
       return;
     }
