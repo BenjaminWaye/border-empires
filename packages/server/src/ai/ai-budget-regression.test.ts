@@ -57,14 +57,15 @@ describe("AI budget regression guard", () => {
     expect(source).toContain('renderHotspotBlock("AI budget breaches"');
   });
 
-  it("hard-caps scout frontier selector scans so one AI execute path cannot monopolize the process", () => {
-    const body = functionBody(serverMainSource(), "bestAiScoutExpand");
-    expect(body).toContain("const startedAt = now();");
-    expect(body).toContain("let scannedCandidates = 0;");
-    expect(body).toContain("if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0)");
-    expect(body).toContain("if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
-    expect(body).toContain("if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
-    expect(body).toContain('"ai frontier selector budget hit"');
+  it("precomputes opening scout candidates in frontier planning instead of rescanning during execution", () => {
+    const source = serverMainSource();
+    const planningBody = functionBody(source, "frontierPlanningSummaryForPlayer");
+    const turnBody = functionBody(source, "runAiTurn");
+    expect(planningBody).toContain("let bestOpeningScoutExpand:");
+    expect(planningBody).toContain("openingScoutAvailable = true;");
+    expect(planningBody).toContain("bestOpeningScoutExpand = { score: openingScoutScore, from, to };");
+    expect(planningBody).toContain("bestOpeningScoutExpand: { from: bestOpeningScoutExpand.from, to: bestOpeningScoutExpand.to }");
+    expect(turnBody).toContain("const opening = frontierActionFromRef(planningStatic.openingScoutExpand);");
   });
 
   it("hard-caps generic frontier action scans so neutral and attack execute paths cannot monopolize the process", () => {
@@ -80,11 +81,35 @@ describe("AI budget regression guard", () => {
     expect(body).toContain('"ai frontier action selector budget hit"');
   });
 
-  it("reuses cached scout adjacency in frontier planning availability instead of rescanning neighbors", () => {
-    const body = functionBody(serverMainSource(), "estimateAiFrontierAvailabilityProfile");
-    expect(body).toContain("const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);");
-    expect(body).toContain("const scanLimit = Math.min(territorySummary.expandCandidates.length, 192);");
-    expect(body).toContain("const opportunityCap = 24;");
-    expect(body).toContain("countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0");
+  it("stores concrete candidate refs in planning static and executes from cache handles", () => {
+    const source = serverMainSource();
+    const planningBody = functionBody(source, "buildAiPlanningStaticCache");
+    const executeBody = functionBody(source, "executeAiGoapAction");
+    expect(planningBody).toContain("const frontierPlanning = frontierPlanningSummaryForPlayer(actor, territorySummary);");
+    expect(planningBody).toContain("openingScoutExpand: frontierActionRefFromPair(frontierPlanning.bestOpeningScoutExpand)");
+    expect(planningBody).toContain("const economicExpand = bestAiEconomicExpand(actor, victoryPath, territorySummary);");
+    expect(planningBody).toContain("economicExpand: frontierActionRefFromPair(economicExpand)");
+    expect(planningBody).toContain("pressureAttack: { fromIndex: tileRefFromTile(pressureAttack.from), toIndex: tileRefFromTile(pressureAttack.to) }");
+    expect(planningBody).toContain("economicBuild: { tileIndex: tileRefFromTile(economicBuild.tile), structureType: economicBuild.structureType }");
+    expect(executeBody).toContain("const candidate = frontierActionFromRef(planningStatic.scoutExpand);");
+    expect(executeBody).toContain("const candidate = frontierActionFromRef(planningStatic.pressureAttack) ?? frontierActionFromRef(planningStatic.enemyAttack);");
+    expect(executeBody).toContain("const candidate = planningStatic.economicBuild;");
+  });
+
+  it("keys settlement candidate assumptions by tile index instead of allocating singleton sets", () => {
+    const body = functionBody(serverMainSource(), "evaluateAiSettlementCandidate");
+    expect(body).toContain('const cacheKey = `${tkIndex}|${victoryPath ?? "none"}|${assumedFrontierTileIndex ?? -1}`;');
+    expect(body).toContain("const assumedOwned = assumedFrontierTileIndex === tkIndex;");
+    expect(body).toContain("if (assumedFrontierTileIndex === tileIndex(neighbor.x, neighbor.y)) {");
+  });
+
+  it("refreshes planning static cache when actor budget or pending settlement state changes", () => {
+    const source = serverMainSource();
+    const cachedBody = functionBody(source, "cachedAiPlanningStaticForPlayer");
+    expect(source).toContain("const aiPlanningStaticProfileKey = (");
+    expect(cachedBody).toContain("const profileKey = aiPlanningStaticProfileKey(actor, territorySummary, victoryPath);");
+    expect(cachedBody).toContain("const pendingSettlementCount = pendingSettlementCountForPlayer(actor.id);");
+    expect(cachedBody).toContain("cached.profileKey === profileKey");
+    expect(cachedBody).toContain("cached.pendingSettlementCount === pendingSettlementCount");
   });
 });
