@@ -398,12 +398,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       resetStrategicReplayState();
       const config = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
       const season = config.season;
+      state.fogDisabled = Boolean(config.fogDisabled);
+      requestViewRefresh();
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed);
         clearRenderCaches();
         buildMiniMapBase();
       }
-      state.fogDisabled = Boolean(config.fogDisabled);
       const mapMeta = (msg.mapMeta as { dockCount?: number; dockPairCount?: number; clusterCount?: number; townCount?: number; dockPairs?: any[] } | undefined) ?? {};
       const shardRainNotice =
         (msg.shardRainNotice as
@@ -476,7 +477,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           siteCount: Number(shardRainNotice.siteCount ?? 0)
         });
       }
-      requestViewRefresh();
       syncAuthOverlay();
       renderHud();
       return;
