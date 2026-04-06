@@ -34,7 +34,7 @@ export const requestViewRefresh = (
   const elapsed = Date.now() - state.lastSubAt;
   const sameSub = cx === state.lastSubCx && cy === state.lastSubCy && effectiveRadius === state.lastSubRadius;
   const stillWaitingForInitialChunks = state.firstChunkAt === 0;
-  const forcedRetryCooldownMs = stillWaitingForInitialChunks ? 1200 : 30_000;
+  const forcedRetryCooldownMs = stillWaitingForInitialChunks ? 8_000 : 30_000;
   const normalRefreshCooldownMs = 700;
   if (sameSub) {
     if (!deps.force && elapsed < normalRefreshCooldownMs) return;
