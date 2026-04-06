@@ -118,6 +118,22 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(executeBody).toContain("bestAiScaffoldExpand(actor, victoryPath, territorySummary)");
   });
 
+  it("keeps execute-time frontier selectors off the heavy frontier planning summary path", () => {
+    const source = serverMainSource();
+    const selectorNames = [
+      "bestAiScoutExpand",
+      "bestAiScaffoldExpand",
+      "bestAiEconomicExpand",
+      "bestAiIslandExpand",
+      "bestAiAnyNeutralExpand"
+    ] as const;
+
+    for (const selectorName of selectorNames) {
+      const body = functionBody(source, selectorName);
+      expect(body).not.toContain("frontierPlanningSummaryForPlayer(");
+    }
+  });
+
   it("keeps victory-path scoring on cheap cached territory signals", () => {
     const source = serverMainSource();
     expect(source).toContain("const townOpportunityScore = territorySummary.neutralTownExpandCount * 5 + territorySummary.hostileTownAttackCount * 6;");
