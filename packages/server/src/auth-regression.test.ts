@@ -18,4 +18,13 @@ describe("auth verification regression guard", () => {
     expect(source).toContain("verifiedFirebaseIdentityByUid.set(decoded.uid, { decoded, expiresAt });");
     expect(source).toContain("let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);");
   });
+
+  it("dedupes in-flight Firebase token verification and bypasses to decoded payload under auth backlog", () => {
+    const source = serverMainSource();
+    expect(source).toContain("const inFlightFirebaseVerificationByToken = new Map");
+    expect(source).toContain("const AUTH_BACKLOG_FALLBACK_THRESHOLD = Math.max(1, Number(process.env.AUTH_BACKLOG_FALLBACK_THRESHOLD ?? 2));");
+    expect(source).toContain("const existing = inFlightFirebaseVerificationByToken.get(token);");
+    expect(source).toContain('\"firebase token verification bypassed under auth pressure\"');
+    expect(source).toContain("if (decodedFallback && pendingAuthVerifications >= AUTH_BACKLOG_FALLBACK_THRESHOLD)");
+  });
 });
