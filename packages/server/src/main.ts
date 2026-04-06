@@ -3265,6 +3265,7 @@ const assignMissingTownNamesForWorld = (): void => {
 };
 
 const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
+const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
 const TOWN_CAPTURE_GROWTH_RADIUS = 20;
 
 const applyTownWarShock = (tileKey: TileKey): void => {
@@ -3282,6 +3283,11 @@ const applyTownCaptureShock = (tileKey: TileKey): void => {
   const until = now() + TOWN_CAPTURE_SHOCK_MS;
   townCaptureShockUntilByTile.set(tileKey, until);
   applyTownWarShock(tileKey);
+};
+
+const applyTownCapturePopulationLoss = (town: TownDefinition): void => {
+  if ((townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now()) return;
+  town.population = Math.max(1, town.population * TOWN_CAPTURE_POPULATION_LOSS_MULT);
 };
 
 const ensureBaselineEconomyCoverage = (seed: number): void => {
@@ -14463,7 +14469,13 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   if (oldOwner !== newOwner) {
     if (!newOwner) tileYieldByTile.delete(k);
     if (oldOwner && newOwner) recordTileCaptureHistory(k, oldOwner, newOwner);
-    if (oldOwner && newOwner && townsByTile.has(k)) applyTownCaptureShock(k);
+    if (oldOwner && newOwner) {
+      const capturedTown = townsByTile.get(k);
+      if (capturedTown) {
+        applyTownCapturePopulationLoss(capturedTown);
+        applyTownCaptureShock(k);
+      }
+    }
   }
 
   if (oldOwner) {

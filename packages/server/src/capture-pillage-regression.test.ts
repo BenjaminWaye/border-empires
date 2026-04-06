@@ -40,4 +40,15 @@ describe("capture payout regression guard", () => {
     expect(body).toContain("stock[r] += amt");
     expect(body).toContain("pruneEmptyTileYield(tileKey, y)");
   });
+
+  it("only applies town capture population loss on the first capture inside the recent-capture window", () => {
+    const source = serverMainSource();
+    const helperBody = functionBody(source, "applyTownCapturePopulationLoss");
+    const ownershipBody = functionBody(source, "updateOwnership");
+    expect(source).toContain("const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;");
+    expect(helperBody).toContain('if ((townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now()) return;');
+    expect(helperBody).toContain("town.population = Math.max(1, town.population * TOWN_CAPTURE_POPULATION_LOSS_MULT);");
+    expect(ownershipBody).toContain("applyTownCapturePopulationLoss(capturedTown);");
+    expect(ownershipBody).toContain("applyTownCaptureShock(k);");
+  });
 });
