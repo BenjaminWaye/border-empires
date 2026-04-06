@@ -1,4 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
+import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
 import { isForestTile } from "./client-constants.js";
 import type { EmpireVisualStyle, Tile } from "./client-types.js";
 
@@ -6,7 +7,7 @@ type TileMap = Map<string, Tile>;
 type TerrainTextureId = "SEA_DEEP" | "SEA_COAST" | "SAND" | "GRASS_LIGHT" | "GRASS_DARK" | "MOUNTAIN";
 
 const TERRAIN_TEXTURE_SIZE = 64;
-const overlayAssetVersion = "20260405a";
+const overlayAssetVersion = "20260406a";
 const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -15,6 +16,24 @@ const loadOverlayImage = (filename: string): HTMLImageElement => {
   return image;
 };
 const createOverlayVariantSet = (filenames: readonly string[]): HTMLImageElement[] => filenames.map(loadOverlayImage);
+const createDirectionalOverlaySet = (
+  prefix: string,
+  variant: "open" | "direction" | "static" = "open"
+): Record<FortificationOpening, HTMLImageElement> => {
+  if (variant === "static") {
+    const image = loadOverlayImage(`${prefix}.svg`);
+    return { CLOSED: image, NORTH: image, EAST: image, SOUTH: image, WEST: image };
+  }
+  const suffixFor = (direction: Exclude<FortificationOpening, "CLOSED">): string =>
+    variant === "direction" ? direction.toLowerCase() : `open-${direction.toLowerCase()}`;
+  return {
+    CLOSED: loadOverlayImage(`${prefix}-closed.svg`),
+    NORTH: loadOverlayImage(`${prefix}-${suffixFor("NORTH")}.svg`),
+    EAST: loadOverlayImage(`${prefix}-${suffixFor("EAST")}.svg`),
+    SOUTH: loadOverlayImage(`${prefix}-${suffixFor("SOUTH")}.svg`),
+    WEST: loadOverlayImage(`${prefix}-${suffixFor("WEST")}.svg`)
+  };
+};
 const createTownOverlaySet = (
   sources: Record<NonNullable<Tile["town"]>["populationTier"], string>
 ): Record<NonNullable<Tile["town"]>["populationTier"], HTMLImageElement> => {
@@ -73,6 +92,12 @@ export const structureOverlayImages = {
   GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),
   RADAR_SYSTEM: loadOverlayImage("radar-system-overlay.svg")
 } as const;
+const fortificationOverlayImages: Record<FortificationOverlayKind, Record<FortificationOpening, HTMLImageElement>> = {
+  FORT: createDirectionalOverlaySet("fort-ring-overlay"),
+  SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static"),
+  WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay"),
+  LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")
+};
 
 const builtResourceOverlayVariants = {
   FARM_FARMSTEAD: createOverlayVariantSet(["farm-farmstead-overlay-1.svg", "farm-farmstead-overlay-2.svg", "farm-farmstead-overlay-3.svg"]),
@@ -990,6 +1015,11 @@ export const economicStructureOverlayAlpha = (tile: Tile): number => {
   if (status === "under_construction") return 0.8;
   return 0.7;
 };
+
+export const fortificationOverlayImageFor = (
+  kind: FortificationOverlayKind,
+  opening: FortificationOpening
+): HTMLImageElement | undefined => fortificationOverlayImages[kind]?.[opening];
 
 export const hexWithAlpha = (hex: string, alpha: number): string => {
   const { r, g, b } = hexToRgb(hex);
