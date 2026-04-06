@@ -12,6 +12,13 @@ const serverMainSource = (): string => {
 };
 
 describe("auth verification regression guard", () => {
+  it("caps Firebase verification time so JWKS stalls do not block login for seconds", () => {
+    const source = serverMainSource();
+    expect(source).toContain("export const AUTH_VERIFY_TIMEOUT_MS = Math.max(750");
+    expect(source).toContain("return await Promise.race([");
+    expect(source).toContain("AuthVerifyTimeout after ${AUTH_VERIFY_TIMEOUT_MS}ms");
+  });
+
   it("reuses verified identity by uid when the Firebase token rotates", () => {
     const source = serverMainSource();
     expect(source).toContain("const verifiedFirebaseIdentityByUid = new Map");
