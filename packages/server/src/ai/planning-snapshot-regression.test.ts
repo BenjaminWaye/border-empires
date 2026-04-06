@@ -112,9 +112,9 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const executeBody = functionBody(serverMainSource(), "executeAiGoapAction");
     expect(executeBody).toContain("const cachedFrontierPlanningSummary = (): AiFrontierPlanningSummary =>");
     expect(executeBody).toContain("frontierPlanningSummaryForPlayer(actor, territorySummary ?? collectAiTerritorySummary(actor))");
-    expect(executeBody).toContain("cachedFrontierPlanningSummary().bestIslandExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestEconomicExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestAnyNeutralExpand");
+    expect(executeBody).not.toContain("cachedFrontierPlanningSummary().bestIslandExpand");
     expect(executeBody).not.toContain("cachedFrontierPlanningSummary().bestScaffoldExpand");
   });
 
@@ -127,6 +127,19 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(scoutBranch).toContain("bestAiScoutExpand(actor, territorySummary)");
     expect(scoutBranch).not.toContain("cachedFrontierPlanningSummary().bestScoutExpand");
     expect(scoutBranch).not.toContain("bestAiAnyNeutralExpand(");
+  });
+
+  it("does not fall back from neutral execute into heavy frontier planning summary scans", () => {
+    const body = functionBody(serverMainSource(), "executeAiGoapAction");
+    const neutralBranchStart = body.indexOf('if (actionKey === "claim_neutral_border_tile")');
+    expect(neutralBranchStart).toBeGreaterThanOrEqual(0);
+    const neutralBranch = body.slice(neutralBranchStart, body.indexOf('if (actionKey === "claim_food_border_tile")', neutralBranchStart));
+    expect(neutralBranch).toContain('victoryPath === "SETTLED_TERRITORY" ? candidates?.islandExpand ?? bestAiIslandExpand(actor, territorySummary) : undefined');
+    expect(neutralBranch).toContain("candidates?.neutralExpand ??");
+    expect(neutralBranch).toContain("bestAiEconomicExpand(actor, victoryPath, territorySummary)");
+    expect(neutralBranch).not.toContain("cachedFrontierPlanningSummary().bestEconomicExpand");
+    expect(neutralBranch).not.toContain("cachedFrontierPlanningSummary().bestAnyNeutralExpand");
+    expect(neutralBranch).not.toContain("bestAiAnyNeutralExpand(");
   });
 
   it("does not fall back from scaffold execute into heavy frontier planning summary scans", () => {

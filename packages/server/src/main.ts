@@ -9661,18 +9661,12 @@ const executeAiGoapAction = (
     frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary ?? collectAiTerritorySummary(actor));
     return frontierPlanningSummary;
   };
-  const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>
-    (victoryPath === "SETTLED_TERRITORY"
-      ? candidates?.islandExpand ?? cachedFrontierPlanningSummary().bestIslandExpand
-      : undefined) ??
-    candidates?.neutralExpand ??
-    cachedFrontierPlanningSummary().bestEconomicExpand ??
-    candidates?.anyNeutralExpand ??
-    cachedFrontierPlanningSummary().bestAnyNeutralExpand;
-
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
-    const candidate = cachedNeutralExpandCandidate();
+    const candidate =
+      (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandExpand ?? bestAiIslandExpand(actor, territorySummary) : undefined) ??
+      candidates?.neutralExpand ??
+      bestAiEconomicExpand(actor, victoryPath, territorySummary);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
