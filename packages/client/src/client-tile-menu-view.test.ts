@@ -38,6 +38,7 @@ const settledObservatoryTile = (status: NonNullable<Tile["observatory"]>["status
 const deps = {
   state: { me: "me" },
   prettyToken: (value: string) => value,
+  playerNameForOwner: (_ownerId?: string | null) => undefined,
   terrainLabel: (_x: number, _y: number, terrain: Tile["terrain"]) => terrain,
   displayTownGoldPerMinute: () => 0,
   populationPerMinuteLabel: () => "0/m",
@@ -234,5 +235,32 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(menu.title).toBe("Aetherwick (18, 42)");
+  });
+
+  it("uses the owner player name in the subtitle for non-self tiles", () => {
+    const menu = tileMenuViewForTile(
+      {
+        x: 83,
+        y: 158,
+        terrain: "LAND",
+        ownerId: "enemy-1",
+        ownershipState: "SETTLED",
+        regionType: "ANCIENT_HEARTLAND"
+      },
+      {
+        ...deps,
+        menuActionsForSingleTile: () => [],
+        splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+        settlementProgressForTile: () => undefined,
+        queuedSettlementProgressForTile: () => undefined,
+        queuedBuildProgressForTile: () => undefined,
+        constructionProgressForTile: () => undefined,
+        menuOverviewForTile: () => [],
+        terrainLabel: () => "Grass",
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "enemy-1" ? "Annie Case" : undefined)
+      }
+    );
+
+    expect(menu.subtitle).toBe("Annie Case · ANCIENT_HEARTLAND");
   });
 });
