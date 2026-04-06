@@ -8113,6 +8113,14 @@ type AiFrontierCandidatePair = {
   to: Tile;
 };
 
+type AiScoutAdjacencyMetrics = {
+  ownedNeighbors: number;
+  alliedSettledNeighbors: number;
+  frontierNeighbors: number;
+  coastlineDiscoveryValue: number;
+  exposedSides: number;
+};
+
 type AiTerritorySummary = {
   visibility: ReturnType<typeof visibilitySnapshotForPlayer>;
   settledTileCount: number;
@@ -8136,7 +8144,8 @@ type AiTerritorySummary = {
   foodPressure: number;
   settlementEvaluationByKey: Map<string, AiSettlementCandidateEvaluation>;
   scoutRevealCountByTileKey: Map<TileKey, number>;
-  scoutRevealValueByTileKey: Map<TileKey, number>;
+  scoutRevealValueByProfileKey: Map<string, number>;
+  scoutAdjacencyByTileKey: Map<TileKey, AiScoutAdjacencyMetrics>;
   supportedTownKeysByTileKey: Map<TileKey, TileKey[]>;
   dockSignalByTileKey: Map<TileKey, number>;
   economicSignalByTileKey: Map<TileKey, number>;
@@ -8177,6 +8186,9 @@ type AiTerritoryStructureCache = {
   hostileEconomicAttackCount: number;
   barbarianAttackAvailable: boolean;
   enemyAttackAvailable: boolean;
+  scoutRevealCountByTileKey: Map<TileKey, number>;
+  scoutRevealValueByProfileKey: Map<string, number>;
+  scoutAdjacencyByTileKey: Map<TileKey, AiScoutAdjacencyMetrics>;
 };
 
 type AiPlanningStaticCache = {
@@ -8358,7 +8370,10 @@ const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCach
     hostileTownAttackCount,
     hostileEconomicAttackCount,
     barbarianAttackAvailable,
-    enemyAttackAvailable
+    enemyAttackAvailable,
+    scoutRevealCountByTileKey: new Map<TileKey, number>(),
+    scoutRevealValueByProfileKey: new Map<string, number>(),
+    scoutAdjacencyByTileKey: new Map<TileKey, AiScoutAdjacencyMetrics>()
   };
 };
 
@@ -8395,8 +8410,9 @@ const collectAiTerritorySummary = (actor: Player): AiTerritorySummary => {
     enemyAttackAvailable: cached.enemyAttackAvailable,
     foodPressure: aiFoodPressureSignal(actor),
     settlementEvaluationByKey: new Map<string, AiSettlementCandidateEvaluation>(),
-    scoutRevealCountByTileKey: new Map<TileKey, number>(),
-    scoutRevealValueByTileKey: new Map<TileKey, number>(),
+    scoutRevealCountByTileKey: cached.scoutRevealCountByTileKey,
+    scoutRevealValueByProfileKey: cached.scoutRevealValueByProfileKey,
+    scoutAdjacencyByTileKey: cached.scoutAdjacencyByTileKey,
     supportedTownKeysByTileKey: new Map<TileKey, TileKey[]>(),
     dockSignalByTileKey: new Map<TileKey, number>(),
     economicSignalByTileKey: new Map<TileKey, number>(),
@@ -8444,6 +8460,42 @@ const countAiScoutRevealTiles = (
   return count;
 };
 
+const cachedScoutAdjacencyMetrics = (
+  actor: Player,
+  to: Tile,
+  territorySummary: AiTerritorySummary
+): AiScoutAdjacencyMetrics => {
+  const tk = key(to.x, to.y);
+  const cached = territorySummary.scoutAdjacencyByTileKey.get(tk);
+  if (cached) return cached;
+
+  let ownedNeighbors = 0;
+  let alliedSettledNeighbors = 0;
+  let frontierNeighbors = 0;
+  let coastlineDiscoveryValue = 0;
+  let exposedSides = 0;
+
+  for (const next of adjacentNeighborCores(to.x, to.y)) {
+    if (next.ownerId === actor.id) {
+      ownedNeighbors += 1;
+      if (next.ownershipState === "SETTLED") alliedSettledNeighbors += 1;
+      if (next.ownershipState === "FRONTIER") frontierNeighbors += 1;
+    }
+    if (next.terrain === "SEA") coastlineDiscoveryValue += 18;
+    if (next.terrain !== "LAND" || next.ownerId !== actor.id) exposedSides += 1;
+  }
+
+  const metrics = {
+    ownedNeighbors,
+    alliedSettledNeighbors,
+    frontierNeighbors,
+    coastlineDiscoveryValue,
+    exposedSides
+  };
+  territorySummary.scoutAdjacencyByTileKey.set(tk, metrics);
+  return metrics;
+};
+
 const scoreAiScoutRevealValue = (
   actor: Player,
   to: Tile,
@@ -8451,7 +8503,9 @@ const scoreAiScoutRevealValue = (
   territorySummary: AiTerritorySummary
 ): number => {
   const tk = key(to.x, to.y);
-  const cached = territorySummary.scoutRevealValueByTileKey.get(tk);
+  const { economyWeak } = aiEconomyPriorityState(actor, territorySummary);
+  const profileKey = `${territorySummary.foodPressure > 0 ? 1 : 0}:${economyWeak ? 1 : 0}:${tk}`;
+  const cached = territorySummary.scoutRevealValueByProfileKey.get(profileKey);
   if (cached !== undefined) return cached;
 
   territorySummary.scoutRevealStamp += 1;
@@ -8461,7 +8515,6 @@ const scoreAiScoutRevealValue = (
   }
   const stamp = territorySummary.scoutRevealStamp;
   const foodPressure = territorySummary.foodPressure;
-  const { economyWeak } = aiEconomyPriorityState(actor, territorySummary);
   let score = 0;
 
   const considerReveal = (x: number, y: number): void => {
@@ -8513,7 +8566,7 @@ const scoreAiScoutRevealValue = (
     }
   }
 
-  territorySummary.scoutRevealValueByTileKey.set(tk, score);
+  territorySummary.scoutRevealValueByProfileKey.set(profileKey, score);
   return score;
 };
 
@@ -8706,27 +8759,8 @@ const bestAiOpeningScoutExpand = (
     if (to.terrain !== "LAND" || to.ownerId) continue;
     const unseenNeighbors = countAiScoutRevealTiles(to, visibility, territorySummary);
     const revealValue = scoreAiScoutRevealValue(actor, to, visibility, territorySummary);
-    const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
-      if (next.ownerId !== actor.id) return count;
-      return count + 1;
-    }, 0);
-    const alliedSettledNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
-      if (next.ownerId !== actor.id || next.ownershipState !== "SETTLED") return count;
-      return count + 1;
-    }, 0);
-    const frontierNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
-      if (next.ownerId !== actor.id || next.ownershipState !== "FRONTIER") return count;
-      return count + 1;
-    }, 0);
-    const exposedSides = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
-      if (next.terrain !== "LAND") return count + 1;
-      if (!next.ownerId || next.ownerId !== actor.id) return count + 1;
-      return count;
-    }, 0);
-    const coastlineDiscoveryValue = adjacentNeighborCores(to.x, to.y).reduce((score, next) => {
-      if (next.terrain !== "SEA") return score;
-      return score + 18;
-    }, 0);
+    const { ownedNeighbors, alliedSettledNeighbors, frontierNeighbors, exposedSides, coastlineDiscoveryValue } =
+      cachedScoutAdjacencyMetrics(actor, to, territorySummary);
     const score =
       unseenNeighbors * 22 +
       revealValue +
@@ -8763,22 +8797,23 @@ const scoreAiScoutExpandCandidate = (
         }
         return scoutRevealTiles.size;
       })();
-  const ownedNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
-    if (next.ownerId !== actor.id) return count;
-    return count + 1;
-  }, 0);
-  const alliedSettledNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
-    if (next.ownerId !== actor.id || next.ownershipState !== "SETTLED") return count;
-    return count + 1;
-  }, 0);
-  const frontierNeighbors = adjacentNeighborCores(to.x, to.y).reduce((count, next) => {
-    if (next.ownerId !== actor.id || next.ownershipState !== "FRONTIER") return count;
-    return count + 1;
-  }, 0);
-  const coastlineDiscoveryValue = adjacentNeighborCores(to.x, to.y).reduce((score, next) => {
-    if (next.terrain !== "SEA") return score;
-    return score + 18;
-  }, 0);
+  const { ownedNeighbors, alliedSettledNeighbors, frontierNeighbors, coastlineDiscoveryValue } = territorySummary
+    ? cachedScoutAdjacencyMetrics(actor, to, territorySummary)
+    : (() => {
+        let ownedNeighbors = 0;
+        let alliedSettledNeighbors = 0;
+        let frontierNeighbors = 0;
+        let coastlineDiscoveryValue = 0;
+        for (const next of adjacentNeighborCores(to.x, to.y)) {
+          if (next.ownerId === actor.id) {
+            ownedNeighbors += 1;
+            if (next.ownershipState === "SETTLED") alliedSettledNeighbors += 1;
+            if (next.ownershipState === "FRONTIER") frontierNeighbors += 1;
+          }
+          if (next.terrain === "SEA") coastlineDiscoveryValue += 18;
+        }
+        return { ownedNeighbors, alliedSettledNeighbors, frontierNeighbors, coastlineDiscoveryValue };
+      })();
   const revealValue = territorySummary ? scoreAiScoutRevealValue(actor, to, visibility, territorySummary) : 0;
   return (
     unseenNeighbors * 18 +

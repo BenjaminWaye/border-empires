@@ -144,6 +144,23 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     }
   });
 
+  it("reuses persistent scout frontier caches instead of rebuilding reveal and adjacency scoring every turn", () => {
+    const source = serverMainSource();
+    const collectBody = functionBody(source, "collectAiTerritorySummary");
+    const scoreScoutBody = functionBody(source, "scoreAiScoutExpandCandidate");
+    const openingScoutBody = functionBody(source, "bestAiOpeningScoutExpand");
+    const revealBody = functionBody(source, "scoreAiScoutRevealValue");
+
+    expect(source).toContain("type AiScoutAdjacencyMetrics =");
+    expect(source).toContain("const cachedScoutAdjacencyMetrics =");
+    expect(collectBody).toContain("scoutRevealCountByTileKey: cached.scoutRevealCountByTileKey");
+    expect(collectBody).toContain("scoutRevealValueByProfileKey: cached.scoutRevealValueByProfileKey");
+    expect(collectBody).toContain("scoutAdjacencyByTileKey: cached.scoutAdjacencyByTileKey");
+    expect(scoreScoutBody).toContain("cachedScoutAdjacencyMetrics(actor, to, territorySummary)");
+    expect(openingScoutBody).toContain("cachedScoutAdjacencyMetrics(actor, to, territorySummary)");
+    expect(revealBody).toContain("const profileKey = `${territorySummary.foodPressure > 0 ? 1 : 0}:${economyWeak ? 1 : 0}:${tk}`;");
+  });
+
   it("keeps victory-path scoring on cheap cached territory signals", () => {
     const source = serverMainSource();
     expect(source).toContain("const townOpportunityScore = territorySummary.neutralTownExpandCount * 5 + territorySummary.hostileTownAttackCount * 6;");
