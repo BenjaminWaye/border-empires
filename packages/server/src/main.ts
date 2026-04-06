@@ -1852,6 +1852,7 @@ const ensureAiPlayers = (): void => {
       isEliminated: false,
       respawnPending: false,
       lastActiveAt: now(),
+      lastEconomyWakeAt: now(),
       activityInbox: []
     };
     players.set(id, player);
@@ -6866,6 +6867,69 @@ const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> }
 
   lastUpkeepByPlayer.set(player.id, diag);
   return { touchedTileKeys };
+};
+
+const accumulatePassiveIncomeForPlayer = (player: Player): void => {
+  const economyIndex = getOrInitEconomyIndex(player.id);
+  for (const tk of economyIndex.settledResourceTileKeys) {
+    const [x, y] = parseKey(tk);
+    const resource = applyClusterResources(x, y, resourceAt(x, y));
+    if (!resource) continue;
+    const siphon = activeSiphonAt(tk);
+    const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
+    const goldBase = (resourceRate[resource] ?? 0) * player.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+    const goldDelta = goldBase * ownerMult;
+    const strategic: Partial<Record<StrategicResource, number>> = {};
+    const sr = toStrategicResource(resource);
+    if (sr) {
+      strategic[sr] =
+        (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(player.id, resource) * HARVEST_RESOURCE_RATE_MULT * ownerMult;
+    }
+    if (siphon) {
+      const siphonedStrategic: Partial<Record<StrategicResource, number>> = {};
+      if (sr) {
+        siphonedStrategic[sr] =
+          (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(player.id, resource) * HARVEST_RESOURCE_RATE_MULT * SIPHON_SHARE;
+      }
+      addToSiphonCache(siphon.casterPlayerId, tk, goldBase * SIPHON_SHARE, siphonedStrategic, siphon.endsAt);
+    }
+    if (goldDelta > 0 || hasPositiveStrategicBuffer(strategic)) addTileYield(tk, goldDelta, strategic);
+  }
+  for (const tk of economyIndex.settledDockTileKeys) {
+    const dock = docksByTile.get(tk);
+    if (!dock) continue;
+    const goldDelta = dockIncomeForOwner(dock, player.id) * player.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+    if (goldDelta > 0) addTileYield(tk, goldDelta, undefined);
+  }
+  for (const tk of economyIndex.settledTownTileKeys) {
+    const town = townsByTile.get(tk);
+    if (!town) continue;
+    const siphon = activeSiphonAt(tk);
+    const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
+    const townGoldBase = townIncomeForOwner(town, player.id) * player.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
+    const goldDelta = townGoldBase * ownerMult;
+    if (siphon) {
+      addToSiphonCache(
+        siphon.casterPlayerId,
+        tk,
+        townGoldBase * SIPHON_SHARE,
+        {},
+        siphon.endsAt
+      );
+    }
+    if (goldDelta > 0) addTileYield(tk, goldDelta, undefined);
+  }
+  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
+    const structure = economicStructuresByTile.get(tk);
+    if (!structure || structure.ownerId !== player.id || structure.status !== "active") continue;
+    const strategicDaily = converterStructureOutputFor(structure.type, structure.ownerId);
+    if (!strategicDaily) continue;
+    const strategic: Partial<Record<StrategicResource, number>> = {};
+    for (const [resource, amount] of Object.entries(strategicDaily) as Array<[StrategicResource, number]>) {
+      strategic[resource] = amount * HARVEST_RESOURCE_RATE_MULT;
+    }
+    if (hasPositiveStrategicBuffer(strategic)) addTileYield(tk, 0, strategic);
+  }
 };
 
 const addTileYield = (tileKey: TileKey, goldDelta: number, strategicDelta?: Partial<Record<StrategicResource, number>>): void => {
@@ -14267,6 +14331,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   }
 
   if (oldOwner && newOwner !== oldOwner) {
+    wakeOfflineEconomyForPlayer(oldOwner);
     const capturedTown = townsByTile.get(k);
     if (capturedTown) queueOfflineTownCaptureActivity(oldOwner, newOwner, capturedTown);
     if (oldOwner !== BARBARIAN_OWNER_ID && isRelocatableSettlementTown(capturedTown)) {
@@ -14627,6 +14692,17 @@ const serializePlayer = (p: Player) => ({
   allies: [...p.allies]
 });
 
+const lastEconomyActivityAtForPlayer = (player: Player): number => Math.max(player.lastActiveAt, player.lastEconomyWakeAt ?? 0);
+
+const offlineUpkeepPausedForPlayer = (player: Player): boolean => now() - lastEconomyActivityAtForPlayer(player) > OFFLINE_YIELD_ACCUM_MAX_MS;
+
+const wakeOfflineEconomyForPlayer = (playerId: string | undefined): void => {
+  if (!playerId || playerId === BARBARIAN_OWNER_ID) return;
+  const player = players.get(playerId);
+  if (!player) return;
+  player.lastEconomyWakeAt = now();
+};
+
 const queueOfflinePlayerActivity = (playerId: string, entry: import("@border-empires/shared").PlayerActivityEntry): void => {
   const player = players.get(playerId);
   if (!player) return;
@@ -14777,6 +14853,7 @@ const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefine
       isEliminated: false,
       respawnPending: false,
       lastActiveAt: now(),
+      lastEconomyWakeAt: now(),
       activityInbox: []
     };
     players.set(player.id, player);
@@ -15311,6 +15388,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       profileComplete: p.profileComplete ?? true,
       Ts: p.Ts ?? 0,
       Es: p.Es ?? 0,
+      lastEconomyWakeAt: p.lastEconomyWakeAt ?? p.lastActiveAt,
       techIds: new Set(p.techIds),
       domainIds: new Set(p.domainIds ?? []),
       territoryTiles: new Set(p.territoryTiles),
@@ -15744,76 +15822,22 @@ registerInterval(() => {
     );
   }
   for (const p of players.values()) {
-    if (now() - p.lastActiveAt > OFFLINE_YIELD_ACCUM_MAX_MS) {
-      continue;
-    }
-    applyStaminaRegen(p);
+    const upkeepPaused = offlineUpkeepPausedForPlayer(p);
+    const touchedTileKeys = new Set<TileKey>();
     applyManpowerRegen(p);
-    recomputeTownNetworkForPlayer(p.id);
-    const populationTouched = updateTownPopulationForPlayer(p);
-    const economicTouched = syncEconomicStructuresForPlayer(p);
-    const economyIndex = getOrInitEconomyIndex(p.id);
-    for (const tk of economyIndex.settledResourceTileKeys) {
-      const [x, y] = parseKey(tk);
-      const resource = applyClusterResources(x, y, resourceAt(x, y));
-      if (!resource) continue;
-      const siphon = activeSiphonAt(tk);
-      const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
-      const goldBase = (resourceRate[resource] ?? 0) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
-      const goldDelta = goldBase * ownerMult;
-      const strategic: Partial<Record<StrategicResource, number>> = {};
-      const sr = toStrategicResource(resource);
-      if (sr) {
-        strategic[sr] =
-          (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(p.id, resource) * HARVEST_RESOURCE_RATE_MULT * ownerMult;
-      }
-      if (siphon) {
-        const siphonedStrategic: Partial<Record<StrategicResource, number>> = {};
-        if (sr) {
-          siphonedStrategic[sr] =
-            (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(p.id, resource) * HARVEST_RESOURCE_RATE_MULT * SIPHON_SHARE;
-        }
-        addToSiphonCache(siphon.casterPlayerId, tk, goldBase * SIPHON_SHARE, siphonedStrategic, siphon.endsAt);
-      }
-      if (goldDelta > 0 || hasPositiveStrategicBuffer(strategic)) addTileYield(tk, goldDelta, strategic);
+    if (!upkeepPaused) {
+      applyStaminaRegen(p);
+      recomputeTownNetworkForPlayer(p.id);
+      const populationTouched = updateTownPopulationForPlayer(p);
+      const economicTouched = syncEconomicStructuresForPlayer(p);
+      for (const tk of populationTouched) touchedTileKeys.add(tk);
+      for (const tk of economicTouched) touchedTileKeys.add(tk);
     }
-    for (const tk of economyIndex.settledDockTileKeys) {
-      const dock = docksByTile.get(tk);
-      if (!dock) continue;
-      const goldDelta = dockIncomeForOwner(dock, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
-      if (goldDelta > 0) addTileYield(tk, goldDelta, undefined);
+    accumulatePassiveIncomeForPlayer(p);
+    if (!upkeepPaused) {
+      const upkeepResult = applyUpkeepForPlayer(p);
+      for (const tk of upkeepResult.touchedTileKeys) touchedTileKeys.add(tk);
     }
-    for (const tk of economyIndex.settledTownTileKeys) {
-      const town = townsByTile.get(tk);
-      if (!town) continue;
-      const siphon = activeSiphonAt(tk);
-      const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
-      const townGoldBase = townIncomeForOwner(town, p.id) * p.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
-      const goldDelta = townGoldBase * ownerMult;
-      if (siphon) {
-        addToSiphonCache(
-          siphon.casterPlayerId,
-          tk,
-          townGoldBase * SIPHON_SHARE,
-          {},
-          siphon.endsAt
-        );
-      }
-      if (goldDelta > 0) addTileYield(tk, goldDelta, undefined);
-    }
-    for (const tk of economicStructureTileKeysByPlayer.get(p.id) ?? []) {
-      const structure = economicStructuresByTile.get(tk);
-      if (!structure || structure.ownerId !== p.id || structure.status !== "active") continue;
-      const strategicDaily = converterStructureOutputFor(structure.type, structure.ownerId);
-      if (!strategicDaily) continue;
-      const strategic: Partial<Record<StrategicResource, number>> = {};
-      for (const [resource, amount] of Object.entries(strategicDaily) as Array<[StrategicResource, number]>) {
-        strategic[resource] = amount * HARVEST_RESOURCE_RATE_MULT;
-      }
-      if (hasPositiveStrategicBuffer(strategic)) addTileYield(tk, 0, strategic);
-    }
-    const upkeepResult = applyUpkeepForPlayer(p);
-    const touchedTileKeys = new Set<TileKey>([...populationTouched, ...economicTouched, ...upkeepResult.touchedTileKeys]);
     if (touchedTileKeys.size > 0) {
       const updates = [...touchedTileKeys].map((tk) => {
         const [x, y] = parseKey(tk);
