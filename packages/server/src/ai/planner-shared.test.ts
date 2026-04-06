@@ -156,6 +156,21 @@ describe("planAiDecision", () => {
     expect(decision.reason).toBe("executed_island_expand_priority");
   });
 
+  it("does not force island expansion when settled-territory AI is not in island-footprint mode", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "SETTLED_TERRITORY",
+      strategicFocus: "BALANCED",
+      islandExpandAvailable: true,
+      undercoveredIslandCount: 4,
+      weakestIslandRatio: 0,
+      neutralExpandAvailable: true,
+      frontierOpportunityWaste: 8
+    });
+
+    expect(decision.reason).not.toBe("executed_island_expand_priority");
+  });
+
   it("prioritizes town-support settlement before generic island pressure when core support can be restored safely", () => {
     const decision = planAiDecision({
       ...baseSnapshot(),

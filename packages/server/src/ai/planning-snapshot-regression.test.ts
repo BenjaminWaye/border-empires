@@ -111,6 +111,8 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(source).toContain("const townOpportunityScore = territorySummary.neutralTownExpandCount * 5 + territorySummary.hostileTownAttackCount * 6;");
     expect(source).toContain("const economicOpportunityScore = territorySummary.neutralEconomicExpandCount * 4 + territorySummary.hostileEconomicAttackCount * 3;");
     expect(source).toContain("const expansionOpportunityScore = territorySummary.neutralLandExpandCount + Math.min(territorySummary.frontierTileCount, 24);");
+    expect(source).toContain("const populationCounts = aiVictoryPathPopulationCounts();");
+    expect(source).toContain("Math.max(0, populationCounts[entry.id] - minimumPopulation) * AI_VICTORY_PATH_POPULATION_PENALTY");
     const body = functionBody(source, "scoreAiVictoryPathChoices");
     expect(body).not.toContain("frontierPlanningSummaryForPlayer(");
   });
@@ -123,6 +125,8 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(chooseStrategicBody).toContain("\"TRUCE\"");
     expect(chooseStrategicBody).toContain("\"ISLAND_FOOTPRINT\"");
     expect(chooseStrategicBody).toContain("\"SHARD_RUSH\"");
+    expect(chooseStrategicBody).toContain("islandMeaningfulOpportunity");
+    expect(chooseStrategicBody).toContain("islandWasteDominated");
     expect(truceBody).toContain("bestAiCollectShardTile");
     expect(truceBody).toContain("strategicState.focus === \"SHARD_RUSH\"");
     expect(truceBody).toContain("TRUCE_REQUEST");
@@ -184,5 +188,14 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const body = functionBody(serverMainSource(), "planAiDecisionViaWorker");
     expect(body).toContain('if (aiPlannerWorkerState.pending > 0)');
     expect(body).toContain('return resolveAiPlannerFallback(snapshot, "worker_backpressure");');
+  });
+
+  it("deduplicates frontier candidates before heavy planning scans", () => {
+    const body = functionBody(serverMainSource(), "buildAiTerritoryStructureCache");
+    expect(body).toContain("const expandCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();");
+    expect(body).toContain("const attackCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();");
+    expect(body).toContain("preferAiFrontierCandidate(");
+    expect(body).toContain("const expandCandidates = [...expandCandidateByTarget.values()];");
+    expect(body).toContain("const attackCandidates = [...attackCandidateByTarget.values()];");
   });
 });
