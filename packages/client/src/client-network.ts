@@ -742,6 +742,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (update.clusterType !== undefined) merged.clusterType = update.clusterType;
         if (update.regionType !== undefined) merged.regionType = update.regionType;
         if (update.dockId !== undefined) merged.dockId = update.dockId;
+        if ("dock" in update) {
+          if (update.dock) merged.dock = update.dock;
+          else delete merged.dock;
+        }
         if ("shardSite" in update) {
           if (update.shardSite) merged.shardSite = update.shardSite;
           else delete merged.shardSite;

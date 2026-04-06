@@ -112,8 +112,41 @@ describe("menuOverviewForTile", () => {
       }
     );
 
+    expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
     expect(lines.some((line) => line.html.includes("Foundry"))).toBe(true);
     expect(lines.some((line) => line.html.includes("+6.0/day iron"))).toBe(true);
+  });
+
+  it("shows dock income modifiers in a dedicated modifiers section", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 75,
+        y: 333,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        dockId: "dock-1",
+        dock: {
+          baseGoldPerMinute: 0.5,
+          goldPerMinute: 0.825,
+          connectedDockCount: 1,
+          modifiers: [
+            { label: "Connected dock route", percent: 50, deltaGoldPerMinute: 0.275 },
+            { label: "Customs House", percent: 50, deltaGoldPerMinute: 0.275 }
+          ]
+        },
+        yieldRate: {
+          goldPerMinute: 0.825
+        }
+      },
+      deps
+    );
+
+    expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
+    expect(lines.some((line) => line.html.includes("Connected docks 1"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Connected dock route"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+50% (+0.28/m)"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Customs House"))).toBe(true);
   });
 
   it("shows building-specific removal progress timing", () => {

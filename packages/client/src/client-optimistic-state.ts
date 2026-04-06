@@ -273,6 +273,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       detailLevel: "full"
     };
     if (!("town" in incoming) && existing.town) merged.town = existing.town;
+    if (!("dock" in incoming) && existing.dock) merged.dock = existing.dock;
     if (!("yield" in incoming) && existing.yield) merged.yield = existing.yield;
     if (!("yieldRate" in incoming) && existing.yieldRate) merged.yieldRate = existing.yieldRate;
     if (!("yieldCap" in incoming) && existing.yieldCap) merged.yieldCap = existing.yieldCap;
