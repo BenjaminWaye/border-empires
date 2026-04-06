@@ -1294,6 +1294,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       state.actionCurrent = undefined;
       if (currentKey && !keepOptimisticExpand) deps.clearOptimisticTileState(currentKey, true);
       if (keepOptimisticExpand) {
+        state.frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 6_000);
+        state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
+        state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
         deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(2, true);
@@ -1335,7 +1338,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         "combat",
         "warn"
       );
-      if (keepOptimisticExpand) deps.requestViewRefresh(2, true);
+      if (keepOptimisticExpand) {
+        state.frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 6_000);
+        state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== timedOutCurrentKey);
+        state.queuedTargetKeys.delete(timedOutCurrentKey);
+        deps.requestViewRefresh(2, true);
+      }
       deps.reconcileActionQueue();
       deps.processActionQueue();
       deps.renderHud();
@@ -1352,8 +1360,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
     if (!loadingActive) return;
     deps.renderHud();
-    if (state.connection === "initialized" && Date.now() - state.lastSubAt > 1200) {
-      deps.requestViewRefresh(3, true);
+    if (state.connection === "initialized" && state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 4_000) {
+      deps.requestViewRefresh(1, true);
     }
   }, 300);
 };

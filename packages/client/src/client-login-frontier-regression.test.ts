@@ -17,5 +17,6 @@ describe("login and frontier retry regression guard", () => {
   it("waits for sync instead of immediately retrying the same neutral frontier capture on missing combat start", () => {
     const source = clientSource("./client-runtime-loop.ts");
     expect(source).toContain('No combat start from server yet; waiting for frontier sync instead of retrying the same tile.');
+    expect(source).toContain("frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 6_000);");
   });
 });

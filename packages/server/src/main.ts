@@ -12159,6 +12159,7 @@ const {
   worldWidth: WORLD_WIDTH,
   worldHeight: WORLD_HEIGHT,
   serializeChunkBatchViaWorker,
+  serializeChunkBatchDirect: (inputs) => inputs.map((chunk) => serializeChunkBody(buildChunkFromInput(chunk))),
   serializeChunkBatchBodies
 });
 

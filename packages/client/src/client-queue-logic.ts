@@ -397,6 +397,8 @@ export const processDevelopmentQueue = (
 
 export const enqueueTarget = (state: ClientState, x: number, y: number, keyFor: (x: number, y: number) => string, mode: "normal" | "breakthrough" = "normal"): boolean => {
   const targetKey = keyFor(x, y);
+  const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
+  if (frontierSyncWaitUntil > Date.now()) return false;
   if (state.queuedTargetKeys.has(targetKey)) {
     const stillQueued = state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === targetKey);
     const currentlyExecuting = state.actionInFlight && state.actionTargetKey === targetKey;
