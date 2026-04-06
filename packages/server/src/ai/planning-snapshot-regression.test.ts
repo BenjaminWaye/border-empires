@@ -115,7 +115,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestIslandExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestEconomicExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestAnyNeutralExpand");
-    expect(executeBody).toContain("cachedFrontierPlanningSummary().bestScaffoldExpand");
+    expect(executeBody).not.toContain("cachedFrontierPlanningSummary().bestScaffoldExpand");
   });
 
   it("does not fall back from scout execute into heavy any-neutral frontier scans", () => {
@@ -127,6 +127,16 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(scoutBranch).toContain("bestAiScoutExpand(actor, territorySummary)");
     expect(scoutBranch).not.toContain("cachedFrontierPlanningSummary().bestScoutExpand");
     expect(scoutBranch).not.toContain("bestAiAnyNeutralExpand(");
+  });
+
+  it("does not fall back from scaffold execute into heavy frontier planning summary scans", () => {
+    const body = functionBody(serverMainSource(), "executeAiGoapAction");
+    const scaffoldBranchStart = body.indexOf('if (actionKey === "claim_scaffold_border_tile")');
+    expect(scaffoldBranchStart).toBeGreaterThanOrEqual(0);
+    const scaffoldBranch = body.slice(scaffoldBranchStart, body.indexOf('if (actionKey === "attack_barbarian_border_tile")', scaffoldBranchStart));
+    expect(scaffoldBranch).toContain("candidates?.scaffoldExpand ??");
+    expect(scaffoldBranch).toContain("bestAiScaffoldExpand(actor, victoryPath, territorySummary)");
+    expect(scaffoldBranch).not.toContain("cachedFrontierPlanningSummary().bestScaffoldExpand");
   });
 
   it("keeps execute-time frontier selectors off the heavy frontier planning summary path", () => {
