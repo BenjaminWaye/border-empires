@@ -9698,7 +9698,7 @@ const executeAiGoapAction = (
   if (actionKey === "claim_scaffold_border_tile") {
     const candidate =
       candidates?.scaffoldExpand ??
-      cachedFrontierPlanningSummary().bestScaffoldExpand ??
+      bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
       candidates?.anyNeutralExpand ??
       cachedFrontierPlanningSummary().bestAnyNeutralExpand;
     if (!candidate) return false;
