@@ -7839,7 +7839,7 @@ const bestAiScoutExpand = (
     const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
     if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0) {
       if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-        appRef?.log.warn(
+        runtimeState.appRef?.log.warn(
           {
             playerId: actor.id,
             scannedCandidates,
