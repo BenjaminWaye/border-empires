@@ -59,10 +59,17 @@ describe("economy balance regression guard", () => {
     expect(source).toContain('const trySetConverterStructureEnabled = (actor: Player, x: number, y: number, enabled: boolean)');
   });
 
-  it("reports continental footprint using the weakest qualifying island and a per-player comparison line", () => {
+  it("sends per-player leaderboard snapshots on init/update and includes self progress for every victory path", () => {
     const source = serverSource();
+    expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(p.id)");
+    expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(player.id)");
+    expect(source).toContain('if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;');
+    expect(source).toContain('if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;');
+    expect(source).toContain('if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;');
+    expect(source).toContain('if (objectiveId === "RESOURCE_MONOPOLY") {');
     expect(source).toContain('weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})');
     expect(source).toContain("const seasonVictoryObjectivesForPlayer =");
-    expect(source).toContain("selfProgressLabel");
+    expect(source).toContain("const selfProgressLabel = seasonVictorySelfProgressLabel(playerId, objective.id");
+    expect(source).toContain("return selfProgressLabel ? { ...objective, selfProgressLabel } : objective;");
   });
 });

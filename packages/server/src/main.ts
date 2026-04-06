@@ -7382,7 +7382,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       incomingAllianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === p.id),
       outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === p.id),
       missions: missionPayload(p),
-      leaderboard: cachedLeaderboardSnapshot,
+      leaderboard: leaderboardSnapshotForPlayer(p.id),
       seasonVictory: seasonVictoryObjectivesForPlayer(p.id),
       seasonWinner
     })
@@ -12802,17 +12802,56 @@ const currentVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
   return cachedVictoryPressureObjectives;
 };
 
+const seasonVictorySelfProgressLabel = (
+  playerId: string,
+  objectiveId: SeasonVictoryPathId,
+  deps?: { metrics?: PlayerCompetitionMetrics[]; totalResourceCounts?: Record<ResourceType, number>; allIslands?: Map<number, number> }
+): string | undefined => {
+  const metrics = deps?.metrics ?? collectPlayerCompetitionMetrics();
+  const metric = metrics.find((entry) => entry.playerId === playerId);
+  if (!metric) return undefined;
+  const totalTownCount = Math.max(1, townsByTile.size);
+  const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
+  const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
+  const totalResourceCounts = deps?.totalResourceCounts ?? worldResourceTileCounts();
+  const allIslands = deps?.allIslands ?? islandLandCounts();
+
+  if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;
+  if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;
+  if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
+  if (objectiveId === "RESOURCE_MONOPOLY") {
+    const controlled = controlledResourceTileCounts(playerId);
+    let bestResource: ResourceType | undefined;
+    let bestOwned = 0;
+    let bestTotal = 0;
+    for (const resource of Object.keys(totalResourceCounts) as ResourceType[]) {
+      const total = totalResourceCounts[resource] ?? 0;
+      if (total <= 0) continue;
+      const owned = controlled[resource] ?? 0;
+      if (owned > bestOwned) {
+        bestOwned = owned;
+        bestTotal = total;
+        bestResource = resource;
+      }
+    }
+    return bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource control";
+  }
+
+  const progress = continentalFootprintProgressForPlayer(playerId, allIslands);
+  return progress.qualifiedCount > 0 && progress.weakestQualifiedTotal > 0
+    ? `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled · weakest island ${Math.round(progress.weakestQualifiedRatio * 100)}% (${progress.weakestQualifiedOwned}/${progress.weakestQualifiedTotal})`
+    : `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled`;
+};
+
 const seasonVictoryObjectivesForPlayer = (playerId: string | undefined): SeasonVictoryObjectiveView[] => {
   const objectives = currentVictoryPressureObjectives();
   if (!playerId) return objectives;
+  const metrics = collectPlayerCompetitionMetrics();
+  const totalResourceCounts = worldResourceTileCounts();
+  const allIslands = islandLandCounts();
   return objectives.map((objective) => {
-    if (objective.id !== "CONTINENT_FOOTPRINT") return objective;
-    const progress = continentalFootprintProgressForPlayer(playerId, islandLandCounts());
-    const selfProgressLabel =
-      progress.qualifiedCount > 0 && progress.weakestQualifiedTotal > 0
-        ? `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled · weakest island ${Math.round(progress.weakestQualifiedRatio * 100)}% (${progress.weakestQualifiedOwned}/${progress.weakestQualifiedTotal})`
-        : `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled`;
-    return { ...objective, selfProgressLabel };
+    const selfProgressLabel = seasonVictorySelfProgressLabel(playerId, objective.id, { metrics, totalResourceCounts, allIslands });
+    return selfProgressLabel ? { ...objective, selfProgressLabel } : objective;
   });
 };
 
@@ -16803,7 +16842,7 @@ app.post("/admin/world/regenerate", async () => {
           domainCatalog: activeDomainCatalog(player),
           playerStyles: exportPlayerStyles(),
           missions: missionPayload(player),
-          leaderboard: currentLeaderboardSnapshot(),
+          leaderboard: leaderboardSnapshotForPlayer(player.id),
           seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
           seasonWinner,
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id),
