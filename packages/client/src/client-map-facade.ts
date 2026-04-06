@@ -24,9 +24,11 @@ import {
   drawTerrainTile as drawTerrainTileOnCanvas,
   drawTownOverlay as drawTownOverlayOnCanvas,
   effectiveOverlayColor as effectiveOverlayColorFromModule,
+  fortificationOverlayImageFor as fortificationOverlayImageFromModule,
   shouldDrawOwnershipBorder as shouldDrawOwnershipBorderFromModule,
   structureAccentColor as structureAccentColorFromModule
 } from "./client-map-render.js";
+import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
 
@@ -235,6 +237,10 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     py: number,
     size: number
   ): void => drawRoadOverlayOnCanvas(ctx, directions, px, py, size);
+  const fortificationOverlayImageFor = (
+    kind: FortificationOverlayKind,
+    opening: FortificationOpening
+  ): HTMLImageElement | undefined => fortificationOverlayImageFromModule(kind, opening);
   const drawExposedTileBorder = (tile: Tile, px: number, py: number, size: number): void =>
     drawExposedTileBorderOnCanvas(ctx, tile, px, py, size, { tiles: state.tiles, keyFor, wrapX, wrapY });
   const drawShardFallback = (_tile: Tile, px: number, py: number, size: number): void => drawShardFallbackOnCanvas(ctx, px, py, size);
@@ -357,6 +363,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     drawCenteredOverlayWithAlpha,
     drawResourceCornerMarker,
     drawRoadOverlay,
+    fortificationOverlayImageFor,
     drawExposedTileBorder,
     drawShardFallback,
     drawOwnershipSignature,

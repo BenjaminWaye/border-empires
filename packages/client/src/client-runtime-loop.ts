@@ -1,5 +1,10 @@
 import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { exposedSidesForTile } from "./client-defensibility-html.js";
+import {
+  fortificationOpeningForTile,
+  fortificationOverlayAlphaForTile,
+  fortificationOverlayKindForTile
+} from "./client-fortification-overlays.js";
 import { structureAreaPreviewForTile } from "./client-structure-effects.js";
 import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
@@ -55,6 +60,10 @@ type StartClientRuntimeLoopDeps = {
   resourceOverlayScaleForTile: (tile: Tile) => number;
   drawResourceCornerMarker: (tile: Tile, px: number, py: number, size: number) => void;
   drawRoadOverlay: (directions: RoadDirections, px: number, py: number, size: number) => void;
+  fortificationOverlayImageFor: (
+    kind: "FORT" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST",
+    opening: "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST"
+  ) => HTMLImageElement | undefined;
   resourceColor: (resource: Tile["resource"]) => string | undefined;
   shardOverlayForTile: (tile: Tile) => HTMLImageElement | undefined;
   drawShardFallback: (tile: Tile, px: number, py: number, size: number) => void;
@@ -259,21 +268,20 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.fillRect(mx, my, marker, marker);
       }
 
-      if (t && vis === "visible" && t.fort) {
-        deps.ctx.fillStyle = deps.structureAccentColor(
-          t.ownerId ?? "",
-          t.fort.status === "active" ? "rgba(239,71,111,0.8)" : "rgba(255,209,102,0.75)"
-        );
-        const dot = Math.max(3, Math.floor(size * 0.25));
-        deps.ctx.fillRect(px + size - dot - 2, py + 2, dot, dot);
-      }
-      if (t && vis === "visible" && t.siegeOutpost) {
-        deps.ctx.fillStyle = deps.structureAccentColor(
-          t.ownerId ?? "",
-          t.siegeOutpost.status === "active" ? "rgba(255, 123, 0, 0.85)" : "rgba(255, 196, 122, 0.78)"
-        );
-        const dot = Math.max(3, Math.floor(size * 0.25));
-        deps.ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
+      if (t && vis === "visible" && t.terrain === "LAND") {
+        const fortificationKind = fortificationOverlayKindForTile(t);
+        if (fortificationKind) {
+          const opening = fortificationOpeningForTile(t, {
+            tiles: state.tiles,
+            keyFor: deps.keyFor,
+            wrapX: deps.wrapX,
+            wrapY: deps.wrapY
+          });
+          const overlay = deps.fortificationOverlayImageFor(fortificationKind, opening);
+          if (overlay?.complete && overlay.naturalWidth) {
+            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, 1, fortificationOverlayAlphaForTile(t));
+          }
+        }
       }
       if (t && vis === "visible" && t.observatory) {
         const overlay = deps.structureOverlayImages.OBSERVATORY;
@@ -292,8 +300,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const markerSize = Math.max(3, Math.floor(size * 0.2));
         const active = t.economicStructure.status === "active";
         const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
+        const fortificationKind = fortificationOverlayKindForTile(t);
         const overlay = deps.structureOverlayImages[t.economicStructure.type];
-        if (overlay && overlay.complete && overlay.naturalWidth) {
+        if (fortificationKind) {
+          // Fortification rings are rendered above and should not fall back to generic center markers.
+        } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
         } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
           deps.ctx.fillStyle = deps.structureAccentColor(
@@ -518,6 +529,63 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.strokeStyle = `rgba(255, 241, 185, ${0.68 + pulse * 0.16})`;
         deps.ctx.lineWidth = 2;
         deps.ctx.strokeRect(px + 1.5, py + 1.5, size - 4, size - 4);
+        deps.ctx.lineWidth = 1;
+      }
+
+      if (state.dragPreviewKeys.has(wk)) {
+        deps.ctx.strokeStyle = "rgba(129, 230, 217, 0.9)";
+        deps.ctx.lineWidth = 2;
+        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+        deps.ctx.lineWidth = 1;
+      }
+
+      const queuedN = queueIndex.get(wk);
+      if (queuedN !== undefined) {
+        deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
+        deps.ctx.lineWidth = 2;
+        deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
+        if (size >= 16) {
+          deps.ctx.fillStyle = "rgba(20, 16, 35, 0.85)";
+          deps.ctx.fillRect(px + 3, py + 3, Math.min(size - 6, 14), 12);
+          deps.ctx.fillStyle = "#c4b5fd";
+          deps.ctx.font = "10px monospace";
+          deps.ctx.textBaseline = "top";
+          deps.ctx.fillText(String(queuedN), px + 5, py + 4);
+        }
+        deps.ctx.lineWidth = 1;
+      }
+      const queuedSettlementN = settleQueueIndex.get(wk);
+      if (queuedSettlementN !== undefined && !settlementProgress) {
+        deps.ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
+        deps.ctx.lineWidth = 2;
+        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+        if (size >= 14) {
+          const badgeWidth = Math.min(size - 6, queuedSettlementN >= 10 ? 18 : 14);
+          deps.ctx.fillStyle = "rgba(49, 31, 4, 0.92)";
+          deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
+          deps.ctx.fillStyle = "#fbbf24";
+          deps.ctx.font = "10px monospace";
+          deps.ctx.textBaseline = "top";
+          deps.ctx.textAlign = "left";
+          deps.ctx.fillText(String(queuedSettlementN), px + size - badgeWidth - 1, py + 4);
+        }
+        deps.ctx.lineWidth = 1;
+      }
+      const queuedBuildN = queuedBuildIndex.get(wk);
+      if (queuedBuildN !== undefined && !settlementProgress) {
+        deps.ctx.strokeStyle = "rgba(122, 214, 255, 0.95)";
+        deps.ctx.lineWidth = 2;
+        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+        if (size >= 14) {
+          const badgeWidth = Math.min(size - 6, queuedBuildN >= 10 ? 18 : 14);
+          deps.ctx.fillStyle = "rgba(7, 26, 39, 0.92)";
+          deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
+          deps.ctx.fillStyle = "#7dd3fc";
+          deps.ctx.font = "10px monospace";
+          deps.ctx.textBaseline = "top";
+          deps.ctx.textAlign = "left";
+          deps.ctx.fillText(String(queuedBuildN), px + size - badgeWidth - 1, py + 4);
+        }
         deps.ctx.lineWidth = 1;
       }
     };
