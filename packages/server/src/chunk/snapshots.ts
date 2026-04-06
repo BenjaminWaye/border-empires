@@ -95,6 +95,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   worldWidth: number;
   worldHeight: number;
   serializeChunkBatchViaWorker: (inputs: ChunkBuildInput[]) => Promise<string[]>;
+  serializeChunkBatchDirect: (inputs: ChunkBuildInput[]) => string[];
   serializeChunkBatchBodies: (chunkBodies: string[]) => string;
 };
 
@@ -323,12 +324,14 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 
       if (pendingBuilds.length > 0) {
         const visibleTileBatches = await deps.loadSummaryChunkTilesBatch(pendingBuilds.map((chunk) => chunk.request));
-        const payloads = await deps.serializeChunkBatchViaWorker(
-          pendingBuilds.map((chunk, payloadIndex) => ({
-            ...chunk.buildInput,
-            visibleTiles: [...(visibleTileBatches[payloadIndex] ?? deps.summaryChunkTiles(chunk.request.cx, chunk.request.cy, summaryMode))]
-          }))
-        );
+        const chunkInputs = pendingBuilds.map((chunk, payloadIndex) => ({
+          ...chunk.buildInput,
+          visibleTiles: [...(visibleTileBatches[payloadIndex] ?? deps.summaryChunkTiles(chunk.request.cx, chunk.request.cy, summaryMode))]
+        }));
+        const payloads =
+          chunkInputs.length === 1 && chunkBatchBodies.length === 0
+            ? deps.serializeChunkBatchDirect(chunkInputs)
+            : await deps.serializeChunkBatchViaWorker(chunkInputs);
         const payloadCache = chunkSnapshotCacheForPlayer(actor.id, snapshot).payloadByChunkKey;
         for (let payloadIndex = 0; payloadIndex < payloads.length; payloadIndex += 1) {
           const pending = pendingBuilds[payloadIndex]!;

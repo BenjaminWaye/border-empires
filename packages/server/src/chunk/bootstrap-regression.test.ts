@@ -13,4 +13,10 @@ describe("chunk bootstrap regression guard", () => {
     const source = chunkSnapshotsSource();
     expect(source).toContain('summaryMode: radius === deps.initialBootstrapRadius + 1 ? "thin" : "shell"');
   });
+
+  it("serializes the single center bootstrap chunk directly instead of waiting on the serializer worker", () => {
+    const source = chunkSnapshotsSource();
+    expect(source).toContain("chunkInputs.length === 1 && chunkBatchBodies.length === 0");
+    expect(source).toContain("deps.serializeChunkBatchDirect(chunkInputs)");
+  });
 });

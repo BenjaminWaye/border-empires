@@ -233,6 +233,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const existing = state.tiles.get(keyFor(tile.x, tile.y));
       const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, tile));
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
+      state.frontierSyncWaitUntilByTarget.delete(keyFor(mergedTile.x, mergedTile.y));
       maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
@@ -338,6 +339,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.firstChunkAt = 0;
       state.chunkFullCount = 0;
       state.hasOwnedTileInCache = false;
+      state.fogDisabled = Boolean(((msg.config as { fogDisabled?: boolean } | undefined) ?? {}).fogDisabled);
+      requestViewRefresh(1, true);
       const player = msg.player as Record<string, unknown>;
       state.me = player.id as string;
       state.meName = player.name as string;
@@ -426,7 +429,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const config = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
       const season = config.season;
       state.fogDisabled = Boolean(config.fogDisabled);
-      requestViewRefresh();
       if (typeof season?.worldSeed === "number") {
         setWorldSeed(season.worldSeed);
         clearRenderCaches();
@@ -504,7 +506,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           siteCount: Number(shardRainNotice.siteCount ?? 0)
         });
       }
-      requestViewRefresh(1, true);
       syncAuthOverlay();
       renderHud();
       return;

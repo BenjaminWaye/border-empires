@@ -319,6 +319,7 @@ export const createInitialState = () => ({
   discoveredDockTiles: new Set<string>(),
   discoveredTiles: new Set<string>(),
   autoSettleTargets: new Set<string>(),
+  frontierSyncWaitUntilByTarget: new Map<string, number>(),
   hasOwnedTileInCache: false,
   tileActionMenu: {
     visible: false,
