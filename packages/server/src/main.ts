@@ -6803,22 +6803,65 @@ const bestAiScoutExpand = (
 ): { from: Tile; to: Tile } | undefined => {
   const startedAt = now();
   let scannedCandidates = 0;
-  let best: { score: number; from: Tile; to: Tile } | undefined;
+  let shortlistEvaluations = 0;
+  const shortlist: Array<{ quickScore: number; from: Tile; to: Tile; adjacency: AiScoutAdjacencyMetrics; cachedRevealCount: number | undefined }> = [];
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
-    const scoutRevealCount = countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary);
     const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
-    if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0) continue;
     scannedCandidates += 1;
-    const score = scoreAiScoutExpandCandidate(actor, from, to, territorySummary.visibility, territorySummary);
-    if (!best || score > best.score) best = { score, from, to };
-    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+    const cachedRevealCount = territorySummary.scoutRevealCountByTileKey.get(key(to.x, to.y));
+    if ((cachedRevealCount ?? 0) <= 0 && adjacency.coastlineDiscoveryValue <= 0 && adjacency.exposedSides <= 1) continue;
+    const quickScore =
+      adjacency.coastlineDiscoveryValue +
+      ((cachedRevealCount ?? 0) * 18) +
+      (adjacency.ownedNeighbors <= 2 ? 18 : 0) -
+      Math.max(0, adjacency.ownedNeighbors - 2) * 24 -
+      Math.max(0, adjacency.frontierNeighbors - 1) * 10 -
+      adjacency.exposedSides * 6 +
+      (from.ownershipState === "FRONTIER" ? 10 : 0);
+    if (shortlist.length < AI_SCOUT_SHORTLIST_SIZE) {
+      shortlist.push({ quickScore, from, to, adjacency, cachedRevealCount });
+    } else {
+      let lowestIndex = 0;
+      for (let index = 1; index < shortlist.length; index += 1) {
+        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
+      }
+      if (quickScore > shortlist[lowestIndex]!.quickScore) {
+        shortlist[lowestIndex] = { quickScore, from, to, adjacency, cachedRevealCount };
+      }
+    }
+    if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
       runtimeState.appRef?.log.warn(
         {
           playerId: actor.id,
           actionType: "SCOUT_EXPAND",
           scannedCandidates,
           frontierCandidates: territorySummary.expandCandidates.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai scout selector budget hit"
+      );
+      break;
+    }
+  }
+  shortlist.sort((left, right) => right.quickScore - left.quickScore);
+  let best: { score: number; from: Tile; to: Tile } | undefined;
+  for (const candidate of shortlist) {
+    shortlistEvaluations += 1;
+    const scoutRevealCount = candidate.cachedRevealCount ?? countAiScoutRevealTiles(candidate.to, territorySummary.visibility, territorySummary);
+    if (scoutRevealCount <= 0 && candidate.adjacency.coastlineDiscoveryValue <= 0) continue;
+    const score = scoreAiScoutExpandCandidate(actor, candidate.from, candidate.to, territorySummary.visibility, territorySummary);
+    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
+    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "SCOUT_EXPAND",
+          scannedCandidates,
+          shortlistEvaluations,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          shortlistSize: shortlist.length,
           elapsedMs: now() - startedAt,
           budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
         },
@@ -8060,6 +8103,7 @@ const cachedAiPlanningStaticForPlayer = (
 };
 
 const AI_STRATEGIC_STATE_TTL_MS = 30_000;
+const AI_SCOUT_SHORTLIST_SIZE = 24;
 
 const dominantAiEnemyFrontPlayerId = (actor: Player, territorySummary: Pick<AiTerritorySummary, "attackCandidates">): string | undefined => {
   const scores = new Map<string, number>();
