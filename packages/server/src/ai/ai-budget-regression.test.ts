@@ -85,6 +85,7 @@ describe("AI budget regression guard", () => {
     const source = serverMainSource();
     const planningBody = functionBody(source, "buildAiPlanningStaticCache");
     const executeBody = functionBody(source, "executeAiGoapAction");
+    const scoutBody = functionBody(source, "bestAiScoutExpand");
     expect(planningBody).toContain("const settlementAvailability = estimateAiSettlementAvailabilityProfile(actor, territorySummary, focusIslandId, economyWeak, foodCoverageLow);");
     expect(planningBody).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary);");
     expect(planningBody).not.toContain("frontierPlanningSummaryForPlayer(");
@@ -92,6 +93,8 @@ describe("AI budget regression guard", () => {
     expect(executeBody).toContain("const candidate = bestAiScoutExpand(actor, territorySummary);");
     expect(executeBody).toContain("bestAiEnemyPressureAttack(actor, victoryPath, territorySummary)");
     expect(executeBody).toContain("const candidate = bestAiEconomicStructure(actor, territorySummary);");
+    expect(scoutBody).not.toContain("frontierPlanningSummaryForPlayer(");
+    expect(scoutBody).toContain('"ai scout selector budget hit"');
   });
 
   it("keys settlement candidate assumptions by tile index instead of allocating singleton sets", () => {

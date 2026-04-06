@@ -6801,7 +6801,33 @@ const bestAiScoutExpand = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
-  return frontierPlanningSummaryForPlayer(actor, territorySummary).bestScoutExpand;
+  const startedAt = now();
+  let scannedCandidates = 0;
+  let best: { score: number; from: Tile; to: Tile } | undefined;
+  for (const { from, to } of territorySummary.expandCandidates) {
+    if (to.terrain !== "LAND" || to.ownerId) continue;
+    const scoutRevealCount = countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary);
+    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
+    if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0) continue;
+    scannedCandidates += 1;
+    const score = scoreAiScoutExpandCandidate(actor, from, to, territorySummary.visibility, territorySummary);
+    if (!best || score > best.score) best = { score, from, to };
+    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "SCOUT_EXPAND",
+          scannedCandidates,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai scout selector budget hit"
+      );
+      break;
+    }
+  }
+  return best;
 };
 
 type AiFrontierOpportunityCounts = {
