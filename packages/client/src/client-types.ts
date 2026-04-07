@@ -453,6 +453,7 @@ export type TileActionDef = {
   label: string;
   cost?: string;
   detail?: string | undefined;
+  loading?: boolean;
   disabled?: boolean;
   disabledReason?: string;
   targetKey?: string;

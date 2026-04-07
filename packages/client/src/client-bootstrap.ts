@@ -652,6 +652,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     openBulkTileActionMenu: actionFlow.openBulkTileActionMenu,
     isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
     requestAttackPreviewForHover: actionFlow.requestAttackPreviewForHover,
+    requestAttackPreviewForTarget: actionFlow.requestAttackPreviewForTarget,
     interactionFlags: actionFlow.mapInteractionFlags
   });
 

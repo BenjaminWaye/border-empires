@@ -2365,6 +2365,20 @@ body {
   font-size: 11px;
   font-weight: 700;
 }
+.tile-action-detail.is-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tile-action-spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(159, 217, 246, 0.24);
+  border-top-color: rgba(159, 217, 246, 0.95);
+  border-radius: 999px;
+  animation: tile-action-spin 0.9s linear infinite;
+  flex: 0 0 auto;
+}
 .tile-action-cost {
   grid-area: cost;
   min-width: 0;
@@ -2379,6 +2393,12 @@ body {
   color: rgba(201, 216, 236, 0.56);
   text-align: center;
   font-size: 11px;
+}
+
+@keyframes tile-action-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 #side-panel {
