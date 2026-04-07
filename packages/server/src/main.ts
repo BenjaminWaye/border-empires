@@ -8686,6 +8686,9 @@ const frontierActionFromRef = (ref: AiFrontierActionRef | undefined): { from: Ti
   };
 };
 
+const frontierActionFromSummaryPair = (pair: { from: Tile; to: Tile } | undefined): { from: Tile; to: Tile } | undefined =>
+  pair ? { from: pair.from, to: pair.to } : undefined;
+
 const executeAiGoapAction = (
   actor: Player,
   actionKey: string,
@@ -8695,7 +8698,11 @@ const executeAiGoapAction = (
 ): boolean => {
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
+    const frontierSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
     const candidate =
+      (victoryPath === "SETTLED_TERRITORY" ? frontierActionFromSummaryPair(frontierSummary.bestIslandExpand) : undefined) ??
+      frontierActionFromSummaryPair(frontierSummary.bestEconomicExpand) ??
+      frontierActionFromSummaryPair(frontierSummary.bestAnyNeutralExpand) ??
       (victoryPath === "SETTLED_TERRITORY" ? bestAiIslandExpand(actor, territorySummary) : undefined) ??
       bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
       bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
@@ -8716,7 +8723,11 @@ const executeAiGoapAction = (
     return true;
   }
   if (actionKey === "claim_scaffold_border_tile") {
+    const frontierSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
     const candidate =
+      frontierActionFromSummaryPair(frontierSummary.bestScaffoldExpand) ??
+      frontierActionFromSummaryPair(frontierSummary.bestEconomicExpand) ??
+      frontierActionFromSummaryPair(frontierSummary.bestAnyNeutralExpand) ??
       bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
       bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
       bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);

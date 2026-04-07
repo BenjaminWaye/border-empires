@@ -114,22 +114,26 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(scoutBranch).not.toContain("bestAiAnyNeutralExpand(");
   });
 
-  it("keeps neutral execute off the heavy planning-static frontier summary path", () => {
+  it("lets neutral execute reuse cached frontier summary picks without falling back to heavy rescans first", () => {
     const body = functionBody(serverMainSource(), "executeAiGoapAction");
     const neutralBranchStart = body.indexOf('if (actionKey === "claim_neutral_border_tile")');
     expect(neutralBranchStart).toBeGreaterThanOrEqual(0);
     const neutralBranch = body.slice(neutralBranchStart, body.indexOf('if (actionKey === "claim_food_border_tile")', neutralBranchStart));
+    expect(neutralBranch).toContain("const frontierSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
+    expect(neutralBranch).toContain('victoryPath === "SETTLED_TERRITORY" ? frontierActionFromSummaryPair(frontierSummary.bestIslandExpand) : undefined');
+    expect(neutralBranch).toContain("frontierActionFromSummaryPair(frontierSummary.bestAnyNeutralExpand)");
     expect(neutralBranch).toContain('victoryPath === "SETTLED_TERRITORY" ? bestAiIslandExpand(actor, territorySummary) : undefined');
     expect(neutralBranch).toContain("bestAiEconomicExpand(actor, victoryPath, territorySummary)");
     expect(neutralBranch).toContain("bestAiAnyNeutralExpand(actor, victoryPath, territorySummary)");
-    expect(neutralBranch).not.toContain("frontierPlanningSummaryForPlayer(");
   });
 
-  it("keeps scaffold execute on dedicated selectors instead of planning-static refs", () => {
+  it("lets scaffold execute reuse cached frontier summary picks before heavier dedicated selectors", () => {
     const body = functionBody(serverMainSource(), "executeAiGoapAction");
     const scaffoldBranchStart = body.indexOf('if (actionKey === "claim_scaffold_border_tile")');
     expect(scaffoldBranchStart).toBeGreaterThanOrEqual(0);
     const scaffoldBranch = body.slice(scaffoldBranchStart, body.indexOf('if (actionKey === "attack_barbarian_border_tile")', scaffoldBranchStart));
+    expect(scaffoldBranch).toContain("const frontierSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
+    expect(scaffoldBranch).toContain("frontierActionFromSummaryPair(frontierSummary.bestScaffoldExpand)");
     expect(scaffoldBranch).toContain("bestAiScaffoldExpand(actor, victoryPath, territorySummary)");
     expect(scaffoldBranch).toContain("bestAiEconomicExpand(actor, victoryPath, territorySummary)");
     expect(scaffoldBranch).toContain("bestAiAnyNeutralExpand(actor, victoryPath, territorySummary)");
