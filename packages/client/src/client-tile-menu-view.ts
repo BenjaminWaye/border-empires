@@ -249,6 +249,8 @@ export const menuOverviewForTile = (
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
+    currentManpower: number;
+    currentManpowerCap: number;
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
@@ -291,8 +293,8 @@ export const menuOverviewForTile = (
     pushLine(`This ${resourceLabelText.toLowerCase()} node starts producing only after you claim and settle the tile.`);
   }
   if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN" || !tile.ownerId) return lines;
-  if (tile.ownershipState === "SETTLED" && tile.town) {
-    pushLine(tile.town.populationTier === "SETTLEMENT" ? "Settlements provide starter gold and manpower until they grow into towns." : "Towns produce gold when fed.");
+  if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
+    pushLine("Settlements provide starter gold and manpower until they grow into towns.");
   }
   if (tile.shardSite) {
     pushLine(
@@ -307,10 +309,11 @@ export const menuOverviewForTile = (
       pushLine(`Settlement is producing ${deps.displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
     } else if (!tile.town.isFed) {
       pushLine("Town is unfed. Needs settled fish or grain nearby.");
-    } else if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") {
-      const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
-      const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
-      pushLine(`Town is fed but gold is paused until manpower is full (${current}/${cap}).`);
+    } else if (
+      tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL" &&
+      deps.currentManpower + 0.001 < deps.currentManpowerCap
+    ) {
+      pushLine("Town is fed but gold is paused until your empire manpower is full.");
     }
     if (tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");
@@ -409,6 +412,7 @@ export const tileMenuViewForTile = (
     constructionProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     menuOverviewForTile: (tile: Tile) => TileOverviewLine[];
     prettyToken: (value: string) => string;
+    playerNameForOwner: (ownerId?: string | null) => string | undefined;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     state: { me: string };
@@ -434,6 +438,8 @@ export const tileMenuViewForTile = (
   if (visibleBuildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
   if (actionTabs.crystal.length > 0) tabs.push("crystal");
   tabs.push("overview");
+  const regionLabel = tile.regionType ? deps.prettyToken(tile.regionType) : undefined;
+  const foreignOwnerLabel = tile.ownerId ? (deps.playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : undefined;
   const ownerLabel =
     tile.terrain === "SEA"
       ? actions.length > 0
@@ -445,9 +451,16 @@ export const tileMenuViewForTile = (
           ? tile.ownershipState === "FRONTIER"
             ? "Your frontier"
             : "Your settled land"
-          : deps.isTileOwnedByAlly(tile)
-            ? "Allied"
-            : "Enemy";
+          : (foreignOwnerLabel ?? "Unknown empire");
+  const ownerLabelIsAlly = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && deps.isTileOwnedByAlly(tile);
+  const subtitleHtml = ownerLabelIsAlly
+    ? [
+        `<span class="tile-owner-label is-ally">${ownerLabel}</span>`,
+        regionLabel ?? ""
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
   const titleLabel =
     tile.town
       ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
@@ -458,7 +471,8 @@ export const tileMenuViewForTile = (
           : deps.terrainLabel(tile.x, tile.y, tile.terrain);
   return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
-    subtitle: tileMenuSubtitleText(ownerLabel, tile.regionType ? deps.prettyToken(tile.regionType) : undefined),
+    subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
+    ...(subtitleHtml ? { subtitleHtml } : {}),
     tabs,
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: deps.menuOverviewForTile(tile),

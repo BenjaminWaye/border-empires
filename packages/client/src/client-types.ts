@@ -479,6 +479,7 @@ export type TileOverviewLine = {
 export type TileMenuView = {
   title: string;
   subtitle: string;
+  subtitleHtml?: string;
   tabs: TileMenuTab[];
   overviewKicker?: string;
   overviewLines: TileOverviewLine[];

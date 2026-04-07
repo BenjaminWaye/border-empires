@@ -31,6 +31,18 @@ describe("tile menu render signature", () => {
     expect(signatureA).not.toBe(signatureB);
   });
 
+  it("changes when subtitle html changes", () => {
+    const signatureA = tileMenuRenderSignature(baseView(), "buildings");
+    const signatureB = tileMenuRenderSignature(
+      {
+        ...baseView(),
+        subtitleHtml: '<span class="tile-owner-label is-ally">Green Banner</span>'
+      },
+      "buildings"
+    );
+    expect(signatureA).not.toBe(signatureB);
+  });
+
   it("ignores hidden-tab changes so the buildings tab can keep its scroll position", () => {
     const signatureA = tileMenuRenderSignature(baseView(), "buildings");
     const signatureB = tileMenuRenderSignature(

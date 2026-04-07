@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
+import { shouldHideCaptureOverlayAfterTimer, shouldHideQueuedFrontierBadge, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import type { Tile } from "./client-types.js";
 
 const baseTile = (overrides: Partial<Tile> = {}): Tile => ({
@@ -36,5 +36,19 @@ describe("frontier overlay helpers", () => {
     const tile = baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" });
 
     expect(shouldHideCaptureOverlayAfterTimer(tile, "me", false)).toBe(false);
+  });
+
+  it("hides the queued badge for the current frontier action once the timer has elapsed", () => {
+    const tile = baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" });
+
+    expect(shouldHideQueuedFrontierBadge(tile, "me", true, true)).toBe(true);
+  });
+
+  it("keeps queued badges for non-current or non-frontier pending tiles", () => {
+    const tile = baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" });
+    const settling = baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "settle" });
+
+    expect(shouldHideQueuedFrontierBadge(tile, "me", true, false)).toBe(false);
+    expect(shouldHideQueuedFrontierBadge(settling, "me", true, true)).toBe(false);
   });
 });
