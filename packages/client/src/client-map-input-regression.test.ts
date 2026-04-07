@@ -3,7 +3,7 @@ import { mousePanThresholdPx, shouldCommitMouseSelection } from "./client-map-in
 
 describe("client map input regression guards", () => {
   it("requires a larger drag threshold when the mouse down starts on a loaded tile", () => {
-    expect(mousePanThresholdPx(true)).toBe(12);
+    expect(mousePanThresholdPx(true)).toBe(Number.POSITIVE_INFINITY);
     expect(mousePanThresholdPx(false)).toBe(4);
   });
 

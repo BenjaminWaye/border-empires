@@ -43,7 +43,7 @@ export const shouldCommitMouseSelection = (args: {
 };
 
 export const mousePanThresholdPx = (startedOnLoadedTile: boolean): number => {
-  return startedOnLoadedTile ? 12 : 4;
+  return startedOnLoadedTile ? Number.POSITIVE_INFINITY : 4;
 };
 
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
@@ -182,6 +182,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   deps.canvas.addEventListener("mousemove", (ev) => {
     if (!dragActive) return;
     if (!boxSelectionMode && mousePanStart) {
+      if (mousePanStartedOnLoadedTile) return;
       const dx = ev.clientX - mousePanStart.x;
       const dy = ev.clientY - mousePanStart.y;
       const panThreshold = mousePanThresholdPx(mousePanStartedOnLoadedTile);
