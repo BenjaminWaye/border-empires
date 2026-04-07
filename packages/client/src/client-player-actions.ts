@@ -92,6 +92,38 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
   deps.renderHud();
 };
 
+export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: PlayerActionDeps): void => {
+  const websocketOpenReadyState = typeof WebSocket !== "undefined" ? WebSocket.OPEN : 1;
+  const domainId = (domainIdRaw ?? "").trim() || deps.state.domainUiSelectedId?.trim() || deps.state.domainChoices[0] || "";
+  if (!domainId) {
+    deps.pushFeed("No domain selected.", "tech", "warn");
+    return;
+  }
+  if (deps.ws.readyState !== websocketOpenReadyState) {
+    deps.pushFeed("Cannot choose a domain while disconnected.", "tech", "error");
+    return;
+  }
+  if (!deps.state.authSessionReady) {
+    deps.setAuthStatus("Finish sign-in before choosing a domain.", "error");
+    deps.syncAuthOverlay();
+    return;
+  }
+  if (deps.state.pendingDomainUnlockId) {
+    deps.pushFeed("Already sending a domain choice. Waiting for server confirmation...", "tech", "warn");
+    return;
+  }
+  const domain = deps.state.domainCatalog.find((item) => item.id === domainId);
+  if (!domain) {
+    deps.pushFeed("That domain is no longer available.", "tech", "warn");
+    return;
+  }
+  deps.state.domainUiSelectedId = domainId;
+  deps.state.pendingDomainUnlockId = domainId;
+  deps.ws.send(JSON.stringify({ type: "CHOOSE_DOMAIN", domainId }));
+  deps.pushFeed(`Choosing domain: ${domain.name}.`, "tech", "info");
+  deps.renderHud();
+};
+
 export const explainActionFailureFromServer = (code: string, message: string): string => {
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
