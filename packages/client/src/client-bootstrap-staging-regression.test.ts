@@ -10,7 +10,7 @@ describe("client bootstrap staging regression", () => {
   });
 
   it("keeps bootstrap retries at radius 1 while the first chunk is still pending", () => {
-    const source = readFileSync(new URL("./client-runtime-timers.ts", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./client-runtime-loop.ts", import.meta.url), "utf8");
     expect(source).toContain("Date.now() - state.lastSubAt > 4_000");
     expect(source).toContain("deps.requestViewRefresh(1, true);");
     expect(source.includes("deps.requestViewRefresh(3, true);")).toBe(false);

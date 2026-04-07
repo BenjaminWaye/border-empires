@@ -11,7 +11,7 @@ const clientSource = (filename: string): string => {
 describe("fortification overlay asset wiring", () => {
   it("loads directional fortification ring overlays and uses them in the runtime loop", () => {
     const render = clientSource("./client-map-render.ts");
-    const loop = clientSource("./client-runtime-tile-render.ts");
+    const loop = clientSource("./client-runtime-loop.ts");
 
     expect(render).toContain('FORT: createDirectionalOverlaySet("fort-ring-overlay")');
     expect(render).toContain('WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay")');

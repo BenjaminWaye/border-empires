@@ -12,9 +12,9 @@ describe("client HUD failsafe regression", () => {
   });
 
   it("keeps a fatal HUD render catch in bootstrap", () => {
-    const bootstrapSource = readFileSync(new URL("./client-bootstrap-render.ts", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("./client-bootstrap.ts", import.meta.url), "utf8");
 
     expect(bootstrapSource).toContain("[hud-render-fatal]");
-    expect(bootstrapSource).toContain("ctx.syncAuthOverlay();");
+    expect(bootstrapSource).toContain("syncAuthOverlay();");
   });
 });
