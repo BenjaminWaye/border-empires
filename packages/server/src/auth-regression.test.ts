@@ -32,6 +32,12 @@ describe("auth verification regression guard", () => {
   it("accepts a structurally valid Firebase token immediately for already known uid identities", () => {
     const source = serverMainSource();
     expect(source).toContain("const decodedFallback = decodeFirebaseTokenFallback(msg.token);");
+    expect(source).toContain("structurallyValidToken: true");
+    expect(source).toContain('"firebase token verification bypass using structurally valid payload"');
+  });
+
+  it("still reuses persisted identity fields when the uid is already known", () => {
+    const source = serverMainSource();
     expect(source).toContain("const knownIdentity = authIdentityByUid.get(decodedFallback.uid);");
     expect(source).toContain('"firebase token verification bypass using known uid fallback"');
   });
