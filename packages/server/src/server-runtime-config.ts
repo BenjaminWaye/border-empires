@@ -7,11 +7,18 @@ import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 export const PORT = Number(process.env.PORT ?? 3001);
 export const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 export const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
+export const AI_BRAIN_MODE =
+  process.env.AI_BRAIN_MODE === "behavior_tree_utility" || process.env.AI_BRAIN_MODE === "shadow"
+    ? process.env.AI_BRAIN_MODE
+    : "goap";
 export const DEBUG_SPAWN_NEAR_AI = process.env.DEBUG_SPAWN_NEAR_AI === "1";
 export const STARTING_MANPOWER = Math.max(MANPOWER_BASE_CAP, Number(process.env.STARTING_MANPOWER ?? MANPOWER_BASE_CAP));
 export const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 export const AI_DISPATCH_INTERVAL_MS = Math.max(100, Number(process.env.AI_DISPATCH_INTERVAL_MS ?? 250));
-export const AI_TICK_BATCH_SIZE = Math.max(1, Number(process.env.AI_TICK_BATCH_SIZE ?? 1));
+export const AI_TICK_BATCH_SIZE = Math.max(
+  1,
+  Number(process.env.AI_TICK_BATCH_SIZE ?? (AI_BRAIN_MODE === "goap" ? 1 : 12))
+);
 export const AI_TICK_BUDGET_MS = Math.max(250, Number(process.env.AI_TICK_BUDGET_MS ?? 1_000));
 export const AI_FRONTIER_SELECTOR_BUDGET_MS = Math.max(
   50,

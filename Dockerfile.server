@@ -34,6 +34,7 @@ COPY --from=build /app/packages/server/dist ./packages/server/dist
 COPY --from=build /app/packages/server/node_modules ./packages/server/node_modules
 
 ENV NODE_ENV=production
+ENV NODE_OPTIONS=--max-old-space-size=256
 ENV PORT=8080
 EXPOSE 8080
 
