@@ -302,8 +302,26 @@ export const createInitialState = () => ({
         atkEff?: number;
         defEff?: number;
         defenseEffPct?: number;
+        receivedAt: number;
       }
     | undefined,
+  attackPreviewCacheByKey: new Map<
+    string,
+    {
+      fromKey: string;
+      toKey: string;
+      valid: boolean;
+      reason?: string;
+      winChance?: number;
+      breakthroughWinChance?: number;
+      manpowerMin?: number;
+      breakthroughManpowerMin?: number;
+      atkEff?: number;
+      defEff?: number;
+      defenseEffPct?: number;
+      receivedAt: number;
+    }
+  >(),
   attackPreviewPendingKey: "",
   lastAttackPreviewAt: 0,
   dragPreviewKeys: new Set<string>(),

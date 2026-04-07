@@ -59,6 +59,7 @@ type TileActionLogicDeps = {
   requireAuthedSession: (message?: string) => boolean;
   ws: WebSocket;
   attackPreviewDetailForTarget: (to: Tile, mode?: "normal" | "breakthrough") => string | undefined;
+  attackPreviewPendingForTarget: (to: Tile) => boolean;
   pickOriginForTarget: (x: number, y: number, allowAdjacentToDock?: boolean, allowOptimisticExpandOrigin?: boolean) => Tile | undefined;
   buildDetailTextForAction: (actionId: string, tile: Tile, supportedTown?: Tile) => string | undefined;
   developmentSlotSummary: () => DevelopmentSlotSummary;
@@ -1103,12 +1104,13 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.ownerId === "barbarian") {
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const breachPreviewDetail = deps.attackPreviewDetailForTarget(tile, "breakthrough");
+    const previewPending = deps.attackPreviewPendingForTarget(tile);
     const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
     const actions: TileActionDef[] = [
       {
         id: "launch_attack",
         label: "Launch Attack",
-        ...(previewDetail ? { detail: previewDetail } : {}),
+        ...(previewDetail || previewPending ? { detail: previewDetail ?? "Calculating win chance...", loading: previewPending } : {}),
         ...tileActionAvailability(
           reachable && state.gold >= FRONTIER_CLAIM_COST,
           !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
@@ -1120,7 +1122,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       actions.push({
         id: "launch_breach_attack",
         label: "Launch Breach Attack",
-        ...(breachPreviewDetail ? { detail: breachPreviewDetail } : {}),
+        ...(breachPreviewDetail || previewPending ? { detail: breachPreviewDetail ?? "Calculating breach chance...", loading: previewPending } : {}),
         ...tileActionAvailability(
           (Boolean(deps.pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId)) && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
           !(Boolean(deps.pickOriginForTarget(tile.x, tile.y)) || Boolean(tile.dockId))
@@ -1138,11 +1140,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false)) || Boolean(tile.dockId);
   const targetShielded = Boolean(tile.ownerId && tile.ownerId !== state.me && deps.ownerSpawnShieldActive(tile.ownerId));
   const targetShieldedReason = "Empire is under spawn protection";
+  const previewDetail = deps.attackPreviewDetailForTarget(tile);
+  const breachPreviewDetail = deps.attackPreviewDetailForTarget(tile, "breakthrough");
+  const previewPending = deps.attackPreviewPendingForTarget(tile);
   const out: TileActionDef[] = [
     {
       id: "launch_attack",
       label: "Launch Attack",
-      ...(deps.attackPreviewDetailForTarget(tile) ? { detail: deps.attackPreviewDetailForTarget(tile) } : {}),
+      ...(previewDetail || previewPending ? { detail: previewDetail ?? "Calculating win chance...", loading: previewPending } : {}),
       ...tileActionAvailability(
         !targetShielded && reachable && state.gold >= FRONTIER_CLAIM_COST,
         targetShielded ? targetShieldedReason : !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
@@ -1154,7 +1159,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     out.push({
       id: "launch_breach_attack",
       label: "Launch Breach Attack",
-      ...(deps.attackPreviewDetailForTarget(tile, "breakthrough") ? { detail: deps.attackPreviewDetailForTarget(tile, "breakthrough") } : {}),
+      ...(breachPreviewDetail || previewPending ? { detail: breachPreviewDetail ?? "Calculating breach chance...", loading: previewPending } : {}),
       ...tileActionAvailability(
         !targetShielded && reachable && state.gold >= 2 && (state.strategicResources.IRON ?? 0) >= 1,
         targetShielded
