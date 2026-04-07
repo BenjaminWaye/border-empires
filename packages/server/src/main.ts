@@ -1031,7 +1031,23 @@ const recentAiBudgetBreachPerf = perfRing<{
   reason?: string;
   actionKey?: string;
 }>(30);
-const recentChunkSnapshotPerf = perfRing<{ at: number; playerId: string; elapsedMs: number; chunks: number; tiles: number; radius: number; rssMb: number; heapUsedMb: number }>(50);
+const recentChunkSnapshotPerf = perfRing<{
+  at: number;
+  playerId: string;
+  elapsedMs: number;
+  chunks: number;
+  tiles: number;
+  radius: number;
+  rssMb: number;
+  heapUsedMb: number;
+  visibilityMaskMs: number;
+  summaryReadMs: number;
+  serializeMs: number;
+  sendMs: number;
+  cachedPayloadChunks: number;
+  rebuiltChunks: number;
+  batches: number;
+}>(50);
 const recentRuntimeVitals = perfRing<ReturnType<typeof sampleRuntimeVitals>>(180);
 const aiYieldCollectDueAtByPlayer = new Map<string, number>();
 const collectVisibleCooldownByPlayer = new Map<string, number>();
@@ -1128,6 +1144,52 @@ const perfSummary = <T,>(
     lastMs: roundTo(elapsed[elapsed.length - 1] ?? 0, 1)
   };
 };
+const chunkPhaseSummary = <
+  T extends {
+    visibilityMaskMs: number;
+    summaryReadMs: number;
+    serializeMs: number;
+    sendMs: number;
+    cachedPayloadChunks: number;
+    rebuiltChunks: number;
+    batches: number;
+  }
+>(
+  entries: T[]
+): {
+  visibilityMaskP95Ms: number;
+  summaryReadP95Ms: number;
+  serializeP95Ms: number;
+  sendP95Ms: number;
+  cachedPayloadChunksAvg: number;
+  rebuiltChunksAvg: number;
+  batchesAvg: number;
+  lastVisibilityMaskMs: number;
+  lastSummaryReadMs: number;
+  lastSerializeMs: number;
+  lastSendMs: number;
+  lastCachedPayloadChunks: number;
+  lastRebuiltChunks: number;
+  lastBatches: number;
+} => {
+  const lastEntry = entries[entries.length - 1];
+  return {
+    visibilityMaskP95Ms: perfSummary(entries, (entry) => entry.visibilityMaskMs).p95Ms,
+    summaryReadP95Ms: perfSummary(entries, (entry) => entry.summaryReadMs).p95Ms,
+    serializeP95Ms: perfSummary(entries, (entry) => entry.serializeMs).p95Ms,
+    sendP95Ms: perfSummary(entries, (entry) => entry.sendMs).p95Ms,
+    cachedPayloadChunksAvg: perfSummary(entries, (entry) => entry.cachedPayloadChunks).avgMs,
+    rebuiltChunksAvg: perfSummary(entries, (entry) => entry.rebuiltChunks).avgMs,
+    batchesAvg: perfSummary(entries, (entry) => entry.batches).avgMs,
+    lastVisibilityMaskMs: roundTo(lastEntry?.visibilityMaskMs ?? 0, 1),
+    lastSummaryReadMs: roundTo(lastEntry?.summaryReadMs ?? 0, 1),
+    lastSerializeMs: roundTo(lastEntry?.serializeMs ?? 0, 1),
+    lastSendMs: roundTo(lastEntry?.sendMs ?? 0, 1),
+    lastCachedPayloadChunks: roundTo(lastEntry?.cachedPayloadChunks ?? 0, 1),
+    lastRebuiltChunks: roundTo(lastEntry?.rebuiltChunks ?? 0, 1),
+    lastBatches: roundTo(lastEntry?.batches ?? 0, 1)
+  };
+};
 const hottestAiTurnPhase = (phaseTimings: Record<string, number>): { phase: string; elapsedMs: number } => {
   let phase = "unknown";
   let elapsedMs = 0;
@@ -1168,7 +1230,11 @@ const runtimeHotspotDiagnostics = (): {
     lastReason?: string;
     lastActionKey?: string;
   };
-  chunkSnapshots: ReturnType<typeof perfSummary> & { maxChunks: number; maxTiles: number };
+  chunkSnapshots: ReturnType<typeof perfSummary> &
+    ReturnType<typeof chunkPhaseSummary> & {
+      maxChunks: number;
+      maxTiles: number;
+    };
 } => {
   const aiEntries = recentAiTickPerf.values();
   const aiBudgetEntries = recentAiBudgetBreachPerf.values();
@@ -1189,6 +1255,7 @@ const runtimeHotspotDiagnostics = (): {
     },
     chunkSnapshots: {
       ...perfSummary(chunkEntries, (entry) => entry.elapsedMs),
+      ...chunkPhaseSummary(chunkEntries),
       maxChunks: chunkEntries.reduce((max, entry) => Math.max(max, entry.chunks), 0),
       maxTiles: chunkEntries.reduce((max, entry) => Math.max(max, entry.tiles), 0)
     }
@@ -10113,9 +10180,9 @@ const {
       "auth sync first chunk sent"
     );
   },
-  onSlowChunkSnapshot: ({ playerId, elapsedMs, chunks, tiles, radius, memory }) => {
+  onSlowChunkSnapshot: ({ playerId, elapsedMs, chunks, tiles, radius, phases, memory }) => {
     app.log.warn(
-      { playerId, elapsedMs, chunks, tiles, radius, ...memory },
+      { playerId, elapsedMs, chunks, tiles, radius, ...phases, ...memory },
       "slow chunk snapshot"
     );
   },
@@ -14565,6 +14632,9 @@ const renderRuntimeDashboardHtml = (): string => `<!doctype html>
             \`)}
             \${renderHotspotBlock("Chunk snapshot generation", data.hotspots.chunkSnapshots, \`
               <div class="muted" style="margin-top:8px">Largest recent snapshot: \${fmt(data.hotspots.chunkSnapshots.maxChunks)} chunks / \${fmt(data.hotspots.chunkSnapshots.maxTiles)} tiles</div>
+              <div class="muted" style="margin-top:8px">Last phases: mask \${fmt(data.hotspots.chunkSnapshots.lastVisibilityMaskMs, " ms")} • read \${fmt(data.hotspots.chunkSnapshots.lastSummaryReadMs, " ms")} • serialize \${fmt(data.hotspots.chunkSnapshots.lastSerializeMs, " ms")} • send \${fmt(data.hotspots.chunkSnapshots.lastSendMs, " ms")}</div>
+              <div class="muted" style="margin-top:4px">P95 phases: mask \${fmt(data.hotspots.chunkSnapshots.visibilityMaskP95Ms, " ms")} • read \${fmt(data.hotspots.chunkSnapshots.summaryReadP95Ms, " ms")} • serialize \${fmt(data.hotspots.chunkSnapshots.serializeP95Ms, " ms")} • send \${fmt(data.hotspots.chunkSnapshots.sendP95Ms, " ms")}</div>
+              <div class="muted" style="margin-top:4px">Reuse: cached chunks avg \${fmt(data.hotspots.chunkSnapshots.cachedPayloadChunksAvg)} • rebuilt avg \${fmt(data.hotspots.chunkSnapshots.rebuiltChunksAvg)} • batches avg \${fmt(data.hotspots.chunkSnapshots.batchesAvg)}</div>
             \`)}
           \`);
 
