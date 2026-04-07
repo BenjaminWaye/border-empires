@@ -8,7 +8,9 @@ const serverMainSource = (): string => {
   return [
     readFileSync(resolve(here, "./main.ts"), "utf8"),
     readFileSync(resolve(here, "./server-game-constants.ts"), "utf8"),
-    readFileSync(resolve(here, "./server-shared-types.ts"), "utf8")
+    readFileSync(resolve(here, "./server-shared-types.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-worldgen-towns.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-town-support.ts"), "utf8")
   ].join("\n");
 };
 
