@@ -306,6 +306,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
   const buildBootstrapChunkStages = (sub: { cx: number; cy: number; radius: number }): ChunkFollowUpStage | undefined => {
     if (sub.radius <= deps.initialBootstrapRadius) return undefined;
     const stageRadii: number[] = [];
+    const followUpBatchSize = Math.max(1, Math.min(deps.chunkStreamBatchSize, deps.chunkSnapshotBatchSize));
     for (let radius = deps.initialBootstrapRadius + 1; radius <= sub.radius; radius += 1) {
       stageRadii.push(radius);
     }
@@ -316,7 +317,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         sub: { ...sub, radius },
         chunkCoords: chunkCoordsForSubscription({ ...sub, radius }, radius),
         summaryMode: radius === deps.initialBootstrapRadius + 1 ? "thin" : "shell",
-        batchSize: 1,
+        batchSize: followUpBatchSize,
         ...(next ? { next } : {})
       };
     }
