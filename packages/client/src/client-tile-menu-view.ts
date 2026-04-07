@@ -279,6 +279,7 @@ export const menuOverviewForTile = (
           : "enemy";
   const productionLabel = tileProductionRequirementLabel(tile, deps.prettyToken);
   const resourceLabelText = tile.resource ? deps.prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
+  const productionHtml = tileProductionHtml(tile);
   tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
@@ -311,9 +312,7 @@ export const menuOverviewForTile = (
       const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
       pushLine(`Town is fed but gold is paused until manpower is full (${current}/${cap}).`);
     }
-    if (tile.town.connectedTownCount > 0) {
-      pushLine(`Connected towns ${tile.town.connectedTownCount}`);
-    } else if (tile.town.populationTier !== "SETTLEMENT") {
+    if (tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");
     }
     if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
@@ -321,13 +320,14 @@ export const menuOverviewForTile = (
     pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
     pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town)}.`);
   } else if (tile.resource) {
-    if (tile.ownershipState === "SETTLED") pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
+    if (tile.ownershipState === "SETTLED" && !productionHtml) {
+      pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
+    }
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
-    pushLine(`Connected docks ${connectedDockCount}`);
+    if (connectedDockCount === 0) pushLine("Connect this dock to other docks to gain bonus gold production.");
   }
-  const productionHtml = tileProductionHtml(tile);
   if (productionHtml) pushLine(`Production: ${productionHtml}`);
   const upkeepHtml = tileUpkeepHtml(tile);
   if (upkeepHtml) pushLine(`Upkeep: ${upkeepHtml}`);
