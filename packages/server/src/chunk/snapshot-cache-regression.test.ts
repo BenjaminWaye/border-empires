@@ -71,6 +71,11 @@ describe("chunk snapshot cache regression guard", () => {
     const loadBatchRequests: Array<Array<{ cx: number; cy: number; mode: string }>> = [];
     const workerSerializeCounts: number[] = [];
     const sentPayloads: string[] = [];
+    const perfSamples: Array<{
+      cachedPayloadChunks: number;
+      rebuiltChunks: number;
+      batches: number;
+    }> = [];
     const cachedChunkSnapshotByPlayer = new Map<
       string,
       {
@@ -94,7 +99,13 @@ describe("chunk snapshot cache regression guard", () => {
       wrapChunkX: (value) => ((value % 2) + 2) % 2,
       wrapChunkY: () => 0,
       runtimeMemoryStats: () => ({ rssMb: 0, heapUsedMb: 0, heapTotalMb: 0, externalMb: 0, arrayBuffersMb: 0 }),
-      pushChunkSnapshotPerf: () => {},
+      pushChunkSnapshotPerf: (sample) => {
+        perfSamples.push({
+          cachedPayloadChunks: sample.cachedPayloadChunks,
+          rebuiltChunks: sample.rebuiltChunks,
+          batches: sample.batches
+        });
+      },
       onFirstChunkSent: () => {},
       onSlowChunkSnapshot: () => {},
       visibilitySnapshotForPlayer: () => visibilitySnapshot,
@@ -216,5 +227,10 @@ describe("chunk snapshot cache regression guard", () => {
     ]);
     expect(workerSerializeCounts).toEqual([2, 1]);
     expect(sentPayloads).toHaveLength(3);
+    expect(perfSamples).toEqual([
+      { cachedPayloadChunks: 0, rebuiltChunks: 2, batches: 1 },
+      { cachedPayloadChunks: 1, rebuiltChunks: 1, batches: 1 },
+      { cachedPayloadChunks: 2, rebuiltChunks: 0, batches: 1 }
+    ]);
   });
 });
