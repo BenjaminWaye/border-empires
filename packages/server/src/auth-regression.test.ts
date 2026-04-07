@@ -29,26 +29,12 @@ describe("auth verification regression guard", () => {
     expect(source).toContain("let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);");
   });
 
-  it("accepts a structurally valid Firebase token immediately for already known uid identities", () => {
-    const source = serverMainSource();
-    expect(source).toContain("const decodedFallback = decodeFirebaseTokenFallback(msg.token);");
-    expect(source).toContain("structurallyValidToken: true");
-    expect(source).toContain('"firebase token verification bypass using structurally valid payload"');
-  });
-
-  it("still reuses persisted identity fields when the uid is already known", () => {
-    const source = serverMainSource();
-    expect(source).toContain("const knownIdentity = authIdentityByUid.get(decodedFallback.uid);");
-    expect(source).toContain('"firebase token verification bypass using known uid fallback"');
-  });
-
   it("falls back to cached or decoded Firebase identity when verification is unavailable", () => {
     const source = serverMainSource();
     expect(source).toContain("const verified = await verifyFirebaseToken(msg.token);");
     expect(source).toContain("if (!decoded) decoded = cachedFirebaseIdentityForDecodedToken(msg.token);");
-    expect(source).toContain('text.includes("AuthVerifyTimeout")');
     expect(source).toContain('app.log.warn({ err }, "firebase token verification fallback to cached identity");');
-    expect(source).toContain("const fallback = decodedFallback ?? decodeFirebaseTokenFallback(msg.token);");
+    expect(source).toContain('const fallback = decodeFirebaseTokenFallback(msg.token);');
     expect(source).toContain('\"firebase token verification fallback to unverified payload\"');
   });
 
