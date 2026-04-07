@@ -3206,6 +3206,8 @@ const playerTile = (x: number, y: number): Tile => {
     if (history.lastStructureType !== undefined) historyView.lastStructureType = history.lastStructureType;
     tile.history = historyView;
   }
+  const upkeepEntries = tileUpkeepEntriesForTile(tk, ownerId);
+  if (upkeepEntries.length > 0) tile.upkeepEntries = upkeepEntries;
   const yieldBuf = tileYieldByTile.get(key(wx, wy));
   const ownerEffects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
   if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
@@ -4105,6 +4107,64 @@ const settledTileGoldUpkeepPerMinuteAt = (playerId: string, tileKey: TileKey): n
   const town = townsByTile.get(tileKey);
   if (town && townPopulationTierForTown(town) === "SETTLEMENT") return 0;
   return 0.04 * governorUpkeepMultiplierAtTile(playerId, tileKey);
+};
+
+const roundedUpkeepPerMinute = (amountPerMinute: number): number => Number(amountPerMinute.toFixed(4));
+
+const tileUpkeepEntriesForTile = (tileKey: TileKey, ownerId: string | undefined): NonNullable<Tile["upkeepEntries"]> => {
+  if (!ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED") return [];
+  const effects = getPlayerEffectsForPlayer(ownerId);
+  const entries: NonNullable<Tile["upkeepEntries"]> = [];
+  const town = townsByTile.get(tileKey);
+  if (town) {
+    const townFoodUpkeep = townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult * governorUpkeepMultiplierAtTile(ownerId, tileKey);
+    if (townFoodUpkeep > 0.0001) entries.push({ label: "Town", perMinute: { FOOD: roundedUpkeepPerMinute(townFoodUpkeep) } });
+  }
+  const settledLandGoldUpkeep = settledTileGoldUpkeepPerMinuteAt(ownerId, tileKey) * effects.settledGoldUpkeepMult;
+  if (settledLandGoldUpkeep > 0.0001) {
+    entries.push({ label: "Settled land", perMinute: { GOLD: roundedUpkeepPerMinute(settledLandGoldUpkeep) } });
+  }
+  const fort = fortsByTile.get(tileKey);
+  if (fort?.ownerId === ownerId && fort.status === "active") {
+    entries.push({
+      label: "Fort",
+      perMinute: {
+        GOLD: roundedUpkeepPerMinute(1 * effects.fortGoldUpkeepMult),
+        IRON: roundedUpkeepPerMinute(0.025 * effects.fortIronUpkeepMult)
+      }
+    });
+  }
+  const siegeOutpost = siegeOutpostsByTile.get(tileKey);
+  if (siegeOutpost?.ownerId === ownerId && siegeOutpost.status === "active") {
+    entries.push({
+      label: "Siege outpost",
+      perMinute: {
+        GOLD: roundedUpkeepPerMinute(1 * effects.outpostGoldUpkeepMult),
+        SUPPLY: roundedUpkeepPerMinute(0.025 * effects.outpostSupplyUpkeepMult)
+      }
+    });
+  }
+  const observatory = observatoriesByTile.get(tileKey);
+  if (observatory?.ownerId === ownerId && observatory.status === "active") {
+    entries.push({ label: "Observatory", perMinute: { CRYSTAL: roundedUpkeepPerMinute(OBSERVATORY_UPKEEP_PER_MIN) } });
+  }
+  const structure = economicStructuresByTile.get(tileKey);
+  if (structure?.ownerId === ownerId && structure.status === "active") {
+    const gold = economicStructureGoldUpkeepPerInterval(structure.type) / 10;
+    const crystal = economicStructureCrystalUpkeepPerInterval(structure.type, ownerId) / 10;
+    const oil = structure.type === "AIRPORT" ? AIRPORT_OIL_UPKEEP_PER_MIN : 0;
+    if (gold > 0.0001 || crystal > 0.0001 || oil > 0.0001) {
+      entries.push({
+        label: prettyEconomicStructureLabel(structure.type),
+        perMinute: {
+          ...(gold > 0.0001 ? { GOLD: roundedUpkeepPerMinute(gold) } : {}),
+          ...(crystal > 0.0001 ? { CRYSTAL: roundedUpkeepPerMinute(crystal) } : {}),
+          ...(oil > 0.0001 ? { OIL: roundedUpkeepPerMinute(oil) } : {})
+        }
+      });
+    }
+  }
+  return entries;
 };
 
 const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number =>
