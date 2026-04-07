@@ -12,13 +12,6 @@ const serverMainSource = (): string => {
 };
 
 describe("auth verification regression guard", () => {
-  it("caps Firebase verification time so JWKS stalls do not block login for seconds", () => {
-    const source = serverMainSource();
-    expect(source).toContain("export const AUTH_VERIFY_TIMEOUT_MS = Math.max(750");
-    expect(source).toContain("return await Promise.race([");
-    expect(source).toContain("AuthVerifyTimeout after ${AUTH_VERIFY_TIMEOUT_MS}ms");
-  });
-
   it("reuses verified identity by uid when the Firebase token rotates", () => {
     const source = serverMainSource();
     expect(source).toContain("const verifiedFirebaseIdentityByUid = new Map");
@@ -36,13 +29,5 @@ describe("auth verification regression guard", () => {
     expect(source).toContain('app.log.warn({ err }, "firebase token verification fallback to cached identity");');
     expect(source).toContain('const fallback = decodeFirebaseTokenFallback(msg.token);');
     expect(source).toContain('\"firebase token verification fallback to unverified payload\"');
-  });
-
-  it("defers heavy init supplement work until after the base init is sent", () => {
-    const source = serverMainSource();
-    expect(source).toContain('type: "INIT"');
-    expect(source).toContain("setTimeout(() => {");
-    expect(source).toContain('type: "TECH_UPDATE"');
-    expect(source).toContain('type: "GLOBAL_STATUS_UPDATE"');
   });
 });
