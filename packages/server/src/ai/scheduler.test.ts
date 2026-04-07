@@ -69,7 +69,9 @@ describe("createAiScheduler", () => {
         workerQueueSoftLimit: 4,
         simulationQueueSoftLimit: 6,
         eventLoopP95SoftLimitMs: 60,
-        eventLoopUtilizationSoftLimitPct: 65
+        eventLoopUtilizationSoftLimitPct: 65,
+        eventLoopP95HardLimitMs: 120,
+        eventLoopUtilizationHardLimitPct: 90
       },
       now: () => 1_000,
       getAllPlayers: () => [makeAiPlayer("ai-1"), makeAiPlayer("ai-2")],
@@ -120,7 +122,9 @@ describe("createAiScheduler", () => {
         workerQueueSoftLimit: 4,
         simulationQueueSoftLimit: 6,
         eventLoopP95SoftLimitMs: 60,
-        eventLoopUtilizationSoftLimitPct: 65
+        eventLoopUtilizationSoftLimitPct: 65,
+        eventLoopP95HardLimitMs: 120,
+        eventLoopUtilizationHardLimitPct: 90
       },
       now: () => nowMs,
       getAllPlayers: () => players,
@@ -174,7 +178,9 @@ describe("createAiScheduler", () => {
         workerQueueSoftLimit: 4,
         simulationQueueSoftLimit: 6,
         eventLoopP95SoftLimitMs: 60,
-        eventLoopUtilizationSoftLimitPct: 65
+        eventLoopUtilizationSoftLimitPct: 65,
+        eventLoopP95HardLimitMs: 120,
+        eventLoopUtilizationHardLimitPct: 90
       },
       now: () => nowMs,
       getAllPlayers: () => players,
@@ -210,5 +216,60 @@ describe("createAiScheduler", () => {
 
     expect(new Set(enqueued).size).toBe(40);
     expect(scheduler.state.batchSize).toBe(1);
+  });
+
+  it("sheds AI work completely under hard event-loop overload", () => {
+    const enqueued: Array<{ actor: Player }> = [];
+    const scheduler = createAiScheduler<Player, { playerId: string }, { score: number }, { cycleId: number }>({
+      config: {
+        tickMs: 10_000,
+        dispatchIntervalMs: 250,
+        tickBatchSize: 3,
+        humanPriorityBatchSize: 1,
+        humanDefenseBatchSize: 2,
+        authPriorityBatchSize: 1,
+        defensePriorityMs: 15_000,
+        workerQueueSoftLimit: 4,
+        simulationQueueSoftLimit: 6,
+        eventLoopP95SoftLimitMs: 60,
+        eventLoopUtilizationSoftLimitPct: 65,
+        eventLoopP95HardLimitMs: 120,
+        eventLoopUtilizationHardLimitPct: 90
+      },
+      now: () => 1_000,
+      getAllPlayers: () => [makeAiPlayer("ai-1"), makeAiPlayer("ai-2"), makeAiPlayer("ai-3")],
+      onlineHumanPlayerCount: () => 1,
+      latestRuntimeVitalsSample: () => ({
+        eventLoopDelayP95Ms: 130,
+        eventLoopUtilizationPercent: 96
+      }),
+      pendingAuthVerifications: () => 0,
+      authPriorityUntil: () => 0,
+      aiQueueDepth: () => 0,
+      simulationQueueDepth: () => 0,
+      humanChunkSnapshotPriorityActive: () => false,
+      getAiCompetitionContext: () => ({
+        competitionMetrics: [],
+        incomeByPlayerId: new Map(),
+        townsTarget: 0,
+        settledTilesTarget: 0,
+        analysisByPlayerId: new Map()
+      }),
+      createTickContext: (cycleId) => ({ cycleId }),
+      enqueueAiWorkerJob: (job) => {
+        enqueued.push({ actor: job.actor });
+      },
+      runtimeMemoryStats: () => ({ rssMb: 0, heapUsedMb: 0, heapTotalMb: 0, externalMb: 0, arrayBuffersMb: 0 }),
+      pushAiTickPerf: () => undefined,
+      onSlowAiTick: () => undefined
+    });
+
+    scheduler.runAiTick();
+
+    expect(enqueued).toHaveLength(0);
+    expect(scheduler.state.batchSize).toBe(0);
+    expect(scheduler.state.selectedAiPlayers).toBe(0);
+    expect(scheduler.state.eventLoopOverloaded).toBe(true);
+    expect(scheduler.state.reason).toBe("event_loop_hard_overload");
   });
 });
