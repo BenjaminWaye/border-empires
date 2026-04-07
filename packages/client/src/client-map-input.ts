@@ -42,6 +42,10 @@ export const shouldCommitMouseSelection = (args: {
   return args.button === 0 && !args.boxSelectionMode && !args.boxSelectionEngaged && !args.mousePanMoved;
 };
 
+export const mousePanThresholdPx = (startedOnLoadedTile: boolean): number => {
+  return startedOnLoadedTile ? 12 : 4;
+};
+
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
   const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
     const raw = deps.worldTileRawFromPointer(offsetX, offsetY);
@@ -96,13 +100,13 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   let boxSelectionEngaged = false;
   let boxSelectionMode = false;
   let mousePanStart: { x: number; y: number; camX: number; camY: number } | undefined;
+  let mousePanStartedOnLoadedTile = false;
   let mousePanMoved = false;
   let holdOpenTimer: number | undefined;
   let touchHoldStart: { x: number; y: number } | undefined;
   let touchTapCandidate: { x: number; y: number } | undefined;
   const HOLD_MOVE_CANCEL_PX = 10;
   const TOUCH_TAP_MAX_MOVE_PX = 12;
-  const MOUSE_PAN_THRESHOLD_PX = 4;
   const clearHoldOpenTimer = (): void => {
     if (holdOpenTimer !== undefined) window.clearTimeout(holdOpenTimer);
     holdOpenTimer = undefined;
@@ -159,10 +163,12 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     deps.hideHoldBuildMenu();
     mousePanStart = { x: ev.clientX, y: ev.clientY, camX: state.camX, camY: state.camY };
     const raw = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
+    const tileKey = deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy));
+    mousePanStartedOnLoadedTile = Boolean(state.tiles.get(tileKey));
     if (boxSelectionMode) {
       state.boxSelectStart = raw;
       state.boxSelectCurrent = raw;
-      dragLastKey = deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy));
+      dragLastKey = tileKey;
       deps.computeDragPreview();
     } else {
       state.boxSelectStart = undefined;
@@ -178,7 +184,8 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     if (!boxSelectionMode && mousePanStart) {
       const dx = ev.clientX - mousePanStart.x;
       const dy = ev.clientY - mousePanStart.y;
-      if (Math.abs(dx) > MOUSE_PAN_THRESHOLD_PX || Math.abs(dy) > MOUSE_PAN_THRESHOLD_PX) {
+      const panThreshold = mousePanThresholdPx(mousePanStartedOnLoadedTile);
+      if (Math.abs(dx) > panThreshold || Math.abs(dy) > panThreshold) {
         clearHoldOpenTimer();
         mousePanMoved = true;
         deps.interactionFlags.suppressNextClick = true;
@@ -257,6 +264,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     boxSelectionMode = false;
     boxSelectionEngaged = false;
     mousePanStart = undefined;
+    mousePanStartedOnLoadedTile = false;
     mousePanMoved = false;
     dragLastKey = "";
     state.boxSelectStart = undefined;
