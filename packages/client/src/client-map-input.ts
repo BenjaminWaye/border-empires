@@ -50,6 +50,14 @@ export const shouldSelectLoadedTileOnMouseDown = (args: {
   return args.button === 0 && !args.boxSelectionMode && args.hasPressedTile;
 };
 
+export const shouldCommitTouchTapSelection = (args: {
+  hasTapCandidate: boolean;
+  holdActivated: boolean;
+  pinchActive: boolean;
+}): boolean => {
+  return args.hasTapCandidate && !args.holdActivated && !args.pinchActive;
+};
+
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
   const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
     const raw = deps.worldTileRawFromPointer(offsetX, offsetY);
@@ -378,7 +386,14 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   deps.canvas.addEventListener(
     "touchend",
     () => {
-      if (touchTapCandidate && !deps.interactionFlags.holdActivated && !pinchStart) {
+      if (
+        shouldCommitTouchTapSelection({
+          hasTapCandidate: Boolean(touchTapCandidate),
+          holdActivated: deps.interactionFlags.holdActivated,
+          pinchActive: Boolean(pinchStart)
+        }) &&
+        touchTapCandidate
+      ) {
         const rect = deps.canvas.getBoundingClientRect();
         const offsetX = touchTapCandidate.x - rect.left;
         const offsetY = touchTapCandidate.y - rect.top;
