@@ -7468,13 +7468,84 @@ const bestAiEconomicExpand = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
-  return bestAiFrontierAction(
-    actor,
-    "EXPAND",
-    (tile) => !tile.ownerId && isAiVisibleEconomicFrontierTile(actor, tile, territorySummary),
-    victoryPath,
-    territorySummary
-  );
+  const startedAt = now();
+  let scannedCandidates = 0;
+  let shortlistEvaluations = 0;
+  const shortlist: Array<{
+    quickScore: number;
+    from: Tile;
+    to: Tile;
+    economicSignal: number;
+    dockSignal: number;
+  }> = [];
+
+  for (const { from, to } of territorySummary.expandCandidates) {
+    if (to.terrain !== "LAND" || to.ownerId) continue;
+    scannedCandidates += 1;
+    const tileKey = key(to.x, to.y);
+    const economicSignal = aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
+    if (economicSignal < 95) continue;
+    const dockSignal = docksByTile.has(tileKey) ? aiDockStrategicSignal(actor, to, territorySummary) : 0;
+    const quickScore =
+      economicSignal +
+      dockSignal +
+      (townsByTile.has(tileKey) ? 220 : 0) +
+      (to.resource ? 130 + baseTileValue(to.resource) : 0) +
+      (from.ownershipState === "SETTLED" ? 10 : 0);
+    if (shortlist.length < AI_ECONOMIC_SHORTLIST_SIZE) {
+      shortlist.push({ quickScore, from, to, economicSignal, dockSignal });
+    } else {
+      let lowestIndex = 0;
+      for (let index = 1; index < shortlist.length; index += 1) {
+        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
+      }
+      if (quickScore > shortlist[lowestIndex]!.quickScore) {
+        shortlist[lowestIndex] = { quickScore, from, to, economicSignal, dockSignal };
+      }
+    }
+    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "ECONOMIC_EXPAND",
+          scannedCandidates,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai economic selector budget hit"
+      );
+      break;
+    }
+  }
+
+  shortlist.sort((left, right) => right.quickScore - left.quickScore);
+  let best: { score: number; from: Tile; to: Tile } | undefined;
+  for (const candidate of shortlist) {
+    shortlistEvaluations += 1;
+    let score = 260 + candidate.economicSignal + candidate.dockSignal;
+    if (candidate.to.resource) score += baseTileValue(candidate.to.resource);
+    if (townsByTile.has(key(candidate.to.x, candidate.to.y))) score += 120;
+    if (candidate.from.ownershipState === "SETTLED") score += 6;
+    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
+    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "ECONOMIC_EXPAND",
+          scannedCandidates,
+          shortlistEvaluations,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          shortlistSize: shortlist.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai economic selector budget hit"
+      );
+      break;
+    }
+  }
+  return best;
 };
 
 const bestAiIslandExpand = (
@@ -7683,7 +7754,7 @@ const estimateAiFrontierAvailabilityProfile = (
   actor: Player,
   territorySummary: AiTerritorySummary
 ): AiFrontierAvailabilityProfile => {
-  const scanLimit = Math.min(territorySummary.expandCandidates.length, 192);
+  const scanLimit = Math.min(territorySummary.expandCandidates.length, 64);
   const opportunityCap = 24;
   let frontierOpportunityScaffold = 0;
   let frontierOpportunityScout = 0;
@@ -8196,6 +8267,7 @@ const cachedAiPlanningStaticForPlayer = (
 
 const AI_STRATEGIC_STATE_TTL_MS = 30_000;
 const AI_SCOUT_SHORTLIST_SIZE = 12;
+const AI_ECONOMIC_SHORTLIST_SIZE = 12;
 const AI_NEUTRAL_SHORTLIST_SIZE = 16;
 
 const dominantAiEnemyFrontPlayerId = (actor: Player, territorySummary: Pick<AiTerritorySummary, "attackCandidates">): string | undefined => {
