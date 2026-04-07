@@ -14888,7 +14888,26 @@ app.post("/admin/world/regenerate", async () => {
       const authStartedAt = now();
       authPressureState.authPriorityUntil = Math.max(authPressureState.authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
       sendLoginPhase(socket, "AUTH_RECEIVED", "Securing session", "Game server reached. Verifying your Google session...");
+      const decodedFallback = decodeFirebaseTokenFallback(msg.token);
       let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);
+      if (!decoded && decodedFallback?.uid) {
+        const knownIdentity = authIdentityByUid.get(decodedFallback.uid);
+        if (knownIdentity) {
+          decoded = {
+            uid: decodedFallback.uid,
+            email: decodedFallback.email ?? knownIdentity.email,
+            name: decodedFallback.name ?? knownIdentity.name
+          };
+          cacheVerifiedFirebaseIdentity(msg.token, decoded, decodedFallback.exp);
+          app.log.warn(
+            {
+              uid: decodedFallback.uid,
+              reusedKnownIdentity: true
+            },
+            "firebase token verification bypass using known uid fallback"
+          );
+        }
+      }
       try {
         if (!decoded) {
           const verified = await verifyFirebaseToken(msg.token);
@@ -14906,7 +14925,7 @@ app.post("/admin/world/regenerate", async () => {
           app.log.warn({ err }, "firebase token verification fallback to cached identity");
         } else {
           if (authError.code === "AUTH_UNAVAILABLE") {
-            const fallback = decodeFirebaseTokenFallback(msg.token);
+            const fallback = decodedFallback ?? decodeFirebaseTokenFallback(msg.token);
             if (fallback) {
               decoded = {
                 uid: fallback.uid,
