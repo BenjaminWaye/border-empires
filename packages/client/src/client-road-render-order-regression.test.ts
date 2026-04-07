@@ -10,12 +10,12 @@ const clientSource = (filename: string): string => {
 
 describe("road render ordering regression guard", () => {
   it("renders roads in a dedicated pass before tile overlays", () => {
-    const frame = clientSource("./client-runtime-frame.ts");
-    expect(frame).toContain("const overlayTiles: VisibleRenderTile[] = [];");
-    expect(frame).toContain("drawRuntimeRoadPass(state, deps, overlayTiles, runtimeState.roadNetwork);");
-    expect(frame).toContain("for (const overlayTile of overlayTiles) {");
-    expect(frame.indexOf("drawRuntimeRoadPass(state, deps, overlayTiles, runtimeState.roadNetwork);")).toBeLessThan(
-      frame.indexOf("for (const overlayTile of overlayTiles) {")
+    const source = clientSource("./client-runtime-loop.ts");
+    expect(source).toContain("const overlayTiles: VisibleRenderTile[] = [];");
+    expect(source).toContain("for (const { wk, px, py, vis, t } of overlayTiles)");
+    expect(source).toContain("for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile);");
+    expect(source.indexOf("for (const { wk, px, py, vis, t } of overlayTiles)")).toBeLessThan(
+      source.indexOf("for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile);")
     );
   });
 });

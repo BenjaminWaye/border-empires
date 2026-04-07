@@ -5,10 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const serverMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return [
-    readFileSync(resolve(here, "./main.ts"), "utf8"),
-    readFileSync(resolve(here, "./server-town-support.ts"), "utf8")
-  ].join("\n");
+  return readFileSync(resolve(here, "./main.ts"), "utf8");
 };
 
 const functionBody = (source: string, functionName: string): string => {

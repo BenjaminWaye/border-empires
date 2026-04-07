@@ -438,13 +438,6 @@ import {
   WORLD_TOWN_POPULATION_START_SPREAD,
   WOODEN_FORT_GOLD_UPKEEP
 } from "./server-game-constants.js";
-import { createServerWorldgenClusters } from "./server-worldgen-clusters.js";
-import { createServerWorldgenDocks } from "./server-worldgen-docks.js";
-import { createServerWorldgenShards } from "./server-worldgen-shards.js";
-import { createServerWorldgenTerrain } from "./server-worldgen-terrain.js";
-import { createServerWorldgenTowns } from "./server-worldgen-towns.js";
-import { createServerSeasonTech } from "./server-season-tech.js";
-import { createServerTownSupport } from "./server-town-support.js";
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
 const GLOBAL_STATUS_BROADCAST_MS = 2_000;
@@ -1262,326 +1255,1305 @@ const FINAL_PUSH_MS = 72 * 60 * 60_000;
 const HOLD_START_BROADCAST_DELAY_MS = 10 * 60_000;
 const HOLD_REMAINING_BROADCAST_HOURS = [12, 6, 1] as const;
 
-const {
-  seeded01,
-  terrainAtRuntime,
-  terrainShapeWithinPlayerDensity,
-  hasOwnedLandWithinRange,
-  regionTypeAtLocal,
-  isAdjacentTile,
-  isCoastalLand,
-  largestSeaComponentMask,
-  adjacentOceanSea,
-  clusterTypeDefs,
-  clusterResourceType,
-  discoverOilFieldNearAirport,
-  isNearMountain,
-  resourcePlacementAllowed,
-  isForestFrontierTile,
-  FOREST_SETTLEMENT_MULT,
-  frontierClaimDurationMsAt,
-  nearestLandTiles,
-  collectClusterTiles,
-  collectClusterTilesRelaxed,
-  clusterTileCountForResource,
-  clusterRadiusForResource
-}: {
-  seeded01: (x: number, y: number, seed: number) => number;
-  terrainAtRuntime: (x: number, y: number) => "LAND" | "SEA" | "MOUNTAIN";
-  terrainShapeWithinPlayerDensity: (x: number, y: number) => boolean;
-  hasOwnedLandWithinRange: (playerId: string, x: number, y: number, range: number) => boolean;
-  regionTypeAtLocal: (x: number, y: number) => ReturnType<typeof regionTypeAt> | undefined;
-  isAdjacentTile: (ax: number, ay: number, bx: number, by: number) => boolean;
-  isCoastalLand: (x: number, y: number) => boolean;
-  largestSeaComponentMask: () => Uint8Array;
-  adjacentOceanSea: (x: number, y: number, oceanMask: Uint8Array) => { x: number; y: number } | undefined;
-  clusterTypeDefs: Array<{ type: ClusterType; resourceType: ResourceType; threshold: number }>;
-  clusterResourceType: (cluster: ClusterDefinition) => ResourceType;
-  discoverOilFieldNearAirport: (ownerId: string, airportTileKey: TileKey) => TileKey[];
-  isNearMountain: (x: number, y: number, r?: number) => boolean;
-  resourcePlacementAllowed: (x: number, y: number, resource: ResourceType, relaxed?: boolean) => boolean;
-  isForestFrontierTile: (x: number, y: number) => boolean;
-  FOREST_SETTLEMENT_MULT: number;
-  frontierClaimDurationMsAt: (x: number, y: number) => number;
-  nearestLandTiles: (
-    originX: number,
-    originY: number,
-    candidates: Array<{ x: number; y: number }>,
-    limit: number,
-    predicate?: (tile: { x: number; y: number }) => boolean
-  ) => TileKey[];
-  collectClusterTiles: (cx: number, cy: number, resource: ResourceType, count: number) => TileKey[];
-  collectClusterTilesRelaxed: (cx: number, cy: number, resource: ResourceType, count: number) => TileKey[];
-  clusterTileCountForResource: (resource: ResourceType, x: number, y: number) => number;
-  clusterRadiusForResource: (resource: ResourceType, x: number, y: number) => number;
-} = createServerWorldgenTerrain({
-  wrapX,
-  wrapY,
-  WORLD_WIDTH,
-  WORLD_HEIGHT,
-  terrainShapesByTile,
-  key,
-  terrainAt,
-  PLAYER_MOUNTAIN_DENSITY_RADIUS,
-  PLAYER_MOUNTAIN_DENSITY_LIMIT,
-  players,
-  parseKey,
-  chebyshevDistance: (ax: number, ay: number, bx: number, by: number) => chebyshevDistance(ax, ay, bx, by),
-  regionTypeAt,
-  clusterByTile,
-  townsByTile,
-  docksByTile,
-  fortsByTile,
-  siegeOutpostsByTile,
-  observatoriesByTile,
-  economicStructuresByTile,
-  playerTile: (x: number, y: number) => playerTile(x, y),
-  AIRPORT_BOMBARD_MIN_FIELD_TILES,
-  AIRPORT_BOMBARD_MAX_FIELD_TILES,
-  activeSeason,
-  clustersById,
-  ownership,
-  getOrInitResourceCounts: (playerId: string) => getOrInitResourceCounts(playerId),
-  rebuildEconomyIndexForPlayer: (playerId: string) => rebuildEconomyIndexForPlayer(playerId),
-  sendPlayerUpdate: (player: Player, incomeDelta: number) => sendPlayerUpdate(player, incomeDelta),
-  sendVisibleTileDeltaAt: (x: number, y: number) => sendVisibleTileDeltaAt(x, y),
-  landBiomeAt,
-  grassShadeAt,
-  FRONTIER_CLAIM_MS
-}) as any;
+const seeded01 = (x: number, y: number, seed: number): number => {
+  const n = Math.sin((x * 12.9898 + y * 78.233 + seed * 43758.5453) % 100000) * 43758.5453123;
+  return n - Math.floor(n);
+};
 
-const {
-  chooseSeasonalTechConfig,
-  seasonTechConfigIsCompatible,
-  recomputeClusterBonusForPlayer,
-  playerModBreakdown,
-  recomputeTechModsFromOwnedTechs,
-  setClusterControlDelta
-}: {
-  chooseSeasonalTechConfig: (seed: number) => SeasonalTechConfig;
-  seasonTechConfigIsCompatible: (config: SeasonalTechConfig) => boolean;
-  recomputeClusterBonusForPlayer: (player: Player) => void;
-  playerModBreakdown: (player: Player) => StatsModBreakdown;
-  recomputeTechModsFromOwnedTechs: (player: Player) => void;
-  setClusterControlDelta: (playerId: string, clusterId: string, delta: number) => void;
-} = createServerSeasonTech({
-  TECHS,
-  TECH_ROOTS,
-  techById,
-  domainById,
-  players,
-  playerBaseMods,
-  clusterControlledTilesByPlayer,
-  recomputePlayerEffectsForPlayer: (player: Player) => recomputePlayerEffectsForPlayer(player),
-  markVisibilityDirty: (playerId: string) => markVisibilityDirty(playerId)
-}) as any;
+const terrainAtRuntime = (x: number, y: number): "LAND" | "SEA" | "MOUNTAIN" => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  return terrainShapesByTile.get(key(wx, wy))?.terrain ?? terrainAt(wx, wy);
+};
 
-const { generateClusters, applyClusterResources }: {
-  generateClusters: (seed: number) => void;
-  applyClusterResources: (x: number, y: number, base: ResourceType | undefined) => ResourceType | undefined;
-} = createServerWorldgenClusters({
-  clusterByTile,
-  clustersById,
-  clusterTypeDefs,
-  seeded01,
-  WORLD_WIDTH,
-  WORLD_HEIGHT,
-  clusterRuleMatch: (x: number, y: number, resource: ResourceType) => resourcePlacementAllowed(x, y, resource, false),
-  clusterRuleMatchRelaxed: (x: number, y: number, resource: ResourceType) => resourcePlacementAllowed(x, y, resource, true),
-  clusterTileCountForResource,
-  collectClusterTiles,
-  collectClusterTilesRelaxed,
-  clusterRadiusForResource,
-  key,
-  clusterResourceType
-}) as any;
+const terrainShapeWithinPlayerDensity = (x: number, y: number): boolean => {
+  let count = 0;
+  for (let dy = -PLAYER_MOUNTAIN_DENSITY_RADIUS; dy <= PLAYER_MOUNTAIN_DENSITY_RADIUS; dy += 1) {
+    for (let dx = -PLAYER_MOUNTAIN_DENSITY_RADIUS; dx <= PLAYER_MOUNTAIN_DENSITY_RADIUS; dx += 1) {
+      const tk = key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
+      const shape = terrainShapesByTile.get(tk);
+      if (shape?.terrain === "MOUNTAIN" && shape.createdByPlayer) count += 1;
+      if (count >= PLAYER_MOUNTAIN_DENSITY_LIMIT) return false;
+    }
+  }
+  return true;
+};
 
-const { generateDocks }: { generateDocks: (seed: number) => void } = createServerWorldgenDocks({
-  seeded01,
-  WORLD_WIDTH,
-  WORLD_HEIGHT,
-  key,
-  wrapX,
-  wrapY,
-  worldIndex: (x: number, y: number) => y * WORLD_WIDTH + x,
-  terrainAt,
-  adjacentOceanSea,
-  largestSeaComponentMask,
-  clusterByTile,
-  LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
-  docksByTile,
-  dockById,
-  getDockLinkedTileKeysByDockTileKey: () => dockLinkedTileKeysByDockTileKey
-}) as any;
+const hasOwnedLandWithinRange = (playerId: string, x: number, y: number, range: number): boolean => {
+  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
+    const [tx, ty] = parseKey(tk);
+    if (terrainAtRuntime(tx, ty) !== "LAND") continue;
+    if (chebyshevDistance(tx, ty, x, y) <= range) return true;
+  }
+  return false;
+};
 
-const {
-  townTypeAt,
-  generateTowns,
-  canPlaceTownAt,
-  findNearestTownPlacement,
-  townPlacementsNeedNormalization,
-  normalizeTownPlacements,
-  normalizeLegacySettlementTowns,
-  assignMissingTownNamesForWorld,
-  ensureBaselineEconomyCoverage,
-  ensureInterestCoverage,
-  initialTownPopulationAt
-}: {
-  townTypeAt: (x: number, y: number) => "MARKET" | "FARMING";
-  generateTowns: (seed: number) => void;
-  canPlaceTownAt: (x: number, y: number, ignoreTileKey?: TileKey) => boolean;
-  findNearestTownPlacement: (originX: number, originY: number, ignoreTileKey?: TileKey) => TileKey | undefined;
-  townPlacementsNeedNormalization: () => boolean;
-  normalizeTownPlacements: () => void;
-  normalizeLegacySettlementTowns: () => void;
-  assignMissingTownNamesForWorld: () => void;
-  ensureBaselineEconomyCoverage: (seed: number) => void;
-  ensureInterestCoverage: (seed: number) => void;
-  initialTownPopulationAt: (x: number, y: number, seed: number) => number;
-} = createServerWorldgenTowns({
-  seeded01,
-  regionTypeAtLocal,
-  landBiomeAt,
-  activeSeason,
-  townsByTile,
-  firstSpecialSiteCaptureClaimed,
-  WORLD_WIDTH,
-  WORLD_HEIGHT,
-  terrainAt,
-  key,
-  docksByTile,
-  clusterByTile,
-  POPULATION_MAX,
-  POPULATION_TOWN_MIN,
-  now,
-  wrapX,
-  wrapY,
-  parseKey,
-  ownership,
-  players,
-  assignMissingTownNames,
-  getIslandMap: () => islandMap(),
-  WORLD_TOWN_POPULATION_MIN,
-  WORLD_TOWN_POPULATION_START_SPREAD,
-  nearestLandTiles,
-  resourcePlacementAllowed,
-  clustersById,
-  clusterResourceType
-}) as any;
+const regionTypeAtLocal = (x: number, y: number): "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES" | undefined =>
+  terrainAt(x, y) === "LAND" ? regionTypeAt(x, y) : undefined;
 
-const {
-  shardSiteViewAt,
-  seedInitialShardScatter,
-  activeShardRainSummary,
-  shardRainNoticePayload,
-  maybeBroadcastShardRainWarning,
-  spawnShardRain,
-  maybeSpawnScheduledShardRain,
-  expireShardSites,
-  collectShardSite
-}: {
-  shardSiteViewAt: (tileKey: TileKey) => Tile["shardSite"] | undefined;
-  seedInitialShardScatter: (seed: number) => void;
-  activeShardRainSummary: () => { siteCount: number; expiresAt: number | undefined };
-  shardRainNoticePayload: () => unknown;
-  maybeBroadcastShardRainWarning: () => void;
-  spawnShardRain: () => void;
-  maybeSpawnScheduledShardRain: () => void;
-  expireShardSites: () => void;
-  collectShardSite: (player: Player, x: number, y: number) => { ok: boolean; amount?: number; reason?: string };
-} = createServerWorldgenShards({
-  terrainAt,
-  key,
-  docksByTile,
-  clusterByTile,
-  townsByTile,
-  shardSitesByTile,
-  now,
-  INITIAL_SHARD_SCATTER_COUNT,
-  seeded01,
-  WORLD_WIDTH,
-  WORLD_HEIGHT,
-  currentShardRainNotice,
-  SHARD_RAIN_TTL_MS,
-  nextShardRainStartAt,
-  getLastShardRainWarningSlotKey: () => lastShardRainWarningSlotKey,
-  setLastShardRainWarningSlotKey: (value: string) => {
-    lastShardRainWarningSlotKey = value;
-  },
-  broadcast: (payload: unknown) => broadcast(payload),
-  hasOnlinePlayers: () => hasOnlinePlayers(),
-  SHARD_RAIN_SITE_MIN,
-  SHARD_RAIN_SITE_MAX,
-  broadcastLocalVisionDelta: (centers: Array<{ x: number; y: number }>) => broadcastLocalVisionDelta(centers),
-  SHARD_RAIN_SCHEDULE_HOURS,
-  getLastShardRainSlotKey: () => lastShardRainSlotKey,
-  setLastShardRainSlotKey: (value: string) => {
-    lastShardRainSlotKey = value;
-  },
-  parseKey,
-  markSummaryChunkDirtyAtTile: (x: number, y: number) => markSummaryChunkDirtyAtTile(x, y),
-  visible: (player: Player, x: number, y: number) => visible(player, x, y),
-  getOrInitStrategicStocks: (playerId: string) => getOrInitStrategicStocks(playerId)
-}) as any;
+const isAdjacentTile = (ax: number, ay: number, bx: number, by: number): boolean => {
+  const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
+  const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
+  return dx <= 1 && dy <= 1 && (dx !== 0 || dy !== 0);
+};
 
-const {
-  applyTownWarShock,
-  applyTownCaptureShock,
-  applyTownCapturePopulationLoss,
-  townSupport,
-  townPopulationTier,
-  townPopulationTierForTown,
-  townPopulationMultiplier,
-  townManpowerSnapshotForOwner,
-  playerManpowerCap,
-  manpowerRegenWeightForSettlementIndex,
-  prettyTownName,
-  playerManpowerRegenPerMinute,
-  playerManpowerBreakdown,
-  effectiveManpowerAt,
-  townGoldIncomeEnabledForPlayer,
-  applyManpowerRegen
-}: {
-  applyTownWarShock: (tileKey: TileKey) => void;
-  applyTownCaptureShock: (tileKey: TileKey) => void;
-  applyTownCapturePopulationLoss: (town: TownDefinition) => void;
-  townSupport: (townKey: TileKey, ownerId: string) => { supportCurrent: number; supportMax: number };
-  townPopulationTier: (population: number) => PopulationTier;
-  townPopulationTierForTown: (town: TownDefinition) => PopulationTier;
-  townPopulationMultiplier: (population: number) => number;
-  townManpowerSnapshotForOwner: (
-    town: TownDefinition,
-    ownerId: string | undefined
-  ) => { cap: number; regenPerMinute: number };
-  playerManpowerCap: (player: Player) => number;
-  manpowerRegenWeightForSettlementIndex: (index: number) => number;
-  prettyTownName: (town: TownDefinition, tileKey?: TileKey) => string;
-  playerManpowerRegenPerMinute: (player: Player) => number;
-  playerManpowerBreakdown: (player: Player) => { cap: ManpowerBreakdownLine[]; regen: ManpowerBreakdownLine[] };
-  effectiveManpowerAt: (player: Player, nowMs?: number) => number;
-  townGoldIncomeEnabledForPlayer: (player: Player, nowMs?: number) => boolean;
-  applyManpowerRegen: (player: Player) => void;
-} = createServerTownSupport({
-  now,
-  parseKey,
-  key,
-  wrapX,
-  wrapY,
-  chebyshevDistance: (ax: number, ay: number, bx: number, by: number) => chebyshevDistance(ax, ay, bx, by),
-  WORLD_WIDTH,
-  WORLD_HEIGHT,
-  POPULATION_TOWN_MIN,
-  MANPOWER_EPSILON,
-  TOWN_MANPOWER_BY_TIER,
-  townsByTile,
-  ownership,
-  ownershipStateByTile,
-  townGrowthShockUntilByTile,
-  townCaptureShockUntilByTile,
-  terrainAt,
-  ownedTownKeysForPlayer: (playerId: string) => ownedTownKeysForPlayer(playerId),
-  isTownFedForOwner: (ownerId: string | undefined, townKey: TileKey) => isTownFedForOwner(townKey, ownerId)
-}) as any;
+const isCoastalLand = (x: number, y: number): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  const n = [
+    terrainAt(wrapX(x, WORLD_WIDTH), wrapY(y - 1, WORLD_HEIGHT)),
+    terrainAt(wrapX(x + 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)),
+    terrainAt(wrapX(x, WORLD_WIDTH), wrapY(y + 1, WORLD_HEIGHT)),
+    terrainAt(wrapX(x - 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT))
+  ];
+  return n.includes("SEA");
+};
+
+const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
+const largestSeaComponentMask = (): Uint8Array => {
+  const total = WORLD_WIDTH * WORLD_HEIGHT;
+  const visited = new Uint8Array(total);
+  const queue = new Int32Array(total);
+  let largest: number[] = [];
+
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      const startIdx = worldIndex(x, y);
+      if (visited[startIdx] || terrainAt(x, y) !== "SEA") continue;
+
+      let head = 0;
+      let tail = 0;
+      const component: number[] = [];
+      visited[startIdx] = 1;
+      queue[tail++] = startIdx;
+
+      while (head < tail) {
+        const idx = queue[head++]!;
+        component.push(idx);
+        const cx = idx % WORLD_WIDTH;
+        const cy = Math.floor(idx / WORLD_WIDTH);
+        const neighbors: Array<[number, number]> = [
+          [wrapX(cx, WORLD_WIDTH), wrapY(cy - 1, WORLD_HEIGHT)],
+          [wrapX(cx + 1, WORLD_WIDTH), wrapY(cy, WORLD_HEIGHT)],
+          [wrapX(cx, WORLD_WIDTH), wrapY(cy + 1, WORLD_HEIGHT)],
+          [wrapX(cx - 1, WORLD_WIDTH), wrapY(cy, WORLD_HEIGHT)]
+        ];
+        for (const [nx, ny] of neighbors) {
+          const nIdx = worldIndex(nx, ny);
+          if (visited[nIdx] || terrainAt(nx, ny) !== "SEA") continue;
+          visited[nIdx] = 1;
+          queue[tail++] = nIdx;
+        }
+      }
+
+      if (component.length > largest.length) largest = component;
+    }
+  }
+
+  const ocean = new Uint8Array(total);
+  for (const idx of largest) ocean[idx] = 1;
+  return ocean;
+};
+
+const adjacentOceanSea = (x: number, y: number, oceanMask: Uint8Array): { x: number; y: number } | undefined => {
+  const neighbors: Array<[number, number]> = [
+    [wrapX(x, WORLD_WIDTH), wrapY(y - 1, WORLD_HEIGHT)],
+    [wrapX(x + 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)],
+    [wrapX(x, WORLD_WIDTH), wrapY(y + 1, WORLD_HEIGHT)],
+    [wrapX(x - 1, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)]
+  ];
+  for (const [nx, ny] of neighbors) {
+    if (terrainAt(nx, ny) !== "SEA") continue;
+    if (!oceanMask[worldIndex(nx, ny)]) continue;
+    return { x: nx, y: ny };
+  }
+  return undefined;
+};
+
+const clusterTypeDefs: Array<{
+  type: ClusterType;
+  resourceType: ResourceType;
+  threshold: number;
+}> = [
+  { type: "FERTILE_PLAINS", resourceType: "FARM", threshold: 3 },
+  { type: "IRON_HILLS", resourceType: "IRON", threshold: 3 },
+  { type: "CRYSTAL_BASIN", resourceType: "GEMS", threshold: 3 },
+  { type: "HORSE_STEPPES", resourceType: "FUR", threshold: 3 },
+  { type: "COASTAL_SHOALS", resourceType: "FISH", threshold: 3 }
+];
+
+const clusterResourceType = (cluster: ClusterDefinition): ResourceType => {
+  if (cluster.resourceType) return cluster.resourceType;
+  if (cluster.clusterType === "FERTILE_PLAINS") return "FARM";
+  if (cluster.clusterType === "IRON_HILLS") return "IRON";
+  if (cluster.clusterType === "CRYSTAL_BASIN") return "GEMS";
+  if (cluster.clusterType === "HORSE_STEPPES") return "FUR";
+  if (cluster.clusterType === "COASTAL_SHOALS") return "FISH";
+  if (cluster.clusterType === "OIL_FIELD") return "OIL";
+  return "GEMS";
+};
+
+const discoverOilFieldNearAirport = (ownerId: string, airportTileKey: TileKey): TileKey[] => {
+  const [ax, ay] = parseKey(airportTileKey);
+  const candidateKeys: TileKey[] = [];
+  for (let dy = -2; dy <= 2; dy += 1) {
+    for (let dx = -2; dx <= 2; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const x = wrapX(ax + dx, WORLD_WIDTH);
+      const y = wrapY(ay + dy, WORLD_HEIGHT);
+      const tk = key(x, y);
+      if (terrainAtRuntime(x, y) !== "LAND") continue;
+      if (clusterByTile.has(tk) || townsByTile.has(tk) || docksByTile.has(tk)) continue;
+      if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) continue;
+      candidateKeys.push(tk);
+    }
+  }
+  candidateKeys.sort((left, right) => {
+    const leftTile = playerTile(...parseKey(left));
+    const rightTile = playerTile(...parseKey(right));
+    const leftScore = leftTile.ownerId === ownerId && leftTile.ownershipState === "SETTLED" ? 0 : leftTile.ownerId === ownerId ? 1 : 2;
+    const rightScore = rightTile.ownerId === ownerId && rightTile.ownershipState === "SETTLED" ? 0 : rightTile.ownerId === ownerId ? 1 : 2;
+    return leftScore - rightScore;
+  });
+  const desiredCount =
+    AIRPORT_BOMBARD_MIN_FIELD_TILES +
+    Math.floor(seeded01(ax, ay, activeSeason.worldSeed + 811) * (AIRPORT_BOMBARD_MAX_FIELD_TILES - AIRPORT_BOMBARD_MIN_FIELD_TILES + 1));
+  const candidateSet = new Set(candidateKeys);
+  const selected: TileKey[] = [];
+  for (const start of candidateKeys) {
+    if (selected.length >= desiredCount) break;
+    if (selected.includes(start)) continue;
+    const queue = [start];
+    const visited = new Set<TileKey>([start]);
+    while (queue.length > 0 && selected.length < desiredCount) {
+      const current = queue.shift()!;
+      if (!selected.includes(current)) selected.push(current);
+      const [cx, cy] = parseKey(current);
+      for (let ny = cy - 1; ny <= cy + 1; ny += 1) {
+        for (let nx = cx - 1; nx <= cx + 1; nx += 1) {
+          const neighborKey = key(wrapX(nx, WORLD_WIDTH), wrapY(ny, WORLD_HEIGHT));
+          if (!candidateSet.has(neighborKey) || visited.has(neighborKey)) continue;
+          visited.add(neighborKey);
+          queue.push(neighborKey);
+        }
+      }
+    }
+    if (selected.length >= AIRPORT_BOMBARD_MIN_FIELD_TILES) break;
+  }
+  if (selected.length < AIRPORT_BOMBARD_MIN_FIELD_TILES) return [];
+  const clusterId = `oil-${crypto.randomUUID()}`;
+  clustersById.set(clusterId, {
+    clusterId,
+    clusterType: "OIL_FIELD",
+    resourceType: "OIL",
+    centerX: ax,
+    centerY: ay,
+    radius: 1,
+    controlThreshold: 2
+  });
+  const affectedOwners = new Set<string>();
+  for (const tk of selected) {
+    clusterByTile.set(tk, clusterId);
+    const owner = ownership.get(tk);
+    if (!owner) continue;
+    getOrInitResourceCounts(owner).OIL = (getOrInitResourceCounts(owner).OIL ?? 0) + 1;
+    affectedOwners.add(owner);
+  }
+  for (const affectedOwner of affectedOwners) {
+    rebuildEconomyIndexForPlayer(affectedOwner);
+    const player = players.get(affectedOwner);
+    if (player) sendPlayerUpdate(player, 0);
+  }
+  for (const tk of selected) {
+    const [x, y] = parseKey(tk);
+    sendVisibleTileDeltaAt(x, y);
+  }
+  return selected;
+};
+
+const chooseSeasonalTechConfig = (seed: number): SeasonalTechConfig => {
+  const activeNodeIds = new Set<string>();
+  for (const tech of TECHS) {
+    activeNodeIds.add(tech.id);
+  }
+  return {
+    configId: `tree-${seed}`,
+    rootNodeIds: [...TECH_ROOTS],
+    activeNodeIds,
+    balanceConstants: {}
+  };
+};
+
+const seasonTechConfigIsCompatible = (config: SeasonalTechConfig): boolean => {
+  if (config.rootNodeIds.length !== TECH_ROOTS.length) return false;
+  if (config.rootNodeIds.some((id) => !TECH_ROOTS.includes(id))) return false;
+  if (config.activeNodeIds.size !== TECHS.length) return false;
+  for (const id of config.activeNodeIds) {
+    if (!techById.has(id)) return false;
+  }
+  for (const tech of TECHS) {
+    if (!config.activeNodeIds.has(tech.id)) return false;
+  }
+  return true;
+};
+
+const recomputeClusterBonusForPlayer = (player: Player): void => {
+  void player;
+};
+
+const playerModBreakdown = (player: Player): StatsModBreakdown => {
+  const breakdown: StatsModBreakdown = {
+    attack: [{ label: "Base", mult: 1 }],
+    defense: [{ label: "Base", mult: 1 }],
+    income: [{ label: "Base", mult: 1 }],
+    vision: [{ label: "Base", mult: 1 }]
+  };
+  for (const techId of player.techIds) {
+    const tech = techById.get(techId);
+    if (!tech?.mods) continue;
+    if (tech.mods.attack && tech.mods.attack !== 1) breakdown.attack.push({ label: `Tech: ${tech.name}`, mult: tech.mods.attack });
+    if (tech.mods.defense && tech.mods.defense !== 1) breakdown.defense.push({ label: `Tech: ${tech.name}`, mult: tech.mods.defense });
+    if (tech.mods.income && tech.mods.income !== 1) breakdown.income.push({ label: `Tech: ${tech.name}`, mult: tech.mods.income });
+    if (tech.mods.vision && tech.mods.vision !== 1) breakdown.vision.push({ label: `Tech: ${tech.name}`, mult: tech.mods.vision });
+  }
+  for (const domainId of player.domainIds) {
+    const domain = domainById.get(domainId);
+    if (!domain?.mods) continue;
+    if (domain.mods.attack && domain.mods.attack !== 1) breakdown.attack.push({ label: `Domain: ${domain.name}`, mult: domain.mods.attack });
+    if (domain.mods.defense && domain.mods.defense !== 1) breakdown.defense.push({ label: `Domain: ${domain.name}`, mult: domain.mods.defense });
+    if (domain.mods.income && domain.mods.income !== 1) breakdown.income.push({ label: `Domain: ${domain.name}`, mult: domain.mods.income });
+    if (domain.mods.vision && domain.mods.vision !== 1) breakdown.vision.push({ label: `Domain: ${domain.name}`, mult: domain.mods.vision });
+  }
+
+  for (const key of ["attack", "defense", "income", "vision"] as const) {
+    const computed = breakdown[key].reduce((product, entry) => product * entry.mult, 1);
+    const live = player.mods[key];
+    if (Math.abs(computed - live) > 0.0001) {
+      breakdown[key].push({ label: "Other", mult: live / Math.max(0.0001, computed) });
+    }
+  }
+  return breakdown;
+};
+
+const recomputeTechModsFromOwnedTechs = (player: Player): void => {
+  const depthMemo = new Map<string, number>();
+  const depthOf = (id: string): number => {
+    const cached = depthMemo.get(id);
+    if (cached !== undefined) return cached;
+    const t = techById.get(id);
+    if (!t || !t.requires) {
+      depthMemo.set(id, 0);
+      return 0;
+    }
+    const d = depthOf(t.requires) + 1;
+    depthMemo.set(id, d);
+    return d;
+  };
+
+  const owned = [...player.techIds].sort((a, b) => depthOf(a) - depthOf(b));
+  const rebuilt = { attack: 1, defense: 1, income: 1, vision: 1 };
+  for (const id of owned) {
+    const tech = techById.get(id);
+    if (!tech?.mods) continue;
+    if (tech.mods.attack) rebuilt.attack *= tech.mods.attack;
+    if (tech.mods.defense) rebuilt.defense *= tech.mods.defense;
+    if (tech.mods.income) rebuilt.income *= tech.mods.income;
+    if (tech.mods.vision) rebuilt.vision *= tech.mods.vision;
+  }
+  for (const id of player.domainIds) {
+    const domain = domainById.get(id);
+    if (!domain?.mods) continue;
+    if (domain.mods.attack) rebuilt.attack *= domain.mods.attack;
+    if (domain.mods.defense) rebuilt.defense *= domain.mods.defense;
+    if (domain.mods.income) rebuilt.income *= domain.mods.income;
+    if (domain.mods.vision) rebuilt.vision *= domain.mods.vision;
+  }
+
+  player.mods.attack = rebuilt.attack;
+  player.mods.defense = rebuilt.defense;
+  player.mods.income = rebuilt.income;
+  player.mods.vision = rebuilt.vision;
+  playerBaseMods.set(player.id, rebuilt);
+  recomputePlayerEffectsForPlayer(player);
+  recomputeClusterBonusForPlayer(player);
+  markVisibilityDirty(player.id);
+};
+
+const setClusterControlDelta = (playerId: string, clusterId: string, delta: number): void => {
+  let byCluster = clusterControlledTilesByPlayer.get(playerId);
+  if (!byCluster) {
+    byCluster = new Map<string, number>();
+    clusterControlledTilesByPlayer.set(playerId, byCluster);
+  }
+  byCluster.set(clusterId, (byCluster.get(clusterId) ?? 0) + delta);
+  if ((byCluster.get(clusterId) ?? 0) <= 0) byCluster.delete(clusterId);
+  const p = players.get(playerId);
+  if (p) recomputeClusterBonusForPlayer(p);
+};
+
+const isNearMountain = (x: number, y: number, r = 4): boolean => {
+  for (let dy = -r; dy <= r; dy += 1) {
+    for (let dx = -r; dx <= r; dx += 1) {
+      if (Math.abs(dx) + Math.abs(dy) > r) continue;
+      const wx = wrapX(x + dx, WORLD_WIDTH);
+      const wy = wrapY(y + dy, WORLD_HEIGHT);
+      if (terrainAt(wx, wy) === "MOUNTAIN") return true;
+    }
+  }
+  return false;
+};
+
+const isGrassIronTile = (x: number, y: number, relaxed = false): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  if (landBiomeAt(x, y) !== "GRASS") return false;
+  return isNearMountain(x, y, relaxed ? 2 : 1);
+};
+
+const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  const biome = landBiomeAt(x, y);
+  const shade = grassShadeAt(x, y);
+  const region = regionTypeAtLocal(x, y);
+  if (resource === "FISH") return biome === "COASTAL_SAND";
+  if (resource === "IRON") return (biome === "SAND" && isNearMountain(x, y, 4)) || isGrassIronTile(x, y);
+  if (resource === "GEMS") return biome === "SAND";
+  if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
+  if (resource === "FUR") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST") || biome === "SAND");
+  return false;
+};
+
+const clusterRuleMatchRelaxed = (x: number, y: number, resource: ResourceType): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  const biome = landBiomeAt(x, y);
+  const shade = grassShadeAt(x, y);
+  if (resource === "FISH") return biome === "COASTAL_SAND";
+  if (resource === "IRON") return (biome === "SAND" && isNearMountain(x, y, 5)) || isGrassIronTile(x, y, true);
+  if (resource === "GEMS") return biome === "SAND";
+  if (resource === "FARM") return biome === "GRASS";
+  if (resource === "FUR") return biome === "SAND" || (biome === "GRASS" && shade === "DARK");
+  return false;
+};
+
+const resourcePlacementAllowed = (x: number, y: number, resource: ResourceType, relaxed = false): boolean =>
+  relaxed ? clusterRuleMatchRelaxed(x, y, resource) : clusterRuleMatch(x, y, resource);
+
+const isForestFrontierTile = (x: number, y: number): boolean =>
+  terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
+
+const FOREST_FRONTIER_CLAIM_MULT = 4;
+const FOREST_SETTLEMENT_MULT = 2;
+
+const frontierClaimDurationMsAt = (x: number, y: number): number =>
+  isForestFrontierTile(x, y) ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS;
+
+const nearestLandTiles = (
+  originX: number,
+  originY: number,
+  candidates: Array<{ x: number; y: number }>,
+  limit: number,
+  predicate?: (tile: { x: number; y: number }) => boolean
+): TileKey[] => {
+  return candidates
+    .filter((tile) => (predicate ? predicate(tile) : true))
+    .sort((a, b) => {
+      const adx = Math.min(Math.abs(a.x - originX), WORLD_WIDTH - Math.abs(a.x - originX));
+      const ady = Math.min(Math.abs(a.y - originY), WORLD_HEIGHT - Math.abs(a.y - originY));
+      const bdx = Math.min(Math.abs(b.x - originX), WORLD_WIDTH - Math.abs(b.x - originX));
+      const bdy = Math.min(Math.abs(b.y - originY), WORLD_HEIGHT - Math.abs(b.y - originY));
+      return adx + ady - (bdx + bdy);
+    })
+    .slice(0, limit)
+    .map((tile) => key(tile.x, tile.y));
+};
+
+const collectClusterTiles = (cx: number, cy: number, resource: ResourceType, count: number): TileKey[] => {
+  const out: TileKey[] = [];
+  const q: Array<{ x: number; y: number; d: number }> = [{ x: cx, y: cy, d: 0 }];
+  const seen = new Set<string>([key(cx, cy)]);
+  const maxDist = resource === "IRON" && landBiomeAt(cx, cy) === "GRASS" ? 3 : 5;
+  while (q.length > 0 && out.length < count) {
+    const cur = q.shift()!;
+    if (cur.d > maxDist) continue;
+    const wx = wrapX(cur.x, WORLD_WIDTH);
+    const wy = wrapY(cur.y, WORLD_HEIGHT);
+    const tk = key(wx, wy);
+    if (!clusterByTile.has(tk) && clusterRuleMatch(wx, wy, resource)) out.push(tk);
+    const next = [
+      [cur.x, cur.y - 1],
+      [cur.x + 1, cur.y],
+      [cur.x, cur.y + 1],
+      [cur.x - 1, cur.y]
+    ] as const;
+    for (const [nx, ny] of next) {
+      const nwx = wrapX(nx, WORLD_WIDTH);
+      const nwy = wrapY(ny, WORLD_HEIGHT);
+      const nk = key(nwx, nwy);
+      if (seen.has(nk)) continue;
+      seen.add(nk);
+      q.push({ x: nwx, y: nwy, d: cur.d + 1 });
+    }
+  }
+  return out.length >= count ? out.slice(0, count) : [];
+};
+
+const collectClusterTilesRelaxed = (cx: number, cy: number, resource: ResourceType, count: number): TileKey[] => {
+  const out: TileKey[] = [];
+  const q: Array<{ x: number; y: number; d: number }> = [{ x: cx, y: cy, d: 0 }];
+  const seen = new Set<string>([key(cx, cy)]);
+  const maxDist = resource === "IRON" && landBiomeAt(cx, cy) === "GRASS" ? 4 : 6;
+  while (q.length > 0 && out.length < count) {
+    const cur = q.shift()!;
+    if (cur.d > maxDist) continue;
+    const wx = wrapX(cur.x, WORLD_WIDTH);
+    const wy = wrapY(cur.y, WORLD_HEIGHT);
+    const tk = key(wx, wy);
+    if (!clusterByTile.has(tk) && clusterRuleMatchRelaxed(wx, wy, resource)) out.push(tk);
+    const next = [
+      [cur.x, cur.y - 1],
+      [cur.x + 1, cur.y],
+      [cur.x, cur.y + 1],
+      [cur.x - 1, cur.y]
+    ] as const;
+    for (const [nx, ny] of next) {
+      const nwx = wrapX(nx, WORLD_WIDTH);
+      const nwy = wrapY(ny, WORLD_HEIGHT);
+      const nk = key(nwx, nwy);
+      if (seen.has(nk)) continue;
+      seen.add(nk);
+      q.push({ x: nwx, y: nwy, d: cur.d + 1 });
+    }
+  }
+  return out.length >= count ? out.slice(0, count) : [];
+};
+
+const clusterTileCountForResource = (resource: ResourceType, x: number, y: number): number => {
+  if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 4;
+  if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 4;
+  return 8;
+};
+
+const clusterRadiusForResource = (resource: ResourceType, x: number, y: number): number => {
+  if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 2;
+  if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 2;
+  return 3;
+};
+
+const generateClusters = (seed: number): void => {
+  clusterByTile.clear();
+  clustersById.clear();
+  const clusterPlan: ResourceType[] = [
+    ...Array.from({ length: 52 }, () => "FARM" as const),
+    ...Array.from({ length: 52 }, () => "FUR" as const),
+    ...Array.from({ length: 30 }, () => "GEMS" as const),
+    ...Array.from({ length: 52 }, () => "IRON" as const),
+    ...Array.from({ length: 52 }, () => "FISH" as const)
+  ];
+
+  const defByResource = new Map<ResourceType, (typeof clusterTypeDefs)[number]>();
+  for (const def of clusterTypeDefs) defByResource.set(def.resourceType, def);
+
+  const centers: Array<{ x: number; y: number }> = [];
+  const minCenterDist = 9;
+  let attemptSeed = 0;
+  for (let i = 0; i < clusterPlan.length; i += 1) {
+    const resource = clusterPlan[i]!;
+    const def = defByResource.get(resource);
+    if (!def) continue;
+    let placed = false;
+    for (let tries = 0; tries < 5000; tries += 1) {
+      const cx = Math.floor(seeded01((attemptSeed + tries) * 31, (attemptSeed + tries) * 47, seed + 101) * WORLD_WIDTH);
+      const cy = Math.floor(seeded01((attemptSeed + tries) * 53, (attemptSeed + tries) * 67, seed + 151) * WORLD_HEIGHT);
+      if (!clusterRuleMatch(cx, cy, resource)) continue;
+      const tooClose = centers.some((c) => {
+        const dx = Math.min(Math.abs(c.x - cx), WORLD_WIDTH - Math.abs(c.x - cx));
+        const dy = Math.min(Math.abs(c.y - cy), WORLD_HEIGHT - Math.abs(c.y - cy));
+        return dx + dy < minCenterDist;
+      });
+      if (tooClose) continue;
+      const clusterTileCount = clusterTileCountForResource(resource, cx, cy);
+      const tiles = collectClusterTiles(cx, cy, resource, clusterTileCount);
+      if (tiles.length < clusterTileCount) continue;
+      const clusterId = `cl-${clustersById.size}`;
+      clustersById.set(clusterId, {
+        clusterId,
+        clusterType: def.type,
+        resourceType: def.resourceType,
+        centerX: cx,
+        centerY: cy,
+        radius: clusterRadiusForResource(resource, cx, cy),
+        controlThreshold: def.threshold
+      });
+      for (const tk of tiles) clusterByTile.set(tk, clusterId);
+      centers.push({ x: cx, y: cy });
+      placed = true;
+      break;
+    }
+    attemptSeed += 911;
+    if (!placed) {
+      for (let tries = 0; tries < 3500; tries += 1) {
+        const cx = Math.floor(seeded01((attemptSeed + tries) * 17, (attemptSeed + tries) * 29, seed + 701) * WORLD_WIDTH);
+        const cy = Math.floor(seeded01((attemptSeed + tries) * 37, (attemptSeed + tries) * 43, seed + 751) * WORLD_HEIGHT);
+        if (!clusterRuleMatchRelaxed(cx, cy, resource)) continue;
+        const clusterTileCount = clusterTileCountForResource(resource, cx, cy);
+        const tiles = collectClusterTilesRelaxed(cx, cy, resource, clusterTileCount);
+        if (tiles.length < clusterTileCount) continue;
+        const clusterId = `cl-${clustersById.size}`;
+        clustersById.set(clusterId, {
+          clusterId,
+          clusterType: def.type,
+          resourceType: def.resourceType,
+          centerX: cx,
+          centerY: cy,
+          radius: clusterRadiusForResource(resource, cx, cy),
+          controlThreshold: def.threshold
+        });
+        for (const tk of tiles) clusterByTile.set(tk, clusterId);
+        placed = true;
+        break;
+      }
+    }
+  }
+};
+
+const applyClusterResources = (x: number, y: number, base: ResourceType | undefined): ResourceType | undefined => {
+  const cid = clusterByTile.get(key(x, y));
+  if (!cid) return base;
+  const c = clustersById.get(cid);
+  if (!c) return base;
+  // Cluster membership is already validated when the world is generated or restored.
+  // Re-running placement rules here turns every runtime tile read into a worldgen check.
+  return clusterResourceType(c);
+};
+
+type DockCandidate = { x: number; y: number; componentId: number; seaX: number; seaY: number };
+type LandComponentMeta = {
+  id: number;
+  tileCount: number;
+  fallbackX: number;
+  fallbackY: number;
+  oceanCandidates: DockCandidate[];
+};
+
+const selectSpacedDockCandidates = (candidates: DockCandidate[], count: number, seed: number): DockCandidate[] => {
+  if (count <= 0 || candidates.length === 0) return [];
+  const pool = [...candidates];
+  const startIdx = Math.floor(seeded01(seed + count, seed + pool.length, seed + 4123) * pool.length);
+  const selected: DockCandidate[] = [pool[startIdx]!];
+  while (selected.length < count && selected.length < pool.length) {
+    let bestCandidate: DockCandidate | undefined;
+    let bestDistance = Number.NEGATIVE_INFINITY;
+    for (const candidate of pool) {
+      if (selected.includes(candidate)) continue;
+      let minDistance = Number.POSITIVE_INFINITY;
+      for (const existing of selected) {
+        const dx = Math.min(Math.abs(candidate.seaX - existing.seaX), WORLD_WIDTH - Math.abs(candidate.seaX - existing.seaX));
+        const dy = Math.min(Math.abs(candidate.seaY - existing.seaY), WORLD_HEIGHT - Math.abs(candidate.seaY - existing.seaY));
+        minDistance = Math.min(minDistance, dx + dy);
+      }
+      if (minDistance > bestDistance) {
+        bestDistance = minDistance;
+        bestCandidate = candidate;
+      }
+    }
+    if (!bestCandidate) break;
+    selected.push(bestCandidate);
+  }
+  return selected;
+};
+const analyzeLandComponentsForDocks = (
+  seed: number,
+  oceanMask: Uint8Array
+): { components: LandComponentMeta[]; componentByIndex: Int32Array } => {
+  const total = WORLD_WIDTH * WORLD_HEIGHT;
+  const visited = new Uint8Array(total);
+  const componentByIndex = new Int32Array(total);
+  componentByIndex.fill(-1);
+  const queue = new Int32Array(total);
+  const out: LandComponentMeta[] = [];
+  let componentId = 0;
+
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      const startIdx = worldIndex(x, y);
+      if (visited[startIdx] || terrainAt(x, y) !== "LAND") continue;
+      visited[startIdx] = 1;
+      let head = 0;
+      let tail = 0;
+      queue[tail++] = startIdx;
+      const comp: LandComponentMeta = { id: componentId, tileCount: 0, fallbackX: x, fallbackY: y, oceanCandidates: [] };
+
+      while (head < tail) {
+        const idx = queue[head++]!;
+        componentByIndex[idx] = componentId;
+        comp.tileCount += 1;
+        const cx = idx % WORLD_WIDTH;
+        const cy = Math.floor(idx / WORLD_WIDTH);
+        if (seeded01(cx, cy, seed + 733) > 0.997) {
+          comp.fallbackX = cx;
+          comp.fallbackY = cy;
+        }
+        const ocean = adjacentOceanSea(cx, cy, oceanMask);
+        if (ocean && !clusterByTile.has(key(cx, cy))) {
+          comp.oceanCandidates.push({
+            x: cx,
+            y: cy,
+            componentId,
+            seaX: ocean.x,
+            seaY: ocean.y
+          });
+        }
+        const neighbors: Array<[number, number]> = [
+          [wrapX(cx, WORLD_WIDTH), wrapY(cy - 1, WORLD_HEIGHT)],
+          [wrapX(cx + 1, WORLD_WIDTH), wrapY(cy, WORLD_HEIGHT)],
+          [wrapX(cx, WORLD_WIDTH), wrapY(cy + 1, WORLD_HEIGHT)],
+          [wrapX(cx - 1, WORLD_WIDTH), wrapY(cy, WORLD_HEIGHT)]
+        ];
+        for (const [nx, ny] of neighbors) {
+          const nIdx = worldIndex(nx, ny);
+          if (visited[nIdx] || terrainAt(nx, ny) !== "LAND") continue;
+          visited[nIdx] = 1;
+          queue[tail++] = nIdx;
+        }
+      }
+
+      out.push(comp);
+      componentId += 1;
+    }
+  }
+  return { components: out, componentByIndex };
+};
+
+const generateDocks = (seed: number): void => {
+  docksByTile.clear();
+  dockById.clear();
+  dockLinkedTileKeysByDockTileKey.clear();
+  const oceanMask = largestSeaComponentMask();
+  const { components, componentByIndex } = analyzeLandComponentsForDocks(seed, oceanMask);
+  const eligibleComponents = components.filter((comp) => comp.tileCount >= 24 && comp.oceanCandidates.length > 0);
+  const primaryDockCandidateByComponent = new Map<number, DockCandidate>();
+  for (const comp of eligibleComponents) {
+    const primary = selectSpacedDockCandidates(comp.oceanCandidates, 1, seed + comp.id * 17)[0];
+    if (primary) primaryDockCandidateByComponent.set(comp.id, primary);
+  }
+
+  const componentIds = eligibleComponents.map((comp) => comp.id);
+  const componentSeaDistance = (aComponentId: number, bComponentId: number): number => {
+    const a = primaryDockCandidateByComponent.get(aComponentId);
+    const b = primaryDockCandidateByComponent.get(bComponentId);
+    if (!a || !b) return Number.POSITIVE_INFINITY;
+    const dx = Math.min(Math.abs(a.seaX - b.seaX), WORLD_WIDTH - Math.abs(a.seaX - b.seaX));
+    const dy = Math.min(Math.abs(a.seaY - b.seaY), WORLD_HEIGHT - Math.abs(a.seaY - b.seaY));
+    return dx + dy;
+  };
+
+  const componentEdges: Array<[number, number]> = [];
+  const componentEdgeKeys = new Set<string>();
+  const addComponentEdge = (aComponentId: number, bComponentId: number): void => {
+    if (aComponentId === bComponentId) return;
+    const edgeKey = aComponentId < bComponentId ? `${aComponentId}|${bComponentId}` : `${bComponentId}|${aComponentId}`;
+    if (componentEdgeKeys.has(edgeKey)) return;
+    componentEdgeKeys.add(edgeKey);
+    componentEdges.push([aComponentId, bComponentId]);
+  };
+
+  if (componentIds.length > 1) {
+    const visitedComponents = new Set<number>([componentIds[0]!]);
+    while (visitedComponents.size < componentIds.length) {
+      let bestFrom = -1;
+      let bestTo = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (const fromComponentId of visitedComponents) {
+        for (const toComponentId of componentIds) {
+          if (visitedComponents.has(toComponentId)) continue;
+          const dist = componentSeaDistance(fromComponentId, toComponentId);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestFrom = fromComponentId;
+            bestTo = toComponentId;
+          }
+        }
+      }
+      if (bestFrom < 0 || bestTo < 0) break;
+      addComponentEdge(bestFrom, bestTo);
+      visitedComponents.add(bestTo);
+    }
+
+    for (const componentId of componentIds) {
+      const comp = eligibleComponents.find((candidate) => candidate.id === componentId);
+      if (!comp || comp.tileCount >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD) continue;
+      let bestNeighbor = -1;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (const otherComponentId of componentIds) {
+        if (otherComponentId === componentId) continue;
+        const dist = componentSeaDistance(componentId, otherComponentId);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestNeighbor = otherComponentId;
+        }
+      }
+      if (bestNeighbor >= 0) addComponentEdge(componentId, bestNeighbor);
+    }
+  }
+
+  const degreeByComponent = new Map<number, number>();
+  for (const [aComponentId, bComponentId] of componentEdges) {
+    degreeByComponent.set(aComponentId, (degreeByComponent.get(aComponentId) ?? 0) + 1);
+    degreeByComponent.set(bComponentId, (degreeByComponent.get(bComponentId) ?? 0) + 1);
+  }
+
+  const selectedByComponent = new Map<number, DockCandidate[]>();
+  for (const comp of eligibleComponents) {
+    const desiredCount =
+      comp.tileCount >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD ? Math.max(2, degreeByComponent.get(comp.id) ?? 1) : 1;
+    const picks = selectSpacedDockCandidates(comp.oceanCandidates, Math.min(desiredCount, comp.oceanCandidates.length), seed + comp.id * 97);
+    if (picks.length > 0) selectedByComponent.set(comp.id, picks);
+  }
+
+  const selected = [...selectedByComponent.values()].flat();
+  const docks: Dock[] = selected.map((s, i) => ({
+    dockId: `dock-${i}`,
+    tileKey: key(s.x, s.y),
+    pairedDockId: "",
+    connectedDockIds: [],
+    cooldownUntil: 0
+  }));
+
+  const dockIndexByTileKey = new Map<TileKey, number>();
+  const dockIndicesByComponent = new Map<number, number[]>();
+  for (let i = 0; i < selected.length; i += 1) {
+    dockIndexByTileKey.set(key(selected[i]!.x, selected[i]!.y), i);
+    const componentId = selected[i]!.componentId;
+    const indices = dockIndicesByComponent.get(componentId) ?? [];
+    indices.push(i);
+    dockIndicesByComponent.set(componentId, indices);
+  }
+
+  const edgeKeys = new Set<string>();
+  const addDockConnection = (aIdx: number, bIdx: number): void => {
+    if (aIdx === bIdx) return;
+    const a = docks[aIdx]!;
+    const b = docks[bIdx]!;
+    const edgeKey = a.dockId < b.dockId ? `${a.dockId}|${b.dockId}` : `${b.dockId}|${a.dockId}`;
+    if (edgeKeys.has(edgeKey)) return;
+    edgeKeys.add(edgeKey);
+    if (!a.connectedDockIds?.includes(b.dockId)) a.connectedDockIds = [...(a.connectedDockIds ?? []), b.dockId];
+    if (!b.connectedDockIds?.includes(a.dockId)) b.connectedDockIds = [...(b.connectedDockIds ?? []), a.dockId];
+    if (!a.pairedDockId) a.pairedDockId = b.dockId;
+    if (!b.pairedDockId) b.pairedDockId = a.dockId;
+  };
+
+  const nextDockOffsetByComponent = new Map<number, number>();
+  const dockIndexForEdge = (componentId: number): number | undefined => {
+    const indices = dockIndicesByComponent.get(componentId);
+    if (!indices || indices.length === 0) return undefined;
+    const comp = eligibleComponents.find((candidate) => candidate.id === componentId);
+    if (!comp || comp.tileCount < LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD) return indices[0];
+    const offset = nextDockOffsetByComponent.get(componentId) ?? 0;
+    nextDockOffsetByComponent.set(componentId, offset + 1);
+    return indices[Math.min(offset, indices.length - 1)];
+  };
+
+  for (const [aComponentId, bComponentId] of componentEdges) {
+    const aIdx = dockIndexForEdge(aComponentId);
+    const bIdx = dockIndexForEdge(bComponentId);
+    if (aIdx === undefined || bIdx === undefined) continue;
+    addDockConnection(aIdx, bIdx);
+  }
+
+  for (const d of docks) {
+    if (!d.pairedDockId && (!d.connectedDockIds || d.connectedDockIds.length === 0)) continue;
+    docksByTile.set(d.tileKey, d);
+    dockById.set(d.dockId, d);
+  }
+};
+
+const townTypeAt = (x: number, y: number): "MARKET" | "FARMING" => {
+  const region = regionTypeAtLocal(x, y);
+  if (region === "FERTILE_PLAINS") return seeded01(x, y, activeSeason.worldSeed + 881) > 0.2 ? "FARMING" : "MARKET";
+  if (region === "ANCIENT_HEARTLAND") return "MARKET";
+  if (region === "CRYSTAL_WASTES") return "MARKET";
+  if (region === "BROKEN_HIGHLANDS") return seeded01(x, y, activeSeason.worldSeed + 884) > 0.72 ? "FARMING" : "MARKET";
+
+  const biome = landBiomeAt(x, y);
+  if (biome === "GRASS") return seeded01(x, y, activeSeason.worldSeed + 882) > 0.7 ? "MARKET" : "FARMING";
+  return "MARKET";
+};
+
+const generateTowns = (seed: number): void => {
+  townsByTile.clear();
+  firstSpecialSiteCaptureClaimed.clear();
+  const worldScale = (WORLD_WIDTH * WORLD_HEIGHT) / 1_000_000;
+  const target = Math.max(70, Math.floor(180 * worldScale));
+  const minSpacing = Math.max(5, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.018));
+  const placed: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < 120_000 && placed.length < target; i += 1) {
+    const x = Math.floor(seeded01(i * 13, i * 17, seed + 9301) * WORLD_WIDTH);
+    const y = Math.floor(seeded01(i * 19, i * 23, seed + 9311) * WORLD_HEIGHT);
+    if (terrainAt(x, y) !== "LAND") continue;
+    const tileKey = key(x, y);
+    if (docksByTile.has(tileKey) || clusterByTile.has(tileKey)) continue;
+    const tooClose = placed.some((p) => {
+      const dx = Math.min(Math.abs(p.x - x), WORLD_WIDTH - Math.abs(p.x - x));
+      const dy = Math.min(Math.abs(p.y - y), WORLD_HEIGHT - Math.abs(p.y - y));
+      return dx + dy < minSpacing;
+    });
+    if (tooClose) continue;
+    placed.push({ x, y });
+    townsByTile.set(tileKey, {
+      townId: `town-${townsByTile.size}`,
+      tileKey,
+      type: townTypeAt(x, y),
+      population: initialTownPopulationAt(x, y, seed),
+      maxPopulation: POPULATION_MAX,
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      lastGrowthTickAt: now()
+    });
+  }
+};
+
+const canHostShardSiteAt = (x: number, y: number): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  const tileKey = key(x, y);
+  if (docksByTile.has(tileKey) || clusterByTile.has(tileKey) || townsByTile.has(tileKey)) return false;
+  return !shardSitesByTile.has(tileKey);
+};
+
+const shardSiteViewAt = (tileKey: TileKey): Tile["shardSite"] | undefined => {
+  const site = shardSitesByTile.get(tileKey);
+  if (!site) return undefined;
+  if (typeof site.expiresAt === "number" && site.expiresAt <= now()) return undefined;
+  return {
+    kind: site.kind,
+    amount: site.amount,
+    ...(typeof site.expiresAt === "number" ? { expiresAt: site.expiresAt } : {})
+  };
+};
+
+const seedInitialShardScatter = (seed: number): void => {
+  shardSitesByTile.clear();
+  let placed = 0;
+  for (let i = 0; i < 200_000 && placed < INITIAL_SHARD_SCATTER_COUNT; i += 1) {
+    const x = Math.floor(seeded01(i * 41, i * 59, seed + 11_101) * WORLD_WIDTH);
+    const y = Math.floor(seeded01(i * 67, i * 71, seed + 11_171) * WORLD_HEIGHT);
+    if (!canHostShardSiteAt(x, y)) continue;
+    const amount = seeded01(x, y, seed + 11_221) > 0.84 ? 2 : 1;
+    shardSitesByTile.set(key(x, y), {
+      tileKey: key(x, y),
+      kind: "CACHE",
+      amount
+    });
+    placed += 1;
+  }
+};
+
+const activeShardRainSummary = (): { siteCount: number; expiresAt: number | undefined } => {
+  let siteCount = 0;
+  let expiresAt: number | undefined;
+  for (const site of shardSitesByTile.values()) {
+    if (site.kind !== "FALL" || typeof site.expiresAt !== "number" || site.expiresAt <= now()) continue;
+    siteCount += 1;
+    expiresAt = Math.max(expiresAt ?? 0, site.expiresAt);
+  }
+  return { siteCount, expiresAt };
+};
+
+const shardRainNoticePayload = () => {
+  const active = activeShardRainSummary();
+  return currentShardRainNotice(now(), active.expiresAt, active.siteCount, SHARD_RAIN_TTL_MS);
+};
+
+const maybeBroadcastShardRainWarning = (): void => {
+  const currentMs = now();
+  const current = new Date(currentMs);
+  if (current.getMinutes() !== 0) return;
+  const nextStart = nextShardRainStartAt(currentMs);
+  const remaining = nextStart - currentMs;
+  if (remaining > 60 * 60 * 1000 || remaining <= 59 * 60 * 1000) return;
+  const slot = new Date(nextStart);
+  const slotKey = `${slot.getFullYear()}-${slot.getMonth() + 1}-${slot.getDate()}-${slot.getHours()}`;
+  if (lastShardRainWarningSlotKey === slotKey) return;
+  lastShardRainWarningSlotKey = slotKey;
+  broadcast({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: nextStart });
+};
+
+const spawnShardRain = (): void => {
+  if (!hasOnlinePlayers()) return;
+  const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
+  const touched: Array<{ x: number; y: number }> = [];
+  let placed = 0;
+  let latestExpiresAt = 0;
+  let attempts = 0;
+  while (placed < count && attempts < count * 300) {
+    attempts += 1;
+    const x = Math.floor(Math.random() * WORLD_WIDTH);
+    const y = Math.floor(Math.random() * WORLD_HEIGHT);
+    if (!canHostShardSiteAt(x, y)) continue;
+    const tileKey = key(x, y);
+    shardSitesByTile.set(tileKey, {
+      tileKey,
+      kind: "FALL",
+      amount: 1 + (Math.random() > 0.8 ? 1 : 0),
+      expiresAt: now() + SHARD_RAIN_TTL_MS
+    });
+    latestExpiresAt = Math.max(latestExpiresAt, shardSitesByTile.get(tileKey)?.expiresAt ?? 0);
+    touched.push({ x, y });
+    placed += 1;
+  }
+  if (touched.length > 0) {
+    broadcast({
+      type: "SHARD_RAIN_EVENT",
+      phase: "started",
+      startsAt: latestExpiresAt - SHARD_RAIN_TTL_MS,
+      siteCount: touched.length,
+      expiresAt: latestExpiresAt
+    });
+    broadcastLocalVisionDelta(touched);
+  }
+};
+
+const maybeSpawnScheduledShardRain = (): void => {
+  const current = new Date(now());
+  const hour = current.getHours();
+  const minute = current.getMinutes();
+  if (minute !== 0) return;
+  if (!SHARD_RAIN_SCHEDULE_HOURS.includes(hour as (typeof SHARD_RAIN_SCHEDULE_HOURS)[number])) return;
+  const slotKey = `${current.getFullYear()}-${current.getMonth() + 1}-${current.getDate()}-${hour}`;
+  if (lastShardRainSlotKey === slotKey) return;
+  lastShardRainSlotKey = slotKey;
+  spawnShardRain();
+};
+
+const expireShardSites = (): void => {
+  const touched: Array<{ x: number; y: number }> = [];
+  for (const [tileKey, site] of shardSitesByTile) {
+    if (site.kind !== "FALL" || typeof site.expiresAt !== "number" || site.expiresAt > now()) continue;
+    shardSitesByTile.delete(tileKey);
+    const [x, y] = parseKey(tileKey);
+    touched.push({ x, y });
+    markSummaryChunkDirtyAtTile(x, y);
+  }
+  if (touched.length > 0) broadcastLocalVisionDelta(touched);
+};
+
+const collectShardSite = (player: Player, x: number, y: number): { ok: boolean; amount?: number; reason?: string } => {
+  if (!visible(player, x, y)) return { ok: false, reason: "tile is not visible" };
+  const tileKey = key(x, y);
+  const site = shardSitesByTile.get(tileKey);
+  if (!site) return { ok: false, reason: "no shard cache on this tile" };
+  if (typeof site.expiresAt === "number" && site.expiresAt <= now()) {
+    shardSitesByTile.delete(tileKey);
+    return { ok: false, reason: "the shardfall has already faded" };
+  }
+  shardSitesByTile.delete(tileKey);
+  const stock = getOrInitStrategicStocks(player.id);
+  stock.SHARD += site.amount;
+  markSummaryChunkDirtyAtTile(x, y);
+  broadcastLocalVisionDelta([{ x, y }]);
+  return { ok: true, amount: site.amount };
+};
+
+const canPlaceTownAt = (x: number, y: number, ignoreTileKey?: TileKey): boolean => {
+  if (terrainAt(x, y) !== "LAND") return false;
+  const tk = key(x, y);
+  if (tk !== ignoreTileKey && townsByTile.has(tk)) return false;
+  if (docksByTile.has(tk)) return false;
+  if (clusterByTile.has(tk)) return false;
+  return true;
+};
+
+const findNearestTownPlacement = (originX: number, originY: number, ignoreTileKey?: TileKey): TileKey | undefined => {
+  if (canPlaceTownAt(originX, originY, ignoreTileKey)) return key(originX, originY);
+  const maxRadius = Math.max(WORLD_WIDTH, WORLD_HEIGHT);
+  for (let radius = 1; radius <= maxRadius; radius += 1) {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const x = wrapX(originX + dx, WORLD_WIDTH);
+        const y = wrapY(originY + dy, WORLD_HEIGHT);
+        if (canPlaceTownAt(x, y, ignoreTileKey)) return key(x, y);
+      }
+    }
+  }
+  return undefined;
+};
+
+const townPlacementsNeedNormalization = (): boolean => {
+  const seen = new Set<TileKey>();
+  for (const town of townsByTile.values()) {
+    const tileKey = town.tileKey;
+    if (seen.has(tileKey)) return true;
+    seen.add(tileKey);
+    const [x, y] = parseKey(tileKey);
+    if (!canPlaceTownAt(x, y, tileKey)) return true;
+  }
+  return false;
+};
+
+const normalizeTownPlacements = (): void => {
+  const existingTowns = [...townsByTile.values()];
+  townsByTile.clear();
+  for (const town of existingTowns) {
+    const [x, y] = parseKey(town.tileKey);
+    const destinationKey = findNearestTownPlacement(x, y, town.tileKey);
+    if (!destinationKey) continue;
+    const [destX, destY] = parseKey(destinationKey);
+    townsByTile.set(destinationKey, {
+      ...town,
+      tileKey: destinationKey,
+      type: townTypeAt(destX, destY)
+    });
+  }
+};
+
+const normalizeLegacySettlementTowns = (): void => {
+  for (const town of townsByTile.values()) {
+    if (town.isSettlement !== undefined) continue;
+    if (town.population >= POPULATION_TOWN_MIN) continue;
+    const ownerId = ownership.get(town.tileKey);
+    const owner = ownerId ? players.get(ownerId) : undefined;
+    if (owner && owner.capitalTileKey === town.tileKey) {
+      town.isSettlement = true;
+      continue;
+    }
+    const [x, y] = parseKey(town.tileKey);
+    town.population = initialTownPopulationAt(x, y, activeSeason.worldSeed);
+  }
+};
+
+const assignMissingTownNamesForWorld = (): void => {
+  assignMissingTownNames(townsByTile.values(), islandMap().islandIdByTile, activeSeason.worldSeed);
+};
+
+const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
+const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
+const TOWN_CAPTURE_GROWTH_RADIUS = 20;
+
+const applyTownWarShock = (tileKey: TileKey): void => {
+  const [x, y] = parseKey(tileKey);
+  const until = now() + TOWN_CAPTURE_SHOCK_MS;
+  for (const otherTownKey of townsByTile.keys()) {
+    const [ox, oy] = parseKey(otherTownKey);
+    if (chebyshevDistance(ox, oy, x, y) > TOWN_CAPTURE_GROWTH_RADIUS) continue;
+    const currentUntil = townGrowthShockUntilByTile.get(otherTownKey) ?? 0;
+    townGrowthShockUntilByTile.set(otherTownKey, Math.max(currentUntil, until));
+  }
+};
+
+const applyTownCaptureShock = (tileKey: TileKey): void => {
+  const until = now() + TOWN_CAPTURE_SHOCK_MS;
+  townCaptureShockUntilByTile.set(tileKey, until);
+  applyTownWarShock(tileKey);
+};
+
+const applyTownCapturePopulationLoss = (town: TownDefinition): void => {
+  if ((townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now()) return;
+  town.population = Math.max(1, town.population * TOWN_CAPTURE_POPULATION_LOSS_MULT);
+};
+
+const ensureBaselineEconomyCoverage = (seed: number): void => {
+  const block = 30;
+  for (let by = 0; by < WORLD_HEIGHT; by += block) {
+    for (let bx = 0; bx < WORLD_WIDTH; bx += block) {
+      const land: Array<{ x: number; y: number }> = [];
+      let hasTown = false;
+      let hasFood = false;
+
+      for (let dy = 0; dy < block; dy += 1) {
+        for (let dx = 0; dx < block; dx += 1) {
+          const x = wrapX(bx + dx, WORLD_WIDTH);
+          const y = wrapY(by + dy, WORLD_HEIGHT);
+          if (terrainAt(x, y) !== "LAND") continue;
+          const tk = key(x, y);
+          land.push({ x, y });
+          if (townsByTile.has(tk)) hasTown = true;
+          const clusterId = clusterByTile.get(tk);
+          const cluster = clusterId ? clustersById.get(clusterId) : undefined;
+          if (cluster && (clusterResourceType(cluster) === "FARM" || clusterResourceType(cluster) === "FISH")) hasFood = true;
+        }
+      }
+
+      if (land.length === 0) continue;
+
+      if (!hasTown) {
+        const picked = land.find((tile) => !docksByTile.has(key(tile.x, tile.y)) && !clusterByTile.has(key(tile.x, tile.y)) && !townsByTile.has(key(tile.x, tile.y)));
+        if (picked) {
+          townsByTile.set(key(picked.x, picked.y), {
+            townId: `town-${townsByTile.size}`,
+            tileKey: key(picked.x, picked.y),
+            type: townTypeAt(picked.x, picked.y),
+            population: initialTownPopulationAt(picked.x, picked.y, seed),
+            maxPopulation: POPULATION_MAX,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            lastGrowthTickAt: now()
+          });
+        }
+      }
+
+      if (!hasFood) {
+        const center = land[Math.floor(seeded01(bx + 3, by + 7, seed + 9501) * land.length)]!;
+        const pickFoodTiles = (resource: ResourceType, relaxed: boolean): TileKey[] =>
+          nearestLandTiles(center.x, center.y, land, 8, (tile) => {
+            const tk = key(tile.x, tile.y);
+            if (clusterByTile.has(tk) || docksByTile.has(tk) || townsByTile.has(tk)) return false;
+            return resourcePlacementAllowed(tile.x, tile.y, resource, relaxed);
+          });
+        let resourceType: ResourceType | undefined;
+        let foodTiles = pickFoodTiles("FARM", false);
+        if (foodTiles.length >= 6) resourceType = "FARM";
+        else {
+          foodTiles = pickFoodTiles("FISH", false);
+          if (foodTiles.length >= 6) resourceType = "FISH";
+        }
+        if (!resourceType) {
+          foodTiles = pickFoodTiles("FARM", true);
+          if (foodTiles.length >= 6) resourceType = "FARM";
+          else {
+            foodTiles = pickFoodTiles("FISH", true);
+            if (foodTiles.length >= 6) resourceType = "FISH";
+          }
+        }
+        if (foodTiles.length >= 6) {
+          const clusterId = `cl-${clustersById.size}`;
+          clustersById.set(clusterId, {
+            clusterId,
+            clusterType: resourceType === "FISH" ? "COASTAL_SHOALS" : "FERTILE_PLAINS",
+            resourceType: resourceType ?? "FARM",
+            centerX: center.x,
+            centerY: center.y,
+            radius: 3,
+            controlThreshold: 3
+          });
+          for (const tk of foodTiles) clusterByTile.set(tk, clusterId);
+        }
+      }
+    }
+  }
+};
+
+const ensureInterestCoverage = (seed: number): void => {
+  const block = 15;
+  for (let by = 0; by < WORLD_HEIGHT; by += block) {
+    for (let bx = 0; bx < WORLD_WIDTH; bx += block) {
+      const land: Array<{ x: number; y: number }> = [];
+      let interesting = false;
+      for (let dy = 0; dy < block; dy += 1) {
+        for (let dx = 0; dx < block; dx += 1) {
+          const x = wrapX(bx + dx, WORLD_WIDTH);
+          const y = wrapY(by + dy, WORLD_HEIGHT);
+          if (terrainAt(x, y) !== "LAND") continue;
+          const tk = key(x, y);
+          land.push({ x, y });
+          if (clusterByTile.has(tk) || docksByTile.has(tk) || townsByTile.has(tk)) interesting = true;
+        }
+      }
+      if (interesting || land.length === 0) continue;
+      let picked = land[Math.floor(seeded01(bx, by, seed + 9401) * land.length)]!;
+      for (let i = 0; i < land.length; i += 1) {
+        const cand = land[i]!;
+        if (clusterByTile.has(key(cand.x, cand.y))) continue;
+        if (docksByTile.has(key(cand.x, cand.y))) continue;
+        picked = cand;
+        break;
+      }
+      const tk = key(picked.x, picked.y);
+      if (!townsByTile.has(tk) && !docksByTile.has(tk) && !clusterByTile.has(tk)) {
+        townsByTile.set(tk, {
+          townId: `town-${townsByTile.size}`,
+          tileKey: tk,
+          type: townTypeAt(picked.x, picked.y),
+          population: initialTownPopulationAt(picked.x, picked.y, seed),
+          maxPopulation: POPULATION_MAX,
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          lastGrowthTickAt: now()
+        });
+      }
+    }
+  }
+};
+
+const initialTownPopulationAt = (x: number, y: number, seed: number): number =>
+  WORLD_TOWN_POPULATION_MIN + Math.floor(seeded01(x, y, seed + 9601) * WORLD_TOWN_POPULATION_START_SPREAD);
+
+const townSupport = (townKey: TileKey, ownerId: string): { supportCurrent: number; supportMax: number } => {
+  const town = townsByTile.get(townKey);
+  if (town && townPopulationTierForTown(town) === "SETTLEMENT") return { supportCurrent: 0, supportMax: 0 };
+  const [x, y] = parseKey(townKey);
+  let supportCurrent = 0;
+  let supportMax = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = wrapX(x + dx, WORLD_WIDTH);
+      const ny = wrapY(y + dy, WORLD_HEIGHT);
+      if (terrainAt(nx, ny) !== "LAND") continue;
+      supportMax += 1;
+      const nk = key(nx, ny);
+      if (ownership.get(nk) !== ownerId) continue;
+      if (ownershipStateByTile.get(nk) !== "SETTLED") continue;
+      supportCurrent += 1;
+    }
+  }
+  return { supportCurrent, supportMax };
+};
+
+const townPopulationTier = (population: number): PopulationTier => {
+  if (population >= 5_000_000) return "METROPOLIS";
+  if (population >= 1_000_000) return "GREAT_CITY";
+  if (population >= 100_000) return "CITY";
+  if (population >= POPULATION_TOWN_MIN) return "TOWN";
+  return "SETTLEMENT";
+};
+
+const townPopulationTierForTown = (town: TownDefinition): PopulationTier => {
+  if (town.isSettlement && town.population < POPULATION_TOWN_MIN) return "SETTLEMENT";
+  return townPopulationTier(town.population);
+};
+
+const townPopulationMultiplier = (population: number): number => {
+  const tier = townPopulationTier(population);
+  if (tier === "SETTLEMENT") return 0.6;
+  if (tier === "CITY") return 1.5;
+  if (tier === "GREAT_CITY") return 2.5;
+  if (tier === "METROPOLIS") return 3.2;
+  return 1;
+};
+
+const townManpowerSnapshotForOwner = (
+  town: TownDefinition,
+  ownerId: string | undefined
+): { cap: number; regenPerMinute: number } => {
+  if (!ownerId) return { cap: 0, regenPerMinute: 0 };
+  if (!isTownFedForOwner(town.tileKey, ownerId)) return { cap: 0, regenPerMinute: 0 };
+  const base = TOWN_MANPOWER_BY_TIER[townPopulationTierForTown(town)] ?? { cap: 0, regenPerMinute: 0 };
+  if ((townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now()) {
+    return { cap: 0, regenPerMinute: 0 };
+  }
+  return base;
+};
+
+const playerManpowerCap = (player: Player): number => {
+  let cap = 0;
+  for (const tk of ownedTownKeysForPlayer(player.id)) {
+    const town = townsByTile.get(tk);
+    if (!town) continue;
+    cap += townManpowerSnapshotForOwner(town, player.id).cap;
+  }
+  return Math.max(0, cap);
+};
+
+const manpowerRegenWeightForSettlementIndex = (index: number): number => {
+  if (index < 5) return 1;
+  if (index < 15) return 0.5;
+  return 0.2;
+};
+
+const prettyTownTypeLabel = (type: TownDefinition["type"]): string => {
+  if (type === "MARKET") return "Market";
+  if (type === "FARMING") return "Farming";
+  return "Ancient";
+};
 
 const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
   if (type === "FARMSTEAD") return "Farmstead";
@@ -1606,6 +2578,87 @@ const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
   if (type === "GARRISON_HALL") return "Garrison Hall";
   if (type === "GOVERNORS_OFFICE") return "Governor's Office";
   return "Radar System";
+};
+
+const prettyTownName = (town: TownDefinition, tileKey = town.tileKey): string => {
+  if (town.name?.trim()) return town.name;
+  const [x, y] = parseKey(tileKey);
+  return `${prettyTownTypeLabel(town.type)} town (${x}, ${y})`;
+};
+
+const playerManpowerRegenPerMinute = (player: Player): number => {
+  let regen = 0;
+  const townKeys = ownedTownKeysForPlayer(player.id);
+  for (const [index, tk] of townKeys.entries()) {
+    const town = townsByTile.get(tk);
+    if (!town) continue;
+    regen += townManpowerSnapshotForOwner(town, player.id).regenPerMinute * manpowerRegenWeightForSettlementIndex(index);
+  }
+  return Math.max(0, regen);
+};
+
+const playerManpowerBreakdown = (
+  player: Player
+): { cap: ManpowerBreakdownLine[]; regen: ManpowerBreakdownLine[] } => {
+  const cap: ManpowerBreakdownLine[] = [];
+  const regen: ManpowerBreakdownLine[] = [];
+  const townKeys = ownedTownKeysForPlayer(player.id);
+  for (const [index, tk] of townKeys.entries()) {
+    const town = townsByTile.get(tk);
+    if (!town) continue;
+    const snapshot = townManpowerSnapshotForOwner(town, player.id);
+    if (snapshot.cap > 0) {
+      const tier = townPopulationTierForTown(town);
+      const captured = (townCaptureShockUntilByTile.get(town.tileKey) ?? 0) > now();
+      cap.push({
+        label: `${prettyTownName(town, tk)} (${tier.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase())})`,
+        amount: snapshot.cap,
+        ...(captured ? { note: "Recently captured" } : {})
+      });
+    }
+    if (snapshot.regenPerMinute > 0) {
+      const weight = manpowerRegenWeightForSettlementIndex(index);
+      const amount = snapshot.regenPerMinute * weight;
+      regen.push({
+        label: prettyTownName(town, tk),
+        amount,
+        ...(weight < 1 ? { note: `${Math.round(weight * 100)}% weight` } : {})
+      });
+    }
+  }
+  return { cap, regen };
+};
+
+const effectiveManpowerAt = (player: Player, nowMs = now()): number => {
+  const cap = playerManpowerCap(player);
+  if (!Number.isFinite(player.manpower)) return cap;
+  if (!Number.isFinite(player.manpowerUpdatedAt)) return Math.min(cap, Math.max(0, player.manpower));
+  const elapsedMinutes = Math.max(0, (nowMs - player.manpowerUpdatedAt) / 60_000);
+  const regenPerMinute = playerManpowerRegenPerMinute(player);
+  const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;
+  return Math.max(0, Math.min(cap, nextManpower));
+};
+
+const townGoldIncomeEnabledForPlayer = (player: Player, nowMs = now()): boolean =>
+  effectiveManpowerAt(player, nowMs) + MANPOWER_EPSILON >= playerManpowerCap(player);
+
+const applyManpowerRegen = (player: Player): void => {
+  const cap = playerManpowerCap(player);
+  if (!Number.isFinite(player.manpower)) player.manpower = cap;
+  const previousCap = Number.isFinite(player.manpowerCapSnapshot) ? player.manpowerCapSnapshot! : cap;
+  if (cap > previousCap) {
+    player.manpower = Math.min(cap, Math.max(0, player.manpower) + (cap - previousCap));
+  }
+  if (!Number.isFinite(player.manpowerUpdatedAt)) {
+    player.manpower = Math.min(cap, Math.max(0, player.manpower));
+    player.manpowerUpdatedAt = now();
+    player.manpowerCapSnapshot = cap;
+    return;
+  }
+  const nowMs = now();
+  player.manpower = effectiveManpowerAt(player, nowMs);
+  player.manpowerUpdatedAt = nowMs;
+  player.manpowerCapSnapshot = cap;
 };
 
 const manpowerCostForAction = (actionType: PendingCapture["actionType"] | ClientMessage["type"]): number => {
