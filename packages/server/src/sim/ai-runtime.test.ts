@@ -23,7 +23,9 @@ describe("createAiRuntime", () => {
         workerQueueSoftLimit: 2,
         simulationQueueSoftLimit: 2,
         eventLoopP95SoftLimitMs: 60,
-        eventLoopUtilizationSoftLimitPct: 65
+        eventLoopUtilizationSoftLimitPct: 65,
+        eventLoopP95HardLimitMs: 120,
+        eventLoopUtilizationHardLimitPct: 90
       },
       now: () => nowMs,
       contextTtlMs: 500,
