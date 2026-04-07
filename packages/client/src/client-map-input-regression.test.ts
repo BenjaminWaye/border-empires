@@ -30,4 +30,10 @@ describe("client map input regression guards", () => {
     expect(source).toContain("deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);");
     expect(source).toContain("}) && !mouseSelectionCommittedOnDown) {");
   });
+
+  it("keeps mobile tile selection on touchend after tap candidate survives", () => {
+    const source = readFileSync(resolve(here, "./client-map-input.ts"), "utf8");
+    expect(source).toContain("if (touchTapCandidate && !deps.interactionFlags.holdActivated && !pinchStart) {");
+    expect(source).toContain("deps.handleTileSelection(wx, wy, touchTapCandidate.x, touchTapCandidate.y);");
+  });
 });
