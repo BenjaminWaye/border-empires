@@ -6743,7 +6743,7 @@ const bestAiOpeningScoutExpand = (
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
   if (territorySummary.settledTileCount > 2) return undefined;
-  return frontierPlanningSummaryForPlayer(actor, territorySummary).bestOpeningScoutExpand;
+  return bestAiScoutExpand(actor, territorySummary);
 };
 
 const scoreAiScoutExpandCandidate = (
@@ -7448,17 +7448,76 @@ const bestAiScaffoldExpand = (
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
   const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
-  let best: { score: number; from: Tile; to: Tile } | undefined;
+  const startedAt = now();
+  let scannedCandidates = 0;
+  let shortlistEvaluations = 0;
+  const shortlist: Array<{ quickScore: number; from: Tile; to: Tile }> = [];
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
-    const evaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, tileRefFromTile(to), territorySummary);
+    scannedCandidates += 1;
+    const tileKey = key(to.x, to.y);
+    const quickScore =
+      (cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ? 180 : 0) +
+      (townsByTile.has(tileKey) ? 160 : 0) +
+      (docksByTile.has(tileKey) ? 140 : 0) +
+      (to.resource ? 110 + baseTileValue(to.resource) : 0) +
+      cachedScoutAdjacencyMetrics(actor, to, territorySummary).ownedNeighbors * 14 -
+      cachedScoutAdjacencyMetrics(actor, to, territorySummary).exposedSides * 10 +
+      (from.ownershipState === "SETTLED" ? 8 : 0);
+    if (shortlist.length < AI_SCAFFOLD_SHORTLIST_SIZE) {
+      shortlist.push({ quickScore, from, to });
+    } else {
+      let lowestIndex = 0;
+      for (let index = 1; index < shortlist.length; index += 1) {
+        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
+      }
+      if (quickScore > shortlist[lowestIndex]!.quickScore) {
+        shortlist[lowestIndex] = { quickScore, from, to };
+      }
+    }
+    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "SCAFFOLD_EXPAND",
+          scannedCandidates,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai scaffold selector budget hit"
+      );
+      break;
+    }
+  }
+  shortlist.sort((left, right) => right.quickScore - left.quickScore);
+  let best: { score: number; from: Tile; to: Tile } | undefined;
+  for (const candidate of shortlist) {
+    shortlistEvaluations += 1;
+    const evaluation = evaluateAiSettlementCandidate(actor, candidate.to, victoryPath, tileRefFromTile(candidate.to), territorySummary);
     if (!evaluation.supportsImmediatePlan) continue;
     if ((economyWeak || foodCoverageLow) && !evaluation.isEconomicallyInteresting) continue;
     let score = evaluation.score;
     if (evaluation.isDefensivelyCompact) score += 30;
     if (evaluation.isEconomicallyInteresting) score += 25;
-    if (from.ownershipState === "SETTLED") score += 8;
-    if (!best || score > best.score) best = { score, from, to };
+    if (candidate.from.ownershipState === "SETTLED") score += 8;
+    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
+    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "SCAFFOLD_EXPAND",
+          scannedCandidates,
+          shortlistEvaluations,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          shortlistSize: shortlist.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai scaffold selector budget hit"
+      );
+      break;
+    }
   }
   return best && best.score >= 45 ? best : undefined;
 };
@@ -7552,7 +7611,106 @@ const bestAiIslandExpand = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
-  return frontierPlanningSummaryForPlayer(actor, territorySummary).bestIslandExpand;
+  const startedAt = now();
+  let scannedCandidates = 0;
+  let shortlistEvaluations = 0;
+  const shortlist: Array<{
+    quickScore: number;
+    from: Tile;
+    to: Tile;
+    economicSignal: number;
+    islandSignal: number;
+    cachedRevealCount: number | undefined;
+    coastlineDiscoveryValue: number;
+  }> = [];
+  for (const { from, to } of territorySummary.expandCandidates) {
+    if (to.terrain !== "LAND" || to.ownerId) continue;
+    scannedCandidates += 1;
+    const tileKey = key(to.x, to.y);
+    const islandSignal = aiIslandFootprintSignal(actor, to, territorySummary);
+    if (islandSignal <= 0) continue;
+    const economicSignal = aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
+    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
+    const cachedRevealCount = territorySummary.scoutRevealCountByTileKey.get(tileKey);
+    const quickScore =
+      islandSignal +
+      economicSignal +
+      ((cachedRevealCount ?? 0) * 12) +
+      adjacency.coastlineDiscoveryValue +
+      (from.ownershipState === "SETTLED" ? 12 : 0);
+    if (shortlist.length < AI_ISLAND_SHORTLIST_SIZE) {
+      shortlist.push({
+        quickScore,
+        from,
+        to,
+        economicSignal,
+        islandSignal,
+        cachedRevealCount,
+        coastlineDiscoveryValue: adjacency.coastlineDiscoveryValue
+      });
+    } else {
+      let lowestIndex = 0;
+      for (let index = 1; index < shortlist.length; index += 1) {
+        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
+      }
+      if (quickScore > shortlist[lowestIndex]!.quickScore) {
+        shortlist[lowestIndex] = {
+          quickScore,
+          from,
+          to,
+          economicSignal,
+          islandSignal,
+          cachedRevealCount,
+          coastlineDiscoveryValue: adjacency.coastlineDiscoveryValue
+        };
+      }
+    }
+    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "ISLAND_EXPAND",
+          scannedCandidates,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai island selector budget hit"
+      );
+      break;
+    }
+  }
+  shortlist.sort((left, right) => right.quickScore - left.quickScore);
+  let best: { score: number; from: Tile; to: Tile } | undefined;
+  for (const candidate of shortlist) {
+    shortlistEvaluations += 1;
+    const scoutRevealCount =
+      candidate.cachedRevealCount ?? countAiScoutRevealTiles(candidate.to, territorySummary.visibility, territorySummary);
+    const score =
+      candidate.islandSignal +
+      Math.round(candidate.economicSignal * 0.55) +
+      Math.round((scoutRevealCount * 18 + candidate.coastlineDiscoveryValue) * 0.45) +
+      120 +
+      (candidate.from.ownershipState === "SETTLED" ? 12 : 0);
+    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
+    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "ISLAND_EXPAND",
+          scannedCandidates,
+          shortlistEvaluations,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          shortlistSize: shortlist.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai island selector budget hit"
+      );
+      break;
+    }
+  }
+  return best;
 };
 
 const frontierPlanningSummaryForPlayer = (
@@ -8300,6 +8458,8 @@ const cachedAiPlanningStaticForPlayer = (
 const AI_STRATEGIC_STATE_TTL_MS = 30_000;
 const AI_SCOUT_SHORTLIST_SIZE = 12;
 const AI_ECONOMIC_SHORTLIST_SIZE = 12;
+const AI_SCAFFOLD_SHORTLIST_SIZE = 12;
+const AI_ISLAND_SHORTLIST_SIZE = 12;
 const AI_NEUTRAL_SHORTLIST_SIZE = 16;
 
 const dominantAiEnemyFrontPlayerId = (actor: Player, territorySummary: Pick<AiTerritorySummary, "attackCandidates">): string | undefined => {

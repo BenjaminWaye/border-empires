@@ -57,14 +57,12 @@ describe("AI budget regression guard", () => {
     expect(source).toContain('renderHotspotBlock("AI budget breaches"');
   });
 
-  it("keeps opening scout planning in the frontier summary while execute-time selection stays explicit", () => {
+  it("keeps opening scout selection on the dedicated budgeted scout selector", () => {
     const source = serverMainSource();
-    const planningBody = functionBody(source, "frontierPlanningSummaryForPlayer");
+    const openingBody = functionBody(source, "bestAiOpeningScoutExpand");
     const turnBody = functionBody(source, "runAiTurn");
-    expect(planningBody).toContain("let bestOpeningScoutExpand:");
-    expect(planningBody).toContain("openingScoutAvailable = true;");
-    expect(planningBody).toContain("bestOpeningScoutExpand = { score: openingScoutScore, from, to };");
-    expect(planningBody).toContain("bestOpeningScoutExpand: { from: bestOpeningScoutExpand.from, to: bestOpeningScoutExpand.to }");
+    expect(openingBody).toContain("return bestAiScoutExpand(actor, territorySummary);");
+    expect(openingBody).not.toContain("frontierPlanningSummaryForPlayer(");
     expect(turnBody).toContain("const opening = bestAiOpeningScoutExpand(actor, territorySummary);");
   });
 
@@ -86,6 +84,8 @@ describe("AI budget regression guard", () => {
     const planningBody = functionBody(source, "buildAiPlanningStaticCache");
     const executeBody = functionBody(source, "executeAiGoapAction");
     const scoutBody = functionBody(source, "bestAiScoutExpand");
+    const islandBody = functionBody(source, "bestAiIslandExpand");
+    const scaffoldBody = functionBody(source, "bestAiScaffoldExpand");
     expect(planningBody).toContain("const settlementAvailability = estimateAiSettlementAvailabilityProfile(actor, territorySummary, focusIslandId, economyWeak, foodCoverageLow);");
     expect(planningBody).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary);");
     expect(planningBody).not.toContain("frontierPlanningSummaryForPlayer(");
@@ -97,6 +97,13 @@ describe("AI budget regression guard", () => {
     expect(scoutBody).toContain('"ai scout selector budget hit"');
     expect(scoutBody).toContain("const shortlist:");
     expect(scoutBody).toContain("AI_SCOUT_SHORTLIST_SIZE");
+    expect(islandBody).toContain("const shortlist:");
+    expect(islandBody).toContain("AI_ISLAND_SHORTLIST_SIZE");
+    expect(islandBody).toContain('"ai island selector budget hit"');
+    expect(islandBody).not.toContain("frontierPlanningSummaryForPlayer(");
+    expect(scaffoldBody).toContain("const shortlist:");
+    expect(scaffoldBody).toContain("AI_SCAFFOLD_SHORTLIST_SIZE");
+    expect(scaffoldBody).toContain('"ai scaffold selector budget hit"');
     const neutralBody = functionBody(source, "bestAiAnyNeutralExpand");
     expect(neutralBody).toContain("const shortlist:");
     expect(neutralBody).toContain("AI_NEUTRAL_SHORTLIST_SIZE");
