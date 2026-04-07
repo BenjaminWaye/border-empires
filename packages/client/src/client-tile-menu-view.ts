@@ -310,10 +310,12 @@ export const menuOverviewForTile = (
       const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
       const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
       pushLine(`Town is fed but gold is paused until manpower is full (${current}/${cap}).`);
-    } else {
-      pushLine(`Town is fed and producing ${deps.displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
     }
-    pushLine(`Connected towns ${tile.town.connectedTownCount}`);
+    if (tile.town.connectedTownCount > 0) {
+      pushLine(`Connected towns ${tile.town.connectedTownCount}`);
+    } else if (tile.town.populationTier !== "SETTLEMENT") {
+      pushLine("Connect this town to other towns to gain bonus gold production.");
+    }
     if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${deps.prettyToken(tile.town.populationTier)}`);
     pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
