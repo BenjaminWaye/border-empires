@@ -145,7 +145,9 @@ import {
   AI_COMPETITION_CONTEXT_TTL_MS,
   AI_DEFENSE_PRIORITY_MS,
   AI_DISPATCH_INTERVAL_MS,
+  AI_EVENT_LOOP_P95_HARD_LIMIT_MS,
   AI_EVENT_LOOP_P95_SOFT_LIMIT_MS,
+  AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT,
   AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT,
   AI_FRONTIER_SELECTOR_BUDGET_MS,
   AI_HUMAN_DEFENSE_BATCH_SIZE,
@@ -9619,6 +9621,24 @@ const enqueueAiWorkerJob = (job: AiWorkerJob): void => {
 
 const latestRuntimeVitalsSample = (): ReturnType<typeof sampleRuntimeVitals> | undefined => recentRuntimeVitals.values().at(-1);
 
+const runtimeLoadShedLevel = (): "normal" | "soft" | "hard" => {
+  const vitals = latestRuntimeVitalsSample();
+  if (!vitals) return "normal";
+  if (
+    vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_HARD_LIMIT_MS ||
+    vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT
+  ) {
+    return "hard";
+  }
+  if (
+    vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ||
+    vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT
+  ) {
+    return "soft";
+  }
+  return "normal";
+};
+
 const onlineHumanPlayerCount = (): number => {
   let count = 0;
   for (const playerId of socketsByPlayer.keys()) {
@@ -9917,7 +9937,8 @@ const maybeHandleAiShardOrTruce = async (
   strategicState: AiStrategicState,
   planningSnapshot: AiPlanningSnapshot
 ): Promise<"shard" | "truce" | undefined> => {
-  const shardTile = bestAiCollectShardTile(actor);
+  const shardTile =
+    runtimeLoadShedLevel() === "normal" && !humanChunkSnapshotPriorityActive() ? bestAiCollectShardTile(actor) : undefined;
   if (shardTile && strategicState.focus === "SHARD_RUSH" && !planningSnapshot.pressureThreatensCore) {
     await simulationService.executeDirectMessage(actor, { type: "COLLECT_SHARD", x: shardTile.x, y: shardTile.y });
     return "shard";
@@ -10064,6 +10085,9 @@ const chunkKeyAtTile = (x: number, y: number): string => `${Math.floor(wrapX(x, 
 const tileIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const CHUNK_SNAPSHOT_WARN_MS = 60;
 const CHUNK_SNAPSHOT_BATCH_SIZE = 4;
+const CHUNK_SNAPSHOT_BUDGET_MS = 24;
+const CHUNK_SNAPSHOT_YIELD_MS = 4;
+const CHUNK_SNAPSHOT_OVERLOAD_YIELD_MS = 16;
 const INITIAL_CHUNK_BOOTSTRAP_RADIUS = 0;
 
 const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
@@ -10150,7 +10174,10 @@ const {
   initialBootstrapRadius: INITIAL_CHUNK_BOOTSTRAP_RADIUS,
   chunkStreamBatchSize: CHUNK_STREAM_BATCH_SIZE,
   chunkSnapshotBatchSize: CHUNK_SNAPSHOT_BATCH_SIZE,
+  chunkSnapshotBudgetMs: CHUNK_SNAPSHOT_BUDGET_MS,
   chunkSnapshotWarnMs: CHUNK_SNAPSHOT_WARN_MS,
+  chunkSnapshotYieldMs: CHUNK_SNAPSHOT_YIELD_MS,
+  chunkSnapshotOverloadYieldMs: CHUNK_SNAPSHOT_OVERLOAD_YIELD_MS,
   now,
   wrapChunkX,
   wrapChunkY,
@@ -10234,7 +10261,8 @@ const {
   worldHeight: WORLD_HEIGHT,
   serializeChunkBatchViaWorker,
   serializeChunkBatchDirect: (inputs) => inputs.map((chunk) => serializeChunkBody(buildChunkFromInput(chunk))),
-  serializeChunkBatchBodies
+  serializeChunkBatchBodies,
+  runtimeLoadShedLevel
 });
 
 const hasActiveResearch = (player: Player): boolean => Boolean(player.currentResearch && player.currentResearch.completesAt > now());
@@ -10677,7 +10705,9 @@ const {
     workerQueueSoftLimit: AI_WORKER_QUEUE_SOFT_LIMIT,
     simulationQueueSoftLimit: AI_SIM_QUEUE_SOFT_LIMIT,
     eventLoopP95SoftLimitMs: AI_EVENT_LOOP_P95_SOFT_LIMIT_MS,
-    eventLoopUtilizationSoftLimitPct: AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT
+    eventLoopUtilizationSoftLimitPct: AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT,
+    eventLoopP95HardLimitMs: AI_EVENT_LOOP_P95_HARD_LIMIT_MS,
+    eventLoopUtilizationHardLimitPct: AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT
   },
   now,
   contextTtlMs: AI_COMPETITION_CONTEXT_TTL_MS,
@@ -11765,7 +11795,7 @@ const tryRemoveStructure = (actor: Player, x: number, y: number): { ok: boolean;
     if (fort.status === "removing") return { ok: false, reason: "structure is already being removed" };
   }
   const observatory = observatoriesByTile.get(tk);
-  if (observatory?.ownerId === actor.id) {
+  if (observatory && observatory.ownerId === actor.id) {
     if (observatory.status === "under_construction") return { ok: false, reason: "cancel construction instead" };
     if (observatory.status === "removing") return { ok: false, reason: "structure is already being removed" };
   }
@@ -11793,7 +11823,7 @@ const tryRemoveStructure = (actor: Player, x: number, y: number): { ok: boolean;
     fortBuildTimers.set(tk, timer);
     return { ok: true };
   }
-  if (observatory?.ownerId === actor.id) {
+  if (observatory && observatory.ownerId === actor.id) {
     const removeDurationMs = structureBuildDurationMsForRuntime("OBSERVATORY");
     observatory.previousStatus = observatory.status === "inactive" ? "inactive" : "active";
     observatory.status = "removing";
@@ -13932,13 +13962,19 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     });
 };
 const runtimeIntervals: NodeJS.Timeout[] = [];
+let intervalRegistrationCount = 0;
 const registerInterval = (fn: () => void, ms: number): void => {
-  runtimeIntervals.push(
-    setInterval(() => {
-      if (!startupState.ready) return;
-      fn();
-    }, ms)
-  );
+  const wrapped = (): void => {
+    if (!startupState.ready) return;
+    fn();
+  };
+  const offset = ms <= 1 ? 0 : (intervalRegistrationCount * 97) % ms;
+  intervalRegistrationCount += 1;
+  const starter = setTimeout(() => {
+    wrapped();
+    runtimeIntervals.push(setInterval(wrapped, ms));
+  }, offset);
+  runtimeIntervals.push(starter);
 };
 recentRuntimeVitals.push(sampleRuntimeVitals());
 
@@ -13979,6 +14015,7 @@ registerInterval(() => {
 }, 60_000);
 
 registerInterval(() => {
+  if (runtimeLoadShedLevel() === "hard" && onlineSocketCount() > 0) return;
   for (const [tk, shock] of breachShockByTile) {
     if (shock.expiresAt <= now()) {
       breachShockByTile.delete(tk);

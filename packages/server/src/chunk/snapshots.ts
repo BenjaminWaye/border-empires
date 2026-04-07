@@ -74,7 +74,10 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   initialBootstrapRadius: number;
   chunkStreamBatchSize: number;
   chunkSnapshotBatchSize: number;
+  chunkSnapshotBudgetMs: number;
   chunkSnapshotWarnMs: number;
+  chunkSnapshotYieldMs: number;
+  chunkSnapshotOverloadYieldMs: number;
   now: () => number;
   wrapChunkX: (value: number) => number;
   wrapChunkY: (value: number) => number;
@@ -117,6 +120,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   serializeChunkBatchViaWorker: (inputs: ChunkBuildInput[]) => Promise<string[]>;
   serializeChunkBatchDirect: (inputs: ChunkBuildInput[]) => string[];
   serializeChunkBatchBodies: (chunkBodies: string[]) => string;
+  runtimeLoadShedLevel: () => "normal" | "soft" | "hard";
 };
 
 const chunkDist = (a: number, b: number, mod: number): number => {
@@ -324,7 +328,9 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     followUpStage: ChunkFollowUpStage | undefined,
     batchSizeOverride?: number
   ): number => {
+    const loadShedLevel = deps.runtimeLoadShedLevel();
     if (batchSizeOverride !== undefined) return Math.max(1, batchSizeOverride);
+    if (loadShedLevel !== "normal") return 1;
     if (followUpStage || chunkCoords.length > deps.chunkSnapshotBatchSize) return 1;
     return Math.max(1, Math.min(deps.chunkStreamBatchSize, deps.chunkSnapshotBatchSize));
   };
@@ -367,6 +373,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     };
 
     const streamNext = async (): Promise<void> => {
+      const batchStartedAt = deps.now();
       if (deps.chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) {
         clearInFlight();
         return;
@@ -424,10 +431,14 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         phases.sendMs += deps.now() - sendStartedAt;
         phases.batches += 1;
       }
+      const loadShedLevel = deps.runtimeLoadShedLevel();
+      const shouldYield =
+        index < chunkCoords.length &&
+        (deps.now() - batchStartedAt >= deps.chunkSnapshotBudgetMs || loadShedLevel !== "normal");
       if (index < chunkCoords.length) {
         setTimeout(() => {
           void streamNext();
-        }, 0);
+        }, shouldYield ? (loadShedLevel === "hard" ? deps.chunkSnapshotOverloadYieldMs : deps.chunkSnapshotYieldMs) : 0);
         return;
       }
 
@@ -496,7 +507,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
             followUpStage.summaryMode,
             followUpStage.batchSize
           );
-        }, 0);
+        }, deps.runtimeLoadShedLevel() === "hard" ? deps.chunkSnapshotOverloadYieldMs : deps.chunkSnapshotYieldMs);
       }
     };
 
