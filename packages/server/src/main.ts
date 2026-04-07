@@ -1005,8 +1005,10 @@ const cachedChunkSnapshotByPlayer = new Map<
   string,
   {
     visibility: VisibilitySnapshot;
+    visibilityVersion: number;
     payloadByChunkKey: Map<string, string>;
     visibilityMaskByChunkKey: Map<string, Uint8Array>;
+    visibilityVersionByChunkKey: Map<string, number>;
   }
 >();
 const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
@@ -3773,7 +3775,6 @@ const getOrInitRevealTargets = (playerId: string): Set<string> => {
 
 const markVisibilityDirty = (playerId: string): void => {
   cachedVisibilitySnapshotByPlayer.delete(playerId);
-  cachedChunkSnapshotByPlayer.delete(playerId);
   chunkSnapshotGenerationByPlayer.delete(playerId);
 };
 
