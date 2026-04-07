@@ -101,6 +101,10 @@ describe("AI budget regression guard", () => {
     expect(neutralBody).toContain("const shortlist:");
     expect(neutralBody).toContain("AI_NEUTRAL_SHORTLIST_SIZE");
     expect(neutralBody).toContain('"ai neutral selector budget hit"');
+    const economicBody = functionBody(source, "bestAiEconomicExpand");
+    expect(economicBody).toContain("const shortlist:");
+    expect(economicBody).toContain("AI_ECONOMIC_SHORTLIST_SIZE");
+    expect(economicBody).toContain('"ai economic selector budget hit"');
     expect(planningBody).not.toContain("countAiScoutRevealTiles(");
   });
 
