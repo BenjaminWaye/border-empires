@@ -2541,6 +2541,13 @@ body {
   gap: 8px;
 }
 
+.client-build-version {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(162, 212, 255, 0.86);
+}
+
 .card p {
   margin: 4px 0 0;
   color: rgba(233, 242, 255, 0.7);
