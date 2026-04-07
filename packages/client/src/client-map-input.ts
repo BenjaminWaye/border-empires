@@ -42,6 +42,22 @@ export const shouldCommitMouseSelection = (args: {
   return args.button === 0 && !args.boxSelectionMode && !args.boxSelectionEngaged && !args.mousePanMoved;
 };
 
+export const shouldSelectLoadedTileOnMouseDown = (args: {
+  button: number;
+  boxSelectionMode: boolean;
+  hasPressedTile: boolean;
+}): boolean => {
+  return args.button === 0 && !args.boxSelectionMode && args.hasPressedTile;
+};
+
+export const shouldCommitTouchTapSelection = (args: {
+  hasTapCandidate: boolean;
+  holdActivated: boolean;
+  pinchActive: boolean;
+}): boolean => {
+  return args.hasTapCandidate && !args.holdActivated && !args.pinchActive;
+};
+
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
   const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
     const raw = deps.worldTileRawFromPointer(offsetX, offsetY);
@@ -95,6 +111,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   let dragLastKey = "";
   let boxSelectionEngaged = false;
   let boxSelectionMode = false;
+  let mouseSelectionCommittedOnPress = false;
   let mousePanStart: { x: number; y: number; camX: number; camY: number } | undefined;
   let mousePanMoved = false;
   let holdOpenTimer: number | undefined;
@@ -153,12 +170,15 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   deps.canvas.addEventListener("mousedown", (ev) => {
     if (ev.button !== 0) return;
     dragActive = true;
+    mouseSelectionCommittedOnPress = false;
     mousePanMoved = false;
     boxSelectionMode = ev.shiftKey;
     boxSelectionEngaged = false;
     deps.hideHoldBuildMenu();
     mousePanStart = { x: ev.clientX, y: ev.clientY, camX: state.camX, camY: state.camY };
     const raw = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
+    const wrapped = { wx: deps.wrapX(raw.gx), wy: deps.wrapY(raw.gy) };
+    const pressedTile = state.tiles.get(deps.keyFor(wrapped.wx, wrapped.wy));
     if (boxSelectionMode) {
       state.boxSelectStart = raw;
       state.boxSelectCurrent = raw;
@@ -170,11 +190,26 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       state.dragPreviewKeys.clear();
       dragLastKey = "";
     }
+    if (
+      shouldSelectLoadedTileOnMouseDown({
+        button: ev.button,
+        boxSelectionMode,
+        hasPressedTile: Boolean(pressedTile)
+      })
+    ) {
+      mouseSelectionCommittedOnPress = true;
+      mousePanStart = undefined;
+      deps.interactionFlags.suppressNextClick = true;
+      deps.handleTileSelection(wrapped.wx, wrapped.wy, ev.clientX, ev.clientY);
+      clearHoldOpenTimer();
+      return;
+    }
     if (!boxSelectionMode) scheduleHoldBuildMenu(ev.clientX, ev.clientY, ev.offsetX, ev.offsetY);
     else clearHoldOpenTimer();
   });
   deps.canvas.addEventListener("mousemove", (ev) => {
     if (!dragActive) return;
+    if (mouseSelectionCommittedOnPress) return;
     if (!boxSelectionMode && mousePanStart) {
       const dx = ev.clientX - mousePanStart.x;
       const dy = ev.clientY - mousePanStart.y;
@@ -201,6 +236,19 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   });
   window.addEventListener("mouseup", (ev) => {
     clearHoldOpenTimer();
+    if (mouseSelectionCommittedOnPress) {
+      dragActive = false;
+      boxSelectionMode = false;
+      boxSelectionEngaged = false;
+      mouseSelectionCommittedOnPress = false;
+      mousePanStart = undefined;
+      mousePanMoved = false;
+      dragLastKey = "";
+      state.boxSelectStart = undefined;
+      state.boxSelectCurrent = undefined;
+      state.dragPreviewKeys.clear();
+      return;
+    }
     if (shouldCommitMouseSelection({
       button: ev.button,
       boxSelectionMode,
@@ -256,6 +304,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     dragActive = false;
     boxSelectionMode = false;
     boxSelectionEngaged = false;
+    mouseSelectionCommittedOnPress = false;
     mousePanStart = undefined;
     mousePanMoved = false;
     dragLastKey = "";
@@ -337,7 +386,14 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   deps.canvas.addEventListener(
     "touchend",
     () => {
-      if (touchTapCandidate && !deps.interactionFlags.holdActivated && !pinchStart) {
+      if (
+        shouldCommitTouchTapSelection({
+          hasTapCandidate: Boolean(touchTapCandidate),
+          holdActivated: deps.interactionFlags.holdActivated,
+          pinchActive: Boolean(pinchStart)
+        }) &&
+        touchTapCandidate
+      ) {
         const rect = deps.canvas.getBoundingClientRect();
         const offsetX = touchTapCandidate.x - rect.left;
         const offsetY = touchTapCandidate.y - rect.top;
