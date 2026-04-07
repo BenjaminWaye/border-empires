@@ -22,7 +22,8 @@ describe("chunk bootstrap regression guard", () => {
 
   it("serializes the single center bootstrap chunk directly instead of waiting on the serializer worker", () => {
     const source = chunkSnapshotsSource();
-    expect(source).toContain("chunkInputs.length === 1 && chunkBatchBodies.length === 0");
+    expect(source).toContain("const DIRECT_CHUNK_SERIALIZE_MAX = 2;");
+    expect(source).toContain("chunkInputs.length <= DIRECT_CHUNK_SERIALIZE_MAX && chunkBatchBodies.length === 0");
     expect(source).toContain("deps.serializeChunkBatchDirect(chunkInputs)");
   });
 });
