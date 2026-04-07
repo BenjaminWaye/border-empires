@@ -52,7 +52,6 @@ type AiWorkerJob<TPlayer extends Player, TTickContext> = {
 type AiSchedulerConfig = {
   tickMs: number;
   dispatchIntervalMs: number;
-  idleDispatchIntervalMs: number;
   tickBatchSize: number;
   humanPriorityBatchSize: number;
   humanDefenseBatchSize: number;
@@ -112,7 +111,6 @@ export const createAiScheduler = <
 } => {
   let roundRobinOffset = 0;
   let cycleCounter = 0;
-  let lastIdleDispatchAt = 0;
   const nextDueAtByPlayer = new Map<string, number>();
   const turnsInFlight = new Set<string>();
   const defensePriorityUntilByPlayer = new Map<string, number>();
@@ -231,34 +229,14 @@ export const createAiScheduler = <
   const runAiTick = (): void => {
     const aiPlayers = deps.getAllPlayers().filter((actor) => actor.isAi);
     if (aiPlayers.length === 0) return;
-    const nowMs = deps.now();
-    const humanPlayersOnline = deps.onlineHumanPlayerCount() > 0;
-    const authPriorityActive = deps.pendingAuthVerifications() > 0 || deps.authPriorityUntil() > nowMs;
-    if (!humanPlayersOnline && !authPriorityActive) {
-      if (lastIdleDispatchAt === 0) lastIdleDispatchAt = nowMs;
-      if (nowMs - lastIdleDispatchAt < deps.config.idleDispatchIntervalMs) {
-        state.at = nowMs;
-        state.batchSize = 0;
-        state.selectedAiPlayers = 0;
-        state.totalAiPlayers = aiPlayers.length;
-        state.urgentAiPlayers = defensePriorityCount(aiPlayers, nowMs);
-        state.humanPlayersOnline = false;
-        state.authPriorityActive = false;
-        state.aiQueueBackpressure = deps.aiQueueDepth() >= deps.config.workerQueueSoftLimit;
-        state.simulationQueueBackpressure = deps.simulationQueueDepth() >= deps.config.simulationQueueSoftLimit;
-        state.eventLoopOverloaded = false;
-        state.reason = "idle_throttle";
-        return;
-      }
-    }
     if (deps.humanChunkSnapshotPriorityActive()) {
-      state.at = nowMs;
+      state.at = deps.now();
       state.batchSize = 0;
       state.selectedAiPlayers = 0;
       state.totalAiPlayers = aiPlayers.length;
       state.urgentAiPlayers = 0;
-      state.humanPlayersOnline = humanPlayersOnline;
-      state.authPriorityActive = authPriorityActive;
+      state.humanPlayersOnline = deps.onlineHumanPlayerCount() > 0;
+      state.authPriorityActive = deps.pendingAuthVerifications() > 0 || deps.authPriorityUntil() > deps.now();
       state.aiQueueBackpressure = deps.aiQueueDepth() >= deps.config.workerQueueSoftLimit;
       state.simulationQueueBackpressure = deps.simulationQueueDepth() >= deps.config.simulationQueueSoftLimit;
       state.eventLoopOverloaded = false;
@@ -266,6 +244,7 @@ export const createAiScheduler = <
       return;
     }
 
+    const nowMs = deps.now();
     const batchSize = Math.min(aiPlayers.length, chooseBatchSize(aiPlayers));
     const urgentAiPlayers = aiPlayers.filter((actor) => hasDefensePriority(actor.id, nowMs));
     const orderedAiPlayers = urgentAiPlayers.length
@@ -291,7 +270,6 @@ export const createAiScheduler = <
 
     state.at = deps.now();
     state.selectedAiPlayers = selectedAiPlayers.length;
-    if (!humanPlayersOnline && !authPriorityActive) lastIdleDispatchAt = nowMs;
     roundRobinOffset = (roundRobinOffset + batchSize) % eligibleAiPlayers.length;
 
     const startedAt = deps.now();

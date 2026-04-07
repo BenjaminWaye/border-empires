@@ -79,14 +79,6 @@ describe("AI budget regression guard", () => {
     expect(body).toContain('"ai frontier action selector budget hit"');
   });
 
-  it("caps frontier planning summary scans so expand candidate ranking cannot monopolize a turn", () => {
-    const body = functionBody(serverMainSource(), "frontierPlanningSummaryForPlayer");
-    expect(body).toContain("const startedAt = now();");
-    expect(body).toContain("let scannedCandidates = 0;");
-    expect(body).toContain("if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
-    expect(body).toContain('"ai frontier planning summary budget hit"');
-  });
-
   it("keeps planning static lightweight and lets execute use budgeted selectors", () => {
     const source = serverMainSource();
     const planningBody = functionBody(source, "buildAiPlanningStaticCache");

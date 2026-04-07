@@ -33,7 +33,6 @@ type CreateAiRuntimeDeps<TPlayer extends Player, TCompetitionMetric, TAnalysis, 
   config: {
     tickMs: number;
     dispatchIntervalMs: number;
-    idleDispatchIntervalMs: number;
     tickBatchSize: number;
     humanPriorityBatchSize: number;
     humanDefenseBatchSize: number;
