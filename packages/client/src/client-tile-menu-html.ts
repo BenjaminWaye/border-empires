@@ -114,7 +114,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
       <button class="tile-action-close" id="tile-action-close" title="Close">×</button>
       <div class="tile-action-head">
         <div class="tile-action-title">${view.title}</div>
-        <div class="tile-action-subtitle">${view.subtitle}</div>
+        <div class="tile-action-subtitle">${view.subtitleHtml ?? view.subtitle}</div>
       </div>
       ${tabsHtml}
       <div class="tile-menu-body" data-tile-menu-scroll>${tileMenuBodyHtml(view, activeTab)}</div>

@@ -670,6 +670,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       constructionProgressForTile,
       menuOverviewForTile,
       prettyToken,
+      playerNameForOwner,
       terrainLabel,
       isTileOwnedByAlly,
       state
