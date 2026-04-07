@@ -18,7 +18,7 @@ describe("client structure effects", () => {
     expect(preview?.lineDash).toEqual([10, 8]);
   });
 
-  it("shows the foundry bonus amount on affected mine tiles", () => {
+  it("shows percent-style area modifiers on affected tiles", () => {
     const foundry: Tile = {
       x: 20,
       y: 20,
@@ -27,6 +27,14 @@ describe("client structure effects", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "FOUNDRY", status: "active" }
     };
+    const garrisonHall: Tile = {
+      x: 23,
+      y: 20,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "GARRISON_HALL", status: "active" }
+    };
     const mine: Tile = {
       x: 27,
       y: 20,
@@ -34,12 +42,12 @@ describe("client structure effects", () => {
       ownerId: "me",
       ownershipState: "SETTLED",
       resource: "IRON",
-      economicStructure: { ownerId: "me", type: "MINE", status: "active" },
-      yieldRate: { strategicPerDay: { IRON: 12 } }
+      economicStructure: { ownerId: "me", type: "MINE", status: "active" }
     };
 
-    expect(tileAreaEffectModifiersForTile(mine, [foundry, mine])).toEqual([
-      { name: "Foundry", mod: "+6.0/day iron", tone: "positive" }
+    expect(tileAreaEffectModifiersForTile(mine, [foundry, garrisonHall, mine])).toEqual([
+      { reason: "Foundry", effect: "+100% iron production", tone: "positive" },
+      { reason: "Garrison Hall", effect: "+20% defense", tone: "positive" }
     ]);
   });
 });

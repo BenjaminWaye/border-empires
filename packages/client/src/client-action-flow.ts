@@ -639,7 +639,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       constructionCountdownLineForTile,
       tileHistoryLines,
       isTileOwnedByAlly,
-      growthModifierPercentLabel,
       areaEffectModifiersForTile: (targetTile: Tile) => tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values())
     });
 
