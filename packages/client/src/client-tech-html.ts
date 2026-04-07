@@ -482,8 +482,9 @@ export const renderDomainDetailCardHtml = (args: {
   chosenInTier: DomainInfo | undefined;
   currentTier: number | undefined;
   requiresTechName: string;
+  showInlineClose?: boolean;
 }): string => {
-  const { domain, domainIds, chosenInTier, currentTier, requiresTechName } = args;
+  const { domain, domainIds, chosenInTier, currentTier, requiresTechName, showInlineClose = true } = args;
   if (!domain) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
   const checklist = domain.requirements.checklist ?? [];
   const canUnlock = domain.requirements.canResearch && !domainIds.includes(domain.id);
@@ -503,7 +504,11 @@ export const renderDomainDetailCardHtml = (args: {
         <strong>${domain.name}</strong>
         <p class="muted">Tier ${domain.tier} · Requires ${requiresTechName}</p>
       </div>
-      <button class="panel-btn tech-detail-close-inline" type="button" aria-label="Close domain details" data-domain-detail-close="button">Close</button>
+      ${
+        showInlineClose
+          ? '<button class="panel-btn tech-detail-close-inline" type="button" aria-label="Close domain details" data-domain-detail-close="button">Close</button>'
+          : ""
+      }
     </div>
     <div class="tech-detail-inline-scroll">
       <p class="domain-detail-tier-rule">${tierRuleText}</p>

@@ -501,14 +501,18 @@ export const renderClientHud = (deps: HudDeps): void => {
   };
   bindDomainPanelInteraction(dom.panelDomainsContentEl);
   bindDomainPanelInteraction(dom.mobilePanelDomainsEl);
-  const domainDetailCloseButtons = dom.hud.querySelectorAll("[data-domain-detail-close]") as NodeListOf<HTMLElement>;
+  const domainDetailCloseButtons = dom.hud.querySelectorAll(
+    "#panel-domains [data-domain-detail-close], #mobile-panel-domains [data-domain-detail-close]"
+  ) as NodeListOf<HTMLElement>;
   domainDetailCloseButtons.forEach((btn: HTMLElement) => {
     btn.onclick = () => {
       state.domainDetailOpen = false;
       renderClientHud(deps);
     };
   });
-  const domainUnlockButtons = dom.hud.querySelectorAll("[data-domain-unlock]") as NodeListOf<HTMLButtonElement>;
+  const domainUnlockButtons = dom.hud.querySelectorAll(
+    "#panel-domains [data-domain-unlock], #mobile-panel-domains [data-domain-unlock]"
+  ) as NodeListOf<HTMLButtonElement>;
   domainUnlockButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
       const id = btn.dataset.domainUnlock;
@@ -516,6 +520,24 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
     };
   });
+  dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    const domainCloseTrigger = target?.closest<HTMLElement>("[data-domain-detail-close]");
+    if (domainCloseTrigger) {
+      event.preventDefault();
+      state.domainDetailOpen = false;
+      renderClientHud(deps);
+      return;
+    }
+    const domainUnlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]");
+    if (domainUnlockTrigger) {
+      event.preventDefault();
+      const id = domainUnlockTrigger.dataset.domainUnlock;
+      if (!id) return;
+      sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
+      return;
+    }
+  };
   dom.alliesListEl.innerHTML = safeValue(
     "alliesHtml",
     fallbackCard("Alliances"),
