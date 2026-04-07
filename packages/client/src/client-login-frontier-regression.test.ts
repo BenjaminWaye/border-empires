@@ -40,7 +40,14 @@ describe("login and frontier retry regression guard", () => {
     const source = clientSource("./client-runtime-loop.ts");
     expect(source).toContain("const hideCurrentQueuedBadge =");
     expect(source).toContain("shouldHideQueuedFrontierBadge(");
+    expect(source).toContain("Boolean(state.capture),");
     expect(source).toContain("if (state.actionInFlight && state.actionTargetKey && !hideCurrentQueuedBadge) {");
+  });
+
+  it("keeps the earlier optimistic frontier timer when combat start arrives late", () => {
+    const source = clientSource("./client-network.ts");
+    expect(source).toContain("const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;");
+    expect(source).toContain("state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };");
   });
 
   it("uses a local radius-1 refresh while waiting for delayed frontier confirmation", () => {
