@@ -26,14 +26,16 @@ describe("settlement relocation regression guard", () => {
     expect(source).toContain('if (townsByTile.has(key(x, y))) return false;');
     expect(source).toContain('if (!townsByTile.has(key(x, y))) createSettlementAtTile(p.id, key(x, y));');
     expect(source).toContain("const ensureFallbackSettlementForPlayer = (playerId: string): boolean => {");
+    expect(source).toContain("if (playerHasGrossGoldIncome(playerId)) return false;");
+    expect(source).toContain("const candidate = oldestSettledSettlementCandidateForPlayer(playerId);");
   });
 
-  it("repairs missing settlements and keeps the active settlement authoritative for the capital marker", () => {
+  it("keeps the active settlement authoritative for the capital marker without forced respawn on town growth", () => {
     const source = serverMainSource();
     expect(source).toContain("const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>");
-    expect(source).toContain("const ensureActiveSettlementForPlayer = (playerId: string): boolean => {");
-    expect(source).toContain("const candidates = [player.spawnOrigin, player.capitalTileKey, oldestSettledSettlementCandidateForPlayer(playerId)];");
     expect(source).toContain("if (ownerId !== BARBARIAN_OWNER_ID && activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;");
+    expect(source).toContain("const next = settlementTile ?? (isValidCapitalTile(player, previous) ? previous : chooseCapitalTileKey(player));");
+    expect(source).not.toContain("ensureActiveSettlementForPlayer(player.id);");
   });
 
   it("relocates captured settlement-tier towns instead of leaving them on the captured tile", () => {
