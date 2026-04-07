@@ -260,7 +260,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         deferredBootstrapRefreshTimer = undefined;
         if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
         if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
-        requestViewRefresh(2, true);
+        requestViewRefresh(1, true);
+        deferredBootstrapRefreshTimer = window.setTimeout(() => {
+          deferredBootstrapRefreshTimer = undefined;
+          if (ws.readyState !== ws.OPEN || !state.authSessionReady) return;
+          if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
+          requestViewRefresh(2, true);
+        }, 500);
       }, 400);
     }
     renderHud();
@@ -418,7 +424,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.camY = homeTile.y;
         state.selected = homeTile;
       }
-      requestViewRefresh(1, true);
+      requestViewRefresh(0, true);
       state.techChoices = (msg.techChoices as string[]) ?? [];
       state.techCatalog = (msg.techCatalog as any[]) ?? [];
       state.domainChoices = (msg.domainChoices as string[]) ?? [];
@@ -1255,7 +1261,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         "info",
         "warn"
       );
-      requestViewRefresh(1, true);
+      requestViewRefresh(0, true);
       renderHud();
       return;
     }
