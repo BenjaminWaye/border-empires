@@ -38,8 +38,10 @@ type ChunkSnapshotPerfSample = {
 
 type ChunkSnapshotCacheEntry = {
   visibility: VisibilitySnapshot;
+  visibilityVersion: number;
   payloadByChunkKey: Map<string, string>;
   visibilityMaskByChunkKey: Map<string, Uint8Array>;
+  visibilityVersionByChunkKey: Map<string, number>;
 };
 
 type SocketLike = {
@@ -124,6 +126,8 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
   tileInSubscription: (playerId: string, x: number, y: number) => boolean;
   clearPlayer: (playerId: string) => void;
 } => {
+  const CHUNK_PAYLOAD_MODES: ChunkSummaryMode[] = ["shell", "bootstrap", "thin", "standard"];
+
   const chunkCoordsForSubscription = (
     sub: { cx: number; cy: number; radius: number },
     minChebyshevRadius = 0
@@ -162,20 +166,40 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     playerId: string,
     visibility: VisibilitySnapshot
   ): {
+    visibilityVersion: number;
     payloadByChunkKey: Map<string, string>;
     visibilityMaskByChunkKey: Map<string, Uint8Array>;
+    visibilityVersionByChunkKey: Map<string, number>;
   } => {
-    const cached = deps.cachedChunkSnapshotByPlayer.get(playerId);
-    if (cached?.visibility === visibility) {
-      return {
-        payloadByChunkKey: cached.payloadByChunkKey,
-        visibilityMaskByChunkKey: cached.visibilityMaskByChunkKey
+    let cached = deps.cachedChunkSnapshotByPlayer.get(playerId);
+    if (!cached) {
+      cached = {
+        visibility,
+        visibilityVersion: 0,
+        payloadByChunkKey: new Map<string, string>(),
+        visibilityMaskByChunkKey: new Map<string, Uint8Array>(),
+        visibilityVersionByChunkKey: new Map<string, number>()
       };
+      deps.cachedChunkSnapshotByPlayer.set(playerId, cached);
+    } else if (cached.visibility !== visibility) {
+      cached.visibility = visibility;
+      cached.visibilityVersion += 1;
     }
-    const payloadByChunkKey = new Map<string, string>();
-    const visibilityMaskByChunkKey = new Map<string, Uint8Array>();
-    deps.cachedChunkSnapshotByPlayer.set(playerId, { visibility, payloadByChunkKey, visibilityMaskByChunkKey });
-    return { payloadByChunkKey, visibilityMaskByChunkKey };
+    return {
+      visibilityVersion: cached.visibilityVersion,
+      payloadByChunkKey: cached.payloadByChunkKey,
+      visibilityMaskByChunkKey: cached.visibilityMaskByChunkKey,
+      visibilityVersionByChunkKey: cached.visibilityVersionByChunkKey
+    };
+  };
+
+  const clearChunkPayloads = (
+    payloadByChunkKey: Map<string, string>,
+    chunkKey: string
+  ): void => {
+    for (const mode of CHUNK_PAYLOAD_MODES) {
+      payloadByChunkKey.delete(`${mode}:${chunkKey}`);
+    }
   };
 
   const chunkVisibilityMask = (
@@ -186,8 +210,9 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
   ): Uint8Array => {
     const chunkKey = `${worldCx},${worldCy}`;
     const cache = chunkSnapshotCacheForPlayer(playerId, snapshot);
+    const cachedVersion = cache.visibilityVersionByChunkKey.get(chunkKey);
     const cachedMask = cache.visibilityMaskByChunkKey.get(chunkKey);
-    if (cachedMask) return cachedMask;
+    if (cachedMask && cachedVersion === cache.visibilityVersion) return cachedMask;
     const startX = worldCx * deps.chunkSize;
     const startY = worldCy * deps.chunkSize;
     const mask = new Uint8Array(deps.chunkSize * deps.chunkSize);
@@ -200,7 +225,21 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         index += 1;
       }
     }
+    if (cachedMask) {
+      let changed = cachedMask.length !== mask.length;
+      if (!changed) {
+        for (let maskIndex = 0; maskIndex < mask.length; maskIndex += 1) {
+          if (cachedMask[maskIndex] === mask[maskIndex]) continue;
+          changed = true;
+          break;
+        }
+      }
+      if (changed) {
+        clearChunkPayloads(cache.payloadByChunkKey, chunkKey);
+      }
+    }
     cache.visibilityMaskByChunkKey.set(chunkKey, mask);
+    cache.visibilityVersionByChunkKey.set(chunkKey, cache.visibilityVersion);
     return mask;
   };
 
@@ -214,6 +253,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     const cache = chunkSnapshotCacheForPlayer(actor.id, snapshot);
     const chunkKey = `${worldCx},${worldCy}`;
     const payloadCacheKey = `${mode}:${chunkKey}`;
+    const visibleMask = chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy);
     const cachedPayload = cache.payloadByChunkKey.get(payloadCacheKey);
     if (cachedPayload) {
       return {
@@ -228,7 +268,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         cx: worldCx,
         cy: worldCy,
         fogTiles: [...deps.fogChunkTiles(worldCx, worldCy)],
-        visibleMask: chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy)
+        visibleMask
       },
       tileCount: deps.chunkSize * deps.chunkSize,
       chunkKey: payloadCacheKey
