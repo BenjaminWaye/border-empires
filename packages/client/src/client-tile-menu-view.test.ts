@@ -52,6 +52,54 @@ const deps = {
 };
 
 describe("menuOverviewForTile", () => {
+  it("avoids repeating fed town production in prose and shows connection guidance when isolated", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 18,
+        y: 42,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Aetherwick",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 5,
+          supportMax: 5,
+          goldPerMinute: 2,
+          cap: 40,
+          isFed: true,
+          population: 22_037,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 16.3,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 2
+        }
+      },
+      {
+        ...deps,
+        displayTownGoldPerMinute: () => 2,
+        populationPerMinuteLabel: () => "+16.3/m",
+        townNextGrowthEtaLabel: () => "City in ~4d"
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Town is fed and producing"))).toBe(false);
+    expect(lines.some((line) => line.html === "Connected towns 0")).toBe(false);
+    expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
+  });
+
   it("calls out active synth structures explicitly", () => {
     const lines = menuOverviewForTile(settledSupportTile("active"), deps);
     expect(lines.some((line) => line.html.includes("currently contributing output and upkeep"))).toBe(true);
