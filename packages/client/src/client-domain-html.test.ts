@@ -132,10 +132,40 @@ describe("domain card previews", () => {
       chosenInTier: undefined,
       currentTier: 1,
       requiresTechName: "Toolmaking",
+      pendingDomainUnlockId: "",
       showInlineClose: false
     });
 
     expect(html).not.toContain('data-domain-detail-close="button"');
     expect(html).toContain('data-domain-unlock="sharding"');
+  });
+
+  it("shows a pending state while a domain choice is waiting on the server", () => {
+    const domain: DomainInfo = {
+      id: "sharding",
+      tier: 1,
+      name: "Sharding",
+      description: "Lets early expansion breathe.",
+      requiresTechId: "toolmaking",
+      mods: {},
+      requirements: {
+        gold: 6000,
+        resources: { FOOD: 120 },
+        canResearch: true,
+        checklist: [{ label: "Requires tech toolmaking", met: true }]
+      }
+    };
+
+    const html = renderDomainDetailCardHtml({
+      domain,
+      domainIds: [],
+      chosenInTier: undefined,
+      currentTier: 1,
+      requiresTechName: "Toolmaking",
+      pendingDomainUnlockId: "sharding"
+    });
+
+    expect(html).toContain("Choosing Tier 1...");
+    expect(html).toContain("Sending your domain choice to the server...");
   });
 });
