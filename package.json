@@ -10,8 +10,6 @@
     "server:restart": "./scripts/restart-server.sh",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
-    "deploy:client:prod": "node ./scripts/deploy-client-prod.mjs",
-    "test:client-deploy-guard": "node --test ./scripts/client-deploy-verify.test.mjs"
+    "lint": "pnpm -r lint"
   }
 }
