@@ -149,6 +149,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
   clearPlayer: (playerId: string) => void;
 } => {
   const CHUNK_PAYLOAD_MODES: ChunkSummaryMode[] = ["shell", "bootstrap", "thin", "standard"];
+  const DIRECT_CHUNK_SERIALIZE_MAX = 2;
 
   const chunkCoordsForSubscription = (
     sub: { cx: number; cy: number; radius: number },
@@ -413,7 +414,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         }));
         const serializeStartedAt = deps.now();
         const payloads =
-          chunkInputs.length === 1 && chunkBatchBodies.length === 0
+          chunkInputs.length <= DIRECT_CHUNK_SERIALIZE_MAX && chunkBatchBodies.length === 0
             ? deps.serializeChunkBatchDirect(chunkInputs)
             : await deps.serializeChunkBatchViaWorker(chunkInputs);
         phases.serializeMs += deps.now() - serializeStartedAt;
