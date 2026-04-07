@@ -155,8 +155,6 @@ export type AiTurnDebugEntry = {
   name: string;
   reason: string;
   points: number;
-  aiBrainMode?: "goap" | "behavior_tree_utility";
-  aiIntent?: string;
   incomePerMinute?: number;
   controlledTowns?: number;
   settledTiles?: number;

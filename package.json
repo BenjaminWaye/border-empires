@@ -8,8 +8,6 @@
     "dev:clean": "./scripts/clean-dev.sh",
     "dev:nofog": "DISABLE_FOG=1 pnpm dev",
     "server:restart": "./scripts/restart-server.sh",
-    "ai:benchmark": "pnpm build && node scripts/benchmark-ai-runtime.mjs",
-    "ai:victory-benchmark": "pnpm build && node scripts/benchmark-ai-victory-progress.mjs",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint"
