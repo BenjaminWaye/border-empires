@@ -14,6 +14,12 @@ describe("chunk bootstrap regression guard", () => {
     expect(source).toContain('summaryMode: radius === deps.initialBootstrapRadius + 1 ? "thin" : "shell"');
   });
 
+  it("uses configured follow-up batching for deferred outer rings", () => {
+    const source = chunkSnapshotsSource();
+    expect(source).toContain("const followUpBatchSize = Math.max(1, Math.min(deps.chunkStreamBatchSize, deps.chunkSnapshotBatchSize));");
+    expect(source).toContain("batchSize: followUpBatchSize,");
+  });
+
   it("serializes the single center bootstrap chunk directly instead of waiting on the serializer worker", () => {
     const source = chunkSnapshotsSource();
     expect(source).toContain("chunkInputs.length === 1 && chunkBatchBodies.length === 0");
