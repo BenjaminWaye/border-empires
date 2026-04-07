@@ -166,9 +166,11 @@ describe("createChunkSnapshotController", () => {
       chunkSubscriptionByPlayer: new Map([[actor.id, { cx: 0, cy: 0, radius: 0 }]]),
       authSyncTimingByPlayer: new Map(),
       fogChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
-      summaryChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
-      loadSummaryChunkTilesBatch: async (requests) => {
+      summaryChunkTiles: (worldCx, worldCy) => {
         nowMs += 6;
+        return [makeTile(worldCx, worldCy)];
+      },
+      loadSummaryChunkTilesBatch: async (requests) => {
         return requests.map(({ cx, cy }) => [makeTile(cx, cy)]);
       },
       visibleInSnapshot: () => true,

@@ -386,7 +386,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       }
 
       const chunkBatchBodies: string[] = [];
-      const pendingBuilds: Array<{ chunkKey: string; buildInput: Omit<ChunkBuildInput, "visibleTiles">; request: ChunkReadRequest }> = [];
+      const pendingBuilds: Array<{ chunkKey: string; buildInput: Omit<ChunkBuildInput, "visibleTiles">; cx: number; cy: number }> = [];
       const end = Math.min(index + batchSize, chunkCoords.length);
       for (; index < end; index += 1) {
         const coords = chunkCoords[index]!;
@@ -397,7 +397,8 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
           pendingBuilds.push({
             chunkKey: chunk.chunkKey,
             buildInput: chunk.buildInput,
-            request: { cx: coords.cx, cy: coords.cy, mode: summaryMode === "shell" ? "shell" : "thin" }
+            cx: coords.cx,
+            cy: coords.cy
           });
         }
         chunkCount += 1;
@@ -406,11 +407,11 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 
       if (pendingBuilds.length > 0) {
         const summaryReadStartedAt = deps.now();
-        const visibleTileBatches = await deps.loadSummaryChunkTilesBatch(pendingBuilds.map((chunk) => chunk.request));
+        const visibleTileBatches = pendingBuilds.map((chunk) => deps.summaryChunkTiles(chunk.cx, chunk.cy, summaryMode));
         phases.summaryReadMs += deps.now() - summaryReadStartedAt;
         const chunkInputs = pendingBuilds.map((chunk, payloadIndex) => ({
           ...chunk.buildInput,
-          visibleTiles: [...(visibleTileBatches[payloadIndex] ?? deps.summaryChunkTiles(chunk.request.cx, chunk.request.cy, summaryMode))]
+          visibleTiles: [...visibleTileBatches[payloadIndex]!]
         }));
         const serializeStartedAt = deps.now();
         const payloads =
