@@ -674,7 +674,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const existingCapture =
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
       const startAt = existingCapture?.startAt ?? Date.now();
-      state.capture = { startAt, resolvesAt, target };
+      const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
+      state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };
       const predictedResult = msg.predictedResult as Record<string, unknown> | undefined;
       if (predictedResult) {
         const predictedAlert = combatResolutionAlert(predictedResult, {
