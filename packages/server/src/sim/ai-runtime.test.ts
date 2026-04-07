@@ -15,7 +15,6 @@ describe("createAiRuntime", () => {
       config: {
         tickMs: 10_000,
         dispatchIntervalMs: 250,
-        idleDispatchIntervalMs: 1_000,
         tickBatchSize: 1,
         humanPriorityBatchSize: 1,
         humanDefenseBatchSize: 1,

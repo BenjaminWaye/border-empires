@@ -145,7 +145,6 @@ import {
   AI_COMPETITION_CONTEXT_TTL_MS,
   AI_DEFENSE_PRIORITY_MS,
   AI_DISPATCH_INTERVAL_MS,
-  AI_IDLE_DISPATCH_INTERVAL_MS,
   AI_EVENT_LOOP_P95_SOFT_LIMIT_MS,
   AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT,
   AI_FRONTIER_SELECTOR_BUDGET_MS,
@@ -7737,12 +7736,9 @@ const frontierPlanningSummaryForPlayer = (
   let bestScaffoldExpand: { score: number; from: Tile; to: Tile } | undefined;
   let bestIslandExpand: { score: number; from: Tile; to: Tile } | undefined;
   let bestAnyNeutralExpand: { score: number; from: Tile; to: Tile } | undefined;
-  const startedAt = now();
-  let scannedCandidates = 0;
 
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
-    scannedCandidates += 1;
     neutralExpandAvailable = true;
     const tileKey = key(to.x, to.y);
     const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
@@ -7826,19 +7822,6 @@ const frontierPlanningSummaryForPlayer = (
     const anyNeutralScore = anyNeutralBase + islandSignal + (from.ownershipState === "SETTLED" ? 6 : 0);
     if (!bestAnyNeutralExpand || anyNeutralScore > bestAnyNeutralExpand.score) {
       bestAnyNeutralExpand = { score: anyNeutralScore, from, to };
-    }
-    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          scannedCandidates,
-          expandCandidates: territorySummary.expandCandidates.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai frontier planning summary budget hit"
-      );
-      break;
     }
   }
 
@@ -11025,7 +11008,6 @@ const {
   config: {
     tickMs: AI_TICK_MS,
     dispatchIntervalMs: AI_DISPATCH_INTERVAL_MS,
-    idleDispatchIntervalMs: AI_IDLE_DISPATCH_INTERVAL_MS,
     tickBatchSize: AI_TICK_BATCH_SIZE,
     humanPriorityBatchSize: AI_HUMAN_PRIORITY_BATCH_SIZE,
     humanDefenseBatchSize: AI_HUMAN_DEFENSE_BATCH_SIZE,
