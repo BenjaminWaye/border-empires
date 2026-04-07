@@ -100,6 +100,56 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
 
+  it("uses the modifier section instead of a raw connected-town count when bonuses are active", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 20,
+        y: 44,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Brassford",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 7,
+          supportMax: 8,
+          goldPerMinute: 3.8,
+          cap: 40,
+          isFed: true,
+          population: 22_640,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 16.7,
+          populationTier: "TOWN",
+          connectedTownCount: 2,
+          connectedTownBonus: 0.9,
+          goldIncomePausedReason: "MANPOWER_NOT_FULL",
+          manpowerCurrent: 8,
+          manpowerCap: 3_150,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false,
+          growthModifiers: [{ label: "Long time peace", deltaPerMinute: 10 }]
+        },
+        yieldRate: {
+          goldPerMinute: 0
+        }
+      },
+      {
+        ...deps,
+        populationPerMinuteLabel: () => "+16.7/m",
+        townNextGrowthEtaLabel: () => "City in ~4d"
+      }
+    );
+
+    expect(lines.some((line) => line.html === "Connected towns 2")).toBe(false);
+    expect(lines.some((line) => line.html.includes("Town is fed but gold is paused until manpower is full (8/3,150)."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
+  });
+
   it("calls out active synth structures explicitly", () => {
     const lines = menuOverviewForTile(settledSupportTile("active"), deps);
     expect(lines.some((line) => line.html.includes("currently contributing output and upkeep"))).toBe(true);
@@ -161,7 +211,7 @@ describe("menuOverviewForTile", () => {
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
     expect(lines.some((line) => line.html.includes("Mine:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+50% production output"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+50% iron production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Foundry:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("+100% iron production"))).toBe(true);
   });
@@ -221,6 +271,64 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("+90% gold production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Connected dock route:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Customs House:"))).toBe(true);
+  });
+
+  it("shows dock guidance instead of a raw connected-dock count when isolated", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 75,
+        y: 334,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        dockId: "dock-2",
+        dock: {
+          baseGoldPerMinute: 0.5,
+          goldPerMinute: 0.55,
+          connectedDockCount: 0,
+          modifiers: [{ label: "Dock income bonus", percent: 10, deltaGoldPerMinute: 0.05 }]
+        },
+        yieldRate: {
+          goldPerMinute: 0.55
+        }
+      },
+      deps
+    );
+
+    expect(lines.some((line) => line.html === "Connected docks 0")).toBe(false);
+    expect(lines.some((line) => line.html.includes("Connect this dock to other docks to gain bonus gold production."))).toBe(true);
+  });
+
+  it("hides settled-resource development copy once the tile is already producing", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 14,
+        y: 18,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        resource: "GRAIN",
+        economicStructure: {
+          ownerId: "me",
+          type: "FARMSTEAD",
+          status: "active"
+        },
+        yieldRate: {
+          strategicPerDay: { FOOD: 75.6 }
+        },
+        yield: {
+          strategic: { FOOD: 1.75 }
+        },
+        yieldCap: {
+          gold: 0,
+          strategicEach: 6
+        }
+      },
+      deps
+    );
+
+    expect(lines.some((line) => line.html.includes("once developed and collected"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
 
   it("shows building-specific removal progress timing", () => {
