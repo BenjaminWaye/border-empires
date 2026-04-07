@@ -145,7 +145,9 @@ import {
   AI_COMPETITION_CONTEXT_TTL_MS,
   AI_DEFENSE_PRIORITY_MS,
   AI_DISPATCH_INTERVAL_MS,
+  AI_EVENT_LOOP_P95_HARD_LIMIT_MS,
   AI_EVENT_LOOP_P95_SOFT_LIMIT_MS,
+  AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT,
   AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT,
   AI_FRONTIER_SELECTOR_BUDGET_MS,
   AI_HUMAN_DEFENSE_BATCH_SIZE,
@@ -1031,7 +1033,23 @@ const recentAiBudgetBreachPerf = perfRing<{
   reason?: string;
   actionKey?: string;
 }>(30);
-const recentChunkSnapshotPerf = perfRing<{ at: number; playerId: string; elapsedMs: number; chunks: number; tiles: number; radius: number; rssMb: number; heapUsedMb: number }>(50);
+const recentChunkSnapshotPerf = perfRing<{
+  at: number;
+  playerId: string;
+  elapsedMs: number;
+  chunks: number;
+  tiles: number;
+  radius: number;
+  rssMb: number;
+  heapUsedMb: number;
+  visibilityMaskMs: number;
+  summaryReadMs: number;
+  serializeMs: number;
+  sendMs: number;
+  cachedPayloadChunks: number;
+  rebuiltChunks: number;
+  batches: number;
+}>(50);
 const recentRuntimeVitals = perfRing<ReturnType<typeof sampleRuntimeVitals>>(180);
 const aiYieldCollectDueAtByPlayer = new Map<string, number>();
 const collectVisibleCooldownByPlayer = new Map<string, number>();
@@ -1128,6 +1146,52 @@ const perfSummary = <T,>(
     lastMs: roundTo(elapsed[elapsed.length - 1] ?? 0, 1)
   };
 };
+const chunkPhaseSummary = <
+  T extends {
+    visibilityMaskMs: number;
+    summaryReadMs: number;
+    serializeMs: number;
+    sendMs: number;
+    cachedPayloadChunks: number;
+    rebuiltChunks: number;
+    batches: number;
+  }
+>(
+  entries: T[]
+): {
+  visibilityMaskP95Ms: number;
+  summaryReadP95Ms: number;
+  serializeP95Ms: number;
+  sendP95Ms: number;
+  cachedPayloadChunksAvg: number;
+  rebuiltChunksAvg: number;
+  batchesAvg: number;
+  lastVisibilityMaskMs: number;
+  lastSummaryReadMs: number;
+  lastSerializeMs: number;
+  lastSendMs: number;
+  lastCachedPayloadChunks: number;
+  lastRebuiltChunks: number;
+  lastBatches: number;
+} => {
+  const lastEntry = entries[entries.length - 1];
+  return {
+    visibilityMaskP95Ms: perfSummary(entries, (entry) => entry.visibilityMaskMs).p95Ms,
+    summaryReadP95Ms: perfSummary(entries, (entry) => entry.summaryReadMs).p95Ms,
+    serializeP95Ms: perfSummary(entries, (entry) => entry.serializeMs).p95Ms,
+    sendP95Ms: perfSummary(entries, (entry) => entry.sendMs).p95Ms,
+    cachedPayloadChunksAvg: perfSummary(entries, (entry) => entry.cachedPayloadChunks).avgMs,
+    rebuiltChunksAvg: perfSummary(entries, (entry) => entry.rebuiltChunks).avgMs,
+    batchesAvg: perfSummary(entries, (entry) => entry.batches).avgMs,
+    lastVisibilityMaskMs: roundTo(lastEntry?.visibilityMaskMs ?? 0, 1),
+    lastSummaryReadMs: roundTo(lastEntry?.summaryReadMs ?? 0, 1),
+    lastSerializeMs: roundTo(lastEntry?.serializeMs ?? 0, 1),
+    lastSendMs: roundTo(lastEntry?.sendMs ?? 0, 1),
+    lastCachedPayloadChunks: roundTo(lastEntry?.cachedPayloadChunks ?? 0, 1),
+    lastRebuiltChunks: roundTo(lastEntry?.rebuiltChunks ?? 0, 1),
+    lastBatches: roundTo(lastEntry?.batches ?? 0, 1)
+  };
+};
 const hottestAiTurnPhase = (phaseTimings: Record<string, number>): { phase: string; elapsedMs: number } => {
   let phase = "unknown";
   let elapsedMs = 0;
@@ -1168,7 +1232,11 @@ const runtimeHotspotDiagnostics = (): {
     lastReason?: string;
     lastActionKey?: string;
   };
-  chunkSnapshots: ReturnType<typeof perfSummary> & { maxChunks: number; maxTiles: number };
+  chunkSnapshots: ReturnType<typeof perfSummary> &
+    ReturnType<typeof chunkPhaseSummary> & {
+      maxChunks: number;
+      maxTiles: number;
+    };
 } => {
   const aiEntries = recentAiTickPerf.values();
   const aiBudgetEntries = recentAiBudgetBreachPerf.values();
@@ -1189,6 +1257,7 @@ const runtimeHotspotDiagnostics = (): {
     },
     chunkSnapshots: {
       ...perfSummary(chunkEntries, (entry) => entry.elapsedMs),
+      ...chunkPhaseSummary(chunkEntries),
       maxChunks: chunkEntries.reduce((max, entry) => Math.max(max, entry.chunks), 0),
       maxTiles: chunkEntries.reduce((max, entry) => Math.max(max, entry.tiles), 0)
     }
@@ -3206,6 +3275,8 @@ const playerTile = (x: number, y: number): Tile => {
     if (history.lastStructureType !== undefined) historyView.lastStructureType = history.lastStructureType;
     tile.history = historyView;
   }
+  const upkeepEntries = tileUpkeepEntriesForTile(tk, ownerId);
+  if (upkeepEntries.length > 0) tile.upkeepEntries = upkeepEntries;
   const yieldBuf = tileYieldByTile.get(key(wx, wy));
   const ownerEffects = ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects();
   if (ownerId && ownershipState === "SETTLED" && terrain === "LAND") {
@@ -4105,6 +4176,64 @@ const settledTileGoldUpkeepPerMinuteAt = (playerId: string, tileKey: TileKey): n
   const town = townsByTile.get(tileKey);
   if (town && townPopulationTierForTown(town) === "SETTLEMENT") return 0;
   return 0.04 * governorUpkeepMultiplierAtTile(playerId, tileKey);
+};
+
+const roundedUpkeepPerMinute = (amountPerMinute: number): number => Number(amountPerMinute.toFixed(4));
+
+const tileUpkeepEntriesForTile = (tileKey: TileKey, ownerId: string | undefined): NonNullable<Tile["upkeepEntries"]> => {
+  if (!ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED") return [];
+  const effects = getPlayerEffectsForPlayer(ownerId);
+  const entries: NonNullable<Tile["upkeepEntries"]> = [];
+  const town = townsByTile.get(tileKey);
+  if (town) {
+    const townFoodUpkeep = townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult * governorUpkeepMultiplierAtTile(ownerId, tileKey);
+    if (townFoodUpkeep > 0.0001) entries.push({ label: "Town", perMinute: { FOOD: roundedUpkeepPerMinute(townFoodUpkeep) } });
+  }
+  const settledLandGoldUpkeep = settledTileGoldUpkeepPerMinuteAt(ownerId, tileKey) * effects.settledGoldUpkeepMult;
+  if (settledLandGoldUpkeep > 0.0001) {
+    entries.push({ label: "Settled land", perMinute: { GOLD: roundedUpkeepPerMinute(settledLandGoldUpkeep) } });
+  }
+  const fort = fortsByTile.get(tileKey);
+  if (fort?.ownerId === ownerId && fort.status === "active") {
+    entries.push({
+      label: "Fort",
+      perMinute: {
+        GOLD: roundedUpkeepPerMinute(1 * effects.fortGoldUpkeepMult),
+        IRON: roundedUpkeepPerMinute(0.025 * effects.fortIronUpkeepMult)
+      }
+    });
+  }
+  const siegeOutpost = siegeOutpostsByTile.get(tileKey);
+  if (siegeOutpost?.ownerId === ownerId && siegeOutpost.status === "active") {
+    entries.push({
+      label: "Siege outpost",
+      perMinute: {
+        GOLD: roundedUpkeepPerMinute(1 * effects.outpostGoldUpkeepMult),
+        SUPPLY: roundedUpkeepPerMinute(0.025 * effects.outpostSupplyUpkeepMult)
+      }
+    });
+  }
+  const observatory = observatoriesByTile.get(tileKey);
+  if (observatory?.ownerId === ownerId && observatory.status === "active") {
+    entries.push({ label: "Observatory", perMinute: { CRYSTAL: roundedUpkeepPerMinute(OBSERVATORY_UPKEEP_PER_MIN) } });
+  }
+  const structure = economicStructuresByTile.get(tileKey);
+  if (structure?.ownerId === ownerId && structure.status === "active") {
+    const gold = economicStructureGoldUpkeepPerInterval(structure.type) / 10;
+    const crystal = economicStructureCrystalUpkeepPerInterval(structure.type, ownerId) / 10;
+    const oil = structure.type === "AIRPORT" ? AIRPORT_OIL_UPKEEP_PER_MIN : 0;
+    if (gold > 0.0001 || crystal > 0.0001 || oil > 0.0001) {
+      entries.push({
+        label: prettyEconomicStructureLabel(structure.type),
+        perMinute: {
+          ...(gold > 0.0001 ? { GOLD: roundedUpkeepPerMinute(gold) } : {}),
+          ...(crystal > 0.0001 ? { CRYSTAL: roundedUpkeepPerMinute(crystal) } : {}),
+          ...(oil > 0.0001 ? { OIL: roundedUpkeepPerMinute(oil) } : {})
+        }
+      });
+    }
+  }
+  return entries;
 };
 
 const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number =>
@@ -9492,6 +9621,24 @@ const enqueueAiWorkerJob = (job: AiWorkerJob): void => {
 
 const latestRuntimeVitalsSample = (): ReturnType<typeof sampleRuntimeVitals> | undefined => recentRuntimeVitals.values().at(-1);
 
+const runtimeLoadShedLevel = (): "normal" | "soft" | "hard" => {
+  const vitals = latestRuntimeVitalsSample();
+  if (!vitals) return "normal";
+  if (
+    vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_HARD_LIMIT_MS ||
+    vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT
+  ) {
+    return "hard";
+  }
+  if (
+    vitals.eventLoopDelayP95Ms >= AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ||
+    vitals.eventLoopUtilizationPercent >= AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT
+  ) {
+    return "soft";
+  }
+  return "normal";
+};
+
 const onlineHumanPlayerCount = (): number => {
   let count = 0;
   for (const playerId of socketsByPlayer.keys()) {
@@ -9790,7 +9937,8 @@ const maybeHandleAiShardOrTruce = async (
   strategicState: AiStrategicState,
   planningSnapshot: AiPlanningSnapshot
 ): Promise<"shard" | "truce" | undefined> => {
-  const shardTile = bestAiCollectShardTile(actor);
+  const shardTile =
+    runtimeLoadShedLevel() === "normal" && !humanChunkSnapshotPriorityActive() ? bestAiCollectShardTile(actor) : undefined;
   if (shardTile && strategicState.focus === "SHARD_RUSH" && !planningSnapshot.pressureThreatensCore) {
     await simulationService.executeDirectMessage(actor, { type: "COLLECT_SHARD", x: shardTile.x, y: shardTile.y });
     return "shard";
@@ -9937,6 +10085,9 @@ const chunkKeyAtTile = (x: number, y: number): string => `${Math.floor(wrapX(x, 
 const tileIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 const CHUNK_SNAPSHOT_WARN_MS = 60;
 const CHUNK_SNAPSHOT_BATCH_SIZE = 4;
+const CHUNK_SNAPSHOT_BUDGET_MS = 24;
+const CHUNK_SNAPSHOT_YIELD_MS = 4;
+const CHUNK_SNAPSHOT_OVERLOAD_YIELD_MS = 16;
 const INITIAL_CHUNK_BOOTSTRAP_RADIUS = 0;
 
 const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
@@ -10023,7 +10174,10 @@ const {
   initialBootstrapRadius: INITIAL_CHUNK_BOOTSTRAP_RADIUS,
   chunkStreamBatchSize: CHUNK_STREAM_BATCH_SIZE,
   chunkSnapshotBatchSize: CHUNK_SNAPSHOT_BATCH_SIZE,
+  chunkSnapshotBudgetMs: CHUNK_SNAPSHOT_BUDGET_MS,
   chunkSnapshotWarnMs: CHUNK_SNAPSHOT_WARN_MS,
+  chunkSnapshotYieldMs: CHUNK_SNAPSHOT_YIELD_MS,
+  chunkSnapshotOverloadYieldMs: CHUNK_SNAPSHOT_OVERLOAD_YIELD_MS,
   now,
   wrapChunkX,
   wrapChunkY,
@@ -10053,9 +10207,9 @@ const {
       "auth sync first chunk sent"
     );
   },
-  onSlowChunkSnapshot: ({ playerId, elapsedMs, chunks, tiles, radius, memory }) => {
+  onSlowChunkSnapshot: ({ playerId, elapsedMs, chunks, tiles, radius, phases, memory }) => {
     app.log.warn(
-      { playerId, elapsedMs, chunks, tiles, radius, ...memory },
+      { playerId, elapsedMs, chunks, tiles, radius, ...phases, ...memory },
       "slow chunk snapshot"
     );
   },
@@ -10107,7 +10261,8 @@ const {
   worldHeight: WORLD_HEIGHT,
   serializeChunkBatchViaWorker,
   serializeChunkBatchDirect: (inputs) => inputs.map((chunk) => serializeChunkBody(buildChunkFromInput(chunk))),
-  serializeChunkBatchBodies
+  serializeChunkBatchBodies,
+  runtimeLoadShedLevel
 });
 
 const hasActiveResearch = (player: Player): boolean => Boolean(player.currentResearch && player.currentResearch.completesAt > now());
@@ -10550,7 +10705,9 @@ const {
     workerQueueSoftLimit: AI_WORKER_QUEUE_SOFT_LIMIT,
     simulationQueueSoftLimit: AI_SIM_QUEUE_SOFT_LIMIT,
     eventLoopP95SoftLimitMs: AI_EVENT_LOOP_P95_SOFT_LIMIT_MS,
-    eventLoopUtilizationSoftLimitPct: AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT
+    eventLoopUtilizationSoftLimitPct: AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT,
+    eventLoopP95HardLimitMs: AI_EVENT_LOOP_P95_HARD_LIMIT_MS,
+    eventLoopUtilizationHardLimitPct: AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT
   },
   now,
   contextTtlMs: AI_COMPETITION_CONTEXT_TTL_MS,
@@ -11638,7 +11795,7 @@ const tryRemoveStructure = (actor: Player, x: number, y: number): { ok: boolean;
     if (fort.status === "removing") return { ok: false, reason: "structure is already being removed" };
   }
   const observatory = observatoriesByTile.get(tk);
-  if (observatory?.ownerId === actor.id) {
+  if (observatory && observatory.ownerId === actor.id) {
     if (observatory.status === "under_construction") return { ok: false, reason: "cancel construction instead" };
     if (observatory.status === "removing") return { ok: false, reason: "structure is already being removed" };
   }
@@ -11666,7 +11823,7 @@ const tryRemoveStructure = (actor: Player, x: number, y: number): { ok: boolean;
     fortBuildTimers.set(tk, timer);
     return { ok: true };
   }
-  if (observatory?.ownerId === actor.id) {
+  if (observatory && observatory.ownerId === actor.id) {
     const removeDurationMs = structureBuildDurationMsForRuntime("OBSERVATORY");
     observatory.previousStatus = observatory.status === "inactive" ? "inactive" : "active";
     observatory.status = "removing";
@@ -13805,13 +13962,19 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     });
 };
 const runtimeIntervals: NodeJS.Timeout[] = [];
+let intervalRegistrationCount = 0;
 const registerInterval = (fn: () => void, ms: number): void => {
-  runtimeIntervals.push(
-    setInterval(() => {
-      if (!startupState.ready) return;
-      fn();
-    }, ms)
-  );
+  const wrapped = (): void => {
+    if (!startupState.ready) return;
+    fn();
+  };
+  const offset = ms <= 1 ? 0 : (intervalRegistrationCount * 97) % ms;
+  intervalRegistrationCount += 1;
+  const starter = setTimeout(() => {
+    wrapped();
+    runtimeIntervals.push(setInterval(wrapped, ms));
+  }, offset);
+  runtimeIntervals.push(starter);
 };
 recentRuntimeVitals.push(sampleRuntimeVitals());
 
@@ -13852,6 +14015,7 @@ registerInterval(() => {
 }, 60_000);
 
 registerInterval(() => {
+  if (runtimeLoadShedLevel() === "hard" && onlineSocketCount() > 0) return;
   for (const [tk, shock] of breachShockByTile) {
     if (shock.expiresAt <= now()) {
       breachShockByTile.delete(tk);
@@ -14505,6 +14669,9 @@ const renderRuntimeDashboardHtml = (): string => `<!doctype html>
             \`)}
             \${renderHotspotBlock("Chunk snapshot generation", data.hotspots.chunkSnapshots, \`
               <div class="muted" style="margin-top:8px">Largest recent snapshot: \${fmt(data.hotspots.chunkSnapshots.maxChunks)} chunks / \${fmt(data.hotspots.chunkSnapshots.maxTiles)} tiles</div>
+              <div class="muted" style="margin-top:8px">Last phases: mask \${fmt(data.hotspots.chunkSnapshots.lastVisibilityMaskMs, " ms")} • read \${fmt(data.hotspots.chunkSnapshots.lastSummaryReadMs, " ms")} • serialize \${fmt(data.hotspots.chunkSnapshots.lastSerializeMs, " ms")} • send \${fmt(data.hotspots.chunkSnapshots.lastSendMs, " ms")}</div>
+              <div class="muted" style="margin-top:4px">P95 phases: mask \${fmt(data.hotspots.chunkSnapshots.visibilityMaskP95Ms, " ms")} • read \${fmt(data.hotspots.chunkSnapshots.summaryReadP95Ms, " ms")} • serialize \${fmt(data.hotspots.chunkSnapshots.serializeP95Ms, " ms")} • send \${fmt(data.hotspots.chunkSnapshots.sendP95Ms, " ms")}</div>
+              <div class="muted" style="margin-top:4px">Reuse: cached chunks avg \${fmt(data.hotspots.chunkSnapshots.cachedPayloadChunksAvg)} • rebuilt avg \${fmt(data.hotspots.chunkSnapshots.rebuiltChunksAvg)} • batches avg \${fmt(data.hotspots.chunkSnapshots.batchesAvg)}</div>
             \`)}
           \`);
 

@@ -61,6 +61,8 @@ type AiSchedulerConfig = {
   simulationQueueSoftLimit: number;
   eventLoopP95SoftLimitMs: number;
   eventLoopUtilizationSoftLimitPct: number;
+  eventLoopP95HardLimitMs: number;
+  eventLoopUtilizationHardLimitPct: number;
 };
 
 type CreateAiSchedulerDeps<TPlayer extends Player, TCompetitionMetric, TAnalysis, TTickContext> = {
@@ -178,6 +180,11 @@ export const createAiScheduler = <
         (vitals.eventLoopDelayP95Ms >= deps.config.eventLoopP95SoftLimitMs ||
           vitals.eventLoopUtilizationPercent >= deps.config.eventLoopUtilizationSoftLimitPct)
     );
+    const eventLoopHardOverloaded = Boolean(
+      vitals &&
+        (vitals.eventLoopDelayP95Ms >= deps.config.eventLoopP95HardLimitMs ||
+          vitals.eventLoopUtilizationPercent >= deps.config.eventLoopUtilizationHardLimitPct)
+    );
 
     let batchSize = Math.min(
       aiPlayers.length,
@@ -201,7 +208,10 @@ export const createAiScheduler = <
       batchSize = Math.min(batchSize, deps.config.authPriorityBatchSize);
       reason = reason === "base" ? "auth_priority" : `${reason}+auth_priority`;
     }
-    if (aiQueueBackpressure || simulationQueueBackpressure || eventLoopOverloaded) {
+    if (eventLoopHardOverloaded) {
+      batchSize = 0;
+      reason = "event_loop_hard_overload";
+    } else if (aiQueueBackpressure || simulationQueueBackpressure || eventLoopOverloaded) {
       batchSize = 1;
       const overloadReasons = [
         aiQueueBackpressure ? "ai_queue_backpressure" : "",
@@ -212,8 +222,8 @@ export const createAiScheduler = <
     }
 
     state.at = deps.now();
-    state.batchSize = Math.max(1, batchSize);
-    state.selectedAiPlayers = Math.max(1, batchSize);
+    state.batchSize = Math.max(0, batchSize);
+    state.selectedAiPlayers = Math.max(0, batchSize);
     state.totalAiPlayers = aiPlayers.length;
     state.urgentAiPlayers = urgentAiCount;
     state.humanPlayersOnline = humanPlayersOnline;
@@ -223,7 +233,7 @@ export const createAiScheduler = <
     state.eventLoopOverloaded = eventLoopOverloaded;
     state.reason = reason;
 
-    return Math.max(1, batchSize);
+    return Math.max(0, batchSize);
   };
 
   const runAiTick = (): void => {
@@ -246,6 +256,7 @@ export const createAiScheduler = <
 
     const nowMs = deps.now();
     const batchSize = Math.min(aiPlayers.length, chooseBatchSize(aiPlayers));
+    if (batchSize <= 0) return;
     const urgentAiPlayers = aiPlayers.filter((actor) => hasDefensePriority(actor.id, nowMs));
     const orderedAiPlayers = urgentAiPlayers.length
       ? [

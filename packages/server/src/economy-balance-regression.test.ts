@@ -37,6 +37,8 @@ describe("economy balance regression guard", () => {
     const source = serverSource();
     expect(source).toContain("goldStructureUpkeep += economicStructureGoldUpkeepPerInterval(structure.type) / 10;");
     expect(source).toContain("crystalStructureUpkeep += economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;");
+    expect(source).toContain("const tileUpkeepEntriesForTile = (tileKey: TileKey, ownerId: string | undefined): NonNullable<Tile[\"upkeepEntries\"]> => {");
+    expect(source).toContain("tile.upkeepEntries = upkeepEntries;");
     expect(source).toContain("economyBreakdown: economy.economyBreakdown");
     expect(source).toContain("upkeepPerMinute: economy.upkeepPerMinute");
     expect(source).toContain("upkeepLastTick: economy.upkeepLastTick");
