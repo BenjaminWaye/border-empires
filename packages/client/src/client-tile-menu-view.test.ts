@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { constructionProgressForTile, menuOverviewForTile, tileMenuViewForTile } from "./client-tile-menu-view.js";
-import type { TileOverviewModifier } from "./client-tile-overview-modifiers.js";
+import type { TileAreaEffectModifier } from "./client-structure-effects.js";
 import type { Tile } from "./client-types.js";
 
 const settledSupportTile = (
@@ -49,7 +49,8 @@ const deps = {
   constructionCountdownLineForTile: () => "",
   tileHistoryLines: () => [] as string[],
   isTileOwnedByAlly: () => false,
-  areaEffectModifiersForTile: () => [] as TileOverviewModifier[]
+  growthModifierPercentLabel: () => "0%",
+  areaEffectModifiersForTile: () => [] as TileAreaEffectModifier[]
 };
 
 describe("menuOverviewForTile", () => {
@@ -108,18 +109,16 @@ describe("menuOverviewForTile", () => {
       },
       {
         ...deps,
-        areaEffectModifiersForTile: () => [{ reason: "Foundry", effect: "+100% iron production", tone: "positive" }]
+        areaEffectModifiersForTile: () => [{ name: "Foundry", mod: "+6.0/day iron", tone: "positive" }]
       }
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Mine:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+50% production output"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Foundry:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+100% iron production"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Foundry"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+6.0/day iron"))).toBe(true);
   });
 
-  it("shows town and dock modifiers in the shared reason-effect format", () => {
+  it("shows dock income modifiers in a dedicated modifiers section", () => {
     const lines = menuOverviewForTile(
       {
         x: 75,
@@ -127,29 +126,6 @@ describe("menuOverviewForTile", () => {
         terrain: "LAND",
         ownerId: "me",
         ownershipState: "SETTLED",
-        town: {
-          name: "Aetherwick",
-          type: "MARKET",
-          baseGoldPerMinute: 1.5,
-          supportCurrent: 1,
-          supportMax: 2,
-          goldPerMinute: 2.85,
-          cap: 40,
-          isFed: true,
-          population: 25_000,
-          maxPopulation: 50_000,
-          populationGrowthPerMinute: 20,
-          populationTier: "CITY",
-          connectedTownCount: 2,
-          connectedTownBonus: 0.9,
-          hasMarket: false,
-          marketActive: false,
-          hasGranary: false,
-          granaryActive: false,
-          hasBank: false,
-          bankActive: false,
-          growthModifiers: [{ label: "Long time peace", deltaPerMinute: 10 }]
-        },
         dockId: "dock-1",
         dock: {
           baseGoldPerMinute: 0.5,
@@ -168,12 +144,10 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
-    expect(lines.some((line) => line.html.includes("Long-term peace:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+100% population growth"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+90% gold production"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Connected dock route:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Customs House:"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Connected docks 1"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Connected dock route"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+50% (+0.28/m)"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Customs House"))).toBe(true);
   });
 
   it("shows building-specific removal progress timing", () => {

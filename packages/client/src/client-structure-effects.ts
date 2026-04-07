@@ -1,5 +1,4 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import type { TileOverviewModifier } from "./client-tile-overview-modifiers.js";
 import type { Tile } from "./client-types.js";
 
 const FOUNDRY_RADIUS = 10;
@@ -10,7 +9,11 @@ const GARRISON_HALL_RADIUS = 10;
 const AIRPORT_BOMBARD_RADIUS = 30;
 const RADAR_SYSTEM_RADIUS = 30;
 
-export type TileAreaEffectModifier = TileOverviewModifier;
+export type TileAreaEffectModifier = {
+  name: string;
+  mod: string;
+  tone: "positive" | "negative" | "neutral";
+};
 
 export type StructureAreaPreview = {
   radius: number;
@@ -39,6 +42,11 @@ const isActiveOwnedStructureWithinRange = (
   }
   return false;
 };
+
+const strategicOutputBonusLabel = (
+  amountPerDay: number,
+  resource: "IRON" | "CRYSTAL"
+): string => `+${amountPerDay.toFixed(1)}/day ${resource === "IRON" ? "iron" : "crystal"}`;
 
 export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | undefined => {
   const structure = tile.economicStructure;
@@ -96,9 +104,11 @@ export const tileAreaEffectModifiersForTile = (tile: Tile, tiles: Iterable<Tile>
     isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "FOUNDRY", FOUNDRY_RADIUS)
   ) {
     const resource = tile.resource === "IRON" ? "IRON" : tile.resource === "GEMS" ? "CRYSTAL" : undefined;
+    const totalOutput = resource ? Number(tile.yieldRate?.strategicPerDay?.[resource] ?? 0) : 0;
+    const bonusOutput = totalOutput > 0 ? totalOutput * ((FOUNDRY_OUTPUT_MULT - 1) / FOUNDRY_OUTPUT_MULT) : 0;
     modifiers.push({
-      reason: "Foundry",
-      effect: resource === "IRON" ? "+100% iron production" : resource === "CRYSTAL" ? "+100% crystal production" : "+100% mine production",
+      name: "Foundry",
+      mod: bonusOutput > 0 ? strategicOutputBonusLabel(bonusOutput, resource!) : "+100% mine output",
       tone: "positive"
     });
   }
@@ -107,28 +117,19 @@ export const tileAreaEffectModifiersForTile = (tile: Tile, tiles: Iterable<Tile>
     tile.ownershipState === "SETTLED" &&
     isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "GOVERNORS_OFFICE", GOVERNORS_OFFICE_RADIUS)
   ) {
+    const foodUpkeep = Number(tile.town?.foodUpkeepPerMinute ?? 0);
+    const upkeepReduction = foodUpkeep > 0 ? foodUpkeep * ((1 / GOVERNORS_OFFICE_UPKEEP_MULT) - 1) : 0;
     modifiers.push({
-      reason: "Governor's Office",
-      effect: "-20% upkeep",
-      tone: "positive"
-    });
-  }
-
-  if (
-    tile.ownershipState === "SETTLED" &&
-    isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "GARRISON_HALL", GARRISON_HALL_RADIUS)
-  ) {
-    modifiers.push({
-      reason: "Garrison Hall",
-      effect: "+20% defense",
+      name: "Governor's Office",
+      mod: upkeepReduction > 0 ? `-${upkeepReduction.toFixed(2)}/m food upkeep` : "-20% upkeep",
       tone: "positive"
     });
   }
 
   if (isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "RADAR_SYSTEM", RADAR_SYSTEM_RADIUS)) {
     modifiers.push({
-      reason: "Radar System",
-      effect: "Blocks airport bombardment",
+      name: "Radar System",
+      mod: "Protected from airport strikes",
       tone: "positive"
     });
   }
