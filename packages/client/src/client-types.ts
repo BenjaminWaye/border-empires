@@ -25,6 +25,11 @@ export type OptimisticStructureKind =
   | "GOVERNORS_OFFICE"
   | "RADAR_SYSTEM";
 
+export type TileUpkeepEntry = {
+  label: string;
+  perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD" | "OIL", number>>;
+};
+
 export type Tile = {
   x: number;
   y: number;
@@ -116,6 +121,7 @@ export type Tile = {
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
   };
+  upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
   history?: {
     lastOwnerId?: string | null;

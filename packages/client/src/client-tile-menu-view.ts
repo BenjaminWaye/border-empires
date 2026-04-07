@@ -5,9 +5,10 @@ import {
   SIEGE_OUTPOST_BUILD_MS,
   structureBuildDurationMs
 } from "@border-empires/shared";
-import { economicStructureBuildMs, economicStructureName, resourceLabel, storedYieldSummary, strategicResourceKeyForTile, tileProductionHtml, tileUpkeepHtml } from "./client-map-display.js";
+import { economicStructureBuildMs, economicStructureName, resourceLabel, storedYieldSummary, strategicResourceKeyForTile, tileProductionHtml } from "./client-map-display.js";
 import { tileOverviewModifiersForTile } from "./client-tile-overview-modifiers.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
+import { tileOverviewUpkeepLines } from "./client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "./client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "./client-types.js";
 
@@ -332,8 +333,7 @@ export const menuOverviewForTile = (
     if (connectedDockCount === 0) pushLine("Connect this dock to other docks to gain bonus gold production.");
   }
   if (productionHtml) pushLine(`Production: ${productionHtml}`);
-  const upkeepHtml = tileUpkeepHtml(tile);
-  if (upkeepHtml) pushLine(`Upkeep: ${upkeepHtml}`);
+  lines.push(...tileOverviewUpkeepLines(tile));
   if (supportedTowns.length === 1) {
     const town = supportedTowns[0];
     if (town) {

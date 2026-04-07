@@ -34,6 +34,23 @@ type ChunkSnapshotPerfSample = {
   radius: number;
   rssMb: number;
   heapUsedMb: number;
+  visibilityMaskMs: number;
+  summaryReadMs: number;
+  serializeMs: number;
+  sendMs: number;
+  cachedPayloadChunks: number;
+  rebuiltChunks: number;
+  batches: number;
+};
+
+type ChunkSnapshotPhaseTimings = {
+  visibilityMaskMs: number;
+  summaryReadMs: number;
+  serializeMs: number;
+  sendMs: number;
+  cachedPayloadChunks: number;
+  rebuiltChunks: number;
+  batches: number;
 };
 
 type ChunkSnapshotCacheEntry = {
@@ -57,7 +74,10 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   initialBootstrapRadius: number;
   chunkStreamBatchSize: number;
   chunkSnapshotBatchSize: number;
+  chunkSnapshotBudgetMs: number;
   chunkSnapshotWarnMs: number;
+  chunkSnapshotYieldMs: number;
+  chunkSnapshotOverloadYieldMs: number;
   now: () => number;
   wrapChunkX: (value: number) => number;
   wrapChunkY: (value: number) => number;
@@ -70,6 +90,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
     chunks: number;
     tiles: number;
     radius: number;
+    phases: ChunkSnapshotPhaseTimings;
     memory: RuntimeMemoryStats;
   }) => void;
   visibilitySnapshotForPlayer: (player: TPlayer) => VisibilitySnapshot;
@@ -99,6 +120,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   serializeChunkBatchViaWorker: (inputs: ChunkBuildInput[]) => Promise<string[]>;
   serializeChunkBatchDirect: (inputs: ChunkBuildInput[]) => string[];
   serializeChunkBatchBodies: (chunkBodies: string[]) => string;
+  runtimeLoadShedLevel: () => "normal" | "soft" | "hard";
 };
 
 const chunkDist = (a: number, b: number, mod: number): number => {
@@ -206,13 +228,15 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     playerId: string,
     snapshot: VisibilitySnapshot,
     worldCx: number,
-    worldCy: number
+    worldCy: number,
+    phases: ChunkSnapshotPhaseTimings
   ): Uint8Array => {
     const chunkKey = `${worldCx},${worldCy}`;
     const cache = chunkSnapshotCacheForPlayer(playerId, snapshot);
     const cachedVersion = cache.visibilityVersionByChunkKey.get(chunkKey);
     const cachedMask = cache.visibilityMaskByChunkKey.get(chunkKey);
     if (cachedMask && cachedVersion === cache.visibilityVersion) return cachedMask;
+    const visibilityStartedAt = deps.now();
     const startX = worldCx * deps.chunkSize;
     const startY = worldCy * deps.chunkSize;
     const mask = new Uint8Array(deps.chunkSize * deps.chunkSize);
@@ -238,6 +262,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         clearChunkPayloads(cache.payloadByChunkKey, chunkKey);
       }
     }
+    phases.visibilityMaskMs += deps.now() - visibilityStartedAt;
     cache.visibilityMaskByChunkKey.set(chunkKey, mask);
     cache.visibilityVersionByChunkKey.set(chunkKey, cache.visibilityVersion);
     return mask;
@@ -248,14 +273,16 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     snapshot: VisibilitySnapshot,
     worldCx: number,
     worldCy: number,
-    mode: ChunkSummaryMode
+    mode: ChunkSummaryMode,
+    phases: ChunkSnapshotPhaseTimings
   ): { payload?: string; tileCount: number; chunkKey: string; buildInput?: Omit<ChunkBuildInput, "visibleTiles"> } => {
     const cache = chunkSnapshotCacheForPlayer(actor.id, snapshot);
     const chunkKey = `${worldCx},${worldCy}`;
     const payloadCacheKey = `${mode}:${chunkKey}`;
-    const visibleMask = chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy);
+    const visibleMask = chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy, phases);
     const cachedPayload = cache.payloadByChunkKey.get(payloadCacheKey);
     if (cachedPayload) {
+      phases.cachedPayloadChunks += 1;
       return {
         payload: cachedPayload,
         tileCount: deps.chunkSize * deps.chunkSize,
@@ -263,6 +290,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       };
     }
 
+    phases.rebuiltChunks += 1;
     return {
       buildInput: {
         cx: worldCx,
@@ -300,7 +328,9 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     followUpStage: ChunkFollowUpStage | undefined,
     batchSizeOverride?: number
   ): number => {
+    const loadShedLevel = deps.runtimeLoadShedLevel();
     if (batchSizeOverride !== undefined) return Math.max(1, batchSizeOverride);
+    if (loadShedLevel !== "normal") return 1;
     if (followUpStage || chunkCoords.length > deps.chunkSnapshotBatchSize) return 1;
     return Math.max(1, Math.min(deps.chunkStreamBatchSize, deps.chunkSnapshotBatchSize));
   };
@@ -325,6 +355,15 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     let tileCount = 0;
     const chunkCoords = chunkCoordsOverride ?? chunkCoordsForSubscription(sub);
     const batchSize = chunkBatchSizeForSnapshot(chunkCoords, followUpStage, batchSizeOverride);
+    const phases: ChunkSnapshotPhaseTimings = {
+      visibilityMaskMs: 0,
+      summaryReadMs: 0,
+      serializeMs: 0,
+      sendMs: 0,
+      cachedPayloadChunks: 0,
+      rebuiltChunks: 0,
+      batches: 0
+    };
 
     let index = 0;
     const clearInFlight = (): void => {
@@ -334,6 +373,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     };
 
     const streamNext = async (): Promise<void> => {
+      const batchStartedAt = deps.now();
       if (deps.chunkSnapshotGenerationByPlayer.get(actor.id) !== generation) {
         clearInFlight();
         return;
@@ -348,7 +388,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       const end = Math.min(index + batchSize, chunkCoords.length);
       for (; index < end; index += 1) {
         const coords = chunkCoords[index]!;
-        const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy, summaryMode);
+        const chunk = chunkSnapshotPayload(actor, snapshot, coords.cx, coords.cy, summaryMode, phases);
         if (chunk.payload) {
           chunkBatchBodies.push(chunk.payload);
         } else if (chunk.buildInput) {
@@ -363,15 +403,19 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       }
 
       if (pendingBuilds.length > 0) {
+        const summaryReadStartedAt = deps.now();
         const visibleTileBatches = await deps.loadSummaryChunkTilesBatch(pendingBuilds.map((chunk) => chunk.request));
+        phases.summaryReadMs += deps.now() - summaryReadStartedAt;
         const chunkInputs = pendingBuilds.map((chunk, payloadIndex) => ({
           ...chunk.buildInput,
           visibleTiles: [...(visibleTileBatches[payloadIndex] ?? deps.summaryChunkTiles(chunk.request.cx, chunk.request.cy, summaryMode))]
         }));
+        const serializeStartedAt = deps.now();
         const payloads =
           chunkInputs.length === 1 && chunkBatchBodies.length === 0
             ? deps.serializeChunkBatchDirect(chunkInputs)
             : await deps.serializeChunkBatchViaWorker(chunkInputs);
+        phases.serializeMs += deps.now() - serializeStartedAt;
         const payloadCache = chunkSnapshotCacheForPlayer(actor.id, snapshot).payloadByChunkKey;
         for (let payloadIndex = 0; payloadIndex < payloads.length; payloadIndex += 1) {
           const pending = pendingBuilds[payloadIndex]!;
@@ -382,12 +426,19 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       }
 
       if (chunkBatchBodies.length > 0) {
+        const sendStartedAt = deps.now();
         socket.send(deps.serializeChunkBatchBodies(chunkBatchBodies));
+        phases.sendMs += deps.now() - sendStartedAt;
+        phases.batches += 1;
       }
+      const loadShedLevel = deps.runtimeLoadShedLevel();
+      const shouldYield =
+        index < chunkCoords.length &&
+        (deps.now() - batchStartedAt >= deps.chunkSnapshotBudgetMs || loadShedLevel !== "normal");
       if (index < chunkCoords.length) {
         setTimeout(() => {
           void streamNext();
-        }, 0);
+        }, shouldYield ? (loadShedLevel === "hard" ? deps.chunkSnapshotOverloadYieldMs : deps.chunkSnapshotYieldMs) : 0);
         return;
       }
 
@@ -410,7 +461,14 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         tiles: tileCount,
         radius: sub.radius,
         rssMb: memory.rssMb,
-        heapUsedMb: memory.heapUsedMb
+        heapUsedMb: memory.heapUsedMb,
+        visibilityMaskMs: phases.visibilityMaskMs,
+        summaryReadMs: phases.summaryReadMs,
+        serializeMs: phases.serializeMs,
+        sendMs: phases.sendMs,
+        cachedPayloadChunks: phases.cachedPayloadChunks,
+        rebuiltChunks: phases.rebuiltChunks,
+        batches: phases.batches
       });
       if (elapsed >= deps.chunkSnapshotWarnMs) {
         deps.onSlowChunkSnapshot({
@@ -419,6 +477,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
           chunks: chunkCount,
           tiles: tileCount,
           radius: sub.radius,
+          phases,
           memory
         });
       }
@@ -448,7 +507,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
             followUpStage.summaryMode,
             followUpStage.batchSize
           );
-        }, 0);
+        }, deps.runtimeLoadShedLevel() === "hard" ? deps.chunkSnapshotOverloadYieldMs : deps.chunkSnapshotYieldMs);
       }
     };
 

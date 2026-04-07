@@ -20,7 +20,8 @@ const settledSupportTile = (
     status,
     ...(disabledUntil !== undefined ? { disabledUntil } : {}),
     ...(inactiveReason !== undefined ? { inactiveReason } : {})
-  }
+  },
+  ...(status === "active" ? { upkeepEntries: [{ label: "Fur Synthesizer", perMinute: { GOLD: 5 } }] } : {})
 });
 
 const settledObservatoryTile = (status: NonNullable<Tile["observatory"]>["status"]): Tile => ({
@@ -32,7 +33,8 @@ const settledObservatoryTile = (status: NonNullable<Tile["observatory"]>["status
   observatory: {
     ownerId: "me",
     status
-  }
+  },
+  ...(status === "active" ? { upkeepEntries: [{ label: "Observatory", perMinute: { CRYSTAL: 0.03 } }] } : {})
 });
 
 const deps = {
@@ -234,7 +236,65 @@ describe("menuOverviewForTile", () => {
     const lines = menuOverviewForTile(settledObservatoryTile("active"), deps);
     expect(lines.some((line) => line.html.includes("Observatory"))).toBe(true);
     expect(lines.some((line) => line.html.includes("blocks hostile crystal actions nearby"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("0.03/m"))).toBe(true);
+    expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
+    expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("0.03/m"))).toBe(true);
+  });
+
+  it("shows a dedicated upkeep section with one row per active upkeep source", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 30,
+        y: 30,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        fort: {
+          ownerId: "me",
+          status: "active"
+        },
+        town: {
+          name: "Sable",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 4,
+          supportMax: 5,
+          goldPerMinute: 2.5,
+          cap: 40,
+          isFed: true,
+          population: 18_000,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 10,
+          populationTier: "TOWN",
+          connectedTownCount: 1,
+          connectedTownBonus: 0.2,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        upkeepEntries: [
+          { label: "Settled land", perMinute: { GOLD: 0.04 } },
+          { label: "Town", perMinute: { FOOD: 1 } },
+          { label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } }
+        ],
+        yieldRate: {
+          goldPerMinute: 2.5
+        }
+      },
+      {
+        ...deps,
+        populationPerMinuteLabel: () => "+10/m",
+        townNextGrowthEtaLabel: () => "City in ~5d"
+      }
+    );
+
+    expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
+    expect(lines.some((line) => line.html.includes("Settled land:") && line.html.includes("0.04/m"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Town:") && line.html.includes("1.00/m"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Fort:") && line.html.includes("1.00/m") && line.html.includes("0.03/m"))).toBe(true);
+    expect(lines.some((line) => line.html.startsWith("Upkeep:"))).toBe(false);
   });
 
   it("calls out removal as disabling structure income, upkeep, and effects", () => {

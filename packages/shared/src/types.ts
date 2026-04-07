@@ -64,6 +64,11 @@ export interface TileHistory {
   wasMountainRemovedByPlayer?: boolean;
 }
 
+export interface TileUpkeepEntry {
+  label: string;
+  perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD" | "OIL", number>>;
+}
+
 export interface EconomicStructure {
   id: string;
   type: EconomicStructureType;
@@ -241,6 +246,7 @@ export interface Tile {
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
   };
+  upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };
   history?: TileHistory;
   lastChangedAt: number;

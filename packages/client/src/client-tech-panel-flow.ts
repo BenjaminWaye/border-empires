@@ -256,6 +256,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       domainUiSelectedId: state.domainUiSelectedId,
       domainIds: state.domainIds,
       domainChoices: state.domainChoices,
+      pendingDomainUnlockId: state.pendingDomainUnlockId,
       techNameList
     });
 
@@ -265,6 +266,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       domainUiSelectedId: state.domainUiSelectedId,
       domainIds: state.domainIds,
       domainChoices: state.domainChoices,
+      pendingDomainUnlockId: state.pendingDomainUnlockId,
       techNameList
     });
 
