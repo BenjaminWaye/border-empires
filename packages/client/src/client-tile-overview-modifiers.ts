@@ -30,8 +30,8 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
 };
 
 const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
-  if (tile.type === "FARMSTEAD" || tile.type === "CAMP" || tile.type === "MINE") {
-    return [{ reason: tile.type === "FARMSTEAD" ? "Farmstead" : tile.type === "CAMP" ? "Camp" : "Mine", effect: "+50% production output", tone: "positive" }];
+  if (tile.type === "FARMSTEAD" || tile.type === "CAMP") {
+    return [{ reason: tile.type === "FARMSTEAD" ? "Farmstead" : "Camp", effect: "+50% production output", tone: "positive" }];
   }
   if (tile.type === "WOODEN_FORT") return [{ reason: "Wooden Fort", effect: `${multiplierPercentLabel(WOODEN_FORT_DEFENSE_MULT)} defense`, tone: "positive" }];
   if (tile.type === "LIGHT_OUTPOST") return [{ reason: "Light Outpost", effect: `${multiplierPercentLabel(LIGHT_OUTPOST_ATTACK_MULT)} offense`, tone: "positive" }];
@@ -71,6 +71,13 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
 
   if (tile.fort?.status === "active") modifiers.push({ reason: "Fort", effect: "+25% defense", tone: "positive" });
   if (tile.siegeOutpost?.status === "active") modifiers.push({ reason: "Siege Outpost", effect: "+25% offense", tone: "positive" });
+  if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
+    modifiers.push({
+      reason: "Mine",
+      effect: tile.resource === "IRON" ? "+50% iron production" : tile.resource === "GEMS" ? "+50% crystal production" : "+50% strategic resource production",
+      tone: "positive"
+    });
+  }
   if (tile.economicStructure?.status === "active") modifiers.push(...activeEconomicStructureModifiers(tile.economicStructure));
 
   return modifiers;
