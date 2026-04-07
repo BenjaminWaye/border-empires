@@ -36,6 +36,13 @@ describe("login and frontier retry regression guard", () => {
     expect(source).toContain('state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);');
   });
 
+  it("hides the current frontier queue badge once the capture timer has elapsed", () => {
+    const source = clientSource("./client-runtime-loop.ts");
+    expect(source).toContain("const hideCurrentQueuedBadge =");
+    expect(source).toContain("shouldHideQueuedFrontierBadge(");
+    expect(source).toContain("if (state.actionInFlight && state.actionTargetKey && !hideCurrentQueuedBadge) {");
+  });
+
   it("uses a local radius-1 refresh while waiting for delayed frontier confirmation", () => {
     const source = clientSource("./client-runtime-loop.ts");
     const occurrences = [...source.matchAll(/requestViewRefresh\(1, true\);/g)].length;
