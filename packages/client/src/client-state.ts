@@ -210,6 +210,7 @@ export const createInitialState = () => ({
   techDetailOpen: false,
   domainDetailOpen: false,
   pendingTechUnlockId: "" as string,
+  pendingDomainUnlockId: "" as string,
   techChoicesSig: "" as string,
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,

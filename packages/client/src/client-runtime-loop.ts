@@ -154,7 +154,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       shouldHideQueuedFrontierBadge(
         state.tiles.get(state.actionTargetKey),
         state.me,
-        Boolean(state.capture && Date.now() > state.capture.resolvesAt),
+        Boolean(state.capture),
         state.actionTargetKey === actionCaptureTargetKey
       );
     if (state.actionInFlight && state.actionTargetKey && !hideCurrentQueuedBadge) {

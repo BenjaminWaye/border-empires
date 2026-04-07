@@ -9,6 +9,6 @@ export const shouldHideCaptureOverlayAfterTimer = (tile: Tile | undefined, me: s
 export const shouldHideQueuedFrontierBadge = (
   tile: Tile | undefined,
   me: string,
-  awaitingResult: boolean,
+  hasActiveCapture: boolean,
   isCurrentActionTarget: boolean
-): boolean => isCurrentActionTarget && shouldHideCaptureOverlayAfterTimer(tile, me, awaitingResult);
+): boolean => isCurrentActionTarget && hasActiveCapture && shouldPreserveOptimisticExpand(tile, me);
