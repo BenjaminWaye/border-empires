@@ -102,6 +102,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   let mousePanStart: { x: number; y: number; camX: number; camY: number } | undefined;
   let mousePanStartedOnLoadedTile = false;
   let mousePanMoved = false;
+  let mouseSelectionCommittedOnDown = false;
   let holdOpenTimer: number | undefined;
   let touchHoldStart: { x: number; y: number } | undefined;
   let touchTapCandidate: { x: number; y: number } | undefined;
@@ -158,6 +159,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     if (ev.button !== 0) return;
     dragActive = true;
     mousePanMoved = false;
+    mouseSelectionCommittedOnDown = false;
     boxSelectionMode = ev.shiftKey;
     boxSelectionEngaged = false;
     deps.hideHoldBuildMenu();
@@ -165,6 +167,12 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     const raw = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
     const tileKey = deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy));
     mousePanStartedOnLoadedTile = Boolean(state.tiles.get(tileKey));
+    if (!boxSelectionMode && mousePanStartedOnLoadedTile) {
+      const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
+      mouseSelectionCommittedOnDown = true;
+      deps.interactionFlags.suppressNextClick = true;
+      deps.handleTileSelection(wx, wy, ev.clientX, ev.clientY);
+    }
     if (boxSelectionMode) {
       state.boxSelectStart = raw;
       state.boxSelectCurrent = raw;
@@ -214,7 +222,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       boxSelectionMode,
       boxSelectionEngaged,
       mousePanMoved
-    })) {
+    }) && !mouseSelectionCommittedOnDown) {
       const rect = deps.canvas.getBoundingClientRect();
       const insideCanvas =
         ev.clientX >= rect.left &&
@@ -267,6 +275,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     mousePanStart = undefined;
     mousePanStartedOnLoadedTile = false;
     mousePanMoved = false;
+    mouseSelectionCommittedOnDown = false;
     dragLastKey = "";
     state.boxSelectStart = undefined;
     state.boxSelectCurrent = undefined;
