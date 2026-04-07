@@ -441,13 +441,25 @@ export const tileProductionHtml = (tile: Tile): string => {
 };
 
 export const tileUpkeepHtml = (tile: Tile): string => {
+  const upkeepFromEntries = { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 };
+  for (const entry of tile.upkeepEntries ?? []) {
+    upkeepFromEntries.food += Number(entry.perMinute.FOOD ?? 0);
+    upkeepFromEntries.iron += Number(entry.perMinute.IRON ?? 0);
+    upkeepFromEntries.supply += Number(entry.perMinute.SUPPLY ?? 0);
+    upkeepFromEntries.crystal += Number(entry.perMinute.CRYSTAL ?? 0);
+    upkeepFromEntries.oil += Number(entry.perMinute.OIL ?? 0);
+    upkeepFromEntries.gold += Number(entry.perMinute.GOLD ?? 0);
+  }
   const parts: string[] = [];
-  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") {
-    parts.push(`${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`);
-  }
-  if (tile.observatory?.status === "active") {
-    parts.push(`${resourceIconForKey("CRYSTAL")} ${OBSERVATORY_UPKEEP_PER_MIN.toFixed(2)}/m`);
-  }
+  if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${upkeepFromEntries.food.toFixed(2)}/m`);
+  if (upkeepFromEntries.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${upkeepFromEntries.iron.toFixed(2)}/m`);
+  if (upkeepFromEntries.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${upkeepFromEntries.supply.toFixed(2)}/m`);
+  if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${upkeepFromEntries.crystal.toFixed(2)}/m`);
+  if (upkeepFromEntries.oil > 0.001) parts.push(`${resourceIconForKey("OIL")} ${upkeepFromEntries.oil.toFixed(2)}/m`);
+  if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${upkeepFromEntries.gold.toFixed(2)}/m`);
+  if (parts.length > 0) return parts.join(" · ");
+  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconForKey("FOOD")} ${tile.town.foodUpkeepPerMinute.toFixed(2)}/m`);
+  if (tile.observatory?.status === "active") parts.push(`${resourceIconForKey("CRYSTAL")} ${OBSERVATORY_UPKEEP_PER_MIN.toFixed(2)}/m`);
   return parts.join(" · ");
 };
 
