@@ -727,8 +727,7 @@ export const drawRoadOverlay = (
 ): void => {
   const centerX = px + size / 2;
   const centerY = py + size / 2;
-  const roadWidth = Math.max(1.75, size * 0.12);
-  const innerWidth = Math.max(1, roadWidth * 0.58);
+  const roadWidth = Math.max(1.2, size * 0.07);
   const segments: Array<[number, number]> = [];
   const degree =
     (directions.north ? 1 : 0) +
@@ -744,16 +743,8 @@ export const drawRoadOverlay = (
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = "rgba(88, 62, 34, 0.42)";
+  ctx.strokeStyle = "rgba(210, 180, 120, 0.92)";
   ctx.lineWidth = roadWidth;
-  for (const [endX, endY] of segments) {
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(210, 180, 120, 0.86)";
-  ctx.lineWidth = innerWidth;
   for (const [endX, endY] of segments) {
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
