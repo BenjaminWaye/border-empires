@@ -66,6 +66,7 @@ export const sendLoginPhase = (
 export const classifyAuthError = (err: unknown): { code: "AUTH_FAIL" | "AUTH_UNAVAILABLE"; message: string } => {
   const text = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   if (
+    text.includes("AuthVerifyTimeout") ||
     text.includes("JWKSTimeout") ||
     text.includes("ERR_JWKS_TIMEOUT") ||
     text.includes("fetch failed") ||
