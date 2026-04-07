@@ -14007,6 +14007,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     });
 };
 const runtimeIntervals: NodeJS.Timeout[] = [];
+const AI_BOOT_GRACE_MS = Math.max(5_000, Number(process.env.AI_BOOT_GRACE_MS ?? 20_000));
 const registerInterval = (fn: () => void, ms: number): void => {
   runtimeIntervals.push(
     setInterval(() => {
@@ -14028,7 +14029,10 @@ registerInterval(() => {
   lastSnapshotAt = nowMs;
 }, 30_000);
 registerInterval(runBarbarianTick, BARBARIAN_TICK_MS);
-registerInterval(runAiTick, AI_DISPATCH_INTERVAL_MS);
+registerInterval(() => {
+  if (startupState.completedAt && Date.now() - startupState.completedAt < AI_BOOT_GRACE_MS) return;
+  runAiTick();
+}, AI_DISPATCH_INTERVAL_MS);
 registerInterval(enqueueBarbarianMaintenance, BARBARIAN_MAINTENANCE_INTERVAL_MS);
 registerInterval(expireShardSites, 5_000);
 registerInterval(maybeSpawnScheduledShardRain, 30_000);
