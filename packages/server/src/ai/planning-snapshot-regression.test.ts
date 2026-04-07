@@ -159,6 +159,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const collectBody = functionBody(source, "collectAiTerritorySummary");
     const scoreScoutBody = functionBody(source, "scoreAiScoutExpandCandidate");
     const openingScoutBody = functionBody(source, "bestAiOpeningScoutExpand");
+    const islandBody = functionBody(source, "bestAiIslandExpand");
     const revealBody = functionBody(source, "scoreAiScoutRevealValue");
 
     expect(source).toContain("type AiScoutAdjacencyMetrics =");
@@ -168,7 +169,11 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(collectBody).toContain("scoutAdjacencyByTileKey: cached.scoutAdjacencyByTileKey");
     expect(collectBody).toContain("scoutRevealMarks: cached.scoutRevealMarks");
     expect(scoreScoutBody).toContain("cachedScoutAdjacencyMetrics(actor, to, territorySummary)");
-    expect(openingScoutBody).toContain("frontierPlanningSummaryForPlayer(actor, territorySummary).bestOpeningScoutExpand");
+    expect(openingScoutBody).toContain("return bestAiScoutExpand(actor, territorySummary);");
+    expect(openingScoutBody).not.toContain("frontierPlanningSummaryForPlayer(");
+    expect(islandBody).toContain("const shortlist:");
+    expect(islandBody).toContain("AI_ISLAND_SHORTLIST_SIZE");
+    expect(islandBody).toContain('"ai island selector budget hit"');
     expect(revealBody).toContain("const profileKey = `${territorySummary.foodPressure > 0 ? 1 : 0}:${economyWeak ? 1 : 0}:${tk}`;");
   });
 
