@@ -635,6 +635,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
                 (pair.bx === dockTile.x && pair.by === dockTile.y)
             ).length
           : 0,
+      currentManpower: state.manpower,
+      currentManpowerCap: state.manpowerCap,
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,

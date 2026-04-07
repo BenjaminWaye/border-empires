@@ -44,6 +44,8 @@ const deps = {
   townNextGrowthEtaLabel: () => "never",
   supportedOwnedTownsForTile: () => [] as Tile[],
   connectedDockCountForTile: () => 0,
+  currentManpower: 100,
+  currentManpowerCap: 100,
   hostileObservatoryProtectingTile: () => undefined,
   constructionCountdownLineForTile: () => "",
   tileHistoryLines: () => [] as string[],
@@ -95,6 +97,7 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.html.includes("Town is fed and producing"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Towns produce gold when fed."))).toBe(false);
     expect(lines.some((line) => line.html === "Connected towns 0")).toBe(false);
     expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true);
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
@@ -140,14 +143,65 @@ describe("menuOverviewForTile", () => {
       },
       {
         ...deps,
+        currentManpower: 8,
+        currentManpowerCap: 3_150,
         populationPerMinuteLabel: () => "+16.7/m",
         townNextGrowthEtaLabel: () => "City in ~4d"
       }
     );
 
     expect(lines.some((line) => line.html === "Connected towns 2")).toBe(false);
-    expect(lines.some((line) => line.html.includes("Town is fed but gold is paused until manpower is full (8/3,150)."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Town is fed but gold is paused until your empire manpower is full."))).toBe(true);
     expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
+  });
+
+  it("does not show stale manpower-paused copy when current empire manpower is already full", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 21,
+        y: 45,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Brassford",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 7,
+          supportMax: 8,
+          goldPerMinute: 3.8,
+          cap: 40,
+          isFed: true,
+          population: 22_640,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 16.7,
+          populationTier: "TOWN",
+          connectedTownCount: 2,
+          connectedTownBonus: 0.9,
+          goldIncomePausedReason: "MANPOWER_NOT_FULL",
+          manpowerCurrent: 8,
+          manpowerCap: 3_150,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 0
+        }
+      },
+      {
+        ...deps,
+        currentManpower: 3_450,
+        currentManpowerCap: 3_450,
+        populationPerMinuteLabel: () => "+16.7/m",
+        townNextGrowthEtaLabel: () => "City in ~4d"
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("empire manpower is full"))).toBe(false);
   });
 
   it("calls out active synth structures explicitly", () => {
