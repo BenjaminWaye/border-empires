@@ -38,12 +38,15 @@ const settledObservatoryTile = (status: NonNullable<Tile["observatory"]>["status
 const deps = {
   state: { me: "me" },
   prettyToken: (value: string) => value,
+  playerNameForOwner: (ownerId?: string | null) => ownerId ?? undefined,
   terrainLabel: (_x: number, _y: number, terrain: Tile["terrain"]) => terrain,
   displayTownGoldPerMinute: () => 0,
   populationPerMinuteLabel: () => "0/m",
   townNextGrowthEtaLabel: () => "never",
   supportedOwnedTownsForTile: () => [] as Tile[],
   connectedDockCountForTile: () => 0,
+  currentManpower: 100,
+  currentManpowerCap: 100,
   hostileObservatoryProtectingTile: () => undefined,
   constructionCountdownLineForTile: () => "",
   tileHistoryLines: () => [] as string[],
@@ -95,6 +98,7 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.html.includes("Town is fed and producing"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Towns produce gold when fed."))).toBe(false);
     expect(lines.some((line) => line.html === "Connected towns 0")).toBe(false);
     expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true);
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
@@ -140,14 +144,65 @@ describe("menuOverviewForTile", () => {
       },
       {
         ...deps,
+        currentManpower: 8,
+        currentManpowerCap: 3_150,
         populationPerMinuteLabel: () => "+16.7/m",
         townNextGrowthEtaLabel: () => "City in ~4d"
       }
     );
 
     expect(lines.some((line) => line.html === "Connected towns 2")).toBe(false);
-    expect(lines.some((line) => line.html.includes("Town is fed but gold is paused until manpower is full (8/3,150)."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Town is fed but gold is paused until your empire manpower is full."))).toBe(true);
     expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
+  });
+
+  it("does not show stale manpower-paused copy when current empire manpower is already full", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 21,
+        y: 45,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Brassford",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 7,
+          supportMax: 8,
+          goldPerMinute: 3.8,
+          cap: 40,
+          isFed: true,
+          population: 22_640,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 16.7,
+          populationTier: "TOWN",
+          connectedTownCount: 2,
+          connectedTownBonus: 0.9,
+          goldIncomePausedReason: "MANPOWER_NOT_FULL",
+          manpowerCurrent: 8,
+          manpowerCap: 3_150,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 0
+        }
+      },
+      {
+        ...deps,
+        currentManpower: 3_450,
+        currentManpowerCap: 3_450,
+        populationPerMinuteLabel: () => "+16.7/m",
+        townNextGrowthEtaLabel: () => "City in ~4d"
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("empire manpower is full"))).toBe(false);
   });
 
   it("calls out active synth structures explicitly", () => {
@@ -416,5 +471,82 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(menu.title).toBe("Aetherwick (18, 42)");
+  });
+
+  it("shows the owner player name instead of enemy text for hostile land", () => {
+    const menu = tileMenuViewForTile(
+      {
+        x: 106,
+        y: 171,
+        terrain: "LAND",
+        ownerId: "enemy-1",
+        ownershipState: "SETTLED",
+        dockId: "dock-1",
+        regionType: "ANCIENT_HEARTLAND"
+      },
+      {
+        ...deps,
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "enemy-1" ? "Ancient Rival" : ownerId ?? undefined),
+        menuActionsForSingleTile: () => [],
+        splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+        settlementProgressForTile: () => undefined,
+        queuedSettlementProgressForTile: () => undefined,
+        queuedBuildProgressForTile: () => undefined,
+        constructionProgressForTile: () => undefined,
+        menuOverviewForTile: () => []
+      }
+    );
+
+    expect(menu.subtitle).toBe("Ancient Rival · ANCIENT_HEARTLAND");
+    expect(menu.subtitleHtml).toBeUndefined();
+  });
+
+  it("renders allied owner names with the ally subtitle accent", () => {
+    const menu = tileMenuViewForTile(
+      {
+        x: 80,
+        y: 120,
+        terrain: "LAND",
+        ownerId: "ally-1",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Harborlight",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 0,
+          supportMax: 0,
+          goldPerMinute: 2,
+          cap: 40,
+          isFed: true,
+          population: 18_000,
+          maxPopulation: 50_000,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        regionType: "ANCIENT_HEARTLAND"
+      },
+      {
+        ...deps,
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "ally-1" ? "Green Banner" : ownerId ?? undefined),
+        isTileOwnedByAlly: () => true,
+        menuActionsForSingleTile: () => [],
+        splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+        settlementProgressForTile: () => undefined,
+        queuedSettlementProgressForTile: () => undefined,
+        queuedBuildProgressForTile: () => undefined,
+        constructionProgressForTile: () => undefined,
+        menuOverviewForTile: () => []
+      }
+    );
+
+    expect(menu.subtitle).toBe("Green Banner · ANCIENT_HEARTLAND");
+    expect(menu.subtitleHtml).toBe('<span class="tile-owner-label is-ally">Green Banner</span> · ANCIENT_HEARTLAND');
   });
 });

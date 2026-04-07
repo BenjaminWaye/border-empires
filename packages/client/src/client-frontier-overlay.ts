@@ -5,3 +5,10 @@ export const shouldPreserveOptimisticExpand = (tile: Tile | undefined, me: strin
 
 export const shouldHideCaptureOverlayAfterTimer = (tile: Tile | undefined, me: string, awaitingResult: boolean): boolean =>
   awaitingResult && shouldPreserveOptimisticExpand(tile, me);
+
+export const shouldHideQueuedFrontierBadge = (
+  tile: Tile | undefined,
+  me: string,
+  awaitingResult: boolean,
+  isCurrentActionTarget: boolean
+): boolean => isCurrentActionTarget && shouldHideCaptureOverlayAfterTimer(tile, me, awaitingResult);

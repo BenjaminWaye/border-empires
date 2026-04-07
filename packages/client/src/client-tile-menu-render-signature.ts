@@ -5,6 +5,7 @@ export const tileMenuRenderSignature = (view: TileMenuView, activeTab: TileMenuT
     activeTab,
     title: view.title,
     subtitle: view.subtitle,
+    subtitleHtml: view.subtitleHtml,
     tabs: view.tabs,
     ...(activeTab === "overview"
       ? {

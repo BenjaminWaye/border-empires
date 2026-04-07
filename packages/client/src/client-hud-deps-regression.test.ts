@@ -15,10 +15,14 @@ describe("client HUD dependency wiring", () => {
     const bootstrapSource = readFileSync(new URL("./client-bootstrap.ts", import.meta.url), "utf8");
     const techFlowSource = readFileSync(new URL("./client-tech-panel-flow.ts", import.meta.url), "utf8");
     const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+    const detailSource = readFileSync(new URL("./client-tech-detail-ui.ts", import.meta.url), "utf8");
 
     expect(bootstrapSource).toContain("renderDomainDetailOverlay: techFlow.renderDomainDetailOverlay");
     expect(techFlowSource).toContain("const renderDomainDetailOverlay = (): string =>");
     expect(hudSource).toContain("state.domainDetailOpen");
+    expect(hudSource).toContain("dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {");
+    expect(hudSource).toContain('const domainUnlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]")');
+    expect(detailSource).toContain("showInlineClose: false");
     expect(hudSource).toContain('dom.mobileCoreHelpEl.innerHTML = mobile');
     expect(hudSource).toContain('dom.mobileCoreHelpEl.style.display = mobile ? "none" : "";');
   });
