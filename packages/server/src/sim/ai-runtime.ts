@@ -42,6 +42,8 @@ type CreateAiRuntimeDeps<TPlayer extends Player, TCompetitionMetric, TAnalysis, 
     simulationQueueSoftLimit: number;
     eventLoopP95SoftLimitMs: number;
     eventLoopUtilizationSoftLimitPct: number;
+    eventLoopP95HardLimitMs: number;
+    eventLoopUtilizationHardLimitPct: number;
   };
   now: () => number;
   contextTtlMs: number;

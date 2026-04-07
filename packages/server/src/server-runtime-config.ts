@@ -28,6 +28,14 @@ export const AI_WORKER_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_WORK
 export const AI_SIM_QUEUE_SOFT_LIMIT = Math.max(1, Number(process.env.AI_SIM_QUEUE_SOFT_LIMIT ?? AI_TICK_BATCH_SIZE * 3));
 export const AI_EVENT_LOOP_P95_SOFT_LIMIT_MS = Math.max(10, Number(process.env.AI_EVENT_LOOP_P95_SOFT_LIMIT_MS ?? 60));
 export const AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT = Math.max(5, Number(process.env.AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT ?? 65));
+export const AI_EVENT_LOOP_P95_HARD_LIMIT_MS = Math.max(
+  AI_EVENT_LOOP_P95_SOFT_LIMIT_MS,
+  Number(process.env.AI_EVENT_LOOP_P95_HARD_LIMIT_MS ?? Math.max(120, AI_EVENT_LOOP_P95_SOFT_LIMIT_MS * 2))
+);
+export const AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT = Math.max(
+  AI_EVENT_LOOP_UTILIZATION_SOFT_LIMIT_PCT,
+  Number(process.env.AI_EVENT_LOOP_UTILIZATION_HARD_LIMIT_PCT ?? 90)
+);
 export const AI_COMPETITION_CONTEXT_TTL_MS = Math.max(250, Number(process.env.AI_COMPETITION_CONTEXT_TTL_MS ?? 2_000));
 export const AI_YIELD_COLLECTION_INTERVAL_MS = Math.max(250, Number(process.env.AI_YIELD_COLLECTION_INTERVAL_MS ?? 2_000));
 export const AI_PLANNER_WORKER_ENABLED = process.env.AI_PLANNER_WORKER !== "0";
