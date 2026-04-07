@@ -6,7 +6,6 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
-    "test:ai-replay": "pnpm build && AI_REPLAY_USE_DIST=1 node --import tsx src/ai/run-planning-static-replay-smoke.ts",
     "lint": "tsc --noEmit -p tsconfig.json",
     "simulate:load": "tsx src/simulate.ts"
   },
