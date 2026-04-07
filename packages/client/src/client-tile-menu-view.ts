@@ -249,6 +249,8 @@ export const menuOverviewForTile = (
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
+    currentManpower: number;
+    currentManpowerCap: number;
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
@@ -291,8 +293,8 @@ export const menuOverviewForTile = (
     pushLine(`This ${resourceLabelText.toLowerCase()} node starts producing only after you claim and settle the tile.`);
   }
   if (tile.terrain === "SEA" || tile.terrain === "MOUNTAIN" || !tile.ownerId) return lines;
-  if (tile.ownershipState === "SETTLED" && tile.town) {
-    pushLine(tile.town.populationTier === "SETTLEMENT" ? "Settlements provide starter gold and manpower until they grow into towns." : "Towns produce gold when fed.");
+  if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
+    pushLine("Settlements provide starter gold and manpower until they grow into towns.");
   }
   if (tile.shardSite) {
     pushLine(
@@ -307,10 +309,11 @@ export const menuOverviewForTile = (
       pushLine(`Settlement is producing ${deps.displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
     } else if (!tile.town.isFed) {
       pushLine("Town is unfed. Needs settled fish or grain nearby.");
-    } else if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") {
-      const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
-      const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
-      pushLine(`Town is fed but gold is paused until manpower is full (${current}/${cap}).`);
+    } else if (
+      tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL" &&
+      deps.currentManpower + 0.001 < deps.currentManpowerCap
+    ) {
+      pushLine("Town is fed but gold is paused until your empire manpower is full.");
     }
     if (tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");
