@@ -11,7 +11,7 @@ const clientSource = (filename: string): string => {
 describe("converter toggle regression guard", () => {
   it("wires enable and disable converter actions through the tile menu and action flow", () => {
     const logic = clientSource("./client-tile-action-logic.ts");
-    const flow = clientSource("./client-action-flow.ts");
+    const flow = clientSource("./client-action-flow-dispatch.ts");
     expect(logic).toContain('id: "disable_converter_structure" as TileActionDef["id"]');
     expect(logic).toContain('id: "enable_converter_structure" as TileActionDef["id"]');
     expect(flow).toContain('type: "SET_CONVERTER_STRUCTURE_ENABLED"');
@@ -19,14 +19,14 @@ describe("converter toggle regression guard", () => {
 
   it("preloads and renders the base crystal synthesizer overlay", () => {
     const render = clientSource("./client-map-render.ts");
-    const loop = clientSource("./client-runtime-loop.ts");
+    const loop = clientSource("./client-runtime-tile-render.ts");
     expect(render).toContain('CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg")');
     expect(loop).toContain("const overlay = deps.structureOverlayImages[t.economicStructure.type];");
   });
 
   it("keeps live-map overlays in sync with dedicated structure art", () => {
     const render = clientSource("./client-map-render.ts");
-    const loop = clientSource("./client-runtime-loop.ts");
+    const loop = clientSource("./client-runtime-tile-render.ts");
     const dedicatedStructureOverlays = [
       ["BANK", "bank-overlay.svg"],
       ["AIRPORT", "airport-overlay.svg"],
