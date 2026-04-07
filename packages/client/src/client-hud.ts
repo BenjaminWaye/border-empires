@@ -62,6 +62,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     techCurrentModsHtml,
     bindTechTreeDragScroll,
     chooseTech,
+    chooseDomain,
     renderDomainProgressCard,
     renderDomainChoiceGrid,
     domainOwnedHtml,
@@ -517,7 +518,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     btn.onclick = () => {
       const id = btn.dataset.domainUnlock;
       if (!id) return;
-      sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
+      chooseDomain(id);
     };
   });
   dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {
@@ -534,7 +535,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       event.preventDefault();
       const id = domainUnlockTrigger.dataset.domainUnlock;
       if (!id) return;
-      sendGameMessage({ type: "CHOOSE_DOMAIN", domainId: id }, "Finish sign-in before choosing a domain.");
+      chooseDomain(id);
       return;
     }
   };
