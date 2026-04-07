@@ -482,12 +482,16 @@ export const renderDomainDetailCardHtml = (args: {
   chosenInTier: DomainInfo | undefined;
   currentTier: number | undefined;
   requiresTechName: string;
+  pendingDomainUnlockId: string;
   showInlineClose?: boolean;
 }): string => {
-  const { domain, domainIds, chosenInTier, currentTier, requiresTechName, showInlineClose = true } = args;
+  const { domain, domainIds, chosenInTier, currentTier, requiresTechName, pendingDomainUnlockId, showInlineClose = true } = args;
   if (!domain) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
   const checklist = domain.requirements.checklist ?? [];
-  const canUnlock = domain.requirements.canResearch && !domainIds.includes(domain.id);
+  const owned = domainIds.includes(domain.id);
+  const pendingUnlock = pendingDomainUnlockId === domain.id;
+  const blockedByPending = Boolean(pendingDomainUnlockId && pendingDomainUnlockId !== domain.id);
+  const canUnlock = domain.requirements.canResearch && !owned && !pendingDomainUnlockId;
   const tierRuleText =
     chosenInTier && chosenInTier.id !== domain.id
       ? `Tier ${domain.tier} is already filled by ${chosenInTier.name}.`
@@ -496,7 +500,12 @@ export const renderDomainDetailCardHtml = (args: {
         : chosenInTier?.id === domain.id
           ? `You already chose this for Tier ${domain.tier}.`
           : `This domain will only become choosable when Tier ${domain.tier} opens.`;
-  const buttonLabel = domainIds.includes(domain.id) ? "Chosen" : canUnlock ? `Choose Tier ${domain.tier}` : "Locked";
+  const buttonLabel = owned ? "Chosen" : pendingUnlock ? `Choosing Tier ${domain.tier}...` : canUnlock ? `Choose Tier ${domain.tier}` : "Locked";
+  const statusText = pendingUnlock
+    ? "Sending your domain choice to the server..."
+    : blockedByPending
+      ? "Waiting for the current domain choice to resolve..."
+      : "";
   return `<article class="card tech-detail-card tech-detail-card-shell" id="domain-detail-card" data-domain-detail-card>
     <div class="tech-detail-inline-head">
       <div class="tech-detail-inline-copy">
@@ -512,6 +521,7 @@ export const renderDomainDetailCardHtml = (args: {
     </div>
     <div class="tech-detail-inline-scroll">
       <p class="domain-detail-tier-rule">${tierRuleText}</p>
+      ${statusText ? `<p class="muted">${statusText}</p>` : ""}
       <p>${domain.description}</p>
       <section class="structure-info-section">
         <span class="structure-info-section-label">Benefits</span>
@@ -528,7 +538,7 @@ export const renderDomainDetailCardHtml = (args: {
     </div>
     <div class="tech-detail-actions">
       <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal domain-unlock-btn" data-domain-unlock="${domain.id}" ${
-        canUnlock || domainIds.includes(domain.id) ? "" : "disabled"
+        canUnlock || owned || pendingUnlock ? "" : "disabled"
       }>${buttonLabel}</button>
     </div>
   </article>`;

@@ -616,6 +616,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
+      if (
+        state.pendingDomainUnlockId &&
+        (state.domainIds.includes(state.pendingDomainUnlockId) || !state.domainChoices.includes(state.pendingDomainUnlockId))
+      ) {
+        state.pendingDomainUnlockId = "";
+      }
       state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
       state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
       state.abilityCooldowns = (msg.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
@@ -674,7 +680,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const existingCapture =
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
       const startAt = existingCapture?.startAt ?? Date.now();
-      state.capture = { startAt, resolvesAt, target };
+      const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
+      state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };
       const predictedResult = msg.predictedResult as Record<string, unknown> | undefined;
       if (predictedResult) {
         const predictedAlert = combatResolutionAlert(predictedResult, {
@@ -903,6 +910,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "DOMAIN_UPDATE") {
+      state.pendingDomainUnlockId = "";
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
@@ -1050,6 +1058,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode.startsWith("TECH_") && state.pendingTechUnlockId) {
         state.pendingTechUnlockId = "";
         state.currentResearch = undefined;
+      }
+      if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
+        state.pendingDomainUnlockId = "";
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {

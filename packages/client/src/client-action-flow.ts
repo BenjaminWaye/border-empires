@@ -1,6 +1,15 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
-import { activeTruceWithPlayerFromState, breakAllianceFromUi, breakTruceFromUi, chooseTechFromUi, explainActionFailureFromServer, sendAllianceRequestFromUi, sendTruceRequestFromUi } from "./client-player-actions.js";
+import {
+  activeTruceWithPlayerFromState,
+  breakAllianceFromUi,
+  breakTruceFromUi,
+  chooseDomainFromUi,
+  chooseTechFromUi,
+  explainActionFailureFromServer,
+  sendAllianceRequestFromUi,
+  sendTruceRequestFromUi
+} from "./client-player-actions.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
@@ -206,6 +215,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const activeTruceWithPlayer = (playerId?: string | null): ActiveTruceView | undefined =>
     activeTruceWithPlayerFromState(state, playerId);
   const chooseTech = (techIdRaw?: string): void => chooseTechFromUi(techIdRaw, playerActionDeps());
+  const chooseDomain = (domainIdRaw?: string): void => chooseDomainFromUi(domainIdRaw, playerActionDeps());
 
   const explainActionFailure = (code: string, message: string): string => explainActionFailureFromServer(code, message);
 
@@ -1218,6 +1228,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     breakTruce,
     activeTruceWithPlayer,
     chooseTech,
+    chooseDomain,
     explainActionFailure,
     enqueueTarget,
     buildFrontierQueue,

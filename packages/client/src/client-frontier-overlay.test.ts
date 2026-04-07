@@ -38,7 +38,7 @@ describe("frontier overlay helpers", () => {
     expect(shouldHideCaptureOverlayAfterTimer(tile, "me", false)).toBe(false);
   });
 
-  it("hides the queued badge for the current frontier action once the timer has elapsed", () => {
+  it("hides the queued badge for the current active frontier action", () => {
     const tile = baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" });
 
     expect(shouldHideQueuedFrontierBadge(tile, "me", true, true)).toBe(true);
@@ -49,6 +49,7 @@ describe("frontier overlay helpers", () => {
     const settling = baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "settle" });
 
     expect(shouldHideQueuedFrontierBadge(tile, "me", true, false)).toBe(false);
+    expect(shouldHideQueuedFrontierBadge(tile, "me", false, true)).toBe(false);
     expect(shouldHideQueuedFrontierBadge(settling, "me", true, true)).toBe(false);
   });
 });
