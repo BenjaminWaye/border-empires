@@ -57,13 +57,15 @@ describe("AI budget regression guard", () => {
     expect(source).toContain('renderHotspotBlock("AI budget breaches"');
   });
 
-  it("keeps opening scout selection on the dedicated budgeted scout selector", () => {
+  it("precomputes opening scout candidates in frontier planning instead of rescanning during execution", () => {
     const source = serverMainSource();
-    const openingBody = functionBody(source, "bestAiOpeningScoutExpand");
+    const planningBody = functionBody(source, "frontierPlanningSummaryForPlayer");
     const turnBody = functionBody(source, "runAiTurn");
-    expect(openingBody).toContain("return bestAiScoutExpand(actor, territorySummary);");
-    expect(openingBody).not.toContain("frontierPlanningSummaryForPlayer(");
-    expect(turnBody).toContain("const opening = bestAiOpeningScoutExpand(actor, territorySummary);");
+    expect(planningBody).toContain("let bestOpeningScoutExpand:");
+    expect(planningBody).toContain("openingScoutAvailable = true;");
+    expect(planningBody).toContain("bestOpeningScoutExpand = { score: openingScoutScore, from, to };");
+    expect(planningBody).toContain("bestOpeningScoutExpand: { from: bestOpeningScoutExpand.from, to: bestOpeningScoutExpand.to }");
+    expect(turnBody).toContain("const opening = frontierActionFromRef(planningStatic.openingScoutExpand);");
   });
 
   it("hard-caps generic frontier action scans so neutral and attack execute paths cannot monopolize the process", () => {
@@ -79,43 +81,19 @@ describe("AI budget regression guard", () => {
     expect(body).toContain('"ai frontier action selector budget hit"');
   });
 
-  it("keeps planning static lightweight and lets execute use budgeted selectors", () => {
+  it("stores concrete candidate refs in planning static and executes from cache handles", () => {
     const source = serverMainSource();
     const planningBody = functionBody(source, "buildAiPlanningStaticCache");
     const executeBody = functionBody(source, "executeAiGoapAction");
-    const scoutBody = functionBody(source, "bestAiScoutExpand");
-    const islandBody = functionBody(source, "bestAiIslandExpand");
-    const scaffoldBody = functionBody(source, "bestAiScaffoldExpand");
-    expect(planningBody).toContain("const settlementAvailability = estimateAiSettlementAvailabilityProfile(actor, territorySummary, focusIslandId, economyWeak, foodCoverageLow);");
-    expect(planningBody).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary);");
-    expect(planningBody).not.toContain("frontierPlanningSummaryForPlayer(");
-    expect(planningBody).not.toContain("frontierSettlementSummaryForPlayer(");
-    expect(executeBody).toContain("const candidate = bestAiScoutExpand(actor, territorySummary);");
-    expect(executeBody).toContain("bestAiEnemyPressureAttack(actor, victoryPath, territorySummary)");
-    expect(executeBody).toContain("const candidate = bestAiEconomicStructure(actor, territorySummary);");
-    expect(scoutBody).not.toContain("frontierPlanningSummaryForPlayer(");
-    expect(scoutBody).toContain('"ai scout selector budget hit"');
-    expect(scoutBody).toContain("const shortlist:");
-    expect(scoutBody).toContain("AI_SCOUT_SHORTLIST_SIZE");
-    expect(islandBody).toContain("const shortlist:");
-    expect(islandBody).toContain("AI_ISLAND_SHORTLIST_SIZE");
-    expect(islandBody).toContain('"ai island selector budget hit"');
-    expect(islandBody).not.toContain("frontierPlanningSummaryForPlayer(");
-    expect(scaffoldBody).toContain("const shortlist:");
-    expect(scaffoldBody).toContain("AI_SCAFFOLD_SHORTLIST_SIZE");
-    expect(scaffoldBody).toContain('"ai scaffold selector budget hit"');
-    const neutralBody = functionBody(source, "bestAiAnyNeutralExpand");
-    expect(neutralBody).toContain("const shortlist:");
-    expect(neutralBody).toContain("AI_NEUTRAL_SHORTLIST_SIZE");
-    expect(neutralBody).toContain('"ai neutral selector budget hit"');
-    expect(neutralBody).not.toContain("classifyAiNeutralFrontierOpportunity(");
-    expect(neutralBody).not.toContain("evaluateAiSettlementCandidate(");
-    expect(neutralBody).not.toContain("scoreAiScoutExpandCandidate(");
-    const economicBody = functionBody(source, "bestAiEconomicExpand");
-    expect(economicBody).toContain("const shortlist:");
-    expect(economicBody).toContain("AI_ECONOMIC_SHORTLIST_SIZE");
-    expect(economicBody).toContain('"ai economic selector budget hit"');
-    expect(planningBody).not.toContain("countAiScoutRevealTiles(");
+    expect(planningBody).toContain("const frontierPlanning = frontierPlanningSummaryForPlayer(actor, territorySummary);");
+    expect(planningBody).toContain("openingScoutExpand: frontierActionRefFromPair(frontierPlanning.bestOpeningScoutExpand)");
+    expect(planningBody).toContain("const economicExpand = bestAiEconomicExpand(actor, victoryPath, territorySummary);");
+    expect(planningBody).toContain("economicExpand: frontierActionRefFromPair(economicExpand)");
+    expect(planningBody).toContain("pressureAttack: { fromIndex: tileRefFromTile(pressureAttack.from), toIndex: tileRefFromTile(pressureAttack.to) }");
+    expect(planningBody).toContain("economicBuild: { tileIndex: tileRefFromTile(economicBuild.tile), structureType: economicBuild.structureType }");
+    expect(executeBody).toContain("const candidate = frontierActionFromRef(planningStatic.scoutExpand);");
+    expect(executeBody).toContain("const candidate = frontierActionFromRef(planningStatic.pressureAttack) ?? frontierActionFromRef(planningStatic.enemyAttack);");
+    expect(executeBody).toContain("const candidate = planningStatic.economicBuild;");
   });
 
   it("keys settlement candidate assumptions by tile index instead of allocating singleton sets", () => {

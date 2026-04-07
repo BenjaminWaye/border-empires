@@ -82,6 +82,7 @@ export const createClientActionFlowMenu = (ctx: ActionFlowMenuContext) => {
       constructionCountdownLineForTile,
       tileHistoryLines: ctx.tileHistoryLines,
       isTileOwnedByAlly: ctx.isTileOwnedByAlly,
+      growthModifierPercentLabel: ctx.growthModifierPercentLabel,
       areaEffectModifiersForTile: (targetTile: Tile) => tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values())
     });
 

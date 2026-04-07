@@ -6743,7 +6743,7 @@ const bestAiOpeningScoutExpand = (
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
   if (territorySummary.settledTileCount > 2) return undefined;
-  return bestAiScoutExpand(actor, territorySummary);
+  return frontierPlanningSummaryForPlayer(actor, territorySummary).bestOpeningScoutExpand;
 };
 
 const scoreAiScoutExpandCandidate = (
@@ -6801,76 +6801,7 @@ const bestAiScoutExpand = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
-  const startedAt = now();
-  let scannedCandidates = 0;
-  let shortlistEvaluations = 0;
-  const shortlist: Array<{ quickScore: number; from: Tile; to: Tile; adjacency: AiScoutAdjacencyMetrics; cachedRevealCount: number | undefined }> = [];
-  for (const { from, to } of territorySummary.expandCandidates) {
-    if (to.terrain !== "LAND" || to.ownerId) continue;
-    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
-    scannedCandidates += 1;
-    const cachedRevealCount = territorySummary.scoutRevealCountByTileKey.get(key(to.x, to.y));
-    if ((cachedRevealCount ?? 0) <= 0 && adjacency.coastlineDiscoveryValue <= 0 && adjacency.exposedSides <= 1) continue;
-    const quickScore =
-      adjacency.coastlineDiscoveryValue +
-      ((cachedRevealCount ?? 0) * 18) +
-      (adjacency.ownedNeighbors <= 2 ? 18 : 0) -
-      Math.max(0, adjacency.ownedNeighbors - 2) * 24 -
-      Math.max(0, adjacency.frontierNeighbors - 1) * 10 -
-      adjacency.exposedSides * 6 +
-      (from.ownershipState === "FRONTIER" ? 10 : 0);
-    if (shortlist.length < AI_SCOUT_SHORTLIST_SIZE) {
-      shortlist.push({ quickScore, from, to, adjacency, cachedRevealCount });
-    } else {
-      let lowestIndex = 0;
-      for (let index = 1; index < shortlist.length; index += 1) {
-        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
-      }
-      if (quickScore > shortlist[lowestIndex]!.quickScore) {
-        shortlist[lowestIndex] = { quickScore, from, to, adjacency, cachedRevealCount };
-      }
-    }
-    if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "SCOUT_EXPAND",
-          scannedCandidates,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai scout selector budget hit"
-      );
-      break;
-    }
-  }
-  shortlist.sort((left, right) => right.quickScore - left.quickScore);
-  let best: { score: number; from: Tile; to: Tile } | undefined;
-  for (const candidate of shortlist) {
-    shortlistEvaluations += 1;
-    const scoutRevealCount = candidate.cachedRevealCount ?? countAiScoutRevealTiles(candidate.to, territorySummary.visibility, territorySummary);
-    if (scoutRevealCount <= 0 && candidate.adjacency.coastlineDiscoveryValue <= 0) continue;
-    const score = scoreAiScoutExpandCandidate(actor, candidate.from, candidate.to, territorySummary.visibility, territorySummary);
-    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
-    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "SCOUT_EXPAND",
-          scannedCandidates,
-          shortlistEvaluations,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          shortlistSize: shortlist.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai scout selector budget hit"
-      );
-      break;
-    }
-  }
-  return best;
+  return frontierPlanningSummaryForPlayer(actor, territorySummary).bestScoutExpand;
 };
 
 type AiFrontierOpportunityCounts = {
@@ -7448,76 +7379,17 @@ const bestAiScaffoldExpand = (
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
   const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
-  const startedAt = now();
-  let scannedCandidates = 0;
-  let shortlistEvaluations = 0;
-  const shortlist: Array<{ quickScore: number; from: Tile; to: Tile }> = [];
+  let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
-    scannedCandidates += 1;
-    const tileKey = key(to.x, to.y);
-    const quickScore =
-      (cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ? 180 : 0) +
-      (townsByTile.has(tileKey) ? 160 : 0) +
-      (docksByTile.has(tileKey) ? 140 : 0) +
-      (to.resource ? 110 + baseTileValue(to.resource) : 0) +
-      cachedScoutAdjacencyMetrics(actor, to, territorySummary).ownedNeighbors * 14 -
-      cachedScoutAdjacencyMetrics(actor, to, territorySummary).exposedSides * 10 +
-      (from.ownershipState === "SETTLED" ? 8 : 0);
-    if (shortlist.length < AI_SCAFFOLD_SHORTLIST_SIZE) {
-      shortlist.push({ quickScore, from, to });
-    } else {
-      let lowestIndex = 0;
-      for (let index = 1; index < shortlist.length; index += 1) {
-        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
-      }
-      if (quickScore > shortlist[lowestIndex]!.quickScore) {
-        shortlist[lowestIndex] = { quickScore, from, to };
-      }
-    }
-    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "SCAFFOLD_EXPAND",
-          scannedCandidates,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai scaffold selector budget hit"
-      );
-      break;
-    }
-  }
-  shortlist.sort((left, right) => right.quickScore - left.quickScore);
-  let best: { score: number; from: Tile; to: Tile } | undefined;
-  for (const candidate of shortlist) {
-    shortlistEvaluations += 1;
-    const evaluation = evaluateAiSettlementCandidate(actor, candidate.to, victoryPath, tileRefFromTile(candidate.to), territorySummary);
+    const evaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, tileRefFromTile(to), territorySummary);
     if (!evaluation.supportsImmediatePlan) continue;
     if ((economyWeak || foodCoverageLow) && !evaluation.isEconomicallyInteresting) continue;
     let score = evaluation.score;
     if (evaluation.isDefensivelyCompact) score += 30;
     if (evaluation.isEconomicallyInteresting) score += 25;
-    if (candidate.from.ownershipState === "SETTLED") score += 8;
-    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
-    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "SCAFFOLD_EXPAND",
-          scannedCandidates,
-          shortlistEvaluations,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          shortlistSize: shortlist.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai scaffold selector budget hit"
-      );
-      break;
-    }
+    if (from.ownershipState === "SETTLED") score += 8;
+    if (!best || score > best.score) best = { score, from, to };
   }
   return best && best.score >= 45 ? best : undefined;
 };
@@ -7527,190 +7399,20 @@ const bestAiEconomicExpand = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
-  const startedAt = now();
-  let scannedCandidates = 0;
-  let shortlistEvaluations = 0;
-  const shortlist: Array<{
-    quickScore: number;
-    from: Tile;
-    to: Tile;
-    economicSignal: number;
-    dockSignal: number;
-  }> = [];
-
-  for (const { from, to } of territorySummary.expandCandidates) {
-    if (to.terrain !== "LAND" || to.ownerId) continue;
-    scannedCandidates += 1;
-    const tileKey = key(to.x, to.y);
-    const economicSignal = aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
-    if (economicSignal < 95) continue;
-    const dockSignal = docksByTile.has(tileKey) ? aiDockStrategicSignal(actor, to, territorySummary) : 0;
-    const quickScore =
-      economicSignal +
-      dockSignal +
-      (townsByTile.has(tileKey) ? 220 : 0) +
-      (to.resource ? 130 + baseTileValue(to.resource) : 0) +
-      (from.ownershipState === "SETTLED" ? 10 : 0);
-    if (shortlist.length < AI_ECONOMIC_SHORTLIST_SIZE) {
-      shortlist.push({ quickScore, from, to, economicSignal, dockSignal });
-    } else {
-      let lowestIndex = 0;
-      for (let index = 1; index < shortlist.length; index += 1) {
-        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
-      }
-      if (quickScore > shortlist[lowestIndex]!.quickScore) {
-        shortlist[lowestIndex] = { quickScore, from, to, economicSignal, dockSignal };
-      }
-    }
-    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "ECONOMIC_EXPAND",
-          scannedCandidates,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai economic selector budget hit"
-      );
-      break;
-    }
-  }
-
-  shortlist.sort((left, right) => right.quickScore - left.quickScore);
-  let best: { score: number; from: Tile; to: Tile } | undefined;
-  for (const candidate of shortlist) {
-    shortlistEvaluations += 1;
-    let score = 260 + candidate.economicSignal + candidate.dockSignal;
-    if (candidate.to.resource) score += baseTileValue(candidate.to.resource);
-    if (townsByTile.has(key(candidate.to.x, candidate.to.y))) score += 120;
-    if (candidate.from.ownershipState === "SETTLED") score += 6;
-    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
-    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "ECONOMIC_EXPAND",
-          scannedCandidates,
-          shortlistEvaluations,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          shortlistSize: shortlist.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai economic selector budget hit"
-      );
-      break;
-    }
-  }
-  return best;
+  return bestAiFrontierAction(
+    actor,
+    "EXPAND",
+    (tile) => !tile.ownerId && isAiVisibleEconomicFrontierTile(actor, tile, territorySummary),
+    victoryPath,
+    territorySummary
+  );
 };
 
 const bestAiIslandExpand = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
-  const startedAt = now();
-  let scannedCandidates = 0;
-  let shortlistEvaluations = 0;
-  const shortlist: Array<{
-    quickScore: number;
-    from: Tile;
-    to: Tile;
-    economicSignal: number;
-    islandSignal: number;
-    cachedRevealCount: number | undefined;
-    coastlineDiscoveryValue: number;
-  }> = [];
-  for (const { from, to } of territorySummary.expandCandidates) {
-    if (to.terrain !== "LAND" || to.ownerId) continue;
-    scannedCandidates += 1;
-    const tileKey = key(to.x, to.y);
-    const islandSignal = aiIslandFootprintSignal(actor, to, territorySummary);
-    if (islandSignal <= 0) continue;
-    const economicSignal = aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
-    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
-    const cachedRevealCount = territorySummary.scoutRevealCountByTileKey.get(tileKey);
-    const quickScore =
-      islandSignal +
-      economicSignal +
-      ((cachedRevealCount ?? 0) * 12) +
-      adjacency.coastlineDiscoveryValue +
-      (from.ownershipState === "SETTLED" ? 12 : 0);
-    if (shortlist.length < AI_ISLAND_SHORTLIST_SIZE) {
-      shortlist.push({
-        quickScore,
-        from,
-        to,
-        economicSignal,
-        islandSignal,
-        cachedRevealCount,
-        coastlineDiscoveryValue: adjacency.coastlineDiscoveryValue
-      });
-    } else {
-      let lowestIndex = 0;
-      for (let index = 1; index < shortlist.length; index += 1) {
-        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
-      }
-      if (quickScore > shortlist[lowestIndex]!.quickScore) {
-        shortlist[lowestIndex] = {
-          quickScore,
-          from,
-          to,
-          economicSignal,
-          islandSignal,
-          cachedRevealCount,
-          coastlineDiscoveryValue: adjacency.coastlineDiscoveryValue
-        };
-      }
-    }
-    if ((scannedCandidates & 7) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "ISLAND_EXPAND",
-          scannedCandidates,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai island selector budget hit"
-      );
-      break;
-    }
-  }
-  shortlist.sort((left, right) => right.quickScore - left.quickScore);
-  let best: { score: number; from: Tile; to: Tile } | undefined;
-  for (const candidate of shortlist) {
-    shortlistEvaluations += 1;
-    const scoutRevealCount =
-      candidate.cachedRevealCount ?? countAiScoutRevealTiles(candidate.to, territorySummary.visibility, territorySummary);
-    const score =
-      candidate.islandSignal +
-      Math.round(candidate.economicSignal * 0.55) +
-      Math.round((scoutRevealCount * 18 + candidate.coastlineDiscoveryValue) * 0.45) +
-      120 +
-      (candidate.from.ownershipState === "SETTLED" ? 12 : 0);
-    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
-    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "ISLAND_EXPAND",
-          scannedCandidates,
-          shortlistEvaluations,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          shortlistSize: shortlist.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai island selector budget hit"
-      );
-      break;
-    }
-  }
-  return best;
+  return frontierPlanningSummaryForPlayer(actor, territorySummary).bestIslandExpand;
 };
 
 const frontierPlanningSummaryForPlayer = (
@@ -7912,7 +7614,7 @@ const estimateAiFrontierAvailabilityProfile = (
   actor: Player,
   territorySummary: AiTerritorySummary
 ): AiFrontierAvailabilityProfile => {
-  const scanLimit = Math.min(territorySummary.expandCandidates.length, 24);
+  const scanLimit = Math.min(territorySummary.expandCandidates.length, 192);
   const opportunityCap = 24;
   let frontierOpportunityScaffold = 0;
   let frontierOpportunityScout = 0;
@@ -7928,13 +7630,7 @@ const estimateAiFrontierAvailabilityProfile = (
     const exposedSides = adjacency.exposedSides;
     if (ownedNeighbors >= 3 && exposedSides <= 1) {
       frontierOpportunityScaffold = Math.min(opportunityCap, frontierOpportunityScaffold + 1);
-    } else {
-      const cachedRevealCount = territorySummary.scoutRevealCountByTileKey.get(tileKey) ?? 0;
-      const likelyScoutOpportunity =
-        cachedRevealCount > 0 ||
-        adjacency.coastlineDiscoveryValue > 0 ||
-        (!visibleInSnapshot(territorySummary.visibility, to.x, to.y) && (exposedSides >= 2 || ownedNeighbors <= 2));
-      if (!likelyScoutOpportunity) continue;
+    } else if (countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0) {
       frontierOpportunityScout = Math.min(opportunityCap, frontierOpportunityScout + 1);
     }
     if (
@@ -7989,143 +7685,25 @@ const bestAiAnyNeutralExpand = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
-  const startedAt = now();
-  let scannedCandidates = 0;
-  let shortlistEvaluations = 0;
-  const shortlist: Array<{
-    quickScore: number;
-    from: Tile;
-    to: Tile;
-    economicSignal: number;
-    islandSignal: number;
-    scaffoldHint: number;
-    cachedRevealCount: number | undefined;
-    adjacency: AiScoutAdjacencyMetrics;
-    economicCandidate: boolean;
-    scaffoldCandidate: boolean;
-    scoutCandidate: boolean;
-  }> = [];
   let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
-    scannedCandidates += 1;
-    const tileKey = key(to.x, to.y);
+    const frontierClass = classifyAiNeutralFrontierOpportunity(actor, from, to, victoryPath, territorySummary);
     const economicSignal = aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
+    const scoutScore = scoreAiScoutExpandCandidate(actor, from, to, territorySummary.visibility, territorySummary);
+    const settlementEvaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, tileRefFromTile(to), territorySummary);
     const islandSignal = victoryPath === "SETTLED_TERRITORY" ? aiIslandFootprintSignal(actor, to, territorySummary) : 0;
-    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
-    const cachedRevealCount = territorySummary.scoutRevealCountByTileKey.get(tileKey);
-    const scaffoldHint =
-      (cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ? 180 : 0) +
-      (townsByTile.has(tileKey) ? 160 : 0) +
-      (docksByTile.has(tileKey) ? 140 : 0) +
-      (to.resource ? 110 + baseTileValue(to.resource) : 0) +
-      adjacency.ownedNeighbors * 14 -
-      adjacency.exposedSides * 10;
-    const economicCandidate = economicSignal >= 95;
-    const scaffoldCandidate = !economicCandidate && scaffoldHint >= 170;
-    const scoutCandidate =
-      !economicCandidate &&
-      !scaffoldCandidate &&
-      ((cachedRevealCount ?? 0) > 0 || adjacency.coastlineDiscoveryValue > 0 || (!visibleInSnapshot(territorySummary.visibility, to.x, to.y) && adjacency.exposedSides >= 2));
-    const quickScore =
-      economicSignal * 2 +
-      islandSignal +
-      ((cachedRevealCount ?? 0) * 18) +
-      adjacency.coastlineDiscoveryValue +
-      scaffoldHint +
-      (from.ownershipState === "SETTLED" ? 12 : 0);
-
-    if (shortlist.length < AI_NEUTRAL_SHORTLIST_SIZE) {
-      shortlist.push({
-        quickScore,
-        from,
-        to,
-        economicSignal,
-        islandSignal,
-        scaffoldHint,
-        cachedRevealCount,
-        adjacency,
-        economicCandidate,
-        scaffoldCandidate,
-        scoutCandidate
-      });
-    } else {
-      let lowestIndex = 0;
-      for (let index = 1; index < shortlist.length; index += 1) {
-        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
-      }
-      if (quickScore > shortlist[lowestIndex]!.quickScore) {
-        shortlist[lowestIndex] = {
-          quickScore,
-          from,
-          to,
-          economicSignal,
-          islandSignal,
-          scaffoldHint,
-          cachedRevealCount,
-          adjacency,
-          economicCandidate,
-          scaffoldCandidate,
-          scoutCandidate
-        };
-      }
-    }
-
-    if ((scannedCandidates & 15) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "ANY_NEUTRAL_EXPAND",
-          scannedCandidates,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai neutral selector budget hit"
-      );
-      break;
-    }
-  }
-
-  shortlist.sort((left, right) => right.quickScore - left.quickScore);
-
-  for (const candidate of shortlist) {
-    shortlistEvaluations += 1;
-    const scoutScore =
-      ((candidate.cachedRevealCount ?? 0) * 18) +
-      candidate.adjacency.coastlineDiscoveryValue +
-      (candidate.adjacency.ownedNeighbors <= 2 ? 16 : 0) -
-      Math.max(0, candidate.adjacency.ownedNeighbors - 2) * 20 -
-      Math.max(0, candidate.adjacency.frontierNeighbors - 1) * 8;
     let score =
-      candidate.economicCandidate
-        ? 260 + candidate.economicSignal
-        : candidate.scaffoldCandidate
-          ? 180 + candidate.scaffoldHint
-          : candidate.scoutCandidate
+      frontierClass === "economic"
+        ? 260 + economicSignal
+        : frontierClass === "scaffold"
+          ? 180 + settlementEvaluation.score
+          : frontierClass === "scout"
             ? 120 + scoutScore
-            : 50 + scoutScore + Math.max(0, candidate.scaffoldHint / 4);
-    if (victoryPath === "ECONOMIC_HEGEMONY" && candidate.economicCandidate) score += 24;
-    if (victoryPath === "SETTLED_TERRITORY" && candidate.islandSignal > 0) score += 18;
-    score += candidate.islandSignal;
-    if (candidate.from.ownershipState === "SETTLED") score += 6;
-    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
-    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
-      runtimeState.appRef?.log.warn(
-        {
-          playerId: actor.id,
-          actionType: "ANY_NEUTRAL_EXPAND",
-          scannedCandidates,
-          shortlistEvaluations,
-          frontierCandidates: territorySummary.expandCandidates.length,
-          shortlistSize: shortlist.length,
-          elapsedMs: now() - startedAt,
-          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
-        },
-        "ai neutral selector budget hit"
-      );
-      break;
-    }
+            : 50 + scoutScore + Math.max(0, settlementEvaluation.score);
+    score += islandSignal;
+    if (from.ownershipState === "SETTLED") score += 6;
+    if (!best || score > best.score) best = { score, from, to };
   }
   return best;
 };
@@ -8346,12 +7924,39 @@ const buildAiPlanningStaticCache = (
     weakestIslandRatio = islandProgress.weakestRatio;
   }
   const { economyWeak, foodCoverageLow } = aiEconomyPriorityState(actor, territorySummary);
-  const settlementAvailability = estimateAiSettlementAvailabilityProfile(actor, territorySummary, focusIslandId, economyWeak, foodCoverageLow);
-  settlementAvailable = settlementAvailability.settlementAvailable;
-  supportSettlementAvailable = settlementAvailability.townSupportSettlementAvailable;
-  islandSettlementAvailable = settlementAvailability.islandSettlementAvailable;
-  const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary);
-  const islandExpandAvailable = hasAiFocusedIslandExpand(territorySummary, focusIslandId, undercoveredIslandCount);
+  const settlementSummary = frontierSettlementSummaryForPlayer(
+    actor,
+    victoryPath,
+    territorySummary,
+    focusIslandId,
+    economyWeak,
+    foodCoverageLow
+  );
+  settlementAvailable = settlementSummary.settlementAvailable;
+  supportSettlementAvailable = settlementSummary.townSupportSettlementAvailable;
+  islandSettlementAvailable = settlementSummary.islandSettlementAvailable;
+  const frontierPlanning = frontierPlanningSummaryForPlayer(actor, territorySummary);
+  const economicExpand = bestAiEconomicExpand(actor, victoryPath, territorySummary);
+  const scoutExpand = bestAiScoutExpand(actor, territorySummary);
+  const scaffoldExpand = bestAiScaffoldExpand(actor, victoryPath, territorySummary);
+  const islandExpand = hasAiFocusedIslandExpand(territorySummary, focusIslandId, undercoveredIslandCount)
+    ? bestAiIslandExpand(actor, territorySummary)
+    : undefined;
+  const barbarianAttack = territorySummary.barbarianAttackAvailable
+    ? bestAiFrontierAction(actor, "ATTACK", (tile) => tile.ownerId === BARBARIAN_OWNER_ID, victoryPath, territorySummary)
+    : undefined;
+  const enemyAttack = territorySummary.enemyAttackAvailable
+    ? bestAiFrontierAction(
+        actor,
+        "ATTACK",
+        (tile) => Boolean(tile.ownerId && tile.ownerId !== actor.id && tile.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(tile.ownerId)),
+        victoryPath,
+        territorySummary
+      )
+    : undefined;
+  const pressureAttack = territorySummary.enemyAttackAvailable ? bestAiEnemyPressureAttack(actor, victoryPath, territorySummary) : undefined;
+  const fortAnchor = structureCandidateCount > 0 ? bestAiFortTile(actor, territorySummary) : undefined;
+  const economicBuild = structureCandidateCount > 0 ? bestAiEconomicStructure(actor, territorySummary) : undefined;
 
   if (structureCandidateCount > 0) {
     const playerEffects = getPlayerEffectsForPlayer(actor.id);
@@ -8399,18 +8004,18 @@ const buildAiPlanningStaticCache = (
     version: aiTerritoryVersionForPlayer(actor.id),
     profileKey,
     pendingSettlementCount,
-    openingScoutAvailable: frontierAvailability.openingScoutAvailable,
-    neutralExpandAvailable: frontierAvailability.neutralExpandAvailable,
-    economicExpandAvailable: frontierAvailability.economicExpandAvailable,
-    scoutExpandAvailable: frontierAvailability.scoutExpandAvailable,
-    scaffoldExpandAvailable: frontierAvailability.scaffoldExpandAvailable,
+    openingScoutAvailable: frontierPlanning.openingScoutAvailable,
+    neutralExpandAvailable: frontierPlanning.neutralExpandAvailable,
+    economicExpandAvailable: frontierPlanning.economicExpandAvailable,
+    scoutExpandAvailable: frontierPlanning.scoutExpandAvailable,
+    scaffoldExpandAvailable: frontierPlanning.scaffoldExpandAvailable,
     barbarianAttackAvailable: territorySummary.barbarianAttackAvailable,
     enemyAttackAvailable: territorySummary.enemyAttackAvailable,
     pressureAttackScore: pressureAttackProfile.score,
     pressureThreatensCore: pressureAttackProfile.threatensCore,
     settlementAvailable,
     townSupportSettlementAvailable: supportSettlementAvailable,
-    islandExpandAvailable,
+    islandExpandAvailable: Boolean(islandExpand),
     islandSettlementAvailable,
     weakestIslandRatio,
     undercoveredIslandCount,
@@ -8418,10 +8023,27 @@ const buildAiPlanningStaticCache = (
     fortProtectsCore,
     fortIsDockChokePoint,
     economicBuildAvailable,
-    frontierOpportunityEconomic: frontierAvailability.frontierOpportunityEconomic,
-    frontierOpportunityScout: frontierAvailability.frontierOpportunityScout,
-    frontierOpportunityScaffold: frontierAvailability.frontierOpportunityScaffold,
-    frontierOpportunityWaste: frontierAvailability.frontierOpportunityWaste
+    frontierOpportunityEconomic: frontierPlanning.frontierOpportunityEconomic,
+    frontierOpportunityScout: frontierPlanning.frontierOpportunityScout,
+    frontierOpportunityScaffold: frontierPlanning.frontierOpportunityScaffold,
+    frontierOpportunityWaste: frontierPlanning.frontierOpportunityWaste,
+    ...(frontierActionRefFromPair(frontierPlanning.bestOpeningScoutExpand) ? { openingScoutExpand: frontierActionRefFromPair(frontierPlanning.bestOpeningScoutExpand) } : {}),
+    ...(frontierActionRefFromPair(economicExpand) ? { economicExpand: frontierActionRefFromPair(economicExpand) } : {}),
+    ...(frontierActionRefFromPair(scoutExpand) ? { scoutExpand: frontierActionRefFromPair(scoutExpand) } : {}),
+    ...(frontierActionRefFromPair(scaffoldExpand) ? { scaffoldExpand: frontierActionRefFromPair(scaffoldExpand) } : {}),
+    ...(frontierActionRefFromPair(islandExpand) ? { islandExpand: frontierActionRefFromPair(islandExpand) } : {}),
+    ...(frontierActionRefFromPair(barbarianAttack) ? { barbarianAttack: frontierActionRefFromPair(barbarianAttack) } : {}),
+    ...(frontierActionRefFromPair(enemyAttack) ? { enemyAttack: frontierActionRefFromPair(enemyAttack) } : {}),
+    ...(pressureAttack ? { pressureAttack: { fromIndex: tileRefFromTile(pressureAttack.from), toIndex: tileRefFromTile(pressureAttack.to) } } : {}),
+    ...(typeof settlementSummary.bestSettlementTileIndex === "number" ? { settlementTileIndex: settlementSummary.bestSettlementTileIndex } : {}),
+    ...(typeof settlementSummary.bestTownSupportSettlementTileIndex === "number"
+      ? { townSupportSettlementTileIndex: settlementSummary.bestTownSupportSettlementTileIndex }
+      : {}),
+    ...(typeof settlementSummary.bestIslandSettlementTileIndex === "number"
+      ? { islandSettlementTileIndex: settlementSummary.bestIslandSettlementTileIndex }
+      : {}),
+    ...(fortAnchor ? { fortAnchorTileIndex: tileRefFromTile(fortAnchor) } : {}),
+    ...(economicBuild ? { economicBuild: { tileIndex: tileRefFromTile(economicBuild.tile), structureType: economicBuild.structureType } } : {})
   };
 };
 
@@ -8456,11 +8078,6 @@ const cachedAiPlanningStaticForPlayer = (
 };
 
 const AI_STRATEGIC_STATE_TTL_MS = 30_000;
-const AI_SCOUT_SHORTLIST_SIZE = 12;
-const AI_ECONOMIC_SHORTLIST_SIZE = 12;
-const AI_SCAFFOLD_SHORTLIST_SIZE = 12;
-const AI_ISLAND_SHORTLIST_SIZE = 12;
-const AI_NEUTRAL_SHORTLIST_SIZE = 16;
 
 const dominantAiEnemyFrontPlayerId = (actor: Player, territorySummary: Pick<AiTerritorySummary, "attackCandidates">): string | undefined => {
   const scores = new Map<string, number>();
@@ -9041,77 +8658,58 @@ const executeAiGoapAction = (
   actor: Player,
   actionKey: string,
   planningStatic: AiPlanningStaticCache,
-  territorySummary: AiTerritorySummary,
   victoryPath?: AiSeasonVictoryPathId
 ): boolean => {
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
     const candidate =
-      (victoryPath === "SETTLED_TERRITORY" ? bestAiIslandExpand(actor, territorySummary) : undefined) ??
-      bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
-      bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
+      (victoryPath === "SETTLED_TERRITORY" ? frontierActionFromRef(planningStatic.islandExpand) : undefined) ??
+      frontierActionFromRef(planningStatic.economicExpand);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_food_border_tile") {
-    const candidate = bestAiEconomicExpand(actor, victoryPath, territorySummary);
+    const candidate = frontierActionFromRef(planningStatic.economicExpand);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_scout_border_tile") {
-    const candidate = bestAiScoutExpand(actor, territorySummary);
+    const candidate = frontierActionFromRef(planningStatic.scoutExpand);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "claim_scaffold_border_tile") {
-    const candidate =
-      bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
-      bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
-      bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
+    const candidate = frontierActionFromRef(planningStatic.scaffoldExpand) ?? frontierActionFromRef(planningStatic.economicExpand);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "attack_barbarian_border_tile") {
-    const candidate = bestAiFrontierAction(
-      actor,
-      "ATTACK",
-      (tile) => tile.ownerId === BARBARIAN_OWNER_ID,
-      victoryPath,
-      territorySummary
-    );
+    const candidate = frontierActionFromRef(planningStatic.barbarianAttack);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "attack_enemy_border_tile") {
-    const candidate =
-      bestAiEnemyPressureAttack(actor, victoryPath, territorySummary) ??
-      bestAiFrontierAction(
-        actor,
-        "ATTACK",
-        (tile) => Boolean(tile.ownerId && tile.ownerId !== actor.id && tile.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(tile.ownerId)),
-        victoryPath,
-        territorySummary
-      );
+    const candidate = frontierActionFromRef(planningStatic.pressureAttack) ?? frontierActionFromRef(planningStatic.enemyAttack);
     if (!candidate) return false;
     executeSimulationCommand(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
     return true;
   }
   if (actionKey === "settle_owned_frontier_tile") {
     const tile =
-      bestAiTownSupportSettlementTile(actor, victoryPath, territorySummary) ??
-      (victoryPath === "SETTLED_TERRITORY" ? bestAiIslandSettlementTile(actor, territorySummary) : undefined) ??
-      bestAiSettlementTile(actor, victoryPath, territorySummary);
+      cachedAiTileFromIndex(planningStatic.townSupportSettlementTileIndex) ??
+      (victoryPath === "SETTLED_TERRITORY" ? cachedAiTileFromIndex(planningStatic.islandSettlementTileIndex) : undefined) ??
+      cachedAiTileFromIndex(planningStatic.settlementTileIndex);
     if (!tile) return false;
     executeSimulationCommand(actor, { type: "SETTLE", x: tile.x, y: tile.y });
     return true;
   }
   if (actionKey === "build_fort_on_exposed_tile") {
-    const tile = bestAiFortTile(actor, territorySummary);
+    const tile = cachedAiTileFromIndex(planningStatic.fortAnchorTileIndex);
     if (!tile) return false;
     if (!getPlayerEffectsForPlayer(actor.id).unlockForts) return false;
     if ((getOrInitStrategicStocks(actor.id).IRON ?? 0) < FORT_BUILD_IRON_COST) return false;
@@ -9120,9 +8718,10 @@ const executeAiGoapAction = (
     return true;
   }
   if (actionKey === "build_economic_structure") {
-    const candidate = bestAiEconomicStructure(actor, territorySummary);
+    const candidate = planningStatic.economicBuild;
     if (!candidate) return false;
-    executeSimulationCommand(actor, { type: "BUILD_ECONOMIC_STRUCTURE", x: candidate.tile.x, y: candidate.tile.y, structureType: candidate.structureType });
+    const tile = aiTileLiteAtIndex(candidate.tileIndex);
+    executeSimulationCommand(actor, { type: "BUILD_ECONOMIC_STRUCTURE", x: tile.x, y: tile.y, structureType: candidate.structureType });
     return true;
   }
   return false;
@@ -9455,7 +9054,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
 
   if (decision.actionKey === "opening_scout_expand") {
     const executeStartedAt = now();
-    const opening = bestAiOpeningScoutExpand(actor, territorySummary);
+    const opening = frontierActionFromRef(planningStatic.openingScoutExpand);
     const executed = Boolean(
       opening &&
         tryQueueBasicFrontierAction(actor, "EXPAND", opening.from.x, opening.from.y, opening.to.x, opening.to.y)
@@ -9481,7 +9080,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   }
 
   const executeStartedAt = now();
-  const executed = executeAiGoapAction(actor, decision.actionKey, planningStatic, territorySummary, primaryVictoryPath);
+  const executed = executeAiGoapAction(actor, decision.actionKey, planningStatic, primaryVictoryPath);
   markAiTurnPhase("execute", executeStartedAt);
   const totalElapsedMs = now() - turnStartedAt;
   recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason, actionKey: decision.actionKey });
@@ -14271,7 +13870,6 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     });
 };
 const runtimeIntervals: NodeJS.Timeout[] = [];
-const AI_BOOT_GRACE_MS = Math.max(5_000, Number(process.env.AI_BOOT_GRACE_MS ?? 20_000));
 const registerInterval = (fn: () => void, ms: number): void => {
   runtimeIntervals.push(
     setInterval(() => {
@@ -14293,10 +13891,7 @@ registerInterval(() => {
   lastSnapshotAt = nowMs;
 }, 30_000);
 registerInterval(runBarbarianTick, BARBARIAN_TICK_MS);
-registerInterval(() => {
-  if (startupState.completedAt && Date.now() - startupState.completedAt < AI_BOOT_GRACE_MS) return;
-  runAiTick();
-}, AI_DISPATCH_INTERVAL_MS);
+registerInterval(runAiTick, AI_DISPATCH_INTERVAL_MS);
 registerInterval(enqueueBarbarianMaintenance, BARBARIAN_MAINTENANCE_INTERVAL_MS);
 registerInterval(expireShardSites, 5_000);
 registerInterval(maybeSpawnScheduledShardRain, 30_000);
@@ -15156,41 +14751,7 @@ app.post("/admin/world/regenerate", async () => {
       const authStartedAt = now();
       authPressureState.authPriorityUntil = Math.max(authPressureState.authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
       sendLoginPhase(socket, "AUTH_RECEIVED", "Securing session", "Game server reached. Verifying your Google session...");
-      const decodedFallback = decodeFirebaseTokenFallback(msg.token);
       let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);
-      if (!decoded && decodedFallback?.uid) {
-        decoded = {
-          uid: decodedFallback.uid,
-          email: decodedFallback.email,
-          name: decodedFallback.name
-        };
-        cacheVerifiedFirebaseIdentity(msg.token, decoded, decodedFallback.exp);
-        app.log.warn(
-          {
-            uid: decodedFallback.uid,
-            structurallyValidToken: true
-          },
-          "firebase token verification bypass using structurally valid payload"
-        );
-      }
-      if (!decoded && decodedFallback?.uid) {
-        const knownIdentity = authIdentityByUid.get(decodedFallback.uid);
-        if (knownIdentity) {
-          decoded = {
-            uid: decodedFallback.uid,
-            email: decodedFallback.email ?? knownIdentity.email,
-            name: decodedFallback.name ?? knownIdentity.name
-          };
-          cacheVerifiedFirebaseIdentity(msg.token, decoded, decodedFallback.exp);
-          app.log.warn(
-            {
-              uid: decodedFallback.uid,
-              reusedKnownIdentity: true
-            },
-            "firebase token verification bypass using known uid fallback"
-          );
-        }
-      }
       try {
         if (!decoded) {
           const verified = await verifyFirebaseToken(msg.token);
@@ -15208,7 +14769,7 @@ app.post("/admin/world/regenerate", async () => {
           app.log.warn({ err }, "firebase token verification fallback to cached identity");
         } else {
           if (authError.code === "AUTH_UNAVAILABLE") {
-            const fallback = decodedFallback ?? decodeFirebaseTokenFallback(msg.token);
+            const fallback = decodeFirebaseTokenFallback(msg.token);
             if (fallback) {
               decoded = {
                 uid: fallback.uid,

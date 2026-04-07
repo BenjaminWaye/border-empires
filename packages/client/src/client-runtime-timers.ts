@@ -30,7 +30,7 @@ export const startClientRuntimeTimers = (state: ClientState, deps: StartClientRu
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
         deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
-        deps.requestViewRefresh(0, true);
+        deps.requestViewRefresh(1, true);
       } else if (current && (current.retries ?? 0) < 3) {
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = { x: current.x, y: current.y, retries: (current.retries ?? 0) + 1 };
         if (current.mode) retryAction.mode = current.mode;
@@ -73,12 +73,12 @@ export const startClientRuntimeTimers = (state: ClientState, deps: StartClientRu
   setInterval(() => {
     if (state.connection !== "initialized") return;
     if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;
-    if (state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 20_000) deps.requestViewRefresh(0, true);
+    if (state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 20_000) deps.requestViewRefresh(2, true);
   }, deps.isMobile() ? 8_000 : 5_000);
   setInterval(() => {
     const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
     if (!loadingActive) return;
     deps.renderHud();
-    if (state.connection === "initialized" && state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 4_000) deps.requestViewRefresh(0, true);
+    if (state.connection === "initialized" && state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 4_000) deps.requestViewRefresh(1, true);
   }, 300);
 };
