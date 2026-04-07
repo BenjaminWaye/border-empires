@@ -7760,25 +7760,111 @@ const bestAiAnyNeutralExpand = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile } | undefined => {
+  const startedAt = now();
+  let scannedCandidates = 0;
+  let shortlistEvaluations = 0;
+  const shortlist: Array<{
+    quickScore: number;
+    from: Tile;
+    to: Tile;
+    economicSignal: number;
+    islandSignal: number;
+    scaffoldHint: number;
+    cachedRevealCount: number | undefined;
+    adjacency: AiScoutAdjacencyMetrics;
+  }> = [];
   let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
     if (to.terrain !== "LAND" || to.ownerId) continue;
-    const frontierClass = classifyAiNeutralFrontierOpportunity(actor, from, to, victoryPath, territorySummary);
+    scannedCandidates += 1;
+    const tileKey = key(to.x, to.y);
     const economicSignal = aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
-    const scoutScore = scoreAiScoutExpandCandidate(actor, from, to, territorySummary.visibility, territorySummary);
-    const settlementEvaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, tileRefFromTile(to), territorySummary);
     const islandSignal = victoryPath === "SETTLED_TERRITORY" ? aiIslandFootprintSignal(actor, to, territorySummary) : 0;
+    const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
+    const cachedRevealCount = territorySummary.scoutRevealCountByTileKey.get(tileKey);
+    const scaffoldHint =
+      (cachedSupportedTownKeysForTile(actor.id, tileKey, territorySummary).length > 0 ? 180 : 0) +
+      (townsByTile.has(tileKey) ? 160 : 0) +
+      (docksByTile.has(tileKey) ? 140 : 0) +
+      (to.resource ? 110 + baseTileValue(to.resource) : 0) +
+      adjacency.ownedNeighbors * 14 -
+      adjacency.exposedSides * 10;
+    const quickScore =
+      economicSignal * 2 +
+      islandSignal +
+      ((cachedRevealCount ?? 0) * 18) +
+      adjacency.coastlineDiscoveryValue +
+      scaffoldHint +
+      (from.ownershipState === "SETTLED" ? 12 : 0);
+
+    if (shortlist.length < AI_NEUTRAL_SHORTLIST_SIZE) {
+      shortlist.push({ quickScore, from, to, economicSignal, islandSignal, scaffoldHint, cachedRevealCount, adjacency });
+    } else {
+      let lowestIndex = 0;
+      for (let index = 1; index < shortlist.length; index += 1) {
+        if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
+      }
+      if (quickScore > shortlist[lowestIndex]!.quickScore) {
+        shortlist[lowestIndex] = { quickScore, from, to, economicSignal, islandSignal, scaffoldHint, cachedRevealCount, adjacency };
+      }
+    }
+
+    if ((scannedCandidates & 15) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "ANY_NEUTRAL_EXPAND",
+          scannedCandidates,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai neutral selector budget hit"
+      );
+      break;
+    }
+  }
+
+  shortlist.sort((left, right) => right.quickScore - left.quickScore);
+
+  for (const candidate of shortlist) {
+    shortlistEvaluations += 1;
+    const frontierClass = classifyAiNeutralFrontierOpportunity(actor, candidate.from, candidate.to, victoryPath, territorySummary);
+    const scoutScore = scoreAiScoutExpandCandidate(actor, candidate.from, candidate.to, territorySummary.visibility, territorySummary);
+    const settlementEvaluation = evaluateAiSettlementCandidate(
+      actor,
+      candidate.to,
+      victoryPath,
+      tileRefFromTile(candidate.to),
+      territorySummary
+    );
     let score =
       frontierClass === "economic"
-        ? 260 + economicSignal
+        ? 260 + candidate.economicSignal
         : frontierClass === "scaffold"
           ? 180 + settlementEvaluation.score
           : frontierClass === "scout"
             ? 120 + scoutScore
             : 50 + scoutScore + Math.max(0, settlementEvaluation.score);
-    score += islandSignal;
-    if (from.ownershipState === "SETTLED") score += 6;
-    if (!best || score > best.score) best = { score, from, to };
+    score += candidate.islandSignal;
+    if (candidate.from.ownershipState === "SETTLED") score += 6;
+    if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
+    if ((shortlistEvaluations & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS) {
+      runtimeState.appRef?.log.warn(
+        {
+          playerId: actor.id,
+          actionType: "ANY_NEUTRAL_EXPAND",
+          scannedCandidates,
+          shortlistEvaluations,
+          frontierCandidates: territorySummary.expandCandidates.length,
+          shortlistSize: shortlist.length,
+          elapsedMs: now() - startedAt,
+          budgetMs: AI_FRONTIER_SELECTOR_BUDGET_MS
+        },
+        "ai neutral selector budget hit"
+      );
+      break;
+    }
   }
   return best;
 };
@@ -8110,6 +8196,7 @@ const cachedAiPlanningStaticForPlayer = (
 
 const AI_STRATEGIC_STATE_TTL_MS = 30_000;
 const AI_SCOUT_SHORTLIST_SIZE = 12;
+const AI_NEUTRAL_SHORTLIST_SIZE = 16;
 
 const dominantAiEnemyFrontPlayerId = (actor: Player, territorySummary: Pick<AiTerritorySummary, "attackCandidates">): string | undefined => {
   const scores = new Map<string, number>();
@@ -8686,9 +8773,6 @@ const frontierActionFromRef = (ref: AiFrontierActionRef | undefined): { from: Ti
   };
 };
 
-const frontierActionFromSummaryPair = (pair: { from: Tile; to: Tile } | undefined): { from: Tile; to: Tile } | undefined =>
-  pair ? { from: pair.from, to: pair.to } : undefined;
-
 const executeAiGoapAction = (
   actor: Player,
   actionKey: string,
@@ -8698,11 +8782,7 @@ const executeAiGoapAction = (
 ): boolean => {
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
-    const frontierSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
     const candidate =
-      (victoryPath === "SETTLED_TERRITORY" ? frontierActionFromSummaryPair(frontierSummary.bestIslandExpand) : undefined) ??
-      frontierActionFromSummaryPair(frontierSummary.bestEconomicExpand) ??
-      frontierActionFromSummaryPair(frontierSummary.bestAnyNeutralExpand) ??
       (victoryPath === "SETTLED_TERRITORY" ? bestAiIslandExpand(actor, territorySummary) : undefined) ??
       bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
       bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
@@ -8723,11 +8803,7 @@ const executeAiGoapAction = (
     return true;
   }
   if (actionKey === "claim_scaffold_border_tile") {
-    const frontierSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);
     const candidate =
-      frontierActionFromSummaryPair(frontierSummary.bestScaffoldExpand) ??
-      frontierActionFromSummaryPair(frontierSummary.bestEconomicExpand) ??
-      frontierActionFromSummaryPair(frontierSummary.bestAnyNeutralExpand) ??
       bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
       bestAiEconomicExpand(actor, victoryPath, territorySummary) ??
       bestAiAnyNeutralExpand(actor, victoryPath, territorySummary);
