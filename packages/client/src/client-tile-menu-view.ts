@@ -412,6 +412,7 @@ export const tileMenuViewForTile = (
     constructionProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     menuOverviewForTile: (tile: Tile) => TileOverviewLine[];
     prettyToken: (value: string) => string;
+    playerNameForOwner: (ownerId?: string | null) => string | undefined;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     state: { me: string };
@@ -437,6 +438,8 @@ export const tileMenuViewForTile = (
   if (visibleBuildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
   if (actionTabs.crystal.length > 0) tabs.push("crystal");
   tabs.push("overview");
+  const regionLabel = tile.regionType ? deps.prettyToken(tile.regionType) : undefined;
+  const foreignOwnerLabel = tile.ownerId ? (deps.playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : undefined;
   const ownerLabel =
     tile.terrain === "SEA"
       ? actions.length > 0
@@ -448,9 +451,16 @@ export const tileMenuViewForTile = (
           ? tile.ownershipState === "FRONTIER"
             ? "Your frontier"
             : "Your settled land"
-          : deps.isTileOwnedByAlly(tile)
-            ? "Allied"
-            : "Enemy";
+          : (foreignOwnerLabel ?? "Unknown empire");
+  const ownerLabelIsAlly = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && deps.isTileOwnedByAlly(tile);
+  const subtitleHtml = ownerLabelIsAlly
+    ? [
+        `<span class="tile-owner-label is-ally">${ownerLabel}</span>`,
+        regionLabel ?? ""
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
   const titleLabel =
     tile.town
       ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
@@ -461,7 +471,8 @@ export const tileMenuViewForTile = (
           : deps.terrainLabel(tile.x, tile.y, tile.terrain);
   return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
-    subtitle: tileMenuSubtitleText(ownerLabel, tile.regionType ? deps.prettyToken(tile.regionType) : undefined),
+    subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
+    ...(subtitleHtml ? { subtitleHtml } : {}),
     tabs,
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: deps.menuOverviewForTile(tile),

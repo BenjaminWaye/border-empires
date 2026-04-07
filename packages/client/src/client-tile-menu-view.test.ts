@@ -38,6 +38,7 @@ const settledObservatoryTile = (status: NonNullable<Tile["observatory"]>["status
 const deps = {
   state: { me: "me" },
   prettyToken: (value: string) => value,
+  playerNameForOwner: (ownerId?: string | null) => ownerId ?? undefined,
   terrainLabel: (_x: number, _y: number, terrain: Tile["terrain"]) => terrain,
   displayTownGoldPerMinute: () => 0,
   populationPerMinuteLabel: () => "0/m",
@@ -470,5 +471,82 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(menu.title).toBe("Aetherwick (18, 42)");
+  });
+
+  it("shows the owner player name instead of enemy text for hostile land", () => {
+    const menu = tileMenuViewForTile(
+      {
+        x: 106,
+        y: 171,
+        terrain: "LAND",
+        ownerId: "enemy-1",
+        ownershipState: "SETTLED",
+        dockId: "dock-1",
+        regionType: "ANCIENT_HEARTLAND"
+      },
+      {
+        ...deps,
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "enemy-1" ? "Ancient Rival" : ownerId ?? undefined),
+        menuActionsForSingleTile: () => [],
+        splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+        settlementProgressForTile: () => undefined,
+        queuedSettlementProgressForTile: () => undefined,
+        queuedBuildProgressForTile: () => undefined,
+        constructionProgressForTile: () => undefined,
+        menuOverviewForTile: () => []
+      }
+    );
+
+    expect(menu.subtitle).toBe("Ancient Rival · ANCIENT_HEARTLAND");
+    expect(menu.subtitleHtml).toBeUndefined();
+  });
+
+  it("renders allied owner names with the ally subtitle accent", () => {
+    const menu = tileMenuViewForTile(
+      {
+        x: 80,
+        y: 120,
+        terrain: "LAND",
+        ownerId: "ally-1",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Harborlight",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 0,
+          supportMax: 0,
+          goldPerMinute: 2,
+          cap: 40,
+          isFed: true,
+          population: 18_000,
+          maxPopulation: 50_000,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        regionType: "ANCIENT_HEARTLAND"
+      },
+      {
+        ...deps,
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "ally-1" ? "Green Banner" : ownerId ?? undefined),
+        isTileOwnedByAlly: () => true,
+        menuActionsForSingleTile: () => [],
+        splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+        settlementProgressForTile: () => undefined,
+        queuedSettlementProgressForTile: () => undefined,
+        queuedBuildProgressForTile: () => undefined,
+        constructionProgressForTile: () => undefined,
+        menuOverviewForTile: () => []
+      }
+    );
+
+    expect(menu.subtitle).toBe("Green Banner · ANCIENT_HEARTLAND");
+    expect(menu.subtitleHtml).toBe('<span class="tile-owner-label is-ally">Green Banner</span> · ANCIENT_HEARTLAND');
   });
 });
