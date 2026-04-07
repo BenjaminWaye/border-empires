@@ -91,15 +91,16 @@ describe("AI budget regression guard", () => {
     expect(planningBody).not.toContain("frontierPlanningSummaryForPlayer(");
     expect(planningBody).not.toContain("frontierSettlementSummaryForPlayer(");
     expect(executeBody).toContain("const candidate = bestAiScoutExpand(actor, territorySummary);");
-    expect(executeBody).toContain("const frontierSummary = frontierPlanningSummaryForPlayer(actor, territorySummary);");
-    expect(executeBody).toContain("frontierActionFromSummaryPair(frontierSummary.bestAnyNeutralExpand)");
-    expect(executeBody).toContain("frontierActionFromSummaryPair(frontierSummary.bestScaffoldExpand)");
     expect(executeBody).toContain("bestAiEnemyPressureAttack(actor, victoryPath, territorySummary)");
     expect(executeBody).toContain("const candidate = bestAiEconomicStructure(actor, territorySummary);");
     expect(scoutBody).not.toContain("frontierPlanningSummaryForPlayer(");
     expect(scoutBody).toContain('"ai scout selector budget hit"');
     expect(scoutBody).toContain("const shortlist:");
     expect(scoutBody).toContain("AI_SCOUT_SHORTLIST_SIZE");
+    const neutralBody = functionBody(source, "bestAiAnyNeutralExpand");
+    expect(neutralBody).toContain("const shortlist:");
+    expect(neutralBody).toContain("AI_NEUTRAL_SHORTLIST_SIZE");
+    expect(neutralBody).toContain('"ai neutral selector budget hit"');
     expect(planningBody).not.toContain("countAiScoutRevealTiles(");
   });
 
