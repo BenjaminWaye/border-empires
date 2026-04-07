@@ -7754,7 +7754,7 @@ const estimateAiFrontierAvailabilityProfile = (
   actor: Player,
   territorySummary: AiTerritorySummary
 ): AiFrontierAvailabilityProfile => {
-  const scanLimit = Math.min(territorySummary.expandCandidates.length, 64);
+  const scanLimit = Math.min(territorySummary.expandCandidates.length, 24);
   const opportunityCap = 24;
   let frontierOpportunityScaffold = 0;
   let frontierOpportunityScout = 0;
@@ -7843,6 +7843,9 @@ const bestAiAnyNeutralExpand = (
     scaffoldHint: number;
     cachedRevealCount: number | undefined;
     adjacency: AiScoutAdjacencyMetrics;
+    economicCandidate: boolean;
+    scaffoldCandidate: boolean;
+    scoutCandidate: boolean;
   }> = [];
   let best: { score: number; from: Tile; to: Tile } | undefined;
   for (const { from, to } of territorySummary.expandCandidates) {
@@ -7860,6 +7863,12 @@ const bestAiAnyNeutralExpand = (
       (to.resource ? 110 + baseTileValue(to.resource) : 0) +
       adjacency.ownedNeighbors * 14 -
       adjacency.exposedSides * 10;
+    const economicCandidate = economicSignal >= 95;
+    const scaffoldCandidate = !economicCandidate && scaffoldHint >= 170;
+    const scoutCandidate =
+      !economicCandidate &&
+      !scaffoldCandidate &&
+      ((cachedRevealCount ?? 0) > 0 || adjacency.coastlineDiscoveryValue > 0 || (!visibleInSnapshot(territorySummary.visibility, to.x, to.y) && adjacency.exposedSides >= 2));
     const quickScore =
       economicSignal * 2 +
       islandSignal +
@@ -7869,14 +7878,38 @@ const bestAiAnyNeutralExpand = (
       (from.ownershipState === "SETTLED" ? 12 : 0);
 
     if (shortlist.length < AI_NEUTRAL_SHORTLIST_SIZE) {
-      shortlist.push({ quickScore, from, to, economicSignal, islandSignal, scaffoldHint, cachedRevealCount, adjacency });
+      shortlist.push({
+        quickScore,
+        from,
+        to,
+        economicSignal,
+        islandSignal,
+        scaffoldHint,
+        cachedRevealCount,
+        adjacency,
+        economicCandidate,
+        scaffoldCandidate,
+        scoutCandidate
+      });
     } else {
       let lowestIndex = 0;
       for (let index = 1; index < shortlist.length; index += 1) {
         if (shortlist[index]!.quickScore < shortlist[lowestIndex]!.quickScore) lowestIndex = index;
       }
       if (quickScore > shortlist[lowestIndex]!.quickScore) {
-        shortlist[lowestIndex] = { quickScore, from, to, economicSignal, islandSignal, scaffoldHint, cachedRevealCount, adjacency };
+        shortlist[lowestIndex] = {
+          quickScore,
+          from,
+          to,
+          economicSignal,
+          islandSignal,
+          scaffoldHint,
+          cachedRevealCount,
+          adjacency,
+          economicCandidate,
+          scaffoldCandidate,
+          scoutCandidate
+        };
       }
     }
 
@@ -7900,23 +7933,22 @@ const bestAiAnyNeutralExpand = (
 
   for (const candidate of shortlist) {
     shortlistEvaluations += 1;
-    const frontierClass = classifyAiNeutralFrontierOpportunity(actor, candidate.from, candidate.to, victoryPath, territorySummary);
-    const scoutScore = scoreAiScoutExpandCandidate(actor, candidate.from, candidate.to, territorySummary.visibility, territorySummary);
-    const settlementEvaluation = evaluateAiSettlementCandidate(
-      actor,
-      candidate.to,
-      victoryPath,
-      tileRefFromTile(candidate.to),
-      territorySummary
-    );
+    const scoutScore =
+      ((candidate.cachedRevealCount ?? 0) * 18) +
+      candidate.adjacency.coastlineDiscoveryValue +
+      (candidate.adjacency.ownedNeighbors <= 2 ? 16 : 0) -
+      Math.max(0, candidate.adjacency.ownedNeighbors - 2) * 20 -
+      Math.max(0, candidate.adjacency.frontierNeighbors - 1) * 8;
     let score =
-      frontierClass === "economic"
+      candidate.economicCandidate
         ? 260 + candidate.economicSignal
-        : frontierClass === "scaffold"
-          ? 180 + settlementEvaluation.score
-          : frontierClass === "scout"
+        : candidate.scaffoldCandidate
+          ? 180 + candidate.scaffoldHint
+          : candidate.scoutCandidate
             ? 120 + scoutScore
-            : 50 + scoutScore + Math.max(0, settlementEvaluation.score);
+            : 50 + scoutScore + Math.max(0, candidate.scaffoldHint / 4);
+    if (victoryPath === "ECONOMIC_HEGEMONY" && candidate.economicCandidate) score += 24;
+    if (victoryPath === "SETTLED_TERRITORY" && candidate.islandSignal > 0) score += 18;
     score += candidate.islandSignal;
     if (candidate.from.ownershipState === "SETTLED") score += 6;
     if (!best || score > best.score) best = { score, from: candidate.from, to: candidate.to };
