@@ -19,4 +19,12 @@ describe("domain panel detail layout regression guard", () => {
     expect(hudSource).toContain("const bindDomainPanelInteraction = (panel: HTMLElement): void => {");
     expect(hudSource).toContain("bindDomainPanelInteraction(dom.panelDomainsContentEl);");
   });
+
+  it("shows the client build version in the settings card", () => {
+    const hudSource = sourceFor("./client-hud.ts");
+    const styleSource = sourceFor("./style.css");
+
+    expect(hudSource).toContain("Client build ${CLIENT_BUILD_VERSION}");
+    expect(styleSource).toContain(".client-build-version");
+  });
 });

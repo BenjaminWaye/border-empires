@@ -1,4 +1,5 @@
 import { signOut } from "firebase/auth";
+import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
@@ -674,6 +675,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       ${safeValue("domainOwnedHtml", fallbackCard("Owned shards"), () => deps.domainOwnedHtml(state.domainCatalog, state.domainIds))}
       <div class="card auth-settings-card">
         <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
+        <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
         <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
       </div>
     </div>

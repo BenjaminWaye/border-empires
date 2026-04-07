@@ -1,0 +1,1 @@
+export const CLIENT_BUILD_VERSION = __APP_VERSION__;
