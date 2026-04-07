@@ -2139,6 +2139,9 @@ body {
   color: rgba(255, 209, 102, 0.86);
   font-size: 13px;
 }
+.tile-action-subtitle .tile-owner-label.is-ally {
+  color: #7ee29d;
+}
 .tile-menu-tabs {
   display: flex;
   gap: 6px;

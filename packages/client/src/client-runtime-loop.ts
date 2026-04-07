@@ -1,5 +1,6 @@
 import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { exposedSidesForTile } from "./client-defensibility-html.js";
+import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
@@ -146,7 +147,17 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       deps.startingExpansionArrowTargets().map((target) => [deps.keyFor(target.x, target.y), target] as const)
     );
     let queueOffset = 0;
-    if (state.actionInFlight && state.actionTargetKey) {
+    const actionCaptureTargetKey = state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "";
+    const hideCurrentQueuedBadge =
+      state.actionInFlight &&
+      state.actionTargetKey &&
+      shouldHideQueuedFrontierBadge(
+        state.tiles.get(state.actionTargetKey),
+        state.me,
+        Boolean(state.capture && Date.now() > state.capture.resolvesAt),
+        state.actionTargetKey === actionCaptureTargetKey
+      );
+    if (state.actionInFlight && state.actionTargetKey && !hideCurrentQueuedBadge) {
       queueIndex.set(state.actionTargetKey, 1);
       queueOffset = 1;
     }

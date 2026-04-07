@@ -152,11 +152,7 @@ export const inspectionHtmlForTile = (
     );
     townBits.push(`Connected towns ${tile.town.connectedTownCount} (+${Math.round(tile.town.connectedTownBonus * 100)}%)`);
     if (!tile.town.isFed) townBits.push("Unfed");
-    if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") {
-      const current = Math.round(tile.town.manpowerCurrent ?? 0).toLocaleString();
-      const cap = Math.round(tile.town.manpowerCap ?? 0).toLocaleString();
-      townBits.push(`Gold paused until manpower is full (${current}/${cap})`);
-    }
+    if (tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL") townBits.push("Gold paused until empire manpower is full");
   }
   const terrainAndResource = (() => {
     const terrainText = deps.prettyToken(deps.terrainLabel(tile.x, tile.y, tile.terrain));

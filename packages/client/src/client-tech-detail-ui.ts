@@ -341,6 +341,7 @@ export const renderDomainDetailCard = (deps: {
   domainIds: string[];
   domainChoices: string[];
   techNameList: (ids: string[]) => string;
+  showInlineClose?: boolean;
 }): string => {
   const domain = deps.domainCatalog.find((item) => item.id === deps.domainUiSelectedId);
   const chosenByTier = ownedDomainByTier(deps.domainCatalog, deps.domainIds);
@@ -350,7 +351,8 @@ export const renderDomainDetailCard = (deps: {
     domainIds: deps.domainIds,
     chosenInTier: domain ? chosenByTier.get(domain.tier) : undefined,
     currentTier,
-    requiresTechName: domain ? deps.techNameList([domain.requiresTechId]) : ""
+    requiresTechName: domain ? deps.techNameList([domain.requiresTechId]) : "",
+    ...(deps.showInlineClose === undefined ? {} : { showInlineClose: deps.showInlineClose })
   });
 };
 
@@ -372,7 +374,8 @@ export const renderDomainDetailOverlay = (deps: {
           domainUiSelectedId: deps.domainUiSelectedId,
           domainIds: deps.domainIds,
           domainChoices: deps.domainChoices,
-          techNameList: deps.techNameList
+          techNameList: deps.techNameList,
+          showInlineClose: false
         })}
       </div>
     </div>`;

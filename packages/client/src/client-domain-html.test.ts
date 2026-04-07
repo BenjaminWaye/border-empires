@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DomainInfo } from "./client-types.js";
-import { renderDomainChoiceGridHtml, renderDomainProgressCardHtml } from "./client-tech-html.js";
+import { renderDomainChoiceGridHtml, renderDomainDetailCardHtml, renderDomainProgressCardHtml } from "./client-tech-html.js";
 
 describe("domain card previews", () => {
   it("keeps the sharding summary focused on shard stock and caches", () => {
@@ -108,5 +108,34 @@ describe("domain card previews", () => {
 
     expect(html).toContain("✗ Gold 6000");
     expect(html).toContain("✗ Requires Coinage");
+  });
+
+  it("omits the duplicate inline close control in the mobile detail overlay variant", () => {
+    const domain: DomainInfo = {
+      id: "sharding",
+      tier: 1,
+      name: "Sharding",
+      description: "Lets early expansion breathe.",
+      requiresTechId: "toolmaking",
+      mods: {},
+      requirements: {
+        gold: 6000,
+        resources: { FOOD: 120 },
+        canResearch: true,
+        checklist: [{ label: "Requires tech toolmaking", met: true }]
+      }
+    };
+
+    const html = renderDomainDetailCardHtml({
+      domain,
+      domainIds: [],
+      chosenInTier: undefined,
+      currentTier: 1,
+      requiresTechName: "Toolmaking",
+      showInlineClose: false
+    });
+
+    expect(html).not.toContain('data-domain-detail-close="button"');
+    expect(html).toContain('data-domain-unlock="sharding"');
   });
 });
