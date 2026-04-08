@@ -33,6 +33,7 @@ describe("tech detail crystal ability previews", () => {
       tech: cryptographyTech,
       techDetailOpen: true,
       techCatalog: [cryptographyTech],
+      ownedTechIds: [],
       techPrereqIds: () => [],
       unlockedByTech: () => [],
       isPendingTechUnlock: () => false,
@@ -51,6 +52,7 @@ describe("tech detail crystal ability previews", () => {
     const html = renderTechDetailModal({
       tech: cryptographyTech,
       techCatalog: [cryptographyTech],
+      ownedTechIds: [],
       techPrereqIds: () => [],
       unlockedByTech: () => [],
       isPendingTechUnlock: () => false,
@@ -64,5 +66,25 @@ describe("tech detail crystal ability previews", () => {
     expect(html).toContain("Crystal abilities");
     expect(html).toContain('data-crystal-ability-info="reveal_empire"');
     expect(html).toContain('data-crystal-ability-info="siphon"');
+  });
+
+  it("shows owned techs as unlocked instead of locked", () => {
+    const html = renderTechDetailCard({
+      tech: cryptographyTech,
+      techDetailOpen: true,
+      techCatalog: [cryptographyTech],
+      ownedTechIds: ["cryptography"],
+      techPrereqIds: () => [],
+      unlockedByTech: () => [],
+      isPendingTechUnlock: () => false,
+      pendingTechUnlockId: "",
+      techNameList: () => "",
+      structureInfoButtonHtml: () => "",
+      techTier: () => 5
+    });
+
+    expect(html).toContain("Already unlocked.");
+    expect(html).toContain(">Unlocked<");
+    expect(html).not.toContain(">Locked<");
   });
 });
