@@ -127,7 +127,12 @@ import {
   createAiExecuteCandidateCacheState,
   type AiExecuteCandidate
 } from "./ai/execute-candidate-cache.js";
-import { hasAiGrowthFoundation, isAiAttackReady, isAiScoutExpansionWorthwhile } from "./ai/tempo-policy.js";
+import {
+  hasAiGrowthFoundation,
+  isAiAttackReady,
+  isAiScoutExpansionWorthwhile,
+  shouldAiStayInIslandFootprint
+} from "./ai/tempo-policy.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
 import {
@@ -7448,26 +7453,27 @@ const chooseAiStrategicState = (
     frontPosture = "BREAK";
   }
 
-  const islandMeaningfulOpportunity =
-    planningStatic.islandSettlementAvailable ||
-    planningStatic.frontierOpportunityEconomic > 0 ||
-    planningStatic.frontierOpportunityScaffold >= 3;
-  const islandWasteDominated =
-    planningStatic.frontierOpportunityWaste >
-    planningStatic.frontierOpportunityEconomic * 8 + planningStatic.frontierOpportunityScaffold * 10 + 160;
-
   let focus: AiStrategicFocus = "BALANCED";
   if (shardOpportunity && primaryVictoryPath === "ECONOMIC_HEGEMONY") {
     focus = "SHARD_RUSH";
   } else if (
-    primaryVictoryPath === "SETTLED_TERRITORY" &&
-    growthFoundationEstablished &&
-    planningStatic.undercoveredIslandCount > 0 &&
-    (planningStatic.islandExpandAvailable || planningStatic.islandSettlementAvailable) &&
-    (!analysis.foodCoverageLow || analysis.foodCoverage >= 1) &&
-    islandMeaningfulOpportunity &&
-    !islandWasteDominated &&
-    !planningStatic.pressureThreatensCore
+    shouldAiStayInIslandFootprint({
+      ...(primaryVictoryPath ? { primaryVictoryPath } : {}),
+      growthFoundationEstablished,
+      undercoveredIslandCount: planningStatic.undercoveredIslandCount,
+      islandExpandAvailable: planningStatic.islandExpandAvailable,
+      islandSettlementAvailable: planningStatic.islandSettlementAvailable,
+      foodCoverageLow: analysis.foodCoverageLow,
+      foodCoverage: analysis.foodCoverage,
+      pressureThreatensCore: planningStatic.pressureThreatensCore,
+      frontierOpportunityEconomic: planningStatic.frontierOpportunityEconomic,
+      frontierOpportunityScaffold: planningStatic.frontierOpportunityScaffold,
+      frontierOpportunityWaste: planningStatic.frontierOpportunityWaste,
+      economyWeak: analysis.economyWeak,
+      controlledTowns: analysis.controlledTowns,
+      settledTiles: analysis.settledTiles,
+      aiIncome: analysis.aiIncome
+    })
   ) {
     focus = "ISLAND_FOOTPRINT";
   } else if (analysis.foodCoverageLow || analysis.economyWeak) {
