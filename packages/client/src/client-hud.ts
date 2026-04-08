@@ -44,7 +44,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     parseKey,
     selectedTile,
     requestTileDetailIfNeeded,
-    passiveTileGuidanceHtml,
     renderTileActionMenu,
     tileMenuViewForTile,
     renderCaptureProgress,
@@ -261,7 +260,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const selected = selectedTile();
   if (selected) requestTileDetailIfNeeded(selected);
-  dom.selectedEl.innerHTML = passiveTileGuidanceHtml();
+  dom.selectedEl.innerHTML = "";
   if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
     const menuTile = state.tiles.get(state.tileActionMenu.currentTileKey);
     if (menuTile) renderTileActionMenu(tileMenuViewForTile(menuTile), state.tileActionMenu.x, state.tileActionMenu.y);
@@ -269,15 +268,8 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.hoverEl.innerHTML = "";
   dom.hoverEl.style.display = "none";
 
-  dom.mobileCoreHelpEl.innerHTML = mobile
-    ? ""
-    : `
-    <div class="mobile-context-block">
-      <div class="mobile-context-label">Tile</div>
-      <div class="mobile-context-value">${passiveTileGuidanceHtml()}</div>
-    </div>
-  `;
-  dom.mobileCoreHelpEl.style.display = mobile ? "none" : "";
+  dom.mobileCoreHelpEl.innerHTML = "";
+  dom.mobileCoreHelpEl.style.display = "none";
 
   safeValue("renderCaptureProgress", undefined, () => renderCaptureProgress());
   safeValue("renderShardAlert", undefined, () => renderShardAlert());
