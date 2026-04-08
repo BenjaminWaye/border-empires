@@ -84,6 +84,13 @@ describe("economy balance regression guard", () => {
     expect(source).toContain("upkeepLastTick: economy.upkeepLastTick");
   });
 
+  it("keeps towns visible in the gold breakdown when manpower gating pauses their income", () => {
+    const source = serverSource();
+    expect(source).toContain("const townIncomePaused = !townGoldIncomeEnabledForPlayer(player);");
+    expect(source).toContain('setEconomyBreakdownBucket(goldSources, "Towns", 0, {');
+    expect(source).toContain('note: `Paused until manpower is full (${Math.round(effectiveManpowerAt(player))}/${Math.round(playerManpowerCap(player))})`');
+  });
+
   it("mirrors synthesizer gold upkeep onto the output-resource tabs", () => {
     const source = serverSource();
     expect(source).toContain('resourceKey: "GOLD"');
