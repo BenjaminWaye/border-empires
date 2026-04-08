@@ -1,4 +1,5 @@
 import { AI_EMPIRE_ACTIONS, goalsForVictoryPath, planBestGoal, type AiSeasonVictoryPathId } from "./goap.js";
+import { hasAiGrowthFoundation } from "./tempo-policy.js";
 
 export type AiPlanningSnapshot = {
   primaryVictoryPath: AiSeasonVictoryPathId | undefined;
@@ -29,6 +30,7 @@ export type AiPlanningSnapshot = {
   barbarianAttackAvailable: boolean;
   enemyAttackAvailable: boolean;
   pressureAttackAvailable: boolean;
+  attackReady: boolean;
   pressureAttackScore: number;
   pressureThreatensCore: boolean;
   settlementAvailable: boolean;
@@ -45,6 +47,7 @@ export type AiPlanningSnapshot = {
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
   frontierOpportunityWaste: number;
+  scoutExpandWorthwhile: boolean;
   canAffordFrontierAction: boolean;
   canAffordSettlement: boolean;
   canBuildFort: boolean;
@@ -60,14 +63,17 @@ export type AiPlanningDecision = {
 };
 
 export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision => {
+  const growthFoundationEstablished = hasAiGrowthFoundation(snapshot);
   const urgentPressureAttackReady =
     snapshot.pressureAttackAvailable &&
+    snapshot.attackReady &&
     snapshot.canAffordFrontierAction &&
     snapshot.frontPosture !== "TRUCE" &&
     (snapshot.pressureThreatensCore || snapshot.frontPosture === "BREAK") &&
     ((snapshot.pressureAttackScore >= 350) || (snapshot.underThreat && snapshot.pressureAttackScore >= 220));
   const pressureAttackReady =
     snapshot.pressureAttackAvailable &&
+    snapshot.attackReady &&
     snapshot.canAffordFrontierAction &&
     snapshot.frontPosture !== "TRUCE" &&
     (!snapshot.threatCritical || urgentPressureAttackReady);
@@ -120,7 +126,9 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     snapshot.strategicFocus === "ISLAND_FOOTPRINT" &&
     snapshot.primaryVictoryPath === "SETTLED_TERRITORY" &&
     snapshot.islandExpandAvailable &&
+    growthFoundationEstablished &&
     snapshot.canAffordFrontierAction &&
+    !snapshot.settlementAvailable &&
     !snapshot.pressureThreatensCore
   ) {
     return { reason: "executed_island_expand_priority", actionKey: "claim_neutral_border_tile", goapActionKey: "claim_neutral_border_tile" };
@@ -144,11 +152,11 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   ) {
     return { reason: "executed_containment_fort_priority", actionKey: "build_fort_on_exposed_tile", goapActionKey: "build_fort_on_exposed_tile" };
   }
-  if (snapshot.economyWeak && economicPushReady && snapshot.canAffordFrontierAction) {
-    return { reason: "executed_economic_expand_priority", actionKey: "claim_neutral_border_tile", goapActionKey: "claim_neutral_border_tile" };
-  }
   if (snapshot.economyWeak && snapshot.economicBuildAvailable && !snapshot.underThreat) {
     return { reason: "executed_economic_priority", actionKey: "build_economic_structure", goapActionKey: "build_economic_structure" };
+  }
+  if (snapshot.economyWeak && economicPushReady && snapshot.canAffordFrontierAction) {
+    return { reason: "executed_economic_expand_priority", actionKey: "claim_neutral_border_tile", goapActionKey: "claim_neutral_border_tile" };
   }
   if (fortifyChokePoint && snapshot.points >= 45) {
     return { reason: "executed_fort_priority", actionKey: "build_fort_on_exposed_tile", goapActionKey: "build_fort_on_exposed_tile" };
@@ -156,10 +164,11 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
 
   const goapState = {
     hasNeutralLandOpportunity: snapshot.economicExpandAvailable,
-    hasScoutOpportunity: snapshot.scoutExpandAvailable,
+    hasScoutOpportunity: snapshot.scoutExpandWorthwhile,
     hasScaffoldOpportunity: snapshot.scaffoldExpandAvailable,
     hasBarbarianTarget: snapshot.barbarianAttackAvailable,
     hasWeakEnemyBorder: snapshot.pressureAttackAvailable || snapshot.enemyAttackAvailable,
+    attackReady: snapshot.attackReady,
     needsSettlement: snapshot.settlementAvailable,
     frontierDebtHigh: snapshot.frontierDebt,
     foodCoverageLow: snapshot.foodCoverageLow,
@@ -190,7 +199,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     if (pressureAttackReady && (snapshot.frontPosture === "BREAK" || snapshot.pressureThreatensCore)) {
       return { reason: "executed_pressure_attack_fallback", actionKey: "attack_enemy_border_tile", goapActionKey: "attack_enemy_border_tile" };
     }
-    if (!economicPushReady && snapshot.scoutExpandAvailable && snapshot.canAffordFrontierAction) {
+    if (!economicPushReady && snapshot.scoutExpandWorthwhile && snapshot.canAffordFrontierAction) {
       return { reason: "executed_scout_fallback", actionKey: "claim_scout_border_tile", goapActionKey: "claim_scout_border_tile" };
     }
     if (!economicPushReady && snapshot.scaffoldExpandAvailable && snapshot.canAffordFrontierAction) {
@@ -199,7 +208,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     if (snapshot.economyWeak && snapshot.neutralExpandAvailable && snapshot.canAffordFrontierAction) {
       return { reason: "executed_expand_fallback", actionKey: "claim_neutral_border_tile", goapActionKey: "claim_neutral_border_tile" };
     }
-    if (snapshot.frontierOpportunityWaste > 0 && snapshot.scoutExpandAvailable && snapshot.canAffordFrontierAction) {
+    if (snapshot.frontierOpportunityWaste > 0 && snapshot.scoutExpandWorthwhile && snapshot.canAffordFrontierAction) {
       return { reason: "executed_visibility_expand_fallback", actionKey: "claim_scout_border_tile", goapActionKey: "claim_scout_border_tile" };
     }
     if (snapshot.frontierOpportunityWaste > 0 && snapshot.neutralExpandAvailable && snapshot.canAffordFrontierAction) {

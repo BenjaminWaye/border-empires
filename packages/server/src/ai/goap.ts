@@ -146,6 +146,7 @@ export interface AiEmpireGoapState {
   hasScaffoldOpportunity: boolean;
   hasBarbarianTarget: boolean;
   hasWeakEnemyBorder: boolean;
+  attackReady: boolean;
   needsSettlement: boolean;
   frontierDebtHigh: boolean;
   foodCoverageLow: boolean;
@@ -271,11 +272,13 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
   },
   {
     key: "claim_scout_border_tile",
-    cost: 2,
+    cost: 4,
     preconditions: {
       hasScoutOpportunity: true,
       canAffordFrontierAction: true,
-      staminaHealthy: true
+      staminaHealthy: true,
+      economyWeak: false,
+      underThreat: false
     },
     effects: {
       hasScoutOpportunity: false,
@@ -325,6 +328,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     cost: 5,
     preconditions: {
       hasWeakEnemyBorder: true,
+      attackReady: true,
       canAffordFrontierAction: true,
       staminaHealthy: true
     },

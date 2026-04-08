@@ -18,6 +18,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: true,
+      attackReady: true,
       needsSettlement: false,
       frontierDebtHigh: false,
       foodCoverageLow: false,
@@ -46,6 +47,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: true,
       hasWeakEnemyBorder: false,
+      attackReady: false,
       needsSettlement: false,
       frontierDebtHigh: false,
       foodCoverageLow: false,
@@ -127,6 +129,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
+      attackReady: false,
       needsSettlement: true,
       frontierDebtHigh: true,
       foodCoverageLow: false,
@@ -155,6 +158,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
+      attackReady: false,
       needsSettlement: false,
       frontierDebtHigh: false,
       foodCoverageLow: false,
@@ -183,6 +187,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
+      attackReady: false,
       needsSettlement: true,
       frontierDebtHigh: true,
       foodCoverageLow: false,
@@ -211,6 +216,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: true,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
+      attackReady: false,
       needsSettlement: false,
       frontierDebtHigh: false,
       foodCoverageLow: false,
@@ -239,6 +245,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: true,
+      attackReady: true,
       needsSettlement: false,
       frontierDebtHigh: false,
       foodCoverageLow: false,
@@ -267,6 +274,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: true,
+      attackReady: true,
       needsSettlement: false,
       frontierDebtHigh: true,
       foodCoverageLow: false,
@@ -299,6 +307,7 @@ describe("planBestGoal", () => {
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
+      attackReady: false,
       needsSettlement: false,
       frontierDebtHigh: false,
       foodCoverageLow: true,
@@ -320,13 +329,14 @@ describe("planBestGoal", () => {
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_food_border_tile"]);
   });
 
-  it("still allows scouting under critical threat", () => {
+  it("does not scout while the empire is under threat", () => {
     const state: AiEmpireGoapState = {
       hasNeutralLandOpportunity: false,
       hasScoutOpportunity: true,
       hasScaffoldOpportunity: false,
       hasBarbarianTarget: false,
       hasWeakEnemyBorder: false,
+      attackReady: false,
       needsSettlement: false,
       frontierDebtHigh: false,
       foodCoverageLow: false,
@@ -344,7 +354,6 @@ describe("planBestGoal", () => {
 
     const plan = planBestGoal(state, [{ id: "expand_vision_for_value", priority: 8, desired: { hasScoutOpportunity: false } }], AI_EMPIRE_ACTIONS);
 
-    expect(plan?.goalId).toBe("expand_vision_for_value");
-    expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_scout_border_tile"]);
+    expect(plan).toBeUndefined();
   });
 });
