@@ -68,4 +68,35 @@ describe("renderEconomyPanelHtml", () => {
     expect(html).toContain("-12.00 GOLD/m");
     expect(html).not.toContain("No upkeep on this resource");
   });
+
+  it("renders paused town income buckets even when manpower gating zeros their income", () => {
+    const economyBreakdown = emptyEconomyBreakdown();
+    economyBreakdown.GOLD.sources = [
+      { label: "Towns", amountPerMinute: 0, count: 7, note: "Paused until manpower is full (3135/3300)" }
+    ];
+
+    const html = renderEconomyPanelHtml({
+      focus: "GOLD",
+      gold: 100,
+      me: "me",
+      incomePerMinute: 0,
+      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [],
+      economyBreakdown,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).toContain("Towns · 7");
+    expect(html).toContain("Paused until manpower is full (3135/3300)");
+    expect(html).toContain("+0.00/m");
+  });
 });
