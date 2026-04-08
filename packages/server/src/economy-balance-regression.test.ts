@@ -108,6 +108,7 @@ describe("economy balance regression guard", () => {
     const source = serverSource();
     expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(p.id)");
     expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(player.id)");
+    expect(source).toContain("if (objective.leaderPlayerId === playerId) return objective;");
     expect(source).toContain('if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;');
     expect(source).toContain('if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;');
     expect(source).toContain('if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;');
