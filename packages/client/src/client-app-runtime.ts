@@ -628,10 +628,6 @@ const inspectionFlow = createClientInspectionFlow({
   prettyToken,
   playerNameForOwner,
   terrainLabel,
-  populationPerMinuteLabel,
-  isTileOwnedByAlly,
-  hostileObservatoryProtectingTile,
-  pickOriginForTarget,
   keyFor: key,
   terrainAt,
   resourceLabel
@@ -639,8 +635,6 @@ const inspectionFlow = createClientInspectionFlow({
 const {
   tileHistoryLines,
   displayTownGoldPerMinute,
-  inspectionHtmlForTile,
-  passiveTileGuidanceHtml,
   growthModifierPercentLabel,
   combatResolutionAlert
 } = inspectionFlow;
@@ -832,7 +826,6 @@ bootstrapClientApp({
   keyFor: key,
   parseKey,
   selectedTile,
-  passiveTileGuidanceHtml,
   techFlow,
   domainOwnedHtml,
   techOwnedHtml,
