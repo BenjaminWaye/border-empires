@@ -129,6 +129,7 @@ export const renderTechDetailCard = (deps: {
   tech: TechInfo | undefined;
   techDetailOpen: boolean;
   techCatalog: TechInfo[];
+  ownedTechIds: string[];
   techPrereqIds: (tech: Pick<TechInfo, "prereqIds" | "requires">) => string[];
   unlockedByTech: (techId: string) => TechInfo[];
   isPendingTechUnlock: (techId: string) => boolean;
@@ -142,11 +143,12 @@ export const renderTechDetailCard = (deps: {
   const tierMemo = new Map<string, number>();
   const prereqs = deps.techPrereqIds(deps.tech);
   const unlocks = deps.unlockedByTech(deps.tech.id);
+  const owned = deps.ownedTechIds.includes(deps.tech.id);
   const prereqText = prereqs.length > 0 ? deps.techNameList(prereqs) : "Entry tech";
   const pendingUnlock = deps.isPendingTechUnlock(deps.tech.id);
-  const canUnlock = deps.tech.requirements.canResearch && !deps.pendingTechUnlockId;
-  const statusText = pendingUnlock ? "Unlocking now. Waiting for server confirmation..." : undefined;
-  const buttonLabel = pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked";
+  const canUnlock = !owned && deps.tech.requirements.canResearch && !deps.pendingTechUnlockId;
+  const statusText = pendingUnlock ? "Unlocking now. Waiting for server confirmation..." : owned ? "Already unlocked." : undefined;
+  const buttonLabel = owned ? "Unlocked" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked";
   const relatedStructures = relatedStructureTypesForTech(deps.tech);
   const relatedCrystalAbilities = relatedCrystalAbilitiesForTech(deps.tech);
   const relatedStructuresHtml =
@@ -161,7 +163,7 @@ export const renderTechDetailCard = (deps: {
     tech: deps.tech,
     statusText,
     buttonLabel,
-    buttonDisabled: !(canUnlock || pendingUnlock),
+    buttonDisabled: !canUnlock,
     prereqs,
     prereqText,
     unlocks: unlocks.map((next) => ({ name: next.name, tier: deps.techTier(next.id, byId, tierMemo) })),
@@ -222,6 +224,7 @@ export const renderStructureInfoOverlay = (
 export const renderTechDetailModal = (deps: {
   tech: TechInfo;
   techCatalog: TechInfo[];
+  ownedTechIds: string[];
   techPrereqIds: (tech: Pick<TechInfo, "prereqIds" | "requires">) => string[];
   unlockedByTech: (techId: string) => TechInfo[];
   isPendingTechUnlock: (techId: string) => boolean;
@@ -235,16 +238,19 @@ export const renderTechDetailModal = (deps: {
   const tierMemo = new Map<string, number>();
   const prereqs = deps.techPrereqIds(deps.tech);
   const unlocks = deps.unlockedByTech(deps.tech.id);
+  const owned = deps.ownedTechIds.includes(deps.tech.id);
   const pendingUnlock = deps.isPendingTechUnlock(deps.tech.id);
-  const canUnlock = deps.tech.requirements.canResearch && !deps.pendingTechUnlockId;
+  const canUnlock = !owned && deps.tech.requirements.canResearch && !deps.pendingTechUnlockId;
   const statusText = pendingUnlock
     ? "Unlocking now. Waiting for server confirmation..."
-    : deps.tech.requirements.canResearch
+    : owned
+      ? "Already unlocked."
+      : deps.tech.requirements.canResearch
       ? "Ready to unlock."
       : prereqs.length > 0
         ? `Requires ${deps.techNameList(prereqs)}`
         : "Entry tech";
-  const buttonLabel = pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked";
+  const buttonLabel = owned ? "Unlocked" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : "Locked";
   const relatedStructures = relatedStructureTypesForTech(deps.tech);
   const relatedCrystalAbilities = relatedCrystalAbilitiesForTech(deps.tech);
   const requirements = deps.tech.requirements.checklist ?? [];
@@ -297,7 +303,7 @@ export const renderTechDetailModal = (deps: {
         </section>
       </div>
       <div class="tech-detail-actions">
-        <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${deps.tech.id}" ${canUnlock || pendingUnlock ? "" : "disabled"}>${buttonLabel}</button>
+        <button class="panel-btn tech-unlock-btn tech-unlock-btn-modal" data-tech-unlock="${deps.tech.id}" ${canUnlock ? "" : "disabled"}>${buttonLabel}</button>
       </div>
     </div>`;
 };

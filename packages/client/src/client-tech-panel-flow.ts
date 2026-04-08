@@ -196,6 +196,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       tech: selectedTechInfo(),
       techDetailOpen: state.techDetailOpen,
       techCatalog: state.techCatalog,
+      ownedTechIds: state.techIds,
       techPrereqIds,
       unlockedByTech,
       isPendingTechUnlock,
@@ -214,6 +215,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     return renderTechDetailModalFromModule({
       tech,
       techCatalog: state.techCatalog,
+      ownedTechIds: state.techIds,
       techPrereqIds,
       unlockedByTech,
       isPendingTechUnlock,
