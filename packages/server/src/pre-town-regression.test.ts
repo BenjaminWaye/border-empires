@@ -10,7 +10,8 @@ const serverMainSource = (): string => {
     readFileSync(resolve(here, "./server-game-constants.ts"), "utf8"),
     readFileSync(resolve(here, "./server-shared-types.ts"), "utf8"),
     readFileSync(resolve(here, "./server-worldgen-towns.ts"), "utf8"),
-    readFileSync(resolve(here, "./server-town-support.ts"), "utf8")
+    readFileSync(resolve(here, "./server-town-support.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-town-economy-runtime.ts"), "utf8")
   ].join("\n");
 };
 
@@ -54,7 +55,7 @@ describe("pre-town settlement regression guard", () => {
     expect(source).toContain("isSettlement?: boolean;");
     expect(source).toContain('if (town && townPopulationTierForTown(town) === "SETTLEMENT") return { supportCurrent: 0, supportMax: 0 };');
     expect(source).toContain('if (tier === "SETTLEMENT") return 0;');
-    expect(source).toContain('if (populationTier === "SETTLEMENT") return SETTLEMENT_BASE_GOLD_PER_MIN;');
+    expect(source).toContain('if (townPopulationTierForTown(town) === "SETTLEMENT") return SETTLEMENT_BASE_GOLD_PER_MIN;');
   });
 
   it("repairs legacy low-pop towns on hydrate instead of treating every town as a settlement", () => {

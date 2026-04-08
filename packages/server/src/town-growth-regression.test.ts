@@ -3,9 +3,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const serverMainSource = (): string => {
+const readServerSource = (relativePath: string): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return readFileSync(resolve(here, relativePath), "utf8");
 };
 
 const functionBody = (source: string, functionName: string): string => {
@@ -27,14 +27,14 @@ const functionBody = (source: string, functionName: string): string => {
 
 describe("town growth regression guard", () => {
   it("only advances town population on real elapsed minute ticks", () => {
-    const body = functionBody(serverMainSource(), "updateTownPopulationForPlayer");
+    const body = functionBody(readServerSource("./server-town-economy-runtime.ts"), "updateTownPopulationForPlayer");
     expect(body).not.toContain("Math.max(1, Math.floor");
     expect(body).toContain("if (elapsedMinutes <= 0) continue;");
     expect(body).toContain("town.lastGrowthTickAt += elapsedMinutes * POPULATION_GROWTH_TICK_MS;");
   });
 
   it("keeps the economy tick running even when no players are currently online", () => {
-    const source = serverMainSource();
+    const source = readServerSource("./main.ts");
     const economyTickAnchor = "const populationTouched = updateTownPopulationForPlayer(p);";
     const anchorIndex = source.indexOf(economyTickAnchor);
     expect(anchorIndex).toBeGreaterThan(-1);
