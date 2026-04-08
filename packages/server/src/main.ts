@@ -455,6 +455,7 @@ import { createServerWorldgenDocks } from "./server-worldgen-docks.js";
 import { createServerWorldgenShards } from "./server-worldgen-shards.js";
 import { createServerWorldgenTerrain } from "./server-worldgen-terrain.js";
 import { createServerWorldgenTowns } from "./server-worldgen-towns.js";
+import { supportedFrontierUsesSettledDefense } from "./frontier-defense.js";
 import { createServerSeasonTech } from "./server-season-tech.js";
 import { createServerSettlementFlow } from "./server-settlement-flow.js";
 import { createServerTownEconomyRuntime } from "./server-town-economy-runtime.js";
@@ -1731,6 +1732,19 @@ const {
     townPotentialIncomeForOwner(town, ownerId, options)
 }) as any;
 
+const supportedFrontierUsesSettledDefenseAt = (defenderId: string | undefined, target: Tile): boolean => {
+  const defender = defenderId ? players.get(defenderId) : undefined;
+  return supportedFrontierUsesSettledDefense(defender?.domainIds, defenderId, target, {
+    worldWidth: WORLD_WIDTH,
+    worldHeight: WORLD_HEIGHT,
+    key,
+    wrapX,
+    wrapY,
+    ownerAt: (tileKey) => ownership.get(tileKey),
+    ownershipStateAt: (tileKey) => ownershipStateByTile.get(tileKey)
+  });
+};
+
 const {
   computeTownFeedingState,
   townFeedingStateForPlayer,
@@ -1859,7 +1873,7 @@ const {
   fortDefenseMultAt: (playerId: string, tileKey: TileKey) => fortDefenseMultAt(playerId, tileKey),
   playerDefensiveness: (player: Player) => playerDefensiveness(player),
   settledDefenseMultiplierForTarget: (defenderId: string, tile: Tile) => settledDefenseMultiplierForTarget(defenderId, tile),
-  ownershipDefenseMultiplierForTarget: (tile: Tile) => ownershipDefenseMultiplierForTarget(tile),
+  ownershipDefenseMultiplierForTarget: (defenderId: string | undefined, tile: Tile) => ownershipDefenseMultiplierForTarget(defenderId, tile),
   isAdjacentTile,
   markSummaryChunkDirtyAtTile: (x: number, y: number) => markSummaryChunkDirtyAtTile(x, y),
   logBarbarianEvent: (message: string) => logBarbarianEvent(message)
@@ -4347,12 +4361,14 @@ const settlementDefenseMultAt = (defenderId: string, tileKey: TileKey): number =
   return entry.mult;
 };
 
-const ownershipDefenseMultiplierForTarget = (target: Tile): number => {
+const ownershipDefenseMultiplierForTarget = (defenderId: string | undefined, target: Tile): number => {
+  if (supportedFrontierUsesSettledDefenseAt(defenderId, target)) return 1;
   return target.ownershipState === "FRONTIER" ? 0 : 1;
 };
 
 const frontierDefenseAddForTarget = (defenderId: string, target: Tile): number => {
   if (target.ownershipState !== "FRONTIER") return 0;
+  if (supportedFrontierUsesSettledDefenseAt(defenderId, target)) return 0;
   return getPlayerEffectsForPlayer(defenderId).frontierDefenseAdd;
 };
 
@@ -4382,7 +4398,7 @@ const attackMultiplierForTarget = (attackerId: string, target: Tile): number => 
 };
 
 const settledDefenseMultiplierForTarget = (defenderId: string, target: Tile): number => {
-  if (target.ownershipState !== "SETTLED") return 1;
+  if (target.ownershipState !== "SETTLED" && !supportedFrontierUsesSettledDefenseAt(defenderId, target)) return 1;
   return getPlayerEffectsForPlayer(defenderId).settledDefenseMult;
 };
 
@@ -4876,7 +4892,7 @@ const tryQueueBasicFrontierAction = (
     const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
     const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
     const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-    const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
+    const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
     const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
     const defEff = defenderIsBarbarian
       ? 10 * BARBARIAN_DEFENSE_POWER * dockMult * randomFactor()
@@ -7095,7 +7111,7 @@ const bestAiEnemyPressureAttack = (
       (defender ? fortDefenseMultAt(defender.id, key(to.x, to.y)) : 1) *
       (docksByTile.has(key(to.x, to.y)) ? DOCK_DEFENSE_MULT : 1) *
       (defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1) *
-      ownershipDefenseMultiplierForTarget(to);
+      ownershipDefenseMultiplierForTarget(defender?.id, to);
     const winChance = combatWinChance(attackBase, defenseBase);
     score += Math.round(winChance * 220);
     if (to.ownershipState === "FRONTIER") score += 120;
@@ -9244,7 +9260,7 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
         dockMult *
         settledDefenseMultiplierForTarget(defender.id, currentTarget) *
         settlementDefenseMultAt(defender.id, targetKey) *
-        ownershipDefenseMultiplierForTarget(currentTarget)
+        ownershipDefenseMultiplierForTarget(defender.id, currentTarget)
     });
     const win = combat.win;
     const progressBefore = live.progress;
@@ -11816,7 +11832,7 @@ const tryAirportBombard = (
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
       const settledDefenseMult = settledDefenseMultiplierForTarget(defender.id, tile);
       const newSettlementDefenseMult = settlementDefenseMultAt(defender.id, tk);
-      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(tile);
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender.id, tile);
       const frontierDefenseAdd = frontierDefenseAddForTarget(defender.id, tile);
       const defEff =
         (10 * defender.mods.defense * playerDefensiveness(defender) * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
@@ -15245,7 +15261,7 @@ app.post("/admin/world/regenerate", async () => {
       const atkEff = 10 * actor.mods.attack * siegeAtkMult * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to);
       const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
       const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
       const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
       const defEff = defenderIsBarbarian
         ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
@@ -15461,7 +15477,7 @@ app.post("/admin/world/regenerate", async () => {
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
       const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
       const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(to);
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
       const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
       const combat = await resolveCombatViaWorker({
         attackBase:
