@@ -538,6 +538,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     processActionQueue: actionFlow.processActionQueue,
     clearSettlementProgressForTile: actionFlow.clearSettlementProgressForTile,
     terrainAt,
+    requestTileDetailIfNeeded: actionFlow.requestTileDetailIfNeeded,
     requestAttackPreviewForTarget: actionFlow.requestAttackPreviewForTarget,
     openSingleTileActionMenu: actionFlow.openSingleTileActionMenu,
     isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
