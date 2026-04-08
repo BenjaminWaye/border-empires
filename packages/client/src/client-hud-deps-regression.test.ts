@@ -11,7 +11,7 @@ describe("client HUD dependency wiring", () => {
     expect(renderMobilePanelsAt).toBeGreaterThan(renderHudCallAt);
   });
 
-  it("wires domain detail overlays and removes the mobile tile guidance block", () => {
+  it("wires domain detail overlays and clears the unused mobile tile guidance block", () => {
     const bootstrapSource = readFileSync(new URL("./client-bootstrap.ts", import.meta.url), "utf8");
     const techFlowSource = readFileSync(new URL("./client-tech-panel-flow.ts", import.meta.url), "utf8");
     const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
@@ -23,8 +23,8 @@ describe("client HUD dependency wiring", () => {
     expect(hudSource).toContain("dom.techDetailOverlayEl.onclick = (event: MouseEvent) => {");
     expect(hudSource).toContain('const domainUnlockTrigger = target?.closest<HTMLButtonElement>("[data-domain-unlock]")');
     expect(detailSource).toContain("showInlineClose: false");
-    expect(hudSource).toContain('dom.mobileCoreHelpEl.innerHTML = mobile');
-    expect(hudSource).toContain('dom.mobileCoreHelpEl.style.display = mobile ? "none" : "";');
+    expect(hudSource).toContain('dom.mobileCoreHelpEl.innerHTML = "";');
+    expect(hudSource).toContain('dom.mobileCoreHelpEl.style.display = "none";');
   });
 
   it("keeps expanded desktop tech trees in split layout even when a detail card is open", () => {
