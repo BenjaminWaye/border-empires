@@ -69,6 +69,34 @@ describe("planBestGoal", () => {
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["wait_and_recover"]);
   });
 
+  it("does not choose barbarian attacks until the empire is attack-ready", () => {
+    const state: AiEmpireGoapState = {
+      hasNeutralLandOpportunity: false,
+      hasScoutOpportunity: false,
+      hasScaffoldOpportunity: false,
+      hasBarbarianTarget: true,
+      hasWeakEnemyBorder: false,
+      attackReady: false,
+      needsSettlement: false,
+      frontierDebtHigh: false,
+      foodCoverageLow: false,
+      underThreat: false,
+      threatCritical: false,
+      economyWeak: false,
+      needsFortifiedAnchor: false,
+      canAffordFrontierAction: true,
+      canAffordSettlement: false,
+      canBuildFort: false,
+      canBuildEconomy: false,
+      goldHealthy: true,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, AI_EMPIRE_GOALS, AI_EMPIRE_ACTIONS);
+
+    expect(plan?.steps.map((step) => step.action.key) ?? []).not.toContain("attack_barbarian_border_tile");
+  });
+
   it("finds a two-step expansion and settlement sequence", () => {
     type State = {
       canExpand: boolean;

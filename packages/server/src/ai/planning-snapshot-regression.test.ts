@@ -194,8 +194,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(chooseStrategicBody).toContain("\"TRUCE\"");
     expect(chooseStrategicBody).toContain("\"ISLAND_FOOTPRINT\"");
     expect(chooseStrategicBody).toContain("\"SHARD_RUSH\"");
-    expect(chooseStrategicBody).toContain("islandMeaningfulOpportunity");
-    expect(chooseStrategicBody).toContain("islandWasteDominated");
+    expect(chooseStrategicBody).toContain("shouldAiStayInIslandFootprint({");
     expect(truceBody).toContain("bestAiCollectShardTile");
     expect(truceBody).toContain("strategicState.focus === \"SHARD_RUSH\"");
     expect(truceBody).toContain("TRUCE_REQUEST");
