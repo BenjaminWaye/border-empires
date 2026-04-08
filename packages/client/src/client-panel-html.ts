@@ -214,9 +214,11 @@ export const leaderboardHtml = (
   const overallLine = (entry: LeaderboardOverallEntry): string =>
     `${entry.name} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs}`;
   const metricLine = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
+  const shouldShowSelfProgress = (objective: SeasonVictoryObjectiveView): boolean =>
+    Boolean(objective.selfProgressLabel) && objective.leaderPlayerId !== "me";
   const metricRows = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): string =>
     `${entries.map((entry) => `<div class="lb-row">${entry.rank}. ${metricLine(entry)}</div>`).join("")}${
-      selfEntry ? `<div class="lb-row">${selfEntry.rank}. You (${selfEntry.value.toFixed(1)})</div>` : ""
+      selfEntry && selfEntry.rank !== 1 ? `<div class="lb-row">${selfEntry.rank}. You (${selfEntry.value.toFixed(1)})</div>` : ""
     }`;
   const winnerCard = seasonWinner
     ? `
@@ -246,7 +248,7 @@ export const leaderboardHtml = (
             </div>
             <div class="pressure-meta">${objective.description}</div>
             <div class="pressure-meta">Leader: ${objective.leaderName} · ${objective.progressLabel}</div>
-            ${objective.selfProgressLabel ? `<div class="pressure-meta">You: ${objective.selfProgressLabel}</div>` : ""}
+            ${shouldShowSelfProgress(objective) ? `<div class="pressure-meta">You: ${objective.selfProgressLabel}</div>` : ""}
             <div class="pressure-meta">${objective.thresholdLabel}</div>
           </div>`
         )
@@ -259,7 +261,7 @@ export const leaderboardHtml = (
     <article class="card">
       <strong>Overall</strong>
       ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLine(entry)}</div>`).join("")}
-      ${leaderboard.selfOverall ? `<div class="lb-row">${leaderboard.selfOverall.rank}. You | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${leaderboard.selfOverall.incomePerMinute.toFixed(1)} | tech ${leaderboard.selfOverall.techs}</div>` : ""}
+      ${leaderboard.selfOverall && leaderboard.selfOverall.rank !== 1 ? `<div class="lb-row">${leaderboard.selfOverall.rank}. You | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${leaderboard.selfOverall.incomePerMinute.toFixed(1)} | tech ${leaderboard.selfOverall.techs}</div>` : ""}
     </article>
     <article class="card">
       <strong>Most Settled Tiles</strong>
