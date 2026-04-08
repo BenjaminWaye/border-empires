@@ -593,6 +593,18 @@ const pushEconomyBreakdownBucket = (
   map.set(label, bucket);
 };
 
+const setEconomyBreakdownBucket = (
+  map: Map<string, EconomyBreakdownBucket>,
+  label: string,
+  amountPerMinute: number,
+  options: { count?: number; resourceKey?: EconomyResourceKey; note?: string } = {}
+): void => {
+  const bucket: EconomyBreakdownBucket = { label, amountPerMinute, count: options.count ?? 1 };
+  if (options.resourceKey !== undefined) bucket.resourceKey = options.resourceKey;
+  if (options.note !== undefined) bucket.note = options.note;
+  map.set(label, bucket);
+};
+
 const sortedEconomyBreakdownBuckets = (map: Map<string, EconomyBreakdownBucket>): EconomyBreakdownBucket[] =>
   [...map.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
 
@@ -3704,13 +3716,26 @@ const economyBreakdownForPlayer = (
 
   let townCount = 0;
   let townIncome = 0;
+  const townIncomePaused = !townGoldIncomeEnabledForPlayer(player);
   for (const town of townsByTile.values()) {
+    if (townIncomePaused) {
+      if (ownership.get(town.tileKey) !== player.id || ownershipStateByTile.get(town.tileKey) !== "SETTLED") continue;
+      townCount += 1;
+      continue;
+    }
     const income = townIncomeForOwner(town, player.id) * siphonMultiplierAt(town.tileKey);
     if (income <= 0.0001) continue;
     townCount += 1;
     townIncome += income;
   }
-  pushEconomyBreakdownBucket(goldSources, "Towns", townIncome * goldMultiplier, { count: townCount });
+  if (townIncomePaused && townCount > 0) {
+    setEconomyBreakdownBucket(goldSources, "Towns", 0, {
+      count: townCount,
+      note: `Paused until manpower is full (${Math.round(effectiveManpowerAt(player))}/${Math.round(playerManpowerCap(player))})`
+    });
+  } else {
+    pushEconomyBreakdownBucket(goldSources, "Towns", townIncome * goldMultiplier, { count: townCount });
+  }
 
   let bankCount = 0;
   for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
