@@ -1,4 +1,5 @@
 import type { ClientState } from "./client-state.js";
+import { applyTechUpdateToState } from "./client-tech-update-state.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -886,28 +887,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ownedTechs: (msg.techIds as string[])?.length ?? 0,
         nextChoices: (msg.nextChoices as string[])?.length ?? 0
       });
-      const status = msg.status as "started" | "completed" | undefined;
-      state.techRootId = msg.techRootId as string | undefined;
-      state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
-      state.pendingTechUnlockId = "";
-      state.techIds = (msg.techIds as string[]) ?? [];
-      state.techChoices = (msg.nextChoices as string[]) ?? [];
-      state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
-      state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
-      state.mods = (msg.mods as typeof state.mods) ?? state.mods;
-      state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
-      state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
-      state.missions = (msg.missions as any[]) ?? state.missions;
-      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
-      state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
-      state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
-      state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
-      state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
-      if (status === "completed") {
-        const completedTech = state.techCatalog.find((tech: any) => tech.id === state.techIds[state.techIds.length - 1]);
-        pushFeed(`Research completed: ${completedTech?.name ?? state.techIds[state.techIds.length - 1] ?? "unknown"}.`, "tech", "success");
-      }
+      applyTechUpdateToState(state, {
+        status: msg.status as "started" | "completed" | undefined,
+        techRootId: msg.techRootId as string | undefined,
+        currentResearch: (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined,
+        techIds: (msg.techIds as string[]) ?? [],
+        nextChoices: (msg.nextChoices as string[]) ?? [],
+        availableTechPicks: (msg.availableTechPicks as number) ?? state.availableTechPicks,
+        developmentProcessLimit: (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit,
+        mods: (msg.mods as typeof state.mods) ?? state.mods,
+        modBreakdown: (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown,
+        incomePerMinute: (msg.incomePerMinute as number) ?? state.incomePerMinute,
+        missions: (msg.missions as any[]) ?? state.missions,
+        techCatalog: (msg.techCatalog as any[]) ?? state.techCatalog,
+        domainIds: (msg.domainIds as string[]) ?? state.domainIds,
+        domainChoices: (msg.domainChoices as string[]) ?? state.domainChoices,
+        domainCatalog: (msg.domainCatalog as any[]) ?? state.domainCatalog,
+        revealCapacity: (msg.revealCapacity as number) ?? state.revealCapacity,
+        activeRevealTargets: (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets
+      }, pushFeed);
       renderHud();
       return;
     }
