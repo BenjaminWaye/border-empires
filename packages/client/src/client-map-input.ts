@@ -30,6 +30,7 @@ type BindClientMapInputDeps = {
   openBulkTileActionMenu: (targetKeys: string[], clientX: number, clientY: number) => void;
   isTileOwnedByAlly: (tile: Tile) => boolean;
   requestAttackPreviewForHover: () => void;
+  requestAttackPreviewForTarget: (tile: Tile) => void;
   interactionFlags: { holdActivated: boolean; suppressNextClick: boolean };
 };
 
@@ -159,6 +160,8 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     deps.hideHoldBuildMenu();
     mousePanStart = { x: ev.clientX, y: ev.clientY, camX: state.camX, camY: state.camY };
     const raw = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
+    const pressedTile = state.tiles.get(deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy)));
+    if (pressedTile) deps.requestAttackPreviewForTarget(pressedTile);
     if (boxSelectionMode) {
       state.boxSelectStart = raw;
       state.boxSelectCurrent = raw;
@@ -286,6 +289,9 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         touchHoldStart = { x: t.clientX, y: t.clientY };
         touchTapCandidate = { x: t.clientX, y: t.clientY };
         const rect = deps.canvas.getBoundingClientRect();
+        const { wx, wy } = worldTileFromPointer(t.clientX - rect.left, t.clientY - rect.top);
+        const touchedTile = state.tiles.get(deps.keyFor(wx, wy));
+        if (touchedTile) deps.requestAttackPreviewForTarget(touchedTile);
         scheduleHoldBuildMenu(t.clientX, t.clientY, t.clientX - rect.left, t.clientY - rect.top);
         pinchStart = undefined;
       } else if (ev.touches.length === 2) {

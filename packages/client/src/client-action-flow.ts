@@ -14,6 +14,7 @@ import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
   attackPreviewDetailForTarget as attackPreviewDetailForTargetFromModule,
+  attackPreviewPendingForTarget as attackPreviewPendingForTargetFromModule,
   attackQueueFailureReason as attackQueueFailureReasonFromModule,
   buildFrontierQueue as buildFrontierQueueFromModule,
   cancelQueuedSettlement as cancelQueuedSettlementFromModule,
@@ -432,7 +433,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     requestAttackPreviewForHoverFromModule(state, {
       ws,
       authSessionReady: state.authSessionReady,
-      keyFor
+      keyFor,
+      pickOriginForTarget
     });
 
   const requestAttackPreviewForTarget = (to: Tile): void =>
@@ -445,6 +447,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const attackPreviewDetailForTarget = (to: Tile, mode: "normal" | "breakthrough" = "normal"): string | undefined =>
     attackPreviewDetailForTargetFromModule(state, to, { keyFor, pickOriginForTarget }, mode);
+
+  const attackPreviewPendingForTarget = (to: Tile): boolean =>
+    attackPreviewPendingForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
 
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { pushFeed, renderHud, sendGameMessage });
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, renderHud, requestSettlement });
@@ -705,6 +710,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     requireAuthedSession,
     ws,
     attackPreviewDetailForTarget,
+    attackPreviewPendingForTarget,
     pickOriginForTarget,
     buildDetailTextForAction,
     developmentSlotSummary,
@@ -1240,6 +1246,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     requestAttackPreviewForHover,
     requestAttackPreviewForTarget,
     attackPreviewDetailForTarget,
+    attackPreviewPendingForTarget,
     buildFortOnSelected,
     settleSelected,
     buildSiegeOutpostOnSelected,
