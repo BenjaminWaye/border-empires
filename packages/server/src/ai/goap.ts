@@ -311,6 +311,7 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
     cost: 3,
     preconditions: {
       hasBarbarianTarget: true,
+      attackReady: true,
       canAffordFrontierAction: true,
       staminaHealthy: true
     },
