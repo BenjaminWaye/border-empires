@@ -121,6 +121,7 @@ import {
   type AiLatchedIntent,
   type AiLatchedIntentKind
 } from "./ai/intent-latch.js";
+import { hasAiGrowthFoundation, isAiAttackReady, isAiScoutExpansionWorthwhile } from "./ai/tempo-policy.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
 import {
@@ -7412,6 +7413,12 @@ const chooseAiStrategicState = (
     planningStatic.economicExpandAvailable ||
     planningStatic.settlementAvailable ||
     planningStatic.economicBuildAvailable;
+  const growthFoundationEstablished = hasAiGrowthFoundation({
+    controlledTowns: analysis.controlledTowns,
+    hasActiveTown: analysis.worldFlags.has("active_town"),
+    hasActiveDock: analysis.worldFlags.has("active_dock"),
+    aiIncome: analysis.aiIncome
+  });
   const shardOpportunity = !analysis.underThreat && !analysis.foodCoverageLow && !analysis.economyWeak && Boolean(bestAiCollectShardTile(actor));
 
   let frontPosture: AiFrontPosture = "BREAK";
@@ -7436,6 +7443,7 @@ const chooseAiStrategicState = (
     focus = "SHARD_RUSH";
   } else if (
     primaryVictoryPath === "SETTLED_TERRITORY" &&
+    growthFoundationEstablished &&
     planningStatic.undercoveredIslandCount > 0 &&
     (planningStatic.islandExpandAvailable || planningStatic.islandSettlementAvailable) &&
     (!analysis.foodCoverageLow || analysis.foodCoverage >= 1) &&
@@ -7477,6 +7485,30 @@ const buildAiPlanningSnapshot = (
   const strategicStocks = getOrInitStrategicStocks(actor.id);
   const strategicState = chooseAiStrategicState(actor, primaryVictoryPath, analysis, planningStatic);
   const developmentAvailable = canStartDevelopmentProcess(actor.id);
+  const growthFoundationEstablished = hasAiGrowthFoundation({
+    controlledTowns: analysis.controlledTowns,
+    hasActiveTown: analysis.worldFlags.has("active_town"),
+    hasActiveDock: analysis.worldFlags.has("active_dock"),
+    aiIncome: analysis.aiIncome
+  });
+  const scoutExpandWorthwhile = isAiScoutExpansionWorthwhile({
+    settledTiles: analysis.settledTiles,
+    underThreat: analysis.underThreat,
+    economyWeak: analysis.economyWeak,
+    settlementAvailable: planningStatic.settlementAvailable,
+    frontierOpportunityEconomic: planningStatic.frontierOpportunityEconomic,
+    frontierOpportunityScout: planningStatic.frontierOpportunityScout,
+    frontierOpportunityWaste: planningStatic.frontierOpportunityWaste,
+    hasGrowthFoundation: growthFoundationEstablished
+  });
+  const attackReady = isAiAttackReady({
+    manpower: actor.manpower,
+    attackManpowerMin: manpowerMinForAction("ATTACK"),
+    underThreat: analysis.underThreat,
+    threatCritical: analysis.threatCritical,
+    economyWeak: analysis.economyWeak,
+    controlledTowns: analysis.controlledTowns
+  });
 
   return {
     primaryVictoryPath,
@@ -7507,6 +7539,7 @@ const buildAiPlanningSnapshot = (
     barbarianAttackAvailable: planningStatic.barbarianAttackAvailable,
     enemyAttackAvailable: planningStatic.enemyAttackAvailable,
     pressureAttackAvailable: planningStatic.pressureAttackScore > 0,
+    attackReady,
     pressureAttackScore: planningStatic.pressureAttackScore,
     pressureThreatensCore: planningStatic.pressureThreatensCore,
     settlementAvailable: planningStatic.settlementAvailable,
@@ -7523,6 +7556,7 @@ const buildAiPlanningSnapshot = (
     frontierOpportunityScout: planningStatic.frontierOpportunityScout,
     frontierOpportunityScaffold: planningStatic.frontierOpportunityScaffold,
     frontierOpportunityWaste: planningStatic.frontierOpportunityWaste,
+    scoutExpandWorthwhile,
     canAffordFrontierAction: canAffordGoldCost(actor.points, FRONTIER_ACTION_GOLD_COST),
     canAffordSettlement: developmentAvailable && canAffordGoldCost(actor.points, SETTLE_COST),
     canBuildFort:
@@ -8503,9 +8537,11 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
     pressureThreatensCore: planningSnapshot.pressureThreatensCore,
     hasNeutralLandOpportunity: planningSnapshot.neutralExpandAvailable,
     hasScoutOpportunity: planningSnapshot.scoutExpandAvailable,
+    scoutExpandWorthwhile: planningSnapshot.scoutExpandWorthwhile,
     hasScaffoldOpportunity: planningSnapshot.scaffoldExpandAvailable,
     hasBarbarianTarget: planningSnapshot.barbarianAttackAvailable,
     hasWeakEnemyBorder: planningSnapshot.pressureAttackAvailable || planningSnapshot.enemyAttackAvailable,
+    attackReady: planningSnapshot.attackReady,
     enemyPressureScore: planningSnapshot.pressureAttackScore,
     needsSettlement: planningSnapshot.settlementAvailable,
     frontierDebtHigh: planningSnapshot.frontierDebt,

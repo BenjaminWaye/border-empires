@@ -30,6 +30,7 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   barbarianAttackAvailable: false,
   enemyAttackAvailable: false,
   pressureAttackAvailable: false,
+  attackReady: false,
   pressureAttackScore: 0,
   pressureThreatensCore: false,
   settlementAvailable: false,
@@ -46,6 +47,7 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   frontierOpportunityScout: 0,
   frontierOpportunityScaffold: 0,
   frontierOpportunityWaste: 0,
+  scoutExpandWorthwhile: false,
   canAffordFrontierAction: true,
   canAffordSettlement: true,
   canBuildFort: false,
@@ -143,8 +145,10 @@ describe("planAiDecision", () => {
       ...baseSnapshot(),
       primaryVictoryPath: "SETTLED_TERRITORY",
       strategicFocus: "ISLAND_FOOTPRINT",
+      controlledTowns: 1,
       frontPosture: "CONTAIN",
       pressureAttackAvailable: true,
+      attackReady: false,
       pressureAttackScore: 480,
       pressureThreatensCore: false,
       islandExpandAvailable: true,
@@ -191,6 +195,7 @@ describe("planAiDecision", () => {
       strategicFocus: "ISLAND_FOOTPRINT",
       frontPosture: "CONTAIN",
       pressureAttackAvailable: true,
+      attackReady: true,
       pressureAttackScore: 480,
       pressureThreatensCore: true,
       islandExpandAvailable: true,
@@ -208,6 +213,7 @@ describe("planAiDecision", () => {
       strategicFocus: "BORDER_CONTAINMENT",
       frontPosture: "CONTAIN",
       pressureAttackAvailable: true,
+      attackReady: false,
       pressureAttackScore: 210,
       pressureThreatensCore: false,
       fortAvailable: true,
@@ -218,5 +224,59 @@ describe("planAiDecision", () => {
 
     expect(decision.actionKey).toBe("build_fort_on_exposed_tile");
     expect(decision.reason).toBe("executed_containment_fort_priority");
+  });
+
+  it("builds economy before expanding when both are legal during recovery", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      economyWeak: true,
+      economicExpandAvailable: true,
+      economicBuildAvailable: true,
+      canBuildEconomy: true
+    });
+
+    expect(decision.actionKey).toBe("build_economic_structure");
+    expect(decision.reason).toBe("executed_economic_priority");
+  });
+
+  it("does not scout as a fallback when scouting is not worthwhile", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      scoutExpandAvailable: true,
+      scoutExpandWorthwhile: false,
+      frontierOpportunityWaste: 10
+    });
+
+    expect(decision.actionKey).not.toBe("claim_scout_border_tile");
+  });
+
+  it("does not launch pressure attacks until the empire is attack-ready", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "TOWN_CONTROL",
+      pressureAttackAvailable: true,
+      pressureAttackScore: 240,
+      attackReady: false
+    });
+
+    expect(decision.actionKey).not.toBe("attack_enemy_border_tile");
+  });
+
+  it("does not force island expansion before the empire has a growth foundation", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "SETTLED_TERRITORY",
+      strategicFocus: "ISLAND_FOOTPRINT",
+      islandExpandAvailable: true,
+      frontierOpportunityWaste: 8,
+      undercoveredIslandCount: 4,
+      weakestIslandRatio: 0,
+      aiIncome: 6,
+      controlledTowns: 0,
+      hasActiveTown: false,
+      hasActiveDock: false
+    });
+
+    expect(decision.reason).not.toBe("executed_island_expand_priority");
   });
 });
