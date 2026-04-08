@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
 import { isForestTile } from "./client-constants.js";
 import type { EmpireVisualStyle, Tile } from "./client-types.js";

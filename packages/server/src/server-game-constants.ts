@@ -1,5 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, structureBaseGoldCost, type PopulationTier, type TileKey } from "@border-empires/shared";
-import type { AbilityDefinition, MissionDef, StrategicResource, VictoryPressureDefinition } from "./server-shared-types.js";
+import type { AbilityDefinition, MissionDef, VictoryPressureDefinition } from "./server-shared-types.js";
 
 export const key = (x: number, y: number): TileKey => `${x},${y}`;
 export const parseKey = (k: TileKey): [number, number] => {

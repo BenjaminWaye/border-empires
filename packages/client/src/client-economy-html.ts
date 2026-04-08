@@ -1,4 +1,4 @@
-import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "./client-economy-model.js";
+import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey } from "./client-economy-model.js";
 import type { Tile } from "./client-types.js";
 
 type EconomyResource = Exclude<EconomyFocusKey, "ALL">;

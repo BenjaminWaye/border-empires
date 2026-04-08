@@ -1,5 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { economicStructureName, resourceLabel, strategicResourceKeyForTile } from "./client-map-display.js";
+import { economicStructureName, resourceLabel } from "./client-map-display.js";
 import type { Tile } from "./client-types.js";
 
 export const tileHistoryLines = (

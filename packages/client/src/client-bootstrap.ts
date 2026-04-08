@@ -104,7 +104,6 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     maybeAnnounceShardSite,
     markDockDiscovered,
     centerOnOwnedTile,
-    defensibilityPctFromTE,
     clearPendingCollectVisibleDelta,
     seedProfileSetupFields: seedProfileSetupFieldsFromMain,
     resetStrategicReplayState,

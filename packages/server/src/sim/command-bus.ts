@@ -61,6 +61,8 @@ export const createSimulationCommandBus = <TJob, TQueuedCommand, TSystemCommand>
   hasQueuedSystemCommand: (predicate: (job: TJob) => boolean) => boolean;
   enqueueJob: (job: TJob) => void;
 } => {
+  const queuedCommandTypeMarker = null as TQueuedCommand | null;
+  void queuedCommandTypeMarker;
   const state: SimulationCommandWorkerState<TJob> = {
     humanQueue: [],
     systemQueue: [],

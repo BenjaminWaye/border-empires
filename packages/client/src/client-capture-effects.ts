@@ -3,7 +3,6 @@ import { shardRainAlertDetail, type ClientShardRainAlert } from "./client-shard-
 import { shouldHideCaptureOverlayAfterTimer } from "./client-frontier-overlay.js";
 import { shouldFinalizePredictedCombat } from "./client-predicted-combat.js";
 import type { ClientState } from "./client-state.js";
-import type { Tile } from "./client-types.js";
 
 export const renderCaptureProgress = (
   state: Pick<ClientState, "captureAlert" | "collectVisibleCooldownUntil" | "capture" | "tiles" | "me" | "pendingCombatReveal">,
