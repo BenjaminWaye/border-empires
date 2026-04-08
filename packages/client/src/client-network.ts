@@ -63,6 +63,41 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearPendingCollectTileDelta,
     playerNameForOwner
   } = deps;
+  const shouldResetFrontierActionStateForError =
+    typeof deps.shouldResetFrontierActionStateForError === "function"
+      ? deps.shouldResetFrontierActionStateForError
+      : (errorCode: string): boolean => {
+          if (!errorCode) return true;
+          switch (errorCode) {
+            case "SETTLE_INVALID":
+            case "FORT_BUILD_INVALID":
+            case "OBSERVATORY_BUILD_INVALID":
+            case "SIEGE_OUTPOST_BUILD_INVALID":
+            case "ECONOMIC_STRUCTURE_BUILD_INVALID":
+            case "STRUCTURE_CANCEL_INVALID":
+            case "TOWN_UNFED":
+              return false;
+            default:
+              return true;
+          }
+        };
+
+  const maybeRequestTileDetail = (tile: any): void => {
+    if (typeof deps.requestTileDetailIfNeeded !== "function") return;
+    if (!tile || tile.fogged || tile.detailLevel === "full") return;
+    if (
+      tile.ownerId === state.me ||
+      tile.resource ||
+      tile.dockId ||
+      tile.town ||
+      tile.fort ||
+      tile.observatory ||
+      tile.siegeOutpost ||
+      tile.economicStructure
+    ) {
+      deps.requestTileDetailIfNeeded(tile);
+    }
+  };
 
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
@@ -235,6 +270,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.chunkFullCount += 1;
     if (state.firstChunkAt === 0) state.firstChunkAt = Date.now();
     let sawOwnedTile = false;
+    let detailRequests = 0;
     for (const tile of tiles) {
       const existing = state.tiles.get(keyFor(tile.x, tile.y));
       const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, tile));
@@ -245,6 +281,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       markDockDiscovered(mergedTile);
       if (!mergedTile.fogged) state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
       if (mergedTile.ownerId === state.me) sawOwnedTile = true;
+      if (detailRequests < 4) {
+        const tileKey = keyFor(mergedTile.x, mergedTile.y);
+        const before = state.tileDetailRequestedAt.get(tileKey) ?? 0;
+        maybeRequestTileDetail(mergedTile);
+        const after = state.tileDetailRequestedAt.get(tileKey) ?? 0;
+        if (after > before) detailRequests += 1;
+      }
     }
     if (sawOwnedTile) state.hasOwnedTileInCache = true;
     else if (!state.hasOwnedTileInCache) centerOnOwnedTile();
@@ -556,9 +599,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.upkeepPerMinute = (msg.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
       state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
       state.manpowerBreakdown = (msg.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
-      applyPendingSettlementsFromServer(
-        (msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
-      );
+      if ("pendingSettlements" in msg) {
+        applyPendingSettlementsFromServer(
+          msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
+        );
+      }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
       clearPendingCollectVisibleDelta();
@@ -761,6 +806,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "TILE_DELTA") {
       const updates = (msg.updates as any[]) ?? [];
       let resolvedQueuedFrontierCapture = false;
+      let detailRequests = 0;
       for (const update of updates) {
         const updateKey = keyFor(update.x, update.y);
         state.incomingAttacksByTile.delete(updateKey);
@@ -843,6 +889,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
         markDockDiscovered(resolved);
         if (!resolved.fogged) state.discoveredTiles.add(updateKey);
+        if (detailRequests < 4) {
+          const before = state.tileDetailRequestedAt.get(updateKey) ?? 0;
+          maybeRequestTileDetail(resolved);
+          const after = state.tileDetailRequestedAt.get(updateKey) ?? 0;
+          if (after > before) detailRequests += 1;
+        }
         if (
           deps.settlementProgressForTile(update.x, update.y) &&
           (resolved.ownerId !== state.me || (resolved.ownershipState !== "FRONTIER" && resolved.ownershipState !== "SETTLED"))
@@ -1136,17 +1188,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else {
         pushFeed(explainActionFailure(errorCode, errorMessage), "error", "error");
       }
-      if (errorCode === "LOCKED" && state.actionInFlight) {
-        renderHud();
-        return;
-      }
       const frontierActionError =
         errorCode === "ACTION_INVALID" ||
         errorCode === "NOT_ADJACENT" ||
         errorCode === "NOT_OWNER" ||
-        errorCode === "EXPAND_TARGET_OWNED";
+        errorCode === "EXPAND_TARGET_OWNED" ||
+        errorCode === "LOCKED";
       const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-      const shouldResetFrontierAction = deps.shouldResetFrontierActionStateForError(errorCode);
+      const shouldResetFrontierAction = shouldResetFrontierActionStateForError(errorCode);
       if (shouldResetFrontierAction) {
         state.capture = undefined;
         if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
@@ -1155,6 +1204,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.actionStartedAt = 0;
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
+        if (errorCode === "LOCKED") {
+          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + 12_000);
+          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + 12_000);
+        }
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
         if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
         if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
@@ -1163,7 +1216,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearOptimisticTileState(failedTargetKey, true);
       }
       state.attackPreviewPendingKey = "";
-      if (frontierActionError || !shouldResetFrontierAction) requestViewRefresh(2, true);
+      if (frontierActionError || !shouldResetFrontierAction) {
+        state.lastSubAt = 0;
+        requestViewRefresh(2, true);
+      }
       reconcileActionQueue();
       processActionQueue();
       renderHud();
