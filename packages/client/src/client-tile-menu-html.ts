@@ -69,7 +69,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
           <span class="tile-action-icon">${actionIcon(action.id)}</span>
           <span class="tile-action-copy">
             <span class="tile-action-label">${action.label}</span>
-            ${action.detail || action.disabledReason ? `<span class="tile-action-detail">${action.detail ?? action.disabledReason ?? ""}</span>` : ""}
+            ${action.detail || action.disabledReason ? `<span class="tile-action-detail${action.loading ? " is-loading" : ""}">${action.loading ? '<span class="tile-action-spinner" aria-hidden="true"></span>' : ""}${action.detail ?? action.disabledReason ?? ""}</span>` : ""}
           </span>
           ${action.cost ? `<span class="tile-action-cost">${action.cost}</span>` : ""}
         </button>`

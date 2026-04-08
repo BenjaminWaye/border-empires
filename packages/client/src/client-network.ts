@@ -1181,10 +1181,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         atkEff?: number;
         defEff?: number;
         defenseEffPct?: number;
+        receivedAt: number;
       } = {
         fromKey: keyFor(from.x, from.y),
         toKey: keyFor(to.x, to.y),
-        valid: Boolean(msg.valid)
+        valid: Boolean(msg.valid),
+        receivedAt: Date.now()
       };
       const reason = msg.reason as string | undefined;
       const winChance = msg.winChance as number | undefined;
@@ -1199,6 +1201,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof defEff === "number") preview.defEff = defEff;
       if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
       state.attackPreview = preview;
+      state.attackPreviewCacheByKey.set(`${preview.fromKey}->${preview.toKey}`, preview);
       state.attackPreviewPendingKey = "";
       if (state.tileActionMenu.visible && state.tileActionMenu.mode === "single" && state.tileActionMenu.currentTileKey) {
         const selectedTile = state.tiles.get(state.tileActionMenu.currentTileKey);
