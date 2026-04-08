@@ -381,6 +381,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.defensibilityAnimDir = 0;
       state.defensibilityAnimUntil = 0;
       state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
+      state.developmentProcessLimit = (player.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       state.techRootId = player.techRootId as string | undefined;
       state.techIds = (player.techIds as string[]) ?? [];
       state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
@@ -607,6 +608,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.defensibilityAnimDir = 0;
       }
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
+      state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
       state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
@@ -889,6 +891,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.techIds = (msg.techIds as string[]) ?? [];
       state.techChoices = (msg.nextChoices as string[]) ?? [];
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
+      state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
@@ -909,6 +912,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "DOMAIN_UPDATE") {
       state.pendingDomainUnlockId = "";
+      state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
