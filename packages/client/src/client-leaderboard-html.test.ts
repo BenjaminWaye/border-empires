@@ -87,4 +87,41 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).not.toContain("1. You (5.0)");
     expect(html).not.toContain("1. You (4.0)");
   });
+
+  it("hides the self row when the player is already the leader", () => {
+    const html = leaderboardHtml(
+      {
+        overall: [{ id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 }],
+        selfOverall: { id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 },
+        selfByTiles: { id: "me", rank: 1, name: "Nauticus", value: 10 },
+        selfByIncome: { id: "me", rank: 1, name: "Nauticus", value: 5 },
+        selfByTechs: { id: "me", rank: 1, name: "Nauticus", value: 4 },
+        byTiles: [{ id: "me", rank: 1, name: "Nauticus", value: 10 }],
+        byIncome: [{ id: "me", rank: 1, name: "Nauticus", value: 5 }],
+        byTechs: [{ id: "me", rank: 1, name: "Nauticus", value: 4 }]
+      },
+      [
+        {
+          id: "TOWN_CONTROL",
+          name: "Town Control",
+          description: "Hold towns.",
+          leaderPlayerId: "me",
+          leaderName: "Nauticus",
+          progressLabel: "20/87 towns",
+          selfProgressLabel: "20/87 towns",
+          thresholdLabel: "Need 87 towns",
+          holdDurationSeconds: 86400,
+          statusLabel: "Pressure building",
+          conditionMet: false
+        }
+      ],
+      undefined
+    );
+
+    expect(html).not.toContain("1. You | score 10.0");
+    expect(html).not.toContain("1. You (10.0)");
+    expect(html).not.toContain("1. You (5.0)");
+    expect(html).not.toContain("1. You (4.0)");
+    expect(html).not.toContain("You: 20/87 towns");
+  });
 });

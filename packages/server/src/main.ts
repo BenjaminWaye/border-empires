@@ -4700,6 +4700,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       defensiveness: playerDefensiveness(p),
       currentResearch: p.currentResearch,
       availableTechPicks: availableTechPicks(p),
+      developmentProcessLimit: developmentProcessCapacityForPlayer(p.id),
       techChoices: reachableTechs(p),
       techCatalog: activeTechCatalog(p),
       domainIds: [...p.domainIds],
@@ -10486,6 +10487,7 @@ const seasonVictoryObjectivesForPlayer = (playerId: string | undefined): SeasonV
   const totalResourceCounts = worldResourceTileCounts();
   const allIslands = islandLandCounts();
   return objectives.map((objective) => {
+    if (objective.leaderPlayerId === playerId) return objective;
     const selfProgressLabel = seasonVictorySelfProgressLabel(playerId, objective.id, { metrics, totalResourceCounts, allIslands });
     return selfProgressLabel ? { ...objective, selfProgressLabel } : objective;
   });
@@ -11065,6 +11067,7 @@ const sendTechUpdate = (player: Player, status: "started" | "completed"): void =
     techRootId: player.techRootId,
     currentResearch: player.currentResearch,
     techIds: [...player.techIds],
+    developmentProcessLimit: developmentProcessCapacityForPlayer(player.id),
     mods: player.mods,
     modBreakdown: playerModBreakdown(player),
     incomePerMinute: currentIncomePerMinute(player),
@@ -14470,6 +14473,7 @@ app.post("/admin/world/regenerate", async () => {
             visualStyle: empireStyleFromPlayer(player),
             homeTile: playerHomeTile(player),
             availableTechPicks: availableTechPicks(player),
+            developmentProcessLimit: developmentProcessCapacityForPlayer(player.id),
             revealCapacity: revealCapacityForPlayer(player),
             activeRevealTargets: [...getOrInitRevealTargets(player.id)],
             abilityCooldowns: Object.fromEntries(getAbilityCooldowns(player.id)),
@@ -14971,6 +14975,7 @@ app.post("/admin/world/regenerate", async () => {
         JSON.stringify({
           type: "DOMAIN_UPDATE",
           domainIds: [...actor.domainIds],
+          developmentProcessLimit: developmentProcessCapacityForPlayer(actor.id),
           mods: actor.mods,
           modBreakdown: playerModBreakdown(actor),
           incomePerMinute: currentIncomePerMinute(actor),
