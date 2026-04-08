@@ -111,6 +111,16 @@ import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
 import { buildAdminPlayerListPayload } from "./player-admin-payload.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
+import {
+  clearAllAiLatchedIntents,
+  createAiIntentLatchState,
+  latchAiIntent,
+  probeAiLatchedIntent,
+  releaseAiLatchedIntent,
+  reserveAiTarget,
+  type AiLatchedIntent,
+  type AiLatchedIntentKind
+} from "./ai/intent-latch.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
 import {
@@ -1267,6 +1277,7 @@ const runtimeHotspotDiagnostics = (): {
   };
 };
 const frontierSettlementsByPlayer = new Map<string, number[]>();
+const aiIntentLatchState = createAiIntentLatchState();
 const breachShockByTile = new Map<TileKey, { ownerId: string; expiresAt: number }>();
 const settlementDefenseByTile = new Map<TileKey, { ownerId: string; expiresAt: number; mult: number }>();
 const playerBaseMods = new Map<string, { attack: number; defense: number; income: number; vision: number }>();
@@ -1297,6 +1308,7 @@ let activeSeasonTechConfig: SeasonalTechConfig = {
 const pairKeyFor = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
 const ACTION_WINDOW_MS = 5_000;
 const ACTION_LIMIT = 12;
+const AI_INTENT_LATCH_PROVISIONAL_MS = 2_500;
 const pruneActionTimes = (playerId: string, nowMs: number): number[] => {
   const timestamps = actionTimestampsByPlayer.get(playerId);
   if (!timestamps || timestamps.length === 0) return [];
@@ -1920,6 +1932,7 @@ const getBarbarianProgressGain = (tile: Tile): number =>
   tile.ownerId && tile.ownerId !== BARBARIAN_OWNER_ID && (tile.ownershipState === "FRONTIER" || tile.ownershipState === "SETTLED") && (tile.resource || tile.town || tile.fort || tile.siegeOutpost || tile.dockId) ? 2 : 1;
 
 const clearWorldProgressForSeason = (): void => {
+  clearAllAiLatchedIntents(aiIntentLatchState);
   const pending = new Set<PendingCapture>(combatLocks.values());
   for (const pcap of pending) {
     pcap.cancelled = true;
@@ -5169,6 +5182,9 @@ const executeUnifiedGameplayMessage = async (
       return true;
     }
     aiLastActionFailureByPlayer.delete(actor.id);
+    if (queuedExecution && actor.isAi) {
+      latchQueuedAiIntent(actor, "settle_owned_frontier_tile", "settlement", out.resolvesAt ?? now() + SETTLE_MS, key(msg.x, msg.y));
+    }
     sendPlayerUpdate(actor, 0);
     return true;
   }
@@ -5181,6 +5197,9 @@ const executeUnifiedGameplayMessage = async (
       return true;
     }
     aiLastActionFailureByPlayer.delete(actor.id);
+    if (queuedExecution && actor.isAi) {
+      latchQueuedAiIntent(actor, "build_fort_on_exposed_tile", "structure", now() + structureBuildDurationMsForRuntime("FORT"), key(msg.x, msg.y));
+    }
     updateOwnership(msg.x, msg.y, actor.id);
     sendPlayerUpdate(actor, 0);
     return true;
@@ -5191,6 +5210,9 @@ const executeUnifiedGameplayMessage = async (
     if (!out.ok) {
       socket.send(JSON.stringify({ type: "ERROR", code: "OBSERVATORY_BUILD_INVALID", message: out.reason }));
       return true;
+    }
+    if (queuedExecution && actor.isAi) {
+      latchQueuedAiIntent(actor, "build_observatory", "structure", now() + structureBuildDurationMsForRuntime("OBSERVATORY"), key(msg.x, msg.y));
     }
     updateOwnership(msg.x, msg.y, actor.id);
     sendPlayerUpdate(actor, 0);
@@ -5208,6 +5230,15 @@ const executeUnifiedGameplayMessage = async (
       return true;
     }
     aiLastActionFailureByPlayer.delete(actor.id);
+    if (queuedExecution && actor.isAi) {
+      latchQueuedAiIntent(
+        actor,
+        "build_economic_structure",
+        "structure",
+        now() + structureBuildDurationMsForRuntime(msg.structureType),
+        key(msg.x, msg.y)
+      );
+    }
     updateOwnership(msg.x, msg.y, actor.id);
     sendPlayerUpdate(actor, 0);
     return true;
@@ -5319,8 +5350,28 @@ const executeUnifiedGameplayMessage = async (
   ) {
     const result = tryQueueBasicFrontierAction(actor, msg.type, msg.fromX, msg.fromY, msg.toX, msg.toY);
     if (!result.ok) {
+      if (actor.isAi) {
+        recordAiActionFailure(
+          actor,
+          msg.type === "EXPAND" ? "claim_neutral_border_tile" : "attack_enemy_border_tile",
+          result.code,
+          result.message,
+          { x: msg.toX, y: msg.toY }
+        );
+      }
       socket.send(JSON.stringify({ type: "ERROR", code: result.code, message: result.message }));
     } else {
+      aiLastActionFailureByPlayer.delete(actor.id);
+      if (queuedExecution && actor.isAi) {
+        latchQueuedAiIntent(
+          actor,
+          msg.type === "EXPAND" ? "claim_neutral_border_tile" : "attack_enemy_border_tile",
+          "frontier",
+          result.resolvesAt,
+          key(result.target.x, result.target.y),
+          key(result.origin.x, result.origin.y)
+        );
+      }
       socket.send(
         JSON.stringify({
           type: "COMBAT_START",
@@ -7878,6 +7929,106 @@ const enqueueSystemSimulationCommand = (command: SystemSimulationCommand): void 
   simulationService.enqueueSystemCommand(command);
 };
 
+const aiLatchedIntentTargetStillValid = (actor: Player, intent: AiLatchedIntent): boolean => {
+  if (!intent.targetTileKey) return true;
+  const [targetX, targetY] = parseKey(intent.targetTileKey);
+  const target = aiTileLiteAt(targetX, targetY);
+  if (target.terrain !== "LAND") return false;
+  if (intent.actionKey === "claim_neutral_border_tile" || intent.actionKey === "claim_food_border_tile" || intent.actionKey === "claim_scout_border_tile" || intent.actionKey === "claim_scaffold_border_tile" || intent.actionKey === "opening_scout_expand") {
+    return !target.ownerId;
+  }
+  if (intent.actionKey === "attack_barbarian_border_tile") {
+    return target.ownerId === BARBARIAN_OWNER_ID;
+  }
+  if (intent.actionKey === "attack_enemy_border_tile") {
+    return Boolean(target.ownerId && target.ownerId !== actor.id && target.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(target.ownerId));
+  }
+  if (intent.actionKey === "settle_owned_frontier_tile") {
+    return target.ownerId === actor.id && target.ownershipState === "FRONTIER";
+  }
+  if (intent.actionKey === "build_fort_on_exposed_tile") {
+    return target.ownerId === actor.id && !fortsByTile.has(intent.targetTileKey);
+  }
+  if (intent.actionKey === "build_economic_structure") {
+    return target.ownerId === actor.id && !economicStructuresByTile.has(intent.targetTileKey);
+  }
+  return true;
+};
+
+const latchQueuedAiIntent = (
+  actor: Player,
+  actionKey: string,
+  kind: AiLatchedIntentKind,
+  wakeAt: number,
+  targetTileKey?: TileKey,
+  originTileKey?: TileKey
+): void => {
+  const startedAt = now();
+  latchAiIntent(aiIntentLatchState, {
+    playerId: actor.id,
+    actionKey,
+    kind,
+    startedAt,
+    wakeAt,
+    territoryVersion: aiTerritoryVersionForPlayer(actor.id),
+    ...(targetTileKey ? { targetTileKey } : {}),
+    ...(originTileKey ? { originTileKey } : {})
+  });
+  if (targetTileKey) {
+    reserveAiTarget(
+      aiIntentLatchState,
+      {
+        playerId: actor.id,
+        actionKey,
+        tileKey: targetTileKey,
+        createdAt: startedAt,
+        wakeAt
+      },
+      startedAt
+    );
+  }
+};
+
+const queueAiActionWithIntentLatch = (
+  actor: Player,
+  command: SimulationCommand,
+  {
+    actionKey,
+    kind,
+    expectedDurationMs,
+    targetTileKey,
+    originTileKey
+  }: {
+    actionKey: string;
+    kind: AiLatchedIntentKind;
+    expectedDurationMs: number;
+    targetTileKey?: TileKey;
+    originTileKey?: TileKey;
+  }
+): boolean => {
+  const nowMs = now();
+  const provisionalWakeAt = nowMs + Math.max(250, Math.min(AI_INTENT_LATCH_PROVISIONAL_MS, expectedDurationMs));
+  if (
+    targetTileKey &&
+    !reserveAiTarget(
+      aiIntentLatchState,
+      {
+        playerId: actor.id,
+        actionKey,
+        tileKey: targetTileKey,
+        createdAt: nowMs,
+        wakeAt: provisionalWakeAt
+      },
+      nowMs
+    )
+  ) {
+    return false;
+  }
+  latchQueuedAiIntent(actor, actionKey, kind, provisionalWakeAt, targetTileKey, originTileKey);
+  executeSimulationCommand(actor, command);
+  return true;
+};
+
 const executeAiGoapAction = (
   actor: Player,
   actionKey: string,
@@ -7918,8 +8069,13 @@ const executeAiGoapAction = (
   if (actionKey === "claim_neutral_border_tile") {
     const candidate = cachedNeutralExpandCandidate();
     if (!candidate) return false;
-    executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
+      actionKey,
+      kind: "frontier",
+      expectedDurationMs: frontierClaimDurationMsAt(candidate.to.x, candidate.to.y),
+      targetTileKey: key(candidate.to.x, candidate.to.y),
+      originTileKey: key(candidate.from.x, candidate.from.y)
+    });
   }
   if (actionKey === "claim_food_border_tile") {
     const candidate =
@@ -7928,16 +8084,26 @@ const executeAiGoapAction = (
       candidates?.anyNeutralExpand ??
       cachedFrontierPlanningSummary().bestAnyNeutralExpand;
     if (!candidate) return false;
-    executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
+      actionKey,
+      kind: "frontier",
+      expectedDurationMs: frontierClaimDurationMsAt(candidate.to.x, candidate.to.y),
+      targetTileKey: key(candidate.to.x, candidate.to.y),
+      originTileKey: key(candidate.from.x, candidate.from.y)
+    });
   }
   if (actionKey === "claim_scout_border_tile") {
     const candidate =
       candidates?.scoutExpand ??
       bestAiScoutExpand(actor, territorySummary);
     if (!candidate) return false;
-    executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
+      actionKey,
+      kind: "frontier",
+      expectedDurationMs: frontierClaimDurationMsAt(candidate.to.x, candidate.to.y),
+      targetTileKey: key(candidate.to.x, candidate.to.y),
+      originTileKey: key(candidate.from.x, candidate.from.y)
+    });
   }
   if (actionKey === "claim_scaffold_border_tile") {
     const candidate =
@@ -7946,15 +8112,25 @@ const executeAiGoapAction = (
       candidates?.anyNeutralExpand ??
       cachedFrontierPlanningSummary().bestAnyNeutralExpand;
     if (!candidate) return false;
-    executeSimulationCommand(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
+      actionKey,
+      kind: "frontier",
+      expectedDurationMs: frontierClaimDurationMsAt(candidate.to.x, candidate.to.y),
+      targetTileKey: key(candidate.to.x, candidate.to.y),
+      originTileKey: key(candidate.from.x, candidate.from.y)
+    });
   }
   if (actionKey === "attack_barbarian_border_tile") {
     const candidate =
       candidates?.barbarianAttack ?? bestAiFrontierAction(actor, "ATTACK", (tile) => tile.ownerId === BARBARIAN_OWNER_ID, victoryPath, territorySummary);
     if (!candidate) return false;
-    executeSimulationCommand(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
+      actionKey,
+      kind: "frontier",
+      expectedDurationMs: COMBAT_LOCK_MS,
+      targetTileKey: key(candidate.to.x, candidate.to.y),
+      originTileKey: key(candidate.from.x, candidate.from.y)
+    });
   }
   if (actionKey === "attack_enemy_border_tile") {
     const candidate =
@@ -7969,8 +8145,13 @@ const executeAiGoapAction = (
         territorySummary
       );
     if (!candidate) return false;
-    executeSimulationCommand(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
+      actionKey,
+      kind: "frontier",
+      expectedDurationMs: COMBAT_LOCK_MS,
+      targetTileKey: key(candidate.to.x, candidate.to.y),
+      originTileKey: key(candidate.from.x, candidate.from.y)
+    });
   }
   if (actionKey === "settle_owned_frontier_tile") {
     const tile =
@@ -7980,8 +8161,12 @@ const executeAiGoapAction = (
       candidates?.settlementTile ??
       bestAiSettlementTile(actor, victoryPath, territorySummary);
     if (!tile) return false;
-    executeSimulationCommand(actor, { type: "SETTLE", x: tile.x, y: tile.y });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "SETTLE", x: tile.x, y: tile.y }, {
+      actionKey,
+      kind: "settlement",
+      expectedDurationMs: SETTLE_MS,
+      targetTileKey: key(tile.x, tile.y)
+    });
   }
   if (actionKey === "build_fort_on_exposed_tile") {
     const tile = candidates?.fortAnchor ?? bestAiFortTile(actor, territorySummary);
@@ -7989,14 +8174,22 @@ const executeAiGoapAction = (
     if (!getPlayerEffectsForPlayer(actor.id).unlockForts) return false;
     if ((getOrInitStrategicStocks(actor.id).IRON ?? 0) < FORT_BUILD_IRON_COST) return false;
     if (actor.points < structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT"))) return false;
-    executeSimulationCommand(actor, { type: "BUILD_FORT", x: tile.x, y: tile.y });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "BUILD_FORT", x: tile.x, y: tile.y }, {
+      actionKey,
+      kind: "structure",
+      expectedDurationMs: structureBuildDurationMsForRuntime("FORT"),
+      targetTileKey: key(tile.x, tile.y)
+    });
   }
   if (actionKey === "build_economic_structure") {
     const candidate = candidates?.economicBuild ?? bestAiEconomicStructure(actor, territorySummary);
     if (!candidate) return false;
-    executeSimulationCommand(actor, { type: "BUILD_ECONOMIC_STRUCTURE", x: candidate.tile.x, y: candidate.tile.y, structureType: candidate.structureType });
-    return true;
+    return queueAiActionWithIntentLatch(actor, { type: "BUILD_ECONOMIC_STRUCTURE", x: candidate.tile.x, y: candidate.tile.y, structureType: candidate.structureType }, {
+      actionKey,
+      kind: "structure",
+      expectedDurationMs: structureBuildDurationMsForRuntime(candidate.structureType),
+      targetTileKey: key(candidate.tile.x, candidate.tile.y)
+    });
   }
   return false;
 };
@@ -8143,6 +8336,7 @@ const recordAiActionFailure = (
   reason: string,
   coords?: { x: number; y: number }
 ): void => {
+  releaseAiLatchedIntent(aiIntentLatchState, actor.id);
   aiLastActionFailureByPlayer.set(actor.id, {
     at: now(),
     actionKey,
@@ -8171,6 +8365,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   if (!actor.isAi) return;
   actor.lastActiveAt = now();
   if (actor.T <= 0 || actor.territoryTiles.size === 0 || actor.respawnPending) {
+    releaseAiLatchedIntent(aiIntentLatchState, actor.id);
     actor.respawnPending = false;
     spawnPlayer(actor);
     setAiTurnDebug(actor, "respawned");
@@ -8178,11 +8373,39 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   }
   const pendingCaptures = pendingCapturesByAttacker(actor.id).length;
   const pendingSettlement = hasPendingSettlementForPlayer(actor.id);
+  const latchedIntent = probeAiLatchedIntent(aiIntentLatchState, {
+    playerId: actor.id,
+    nowMs: now(),
+    territoryVersion: aiTerritoryVersionForPlayer(actor.id),
+    targetStillValid: (intent) => aiLatchedIntentTargetStillValid(actor, intent)
+  });
   if (pendingCaptures > 0) {
     setAiTurnDebug(actor, "waiting_on_pending_capture_resolution", {
       details: {
         pendingCaptures,
         pendingSettlement
+      }
+    });
+    return;
+  }
+  if (pendingSettlement) {
+    setAiTurnDebug(actor, "waiting_on_pending_settlement_resolution", {
+      details: {
+        pendingCaptures,
+        pendingSettlement
+      }
+    });
+    return;
+  }
+  if (latchedIntent.status === "waiting") {
+    setAiTurnDebug(actor, "waiting_on_latched_intent", {
+      goapActionKey: latchedIntent.intent.actionKey,
+      details: {
+        latchedActionKey: latchedIntent.intent.actionKey,
+        latchedKind: latchedIntent.intent.kind,
+        latchedWakeAt: latchedIntent.intent.wakeAt,
+        latchedTargetTileKey: latchedIntent.intent.targetTileKey,
+        latchedOriginTileKey: latchedIntent.intent.originTileKey
       }
     });
     return;
@@ -8332,6 +8555,16 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
       opening &&
         tryQueueBasicFrontierAction(actor, "EXPAND", opening.from.x, opening.from.y, opening.to.x, opening.to.y)
     );
+    if (executed && opening) {
+      latchQueuedAiIntent(
+        actor,
+        decision.actionKey,
+        "frontier",
+        now() + frontierClaimDurationMsAt(opening.to.x, opening.to.y),
+        key(opening.to.x, opening.to.y),
+        key(opening.from.x, opening.from.y)
+      );
+    }
     markAiTurnPhase("execute", executeStartedAt);
     const totalElapsedMs = now() - turnStartedAt;
     recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason, actionKey: decision.actionKey });
@@ -12598,6 +12831,7 @@ const loadLegacySnapshot = (): SnapshotState | undefined => {
 const hydrateSnapshotState = (raw: SnapshotState): void => {
   const hydrateStartedAt = Date.now();
   let phaseStartedAt = hydrateStartedAt;
+  clearAllAiLatchedIntents(aiIntentLatchState);
   const logHydratePhase = (phase: string, extra: Record<string, number> = {}): void => {
     if (!runtimeState.appRef) {
       phaseStartedAt = Date.now();
