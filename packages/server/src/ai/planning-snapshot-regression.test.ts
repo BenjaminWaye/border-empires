@@ -111,6 +111,9 @@ describe("buildAiPlanningSnapshot regression guard", () => {
 
     const executeBody = functionBody(serverMainSource(), "executeAiGoapAction");
     expect(executeBody).toContain("const cachedFrontierPlanningSummary = (): AiFrontierPlanningSummary =>");
+    expect(executeBody).toContain("queueAiActionWithIntentLatch(actor, { type: \"EXPAND\"");
+    expect(executeBody).toContain("queueAiActionWithIntentLatch(actor, { type: \"ATTACK\"");
+    expect(executeBody).toContain("queueAiActionWithIntentLatch(actor, { type: \"SETTLE\"");
     expect(executeBody).toContain("frontierPlanningSummaryForPlayer(actor, territorySummary ?? collectAiTerritorySummary(actor))");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestIslandExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestEconomicExpand");

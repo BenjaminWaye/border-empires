@@ -46,6 +46,13 @@ describe("AI budget regression guard", () => {
     expect(body).toContain("recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: decision.reason, actionKey: decision.actionKey });");
   });
 
+  it("skips full AI planning while pending work or a latched intent is still active", () => {
+    const body = functionBody(serverMainSource(), "runAiTurn");
+    expect(body).toContain("const latchedIntent = probeAiLatchedIntent(aiIntentLatchState");
+    expect(body).toContain('setAiTurnDebug(actor, "waiting_on_pending_settlement_resolution"');
+    expect(body).toContain('setAiTurnDebug(actor, "waiting_on_latched_intent"');
+  });
+
   it("exposes AI budget diagnostics in runtime debug and dashboard html", () => {
     const source = serverMainSource();
     const dashboardBody = functionBody(source, "runtimeDashboardPayload");
