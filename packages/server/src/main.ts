@@ -2170,7 +2170,8 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
     tile.observatory = {
       ownerId: observatory.ownerId,
       status: observatory.status,
-      ...(observatory.completesAt !== undefined ? { completesAt: observatory.completesAt } : {})
+      ...(observatory.completesAt !== undefined ? { completesAt: observatory.completesAt } : {}),
+      ...(observatory.cooldownUntil !== undefined ? { cooldownUntil: observatory.cooldownUntil } : {})
     };
   }
   const siegeOutpost = siegeOutpostsByTile.get(tk);
@@ -2452,7 +2453,8 @@ const playerTile = (x: number, y: number): Tile => {
     const status = observatoryStatusForTile(observatory.ownerId, observatory.tileKey);
     tile.observatory = {
       ownerId: observatory.ownerId,
-      status
+      status,
+      ...(observatory.cooldownUntil !== undefined ? { cooldownUntil: observatory.cooldownUntil } : {})
     };
     if ((status === "under_construction" || status === "removing") && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
   }
@@ -13044,6 +13046,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       status: observatory.status ?? "active"
     };
     if (observatory.completesAt !== undefined) normalized.completesAt = observatory.completesAt;
+    if (observatory.cooldownUntil !== undefined) normalized.cooldownUntil = observatory.cooldownUntil;
     observatoriesByTile.set(observatory.tileKey, normalized);
     trackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, observatory.tileKey);
   }
