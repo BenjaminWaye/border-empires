@@ -457,6 +457,7 @@ import { createServerWorldgenShards } from "./server-worldgen-shards.js";
 import { createServerWorldgenTerrain } from "./server-worldgen-terrain.js";
 import { createServerWorldgenTowns } from "./server-worldgen-towns.js";
 import { supportedFrontierUsesSettledDefense } from "./frontier-defense.js";
+import { resolveFailedBarbarianDefenseOutcome } from "./barbarian-defense.js";
 import { createServerSeasonTech } from "./server-season-tech.js";
 import { createServerSettlementFlow } from "./server-settlement-flow.js";
 import { createServerTownEconomyRuntime } from "./server-town-economy-runtime.js";
@@ -4421,16 +4422,18 @@ const applyFailedAttackTerritoryOutcome = (
 ): { resultChanges: CombatResultChange[]; originLost: boolean } => {
   const fortHeldOrigin = originTileHeldByActiveFort(actorId, originTileKey);
   if (defenderIsBarbarian) {
-    if (!fortHeldOrigin) updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
-    updateOwnership(to.x, to.y, undefined);
+    const failedOutcome = resolveFailedBarbarianDefenseOutcome({
+      fortHeldOrigin,
+      origin: { x: from.x, y: from.y },
+      target: { x: to.x, y: to.y }
+    });
+    if (failedOutcome.originLost) {
+      updateOwnership(from.x, from.y, BARBARIAN_OWNER_ID, "BARBARIAN");
+      updateOwnership(to.x, to.y, undefined);
+    }
     return {
-      originLost: !fortHeldOrigin,
-      resultChanges: fortHeldOrigin
-        ? [{ x: to.x, y: to.y }]
-        : [
-            { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" },
-            { x: to.x, y: to.y }
-          ]
+      originLost: failedOutcome.originLost,
+      resultChanges: failedOutcome.resultChanges
     };
   }
   if (!defenderOwnerId || fortHeldOrigin) return { resultChanges: [], originLost: false };
@@ -4906,12 +4909,11 @@ const tryQueueBasicFrontierAction = (
       if (win) return [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }];
       const fortHeldOrigin = originTileHeldByActiveFort(actor.id, fk);
       if (defenderIsBarbarian) {
-        return fortHeldOrigin
-          ? [{ x: to.x, y: to.y }]
-          : [
-              { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" as const },
-              { x: to.x, y: to.y }
-            ];
+        return resolveFailedBarbarianDefenseOutcome({
+          fortHeldOrigin,
+          origin: { x: from.x, y: from.y },
+          target: { x: to.x, y: to.y }
+        }).resultChanges;
       }
       if (defender) return fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" as const }];
       return [];
@@ -5017,8 +5019,13 @@ const tryQueueBasicFrontierAction = (
       resultChanges = failedOutcome.resultChanges;
       if (barbarianAgent) {
         barbarianAgent.progress += getBarbarianProgressGain(from);
-        barbarianAgent.x = from.x;
-        barbarianAgent.y = from.y;
+        const defenderTile = resolveFailedBarbarianDefenseOutcome({
+          fortHeldOrigin: !failedOutcome.originLost,
+          origin: { x: from.x, y: from.y },
+          target: { x: to.x, y: to.y }
+        }).defenderTile;
+        barbarianAgent.x = defenderTile.x;
+        barbarianAgent.y = defenderTile.y;
         barbarianAgent.lastActionAt = now();
         barbarianAgent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
         upsertBarbarianAgent(barbarianAgent);
@@ -15768,8 +15775,13 @@ app.post("/admin/world/regenerate", async () => {
           if (barbarianAgent) {
             const progressBefore = barbarianAgent.progress;
             barbarianAgent.progress += getBarbarianProgressGain(from);
-            barbarianAgent.x = from.x;
-            barbarianAgent.y = from.y;
+            const defenderTile = resolveFailedBarbarianDefenseOutcome({
+              fortHeldOrigin: !failedOutcome.originLost,
+              origin: { x: from.x, y: from.y },
+              target: { x: to.x, y: to.y }
+            }).defenderTile;
+            barbarianAgent.x = defenderTile.x;
+            barbarianAgent.y = defenderTile.y;
             barbarianAgent.lastActionAt = now();
             barbarianAgent.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
             upsertBarbarianAgent(barbarianAgent);
