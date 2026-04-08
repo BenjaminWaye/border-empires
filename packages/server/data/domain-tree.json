@@ -65,12 +65,11 @@
       "id": "frontier-bureau",
       "tier": 2,
       "name": "Frontier Bureau",
-      "description": "Expansion is coordinated centrally, with safer exposed borders.",
+      "description": "Expansion is coordinated centrally, and supported frontier fights like settled land.",
       "requiresTechId": "logistics",
       "cost": { "gold": 14000, "food": 220, "shard": 1 },
       "effects": {
-        "developmentProcessCapacityAdd": 1,
-        "frontierDefenseAdd": 10
+        "developmentProcessCapacityAdd": 1
       }
     },
     {
@@ -139,11 +138,12 @@
       "id": "war-foundries",
       "tier": 3,
       "name": "War Foundries",
-      "description": "Siege pressure and offensive industry start to compound together.",
+      "description": "Siege pressure and army quality start to compound together.",
       "requiresTechId": "organized-supply",
       "cost": { "gold": 24000, "iron": 340, "shard": 2 },
       "mods": {
-        "attack": 1.1
+        "attack": 1.1,
+        "defense": 1.1
       },
       "effects": {
         "outpostAttackMult": 1.15,
@@ -270,11 +270,12 @@
       "id": "iron-dominion",
       "tier": 5,
       "name": "Iron Dominion",
-      "description": "Military force becomes your primary language.",
+      "description": "Military force becomes your primary language in attack and defense alike.",
       "requiresTechId": "steelworking",
       "cost": { "gold": 70000, "iron": 800, "shard": 5 },
       "mods": {
-        "attack": 1.18
+        "attack": 1.18,
+        "defense": 1.18
       },
       "effects": {
         "attackVsFortsMult": 1.12,
