@@ -474,15 +474,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Overload Fur Synth",
         detail: deps.buildDetailTextForAction("overload_fur_synthesizer", tile),
         ...tileActionAvailability(
-          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
+          state.techIds.includes("overload-protocols") && state.gold >= 12500 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
           !state.techIds.includes("overload-protocols")
             ? "Requires Overload Protocols"
             : tile.economicStructure.status === "under_construction"
               ? "Fur Synthesizer still building"
               : downtimeRemainingMs > 0
                 ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-                : "Need 1000 gold",
-          "1000 gold • instant 25 SUPPLY • 24h shutdown"
+                : "Need 12500 gold",
+          "12500 gold • instant 15 SUPPLY • 24h shutdown"
         )
       });
     }
@@ -493,15 +493,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Overload Ironworks",
         detail: deps.buildDetailTextForAction("overload_ironworks", tile),
         ...tileActionAvailability(
-          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
+          state.techIds.includes("overload-protocols") && state.gold >= 12500 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
           !state.techIds.includes("overload-protocols")
             ? "Requires Overload Protocols"
             : tile.economicStructure.status === "under_construction"
               ? "Ironworks still building"
               : downtimeRemainingMs > 0
                 ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-                : "Need 1000 gold",
-          "1000 gold • instant 25 IRON • 24h shutdown"
+                : "Need 12500 gold",
+          "12500 gold • instant 15 IRON • 24h shutdown"
         )
       });
     }
@@ -512,15 +512,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Overload Synthesizer",
         detail: deps.buildDetailTextForAction("overload_crystal_synthesizer", tile),
         ...tileActionAvailability(
-          state.techIds.includes("overload-protocols") && state.gold >= 1000 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
+          state.techIds.includes("overload-protocols") && state.gold >= 12500 && tile.economicStructure.status !== "under_construction" && downtimeRemainingMs <= 0,
           !state.techIds.includes("overload-protocols")
             ? "Requires Overload Protocols"
             : tile.economicStructure.status === "under_construction"
               ? "Synthesizer still building"
               : downtimeRemainingMs > 0
                 ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-                : "Need 1000 gold",
-          "1000 gold • instant 16 CRYSTAL • 24h shutdown"
+                : "Need 12500 gold",
+          "12500 gold • instant 10 CRYSTAL • 24h shutdown"
         )
       });
     }

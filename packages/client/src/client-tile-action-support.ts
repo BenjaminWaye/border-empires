@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
 import { OBSERVATORY_PROTECTION_RADIUS } from "./client-constants.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "./client-types.js";
@@ -62,6 +62,12 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
     default:
       return undefined;
   }
+};
+
+export const shouldOptimisticallyBuildOnSelectedTile = (actionId: TileActionDef["id"], tile: Tile): boolean => {
+  const structureType = structureTypeForTileAction(actionId);
+  if (!structureType) return true;
+  return !(tile.town && isTownSupportPlacementStructure(structureType));
 };
 
 export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => {
