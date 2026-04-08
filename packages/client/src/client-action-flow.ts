@@ -81,6 +81,7 @@ import {
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
   isTileOwnedByAlly as isTileOwnedByAllyFromModule,
   requiredTechForTileAction as requiredTechForTileActionFromModule,
+  shouldOptimisticallyBuildOnSelectedTile as shouldOptimisticallyBuildOnSelectedTileFromModule,
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
@@ -307,6 +308,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendGameMessage
     });
 
+  const optimisticStructureBuildForAction = (actionId: TileActionDef["id"], tile: Tile, kind: OptimisticStructureKind) => (): void => {
+    if (!shouldOptimisticallyBuildOnSelectedTile(actionId, tile)) return;
+    applyOptimisticStructureBuild(tile.x, tile.y, kind);
+  };
+
   const processDevelopmentQueue = (): boolean =>
     processDevelopmentQueueFromModule(state, {
       ws,
@@ -490,6 +496,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const tileActionIsBuilding = (id: TileActionDef["id"]): boolean => tileActionIsBuildingFromModule(id);
   const requiredTechForTileAction = (actionId: TileActionDef["id"]): string | undefined => requiredTechForTileActionFromModule(actionId);
   const hideTechLockedTileAction = (action: TileActionDef): boolean => hideTechLockedTileActionFromModule(action, state);
+  const shouldOptimisticallyBuildOnSelectedTile = (actionId: TileActionDef["id"], tile: Tile): boolean =>
+    shouldOptimisticallyBuildOnSelectedTileFromModule(actionId, tile);
   const splitTileActionsIntoTabs = (actions: TileActionDef[]): Pick<TileMenuView, "actions" | "buildings" | "crystal"> =>
     splitTileActionsIntoTabsFromModule(actions, state);
   const isTileOwnedByAlly = (tile: Tile): boolean => isTileOwnedByAllyFromModule(tile, state);
@@ -923,21 +931,21 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         optimisticKind: "MINE"
       });
     if (actionId === "build_market")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "MARKET"), {
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "MARKET" }, optimisticStructureBuildForAction(actionId, selected, "MARKET"), {
         x: selected.x,
         y: selected.y,
         label: `Market at (${selected.x}, ${selected.y})`,
         optimisticKind: "MARKET"
       });
     if (actionId === "build_granary")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "GRANARY"), {
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GRANARY" }, optimisticStructureBuildForAction(actionId, selected, "GRANARY"), {
         x: selected.x,
         y: selected.y,
         label: `Granary at (${selected.x}, ${selected.y})`,
         optimisticKind: "GRANARY"
       });
     if (actionId === "build_bank")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "BANK"), {
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, optimisticStructureBuildForAction(actionId, selected, "BANK"), {
         x: selected.x,
         y: selected.y,
         label: `Bank at (${selected.x}, ${selected.y})`,
@@ -951,14 +959,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         optimisticKind: "AIRPORT"
       });
     if (actionId === "build_caravanary")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CARAVANARY"), {
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, optimisticStructureBuildForAction(actionId, selected, "CARAVANARY"), {
         x: selected.x,
         y: selected.y,
         label: `Caravanary at (${selected.x}, ${selected.y})`,
         optimisticKind: "CARAVANARY"
       });
     if (actionId === "build_fur_synthesizer")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUR_SYNTHESIZER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FUR_SYNTHESIZER"), {
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUR_SYNTHESIZER" }, optimisticStructureBuildForAction(actionId, selected, "FUR_SYNTHESIZER"), {
         x: selected.x,
         y: selected.y,
         label: `Fur Synthesizer at (${selected.x}, ${selected.y})`,
@@ -967,11 +975,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "upgrade_fur_synthesizer")
       sendDevelopmentBuild(
         { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_FUR_SYNTHESIZER" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "ADVANCED_FUR_SYNTHESIZER"),
+        optimisticStructureBuildForAction(actionId, selected, "ADVANCED_FUR_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Fur Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_FUR_SYNTHESIZER" }
       );
     if (actionId === "build_ironworks")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IRONWORKS"), {
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IRONWORKS" }, optimisticStructureBuildForAction(actionId, selected, "IRONWORKS"), {
         x: selected.x,
         y: selected.y,
         label: `Ironworks at (${selected.x}, ${selected.y})`,
@@ -980,23 +988,23 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "upgrade_ironworks")
       sendDevelopmentBuild(
         { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_IRONWORKS" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "ADVANCED_IRONWORKS"),
+        optimisticStructureBuildForAction(actionId, selected, "ADVANCED_IRONWORKS"),
         { x: selected.x, y: selected.y, label: `Advanced Ironworks at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_IRONWORKS" }
       );
     if (actionId === "build_crystal_synthesizer")
       sendDevelopmentBuild(
         { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CRYSTAL_SYNTHESIZER" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "CRYSTAL_SYNTHESIZER"),
+        optimisticStructureBuildForAction(actionId, selected, "CRYSTAL_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Crystal Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "CRYSTAL_SYNTHESIZER" }
       );
     if (actionId === "upgrade_crystal_synthesizer")
       sendDevelopmentBuild(
         { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_CRYSTAL_SYNTHESIZER" },
-        () => applyOptimisticStructureBuild(selected.x, selected.y, "ADVANCED_CRYSTAL_SYNTHESIZER"),
+        optimisticStructureBuildForAction(actionId, selected, "ADVANCED_CRYSTAL_SYNTHESIZER"),
         { x: selected.x, y: selected.y, label: `Advanced Crystal Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
       );
     if (actionId === "build_fuel_plant")
-      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUEL_PLANT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FUEL_PLANT"), {
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUEL_PLANT" }, optimisticStructureBuildForAction(actionId, selected, "FUEL_PLANT"), {
         x: selected.x,
         y: selected.y,
         label: `Fuel Plant at (${selected.x}, ${selected.y})`,
