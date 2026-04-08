@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt } from "@border-empires/shared";
+import { WORLD_WIDTH, grassShadeAt, landBiomeAt } from "@border-empires/shared";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
   computeDockSeaRoute as computeDockSeaRouteFromModule,

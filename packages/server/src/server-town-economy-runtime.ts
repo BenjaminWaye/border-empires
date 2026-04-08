@@ -7,7 +7,6 @@ type TownEconomyRuntimeDeps = Record<string, any>;
 export const createServerTownEconomyRuntime = (deps: TownEconomyRuntimeDeps) => {
   const {
     now,
-    key,
     parseKey,
     resourceAt,
     players,

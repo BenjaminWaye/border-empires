@@ -21,7 +21,6 @@ import type {
   TechInfo,
   Tile,
   TruceRequest,
-  TileActionDef,
   TileMenuTab,
   TileTimedProgress
 } from "./client-types.js";

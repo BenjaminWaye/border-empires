@@ -32,7 +32,6 @@ import {
   queueDevelopmentAction as queueDevelopmentActionFromModule,
   queueSpecificTargets as queueSpecificTargetsFromModule,
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
-  queuedBuildEntryForTile as queuedBuildEntryForTileFromModule,
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
   reconcileActionQueue as reconcileActionQueueFromModule,
   requestAttackPreviewForHover as requestAttackPreviewForHoverFromModule,
@@ -116,7 +115,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     state,
     ws,
     wsUrl,
-    canvas,
     techPickEl,
     mobileTechPickEl,
     tileActionMenuEl,
@@ -145,7 +143,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hideHoldBuildMenu: hideHoldBuildMenuFromDeps,
     playerNameForOwner,
     ownerSpawnShieldActive,
-    hasCollectableYield,
     worldTileRawFromPointer,
     computeDragPreview,
     showCaptureAlert,
@@ -159,7 +156,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     terrainLabel,
     displayTownGoldPerMinute,
     tileHistoryLines,
-    growthModifierPercentLabel,
     structureGoldCost,
     structureCostText
   } = deps;
@@ -554,8 +550,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     queuedDevelopmentEntryForTileFromModule(state, tileKey);
 
   const queuedSettlementIndexForTile = (tileKey: string): number => queuedSettlementIndexForTileFromModule(state, tileKey);
-
-  const queuedBuildEntryForTile = (tileKey: string) => queuedBuildEntryForTileFromModule(state, tileKey);
 
   const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud });
 

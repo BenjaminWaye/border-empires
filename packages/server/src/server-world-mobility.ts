@@ -161,7 +161,6 @@ export const createServerWorldMobility = (deps: WorldMobilityDeps) => {
   ];
 
   const isOccupiedPlayerTile = (tile: Tile): boolean => Boolean(tile.ownerId && tile.ownerId !== BARBARIAN_OWNER_ID && (tile.ownershipState ?? "SETTLED") !== undefined && ["FRONTIER", "SETTLED"].includes(tile.ownershipState ?? "SETTLED"));
-  const isValuableTile = (tile: Tile): boolean => Boolean(tile.resource || tile.town || tile.fort || tile.siegeOutpost || tile.dockId);
   const isBarbarianPriorityValueTile = (tile: Tile): boolean => Boolean(tile.resource || tile.town || tile.siegeOutpost || tile.dockId);
 
   const getBarbarianTargetPriority = (tile: Tile): number | null => {

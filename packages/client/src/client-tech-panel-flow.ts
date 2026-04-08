@@ -13,7 +13,7 @@ import {
   selectedTechInfo as selectedTechInfoFromModule
 } from "./client-tech-detail-ui.js";
 import type { ClientState } from "./client-state.js";
-import type { DomainInfo, TechInfo } from "./client-types.js";
+import type { TechInfo } from "./client-types.js";
 import type { StructureInfoKey } from "./client-map-display.js";
 
 type TechPanelDeps = {

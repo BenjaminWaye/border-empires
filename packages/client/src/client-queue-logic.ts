@@ -114,7 +114,7 @@ export const clearSettlementProgressByKey = (
 };
 
 export const clearSettlementProgressForTile = (
-  state: ClientState,
+  _state: ClientState,
   x: number,
   y: number,
   deps: {
@@ -354,7 +354,7 @@ export const requestSettlement = (
 };
 
 export const sendDevelopmentBuild = (
-  state: ClientState,
+  _state: ClientState,
   payload: QueuedBuildPayload,
   optimistic: () => void,
   opts: {

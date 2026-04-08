@@ -1,18 +1,15 @@
 import {
   type BuildableStructureType,
   FORT_BUILD_MS,
-  FORT_DEFENSE_MULT,
   FRONTIER_CLAIM_COST,
   LIGHT_OUTPOST_ATTACK_MULT,
   LIGHT_OUTPOST_BUILD_MS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST,
-  SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_MS,
   WOODEN_FORT_BUILD_MS,
   WOODEN_FORT_DEFENSE_MULT,
   structureBuildDurationMs,
-  structurePlacementMetadata,
   structureShowsOnTile,
   terrainAt
 } from "@border-empires/shared";
@@ -285,9 +282,6 @@ const buildShowsOnTile = (
     supportedDockCount
   });
 
-const buildNeedsBorderOnly = (structureType: BuildableStructureId): boolean =>
-  structurePlacementMetadata(structureType).requiresBorder === "border";
-
 export const isOwnedBorderTile = (
   state: ClientState,
   x: number,
@@ -447,7 +441,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.ownerId === state.me) {
     const slots = deps.developmentSlotSummary();
     const out: TileActionDef[] = [];
-    const isSettlementTile = tile.town?.populationTier === "SETTLEMENT";
     const y = (tile as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
     const hasYield =
       Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));

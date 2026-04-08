@@ -30,7 +30,6 @@ const neighborOffsets: ReadonlyArray<readonly [dx: number, dy: number]> = [
 const bots: Bot[] = [];
 let actionsSent = 0;
 let actionErrors = 0;
-const pickRandom = <T>(arr: T[]): T | undefined => (arr.length ? arr[Math.floor(Math.random() * arr.length)] : undefined);
 const pickRandomOwnedTile = (bot: Bot): Tile | undefined => {
   if (bot.owned.size === 0) return undefined;
   const targetIndex = Math.floor(Math.random() * bot.owned.size);
