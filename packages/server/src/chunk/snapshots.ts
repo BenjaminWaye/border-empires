@@ -333,7 +333,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     const loadShedLevel = deps.runtimeLoadShedLevel();
     if (batchSizeOverride !== undefined) return Math.max(1, batchSizeOverride);
     if (loadShedLevel !== "normal") return 1;
-    if (followUpStage || chunkCoords.length > deps.chunkSnapshotBatchSize) return 1;
+    if (followUpStage || chunkCoords.length > DIRECT_CHUNK_SERIALIZE_MAX || chunkCoords.length > deps.chunkSnapshotBatchSize) return 1;
     return Math.max(1, Math.min(deps.chunkStreamBatchSize, deps.chunkSnapshotBatchSize));
   };
 
@@ -435,9 +435,10 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         phases.batches += 1;
       }
       const loadShedLevel = deps.runtimeLoadShedLevel();
+      const streamedMultipleChunks = chunkCoords.length > 1;
       const shouldYield =
         index < chunkCoords.length &&
-        (deps.now() - batchStartedAt >= deps.chunkSnapshotBudgetMs || loadShedLevel !== "normal");
+        (deps.now() - batchStartedAt >= deps.chunkSnapshotBudgetMs || loadShedLevel !== "normal" || streamedMultipleChunks);
       if (index < chunkCoords.length) {
         setTimeout(() => {
           void streamNext();
