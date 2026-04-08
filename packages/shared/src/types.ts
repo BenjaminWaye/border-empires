@@ -237,7 +237,7 @@ export interface Tile {
   };
   fort?: { ownerId: PlayerId; status: FortStatus; completesAt?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; completesAt?: number };
-  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number };
+  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; cooldownUntil?: number };
   economicStructure?: {
     ownerId: PlayerId;
     type: EconomicStructureType;
@@ -428,6 +428,7 @@ export interface Observatory {
   tileKey: TileKey;
   status: ObservatoryStatus;
   completesAt?: number;
+  cooldownUntil?: number;
   previousStatus?: "active" | "inactive";
 }
 

@@ -308,6 +308,7 @@ export interface Observatory {
   tileKey: TileKey;
   status: "under_construction" | "active" | "inactive" | "removing";
   completesAt?: number;
+  cooldownUntil?: number;
   previousStatus?: "active" | "inactive";
 }
 

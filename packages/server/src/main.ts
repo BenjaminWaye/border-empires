@@ -121,6 +121,12 @@ import {
   type AiLatchedIntent,
   type AiLatchedIntentKind
 } from "./ai/intent-latch.js";
+import {
+  cachedAiExecuteCandidate,
+  clearAllAiExecuteCandidates,
+  createAiExecuteCandidateCacheState,
+  type AiExecuteCandidate
+} from "./ai/execute-candidate-cache.js";
 import { hasAiGrowthFoundation, isAiAttackReady, isAiScoutExpansionWorthwhile } from "./ai/tempo-policy.js";
 import { planAiDecision, type AiPlanningDecision, type AiPlanningSnapshot } from "./ai/planner-shared.js";
 import { resolveCombatRoll, type CombatResolutionRequest, type CombatResolutionResult } from "./sim/combat-shared.js";
@@ -1281,6 +1287,7 @@ const runtimeHotspotDiagnostics = (): {
 };
 const frontierSettlementsByPlayer = new Map<string, number[]>();
 const aiIntentLatchState = createAiIntentLatchState();
+const aiExecuteCandidateCacheState = createAiExecuteCandidateCacheState();
 const breachShockByTile = new Map<TileKey, { ownerId: string; expiresAt: number }>();
 const settlementDefenseByTile = new Map<TileKey, { ownerId: string; expiresAt: number; mult: number }>();
 const playerBaseMods = new Map<string, { attack: number; defense: number; income: number; vision: number }>();
@@ -1949,6 +1956,7 @@ const getBarbarianProgressGain = (tile: Tile): number =>
 
 const clearWorldProgressForSeason = (): void => {
   clearAllAiLatchedIntents(aiIntentLatchState);
+  clearAllAiExecuteCandidates(aiExecuteCandidateCacheState);
   const pending = new Set<PendingCapture>(combatLocks.values());
   for (const pcap of pending) {
     pcap.cancelled = true;
@@ -2170,7 +2178,8 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
     tile.observatory = {
       ownerId: observatory.ownerId,
       status: observatory.status,
-      ...(observatory.completesAt !== undefined ? { completesAt: observatory.completesAt } : {})
+      ...(observatory.completesAt !== undefined ? { completesAt: observatory.completesAt } : {}),
+      ...(observatory.cooldownUntil !== undefined ? { cooldownUntil: observatory.cooldownUntil } : {})
     };
   }
   const siegeOutpost = siegeOutpostsByTile.get(tk);
@@ -2452,7 +2461,8 @@ const playerTile = (x: number, y: number): Tile => {
     const status = observatoryStatusForTile(observatory.ownerId, observatory.tileKey);
     tile.observatory = {
       ownerId: observatory.ownerId,
-      status
+      status,
+      ...(observatory.cooldownUntil !== undefined ? { cooldownUntil: observatory.cooldownUntil } : {})
     };
     if ((status === "under_construction" || status === "removing") && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
   }
@@ -7597,6 +7607,22 @@ const aiSettlementSelectorCacheForPlayer = (actor: Player): AiSettlementSelector
 const cachedAiTileFromKey = (tileKey: TileKey | null | undefined): Tile | undefined =>
   tileKey ? aiTileLiteAt(...parseKey(tileKey)) : undefined;
 
+const aiFrontierCandidateFromExecuteCandidate = (
+  candidate: AiExecuteCandidate | null | undefined
+): { from: Tile; to: Tile } | undefined => {
+  if (!candidate || candidate.kind !== "frontier") return undefined;
+  const from = cachedAiTileFromKey(candidate.originTileKey);
+  const to = cachedAiTileFromKey(candidate.targetTileKey);
+  return from && to ? { from, to } : undefined;
+};
+
+const aiTileCandidateFromExecuteCandidate = (
+  candidate: AiExecuteCandidate | null | undefined
+): Tile | undefined => {
+  if (!candidate || candidate.kind !== "tile") return undefined;
+  return cachedAiTileFromKey(candidate.tileKey);
+};
+
 const frontierSettlementSummaryCacheKey = (
   victoryPath: AiSeasonVictoryPathId | undefined,
   focusIslandId: number | undefined,
@@ -8108,12 +8134,21 @@ const executeAiGoapAction = (
     pressureAttack?: ReturnType<typeof bestAiEnemyPressureAttack>;
   }
 ): boolean => {
+  const territoryVersion = aiTerritoryVersionForPlayer(actor.id);
   let frontierPlanningSummary: AiFrontierPlanningSummary | undefined;
   const cachedFrontierPlanningSummary = (): AiFrontierPlanningSummary => {
     if (frontierPlanningSummary) return frontierPlanningSummary;
     frontierPlanningSummary = frontierPlanningSummaryForPlayer(actor, territorySummary ?? collectAiTerritorySummary(actor));
     return frontierPlanningSummary;
   };
+  const cachedExecuteCandidate = (build: () => AiExecuteCandidate | null): AiExecuteCandidate | null =>
+    cachedAiExecuteCandidate(aiExecuteCandidateCacheState, {
+      playerId: actor.id,
+      version: territoryVersion,
+      actionKey,
+      ...(victoryPath ? { victoryPath } : {}),
+      build
+    });
   const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>
     (victoryPath === "SETTLED_TERRITORY"
       ? candidates?.islandExpand ?? cachedFrontierPlanningSummary().bestIslandExpand
@@ -8152,8 +8187,19 @@ const executeAiGoapAction = (
   }
   if (actionKey === "claim_scout_border_tile") {
     const candidate =
-      candidates?.scoutExpand ??
-      bestAiScoutExpand(actor, territorySummary);
+      aiFrontierCandidateFromExecuteCandidate(
+        cachedExecuteCandidate(() => {
+          const resolved = candidates?.scoutExpand ?? bestAiScoutExpand(actor, territorySummary);
+          return resolved
+            ? {
+                kind: "frontier",
+                originTileKey: key(resolved.from.x, resolved.from.y),
+                targetTileKey: key(resolved.to.x, resolved.to.y)
+              }
+            : null;
+        })
+      ) ??
+      candidates?.scoutExpand;
     if (!candidate) return false;
     return queueAiActionWithIntentLatch(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
       actionKey,
@@ -8165,8 +8211,23 @@ const executeAiGoapAction = (
   }
   if (actionKey === "claim_scaffold_border_tile") {
     const candidate =
+      aiFrontierCandidateFromExecuteCandidate(
+        cachedExecuteCandidate(() => {
+          const resolved =
+            candidates?.scaffoldExpand ??
+            bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
+            candidates?.anyNeutralExpand ??
+            cachedFrontierPlanningSummary().bestAnyNeutralExpand;
+          return resolved
+            ? {
+                kind: "frontier",
+                originTileKey: key(resolved.from.x, resolved.from.y),
+                targetTileKey: key(resolved.to.x, resolved.to.y)
+              }
+            : null;
+        })
+      ) ??
       candidates?.scaffoldExpand ??
-      bestAiScaffoldExpand(actor, victoryPath, territorySummary) ??
       candidates?.anyNeutralExpand ??
       cachedFrontierPlanningSummary().bestAnyNeutralExpand;
     if (!candidate) return false;
@@ -8180,7 +8241,20 @@ const executeAiGoapAction = (
   }
   if (actionKey === "attack_barbarian_border_tile") {
     const candidate =
-      candidates?.barbarianAttack ?? bestAiFrontierAction(actor, "ATTACK", (tile) => tile.ownerId === BARBARIAN_OWNER_ID, victoryPath, territorySummary);
+      aiFrontierCandidateFromExecuteCandidate(
+        cachedExecuteCandidate(() => {
+          const resolved =
+            candidates?.barbarianAttack ?? bestAiFrontierAction(actor, "ATTACK", (tile) => tile.ownerId === BARBARIAN_OWNER_ID, victoryPath, territorySummary);
+          return resolved
+            ? {
+                kind: "frontier",
+                originTileKey: key(resolved.from.x, resolved.from.y),
+                targetTileKey: key(resolved.to.x, resolved.to.y)
+              }
+            : null;
+        })
+      ) ??
+      candidates?.barbarianAttack;
     if (!candidate) return false;
     return queueAiActionWithIntentLatch(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
       actionKey,
@@ -8192,16 +8266,30 @@ const executeAiGoapAction = (
   }
   if (actionKey === "attack_enemy_border_tile") {
     const candidate =
+      aiFrontierCandidateFromExecuteCandidate(
+        cachedExecuteCandidate(() => {
+          const resolved =
+            candidates?.pressureAttack ??
+            candidates?.enemyAttack ??
+            bestAiEnemyPressureAttack(actor, victoryPath, territorySummary) ??
+            bestAiFrontierAction(
+              actor,
+              "ATTACK",
+              (tile) => Boolean(tile.ownerId && tile.ownerId !== actor.id && tile.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(tile.ownerId)),
+              victoryPath,
+              territorySummary
+            );
+          return resolved
+            ? {
+                kind: "frontier",
+                originTileKey: key(resolved.from.x, resolved.from.y),
+                targetTileKey: key(resolved.to.x, resolved.to.y)
+              }
+            : null;
+        })
+      ) ??
       candidates?.pressureAttack ??
-      candidates?.enemyAttack ??
-      bestAiEnemyPressureAttack(actor, victoryPath, territorySummary) ??
-      bestAiFrontierAction(
-        actor,
-        "ATTACK",
-        (tile) => Boolean(tile.ownerId && tile.ownerId !== actor.id && tile.ownerId !== BARBARIAN_OWNER_ID && !actor.allies.has(tile.ownerId)),
-        victoryPath,
-        territorySummary
-      );
+      candidates?.enemyAttack;
     if (!candidate) return false;
     return queueAiActionWithIntentLatch(actor, { type: "ATTACK", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
       actionKey,
@@ -8213,11 +8301,20 @@ const executeAiGoapAction = (
   }
   if (actionKey === "settle_owned_frontier_tile") {
     const tile =
+      aiTileCandidateFromExecuteCandidate(
+        cachedExecuteCandidate(() => {
+          const resolved =
+            candidates?.townSupportSettlementTile ??
+            bestAiTownSupportSettlementTile(actor, victoryPath, territorySummary) ??
+            (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandSettlementTile ?? bestAiIslandSettlementTile(actor, territorySummary) : undefined) ??
+            candidates?.settlementTile ??
+            bestAiSettlementTile(actor, victoryPath, territorySummary);
+          return resolved ? { kind: "tile", tileKey: key(resolved.x, resolved.y) } : null;
+        })
+      ) ??
       candidates?.townSupportSettlementTile ??
-      bestAiTownSupportSettlementTile(actor, victoryPath, territorySummary) ??
-      (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandSettlementTile ?? bestAiIslandSettlementTile(actor, territorySummary) : undefined) ??
-      candidates?.settlementTile ??
-      bestAiSettlementTile(actor, victoryPath, territorySummary);
+      (victoryPath === "SETTLED_TERRITORY" ? candidates?.islandSettlementTile : undefined) ??
+      candidates?.settlementTile;
     if (!tile) return false;
     return queueAiActionWithIntentLatch(actor, { type: "SETTLE", x: tile.x, y: tile.y }, {
       actionKey,
@@ -8227,7 +8324,14 @@ const executeAiGoapAction = (
     });
   }
   if (actionKey === "build_fort_on_exposed_tile") {
-    const tile = candidates?.fortAnchor ?? bestAiFortTile(actor, territorySummary);
+    const tile =
+      aiTileCandidateFromExecuteCandidate(
+        cachedExecuteCandidate(() => {
+          const resolved = candidates?.fortAnchor ?? bestAiFortTile(actor, territorySummary);
+          return resolved ? { kind: "tile", tileKey: key(resolved.x, resolved.y) } : null;
+        })
+      ) ??
+      candidates?.fortAnchor;
     if (!tile) return false;
     if (!getPlayerEffectsForPlayer(actor.id).unlockForts) return false;
     if ((getOrInitStrategicStocks(actor.id).IRON ?? 0) < FORT_BUILD_IRON_COST) return false;
@@ -8240,7 +8344,23 @@ const executeAiGoapAction = (
     });
   }
   if (actionKey === "build_economic_structure") {
-    const candidate = candidates?.economicBuild ?? bestAiEconomicStructure(actor, territorySummary);
+    const cachedCandidate = cachedExecuteCandidate(() => {
+      const resolved = candidates?.economicBuild ?? bestAiEconomicStructure(actor, territorySummary);
+      return resolved
+        ? {
+            kind: "economic_structure",
+            tileKey: key(resolved.tile.x, resolved.tile.y),
+            structureType: resolved.structureType
+          }
+        : null;
+    });
+    const candidate =
+      cachedCandidate?.kind === "economic_structure"
+        ? (() => {
+            const tile = cachedAiTileFromKey(cachedCandidate.tileKey);
+            return tile ? { tile, structureType: cachedCandidate.structureType } : undefined;
+          })()
+        : candidates?.economicBuild;
     if (!candidate) return false;
     return queueAiActionWithIntentLatch(actor, { type: "BUILD_ECONOMIC_STRUCTURE", x: candidate.tile.x, y: candidate.tile.y, structureType: candidate.structureType }, {
       actionKey,
@@ -12894,6 +13014,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   const hydrateStartedAt = Date.now();
   let phaseStartedAt = hydrateStartedAt;
   clearAllAiLatchedIntents(aiIntentLatchState);
+  clearAllAiExecuteCandidates(aiExecuteCandidateCacheState);
   const logHydratePhase = (phase: string, extra: Record<string, number> = {}): void => {
     if (!runtimeState.appRef) {
       phaseStartedAt = Date.now();
@@ -13044,6 +13165,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
       status: observatory.status ?? "active"
     };
     if (observatory.completesAt !== undefined) normalized.completesAt = observatory.completesAt;
+    if (observatory.cooldownUntil !== undefined) normalized.cooldownUntil = observatory.cooldownUntil;
     observatoriesByTile.set(observatory.tileKey, normalized);
     trackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, observatory.tileKey);
   }
