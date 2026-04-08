@@ -17,6 +17,7 @@ import {
   terrainAt
 } from "@border-empires/shared";
 import { canAffordCost, frontierClaimCostLabelForTile, isForestTile, settleDurationMsForTile } from "./client-constants.js";
+import { connectedEnemyRegionKeys } from "./client-connected-region.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
 import { economicStructureBuildMs, economicStructureName } from "./client-map-display.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
@@ -1143,6 +1144,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const previewDetail = deps.attackPreviewDetailForTarget(tile);
   const breachPreviewDetail = deps.attackPreviewDetailForTarget(tile, "breakthrough");
   const previewPending = deps.attackPreviewPendingForTarget(tile);
+  const connectedRegionSize = connectedEnemyRegionKeys(state, tile, {
+    keyFor: deps.keyFor,
+    wrapX: deps.wrapX,
+    wrapY: deps.wrapY
+  }).length;
   const out: TileActionDef[] = [
     {
       id: "launch_attack",
@@ -1155,6 +1161,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       )
     }
   ];
+  if (connectedRegionSize > 1) {
+    out.push({
+      id: "attack_connected_region",
+      label: `Attack Connected Region (${connectedRegionSize})`,
+      detail: "Queue attacks across this visible connected enemy region from the edge inward.",
+      ...tileActionAvailability(
+        !targetShielded && reachable && state.gold >= FRONTIER_CLAIM_COST,
+        targetShielded ? targetShieldedReason : !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
+        `${FRONTIER_CLAIM_COST} gold each`
+      )
+    });
+  }
   if (hasBreakthroughCapability(state)) {
     out.push({
       id: "launch_breach_attack",

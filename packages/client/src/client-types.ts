@@ -412,6 +412,7 @@ export type TileActionDef = {
   id:
     | "settle_land"
     | "launch_attack"
+    | "attack_connected_region"
     | "launch_breach_attack"
     | "reveal_empire"
     | "collect_yield"

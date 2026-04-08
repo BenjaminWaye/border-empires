@@ -1,5 +1,6 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
+import { connectedEnemyRegionKeys } from "./client-connected-region.js";
 import {
   activeTruceWithPlayerFromState,
   breakAllianceFromUi,
@@ -867,6 +868,31 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           ? attackQueueFailureReason(singleTile, mode)
           : `Cannot launch ${mode === "breakthrough" ? "breakthrough " : ""}attack for one or more selected tiles.`;
         showCaptureAlert(`${mode === "breakthrough" ? "Breach attack" : "Attack"} failed`, failureMessage, "warn");
+        pushFeed(failureMessage, "combat", "error");
+      }
+      hideTileActionMenu();
+      return;
+    }
+    if (actionId === "attack_connected_region") {
+      const connectedTargets = !fromBulk && selected
+        ? connectedEnemyRegionKeys(state, selected, { keyFor, wrapX, wrapY }).filter((k) => {
+            const t = state.tiles.get(k);
+            return t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
+          })
+        : [];
+      const out = queueSpecificTargets(connectedTargets, "normal");
+      if (out.queued > 0) processActionQueue();
+      if (out.queued > 0) {
+        pushFeed(
+          `Queued ${out.queued} attacks across the connected region${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`,
+          "combat",
+          "warn"
+        );
+      } else {
+        const failureMessage = selected
+          ? attackQueueFailureReason(selected, "normal")
+          : "Cannot attack this connected region right now.";
+        showCaptureAlert("Connected region attack failed", failureMessage, "warn");
         pushFeed(failureMessage, "combat", "error");
       }
       hideTileActionMenu();
