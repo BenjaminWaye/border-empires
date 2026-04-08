@@ -67,9 +67,9 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "upgrade_ironworks") return "Upgrade this Ironworks into an Advanced Ironworks with 20% higher output.";
   if (actionId === "build_crystal_synthesizer") return "Convert heavy gold upkeep into steady crystal output on this support tile.";
   if (actionId === "upgrade_crystal_synthesizer") return "Upgrade this Crystal Synthesizer into an Advanced Crystal Synthesizer with 20% higher output.";
-  if (actionId === "overload_fur_synthesizer") return "Spend 1000 gold for an instant supply burst, then shut this Fur Synthesizer down for 24 hours.";
-  if (actionId === "overload_ironworks") return "Spend 1000 gold for an instant iron burst, then shut this ironworks down for 24 hours.";
-  if (actionId === "overload_crystal_synthesizer") return "Spend 1000 gold for an instant crystal burst, then shut this synthesizer down for 24 hours.";
+  if (actionId === "overload_fur_synthesizer") return "Spend 12500 gold for an instant supply burst, then shut this Fur Synthesizer down for 24 hours.";
+  if (actionId === "overload_ironworks") return "Spend 12500 gold for an instant iron burst, then shut this ironworks down for 24 hours.";
+  if (actionId === "overload_crystal_synthesizer") return "Spend 12500 gold for an instant crystal burst, then shut this synthesizer down for 24 hours.";
   if (actionId === "enable_converter_structure") return "Resume this converter. It immediately pays the next upkeep tick, then starts producing again.";
   if (actionId === "disable_converter_structure") return "Pause this converter. It stops paying upkeep and stops producing until you enable it again.";
   if (actionId === "build_fuel_plant") return "Convert heavy gold upkeep into steady oil output on this support tile.";
