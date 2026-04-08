@@ -10479,6 +10479,7 @@ const seasonVictoryObjectivesForPlayer = (playerId: string | undefined): SeasonV
   const totalResourceCounts = worldResourceTileCounts();
   const allIslands = islandLandCounts();
   return objectives.map((objective) => {
+    if (objective.leaderPlayerId === playerId) return objective;
     const selfProgressLabel = seasonVictorySelfProgressLabel(playerId, objective.id, { metrics, totalResourceCounts, allIslands });
     return selfProgressLabel ? { ...objective, selfProgressLabel } : objective;
   });
