@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createInitialState } from "./client-state.js";
 import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { developmentSlotSummary } from "./client-queue-logic.js";
 
 describe("development queue helpers", () => {
   it("finds the ordinal for queued settlements without counting builds separately", () => {
@@ -30,5 +32,23 @@ describe("development queue helpers", () => {
       { ownerId: "other", observatory: { status: "under_construction" } }
     ];
     expect(busyDevelopmentProcessCount(tiles, "me", 1)).toBe(5);
+  });
+
+  it("uses the live development slot cap from player state", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.developmentProcessLimit = 4;
+    state.settleProgressByTile.set("2,2", { startAt: 0, resolvesAt: 10_000, target: { x: 2, y: 2 } });
+
+    const summary = developmentSlotSummary(state, {
+      busyDevelopmentProcessCount: (tiles, ownerId, activeSettlements) => {
+        expect([...tiles]).toHaveLength(0);
+        expect(ownerId).toBe("me");
+        expect(activeSettlements).toBe(1);
+        return 1;
+      }
+    });
+
+    expect(summary).toEqual({ busy: 1, limit: 4, available: 3 });
   });
 });
