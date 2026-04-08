@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { splitTileActionsIntoTabs } from "./client-tile-action-support.js";
-import type { TileActionDef } from "./client-types.js";
+import { shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
+import type { Tile, TileActionDef } from "./client-types.js";
 
 const state = { techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "cartography", "leatherworking"] };
 
@@ -136,5 +136,57 @@ describe("splitTileActionsIntoTabs", () => {
       buildings: [],
       crystal: []
     });
+  });
+});
+
+describe("shouldOptimisticallyBuildOnSelectedTile", () => {
+  const townTile: Tile = {
+    x: 10,
+    y: 10,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    town: {
+      type: "MARKET",
+      baseGoldPerMinute: 1,
+      supportCurrent: 0,
+      supportMax: 4,
+      goldPerMinute: 1,
+      cap: 100,
+      isFed: true,
+      population: 1000,
+      maxPopulation: 2000,
+      populationTier: "TOWN",
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      hasMarket: false,
+      marketActive: false,
+      hasGranary: false,
+      granaryActive: false,
+      hasBank: false,
+      bankActive: false
+    }
+  };
+
+  const supportTile: Tile = {
+    x: 11,
+    y: 10,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED"
+  };
+
+  it("skips optimistic town-square builds for town-support structures", () => {
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_market", townTile)).toBe(false);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_granary", townTile)).toBe(false);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_fuel_plant", townTile)).toBe(false);
+  });
+
+  it("still allows optimistic builds on real support tiles", () => {
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_market", supportTile)).toBe(true);
+  });
+
+  it("keeps same-tile structures optimistic on town tiles", () => {
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_foundry", townTile)).toBe(true);
   });
 });

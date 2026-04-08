@@ -2,6 +2,22 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import {
+  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  ADVANCED_IRONWORKS_IRON_PER_DAY,
+  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
+  CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
+  ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
+  FUR_SYNTHESIZER_GOLD_UPKEEP,
+  FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
+  FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  IRONWORKS_GOLD_UPKEEP,
+  IRONWORKS_IRON_PER_DAY,
+  IRONWORKS_OVERLOAD_IRON,
+  SYNTH_OVERLOAD_GOLD_COST
+} from "./server-game-constants.js";
 
 const serverSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -32,6 +48,29 @@ describe("economy balance regression guard", () => {
     const source = serverSource();
     expect(source).toContain("const SYNTH_OVERLOAD_DISABLE_MS = 24 * 60 * 60_000;");
     expect(source).toContain("const output = converterStructureOutputFor(structure.type) ?? {};");
+  });
+
+  it("keeps synth upkeep at the reduced half-cost values", () => {
+    expect(FUR_SYNTHESIZER_GOLD_UPKEEP).toBe(60);
+    expect(IRONWORKS_GOLD_UPKEEP).toBe(60);
+    expect(CRYSTAL_SYNTHESIZER_GOLD_UPKEEP).toBe(80);
+  });
+
+  it("keeps synth overload strictly worse than waiting 24 hours", () => {
+    const upkeepTicksPerDay = (24 * 60 * 60_000) / ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
+    const mostExpensive24hUpkeep = Math.max(
+      FUR_SYNTHESIZER_GOLD_UPKEEP * upkeepTicksPerDay,
+      IRONWORKS_GOLD_UPKEEP * upkeepTicksPerDay,
+      CRYSTAL_SYNTHESIZER_GOLD_UPKEEP * upkeepTicksPerDay
+    );
+
+    expect(SYNTH_OVERLOAD_GOLD_COST).toBeGreaterThan(mostExpensive24hUpkeep);
+    expect(FUR_SYNTHESIZER_OVERLOAD_SUPPLY).toBeLessThan(FUR_SYNTHESIZER_SUPPLY_PER_DAY);
+    expect(FUR_SYNTHESIZER_OVERLOAD_SUPPLY).toBeLessThan(ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY);
+    expect(IRONWORKS_OVERLOAD_IRON).toBeLessThan(IRONWORKS_IRON_PER_DAY);
+    expect(IRONWORKS_OVERLOAD_IRON).toBeLessThan(ADVANCED_IRONWORKS_IRON_PER_DAY);
+    expect(CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL).toBeLessThan(CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY);
+    expect(CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL).toBeLessThan(ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY);
   });
 
   it("includes structure upkeep in totals and sends the shared economy snapshot on init/update", () => {
@@ -69,6 +108,7 @@ describe("economy balance regression guard", () => {
     const source = serverSource();
     expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(p.id)");
     expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(player.id)");
+    expect(source).toContain("if (objective.leaderPlayerId === playerId) return objective;");
     expect(source).toContain('if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;');
     expect(source).toContain('if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;');
     expect(source).toContain('if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;');
