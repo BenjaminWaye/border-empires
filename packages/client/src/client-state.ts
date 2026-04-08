@@ -1,5 +1,5 @@
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY } from "./client-constants.js";
-import { MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
 import type { EconomyBreakdown } from "./client-economy-model.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type {
@@ -103,6 +103,7 @@ export const createInitialState = () => ({
     regen: [{ label: "Base", amount: MANPOWER_BASE_REGEN_PER_MINUTE }]
   } as { cap: Array<{ label: string; amount: number; note?: string }>; regen: Array<{ label: string; amount: number; note?: string }> },
   availableTechPicks: 0,
+  developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
   defensibilityPct: 100,
   territoryT: 1,
   exposureE: 4,

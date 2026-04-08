@@ -1,4 +1,4 @@
-import { DEVELOPMENT_PROCESS_LIMIT, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "./client-constants.js";
 import { queuedSettlementOrderForTile } from "./client-development-queue.js";
 import type { ClientState } from "./client-state.js";
@@ -81,7 +81,7 @@ const resolvedAttackPreviewForTarget = (
   return freshCachedAttackPreview(state, previewKey);
 };
 
-export const developmentSlotLimit = (): number => DEVELOPMENT_PROCESS_LIMIT;
+export const developmentSlotLimit = (state: Pick<ClientState, "developmentProcessLimit">): number => Math.max(1, state.developmentProcessLimit);
 
 export const developmentSlotSummary = (
   state: ClientState,
@@ -90,7 +90,7 @@ export const developmentSlotSummary = (
   }
 ): DevelopmentSlotSummary => {
   const busy = deps.busyDevelopmentProcessCount(state.tiles.values(), state.me, state.settleProgressByTile.size);
-  const limit = developmentSlotLimit();
+  const limit = developmentSlotLimit(state);
   return {
     busy,
     limit,
