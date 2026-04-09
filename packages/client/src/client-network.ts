@@ -1,3 +1,4 @@
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { queueDevelopmentAction } from "./client-queue-logic.js";
@@ -1227,12 +1228,20 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else if (errorCode === "TOWN_UNFED") {
         pushFeed(errorMessage, "info", "warn");
       } else {
-        pushFeed(explainActionFailure(errorCode, errorMessage), "error", "error");
+        pushFeed(
+          explainActionFailure(errorCode, errorMessage, {
+            cooldownRemainingMs: typeof msg.cooldownRemainingMs === "number" ? msg.cooldownRemainingMs : undefined,
+            formatCooldownShort
+          }),
+          "error",
+          "error"
+        );
       }
       const frontierActionError =
         errorCode === "ACTION_INVALID" ||
         errorCode === "NOT_ADJACENT" ||
         errorCode === "NOT_OWNER" ||
+        errorCode === "ATTACK_COOLDOWN" ||
         errorCode === "EXPAND_TARGET_OWNED" ||
         errorCode === "LOCKED";
       const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
@@ -1245,6 +1254,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.actionStartedAt = 0;
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
+        if (errorCode === "ATTACK_COOLDOWN") {
+          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + COMBAT_LOCK_MS);
+          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + COMBAT_LOCK_MS);
+        }
         if (errorCode === "LOCKED") {
           if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + 12_000);
           if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + 12_000);
