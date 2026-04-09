@@ -36,10 +36,10 @@ export const hasAdjacentSettledTerritory = (tileKey: TileKey, ownerId: string | 
 export const supportedFrontierUsesSettledDefense = (
   defenderDomainIds: ReadonlySet<string> | undefined,
   defenderId: string | undefined,
-  target: FrontierTarget,
+  target: FrontierTarget | undefined,
   deps: FrontierDefenseDeps
 ): boolean => {
-  if (!defenderId || target.ownershipState !== "FRONTIER") return false;
+  if (!defenderId || !target || target.ownershipState !== "FRONTIER") return false;
   if (!defenderDomainIds?.has(FRONTIER_BUREAU_DOMAIN_ID)) return false;
   return hasAdjacentSettledTerritory(deps.key(target.x, target.y), defenderId, deps);
 };
