@@ -118,6 +118,8 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestIslandExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestEconomicExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestAnyNeutralExpand");
+    expect(executeBody).toContain("const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>");
+    expect(executeBody).toContain("aiFrontierCandidateFromExecuteCandidate(");
     expect(executeBody).not.toContain("cachedFrontierPlanningSummary().bestScaffoldExpand");
   });
 
