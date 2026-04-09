@@ -107,6 +107,7 @@ type StartClientRuntimeLoopDeps = {
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
   dropQueuedTargetKeyIfAbsent: (targetKey: string) => void;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
+  showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number) => void;
   processActionQueue: () => boolean;
   shouldPreserveOptimisticExpandByKey: (tileKey: string) => boolean;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
@@ -1312,6 +1313,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
       } else if (current && (current.retries ?? 0) < 3) {
+        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");
+        deps.requestViewRefresh(1, true);
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
           x: current.x,
           y: current.y,
@@ -1322,6 +1325,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.queuedTargetKeys.add(deps.keyFor(current.x, current.y));
         deps.pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
       } else {
+        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");
+        deps.requestViewRefresh(1, true);
         deps.pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
       }
@@ -1353,6 +1358,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== timedOutCurrentKey);
         state.queuedTargetKeys.delete(timedOutCurrentKey);
+        deps.requestViewRefresh(1, true);
+      } else {
+        deps.showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");
         deps.requestViewRefresh(1, true);
       }
       deps.reconcileActionQueue();

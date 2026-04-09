@@ -4,6 +4,8 @@ import type { ManpowerBreakdownLine, TownDefinition } from "./server-shared-type
 
 type TownSupportDeps = Record<string, any>;
 
+export const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
+
 export const createServerTownSupport = (deps: TownSupportDeps) => {
   const {
     now,
@@ -27,7 +29,6 @@ export const createServerTownSupport = (deps: TownSupportDeps) => {
     isTownFedForOwner
   } = deps;
 
-  const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
   const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
   const TOWN_CAPTURE_GROWTH_RADIUS = 20;
 
