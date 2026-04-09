@@ -9,9 +9,11 @@ import {
   signInWithEmailLink,
   signInWithPopup,
   updateProfile,
+  type Auth,
   type GoogleAuthProvider,
   type User
 } from "firebase/auth";
+import type { initClientDom } from "./client-dom.js";
 import {
   authLabelForUser as authLabelForUserFromModule,
   seedProfileSetupFields as seedProfileSetupFieldsFromModule,
@@ -29,10 +31,12 @@ export type AuthSession = {
   emailLinkPending: boolean;
 };
 
-type AuthFlowDeps = Record<string, any> & {
+type ClientDom = ReturnType<typeof initClientDom>;
+
+type AuthFlowDeps = {
   state: ClientState;
-  dom: any;
-  firebaseAuth?: any;
+  dom: ClientDom;
+  firebaseAuth?: Auth;
   googleProvider?: GoogleAuthProvider | undefined;
   ws: WebSocket;
   wsUrl: string;
@@ -40,7 +44,19 @@ type AuthFlowDeps = Record<string, any> & {
   renderHud: () => void;
 };
 
-export const createClientAuthFlow = (deps: AuthFlowDeps) => {
+type ClientAuthFlow = {
+  authSession: AuthSession;
+  setAuthStatus: (message: string, tone?: "normal" | "error") => void;
+  syncAuthPanelState: () => void;
+  syncAuthOverlay: () => void;
+  authLabelForUser: (user: User) => string;
+  seedProfileSetupFields: (name?: string, color?: string) => void;
+  authenticateSocket: (forceRefresh?: boolean) => Promise<void>;
+  bindAuthUi: () => void;
+  bindFirebaseAuth: () => void;
+};
+
+export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   const {
     state,
     dom,
