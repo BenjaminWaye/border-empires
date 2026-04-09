@@ -89,7 +89,10 @@ export const developmentSlotSummary = (
     busyDevelopmentProcessCount: (tiles: Iterable<Tile>, me: string, activeSettlements: number) => number;
   }
 ): DevelopmentSlotSummary => {
-  const busy = deps.busyDevelopmentProcessCount(state.tiles.values(), state.me, state.settleProgressByTile.size);
+  const busy =
+    typeof state.activeDevelopmentProcessCount === "number"
+      ? state.activeDevelopmentProcessCount
+      : deps.busyDevelopmentProcessCount(state.tiles.values(), state.me, state.settleProgressByTile.size);
   const limit = developmentSlotLimit(state);
   return {
     busy,

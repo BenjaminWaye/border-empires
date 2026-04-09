@@ -17,6 +17,7 @@ describe("applyTechUpdateToState", () => {
       currentResearch: undefined,
       availableTechPicks: 1,
       developmentProcessLimit: 3,
+      activeDevelopmentProcessCount: 2,
       mods: { attack: 1, defense: 1, income: 1, vision: 1 },
       modBreakdown: { attack: [], defense: [], income: [], vision: [] },
       incomePerMinute: 0,
@@ -38,6 +39,7 @@ describe("applyTechUpdateToState", () => {
         techIds: ["trade", "coinage"],
         nextChoices: ["ledger-keeping"],
         developmentProcessLimit: 4,
+        activeDevelopmentProcessCount: 3,
         techCatalog: [
           { id: "trade", tier: 2, name: "Trade", description: "", mods: {}, effects: {}, requirements: { gold: 0, resources: {}, checklist: [], canResearch: false } },
           { id: "coinage", tier: 3, name: "Coinage", description: "", mods: {}, effects: { unlockBank: true }, requirements: { gold: 6500, resources: { CRYSTAL: 90 }, checklist: [], canResearch: false } },
@@ -52,6 +54,7 @@ describe("applyTechUpdateToState", () => {
     expect(state.activePanel).toBe("tech");
     expect(state.mobilePanel).toBe("tech");
     expect(state.developmentProcessLimit).toBe(4);
+    expect(state.activeDevelopmentProcessCount).toBe(3);
     expect(state.structureInfoKey).toBe("");
     expect(state.crystalAbilityInfoKey).toBe("");
     expect(state.techUiSelectedId).toBe("ledger-keeping");
