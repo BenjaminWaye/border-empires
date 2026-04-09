@@ -355,6 +355,7 @@ export const createInitialState = () => ({
           | "RADAR_SYSTEM";
       }
     | undefined,
+  queuedDevelopmentDispatchPending: false,
   queuedTargetKeys: new Set<string>(),
   actionInFlight: false,
   combatStartAck: false,

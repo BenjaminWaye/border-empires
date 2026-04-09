@@ -346,6 +346,7 @@ export const requestSettlement = (
     state.lastDevelopmentAttempt = undefined;
     return false;
   }
+  if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForTile(x, y), target: { x, y }, awaitingServerConfirm: false };
   const tileKey = deps.keyFor(x, y);
@@ -415,6 +416,7 @@ export const sendDevelopmentBuild = (
     state.lastDevelopmentAttempt = undefined;
     return false;
   }
+  if (opts.fromQueue) state.queuedDevelopmentDispatchPending = true;
   optimistic();
   deps.renderHud();
   return true;
@@ -447,6 +449,7 @@ export const processDevelopmentQueue = (
   }
 ): boolean => {
   if (state.developmentQueue.length === 0 || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
+  if (state.queuedDevelopmentDispatchPending) return false;
   let started = false;
   while (state.developmentQueue.length > 0 && deps.developmentSlotSummary().available > 0) {
     const next = state.developmentQueue[0];
@@ -466,13 +469,15 @@ export const processDevelopmentQueue = (
             fromQueue: true,
             suppressWarnings: true
           });
-    state.developmentQueue.shift();
     if (ok) {
+      state.developmentQueue.shift();
       deps.pushFeed(`${next.label} started.`, "combat", "info");
       started = true;
     } else {
+      state.developmentQueue.shift();
       deps.pushFeed(`${next.label} could not start and was removed from queue.`, "combat", "warn");
     }
+    break;
   }
   if (started || state.developmentQueue.length === 0) deps.renderHud();
   return started;

@@ -118,8 +118,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (!matchesOptimisticState) return false;
     clearOptimisticTileState(errorTileKey, true);
     if (attempt.kind === "SETTLE") clearSettlementProgressByKey(errorTileKey);
+    state.queuedDevelopmentDispatchPending = false;
     state.lastDevelopmentAttempt = undefined;
     return queueDevelopmentAction(state, attempt, { pushFeed, renderHud });
+  };
+
+  const clearQueuedDevelopmentDispatchPending = (): void => {
+    state.queuedDevelopmentDispatchPending = false;
   };
 
   const clearReconnectReloadTimer = (): void => {
@@ -457,6 +462,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.defensibilityAnimUntil = 0;
       state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
       state.developmentProcessLimit = (player.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof player.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (player.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techRootId = player.techRootId as string | undefined;
@@ -688,6 +694,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
@@ -995,6 +1002,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         revealCapacity: (msg.revealCapacity as number) ?? state.revealCapacity,
         activeRevealTargets: (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets
       }, pushFeed);
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       renderHud();
       return;
     }
@@ -1002,6 +1010,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "DOMAIN_UPDATE") {
       state.pendingDomainUnlockId = "";
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
@@ -1210,10 +1219,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else if (errorCode === "SETTLE_INVALID") {
         clearOptimisticTileState(errorTileKey, true);
         clearSettlementProgressByKey(errorTileKey);
+        state.queuedDevelopmentDispatchPending = false;
         showCaptureAlert("Action failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (isStructureActionError && errorTileKey) {
         clearOptimisticTileState(errorTileKey, true);
+        state.queuedDevelopmentDispatchPending = false;
         showCaptureAlert(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {

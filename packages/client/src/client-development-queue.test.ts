@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "./client-state.js";
 import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
-import { developmentSlotSummary } from "./client-queue-logic.js";
+import { developmentSlotSummary, processDevelopmentQueue } from "./client-queue-logic.js";
 
 describe("development queue helpers", () => {
   it("finds the ordinal for queued settlements without counting builds separately", () => {
@@ -70,5 +70,56 @@ describe("development queue helpers", () => {
     });
 
     expect(summary).toEqual({ busy: 2, limit: 4, available: 2 });
+  });
+
+  it("dispatches only one queued settlement until the server acknowledges development counts", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.developmentProcessLimit = 4;
+    state.activeDevelopmentProcessCount = 0;
+    state.developmentQueue = [
+      { kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" },
+      { kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Settlement at (3, 3)" }
+    ];
+
+    const requestSettlement = vi.fn(() => {
+      state.queuedDevelopmentDispatchPending = true;
+      return true;
+    });
+    const pushFeed = vi.fn();
+    const renderHud = vi.fn();
+    const ws = { readyState: 1, OPEN: 1 } as WebSocket;
+
+    expect(
+      processDevelopmentQueue(state, {
+        ws,
+        authSessionReady: true,
+        developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+        requestSettlement,
+        sendDevelopmentBuild: vi.fn(() => true),
+        applyOptimisticStructureBuild: vi.fn(),
+        applyOptimisticStructureRemoval: vi.fn(),
+        pushFeed,
+        renderHud
+      })
+    ).toBe(true);
+    expect(requestSettlement).toHaveBeenCalledTimes(1);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Settlement at (3, 3)" }]);
+
+    expect(
+      processDevelopmentQueue(state, {
+        ws,
+        authSessionReady: true,
+        developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+        requestSettlement,
+        sendDevelopmentBuild: vi.fn(() => true),
+        applyOptimisticStructureBuild: vi.fn(),
+        applyOptimisticStructureRemoval: vi.fn(),
+        pushFeed,
+        renderHud
+      })
+    ).toBe(false);
+    expect(requestSettlement).toHaveBeenCalledTimes(1);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Settlement at (3, 3)" }]);
   });
 });
