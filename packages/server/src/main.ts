@@ -1697,26 +1697,6 @@ const {
   effectiveManpowerAt,
   townGoldIncomeEnabledForPlayer,
   applyManpowerRegen
-}: {
-  applyTownWarShock: (tileKey: TileKey) => void;
-  applyTownCaptureShock: (tileKey: TileKey) => void;
-  applyTownCapturePopulationLoss: (town: TownDefinition) => void;
-  townSupport: (townKey: TileKey, ownerId: string) => { supportCurrent: number; supportMax: number };
-  townPopulationTier: (population: number) => PopulationTier;
-  townPopulationTierForTown: (town: TownDefinition) => PopulationTier;
-  townPopulationMultiplier: (population: number) => number;
-  townManpowerSnapshotForOwner: (
-    town: TownDefinition,
-    ownerId: string | undefined
-  ) => { cap: number; regenPerMinute: number };
-  playerManpowerCap: (player: Player) => number;
-  manpowerRegenWeightForSettlementIndex: (index: number) => number;
-  prettyTownName: (town: TownDefinition, tileKey?: TileKey) => string;
-  playerManpowerRegenPerMinute: (player: Player) => number;
-  playerManpowerBreakdown: (player: Player) => { cap: ManpowerBreakdownLine[]; regen: ManpowerBreakdownLine[] };
-  effectiveManpowerAt: (player: Player, nowMs?: number) => number;
-  townGoldIncomeEnabledForPlayer: (player: Player, nowMs?: number) => boolean;
-  applyManpowerRegen: (player: Player) => void;
 } = createServerTownSupport({
   now,
   parseKey,
@@ -1737,7 +1717,7 @@ const {
   terrainAt,
   ownedTownKeysForPlayer: (playerId: string) => ownedTownKeysForPlayer(playerId),
   isTownFedForOwner: (ownerId: string | undefined, townKey: TileKey) => isTownFedForOwner(townKey, ownerId)
-}) as any;
+});
 
 const {
   supportedTownKeysForTile,
@@ -1907,7 +1887,7 @@ const {
   getPlayerEffectsForPlayer: (playerId: string) => getPlayerEffectsForPlayer(playerId),
   emptyPlayerEffects,
   getOrInitStrategicStocks: (playerId: string) => getOrInitStrategicStocks(playerId),
-  availableYieldStrategicForPlayer: (player: Player, resourceType: any) => availableYieldStrategicForPlayer(player, resourceType),
+  availableYieldStrategicForPlayer: (player: Player, resourceType: StrategicResource) => availableYieldStrategicForPlayer(player, resourceType),
   governorUpkeepMultiplierAtTile: (playerId: string, tileKey: TileKey) => governorUpkeepMultiplierAtTile(playerId, tileKey),
   townPopulationTierForTown,
   townPopulationMultiplier,
@@ -1934,7 +1914,7 @@ const {
   strategicDailyFromResource,
   converterStructureOutputFor: (structureType: EconomicStructureType, ownerId: string | undefined) => converterStructureOutputFor(structureType, ownerId),
   siphonMultiplierAt: (tileKey: TileKey) => siphonMultiplierAt(tileKey)
-}) as any;
+});
 
 const {
   upkeepPerMinuteForPlayer,
