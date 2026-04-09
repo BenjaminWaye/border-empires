@@ -1,4 +1,5 @@
 const DEBUG_TILE_STORAGE_KEY = "debug_tile_key";
+const DEBUG_TILE_ENABLED_STORAGE_KEY = "debug_tile_enabled";
 const DEBUG_EMAIL_STORAGE_KEY = "debug_auth_email";
 const DEBUG_ACCOUNT_EMAIL = "bw199005@gmail.com";
 const lastLogAtByKey = new Map<string, number>();
@@ -14,6 +15,16 @@ export const debugTileKey = (): string => {
     return normalizeTileKey(window.localStorage.getItem(DEBUG_TILE_STORAGE_KEY));
   } catch {
     return "";
+  }
+};
+
+export const setDebugTileKey = (value: string | undefined): void => {
+  try {
+    const normalized = normalizeTileKey(value ?? null);
+    if (normalized) window.localStorage.setItem(DEBUG_TILE_STORAGE_KEY, normalized);
+    else window.localStorage.removeItem(DEBUG_TILE_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures in private browsing or restricted environments.
   }
 };
 
@@ -37,6 +48,24 @@ export const setDebugAuthEmail = (email: string | undefined): void => {
 
 export const debugEnabledForAccount = (): boolean => debugAuthEmail() === DEBUG_ACCOUNT_EMAIL;
 
+export const debugTileLoggingEnabled = (): boolean => {
+  if (!debugEnabledForAccount()) return false;
+  try {
+    return window.localStorage.getItem(DEBUG_TILE_ENABLED_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+export const setDebugTileLoggingEnabled = (enabled: boolean): void => {
+  try {
+    if (enabled) window.localStorage.setItem(DEBUG_TILE_ENABLED_STORAGE_KEY, "1");
+    else window.localStorage.removeItem(DEBUG_TILE_ENABLED_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures in private browsing or restricted environments.
+  }
+};
+
 export const announceDebugTileState = (message: string, payload?: Record<string, unknown>): void => {
   console.log(`[debug-tile] ${message}`, payload ?? {});
 };
@@ -47,9 +76,10 @@ export const tileMatchesDebugKey = (
   radius = 0,
   options?: { fallbackTile?: { x: number; y: number } | undefined }
 ): boolean => {
+  if (!debugTileLoggingEnabled()) return false;
   const key = debugTileKey();
   const fallbackTile = options?.fallbackTile;
-  const resolvedKey = key || (debugEnabledForAccount() && fallbackTile ? `${fallbackTile.x},${fallbackTile.y}` : "");
+  const resolvedKey = key || (fallbackTile ? `${fallbackTile.x},${fallbackTile.y}` : "");
   if (!resolvedKey) return false;
   const parts = resolvedKey.split(",").map(Number);
   const dx = Number(parts[0] ?? Number.NaN);
