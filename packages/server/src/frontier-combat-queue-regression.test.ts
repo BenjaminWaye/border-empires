@@ -36,6 +36,14 @@ describe("frontier combat queue regression guard", () => {
     expect(body).toContain("attackAlert");
   });
 
+  it("distinguishes origin attack cooldown from target combat lock in the queued frontier action helper", () => {
+    const body = functionBody(serverMainSource(), "tryQueueBasicFrontierAction");
+    expect(body).toContain('code: "ATTACK_COOLDOWN"');
+    expect(body).toContain('message: "origin tile is still on attack cooldown"');
+    expect(body).toContain('code: "LOCKED"');
+    expect(body).toContain('message: "tile locked in combat"');
+  });
+
   it("uses queued frontier action results to send combat start and inbound attack alerts", () => {
     const body = functionBody(serverMainSource(), "executeUnifiedGameplayMessage");
     expect(body).toContain("origin: result.origin");

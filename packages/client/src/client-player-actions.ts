@@ -124,7 +124,11 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
   deps.renderHud();
 };
 
-export const explainActionFailureFromServer = (code: string, message: string): string => {
+export const explainActionFailureFromServer = (
+  code: string,
+  message: string,
+  opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
+): string => {
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
@@ -140,6 +144,11 @@ export const explainActionFailureFromServer = (code: string, message: string): s
   if (code === "REMOVE_MOUNTAIN_INVALID") return `Cannot remove mountain: ${message}.`;
   if (code === "NOT_ADJACENT") return "Action blocked: target must border your territory or a linked dock.";
   if (code === "NOT_OWNER") return "Action blocked: you need to launch from one of your own tiles.";
+  if (code === "ATTACK_COOLDOWN") {
+    const remainingMs = Math.max(0, opts?.cooldownRemainingMs ?? 0);
+    const remainingLabel = opts?.formatCooldownShort ? opts.formatCooldownShort(remainingMs) : `${Math.ceil(remainingMs / 1000)}s`;
+    return `Action blocked: that origin tile is still on attack cooldown for ${remainingLabel}.`;
+  }
   if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
   if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";
   if (code === "SHIELDED") return "Action blocked: that empire is still under spawn protection.";
