@@ -25,6 +25,20 @@ describe("defense balance regression guard", () => {
     expect(supportedFrontierUsesSettledDefense(new Set<string>(), "defender", { x: 10, y: 10, ownershipState: "FRONTIER" }, deps)).toBe(false);
   });
 
+  it("treats missing frontier targets as unsupported instead of crashing combat logic", () => {
+    const deps = {
+      worldWidth: 100,
+      worldHeight: 100,
+      key: (x: number, y: number) => `${x},${y}` as `${number},${number}`,
+      wrapX: (x: number) => x,
+      wrapY: (y: number) => y,
+      ownerAt: () => undefined,
+      ownershipStateAt: () => undefined
+    };
+
+    expect(supportedFrontierUsesSettledDefense(new Set(["frontier-bureau"]), "defender", undefined, deps)).toBe(false);
+  });
+
   it("replaces the old flat Frontier Bureau defense bonus with the settled-frontier rule", () => {
     const domains = loadDomainTree(resolve(here, "..")).domains;
     const byId = new Map(domains.map((domain) => [domain.id, domain]));
