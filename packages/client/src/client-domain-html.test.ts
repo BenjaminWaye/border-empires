@@ -110,6 +110,68 @@ describe("domain card previews", () => {
     expect(html).toContain("✗ Requires Coinage");
   });
 
+  it("collapses committed tiers down to the chosen domain card", () => {
+    const frontierDoctrine: DomainInfo = {
+      id: "frontier-doctrine",
+      tier: 1,
+      name: "Frontier Doctrine",
+      description: "Speeds settlement expansion.",
+      requiresTechId: "coinage",
+      mods: {},
+      requirements: {
+        gold: 6000,
+        resources: {},
+        canResearch: false,
+        checklist: [{ label: "Gold 6000", met: true }]
+      }
+    };
+    const farmersCompact: DomainInfo = {
+      id: "farmers-compact",
+      tier: 1,
+      name: "Farmer's Compact",
+      description: "Improves growth and food efficiency.",
+      requiresTechId: "coinage",
+      mods: {},
+      requirements: {
+        gold: 6000,
+        resources: {},
+        canResearch: false,
+        checklist: [{ label: "Gold 6000", met: false }]
+      }
+    };
+    const ironBastions: DomainInfo = {
+      id: "iron-bastions",
+      tier: 2,
+      name: "Iron Bastions",
+      description: "Fortifies later defenses.",
+      requiresTechId: "ironworking",
+      mods: {},
+      requirements: {
+        gold: 9000,
+        resources: {},
+        canResearch: false,
+        checklist: [{ label: "Requires Ironworking", met: false }]
+      }
+    };
+
+    const html = renderDomainChoiceGridHtml({
+      domainCatalog: [farmersCompact, frontierDoctrine, ironBastions],
+      domainIds: ["frontier-doctrine"],
+      domainUiSelectedId: "frontier-doctrine",
+      ownedByTier: new Map([[1, frontierDoctrine]]),
+      currentTier: 2,
+      requiresTechNames: {
+        "farmers-compact": "Coinage",
+        "frontier-doctrine": "Coinage",
+        "iron-bastions": "Ironworking"
+      }
+    });
+
+    expect(html).toContain('data-domain-card="frontier-doctrine"');
+    expect(html).not.toContain('data-domain-card="farmers-compact"');
+    expect(html).toContain('data-domain-card="iron-bastions"');
+  });
+
   it("omits the duplicate inline close control in the mobile detail overlay variant", () => {
     const domain: DomainInfo = {
       id: "sharding",
