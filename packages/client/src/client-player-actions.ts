@@ -142,6 +142,7 @@ export const explainActionFailureFromServer = (
   if (code === "AETHER_BRIDGE_INVALID") return `Cannot cast Aether Bridge: ${message}.`;
   if (code === "CREATE_MOUNTAIN_INVALID") return `Cannot create mountain: ${message}.`;
   if (code === "REMOVE_MOUNTAIN_INVALID") return `Cannot remove mountain: ${message}.`;
+  if (code === "ATTACK_TARGET_INVALID") return "Action blocked: target must be enemy-controlled land.";
   if (code === "NOT_ADJACENT") return "Action blocked: target must border your territory or a linked dock.";
   if (code === "NOT_OWNER") return "Action blocked: you need to launch from one of your own tiles.";
   if (code === "ATTACK_COOLDOWN") {
