@@ -1960,6 +1960,7 @@ const {
   economicStructuresByTile,
   ownershipStateByTile,
   economicStructureTileKeysByPlayer,
+  ownership,
   getOrInitResourceCounts: (playerId: string) => getOrInitResourceCounts(playerId),
   resourceRate,
   currentIncomePerMinute: (player: Player) => currentIncomePerMinute(player),
@@ -2011,7 +2012,7 @@ const {
   RADAR_SYSTEM_GOLD_UPKEEP,
   MARKET_CRYSTAL_UPKEEP,
   BANK_CRYSTAL_UPKEEP
-}) as any;
+});
 
 const {
   currentFoodCoverageForPlayer,
@@ -2062,7 +2063,7 @@ const {
   structurePlacementMetadata,
   structureShowsOnTile,
   isBorderTile: (x: number, y: number, ownerId: string) => isBorderTile(x, y, ownerId),
-  ownedStructureCountForPlayer: (playerId: string, structureType: any) => ownedStructureCountForPlayer(playerId, structureType),
+  ownedStructureCountForPlayer: (playerId: string, structureType: EconomicStructureType) => ownedStructureCountForPlayer(playerId, structureType),
   consumeStrategicResource: (actor: Player, resource: StrategicResource, amount: number) => consumeStrategicResource(actor, resource, amount),
   recalcPlayerDerived: (player: Player) => recalcPlayerDerived(player),
   markSummaryChunkDirtyAtTile: (x: number, y: number) => markSummaryChunkDirtyAtTile(x, y),
@@ -2081,7 +2082,7 @@ const {
   foodUpkeepCoverageByPlayer,
   townFeedingStateByPlayer,
   revealedEmpireTargetsByPlayer,
-  sendToPlayer: (playerId: string, payload: unknown) => sendToPlayer(playerId, payload),
+  sendToPlayer: (playerId: string, payload: { type: "REVEAL_EMPIRE_UPDATE"; activeTargets: string[] }) => sendToPlayer(playerId, payload),
   getOrInitEconomyIndex: (playerId: string) => getOrInitEconomyIndex(playerId),
   applyClusterResources,
   resourceAt,
@@ -2109,7 +2110,6 @@ const {
     structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER" : structureType === "ADVANCED_IRONWORKS" ? "IRONWORKS" : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? "CRYSTAL_SYNTHESIZER" : undefined,
   economicStructureCrystalUpkeepPerInterval,
   playerEconomySnapshot,
-  currentIncomePerMinute: (player: Player) => currentIncomePerMinute(player),
   dockIncomeForOwner,
   townIncomeForOwner,
   FORT_BUILD_MS,
@@ -2133,10 +2133,8 @@ const {
   AIRPORT_BUILD_CRYSTAL_COST,
   MARKET_CRYSTAL_UPKEEP,
   BANK_CRYSTAL_UPKEEP,
-  randomUUID: () => crypto.randomUUID(),
-  WOODEN_FORT_BUILD_MS,
-  LIGHT_OUTPOST_BUILD_MS
-}) as any;
+  randomUUID: () => crypto.randomUUID()
+});
 
 const {
   regenerateStrategicWorld,
