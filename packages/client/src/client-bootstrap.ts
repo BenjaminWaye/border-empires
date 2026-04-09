@@ -623,6 +623,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     clearOptimisticTileState,
     dropQueuedTargetKeyIfAbsent: actionFlow.dropQueuedTargetKeyIfAbsent,
     pushFeed,
+    showCaptureAlert,
     processActionQueue: actionFlow.processActionQueue,
     shouldPreserveOptimisticExpandByKey,
     requestViewRefresh,
