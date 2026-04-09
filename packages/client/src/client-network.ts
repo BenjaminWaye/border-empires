@@ -65,6 +65,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearPendingCollectTileDelta,
     playerNameForOwner
   } = deps;
+  const tileSyncDebugEnabled = (): boolean =>
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.localStorage.getItem("tile-sync-debug") === "1");
+
+  const logTileSync = (event: string, payload: Record<string, unknown>): void => {
+    if (!tileSyncDebugEnabled()) return;
+    console.info(`[tile-sync] ${event}`, payload);
+  };
   const shouldResetFrontierActionStateForError =
     typeof deps.shouldResetFrontierActionStateForError === "function"
       ? deps.shouldResetFrontierActionStateForError
@@ -294,8 +305,34 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     for (const tile of tiles) {
       const tileKey = keyFor(tile.x, tile.y);
       const existing = state.tiles.get(tileKey);
-      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, tile));
+      const normalizedTile =
+        "ownerId" in tile
+          ? tile
+          : {
+              ...tile,
+              ownerId: undefined,
+              ownershipState: undefined,
+              capital: undefined
+            };
+      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, normalizedTile));
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
+      if (
+        existing?.ownerId !== mergedTile.ownerId ||
+        existing?.ownershipState !== mergedTile.ownershipState ||
+        tileKey === state.actionTargetKey ||
+        state.settleProgressByTile.has(tileKey)
+      ) {
+        logTileSync("chunk_tile_applied", {
+          tileKey,
+          existingOwnerId: existing?.ownerId,
+          existingOwnershipState: existing?.ownershipState,
+          incomingOwnerId: normalizedTile.ownerId,
+          incomingOwnershipState: normalizedTile.ownershipState,
+          resolvedOwnerId: mergedTile.ownerId,
+          resolvedOwnershipState: mergedTile.ownershipState,
+          optimisticPending: mergedTile.optimisticPending
+        });
+      }
       state.frontierSyncWaitUntilByTarget.delete(keyFor(mergedTile.x, mergedTile.y));
       if (mergedTile.ownerId === state.me && (mergedTile.ownershipState === "FRONTIER" || mergedTile.ownershipState === "SETTLED")) {
         state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
@@ -915,6 +952,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
+        if (
+          existing?.ownerId !== resolved.ownerId ||
+          existing?.ownershipState !== resolved.ownershipState ||
+          updateKey === state.actionTargetKey ||
+          state.settleProgressByTile.has(updateKey)
+        ) {
+          logTileSync("tile_delta_applied", {
+            tileKey: updateKey,
+            existingOwnerId: existing?.ownerId,
+            existingOwnershipState: existing?.ownershipState,
+            updateOwnerId: "ownerId" in update ? update.ownerId ?? null : "__omitted__",
+            updateOwnershipState: "ownershipState" in update ? update.ownershipState ?? null : "__omitted__",
+            resolvedOwnerId: resolved.ownerId,
+            resolvedOwnershipState: resolved.ownershipState,
+            optimisticPending: resolved.optimisticPending
+          });
+        }
         if (resolved.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
           state.frontierSyncWaitUntilByTarget.delete(updateKey);
           state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
