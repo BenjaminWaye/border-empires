@@ -1967,6 +1967,7 @@ const {
   getPlayerEffectsForPlayer: (playerId: string) => getPlayerEffectsForPlayer(playerId),
   effectiveManpowerAt: (player: Player, nowMs?: number) => effectiveManpowerAt(player, nowMs),
   playerManpowerCap: (player: Player) => playerManpowerCap(player),
+  townGoldIncomeEnabledForPlayer,
   townFoodUpkeepPerMinute,
   governorUpkeepMultiplierAtTile,
   dockIncomeForOwner,
