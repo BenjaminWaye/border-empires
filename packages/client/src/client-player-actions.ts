@@ -146,6 +146,7 @@ export const explainActionFailureFromServer = (
   if (code === "NOT_OWNER") return "Action blocked: you need to launch from one of your own tiles.";
   if (code === "ATTACK_COOLDOWN") {
     const remainingMs = Math.max(0, opts?.cooldownRemainingMs ?? 0);
+    if (remainingMs <= 0) return "Action blocked: that origin tile is still on attack cooldown.";
     const remainingLabel = opts?.formatCooldownShort ? opts.formatCooldownShort(remainingMs) : `${Math.ceil(remainingMs / 1000)}s`;
     return `Action blocked: that origin tile is still on attack cooldown for ${remainingLabel}.`;
   }
