@@ -2076,6 +2076,7 @@ const {
   consumeYieldGoldForPlayer: (player: Player, amount: number, touchedTileKeys: Set<TileKey>) => consumeYieldGoldForPlayer(player, amount, touchedTileKeys),
   upkeepPerMinuteForPlayer,
   upkeepContributorsForPlayer,
+  lastUpkeepByPlayer,
   foodUpkeepCoverageByPlayer,
   townFeedingStateByPlayer,
   revealedEmpireTargetsByPlayer,
