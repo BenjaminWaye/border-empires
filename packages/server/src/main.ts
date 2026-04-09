@@ -4008,7 +4008,9 @@ const tryQueueBasicFrontierAction = (
   let from = playerTile(fromX, fromY);
   const to = playerTile(toX, toY);
   if (actionType === "EXPAND" && to.ownerId) return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
-  if (actionType === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) return { ok: false, code: "NOT_ADJACENT", message: "target must be enemy-controlled land" };
+  if (actionType === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) {
+    return { ok: false, code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" };
+  }
 
   let fk = key(from.x, from.y);
   const tk = key(to.x, to.y);
@@ -14809,6 +14811,12 @@ app.post("/admin/world/regenerate", async () => {
     }
     if (isBreakthroughAttack && !actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID)) {
       socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Breach Doctrine" }));
+      return;
+    }
+    if (msg.type === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) {
+      logTileSync("action_validation_rejected_attack_target_invalid", actionValidationPayload(actor.id, msg.type, from, to));
+      app.log.info({ playerId: actor.id, to: preTk, ownerId: to.ownerId }, "action rejected: attack target not enemy");
+      socket.send(JSON.stringify({ type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" }));
       return;
     }
     if (!hasEnoughManpower(actor, manpowerMin)) {

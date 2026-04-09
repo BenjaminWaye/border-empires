@@ -917,84 +917,93 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       let resolvedQueuedFrontierCapture = false;
       let detailRequests = 0;
       for (const update of updates) {
+        const normalizedUpdate =
+          "ownerId" in update
+            ? update
+            : {
+                ...update,
+                ownerId: undefined,
+                ownershipState: undefined,
+                capital: undefined
+              };
         const updateKey = keyFor(update.x, update.y);
         state.incomingAttacksByTile.delete(updateKey);
         state.pendingCollectVisibleKeys.delete(keyFor(update.x, update.y));
         const existing = state.tiles.get(keyFor(update.x, update.y));
-        const merged: any = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
-        if (update.terrain) merged.terrain = update.terrain;
-        if ("detailLevel" in update) merged.detailLevel = update.detailLevel;
-        if (update.fogged !== undefined) merged.fogged = update.fogged;
-        if (update.resource !== undefined) merged.resource = update.resource;
-        if ("ownerId" in update) {
-          if (update.ownerId) merged.ownerId = update.ownerId;
+        const merged: any = existing ?? { x: normalizedUpdate.x, y: normalizedUpdate.y, terrain: normalizedUpdate.terrain ?? "LAND" };
+        if (normalizedUpdate.terrain) merged.terrain = normalizedUpdate.terrain;
+        if ("detailLevel" in normalizedUpdate) merged.detailLevel = normalizedUpdate.detailLevel;
+        if (normalizedUpdate.fogged !== undefined) merged.fogged = normalizedUpdate.fogged;
+        if (normalizedUpdate.resource !== undefined) merged.resource = normalizedUpdate.resource;
+        if ("ownerId" in normalizedUpdate) {
+          if (normalizedUpdate.ownerId) merged.ownerId = normalizedUpdate.ownerId;
           else delete merged.ownerId;
         }
-        if ("ownershipState" in update) {
-          if (update.ownershipState) merged.ownershipState = update.ownershipState;
+        if ("ownershipState" in normalizedUpdate) {
+          if (normalizedUpdate.ownershipState) merged.ownershipState = normalizedUpdate.ownershipState;
           else delete merged.ownershipState;
         }
-        if ("capital" in update) {
-          if (update.capital) merged.capital = update.capital;
+        if ("capital" in normalizedUpdate) {
+          if (normalizedUpdate.capital) merged.capital = normalizedUpdate.capital;
           else delete merged.capital;
         }
-        if ("breachShockUntil" in update) {
-          if (typeof update.breachShockUntil === "number") merged.breachShockUntil = update.breachShockUntil;
+        if ("breachShockUntil" in normalizedUpdate) {
+          if (typeof normalizedUpdate.breachShockUntil === "number") merged.breachShockUntil = normalizedUpdate.breachShockUntil;
           else delete merged.breachShockUntil;
         }
-        if ("ownerId" in update && !update.ownerId) delete merged.ownershipState;
-        if (update.clusterId !== undefined) merged.clusterId = update.clusterId;
-        if (update.clusterType !== undefined) merged.clusterType = update.clusterType;
-        if (update.regionType !== undefined) merged.regionType = update.regionType;
-        if (update.dockId !== undefined) merged.dockId = update.dockId;
-        if ("dock" in update) {
-          if (update.dock) merged.dock = update.dock;
+        if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
+        if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;
+        if (normalizedUpdate.clusterType !== undefined) merged.clusterType = normalizedUpdate.clusterType;
+        if (normalizedUpdate.regionType !== undefined) merged.regionType = normalizedUpdate.regionType;
+        if (normalizedUpdate.dockId !== undefined) merged.dockId = normalizedUpdate.dockId;
+        if ("dock" in normalizedUpdate) {
+          if (normalizedUpdate.dock) merged.dock = normalizedUpdate.dock;
           else delete merged.dock;
         }
-        if ("shardSite" in update) {
-          if (update.shardSite) merged.shardSite = update.shardSite;
+        if ("shardSite" in normalizedUpdate) {
+          if (normalizedUpdate.shardSite) merged.shardSite = normalizedUpdate.shardSite;
           else delete merged.shardSite;
         }
-        if (update.town !== undefined) merged.town = update.town;
-        if ("town" in update && !update.town) delete merged.town;
-        if (update.fort !== undefined) merged.fort = update.fort;
-        if (!update.fort) delete merged.fort;
-        if ("observatory" in update) {
-          if (update.observatory) merged.observatory = update.observatory;
+        if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;
+        if ("town" in normalizedUpdate && !normalizedUpdate.town) delete merged.town;
+        if (normalizedUpdate.fort !== undefined) merged.fort = normalizedUpdate.fort;
+        if (!normalizedUpdate.fort) delete merged.fort;
+        if ("observatory" in normalizedUpdate) {
+          if (normalizedUpdate.observatory) merged.observatory = normalizedUpdate.observatory;
           else delete merged.observatory;
         }
-        if ("economicStructure" in update) {
-          if (update.economicStructure) merged.economicStructure = update.economicStructure;
+        if ("economicStructure" in normalizedUpdate) {
+          if (normalizedUpdate.economicStructure) merged.economicStructure = normalizedUpdate.economicStructure;
           else delete merged.economicStructure;
         }
-        if (update.siegeOutpost !== undefined) merged.siegeOutpost = update.siegeOutpost;
-        if (!update.siegeOutpost) delete merged.siegeOutpost;
-        if ("sabotage" in update) {
-          if (update.sabotage) merged.sabotage = update.sabotage;
+        if (normalizedUpdate.siegeOutpost !== undefined) merged.siegeOutpost = normalizedUpdate.siegeOutpost;
+        if (!normalizedUpdate.siegeOutpost) delete merged.siegeOutpost;
+        if ("sabotage" in normalizedUpdate) {
+          if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;
           else delete merged.sabotage;
         }
-        if ("yield" in update) {
-          if (update.yield) merged.yield = update.yield;
+        if ("yield" in normalizedUpdate) {
+          if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;
           else delete merged.yield;
         }
-        if ("yieldRate" in update) {
-          if (update.yieldRate) merged.yieldRate = update.yieldRate;
+        if ("yieldRate" in normalizedUpdate) {
+          if (normalizedUpdate.yieldRate) merged.yieldRate = normalizedUpdate.yieldRate;
           else delete merged.yieldRate;
         }
-        if ("yieldCap" in update) {
-          if (update.yieldCap) merged.yieldCap = update.yieldCap;
+        if ("yieldCap" in normalizedUpdate) {
+          if (normalizedUpdate.yieldCap) merged.yieldCap = normalizedUpdate.yieldCap;
           else delete merged.yieldCap;
         }
-        if ("history" in update) {
-          if (update.history) merged.history = update.history;
+        if ("history" in normalizedUpdate) {
+          if (normalizedUpdate.history) merged.history = normalizedUpdate.history;
           else delete merged.history;
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
         logDebugTileState("tile-delta", resolved, {
           source: "TILE_DELTA",
-          updateHasEconomicStructure: "economicStructure" in update,
-          updateEconomicStructure: update.economicStructure?.type,
+          updateHasEconomicStructure: "economicStructure" in normalizedUpdate,
+          updateEconomicStructure: normalizedUpdate.economicStructure?.type,
           existingEconomicStructure: existing?.economicStructure?.type
         });
         if (
@@ -1007,8 +1016,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             tileKey: updateKey,
             existingOwnerId: existing?.ownerId,
             existingOwnershipState: existing?.ownershipState,
-            updateOwnerId: "ownerId" in update ? update.ownerId ?? null : "__omitted__",
-            updateOwnershipState: "ownershipState" in update ? update.ownershipState ?? null : "__omitted__",
+            updateOwnerId: "ownerId" in normalizedUpdate ? normalizedUpdate.ownerId ?? null : "__omitted__",
+            updateOwnershipState: "ownershipState" in normalizedUpdate ? normalizedUpdate.ownershipState ?? null : "__omitted__",
             resolvedOwnerId: resolved.ownerId,
             resolvedOwnershipState: resolved.ownershipState,
             optimisticPending: resolved.optimisticPending
@@ -1354,6 +1363,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       const frontierActionError =
         errorCode === "ACTION_INVALID" ||
+        errorCode === "ATTACK_TARGET_INVALID" ||
         errorCode === "NOT_ADJACENT" ||
         errorCode === "NOT_OWNER" ||
         errorCode === "ATTACK_COOLDOWN" ||

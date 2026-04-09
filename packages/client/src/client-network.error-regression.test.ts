@@ -231,7 +231,7 @@ describe("client network regression guards", () => {
 
     expect(() =>
       ws.emit("message", {
-        data: JSON.stringify({ type: "ERROR", code: "NOT_ADJACENT", message: "target must be enemy-controlled land" })
+        data: JSON.stringify({ type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" })
       })
     ).not.toThrow();
   });
@@ -293,6 +293,15 @@ describe("client network regression guards", () => {
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
   });
 
+  it("explains invalid attack targets separately from adjacency failures", () => {
+    expect(explainActionFailureFromServer("ATTACK_TARGET_INVALID", "target must be enemy-controlled land")).toBe(
+      "Action blocked: target must be enemy-controlled land."
+    );
+    expect(explainActionFailureFromServer("NOT_ADJACENT", "target must be adjacent or valid dock crossing")).toBe(
+      "Action blocked: target must border your territory or a linked dock."
+    );
+  });
+
   it("does not clear active settlement progress when PLAYER_UPDATE omits pendingSettlements", () => {
     const state = createState();
     const ws = new FakeWebSocket();
@@ -330,16 +339,17 @@ describe("client network regression guards", () => {
     );
   });
 
-  it("preserves confirmed frontier ownership when TILE_DELTA omits owner fields", () => {
+  it("clears stale barbarian ownership when an authoritative TILE_DELTA omits owner fields", () => {
     const state = createState();
     state.tiles.set("100,247", {
       x: 100,
       y: 247,
       terrain: "LAND",
       fogged: false,
-      ownerId: "me",
-      ownershipState: "FRONTIER",
-      detailLevel: "summary"
+      ownerId: "barbarian",
+      ownershipState: "BARBARIAN",
+      detailLevel: "summary",
+      capital: true
     });
     const ws = new FakeWebSocket();
     bindWithDeps(state, ws);
@@ -355,11 +365,12 @@ describe("client network regression guards", () => {
       expect.objectContaining({
         x: 100,
         y: 247,
-        ownerId: "me",
-        ownershipState: "FRONTIER",
         regionType: "ANCIENT_HEARTLAND"
       })
     );
+    expect(state.tiles.get("100,247")?.ownerId).toBeUndefined();
+    expect(state.tiles.get("100,247")?.ownershipState).toBeUndefined();
+    expect(state.tiles.get("100,247")?.capital).toBeUndefined();
   });
 
   it("resumes the frontier queue when a chunk refresh confirms a queued capture", () => {
