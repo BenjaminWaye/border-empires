@@ -29,6 +29,7 @@ import {
   structureAccentColor as structureAccentColorFromModule
 } from "./client-map-render.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
+import type { RoadDirections } from "./client-road-network.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
 
@@ -232,7 +233,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void =>
     drawResourceCornerMarkerOnCanvas(ctx, tile, px, py, size, resourceColor);
   const drawRoadOverlay = (
-    directions: { north?: boolean; east?: boolean; south?: boolean; west?: boolean; terminal?: boolean },
+    directions: RoadDirections,
     px: number,
     py: number,
     size: number
