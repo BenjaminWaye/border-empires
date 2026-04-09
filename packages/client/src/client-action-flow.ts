@@ -59,13 +59,16 @@ import {
 } from "./client-selected-actions.js";
 import { showClientHoldBuildMenu } from "./client-ui-controls.js";
 import {
+  aetherWallDirectionTargetTiles as aetherWallDirectionTargetTilesFromModule,
   beginCrystalTargeting as beginCrystalTargetingFromModule,
+  canPlaceAetherWallFromOrigin as canPlaceAetherWallFromOriginFromModule,
   clearCrystalTargeting as clearCrystalTargetingFromModule,
   computeCrystalTargets as computeCrystalTargetsFromModule,
   crystalTargetingTitle as crystalTargetingTitleFromModule,
   crystalTargetingTone as crystalTargetingToneFromModule,
   executeCrystalTargeting as executeCrystalTargetingFromModule,
   hasAetherBridgeCapability as hasAetherBridgeCapabilityFromModule,
+  hasAetherWallCapability as hasAetherWallCapabilityFromModule,
   hasBreakthroughCapability as hasBreakthroughCapabilityFromModule,
   hasOwnedLandWithinClientRange as hasOwnedLandWithinClientRangeFromModule,
   hasRevealCapability as hasRevealCapabilityFromModule,
@@ -74,6 +77,7 @@ import {
   isOwnedBorderTile as isOwnedBorderTileFromModule,
   lineStepsBetween as lineStepsBetweenFromModule,
   menuActionsForSingleTile as menuActionsForSingleTileFromModule,
+  validAetherWallDirectionsForTile as validAetherWallDirectionsForTileFromModule,
   tileActionAvailability as tileActionAvailabilityFromModule,
   tileActionAvailabilityWithDevelopmentSlot as tileActionAvailabilityWithDevelopmentSlotFromModule
 } from "./client-tile-action-logic.js";
@@ -742,6 +746,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const hasRevealCapability = (): boolean => hasRevealCapabilityFromModule(state);
   const hasBreakthroughCapability = (): boolean => hasBreakthroughCapabilityFromModule(state);
   const hasAetherBridgeCapability = (): boolean => hasAetherBridgeCapabilityFromModule(state);
+  const hasAetherWallCapability = (): boolean => hasAetherWallCapabilityFromModule(state);
   const hasSiphonCapability = (): boolean => hasSiphonCapabilityFromModule(state);
   const hasTerrainShapingCapability = (): boolean => hasTerrainShapingCapabilityFromModule(state);
 
@@ -779,6 +784,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     tileActionAvailabilityWithDevelopmentSlotFromModule(enabledWithoutSlot, baseReason, cost, summary, tileActionLogicDeps());
 
   const isOwnedBorderTile = (x: number, y: number): boolean => isOwnedBorderTileFromModule(state, x, y, tileActionLogicDeps());
+  const validAetherWallDirectionsForTile = (tile: Tile): Array<ClientState["aetherWallTargeting"]["direction"]> =>
+    validAetherWallDirectionsForTileFromModule(state, tile, tileActionLogicDeps());
+  const aetherWallDirectionTargetTiles = (
+    tile: Tile
+  ): Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }> =>
+    aetherWallDirectionTargetTilesFromModule(state, tile, tileActionLogicDeps());
+
+  const preferredAetherWallLength = (x: number, y: number, direction: ClientState["aetherWallTargeting"]["direction"]): 0 | 1 | 2 | 3 => {
+    for (const length of [3, 2, 1] as const) {
+      if (canPlaceAetherWallFromOriginFromModule(state, x, y, direction, length, tileActionLogicDeps())) return length;
+    }
+    return 0;
+  };
 
   const menuActionsForSingleTile = (tile: Tile): TileActionDef[] =>
     menuActionsForSingleTileFromModule(state, tile, tileActionLogicDeps());
@@ -1139,6 +1157,22 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
       sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId });
     }
+    if (actionId === "reveal_empire_stats" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+      sendGameMessage({ type: "REVEAL_EMPIRE_STATS", targetPlayerId: selected.ownerId });
+    }
+    if (actionId === "aether_wall") {
+      const selectedDirections = validAetherWallDirectionsForTile(selected);
+      if (selectedDirections.length === 1) {
+        const direction = selectedDirections[0]!;
+        const length = preferredAetherWallLength(selected.x, selected.y, direction);
+        if (length > 0) sendGameMessage({ type: "CAST_AETHER_WALL", x: selected.x, y: selected.y, direction, length });
+        else pushFeed("Aether Wall cannot extend from that selected tile.", "combat", "warn");
+      } else if (selectedDirections.length > 1) {
+        beginCrystalTargeting("aether_wall");
+      } else {
+        pushFeed("Select one of your settled border tiles before casting Aether Wall.", "combat", "warn");
+      }
+    }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "purge_siphon") sendGameMessage({ type: "PURGE_SIPHON", x: selected.x, y: selected.y });
@@ -1187,6 +1221,62 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
     const clicked = state.tiles.get(keyFor(wx, wy));
     const vis = deps.tileVisibilityStateAt(wx, wy, clicked);
+    if (state.aetherWallTargeting.active) {
+      const selectedOrigin = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
+      if (selectedOrigin) {
+        const clickedDirection = aetherWallDirectionTargetTiles(selectedOrigin).find((target) => target.x === wx && target.y === wy);
+        if (clickedDirection) {
+          const length = preferredAetherWallLength(selectedOrigin.x, selectedOrigin.y, clickedDirection.direction);
+          if (length > 0) {
+            state.aetherWallTargeting.direction = clickedDirection.direction;
+            state.aetherWallTargeting.length = length;
+            sendGameMessage({
+              type: "CAST_AETHER_WALL",
+              x: selectedOrigin.x,
+              y: selectedOrigin.y,
+              direction: clickedDirection.direction,
+              length
+            });
+            clearCrystalTargeting();
+          }
+          renderHud();
+          return;
+        }
+      }
+      if (vis === "unexplored") {
+        renderHud();
+        return;
+      }
+      if (clicked) {
+        const clickedKey = keyFor(wx, wy);
+        if (!state.aetherWallTargeting.validOrigins.has(clickedKey)) {
+          if (vis === "visible") pushFeed("Aether Wall origin must be one of your visible settled border tiles.", "combat", "warn");
+          renderHud();
+          return;
+        }
+        state.selected = { x: wx, y: wy };
+        const validDirections = validAetherWallDirectionsForTile(clicked);
+        if (validDirections.length === 1) {
+          const direction = validDirections[0]!;
+          const length = preferredAetherWallLength(clicked.x, clicked.y, direction);
+          if (length > 0) {
+            state.aetherWallTargeting.direction = direction;
+            state.aetherWallTargeting.length = length;
+            sendGameMessage({ type: "CAST_AETHER_WALL", x: clicked.x, y: clicked.y, direction, length });
+            clearCrystalTargeting();
+          }
+          renderHud();
+          return;
+        }
+        if (validDirections.length > 0 && !validDirections.includes(state.aetherWallTargeting.direction)) {
+          state.aetherWallTargeting.direction = validDirections[0]!;
+        }
+        const preferredLength = preferredAetherWallLength(clicked.x, clicked.y, state.aetherWallTargeting.direction);
+        if (preferredLength > 0) state.aetherWallTargeting.length = preferredLength;
+      }
+      renderHud();
+      return;
+    }
     if (state.crystalTargeting.active) {
       if (vis === "unexplored") {
         renderHud();
@@ -1334,6 +1424,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hasRevealCapability,
     hasBreakthroughCapability,
     hasAetherBridgeCapability,
+    hasAetherWallCapability,
     hasSiphonCapability,
     hasTerrainShapingCapability,
     hasOwnedLandWithinClientRange,
@@ -1347,6 +1438,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     tileActionAvailability,
     tileActionAvailabilityWithDevelopmentSlot,
     isOwnedBorderTile,
+    validAetherWallDirectionsForTile,
+    aetherWallDirectionTargetTiles,
     menuActionsForSingleTile,
     tileActionMenuUiDeps,
     renderTileActionMenu,

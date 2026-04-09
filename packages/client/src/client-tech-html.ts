@@ -28,6 +28,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockRadarSystem" && value === true) return "Unlocks radar systems";
   if (key === "unlockRevealRegion" && value === true) return "Unlocks reveal region";
   if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
+  if (key === "unlockRevealEmpireStats" && value === true) return "Unlocks Reveal Empire Stats";
+  if (key === "unlockAetherWall" && value === true) return "Unlocks Aether Wall";
   if (key === "unlockDeepStrike" && value === true) return "Unlocks deep strike";
   if (key === "unlockNavalInfiltration" && value === true) return "Unlocks Aether Bridge";
   if (key === "unlockSabotage" && value === true) return "Unlocks sabotage";

@@ -44,6 +44,7 @@ import {
   maybeAnnounceShardSite as maybeAnnounceShardSiteFromModule,
   notifyInsufficientGoldForFrontierAction as notifyInsufficientGoldForFrontierActionFromModule,
   pushFeed as pushFeedFromModule,
+  pushFeedEntry as pushFeedEntryFromModule,
   shardAlertKeyForPayload as shardAlertKeyForPayloadFromModule,
   showCaptureAlert as showCaptureAlertFromModule,
   showCollectVisibleCooldownAlert as showCollectVisibleCooldownAlertFromModule,
@@ -420,6 +421,7 @@ const {
   borderLineWidthForOwner,
   structureAccentColor,
   drawAetherBridgeLane,
+  drawAetherWallSegment,
   drawTerrainTile,
   drawForestOverlay,
   drawBarbarianSkullOverlay,
@@ -523,6 +525,7 @@ const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string =>
 };
 const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void =>
   pushFeedFromModule(state, msg, type, severity);
+const pushFeedEntry = (entry: FeedEntry): void => pushFeedEntryFromModule(state, entry);
 
 const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => maybeAnnounceShardSiteFromModule(previous, next);
 
@@ -677,6 +680,7 @@ const defaultWsUrl = (() => {
   return "wss://border-empires.fly.dev/ws";
 })();
 const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? defaultWsUrl;
+state.localhostDevAetherWall = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "0.0.0.0";
 const ws = new WebSocket(wsUrl);
 bootstrapClientApp({
   state,
@@ -842,6 +846,7 @@ bootstrapClientApp({
   wrapY,
   terrainAt,
   pushFeed,
+  pushFeedEntry,
   requestViewRefresh,
   prettyToken,
   resourceIconForKey,
@@ -886,6 +891,7 @@ bootstrapClientApp({
   computeDockSeaRoute,
   toroidDelta,
   drawAetherBridgeLane,
+  drawAetherWallSegment,
   clearOptimisticTileState,
   mergeIncomingTileDetail,
   mergeServerTileWithOptimisticState,

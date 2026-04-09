@@ -1,4 +1,5 @@
 import type { ClientState } from "./client-state.js";
+import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -81,6 +82,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
               return true;
           }
         };
+  const appendFeedEntry =
+    typeof pushFeedEntry === "function"
+      ? pushFeedEntry
+      : (entry: { text: string; type?: string; severity?: string }) =>
+          pushFeed(entry.text, (entry.type as any) ?? "info", (entry.severity as any) ?? "info");
 
   const maybeRequestTileDetail = (tile: any): void => {
     if (typeof deps.requestTileDetailIfNeeded !== "function") return;
@@ -212,7 +218,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
     );
     if (!predictedAlreadyShown) {
-      pushFeedEntry({
+      appendFeedEntry({
         title: resultAlert.title,
         text: resultAlert.detail,
         type: "combat",
@@ -438,6 +444,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
       state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
       state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
+      state.revealedEmpireStatsByPlayer.clear();
       state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
       applyPendingSettlementsFromServer(
         (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
@@ -480,6 +487,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.activeTruces = (msg.activeTruces as any[]) ?? [];
       state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
       state.activeAetherBridges = (msg.activeAetherBridges as any[]) ?? [];
+      state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
       state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
       resetStrategicReplayState();
       const config = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
@@ -523,7 +531,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             const y = Number(yText);
             return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
           })() : undefined;
-          pushFeedEntry({
+          appendFeedEntry({
             title: typeof entry.title === "string" ? entry.title : undefined,
             text: typeof entry.detail === "string" ? entry.detail : "Activity update",
             type: entry.type === "combat" || entry.type === "mission" || entry.type === "error" || entry.type === "info" || entry.type === "alliance" || entry.type === "tech" ? entry.type : "info",
@@ -994,6 +1002,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
+    if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
+      const stats = (msg.stats as any) ?? undefined;
+      if (stats?.playerId) {
+        state.revealedEmpireStatsByPlayer.set(stats.playerId, stats);
+        pushFeed(revealEmpireStatsFeedText(stats), "combat", "success");
+      }
+      renderHud();
+      return;
+    }
+
     if (msg.type === "ALLIANCE_REQUEST_INCOMING") {
       const request = (msg.request as any) ?? undefined;
       if (request && !state.incomingAllianceRequests.some((existing: any) => existing.id === request.id)) {
@@ -1060,6 +1078,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "AETHER_BRIDGE_UPDATE") {
       state.activeAetherBridges = (msg.bridges as any[]) ?? state.activeAetherBridges;
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "AETHER_WALL_UPDATE") {
+      state.activeAetherWalls = (msg.walls as any[]) ?? state.activeAetherWalls;
       renderHud();
       return;
     }

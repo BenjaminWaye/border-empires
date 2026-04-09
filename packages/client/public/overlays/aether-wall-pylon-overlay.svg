@@ -1,0 +1,23 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="aether-wall-core" x1="64" y1="18" x2="64" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E8FBFF"/>
+      <stop offset="0.5" stop-color="#70D9FF"/>
+      <stop offset="1" stop-color="#1F7BDB"/>
+    </linearGradient>
+    <linearGradient id="aether-wall-metal" x1="33" y1="38" x2="95" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E5EEF7"/>
+      <stop offset="1" stop-color="#6F819A"/>
+    </linearGradient>
+  </defs>
+  <path d="M64 16L76 30V94L64 112L52 94V30L64 16Z" fill="url(#aether-wall-core)"/>
+  <path d="M64 16L90 34L64 46L38 34L64 16Z" fill="#DDF7FF"/>
+  <path d="M38 34V84L64 100V46L38 34Z" fill="url(#aether-wall-metal)"/>
+  <path d="M90 34V84L64 100V46L90 34Z" fill="#7D90A8"/>
+  <path d="M24 102L40 92L64 104L48 114L24 102Z" fill="#6F819A"/>
+  <path d="M104 102L88 92L64 104L80 114L104 102Z" fill="#94A9C1"/>
+  <path d="M44 54L64 44L84 54" stroke="#B4F2FF" stroke-width="4" stroke-linecap="round"/>
+  <path d="M46 72L64 62L82 72" stroke="#9CE8FF" stroke-width="4" stroke-linecap="round"/>
+  <path d="M28 88L50 74" stroke="#A7DFFF" stroke-width="5" stroke-linecap="round"/>
+  <path d="M100 88L78 74" stroke="#A7DFFF" stroke-width="5" stroke-linecap="round"/>
+</svg>
