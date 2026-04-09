@@ -270,12 +270,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.chunkFullCount += 1;
     if (state.firstChunkAt === 0) state.firstChunkAt = Date.now();
     let sawOwnedTile = false;
+    let resolvedQueuedFrontierCapture = false;
     let detailRequests = 0;
     for (const tile of tiles) {
-      const existing = state.tiles.get(keyFor(tile.x, tile.y));
+      const tileKey = keyFor(tile.x, tile.y);
+      const existing = state.tiles.get(tileKey);
       const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, tile));
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
       state.frontierSyncWaitUntilByTarget.delete(keyFor(mergedTile.x, mergedTile.y));
+      if (mergedTile.ownerId === state.me && (mergedTile.ownershipState === "FRONTIER" || mergedTile.ownershipState === "SETTLED")) {
+        state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
+        state.queuedTargetKeys.delete(tileKey);
+        resolvedQueuedFrontierCapture = true;
+      }
       maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
@@ -291,6 +298,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (sawOwnedTile) state.hasOwnedTileInCache = true;
     else if (!state.hasOwnedTileInCache) centerOnOwnedTile();
+    if (resolvedQueuedFrontierCapture && !state.actionInFlight && !state.capture && state.actionQueue.length > 0) {
+      processActionQueue();
+    }
     if (
       firstChunkArriving &&
       !state.fogDisabled &&
@@ -821,8 +831,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if ("detailLevel" in update) merged.detailLevel = update.detailLevel;
         if (update.fogged !== undefined) merged.fogged = update.fogged;
         if (update.resource !== undefined) merged.resource = update.resource;
-        if (update.ownerId) merged.ownerId = update.ownerId;
-        else delete merged.ownerId;
+        if ("ownerId" in update) {
+          if (update.ownerId) merged.ownerId = update.ownerId;
+          else delete merged.ownerId;
+        }
         if ("ownershipState" in update) {
           if (update.ownershipState) merged.ownershipState = update.ownershipState;
           else delete merged.ownershipState;
