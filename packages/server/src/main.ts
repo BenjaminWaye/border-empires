@@ -188,6 +188,7 @@ import {
   CHUNK_SERIALIZER_WORKER_ENABLED,
   CHUNK_STREAM_BATCH_SIZE,
   DEBUG_SPAWN_NEAR_AI,
+  TILE_SYNC_DEBUG,
   DISABLE_FOG,
   FOG_ADMIN_EMAIL,
   MAX_SUBSCRIBE_RADIUS,
@@ -2914,12 +2915,23 @@ const chooseCapitalTileKey = (player: Player): TileKey | undefined => {
   return settledTiles[0];
 };
 
+const logTileSync = (event: string, payload: Record<string, unknown>): void => {
+  if (!TILE_SYNC_DEBUG) return;
+  app.log.info(payload, `tile sync ${event}`);
+};
+
 const sendVisibleTileDeltaAt = (x: number, y: number): void => {
   for (const p of players.values()) {
     if (!tileInSubscription(p.id, x, y)) continue;
     if (!visible(p, x, y)) continue;
     const current = playerTile(x, y);
     current.fogged = false;
+    logTileSync("visible_tile_delta_sent", {
+      playerId: p.id,
+      tileKey: key(x, y),
+      ownerId: current.ownerId,
+      ownershipState: current.ownershipState
+    });
     sendToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
   }
 };
@@ -10790,6 +10802,13 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
   const liveActor = players.get(settlement.ownerId);
   if (!liveActor) return;
   const live = runtimeTileCore(x, y);
+  logTileSync("settlement_resolving", {
+    playerId: settlement.ownerId,
+    tileKey: settlement.tileKey,
+    liveOwnerId: live.ownerId,
+    liveOwnershipState: live.ownershipState,
+    resolvesAt: settlement.resolvesAt
+  });
   if (live.ownerId !== liveActor.id) {
     const capturedByEnemy = Boolean(live.ownerId && live.ownerId !== liveActor.id);
     if (!capturedByEnemy) {
@@ -10808,6 +10827,12 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
     return;
   }
   updateOwnership(x, y, liveActor.id, "SETTLED");
+  logTileSync("settlement_applied", {
+    playerId: liveActor.id,
+    tileKey: settlement.tileKey,
+    ownerId: liveActor.id,
+    ownershipState: "SETTLED"
+  });
   revealLinkedDocksForPlayer(liveActor.id, settlement.tileKey);
   recordFrontierSettlementForPressure(liveActor.id);
   const effects = getPlayerEffectsForPlayer(liveActor.id);
@@ -10848,6 +10873,12 @@ const startSettlement = (
   const baseSettleMs = (opts?.settleMs ?? SETTLE_MS) * (isForestFrontierTile(x, y) ? FOREST_SETTLEMENT_MULT : 1);
   const settleMs = Math.max(250, Math.round(baseSettleMs / effects.settlementSpeedMult));
   const t = playerTile(x, y);
+  logTileSync("settlement_requested", {
+    playerId: actor.id,
+    tileKey: key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)),
+    ownerId: t.ownerId,
+    ownershipState: t.ownershipState
+  });
   if (t.terrain !== "LAND") return { ok: false, reason: "settlement requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "tile must be owned" };
   if (t.ownershipState !== "FRONTIER") return { ok: false, reason: "tile is already settled" };
@@ -10870,6 +10901,12 @@ const startSettlement = (
     cancelled: false
   };
   pendingSettlementsByTile.set(tk, pending);
+  logTileSync("settlement_started", {
+    playerId: actor.id,
+    tileKey: tk,
+    startedAt,
+    resolvesAt
+  });
   schedulePendingSettlementResolution(pending);
   sendPlayerUpdate(actor, 0);
   return { ok: true, resolvesAt };
