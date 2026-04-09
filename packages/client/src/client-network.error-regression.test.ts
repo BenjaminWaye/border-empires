@@ -500,7 +500,75 @@ describe("client network regression guards", () => {
     ).not.toThrow();
 
     expect(state.settleProgressByTile.has("12,18")).toBe(false);
-    expect(showCaptureAlert).toHaveBeenCalledWith("Action failed", "tile is already settled", "warn");
+    expect(showCaptureAlert).toHaveBeenCalledWith("Action failed", "tile is already settled", "warn", undefined);
+  });
+
+  it("requeues a settlement when the server rejects it during a combat lock window", () => {
+    const state = createState();
+    state.actionInFlight = true;
+    state.actionTargetKey = "12,18";
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    state.settleProgressByTile.set("12,18", {
+      startAt: Date.now() - 1000,
+      resolvesAt: Date.now() + 10_000,
+      target: { x: 12, y: 18 },
+      awaitingServerConfirm: false
+    });
+    const ws = new FakeWebSocket();
+    const pushFeed = vi.fn();
+    const showCaptureAlert = vi.fn();
+    bindWithDeps(state, ws, { pushFeed, showCaptureAlert, clearSettlementProgressByKey: undefined });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "tile is locked in combat", x: 12, y: 18 })
+    });
+
+    expect(state.settleProgressByTile.has("12,18")).toBe(false);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(showCaptureAlert).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
+  });
+
+  it("does not crash on settlement errors when alert and queue callbacks are missing", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    state.settleProgressByTile.set("12,18", {
+      startAt: Date.now() - 1000,
+      resolvesAt: Date.now() + 10_000,
+      target: { x: 12, y: 18 },
+      awaitingServerConfirm: false
+    });
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws, {
+      clearSettlementProgressByKey: undefined,
+      showCaptureAlert: undefined,
+      pushFeed: undefined,
+      explainActionFailure: undefined,
+      reconcileActionQueue: undefined,
+      processActionQueue: undefined
+    });
+
+    expect(() =>
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "tile is already settled", x: 12, y: 18 })
+      })
+    ).not.toThrow();
   });
 
   it("requeues a structure build when the server rejects it only because development slots are full", () => {

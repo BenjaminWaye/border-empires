@@ -153,6 +153,55 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearSettlementProgressByKeyFromModule(state, tileKey, { clearOptimisticTileState: (key) => clearOptimisticTileState(key, true) });
   };
 
+  const clearOptimisticTileStateSafely = (tileKey: string, revert = false): void => {
+    if (!tileKey || typeof clearOptimisticTileState !== "function") return;
+    clearOptimisticTileState(tileKey, revert);
+  };
+
+  const showCaptureAlertSafely = (
+    title: string,
+    detail: string,
+    tone: "info" | "success" | "warn" | "error",
+    manpowerLoss?: number
+  ): void => {
+    if (typeof showCaptureAlert !== "function") return;
+    showCaptureAlert(title, detail, tone, manpowerLoss);
+  };
+
+  const pushFeedSafely = (
+    message: string,
+    type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech",
+    severity?: "info" | "success" | "warn" | "error"
+  ): void => {
+    if (typeof pushFeed !== "function") return;
+    pushFeed(message, type, severity);
+  };
+
+  const explainActionFailureSafely = (
+    code: string,
+    message: string,
+    opts?: {
+      cooldownRemainingMs?: number;
+      formatCooldownShort?: (ms: number) => string;
+    }
+  ): string =>
+    typeof explainActionFailure === "function" ? explainActionFailure(code, message, opts) : message || "Action failed";
+
+  const requestViewRefreshSafely = (radius?: number, force?: boolean): void => {
+    if (typeof requestViewRefresh !== "function") return;
+    requestViewRefresh(radius, force);
+  };
+
+  const reconcileActionQueueSafely = (): void => {
+    if (typeof reconcileActionQueue !== "function") return;
+    reconcileActionQueue();
+  };
+
+  const processActionQueueSafely = (): void => {
+    if (typeof processActionQueue !== "function") return;
+    processActionQueue();
+  };
+
   const maybeRecoverBusyDevelopmentAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
     if (!errorMessage.includes("development slots are busy")) return false;
     if (errorCode !== "SETTLE_INVALID" && !errorCode.endsWith("_BUILD_INVALID") && errorCode !== "STRUCTURE_REMOVE_INVALID") return false;
@@ -166,6 +215,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (!matchesOptimisticState) return false;
     clearOptimisticTileState(errorTileKey, true);
     if (attempt.kind === "SETTLE") clearSettlementProgressSafely(errorTileKey);
+    state.queuedDevelopmentDispatchPending = false;
+    state.lastDevelopmentAttempt = undefined;
+    return queueDevelopmentActionFromModule(state, attempt, {
+      pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
+      renderHud: typeof renderHud === "function" ? renderHud : () => {}
+    });
+  };
+
+  const maybeRecoverTransientSettlementAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
+    if (errorCode !== "SETTLE_INVALID" || !errorTileKey) return false;
+    const attempt = state.lastDevelopmentAttempt;
+    if (!attempt || attempt.kind !== "SETTLE" || attempt.tileKey !== errorTileKey) return false;
+    const transientOwnershipFailure =
+      errorMessage === "tile must be owned" &&
+      ((state.actionInFlight && state.actionTargetKey === errorTileKey) ||
+        (state.capture && keyFor(state.capture.target.x, state.capture.target.y) === errorTileKey));
+    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && errorMessage !== "tile already settling") return false;
+    clearOptimisticTileStateSafely(errorTileKey, true);
+    clearSettlementProgressSafely(errorTileKey);
     state.queuedDevelopmentDispatchPending = false;
     state.lastDevelopmentAttempt = undefined;
     return queueDevelopmentActionFromModule(state, attempt, {
@@ -1339,36 +1407,38 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
       if (maybeRecoverBusyDevelopmentAttempt(errorCode, errorMessage, errorTileKey)) return;
+      if (maybeRecoverTransientSettlementAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
       } else if (errorCode === "SETTLE_INVALID") {
-        clearOptimisticTileState(errorTileKey, true);
+        clearOptimisticTileStateSafely(errorTileKey, true);
         clearSettlementProgressSafely(errorTileKey);
         state.queuedDevelopmentDispatchPending = false;
-        showCaptureAlert("Action failed", errorMessage, "warn");
+        showCaptureAlertSafely("Action failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (isStructureActionError && errorTileKey) {
-        clearOptimisticTileState(errorTileKey, true);
+        clearOptimisticTileStateSafely(errorTileKey, true);
         state.queuedDevelopmentDispatchPending = false;
-        showCaptureAlert(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
+        showCaptureAlertSafely(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
-        showCaptureAlert("Town unfed", errorMessage, "warn");
+        showCaptureAlertSafely("Town unfed", errorMessage, "warn");
       }
       if (errorCode === "COLLECT_EMPTY") {
-        pushFeed(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
+        pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
       } else if (errorCode === "COLLECT_COOLDOWN") {
         if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + deps.COLLECT_VISIBLE_COOLDOWN_MS;
         showCollectVisibleCooldownAlert();
-        pushFeed(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
+        pushFeedSafely(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
       } else if (errorCode === "TOWN_UNFED") {
-        pushFeed(errorMessage, "info", "warn");
+        pushFeedSafely(errorMessage, "info", "warn");
       } else {
-        pushFeed(
-          explainActionFailure(errorCode, errorMessage, {
-            cooldownRemainingMs: typeof msg.cooldownRemainingMs === "number" ? msg.cooldownRemainingMs : undefined,
-            formatCooldownShort
-          }),
+        const failureExplanationOptions = {
+          ...(typeof msg.cooldownRemainingMs === "number" ? { cooldownRemainingMs: msg.cooldownRemainingMs } : {}),
+          formatCooldownShort
+        };
+        pushFeedSafely(
+          explainActionFailureSafely(errorCode, errorMessage, failureExplanationOptions),
           "error",
           "error"
         );
@@ -1400,19 +1470,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + 12_000);
         }
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
-        if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
-        if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
+        if (failedCurrentKey) clearOptimisticTileStateSafely(failedCurrentKey, true);
+        if (failedTargetKey) clearOptimisticTileStateSafely(failedTargetKey, true);
         if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
       } else if (failedTargetKey) {
-        clearOptimisticTileState(failedTargetKey, true);
+        clearOptimisticTileStateSafely(failedTargetKey, true);
       }
       state.attackPreviewPendingKey = "";
       if (frontierActionError || !shouldResetFrontierAction) {
         state.lastSubAt = 0;
-        requestViewRefresh(2, true);
+        requestViewRefreshSafely(2, true);
       }
-      reconcileActionQueue();
-      processActionQueue();
+      reconcileActionQueueSafely();
+      processActionQueueSafely();
       renderHud();
       return;
     }
