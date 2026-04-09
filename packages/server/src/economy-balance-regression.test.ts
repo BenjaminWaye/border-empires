@@ -87,6 +87,14 @@ describe("economy balance regression guard", () => {
     expect(source).toContain("upkeepLastTick: economy.upkeepLastTick");
   });
 
+  it("wires upkeep diagnostics into the economic operations runtime", () => {
+    const source = serverSource();
+    expect(source).toContain("deps.lastUpkeepByPlayer.set(player.id, diag);");
+    expect(source).toContain("upkeepContributorsForPlayer,");
+    expect(source).toContain("lastUpkeepByPlayer,");
+    expect(source).toContain("foodUpkeepCoverageByPlayer,");
+  });
+
   it("keeps towns visible in the gold breakdown when manpower gating pauses their income", () => {
     const source = serverSource();
     expect(source).toContain("const townIncomePaused = !townGoldIncomeEnabledForPlayer(player);");
