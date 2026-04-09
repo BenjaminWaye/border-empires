@@ -3793,6 +3793,14 @@ body {
   color: rgba(233, 242, 255, 0.45);
 }
 
+.debug-feed-card {
+  margin-bottom: 12px;
+}
+
+.debug-feed-actions {
+  margin-top: 10px;
+}
+
 .feed-icon {
   width: 22px;
   height: 22px;

@@ -19,7 +19,7 @@ import {
   syncAuthOverlay as syncAuthOverlayFromModule,
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "./client-auth-ui.js";
-import { announceDebugTileState, debugEnabledForAccount, setDebugAuthEmail } from "./client-debug.js";
+import { setDebugAuthEmail } from "./client-debug.js";
 import type { ClientState } from "./client-state.js";
 
 export type AuthSession = {
@@ -301,12 +301,6 @@ export const createClientAuthFlow = (deps: AuthFlowDeps) => {
         state.authBusy = true;
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
-        if (debugEnabledForAccount()) {
-          announceDebugTileState("auto-debug enabled for signed-in account", {
-            email: user.email?.trim().toLowerCase() ?? "",
-            selectedTile: state.selected ? `${state.selected.x},${state.selected.y}` : ""
-          });
-        }
         state.authBusyTitle = "Securing session";
         state.authBusyDetail = "Refreshing your Google session and waiting for the realtime server connection.";
         seedProfileSetupFields(user.displayName ?? user.email?.split("@")[0] ?? "", dom.authProfileColorEl.value);
