@@ -1,21 +1,103 @@
-import { signOut } from "firebase/auth";
+import { signOut, type Auth } from "firebase/auth";
 import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import type { StructureInfoKey } from "./client-map-display.js";
+import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
+import type { DomainInfo, TechInfo, Tile, TileMenuView } from "./client-types.js";
 
-type HudDeps = Record<string, any> & {
+type ClientDom = ReturnType<typeof initClientDom>;
+type VisibleCollectSummary = {
+  tileCount: number;
+  totalGold: number;
+  totalShards: number;
+  totalResources: Record<string, number>;
+};
+
+type HudDeps = {
   state: ClientState;
-  dom: any;
+  dom: ClientDom;
   miniMapReplayEl: HTMLDivElement;
   wsUrl: string;
-  firebaseAuth?: any;
+  firebaseAuth?: Auth;
   syncAuthOverlay: () => void;
+  storageSet: typeof storageSet;
+  visibleCollectSummary: () => VisibleCollectSummary;
+  developmentSlotSummary: () => DevelopmentSlotSummary;
+  isMobile: () => boolean;
+  rateToneClass: (value: number) => string;
+  formatGoldAmount: (value: number) => string;
+  formatManpowerAmount: (value: number) => string;
+  strategicRibbonHtml: (
+    strategicResources: ClientState["strategicResources"],
+    strategicProductionPerMinute: ClientState["strategicProductionPerMinute"],
+    upkeepPerMinute: ClientState["upkeepPerMinute"],
+    strategicAnim: ClientState["strategicAnim"],
+    rateToneClass: (value: number) => string
+  ) => string;
+  formatCooldownShort: (ms: number) => string;
+  openEconomyPanel: (focus?: EconomyFocusKey) => void;
+  setActivePanel: (panel: ClientState["activePanel"]) => void;
+  affordableTechChoicesCount: () => number;
+  mobileNavLabelHtml: (panel: ClientState["mobilePanel"], opts?: { techReady?: boolean; attackAlertUnread?: boolean }) => string;
+  crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
+  crystalTargetingTitle: (ability: ClientState["crystalTargeting"]["ability"]) => string;
+  clearCrystalTargeting: () => void;
+  keyFor: (x: number, y: number) => string;
+  parseKey: (key: string) => { x: number; y: number };
+  selectedTile: () => Tile | undefined;
+  requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
+  renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void;
+  tileMenuViewForTile: (tile: Tile) => TileMenuView;
+  renderCaptureProgress: () => void;
+  renderShardAlert: () => void;
+  renderTechChoiceGrid: () => string;
+  techDetailsUseOverlay: () => boolean;
+  renderTechDetailPrompt: () => string;
+  renderTechDetailCard: () => string;
+  renderStructureInfoOverlay: () => string;
+  renderTechDetailOverlay: () => string;
+  renderDomainDetailOverlay: () => string;
+  techOwnedHtml: (catalog: TechInfo[], ownedIds: string[], isPendingTechUnlock?: (techId: string) => boolean) => string;
+  effectiveOwnedTechIds: () => string[];
+  isPendingTechUnlock: (techId: string) => boolean;
+  renderTechChoiceDetails: () => string;
+  techCurrentModsHtml: (mods: ClientState["mods"], expandedKey: ClientState["expandedModKey"], breakdown: ClientState["modBreakdown"]) => string;
+  bindTechTreeDragScroll: () => void;
+  chooseTech: (techIdRaw?: string) => void;
+  chooseDomain: (domainIdRaw?: string) => void;
+  renderDomainProgressCard: () => string;
+  renderDomainChoiceGrid: () => string;
+  domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[]) => string;
+  renderDomainDetailCard: () => string;
+  sendGameMessage: (payload: unknown, message?: string) => boolean;
+  alliesHtml: typeof import("./client-panel-html.js").alliesHtml;
+  activeTrucesHtml: typeof import("./client-panel-html.js").activeTrucesHtml;
+  allianceRequestsHtml: typeof import("./client-panel-html.js").allianceRequestsHtml;
+  truceRequestsHtml: typeof import("./client-panel-html.js").truceRequestsHtml;
+  renderSocialInspectCardHtml: typeof import("./client-side-panel-html.js").renderSocialInspectCardHtml;
+  missionCardsHtml: typeof import("./client-panel-html.js").missionCardsHtml;
+  playerNameForOwner: (ownerId?: string | null) => string;
+  wrapX: (x: number) => number;
+  wrapY: (y: number) => number;
+  terrainAt: (x: number, y: number) => Tile["terrain"];
+  pushFeed: (message: string, type: import("./client-types.js").FeedType, severity?: import("./client-types.js").FeedSeverity) => void;
+  requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
+  prettyToken: (token: string) => string;
+  resourceIconForKey: (key: string) => string;
+  resourceLabel: (resource: string) => string;
+  economicStructureName: (structureType: string) => string;
+  leaderboardHtml: typeof import("./client-panel-html.js").leaderboardHtml;
+  feedHtml: typeof import("./client-panel-html.js").feedHtml;
+  renderMobilePanels: () => void;
+  effectiveTechChoices: () => string[];
+  renderManpowerPanelHtml: typeof import("./client-side-panel-html.js").renderManpowerPanelHtml;
 };
 
 export const renderClientHud = (deps: HudDeps): void => {
@@ -303,7 +385,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const visibleTechChoices = deps.effectiveTechChoices();
   const choicesSig = `${state.availableTechPicks}|${visibleTechChoices.join("|")}|${state.techCatalog.length}|${state.pendingTechUnlockId}`;
   const focused = document.activeElement === dom.techPickEl || document.activeElement === dom.mobileTechPickEl;
-  const catalogById = new Map(state.techCatalog.map((t: any) => [t.id, t]));
+  const catalogById = new Map(state.techCatalog.map((tech) => [tech.id, tech] as const));
   if (choicesSig !== state.techChoicesSig && !focused) {
     const previous = state.techUiSelectedId?.trim() || dom.techPickEl.value || dom.mobileTechPickEl.value;
     dom.techPickEl.innerHTML = "";
@@ -442,7 +524,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
-  const selectedTech = state.techCatalog.find((t: any) => t.id === state.techUiSelectedId);
+  const selectedTech = state.techCatalog.find((tech) => tech.id === state.techUiSelectedId);
   const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch && !state.pendingTechUnlockId);
   dom.techChooseBtn.disabled = !canPick;
   dom.mobileTechChooseBtn.disabled = !canPick;
@@ -577,7 +659,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   weakDefButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
       state.showWeakDefensibility = !state.showWeakDefensibility;
-      const weakTileCount = [...state.tiles.values()].filter((tile: any) => {
+      const weakTileCount = [...state.tiles.values()].filter((tile) => {
         if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
         return exposedSidesForTile(tile, {
           tiles: state.tiles,
@@ -821,7 +903,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   deps.renderMobilePanels();
 };
 
-export const resizeClientViewport = (deps: { dom: any; viewportSize: () => { width: number; height: number } }): void => {
+export const resizeClientViewport = (deps: { dom: Pick<ClientDom, "canvas">; viewportSize: () => { width: number; height: number } }): void => {
   const { width, height } = deps.viewportSize();
   deps.dom.canvas.width = width;
   deps.dom.canvas.height = height;
