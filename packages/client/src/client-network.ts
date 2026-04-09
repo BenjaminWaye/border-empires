@@ -1,6 +1,7 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
+import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
 import { queueDevelopmentAction } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -110,6 +111,33 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     ) {
       deps.requestTileDetailIfNeeded(tile);
     }
+  };
+
+  const logDebugTileState = (scope: string, tile: any, extra?: Record<string, unknown>): void => {
+    if (!tile || !tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) return;
+    debugTileLog(scope, {
+      x: tile.x,
+      y: tile.y,
+      detailLevel: tile.detailLevel,
+      ownerId: tile.ownerId,
+      ownershipState: tile.ownershipState,
+      resource: tile.resource,
+      economicStructure: tile.economicStructure
+        ? {
+            type: tile.economicStructure.type,
+            status: tile.economicStructure.status
+          }
+        : undefined,
+      town: tile.town
+        ? {
+            hasMarket: tile.town.hasMarket,
+            hasGranary: tile.town.hasGranary,
+            hasBank: tile.town.hasBank,
+            populationTier: tile.town.populationTier
+          }
+        : undefined,
+      ...(extra ?? {})
+    });
   };
 
   let reconnectReloadTimer: number | undefined;
@@ -321,6 +349,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             };
       const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, normalizedTile));
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
+      logDebugTileState("chunk-merge", mergedTile, {
+        source: "CHUNK",
+        existingEconomicStructure: existing?.economicStructure?.type
+      });
       if (
         existing?.ownerId !== mergedTile.ownerId ||
         existing?.ownershipState !== mergedTile.ownershipState ||
@@ -349,14 +381,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       markDockDiscovered(mergedTile);
       if (!mergedTile.fogged) state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
       if (mergedTile.ownerId === state.me) sawOwnedTile = true;
-      if (detailRequests < 4) {
-        const tileKey = keyFor(mergedTile.x, mergedTile.y);
-        const before = state.tileDetailRequestedAt.get(tileKey) ?? 0;
-        maybeRequestTileDetail(mergedTile);
-        const after = state.tileDetailRequestedAt.get(tileKey) ?? 0;
-        if (after > before) detailRequests += 1;
+        if (detailRequests < 4) {
+          const tileKey = keyFor(mergedTile.x, mergedTile.y);
+          const before = state.tileDetailRequestedAt.get(tileKey) ?? 0;
+          maybeRequestTileDetail(mergedTile);
+          const after = state.tileDetailRequestedAt.get(tileKey) ?? 0;
+          if (after > before) detailRequests += 1;
+        }
       }
-    }
     if (sawOwnedTile) state.hasOwnedTileInCache = true;
     else if (!state.hasOwnedTileInCache) centerOnOwnedTile();
     if (resolvedQueuedFrontierCapture && !state.actionInFlight && !state.capture && state.actionQueue.length > 0) {
@@ -959,6 +991,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
+        logDebugTileState("tile-delta", resolved, {
+          source: "TILE_DELTA",
+          updateHasEconomicStructure: "economicStructure" in update,
+          updateEconomicStructure: update.economicStructure?.type,
+          existingEconomicStructure: existing?.economicStructure?.type
+        });
         if (
           existing?.ownerId !== resolved.ownerId ||
           existing?.ownershipState !== resolved.ownershipState ||
