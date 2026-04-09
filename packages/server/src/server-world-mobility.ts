@@ -249,7 +249,7 @@ export const createServerWorldMobility = (deps: WorldMobilityDeps) => {
     const defender = players.get(tile.ownerId);
     if (!defender) return 10;
     const tk = key(tile.x, tile.y);
-    return 10 * defender.mods.defense * playerDefensiveness(defender) * fortDefenseMultAt(defender.id, tk) * (docksByTile.has(tk) ? deps.DOCK_DEFENSE_MULT : 1) * settledDefenseMultiplierForTarget(defender.id, tile) * ownershipDefenseMultiplierForTarget(tile);
+    return 10 * defender.mods.defense * playerDefensiveness(defender) * fortDefenseMultAt(defender.id, tk) * (docksByTile.has(tk) ? deps.DOCK_DEFENSE_MULT : 1) * settledDefenseMultiplierForTarget(defender.id, tile) * ownershipDefenseMultiplierForTarget(defender.id, tile);
   };
 
   const chooseBarbarianTarget = (agent: BarbarianAgent): Tile | undefined => {
