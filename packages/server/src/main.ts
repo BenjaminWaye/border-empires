@@ -479,6 +479,14 @@ import { createServerSettlementFlow } from "./server-settlement-flow.js";
 import { createServerTownEconomyRuntime } from "./server-town-economy-runtime.js";
 import { TOWN_CAPTURE_SHOCK_MS, createServerTownSupport } from "./server-town-support.js";
 import { createServerWorldMobility } from "./server-world-mobility.js";
+import type {
+  ServerWorldMobilityRuntime,
+  ServerWorldgenClustersRuntime,
+  ServerWorldgenDocksRuntime,
+  ServerWorldgenShardsRuntime,
+  ServerWorldgenTerrainRuntime,
+  ServerWorldgenTownsRuntime
+} from "./server-world-runtime-types.js";
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
 const GLOBAL_STATUS_BROADCAST_MS = 2_000;
@@ -1441,36 +1449,7 @@ const {
   collectClusterTilesRelaxed,
   clusterTileCountForResource,
   clusterRadiusForResource
-}: {
-  seeded01: (x: number, y: number, seed: number) => number;
-  terrainAtRuntime: (x: number, y: number) => "LAND" | "SEA" | "MOUNTAIN";
-  terrainShapeWithinPlayerDensity: (x: number, y: number) => boolean;
-  hasOwnedLandWithinRange: (playerId: string, x: number, y: number, range: number) => boolean;
-  regionTypeAtLocal: (x: number, y: number) => ReturnType<typeof regionTypeAt> | undefined;
-  isAdjacentTile: (ax: number, ay: number, bx: number, by: number) => boolean;
-  isCoastalLand: (x: number, y: number) => boolean;
-  largestSeaComponentMask: () => Uint8Array;
-  adjacentOceanSea: (x: number, y: number, oceanMask: Uint8Array) => { x: number; y: number } | undefined;
-  clusterTypeDefs: Array<{ type: ClusterType; resourceType: ResourceType; threshold: number }>;
-  clusterResourceType: (cluster: ClusterDefinition) => ResourceType;
-  discoverOilFieldNearAirport: (ownerId: string, airportTileKey: TileKey) => TileKey[];
-  isNearMountain: (x: number, y: number, r?: number) => boolean;
-  resourcePlacementAllowed: (x: number, y: number, resource: ResourceType, relaxed?: boolean) => boolean;
-  isForestFrontierTile: (x: number, y: number) => boolean;
-  FOREST_SETTLEMENT_MULT: number;
-  frontierClaimDurationMsAt: (x: number, y: number) => number;
-  nearestLandTiles: (
-    originX: number,
-    originY: number,
-    candidates: Array<{ x: number; y: number }>,
-    limit: number,
-    predicate?: (tile: { x: number; y: number }) => boolean
-  ) => TileKey[];
-  collectClusterTiles: (cx: number, cy: number, resource: ResourceType, count: number) => TileKey[];
-  collectClusterTilesRelaxed: (cx: number, cy: number, resource: ResourceType, count: number) => TileKey[];
-  clusterTileCountForResource: (resource: ResourceType, x: number, y: number) => number;
-  clusterRadiusForResource: (resource: ResourceType, x: number, y: number) => number;
-} = createServerWorldgenTerrain({
+}: ServerWorldgenTerrainRuntime = createServerWorldgenTerrain({
   wrapX,
   wrapY,
   WORLD_WIDTH,
@@ -1504,7 +1483,7 @@ const {
   landBiomeAt,
   grassShadeAt,
   FRONTIER_CLAIM_MS
-}) as any;
+});
 
 const {
   chooseSeasonalTechConfig,
@@ -1525,10 +1504,7 @@ const {
   markVisibilityDirty: (playerId: string) => markVisibilityDirty(playerId)
 });
 
-const { generateClusters, applyClusterResources }: {
-  generateClusters: (seed: number) => void;
-  applyClusterResources: (x: number, y: number, base: ResourceType | undefined) => ResourceType | undefined;
-} = createServerWorldgenClusters({
+const { generateClusters, applyClusterResources }: ServerWorldgenClustersRuntime = createServerWorldgenClusters({
   clusterByTile,
   clustersById,
   clusterTypeDefs,
@@ -1543,9 +1519,9 @@ const { generateClusters, applyClusterResources }: {
   clusterRadiusForResource,
   key,
   clusterResourceType
-}) as any;
+});
 
-const { generateDocks }: { generateDocks: (seed: number) => void } = createServerWorldgenDocks({
+const { generateDocks }: ServerWorldgenDocksRuntime = createServerWorldgenDocks({
   seeded01,
   WORLD_WIDTH,
   WORLD_HEIGHT,
@@ -1561,7 +1537,7 @@ const { generateDocks }: { generateDocks: (seed: number) => void } = createServe
   docksByTile,
   dockById,
   getDockLinkedTileKeysByDockTileKey: () => dockLinkedTileKeysByDockTileKey
-}) as any;
+});
 
 const {
   townTypeAt,
@@ -1575,19 +1551,7 @@ const {
   ensureBaselineEconomyCoverage,
   ensureInterestCoverage,
   initialTownPopulationAt
-}: {
-  townTypeAt: (x: number, y: number) => "MARKET" | "FARMING";
-  generateTowns: (seed: number) => void;
-  canPlaceTownAt: (x: number, y: number, ignoreTileKey?: TileKey) => boolean;
-  findNearestTownPlacement: (originX: number, originY: number, ignoreTileKey?: TileKey) => TileKey | undefined;
-  townPlacementsNeedNormalization: () => boolean;
-  normalizeTownPlacements: () => void;
-  normalizeLegacySettlementTowns: () => void;
-  assignMissingTownNamesForWorld: () => void;
-  ensureBaselineEconomyCoverage: (seed: number) => void;
-  ensureInterestCoverage: (seed: number) => void;
-  initialTownPopulationAt: (x: number, y: number, seed: number) => number;
-} = createServerWorldgenTowns({
+}: ServerWorldgenTownsRuntime = createServerWorldgenTowns({
   seeded01,
   regionTypeAtLocal,
   landBiomeAt,
@@ -1616,7 +1580,7 @@ const {
   resourcePlacementAllowed,
   clustersById,
   clusterResourceType
-}) as any;
+});
 
 const {
   shardSiteViewAt,
@@ -1628,17 +1592,7 @@ const {
   maybeSpawnScheduledShardRain,
   expireShardSites,
   collectShardSite
-}: {
-  shardSiteViewAt: (tileKey: TileKey) => Tile["shardSite"] | undefined;
-  seedInitialShardScatter: (seed: number) => void;
-  activeShardRainSummary: () => { siteCount: number; expiresAt: number | undefined };
-  shardRainNoticePayload: () => unknown;
-  maybeBroadcastShardRainWarning: () => void;
-  spawnShardRain: () => void;
-  maybeSpawnScheduledShardRain: () => void;
-  expireShardSites: () => void;
-  collectShardSite: (player: Player, x: number, y: number) => { ok: boolean; amount?: number; reason?: string };
-} = createServerWorldgenShards({
+}: ServerWorldgenShardsRuntime = createServerWorldgenShards({
   terrainAt,
   key,
   docksByTile,
@@ -1671,7 +1625,7 @@ const {
   markSummaryChunkDirtyAtTile: (x: number, y: number) => markSummaryChunkDirtyAtTile(x, y),
   visible: (player: Player, x: number, y: number) => visible(player, x, y),
   getOrInitStrategicStocks: (playerId: string) => getOrInitStrategicStocks(playerId)
-}) as any;
+});
 
 const {
   applyTownWarShock,
@@ -2127,7 +2081,7 @@ const {
   chooseBarbarianTarget,
   exportDockPairs,
   applyBreachShockAround
-} = createServerWorldMobility({
+}: ServerWorldMobilityRuntime = createServerWorldMobility({
   now,
   key,
   parseKey,
@@ -2165,7 +2119,7 @@ const {
   visible: (player: Player, x: number, y: number) => visible(player, x, y),
   updateOwnership: (x: number, y: number, ownerId?: string, state?: OwnershipState) => updateOwnership(x, y, ownerId, state),
   hasOnlinePlayers: () => hasOnlinePlayers(),
-  hasQueuedSystemSimulationCommand: (predicate: (job: any) => boolean) => hasQueuedSystemSimulationCommand(predicate),
+  hasQueuedSystemSimulationCommand: (predicate: (job: { command: { type: string } }) => boolean) => hasQueuedSystemSimulationCommand(predicate),
   enqueueSystemSimulationCommand: (command: SystemSimulationCommand) => enqueueSystemSimulationCommand(command),
   fortDefenseMultAt: (playerId: string, tileKey: TileKey) => fortDefenseMultAt(playerId, tileKey),
   playerDefensiveness: (player: Player) => playerDefensiveness(player),
@@ -2174,7 +2128,7 @@ const {
   isAdjacentTile,
   markSummaryChunkDirtyAtTile: (x: number, y: number) => markSummaryChunkDirtyAtTile(x, y),
   logBarbarianEvent: (message: string) => logBarbarianEvent(message)
-}) as any;
+});
 
 const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
   if (type === "FARMSTEAD") return "Farmstead";
