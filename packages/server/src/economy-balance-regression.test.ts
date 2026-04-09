@@ -103,6 +103,14 @@ describe("economy balance regression guard", () => {
     expect(source).toContain("townFoodUpkeepPerMinute,");
   });
 
+  it("wires ownership state into the player economy runtime for town income summaries", () => {
+    const source = serverSource();
+    expect(source).toContain("if (deps.ownership.get(town.tileKey) !== player.id || ownershipStateByTile.get(town.tileKey) !== \"SETTLED\") continue;");
+    expect(source).toContain("economicStructuresByTile,");
+    expect(source).toContain("ownership,");
+    expect(source).toContain("ownershipStateByTile,");
+  });
+
   it("keeps towns visible in the gold breakdown when manpower gating pauses their income", () => {
     const source = serverSource();
     expect(source).toContain("const townIncomePaused = !townGoldIncomeEnabledForPlayer(player);");
