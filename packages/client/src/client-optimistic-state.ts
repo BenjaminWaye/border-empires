@@ -153,6 +153,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     const existing = state.tiles.get(tileKey);
     const settlementProgress = state.settleProgressByTile.get(tileKey);
     if (settlementProgress && (existing?.ownerId === state.me || incoming.ownerId === state.me)) {
+      if (incoming.ownerId === state.me && incoming.ownershipState === "SETTLED") return incoming;
       return {
         ...incoming,
         ownerId: state.me,
