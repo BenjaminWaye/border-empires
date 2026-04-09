@@ -1,8 +1,8 @@
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
-import type { ActiveTruceView } from "./client-types.js";
+import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 
-type PlayerActionDeps = Record<string, any> & {
+type PlayerActionDeps = {
   state: ClientState;
   techPickEl: HTMLSelectElement;
   mobileTechPickEl: HTMLSelectElement;
@@ -10,7 +10,7 @@ type PlayerActionDeps = Record<string, any> & {
   wsUrl: string;
   setAuthStatus: (message: string, tone?: "normal" | "error") => void;
   syncAuthOverlay: () => void;
-  pushFeed: (...args: any[]) => void;
+  pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
   renderHud: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
 };
