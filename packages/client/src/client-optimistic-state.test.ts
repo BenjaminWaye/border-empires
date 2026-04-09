@@ -44,4 +44,32 @@ describe("client optimistic state", () => {
     expect(merged.ownershipState).toBe("SETTLED");
     expect(merged.optimisticPending).toBeUndefined();
   });
+
+  it("stops preserving optimistic frontier ownership after the action is no longer in flight", () => {
+    const state = {
+      me: "me",
+      selected: undefined,
+      actionInFlight: false,
+      actionTargetKey: "",
+      tiles: new Map<string, Tile>([["12,18", baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" })]]),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>()
+    } as any;
+
+    const { mergeServerTileWithOptimisticState } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible"
+    });
+
+    const incoming = { ...baseTile() } as Tile & { ownerId?: string; ownershipState?: Tile["ownershipState"] };
+    delete incoming.ownerId;
+    delete incoming.ownershipState;
+    const merged = mergeServerTileWithOptimisticState(incoming);
+
+    expect(merged.ownerId).toBeUndefined();
+    expect(merged.ownershipState).toBeUndefined();
+    expect(merged.optimisticPending).toBeUndefined();
+  });
 });
