@@ -1,5 +1,6 @@
 import type { ClientState } from "./client-state.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
+import { queueDevelopmentAction } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -102,6 +103,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
+
+  const maybeRecoverBusyDevelopmentAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
+    if (!errorMessage.includes("development slots are busy")) return false;
+    if (errorCode !== "SETTLE_INVALID" && !errorCode.endsWith("_BUILD_INVALID") && errorCode !== "STRUCTURE_REMOVE_INVALID") return false;
+    const attempt = state.lastDevelopmentAttempt;
+    if (!attempt || attempt.tileKey !== errorTileKey) return false;
+    const tile = state.tiles.get(errorTileKey);
+    const matchesOptimisticState =
+      attempt.kind === "SETTLE"
+        ? state.settleProgressByTile.has(errorTileKey)
+        : tile?.optimisticPending === (attempt.payload.type === "REMOVE_STRUCTURE" ? "structure_remove" : "structure_build");
+    if (!matchesOptimisticState) return false;
+    clearOptimisticTileState(errorTileKey, true);
+    if (attempt.kind === "SETTLE") clearSettlementProgressByKey(errorTileKey);
+    state.lastDevelopmentAttempt = undefined;
+    return queueDevelopmentAction(state, attempt, { pushFeed, renderHud });
+  };
 
   const clearReconnectReloadTimer = (): void => {
     if (reconnectReloadTimer !== undefined) {
@@ -1185,15 +1203,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
+      if (maybeRecoverBusyDevelopmentAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
       } else if (errorCode === "SETTLE_INVALID") {
         clearOptimisticTileState(errorTileKey, true);
         clearSettlementProgressByKey(errorTileKey);
         showCaptureAlert("Action failed", errorMessage, "warn");
+        if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (isStructureActionError && errorTileKey) {
         clearOptimisticTileState(errorTileKey, true);
         showCaptureAlert(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
+        if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
         showCaptureAlert("Town unfed", errorMessage, "warn");
       }
