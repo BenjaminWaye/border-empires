@@ -59,7 +59,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("SETTLE"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("BUILD_SIEGE_OUTPOST"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1) }),
+  z.object({ type: z.literal("REVEAL_EMPIRE_STATS"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("CAST_AETHER_BRIDGE"), x: z.number().int(), y: z.number().int() }),
+  z.object({
+    type: z.literal("CAST_AETHER_WALL"),
+    x: z.number().int(),
+    y: z.number().int(),
+    direction: z.enum(["N", "E", "S", "W"]),
+    length: z.union([z.literal(1), z.literal(2), z.literal(3)])
+  }),
   z.object({ type: z.literal("SIPHON_TILE"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("PURGE_SIPHON"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int() }),

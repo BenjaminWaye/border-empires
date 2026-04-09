@@ -12,7 +12,7 @@ import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
-import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -37,6 +37,9 @@ type StartClientRuntimeLoopDeps = {
   wrapY: (y: number) => number;
   parseKey: (key: string) => { x: number; y: number };
   selectedTile: () => Tile | undefined;
+  aetherWallDirectionTargetTiles: (
+    tile: Tile
+  ) => Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }>;
   settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => "amber" | "cyan" | "red";
@@ -96,6 +99,14 @@ type StartClientRuntimeLoopDeps = {
     toX: number,
     toY: number,
     nowMs: number
+  ) => void;
+  drawAetherWallSegment: (
+    ctx: CanvasRenderingContext2D,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    options?: { preview?: boolean; nowMs?: number }
   ) => void;
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
@@ -182,6 +193,36 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       roadNetworkBuiltAt = nowMs;
     }
     const overlayTiles: VisibleRenderTile[] = [];
+    const drawAetherWallEdge = (
+      baseX: number,
+      baseY: number,
+      direction: "N" | "E" | "S" | "W",
+      options?: { preview?: boolean }
+    ): void => {
+      const center = deps.worldToScreen(baseX, baseY, size, halfW, halfH);
+      const halfSize = size * 0.5;
+      let fromX = center.sx - halfSize;
+      let fromY = center.sy - halfSize;
+      let toX = center.sx + halfSize;
+      let toY = center.sy - halfSize;
+      if (direction === "E") {
+        fromX = center.sx + halfSize;
+        fromY = center.sy - halfSize;
+        toX = center.sx + halfSize;
+        toY = center.sy + halfSize;
+      } else if (direction === "S") {
+        fromX = center.sx - halfSize;
+        fromY = center.sy + halfSize;
+        toX = center.sx + halfSize;
+        toY = center.sy + halfSize;
+      } else if (direction === "W") {
+        fromX = center.sx - halfSize;
+        fromY = center.sy - halfSize;
+        toX = center.sx - halfSize;
+        toY = center.sy + halfSize;
+      }
+      deps.drawAetherWallSegment(deps.ctx, fromX, fromY, toX, toY, options);
+    };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && state.fogDisabled) || vis === "visible";
@@ -1139,6 +1180,51 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
+    if (state.aetherWallTargeting.active) {
+      const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
+      const selectedOrigin = state.selected ? state.tiles.get(selectedKey) : undefined;
+      for (const tile of overlayTiles) {
+        if (tile.vis !== "visible" || !state.aetherWallTargeting.validOrigins.has(tile.wk)) continue;
+        const selectedOriginTile = tile.wk === selectedKey;
+        deps.ctx.save();
+        deps.ctx.fillStyle = selectedOriginTile ? "rgba(44, 184, 255, 0.2)" : "rgba(44, 184, 255, 0.1)";
+        deps.ctx.fillRect(tile.px + 1, tile.py + 1, size - 2, size - 2);
+        deps.ctx.strokeStyle = selectedOriginTile ? "rgba(171, 237, 255, 0.98)" : "rgba(88, 214, 255, 0.88)";
+        deps.ctx.lineWidth = selectedOriginTile ? 3 : 2;
+        deps.ctx.strokeRect(tile.px + 1.5, tile.py + 1.5, size - 3, size - 3);
+        deps.ctx.restore();
+      }
+      if (selectedOrigin) {
+        const directionTargets = deps.aetherWallDirectionTargetTiles(selectedOrigin);
+        for (const target of directionTargets) {
+          const targetScreen = deps.worldToScreen(target.x, target.y, size, halfW, halfH);
+          const hovered = state.hover?.x === target.x && state.hover?.y === target.y;
+          const active = state.aetherWallTargeting.direction === target.direction;
+          deps.ctx.save();
+          deps.ctx.fillStyle = active ? "rgba(99, 228, 255, 0.18)" : hovered ? "rgba(99, 228, 255, 0.12)" : "rgba(99, 228, 255, 0.08)";
+          deps.ctx.fillRect(targetScreen.sx - size / 2 + 1, targetScreen.sy - size / 2 + 1, size - 2, size - 2);
+          deps.ctx.strokeStyle = active ? "rgba(201, 248, 255, 0.96)" : "rgba(102, 223, 255, 0.86)";
+          deps.ctx.lineWidth = active ? 3 : 2;
+          deps.ctx.strokeRect(targetScreen.sx - size / 2 + 1.5, targetScreen.sy - size / 2 + 1.5, size - 3, size - 3);
+          deps.ctx.restore();
+          deps.drawStartingExpansionArrow(targetScreen.sx - size / 2, targetScreen.sy - size / 2, size, target.dx, target.dy);
+        }
+      }
+      if (state.selected) {
+        const previewSegments = buildAetherWallSegments(
+          state.selected.x,
+          state.selected.y,
+          state.aetherWallTargeting.direction,
+          state.aetherWallTargeting.length,
+          deps.wrapX,
+          deps.wrapY
+        );
+        for (const segment of previewSegments) {
+          drawAetherWallEdge(segment.baseX, segment.baseY, state.aetherWallTargeting.direction, { preview: true, nowMs });
+        }
+      }
+    }
+
     if (crystalTargetingActive) {
       const hoveredKey = state.hover ? deps.keyFor(state.hover.x, state.hover.y) : "";
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
@@ -1245,6 +1331,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
+
+    const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
+    for (const wall of visibleAetherWalls) {
+      const segments = buildAetherWallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length, deps.wrapX, deps.wrapY);
+      for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs });
+    }
 
     const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
     for (const bridge of visibleAetherBridges) {
