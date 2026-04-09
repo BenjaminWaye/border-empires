@@ -1,11 +1,8 @@
 import type { EconomicStructure, EconomicStructureType, Player, ResourceType, TileKey } from "@border-empires/shared";
+import type { ServerTerritoryStructureRuntime, ServerTerritoryStructureRuntimeDeps } from "./server-composition-types.js";
+import type { ActiveSiphon, StrategicResource } from "./server-shared-types.js";
 
-type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
-type ActiveSiphon = { casterPlayerId: string; endsAt: number };
-
-type TerritoryStructureRuntimeDeps = Record<string, any>;
-
-export const createServerTerritoryStructureRuntime = (deps: TerritoryStructureRuntimeDeps) => {
+export const createServerTerritoryStructureRuntime = (deps: ServerTerritoryStructureRuntimeDeps): ServerTerritoryStructureRuntime => {
   const {
     now,
     parseKey,
@@ -170,7 +167,7 @@ export const createServerTerritoryStructureRuntime = (deps: TerritoryStructureRu
     expiresAt: number
   ): void => {
     const caches = siphonCacheByPlayer.get(casterPlayerId) ?? [];
-    let current = caches.find((cache: any) => cache.targetTileKey === targetTileKey && cache.expiresAt === expiresAt);
+    let current = caches.find((cache) => cache.targetTileKey === targetTileKey && cache.expiresAt === expiresAt);
     if (!current) {
       current = { siphonId: randomUUID(), targetTileKey, expiresAt, gold: 0, strategic: {} };
       caches.push(current);
