@@ -243,7 +243,8 @@ export const createServerWorldMobility = (deps: WorldMobilityDeps) => {
     if (!hasQueuedSystemSimulationCommand((job: any) => job.command.type === "BARBARIAN_MAINTENANCE")) enqueueSystemSimulationCommand({ type: "BARBARIAN_MAINTENANCE" });
   };
 
-  const barbarianDefenseScore = (tile: Tile): number => {
+  const barbarianDefenseScore = (tile: Tile | undefined): number => {
+    if (!tile) return 0;
     if (!tile.ownerId || tile.ownerId === BARBARIAN_OWNER_ID) return 0;
     const defender = players.get(tile.ownerId);
     if (!defender) return 10;
@@ -252,7 +253,10 @@ export const createServerWorldMobility = (deps: WorldMobilityDeps) => {
   };
 
   const chooseBarbarianTarget = (agent: BarbarianAgent): Tile | undefined => {
-    const candidates = adjacentNeighbors(agent.x, agent.y).map((tile) => ({ tile, priority: getBarbarianTargetPriority(tile), defenseScore: barbarianDefenseScore(tile), random: Math.random() })).filter((entry) => entry.priority !== null) as Array<{ tile: Tile; priority: number; defenseScore: number; random: number }>;
+    const candidates = adjacentNeighbors(agent.x, agent.y)
+      .filter((tile): tile is Tile => Boolean(tile))
+      .map((tile) => ({ tile, priority: getBarbarianTargetPriority(tile), defenseScore: barbarianDefenseScore(tile), random: Math.random() }))
+      .filter((entry) => entry.priority !== null) as Array<{ tile: Tile; priority: number; defenseScore: number; random: number }>;
     candidates.sort((a, b) => (a.priority !== b.priority ? a.priority - b.priority : a.defenseScore !== b.defenseScore ? a.defenseScore - b.defenseScore : a.random - b.random));
     return candidates[0]?.tile;
   };
