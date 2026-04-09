@@ -189,6 +189,7 @@ import {
   CHUNK_STREAM_BATCH_SIZE,
   DEBUG_SPAWN_NEAR_AI,
   TILE_SYNC_DEBUG,
+  TILE_SYNC_DEBUG_EMAILS,
   DISABLE_FOG,
   FOG_ADMIN_EMAIL,
   MAX_SUBSCRIBE_RADIUS,
@@ -2916,7 +2917,11 @@ const chooseCapitalTileKey = (player: Player): TileKey | undefined => {
 };
 
 const logTileSync = (event: string, payload: Record<string, unknown>): void => {
-  if (!TILE_SYNC_DEBUG) return;
+  const playerId = typeof payload.playerId === "string" ? payload.playerId : undefined;
+  const playerEmail = playerId
+    ? [...authIdentityByUid.values()].find((identity) => identity.playerId === playerId)?.email?.toLowerCase()
+    : undefined;
+  if (!TILE_SYNC_DEBUG && (!playerEmail || !TILE_SYNC_DEBUG_EMAILS.has(playerEmail))) return;
   app.log.info(payload, `tile sync ${event}`);
 };
 
