@@ -142,6 +142,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
   const renderHud = vi.fn();
   const requestViewRefresh = vi.fn();
   const clearOptimisticTileState = vi.fn();
+  const clearSettlementProgressByKey = vi.fn();
   const dropQueuedTargetKeyIfAbsent = vi.fn();
   const reconcileActionQueue = vi.fn();
   const processActionQueue = vi.fn(() => false);
@@ -196,7 +197,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
     hideShardAlert: vi.fn(),
     explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
     notifyInsufficientGoldForFrontierAction: vi.fn(),
-    clearSettlementProgressByKey: vi.fn(),
+    clearSettlementProgressByKey,
     showCollectVisibleCooldownAlert: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue,
@@ -213,6 +214,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
     requestViewRefresh,
     clearOptimisticTileState,
     reconcileActionQueue,
+    clearSettlementProgressByKey,
     applyPendingSettlementsFromServer,
     requestTileDetailIfNeeded,
     processActionQueue
@@ -361,5 +363,77 @@ describe("client network regression guards", () => {
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("100,247");
     expect(deps.processActionQueue).toHaveBeenCalled();
     expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 247, ownerId: "me" }));
+  });
+
+  it("requeues a settlement when the server rejects it only because development slots are full", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.gold = 10;
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const pushFeed = vi.fn();
+    const deps = bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 4 development slots are busy", x: 12, y: 18 })
+    });
+
+    expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("12,18", true);
+    expect(deps.clearSettlementProgressByKey).toHaveBeenCalledWith("12,18");
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(showCaptureAlert).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
+  });
+
+  it("requeues a structure build when the server rejects it only because development slots are full", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = {
+      kind: "BUILD",
+      x: 33,
+      y: 44,
+      tileKey: "33,44",
+      label: "Fort at (33, 44)",
+      payload: { type: "BUILD_FORT", x: 33, y: 44 },
+      optimisticKind: "FORT"
+    };
+    state.tiles.set("33,44", {
+      x: 33,
+      y: 44,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      optimisticPending: "structure_build"
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const pushFeed = vi.fn();
+    const deps = bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "FORT_BUILD_INVALID", message: "all 4 development slots are busy", x: 33, y: 44 })
+    });
+
+    expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("33,44", true);
+    expect(state.developmentQueue).toEqual([
+      {
+        kind: "BUILD",
+        x: 33,
+        y: 44,
+        tileKey: "33,44",
+        label: "Fort at (33, 44)",
+        payload: { type: "BUILD_FORT", x: 33, y: 44 },
+        optimisticKind: "FORT"
+      }
+    ]);
+    expect(showCaptureAlert).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith("Fort at (33, 44) queued. It will start when a development slot frees up.", "combat", "info");
   });
 });
