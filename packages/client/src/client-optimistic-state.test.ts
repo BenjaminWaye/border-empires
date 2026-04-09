@@ -72,4 +72,57 @@ describe("client optimistic state", () => {
     expect(merged.ownershipState).toBeUndefined();
     expect(merged.optimisticPending).toBeUndefined();
   });
+
+  it("ignores stale same-owner frontier downgrades after a tile is already settled", () => {
+    const existing = baseTile({
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      detailLevel: "full",
+      town: {
+        type: "MARKET",
+        baseGoldPerMinute: 1,
+        supportCurrent: 0,
+        supportMax: 2,
+        goldPerMinute: 1,
+        cap: 20,
+        isFed: true,
+        population: 10,
+        maxPopulation: 20,
+        populationTier: "SETTLEMENT",
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMarket: false,
+        marketActive: false,
+        hasGranary: false,
+        granaryActive: false,
+        hasBank: false,
+        bankActive: false
+      }
+    });
+    const state = {
+      me: "me",
+      selected: undefined,
+      tiles: new Map<string, Tile>([["12,18", existing]]),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>()
+    } as any;
+
+    const { mergeServerTileWithOptimisticState } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible"
+    });
+
+    const merged = mergeServerTileWithOptimisticState(
+      baseTile({
+        ownerId: "me",
+        ownershipState: "FRONTIER"
+      })
+    );
+
+    expect(merged).toBe(existing);
+    expect(merged.ownershipState).toBe("SETTLED");
+    expect(merged.town?.populationTier).toBe("SETTLEMENT");
+  });
 });

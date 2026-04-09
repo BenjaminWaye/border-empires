@@ -163,6 +163,20 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     const tileKey = keyFor(incoming.x, incoming.y);
     const existing = state.tiles.get(tileKey);
     const settlementProgress = state.settleProgressByTile.get(tileKey);
+    if (
+      existing?.ownerId &&
+      incoming.ownerId === existing.ownerId &&
+      existing.ownershipState === "SETTLED" &&
+      incoming.ownershipState === "FRONTIER"
+    ) {
+      logTileSync("ignore_same_owner_frontier_downgrade", {
+        tileKey,
+        ownerId: existing.ownerId,
+        existingOwnershipState: existing.ownershipState,
+        incomingOwnershipState: incoming.ownershipState
+      });
+      return existing;
+    }
     if (settlementProgress && (existing?.ownerId === state.me || incoming.ownerId === state.me)) {
       if (incoming.ownerId === state.me && incoming.ownershipState === "SETTLED") return incoming;
       return {
