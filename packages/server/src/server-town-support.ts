@@ -1,12 +1,11 @@
 import type { Player, PopulationTier, TileKey } from "@border-empires/shared";
 
 import type { ManpowerBreakdownLine, TownDefinition } from "./server-shared-types.js";
-
-type TownSupportDeps = Record<string, any>;
+import type { ServerTownSupportDeps, ServerTownSupportRuntime } from "./server-town-runtime-types.js";
 
 export const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
 
-export const createServerTownSupport = (deps: TownSupportDeps) => {
+export const createServerTownSupport = (deps: ServerTownSupportDeps): ServerTownSupportRuntime => {
   const {
     now,
     parseKey,
