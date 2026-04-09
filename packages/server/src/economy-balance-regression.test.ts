@@ -23,6 +23,9 @@ const serverSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
   return [
     readFileSync(resolve(here, "./main.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-player-economy-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-economic-operations.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-territory-structure-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-economy-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./server-game-constants.ts"), "utf8")
   ].join("\n");
@@ -82,6 +85,30 @@ describe("economy balance regression guard", () => {
     expect(source).toContain("economyBreakdown: economy.economyBreakdown");
     expect(source).toContain("upkeepPerMinute: economy.upkeepPerMinute");
     expect(source).toContain("upkeepLastTick: economy.upkeepLastTick");
+  });
+
+  it("wires upkeep diagnostics into the economic operations runtime", () => {
+    const source = serverSource();
+    expect(source).toContain("deps.lastUpkeepByPlayer.set(player.id, diag);");
+    expect(source).toContain("upkeepContributorsForPlayer,");
+    expect(source).toContain("lastUpkeepByPlayer,");
+    expect(source).toContain("foodUpkeepCoverageByPlayer,");
+  });
+
+  it("wires town manpower-gating helpers into the player economy runtime", () => {
+    const source = serverSource();
+    expect(source).toContain("const townIncomePaused = !townGoldIncomeEnabledForPlayer(player);");
+    expect(source).toContain("playerManpowerCap: (player: Player) => playerManpowerCap(player),");
+    expect(source).toContain("townGoldIncomeEnabledForPlayer,");
+    expect(source).toContain("townFoodUpkeepPerMinute,");
+  });
+
+  it("wires ownership state into the player economy runtime for town income summaries", () => {
+    const source = serverSource();
+    expect(source).toContain("if (deps.ownership.get(town.tileKey) !== player.id || ownershipStateByTile.get(town.tileKey) !== \"SETTLED\") continue;");
+    expect(source).toContain("economicStructuresByTile,");
+    expect(source).toContain("ownership,");
+    expect(source).toContain("ownershipStateByTile,");
   });
 
   it("keeps towns visible in the gold breakdown when manpower gating pauses their income", () => {

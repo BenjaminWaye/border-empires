@@ -184,6 +184,24 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const sendGameMessage = (payload: unknown, message?: string): boolean => {
     if (!requireAuthedSession(message)) return false;
+    if (
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname === "0.0.0.0" ||
+        window.localStorage.getItem("tile-sync-debug") === "1")
+    ) {
+      const typedPayload = payload as { type?: string; x?: number; y?: number; fromX?: number; fromY?: number; toX?: number; toY?: number };
+      if (
+        typedPayload.type === "SETTLE" ||
+        typedPayload.type === "EXPAND" ||
+        typedPayload.type === "ATTACK" ||
+        typedPayload.type === "BREAKTHROUGH_ATTACK" ||
+        typedPayload.type === "REQUEST_TILE_DETAIL"
+      ) {
+        console.info("[tile-sync] client_send", typedPayload);
+      }
+    }
     ws.send(JSON.stringify(payload));
     return true;
   };
@@ -221,7 +239,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const chooseTech = (techIdRaw?: string): void => chooseTechFromUi(techIdRaw, playerActionDeps());
   const chooseDomain = (domainIdRaw?: string): void => chooseDomainFromUi(domainIdRaw, playerActionDeps());
 
-  const explainActionFailure = (code: string, message: string): string => explainActionFailureFromServer(code, message);
+  const explainActionFailure = (
+    code: string,
+    message: string,
+    opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
+  ): string => explainActionFailureFromServer(code, message, opts);
 
   const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean =>
     enqueueTargetFromModule(state, x, y, keyFor, mode);

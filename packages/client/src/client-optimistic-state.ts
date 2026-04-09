@@ -12,6 +12,17 @@ type OptimisticStateDeps = {
 
 export const createClientOptimisticStateController = (deps: OptimisticStateDeps) => {
   const { state, keyFor, terrainAt, tileVisibilityStateAt } = deps;
+  const tileSyncDebugEnabled = (): boolean =>
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.localStorage.getItem("tile-sync-debug") === "1");
+
+  const logTileSync = (event: string, payload: Record<string, unknown>): void => {
+    if (!tileSyncDebugEnabled()) return;
+    console.info(`[tile-sync] ${event}`, payload);
+  };
 
   const selectedTile = (): Tile | undefined => {
     if (!state.selected) return undefined;
@@ -153,6 +164,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     const existing = state.tiles.get(tileKey);
     const settlementProgress = state.settleProgressByTile.get(tileKey);
     if (settlementProgress && (existing?.ownerId === state.me || incoming.ownerId === state.me)) {
+      if (incoming.ownerId === state.me && incoming.ownershipState === "SETTLED") return incoming;
       return {
         ...incoming,
         ownerId: state.me,
@@ -164,6 +176,17 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     if (!existing?.optimisticPending || existing.ownerId !== state.me) return incoming;
     if (existing.optimisticPending === "expand") {
       if (incoming.ownerId === state.me && incoming.ownershipState === "FRONTIER") return incoming;
+      const awaitingActiveExpand = state.actionInFlight && state.actionTargetKey === tileKey;
+      if (!awaitingActiveExpand) {
+        logTileSync("expand_authority_restored", {
+          tileKey,
+          existingOwnerId: existing.ownerId,
+          existingOwnershipState: existing.ownershipState,
+          incomingOwnerId: incoming.ownerId,
+          incomingOwnershipState: incoming.ownershipState
+        });
+        return incoming;
+      }
       const merged: Tile = {
         ...incoming,
         ownerId: existing.ownerId,
@@ -171,6 +194,13 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
         optimisticPending: existing.optimisticPending
       };
       if (existing.ownershipState) merged.ownershipState = existing.ownershipState;
+      logTileSync("expand_preserved_while_inflight", {
+        tileKey,
+        existingOwnerId: existing.ownerId,
+        existingOwnershipState: existing.ownershipState,
+        incomingOwnerId: incoming.ownerId,
+        incomingOwnershipState: incoming.ownershipState
+      });
       return merged;
     }
     if (existing.optimisticPending === "settle") {

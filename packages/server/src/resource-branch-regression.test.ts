@@ -32,15 +32,18 @@ describe("resource branch regression guard", () => {
 
   it("keeps light outposts and siege outposts on the 1 minute battlefield timing", () => {
     const sharedConfigSource = readFileSync(resolve(here, "../../shared/src/config.ts"), "utf8");
-    const serverMainSource = readFileSync(resolve(here, "./main.ts"), "utf8");
+    const serverSource = [
+      readFileSync(resolve(here, "./main.ts"), "utf8"),
+      readFileSync(resolve(here, "./server-economic-operations.ts"), "utf8")
+    ].join("\n");
 
     expect(sharedConfigSource).toContain("export const LIGHT_OUTPOST_BUILD_MS = 60_000;");
     expect(sharedConfigSource).toContain("export const SIEGE_OUTPOST_BUILD_MS = 60_000;");
-    expect(serverMainSource).toContain('if (structureType === "LIGHT_OUTPOST") return LIGHT_OUTPOST_BUILD_MS;');
-    expect(serverMainSource).toContain('if (structureType === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;');
-    expect(serverMainSource).toContain('structure.type !== "ADVANCED_IRONWORKS"');
-    expect(serverMainSource).toContain('const baseSynthTypeForAdvanced =');
-    expect(serverMainSource).toContain('if (structureType === "ADVANCED_FUR_SYNTHESIZER") return "FUR_SYNTHESIZER";');
+    expect(serverSource).toContain('structureType === "LIGHT_OUTPOST" ? LIGHT_OUTPOST_BUILD_MS');
+    expect(serverSource).toContain('structureType === "WOODEN_FORT" ? WOODEN_FORT_BUILD_MS');
+    expect(serverSource).toContain('structure.type !== "ADVANCED_IRONWORKS"');
+    expect(serverSource).toContain('baseSynthTypeForAdvanced');
+    expect(serverSource).toContain('structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER"');
   });
 
   it("invalidates stale season tech configs that are missing new tech nodes", () => {
