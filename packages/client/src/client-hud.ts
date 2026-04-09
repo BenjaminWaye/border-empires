@@ -223,7 +223,26 @@ export const renderClientHud = (deps: HudDeps): void => {
   const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
   if (feedMobileBtn) feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread });
 
-  if (state.crystalTargeting.active) {
+  if (state.aetherWallTargeting.active) {
+    const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
+    dom.targetingOverlayEl.innerHTML = `
+      <div class="targeting-card tone-amber">
+        <div class="targeting-kicker">Crystal Action Armed</div>
+        <div class="targeting-title">Aether Wall</div>
+        <div class="targeting-detail">Select one of your settled border tiles, then cast. If more than one facing is valid, tap one of the glowing map arrows.</div>
+        <div class="targeting-status">${status}</div>
+        <button id="targeting-cancel" class="targeting-cancel-btn" type="button">Cancel</button>
+      </div>
+    `;
+    dom.targetingOverlayEl.style.display = "block";
+    const cancelBtn = dom.targetingOverlayEl.querySelector("#targeting-cancel") as HTMLButtonElement | null;
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        clearCrystalTargeting();
+        renderClientHud(deps);
+      };
+    }
+  } else if (state.crystalTargeting.active) {
     const ability = state.crystalTargeting.ability;
     const selectedKey = state.selected ? keyFor(state.selected.x, state.selected.y) : "";
     const selectedOriginKey = selectedKey ? state.crystalTargeting.originByTarget.get(selectedKey) : undefined;

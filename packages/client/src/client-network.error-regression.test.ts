@@ -231,6 +231,32 @@ describe("client network regression guards", () => {
     ).not.toThrow();
   });
 
+  it("falls back to pushFeed when pushFeedEntry is missing during combat resolution", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const pushFeed = vi.fn();
+    bindWithDeps(state, ws, {
+      pushFeed,
+      pushFeedEntry: undefined,
+      combatResolutionAlert: vi.fn(() => ({
+        title: "Victory",
+        detail: "You captured the tile.",
+        tone: "success"
+      }))
+    });
+
+    expect(() =>
+      ws.emit("message", {
+        data: JSON.stringify({
+          type: "COMBAT_RESULT",
+          target: { x: 60, y: 302 },
+          changes: [{ x: 60, y: 302, ownerId: "me", ownershipState: "FRONTIER" }]
+        })
+      })
+    ).not.toThrow();
+    expect(pushFeed).toHaveBeenCalledWith("You captured the tile.", "combat", "success");
+  });
+
   it("clears stuck frontier state on LOCKED errors and refreshes the tile immediately", () => {
     const state = createState();
     const ws = new FakeWebSocket();

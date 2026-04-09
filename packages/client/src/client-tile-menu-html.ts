@@ -5,6 +5,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "launch_attack") return "⚔";
   if (id === "launch_breach_attack") return "✦";
   if (id === "reveal_empire") return "◈";
+  if (id === "reveal_empire_stats") return "◌";
   if (id === "collect_yield") return "⛃";
   if (id === "collect_shard") return "✦";
   if (id === "build_fortification") return "🛡";
@@ -39,6 +40,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_governors_office") return "⌘";
   if (id === "remove_structure") return "⌫";
   if (id === "abandon_territory") return "✕";
+  if (id === "aether_wall") return "║";
   if (id === "aether_bridge") return "≈";
   if (id === "siphon_tile") return "☍";
   if (id === "purge_siphon") return "◌";

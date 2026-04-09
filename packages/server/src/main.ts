@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import {
+  aetherWallEdgeKey,
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
   BARBARIAN_ACTION_INTERVAL_MS,
@@ -9,6 +10,7 @@ import {
   BARBARIAN_CLEAR_GOLD_REWARD,
   BARBARIAN_DEFENSE_POWER,
   BARBARIAN_MULTIPLY_THRESHOLD,
+  buildAetherWallSegments,
   BREAKTHROUGH_ATTACK_MANPOWER_COST,
   BREAKTHROUGH_ATTACK_MANPOWER_MIN,
   CHUNK_SIZE,
@@ -40,6 +42,9 @@ import {
   PVP_REPEAT_FLOOR,
   PVP_REPEAT_WINDOW_MS,
   SEASON_LENGTH_DAYS,
+  type ActiveAetherWallView,
+  type AetherWallDirection,
+  type RevealEmpireStatsView,
   SETTLE_COST,
   SETTLE_MS,
   STAMINA_MAX,
@@ -232,9 +237,19 @@ import {
   verifiedFirebaseTokenCacheSize,
   verifyFirebaseToken
 } from "./server-auth.js";
+
+const socketUsesLoopback = (socket: Ws): boolean => {
+  const remoteAddress = socket._socket?.remoteAddress ?? "";
+  return (
+    remoteAddress === "127.0.0.1" ||
+    remoteAddress === "::1" ||
+    remoteAddress === "::ffff:127.0.0.1"
+  );
+};
 import {
   type AbilityDefinition,
   type ActiveAetherBridge,
+  type ActiveAetherWall,
   type ActiveSabotage,
   type ActiveSiphon,
   type ActiveTruce,
@@ -271,6 +286,7 @@ import {
   type VictoryPressureDefinition,
   type VictoryPressureTracker
 } from "./server-shared-types.js";
+import { buildRevealEmpireStatsView } from "./empire-intel.js";
 import {
   type AiActionFailureEntry,
   type AiTurnDebugEntry,
@@ -283,10 +299,11 @@ import {
 } from "./server-effects.js";
 import {
   ABILITY_DEFS,
-  AETHER_BRIDGE_COOLDOWN_MS,
   AETHER_BRIDGE_CRYSTAL_COST,
   AETHER_BRIDGE_DURATION_MS,
   AETHER_BRIDGE_MAX_SEA_TILES,
+  AETHER_WALL_CRYSTAL_COST,
+  AETHER_WALL_DURATION_MS,
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   ADVANCED_IRONWORKS_IRON_PER_DAY,
@@ -416,6 +433,7 @@ import {
   RESOURCE_CHAIN_BUFF_MS,
   RESOURCE_CHAIN_MULT,
   REVEAL_EMPIRE_ACTIVATION_COST,
+  REVEAL_EMPIRE_STATS_CRYSTAL_COST,
   REVEAL_EMPIRE_UPKEEP_PER_MIN,
   SABOTAGE_COOLDOWN_MS,
   SABOTAGE_CRYSTAL_COST,
@@ -1119,6 +1137,8 @@ const revealWatchersByTarget = new Map<string, Set<string>>();
 const siphonByTile = new Map<TileKey, ActiveSiphon>();
 const siphonCacheByPlayer = new Map<string, SiphonCache[]>();
 const activeAetherBridgesById = new Map<string, ActiveAetherBridge>();
+const activeAetherWallsById = new Map<string, ActiveAetherWall>();
+const activeAetherWallIdsByEdgeKey = new Map<string, Set<string>>();
 const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
 const victoryPressureById = new Map<SeasonVictoryPathId, VictoryPressureTracker>();
 const cachedChunkPayloadDiagnostics = (): { payloads: number; approxPayloadMb: number } => {
@@ -2033,6 +2053,8 @@ const clearWorldProgressForSeason = (): void => {
   siphonByTile.clear();
   siphonCacheByPlayer.clear();
   activeAetherBridgesById.clear();
+  activeAetherWallsById.clear();
+  activeAetherWallIdsByEdgeKey.clear();
   strategicReplayEvents.length = 0;
   shardSitesByTile.clear();
   abilityCooldownsByPlayer.clear();
@@ -4758,6 +4780,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
           const [toX, toY] = parseKey(bridge.toTileKey);
           return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
         }),
+      activeAetherWalls: activeAetherWallViews(),
       pendingSettlements,
       incomingAllianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === p.id),
       outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === p.id),
@@ -4902,6 +4925,9 @@ const tryQueueBasicFrontierAction = (
     }
   }
   if (!adjacent && !dockCrossing) return { ok: false, code: "NOT_ADJACENT", message: "target must be adjacent or valid dock crossing" };
+  if (adjacent && !dockCrossing && crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) {
+    return { ok: false, code: "AETHER_WALL_BLOCKED", message: "crossing blocked by aether wall" };
+  }
   if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) return { ok: false, code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" };
   if (from.ownerId !== actor.id) return { ok: false, code: "NOT_OWNER", message: "origin not owned" };
   if (to.terrain !== "LAND") return { ok: false, code: "BARRIER", message: "target is barrier" };
@@ -11795,8 +11821,154 @@ const activeAetherBridgeForTarget = (ownerId: string, targetTileKey: TileKey): A
   return undefined;
 };
 
+const buildEmpireStatsRevealForTarget = (target: Player): RevealEmpireStatsView => {
+  const economy = playerEconomySnapshot(target);
+  const strategicResources = getOrInitStrategicStocks(target.id);
+  let settledTiles = 0;
+  let frontierTiles = 0;
+  let controlledTowns = 0;
+  for (const tk of target.territoryTiles) {
+    const tile = runtimeTileCore(...parseKey(tk));
+    if (tile.ownerId !== target.id) continue;
+    if (tile.ownershipState === "SETTLED") settledTiles += 1;
+    else if (tile.ownershipState === "FRONTIER") frontierTiles += 1;
+  }
+  for (const town of townsByTile.values()) {
+    const tile = runtimeTileCore(...parseKey(town.tileKey));
+    if (tile.ownerId === target.id) controlledTowns += 1;
+  }
+  return buildRevealEmpireStatsView({
+    playerId: target.id,
+    playerName: target.name,
+    revealedAt: now(),
+    tiles: target.territoryTiles.size,
+    settledTiles,
+    frontierTiles,
+    controlledTowns,
+    incomePerMinute: economy.incomePerMinute,
+    techCount: target.techIds.size,
+    gold: target.points,
+    manpower: target.manpower,
+    manpowerCap: playerManpowerCap(target),
+    strategicResources: {
+      FOOD: strategicResources.FOOD ?? 0,
+      IRON: strategicResources.IRON ?? 0,
+      CRYSTAL: strategicResources.CRYSTAL ?? 0,
+      SUPPLY: strategicResources.SUPPLY ?? 0,
+      SHARD: strategicResources.SHARD ?? 0,
+      OIL: strategicResources.OIL ?? 0
+    }
+  });
+};
+
+const tryRevealEmpireStats = (actor: Player, targetPlayerId: string): { ok: boolean; reason?: string; stats?: RevealEmpireStatsView } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.reveal_empire_stats.requiredTechIds)) return { ok: false, reason: "requires Surveying" };
+  if (targetPlayerId === actor.id) return { ok: false, reason: "cannot reveal yourself" };
+  const target = players.get(targetPlayerId);
+  if (!target) return { ok: false, reason: "target empire not found" };
+  if (actor.allies.has(targetPlayerId) || truceBlocksHostility(actor.id, targetPlayerId)) return { ok: false, reason: "cannot reveal allied or truced empire" };
+  if (abilityOnCooldown(actor.id, "reveal_empire_stats")) return { ok: false, reason: "reveal empire stats is cooling down" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_STATS_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for empire stats reveal" };
+  }
+  startAbilityCooldown(actor.id, "reveal_empire_stats");
+  return { ok: true, stats: buildEmpireStatsRevealForTarget(target) };
+};
+
+const aetherWallView = (wall: ActiveAetherWall): ActiveAetherWallView => {
+  const [originX, originY] = parseKey(wall.originTileKey);
+  return {
+    wallId: wall.wallId,
+    ownerId: wall.ownerId,
+    origin: { x: originX, y: originY },
+    direction: wall.direction,
+    length: wall.length,
+    startedAt: wall.startedAt,
+    endsAt: wall.endsAt
+  };
+};
+
+const activeAetherWallViews = (): ActiveAetherWallView[] => [...activeAetherWallsById.values()].map(aetherWallView);
+
+const registerAetherWallEdges = (wall: ActiveAetherWall): void => {
+  const [originX, originY] = parseKey(wall.originTileKey);
+  for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+    const edgeKey = aetherWallEdgeKey(segment.fromX, segment.fromY, segment.toX, segment.toY);
+    let wallIds = activeAetherWallIdsByEdgeKey.get(edgeKey);
+    if (!wallIds) {
+      wallIds = new Set<string>();
+      activeAetherWallIdsByEdgeKey.set(edgeKey, wallIds);
+    }
+    wallIds.add(wall.wallId);
+  }
+};
+
+const unregisterAetherWallEdges = (wall: ActiveAetherWall): void => {
+  const [originX, originY] = parseKey(wall.originTileKey);
+  for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+    const edgeKey = aetherWallEdgeKey(segment.fromX, segment.fromY, segment.toX, segment.toY);
+    const wallIds = activeAetherWallIdsByEdgeKey.get(edgeKey);
+    if (!wallIds) continue;
+    wallIds.delete(wall.wallId);
+    if (wallIds.size === 0) activeAetherWallIdsByEdgeKey.delete(edgeKey);
+  }
+};
+
+const crossingBlockedByAetherWall = (fromX: number, fromY: number, toX: number, toY: number): boolean =>
+  activeAetherWallIdsByEdgeKey.has(aetherWallEdgeKey(fromX, fromY, toX, toY));
+
+const broadcastAetherWallUpdate = (): void => {
+  broadcast({ type: "AETHER_WALL_UPDATE", walls: activeAetherWallViews() });
+};
+
+const tryCastAetherWall = (
+  actor: Player,
+  x: number,
+  y: number,
+  direction: AetherWallDirection,
+  length: 1 | 2 | 3,
+  options?: { ignoreRequirements?: boolean }
+): { ok: boolean; reason?: string; wall?: ActiveAetherWall } => {
+  const ignoreRequirements = options?.ignoreRequirements === true;
+  if (!ignoreRequirements && !playerHasTechIds(actor, ABILITY_DEFS.aether_wall.requiredTechIds)) return { ok: false, reason: "requires Aether Moorings" };
+  if (!ignoreRequirements && abilityOnCooldown(actor.id, "aether_wall")) return { ok: false, reason: "aether wall is cooling down" };
+  const segments = buildAetherWallSegments(x, y, direction, length, (wx) => wrapX(wx, WORLD_WIDTH), (wy) => wrapY(wy, WORLD_HEIGHT));
+  if (segments.length === 0) return { ok: false, reason: "invalid wall path" };
+  for (const segment of segments) {
+    const base = playerTile(segment.baseX, segment.baseY);
+    if (base.terrain !== "LAND" || base.ownerId !== actor.id || (!ignoreRequirements && base.ownershipState !== "SETTLED")) {
+      return { ok: false, reason: ignoreRequirements ? "wall must anchor on your land" : "wall must anchor on your settled land" };
+    }
+    const outward = playerTile(segment.toX, segment.toY);
+    if (outward.terrain !== "LAND") return { ok: false, reason: "wall must face passable land" };
+    if (outward.ownerId === actor.id) return { ok: false, reason: "wall must face outside your territory" };
+    if (crossingBlockedByAetherWall(segment.fromX, segment.fromY, segment.toX, segment.toY)) {
+      return { ok: false, reason: "that border already has an aether wall" };
+    }
+  }
+  if (!ignoreRequirements && !consumeStrategicResource(actor, "CRYSTAL", AETHER_WALL_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for aether wall" };
+  if (!ignoreRequirements) startAbilityCooldown(actor.id, "aether_wall");
+  const startedAt = now();
+  const wall: ActiveAetherWall = {
+    wallId: crypto.randomUUID(),
+    ownerId: actor.id,
+    originTileKey: key(x, y),
+    direction,
+    length,
+    startedAt,
+    endsAt: startedAt + AETHER_WALL_DURATION_MS
+  };
+  activeAetherWallsById.set(wall.wallId, wall);
+  registerAetherWallEdges(wall);
+  for (const segment of segments) {
+    markSummaryChunkDirtyAtTile(segment.baseX, segment.baseY);
+    markSummaryChunkDirtyAtTile(segment.toX, segment.toY);
+  }
+  return { ok: true, wall };
+};
+
 const trySiphonTile = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
-  if (!playerHasTechIds(actor, ABILITY_DEFS.siphon.requiredTechIds)) return { ok: false, reason: "requires Cryptography" };
+  if (!playerHasTechIds(actor, ABILITY_DEFS.siphon.requiredTechIds)) return { ok: false, reason: "requires Logistics" };
   if (abilityOnCooldown(actor.id, "siphon")) return { ok: false, reason: "siphon is cooling down" };
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "siphon requires land tile" };
@@ -12868,6 +13040,7 @@ const buildSnapshotState = (): SnapshotState => {
     economicStructures: [...economicStructuresByTile.values()],
     sabotage: [...siphonByTile.values()],
     abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
+    aetherWalls: [...activeAetherWallsById.values()],
     docks: [...dockById.values()],
     towns: [...townsByTile.values()],
     shardSites: [...shardSitesByTile.values()],
@@ -12952,7 +13125,8 @@ const splitSnapshotState = (
     ...(snapshot.siegeOutposts ? { siegeOutposts: snapshot.siegeOutposts } : {}),
     ...(snapshot.economicStructures ? { economicStructures: snapshot.economicStructures } : {}),
     ...(snapshot.sabotage ? { sabotage: snapshot.sabotage } : {}),
-    ...(snapshot.abilityCooldowns ? { abilityCooldowns: snapshot.abilityCooldowns } : {})
+    ...(snapshot.abilityCooldowns ? { abilityCooldowns: snapshot.abilityCooldowns } : {}),
+    ...(snapshot.aetherWalls ? { aetherWalls: snapshot.aetherWalls } : {})
   }
 });
 
@@ -13239,11 +13413,16 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   for (const [pid, entries] of raw.abilityCooldowns ?? []) {
     abilityCooldownsByPlayer.set(pid, new Map(entries));
   }
+  for (const wall of raw.aetherWalls ?? []) {
+    activeAetherWallsById.set(wall.wallId, wall);
+    registerAetherWallEdges(wall);
+  }
   logHydratePhase("systems_structures", {
     forts: raw.forts?.length ?? 0,
     observatories: raw.observatories?.length ?? 0,
     siegeOutposts: raw.siegeOutposts?.length ?? 0,
-    economicStructures: raw.economicStructures?.length ?? 0
+    economicStructures: raw.economicStructures?.length ?? 0,
+    aetherWalls: raw.aetherWalls?.length ?? 0
   });
   for (const d of raw.docks ?? []) {
     docksByTile.set(d.tileKey, d);
@@ -13728,6 +13907,19 @@ registerInterval(() => {
     const [tx, ty] = parseKey(bridge.toTileKey);
     markSummaryChunkDirtyAtTile(tx, ty);
   }
+  let aetherWallsChanged = false;
+  for (const [wallId, wall] of activeAetherWallsById) {
+    if (wall.endsAt > now()) continue;
+    activeAetherWallsById.delete(wallId);
+    unregisterAetherWallEdges(wall);
+    const [originX, originY] = parseKey(wall.originTileKey);
+    for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+      markSummaryChunkDirtyAtTile(segment.baseX, segment.baseY);
+      markSummaryChunkDirtyAtTile(segment.toX, segment.toY);
+    }
+    aetherWallsChanged = true;
+  }
+  if (aetherWallsChanged) broadcastAetherWallUpdate();
   for (const [pid, cooldowns] of abilityCooldownsByPlayer) {
     for (const [abilityId, until] of cooldowns) {
       if (until <= now()) cooldowns.delete(abilityId);
@@ -14656,6 +14848,7 @@ app.post("/admin/world/regenerate", async () => {
                 const [toX, toY] = parseKey(bridge.toTileKey);
                 return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
               }),
+            activeAetherWalls: activeAetherWallViews(),
             strategicReplayEvents,
             pendingSettlements: [...pendingSettlementsByTile.values()]
               .filter((settlement) => settlement.ownerId === player.id)
@@ -14785,6 +14978,30 @@ app.post("/admin/world/regenerate", async () => {
       });
       sendPlayerUpdate(actor, 0);
       refreshSubscribedViewForPlayer(actor.id);
+      return;
+    }
+
+    if (msg.type === "REVEAL_EMPIRE_STATS") {
+      const out = tryRevealEmpireStats(actor, msg.targetPlayerId);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "REVEAL_EMPIRE_STATS_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      sendToPlayer(actor.id, { type: "REVEAL_EMPIRE_STATS_RESULT", stats: out.stats });
+      return;
+    }
+
+    if (msg.type === "CAST_AETHER_WALL") {
+      const out = tryCastAetherWall(actor, msg.x, msg.y, msg.direction, msg.length, {
+        ignoreRequirements: socketUsesLoopback(socket)
+      });
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "AETHER_WALL_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      broadcastAetherWallUpdate();
       return;
     }
 
@@ -15429,6 +15646,10 @@ app.post("/admin/world/regenerate", async () => {
       }
       if (!adjacent && !dockCrossing && !bridgeCrossing) {
         sendInvalid("target must be adjacent or valid dock crossing");
+        return;
+      }
+      if (adjacent && !dockCrossing && !bridgeCrossing && crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) {
+        sendInvalid("crossing blocked by aether wall");
         return;
       }
       if (to.terrain !== "LAND") {

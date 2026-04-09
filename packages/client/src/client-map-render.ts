@@ -55,6 +55,9 @@ const createTownOverlaySet = (
 const aetherBridgeAnchorImage = new Image();
 aetherBridgeAnchorImage.decoding = "async";
 aetherBridgeAnchorImage.src = overlaySrc("aether-pylon-overlay.svg");
+const aetherWallPylonImage = new Image();
+aetherWallPylonImage.decoding = "async";
+aetherWallPylonImage.src = overlaySrc("aether-wall-pylon-overlay.svg");
 
 const defaultTownOverlayByTier = createTownOverlaySet({
   SETTLEMENT: overlaySrc("settlement-overlay-sand.svg"),
@@ -525,6 +528,64 @@ export const drawAetherBridgeLane = (
     ctx.quadraticCurveTo(px + ny * normalScale, py + -nx * normalScale, bx, by);
     ctx.stroke();
   }
+  ctx.restore();
+};
+
+export const drawAetherWallSegment = (
+  ctx: CanvasRenderingContext2D,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  options?: { preview?: boolean; nowMs?: number }
+): void => {
+  const preview = options?.preview ?? false;
+  const nowMs = options?.nowMs ?? performance.now();
+  const pulse = 0.5 + 0.5 * Math.sin(nowMs / 180);
+  const beamWidth = preview ? 8 : 12;
+  const coreWidth = preview ? 3 : 4;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = preview ? `rgba(124, 224, 255, ${0.42 + pulse * 0.16})` : `rgba(28, 170, 255, ${0.78 + pulse * 0.14})`;
+  ctx.shadowColor = preview ? "rgba(114, 224, 255, 0.45)" : `rgba(86, 212, 255, ${0.48 + pulse * 0.2})`;
+  ctx.shadowBlur = preview ? 10 : 18;
+  ctx.lineWidth = beamWidth;
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = preview ? "rgba(227, 250, 255, 0.9)" : `rgba(235, 251, 255, ${0.96 + pulse * 0.04})`;
+  ctx.lineWidth = coreWidth;
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  const midX = (fromX + toX) * 0.5;
+  const midY = (fromY + toY) * 0.5;
+  ctx.fillStyle = preview ? `rgba(180, 241, 255, ${0.6 + pulse * 0.16})` : `rgba(212, 247, 255, ${0.78 + pulse * 0.18})`;
+  ctx.beginPath();
+  ctx.arc(midX, midY, preview ? 2.6 : 3.6 + pulse * 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  const angle = Math.atan2(toY - fromY, toX - fromX);
+  const drawPylon = (x: number, y: number, rotation: number): void => {
+    if (!aetherWallPylonImage.complete || !aetherWallPylonImage.naturalWidth) {
+      ctx.fillStyle = preview ? `rgba(86, 184, 214, ${0.7 + pulse * 0.12})` : `rgba(118, 228, 255, ${0.9 + pulse * 0.08})`;
+      ctx.beginPath();
+      ctx.arc(x, y, preview ? 3 : 4.2 + pulse * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    const size = preview ? 16 : 22 + pulse * 2;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.globalAlpha = preview ? 0.82 : 0.96;
+    ctx.drawImage(aetherWallPylonImage, -size * 0.5, -size * 0.5, size, size);
+    ctx.restore();
+  };
+  drawPylon(fromX, fromY, angle + Math.PI / 2);
+  drawPylon(toX, toY, angle - Math.PI / 2);
   ctx.restore();
 };
 
