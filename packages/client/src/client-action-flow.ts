@@ -102,6 +102,7 @@ import {
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 import type { ClientState } from "./client-state.js";
 import type { ActiveTruceView, CrystalTargetingAbility, OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuView, TileOverviewLine, TileTimedProgress } from "./client-types.js";
+import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -674,8 +675,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       areaEffectModifiersForTile: (targetTile: Tile) => tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values())
     });
 
-  const tileMenuViewForTile = (tile: Tile): TileMenuView =>
-    tileMenuViewForTileFromModule(tile, {
+  const tileMenuViewForTile = (tile: Tile): TileMenuView => {
+    const view = tileMenuViewForTileFromModule(tile, {
       menuActionsForSingleTile,
       splitTileActionsIntoTabs,
       settlementProgressForTile: (x, y) => {
@@ -705,6 +706,23 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isTileOwnedByAlly,
       state
     });
+    if (tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) {
+      debugTileLog("tile-menu-view", {
+        x: tile.x,
+        y: tile.y,
+        detailLevel: tile.detailLevel,
+        resource: tile.resource,
+        economicStructure: tile.economicStructure?.type,
+        buildings: view.buildings.map((building) => ({
+          id: building.id,
+          disabled: building.disabled,
+          disabledReason: building.disabledReason
+        })),
+        overviewLineCount: view.overviewLines.length
+      });
+    }
+    return view;
+  };
 
   const tileActionLogicDeps = () => ({
     keyFor,
