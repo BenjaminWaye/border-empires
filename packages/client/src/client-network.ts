@@ -428,6 +428,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.defensibilityAnimUntil = 0;
       state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
       state.developmentProcessLimit = (player.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      state.activeDevelopmentProcessCount =
+        (player.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techRootId = player.techRootId as string | undefined;
       state.techIds = (player.techIds as string[]) ?? [];
       state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
@@ -657,6 +659,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      state.activeDevelopmentProcessCount =
+        (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
       state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
@@ -947,6 +951,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         nextChoices: (msg.nextChoices as string[]) ?? [],
         availableTechPicks: (msg.availableTechPicks as number) ?? state.availableTechPicks,
         developmentProcessLimit: (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit,
+        activeDevelopmentProcessCount:
+          (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount,
         mods: (msg.mods as typeof state.mods) ?? state.mods,
         modBreakdown: (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown,
         incomePerMinute: (msg.incomePerMinute as number) ?? state.incomePerMinute,
@@ -965,6 +971,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "DOMAIN_UPDATE") {
       state.pendingDomainUnlockId = "";
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      state.activeDevelopmentProcessCount =
+        (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;

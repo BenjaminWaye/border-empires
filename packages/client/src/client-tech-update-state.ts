@@ -8,6 +8,7 @@ type TechUpdateMessage = {
   nextChoices?: string[] | undefined;
   availableTechPicks?: number | undefined;
   developmentProcessLimit?: number | undefined;
+  activeDevelopmentProcessCount?: number | undefined;
   mods?: ClientState["mods"] | undefined;
   modBreakdown?: ClientState["modBreakdown"] | undefined;
   incomePerMinute?: number | undefined;
@@ -35,6 +36,7 @@ export const applyTechUpdateToState = (
   state.techChoices = msg.nextChoices ?? [];
   state.availableTechPicks = msg.availableTechPicks ?? state.availableTechPicks;
   state.developmentProcessLimit = msg.developmentProcessLimit ?? state.developmentProcessLimit;
+  state.activeDevelopmentProcessCount = msg.activeDevelopmentProcessCount ?? state.activeDevelopmentProcessCount;
   state.mods = msg.mods ?? state.mods;
   state.modBreakdown = msg.modBreakdown ?? state.modBreakdown;
   state.incomePerMinute = msg.incomePerMinute ?? state.incomePerMinute;
