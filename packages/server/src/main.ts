@@ -1513,13 +1513,6 @@ const {
   playerModBreakdown,
   recomputeTechModsFromOwnedTechs,
   setClusterControlDelta
-}: {
-  chooseSeasonalTechConfig: (seed: number) => SeasonalTechConfig;
-  seasonTechConfigIsCompatible: (config: SeasonalTechConfig) => boolean;
-  recomputeClusterBonusForPlayer: (player: Player) => void;
-  playerModBreakdown: (player: Player) => StatsModBreakdown;
-  recomputeTechModsFromOwnedTechs: (player: Player) => void;
-  setClusterControlDelta: (playerId: string, clusterId: string, delta: number) => void;
 } = createServerSeasonTech({
   TECHS,
   TECH_ROOTS,
@@ -1530,7 +1523,7 @@ const {
   clusterControlledTilesByPlayer,
   recomputePlayerEffectsForPlayer: (player: Player) => recomputePlayerEffectsForPlayer(player),
   markVisibilityDirty: (playerId: string) => markVisibilityDirty(playerId)
-}) as any;
+});
 
 const { generateClusters, applyClusterResources }: {
   generateClusters: (seed: number) => void;
@@ -1779,7 +1772,7 @@ const {
   dockIncomeForOwner: (dock: Dock, ownerId: string | undefined) => dockIncomeForOwner(dock, ownerId),
   townPotentialIncomeForOwner: (town: TownDefinition, ownerId: string | undefined, options?: { ignoreSuppression?: boolean; ignoreManpowerGate?: boolean }) =>
     townPotentialIncomeForOwner(town, ownerId, options)
-}) as any;
+});
 
 const supportedFrontierUsesSettledDefenseAt = (defenderId: string | undefined, target: Tile): boolean => {
   const defender = defenderId ? players.get(defenderId) : undefined;
@@ -1847,7 +1840,7 @@ const {
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   FUEL_PLANT_OIL_PER_DAY,
   randomUUID: () => crypto.randomUUID()
-}) as any;
+});
 
 const {
   computeTownFeedingState,
