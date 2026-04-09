@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { bindClientNetwork } from "./client-network.js";
+import { explainActionFailureFromServer } from "./client-player-actions.js";
 
 class FakeWebSocket {
   static readonly OPEN = 1;
@@ -142,6 +143,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
   const renderHud = vi.fn();
   const requestViewRefresh = vi.fn();
   const clearOptimisticTileState = vi.fn();
+  const clearSettlementProgressByKey = vi.fn();
   const dropQueuedTargetKeyIfAbsent = vi.fn();
   const reconcileActionQueue = vi.fn();
   const processActionQueue = vi.fn(() => false);
@@ -196,7 +198,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
     hideShardAlert: vi.fn(),
     explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
     notifyInsufficientGoldForFrontierAction: vi.fn(),
-    clearSettlementProgressByKey: vi.fn(),
+    clearSettlementProgressByKey,
     showCollectVisibleCooldownAlert: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue,
@@ -210,9 +212,11 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
   } as any);
 
   return {
+    pushFeed,
     requestViewRefresh,
     clearOptimisticTileState,
     reconcileActionQueue,
+    clearSettlementProgressByKey,
     applyPendingSettlementsFromServer,
     requestTileDetailIfNeeded,
     processActionQueue
@@ -250,6 +254,40 @@ describe("client network regression guards", () => {
     expect(state.combatStartAck).toBe(false);
     expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
     expect(state.lastSubAt).toBe(0);
+    expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
+    expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("60,302", true);
+    expect(deps.reconcileActionQueue).toHaveBeenCalled();
+  });
+
+  it("explains attack cooldown errors and applies only a short retry backoff", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true),
+      explainActionFailure: vi.fn(explainActionFailureFromServer),
+      formatCooldownShort: vi.fn((ms: number) => `${Math.ceil(ms / 1000)}s`)
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: 2_400 })
+    });
+
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionTargetKey).toBe("");
+    expect(state.actionCurrent).toBeUndefined();
+    expect(state.capture).toBeUndefined();
+    expect(state.combatStartAck).toBe(false);
+    expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
+    expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeLessThanOrEqual(Date.now() + 3_500);
+    expect(
+      explainActionFailureFromServer("ATTACK_COOLDOWN", "origin tile is still on attack cooldown", {
+        cooldownRemainingMs: 2_400,
+        formatCooldownShort: (ms) => `${Math.ceil(ms / 1000)}s`
+      })
+    ).toBe(
+      "Action blocked: that origin tile is still on attack cooldown for 3s."
+    );
+    expect(deps.pushFeed).toHaveBeenCalledWith("Action blocked: that origin tile is still on attack cooldown for 3s.", "error", "error");
     expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("60,302", true);
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
@@ -361,5 +399,77 @@ describe("client network regression guards", () => {
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("100,247");
     expect(deps.processActionQueue).toHaveBeenCalled();
     expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 247, ownerId: "me" }));
+  });
+
+  it("requeues a settlement when the server rejects it only because development slots are full", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.gold = 10;
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const pushFeed = vi.fn();
+    const deps = bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 4 development slots are busy", x: 12, y: 18 })
+    });
+
+    expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("12,18", true);
+    expect(deps.clearSettlementProgressByKey).toHaveBeenCalledWith("12,18");
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(showCaptureAlert).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
+  });
+
+  it("requeues a structure build when the server rejects it only because development slots are full", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = {
+      kind: "BUILD",
+      x: 33,
+      y: 44,
+      tileKey: "33,44",
+      label: "Fort at (33, 44)",
+      payload: { type: "BUILD_FORT", x: 33, y: 44 },
+      optimisticKind: "FORT"
+    };
+    state.tiles.set("33,44", {
+      x: 33,
+      y: 44,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      optimisticPending: "structure_build"
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const pushFeed = vi.fn();
+    const deps = bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "FORT_BUILD_INVALID", message: "all 4 development slots are busy", x: 33, y: 44 })
+    });
+
+    expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("33,44", true);
+    expect(state.developmentQueue).toEqual([
+      {
+        kind: "BUILD",
+        x: 33,
+        y: 44,
+        tileKey: "33,44",
+        label: "Fort at (33, 44)",
+        payload: { type: "BUILD_FORT", x: 33, y: 44 },
+        optimisticKind: "FORT"
+      }
+    ]);
+    expect(showCaptureAlert).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith("Fort at (33, 44) queued. It will start when a development slot frees up.", "combat", "info");
   });
 });

@@ -341,7 +341,12 @@ export const requestSettlement = (
     deps.renderHud();
     return false;
   }
-  if (!deps.sendGameMessage({ type: "SETTLE", x, y })) return false;
+  state.lastDevelopmentAttempt = { kind: "SETTLE", x, y, tileKey: deps.keyFor(x, y), label: `Settlement at (${x}, ${y})` };
+  if (!deps.sendGameMessage({ type: "SETTLE", x, y })) {
+    state.lastDevelopmentAttempt = undefined;
+    return false;
+  }
+  if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForTile(x, y), target: { x, y }, awaitingServerConfirm: false };
   const tileKey = deps.keyFor(x, y);
@@ -398,7 +403,20 @@ export const sendDevelopmentBuild = (
     }
     return false;
   }
-  if (!deps.sendGameMessage(payload)) return false;
+  state.lastDevelopmentAttempt = {
+    kind: "BUILD",
+    x: opts.x,
+    y: opts.y,
+    tileKey: deps.keyFor(opts.x, opts.y),
+    label: opts.label,
+    payload,
+    optimisticKind: opts.optimisticKind
+  };
+  if (!deps.sendGameMessage(payload)) {
+    state.lastDevelopmentAttempt = undefined;
+    return false;
+  }
+  if (opts.fromQueue) state.queuedDevelopmentDispatchPending = true;
   optimistic();
   deps.renderHud();
   return true;
@@ -431,6 +449,7 @@ export const processDevelopmentQueue = (
   }
 ): boolean => {
   if (state.developmentQueue.length === 0 || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
+  if (state.queuedDevelopmentDispatchPending) return false;
   let started = false;
   while (state.developmentQueue.length > 0 && deps.developmentSlotSummary().available > 0) {
     const next = state.developmentQueue[0];
@@ -450,13 +469,15 @@ export const processDevelopmentQueue = (
             fromQueue: true,
             suppressWarnings: true
           });
-    state.developmentQueue.shift();
     if (ok) {
+      state.developmentQueue.shift();
       deps.pushFeed(`${next.label} started.`, "combat", "info");
       started = true;
     } else {
+      state.developmentQueue.shift();
       deps.pushFeed(`${next.label} could not start and was removed from queue.`, "combat", "warn");
     }
+    break;
   }
   if (started || state.developmentQueue.length === 0) deps.renderHud();
   return started;
