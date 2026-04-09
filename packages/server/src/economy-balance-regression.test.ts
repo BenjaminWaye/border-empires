@@ -95,6 +95,14 @@ describe("economy balance regression guard", () => {
     expect(source).toContain("foodUpkeepCoverageByPlayer,");
   });
 
+  it("wires town manpower-gating helpers into the player economy runtime", () => {
+    const source = serverSource();
+    expect(source).toContain("const townIncomePaused = !townGoldIncomeEnabledForPlayer(player);");
+    expect(source).toContain("playerManpowerCap: (player: Player) => playerManpowerCap(player),");
+    expect(source).toContain("townGoldIncomeEnabledForPlayer,");
+    expect(source).toContain("townFoodUpkeepPerMinute,");
+  });
+
   it("keeps towns visible in the gold breakdown when manpower gating pauses their income", () => {
     const source = serverSource();
     expect(source).toContain("const townIncomePaused = !townGoldIncomeEnabledForPlayer(player);");
