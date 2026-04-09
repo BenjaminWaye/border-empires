@@ -1090,6 +1090,8 @@ const recentChunkSnapshotPerf = perfRing<{
   batches: number;
 }>(50);
 const recentRuntimeVitals = perfRing<ReturnType<typeof sampleRuntimeVitals>>(180);
+const RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB = [380, 420, 460] as const;
+const runtimeMemoryWatermarksLogged = new Set<number>();
 const aiYieldCollectDueAtByPlayer = new Map<string, number>();
 const collectVisibleCooldownByPlayer = new Map<string, number>();
 const actionTimestampsByPlayer = new Map<string, number[]>();
@@ -1132,6 +1134,42 @@ const cachedChunkPayloadDiagnostics = (): { payloads: number; approxPayloadMb: n
     payloads,
     approxPayloadMb: roundTo(bytes / (1024 * 1024), 1)
   };
+};
+const maybeLogRuntimeMemoryWatermark = (
+  reason: string,
+  memory: ReturnType<typeof runtimeMemoryStats>,
+  extra: Record<string, unknown> = {}
+): void => {
+  for (const thresholdMb of RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB) {
+    if (memory.rssMb < thresholdMb || runtimeMemoryWatermarksLogged.has(thresholdMb)) continue;
+    runtimeMemoryWatermarksLogged.add(thresholdMb);
+    app.log.warn(
+      {
+        reason,
+        thresholdMb,
+        ...memory,
+        ...extra
+      },
+      "runtime memory watermark crossed"
+    );
+  }
+};
+const logSnapshotSerializationMemory = (
+  stage: string,
+  startedAt: number,
+  memory: ReturnType<typeof runtimeMemoryStats>,
+  extra: Record<string, unknown> = {}
+): void => {
+  app.log.warn(
+    {
+      stage,
+      elapsedMs: Date.now() - startedAt,
+      ...memory,
+      ...extra
+    },
+    "snapshot serialization memory"
+  );
+  maybeLogRuntimeMemoryWatermark(`snapshot:${stage}`, memory, extra);
 };
 const runtimeCollectionDiagnostics = (): Array<{ name: string; entries: number }> => {
   const collections = [
@@ -9862,6 +9900,19 @@ const {
   runtimeMemoryStats,
   pushChunkSnapshotPerf: (sample) => {
     recentChunkSnapshotPerf.push(sample);
+    if (sample.rssMb >= RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB[0]) {
+      app.log.warn(sample, "chunk snapshot memory watermark");
+    }
+    maybeLogRuntimeMemoryWatermark("chunk_snapshot", runtimeMemoryStats(), {
+      playerId: sample.playerId,
+      elapsedMs: sample.elapsedMs,
+      chunks: sample.chunks,
+      tiles: sample.tiles,
+      radius: sample.radius,
+      cachedPayloadChunks: sample.cachedPayloadChunks,
+      rebuiltChunks: sample.rebuiltChunks,
+      batches: sample.batches
+    });
   },
   onFirstChunkSent: ({ playerId, chunkCount, tileCount, radius }) => {
     sendLoginPhase(
@@ -13003,15 +13054,44 @@ const readSnapshotJsonSync = <T>(file: string): { data: T; bytes: number; elapse
 
 let snapshotSavePromise: Promise<void> = Promise.resolve();
 const saveSnapshot = async (): Promise<void> => {
+  const startedAt = Date.now();
+  logSnapshotSerializationMemory("before_build", startedAt, runtimeMemoryStats());
   const snapshot = buildSnapshotState();
+  logSnapshotSerializationMemory("after_build", startedAt, runtimeMemoryStats());
   const sections = splitSnapshotState(snapshot);
+  logSnapshotSerializationMemory("after_split", startedAt, runtimeMemoryStats());
   const serializedSections = {
-    meta: JSON.stringify(sections.meta),
-    players: JSON.stringify(sections.players),
-    territory: JSON.stringify(sections.territory),
-    economy: JSON.stringify(sections.economy),
-    systems: JSON.stringify(sections.systems)
+    meta: "",
+    players: "",
+    territory: "",
+    economy: "",
+    systems: ""
   };
+  serializedSections.meta = JSON.stringify(sections.meta);
+  logSnapshotSerializationMemory("after_stringify_meta", startedAt, runtimeMemoryStats(), {
+    section: "meta",
+    bytes: Buffer.byteLength(serializedSections.meta, "utf8")
+  });
+  serializedSections.players = JSON.stringify(sections.players);
+  logSnapshotSerializationMemory("after_stringify_players", startedAt, runtimeMemoryStats(), {
+    section: "players",
+    bytes: Buffer.byteLength(serializedSections.players, "utf8")
+  });
+  serializedSections.territory = JSON.stringify(sections.territory);
+  logSnapshotSerializationMemory("after_stringify_territory", startedAt, runtimeMemoryStats(), {
+    section: "territory",
+    bytes: Buffer.byteLength(serializedSections.territory, "utf8")
+  });
+  serializedSections.economy = JSON.stringify(sections.economy);
+  logSnapshotSerializationMemory("after_stringify_economy", startedAt, runtimeMemoryStats(), {
+    section: "economy",
+    bytes: Buffer.byteLength(serializedSections.economy, "utf8")
+  });
+  serializedSections.systems = JSON.stringify(sections.systems);
+  logSnapshotSerializationMemory("after_stringify_systems", startedAt, runtimeMemoryStats(), {
+    section: "systems",
+    bytes: Buffer.byteLength(serializedSections.systems, "utf8")
+  });
   const index: SnapshotSectionIndex = {
     formatVersion: 2,
     sections: {
@@ -13023,6 +13103,17 @@ const saveSnapshot = async (): Promise<void> => {
     }
   };
   const serializedIndex = JSON.stringify(index);
+  logSnapshotSerializationMemory("after_stringify_index", startedAt, runtimeMemoryStats(), {
+    section: "index",
+    bytes: Buffer.byteLength(serializedIndex, "utf8"),
+    totalBytes:
+      Buffer.byteLength(serializedSections.meta, "utf8") +
+      Buffer.byteLength(serializedSections.players, "utf8") +
+      Buffer.byteLength(serializedSections.territory, "utf8") +
+      Buffer.byteLength(serializedSections.economy, "utf8") +
+      Buffer.byteLength(serializedSections.systems, "utf8") +
+      Buffer.byteLength(serializedIndex, "utf8")
+  });
   snapshotSavePromise = snapshotSavePromise
     .catch(() => undefined)
     .then(async () => {
@@ -13035,6 +13126,7 @@ const saveSnapshot = async (): Promise<void> => {
         writeSnapshotJsonAtomic(snapshotSectionFile("systems"), serializedSections.systems)
       ]);
       await writeSnapshotJsonAtomic(SNAPSHOT_INDEX_FILE, serializedIndex);
+      logSnapshotSerializationMemory("after_write", startedAt, runtimeMemoryStats());
     });
   return snapshotSavePromise;
 };
@@ -13687,6 +13779,10 @@ registerInterval(() => {
   const vitals = sampleRuntimeVitals();
   recentRuntimeVitals.push(vitals);
   const cachePayloads = cachedChunkPayloadDiagnostics();
+  maybeLogRuntimeMemoryWatermark("runtime_interval", vitals, {
+    onlinePlayers: onlineSocketCount(),
+    cachedChunkPayloadMb: cachePayloads.approxPayloadMb
+  });
   app.log.info(
     {
       ...vitals,
