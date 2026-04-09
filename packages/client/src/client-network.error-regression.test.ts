@@ -214,7 +214,8 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
     clearOptimisticTileState,
     reconcileActionQueue,
     applyPendingSettlementsFromServer,
-    requestTileDetailIfNeeded
+    requestTileDetailIfNeeded,
+    processActionQueue
   };
 };
 
@@ -289,5 +290,76 @@ describe("client network regression guards", () => {
     expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(
       expect.objectContaining({ x: 5, y: 6, ownerId: "me", detailLevel: "summary" })
     );
+  });
+
+  it("preserves confirmed frontier ownership when TILE_DELTA omits owner fields", () => {
+    const state = createState();
+    state.tiles.set("100,247", {
+      x: 100,
+      y: 247,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      detailLevel: "summary"
+    });
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [{ x: 100, y: 247, fogged: false, detailLevel: "summary", regionType: "ANCIENT_HEARTLAND" }]
+      })
+    });
+
+    expect(state.tiles.get("100,247")).toEqual(
+      expect.objectContaining({
+        x: 100,
+        y: 247,
+        ownerId: "me",
+        ownershipState: "FRONTIER",
+        regionType: "ANCIENT_HEARTLAND"
+      })
+    );
+  });
+
+  it("resumes the frontier queue when a chunk refresh confirms a queued capture", () => {
+    const state = createState();
+    state.actionInFlight = false;
+    state.capture = undefined;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    state.actionQueue = [
+      { x: 100, y: 247, retries: 0 },
+      { x: 101, y: 247, retries: 0 }
+    ];
+    state.queuedTargetKeys = new Set<string>(["100,247", "101,247"]);
+    state.frontierSyncWaitUntilByTarget.set("100,247", Date.now() + 10_000);
+    state.tiles.set("100,247", {
+      x: 100,
+      y: 247,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "expand"
+    });
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_FULL",
+        tilesMaskedByFog: [{ x: 100, y: 247, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER" }]
+      })
+    });
+
+    expect(state.frontierSyncWaitUntilByTarget.has("100,247")).toBe(false);
+    expect(state.actionQueue).toEqual([{ x: 101, y: 247, retries: 0 }]);
+    expect(state.queuedTargetKeys.has("100,247")).toBe(false);
+    expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("100,247");
+    expect(deps.processActionQueue).toHaveBeenCalled();
+    expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 247, ownerId: "me" }));
   });
 });
