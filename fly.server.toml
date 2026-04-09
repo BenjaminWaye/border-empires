@@ -7,7 +7,7 @@ primary_region = "arn"
 [env]
   NODE_ENV = "production"
   PORT = "8080"
-  TILE_SYNC_DEBUG = "1"
+  TILE_SYNC_DEBUG_EMAILS = "bw1999005@gmail.com"
   SNAPSHOT_DIR = "/data/snapshots"
   AI_PLAYERS = "10"
   AI_TICK_MS = "10000"
