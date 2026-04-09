@@ -1,6 +1,13 @@
-type WorldgenDeps = Record<string, any>;
+import type { ResourceType, TileKey } from "@border-empires/shared";
 
-export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
+import type { ClusterDefinition } from "./server-shared-types.js";
+import type {
+  ClusterTypeDefinition,
+  ServerWorldgenTerrainDeps,
+  ServerWorldgenTerrainRuntime
+} from "./server-world-runtime-types.js";
+
+export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): ServerWorldgenTerrainRuntime => {
   const {
     wrapX,
     wrapY,
@@ -150,7 +157,7 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
     return undefined;
   };
 
-  const clusterTypeDefs = [
+  const clusterTypeDefs: ClusterTypeDefinition[] = [
     { type: "FERTILE_PLAINS", resourceType: "FARM", threshold: 3 },
     { type: "IRON_HILLS", resourceType: "IRON", threshold: 3 },
     { type: "CRYSTAL_BASIN", resourceType: "GEMS", threshold: 3 },
@@ -158,7 +165,7 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
     { type: "COASTAL_SHOALS", resourceType: "FISH", threshold: 3 }
   ];
 
-  const clusterResourceType = (cluster: any): string => {
+  const clusterResourceType = (cluster: ClusterDefinition): ResourceType => {
     if (cluster.resourceType) return cluster.resourceType;
     if (cluster.clusterType === "FERTILE_PLAINS") return "FARM";
     if (cluster.clusterType === "IRON_HILLS") return "IRON";
@@ -169,9 +176,9 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
     return "GEMS";
   };
 
-  const discoverOilFieldNearAirport = (ownerId: string, airportTileKey: string): string[] => {
+  const discoverOilFieldNearAirport = (ownerId: string, airportTileKey: TileKey): TileKey[] => {
     const [ax, ay] = parseKey(airportTileKey);
-    const candidateKeys: string[] = [];
+    const candidateKeys: TileKey[] = [];
     for (let dy = -2; dy <= 2; dy += 1) {
       for (let dx = -2; dx <= 2; dx += 1) {
         if (dx === 0 && dy === 0) continue;
@@ -196,7 +203,7 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
       AIRPORT_BOMBARD_MIN_FIELD_TILES +
       Math.floor(seeded01(ax, ay, activeSeason.worldSeed + 811) * (AIRPORT_BOMBARD_MAX_FIELD_TILES - AIRPORT_BOMBARD_MIN_FIELD_TILES + 1));
     const candidateSet = new Set(candidateKeys);
-    const selected: string[] = [];
+    const selected: TileKey[] = [];
 
     for (const start of candidateKeys) {
       if (selected.length >= desiredCount) break;
@@ -265,7 +272,7 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
   const isGrassIronTile = (x: number, y: number, relaxed = false): boolean =>
     terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && isNearMountain(x, y, relaxed ? 2 : 1);
 
-  const clusterRuleMatch = (x: number, y: number, resource: string): boolean => {
+  const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean => {
     if (terrainAt(x, y) !== "LAND") return false;
     const biome = landBiomeAt(x, y);
     const shade = grassShadeAt(x, y);
@@ -278,7 +285,7 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
     return false;
   };
 
-  const clusterRuleMatchRelaxed = (x: number, y: number, resource: string): boolean => {
+  const clusterRuleMatchRelaxed = (x: number, y: number, resource: ResourceType): boolean => {
     if (terrainAt(x, y) !== "LAND") return false;
     const biome = landBiomeAt(x, y);
     const shade = grassShadeAt(x, y);
@@ -290,7 +297,7 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
     return false;
   };
 
-  const resourcePlacementAllowed = (x: number, y: number, resource: string, relaxed = false): boolean =>
+  const resourcePlacementAllowed = (x: number, y: number, resource: ResourceType, relaxed = false): boolean =>
     relaxed ? clusterRuleMatchRelaxed(x, y, resource) : clusterRuleMatch(x, y, resource);
 
   const isForestFrontierTile = (x: number, y: number): boolean =>
@@ -308,7 +315,7 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
     candidates: Array<{ x: number; y: number }>,
     limit: number,
     predicate?: (tile: { x: number; y: number }) => boolean
-  ): string[] =>
+  ): TileKey[] =>
     candidates
       .filter((tile) => (predicate ? predicate(tile) : true))
       .sort((a, b) => {
@@ -321,8 +328,8 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
       .slice(0, limit)
       .map((tile) => key(tile.x, tile.y));
 
-  const collectClusterTiles = (cx: number, cy: number, resource: string, count: number): string[] => {
-    const out: string[] = [];
+  const collectClusterTiles = (cx: number, cy: number, resource: ResourceType, count: number): TileKey[] => {
+    const out: TileKey[] = [];
     const queue: Array<{ x: number; y: number; d: number }> = [{ x: cx, y: cy, d: 0 }];
     const seen = new Set<string>([key(cx, cy)]);
     const maxDist = resource === "IRON" && landBiomeAt(cx, cy) === "GRASS" ? 3 : 5;
@@ -345,8 +352,8 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
     return out.length >= count ? out.slice(0, count) : [];
   };
 
-  const collectClusterTilesRelaxed = (cx: number, cy: number, resource: string, count: number): string[] => {
-    const out: string[] = [];
+  const collectClusterTilesRelaxed = (cx: number, cy: number, resource: ResourceType, count: number): TileKey[] => {
+    const out: TileKey[] = [];
     const queue: Array<{ x: number; y: number; d: number }> = [{ x: cx, y: cy, d: 0 }];
     const seen = new Set<string>([key(cx, cy)]);
     const maxDist = resource === "IRON" && landBiomeAt(cx, cy) === "GRASS" ? 4 : 6;
@@ -369,13 +376,13 @@ export const createServerWorldgenTerrain = (deps: WorldgenDeps) => {
     return out.length >= count ? out.slice(0, count) : [];
   };
 
-  const clusterTileCountForResource = (resource: string, x: number, y: number): number => {
+  const clusterTileCountForResource = (resource: ResourceType, x: number, y: number): number => {
     if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 4;
     if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 4;
     return 8;
   };
 
-  const clusterRadiusForResource = (resource: string, x: number, y: number): number => {
+  const clusterRadiusForResource = (resource: ResourceType, x: number, y: number): number => {
     if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 2;
     if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 2;
     return 3;

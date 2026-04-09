@@ -1,6 +1,8 @@
-type WorldgenDeps = Record<string, any>;
+import type { ResourceType, TileKey } from "@border-empires/shared";
 
-export const createServerWorldgenTowns = (deps: WorldgenDeps) => {
+import type { ServerWorldgenTownsDeps, ServerWorldgenTownsRuntime } from "./server-world-runtime-types.js";
+
+export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): ServerWorldgenTownsRuntime => {
   const {
     seeded01,
     regionTypeAtLocal,
@@ -15,8 +17,10 @@ export const createServerWorldgenTowns = (deps: WorldgenDeps) => {
     docksByTile,
     clusterByTile,
     POPULATION_MAX,
+    POPULATION_TOWN_MIN,
     now,
     wrapX,
+    wrapY,
     parseKey,
     ownership,
     players,
@@ -74,12 +78,12 @@ export const createServerWorldgenTowns = (deps: WorldgenDeps) => {
     }
   };
 
-  const canPlaceTownAt = (x: number, y: number, ignoreTileKey?: string): boolean => {
+  const canPlaceTownAt = (x: number, y: number, ignoreTileKey?: TileKey): boolean => {
     const tileKey = key(x, y);
     return terrainAt(x, y) === "LAND" && (tileKey === ignoreTileKey || !townsByTile.has(tileKey)) && !docksByTile.has(tileKey) && !clusterByTile.has(tileKey);
   };
 
-  const findNearestTownPlacement = (originX: number, originY: number, ignoreTileKey?: string): string | undefined => {
+  const findNearestTownPlacement = (originX: number, originY: number, ignoreTileKey?: TileKey): TileKey | undefined => {
     if (canPlaceTownAt(originX, originY, ignoreTileKey)) return key(originX, originY);
     const maxRadius = Math.max(WORLD_WIDTH, WORLD_HEIGHT);
     for (let radius = 1; radius <= maxRadius; radius += 1) {
@@ -121,7 +125,7 @@ export const createServerWorldgenTowns = (deps: WorldgenDeps) => {
   const normalizeLegacySettlementTowns = (): void => {
     for (const town of townsByTile.values()) {
       if (town.isSettlement !== undefined) continue;
-      if (town.population >= deps.POPULATION_TOWN_MIN) continue;
+      if (town.population >= POPULATION_TOWN_MIN) continue;
       const ownerId = ownership.get(town.tileKey);
       const owner = ownerId ? players.get(ownerId) : undefined;
       if (owner && owner.capitalTileKey === town.tileKey) {
@@ -144,7 +148,7 @@ export const createServerWorldgenTowns = (deps: WorldgenDeps) => {
         for (let dy = 0; dy < 30; dy += 1) {
           for (let dx = 0; dx < 30; dx += 1) {
             const x = wrapX(bx + dx, WORLD_WIDTH);
-            const y = deps.wrapY(by + dy, WORLD_HEIGHT);
+            const y = wrapY(by + dy, WORLD_HEIGHT);
             if (terrainAt(x, y) !== "LAND") continue;
             const tileKey = key(x, y);
             land.push({ x, y });
@@ -163,13 +167,13 @@ export const createServerWorldgenTowns = (deps: WorldgenDeps) => {
         }
         if (hasFood) continue;
         const center = land[Math.floor(seeded01(bx + 3, by + 7, seed + 9501) * land.length)]!;
-        const pickFoodTiles = (resource: string, relaxed: boolean): string[] =>
+        const pickFoodTiles = (resource: ResourceType, relaxed: boolean): TileKey[] =>
           nearestLandTiles(center.x, center.y, land, 8, (tile: { x: number; y: number }) => {
             const tileKey = key(tile.x, tile.y);
             if (clusterByTile.has(tileKey) || docksByTile.has(tileKey) || townsByTile.has(tileKey)) return false;
             return resourcePlacementAllowed(tile.x, tile.y, resource, relaxed);
           });
-        let resourceType: string | undefined;
+        let resourceType: ResourceType | undefined;
         let foodTiles = pickFoodTiles("FARM", false);
         if (foodTiles.length >= 6) resourceType = "FARM";
         else {
@@ -201,7 +205,7 @@ export const createServerWorldgenTowns = (deps: WorldgenDeps) => {
         for (let dy = 0; dy < 15; dy += 1) {
           for (let dx = 0; dx < 15; dx += 1) {
             const x = wrapX(bx + dx, WORLD_WIDTH);
-            const y = deps.wrapY(by + dy, WORLD_HEIGHT);
+            const y = wrapY(by + dy, WORLD_HEIGHT);
             if (terrainAt(x, y) !== "LAND") continue;
             const tileKey = key(x, y);
             land.push({ x, y });
