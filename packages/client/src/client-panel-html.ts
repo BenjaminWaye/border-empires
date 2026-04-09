@@ -20,9 +20,35 @@ const feedIcon = (type: FeedType): string => {
   return "i";
 };
 
-export const feedHtml = (feed: FeedEntry[]): string => {
-  if (feed.length === 0) return `<article class="card"><p>No activity yet.</p></article>`;
-  return feed
+type FeedDebugControls = {
+  visible: boolean;
+  enabled: boolean;
+  selectedTileKey?: string | undefined;
+};
+
+const feedDebugControlsHtml = (controls: FeedDebugControls): string => {
+  if (!controls.visible) return "";
+  const targetLabel = controls.selectedTileKey ?? "No tile selected";
+  const statusLabel = controls.enabled ? `Logging ${targetLabel} and neighbors.` : "Off until you start it.";
+  return `<article class="card feed-card debug-feed-card severity-info">
+    <div class="feed-icon">⌘</div>
+    <div>
+      <strong>Admin Tile Debug</strong>
+      <div>${statusLabel}</div>
+      <span>Target: ${targetLabel}</span>
+      <div class="debug-feed-actions">
+        <button class="panel-btn" type="button" data-debug-tile-toggle="1" ${!controls.enabled && !controls.selectedTileKey ? "disabled" : ""}>
+          ${controls.enabled ? "Stop Tile Debug" : "Debug Selected Tile"}
+        </button>
+      </div>
+    </div>
+  </article>`;
+};
+
+export const feedHtml = (feed: FeedEntry[], debugControls?: FeedDebugControls): string => {
+  const debugCard = feedDebugControlsHtml(debugControls ?? { visible: false, enabled: false });
+  if (feed.length === 0) return `${debugCard}<article class="card"><p>No activity yet.</p></article>`;
+  return `${debugCard}${feed
     .map((entry) => {
       const ageSec = Math.floor((Date.now() - entry.at) / 1000);
       const age = ageSec < 60 ? `${ageSec}s` : `${Math.floor(ageSec / 60)}m`;
@@ -40,7 +66,7 @@ export const feedHtml = (feed: FeedEntry[]): string => {
         </div>
       </article>`;
     })
-    .join("");
+    .join("")}`;
 };
 
 export const allianceRequestsHtml = (

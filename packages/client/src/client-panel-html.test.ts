@@ -22,4 +22,17 @@ describe("feedHtml", () => {
     expect(html).toContain('data-feed-focus-y="42"');
     expect(html).toContain(">Center<");
   });
+
+  it("renders admin tile debug controls when enabled for the viewer", () => {
+    const html = feedHtml([], {
+      visible: true,
+      enabled: false,
+      selectedTileKey: "78,322"
+    });
+
+    expect(html).toContain("Admin Tile Debug");
+    expect(html).toContain("Target: 78,322");
+    expect(html).toContain('data-debug-tile-toggle="1"');
+    expect(html).toContain("Debug Selected Tile");
+  });
 });
