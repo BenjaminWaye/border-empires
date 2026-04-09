@@ -472,7 +472,7 @@ import { resolveFailedBarbarianDefenseOutcome } from "./barbarian-defense.js";
 import { createServerSeasonTech } from "./server-season-tech.js";
 import { createServerSettlementFlow } from "./server-settlement-flow.js";
 import { createServerTownEconomyRuntime } from "./server-town-economy-runtime.js";
-import { createServerTownSupport } from "./server-town-support.js";
+import { TOWN_CAPTURE_SHOCK_MS, createServerTownSupport } from "./server-town-support.js";
 import { createServerWorldMobility } from "./server-world-mobility.js";
 
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
@@ -2227,7 +2227,14 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
     tile.town = thinTownSummaryForTile(town, core.ownerId);
   }
   const fort = fortsByTile.get(tk);
-  if (fort) tile.fort = { ownerId: fort.ownerId, status: fort.status, ...(fort.completesAt !== undefined ? { completesAt: fort.completesAt } : {}) };
+  if (fort) {
+    tile.fort = {
+      ownerId: fort.ownerId,
+      status: fort.status,
+      ...(fort.completesAt !== undefined ? { completesAt: fort.completesAt } : {}),
+      ...(fort.disabledUntil !== undefined ? { disabledUntil: fort.disabledUntil } : {})
+    };
+  }
   const observatory = observatoriesByTile.get(tk);
   if (observatory) {
     tile.observatory = {
@@ -2505,11 +2512,12 @@ const playerTile = (x: number, y: number): Tile => {
     };
   }
   if (fort) {
-    const fortView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number } = {
+    const fortView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number; disabledUntil?: number } = {
       ownerId: fort.ownerId,
       status: fort.status
     };
     if ((fort.status === "under_construction" || fort.status === "removing") && fort.completesAt !== undefined) fortView.completesAt = fort.completesAt;
+    if (fort.disabledUntil !== undefined) fortView.disabledUntil = fort.disabledUntil;
     tile.fort = fortView;
   }
   if (observatory) {
@@ -3181,6 +3189,16 @@ const isOwnedSettledLandTile = (playerId: string, tileKey: TileKey): boolean => 
   return ownership.get(tileKey) === playerId && ownershipStateByTile.get(tileKey) === "SETTLED";
 };
 
+const fortRecoveryReadyAt = (fort: Pick<Fort, "disabledUntil">): number => fort.disabledUntil ?? 0;
+
+const fortOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => {
+  const fort = fortsByTile.get(tileKey);
+  if (!fort || fort.ownerId !== ownerId || fort.status !== "active") return false;
+  const [x, y] = parseKey(tileKey);
+  if (terrainAtRuntime(x, y) !== "LAND" || ownership.get(tileKey) !== ownerId) return false;
+  return fortRecoveryReadyAt(fort) <= now();
+};
+
 const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "under_construction" | "active" | "inactive" | "removing" => {
   const observatory = observatoriesByTile.get(tileKey);
   if (!observatory || observatory.ownerId !== playerId) return "inactive";
@@ -3426,8 +3444,7 @@ const upkeepPerMinuteForPlayer = (player: Player): {
       settledTileGoldUpkeep += 0.04 * governorUpkeepMultiplierAtTile(player.id, tk);
     }
     if (town) townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
-    const fort = fortsByTile.get(tk);
-    if (fort?.ownerId === player.id && fort.status === "active") fortCount += 1;
+    if (fortOperationalForOwner(player.id, tk)) fortCount += 1;
     const siege = siegeOutpostsByTile.get(tk);
     if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
     const observatory = observatoriesByTile.get(tk);
@@ -3481,8 +3498,7 @@ const tileUpkeepEntriesForTile = (tileKey: TileKey, ownerId: string | undefined)
   if (settledLandGoldUpkeep > 0.0001) {
     entries.push({ label: "Settled land", perMinute: { GOLD: roundedUpkeepPerMinute(settledLandGoldUpkeep) } });
   }
-  const fort = fortsByTile.get(tileKey);
-  if (fort?.ownerId === ownerId && fort.status === "active") {
+  if (ownerId && fortOperationalForOwner(ownerId, tileKey)) {
     entries.push({
       label: "Fort",
       perMinute: {
@@ -3616,8 +3632,7 @@ const upkeepContributorsForPlayer = (player: Player): Record<"food" | "iron" | "
     settledTileCount += 1;
     settledTileGoldUpkeep += settledTileGoldUpkeepPerMinuteAt(player.id, tk);
     if (townsByTile.has(tk)) townCount += 1;
-    const fort = fortsByTile.get(tk);
-    if (fort?.ownerId === player.id && fort.status === "active") fortCount += 1;
+    if (fortOperationalForOwner(player.id, tk)) fortCount += 1;
     const siege = siegeOutpostsByTile.get(tk);
     if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
     const observatory = observatoriesByTile.get(tk);
@@ -4426,8 +4441,7 @@ const activeResourceIncomeMult = (playerId: string, resource: ResourceType): num
 };
 
 const fortDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
-  const fortOnTarget = fortsByTile.get(tileKey);
-  if (fortOnTarget?.status === "active" && fortOnTarget.ownerId === defenderId) {
+  if (fortOperationalForOwner(defenderId, tileKey)) {
     return FORT_DEFENSE_MULT * getPlayerEffectsForPlayer(defenderId).fortDefenseMult;
   }
   const structure = economicStructuresByTile.get(tileKey);
@@ -4468,7 +4482,7 @@ const attackMultiplierForTarget = (attackerId: string, target: Tile): number => 
   if (target.ownershipState === "SETTLED") mult *= effects.attackVsSettledMult;
   const targetKey = key(target.x, target.y);
   if (
-    fortsByTile.get(targetKey)?.status === "active" ||
+    (target.ownerId ? fortOperationalForOwner(target.ownerId, targetKey) : false) ||
     economicStructuresByTile.get(targetKey)?.status === "active" && economicStructuresByTile.get(targetKey)?.type === "WOODEN_FORT"
   ) {
     mult *= effects.attackVsFortsMult;
@@ -4483,8 +4497,7 @@ const settledDefenseMultiplierForTarget = (defenderId: string, target: Tile): nu
 };
 
 const originTileHeldByActiveFort = (actorId: string, tileKey: TileKey): boolean => {
-  const fort = fortsByTile.get(tileKey);
-  if (fort?.ownerId === actorId && fort.status === "active") return true;
+  if (fortOperationalForOwner(actorId, tileKey)) return true;
   const structure = economicStructuresByTile.get(tileKey);
   return Boolean(structure?.ownerId === actorId && structure.status === "active" && structure.type === "WOODEN_FORT");
 };
@@ -4914,7 +4927,7 @@ const tryQueueBasicFrontierAction = (
         resolvesAt: number;
       };
     }
-  | { ok: false; code: string; message: string } => {
+  | { ok: false; code: string; message: string; cooldownRemainingMs?: number } => {
   applyStaminaRegen(actor);
   actor.lastActiveAt = now();
 
@@ -4943,7 +4956,11 @@ const tryQueueBasicFrontierAction = (
   if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) return { ok: false, code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" };
   if (from.ownerId !== actor.id) return { ok: false, code: "NOT_OWNER", message: "origin not owned" };
   if (to.terrain !== "LAND") return { ok: false, code: "BARRIER", message: "target is barrier" };
-  if (combatLocks.has(fk) || combatLocks.has(tk)) return { ok: false, code: "LOCKED", message: "tile locked in combat" };
+  if (combatLocks.has(fk)) {
+    const remainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
+    return { ok: false, code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: remainingMs };
+  }
+  if (combatLocks.has(tk)) return { ok: false, code: "LOCKED", message: "tile locked in combat" };
   if (actor.points < FRONTIER_ACTION_GOLD_COST) {
     return {
       ok: false,
@@ -5463,7 +5480,14 @@ const executeUnifiedGameplayMessage = async (
           { x: msg.toX, y: msg.toY }
         );
       }
-      socket.send(JSON.stringify({ type: "ERROR", code: result.code, message: result.message }));
+      socket.send(
+        JSON.stringify({
+          type: "ERROR",
+          code: result.code,
+          message: result.message,
+          ...(result.cooldownRemainingMs !== undefined ? { cooldownRemainingMs: result.cooldownRemainingMs } : {})
+        })
+      );
     } else {
       aiLastActionFailureByPlayer.delete(actor.id);
       if (queuedExecution && actor.isAi) {
@@ -12323,8 +12347,17 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     }
     const fort = fortsByTile.get(k);
     if (fort) {
-      cancelFortBuild(k);
-      fortsByTile.delete(k);
+      if (fort.status === "under_construction" || fort.status === "removing") {
+        cancelFortBuild(k);
+        fortsByTile.delete(k);
+      } else if (newOwner) {
+        fort.ownerId = newOwner;
+        fort.disabledUntil = now() + TOWN_CAPTURE_SHOCK_MS;
+        delete fort.completesAt;
+        delete fort.previousStatus;
+      } else {
+        fortsByTile.delete(k);
+      }
     }
     const observatory = observatoriesByTile.get(k);
     if (observatory) {
@@ -12352,18 +12385,14 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
         untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
         economicStructuresByTile.delete(k);
         markSummaryChunkDirtyAtTile(t.x, t.y);
-      } else if (isLightCombatStructureType(economic.type)) {
-        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
-        economicStructuresByTile.delete(k);
       } else if (newOwner) {
         untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
         economic.ownerId = newOwner;
         economic.status = "inactive";
         delete economic.completesAt;
-        delete economic.disabledUntil;
-        if (isConverterStructureType(economic.type)) economic.inactiveReason = "manual";
-        else delete economic.inactiveReason;
-        economic.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
+        economic.disabledUntil = now() + TOWN_CAPTURE_SHOCK_MS;
+        delete economic.inactiveReason;
+        economic.nextUpkeepAt = economic.disabledUntil;
         trackOwnedTileKey(economicStructureTileKeysByPlayer, newOwner, k);
       } else {
         untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
@@ -15531,7 +15560,12 @@ app.post("/admin/world/regenerate", async () => {
         sendInvalid("target is barrier");
         return;
       }
-      if (combatLocks.has(fk) || combatLocks.has(tk)) {
+      if (combatLocks.has(fk)) {
+        const remainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
+        sendInvalid(`origin tile is still on attack cooldown (${Math.ceil(remainingMs / 1000)}s remaining)`);
+        return;
+      }
+      if (combatLocks.has(tk)) {
         sendInvalid("tile locked in combat");
         return;
       }
@@ -15742,7 +15776,21 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
-    if (combatLocks.has(fk) || combatLocks.has(tk)) {
+    if (combatLocks.has(fk)) {
+      app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: attack cooldown");
+      const cooldownRemainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
+      socket.send(
+        JSON.stringify({
+          type: "ERROR",
+          code: "ATTACK_COOLDOWN",
+          message: "origin tile is still on attack cooldown",
+          cooldownRemainingMs
+        })
+      );
+      return;
+    }
+
+    if (combatLocks.has(tk)) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: combat lock");
       socket.send(JSON.stringify({ type: "ERROR", code: "LOCKED", message: "tile locked in combat" }));
       return;
