@@ -8,6 +8,7 @@ export const PORT = Number(process.env.PORT ?? 3001);
 export const DISABLE_FOG = process.env.DISABLE_FOG === "1";
 export const AI_PLAYERS = Number(process.env.AI_PLAYERS ?? 40);
 export const DEBUG_SPAWN_NEAR_AI = process.env.DEBUG_SPAWN_NEAR_AI === "1";
+export const TILE_SYNC_DEBUG = process.env.TILE_SYNC_DEBUG === "1";
 export const STARTING_MANPOWER = Math.max(MANPOWER_BASE_CAP, Number(process.env.STARTING_MANPOWER ?? MANPOWER_BASE_CAP));
 export const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 export const AI_DISPATCH_INTERVAL_MS = Math.max(100, Number(process.env.AI_DISPATCH_INTERVAL_MS ?? 250));
