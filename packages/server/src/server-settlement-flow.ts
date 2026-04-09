@@ -1,10 +1,9 @@
 import type { EconomicStructure, EconomicStructureType, TileKey } from "@border-empires/shared";
 
 import type { TownDefinition } from "./server-shared-types.js";
+import type { ServerSettlementFlowDeps, ServerSettlementFlowRuntime } from "./server-composition-types.js";
 
-type SettlementFlowDeps = Record<string, any>;
-
-export const createServerSettlementFlow = (deps: SettlementFlowDeps) => {
+export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): ServerSettlementFlowRuntime => {
   const {
     key,
     now,
