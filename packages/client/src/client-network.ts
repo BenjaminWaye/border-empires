@@ -2,7 +2,7 @@ import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
-import { queueDevelopmentAction } from "./client-queue-logic.js";
+import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -156,10 +156,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         : tile?.optimisticPending === (attempt.payload.type === "REMOVE_STRUCTURE" ? "structure_remove" : "structure_build");
     if (!matchesOptimisticState) return false;
     clearOptimisticTileState(errorTileKey, true);
-    if (attempt.kind === "SETTLE") clearSettlementProgressByKey(errorTileKey);
+    if (attempt.kind === "SETTLE") {
+      if (typeof clearSettlementProgressByKey === "function") clearSettlementProgressByKey(errorTileKey);
+      else clearSettlementProgressByKeyFromModule(state, errorTileKey, { clearOptimisticTileState: (tileKey) => clearOptimisticTileState(tileKey, true) });
+    }
     state.queuedDevelopmentDispatchPending = false;
     state.lastDevelopmentAttempt = undefined;
-    return queueDevelopmentAction(state, attempt, { pushFeed, renderHud });
+    return queueDevelopmentActionFromModule(state, attempt, {
+      pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
+      renderHud: typeof renderHud === "function" ? renderHud : () => {}
+    });
   };
 
   const clearQueuedDevelopmentDispatchPending = (): void => {
