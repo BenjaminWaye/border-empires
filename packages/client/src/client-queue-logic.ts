@@ -135,6 +135,15 @@ export const queuedDevelopmentActionExists = (
   kind?: QueuedDevelopmentAction["kind"]
 ): boolean => state.developmentQueue.some((entry) => entry.tileKey === tileKey && (!kind || entry.kind === kind));
 
+const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolean => {
+  if (!tileKey) return false;
+  if (state.settleProgressByTile.has(tileKey)) return true;
+  if (state.actionInFlight && state.actionTargetKey === tileKey) return true;
+  if (state.capture && `${state.capture.target.x},${state.capture.target.y}` === tileKey) return true;
+  const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(tileKey) ?? 0;
+  return frontierSyncWaitUntil > Date.now();
+};
+
 export const queueDevelopmentAction = (
   state: ClientState,
   entry: QueuedDevelopmentAction,
@@ -322,7 +331,8 @@ export const requestSettlement = (
     opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean };
   }
 ): boolean => {
-  const tile = state.tiles.get(deps.keyFor(x, y));
+  const tileKey = deps.keyFor(x, y);
+  const tile = state.tiles.get(tileKey);
   if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
     if (!deps.opts?.suppressWarnings) deps.pushFeed("Cannot settle: tile is not one of your frontier tiles.", "combat", "warn");
     deps.renderHud();
@@ -333,16 +343,24 @@ export const requestSettlement = (
     deps.renderHud();
     return false;
   }
+  if (queuedSettlementShouldWait(state, tileKey)) {
+    if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
+      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
+    }
+    if (!deps.opts?.suppressWarnings) deps.pushFeed("Settlement queued: waiting for combat and tile sync to finish.", "combat", "info");
+    deps.renderHud();
+    return false;
+  }
   const slots = deps.developmentSlotSummary();
   if (slots.available <= 0) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
-      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey: deps.keyFor(x, y), label: `Settlement at (${x}, ${y})` });
+      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
     }
     if (!deps.opts?.suppressWarnings) deps.pushFeed(deps.developmentSlotReason(slots), "combat", "warn");
     deps.renderHud();
     return false;
   }
-  state.lastDevelopmentAttempt = { kind: "SETTLE", x, y, tileKey: deps.keyFor(x, y), label: `Settlement at (${x}, ${y})` };
+  state.lastDevelopmentAttempt = { kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` };
   if (!deps.sendGameMessage({ type: "SETTLE", x, y })) {
     state.lastDevelopmentAttempt = undefined;
     return false;
@@ -350,7 +368,6 @@ export const requestSettlement = (
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForTile(x, y), target: { x, y }, awaitingServerConfirm: false };
-  const tileKey = deps.keyFor(x, y);
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
@@ -455,6 +472,7 @@ export const processDevelopmentQueue = (
   while (state.developmentQueue.length > 0 && deps.developmentSlotSummary().available > 0) {
     const next = state.developmentQueue[0];
     if (!next) return started;
+    if (next.kind === "SETTLE" && queuedSettlementShouldWait(state, next.tileKey)) return false;
     const ok =
       next.kind === "SETTLE"
         ? deps.requestSettlement(next.x, next.y, { allowQueueWhenBusy: false, fromQueue: true, suppressWarnings: true })
