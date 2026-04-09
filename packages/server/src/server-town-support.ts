@@ -1,10 +1,11 @@
 import type { Player, PopulationTier, TileKey } from "@border-empires/shared";
 
 import type { ManpowerBreakdownLine, TownDefinition } from "./server-shared-types.js";
+import type { ServerTownSupportDeps, ServerTownSupportRuntime } from "./server-town-runtime-types.js";
 
-type TownSupportDeps = Record<string, any>;
+export const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
 
-export const createServerTownSupport = (deps: TownSupportDeps) => {
+export const createServerTownSupport = (deps: ServerTownSupportDeps): ServerTownSupportRuntime => {
   const {
     now,
     parseKey,
@@ -27,7 +28,6 @@ export const createServerTownSupport = (deps: TownSupportDeps) => {
     isTownFedForOwner
   } = deps;
 
-  const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;
   const TOWN_CAPTURE_POPULATION_LOSS_MULT = 0.95;
   const TOWN_CAPTURE_GROWTH_RADIUS = 20;
 

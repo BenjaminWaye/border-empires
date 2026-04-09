@@ -1,10 +1,9 @@
 import type { Dock, Player, Tile, TileKey } from "@border-empires/shared";
 
-import type { TownDefinition } from "./server-shared-types.js";
+import type { StrategicResource, TownDefinition } from "./server-shared-types.js";
+import type { ServerTownEconomyRuntime, ServerTownEconomyRuntimeDeps } from "./server-town-runtime-types.js";
 
-type TownEconomyRuntimeDeps = Record<string, any>;
-
-export const createServerTownEconomyRuntime = (deps: TownEconomyRuntimeDeps) => {
+export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDeps): ServerTownEconomyRuntime => {
   const {
     now,
     key,

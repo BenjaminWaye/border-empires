@@ -1,6 +1,8 @@
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
+import { queueDevelopmentAction } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -64,6 +66,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearPendingCollectTileDelta,
     playerNameForOwner
   } = deps;
+  const tileSyncDebugEnabled = (): boolean =>
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.localStorage.getItem("tile-sync-debug") === "1");
+
+  const logTileSync = (event: string, payload: Record<string, unknown>): void => {
+    if (!tileSyncDebugEnabled()) return;
+    console.info(`[tile-sync] ${event}`, payload);
+  };
   const shouldResetFrontierActionStateForError =
     typeof deps.shouldResetFrontierActionStateForError === "function"
       ? deps.shouldResetFrontierActionStateForError
@@ -130,6 +143,28 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
+
+  const maybeRecoverBusyDevelopmentAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
+    if (!errorMessage.includes("development slots are busy")) return false;
+    if (errorCode !== "SETTLE_INVALID" && !errorCode.endsWith("_BUILD_INVALID") && errorCode !== "STRUCTURE_REMOVE_INVALID") return false;
+    const attempt = state.lastDevelopmentAttempt;
+    if (!attempt || attempt.tileKey !== errorTileKey) return false;
+    const tile = state.tiles.get(errorTileKey);
+    const matchesOptimisticState =
+      attempt.kind === "SETTLE"
+        ? state.settleProgressByTile.has(errorTileKey)
+        : tile?.optimisticPending === (attempt.payload.type === "REMOVE_STRUCTURE" ? "structure_remove" : "structure_build");
+    if (!matchesOptimisticState) return false;
+    clearOptimisticTileState(errorTileKey, true);
+    if (attempt.kind === "SETTLE") clearSettlementProgressByKey(errorTileKey);
+    state.queuedDevelopmentDispatchPending = false;
+    state.lastDevelopmentAttempt = undefined;
+    return queueDevelopmentAction(state, attempt, { pushFeed, renderHud });
+  };
+
+  const clearQueuedDevelopmentDispatchPending = (): void => {
+    state.queuedDevelopmentDispatchPending = false;
+  };
 
   const clearReconnectReloadTimer = (): void => {
     if (reconnectReloadTimer !== undefined) {
@@ -303,12 +338,38 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     for (const tile of tiles) {
       const tileKey = keyFor(tile.x, tile.y);
       const existing = state.tiles.get(tileKey);
-      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, tile));
+      const normalizedTile =
+        "ownerId" in tile
+          ? tile
+          : {
+              ...tile,
+              ownerId: undefined,
+              ownershipState: undefined,
+              capital: undefined
+            };
+      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, normalizedTile));
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
       logDebugTileState("chunk-merge", mergedTile, {
         source: "CHUNK",
         existingEconomicStructure: existing?.economicStructure?.type
       });
+      if (
+        existing?.ownerId !== mergedTile.ownerId ||
+        existing?.ownershipState !== mergedTile.ownershipState ||
+        tileKey === state.actionTargetKey ||
+        state.settleProgressByTile.has(tileKey)
+      ) {
+        logTileSync("chunk_tile_applied", {
+          tileKey,
+          existingOwnerId: existing?.ownerId,
+          existingOwnershipState: existing?.ownershipState,
+          incomingOwnerId: normalizedTile.ownerId,
+          incomingOwnershipState: normalizedTile.ownershipState,
+          resolvedOwnerId: mergedTile.ownerId,
+          resolvedOwnershipState: mergedTile.ownershipState,
+          optimisticPending: mergedTile.optimisticPending
+        });
+      }
       state.frontierSyncWaitUntilByTarget.delete(keyFor(mergedTile.x, mergedTile.y));
       if (mergedTile.ownerId === state.me && (mergedTile.ownershipState === "FRONTIER" || mergedTile.ownershipState === "SETTLED")) {
         state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
@@ -470,6 +531,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.defensibilityAnimUntil = 0;
       state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
       state.developmentProcessLimit = (player.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof player.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (player.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techRootId = player.techRootId as string | undefined;
@@ -701,6 +763,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
@@ -934,6 +997,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           updateEconomicStructure: update.economicStructure?.type,
           existingEconomicStructure: existing?.economicStructure?.type
         });
+        if (
+          existing?.ownerId !== resolved.ownerId ||
+          existing?.ownershipState !== resolved.ownershipState ||
+          updateKey === state.actionTargetKey ||
+          state.settleProgressByTile.has(updateKey)
+        ) {
+          logTileSync("tile_delta_applied", {
+            tileKey: updateKey,
+            existingOwnerId: existing?.ownerId,
+            existingOwnershipState: existing?.ownershipState,
+            updateOwnerId: "ownerId" in update ? update.ownerId ?? null : "__omitted__",
+            updateOwnershipState: "ownershipState" in update ? update.ownershipState ?? null : "__omitted__",
+            resolvedOwnerId: resolved.ownerId,
+            resolvedOwnershipState: resolved.ownershipState,
+            optimisticPending: resolved.optimisticPending
+          });
+        }
         if (resolved.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
           state.frontierSyncWaitUntilByTarget.delete(updateKey);
           state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
@@ -1014,6 +1094,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         revealCapacity: (msg.revealCapacity as number) ?? state.revealCapacity,
         activeRevealTargets: (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets
       }, pushFeed);
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       renderHud();
       return;
     }
@@ -1021,6 +1102,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "DOMAIN_UPDATE") {
       state.pendingDomainUnlockId = "";
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
@@ -1223,15 +1305,20 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
+      if (maybeRecoverBusyDevelopmentAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
       } else if (errorCode === "SETTLE_INVALID") {
         clearOptimisticTileState(errorTileKey, true);
         clearSettlementProgressByKey(errorTileKey);
+        state.queuedDevelopmentDispatchPending = false;
         showCaptureAlert("Action failed", errorMessage, "warn");
+        if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (isStructureActionError && errorTileKey) {
         clearOptimisticTileState(errorTileKey, true);
+        state.queuedDevelopmentDispatchPending = false;
         showCaptureAlert(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
+        if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
         showCaptureAlert("Town unfed", errorMessage, "warn");
       }
@@ -1244,12 +1331,20 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else if (errorCode === "TOWN_UNFED") {
         pushFeed(errorMessage, "info", "warn");
       } else {
-        pushFeed(explainActionFailure(errorCode, errorMessage), "error", "error");
+        pushFeed(
+          explainActionFailure(errorCode, errorMessage, {
+            cooldownRemainingMs: typeof msg.cooldownRemainingMs === "number" ? msg.cooldownRemainingMs : undefined,
+            formatCooldownShort
+          }),
+          "error",
+          "error"
+        );
       }
       const frontierActionError =
         errorCode === "ACTION_INVALID" ||
         errorCode === "NOT_ADJACENT" ||
         errorCode === "NOT_OWNER" ||
+        errorCode === "ATTACK_COOLDOWN" ||
         errorCode === "EXPAND_TARGET_OWNED" ||
         errorCode === "LOCKED";
       const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
@@ -1262,6 +1357,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.actionStartedAt = 0;
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
+        if (errorCode === "ATTACK_COOLDOWN") {
+          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + COMBAT_LOCK_MS);
+          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + COMBAT_LOCK_MS);
+        }
         if (errorCode === "LOCKED") {
           if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + 12_000);
           if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + 12_000);
