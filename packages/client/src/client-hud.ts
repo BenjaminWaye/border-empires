@@ -2,6 +2,7 @@ import { signOut } from "firebase/auth";
 import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
+import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
@@ -644,7 +645,13 @@ export const renderClientHud = (deps: HudDeps): void => {
     () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner)
   );
   dom.mobileLeaderboardEl.innerHTML = dom.leaderboardEl.innerHTML;
-  dom.feedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () => feedHtml(state.feed));
+  dom.feedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () =>
+    feedHtml(state.feed, {
+      visible: debugEnabledForAccount(),
+      enabled: debugTileLoggingEnabled(),
+      selectedTileKey: state.selected ? `${state.selected.x},${state.selected.y}` : undefined
+    })
+  );
   dom.mobileFeedEl.innerHTML = dom.feedEl.innerHTML;
   const feedFocusButtons = dom.hud.querySelectorAll("[data-feed-focus-x][data-feed-focus-y]") as NodeListOf<HTMLButtonElement>;
   feedFocusButtons.forEach((btn: HTMLButtonElement) => {
@@ -656,6 +663,27 @@ export const renderClientHud = (deps: HudDeps): void => {
       state.camY = wrapY(y);
       state.selected = { x: wrapX(x), y: wrapY(y) };
       requestViewRefresh();
+      renderClientHud(deps);
+    };
+  });
+  const debugTileButtons = dom.hud.querySelectorAll("[data-debug-tile-toggle]") as NodeListOf<HTMLButtonElement>;
+  debugTileButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      if (!debugEnabledForAccount()) return;
+      const enabled = debugTileLoggingEnabled();
+      if (enabled) {
+        setDebugTileLoggingEnabled(false);
+        setDebugTileKey(undefined);
+        announceDebugTileState("tile debug disabled");
+      } else {
+        if (!state.selected) return;
+        setDebugTileLoggingEnabled(true);
+        setDebugTileKey(undefined);
+        announceDebugTileState("tile debug enabled", {
+          target: `${state.selected.x},${state.selected.y}`,
+          mode: "follow-selected-tile"
+        });
+      }
       renderClientHud(deps);
     };
   });
