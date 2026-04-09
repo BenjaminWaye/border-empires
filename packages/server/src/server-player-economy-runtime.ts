@@ -1,40 +1,17 @@
 import type { EconomicStructureType, Player, ResourceType, Tile, TileKey } from "@border-empires/shared";
+import type {
+  EconomyBreakdown,
+  EconomyBreakdownBucket,
+  EconomyResourceKey,
+  PlayerEconomySnapshot,
+  ServerPlayerEconomyRuntime,
+  ServerPlayerEconomyRuntimeDeps,
+  UpkeepContributor,
+  UpkeepDiagnostics
+} from "./server-economy-types.js";
+import type { StrategicResource } from "./server-shared-types.js";
 
-type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
-
-type EconomyResourceKey = "GOLD" | StrategicResource;
-type EconomyBreakdownBucket = { label: string; amountPerMinute: number; count: number; resourceKey?: EconomyResourceKey; note?: string };
-type EconomyBreakdownResource = { sources: EconomyBreakdownBucket[]; sinks: EconomyBreakdownBucket[] };
-type EconomyBreakdown = Record<EconomyResourceKey, EconomyBreakdownResource>;
-
-interface UpkeepBreakdown {
-  need: number;
-  fromYield: number;
-  fromStock: number;
-  remaining: number;
-  contributors: UpkeepContributor[];
-}
-
-interface UpkeepContributor {
-  label: string;
-  amountPerMinute: number;
-  count?: number;
-  note?: string;
-}
-
-interface UpkeepDiagnostics {
-  food: UpkeepBreakdown;
-  iron: UpkeepBreakdown;
-  supply: UpkeepBreakdown;
-  crystal: UpkeepBreakdown;
-  oil: UpkeepBreakdown;
-  gold: UpkeepBreakdown;
-  foodCoverage: number;
-}
-
-type PlayerEconomyRuntimeDeps = Record<string, any>;
-
-export const createServerPlayerEconomyRuntime = (deps: PlayerEconomyRuntimeDeps) => {
+export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntimeDeps): ServerPlayerEconomyRuntime => {
   const {
     parseKey,
     playerTile,
@@ -392,7 +369,7 @@ export const createServerPlayerEconomyRuntime = (deps: PlayerEconomyRuntimeDeps)
     return breakdown;
   };
 
-  const playerEconomySnapshot = (player: Player): { incomePerMinute: number; strategicProductionPerMinute: Record<StrategicResource, number>; upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number }; upkeepLastTick: UpkeepDiagnostics; economyBreakdown: EconomyBreakdown } => {
+  const playerEconomySnapshot = (player: Player): PlayerEconomySnapshot => {
     const contributors = upkeepContributorsForPlayer(player);
     const lastTick = lastUpkeepByPlayer.get(player.id) ?? emptyUpkeepDiagnostics();
     const upkeepLastTick: UpkeepDiagnostics = { ...lastTick, food: { ...lastTick.food, contributors: contributors.food }, iron: { ...lastTick.iron, contributors: contributors.iron }, supply: { ...lastTick.supply, contributors: contributors.supply }, crystal: { ...lastTick.crystal, contributors: contributors.crystal }, oil: { ...lastTick.oil, contributors: contributors.oil }, gold: { ...lastTick.gold, contributors: contributors.gold } };
