@@ -37,4 +37,9 @@ describe("server world mobility regression guard", () => {
     const body = functionBody(serverWorldMobilitySource(), "barbarianDefenseScore");
     expect(body).toContain("if (!tile) return 0;");
   });
+
+  it("passes both defender id and tile into barbarian ownership defense scoring", () => {
+    const body = functionBody(serverWorldMobilitySource(), "barbarianDefenseScore");
+    expect(body).toContain("ownershipDefenseMultiplierForTarget(defender.id, tile)");
+  });
 });
