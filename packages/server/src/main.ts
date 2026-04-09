@@ -8182,13 +8182,32 @@ const executeAiGoapAction = (
       build
     });
   const cachedNeutralExpandCandidate = (): { from: Tile; to: Tile } | undefined =>
-    (victoryPath === "SETTLED_TERRITORY"
+    aiFrontierCandidateFromExecuteCandidate(
+      cachedExecuteCandidate(() => {
+        const resolved =
+          (victoryPath === "SETTLED_TERRITORY"
+            ? candidates?.islandExpand ?? cachedFrontierPlanningSummary().bestIslandExpand
+            : undefined) ??
+          candidates?.neutralExpand ??
+          cachedFrontierPlanningSummary().bestEconomicExpand ??
+          candidates?.anyNeutralExpand ??
+          cachedFrontierPlanningSummary().bestAnyNeutralExpand;
+        return resolved
+          ? {
+              kind: "frontier",
+              originTileKey: key(resolved.from.x, resolved.from.y),
+              targetTileKey: key(resolved.to.x, resolved.to.y)
+            }
+          : null;
+      })
+    ) ??
+    ((victoryPath === "SETTLED_TERRITORY"
       ? candidates?.islandExpand ?? cachedFrontierPlanningSummary().bestIslandExpand
       : undefined) ??
-    candidates?.neutralExpand ??
-    cachedFrontierPlanningSummary().bestEconomicExpand ??
-    candidates?.anyNeutralExpand ??
-    cachedFrontierPlanningSummary().bestAnyNeutralExpand;
+      candidates?.neutralExpand ??
+      cachedFrontierPlanningSummary().bestEconomicExpand ??
+      candidates?.anyNeutralExpand ??
+      cachedFrontierPlanningSummary().bestAnyNeutralExpand);
 
   if (actionKey === "wait_and_recover") return true;
   if (actionKey === "claim_neutral_border_tile") {
@@ -8203,11 +8222,7 @@ const executeAiGoapAction = (
     });
   }
   if (actionKey === "claim_food_border_tile") {
-    const candidate =
-      candidates?.neutralExpand ??
-      cachedFrontierPlanningSummary().bestEconomicExpand ??
-      candidates?.anyNeutralExpand ??
-      cachedFrontierPlanningSummary().bestAnyNeutralExpand;
+    const candidate = cachedNeutralExpandCandidate();
     if (!candidate) return false;
     return queueAiActionWithIntentLatch(actor, { type: "EXPAND", fromX: candidate.from.x, fromY: candidate.from.y, toX: candidate.to.x, toY: candidate.to.y }, {
       actionKey,
