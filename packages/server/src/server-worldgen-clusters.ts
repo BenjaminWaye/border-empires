@@ -1,6 +1,8 @@
-type WorldgenDeps = Record<string, any>;
+import type { ResourceType } from "@border-empires/shared";
 
-export const createServerWorldgenClusters = (deps: WorldgenDeps) => {
+import type { ServerWorldgenClustersDeps, ServerWorldgenClustersRuntime } from "./server-world-runtime-types.js";
+
+export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): ServerWorldgenClustersRuntime => {
   const {
     clusterByTile,
     clustersById,
@@ -21,14 +23,14 @@ export const createServerWorldgenClusters = (deps: WorldgenDeps) => {
   const generateClusters = (seed: number): void => {
     clusterByTile.clear();
     clustersById.clear();
-    const clusterPlan = [
-      ...Array.from({ length: 52 }, () => "FARM"),
-      ...Array.from({ length: 52 }, () => "FUR"),
-      ...Array.from({ length: 30 }, () => "GEMS"),
-      ...Array.from({ length: 52 }, () => "IRON"),
-      ...Array.from({ length: 52 }, () => "FISH")
+    const clusterPlan: ResourceType[] = [
+      ...Array.from({ length: 52 }, (): ResourceType => "FARM"),
+      ...Array.from({ length: 52 }, (): ResourceType => "FUR"),
+      ...Array.from({ length: 30 }, (): ResourceType => "GEMS"),
+      ...Array.from({ length: 52 }, (): ResourceType => "IRON"),
+      ...Array.from({ length: 52 }, (): ResourceType => "FISH")
     ];
-    const defByResource = new Map<string, any>();
+    const defByResource = new Map<ResourceType, (typeof clusterTypeDefs)[number]>();
     for (const def of clusterTypeDefs) defByResource.set(def.resourceType, def);
 
     const centers: Array<{ x: number; y: number }> = [];
@@ -90,7 +92,7 @@ export const createServerWorldgenClusters = (deps: WorldgenDeps) => {
     }
   };
 
-  const applyClusterResources = (x: number, y: number, base: string | undefined): string | undefined => {
+  const applyClusterResources = (x: number, y: number, base: ResourceType | undefined): ResourceType | undefined => {
     const clusterId = clusterByTile.get(key(x, y));
     if (!clusterId) return base;
     const cluster = clustersById.get(clusterId);
