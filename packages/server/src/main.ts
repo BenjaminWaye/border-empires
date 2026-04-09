@@ -2852,6 +2852,24 @@ const logTileSync = (event: string, payload: Record<string, unknown>): void => {
   app.log.info(payload, `tile sync ${event}`);
 };
 
+const actionValidationPayload = (
+  playerId: string,
+  action: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK",
+  fromTile: ReturnType<typeof playerTile>,
+  toTile: ReturnType<typeof playerTile>,
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> => ({
+  playerId,
+  action,
+  from: key(fromTile.x, fromTile.y),
+  fromOwnerId: fromTile.ownerId,
+  fromOwnershipState: fromTile.ownershipState,
+  to: key(toTile.x, toTile.y),
+  toOwnerId: toTile.ownerId,
+  toOwnershipState: toTile.ownershipState,
+  ...extra
+});
+
 const sendVisibleTileDeltaAt = (x: number, y: number): void => {
   for (const p of players.values()) {
     if (!tileInSubscription(p.id, x, y)) continue;
@@ -14767,13 +14785,24 @@ app.post("/admin/world/regenerate", async () => {
 
     let from = playerTile(msg.fromX, msg.fromY);
     const to = playerTile(msg.toX, msg.toY);
+    const requestedFromKey = key(msg.fromX, msg.fromY);
+    const requestedToKey = key(msg.toX, msg.toY);
+    logTileSync(
+      "action_validation_start",
+      actionValidationPayload(actor.id, msg.type, from, to, {
+        requestedFrom: requestedFromKey,
+        requestedTo: requestedToKey
+      })
+    );
     const preTk = key(to.x, to.y);
     if (msg.type === "EXPAND" && to.ownerId) {
+      logTileSync("action_validation_rejected_target_owned", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk, ownerId: to.ownerId }, "action rejected: expand target owned");
       socket.send(JSON.stringify({ type: "ERROR", code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" }));
       return;
     }
     if (isBreakthroughAttack && !to.ownerId) {
+      logTileSync("action_validation_rejected_breakthrough_target_invalid", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk }, "action rejected: breakthrough target not enemy");
       socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "breakthrough requires enemy tile" }));
       return;
@@ -14828,7 +14857,27 @@ app.post("/admin/world/regenerate", async () => {
         dockCrossing = Boolean(fromDock && validDockCrossingTarget(fromDock, to.x, to.y));
       }
     }
+    logTileSync(
+      "action_validation_resolved_origin",
+      actionValidationPayload(actor.id, msg.type, from, to, {
+        requestedFrom: requestedFromKey,
+        requestedTo: requestedToKey,
+        adjacent,
+        dockCrossing,
+        bridgeCrossing
+      })
+    );
     if (!adjacent && !dockCrossing && !bridgeCrossing) {
+      logTileSync(
+        "action_validation_rejected_not_adjacent",
+        actionValidationPayload(actor.id, msg.type, from, to, {
+          requestedFrom: requestedFromKey,
+          requestedTo: requestedToKey,
+          adjacent,
+          dockCrossing,
+          bridgeCrossing
+        })
+      );
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: not adjacent and not dock crossing");
       socket.send(
         JSON.stringify({
@@ -14846,12 +14895,14 @@ app.post("/admin/world/regenerate", async () => {
     }
 
     if (from.ownerId !== actor.id) {
+      logTileSync("action_validation_rejected_origin_not_owned", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, from: fk, fromOwner: from.ownerId }, "action rejected: origin not owned");
       socket.send(JSON.stringify({ type: "ERROR", code: "NOT_OWNER", message: "origin not owned" }));
       return;
     }
 
     if (to.terrain !== "LAND") {
+      logTileSync("action_validation_rejected_barrier", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: tk, terrain: to.terrain }, "action rejected: barrier target");
       socket.send(JSON.stringify({ type: "ERROR", code: "BARRIER", message: "target is barrier" }));
       return;
@@ -14880,6 +14931,7 @@ app.post("/admin/world/regenerate", async () => {
     const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
     const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
     if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
+      logTileSync("action_validation_rejected_ally_target", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, defenderId: defender.id }, "action rejected: allied target");
       socket.send(JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied or truced tile" }));
       return;
@@ -14988,6 +15040,14 @@ app.post("/admin/world/regenerate", async () => {
     if (expandTraceId) pending.traceId = expandTraceId;
     combatLocks.set(fk, pending);
     combatLocks.set(tk, pending);
+    logTileSync(
+      "action_validation_accepted",
+      actionValidationPayload(actor.id, msg.type, from, to, {
+        requestedFrom: requestedFromKey,
+        requestedTo: requestedToKey,
+        resolvesAt
+      })
+    );
     app.log.info({ playerId: actor.id, action: msg.type, from: fk, to: tk, resolvesAt }, "action accepted");
     logExpandTrace("queued", pending);
     const predictedResult =
