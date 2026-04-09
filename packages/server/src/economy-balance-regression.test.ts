@@ -23,6 +23,9 @@ const serverSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
   return [
     readFileSync(resolve(here, "./main.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-player-economy-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-economic-operations.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-territory-structure-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-economy-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./server-game-constants.ts"), "utf8")
   ].join("\n");
