@@ -472,6 +472,37 @@ describe("client network regression guards", () => {
     expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
   });
 
+  it("handles non-busy settlement failures without crashing when settlement clear wiring is missing", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    state.settleProgressByTile.set("12,18", {
+      startAt: Date.now() - 1000,
+      resolvesAt: Date.now() + 10_000,
+      target: { x: 12, y: 18 },
+      awaitingServerConfirm: false
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    bindWithDeps(state, ws, { clearSettlementProgressByKey: undefined, showCaptureAlert });
+
+    expect(() =>
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "tile is already settled", x: 12, y: 18 })
+      })
+    ).not.toThrow();
+
+    expect(state.settleProgressByTile.has("12,18")).toBe(false);
+    expect(showCaptureAlert).toHaveBeenCalledWith("Action failed", "tile is already settled", "warn");
+  });
+
   it("requeues a structure build when the server rejects it only because development slots are full", () => {
     const state = createState();
     state.lastDevelopmentAttempt = {

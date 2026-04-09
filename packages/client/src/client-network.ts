@@ -144,6 +144,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   let authReconnectTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
 
+  const clearSettlementProgressSafely = (tileKey: string): void => {
+    if (!tileKey) return;
+    if (typeof clearSettlementProgressByKey === "function") {
+      clearSettlementProgressByKey(tileKey);
+      return;
+    }
+    clearSettlementProgressByKeyFromModule(state, tileKey, { clearOptimisticTileState: (key) => clearOptimisticTileState(key, true) });
+  };
+
   const maybeRecoverBusyDevelopmentAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
     if (!errorMessage.includes("development slots are busy")) return false;
     if (errorCode !== "SETTLE_INVALID" && !errorCode.endsWith("_BUILD_INVALID") && errorCode !== "STRUCTURE_REMOVE_INVALID") return false;
@@ -156,10 +165,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         : tile?.optimisticPending === (attempt.payload.type === "REMOVE_STRUCTURE" ? "structure_remove" : "structure_build");
     if (!matchesOptimisticState) return false;
     clearOptimisticTileState(errorTileKey, true);
-    if (attempt.kind === "SETTLE") {
-      if (typeof clearSettlementProgressByKey === "function") clearSettlementProgressByKey(errorTileKey);
-      else clearSettlementProgressByKeyFromModule(state, errorTileKey, { clearOptimisticTileState: (tileKey) => clearOptimisticTileState(tileKey, true) });
-    }
+    if (attempt.kind === "SETTLE") clearSettlementProgressSafely(errorTileKey);
     state.queuedDevelopmentDispatchPending = false;
     state.lastDevelopmentAttempt = undefined;
     return queueDevelopmentActionFromModule(state, attempt, {
@@ -1337,7 +1343,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
       } else if (errorCode === "SETTLE_INVALID") {
         clearOptimisticTileState(errorTileKey, true);
-        clearSettlementProgressByKey(errorTileKey);
+        clearSettlementProgressSafely(errorTileKey);
         state.queuedDevelopmentDispatchPending = false;
         showCaptureAlert("Action failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
