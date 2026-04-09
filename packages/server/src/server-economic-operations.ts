@@ -1,10 +1,11 @@
 import type { EconomicStructureType, Player, Tile, TileKey } from "@border-empires/shared";
+import type {
+  ServerEconomicOperations,
+  ServerEconomicOperationsDeps
+} from "./server-economy-types.js";
+import type { StrategicResource } from "./server-shared-types.js";
 
-type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
-
-type EconomicOperationsDeps = Record<string, any>;
-
-export const createServerEconomicOperations = (deps: EconomicOperationsDeps) => {
+export const createServerEconomicOperations = (deps: ServerEconomicOperationsDeps): ServerEconomicOperations => {
   const {
     now,
     key,
@@ -86,10 +87,8 @@ export const createServerEconomicOperations = (deps: EconomicOperationsDeps) => 
     baseSynthTypeForAdvanced,
     economicStructureCrystalUpkeepPerInterval,
     playerEconomySnapshot,
-    currentIncomePerMinute,
     dockIncomeForOwner,
     townIncomeForOwner,
-    updateStructureStatusFromUpkeep,
     FORT_BUILD_MS,
     OBSERVATORY_BUILD_MS,
     SIEGE_OUTPOST_BUILD_MS,
@@ -209,7 +208,7 @@ export const createServerEconomicOperations = (deps: EconomicOperationsDeps) => 
       GOVERNORS_OFFICE: ["civil-service", "unlock governor's offices via Civil Service first"],
       RADAR_SYSTEM: ["radar", "unlock radar systems via Radar first"]
     };
-    const [requiredTech, reason] = techChecks[structureType];
+    const [requiredTech, reason] = techChecks[structureType] ?? ["", ""];
     if (structureType === "GRANARY" && !getPlayerEffectsForPlayer(actor.id).unlockGranary) return { ok: false, reason };
     if ((structureType === "ADVANCED_FUR_SYNTHESIZER" || structureType === "ADVANCED_IRONWORKS" || structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") && !getPlayerEffectsForPlayer(actor.id).unlockAdvancedSynthesizers) {
       return { ok: false, reason: "unlock advanced synthesizers via Advanced Synthetication first" };
