@@ -220,7 +220,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const chooseTech = (techIdRaw?: string): void => chooseTechFromUi(techIdRaw, playerActionDeps());
   const chooseDomain = (domainIdRaw?: string): void => chooseDomainFromUi(domainIdRaw, playerActionDeps());
 
-  const explainActionFailure = (code: string, message: string): string => explainActionFailureFromServer(code, message);
+  const explainActionFailure = (
+    code: string,
+    message: string,
+    opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
+  ): string => explainActionFailureFromServer(code, message, opts);
 
   const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean =>
     enqueueTargetFromModule(state, x, y, keyFor, mode);

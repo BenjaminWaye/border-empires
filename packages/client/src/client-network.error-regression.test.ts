@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { bindClientNetwork } from "./client-network.js";
+import { explainActionFailureFromServer } from "./client-player-actions.js";
 
 class FakeWebSocket {
   static readonly OPEN = 1;
@@ -210,6 +211,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
   } as any);
 
   return {
+    pushFeed,
     requestViewRefresh,
     clearOptimisticTileState,
     reconcileActionQueue,
@@ -250,6 +252,40 @@ describe("client network regression guards", () => {
     expect(state.combatStartAck).toBe(false);
     expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
     expect(state.lastSubAt).toBe(0);
+    expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
+    expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("60,302", true);
+    expect(deps.reconcileActionQueue).toHaveBeenCalled();
+  });
+
+  it("explains attack cooldown errors and applies only a short retry backoff", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true),
+      explainActionFailure: vi.fn(explainActionFailureFromServer),
+      formatCooldownShort: vi.fn((ms: number) => `${Math.ceil(ms / 1000)}s`)
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: 2_400 })
+    });
+
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionTargetKey).toBe("");
+    expect(state.actionCurrent).toBeUndefined();
+    expect(state.capture).toBeUndefined();
+    expect(state.combatStartAck).toBe(false);
+    expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
+    expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeLessThanOrEqual(Date.now() + 3_500);
+    expect(
+      explainActionFailureFromServer("ATTACK_COOLDOWN", "origin tile is still on attack cooldown", {
+        cooldownRemainingMs: 2_400,
+        formatCooldownShort: (ms) => `${Math.ceil(ms / 1000)}s`
+      })
+    ).toBe(
+      "Action blocked: that origin tile is still on attack cooldown for 3s."
+    );
+    expect(deps.pushFeed).toHaveBeenCalledWith("Action blocked: that origin tile is still on attack cooldown for 3s.", "error", "error");
     expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("60,302", true);
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
