@@ -13,6 +13,7 @@ import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js"
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
+import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -308,6 +309,22 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
       if (t && vis === "visible" && t.economicStructure) {
+        if (tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+          debugTileLog(
+            "render",
+            {
+              x: wx,
+              y: wy,
+              vis,
+              detailLevel: t.detailLevel,
+              economicStructure: t.economicStructure.type,
+              overlayLoaded: Boolean(deps.structureOverlayImages[t.economicStructure.type]?.complete),
+              hasBuiltResourceOverlay: Boolean(deps.builtResourceOverlayForTile(t)),
+              zoom: size
+            },
+            { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
+          );
+        }
         const markerSize = Math.max(3, Math.floor(size * 0.2));
         const active = t.economicStructure.status === "active";
         const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
@@ -349,6 +366,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
           deps.ctx.lineWidth = 1;
         }
+      } else if (t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+        debugTileLog(
+          "render-missing-structure",
+          {
+            x: wx,
+            y: wy,
+            vis,
+            detailLevel: t.detailLevel,
+            resource: t.resource,
+            town: Boolean(t.town),
+            economicStructure: undefined,
+            zoom: size
+          },
+          { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
+        );
       }
       if (t && vis === "visible" && t.terrain === "LAND") {
         const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
