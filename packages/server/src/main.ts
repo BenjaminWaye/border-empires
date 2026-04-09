@@ -1958,6 +1958,7 @@ const {
   siegeOutpostsByTile,
   observatoriesByTile,
   economicStructuresByTile,
+  ownership,
   ownershipStateByTile,
   economicStructureTileKeysByPlayer,
   ownership,
