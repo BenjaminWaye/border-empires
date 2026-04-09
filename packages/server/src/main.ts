@@ -4889,7 +4889,7 @@ const tryQueueBasicFrontierAction = (
         resolvesAt: number;
       };
     }
-  | { ok: false; code: string; message: string } => {
+  | { ok: false; code: string; message: string; cooldownRemainingMs?: number } => {
   applyStaminaRegen(actor);
   actor.lastActiveAt = now();
 
@@ -4918,7 +4918,11 @@ const tryQueueBasicFrontierAction = (
   if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) return { ok: false, code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" };
   if (from.ownerId !== actor.id) return { ok: false, code: "NOT_OWNER", message: "origin not owned" };
   if (to.terrain !== "LAND") return { ok: false, code: "BARRIER", message: "target is barrier" };
-  if (combatLocks.has(fk) || combatLocks.has(tk)) return { ok: false, code: "LOCKED", message: "tile locked in combat" };
+  if (combatLocks.has(fk)) {
+    const remainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
+    return { ok: false, code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: remainingMs };
+  }
+  if (combatLocks.has(tk)) return { ok: false, code: "LOCKED", message: "tile locked in combat" };
   if (actor.points < FRONTIER_ACTION_GOLD_COST) {
     return {
       ok: false,
@@ -5438,7 +5442,14 @@ const executeUnifiedGameplayMessage = async (
           { x: msg.toX, y: msg.toY }
         );
       }
-      socket.send(JSON.stringify({ type: "ERROR", code: result.code, message: result.message }));
+      socket.send(
+        JSON.stringify({
+          type: "ERROR",
+          code: result.code,
+          message: result.message,
+          ...(result.cooldownRemainingMs !== undefined ? { cooldownRemainingMs: result.cooldownRemainingMs } : {})
+        })
+      );
     } else {
       aiLastActionFailureByPlayer.delete(actor.id);
       if (queuedExecution && actor.isAi) {
@@ -15453,7 +15464,12 @@ app.post("/admin/world/regenerate", async () => {
         sendInvalid("target is barrier");
         return;
       }
-      if (combatLocks.has(fk) || combatLocks.has(tk)) {
+      if (combatLocks.has(fk)) {
+        const remainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
+        sendInvalid(`origin tile is still on attack cooldown (${Math.ceil(remainingMs / 1000)}s remaining)`);
+        return;
+      }
+      if (combatLocks.has(tk)) {
         sendInvalid("tile locked in combat");
         return;
       }
@@ -15664,7 +15680,21 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
-    if (combatLocks.has(fk) || combatLocks.has(tk)) {
+    if (combatLocks.has(fk)) {
+      app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: attack cooldown");
+      const cooldownRemainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
+      socket.send(
+        JSON.stringify({
+          type: "ERROR",
+          code: "ATTACK_COOLDOWN",
+          message: "origin tile is still on attack cooldown",
+          cooldownRemainingMs
+        })
+      );
+      return;
+    }
+
+    if (combatLocks.has(tk)) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: combat lock");
       socket.send(JSON.stringify({ type: "ERROR", code: "LOCKED", message: "tile locked in combat" }));
       return;
