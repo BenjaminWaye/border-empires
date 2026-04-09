@@ -1238,11 +1238,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
       }
       const failedTargetKey = state.actionTargetKey;
+      const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       console.error("[server-error]", {
         code: msg.code,
         message: msg.message,
         actionInFlight: state.actionInFlight,
         actionTargetKey: failedTargetKey,
+        actionTargetTile: failedTargetTile
+          ? {
+              x: failedTargetTile.x,
+              y: failedTargetTile.y,
+              ownerId: failedTargetTile.ownerId,
+              ownershipState: failedTargetTile.ownershipState,
+              optimisticPending: failedTargetTile.optimisticPending,
+              detailLevel: failedTargetTile.detailLevel
+            }
+          : undefined,
+        actionCurrent: state.actionCurrent,
         queuedActions: state.actionQueue.length,
         selected: state.selected,
         hover: state.hover
