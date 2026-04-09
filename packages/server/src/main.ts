@@ -470,6 +470,9 @@ import { createServerWorldgenTowns } from "./server-worldgen-towns.js";
 import { supportedFrontierUsesSettledDefense } from "./frontier-defense.js";
 import { resolveFailedBarbarianDefenseOutcome } from "./barbarian-defense.js";
 import { createServerSeasonTech } from "./server-season-tech.js";
+import { createServerTerritoryStructureRuntime } from "./server-territory-structure-runtime.js";
+import { createServerPlayerEconomyRuntime } from "./server-player-economy-runtime.js";
+import { createServerEconomicOperations } from "./server-economic-operations.js";
 import { createServerSettlementFlow } from "./server-settlement-flow.js";
 import { createServerTownEconomyRuntime } from "./server-town-economy-runtime.js";
 import { TOWN_CAPTURE_SHOCK_MS, createServerTownSupport } from "./server-town-support.js";
@@ -1810,6 +1813,61 @@ const supportedFrontierUsesSettledDefenseAt = (defenderId: string | undefined, t
 };
 
 const {
+  isOwnedSettledLandTile,
+  observatoryStatusForTile,
+  activeObservatoryTileKeysForPlayer,
+  syncObservatoriesForPlayer,
+  hostileObservatoryProtectingTile,
+  ownedActiveObservatoryWithinRange,
+  activeAirportAt,
+  activeOwnedEconomicStructureWithinRange,
+  hostileRadarProtectingTile,
+  governorUpkeepMultiplierAtTile,
+  foundryMineOutputMultiplierAt,
+  converterStructureOutputFor,
+  activeSiphonAt,
+  siphonMultiplierAt,
+  addToSiphonCache,
+  economicStructureForTile,
+  economicStructureUpkeepDue,
+  economicStructureResourceType,
+  economicStructureOutputMultAt
+} = createServerTerritoryStructureRuntime({
+  now,
+  parseKey,
+  key,
+  terrainAtRuntime,
+  ownership,
+  ownershipStateByTile,
+  observatoriesByTile,
+  observatoryTileKeysByPlayer,
+  economicStructuresByTile,
+  economicStructureTileKeysByPlayer,
+  siphonByTile,
+  siphonCacheByPlayer,
+  chebyshevDistance: (ax: number, ay: number, bx: number, by: number) => chebyshevDistance(ax, ay, bx, by),
+  getPlayerEffectsForPlayer: (playerId: string) => getPlayerEffectsForPlayer(playerId),
+  markVisibilityDirty: (playerId: string) => markVisibilityDirty(playerId),
+  OBSERVATORY_PROTECTION_RADIUS,
+  OBSERVATORY_CAST_RADIUS,
+  RADAR_SYSTEM_RADIUS,
+  GOVERNORS_OFFICE_RADIUS,
+  GOVERNORS_OFFICE_UPKEEP_MULT,
+  FOUNDRY_RADIUS,
+  FOUNDRY_OUTPUT_MULT,
+  SIPHON_SHARE,
+  STRUCTURE_OUTPUT_MULT,
+  FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  IRONWORKS_IRON_PER_DAY,
+  ADVANCED_IRONWORKS_IRON_PER_DAY,
+  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  FUEL_PLANT_OIL_PER_DAY,
+  randomUUID: () => crypto.randomUUID()
+}) as any;
+
+const {
   computeTownFeedingState,
   townFeedingStateForPlayer,
   isTownFedForOwner,
@@ -1874,6 +1932,206 @@ const {
   strategicDailyFromResource,
   converterStructureOutputFor: (structureType: EconomicStructureType, ownerId: string | undefined) => converterStructureOutputFor(structureType, ownerId),
   siphonMultiplierAt: (tileKey: TileKey) => siphonMultiplierAt(tileKey)
+}) as any;
+
+const {
+  upkeepPerMinuteForPlayer,
+  settledTileGoldUpkeepPerMinuteAt,
+  roundedUpkeepPerMinute,
+  tileUpkeepEntriesForTile,
+  economicStructureGoldUpkeepPerInterval,
+  economicStructureCrystalUpkeepPerInterval,
+  pushUpkeepContributor,
+  sortedUpkeepContributors,
+  upkeepContributorsForPlayer,
+  economyBreakdownForPlayer,
+  playerEconomySnapshot
+} = createServerPlayerEconomyRuntime({
+  parseKey,
+  playerTile: (x: number, y: number) => playerTile(x, y),
+  players,
+  townsByTile,
+  docksByTile,
+  fortsByTile,
+  siegeOutpostsByTile,
+  observatoriesByTile,
+  economicStructuresByTile,
+  ownershipStateByTile,
+  economicStructureTileKeysByPlayer,
+  getOrInitResourceCounts: (playerId: string) => getOrInitResourceCounts(playerId),
+  resourceRate,
+  currentIncomePerMinute: (player: Player) => currentIncomePerMinute(player),
+  strategicProductionPerMinute: (player: Player) => strategicProductionPerMinute(player),
+  getPlayerEffectsForPlayer: (playerId: string) => getPlayerEffectsForPlayer(playerId),
+  effectiveManpowerAt: (player: Player, nowMs?: number) => effectiveManpowerAt(player, nowMs),
+  playerManpowerCap: (player: Player) => playerManpowerCap(player),
+  townFoodUpkeepPerMinute,
+  governorUpkeepMultiplierAtTile,
+  dockIncomeForOwner,
+  townIncomeForOwner,
+  townPopulationTierForTown,
+  toStrategicResource,
+  activeResourceIncomeMult: (playerId: string, resource: ResourceType) => activeResourceIncomeMult(playerId, resource),
+  strategicDailyFromResource,
+  siphonMultiplierAt,
+  economicStructureOutputMultAt,
+  converterStructureOutputFor,
+  emptyEconomyBreakdown: () => emptyEconomyBreakdown(),
+  pushEconomyBreakdownBucket,
+  setEconomyBreakdownBucket,
+  sortedEconomyBreakdownBuckets,
+  goldResourceSourceLabel,
+  strategicResourceSourceLabel,
+  getOrInitRevealTargets: (playerId: string) => getOrInitRevealTargets(playerId),
+  prettyEconomicStructureLabel: (structureType: EconomicStructureType) => prettyEconomicStructureLabel(structureType),
+  lastUpkeepByPlayer,
+  emptyUpkeepDiagnostics: () => emptyUpkeepDiagnostics(),
+  PASSIVE_INCOME_MULT,
+  OBSERVATORY_UPKEEP_PER_MIN,
+  REVEAL_EMPIRE_UPKEEP_PER_MIN,
+  AIRPORT_OIL_UPKEEP_PER_MIN,
+  FARMSTEAD_GOLD_UPKEEP,
+  CAMP_GOLD_UPKEEP,
+  MINE_GOLD_UPKEEP,
+  GRANARY_GOLD_UPKEEP,
+  CARAVANARY_GOLD_UPKEEP,
+  FUR_SYNTHESIZER_GOLD_UPKEEP,
+  WOODEN_FORT_GOLD_UPKEEP,
+  LIGHT_OUTPOST_GOLD_UPKEEP,
+  IRONWORKS_GOLD_UPKEEP,
+  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
+  FUEL_PLANT_GOLD_UPKEEP,
+  FOUNDRY_GOLD_UPKEEP,
+  GARRISON_HALL_GOLD_UPKEEP,
+  CUSTOMS_HOUSE_GOLD_UPKEEP,
+  GOVERNORS_OFFICE_GOLD_UPKEEP,
+  RADAR_SYSTEM_GOLD_UPKEEP,
+  MARKET_CRYSTAL_UPKEEP,
+  BANK_CRYSTAL_UPKEEP
+}) as any;
+
+const {
+  currentFoodCoverageForPlayer,
+  playerHasSettledFoodSources,
+  economicStructureBuildDurationMs,
+  structureBuildDurationMsForRuntime,
+  baseSynthTypeForAdvanced,
+  canPlaceEconomicStructure,
+  tryBuildEconomicStructure,
+  syncEconomicStructuresForPlayer,
+  applyUpkeepForPlayer,
+  accumulatePassiveIncomeForPlayer,
+  addTileYield
+} = createServerEconomicOperations({
+  now,
+  key,
+  parseKey,
+  playerTile: (x: number, y: number) => playerTile(x, y),
+  runtimeTileCore: (x: number, y: number) => runtimeTileCore(x, y),
+  players,
+  townsByTile,
+  docksByTile,
+  fortsByTile,
+  siegeOutpostsByTile,
+  observatoriesByTile,
+  economicStructuresByTile,
+  economicStructureTileKeysByPlayer,
+  economicStructureBuildTimers,
+  ownershipStateByTile,
+  ownership,
+  getOrInitStrategicStocks: (playerId: string) => getOrInitStrategicStocks(playerId),
+  availableYieldStrategicForPlayer: (player: Player, resource: StrategicResource) => availableYieldStrategicForPlayer(player, resource),
+  computeTownFeedingState,
+  townFeedingStateForPlayer,
+  getPlayerEffectsForPlayer: (playerId: string) => getPlayerEffectsForPlayer(playerId),
+  isSupportOnlyStructureType,
+  isLightCombatStructureType,
+  isConverterStructureType,
+  supportedTownKeysForTile,
+  supportedDockKeysForTile,
+  structureForSupportedTown,
+  pickRandomAvailableSupportTileForTown,
+  townPopulationTier,
+  townPopulationTierForTown,
+  canStartDevelopmentProcess: (playerId: string) => canStartDevelopmentProcess(playerId),
+  developmentSlotsBusyReason: (playerId: string) => developmentSlotsBusyReason(playerId),
+  structureBuildGoldCost,
+  structurePlacementMetadata,
+  structureShowsOnTile,
+  isBorderTile: (x: number, y: number, ownerId: string) => isBorderTile(x, y, ownerId),
+  ownedStructureCountForPlayer: (playerId: string, structureType: any) => ownedStructureCountForPlayer(playerId, structureType),
+  consumeStrategicResource: (actor: Player, resource: StrategicResource, amount: number) => consumeStrategicResource(actor, resource, amount),
+  recalcPlayerDerived: (player: Player) => recalcPlayerDerived(player),
+  markSummaryChunkDirtyAtTile: (x: number, y: number) => markSummaryChunkDirtyAtTile(x, y),
+  trackOwnedTileKey: (index: Map<string, Set<TileKey>>, playerId: string, tileKey: TileKey) => trackOwnedTileKey(index, playerId, tileKey),
+  untrackOwnedTileKey: (index: Map<string, Set<TileKey>>, playerId: string, tileKey: TileKey) => untrackOwnedTileKey(index, playerId, tileKey),
+  recordTileStructureHistory: (tileKey: TileKey, structureType: EconomicStructureType) => recordTileStructureHistory(tileKey, structureType),
+  cancelEconomicStructureBuild: (tileKey: TileKey) => cancelEconomicStructureBuild(tileKey),
+  discoverOilFieldNearAirport: (playerId: string, tileKey: TileKey) => discoverOilFieldNearAirport(playerId, tileKey),
+  updateOwnership: (x: number, y: number, ownerId?: string, state?: OwnershipState) => updateOwnership(x, y, ownerId, state),
+  emptyUpkeepDiagnostics: () => emptyUpkeepDiagnostics(),
+  consumeYieldStrategicForPlayer: (player: Player, resource: StrategicResource, amount: number, touchedTileKeys: Set<TileKey>) => consumeYieldStrategicForPlayer(player, resource, amount, touchedTileKeys),
+  consumeYieldGoldForPlayer: (player: Player, amount: number, touchedTileKeys: Set<TileKey>) => consumeYieldGoldForPlayer(player, amount, touchedTileKeys),
+  upkeepPerMinuteForPlayer,
+  upkeepContributorsForPlayer,
+  foodUpkeepCoverageByPlayer,
+  townFeedingStateByPlayer,
+  revealedEmpireTargetsByPlayer,
+  sendToPlayer: (playerId: string, payload: unknown) => sendToPlayer(playerId, payload),
+  getOrInitEconomyIndex: (playerId: string) => getOrInitEconomyIndex(playerId),
+  applyClusterResources,
+  resourceAt,
+  resourceRate,
+  toStrategicResource,
+  strategicDailyFromResource,
+  activeResourceIncomeMult: (playerId: string, resource: ResourceType) => activeResourceIncomeMult(playerId, resource),
+  hasPositiveStrategicBuffer: (strategic: Partial<Record<StrategicResource, number>>) => hasPositiveStrategicBuffer(strategic),
+  getOrInitTileYield: (tileKey: TileKey) => getOrInitTileYield(tileKey),
+  tileYieldCapsFor,
+  syncObservatoriesForPlayer,
+  activeSiphonAt,
+  addToSiphonCache,
+  siphonMultiplierAt,
+  converterStructureOutputFor,
+  activeAirportAt,
+  hostileRadarProtectingTile,
+  economicStructureGoldUpkeepPerInterval,
+  economicStructureUpkeepDue,
+  prettyEconomicStructureLabel: (structureType: EconomicStructureType) => prettyEconomicStructureLabel(structureType),
+  economicStructureBuildDurationMs: (structureType: EconomicStructureType) => structureType === "WOODEN_FORT" ? WOODEN_FORT_BUILD_MS : structureType === "LIGHT_OUTPOST" ? LIGHT_OUTPOST_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS,
+  structureBuildDurationMsForRuntime: (structureType: "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | EconomicStructureType) =>
+    structureType === "FORT" ? FORT_BUILD_MS : structureType === "OBSERVATORY" ? OBSERVATORY_BUILD_MS : structureType === "SIEGE_OUTPOST" ? SIEGE_OUTPOST_BUILD_MS : (structureType === "WOODEN_FORT" ? WOODEN_FORT_BUILD_MS : structureType === "LIGHT_OUTPOST" ? LIGHT_OUTPOST_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS),
+  baseSynthTypeForAdvanced: (structureType: EconomicStructureType) =>
+    structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER" : structureType === "ADVANCED_IRONWORKS" ? "IRONWORKS" : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? "CRYSTAL_SYNTHESIZER" : undefined,
+  economicStructureCrystalUpkeepPerInterval,
+  playerEconomySnapshot,
+  currentIncomePerMinute: (player: Player) => currentIncomePerMinute(player),
+  dockIncomeForOwner,
+  townIncomeForOwner,
+  FORT_BUILD_MS,
+  OBSERVATORY_BUILD_MS,
+  SIEGE_OUTPOST_BUILD_MS,
+  ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
+  PASSIVE_INCOME_MULT,
+  HARVEST_GOLD_RATE_MULT,
+  HARVEST_RESOURCE_RATE_MULT,
+  SIPHON_SHARE,
+  FARMSTEAD_BUILD_FOOD_COST,
+  CAMP_BUILD_SUPPLY_COST,
+  MINE_BUILD_RESOURCE_COST,
+  MARKET_BUILD_CRYSTAL_COST,
+  GRANARY_BUILD_FOOD_COST,
+  BANK_BUILD_CRYSTAL_COST,
+  CARAVANARY_BUILD_CRYSTAL_COST,
+  GARRISON_HALL_BUILD_CRYSTAL_COST,
+  CUSTOMS_HOUSE_BUILD_CRYSTAL_COST,
+  RADAR_SYSTEM_BUILD_CRYSTAL_COST,
+  AIRPORT_BUILD_CRYSTAL_COST,
+  MARKET_CRYSTAL_UPKEEP,
+  BANK_CRYSTAL_UPKEEP,
+  randomUUID: () => crypto.randomUUID(),
+  WOODEN_FORT_BUILD_MS,
+  LIGHT_OUTPOST_BUILD_MS
 }) as any;
 
 const {
@@ -3183,204 +3441,6 @@ const startAbilityCooldown = (playerId: string, abilityId: AbilityDefinition["id
 
 const playerHasTechIds = (player: Player, techIds: string[]): boolean => techIds.every((id) => player.techIds.has(id));
 
-const isOwnedSettledLandTile = (playerId: string, tileKey: TileKey): boolean => {
-  const [x, y] = parseKey(tileKey);
-  if (terrainAtRuntime(x, y) !== "LAND") return false;
-  return ownership.get(tileKey) === playerId && ownershipStateByTile.get(tileKey) === "SETTLED";
-};
-
-const fortRecoveryReadyAt = (fort: Pick<Fort, "disabledUntil">): number => fort.disabledUntil ?? 0;
-
-const fortOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => {
-  const fort = fortsByTile.get(tileKey);
-  if (!fort || fort.ownerId !== ownerId || fort.status !== "active") return false;
-  const [x, y] = parseKey(tileKey);
-  if (terrainAtRuntime(x, y) !== "LAND" || ownership.get(tileKey) !== ownerId) return false;
-  return fortRecoveryReadyAt(fort) <= now();
-};
-
-const observatoryStatusForTile = (playerId: string, tileKey: TileKey): "under_construction" | "active" | "inactive" | "removing" => {
-  const observatory = observatoriesByTile.get(tileKey);
-  if (!observatory || observatory.ownerId !== playerId) return "inactive";
-  if (observatory.status === "under_construction") return "under_construction";
-  if (observatory.status === "removing") return "removing";
-  return isOwnedSettledLandTile(playerId, tileKey) ? observatory.status : "inactive";
-};
-
-const activeObservatoryTileKeysForPlayer = (playerId: string): TileKey[] => {
-  const out: TileKey[] = [];
-  for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
-    if (observatoryStatusForTile(playerId, tk) === "active") out.push(tk);
-  }
-  return out;
-};
-
-const syncObservatoriesForPlayer = (playerId: string, active: boolean): void => {
-  let changed = false;
-  for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
-    const observatory = observatoriesByTile.get(tk);
-    if (!observatory) continue;
-    if (observatory.status === "under_construction" || observatory.status === "removing") continue;
-    const nextStatus = active && isOwnedSettledLandTile(playerId, tk) ? "active" : "inactive";
-    if (observatory.status !== nextStatus) {
-      observatory.status = nextStatus;
-      changed = true;
-    }
-  }
-  if (changed) markVisibilityDirty(playerId);
-};
-
-const hostileObservatoryProtectingTile = (actor: Player, x: number, y: number): TileKey | undefined => {
-  for (const [tk, observatory] of observatoriesByTile) {
-    if (observatory.ownerId === actor.id || actor.allies.has(observatory.ownerId)) continue;
-    if (observatoryStatusForTile(observatory.ownerId, tk) !== "active") continue;
-    const [ox, oy] = parseKey(tk);
-    const protectionRadius = OBSERVATORY_PROTECTION_RADIUS + getPlayerEffectsForPlayer(observatory.ownerId).observatoryProtectionRadiusBonus;
-    if (chebyshevDistance(ox, oy, x, y) <= protectionRadius) return tk;
-  }
-  return undefined;
-};
-
-const ownedActiveObservatoryWithinRange = (playerId: string, x: number, y: number, range = OBSERVATORY_CAST_RADIUS): boolean => {
-  const castRadius = range + getPlayerEffectsForPlayer(playerId).observatoryCastRadiusBonus;
-  for (const tk of observatoryTileKeysByPlayer.get(playerId) ?? []) {
-    if (observatoryStatusForTile(playerId, tk) !== "active") continue;
-    const [ox, oy] = parseKey(tk);
-    if (chebyshevDistance(ox, oy, x, y) <= castRadius) return true;
-  }
-  return false;
-};
-
-const activeAirportAt = (ownerId: string, tileKey: TileKey): EconomicStructure | undefined => {
-  const structure = economicStructuresByTile.get(tileKey);
-  return structure && structure.ownerId === ownerId && structure.type === "AIRPORT" && structure.status === "active" ? structure : undefined;
-};
-
-const activeOwnedEconomicStructureWithinRange = (
-  ownerId: string,
-  type: EconomicStructureType,
-  x: number,
-  y: number,
-  range: number
-): TileKey | undefined => {
-  for (const tk of economicStructureTileKeysByPlayer.get(ownerId) ?? []) {
-    const structure = economicStructuresByTile.get(tk);
-    if (!structure || structure.type !== type || structure.status !== "active") continue;
-    const [sx, sy] = parseKey(tk);
-    if (chebyshevDistance(sx, sy, x, y) <= range) return tk;
-  }
-  return undefined;
-};
-
-const hostileRadarProtectingTile = (actor: Player, x: number, y: number): TileKey | undefined => {
-  for (const [tk, structure] of economicStructuresByTile) {
-    if (structure.type !== "RADAR_SYSTEM" || structure.status !== "active") continue;
-    if (structure.ownerId === actor.id || actor.allies.has(structure.ownerId)) continue;
-    const [rx, ry] = parseKey(tk);
-    if (chebyshevDistance(rx, ry, x, y) <= RADAR_SYSTEM_RADIUS) return tk;
-  }
-  return undefined;
-};
-
-const governorUpkeepMultiplierAtTile = (ownerId: string | undefined, tileKey: TileKey): number => {
-  if (!ownerId) return 1;
-  const [x, y] = parseKey(tileKey);
-  return activeOwnedEconomicStructureWithinRange(ownerId, "GOVERNORS_OFFICE", x, y, GOVERNORS_OFFICE_RADIUS)
-    ? GOVERNORS_OFFICE_UPKEEP_MULT
-    : 1;
-};
-
-const foundryMineOutputMultiplierAt = (ownerId: string | undefined, tileKey: TileKey): number => {
-  if (!ownerId) return 1;
-  const structure = economicStructuresByTile.get(tileKey);
-  if (!structure || structure.ownerId !== ownerId || structure.status !== "active" || structure.type !== "MINE") return 1;
-  const [x, y] = parseKey(tileKey);
-  return activeOwnedEconomicStructureWithinRange(ownerId, "FOUNDRY", x, y, FOUNDRY_RADIUS) ? FOUNDRY_OUTPUT_MULT : 1;
-};
-
-const converterStructureOutputFor = (
-  structureType: EconomicStructureType,
-  ownerId?: string
-): Partial<Record<StrategicResource, number>> | undefined => {
-  if (structureType === "FUR_SYNTHESIZER") return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY };
-  if (structureType === "ADVANCED_FUR_SYNTHESIZER") return { SUPPLY: ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY };
-  if (structureType === "IRONWORKS") return { IRON: IRONWORKS_IRON_PER_DAY };
-  if (structureType === "ADVANCED_IRONWORKS") return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
-  if (structureType === "CRYSTAL_SYNTHESIZER") return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-  if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return { CRYSTAL: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
-  if (structureType === "FUEL_PLANT") return { OIL: FUEL_PLANT_OIL_PER_DAY };
-  return undefined;
-};
-
-const activeSiphonAt = (tileKey: TileKey): ActiveSiphon | undefined => {
-  const siphon = siphonByTile.get(tileKey);
-  if (!siphon || siphon.endsAt <= now()) {
-    if (siphon) siphonByTile.delete(tileKey);
-    return undefined;
-  }
-  return siphon;
-};
-
-const siphonMultiplierAt = (tileKey: TileKey): number => (activeSiphonAt(tileKey) ? 1 - SIPHON_SHARE : 1);
-
-const addToSiphonCache = (
-  casterPlayerId: string,
-  targetTileKey: TileKey,
-  gold: number,
-  strategic: Partial<Record<StrategicResource, number>>,
-  expiresAt: number
-): void => {
-  const caches = siphonCacheByPlayer.get(casterPlayerId) ?? [];
-  let current = caches.find((cache) => cache.targetTileKey === targetTileKey && cache.expiresAt === expiresAt);
-  if (!current) {
-    current = { siphonId: crypto.randomUUID(), targetTileKey, expiresAt, gold: 0, strategic: {} };
-    caches.push(current);
-    siphonCacheByPlayer.set(casterPlayerId, caches);
-  }
-  current.gold += gold;
-  for (const [resource, amount] of Object.entries(strategic) as Array<[StrategicResource, number]>) {
-    current.strategic[resource] = (current.strategic[resource] ?? 0) + amount;
-  }
-};
-
-const economicStructureForTile = (tileKey: TileKey): EconomicStructure | undefined => economicStructuresByTile.get(tileKey);
-
-const economicStructureUpkeepDue = (structure: EconomicStructure): boolean =>
-  structure.nextUpkeepAt <= now() && (!structure.disabledUntil || structure.disabledUntil <= now());
-
-const economicStructureResourceType = (resource: ResourceType | undefined): EconomicStructureType | undefined => {
-  if (resource === "FARM" || resource === "FISH") return "FARMSTEAD";
-  if (resource === "WOOD" || resource === "FUR") return "CAMP";
-  if (resource === "IRON" || resource === "GEMS") return "MINE";
-  return undefined;
-};
-
-const economicStructureOutputMultAt = (tileKey: TileKey, ownerId: string | undefined): number => {
-  const structure = economicStructuresByTile.get(tileKey);
-  if (!structure || !ownerId || structure.ownerId !== ownerId || structure.status !== "active") return 1;
-  if (
-    structure.type === "GRANARY" ||
-    structure.type === "MARKET" ||
-    structure.type === "BANK" ||
-    structure.type === "AIRPORT" ||
-    structure.type === "WOODEN_FORT" ||
-    structure.type === "LIGHT_OUTPOST" ||
-    structure.type === "FUR_SYNTHESIZER" ||
-    structure.type === "ADVANCED_FUR_SYNTHESIZER" ||
-    structure.type === "IRONWORKS" ||
-    structure.type === "ADVANCED_IRONWORKS" ||
-    structure.type === "CRYSTAL_SYNTHESIZER" ||
-    structure.type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
-    structure.type === "FUEL_PLANT" ||
-    structure.type === "FOUNDRY" ||
-    structure.type === "GOVERNORS_OFFICE" ||
-    structure.type === "RADAR_SYSTEM"
-  ) {
-    return 1;
-  }
-  return STRUCTURE_OUTPUT_MULT * foundryMineOutputMultiplierAt(ownerId, tileKey);
-};
-
 const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
   const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
@@ -3419,964 +3479,6 @@ const validNavalInfiltrationTarget = (from: Tile, to: Tile): boolean => {
   if (middle.some((step) => terrainAtRuntime(step.x, step.y) === "MOUNTAIN")) return false;
   if (middle.some((step) => terrainAtRuntime(step.x, step.y) === "LAND")) return false;
   return to.terrain === "LAND";
-};
-
-const upkeepPerMinuteForPlayer = (player: Player): {
-  food: number;
-  iron: number;
-  supply: number;
-  crystal: number;
-  oil: number;
-  gold: number;
-} => {
-  let townFoodUpkeep = 0;
-  let settledTileGoldUpkeep = 0;
-  let fortCount = 0;
-  let outpostCount = 0;
-  let observatoryCount = 0;
-  let airportCount = 0;
-  let goldStructureUpkeep = 0;
-  let crystalStructureUpkeep = 0;
-  for (const tk of player.territoryTiles) {
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    const town = townsByTile.get(tk);
-    if (!(town && townPopulationTierForTown(town) === "SETTLEMENT")) {
-      settledTileGoldUpkeep += 0.04 * governorUpkeepMultiplierAtTile(player.id, tk);
-    }
-    if (town) townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
-    if (fortOperationalForOwner(player.id, tk)) fortCount += 1;
-    const siege = siegeOutpostsByTile.get(tk);
-    if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
-    const observatory = observatoriesByTile.get(tk);
-    if (observatory?.ownerId === player.id && observatory?.status === "active") observatoryCount += 1;
-    const structure = economicStructuresByTile.get(tk);
-    if (structure?.ownerId === player.id && structure.status === "active") {
-      goldStructureUpkeep += economicStructureGoldUpkeepPerInterval(structure.type) / 10;
-      crystalStructureUpkeep += economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;
-      if (structure.type === "AIRPORT") airportCount += 1;
-    }
-  }
-  const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
-  const effects = getPlayerEffectsForPlayer(player.id);
-  return {
-    // Base town upkeep is 0.25 / 10 min. City tier and above pay double.
-    food: townFoodUpkeep * effects.townFoodUpkeepMult,
-    // 0.25 / 10 min per fort.
-    iron: fortCount * 0.025 * effects.fortIronUpkeepMult,
-    // 0.25 / 10 min per outpost.
-    supply: outpostCount * 0.025 * effects.outpostSupplyUpkeepMult,
-    // 0.25 / 10 min for each active empire reveal.
-    crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN + crystalStructureUpkeep,
-    oil: airportCount * AIRPORT_OIL_UPKEEP_PER_MIN,
-    // 10 gold / 10 min per fort + 10 gold / 10 min per outpost + 1 gold / 10 min per 40 settled tiles.
-    gold:
-      fortCount * 1 * effects.fortGoldUpkeepMult +
-      outpostCount * 1 * effects.outpostGoldUpkeepMult +
-      settledTileGoldUpkeep * effects.settledGoldUpkeepMult +
-      goldStructureUpkeep
-  };
-};
-
-const settledTileGoldUpkeepPerMinuteAt = (playerId: string, tileKey: TileKey): number => {
-  const town = townsByTile.get(tileKey);
-  if (town && townPopulationTierForTown(town) === "SETTLEMENT") return 0;
-  return 0.04 * governorUpkeepMultiplierAtTile(playerId, tileKey);
-};
-
-const roundedUpkeepPerMinute = (amountPerMinute: number): number => Number(amountPerMinute.toFixed(4));
-
-const tileUpkeepEntriesForTile = (tileKey: TileKey, ownerId: string | undefined): NonNullable<Tile["upkeepEntries"]> => {
-  if (!ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED") return [];
-  const effects = getPlayerEffectsForPlayer(ownerId);
-  const entries: NonNullable<Tile["upkeepEntries"]> = [];
-  const town = townsByTile.get(tileKey);
-  if (town) {
-    const townFoodUpkeep = townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult * governorUpkeepMultiplierAtTile(ownerId, tileKey);
-    if (townFoodUpkeep > 0.0001) entries.push({ label: "Town", perMinute: { FOOD: roundedUpkeepPerMinute(townFoodUpkeep) } });
-  }
-  const settledLandGoldUpkeep = settledTileGoldUpkeepPerMinuteAt(ownerId, tileKey) * effects.settledGoldUpkeepMult;
-  if (settledLandGoldUpkeep > 0.0001) {
-    entries.push({ label: "Settled land", perMinute: { GOLD: roundedUpkeepPerMinute(settledLandGoldUpkeep) } });
-  }
-  if (ownerId && fortOperationalForOwner(ownerId, tileKey)) {
-    entries.push({
-      label: "Fort",
-      perMinute: {
-        GOLD: roundedUpkeepPerMinute(1 * effects.fortGoldUpkeepMult),
-        IRON: roundedUpkeepPerMinute(0.025 * effects.fortIronUpkeepMult)
-      }
-    });
-  }
-  const siegeOutpost = siegeOutpostsByTile.get(tileKey);
-  if (siegeOutpost?.ownerId === ownerId && siegeOutpost.status === "active") {
-    entries.push({
-      label: "Siege outpost",
-      perMinute: {
-        GOLD: roundedUpkeepPerMinute(1 * effects.outpostGoldUpkeepMult),
-        SUPPLY: roundedUpkeepPerMinute(0.025 * effects.outpostSupplyUpkeepMult)
-      }
-    });
-  }
-  const observatory = observatoriesByTile.get(tileKey);
-  if (observatory?.ownerId === ownerId && observatory.status === "active") {
-    entries.push({ label: "Observatory", perMinute: { CRYSTAL: roundedUpkeepPerMinute(OBSERVATORY_UPKEEP_PER_MIN) } });
-  }
-  const structure = economicStructuresByTile.get(tileKey);
-  if (structure?.ownerId === ownerId && structure.status === "active") {
-    const gold = economicStructureGoldUpkeepPerInterval(structure.type) / 10;
-    const crystal = economicStructureCrystalUpkeepPerInterval(structure.type, ownerId) / 10;
-    const oil = structure.type === "AIRPORT" ? AIRPORT_OIL_UPKEEP_PER_MIN : 0;
-    if (gold > 0.0001 || crystal > 0.0001 || oil > 0.0001) {
-      entries.push({
-        label: prettyEconomicStructureLabel(structure.type),
-        perMinute: {
-          ...(gold > 0.0001 ? { GOLD: roundedUpkeepPerMinute(gold) } : {}),
-          ...(crystal > 0.0001 ? { CRYSTAL: roundedUpkeepPerMinute(crystal) } : {}),
-          ...(oil > 0.0001 ? { OIL: roundedUpkeepPerMinute(oil) } : {})
-        }
-      });
-    }
-  }
-  return entries;
-};
-
-const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number =>
-  structureType === "FARMSTEAD"
-    ? FARMSTEAD_GOLD_UPKEEP
-    : structureType === "CAMP"
-      ? CAMP_GOLD_UPKEEP
-      : structureType === "MINE"
-        ? MINE_GOLD_UPKEEP
-      : structureType === "GRANARY"
-          ? GRANARY_GOLD_UPKEEP
-        : structureType === "CARAVANARY"
-          ? CARAVANARY_GOLD_UPKEEP
-          : structureType === "ADVANCED_FUR_SYNTHESIZER"
-            ? FUR_SYNTHESIZER_GOLD_UPKEEP
-          : structureType === "WOODEN_FORT"
-            ? WOODEN_FORT_GOLD_UPKEEP
-            : structureType === "LIGHT_OUTPOST"
-              ? LIGHT_OUTPOST_GOLD_UPKEEP
-            : structureType === "FUR_SYNTHESIZER"
-              ? FUR_SYNTHESIZER_GOLD_UPKEEP
-              : structureType === "IRONWORKS"
-                ? IRONWORKS_GOLD_UPKEEP
-                : structureType === "ADVANCED_IRONWORKS"
-                  ? IRONWORKS_GOLD_UPKEEP
-                : structureType === "CRYSTAL_SYNTHESIZER"
-                  ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
-                  : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER"
-                    ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
-                    : structureType === "FUEL_PLANT"
-                    ? FUEL_PLANT_GOLD_UPKEEP
-                    : structureType === "FOUNDRY"
-                      ? FOUNDRY_GOLD_UPKEEP
-                      : structureType === "GARRISON_HALL"
-                        ? GARRISON_HALL_GOLD_UPKEEP
-                        : structureType === "CUSTOMS_HOUSE"
-                          ? CUSTOMS_HOUSE_GOLD_UPKEEP
-                          : structureType === "GOVERNORS_OFFICE"
-                            ? GOVERNORS_OFFICE_GOLD_UPKEEP
-                            : structureType === "RADAR_SYSTEM"
-                              ? RADAR_SYSTEM_GOLD_UPKEEP
-                              : 0;
-
-const economicStructureCrystalUpkeepPerInterval = (structureType: EconomicStructureType, playerId: string): number =>
-  structureType === "MARKET" || structureType === "BANK"
-    ? (structureType === "MARKET" ? MARKET_CRYSTAL_UPKEEP : BANK_CRYSTAL_UPKEEP) * getPlayerEffectsForPlayer(playerId).marketCrystalUpkeepMult
-    : 0;
-
-const pushUpkeepContributor = (
-  map: Map<string, UpkeepContributor>,
-  label: string,
-  amountPerMinute: number,
-  options: { count?: number; note?: string } = {}
-): void => {
-  if (amountPerMinute <= 0.0001) return;
-  const existing = map.get(label);
-  if (existing) {
-    existing.amountPerMinute += amountPerMinute;
-    existing.count = (existing.count ?? 0) + (options.count ?? 0);
-    if (options.note) existing.note = options.note;
-    return;
-  }
-  const contributor: UpkeepContributor = { label, amountPerMinute };
-  if (options.count !== undefined) contributor.count = options.count;
-  if (options.note !== undefined) contributor.note = options.note;
-  map.set(label, contributor);
-};
-
-const sortedUpkeepContributors = (map: Map<string, UpkeepContributor>): UpkeepContributor[] =>
-  [...map.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
-
-const upkeepContributorsForPlayer = (player: Player): Record<"food" | "iron" | "supply" | "crystal" | "oil" | "gold", UpkeepContributor[]> => {
-  const food = new Map<string, UpkeepContributor>();
-  const iron = new Map<string, UpkeepContributor>();
-  const supply = new Map<string, UpkeepContributor>();
-  const crystal = new Map<string, UpkeepContributor>();
-  const oil = new Map<string, UpkeepContributor>();
-  const gold = new Map<string, UpkeepContributor>();
-  const effects = getPlayerEffectsForPlayer(player.id);
-  let townCount = 0;
-  let settledTileCount = 0;
-  let settledTileGoldUpkeep = 0;
-  let fortCount = 0;
-  let outpostCount = 0;
-  let observatoryCount = 0;
-  let airportCount = 0;
-  const goldStructureCounts = new Map<EconomicStructureType, number>();
-  const crystalStructureCounts = new Map<EconomicStructureType, number>();
-
-  for (const tk of player.territoryTiles) {
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    settledTileCount += 1;
-    settledTileGoldUpkeep += settledTileGoldUpkeepPerMinuteAt(player.id, tk);
-    if (townsByTile.has(tk)) townCount += 1;
-    if (fortOperationalForOwner(player.id, tk)) fortCount += 1;
-    const siege = siegeOutpostsByTile.get(tk);
-    if (siege?.ownerId === player.id && siege.status === "active") outpostCount += 1;
-    const observatory = observatoriesByTile.get(tk);
-    if (observatory && observatory.ownerId === player.id && observatory.status === "active") observatoryCount += 1;
-    const structure = economicStructuresByTile.get(tk);
-    if (structure?.ownerId === player.id && structure.status === "active") {
-      const goldPerMinute = economicStructureGoldUpkeepPerInterval(structure.type) / 10;
-      const crystalPerMinute = economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;
-      if (goldPerMinute > 0) goldStructureCounts.set(structure.type, (goldStructureCounts.get(structure.type) ?? 0) + 1);
-      if (crystalPerMinute > 0) crystalStructureCounts.set(structure.type, (crystalStructureCounts.get(structure.type) ?? 0) + 1);
-      if (structure.type === "AIRPORT") airportCount += 1;
-    }
-  }
-
-  if (townCount > 0) {
-    let townFoodUpkeep = 0;
-    for (const tk of player.territoryTiles) {
-      if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-      const town = townsByTile.get(tk);
-      if (!town) continue;
-      townFoodUpkeep += townFoodUpkeepPerMinute(town) * governorUpkeepMultiplierAtTile(player.id, tk);
-    }
-    if (townFoodUpkeep > 0.0001) {
-      pushUpkeepContributor(food, "Town upkeep", townFoodUpkeep * effects.townFoodUpkeepMult, {
-        count: townCount,
-        note: `${townCount} town${townCount === 1 ? "" : "s"}`
-      });
-    }
-  }
-
-  pushUpkeepContributor(gold, "Settled land upkeep", settledTileGoldUpkeep * effects.settledGoldUpkeepMult, {
-    count: settledTileCount,
-    note: `${settledTileCount} settled tiles`
-  });
-
-  if (fortCount > 0) {
-    pushUpkeepContributor(gold, "Fort upkeep", fortCount * effects.fortGoldUpkeepMult, {
-      count: fortCount,
-      note: `${fortCount} active fort${fortCount === 1 ? "" : "s"}`
-    });
-    pushUpkeepContributor(iron, "Fort upkeep", fortCount * 0.025 * effects.fortIronUpkeepMult, {
-      count: fortCount,
-      note: `${fortCount} active fort${fortCount === 1 ? "" : "s"}`
-    });
-  }
-
-  if (outpostCount > 0) {
-    pushUpkeepContributor(gold, "Siege outpost upkeep", outpostCount * effects.outpostGoldUpkeepMult, {
-      count: outpostCount,
-      note: `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`
-    });
-    pushUpkeepContributor(supply, "Siege outpost upkeep", outpostCount * 0.025 * effects.outpostSupplyUpkeepMult, {
-      count: outpostCount,
-      note: `${outpostCount} active outpost${outpostCount === 1 ? "" : "s"}`
-    });
-  }
-
-  const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
-  if (activeRevealCount > 0) {
-    pushUpkeepContributor(crystal, "Empire reveal upkeep", activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult, {
-      count: activeRevealCount,
-      note: `${activeRevealCount} active reveal`
-    });
-  }
-
-  if (observatoryCount > 0) {
-    pushUpkeepContributor(crystal, "Observatory upkeep", observatoryCount * OBSERVATORY_UPKEEP_PER_MIN, {
-      count: observatoryCount,
-      note: `${observatoryCount} active observator${observatoryCount === 1 ? "y" : "ies"}`
-    });
-  }
-
-  if (airportCount > 0) {
-    pushUpkeepContributor(oil, "Airport upkeep", airportCount * AIRPORT_OIL_UPKEEP_PER_MIN, {
-      count: airportCount,
-      note: `${airportCount} active airport${airportCount === 1 ? "" : "s"}`
-    });
-  }
-
-  for (const [type, count] of goldStructureCounts) {
-    pushUpkeepContributor(gold, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureGoldUpkeepPerInterval(type) / 10) * count, {
-      count,
-      note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}`
-    });
-  }
-
-  for (const [type, count] of crystalStructureCounts) {
-    pushUpkeepContributor(crystal, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureCrystalUpkeepPerInterval(type, player.id) / 10) * count, {
-      count,
-      note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}`
-    });
-  }
-
-  return {
-    food: sortedUpkeepContributors(food),
-    iron: sortedUpkeepContributors(iron),
-    supply: sortedUpkeepContributors(supply),
-    crystal: sortedUpkeepContributors(crystal),
-    oil: sortedUpkeepContributors(oil),
-    gold: sortedUpkeepContributors(gold)
-  };
-};
-
-const economyBreakdownForPlayer = (
-  player: Player,
-  upkeepContributors: Record<"food" | "iron" | "supply" | "crystal" | "oil" | "gold", UpkeepContributor[]>
-): EconomyBreakdown => {
-  const breakdown = emptyEconomyBreakdown();
-  const goldSources = new Map<string, EconomyBreakdownBucket>();
-  const foodSources = new Map<string, EconomyBreakdownBucket>();
-  const ironSources = new Map<string, EconomyBreakdownBucket>();
-  const crystalSources = new Map<string, EconomyBreakdownBucket>();
-  const supplySources = new Map<string, EconomyBreakdownBucket>();
-  const shardSources = new Map<string, EconomyBreakdownBucket>();
-  const oilSources = new Map<string, EconomyBreakdownBucket>();
-  const goldMultiplier = player.mods.income * PASSIVE_INCOME_MULT;
-
-  for (const [resource, count] of Object.entries(getOrInitResourceCounts(player.id)) as Array<[ResourceType, number]>) {
-    if (count <= 0) continue;
-    const amountPerMinute = count * (resourceRate[resource] ?? 0) * goldMultiplier;
-    pushEconomyBreakdownBucket(goldSources, goldResourceSourceLabel(resource), amountPerMinute, { count });
-  }
-
-  let dockCount = 0;
-  let dockIncome = 0;
-  for (const dock of docksByTile.values()) {
-    const [dx, dy] = parseKey(dock.tileKey);
-    const tile = playerTile(dx, dy);
-    if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") continue;
-    dockCount += 1;
-    dockIncome += dockIncomeForOwner(dock, player.id);
-  }
-  pushEconomyBreakdownBucket(goldSources, "Docks", dockIncome * goldMultiplier, { count: dockCount });
-
-  let townCount = 0;
-  let townIncome = 0;
-  const townIncomePaused = !townGoldIncomeEnabledForPlayer(player);
-  for (const town of townsByTile.values()) {
-    if (townIncomePaused) {
-      if (ownership.get(town.tileKey) !== player.id || ownershipStateByTile.get(town.tileKey) !== "SETTLED") continue;
-      townCount += 1;
-      continue;
-    }
-    const income = townIncomeForOwner(town, player.id) * siphonMultiplierAt(town.tileKey);
-    if (income <= 0.0001) continue;
-    townCount += 1;
-    townIncome += income;
-  }
-  if (townIncomePaused && townCount > 0) {
-    setEconomyBreakdownBucket(goldSources, "Towns", 0, {
-      count: townCount,
-      note: `Paused until manpower is full (${Math.round(effectiveManpowerAt(player))}/${Math.round(playerManpowerCap(player))})`
-    });
-  } else {
-    pushEconomyBreakdownBucket(goldSources, "Towns", townIncome * goldMultiplier, { count: townCount });
-  }
-
-  let bankCount = 0;
-  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
-    const structure = economicStructuresByTile.get(tk);
-    if (structure?.type === "BANK" && structure.status === "active") bankCount += 1;
-  }
-  pushEconomyBreakdownBucket(goldSources, "Banks", bankCount * goldMultiplier, { count: bankCount });
-
-  for (const tk of player.territoryTiles) {
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    const [x, y] = parseKey(tk);
-    const tile = playerTile(x, y);
-    if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
-    const sr = toStrategicResource(tile.resource);
-    if (sr && tile.resource) {
-      const mult = activeResourceIncomeMult(player.id, tile.resource);
-      const daily = strategicDailyFromResource[tile.resource] ?? 0;
-      const amountPerMinute = (daily / 1440) * mult * siphonMultiplierAt(tk) * economicStructureOutputMultAt(tk, player.id);
-      const label = strategicResourceSourceLabel(tile.resource);
-      if (sr === "FOOD") pushEconomyBreakdownBucket(foodSources, label, amountPerMinute);
-      if (sr === "IRON") pushEconomyBreakdownBucket(ironSources, label, amountPerMinute);
-      if (sr === "CRYSTAL") pushEconomyBreakdownBucket(crystalSources, label, amountPerMinute);
-      if (sr === "SUPPLY") pushEconomyBreakdownBucket(supplySources, label, amountPerMinute);
-      if (sr === "OIL") pushEconomyBreakdownBucket(oilSources, label, amountPerMinute);
-    }
-
-    const structure = economicStructuresByTile.get(tk);
-    if (!structure || structure.ownerId !== player.id || structure.status !== "active") continue;
-    const output = converterStructureOutputFor(structure.type, player.id) ?? {};
-    for (const [resource, daily] of Object.entries(output) as Array<[StrategicResource, number]>) {
-      const amountPerMinute = daily / 1440;
-      const label = prettyEconomicStructureLabel(structure.type);
-      if (resource === "FOOD") pushEconomyBreakdownBucket(foodSources, label, amountPerMinute);
-      if (resource === "IRON") pushEconomyBreakdownBucket(ironSources, label, amountPerMinute);
-      if (resource === "CRYSTAL") pushEconomyBreakdownBucket(crystalSources, label, amountPerMinute);
-      if (resource === "SUPPLY") pushEconomyBreakdownBucket(supplySources, label, amountPerMinute);
-      if (resource === "SHARD") pushEconomyBreakdownBucket(shardSources, label, amountPerMinute);
-      if (resource === "OIL") pushEconomyBreakdownBucket(oilSources, label, amountPerMinute);
-    }
-  }
-
-  breakdown.GOLD.sources = sortedEconomyBreakdownBuckets(goldSources);
-  breakdown.FOOD.sources = sortedEconomyBreakdownBuckets(foodSources);
-  breakdown.IRON.sources = sortedEconomyBreakdownBuckets(ironSources);
-  breakdown.CRYSTAL.sources = sortedEconomyBreakdownBuckets(crystalSources);
-  breakdown.SUPPLY.sources = sortedEconomyBreakdownBuckets(supplySources);
-  breakdown.SHARD.sources = sortedEconomyBreakdownBuckets(shardSources);
-  breakdown.OIL.sources = sortedEconomyBreakdownBuckets(oilSources);
-
-  breakdown.GOLD.sinks = upkeepContributors.gold.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
-  breakdown.FOOD.sinks = upkeepContributors.food.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
-  breakdown.IRON.sinks = upkeepContributors.iron.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
-  breakdown.CRYSTAL.sinks = upkeepContributors.crystal.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
-  breakdown.SUPPLY.sinks = upkeepContributors.supply.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
-  breakdown.OIL.sinks = upkeepContributors.oil.map((entry) => ({ ...entry, count: entry.count ?? 1 }));
-
-  const mirrorGoldUpkeep = (resource: Exclude<EconomyResourceKey, "GOLD">, entry: EconomyBreakdownBucket): void => {
-    const mirrored: EconomyBreakdownBucket = {
-      label: entry.label,
-      amountPerMinute: entry.amountPerMinute,
-      count: entry.count,
-      resourceKey: "GOLD"
-    };
-    if (entry.note !== undefined) mirrored.note = entry.note;
-    breakdown[resource].sinks.push(mirrored);
-  };
-
-  for (const entry of breakdown.GOLD.sinks) {
-    if (entry.label.includes("Fur Synthesizer")) mirrorGoldUpkeep("SUPPLY", entry);
-    else if (entry.label.includes("Ironworks")) mirrorGoldUpkeep("IRON", entry);
-    else if (entry.label.includes("Crystal Synthesizer")) mirrorGoldUpkeep("CRYSTAL", entry);
-    else if (entry.label.includes("Fuel Plant")) mirrorGoldUpkeep("OIL", entry);
-  }
-
-  breakdown.IRON.sinks.sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
-  breakdown.CRYSTAL.sinks.sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
-  breakdown.SUPPLY.sinks.sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
-  breakdown.OIL.sinks.sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
-
-  return breakdown;
-};
-
-const playerEconomySnapshot = (player: Player): {
-  incomePerMinute: number;
-  strategicProductionPerMinute: Record<StrategicResource, number>;
-  upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; oil: number; gold: number };
-  upkeepLastTick: UpkeepDiagnostics;
-  economyBreakdown: EconomyBreakdown;
-} => {
-  const upkeepContributors = upkeepContributorsForPlayer(player);
-  const lastTick = lastUpkeepByPlayer.get(player.id) ?? emptyUpkeepDiagnostics();
-  const upkeepLastTick: UpkeepDiagnostics = {
-    ...lastTick,
-    food: { ...lastTick.food, contributors: upkeepContributors.food },
-    iron: { ...lastTick.iron, contributors: upkeepContributors.iron },
-    supply: { ...lastTick.supply, contributors: upkeepContributors.supply },
-    crystal: { ...lastTick.crystal, contributors: upkeepContributors.crystal },
-    oil: { ...lastTick.oil, contributors: upkeepContributors.oil },
-    gold: { ...lastTick.gold, contributors: upkeepContributors.gold }
-  };
-  return {
-    incomePerMinute: currentIncomePerMinute(player),
-    strategicProductionPerMinute: strategicProductionPerMinute(player),
-    upkeepPerMinute: upkeepPerMinuteForPlayer(player),
-    upkeepLastTick,
-    economyBreakdown: economyBreakdownForPlayer(player, upkeepContributors)
-  };
-};
-
-function currentFoodCoverageForPlayer(playerId: string): number {
-  const player = players.get(playerId);
-  if (!player) return foodUpkeepCoverageByPlayer.get(playerId) ?? 1;
-  return townFeedingStateForPlayer(playerId).foodCoverage;
-}
-
-const playerHasSettledFoodSources = (playerId: string): boolean => {
-  const player = players.get(playerId);
-  if (!player) return false;
-  for (const tk of player.territoryTiles) {
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    const [x, y] = parseKey(tk);
-    const resource = playerTile(x, y).resource;
-    if (resource === "FARM" || resource === "FISH") return true;
-  }
-  return false;
-};
-
-const economicStructureBuildDurationMs = (structureType: EconomicStructureType): number => {
-  if (structureType === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
-  if (structureType === "LIGHT_OUTPOST") return LIGHT_OUTPOST_BUILD_MS;
-  return ECONOMIC_STRUCTURE_BUILD_MS;
-};
-
-const structureBuildDurationMsForRuntime = (structureType: "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | EconomicStructureType): number => {
-  if (structureType === "FORT") return FORT_BUILD_MS;
-  if (structureType === "OBSERVATORY") return OBSERVATORY_BUILD_MS;
-  if (structureType === "SIEGE_OUTPOST") return SIEGE_OUTPOST_BUILD_MS;
-  return economicStructureBuildDurationMs(structureType);
-};
-
-const baseSynthTypeForAdvanced = (structureType: EconomicStructureType): EconomicStructureType | undefined => {
-  if (structureType === "ADVANCED_FUR_SYNTHESIZER") return "FUR_SYNTHESIZER";
-  if (structureType === "ADVANCED_IRONWORKS") return "IRONWORKS";
-  if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
-  return undefined;
-};
-
-const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
-  if (t.terrain !== "LAND") return { ok: false, reason: "structure requires land tile" };
-  const tk = key(t.x, t.y);
-  const isLightCombat = isLightCombatStructureType(structureType);
-  const upgradeBaseType = baseSynthTypeForAdvanced(structureType);
-  const existingStructure = economicStructuresByTile.get(tk);
-  const placementMode = structurePlacementMetadata(structureType).placementMode;
-  const supportedTowns = supportedTownKeysForTile(tk, actor.id);
-  const supportedDocks = supportedDockKeysForTile(tk, actor.id);
-  const showsOnTile = structureShowsOnTile(structureType, {
-    ownershipState: t.ownershipState,
-    resource: t.resource,
-    dockId: t.dockId,
-    townPopulationTier: townsByTile.get(tk) ? townPopulationTierForTown(townsByTile.get(tk)!) : undefined,
-    supportedTownCount: supportedTowns.length,
-    supportedDockCount: supportedDocks.length
-  });
-  if (upgradeBaseType) {
-    if (!existingStructure || existingStructure.ownerId !== actor.id || existingStructure.type !== upgradeBaseType) {
-      return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} must upgrade an existing ${prettyEconomicStructureLabel(upgradeBaseType).toLowerCase()}` };
-    }
-    if (existingStructure.status !== "active" && existingStructure.status !== "inactive") {
-      return { ok: false, reason: `${prettyEconomicStructureLabel(upgradeBaseType).toLowerCase()} is already being modified` };
-    }
-  }
-  if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED") {
-    return { ok: false, reason: "structure requires settled owned tile" };
-  }
-  if (!showsOnTile) return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} cannot be built on this tile` };
-  if (structurePlacementMetadata(structureType).requiresBorder === "border_or_dock" && !docksByTile.has(tk) && !isBorderTile(t.x, t.y, actor.id)) {
-    return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} must be on border tile or dock` };
-  }
-  if (structurePlacementMetadata(structureType).requiresBorder === "border" && !isBorderTile(t.x, t.y, actor.id)) {
-    return { ok: false, reason: `${prettyEconomicStructureLabel(structureType).toLowerCase()} must be on border tile` };
-  }
-  const usingTownSource = placementMode === "town_support" && townsByTile.has(tk);
-  if (!usingTownSource && (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradeBaseType))) {
-    return { ok: false, reason: "tile already has structure" };
-  }
-  if (structureType === "FARMSTEAD" && t.resource !== "FARM" && t.resource !== "FISH") return { ok: false, reason: "farmstead requires FARM or FISH tile" };
-  if (structureType === "CAMP" && t.resource !== "WOOD" && t.resource !== "FUR") return { ok: false, reason: "camp requires SUPPLY tile" };
-  if (structureType === "MINE" && t.resource !== "IRON" && t.resource !== "GEMS") return { ok: false, reason: "mine requires IRON or CRYSTAL tile" };
-  const tileTown = townsByTile.get(tk);
-  if (tileTown && townPopulationTier(tileTown.population) === "SETTLEMENT") {
-    return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
-  }
-  if (isSupportOnlyStructureType(structureType)) {
-    if (townsByTile.has(tk)) {
-      const supportTileKey = pickRandomAvailableSupportTileForTown(tk, actor.id, structureType);
-      if (!supportTileKey) return { ok: false, reason: `${structureType.toLowerCase()} needs an open support tile next to this town` };
-    } else {
-      if (supportedTowns.length === 0) return { ok: false, reason: `${structureType.toLowerCase()} requires a support tile next to your town` };
-      if (supportedTowns.length > 1) return { ok: false, reason: "support tile touches multiple towns" };
-      const supportedTownKey = supportedTowns[0];
-      if (supportedTownKey && structureForSupportedTown(supportedTownKey, actor.id, structureType)) {
-        return { ok: false, reason: `town already has ${structureType.toLowerCase()}` };
-      }
-    }
-  }
-  return { ok: true };
-};
-
-const tryBuildEconomicStructure = (actor: Player, x: number, y: number, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
-  const clickedTile = playerTile(x, y);
-  const placed = canPlaceEconomicStructure(actor, clickedTile, structureType);
-  if (!placed.ok) return placed;
-  let t = clickedTile;
-  if (isSupportOnlyStructureType(structureType) && townsByTile.has(key(clickedTile.x, clickedTile.y))) {
-    const supportTileKey = pickRandomAvailableSupportTileForTown(key(clickedTile.x, clickedTile.y), actor.id, structureType);
-    if (!supportTileKey) return { ok: false, reason: `${structureType.toLowerCase()} needs an open support tile next to this town` };
-    const [sx, sy] = parseKey(supportTileKey);
-    t = playerTile(sx, sy);
-  }
-  const tk = key(t.x, t.y);
-
-  if (structureType === "FARMSTEAD" && !actor.techIds.has("agriculture")) return { ok: false, reason: "unlock farmsteads via Agriculture first" };
-  if (structureType === "CAMP" && !actor.techIds.has("leatherworking")) return { ok: false, reason: "unlock camps via Leatherworking first" };
-  if (structureType === "MINE" && !actor.techIds.has("mining")) return { ok: false, reason: "unlock mines via Mining first" };
-  if (structureType === "MARKET" && !actor.techIds.has("trade")) return { ok: false, reason: "unlock markets via Trade first" };
-  if (structureType === "GRANARY" && !getPlayerEffectsForPlayer(actor.id).unlockGranary) return { ok: false, reason: "unlock granaries via Pottery first" };
-  if (structureType === "BANK" && !actor.techIds.has("coinage")) return { ok: false, reason: "unlock banks via Coinage first" };
-  if (structureType === "AIRPORT" && !actor.techIds.has("aeronautics")) return { ok: false, reason: "unlock airports via Aeronautics first" };
-  if (structureType === "FOUNDRY" && !actor.techIds.has("industrial-extraction")) return { ok: false, reason: "unlock foundries via Industrial Extraction first" };
-  if (structureType === "GOVERNORS_OFFICE" && !actor.techIds.has("civil-service")) return { ok: false, reason: "unlock governor's offices via Civil Service first" };
-  if (structureType === "RADAR_SYSTEM" && !actor.techIds.has("radar")) return { ok: false, reason: "unlock radar systems via Radar first" };
-  if (structureType === "FUR_SYNTHESIZER" && !actor.techIds.has("workshops")) return { ok: false, reason: "unlock fur synthesizers via Workshops first" };
-  if (structureType === "IRONWORKS" && !actor.techIds.has("alchemy")) return { ok: false, reason: "unlock ironworks via Alchemy first" };
-  if (structureType === "CRYSTAL_SYNTHESIZER" && !actor.techIds.has("crystal-lattices")) return { ok: false, reason: "unlock crystal synthesizers via Crystal Lattices first" };
-  if (
-    (structureType === "ADVANCED_FUR_SYNTHESIZER" || structureType === "ADVANCED_IRONWORKS" || structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") &&
-    !getPlayerEffectsForPlayer(actor.id).unlockAdvancedSynthesizers
-  ) {
-    return { ok: false, reason: "unlock advanced synthesizers via Advanced Synthetication first" };
-  }
-  if (structureType === "FUEL_PLANT" && !actor.techIds.has("plastics")) return { ok: false, reason: "unlock fuel plants via Plastics first" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
-  const goldCost = structureBuildGoldCost(structureType, ownedStructureCountForPlayer(actor.id, structureType));
-
-  if (structureType === "FARMSTEAD") {
-    if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for farmstead" };
-    if (!consumeStrategicResource(actor, "FOOD", FARMSTEAD_BUILD_FOOD_COST)) return { ok: false, reason: "insufficient FOOD for farmstead" };
-    actor.points -= goldCost;
-  } else if (structureType === "CAMP") {
-    if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for camp" };
-    if (!consumeStrategicResource(actor, "SUPPLY", CAMP_BUILD_SUPPLY_COST)) return { ok: false, reason: "insufficient SUPPLY for camp" };
-    actor.points -= goldCost;
-  } else if (structureType === "MINE") {
-    if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for mine" };
-    const matching = t.resource === "IRON" ? "IRON" : "CRYSTAL";
-    if (!consumeStrategicResource(actor, matching, MINE_BUILD_RESOURCE_COST)) return { ok: false, reason: `insufficient ${matching} for mine` };
-    actor.points -= goldCost;
-  } else {
-    if (structureType === "MARKET") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for market" };
-      if (!consumeStrategicResource(actor, "CRYSTAL", MARKET_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for market" };
-      actor.points -= goldCost;
-    } else if (structureType === "GRANARY") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for granary" };
-      if (!consumeStrategicResource(actor, "FOOD", GRANARY_BUILD_FOOD_COST)) return { ok: false, reason: "insufficient FOOD for granary" };
-      actor.points -= goldCost;
-    } else if (structureType === "BANK") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for bank" };
-      if (!consumeStrategicResource(actor, "CRYSTAL", BANK_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for bank" };
-      actor.points -= goldCost;
-    } else if (structureType === "CARAVANARY") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for caravanary" };
-      if (!consumeStrategicResource(actor, "CRYSTAL", CARAVANARY_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for caravanary" };
-      actor.points -= goldCost;
-    } else if (structureType === "FUR_SYNTHESIZER") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fur synthesizer" };
-      actor.points -= goldCost;
-    } else if (structureType === "ADVANCED_FUR_SYNTHESIZER") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for advanced fur synthesizer" };
-      actor.points -= goldCost;
-      if (!consumeStrategicResource(actor, "SUPPLY", 40)) return { ok: false, reason: "insufficient SUPPLY for advanced fur synthesizer" };
-    } else if (structureType === "IRONWORKS") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for ironworks" };
-      actor.points -= goldCost;
-    } else if (structureType === "ADVANCED_IRONWORKS") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for advanced ironworks" };
-      actor.points -= goldCost;
-      if (!consumeStrategicResource(actor, "IRON", 40)) return { ok: false, reason: "insufficient IRON for advanced ironworks" };
-    } else if (structureType === "CRYSTAL_SYNTHESIZER") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for crystal synthesizer" };
-      actor.points -= goldCost;
-    } else if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for advanced crystal synthesizer" };
-      actor.points -= goldCost;
-      if (!consumeStrategicResource(actor, "CRYSTAL", 40)) return { ok: false, reason: "insufficient CRYSTAL for advanced crystal synthesizer" };
-    } else if (structureType === "WOODEN_FORT") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for wooden fort" };
-      actor.points -= goldCost;
-    } else if (structureType === "LIGHT_OUTPOST") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for light outpost" };
-      actor.points -= goldCost;
-    } else if (structureType === "FUEL_PLANT") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fuel plant" };
-      actor.points -= goldCost;
-    } else if (structureType === "FOUNDRY") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for foundry" };
-      actor.points -= goldCost;
-    } else if (structureType === "GARRISON_HALL") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for garrison hall" };
-      if (!consumeStrategicResource(actor, "CRYSTAL", GARRISON_HALL_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for garrison hall" };
-      actor.points -= goldCost;
-    } else if (structureType === "CUSTOMS_HOUSE") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for customs house" };
-      if (!consumeStrategicResource(actor, "CRYSTAL", CUSTOMS_HOUSE_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for customs house" };
-      actor.points -= goldCost;
-    } else if (structureType === "GOVERNORS_OFFICE") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for governor's office" };
-      actor.points -= goldCost;
-    } else if (structureType === "RADAR_SYSTEM") {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for radar system" };
-      if (!consumeStrategicResource(actor, "CRYSTAL", RADAR_SYSTEM_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for radar system" };
-      actor.points -= goldCost;
-    } else {
-      if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for airport" };
-      if (!consumeStrategicResource(actor, "CRYSTAL", AIRPORT_BUILD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for airport" };
-      actor.points -= goldCost;
-    }
-  }
-
-  recalcPlayerDerived(actor);
-  const buildMs = economicStructureBuildDurationMs(structureType);
-  const completesAt = now() + buildMs;
-  if (baseSynthTypeForAdvanced(structureType)) untrackOwnedTileKey(economicStructureTileKeysByPlayer, actor.id, tk);
-  economicStructuresByTile.set(tk, {
-    id: crypto.randomUUID(),
-    type: structureType,
-    tileKey: tk,
-    ownerId: actor.id,
-    status: "under_construction",
-    completesAt,
-    nextUpkeepAt: completesAt + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS
-  });
-  markSummaryChunkDirtyAtTile(t.x, t.y);
-  trackOwnedTileKey(economicStructureTileKeysByPlayer, actor.id, tk);
-  recordTileStructureHistory(tk, structureType);
-  const timer = setTimeout(() => {
-    const current = economicStructuresByTile.get(tk);
-    if (!current) return;
-    const tileNow = runtimeTileCore(t.x, t.y);
-    const ownsActiveSite =
-      current.type === "FOUNDRY"
-        ? tileNow.ownerId === actor.id && tileNow.terrain === "LAND"
-        : isLightCombatStructureType(current.type)
-          ? tileNow.ownerId === actor.id && tileNow.terrain === "LAND"
-        : tileNow.ownerId === actor.id && tileNow.ownershipState === "SETTLED";
-    if (!ownsActiveSite) {
-      cancelEconomicStructureBuild(tk);
-      return;
-    }
-    current.status = "active";
-    delete current.inactiveReason;
-    delete current.completesAt;
-    economicStructureBuildTimers.delete(tk);
-    markSummaryChunkDirtyAtTile(t.x, t.y);
-    if (current.type === "AIRPORT") discoverOilFieldNearAirport(actor.id, tk);
-    updateOwnership(t.x, t.y, actor.id);
-  }, buildMs);
-  economicStructureBuildTimers.set(tk, timer);
-  return { ok: true };
-};
-
-const syncEconomicStructuresForPlayer = (player: Player): Set<TileKey> => {
-  const touched = new Set<TileKey>();
-  const stock = getOrInitStrategicStocks(player.id);
-  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
-    const structure = economicStructuresByTile.get(tk);
-    if (!structure) continue;
-    if (structure.status === "under_construction" || structure.status === "removing") continue;
-    if (structure.disabledUntil && structure.disabledUntil > now()) {
-      structure.status = "inactive";
-      touched.add(tk);
-      continue;
-    }
-    if (structure.disabledUntil && structure.disabledUntil <= now()) delete structure.disabledUntil;
-    const [x, y] = parseKey(tk);
-    const tile = playerTile(x, y);
-    const canRemainActive =
-      structure.type === "FOUNDRY"
-        ? tile.ownerId === player.id && tile.terrain === "LAND"
-        : isLightCombatStructureType(structure.type)
-          ? tile.ownerId === player.id && tile.terrain === "LAND"
-        : tile.ownerId === player.id && tile.ownershipState === "SETTLED";
-    if (!canRemainActive) {
-      structure.status = "inactive";
-      touched.add(tk);
-      continue;
-    }
-    if (isConverterStructureType(structure.type) && structure.status === "inactive" && structure.inactiveReason) {
-      touched.add(tk);
-      continue;
-    }
-    if (!economicStructureUpkeepDue(structure)) continue;
-    if (structure.type === "MARKET" || structure.type === "BANK") {
-      const crystalUpkeep =
-        (structure.type === "MARKET" ? MARKET_CRYSTAL_UPKEEP : BANK_CRYSTAL_UPKEEP) * getPlayerEffectsForPlayer(player.id).marketCrystalUpkeepMult;
-      if ((stock.CRYSTAL ?? 0) >= crystalUpkeep) {
-        stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - crystalUpkeep);
-        structure.status = "active";
-      } else {
-        structure.status = "inactive";
-      }
-    } else {
-      const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
-      if (player.points >= upkeep) {
-        player.points = Math.max(0, player.points - upkeep);
-        if (structure.type !== "AIRPORT") {
-          structure.status = "active";
-          delete structure.inactiveReason;
-        }
-      } else {
-        if (structure.type !== "AIRPORT") {
-          structure.status = "inactive";
-          if (isConverterStructureType(structure.type)) structure.inactiveReason = "upkeep";
-        }
-      }
-    }
-    structure.nextUpkeepAt = now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;
-    touched.add(tk);
-  }
-  return touched;
-};
-
-const applyUpkeepForPlayer = (player: Player): { touchedTileKeys: Set<TileKey> } => {
-  const stock = getOrInitStrategicStocks(player.id);
-  syncObservatoriesForPlayer(player.id, true);
-  const upkeep = upkeepPerMinuteForPlayer(player);
-  const touchedTileKeys = new Set<TileKey>();
-  const diag = emptyUpkeepDiagnostics();
-  const availableFoodBeforeUpkeep = Math.max(0, stock.FOOD ?? 0) + availableYieldStrategicForPlayer(player, "FOOD");
-  const foodFeedingState = computeTownFeedingState(player.id, availableFoodBeforeUpkeep);
-
-  const payResource = (resource: StrategicResource, needRaw: number): UpkeepBreakdown => {
-    const need = Math.max(0, needRaw);
-    const fromYield = consumeYieldStrategicForPlayer(player, resource, need, touchedTileKeys);
-    const afterYield = Math.max(0, need - fromYield);
-    const have = Math.max(0, stock[resource] ?? 0);
-    const fromStock = Math.min(afterYield, have);
-    stock[resource] = Math.max(0, have - fromStock);
-    const remaining = Math.max(0, need - fromYield - fromStock);
-    return { need, fromYield, fromStock, remaining, contributors: [] };
-  };
-
-  diag.food = payResource("FOOD", upkeep.food);
-  diag.iron = payResource("IRON", upkeep.iron);
-  diag.supply = payResource("SUPPLY", upkeep.supply);
-  diag.crystal = payResource("CRYSTAL", upkeep.crystal);
-  diag.oil = payResource("OIL", upkeep.oil);
-  const upkeepContributors = upkeepContributorsForPlayer(player);
-  diag.food.contributors = upkeepContributors.food;
-  diag.iron.contributors = upkeepContributors.iron;
-  diag.supply.contributors = upkeepContributors.supply;
-  diag.crystal.contributors = upkeepContributors.crystal;
-  diag.oil.contributors = upkeepContributors.oil;
-  diag.foodCoverage = foodFeedingState.foodCoverage;
-  foodUpkeepCoverageByPlayer.set(player.id, diag.foodCoverage);
-  townFeedingStateByPlayer.set(player.id, foodFeedingState);
-
-  if (diag.crystal.need > 0 && diag.crystal.remaining > 0) {
-    const activeReveals = revealedEmpireTargetsByPlayer.get(player.id);
-    if (activeReveals && activeReveals.size > 0) {
-      activeReveals.clear();
-      sendToPlayer(player.id, { type: "REVEAL_EMPIRE_UPDATE", activeTargets: [] });
-    }
-    syncObservatoriesForPlayer(player.id, false);
-    for (const [tk, observatory] of observatoriesByTile) {
-      if (observatory.ownerId === player.id) touchedTileKeys.add(tk);
-    }
-  } else {
-    syncObservatoriesForPlayer(player.id, true);
-    for (const [tk, observatory] of observatoriesByTile) {
-      if (observatory.ownerId === player.id) touchedTileKeys.add(tk);
-    }
-  }
-
-  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
-    const structure = economicStructuresByTile.get(tk);
-    if (!structure || structure.type !== "AIRPORT" || structure.status === "under_construction") continue;
-    const nextStatus = diag.oil.need > 0 && diag.oil.remaining > 0 ? "inactive" : "active";
-    if (structure.status !== nextStatus) {
-      structure.status = nextStatus;
-      touchedTileKeys.add(tk);
-    }
-  }
-
-  const goldNeed = Math.max(0, upkeep.gold);
-  const goldFromYield = consumeYieldGoldForPlayer(player, goldNeed, touchedTileKeys);
-  const goldAfterYield = Math.max(0, goldNeed - goldFromYield);
-  const goldFromWallet = Math.min(goldAfterYield, Math.max(0, player.points));
-  player.points = Math.max(0, player.points - goldFromWallet);
-  diag.gold = {
-    need: goldNeed,
-    fromYield: goldFromYield,
-    fromStock: goldFromWallet,
-    remaining: Math.max(0, goldNeed - goldFromYield - goldFromWallet),
-    contributors: upkeepContributors.gold
-  };
-
-  lastUpkeepByPlayer.set(player.id, diag);
-  return { touchedTileKeys };
-};
-
-const accumulatePassiveIncomeForPlayer = (player: Player): void => {
-  const economyIndex = getOrInitEconomyIndex(player.id);
-  for (const tk of economyIndex.settledResourceTileKeys) {
-    const [x, y] = parseKey(tk);
-    const resource = applyClusterResources(x, y, resourceAt(x, y));
-    if (!resource) continue;
-    const siphon = activeSiphonAt(tk);
-    const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
-    const goldBase = (resourceRate[resource] ?? 0) * player.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
-    const goldDelta = goldBase * ownerMult;
-    const strategic: Partial<Record<StrategicResource, number>> = {};
-    const sr = toStrategicResource(resource);
-    if (sr) {
-      strategic[sr] =
-        (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(player.id, resource) * HARVEST_RESOURCE_RATE_MULT * ownerMult;
-    }
-    if (siphon) {
-      const siphonedStrategic: Partial<Record<StrategicResource, number>> = {};
-      if (sr) {
-        siphonedStrategic[sr] =
-          (strategicDailyFromResource[resource] ?? 0) * activeResourceIncomeMult(player.id, resource) * HARVEST_RESOURCE_RATE_MULT * SIPHON_SHARE;
-      }
-      addToSiphonCache(siphon.casterPlayerId, tk, goldBase * SIPHON_SHARE, siphonedStrategic, siphon.endsAt);
-    }
-    if (goldDelta > 0 || hasPositiveStrategicBuffer(strategic)) addTileYield(tk, goldDelta, strategic);
-  }
-  for (const tk of economyIndex.settledDockTileKeys) {
-    const dock = docksByTile.get(tk);
-    if (!dock) continue;
-    const goldDelta = dockIncomeForOwner(dock, player.id) * player.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
-    if (goldDelta > 0) addTileYield(tk, goldDelta, undefined);
-  }
-  for (const tk of economyIndex.settledTownTileKeys) {
-    const town = townsByTile.get(tk);
-    if (!town) continue;
-    const siphon = activeSiphonAt(tk);
-    const ownerMult = siphon ? 1 - SIPHON_SHARE : 1;
-    const townGoldBase = townIncomeForOwner(town, player.id) * player.mods.income * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT;
-    const goldDelta = townGoldBase * ownerMult;
-    if (siphon) {
-      addToSiphonCache(
-        siphon.casterPlayerId,
-        tk,
-        townGoldBase * SIPHON_SHARE,
-        {},
-        siphon.endsAt
-      );
-    }
-    if (goldDelta > 0) addTileYield(tk, goldDelta, undefined);
-  }
-  for (const tk of economicStructureTileKeysByPlayer.get(player.id) ?? []) {
-    const structure = economicStructuresByTile.get(tk);
-    if (!structure || structure.ownerId !== player.id || structure.status !== "active") continue;
-    const strategicDaily = converterStructureOutputFor(structure.type, structure.ownerId);
-    if (!strategicDaily) continue;
-    const strategic: Partial<Record<StrategicResource, number>> = {};
-    for (const [resource, amount] of Object.entries(strategicDaily) as Array<[StrategicResource, number]>) {
-      strategic[resource] = amount * HARVEST_RESOURCE_RATE_MULT;
-    }
-    if (hasPositiveStrategicBuffer(strategic)) addTileYield(tk, 0, strategic);
-  }
-};
-
-const addTileYield = (tileKey: TileKey, goldDelta: number, strategicDelta?: Partial<Record<StrategicResource, number>>): void => {
-  const y = getOrInitTileYield(tileKey);
-  const ownerId = ownership.get(tileKey);
-  const caps = tileYieldCapsFor(tileKey, ownerId);
-  const goldCap = caps.gold;
-  const resourceCap = caps.strategicEach;
-  if (goldDelta > 0) y.gold = Math.min(goldCap, y.gold + goldDelta);
-  if (strategicDelta) {
-    for (const [r, v] of Object.entries(strategicDelta) as Array<[StrategicResource, number]>) {
-      if (v <= 0) continue;
-      y.strategic[r] = Math.min(resourceCap, (y.strategic[r] ?? 0) + v);
-    }
-  }
 };
 
 const getOrInitDynamicMissions = (playerId: string): DynamicMissionDef[] => {
@@ -4438,6 +3540,16 @@ const activeResourceIncomeMult = (playerId: string, resource: ResourceType): num
   const buff = temporaryIncomeBuffUntilByPlayer.get(playerId);
   if (!buff || buff.until <= now()) return permanent;
   return permanent * (buff.resources.includes(resource) ? RESOURCE_CHAIN_MULT : 1);
+};
+
+const fortRecoveryReadyAt = (fort: Pick<Fort, "disabledUntil">): number => fort.disabledUntil ?? 0;
+
+const fortOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => {
+  const fort = fortsByTile.get(tileKey);
+  if (!fort || fort.ownerId !== ownerId || fort.status !== "active") return false;
+  const [x, y] = parseKey(tileKey);
+  if (terrainAtRuntime(x, y) !== "LAND" || ownership.get(tileKey) !== ownerId) return false;
+  return fortRecoveryReadyAt(fort) <= now();
 };
 
 const fortDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
