@@ -55,4 +55,11 @@ describe("login and frontier retry regression guard", () => {
     const occurrences = [...source.matchAll(/requestViewRefresh\(1, true\);/g)].length;
     expect(occurrences).toBeGreaterThanOrEqual(3);
   });
+
+  it("forces a nearby refresh and warning alert when combat start or result goes missing for attacks", () => {
+    const source = clientSource("./client-runtime-loop.ts");
+    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");');
+    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");');
+    expect(source).toContain('showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");');
+  });
 });

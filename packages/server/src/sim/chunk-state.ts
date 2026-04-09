@@ -140,13 +140,14 @@ export const createSimulationChunkState = (deps: CreateSimulationChunkStateDeps)
     if (breachShock && breachShock.expiresAt > deps.now() && ownerId === breachShock.ownerId) tile.breachShockUntil = breachShock.expiresAt;
     if (town && !bootstrapMode) tile.town = mode === "thin" ? deps.thinTownSummaryForTile(town, ownerId) : deps.townSummaryForTile(town, ownerId);
     if (fort && !bootstrapMode) {
-      const fortView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number } = {
+      const fortView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number; disabledUntil?: number } = {
         ownerId: fort.ownerId,
         status: fort.status
       };
       if ((fort.status === "under_construction" || fort.status === "removing") && fort.completesAt !== undefined) {
         fortView.completesAt = fort.completesAt;
       }
+      if (fort.disabledUntil !== undefined) fortView.disabledUntil = fort.disabledUntil;
       tile.fort = fortView;
     }
     if (observatory && !bootstrapMode) {
