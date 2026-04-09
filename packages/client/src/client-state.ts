@@ -104,6 +104,7 @@ export const createInitialState = () => ({
   } as { cap: Array<{ label: string; amount: number; note?: string }>; regen: Array<{ label: string; amount: number; note?: string }> },
   availableTechPicks: 0,
   developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
+  activeDevelopmentProcessCount: 0,
   defensibilityPct: 100,
   territoryT: 1,
   exposureE: 4,

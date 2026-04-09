@@ -38,6 +38,7 @@ describe("development queue helpers", () => {
     const state = createInitialState();
     state.me = "me";
     state.developmentProcessLimit = 4;
+    state.activeDevelopmentProcessCount = 1;
     state.settleProgressByTile.set("2,2", { startAt: 0, resolvesAt: 10_000, target: { x: 2, y: 2 } });
 
     const summary = developmentSlotSummary(state, {
@@ -45,10 +46,29 @@ describe("development queue helpers", () => {
         expect([...tiles]).toHaveLength(0);
         expect(ownerId).toBe("me");
         expect(activeSettlements).toBe(1);
-        return 1;
+        return 99;
       }
     });
 
     expect(summary).toEqual({ busy: 1, limit: 4, available: 3 });
+  });
+
+  it("falls back to the local tile scan when no authoritative busy count is available", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.developmentProcessLimit = 4;
+    state.activeDevelopmentProcessCount = undefined as unknown as number;
+    state.settleProgressByTile.set("2,2", { startAt: 0, resolvesAt: 10_000, target: { x: 2, y: 2 } });
+
+    const summary = developmentSlotSummary(state, {
+      busyDevelopmentProcessCount: (tiles, ownerId, activeSettlements) => {
+        expect([...tiles]).toHaveLength(0);
+        expect(ownerId).toBe("me");
+        expect(activeSettlements).toBe(1);
+        return 2;
+      }
+    });
+
+    expect(summary).toEqual({ busy: 2, limit: 4, available: 2 });
   });
 });
