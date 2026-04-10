@@ -125,4 +125,35 @@ describe("client optimistic state", () => {
     expect(merged.ownershipState).toBe("SETTLED");
     expect(merged.town?.populationTier).toBe("SETTLEMENT");
   });
+
+  it("preserves tile upkeep entries when a summary delta arrives after full detail", () => {
+    const existing = baseTile({
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      detailLevel: "full",
+      upkeepEntries: [
+        { label: "Settled land", perMinute: { GOLD: 0.04 } },
+        { label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } }
+      ]
+    });
+    const state = {
+      me: "me",
+      selected: undefined,
+      tiles: new Map<string, Tile>([["12,18", existing]]),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>()
+    } as any;
+
+    const { mergeIncomingTileDetail } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible"
+    });
+
+    const merged = mergeIncomingTileDetail(existing, baseTile({ ownerId: "me", ownershipState: "SETTLED", detailLevel: "summary" }));
+
+    expect(merged.detailLevel).toBe("full");
+    expect(merged.upkeepEntries).toEqual(existing.upkeepEntries);
+  });
 });
