@@ -76,7 +76,7 @@ export interface TechEffects {
   dockGoldCapMult?: number;
   dockConnectionBonusPerLink?: number;
   dockRoutesVisible?: boolean;
-  marketCrystalUpkeepMult?: number;
+  supportEconomicFoodUpkeepMult?: number;
   frontierDefenseAdd?: number;
   settledDefenseMult?: number;
   attackVsSettledMult?: number;
@@ -188,7 +188,7 @@ const TechEffectsSchema = z
     dockGoldCapMult: z.number().positive().optional(),
     dockConnectionBonusPerLink: z.number().nonnegative().optional(),
     dockRoutesVisible: z.boolean().optional(),
-    marketCrystalUpkeepMult: z.number().positive().optional(),
+    supportEconomicFoodUpkeepMult: z.number().positive().optional(),
     frontierDefenseAdd: z.number().nonnegative().optional(),
     settledDefenseMult: z.number().positive().optional(),
     attackVsSettledMult: z.number().positive().optional(),
