@@ -1183,8 +1183,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;
         if ("town" in normalizedUpdate && !normalizedUpdate.town) delete merged.town;
-        if (normalizedUpdate.fort !== undefined) merged.fort = normalizedUpdate.fort;
-        if (!normalizedUpdate.fort) delete merged.fort;
+        if ("fort" in normalizedUpdate) {
+          if (normalizedUpdate.fort) merged.fort = normalizedUpdate.fort;
+          else delete merged.fort;
+        }
         if ("observatory" in normalizedUpdate) {
           if (normalizedUpdate.observatory) merged.observatory = normalizedUpdate.observatory;
           else delete merged.observatory;
@@ -1193,8 +1195,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (normalizedUpdate.economicStructure) merged.economicStructure = normalizedUpdate.economicStructure;
           else delete merged.economicStructure;
         }
-        if (normalizedUpdate.siegeOutpost !== undefined) merged.siegeOutpost = normalizedUpdate.siegeOutpost;
-        if (!normalizedUpdate.siegeOutpost) delete merged.siegeOutpost;
+        if ("siegeOutpost" in normalizedUpdate) {
+          if (normalizedUpdate.siegeOutpost) merged.siegeOutpost = normalizedUpdate.siegeOutpost;
+          else delete merged.siegeOutpost;
+        }
         if ("sabotage" in normalizedUpdate) {
           if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;
           else delete merged.sabotage;
