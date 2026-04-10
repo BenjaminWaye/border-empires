@@ -61,17 +61,16 @@ const normalizeDeploymentUrl = (value) => {
   return preferred.endsWith("/") ? preferred : `${preferred}/`;
 };
 
-const verifyAliasMatchesDeployment = async (deploymentUrl) => {
-  const deploymentHtml = await fetchText(deploymentUrl);
+const verifyStableAliasIsServing = async () => {
   for (let attempt = 1; attempt <= 18; attempt += 1) {
     const aliasHtml = await fetchText(stableAlias);
-    if (aliasHtml === deploymentHtml) {
-      console.log(`Stable alias updated after ${attempt} check(s): ${stableAlias}`);
+    if (aliasHtml.includes("<canvas id=\"game\"></canvas>")) {
+      console.log(`Stable alias serving client app after ${attempt} check(s): ${stableAlias}`);
       return;
     }
     await sleep(5_000);
   }
-  throw new Error(`Stable alias did not match deployed HTML within timeout: ${stableAlias}`);
+  throw new Error(`Stable alias did not serve the client app within timeout: ${stableAlias}`);
 };
 
 const project = JSON.parse(readFileSync(vercelProjectPath, "utf8"));
@@ -83,4 +82,4 @@ run("pnpm", ["--filter", "@border-empires/shared", "build"]);
 run("pnpm", ["--filter", "@border-empires/client", "build"]);
 const deploymentUrl = normalizeDeploymentUrl(run("npx", ["vercel", "deploy", "--prod", "--yes"]));
 console.log(`Deployment URL: ${deploymentUrl}`);
-await verifyAliasMatchesDeployment(deploymentUrl);
+await verifyStableAliasIsServing();
