@@ -24,6 +24,14 @@ export const attackSyncLog = (event: string, payload: Record<string, unknown>): 
   console.info(`[attack-sync] ${event}`, payload);
 };
 
+export const verboseTileDebugEnabled = (): boolean => {
+  try {
+    return window.localStorage.getItem("tile-debug-verbose") === "1";
+  } catch {
+    return false;
+  }
+};
+
 const normalizeTileKey = (value: string | null): string => {
   if (!value) return "";
   const trimmed = value.trim();

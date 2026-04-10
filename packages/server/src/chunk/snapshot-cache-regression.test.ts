@@ -160,7 +160,8 @@ describe("chunk snapshot cache regression guard", () => {
       },
       serializeChunkBatchDirect: (inputs) =>
         inputs.map((input) => JSON.stringify({ cx: input.cx, cy: input.cy, visible: [...input.visibleMask], direct: true })),
-      serializeChunkBatchBodies: (chunkBodies) => JSON.stringify({ type: "CHUNK_BATCH", chunks: chunkBodies.map((body) => JSON.parse(body)) }),
+      serializeChunkBatchBodies: (generation, chunkBodies) =>
+        JSON.stringify({ type: "CHUNK_BATCH", generation, chunks: chunkBodies.map((body) => JSON.parse(body)) }),
       runtimeLoadShedLevel: () => "normal"
     });
 

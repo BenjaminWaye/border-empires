@@ -574,6 +574,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
+    state.lastChunkSnapshotGeneration = 0;
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Connection lost. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
@@ -604,6 +605,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
+    state.lastChunkSnapshotGeneration = 0;
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Server unreachable. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
@@ -619,6 +621,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    const shouldApplyChunkGeneration = (generation: unknown): boolean => {
+      if (typeof generation !== "number" || !Number.isFinite(generation)) return true;
+      if (generation < state.lastChunkSnapshotGeneration) {
+        attackSyncLog("chunk-generation-ignored", {
+          incomingGeneration: generation,
+          lastChunkSnapshotGeneration: state.lastChunkSnapshotGeneration
+        });
+        return false;
+      }
+      if (generation > state.lastChunkSnapshotGeneration) {
+        attackSyncLog("chunk-generation-advance", {
+          previousGeneration: state.lastChunkSnapshotGeneration,
+          nextGeneration: generation
+        });
+        state.lastChunkSnapshotGeneration = generation;
+      }
+      return true;
+    };
     if (msg.type === "COMBAT_START" || msg.type === "COMBAT_RESULT" || msg.type === "ERROR") {
       const currentTarget = state.actionCurrent ? { x: state.actionCurrent.x, y: state.actionCurrent.y } : undefined;
       attackSyncLog("message", {
@@ -663,6 +683,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.lastSubCx = Number.NaN;
       state.lastSubCy = Number.NaN;
       state.lastSubRadius = -1;
+      state.lastChunkSnapshotGeneration = 0;
       state.fogDisabled = Boolean(((msg.config as { fogDisabled?: boolean } | undefined) ?? {}).fogDisabled);
       const player = msg.player as Record<string, unknown>;
       state.me = player.id as string;
@@ -850,11 +871,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "CHUNK_FULL") {
+      if (!shouldApplyChunkGeneration(msg.generation)) return;
       applyChunkTiles(msg.tilesMaskedByFog as any[]);
       return;
     }
 
     if (msg.type === "CHUNK_BATCH") {
+      if (!shouldApplyChunkGeneration(msg.generation)) return;
       const chunks = (msg.chunks as Array<{ cx: number; cy: number; tilesMaskedByFog: any[] }>) ?? [];
       for (const chunk of chunks) applyChunkTiles(chunk.tilesMaskedByFog);
       return;
@@ -1764,6 +1787,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;
       state.chunkFullCount = 0;
+      state.lastChunkSnapshotGeneration = 0;
       state.hasOwnedTileInCache = false;
       state.dockRouteCache.clear();
       pushFeed(

@@ -410,6 +410,7 @@ export const createInitialState = () => ({
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,
   lastSubAt: 0,
+  lastChunkSnapshotGeneration: 0,
   dockPairs: [] as DockPair[],
   dockRouteCache: new Map<string, Array<{ x: number; y: number }>>(),
   discoveredDockTiles: new Set<string>(),
