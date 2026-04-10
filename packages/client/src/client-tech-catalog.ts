@@ -21,7 +21,10 @@ const sanitizeTechCatalogEntry = (value: unknown): TechInfo | null => {
       ? (value.requirements.resources as TechInfo["requirements"]["resources"])
       : {};
     if (Array.isArray(value.requirements.checklist)) {
-      requirements.checklist = value.requirements.checklist as TechInfo["requirements"]["checklist"];
+      requirements.checklist = value.requirements.checklist.map((entry) => ({
+        label: String((entry as { label?: unknown }).label ?? ""),
+        met: Boolean((entry as { met?: unknown }).met)
+      }));
     }
     if (typeof value.requirements.canResearch === "boolean") {
       requirements.canResearch = value.requirements.canResearch;
@@ -30,24 +33,25 @@ const sanitizeTechCatalogEntry = (value: unknown): TechInfo | null => {
     requirements.checklist = [];
     requirements.canResearch = false;
   }
-  return {
+  const tech: TechInfo = {
     id,
     tier: typeof value.tier === "number" && Number.isFinite(value.tier) ? value.tier : 1,
     name,
     description,
     mods: isRecord(value.mods) ? (value.mods as TechInfo["mods"]) : {},
     requirements,
-    ...(typeof value.rootId === "string" && value.rootId.trim().length > 0 ? { rootId: value.rootId } : {}),
-    ...(typeof value.requires === "string" && value.requires.trim().length > 0 ? { requires: value.requires } : {}),
-    ...(Array.isArray(value.prereqIds) ? { prereqIds: value.prereqIds.filter((item): item is string => typeof item === "string" && item.length > 0) } : {}),
-    ...(typeof value.researchTimeSeconds === "number" ? { researchTimeSeconds: value.researchTimeSeconds } : {}),
-    ...(isRecord(value.effects) ? { effects: value.effects as TechInfo["effects"] } : {}),
-    ...(isRecord(value.grantsPowerup) &&
-    typeof value.grantsPowerup.id === "string" &&
-    typeof value.grantsPowerup.charges === "number"
-      ? { grantsPowerup: { id: value.grantsPowerup.id, charges: value.grantsPowerup.charges } }
-      : {})
   };
+  if (typeof value.rootId === "string" && value.rootId.trim().length > 0) tech.rootId = value.rootId;
+  if (typeof value.requires === "string" && value.requires.trim().length > 0) tech.requires = value.requires;
+  if (Array.isArray(value.prereqIds)) {
+    tech.prereqIds = value.prereqIds.filter((item): item is string => typeof item === "string" && item.length > 0);
+  }
+  if (typeof value.researchTimeSeconds === "number") tech.researchTimeSeconds = value.researchTimeSeconds;
+  if (isRecord(value.effects)) tech.effects = value.effects;
+  if (isRecord(value.grantsPowerup) && typeof value.grantsPowerup.id === "string" && typeof value.grantsPowerup.charges === "number") {
+    tech.grantsPowerup = { id: value.grantsPowerup.id, charges: value.grantsPowerup.charges };
+  }
+  return tech;
 };
 
 const placeholderTechInfo = (id: string): TechInfo => ({
