@@ -97,6 +97,7 @@ describe("createChunkSnapshotController", () => {
       authSyncTimingByPlayer: new Map(),
       fogChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
       summaryChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
+      summaryChunkVersion: () => 0,
       loadSummaryChunkTilesBatch: async (requests) => requests.map(({ cx, cy }) => [makeTile(cx, cy)]),
       visibleInSnapshot: () => true,
       wrapX: (value) => value,
@@ -105,7 +106,7 @@ describe("createChunkSnapshotController", () => {
       worldHeight: 32,
       serializeChunkBatchViaWorker: async (inputs) => inputs.map((input) => `worker:${input.cx},${input.cy}`),
       serializeChunkBatchDirect: (inputs) => inputs.map((input) => `direct:${input.cx},${input.cy}`),
-      serializeChunkBatchBodies: (chunkBodies) => chunkBodies.join("|"),
+      serializeChunkBatchBodies: (_generation, chunkBodies) => chunkBodies.join("|"),
       runtimeLoadShedLevel: () => "hard"
     });
 
@@ -170,6 +171,7 @@ describe("createChunkSnapshotController", () => {
         nowMs += 6;
         return [makeTile(worldCx, worldCy)];
       },
+      summaryChunkVersion: () => 0,
       loadSummaryChunkTilesBatch: async (requests) => {
         return requests.map(({ cx, cy }) => [makeTile(cx, cy)]);
       },
@@ -180,7 +182,7 @@ describe("createChunkSnapshotController", () => {
       worldHeight: 32,
       serializeChunkBatchViaWorker: async (inputs) => inputs.map((input) => `worker:${input.cx},${input.cy}`),
       serializeChunkBatchDirect: (inputs) => inputs.map((input) => `direct:${input.cx},${input.cy}`),
-      serializeChunkBatchBodies: (chunkBodies) => chunkBodies.join("|"),
+      serializeChunkBatchBodies: (_generation, chunkBodies) => chunkBodies.join("|"),
       runtimeLoadShedLevel: () => "normal"
     });
 
@@ -237,6 +239,7 @@ describe("createChunkSnapshotController", () => {
       authSyncTimingByPlayer: new Map(),
       fogChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
       summaryChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
+      summaryChunkVersion: () => 0,
       loadSummaryChunkTilesBatch: async (requests) => requests.map(({ cx, cy }) => [makeTile(cx, cy)]),
       visibleInSnapshot: () => true,
       wrapX: (value) => value,
@@ -245,7 +248,7 @@ describe("createChunkSnapshotController", () => {
       worldHeight: 32,
       serializeChunkBatchViaWorker: async (inputs) => inputs.map((input) => `worker:${input.cx},${input.cy}`),
       serializeChunkBatchDirect: (inputs) => inputs.map((input) => `direct:${input.cx},${input.cy}`),
-      serializeChunkBatchBodies: (chunkBodies) => chunkBodies.join("|"),
+      serializeChunkBatchBodies: (_generation, chunkBodies) => chunkBodies.join("|"),
       runtimeLoadShedLevel: () => "normal"
     });
 

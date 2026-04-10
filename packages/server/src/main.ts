@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import {
+  aetherWallEdgeKey,
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,
   BARBARIAN_ACTION_INTERVAL_MS,
@@ -9,6 +10,7 @@ import {
   BARBARIAN_CLEAR_GOLD_REWARD,
   BARBARIAN_DEFENSE_POWER,
   BARBARIAN_MULTIPLY_THRESHOLD,
+  buildAetherWallSegments,
   BREAKTHROUGH_ATTACK_MANPOWER_COST,
   BREAKTHROUGH_ATTACK_MANPOWER_MIN,
   CHUNK_SIZE,
@@ -40,6 +42,9 @@ import {
   PVP_REPEAT_FLOOR,
   PVP_REPEAT_WINDOW_MS,
   SEASON_LENGTH_DAYS,
+  type ActiveAetherWallView,
+  type AetherWallDirection,
+  type RevealEmpireStatsView,
   SETTLED_DEFENSE_NEAR_FORT_RADIUS,
   SETTLE_COST,
   SETTLE_MS,
@@ -103,6 +108,10 @@ import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
 import { currentShardRainNotice, nextShardRainStartAt } from "./server-shard-rain.js";
+import { createServerPlayerProgression } from "./server-player-progression.js";
+import { createServerStatusMetrics } from "./server-status-metrics.js";
+import { createServerVictoryPressure } from "./server-victory-pressure.js";
+import { createServerTechDomainRuntime } from "./server-tech-domain-runtime.js";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
 import { z } from "zod";
@@ -164,6 +173,8 @@ import {
 } from "./chunk/snapshots.js";
 import { assignMissingTownNames } from "./town-names.js";
 import { appendPlayerActivityEntry, buildTownActivityEntry } from "./player-activity.js";
+import { createRuntimeIncidentLog } from "./runtime-incident-log.js";
+import { createSnapshotSaveRunner } from "./snapshot-save-runner.js";
 import {
   AI_AUTH_PRIORITY_BATCH_SIZE,
   AI_COMPETITION_CONTEXT_TTL_MS,
@@ -197,6 +208,7 @@ import {
   MAX_SUBSCRIBE_RADIUS,
   NOOP_WS,
   PORT,
+  RUNTIME_INCIDENT_WEBHOOK_URL,
   SIM_COMBAT_TIMEOUT_MS,
   SIM_COMBAT_WORKER_ENABLED,
   SIM_DRAIN_AI_QUOTA,
@@ -236,9 +248,19 @@ import {
   verifiedFirebaseTokenCacheSize,
   verifyFirebaseToken
 } from "./server-auth.js";
+
+const socketUsesLoopback = (socket: Ws): boolean => {
+  const remoteAddress = (socket as Ws & { _socket?: import("node:net").Socket })._socket?.remoteAddress ?? "";
+  return (
+    remoteAddress === "127.0.0.1" ||
+    remoteAddress === "::1" ||
+    remoteAddress === "::ffff:127.0.0.1"
+  );
+};
 import {
   type AbilityDefinition,
   type ActiveAetherBridge,
+  type ActiveAetherWall,
   type ActiveSabotage,
   type ActiveSiphon,
   type ActiveTruce,
@@ -275,6 +297,7 @@ import {
   type VictoryPressureDefinition,
   type VictoryPressureTracker
 } from "./server-shared-types.js";
+import { buildRevealEmpireStatsView } from "./empire-intel.js";
 import {
   type AiActionFailureEntry,
   type AiTurnDebugEntry,
@@ -287,10 +310,11 @@ import {
 } from "./server-effects.js";
 import {
   ABILITY_DEFS,
-  AETHER_BRIDGE_COOLDOWN_MS,
   AETHER_BRIDGE_CRYSTAL_COST,
   AETHER_BRIDGE_DURATION_MS,
   AETHER_BRIDGE_MAX_SEA_TILES,
+  AETHER_WALL_CRYSTAL_COST,
+  AETHER_WALL_DURATION_MS,
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   ADVANCED_IRONWORKS_IRON_PER_DAY,
@@ -417,6 +441,7 @@ import {
   RESOURCE_CHAIN_BUFF_MS,
   RESOURCE_CHAIN_MULT,
   REVEAL_EMPIRE_ACTIVATION_COST,
+  REVEAL_EMPIRE_STATS_CRYSTAL_COST,
   REVEAL_EMPIRE_UPKEEP_PER_MIN,
   SABOTAGE_COOLDOWN_MS,
   SABOTAGE_CRYSTAL_COST,
@@ -1060,6 +1085,7 @@ const cachedChunkSnapshotByPlayer = new Map<
     visibility: VisibilitySnapshot;
     visibilityVersion: number;
     payloadByChunkKey: Map<string, string>;
+    summaryVersionByPayloadKey: Map<string, number>;
     visibilityMaskByChunkKey: Map<string, Uint8Array>;
     visibilityVersionByChunkKey: Map<string, number>;
   }
@@ -1133,6 +1159,8 @@ const revealWatchersByTarget = new Map<string, Set<string>>();
 const siphonByTile = new Map<TileKey, ActiveSiphon>();
 const siphonCacheByPlayer = new Map<string, SiphonCache[]>();
 const activeAetherBridgesById = new Map<string, ActiveAetherBridge>();
+const activeAetherWallsById = new Map<string, ActiveAetherWall>();
+const activeAetherWallIdsByEdgeKey = new Map<string, Set<string>>();
 const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
 const victoryPressureById = new Map<SeasonVictoryPathId, VictoryPressureTracker>();
 const cachedChunkPayloadDiagnostics = (): { payloads: number; approxPayloadMb: number } => {
@@ -1164,6 +1192,12 @@ const maybeLogRuntimeMemoryWatermark = (
       },
       "runtime memory watermark crossed"
     );
+    runtimeIncidentLog.record("memory_watermark", {
+      reason,
+      thresholdMb,
+      ...memory,
+      ...extra
+    });
   }
 };
 const logSnapshotSerializationMemory = (
@@ -1181,6 +1215,12 @@ const logSnapshotSerializationMemory = (
     },
     "snapshot serialization memory"
   );
+  runtimeIncidentLog.record("snapshot_serialization", {
+    stage,
+    elapsedMs: Date.now() - startedAt,
+    ...memory,
+    ...extra
+  });
   maybeLogRuntimeMemoryWatermark(`snapshot:${stage}`, memory, extra);
 };
 const runtimeCollectionDiagnostics = (): Array<{ name: string; entries: number }> => {
@@ -2254,6 +2294,8 @@ const clearWorldProgressForSeason = (): void => {
   siphonByTile.clear();
   siphonCacheByPlayer.clear();
   activeAetherBridgesById.clear();
+  activeAetherWallsById.clear();
+  activeAetherWallIdsByEdgeKey.clear();
   strategicReplayEvents.length = 0;
   shardSitesByTile.clear();
   abilityCooldownsByPlayer.clear();
@@ -3528,6 +3570,12 @@ const settledDefenseNearFortApplies = (defenderId: string, target: Tile): boolea
     if (terrainAtRuntime(x, y) !== "LAND" || ownership.get(tileKey) !== defenderId) continue;
     if (wrappedChebyshevDistance(x, y, target.x, target.y) <= SETTLED_DEFENSE_NEAR_FORT_RADIUS) return true;
   }
+  for (const [tileKey, structure] of economicStructuresByTile) {
+    if (structure.ownerId !== defenderId || structure.status !== "active" || structure.type !== "WOODEN_FORT") continue;
+    const [x, y] = parseKey(tileKey);
+    if (terrainAtRuntime(x, y) !== "LAND" || ownership.get(tileKey) !== defenderId) continue;
+    if (wrappedChebyshevDistance(x, y, target.x, target.y) <= SETTLED_DEFENSE_NEAR_FORT_RADIUS) return true;
+  }
   return false;
 };
 
@@ -3850,6 +3898,12 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       const [x, y] = parseKey(settlement.tileKey);
       return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
     });
+  logTileSync("development_player_update", {
+    playerId: p.id,
+    incomeDelta,
+    pendingSettlements,
+    ...developmentProcessDebugBreakdownForPlayer(p.id)
+  });
   ws.send(
     JSON.stringify({
       type: "PLAYER_UPDATE",
@@ -3900,6 +3954,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
           const [toX, toY] = parseKey(bridge.toTileKey);
           return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
         }),
+      activeAetherWalls: activeAetherWallViews(),
       pendingSettlements,
       incomingAllianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === p.id),
       outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === p.id),
@@ -4046,6 +4101,9 @@ const tryQueueBasicFrontierAction = (
     }
   }
   if (!adjacent && !dockCrossing) return { ok: false, code: "NOT_ADJACENT", message: "target must be adjacent or valid dock crossing" };
+  if (adjacent && !dockCrossing && crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) {
+    return { ok: false, code: "AETHER_WALL_BLOCKED", message: "crossing blocked by aether wall" };
+  }
   if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) return { ok: false, code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" };
   if (from.ownerId !== actor.id) return { ok: false, code: "NOT_OWNER", message: "origin not owned" };
   if (to.terrain !== "LAND") return { ok: false, code: "BARRIER", message: "target is barrier" };
@@ -8509,6 +8567,29 @@ const logExpandTrace = (
   );
 };
 
+const logAttackTrace = (
+  phase: "received" | "queued" | "accepted_ack_sent" | "combat_start_sent" | "result_applied" | "combat_result_sent" | "vision_delta_sent",
+  capture: PendingCapture,
+  extra?: Record<string, unknown>
+): void => {
+  if (capture.actionType !== "ATTACK" && capture.actionType !== "BREAKTHROUGH_ATTACK") return;
+  if (!capture.traceId || typeof capture.startedAt !== "number") return;
+  app.log.info(
+    {
+      traceId: capture.traceId,
+      attackerId: capture.attackerId,
+      actionType: capture.actionType,
+      origin: capture.origin,
+      target: capture.target,
+      phase,
+      elapsedMs: now() - capture.startedAt,
+      resolvesAt: capture.resolvesAt,
+      ...extra
+    },
+    "attack trace"
+  );
+};
+
 const cancelAllBarbarianPendingCaptures = (): void => {
   const uniq = new Set<PendingCapture>();
   for (const lock of combatLocks.values()) {
@@ -8992,6 +9073,7 @@ const {
   runtimeMemoryStats,
   pushChunkSnapshotPerf: (sample) => {
     recentChunkSnapshotPerf.push(sample);
+    runtimeIncidentLog.record("chunk_snapshot", sample);
     if (sample.rssMb >= RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB[0]) {
       app.log.warn(sample, "chunk snapshot memory watermark");
     }
@@ -9027,12 +9109,30 @@ const {
       },
       "auth sync first chunk sent"
     );
+    runtimeIncidentLog.record("auth_sync_first_chunk", {
+      playerId,
+      sinceAuthVerifiedMs: authSync.authVerifiedAt ? authSync.firstChunkSentAt - authSync.authVerifiedAt : undefined,
+      sinceInitSentMs: authSync.initSentAt ? authSync.firstChunkSentAt - authSync.initSentAt : undefined,
+      sinceFirstSubscribeMs: authSync.firstSubscribeAt ? authSync.firstChunkSentAt - authSync.firstSubscribeAt : undefined,
+      chunkCount,
+      tileCount,
+      radius
+    });
   },
   onSlowChunkSnapshot: ({ playerId, elapsedMs, chunks, tiles, radius, phases, memory }) => {
     app.log.warn(
       { playerId, elapsedMs, chunks, tiles, radius, ...phases, ...memory },
       "slow chunk snapshot"
     );
+    runtimeIncidentLog.record("slow_chunk_snapshot", {
+      playerId,
+      elapsedMs,
+      chunks,
+      tiles,
+      radius,
+      ...phases,
+      ...memory
+    });
   },
   visibilitySnapshotForPlayer,
   cachedChunkSnapshotByPlayer,
@@ -9074,6 +9174,8 @@ const {
     return tiles;
   },
   summaryChunkTiles,
+  summaryChunkVersion: (worldCx, worldCy) =>
+    simulationChunkState.summaryChunkVersionByChunkKey.get(`${worldCx},${worldCy}`) ?? 0,
   loadSummaryChunkTilesBatch: (requests) => chunkReadManager.loadBatch(requests),
   visibleInSnapshot,
   wrapX,
@@ -9086,422 +9188,88 @@ const {
   runtimeLoadShedLevel
 });
 
-const hasActiveResearch = (player: Player): boolean => Boolean(player.currentResearch && player.currentResearch.completesAt > now());
-
-const availableTechPicks = (player: Player): number => {
-  return hasActiveResearch(player) ? 0 : 1;
-};
-
-const defaultMissionStats = (): MissionStats => ({
-  neutralCaptures: 0,
-  enemyCaptures: 0,
-  combatWins: 0,
-  maxTilesHeld: 0,
-  maxSettledTilesHeld: 0,
-  maxFarmsHeld: 0,
-  maxContinentsHeld: 0,
-  maxTechPicks: 0
+const {
+  hasActiveResearch,
+  availableTechPicks,
+  defaultMissionStats,
+  ensureMissionDefaults,
+  missionProgressValue,
+  dynamicMissionProgress,
+  applyDynamicMissionReward,
+  maybeIssueVendettaMission,
+  maybeIssueDockMission,
+  maybeIssueResourceMission,
+  dynamicMissionPayload,
+  applyStaticMissionReward,
+  syncMissionProgress,
+  unlockMissions,
+  continentsHeldCount,
+  updateMissionState,
+  missionPayload,
+  normalizePlayerProgressionState
+} = createServerPlayerProgression({
+  now,
+  docksByTile,
+  parseKey,
+  playerTile,
+  vendettaCaptureCountsByPlayer,
+  getOrInitResourceCounts,
+  temporaryAttackBuffUntilByPlayer,
+  VENDETTA_ATTACK_BUFF_MS,
+  getOrInitForcedReveal,
+  dockById,
+  visible,
+  key,
+  wrapX,
+  wrapY,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  temporaryIncomeBuffUntilByPlayer,
+  RESOURCE_CHAIN_BUFF_MS,
+  getOrInitStrategicStocks,
+  dynamicMissionsByPlayer,
+  techById,
+  domainById,
+  playerManpowerCap,
+  applyManpowerRegen,
+  continentIdAt
 });
 
-const ensureMissionDefaults = (player: Player): void => {
-  if (!player.missionStats) player.missionStats = defaultMissionStats();
-  if (player.missionStats.maxSettledTilesHeld === undefined) player.missionStats.maxSettledTilesHeld = 0;
-  if (player.missionStats.maxContinentsHeld === undefined) player.missionStats.maxContinentsHeld = 0;
-  if (player.missionStats.maxTechPicks === undefined) player.missionStats.maxTechPicks = 0;
-  if (!player.missions) player.missions = [];
-};
-
-const missionProgressValue = (player: Player, kind: MissionKind): number => {
-  ensureMissionDefaults(player);
-  if (kind === "NEUTRAL_CAPTURES") return player.missionStats.neutralCaptures;
-  if (kind === "ENEMY_CAPTURES") return player.missionStats.enemyCaptures;
-  if (kind === "COMBAT_WINS") return player.missionStats.combatWins;
-  if (kind === "TILES_HELD") return player.missionStats.maxTilesHeld;
-  if (kind === "SETTLED_TILES_HELD") return player.missionStats.maxSettledTilesHeld;
-  if (kind === "FARMS_HELD") return player.missionStats.maxFarmsHeld;
-  if (kind === "CONTINENTS_HELD") return player.missionStats.maxContinentsHeld;
-  return player.missionStats.maxTechPicks;
-};
-
-const ownedDockCount = (playerId: string): number => {
-  let n = 0;
-  for (const d of docksByTile.values()) {
-    const [x, y] = parseKey(d.tileKey);
-    const t = playerTile(x, y);
-    if (t.ownerId === playerId) n += 1;
-  }
-  return n;
-};
-
-const dynamicMissionProgress = (player: Player, mission: DynamicMissionDef): { progress: number; target: number } => {
-  if (mission.type === "VENDETTA") {
-    const target = 8;
-    const map = vendettaCaptureCountsByPlayer.get(player.id);
-    const progress = mission.targetPlayerId ? (map?.get(mission.targetPlayerId) ?? 0) : 0;
-    return { progress: Math.min(target, progress), target };
-  }
-  if (mission.type === "DOCK_HUNT") {
-    return { progress: ownedDockCount(player.id) >= 1 ? 1 : 0, target: mission.targetDockCount ?? 1 };
-  }
-  const pair = mission.focusResources;
-  if (!pair) return { progress: 0, target: 16 };
-  const counts = getOrInitResourceCounts(player.id);
-  const a = Math.min(8, counts[pair[0]] ?? 0);
-  const b = Math.min(8, counts[pair[1]] ?? 0);
-  return { progress: a + b, target: 16 };
-};
-
-const applyDynamicMissionReward = (player: Player, mission: DynamicMissionDef): void => {
-  if (mission.rewarded) return;
-  if (mission.type === "VENDETTA") {
-    temporaryAttackBuffUntilByPlayer.set(player.id, Math.max(temporaryAttackBuffUntilByPlayer.get(player.id) ?? 0, now() + VENDETTA_ATTACK_BUFF_MS));
-  } else if (mission.type === "DOCK_HUNT") {
-    const reveal = getOrInitForcedReveal(player.id);
-    const candidates = [...dockById.values()].filter((d) => {
-      const [x, y] = parseKey(d.tileKey);
-      return !visible(player, x, y);
-    });
-    for (let i = 0; i < Math.min(3, candidates.length); i += 1) {
-      const d = candidates[i]!;
-      const [x, y] = parseKey(d.tileKey);
-      for (let dy = -1; dy <= 1; dy += 1) {
-        for (let dx = -1; dx <= 1; dx += 1) {
-          reveal.add(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)));
-        }
-      }
-    }
-  } else if (mission.focusResources) {
-    temporaryIncomeBuffUntilByPlayer.set(player.id, { until: now() + RESOURCE_CHAIN_BUFF_MS, resources: mission.focusResources });
-  }
-  mission.rewarded = true;
-};
-
-const maybeIssueVendettaMission = (_player: Player, _targetPlayerId: string): void => {};
-
-const maybeIssueDockMission = (_player: Player): void => {};
-
-const maybeIssueResourceMission = (_player: Player, _captured?: ResourceType): void => {};
-
-const dynamicMissionPayload = (_player: Player): MissionState[] => [];
-
-const applyStaticMissionReward = (player: Player, mission: MissionState): void => {
-  const stock = getOrInitStrategicStocks(player.id);
-  if (mission.id === "frontier-scout") {
-    stock.FOOD += 1;
-    stock.SUPPLY += 1;
-    return;
-  }
-  if (mission.id === "frontier-commander") {
-    stock.IRON += 1;
-    stock.CRYSTAL += 1;
-    return;
-  }
-  if (mission.id === "regional-footprint") {
-    stock.SHARD += 1;
-  }
-};
-
-const syncMissionProgress = (_player: Player): boolean => false;
-
-const unlockMissions = (_player: Player): boolean => false;
-
-const continentsHeldCount = (player: Player): number => {
-  const set = new Set<number>();
-  for (const tk of player.territoryTiles) {
-    const [x, y] = parseKey(tk);
-    const cid = continentIdAt(x, y);
-    if (cid !== undefined) set.add(cid);
-  }
-  return set.size;
-};
-
-const updateMissionState = (player: Player): boolean => {
-  ensureMissionDefaults(player);
-  player.missions = [];
-  dynamicMissionsByPlayer.delete(player.id);
-  return false;
-};
-
-const missionPayload = (_player: Player): MissionState[] => [];
-
-const normalizePlayerProgressionState = (player: Player): void => {
-  player.techIds = new Set([...player.techIds].filter((id) => techById.has(id)));
-  player.domainIds = new Set([...player.domainIds].filter((id) => domainById.has(id)));
-  if (!Number.isFinite(player.manpower)) player.manpower = playerManpowerCap(player);
-  if (!Number.isFinite(player.manpowerUpdatedAt)) player.manpowerUpdatedAt = now();
-  applyManpowerRegen(player);
-  if (player.currentResearch) {
-    const researchingTech = techById.get(player.currentResearch.techId);
-    if (!researchingTech || player.techIds.has(player.currentResearch.techId)) {
-      delete player.currentResearch;
-    }
-  }
-};
-
-const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
-  const rows = collectPlayerCompetitionMetrics().map((metric) => ({
-    id: metric.playerId,
-    name: metric.name,
-    tiles: metric.settledTiles,
-    incomePerMinute: metric.incomePerMinute,
-    techs: metric.techs
-  }));
-  const overallRanked = [...rows]
-    .map((r) => ({ ...r, score: r.tiles * 1 + r.incomePerMinute * 3 + r.techs * 8 }))
-    .sort((a, b) => b.score - a.score || b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute || b.techs - a.techs || a.id.localeCompare(b.id))
-    .map((r, index) => ({ ...r, rank: index + 1 }));
-  const overall = overallRanked.slice(0, limitTop);
-  const rankMetricEntries = (
-    valueFor: (row: (typeof rows)[number]) => number,
-    tieBreak: (a: (typeof rows)[number], b: (typeof rows)[number]) => number = () => 0
-  ): LeaderboardMetricEntry[] =>
-    [...rows]
-      .sort((a, b) => valueFor(b) - valueFor(a) || tieBreak(a, b) || a.id.localeCompare(b.id))
-      .map((r, index) => ({ id: r.id, name: r.name, value: valueFor(r), rank: index + 1 }));
-  const byTiles = rankMetricEntries((row) => row.tiles, (a, b) => b.incomePerMinute - a.incomePerMinute || b.techs - a.techs).slice(0, limitTop);
-  const byIncome = rankMetricEntries((row) => row.incomePerMinute, (a, b) => b.tiles - a.tiles || b.techs - a.techs).slice(0, limitTop);
-  const byTechs = rankMetricEntries((row) => row.techs, (a, b) => b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute).slice(0, limitTop);
-
-  return {
-    overall,
-    selfOverall: undefined,
-    selfByTiles: undefined,
-    selfByIncome: undefined,
-    selfByTechs: undefined,
-    byTiles,
-    byIncome,
-    byTechs
-  };
-};
-
-const leaderboardSnapshotForPlayer = (playerId: string | undefined): LeaderboardSnapshotView => {
-  const base = cachedLeaderboardSnapshot;
-  if (!playerId) return { ...base, selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined };
-  const rows = collectPlayerCompetitionMetrics().map((metric) => ({
-    id: metric.playerId,
-    name: metric.name,
-    tiles: metric.settledTiles,
-    incomePerMinute: metric.incomePerMinute,
-    techs: metric.techs,
-    score: metric.settledTiles * 1 + metric.incomePerMinute * 3 + metric.techs * 8
-  }));
-  const ranked = rows
-    .sort((a, b) => b.score - a.score || b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute || b.techs - a.techs || a.id.localeCompare(b.id))
-    .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  const rankMetricEntries = (
-    valueFor: (row: (typeof rows)[number]) => number,
-    tieBreak: (a: (typeof rows)[number], b: (typeof rows)[number]) => number = () => 0
-  ): LeaderboardMetricEntry[] =>
-    [...rows]
-      .sort((a, b) => valueFor(b) - valueFor(a) || tieBreak(a, b) || a.id.localeCompare(b.id))
-      .map((entry, index) => ({ id: entry.id, name: entry.name, value: valueFor(entry), rank: index + 1 }));
-  const selfOverall = base.overall.some((entry) => entry.id === playerId) ? undefined : ranked.find((entry) => entry.id === playerId);
-  const selfByTiles = base.byTiles.some((entry) => entry.id === playerId)
-    ? undefined
-    : rankMetricEntries((row) => row.tiles, (a, b) => b.incomePerMinute - a.incomePerMinute || b.techs - a.techs).find((entry) => entry.id === playerId);
-  const selfByIncome = base.byIncome.some((entry) => entry.id === playerId)
-    ? undefined
-    : rankMetricEntries((row) => row.incomePerMinute, (a, b) => b.tiles - a.tiles || b.techs - a.techs).find((entry) => entry.id === playerId);
-  const selfByTechs = base.byTechs.some((entry) => entry.id === playerId)
-    ? undefined
-    : rankMetricEntries((row) => row.techs, (a, b) => b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute).find((entry) => entry.id === playerId);
-  return { ...base, selfOverall, selfByTiles, selfByIncome, selfByTechs };
-};
-
-const trimFrontierSettlementsWindow = (playerId: string, nowMs = now()): number[] => {
-  const timestamps = frontierSettlementsByPlayer.get(playerId);
-  if (!timestamps || timestamps.length === 0) return [];
-  let writeIndex = 0;
-  for (let readIndex = 0; readIndex < timestamps.length; readIndex += 1) {
-    const timestamp = timestamps[readIndex]!;
-    if (nowMs - timestamp > VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS) continue;
-    timestamps[writeIndex] = timestamp;
-    writeIndex += 1;
-  }
-  if (writeIndex !== timestamps.length) timestamps.length = writeIndex;
-  if (writeIndex === 0) {
-    frontierSettlementsByPlayer.delete(playerId);
-    return [];
-  }
-  return timestamps;
-};
-
-const recordFrontierSettlementForPressure = (playerId: string): void => {
-  const next = trimFrontierSettlementsWindow(playerId);
-  next.push(now());
-  frontierSettlementsByPlayer.set(playerId, next);
-};
-
-const uniqueLeader = (entries: Array<{ playerId: string; value: number }>): { playerId?: string; value: number } => {
-  if (entries.length === 0) return { value: 0 };
-  let top = entries[0]!;
-  let runnerUp: { playerId: string; value: number } | undefined;
-  for (let i = 1; i < entries.length; i += 1) {
-    const entry = entries[i]!;
-    if (entry.value > top.value) {
-      runnerUp = top;
-      top = entry;
-      continue;
-    }
-    if (!runnerUp || entry.value > runnerUp.value) runnerUp = entry;
-  }
-  if (top.value <= 0) return { value: top.value };
-  if (runnerUp && runnerUp.value === top.value) return { value: top.value };
-  return { playerId: top.playerId, value: top.value };
-};
-
-const leadingPair = (entries: Array<{ playerId: string; value: number }>): {
-  leaderPlayerId?: string;
-  leaderValue: number;
-  runnerUpValue: number;
-  tied: boolean;
-} => {
-  if (entries.length === 0) return { leaderValue: 0, runnerUpValue: 0, tied: false };
-  const sorted = [...entries].sort((a, b) => b.value - a.value);
-  const leader = sorted[0]!;
-  const runnerUp = sorted[1];
-  return {
-    leaderPlayerId: leader.playerId,
-    leaderValue: leader.value,
-    runnerUpValue: runnerUp?.value ?? 0,
-    tied: Boolean(runnerUp && runnerUp.value === leader.value)
-  };
-};
-
-const countControlledTowns = (playerId: string): number => {
-  let count = 0;
-  for (const tk of townsByTile.keys()) {
-    if (ownership.get(tk) !== playerId) continue;
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    count += 1;
-  }
-  return count;
-};
-
-const worldResourceTileCounts = (): Record<ResourceType, number> => {
-  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 };
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAtRuntime(x, y) !== "LAND") continue;
-      const resource = applyClusterResources(x, y, resourceAt(x, y));
-      if (!resource) continue;
-      counts[resource] = (counts[resource] ?? 0) + 1;
-    }
-  }
-  return counts;
-};
-
-const controlledResourceTileCounts = (playerId: string): Record<ResourceType, number> => {
-  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 };
-  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
-    const [x, y] = parseKey(tk);
-    if (terrainAtRuntime(x, y) !== "LAND") continue;
-    const resource = applyClusterResources(x, y, resourceAt(x, y));
-    if (!resource) continue;
-    counts[resource] = (counts[resource] ?? 0) + 1;
-  }
-  return counts;
-};
-
-let cachedIslandMap:
-  | {
-      seed: number;
-      islandIdByTile: Map<TileKey, number>;
-      landCounts: Map<number, number>;
-    }
-  | undefined;
-
-const buildIslandMap = (): { islandIdByTile: Map<TileKey, number>; landCounts: Map<number, number> } => {
-  const islandIdByTile = new Map<TileKey, number>();
-  const landCounts = new Map<number, number>();
-  let nextIslandId = 0;
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAtRuntime(x, y) !== "LAND") continue;
-      const startKey = key(x, y);
-      if (islandIdByTile.has(startKey)) continue;
-      const islandId = nextIslandId;
-      nextIslandId += 1;
-      const queue: Array<{ x: number; y: number }> = [{ x, y }];
-      islandIdByTile.set(startKey, islandId);
-      let islandLand = 0;
-      while (queue.length > 0) {
-        const current = queue.shift()!;
-        islandLand += 1;
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = wrapX(current.x + dx, WORLD_WIDTH);
-            const ny = wrapY(current.y + dy, WORLD_HEIGHT);
-            if (terrainAtRuntime(nx, ny) !== "LAND") continue;
-            const neighborKey = key(nx, ny);
-            if (islandIdByTile.has(neighborKey)) continue;
-            islandIdByTile.set(neighborKey, islandId);
-            queue.push({ x: nx, y: ny });
-          }
-        }
-      }
-      landCounts.set(islandId, islandLand);
-    }
-  }
-  return { islandIdByTile, landCounts };
-};
-
-const islandMap = (): { islandIdByTile: Map<TileKey, number>; landCounts: Map<number, number> } => {
-  const cached = cachedIslandMap;
-  if (cached && cached.seed === activeSeason.worldSeed) {
-    return { islandIdByTile: cached.islandIdByTile, landCounts: cached.landCounts };
-  }
-  const next = buildIslandMap();
-  cachedIslandMap = { seed: activeSeason.worldSeed, ...next };
-  return next;
-};
-
-const islandLandCounts = (): Map<number, number> => islandMap().landCounts;
-
-const islandSettledCounts = (playerId: string): Map<number, number> => {
-  const counts = new Map<number, number>();
-  const ids = islandMap().islandIdByTile;
-  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
-    const [x, y] = parseKey(tk);
-    if (terrainAtRuntime(x, y) !== "LAND") continue;
-    if (ownership.get(tk) !== playerId || ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    const islandId = ids.get(tk);
-    if (islandId === undefined) continue;
-    counts.set(islandId, (counts.get(islandId) ?? 0) + 1);
-  }
-  return counts;
-};
-
-let cachedClaimableLandTileCount: { seed: number; count: number } | undefined;
-const claimableLandTileCount = (): number => {
-  if (cachedClaimableLandTileCount?.seed === activeSeason.worldSeed) return cachedClaimableLandTileCount?.count ?? 0;
-  let count = 0;
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAtRuntime(x, y) === "LAND") count += 1;
-    }
-  }
-  cachedClaimableLandTileCount = { seed: activeSeason.worldSeed, count };
-  return count;
-};
-
-const collectPlayerCompetitionMetrics = (nowMs = now()): PlayerCompetitionMetrics[] => {
-  const metrics: PlayerCompetitionMetrics[] = [];
-  for (const player of players.values()) {
-    const territoryStructure = cachedAiTerritoryStructureForPlayer(player);
-    metrics.push({
-      playerId: player.id,
-      name: player.name,
-      tiles: player.T,
-      settledTiles: territoryStructure.settledTileCount,
-      incomePerMinute: currentIncomePerMinute(player),
-      techs: player.techIds.size,
-      controlledTowns: territoryStructure.controlledTowns
-    });
-  }
-  return metrics;
-};
+const {
+  computeLeaderboardSnapshot,
+  uniqueLeader,
+  leadingPair,
+  countControlledTowns,
+  worldResourceTileCounts,
+  controlledResourceTileCounts,
+  islandMap,
+  islandLandCounts,
+  islandSettledCounts,
+  claimableLandTileCount,
+  collectPlayerCompetitionMetrics,
+  trimFrontierSettlementsWindow,
+  recordFrontierSettlementForPressure
+} = createServerStatusMetrics({
+  cachedAiTerritoryStructureForPlayer,
+  currentIncomePerMinute,
+  frontierSettlementsByPlayer,
+  VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS,
+  now,
+  townsByTile,
+  ownership,
+  ownershipStateByTile,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  terrainAtRuntime,
+  applyClusterResources,
+  resourceAt,
+  players,
+  parseKey,
+  activeSeason,
+  key,
+  wrapX,
+  wrapY
+});
 
 const {
   state: aiSchedulerState,
@@ -9576,787 +9344,84 @@ const {
   }
 });
 
-const uniqueLeaderFromMetrics = (
-  metrics: PlayerCompetitionMetrics[],
-  selectValue: (metric: PlayerCompetitionMetrics) => number
-): { playerId?: string; value: number } => {
-  return uniqueLeader(metrics.map((metric) => ({ playerId: metric.playerId, value: selectValue(metric) })));
-};
+const {
+  currentSeasonWinner,
+  isFinalPushActive,
+  pushStrategicReplayEvent,
+  refreshGlobalStatusCache,
+  currentLeaderboardSnapshot,
+  currentVictoryPressureObjectives,
+  leaderboardSnapshotForPlayer,
+  seasonVictoryObjectivesForPlayer,
+  broadcastGlobalStatusUpdate,
+  broadcastVictoryPressureUpdate,
+  evaluateVictoryPressure
+} = createServerVictoryPressure({
+  now,
+  townsByTile,
+  SEASON_VICTORY_TOWN_CONTROL_SHARE,
+  SEASON_VICTORY_SETTLED_TERRITORY_SHARE,
+  VICTORY_PRESSURE_DEFS,
+  players,
+  HOLD_START_BROADCAST_DELAY_MS,
+  HOLD_REMAINING_BROADCAST_HOURS,
+  FINAL_PUSH_MS,
+  crypto,
+  strategicReplayEvents,
+  STRATEGIC_REPLAY_LIMIT,
+  broadcast,
+  sendToPlayer,
+  GLOBAL_STATUS_CACHE_TTL_MS,
+  getSeasonWinner: () => seasonWinner,
+  setSeasonWinner: (winner: SeasonWinnerView | undefined) => {
+    seasonWinner = winner;
+  },
+  getActiveSeason: () => activeSeason,
+  victoryPressureById,
+  uniqueLeader,
+  leadingPair,
+  computeLeaderboardSnapshot,
+  collectPlayerCompetitionMetrics,
+  worldResourceTileCounts,
+  controlledResourceTileCounts,
+  islandLandCounts,
+  claimableLandTileCount,
+  continentalFootprintProgressForPlayer,
+  SEASON_VICTORY_ECONOMY_MIN_INCOME,
+  SEASON_VICTORY_ECONOMY_LEAD_MULT
+});
 
-const getVictoryPressureTracker = (id: SeasonVictoryPathId): VictoryPressureTracker => {
-  let tracker = victoryPressureById.get(id);
-  if (!tracker) {
-    tracker = {};
-    victoryPressureById.set(id, tracker);
-  }
-  return tracker;
-};
-
-const currentSeasonWinner = (): SeasonWinnerView | undefined => seasonWinner;
-const isFinalPushActive = (nowMs = now()): boolean => activeSeason.endAt - nowMs <= FINAL_PUSH_MS;
-
-const pushStrategicReplayEvent = (event: Omit<StrategicReplayEvent, "id">): StrategicReplayEvent => {
-  const fullEvent: StrategicReplayEvent = { ...event, id: crypto.randomUUID() };
-  strategicReplayEvents.push(fullEvent);
-  while (strategicReplayEvents.length > STRATEGIC_REPLAY_LIMIT) strategicReplayEvents.shift();
-  broadcast({ type: "STRATEGIC_REPLAY_EVENT", event: fullEvent });
-  return fullEvent;
-};
-
-const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
-  const nowMs = now();
-  const totalTownCount = Math.max(1, townsByTile.size);
-  const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
-  const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
-  const metrics = collectPlayerCompetitionMetrics(nowMs);
-  const totalResourceCounts = worldResourceTileCounts();
-  const allIslands = islandLandCounts();
-  return VICTORY_PRESSURE_DEFS.map((def) => {
-    const tracker = getVictoryPressureTracker(def.id);
-    let leaderPlayerId: string | undefined;
-    let leaderValue = 0;
-    let conditionMet = false;
-    let progressLabel = "";
-    let thresholdLabel = "";
-
-    if (def.id === "TOWN_CONTROL") {
-      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.controlledTowns);
-      leaderPlayerId = leader.playerId;
-      leaderValue = leader.value;
-      conditionMet = Boolean(leaderPlayerId && leaderValue >= townTarget);
-      progressLabel = `${leaderValue}/${townTarget} towns`;
-      thresholdLabel = `Need ${townTarget} towns`;
-    } else if (def.id === "SETTLED_TERRITORY") {
-      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.settledTiles);
-      leaderPlayerId = leader.playerId;
-      leaderValue = leader.value;
-      conditionMet = Boolean(leaderPlayerId && leaderValue >= settledTarget);
-      progressLabel = `${leaderValue}/${settledTarget} settled land`;
-      thresholdLabel = `Need ${settledTarget} settled land tiles`;
-    } else if (def.id === "ECONOMIC_HEGEMONY") {
-      const pair = leadingPair(metrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute })));
-      leaderPlayerId = pair.tied ? undefined : pair.leaderPlayerId;
-      leaderValue = pair.leaderValue;
-      const incomeThreshold = pair.runnerUpValue <= 0 ? Number.POSITIVE_INFINITY : pair.runnerUpValue * SEASON_VICTORY_ECONOMY_LEAD_MULT;
-      conditionMet = Boolean(
-        leaderPlayerId &&
-          !pair.tied &&
-          leaderValue >= SEASON_VICTORY_ECONOMY_MIN_INCOME &&
-          pair.runnerUpValue > 0 &&
-          leaderValue >= incomeThreshold
-      );
-      progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${pair.runnerUpValue.toFixed(1)}`;
-      thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
-    } else if (def.id === "RESOURCE_MONOPOLY") {
-      let bestLeaderId: string | undefined;
-      let bestOwned = 0;
-      let bestTotal = 0;
-      let bestResource: ResourceType | undefined;
-      for (const metric of metrics) {
-        const controlled = controlledResourceTileCounts(metric.playerId);
-        for (const resource of Object.keys(totalResourceCounts) as ResourceType[]) {
-          const total = totalResourceCounts[resource];
-          if ((total ?? 0) <= 0) continue;
-          const owned = controlled[resource] ?? 0;
-          if (owned > bestOwned) {
-            bestLeaderId = metric.playerId;
-            bestOwned = owned;
-            bestTotal = total ?? 0;
-            bestResource = resource;
-          }
-        }
-      }
-      leaderPlayerId = bestLeaderId;
-      leaderValue = bestOwned;
-      conditionMet = Boolean(leaderPlayerId && bestResource && bestTotal > 0 && bestOwned >= bestTotal);
-      progressLabel = bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource leader";
-      thresholdLabel = "Need 100% control of one resource type";
-    } else {
-      let bestLeaderId: string | undefined;
-      let bestQualifiedCount = 0;
-      let bestWeakestQualifiedRatio = -1;
-      let bestWeakestQualifiedOwned = 0;
-      let bestWeakestQualifiedTotal = 0;
-      for (const metric of metrics) {
-        const progress = continentalFootprintProgressForPlayer(metric.playerId, allIslands);
-        if (progress.totalIslands === 0) continue;
-        if (
-          progress.qualifiedCount > bestQualifiedCount ||
-          (progress.qualifiedCount === bestQualifiedCount &&
-            (progress.weakestQualifiedRatio > bestWeakestQualifiedRatio ||
-              (progress.weakestQualifiedRatio === bestWeakestQualifiedRatio && metric.playerId < (bestLeaderId ?? "~"))))
-        ) {
-          bestQualifiedCount = progress.qualifiedCount;
-          bestWeakestQualifiedRatio = progress.weakestQualifiedRatio;
-          bestWeakestQualifiedOwned = progress.weakestQualifiedOwned;
-          bestWeakestQualifiedTotal = progress.weakestQualifiedTotal;
-          bestLeaderId = metric.playerId;
-        }
-      }
-      const totalIslands = Math.max(1, [...allIslands.values()].filter((count) => count > 0).length);
-      leaderPlayerId = bestLeaderId;
-      leaderValue = bestQualifiedCount;
-      conditionMet = Boolean(leaderPlayerId && bestQualifiedCount >= totalIslands && totalIslands > 0);
-      const bestPct = Math.round(bestWeakestQualifiedRatio * 100);
-      progressLabel =
-        bestQualifiedCount > 0 && bestWeakestQualifiedTotal > 0
-          ? `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled · weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})`
-          : `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled`;
-      thresholdLabel = "Need 10% settled land on every island";
-    }
-
-    const winner = currentSeasonWinner();
-    const holdRemainingSeconds =
-      !winner &&
-      conditionMet &&
-      tracker.leaderPlayerId === leaderPlayerId &&
-      tracker.holdStartedAt
-        ? Math.max(0, Math.ceil((tracker.holdStartedAt + def.holdDurationSeconds * 1000 - nowMs) / 1000))
-        : undefined;
-    const statusLabel = winner
-      ? winner.objectiveId === def.id
-        ? `Winner crowned: ${winner.playerName}`
-        : "Season already decided"
-      : conditionMet
-        ? holdRemainingSeconds !== undefined
-          ? `Holding · ${Math.max(0, Math.ceil(holdRemainingSeconds / 3600))}h left`
-          : "Threshold met"
-        : leaderValue > 0
-          ? "Pressure building"
-          : "No contender";
-    const view: SeasonVictoryObjectiveView = {
-      id: def.id,
-      name: def.name,
-      description: def.description,
-      leaderName: leaderPlayerId ? players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8) : leaderValue > 0 ? "Contested" : "No leader",
-      progressLabel,
-      thresholdLabel,
-      holdDurationSeconds: def.holdDurationSeconds,
-      statusLabel,
-      conditionMet
-    };
-    if (leaderPlayerId !== undefined) view.leaderPlayerId = leaderPlayerId;
-    if (holdRemainingSeconds !== undefined) view.holdRemainingSeconds = holdRemainingSeconds;
-    return view;
-  });
-};
-
-let cachedLeaderboardSnapshot: LeaderboardSnapshotView = {
-  overall: [],
-  selfOverall: undefined,
-  selfByTiles: undefined,
-  selfByIncome: undefined,
-  selfByTechs: undefined,
-  byTiles: [],
-  byIncome: [],
-  byTechs: []
-};
-let cachedVictoryPressureObjectives: SeasonVictoryObjectiveView[] = [];
-let globalStatusCacheExpiresAt = 0;
-let lastGlobalStatusBroadcastSig = "";
-
-const refreshGlobalStatusCache = (force = false): void => {
-  const nowMs = now();
-  if (!force && nowMs < globalStatusCacheExpiresAt) return;
-  cachedLeaderboardSnapshot = computeLeaderboardSnapshot();
-  cachedVictoryPressureObjectives = computeVictoryPressureObjectives();
-  globalStatusCacheExpiresAt = nowMs + GLOBAL_STATUS_CACHE_TTL_MS;
-};
-
-const currentLeaderboardSnapshot = (): LeaderboardSnapshotView => {
-  refreshGlobalStatusCache(false);
-  return cachedLeaderboardSnapshot;
-};
-
-const currentVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
-  refreshGlobalStatusCache(false);
-  return cachedVictoryPressureObjectives;
-};
-
-const seasonVictorySelfProgressLabel = (
-  playerId: string,
-  objectiveId: SeasonVictoryPathId,
-  deps?: { metrics?: PlayerCompetitionMetrics[]; totalResourceCounts?: Record<ResourceType, number>; allIslands?: Map<number, number> }
-): string | undefined => {
-  const metrics = deps?.metrics ?? collectPlayerCompetitionMetrics();
-  const metric = metrics.find((entry) => entry.playerId === playerId);
-  if (!metric) return undefined;
-  const totalTownCount = Math.max(1, townsByTile.size);
-  const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
-  const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
-  const totalResourceCounts = deps?.totalResourceCounts ?? worldResourceTileCounts();
-  const allIslands = deps?.allIslands ?? islandLandCounts();
-
-  if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;
-  if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;
-  if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
-  if (objectiveId === "RESOURCE_MONOPOLY") {
-    const controlled = controlledResourceTileCounts(playerId);
-    let bestResource: ResourceType | undefined;
-    let bestOwned = 0;
-    let bestTotal = 0;
-    for (const resource of Object.keys(totalResourceCounts) as ResourceType[]) {
-      const total = totalResourceCounts[resource] ?? 0;
-      if (total <= 0) continue;
-      const owned = controlled[resource] ?? 0;
-      if (owned > bestOwned) {
-        bestOwned = owned;
-        bestTotal = total;
-        bestResource = resource;
-      }
-    }
-    return bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource control";
-  }
-
-  const progress = continentalFootprintProgressForPlayer(playerId, allIslands);
-  return progress.qualifiedCount > 0 && progress.weakestQualifiedTotal > 0
-    ? `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled · weakest island ${Math.round(progress.weakestQualifiedRatio * 100)}% (${progress.weakestQualifiedOwned}/${progress.weakestQualifiedTotal})`
-    : `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled`;
-};
-
-const seasonVictoryObjectivesForPlayer = (playerId: string | undefined): SeasonVictoryObjectiveView[] => {
-  const objectives = currentVictoryPressureObjectives();
-  if (!playerId) return objectives;
-  const metrics = collectPlayerCompetitionMetrics();
-  const totalResourceCounts = worldResourceTileCounts();
-  const allIslands = islandLandCounts();
-  return objectives.map((objective) => {
-    if (objective.leaderPlayerId === playerId) return objective;
-    const selfProgressLabel = seasonVictorySelfProgressLabel(playerId, objective.id, { metrics, totalResourceCounts, allIslands });
-    return selfProgressLabel ? { ...objective, selfProgressLabel } : objective;
-  });
-};
-
-const globalStatusBroadcastSignature = (): string =>
-  JSON.stringify({
-    leaderboard: cachedLeaderboardSnapshot,
-    seasonVictory: cachedVictoryPressureObjectives,
-    seasonWinner
-  });
-
-const broadcastGlobalStatusUpdate = (force = false): void => {
-  refreshGlobalStatusCache(force);
-  const nextSig = globalStatusBroadcastSignature();
-  if (!force && nextSig === lastGlobalStatusBroadcastSig) return;
-  lastGlobalStatusBroadcastSig = nextSig;
-  for (const player of players.values()) {
-    sendToPlayer(player.id, {
-      type: "GLOBAL_STATUS_UPDATE",
-      leaderboard: leaderboardSnapshotForPlayer(player.id),
-      seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
-      seasonWinner
-    });
-  }
-};
-
-const broadcastVictoryPressureUpdate = (announcement?: string): void => {
-  refreshGlobalStatusCache(true);
-  lastGlobalStatusBroadcastSig = globalStatusBroadcastSignature();
-  for (const player of players.values()) {
-    sendToPlayer(player.id, {
-      type: "SEASON_VICTORY_UPDATE",
-      objectives: seasonVictoryObjectivesForPlayer(player.id),
-      announcement,
-      seasonWinner
-    });
-  }
-};
-
-const crownSeasonWinner = (playerId: string, def: VictoryPressureDefinition): void => {
-  if (seasonWinner) return;
-  const player = players.get(playerId);
-  if (!player) return;
-  seasonWinner = {
-    playerId,
-    playerName: player.name,
-    crownedAt: now(),
-    objectiveId: def.id,
-    objectiveName: def.name
-  };
-  pushStrategicReplayEvent({
-    at: seasonWinner.crownedAt,
-    type: "WINNER",
-    label: `${player.name} won the season via ${def.name}`,
-    playerId,
-    playerName: player.name,
-    objectiveId: def.id,
-    objectiveName: def.name,
-    isBookmark: true
-  });
-  refreshGlobalStatusCache(true);
-  lastGlobalStatusBroadcastSig = globalStatusBroadcastSignature();
-  broadcast({
-    type: "SEASON_WINNER_CROWNED",
-    winner: seasonWinner,
-    leaderboard: cachedLeaderboardSnapshot,
-    objectives: cachedVictoryPressureObjectives
-  });
-};
-
-const evaluateVictoryPressure = (): void => {
-  if (seasonWinner) {
-    refreshGlobalStatusCache(false);
-    return;
-  }
-  const nowMs = now();
-  const finalPushActive = isFinalPushActive(nowMs);
-  const totalTownCount = Math.max(1, townsByTile.size);
-  const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
-  const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
-  const metrics = collectPlayerCompetitionMetrics(nowMs);
-  let crowned: SeasonWinnerView | undefined;
-  let announcement: string | undefined;
-
-  for (const def of VICTORY_PRESSURE_DEFS) {
-    const tracker = getVictoryPressureTracker(def.id);
-    const previousLeaderPlayerId = tracker.leaderPlayerId;
-    let leaderPlayerId: string | undefined;
-    let conditionMet = false;
-
-    if (def.id === "TOWN_CONTROL") {
-      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.controlledTowns);
-      leaderPlayerId = leader.playerId;
-      conditionMet = Boolean(leaderPlayerId && leader.value >= townTarget);
-    } else if (def.id === "SETTLED_TERRITORY") {
-      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.settledTiles);
-      leaderPlayerId = leader.playerId;
-      conditionMet = Boolean(leaderPlayerId && leader.value >= settledTarget);
-    } else {
-      const pair = leadingPair(metrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute })));
-      leaderPlayerId = pair.tied ? undefined : pair.leaderPlayerId;
-      conditionMet = Boolean(
-        leaderPlayerId &&
-          !pair.tied &&
-          pair.leaderValue >= SEASON_VICTORY_ECONOMY_MIN_INCOME &&
-          pair.runnerUpValue > 0 &&
-          pair.leaderValue >= pair.runnerUpValue * SEASON_VICTORY_ECONOMY_LEAD_MULT
-      );
-    }
-
-    if (!conditionMet || !leaderPlayerId) {
-      if (tracker.holdAnnouncedAt && previousLeaderPlayerId) {
-        const previousLeaderName = players.get(previousLeaderPlayerId)?.name ?? previousLeaderPlayerId.slice(0, 8);
-        announcement = `${previousLeaderName} lost the ${def.name} victory hold.`;
-        pushStrategicReplayEvent({
-          at: nowMs,
-          type: "HOLD_BREAK",
-          label: `${previousLeaderName} lost the ${def.name} hold`,
-          playerId: previousLeaderPlayerId,
-          playerName: previousLeaderName,
-          objectiveId: def.id,
-          objectiveName: def.name,
-          isBookmark: true
-        });
-      }
-      delete tracker.leaderPlayerId;
-      delete tracker.holdStartedAt;
-      delete tracker.holdAnnouncedAt;
-      delete tracker.lastRemainingMilestoneHours;
-      continue;
-    }
-    if (tracker.leaderPlayerId !== leaderPlayerId) {
-      tracker.leaderPlayerId = leaderPlayerId;
-      tracker.holdStartedAt = nowMs;
-      delete tracker.holdAnnouncedAt;
-      delete tracker.lastRemainingMilestoneHours;
-      if (finalPushActive) {
-        const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
-        announcement = `${leaderName} took the ${def.name} lead.`;
-      }
-      continue;
-    }
-    if (!tracker.holdStartedAt) {
-      tracker.holdStartedAt = nowMs;
-      delete tracker.holdAnnouncedAt;
-      delete tracker.lastRemainingMilestoneHours;
-      continue;
-    }
-    const holdElapsedMs = nowMs - tracker.holdStartedAt;
-    const holdRemainingMs = Math.max(0, def.holdDurationSeconds * 1000 - holdElapsedMs);
-    if (!tracker.holdAnnouncedAt && holdElapsedMs >= HOLD_START_BROADCAST_DELAY_MS) {
-      const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
-      announcement = `${leaderName} has started a ${def.name} victory hold.`;
-      tracker.holdAnnouncedAt = nowMs;
-      pushStrategicReplayEvent({
-        at: nowMs,
-        type: "HOLD_START",
-        label: `${leaderName} started a ${def.name} hold`,
-        playerId: leaderPlayerId,
-        playerName: leaderName,
-        objectiveId: def.id,
-        objectiveName: def.name,
-        isBookmark: true
-      });
-    } else if (tracker.holdAnnouncedAt) {
-      for (const milestoneHours of HOLD_REMAINING_BROADCAST_HOURS) {
-        if (holdRemainingMs > milestoneHours * 60 * 60_000) continue;
-        if (tracker.lastRemainingMilestoneHours !== undefined && tracker.lastRemainingMilestoneHours <= milestoneHours) continue;
-        const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
-        announcement = `${leaderName} has ${milestoneHours}h left on ${def.name}.`;
-        tracker.lastRemainingMilestoneHours = milestoneHours;
-        break;
-      }
-    }
-    if (nowMs - tracker.holdStartedAt < def.holdDurationSeconds * 1000) continue;
-    crownSeasonWinner(leaderPlayerId, def);
-    crowned = currentSeasonWinner();
-    break;
-  }
-  broadcastVictoryPressureUpdate(crowned ? `${crowned.playerName} was crowned season winner via ${crowned.objectiveName}.` : announcement);
-};
-
-const reachableTechs = (player: Player): string[] => {
-  const out: string[] = [];
-  for (const tech of TECHS) {
-    if (!activeSeasonTechConfig.activeNodeIds.has(tech.id)) continue;
-    if (player.techIds.has(tech.id)) continue;
-    const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
-    if (prereqs.every((req) => player.techIds.has(req))) out.push(tech.id);
-  }
-  return out;
-};
-
-const techDepth = (id: string): number => {
-  const seen = new Set<string>();
-  const walk = (techId: string): number => {
-    if (seen.has(techId)) return 0;
-    seen.add(techId);
-    const cur = techById.get(techId);
-    if (!cur) return 0;
-    const parents = cur.prereqIds && cur.prereqIds.length > 0 ? cur.prereqIds : cur.requires ? [cur.requires] : [];
-    if (parents.length === 0) return 0;
-    return Math.max(...parents.map((p) => walk(p))) + 1;
-  };
-  return walk(id);
-};
-
-const playerWorldFlags = (player: Player): Set<string> => {
-  const flags = new Set<string>();
-  if (player.Ts >= 8) flags.add("settled_tiles_8");
-  if (player.Ts >= 16) flags.add("settled_tiles_16");
-  let hasIron = false;
-  let hasCrystal = false;
-  let hasTown = false;
-  let hasDock = false;
-  for (const tk of player.territoryTiles) {
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    const [x, y] = parseKey(tk);
-    const t = runtimeTileCore(x, y);
-    if (t.resource === "IRON") hasIron = true;
-    if (t.resource === "GEMS") hasCrystal = true;
-    if (docksByTile.has(tk)) hasDock = true;
-    const town = townsByTile.get(tk);
-    if (town) hasTown = true;
-  }
-  if (hasIron) flags.add("active_iron_site");
-  if (hasCrystal) flags.add("active_crystal_site");
-  if (hasTown) flags.add("active_town");
-  if (hasDock) flags.add("active_dock");
-  return flags;
-};
-
-const techRequirements = (tech: (typeof TECHS)[number]): { gold: number; resources: Partial<Record<StrategicResource, number>> } => {
-  if (tech.cost) {
-    const resources: Partial<Record<StrategicResource, number>> = {};
-    const food = tech.cost.food ?? 0;
-    const iron = tech.cost.iron ?? 0;
-    const crystal = tech.cost.crystal ?? 0;
-    const supply = tech.cost.supply ?? 0;
-    const shard = tech.cost.shard ?? 0;
-    if (food > 0) resources.FOOD = food;
-    if (iron > 0) resources.IRON = iron;
-    if (crystal > 0) resources.CRYSTAL = crystal;
-    if (supply > 0) resources.SUPPLY = supply;
-    if (shard > 0) resources.SHARD = shard;
-    return { gold: tech.cost.gold ?? 0, resources };
-  }
-  const depth = techDepth(tech.id);
-  const gold = Math.max(15, 12 + depth * 9);
-  const resources: Partial<Record<StrategicResource, number>> = {};
-
-  const mods = tech.mods ?? {};
-  const offensive = (mods.attack ?? 1) > 1;
-  const defensive = (mods.defense ?? 1) > 1;
-  const economic = (mods.income ?? 1) > 1;
-  const vision = (mods.vision ?? 1) > 1;
-
-  if (offensive) resources.IRON = Math.max(resources.IRON ?? 0, Math.max(0, Math.ceil(depth / 2)));
-  if (defensive) resources.SUPPLY = Math.max(resources.SUPPLY ?? 0, Math.max(0, Math.ceil(depth / 3)));
-  if (economic) resources.FOOD = Math.max(resources.FOOD ?? 0, Math.max(0, Math.ceil(depth / 2)));
-  if (vision) resources.CRYSTAL = Math.max(resources.CRYSTAL ?? 0, Math.max(0, Math.ceil(depth / 2)));
-  if (depth >= 6) {
-    resources.SHARD = Math.max(resources.SHARD ?? 0, 1);
-  }
-  return { gold, resources };
-};
-
-const techChecklistFor = (
-  player: Player,
-  tech: (typeof TECHS)[number]
-): { ok: boolean; checks: TechRequirementChecklist[]; resources: Partial<Record<StrategicResource, number>>; gold: number } => {
-  const req = techRequirements(tech);
-  const checks: TechRequirementChecklist[] = [];
-  const stocks = getOrInitStrategicStocks(player.id);
-  checks.push({ label: `Gold ${req.gold}`, met: player.points >= req.gold });
-  for (const [r, amount] of Object.entries(req.resources) as Array<[StrategicResource, number]>) {
-    checks.push({ label: `${r} ${amount}`, met: (stocks[r] ?? 0) >= amount });
-  }
-  return { ok: checks.every((c) => c.met), checks, resources: req.resources, gold: req.gold };
-};
-
-const activeTechCatalog = (player?: Player): Array<{
-  id: string;
-  tier: number;
-  name: string;
-  researchTimeSeconds?: number;
-  rootId?: string;
-  requires?: string;
-  prereqIds?: string[];
-  description: string;
-  mods: Partial<Record<StatsModKey, number>>;
-  effects?: (typeof TECHS)[number]["effects"];
-  requirements: {
-    gold: number;
-    resources: Partial<Record<StrategicResource, number>>;
-    checklist?: TechRequirementChecklist[];
-    canResearch?: boolean;
-  };
-  grantsPowerup?: { id: string; charges: number };
-}> => {
-  return TECHS.filter((t) => activeSeasonTechConfig.activeNodeIds.has(t.id)).map((t) => {
-    const out: {
-      id: string;
-      tier: number;
-      name: string;
-      researchTimeSeconds?: number;
-      rootId?: string;
-      requires?: string;
-      prereqIds?: string[];
-      description: string;
-      mods: Partial<Record<StatsModKey, number>>;
-      effects?: (typeof TECHS)[number]["effects"];
-      requirements: {
-        gold: number;
-        resources: Partial<Record<StrategicResource, number>>;
-        checklist?: TechRequirementChecklist[];
-        canResearch?: boolean;
-      };
-      grantsPowerup?: { id: string; charges: number };
-    } = {
-      id: t.id,
-      tier: t.tier ?? 0,
-      name: t.name,
-      description: t.description,
-      mods: t.mods ?? {},
-      requirements: techRequirements(t)
-    };
-    if (t.effects) out.effects = { ...t.effects };
-    if (t.rootId) out.rootId = t.rootId;
-    if (t.requires) out.requires = t.requires;
-    if (t.prereqIds && t.prereqIds.length > 0) out.prereqIds = [...t.prereqIds];
-    if (t.grantsPowerup) out.grantsPowerup = t.grantsPowerup;
-    if (player) {
-      const check = techChecklistFor(player, t);
-      out.requirements.checklist = check.checks;
-      out.requirements.canResearch = check.ok;
-    }
-    return out;
-  });
-};
-
-const IRON_DOMAIN_IDS = new Set<string>();
-const SUPPLY_DOMAIN_IDS = new Set(["expansion"]);
-const FOOD_DOMAIN_IDS = new Set(["urbanization"]);
-const CRYSTAL_DOMAIN_IDS = new Set<string>();
-
-const IRON_TECH_IDS = new Set(["masonry", "mining", "bronze-working", "fortified-walls", "siegecraft", "industrial-extraction", "breach-doctrine", "steelworking"]);
-const SUPPLY_TECH_IDS = new Set(["toolmaking", "leatherworking", "harborcraft", "logistics", "navigation", "organized-supply", "deep-operations", "terrain-engineering", "imperial-roads", "workshops"]);
-const FOOD_TECH_IDS = new Set(["agriculture", "irrigation", "pottery", "banking", "civil-service", "workshops"]);
-const CRYSTAL_TECH_IDS = new Set([
-  "cartography",
-  "signal-fires",
-  "surveying",
-  "beacon-towers",
-  "cryptography",
-  "grand-cartography",
-  "banking",
-  "trade",
-  "ledger-keeping",
-  "coinage",
-  "maritime-trade",
-  "port-infrastructure",
-  "global-trade-networks",
-  "urban-markets",
-  "aeronautics",
-  "radar",
-  "plastics"
-]);
-
-const empireStyleFromPlayer = (player: Player): EmpireVisualStyle => {
-  const primaryOverlay = player.tileColor ?? colorFromId(player.id);
-  let secondaryTint: EmpireVisualStyle["secondaryTint"] = "BALANCED";
-
-  for (const id of player.domainIds) {
-    if (IRON_DOMAIN_IDS.has(id)) {
-      secondaryTint = "IRON";
-      break;
-    }
-    if (SUPPLY_DOMAIN_IDS.has(id)) {
-      secondaryTint = "SUPPLY";
-      break;
-    }
-    if (FOOD_DOMAIN_IDS.has(id)) {
-      secondaryTint = "FOOD";
-      break;
-    }
-    if (CRYSTAL_DOMAIN_IDS.has(id)) {
-      secondaryTint = "CRYSTAL";
-      break;
-    }
-  }
-
-  if (secondaryTint === "BALANCED") {
-    const scores = { IRON: 0, SUPPLY: 0, FOOD: 0, CRYSTAL: 0 } satisfies Record<Exclude<EmpireVisualStyle["secondaryTint"], "BALANCED">, number>;
-    for (const id of player.techIds) {
-      if (IRON_TECH_IDS.has(id)) scores.IRON += 1;
-      if (SUPPLY_TECH_IDS.has(id)) scores.SUPPLY += 1;
-      if (FOOD_TECH_IDS.has(id)) scores.FOOD += 1;
-      if (CRYSTAL_TECH_IDS.has(id)) scores.CRYSTAL += 1;
-    }
-    const ranked = (Object.entries(scores) as Array<[Exclude<EmpireVisualStyle["secondaryTint"], "BALANCED">, number]>)
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    if ((ranked[0]?.[1] ?? 0) >= 2) secondaryTint = ranked[0]![0];
-  }
-
-  const borderStyle: EmpireVisualStyle["borderStyle"] =
-    secondaryTint === "IRON" ? "HEAVY" : secondaryTint === "SUPPLY" ? "DASHED" : secondaryTint === "FOOD" ? "SOFT" : secondaryTint === "CRYSTAL" ? "GLOW" : "SHARP";
-  const structureAccent: EmpireVisualStyle["structureAccent"] = secondaryTint === "BALANCED" ? "NEUTRAL" : secondaryTint;
-
-  return { primaryOverlay, secondaryTint, borderStyle, structureAccent };
-};
-
-const domainCostResources = (
-  cost: Partial<Record<"gold" | "food" | "iron" | "supply" | "crystal" | "shard", number>>
-): Partial<Record<StrategicResource, number>> => {
-  const resources: Partial<Record<StrategicResource, number>> = {};
-  if ((cost.food ?? 0) > 0) resources.FOOD = cost.food ?? 0;
-  if ((cost.iron ?? 0) > 0) resources.IRON = cost.iron ?? 0;
-  if ((cost.supply ?? 0) > 0) resources.SUPPLY = cost.supply ?? 0;
-  if ((cost.crystal ?? 0) > 0) resources.CRYSTAL = cost.crystal ?? 0;
-  if ((cost.shard ?? 0) > 0) resources.SHARD = cost.shard ?? 0;
-  return resources;
-};
-
-const chosenDomainTierMax = (player: Player): number => {
-  let tier = 0;
-  for (const id of player.domainIds) {
-    const d = domainById.get(id);
-    if (d) tier = Math.max(tier, d.tier);
-  }
-  return tier;
-};
-
-const domainChecklistFor = (
-  player: Player,
-  domainId: string
-): { ok: boolean; checks: DomainRequirementChecklist[]; gold: number; resources: Partial<Record<StrategicResource, number>> } => {
-  const d = domainById.get(domainId);
-  if (!d) return { ok: false, checks: [{ label: "Domain exists", met: false }], gold: 0, resources: {} };
-  const checks: DomainRequirementChecklist[] = [];
-  const stocks = getOrInitStrategicStocks(player.id);
-  const gold = d.cost.gold ?? 0;
-  const resources = domainCostResources(d.cost);
-  const tierMax = chosenDomainTierMax(player);
-  const pickedThisTier = [...player.domainIds].some((id) => domainById.get(id)?.tier === d.tier);
-  checks.push({ label: `Requires tech ${d.requiresTechId}`, met: player.techIds.has(d.requiresTechId) });
-  checks.push({ label: `Tier ${d.tier} progression`, met: d.tier <= tierMax + 1 });
-  checks.push({ label: `One domain per tier`, met: !pickedThisTier });
-  checks.push({ label: `Gold ${gold}`, met: player.points >= gold });
-  for (const [r, amount] of Object.entries(resources) as Array<[StrategicResource, number]>) {
-    checks.push({ label: `${r} ${amount}`, met: (stocks[r] ?? 0) >= amount });
-  }
-  return { ok: checks.every((c) => c.met), checks, gold, resources };
-};
-
-const reachableDomains = (player: Player): string[] => {
-  const tierMax = chosenDomainTierMax(player);
-  const targetTier = Math.min(5, tierMax + 1);
-  const pickedAtTargetTier = [...player.domainIds].some((id) => domainById.get(id)?.tier === targetTier);
-  if (pickedAtTargetTier) return [];
-  return DOMAINS.filter((d) => d.tier === targetTier).map((d) => d.id);
-};
-
-const activeDomainCatalog = (player?: Player): Array<{
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  requiresTechId: string;
-  mods: Partial<Record<StatsModKey, number>>;
-  effects?: (typeof DOMAINS)[number]["effects"];
-  requirements: {
-    gold: number;
-    resources: Partial<Record<StrategicResource, number>>;
-    checklist?: DomainRequirementChecklist[];
-    canResearch?: boolean;
-  };
-}> => {
-  return DOMAINS.map((d) => {
-    const out: {
-      id: string;
-      tier: number;
-      name: string;
-      description: string;
-      requiresTechId: string;
-      mods: Partial<Record<StatsModKey, number>>;
-      effects?: (typeof DOMAINS)[number]["effects"];
-      requirements: {
-        gold: number;
-        resources: Partial<Record<StrategicResource, number>>;
-        checklist?: DomainRequirementChecklist[];
-        canResearch?: boolean;
-      };
-    } = {
-      id: d.id,
-      tier: d.tier,
-      name: d.name,
-      description: d.description,
-      requiresTechId: d.requiresTechId,
-      mods: d.mods ?? {},
-      requirements: {
-        gold: d.cost.gold ?? 0,
-        resources: domainCostResources(d.cost)
-      }
-    };
-    if (d.effects) out.effects = { ...d.effects };
-    if (player) {
-      const check = domainChecklistFor(player, d.id);
-      out.requirements.checklist = check.checks;
-      out.requirements.canResearch = check.ok;
-    }
-    return out;
-  });
-};
-
-const applyDomain = (player: Player, domainId: string): { ok: boolean; reason?: string } => {
-  const d = domainById.get(domainId);
-  if (!d) return { ok: false, reason: "domain not found" };
-  if (player.domainIds.has(domainId)) return { ok: false, reason: "domain already selected" };
-  const check = domainChecklistFor(player, domainId);
-  if (!check.ok) {
-    const miss = check.checks.find((c) => !c.met);
-    return { ok: false, reason: `requirements not met: ${miss?.label ?? "unknown"}` };
-  }
-  player.points = Math.max(0, player.points - check.gold);
-  const stock = getOrInitStrategicStocks(player.id);
-  for (const [r, amount] of Object.entries(check.resources) as Array<[StrategicResource, number]>) {
-    stock[r] = Math.max(0, stock[r] - amount);
-  }
-  player.domainIds.add(domainId);
-  recomputeTechModsFromOwnedTechs(player);
-  telemetryCounters.techUnlocks += 1;
-  return { ok: true };
-};
+const {
+  reachableTechs,
+  techDepth,
+  playerWorldFlags,
+  techRequirements,
+  techChecklistFor,
+  activeTechCatalog,
+  empireStyleFromPlayer,
+  domainCostResources,
+  chosenDomainTierMax,
+  domainChecklistFor,
+  reachableDomains,
+  activeDomainCatalog,
+  applyDomain
+} = createServerTechDomainRuntime({
+  TECHS,
+  activeSeasonTechConfig,
+  getActiveSeasonTechConfig: () => activeSeasonTechConfig,
+  techById,
+  domainById,
+  ownershipStateByTile,
+  parseKey,
+  runtimeTileCore,
+  docksByTile,
+  townsByTile,
+  getOrInitStrategicStocks,
+  recomputeTechModsFromOwnedTechs,
+  telemetryCounters,
+  DOMAINS,
+  colorFromId
+});
 
 const grantTech = (player: Player, tech: (typeof TECHS)[number]): void => {
   player.techIds.add(tech.id);
@@ -10439,6 +9504,50 @@ const activeDevelopmentProcessCountForPlayer = (playerId: string): number => {
     if (structure.ownerId === playerId && (structure.status === "under_construction" || structure.status === "removing")) n += 1;
   }
   return n;
+};
+
+const developmentProcessDebugBreakdownForPlayer = (playerId: string): Record<string, unknown> => {
+  const pendingSettlementKeys: string[] = [];
+  const fortKeys: string[] = [];
+  const observatoryKeys: string[] = [];
+  const siegeOutpostKeys: string[] = [];
+  const economicStructureKeys: string[] = [];
+  for (const pending of pendingSettlementsByTile.values()) {
+    if (pending.ownerId === playerId) pendingSettlementKeys.push(pending.tileKey);
+  }
+  for (const fort of fortsByTile.values()) {
+    if (fort.ownerId === playerId && (fort.status === "under_construction" || fort.status === "removing")) fortKeys.push(fort.tileKey);
+  }
+  for (const observatory of observatoriesByTile.values()) {
+    if (observatory.ownerId === playerId && (observatory.status === "under_construction" || observatory.status === "removing")) {
+      observatoryKeys.push(observatory.tileKey);
+    }
+  }
+  for (const siege of siegeOutpostsByTile.values()) {
+    if (siege.ownerId === playerId && (siege.status === "under_construction" || siege.status === "removing")) {
+      siegeOutpostKeys.push(siege.tileKey);
+    }
+  }
+  for (const structure of economicStructuresByTile.values()) {
+    if (structure.ownerId === playerId && (structure.status === "under_construction" || structure.status === "removing")) {
+      economicStructureKeys.push(structure.tileKey);
+    }
+  }
+  return {
+    developmentProcessLimit: developmentProcessCapacityForPlayer(playerId),
+    activeDevelopmentProcessCount:
+      pendingSettlementKeys.length + fortKeys.length + observatoryKeys.length + siegeOutpostKeys.length + economicStructureKeys.length,
+    pendingSettlementCount: pendingSettlementKeys.length,
+    pendingSettlementKeys,
+    fortCount: fortKeys.length,
+    fortKeys,
+    observatoryCount: observatoryKeys.length,
+    observatoryKeys,
+    siegeOutpostCount: siegeOutpostKeys.length,
+    siegeOutpostKeys,
+    economicStructureCount: economicStructureKeys.length,
+    economicStructureKeys
+  };
 };
 
 const developmentProcessCapacityForPlayer = (playerId: string): number =>
@@ -10775,7 +9884,8 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
     tileKey: settlement.tileKey,
     liveOwnerId: live.ownerId,
     liveOwnershipState: live.ownershipState,
-    resolvesAt: settlement.resolvesAt
+    resolvesAt: settlement.resolvesAt,
+    ...developmentProcessDebugBreakdownForPlayer(settlement.ownerId)
   });
   if (live.ownerId !== liveActor.id) {
     const capturedByEnemy = Boolean(live.ownerId && live.ownerId !== liveActor.id);
@@ -10799,7 +9909,8 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
     playerId: liveActor.id,
     tileKey: settlement.tileKey,
     ownerId: liveActor.id,
-    ownershipState: "SETTLED"
+    ownershipState: "SETTLED",
+    ...developmentProcessDebugBreakdownForPlayer(liveActor.id)
   });
   revealLinkedDocksForPlayer(liveActor.id, settlement.tileKey);
   recordFrontierSettlementForPressure(liveActor.id);
@@ -10845,7 +9956,8 @@ const startSettlement = (
     playerId: actor.id,
     tileKey: key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)),
     ownerId: t.ownerId,
-    ownershipState: t.ownershipState
+    ownershipState: t.ownershipState,
+    ...developmentProcessDebugBreakdownForPlayer(actor.id)
   });
   if (t.terrain !== "LAND") return { ok: false, reason: "settlement requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "tile must be owned" };
@@ -10854,7 +9966,14 @@ const startSettlement = (
   const tk = key(t.x, t.y);
   if (pendingSettlementsByTile.has(tk)) return { ok: false, reason: "tile already settling" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile is locked in combat" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
+  if (!canStartDevelopmentProcess(actor.id)) {
+    logTileSync("settlement_slot_busy", {
+      playerId: actor.id,
+      tileKey: tk,
+      ...developmentProcessDebugBreakdownForPlayer(actor.id)
+    });
+    return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
+  }
 
   const startedAt = now();
   const resolvesAt = startedAt + settleMs;
@@ -10873,7 +9992,8 @@ const startSettlement = (
     playerId: actor.id,
     tileKey: tk,
     startedAt,
-    resolvesAt
+    resolvesAt,
+    ...developmentProcessDebugBreakdownForPlayer(actor.id)
   });
   schedulePendingSettlementResolution(pending);
   sendPlayerUpdate(actor, 0);
@@ -10987,8 +10107,154 @@ const activeAetherBridgeForTarget = (ownerId: string, targetTileKey: TileKey): A
   return undefined;
 };
 
+const buildEmpireStatsRevealForTarget = (target: Player): RevealEmpireStatsView => {
+  const economy = playerEconomySnapshot(target);
+  const strategicResources = getOrInitStrategicStocks(target.id);
+  let settledTiles = 0;
+  let frontierTiles = 0;
+  let controlledTowns = 0;
+  for (const tk of target.territoryTiles) {
+    const tile = runtimeTileCore(...parseKey(tk));
+    if (tile.ownerId !== target.id) continue;
+    if (tile.ownershipState === "SETTLED") settledTiles += 1;
+    else if (tile.ownershipState === "FRONTIER") frontierTiles += 1;
+  }
+  for (const town of townsByTile.values()) {
+    const tile = runtimeTileCore(...parseKey(town.tileKey));
+    if (tile.ownerId === target.id) controlledTowns += 1;
+  }
+  return buildRevealEmpireStatsView({
+    playerId: target.id,
+    playerName: target.name,
+    revealedAt: now(),
+    tiles: target.territoryTiles.size,
+    settledTiles,
+    frontierTiles,
+    controlledTowns,
+    incomePerMinute: economy.incomePerMinute,
+    techCount: target.techIds.size,
+    gold: target.points,
+    manpower: target.manpower,
+    manpowerCap: playerManpowerCap(target),
+    strategicResources: {
+      FOOD: strategicResources.FOOD ?? 0,
+      IRON: strategicResources.IRON ?? 0,
+      CRYSTAL: strategicResources.CRYSTAL ?? 0,
+      SUPPLY: strategicResources.SUPPLY ?? 0,
+      SHARD: strategicResources.SHARD ?? 0,
+      OIL: strategicResources.OIL ?? 0
+    }
+  });
+};
+
+const tryRevealEmpireStats = (actor: Player, targetPlayerId: string): { ok: boolean; reason?: string; stats?: RevealEmpireStatsView } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.reveal_empire_stats.requiredTechIds)) return { ok: false, reason: "requires Surveying" };
+  if (targetPlayerId === actor.id) return { ok: false, reason: "cannot reveal yourself" };
+  const target = players.get(targetPlayerId);
+  if (!target) return { ok: false, reason: "target empire not found" };
+  if (actor.allies.has(targetPlayerId) || truceBlocksHostility(actor.id, targetPlayerId)) return { ok: false, reason: "cannot reveal allied or truced empire" };
+  if (abilityOnCooldown(actor.id, "reveal_empire_stats")) return { ok: false, reason: "reveal empire stats is cooling down" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", REVEAL_EMPIRE_STATS_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for empire stats reveal" };
+  }
+  startAbilityCooldown(actor.id, "reveal_empire_stats");
+  return { ok: true, stats: buildEmpireStatsRevealForTarget(target) };
+};
+
+const aetherWallView = (wall: ActiveAetherWall): ActiveAetherWallView => {
+  const [originX, originY] = parseKey(wall.originTileKey);
+  return {
+    wallId: wall.wallId,
+    ownerId: wall.ownerId,
+    origin: { x: originX, y: originY },
+    direction: wall.direction,
+    length: wall.length,
+    startedAt: wall.startedAt,
+    endsAt: wall.endsAt
+  };
+};
+
+const activeAetherWallViews = (): ActiveAetherWallView[] => [...activeAetherWallsById.values()].map(aetherWallView);
+
+const registerAetherWallEdges = (wall: ActiveAetherWall): void => {
+  const [originX, originY] = parseKey(wall.originTileKey);
+  for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+    const edgeKey = aetherWallEdgeKey(segment.fromX, segment.fromY, segment.toX, segment.toY);
+    let wallIds = activeAetherWallIdsByEdgeKey.get(edgeKey);
+    if (!wallIds) {
+      wallIds = new Set<string>();
+      activeAetherWallIdsByEdgeKey.set(edgeKey, wallIds);
+    }
+    wallIds.add(wall.wallId);
+  }
+};
+
+const unregisterAetherWallEdges = (wall: ActiveAetherWall): void => {
+  const [originX, originY] = parseKey(wall.originTileKey);
+  for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+    const edgeKey = aetherWallEdgeKey(segment.fromX, segment.fromY, segment.toX, segment.toY);
+    const wallIds = activeAetherWallIdsByEdgeKey.get(edgeKey);
+    if (!wallIds) continue;
+    wallIds.delete(wall.wallId);
+    if (wallIds.size === 0) activeAetherWallIdsByEdgeKey.delete(edgeKey);
+  }
+};
+
+const crossingBlockedByAetherWall = (fromX: number, fromY: number, toX: number, toY: number): boolean =>
+  activeAetherWallIdsByEdgeKey.has(aetherWallEdgeKey(fromX, fromY, toX, toY));
+
+const broadcastAetherWallUpdate = (): void => {
+  broadcast({ type: "AETHER_WALL_UPDATE", walls: activeAetherWallViews() });
+};
+
+const tryCastAetherWall = (
+  actor: Player,
+  x: number,
+  y: number,
+  direction: AetherWallDirection,
+  length: 1 | 2 | 3,
+  options?: { ignoreRequirements?: boolean }
+): { ok: boolean; reason?: string; wall?: ActiveAetherWall } => {
+  const ignoreRequirements = options?.ignoreRequirements === true;
+  if (!ignoreRequirements && !playerHasTechIds(actor, ABILITY_DEFS.aether_wall.requiredTechIds)) return { ok: false, reason: "requires Aether Moorings" };
+  if (!ignoreRequirements && abilityOnCooldown(actor.id, "aether_wall")) return { ok: false, reason: "aether wall is cooling down" };
+  const segments = buildAetherWallSegments(x, y, direction, length, (wx) => wrapX(wx, WORLD_WIDTH), (wy) => wrapY(wy, WORLD_HEIGHT));
+  if (segments.length === 0) return { ok: false, reason: "invalid wall path" };
+  for (const segment of segments) {
+    const base = playerTile(segment.baseX, segment.baseY);
+    if (base.terrain !== "LAND" || base.ownerId !== actor.id || (!ignoreRequirements && base.ownershipState !== "SETTLED")) {
+      return { ok: false, reason: ignoreRequirements ? "wall must anchor on your land" : "wall must anchor on your settled land" };
+    }
+    const outward = playerTile(segment.toX, segment.toY);
+    if (outward.terrain !== "LAND") return { ok: false, reason: "wall must face passable land" };
+    if (outward.ownerId === actor.id) return { ok: false, reason: "wall must face outside your territory" };
+    if (crossingBlockedByAetherWall(segment.fromX, segment.fromY, segment.toX, segment.toY)) {
+      return { ok: false, reason: "that border already has an aether wall" };
+    }
+  }
+  if (!ignoreRequirements && !consumeStrategicResource(actor, "CRYSTAL", AETHER_WALL_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for aether wall" };
+  if (!ignoreRequirements) startAbilityCooldown(actor.id, "aether_wall");
+  const startedAt = now();
+  const wall: ActiveAetherWall = {
+    wallId: crypto.randomUUID(),
+    ownerId: actor.id,
+    originTileKey: key(x, y),
+    direction,
+    length,
+    startedAt,
+    endsAt: startedAt + AETHER_WALL_DURATION_MS
+  };
+  activeAetherWallsById.set(wall.wallId, wall);
+  registerAetherWallEdges(wall);
+  for (const segment of segments) {
+    markSummaryChunkDirtyAtTile(segment.baseX, segment.baseY);
+    markSummaryChunkDirtyAtTile(segment.toX, segment.toY);
+  }
+  return { ok: true, wall };
+};
+
 const trySiphonTile = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
-  if (!playerHasTechIds(actor, ABILITY_DEFS.siphon.requiredTechIds)) return { ok: false, reason: "requires Cryptography" };
+  if (!playerHasTechIds(actor, ABILITY_DEFS.siphon.requiredTechIds)) return { ok: false, reason: "requires Logistics" };
   if (abilityOnCooldown(actor.id, "siphon")) return { ok: false, reason: "siphon is cooling down" };
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "siphon requires land tile" };
@@ -12065,6 +11331,7 @@ const buildSnapshotState = (): SnapshotState => {
     economicStructures: [...economicStructuresByTile.values()],
     sabotage: [...siphonByTile.values()],
     abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
+    aetherWalls: [...activeAetherWallsById.values()],
     docks: [...dockById.values()],
     towns: [...townsByTile.values()],
     shardSites: [...shardSitesByTile.values()],
@@ -12149,7 +11416,8 @@ const splitSnapshotState = (
     ...(snapshot.siegeOutposts ? { siegeOutposts: snapshot.siegeOutposts } : {}),
     ...(snapshot.economicStructures ? { economicStructures: snapshot.economicStructures } : {}),
     ...(snapshot.sabotage ? { sabotage: snapshot.sabotage } : {}),
-    ...(snapshot.abilityCooldowns ? { abilityCooldowns: snapshot.abilityCooldowns } : {})
+    ...(snapshot.abilityCooldowns ? { abilityCooldowns: snapshot.abilityCooldowns } : {}),
+    ...(snapshot.aetherWalls ? { aetherWalls: snapshot.aetherWalls } : {})
   }
 });
 
@@ -12248,10 +11516,15 @@ const saveSnapshot = async (): Promise<void> => {
   return snapshotSavePromise;
 };
 
-const saveSnapshotInBackground = (): void => {
-  void saveSnapshot().catch((err) => {
+const snapshotSaveRunner = createSnapshotSaveRunner({
+  save: saveSnapshot,
+  onError: (err) => {
     logRuntimeError("snapshot save failed", err);
-  });
+  }
+});
+
+const saveSnapshotInBackground = (): void => {
+  snapshotSaveRunner.request();
 };
 
 const loadSectionedSnapshot = (): SnapshotState | undefined => {
@@ -12477,11 +11750,16 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   for (const [pid, entries] of raw.abilityCooldowns ?? []) {
     abilityCooldownsByPlayer.set(pid, new Map(entries));
   }
+  for (const wall of raw.aetherWalls ?? []) {
+    activeAetherWallsById.set(wall.wallId, wall);
+    registerAetherWallEdges(wall);
+  }
   logHydratePhase("systems_structures", {
     forts: raw.forts?.length ?? 0,
     observatories: raw.observatories?.length ?? 0,
     siegeOutposts: raw.siegeOutposts?.length ?? 0,
-    economicStructures: raw.economicStructures?.length ?? 0
+    economicStructures: raw.economicStructures?.length ?? 0,
+    aetherWalls: raw.aetherWalls?.length ?? 0
   });
   for (const d of raw.docks ?? []) {
     docksByTile.set(d.tileKey, d);
@@ -12896,6 +12174,17 @@ registerInterval(() => {
   const vitals = sampleRuntimeVitals();
   recentRuntimeVitals.push(vitals);
   const cachePayloads = cachedChunkPayloadDiagnostics();
+  runtimeIncidentLog.record("runtime_memory", {
+    ...vitals,
+    onlinePlayers: onlineSocketCount(),
+    aiPlayers: [...players.values()].filter((player) => player.isAi).length,
+    totalPlayers: players.size,
+    ownershipTiles: ownership.size,
+    visibilitySnapshots: cachedVisibilitySnapshotByPlayer.size,
+    cachedChunkPlayers: cachedChunkSnapshotByPlayer.size,
+    cachedChunkPayloads: cachePayloads.payloads,
+    cachedChunkPayloadMb: cachePayloads.approxPayloadMb
+  });
   maybeLogRuntimeMemoryWatermark("runtime_interval", vitals, {
     onlinePlayers: onlineSocketCount(),
     cachedChunkPayloadMb: cachePayloads.approxPayloadMb
@@ -12970,6 +12259,19 @@ registerInterval(() => {
     const [tx, ty] = parseKey(bridge.toTileKey);
     markSummaryChunkDirtyAtTile(tx, ty);
   }
+  let aetherWallsChanged = false;
+  for (const [wallId, wall] of activeAetherWallsById) {
+    if (wall.endsAt > now()) continue;
+    activeAetherWallsById.delete(wallId);
+    unregisterAetherWallEdges(wall);
+    const [originX, originY] = parseKey(wall.originTileKey);
+    for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+      markSummaryChunkDirtyAtTile(segment.baseX, segment.baseY);
+      markSummaryChunkDirtyAtTile(segment.toX, segment.toY);
+    }
+    aetherWallsChanged = true;
+  }
+  if (aetherWallsChanged) broadcastAetherWallUpdate();
   for (const [pid, cooldowns] of abilityCooldownsByPlayer) {
     for (const [abilityId, until] of cooldowns) {
       if (until <= now()) cooldowns.delete(abilityId);
@@ -13606,6 +12908,13 @@ const renderRuntimeDashboardHtml = (): string => `<!doctype html>
 
 const app = Fastify({ logger: true });
 runtimeState.appRef = app;
+const runtimeIncidentLog = createRuntimeIncidentLog({
+  snapshotDir: SNAPSHOT_DIR,
+  ...(RUNTIME_INCIDENT_WEBHOOK_URL ? { notifyWebhookUrl: RUNTIME_INCIDENT_WEBHOOK_URL } : {}),
+  logger: app.log
+});
+runtimeIncidentLog.record("boot_started", { pid: process.pid, startedAt: startupState.startedAt });
+await runtimeIncidentLog.notifyLastCrashReport();
 await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
@@ -13699,6 +13008,11 @@ app.get("/admin/players", async () =>
   )
 );
 app.get("/admin/runtime/debug", async () => runtimeDashboardPayload());
+app.get("/admin/runtime/incidents", async () => ({
+  ok: true,
+  currentBootId: runtimeIncidentLog.bootId,
+  lastUncleanShutdown: runtimeIncidentLog.getLastCrashReport()
+}));
 app.get("/admin/runtime/dashboard", async (_request, reply) => {
   reply.type("text/html; charset=utf-8");
   return renderRuntimeDashboardHtml();
@@ -13838,6 +13152,13 @@ app.post("/admin/world/regenerate", async () => {
         },
         "auth verified"
       );
+      runtimeIncidentLog.record("auth_verified", {
+        playerId: player.id,
+        uid: decoded.uid,
+        cachedToken: Boolean(cachedFirebaseIdentityForToken(msg.token)),
+        cachedUidIdentity: !cachedFirebaseIdentityForToken(msg.token) && Boolean(cachedFirebaseIdentityForDecodedToken(msg.token)),
+        verifyElapsedMs: verifiedAt - authStartedAt
+      });
 
       authedPlayer = player;
       socketsByPlayer.set(player.id, socket);
@@ -13898,6 +13219,7 @@ app.post("/admin/world/regenerate", async () => {
                 const [toX, toY] = parseKey(bridge.toTileKey);
                 return { bridgeId: bridge.bridgeId, ownerId: bridge.ownerId, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, startedAt: bridge.startedAt, endsAt: bridge.endsAt };
               }),
+            activeAetherWalls: activeAetherWallViews(),
             strategicReplayEvents,
             pendingSettlements: [...pendingSettlementsByTile.values()]
               .filter((settlement) => settlement.ownerId === player.id)
@@ -13948,6 +13270,10 @@ app.post("/admin/world/regenerate", async () => {
           },
           "auth sync init sent"
         );
+        runtimeIncidentLog.record("auth_sync_init", {
+          playerId: player.id,
+          sinceAuthVerifiedMs: authSync.initSentAt - (authSync.authVerifiedAt ?? authSync.initSentAt)
+        });
       }
       return;
     }
@@ -14027,6 +13353,30 @@ app.post("/admin/world/regenerate", async () => {
       });
       sendPlayerUpdate(actor, 0);
       refreshSubscribedViewForPlayer(actor.id);
+      return;
+    }
+
+    if (msg.type === "REVEAL_EMPIRE_STATS") {
+      const out = tryRevealEmpireStats(actor, msg.targetPlayerId);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "REVEAL_EMPIRE_STATS_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      sendToPlayer(actor.id, { type: "REVEAL_EMPIRE_STATS_RESULT", stats: out.stats });
+      return;
+    }
+
+    if (msg.type === "CAST_AETHER_WALL") {
+      const out = tryCastAetherWall(actor, msg.x, msg.y, msg.direction, msg.length, {
+        ignoreRequirements: socketUsesLoopback(socket)
+      });
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "AETHER_WALL_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      broadcastAetherWallUpdate();
       return;
     }
 
@@ -14595,6 +13945,14 @@ app.post("/admin/world/regenerate", async () => {
           },
           "auth sync first subscribe"
         );
+        runtimeIncidentLog.record("auth_sync_first_subscribe", {
+          playerId: actor.id,
+          sinceAuthVerifiedMs: authSync.authVerifiedAt ? authSync.firstSubscribeAt - authSync.authVerifiedAt : undefined,
+          sinceInitSentMs: authSync.initSentAt ? authSync.firstSubscribeAt - authSync.initSentAt : undefined,
+          cx: sub.cx,
+          cy: sub.cy,
+          radius: sub.radius
+        });
       }
       const last = chunkSnapshotSentAtByPlayer.get(actor.id);
       if (last && last.cx === sub.cx && last.cy === sub.cy && last.radius === sub.radius && now() - last.sentAt < 2500) {
@@ -14671,6 +14029,10 @@ app.post("/admin/world/regenerate", async () => {
       }
       if (!adjacent && !dockCrossing && !bridgeCrossing) {
         sendInvalid("target must be adjacent or valid dock crossing");
+        return;
+      }
+      if (adjacent && !dockCrossing && !bridgeCrossing && crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) {
+        sendInvalid("crossing blocked by aether wall");
         return;
       }
       if (to.terrain !== "LAND") {
@@ -14772,6 +14134,8 @@ app.post("/admin/world/regenerate", async () => {
     );
     const nowMs = now();
     const expandTraceId = msg.type === "EXPAND" ? `${actor.id}:${nowMs}:${msg.toX},${msg.toY}` : undefined;
+    const attackTraceId =
+      msg.type === "ATTACK" || msg.type === "BREAKTHROUGH_ATTACK" ? `${actor.id}:${msg.type}:${nowMs}:${msg.toX},${msg.toY}` : undefined;
     if (msg.type === "EXPAND") {
       app.log.info(
         {
@@ -14783,6 +14147,21 @@ app.post("/admin/world/regenerate", async () => {
           elapsedMs: 0
         },
         "expand trace"
+      );
+    }
+    if (attackTraceId) {
+      app.log.info(
+        {
+          traceId: attackTraceId,
+          attackerId: actor.id,
+          actionType: msg.type,
+          origin: key(msg.fromX, msg.fromY),
+          target: key(msg.toX, msg.toY),
+          phase: "received",
+          elapsedMs: 0,
+          socketReadyState: socket.readyState
+        },
+        "attack trace"
       );
     }
     const actionTimes = pruneActionTimes(actor.id, nowMs);
@@ -15062,6 +14441,7 @@ app.post("/admin/world/regenerate", async () => {
     };
     if (precomputedCombat) pending.precomputedCombat = precomputedCombat;
     if (expandTraceId) pending.traceId = expandTraceId;
+    if (attackTraceId) pending.traceId = attackTraceId;
     combatLocks.set(fk, pending);
     combatLocks.set(tk, pending);
     logTileSync(
@@ -15074,6 +14454,23 @@ app.post("/admin/world/regenerate", async () => {
     );
     app.log.info({ playerId: actor.id, action: msg.type, from: fk, to: tk, resolvesAt }, "action accepted");
     logExpandTrace("queued", pending);
+    logAttackTrace("queued", pending, {
+      requestedFrom: requestedFromKey,
+      requestedTo: requestedToKey,
+      socketReadyState: socket.readyState
+    });
+    socket.send(
+      JSON.stringify({
+        type: "ACTION_ACCEPTED",
+        actionType: msg.type,
+        origin: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        resolvesAt
+      })
+    );
+    logAttackTrace("accepted_ack_sent", pending, {
+      socketReadyState: socket.readyState
+    });
     const predictedResult =
       pending.precomputedCombat
         ? {
@@ -15107,6 +14504,10 @@ app.post("/admin/world/regenerate", async () => {
       })
     );
     logExpandTrace("combat_start_sent", pending);
+    logAttackTrace("combat_start_sent", pending, {
+      predictedResult: Boolean(predictedResult),
+      socketReadyState: socket.readyState
+    });
     if (isBreakthroughAttack || bridgeCrossing) sendPlayerUpdate(actor, 0);
     if (defender && !defenderIsBarbarian) {
       sendToPlayer(defender.id, {
@@ -15167,9 +14568,11 @@ app.post("/admin/world/regenerate", async () => {
           })
         );
         logExpandTrace("combat_result_sent", pending, { neutralTarget: true });
+        logAttackTrace("combat_result_sent", pending, { neutralTarget: true });
         sendPlayerUpdate(actor, 0);
         sendLocalVisionDeltaForPlayer(actor.id, [{ x: to.x, y: to.y }]);
         logExpandTrace("vision_delta_sent", pending, { centers: 1, neutralTarget: true });
+        logAttackTrace("vision_delta_sent", pending, { centers: 1, neutralTarget: true });
         return;
       }
 
@@ -15300,6 +14703,13 @@ app.post("/admin/world/regenerate", async () => {
       updateMissionState(actor);
       if (defender) updateMissionState(defender);
       logExpandTrace("result_applied", pending, { neutralTarget: false, attackerWon: win, changes: resultChanges.length });
+      logAttackTrace("result_applied", pending, {
+        neutralTarget: false,
+        attackerWon: win,
+        changes: resultChanges.length,
+        defenderId: defender?.id,
+        defenderIsBarbarian
+      });
 
       resolveEliminationIfNeeded(actor, true);
       if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
@@ -15324,11 +14734,20 @@ app.post("/admin/world/regenerate", async () => {
         levelDelta: 0
       }));
       logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
+      logAttackTrace("combat_result_sent", pending, {
+        neutralTarget: false,
+        changes: resultChanges.length,
+        socketReadyState: socket.readyState
+      });
       sendPlayerUpdate(actor, 0);
       if (defender && !defenderIsBarbarian) sendPlayerUpdate(defender, 0);
       const changedCenters = resultChanges.map((change) => ({ x: change.x, y: change.y }));
       sendLocalVisionDeltaForPlayer(actor.id, changedCenters);
       logExpandTrace("vision_delta_sent", pending, { centers: changedCenters.length, targetPlayer: actor.id });
+      logAttackTrace("vision_delta_sent", pending, {
+        centers: changedCenters.length,
+        targetPlayer: actor.id
+      });
       if (defender && !defenderIsBarbarian) sendLocalVisionDeltaForPlayer(defender.id, changedCenters);
     }, resolvesAt - now());
   });
@@ -15355,6 +14774,7 @@ app.post("/admin/world/regenerate", async () => {
 
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info({ signal }, "shutting down server");
+  runtimeIncidentLog.record("clean_shutdown_started", { signal });
   let exitCode = 0;
   for (const interval of runtimeIntervals) clearInterval(interval);
   runtimeIntervals.length = 0;
@@ -15370,6 +14790,7 @@ const shutdown = async (signal: string): Promise<void> => {
     exitCode = 1;
     app.log.error({ err, signal }, "error during shutdown");
   } finally {
+    await runtimeIncidentLog.markCleanShutdown(signal);
     process.exit(exitCode);
   }
 };

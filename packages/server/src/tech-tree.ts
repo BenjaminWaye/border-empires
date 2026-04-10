@@ -32,8 +32,10 @@ export interface TechEffects {
   unlockSiegeOutposts?: boolean;
   unlockRevealRegion?: boolean;
   unlockRevealEmpire?: boolean;
+  unlockRevealEmpireStats?: boolean;
   unlockDeepStrike?: boolean;
   unlockNavalInfiltration?: boolean;
+  unlockAetherWall?: boolean;
   unlockSabotage?: boolean;
   unlockMountainPass?: boolean;
   unlockTerrainShaping?: boolean;
@@ -144,8 +146,10 @@ const TechEffectsSchema = z
     unlockSiegeOutposts: z.boolean().optional(),
     unlockRevealRegion: z.boolean().optional(),
     unlockRevealEmpire: z.boolean().optional(),
+    unlockRevealEmpireStats: z.boolean().optional(),
     unlockDeepStrike: z.boolean().optional(),
     unlockNavalInfiltration: z.boolean().optional(),
+    unlockAetherWall: z.boolean().optional(),
     unlockSabotage: z.boolean().optional(),
     unlockMountainPass: z.boolean().optional(),
     unlockTerrainShaping: z.boolean().optional(),

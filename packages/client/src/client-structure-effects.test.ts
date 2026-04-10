@@ -86,4 +86,28 @@ describe("client structure effects", () => {
       ))
     ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
   });
+
+  it("shows the near-fort bonus for adjacent wooden forts too", () => {
+    const woodenFort: Tile = {
+      x: 40,
+      y: 40,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" }
+    };
+    const settledTile: Tile = {
+      x: 41,
+      y: 40,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED"
+    };
+
+    expect(
+      tileAreaEffectModifiersForTile(settledTile, [woodenFort, settledTile], [
+        { reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" }
+      ])
+    ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
+  });
 });

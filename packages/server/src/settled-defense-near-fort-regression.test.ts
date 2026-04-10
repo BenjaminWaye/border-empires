@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { SETTLED_DEFENSE_NEAR_FORT_RADIUS } from "@border-empires/shared";
 
 const serverSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -38,5 +39,10 @@ describe("settled defense near fort regression guard", () => {
     expect(defenseBody).toContain("effects.settledDefenseNearFortMult > 1");
     expect(defenseBody).toContain("settledDefenseNearFortApplies(defenderId, target)");
     expect(coverageBody).toContain("wrappedChebyshevDistance(x, y, target.x, target.y) <= SETTLED_DEFENSE_NEAR_FORT_RADIUS");
+    expect(coverageBody).toContain('structure.type !== "WOODEN_FORT"');
+  });
+
+  it("uses the shared 1-tile local defense radius", () => {
+    expect(SETTLED_DEFENSE_NEAR_FORT_RADIUS).toBe(1);
   });
 });
