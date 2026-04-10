@@ -57,6 +57,7 @@ type ChunkSnapshotCacheEntry = {
   visibility: VisibilitySnapshot;
   visibilityVersion: number;
   payloadByChunkKey: Map<string, string>;
+  summaryVersionByPayloadKey: Map<string, number>;
   visibilityMaskByChunkKey: Map<string, Uint8Array>;
   visibilityVersionByChunkKey: Map<string, number>;
 };
@@ -111,6 +112,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   >;
   fogChunkTiles: (worldCx: number, worldCy: number) => readonly Tile[];
   summaryChunkTiles: (worldCx: number, worldCy: number, mode: ChunkSummaryMode) => readonly Tile[];
+  summaryChunkVersion: (worldCx: number, worldCy: number) => number;
   loadSummaryChunkTilesBatch: (requests: ChunkReadRequest[]) => Promise<readonly Tile[][]>;
   visibleInSnapshot: (snapshot: VisibilitySnapshot, x: number, y: number) => boolean;
   wrapX: (value: number, mod: number) => number;
@@ -188,18 +190,20 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
   const chunkSnapshotCacheForPlayer = (
     playerId: string,
     visibility: VisibilitySnapshot
-  ): {
-    visibilityVersion: number;
-    payloadByChunkKey: Map<string, string>;
-    visibilityMaskByChunkKey: Map<string, Uint8Array>;
-    visibilityVersionByChunkKey: Map<string, number>;
-  } => {
+    ): {
+      visibilityVersion: number;
+      payloadByChunkKey: Map<string, string>;
+      summaryVersionByPayloadKey: Map<string, number>;
+      visibilityMaskByChunkKey: Map<string, Uint8Array>;
+      visibilityVersionByChunkKey: Map<string, number>;
+    } => {
     let cached = deps.cachedChunkSnapshotByPlayer.get(playerId);
     if (!cached) {
       cached = {
         visibility,
         visibilityVersion: 0,
         payloadByChunkKey: new Map<string, string>(),
+        summaryVersionByPayloadKey: new Map<string, number>(),
         visibilityMaskByChunkKey: new Map<string, Uint8Array>(),
         visibilityVersionByChunkKey: new Map<string, number>()
       };
@@ -211,6 +215,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     return {
       visibilityVersion: cached.visibilityVersion,
       payloadByChunkKey: cached.payloadByChunkKey,
+      summaryVersionByPayloadKey: cached.summaryVersionByPayloadKey,
       visibilityMaskByChunkKey: cached.visibilityMaskByChunkKey,
       visibilityVersionByChunkKey: cached.visibilityVersionByChunkKey
     };
@@ -218,10 +223,12 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 
   const clearChunkPayloads = (
     payloadByChunkKey: Map<string, string>,
+    summaryVersionByPayloadKey: Map<string, number>,
     chunkKey: string
   ): void => {
     for (const mode of CHUNK_PAYLOAD_MODES) {
       payloadByChunkKey.delete(`${mode}:${chunkKey}`);
+      summaryVersionByPayloadKey.delete(`${mode}:${chunkKey}`);
     }
   };
 
@@ -260,7 +267,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         }
       }
       if (changed) {
-        clearChunkPayloads(cache.payloadByChunkKey, chunkKey);
+        clearChunkPayloads(cache.payloadByChunkKey, cache.summaryVersionByPayloadKey, chunkKey);
       }
     }
     phases.visibilityMaskMs += deps.now() - visibilityStartedAt;
@@ -281,8 +288,10 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     const chunkKey = `${worldCx},${worldCy}`;
     const payloadCacheKey = `${mode}:${chunkKey}`;
     const visibleMask = chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy, phases);
+    const summaryVersion = deps.summaryChunkVersion(worldCx, worldCy);
     const cachedPayload = cache.payloadByChunkKey.get(payloadCacheKey);
-    if (cachedPayload) {
+    const cachedSummaryVersion = cache.summaryVersionByPayloadKey.get(payloadCacheKey);
+    if (cachedPayload && cachedSummaryVersion === summaryVersion) {
       phases.cachedPayloadChunks += 1;
       return {
         payload: cachedPayload,
@@ -290,6 +299,8 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         chunkKey: payloadCacheKey
       };
     }
+    cache.payloadByChunkKey.delete(payloadCacheKey);
+    cache.summaryVersionByPayloadKey.delete(payloadCacheKey);
 
     phases.rebuiltChunks += 1;
     return {
@@ -424,6 +435,10 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
           const pending = pendingBuilds[payloadIndex]!;
           const payload = payloads[payloadIndex]!;
           payloadCache.set(pending.chunkKey, payload);
+          chunkSnapshotCacheForPlayer(actor.id, snapshot).summaryVersionByPayloadKey.set(
+            pending.chunkKey,
+            deps.summaryChunkVersion(pending.cx, pending.cy)
+          );
           chunkBatchBodies.push(payload);
         }
       }
