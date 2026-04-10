@@ -467,12 +467,36 @@ export const processDevelopmentQueue = (
   }
 ): boolean => {
   if (state.developmentQueue.length === 0 || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
-  if (state.queuedDevelopmentDispatchPending) return false;
+  if (state.queuedDevelopmentDispatchPending) {
+    const nextQueued = state.developmentQueue[0];
+    if (nextQueued && tileMatchesDebugKey(nextQueued.x, nextQueued.y, 1, { fallbackTile: state.selected })) {
+      debugTileLog("development-queue-blocked", {
+        tileKey: nextQueued.tileKey,
+        developmentQueueLength: state.developmentQueue.length,
+        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+        developmentProcessLimit: state.developmentProcessLimit,
+        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+        lastDevelopmentAttempt: state.lastDevelopmentAttempt ?? null
+      });
+    }
+    return false;
+  }
   let started = false;
   while (state.developmentQueue.length > 0 && deps.developmentSlotSummary().available > 0) {
     const next = state.developmentQueue[0];
     if (!next) return started;
     if (next.kind === "SETTLE" && queuedSettlementShouldWait(state, next.tileKey)) return false;
+    if (tileMatchesDebugKey(next.x, next.y, 1, { fallbackTile: state.selected })) {
+      debugTileLog("development-queue-dispatch", {
+        tileKey: next.tileKey,
+        kind: next.kind,
+        developmentQueueLength: state.developmentQueue.length,
+        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+        developmentProcessLimit: state.developmentProcessLimit,
+        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+        queuedSettlementWait: next.kind === "SETTLE" ? queuedSettlementShouldWait(state, next.tileKey) : false
+      });
+    }
     const ok =
       next.kind === "SETTLE"
         ? deps.requestSettlement(next.x, next.y, { allowQueueWhenBusy: false, fromQueue: true, suppressWarnings: true })
