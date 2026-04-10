@@ -658,6 +658,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof player.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (player.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
+      logTileSync("development_player_update", {
+        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+        developmentProcessLimit: state.developmentProcessLimit,
+        pendingSettlements: (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? [],
+        developmentQueueLength: state.developmentQueue.length,
+        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+        settleProgressCount: state.settleProgressByTile.size
+      });
       state.techRootId = player.techRootId as string | undefined;
       state.techIds = (player.techIds as string[]) ?? [];
       state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
@@ -1418,6 +1426,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.pendingDomainUnlockId = "";
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
+      if (errorMessage.includes("development slots are busy")) {
+        logTileSync("development_slot_busy_error", {
+          code: errorCode,
+          message: errorMessage,
+          errorTileKey,
+          activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+          developmentProcessLimit: state.developmentProcessLimit,
+          developmentQueueLength: state.developmentQueue.length,
+          queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+          lastDevelopmentAttempt: state.lastDevelopmentAttempt ?? null,
+          settleProgressKeys: [...state.settleProgressByTile.keys()]
+        });
+      }
       if (typeof msg.x === "number" && typeof msg.y === "number") {
         logFrontierTimeline("frontier-error", Number(msg.x), Number(msg.y), {
           before: state.tiles.get(errorTileKey),
