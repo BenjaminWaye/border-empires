@@ -4,6 +4,24 @@ const DEBUG_EMAIL_STORAGE_KEY = "debug_auth_email";
 const DEBUG_ACCOUNT_EMAIL = "bw199005@gmail.com";
 const lastLogAtByKey = new Map<string, number>();
 
+export const tileSyncDebugEnabled = (): boolean => {
+  try {
+    return (
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.localStorage.getItem("tile-sync-debug") === "1"
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const attackSyncLog = (event: string, payload: Record<string, unknown>): void => {
+  if (!tileSyncDebugEnabled()) return;
+  console.info(`[attack-sync] ${event}`, payload);
+};
+
 const normalizeTileKey = (value: string | null): string => {
   if (!value) return "";
   const trimmed = value.trim();
