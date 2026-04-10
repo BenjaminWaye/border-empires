@@ -321,6 +321,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     if (!("yield" in incoming) && existing.yield) merged.yield = existing.yield;
     if (!("yieldRate" in incoming) && existing.yieldRate) merged.yieldRate = existing.yieldRate;
     if (!("yieldCap" in incoming) && existing.yieldCap) merged.yieldCap = existing.yieldCap;
+    if (!("upkeepEntries" in incoming) && existing.upkeepEntries) merged.upkeepEntries = existing.upkeepEntries;
     if (!("history" in incoming) && existing.history) merged.history = existing.history;
     return merged;
   };
