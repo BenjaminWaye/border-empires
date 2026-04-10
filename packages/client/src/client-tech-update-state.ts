@@ -1,5 +1,4 @@
 import type { ClientState } from "./client-state.js";
-import { resolveTechCatalog } from "./client-tech-catalog.js";
 
 type TechUpdateMessage = {
   status?: "started" | "completed" | undefined;
@@ -42,12 +41,7 @@ export const applyTechUpdateToState = (
   state.modBreakdown = msg.modBreakdown ?? state.modBreakdown;
   state.incomePerMinute = msg.incomePerMinute ?? state.incomePerMinute;
   state.missions = msg.missions ?? state.missions;
-  state.techCatalog = resolveTechCatalog({
-    incoming: msg.techCatalog,
-    previous: state.techCatalog,
-    ownedIds: msg.techIds ?? state.techIds,
-    choiceIds: msg.nextChoices ?? state.techChoices
-  });
+  state.techCatalog = msg.techCatalog ?? state.techCatalog;
   state.domainIds = msg.domainIds ?? state.domainIds;
   state.domainChoices = msg.domainChoices ?? state.domainChoices;
   state.domainCatalog = msg.domainCatalog ?? state.domainCatalog;
