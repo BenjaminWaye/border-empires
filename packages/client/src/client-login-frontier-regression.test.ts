@@ -16,7 +16,7 @@ describe("login and frontier retry regression guard", () => {
 
   it("waits for sync instead of immediately retrying the same neutral frontier capture on missing combat start", () => {
     const source = clientSource("./client-runtime-loop.ts");
-    expect(source).toContain('No combat start from server yet; waiting for frontier sync instead of retrying the same tile.');
+    expect(source).toContain('No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.');
     expect(source).toContain("frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 12_000);");
     expect(source).toContain("frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);");
   });
@@ -58,8 +58,15 @@ describe("login and frontier retry regression guard", () => {
 
   it("forces a nearby refresh and warning alert when combat start or result goes missing for attacks", () => {
     const source = clientSource("./client-runtime-loop.ts");
-    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");');
-    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");');
+    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles and retrying.", "warn");');
+    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");');
     expect(source).toContain('showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");');
+  });
+
+  it("times out waiting for server acceptance after 2 seconds instead of waiting for combat start", () => {
+    const source = clientSource("./client-runtime-loop.ts");
+    expect(source).toContain("if (!state.actionAcceptedAck && Date.now() - started > 2_000) {");
+    expect(source).toContain('attackSyncLog("action-accept-timeout"');
+    expect(source).toContain('attackSyncLog("action-accept-timeout-refresh"');
   });
 });

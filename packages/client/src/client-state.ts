@@ -363,6 +363,7 @@ export const createInitialState = () => ({
   queuedDevelopmentDispatchPending: false,
   queuedTargetKeys: new Set<string>(),
   actionInFlight: false,
+  actionAcceptedAck: false,
   combatStartAck: false,
   actionStartedAt: 0,
   actionTargetKey: "",

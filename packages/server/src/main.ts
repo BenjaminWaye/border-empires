@@ -8581,7 +8581,7 @@ const logExpandTrace = (
 };
 
 const logAttackTrace = (
-  phase: "received" | "queued" | "combat_start_sent" | "result_applied" | "combat_result_sent" | "vision_delta_sent",
+  phase: "received" | "queued" | "accepted_ack_sent" | "combat_start_sent" | "result_applied" | "combat_result_sent" | "vision_delta_sent",
   capture: PendingCapture,
   extra?: Record<string, unknown>
 ): void => {
@@ -14469,6 +14469,18 @@ app.post("/admin/world/regenerate", async () => {
     logAttackTrace("queued", pending, {
       requestedFrom: requestedFromKey,
       requestedTo: requestedToKey,
+      socketReadyState: socket.readyState
+    });
+    socket.send(
+      JSON.stringify({
+        type: "ACTION_ACCEPTED",
+        actionType: msg.type,
+        origin: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        resolvesAt
+      })
+    );
+    logAttackTrace("accepted_ack_sent", pending, {
       socketReadyState: socket.readyState
     });
     const predictedResult =
