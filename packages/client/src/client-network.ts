@@ -1,7 +1,7 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
-import { debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, tileSyncDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -66,13 +66,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearPendingCollectTileDelta,
     playerNameForOwner
   } = deps;
-  const tileSyncDebugEnabled = (): boolean =>
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.hostname === "0.0.0.0" ||
-      window.localStorage.getItem("tile-sync-debug") === "1");
-
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -538,6 +531,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   ws.addEventListener("open", () => {
+    attackSyncLog("ws-open", {
+      readyState: ws.readyState,
+      authReady: state.authReady,
+      authSessionReady: state.authSessionReady
+    });
     state.connection = "connected";
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
@@ -552,6 +550,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   ws.addEventListener("close", () => {
     clearDeferredBootstrapRefreshTimer();
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    attackSyncLog("ws-close", {
+      currentActionKey,
+      currentAction: state.actionCurrent,
+      actionStartedAt: state.actionStartedAt,
+      combatStartAck: state.combatStartAck,
+      capture: state.capture
+        ? {
+            target: state.capture.target,
+            resolvesAt: state.capture.resolvesAt
+          }
+        : undefined
+    });
     state.connection = "disconnected";
     state.actionInFlight = false;
     state.combatStartAck = false;
@@ -570,6 +580,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("error", () => {
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    attackSyncLog("ws-error", {
+      currentActionKey,
+      currentAction: state.actionCurrent,
+      actionStartedAt: state.actionStartedAt,
+      combatStartAck: state.combatStartAck,
+      capture: state.capture
+        ? {
+            target: state.capture.target,
+            resolvesAt: state.capture.resolvesAt
+          }
+        : undefined
+    });
     state.connection = "disconnected";
     state.actionInFlight = false;
     state.combatStartAck = false;
@@ -591,6 +613,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    if (msg.type === "COMBAT_START" || msg.type === "COMBAT_RESULT" || msg.type === "ERROR") {
+      const currentTarget = state.actionCurrent ? { x: state.actionCurrent.x, y: state.actionCurrent.y } : undefined;
+      attackSyncLog("message", {
+        type: msg.type,
+        currentTarget,
+        currentActionKey: state.actionTargetKey,
+        combatStartAck: state.combatStartAck,
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        msgTarget:
+          typeof msg.target === "object" && msg.target !== null && "x" in msg.target && "y" in msg.target
+            ? msg.target
+            : undefined,
+        code: typeof msg.code === "string" ? msg.code : undefined,
+        message: typeof msg.message === "string" ? msg.message : undefined
+      });
+    }
     if (msg.type === "LOGIN_PHASE") {
       if (!state.authSessionReady) {
         applyLoginPhase(
@@ -958,6 +996,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           totalElapsedMs: resultReceivedAt - timing.acceptedAt
         });
       }
+      attackSyncLog("combat-result", {
+        attackType: msg.attackType,
+        target: msg.target,
+        origin: msg.origin,
+        attackerWon: msg.attackerWon,
+        startedAgoMs: state.actionStartedAt ? resultReceivedAt - state.actionStartedAt : undefined,
+        hadCombatStartAck: state.combatStartAck
+      });
       applyCombatOutcomeMessage(msg as Record<string, unknown>);
       return;
     }
@@ -965,6 +1011,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "COMBAT_START") {
       const target = msg.target as { x: number; y: number };
       const resolvesAt = msg.resolvesAt as number;
+      attackSyncLog("combat-start", {
+        target,
+        origin: msg.origin,
+        resolvesAt,
+        predictedResult: Boolean(msg.predictedResult),
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        currentAction: state.actionCurrent
+      });
       state.combatStartAck = true;
       const existingCapture =
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
