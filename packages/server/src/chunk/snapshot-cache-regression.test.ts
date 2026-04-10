@@ -164,6 +164,7 @@ describe("chunk snapshot cache regression guard", () => {
         inputs.map((input) => JSON.stringify({ cx: input.cx, cy: input.cy, visible: [...input.visibleMask], direct: true })),
       serializeChunkBatchBodies: (generation, chunkBodies) =>
         JSON.stringify({ type: "CHUNK_BATCH", generation, chunks: chunkBodies.map((body) => JSON.parse(body)) }),
+      sendChunkBatchPayload: (socket, payload) => socket.send(payload),
       runtimeLoadShedLevel: () => "normal"
     });
 
@@ -288,6 +289,7 @@ describe("chunk snapshot cache regression guard", () => {
       serializeChunkBatchDirect: (inputs) => inputs.map((input) => JSON.stringify({ cx: input.cx, ownerId: input.visibleTiles[0]?.ownerId })),
       serializeChunkBatchBodies: (generation, chunkBodies) =>
         JSON.stringify({ type: "CHUNK_BATCH", generation, chunks: chunkBodies.map((body) => JSON.parse(body)) }),
+      sendChunkBatchPayload: (socket, payload) => socket.send(payload),
       runtimeLoadShedLevel: () => "normal"
     });
     const socket = {
