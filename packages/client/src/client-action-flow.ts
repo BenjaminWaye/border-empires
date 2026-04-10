@@ -553,9 +553,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
   };
 
-  const abilityCooldownRemainingMs = (
-    abilityId: "aether_bridge" | "siphon" | "reveal_empire" | "create_mountain" | "remove_mountain"
-  ): number => {
+  const abilityCooldownRemainingMs = (abilityId: keyof ClientState["abilityCooldowns"]): number => {
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
       return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now());
@@ -839,11 +837,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   ): Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }> =>
     aetherWallDirectionTargetTilesFromModule(state, tile, tileActionLogicDeps());
 
-  const preferredAetherWallLength = (x: number, y: number, direction: ClientState["aetherWallTargeting"]["direction"]): 0 | 1 | 2 | 3 => {
+  const preferredAetherWallLength = (
+    x: number,
+    y: number,
+    direction: ClientState["aetherWallTargeting"]["direction"]
+  ): 1 | 2 | 3 | undefined => {
     for (const length of [3, 2, 1] as const) {
       if (canPlaceAetherWallFromOriginFromModule(state, x, y, direction, length, tileActionLogicDeps())) return length;
     }
-    return 0;
+    return undefined;
   };
 
   const menuActionsForSingleTile = (tile: Tile): TileActionDef[] =>
@@ -1213,7 +1215,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (selectedDirections.length === 1) {
         const direction = selectedDirections[0]!;
         const length = preferredAetherWallLength(selected.x, selected.y, direction);
-        if (length > 0) sendGameMessage({ type: "CAST_AETHER_WALL", x: selected.x, y: selected.y, direction, length });
+        if (length !== undefined) sendGameMessage({ type: "CAST_AETHER_WALL", x: selected.x, y: selected.y, direction, length });
         else pushFeed("Aether Wall cannot extend from that selected tile.", "combat", "warn");
       } else if (selectedDirections.length > 1) {
         beginCrystalTargeting("aether_wall");
@@ -1275,7 +1277,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         const clickedDirection = aetherWallDirectionTargetTiles(selectedOrigin).find((target) => target.x === wx && target.y === wy);
         if (clickedDirection) {
           const length = preferredAetherWallLength(selectedOrigin.x, selectedOrigin.y, clickedDirection.direction);
-          if (length > 0) {
+          if (length !== undefined) {
             state.aetherWallTargeting.direction = clickedDirection.direction;
             state.aetherWallTargeting.length = length;
             sendGameMessage({
@@ -1307,7 +1309,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         if (validDirections.length === 1) {
           const direction = validDirections[0]!;
           const length = preferredAetherWallLength(clicked.x, clicked.y, direction);
-          if (length > 0) {
+          if (length !== undefined) {
             state.aetherWallTargeting.direction = direction;
             state.aetherWallTargeting.length = length;
             sendGameMessage({ type: "CAST_AETHER_WALL", x: clicked.x, y: clicked.y, direction, length });
@@ -1320,7 +1322,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           state.aetherWallTargeting.direction = validDirections[0]!;
         }
         const preferredLength = preferredAetherWallLength(clicked.x, clicked.y, state.aetherWallTargeting.direction);
-        if (preferredLength > 0) state.aetherWallTargeting.length = preferredLength;
+        if (preferredLength !== undefined) state.aetherWallTargeting.length = preferredLength;
       }
       renderHud();
       return;
