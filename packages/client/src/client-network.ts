@@ -3,7 +3,7 @@ import type { ClientState } from "./client-state.js";
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { resolveTechCatalog } from "./client-tech-catalog.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
-import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, tileSyncDebugEnabled } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -1260,6 +1260,31 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if ("history" in normalizedUpdate) {
           if (normalizedUpdate.history) merged.history = normalizedUpdate.history;
           else delete merged.history;
+        }
+        if (tileMatchesDebugKey(normalizedUpdate.x, normalizedUpdate.y, 0, { fallbackTile: state.selected }) && verboseTileDebugEnabled()) {
+          debugTileLog("tile-delta-fort-field", {
+            x: normalizedUpdate.x,
+            y: normalizedUpdate.y,
+            detailLevel: normalizedUpdate.detailLevel ?? existing?.detailLevel ?? null,
+            hasFortField: "fort" in normalizedUpdate,
+            incomingFort: "fort" in normalizedUpdate ? normalizedUpdate.fort ?? null : "__omitted__",
+            existingFort: existing?.fort
+              ? {
+                  ownerId: existing.fort.ownerId,
+                  status: existing.fort.status,
+                  disabledUntil: existing.fort.disabledUntil ?? null,
+                  completesAt: existing.fort.completesAt ?? null
+                }
+              : null,
+            mergedFort: merged.fort
+              ? {
+                  ownerId: merged.fort.ownerId,
+                  status: merged.fort.status,
+                  disabledUntil: merged.fort.disabledUntil ?? null,
+                  completesAt: merged.fort.completesAt ?? null
+                }
+              : null
+          });
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
