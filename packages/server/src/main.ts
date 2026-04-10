@@ -1424,6 +1424,12 @@ let activeSeasonTechConfig: SeasonalTechConfig = {
   activeNodeIds: new Set<string>(),
   balanceConstants: {}
 };
+const replaceActiveSeasonTechConfig = (nextConfig: SeasonalTechConfig): void => {
+  activeSeasonTechConfig.configId = nextConfig.configId;
+  activeSeasonTechConfig.rootNodeIds = [...nextConfig.rootNodeIds];
+  activeSeasonTechConfig.activeNodeIds = new Set(nextConfig.activeNodeIds);
+  activeSeasonTechConfig.balanceConstants = { ...nextConfig.balanceConstants };
+};
 const pairKeyFor = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
 const ACTION_WINDOW_MS = 5_000;
 const ACTION_LIMIT = 12;
@@ -2384,7 +2390,7 @@ const startNewSeason = (): void => {
   };
   activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
   setWorldSeed(activeSeason.worldSeed);
-  activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
+  replaceActiveSeasonTechConfig(chooseSeasonalTechConfig(activeSeason.worldSeed));
   activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   clearWorldProgressForSeason();
   seedInitialShardScatter(activeSeason.worldSeed);
@@ -2408,7 +2414,7 @@ const regenerateWorldInPlace = (): void => {
   activeSeason.worldSeed = Math.floor(Math.random() * 1_000_000_000);
   activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
   setWorldSeed(activeSeason.worldSeed);
-  activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
+  replaceActiveSeasonTechConfig(chooseSeasonalTechConfig(activeSeason.worldSeed));
   activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   clearWorldProgressForSeason();
   seedInitialShardScatter(activeSeason.worldSeed);
@@ -11793,13 +11799,13 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   if (raw.seasonWinner) seasonWinner = raw.seasonWinner;
   if (raw.seasonArchives) seasonArchives.push(...raw.seasonArchives);
   if (raw.seasonTechConfig) {
-    activeSeasonTechConfig = {
+    replaceActiveSeasonTechConfig({
       ...raw.seasonTechConfig,
       activeNodeIds: new Set(raw.seasonTechConfig.activeNodeIds)
-    };
+    });
   }
   if (!seasonTechConfigIsCompatible(activeSeasonTechConfig)) {
-    activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
+    replaceActiveSeasonTechConfig(chooseSeasonalTechConfig(activeSeason.worldSeed));
     activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   }
   logHydratePhase("season_and_meta", {
@@ -11951,7 +11957,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     setWorldSeed(activeSeason.worldSeed);
   }
   if (activeSeasonTechConfig.rootNodeIds.length === 0 || activeSeasonTechConfig.activeNodeIds.size === 0) {
-    activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
+    replaceActiveSeasonTechConfig(chooseSeasonalTechConfig(activeSeason.worldSeed));
     activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
   }
   logStartupPhase("validate_world_state", worldStartedAt, {
