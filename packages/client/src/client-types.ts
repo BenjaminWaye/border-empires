@@ -88,7 +88,7 @@ export type Tile = {
     foodUpkeepPerMinute?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   };
-  fort?: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number };
+  fort?: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number; disabledUntil?: number };
   observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number };
   siegeOutpost?: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number };
   economicStructure?: {

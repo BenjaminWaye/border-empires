@@ -245,7 +245,7 @@ export interface Tile {
     gold: number;
     strategicEach: number;
   };
-  fort?: { ownerId: PlayerId; status: FortStatus; completesAt?: number };
+  fort?: { ownerId: PlayerId; status: FortStatus; completesAt?: number; disabledUntil?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; completesAt?: number };
   observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; cooldownUntil?: number };
   economicStructure?: {
@@ -419,6 +419,7 @@ export interface Fort {
   status: FortStatus;
   startedAt: number;
   completesAt?: number;
+  disabledUntil?: number;
   previousStatus?: "active";
 }
 

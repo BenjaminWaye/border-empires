@@ -13,45 +13,80 @@ import {
 } from "@border-empires/shared";
 import { canAffordCost, isForestTile, settleDurationMsForTile } from "./client-constants.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
+import type { initClientDom } from "./client-dom.js";
 import { closeActivePanel, setActivePanel } from "./client-panel-nav.js";
 import type { ClientState } from "./client-state.js";
+import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
+import type { OptimisticStructureKind } from "./client-types.js";
 
-type HoldBuildMenuDeps = Record<string, any> & {
+type ClientDom = ReturnType<typeof initClientDom>;
+type DevelopmentBuildPayload = Extract<ClientState["developmentQueue"][number], { kind: "BUILD" }>["payload"];
+
+type HoldBuildMenuDeps = {
   state: ClientState;
-  holdBuildMenuEl: HTMLDivElement;
+  holdBuildMenuEl: ClientDom["holdBuildMenuEl"];
+  keyFor: (x: number, y: number) => string;
+  hideHoldBuildMenu: () => void;
+  developmentSlotSummary: () => DevelopmentSlotSummary;
+  structureGoldCost: (structureType: "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST") => number;
+  isOwnedBorderTile: (x: number, y: number) => boolean;
+  structureCostText: (structureType: "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST") => string;
+  viewportSize: () => { width: number; height: number };
+  requestSettlement: (x: number, y: number) => boolean;
+  sendDevelopmentBuild: (
+    payload: DevelopmentBuildPayload,
+    optimistic: () => void,
+    opts: { x: number; y: number; label: string; optimisticKind: OptimisticStructureKind }
+  ) => boolean;
+  applyOptimisticStructureBuild: (x: number, y: number, kind: OptimisticStructureKind) => void;
+  renderHud: () => void;
 };
 
-type UiControlsDeps = Record<string, any> & {
+type UiControlsDeps = {
   state: ClientState;
-  hud: HTMLElement;
-  allianceSendBtn: HTMLButtonElement;
-  mobileAllianceSendBtn: HTMLButtonElement;
-  allianceBreakBtn: HTMLButtonElement;
-  mobileAllianceBreakBtn: HTMLButtonElement;
-  allianceTargetEl: HTMLInputElement;
-  mobileAllianceTargetEl: HTMLInputElement;
-  allianceBreakIdEl: HTMLInputElement;
-  mobileAllianceBreakIdEl: HTMLInputElement;
-  techChooseBtn: HTMLButtonElement;
-  mobileTechChooseBtn: HTMLButtonElement;
-  techPickEl: HTMLSelectElement;
-  mobileTechPickEl: HTMLSelectElement;
-  centerMeBtn: HTMLButtonElement;
-  centerMeDesktopBtn: HTMLButtonElement;
-  collectVisibleDesktopBtn: HTMLButtonElement;
-  collectVisibleMobileBtn: HTMLButtonElement;
-  captureCancelBtn: HTMLButtonElement;
-  captureCloseBtn: HTMLButtonElement;
-  captureTimeEl: HTMLElement;
-  shardAlertCloseBtn: HTMLButtonElement;
-  panelCloseBtn: HTMLButtonElement;
-  panelActionButtons: NodeListOf<HTMLButtonElement> | HTMLButtonElement[];
-  authColorPresetButtons: NodeListOf<HTMLButtonElement> | HTMLButtonElement[];
-  authProfileColorEl: HTMLInputElement;
-  authEmailEl: HTMLInputElement;
-  authEmailLinkBtn: HTMLButtonElement;
-  authProfileNameEl: HTMLInputElement;
-  authProfileSaveBtn: HTMLButtonElement;
+  hud: ClientDom["hud"];
+  allianceSendBtn: ClientDom["allianceSendBtn"];
+  mobileAllianceSendBtn: ClientDom["mobileAllianceSendBtn"];
+  allianceBreakBtn: ClientDom["allianceBreakBtn"];
+  mobileAllianceBreakBtn: ClientDom["mobileAllianceBreakBtn"];
+  allianceTargetEl: ClientDom["allianceTargetEl"];
+  mobileAllianceTargetEl: ClientDom["mobileAllianceTargetEl"];
+  allianceBreakIdEl: ClientDom["allianceBreakIdEl"];
+  mobileAllianceBreakIdEl: ClientDom["mobileAllianceBreakIdEl"];
+  techChooseBtn: ClientDom["techChooseBtn"];
+  mobileTechChooseBtn: ClientDom["mobileTechChooseBtn"];
+  techPickEl: ClientDom["techPickEl"];
+  mobileTechPickEl: ClientDom["mobileTechPickEl"];
+  centerMeBtn: ClientDom["centerMeBtn"];
+  centerMeDesktopBtn: ClientDom["centerMeDesktopBtn"];
+  collectVisibleDesktopBtn: ClientDom["collectVisibleDesktopBtn"];
+  collectVisibleMobileBtn: ClientDom["collectVisibleMobileBtn"];
+  captureCancelBtn: ClientDom["captureCancelBtn"];
+  captureCloseBtn: ClientDom["captureCloseBtn"];
+  captureTimeEl: ClientDom["captureTimeEl"];
+  shardAlertCloseBtn: ClientDom["shardAlertCloseBtn"];
+  panelCloseBtn: ClientDom["panelCloseBtn"];
+  panelActionButtons: ClientDom["panelActionButtons"];
+  authColorPresetButtons: ClientDom["authColorPresetButtons"];
+  authProfileColorEl: ClientDom["authProfileColorEl"];
+  authEmailEl: ClientDom["authEmailEl"];
+  authEmailLinkBtn: ClientDom["authEmailLinkBtn"];
+  authProfileNameEl: ClientDom["authProfileNameEl"];
+  authProfileSaveBtn: ClientDom["authProfileSaveBtn"];
+  sendAllianceRequest: (target: string) => void;
+  breakAlliance: (target: string) => void;
+  chooseTech: (techIdRaw?: string) => void;
+  chooseDomain: (domainIdRaw?: string) => void;
+  renderHud: () => void;
+  centerOnOwnedTile: () => void;
+  requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
+  collectVisibleYield: () => void;
+  cancelOngoingCapture: () => void;
+  hideShardAlert: () => void;
+  renderShardAlert: () => void;
+  renderCaptureProgress: () => void;
+  setActivePanel: (panel: ClientState["activePanel"]) => void;
+  syncAuthPanelState: () => void;
 };
 
 export const showClientHoldBuildMenu = (deps: HoldBuildMenuDeps, x: number, y: number, clientX: number, clientY: number): void => {

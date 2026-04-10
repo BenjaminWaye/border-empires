@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 describe("settled build gating regression guard", () => {
   it("routes placement through shared structure metadata", () => {
-    const source = readFileSync(resolve(here, "./main.ts"), "utf8");
+    const source = readFileSync(resolve(here, "./server-economic-operations.ts"), "utf8");
 
     expect(source).toContain('structureShowsOnTile(structureType');
     expect(source).toContain('const supportedDocks = supportedDockKeysForTile(tk, actor.id);');

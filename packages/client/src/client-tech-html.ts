@@ -432,7 +432,8 @@ export const renderDomainChoiceGridHtml = (args: {
   const sections = tiers
     .map((tier) => {
       const status = domainTierStatus(tier, ownedByTier, currentTier);
-      const cards = (grouped.get(tier) ?? [])
+      const visibleDomains = status.tone === "chosen" ? [ownedByTier.get(tier)].filter((domain): domain is DomainInfo => Boolean(domain)) : (grouped.get(tier) ?? []);
+      const cards = visibleDomains
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((domain) => {
           const selected = domainUiSelectedId === domain.id ? " selected" : "";

@@ -1,6 +1,8 @@
-type WorldgenDeps = Record<string, any>;
+import type { Player, Tile, TileKey } from "@border-empires/shared";
 
-export const createServerWorldgenShards = (deps: WorldgenDeps) => {
+import type { ServerWorldgenShardsDeps, ServerWorldgenShardsRuntime } from "./server-world-runtime-types.js";
+
+export const createServerWorldgenShards = (deps: ServerWorldgenShardsDeps): ServerWorldgenShardsRuntime => {
   const {
     terrainAt,
     key,
@@ -34,7 +36,7 @@ export const createServerWorldgenShards = (deps: WorldgenDeps) => {
 
   const canHostShardSiteAt = (x: number, y: number): boolean => terrainAt(x, y) === "LAND" && !docksByTile.has(key(x, y)) && !clusterByTile.has(key(x, y)) && !townsByTile.has(key(x, y)) && !shardSitesByTile.has(key(x, y));
 
-  const shardSiteViewAt = (tileKey: string) => {
+  const shardSiteViewAt = (tileKey: TileKey): Tile["shardSite"] | undefined => {
     const site = shardSitesByTile.get(tileKey);
     if (!site) return undefined;
     if (typeof site.expiresAt === "number" && site.expiresAt <= now()) return undefined;
@@ -129,7 +131,7 @@ export const createServerWorldgenShards = (deps: WorldgenDeps) => {
     if (touched.length > 0) broadcastLocalVisionDelta(touched);
   };
 
-  const collectShardSite = (player: any, x: number, y: number): { ok: boolean; amount?: number; reason?: string } => {
+  const collectShardSite = (player: Player, x: number, y: number): { ok: boolean; amount?: number; reason?: string } => {
     if (!visible(player, x, y)) return { ok: false, reason: "tile is not visible" };
     const tileKey = key(x, y);
     const site = shardSitesByTile.get(tileKey);
@@ -139,7 +141,8 @@ export const createServerWorldgenShards = (deps: WorldgenDeps) => {
       return { ok: false, reason: "the shardfall has already faded" };
     }
     shardSitesByTile.delete(tileKey);
-    getOrInitStrategicStocks(player.id).SHARD += site.amount;
+    const strategicStocks = getOrInitStrategicStocks(player.id);
+    strategicStocks.SHARD = (strategicStocks.SHARD ?? 0) + site.amount;
     markSummaryChunkDirtyAtTile(x, y);
     broadcastLocalVisionDelta([{ x, y }]);
     return { ok: true, amount: site.amount };

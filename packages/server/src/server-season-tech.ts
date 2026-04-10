@@ -2,10 +2,9 @@ import type { Player } from "@border-empires/shared";
 
 import type { SeasonalTechConfig } from "./server-shared-types.js";
 import type { StatsModBreakdown } from "./server-effects.js";
+import type { ServerSeasonTechDeps, ServerSeasonTechRuntime } from "./server-composition-types.js";
 
-type SeasonTechDeps = Record<string, any>;
-
-export const createServerSeasonTech = (deps: SeasonTechDeps) => {
+export const createServerSeasonTech = (deps: ServerSeasonTechDeps): ServerSeasonTechRuntime => {
   const {
     TECHS,
     TECH_ROOTS,
