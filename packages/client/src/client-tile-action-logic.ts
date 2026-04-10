@@ -260,6 +260,8 @@ export const beginCrystalTargeting = (
   deps: Pick<
     TileActionLogicDeps,
     | "keyFor"
+    | "wrapX"
+    | "wrapY"
     | "terrainAt"
     | "isTileOwnedByAlly"
     | "hostileObservatoryProtectingTile"

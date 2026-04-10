@@ -208,7 +208,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       baseX: number,
       baseY: number,
       direction: "N" | "E" | "S" | "W",
-      options?: { preview?: boolean }
+      options?: { preview?: boolean; nowMs?: number }
     ): void => {
       const center = deps.worldToScreen(baseX, baseY, size, halfW, halfH);
       const halfSize = size * 0.5;
