@@ -8,7 +8,7 @@ const wrap = (value: number, size: number): number => {
 
 export const wrapX = (x: number, width: number): number => wrap(x, width);
 export const wrapY = (y: number, height: number): number => wrap(y, height);
-export const SETTLED_DEFENSE_NEAR_FORT_RADIUS = 1;
+export const SETTLED_DEFENSE_NEAR_FORT_RADIUS = 10;
 
 export const wrappedChebyshevDistance = (
   ax: number,
