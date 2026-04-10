@@ -21,15 +21,19 @@ describe("structureBuildGoldCost", () => {
   });
 
   test("keeps non-scaling structures at their base gold cost", () => {
-    expect(structureBuildGoldCost("MARKET", 0)).toBe(1200);
-    expect(structureBuildGoldCost("MARKET", 4)).toBe(1200);
+    expect(structureBuildGoldCost("MARKET", 0)).toBe(2200);
+    expect(structureBuildGoldCost("MARKET", 4)).toBe(2200);
+    expect(structureBuildGoldCost("BANK", 1)).toBe(3200);
+    expect(structureBuildGoldCost("CARAVANARY", 3)).toBe(2600);
     expect(structureBuildGoldCost("FOUNDRY", 2)).toBe(4500);
   });
 });
 
 describe("structureCostDefinition", () => {
-  test("defines dedicated support structure resource costs", () => {
-    expect(structureCostDefinition("CARAVANARY").resourceCost).toEqual({ resource: "CRYSTAL", amount: 60 });
+  test("keeps income-support structures gold-only and preserves strategic-resource costs elsewhere", () => {
+    expect(structureCostDefinition("MARKET").resourceCost).toBeUndefined();
+    expect(structureCostDefinition("BANK").resourceCost).toBeUndefined();
+    expect(structureCostDefinition("CARAVANARY").resourceCost).toBeUndefined();
     expect(structureCostDefinition("CUSTOMS_HOUSE").resourceCost).toEqual({ resource: "CRYSTAL", amount: 60 });
     expect(structureCostDefinition("GARRISON_HALL").resourceCost).toEqual({ resource: "CRYSTAL", amount: 80 });
   });
