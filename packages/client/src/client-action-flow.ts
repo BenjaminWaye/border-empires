@@ -447,6 +447,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     state.capture = undefined;
     if (!handedOffToSettle) {
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);

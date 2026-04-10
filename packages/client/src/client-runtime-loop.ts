@@ -1453,14 +1453,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;
-    if (!state.combatStartAck && Date.now() - started > 4_500) {
+    if (!state.actionAcceptedAck && Date.now() - started > 2_000) {
       const current = state.actionCurrent;
       const currentKey = current ? deps.keyFor(current.x, current.y) : "";
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(currentKey);
-      attackSyncLog("combat-start-timeout", {
+      attackSyncLog("action-accept-timeout", {
         current,
         currentKey,
         elapsedMs: Date.now() - started,
+        actionAcceptedAck: state.actionAcceptedAck,
         keepOptimisticExpand,
         queueLength: state.actionQueue.length,
         queuedKeys: Array.from(state.queuedTargetKeys),
@@ -1474,6 +1475,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
@@ -1484,15 +1486,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
-        deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
+        deps.pushFeed("No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
-        attackSyncLog("combat-start-timeout-refresh", {
+        attackSyncLog("action-accept-timeout-refresh", {
           strategy: "wait-for-frontier-sync",
           currentKey,
           refreshRadius: 1
         });
       } else if (current && (current.retries ?? 0) < 3) {
-        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");
+        deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles and retrying.", "warn");
         deps.requestViewRefresh(1, true);
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
           x: current.x,
@@ -1502,19 +1504,19 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (current.mode) retryAction.mode = current.mode;
         state.actionQueue.unshift(retryAction);
         state.queuedTargetKeys.add(deps.keyFor(current.x, current.y));
-        deps.pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
-        attackSyncLog("combat-start-timeout-refresh", {
+        deps.pushFeed(`No server acceptance within 2s; retrying action (${retryAction.retries}/3).`, "combat", "warn");
+        attackSyncLog("action-accept-timeout-refresh", {
           strategy: "retry",
           currentKey,
           retryAction,
           refreshRadius: 1
         });
       } else {
-        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");
+        deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");
         deps.requestViewRefresh(1, true);
-        deps.pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
+        deps.pushFeed("No server acceptance within 2s; skipping queued action.", "combat", "warn");
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
-        attackSyncLog("combat-start-timeout-refresh", {
+        attackSyncLog("action-accept-timeout-refresh", {
           strategy: "resync-without-retry",
           currentKey,
           refreshRadius: 1
@@ -1540,6 +1542,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === timedOutCurrentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";

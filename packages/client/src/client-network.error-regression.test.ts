@@ -40,6 +40,7 @@ const createState = () =>
     actionInFlight: true,
     capture: { startAt: 1, resolvesAt: 2, target: { x: 60, y: 302 } },
     pendingCombatReveal: undefined,
+    actionAcceptedAck: false,
     combatStartAck: true,
     actionStartedAt: 123,
     actionCurrent: { x: 60, y: 302 },
@@ -327,6 +328,26 @@ describe("client network regression guards", () => {
     expect(explainActionFailureFromServer("NOT_ADJACENT", "target must be adjacent or valid dock crossing")).toBe(
       "Action blocked: target must border your territory or a linked dock."
     );
+  });
+
+  it("marks an in-flight attack as accepted before combat start arrives", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ACTION_ACCEPTED",
+        actionType: "ATTACK",
+        origin: { x: 59, y: 302 },
+        target: { x: 60, y: 302 },
+        resolvesAt: Date.now() + 3_000
+      })
+    });
+
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionTargetKey).toBe("60,302");
   });
 
   it("does not clear active settlement progress when PLAYER_UPDATE omits pendingSettlements", () => {
