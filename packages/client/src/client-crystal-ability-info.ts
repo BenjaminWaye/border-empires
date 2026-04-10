@@ -1,6 +1,6 @@
 import type { TechInfo } from "./client-types.js";
 
-export type CrystalAbilityInfoKey = "reveal_empire" | "aether_bridge" | "siphon" | "create_mountain" | "remove_mountain";
+export type CrystalAbilityInfoKey = "reveal_empire" | "reveal_empire_stats" | "aether_wall" | "aether_bridge" | "siphon" | "create_mountain" | "remove_mountain";
 
 export type CrystalAbilityInfoView = {
   title: string;
@@ -15,12 +15,17 @@ export type CrystalAbilityInfoView = {
 
 const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
 const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
+const AETHER_WALL_COOLDOWN_MS = 8 * 60_000;
+const AETHER_WALL_DURATION_MS = 20 * 60_000;
+const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 const SIPHON_COOLDOWN_MS = 15 * 60_000;
 const SIPHON_DURATION_MS = 30 * 60_000;
 const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
 
 export const crystalAbilityNameForKey = (key: CrystalAbilityInfoKey): string => {
   if (key === "reveal_empire") return "Reveal Empire";
+  if (key === "reveal_empire_stats") return "Reveal Empire Stats";
+  if (key === "aether_wall") return "Aether Wall";
   if (key === "aether_bridge") return "Aether Bridge";
   if (key === "siphon") return "Siphon";
   if (key === "create_mountain") return "Create Mountain";
@@ -31,6 +36,8 @@ export const relatedCrystalAbilitiesForTech = (tech: Pick<TechInfo, "effects">):
   const effects = tech.effects ?? {};
   const out = new Set<CrystalAbilityInfoKey>();
   if (effects.unlockRevealEmpire === true) out.add("reveal_empire");
+  if (effects.unlockRevealEmpireStats === true) out.add("reveal_empire_stats");
+  if (effects.unlockAetherWall === true) out.add("aether_wall");
   if (effects.unlockSabotage === true) out.add("siphon");
   if (effects.unlockNavalInfiltration === true) out.add("aether_bridge");
   if (effects.unlockTerrainShaping === true) {
@@ -66,6 +73,27 @@ export const crystalAbilityInfoForKey = (
       costBits: ["30 CRYSTAL"],
       cooldownLabel: deps.formatCooldownShort(AETHER_BRIDGE_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AETHER_BRIDGE_DURATION_MS)
+    };
+  }
+  if (key === "reveal_empire_stats") {
+    return {
+      title: "Reveal Empire Stats",
+      detail: "Extracts a one-time intelligence snapshot of a hostile empire's economy, stockpiles, manpower, and territory totals.",
+      glyph: "◈",
+      target: "Select a hostile tile, then cast to inspect that empire.",
+      costBits: ["15 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(REVEAL_EMPIRE_STATS_COOLDOWN_MS)
+    };
+  }
+  if (key === "aether_wall") {
+    return {
+      title: "Aether Wall",
+      detail: "Projects a one-way crystal barrier along up to 3 border edges. Units cannot cross from the faced side until it expires.",
+      glyph: "║",
+      target: "Select one of your settled border tiles, then cast. If more than one facing is valid, choose the glowing arrow direction.",
+      costBits: ["25 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(AETHER_WALL_COOLDOWN_MS),
+      durationLabel: deps.formatCooldownShort(AETHER_WALL_DURATION_MS)
     };
   }
   if (key === "siphon") {
