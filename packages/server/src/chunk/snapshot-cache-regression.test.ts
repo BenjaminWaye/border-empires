@@ -82,6 +82,7 @@ describe("chunk snapshot cache regression guard", () => {
         visibility: VisibilitySnapshot;
         visibilityVersion: number;
         payloadByChunkKey: Map<string, string>;
+        summaryVersionByPayloadKey: Map<string, number>;
         visibilityMaskByChunkKey: Map<string, Uint8Array>;
         visibilityVersionByChunkKey: Map<string, number>;
       }
@@ -137,6 +138,7 @@ describe("chunk snapshot cache regression guard", () => {
           makeTile(startX + 1, 1, `visible-${cx}`)
         ];
       },
+      summaryChunkVersion: (cx) => (cx === 0 ? 1 : 0),
       loadSummaryChunkTilesBatch: async (requests) => {
         loadBatchRequests.push(requests.map((request) => ({ ...request })));
         return requests.map((request) => {
@@ -231,5 +233,78 @@ describe("chunk snapshot cache regression guard", () => {
       { cachedPayloadChunks: 1, rebuiltChunks: 1, batches: 1 },
       { cachedPayloadChunks: 2, rebuiltChunks: 0, batches: 1 }
     ]);
+  });
+
+  it("rebuilds cached chunk payloads when the summary chunk version changes without a visibility mask change", async () => {
+    let summaryVersion = 0;
+    const sentPayloads: string[] = [];
+    const cachedChunkSnapshotByPlayer = new Map<
+      string,
+      {
+        visibility: VisibilitySnapshot;
+        visibilityVersion: number;
+        payloadByChunkKey: Map<string, string>;
+        summaryVersionByPayloadKey: Map<string, number>;
+        visibilityMaskByChunkKey: Map<string, Uint8Array>;
+        visibilityVersionByChunkKey: Map<string, number>;
+      }
+    >();
+    const controller = createChunkSnapshotController<Player>({
+      chunkSize: 1,
+      chunkCountX: 1,
+      chunkCountY: 1,
+      initialBootstrapRadius: 0,
+      chunkStreamBatchSize: 1,
+      chunkSnapshotBatchSize: 1,
+      chunkSnapshotBudgetMs: 24,
+      chunkSnapshotWarnMs: 60,
+      chunkSnapshotYieldMs: 4,
+      chunkSnapshotOverloadYieldMs: 16,
+      now: () => 0,
+      wrapChunkX: (value) => value,
+      wrapChunkY: (value) => value,
+      runtimeMemoryStats: () => ({ rssMb: 0, heapUsedMb: 0, heapTotalMb: 0, externalMb: 0, arrayBuffersMb: 0 }),
+      pushChunkSnapshotPerf: () => undefined,
+      onFirstChunkSent: () => undefined,
+      onSlowChunkSnapshot: () => undefined,
+      visibilitySnapshotForPlayer: () => ({ allVisible: true, visibleMask: new Uint8Array(0) }),
+      cachedChunkSnapshotByPlayer,
+      fogChunkTilesByChunkKey: new Map(),
+      chunkSnapshotGenerationByPlayer: new Map(),
+      chunkSnapshotInFlightByPlayer: new Map(),
+      chunkSnapshotSentAtByPlayer: new Map(),
+      chunkSubscriptionByPlayer: new Map(),
+      authSyncTimingByPlayer: new Map(),
+      fogChunkTiles: () => [makeTile(0, 0)],
+      summaryChunkTiles: () => [makeTile(0, 0, `owner-${summaryVersion}`)],
+      summaryChunkVersion: () => summaryVersion,
+      loadSummaryChunkTilesBatch: async (requests) => requests.map(() => [makeTile(0, 0, `owner-${summaryVersion}`)]),
+      visibleInSnapshot: () => true,
+      wrapX: (value, mod) => ((value % mod) + mod) % mod,
+      wrapY: (value, mod) => ((value % mod) + mod) % mod,
+      worldWidth: 1,
+      worldHeight: 1,
+      serializeChunkBatchViaWorker: async (inputs) => inputs.map((input) => JSON.stringify({ cx: input.cx, ownerId: input.visibleTiles[0]?.ownerId })),
+      serializeChunkBatchDirect: (inputs) => inputs.map((input) => JSON.stringify({ cx: input.cx, ownerId: input.visibleTiles[0]?.ownerId })),
+      serializeChunkBatchBodies: (generation, chunkBodies) =>
+        JSON.stringify({ type: "CHUNK_BATCH", generation, chunks: chunkBodies.map((body) => JSON.parse(body)) }),
+      runtimeLoadShedLevel: () => "normal"
+    });
+    const socket = {
+      readyState: 1,
+      OPEN: 1,
+      send: (payload: string) => sentPayloads.push(payload)
+    };
+
+    controller.sendChunkSnapshot(socket, makePlayer(), { cx: 0, cy: 0, radius: 0 }, undefined, [{ cx: 0, cy: 0 }], "thin", 1);
+    await flushSnapshotWork();
+
+    summaryVersion = 1;
+    controller.sendChunkSnapshot(socket, makePlayer(), { cx: 0, cy: 0, radius: 0 }, undefined, [{ cx: 0, cy: 0 }], "thin", 1);
+    await flushSnapshotWork();
+
+    expect(sentPayloads).toHaveLength(2);
+    expect(sentPayloads[0]).toContain("owner-0");
+    expect(sentPayloads[1]).toContain("owner-1");
   });
 });
