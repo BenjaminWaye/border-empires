@@ -1,6 +1,6 @@
 import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "./client-constants.js";
-import { debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
 import { queuedSettlementOrderForTile } from "./client-development-queue.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "./client-types.js";
@@ -467,12 +467,36 @@ export const processDevelopmentQueue = (
   }
 ): boolean => {
   if (state.developmentQueue.length === 0 || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
-  if (state.queuedDevelopmentDispatchPending) return false;
+  if (state.queuedDevelopmentDispatchPending) {
+    const nextQueued = state.developmentQueue[0];
+    if (nextQueued && tileMatchesDebugKey(nextQueued.x, nextQueued.y, 1, { fallbackTile: state.selected })) {
+      debugTileLog("development-queue-blocked", {
+        tileKey: nextQueued.tileKey,
+        developmentQueueLength: state.developmentQueue.length,
+        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+        developmentProcessLimit: state.developmentProcessLimit,
+        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+        lastDevelopmentAttempt: state.lastDevelopmentAttempt ?? null
+      });
+    }
+    return false;
+  }
   let started = false;
   while (state.developmentQueue.length > 0 && deps.developmentSlotSummary().available > 0) {
     const next = state.developmentQueue[0];
     if (!next) return started;
     if (next.kind === "SETTLE" && queuedSettlementShouldWait(state, next.tileKey)) return false;
+    if (tileMatchesDebugKey(next.x, next.y, 1, { fallbackTile: state.selected })) {
+      debugTileLog("development-queue-dispatch", {
+        tileKey: next.tileKey,
+        kind: next.kind,
+        developmentQueueLength: state.developmentQueue.length,
+        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+        developmentProcessLimit: state.developmentProcessLimit,
+        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+        queuedSettlementWait: next.kind === "SETTLE" ? queuedSettlementShouldWait(state, next.tileKey) : false
+      });
+    }
     const ok =
       next.kind === "SETTLE"
         ? deps.requestSettlement(next.x, next.y, { allowQueueWhenBusy: false, fromQueue: true, suppressWarnings: true })
@@ -892,6 +916,20 @@ export const processActionQueue = (
     state.captureAlert = undefined;
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
     state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    const actionType = !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK";
+    attackSyncLog("queue-dispatch", {
+      actionType,
+      target: { x: to.x, y: to.y },
+      origin: { x: from.x, y: from.y },
+      targetKey,
+      toOwnerId: to.ownerId,
+      toOwnershipState: to.ownershipState,
+      retries: next.retries ?? 0,
+      queueLengthAfterShift: state.actionQueue.length,
+      wsReadyState: deps.ws.readyState,
+      authSessionReady: deps.authSessionReady,
+      optimisticMs
+    });
     if (!to.ownerId) {
       const beforeOptimistic = { ...to };
       deps.applyOptimisticTileState(to.x, to.y, (tile) => {
@@ -935,6 +973,14 @@ export const processActionQueue = (
         continue;
       }
       deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+      attackSyncLog("send", {
+        actionType: "EXPAND",
+        target: { x: to.x, y: to.y },
+        origin: { x: from.x, y: from.y },
+        targetKey,
+        startedAt: state.actionStartedAt,
+        wsReadyState: deps.ws.readyState
+      });
       logActionQueue("action-send", {
         type: "EXPAND",
         from: { x: from.x, y: from.y },
@@ -957,6 +1003,14 @@ export const processActionQueue = (
       }
       if (next.mode === "breakthrough") {
         deps.ws.send(JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        attackSyncLog("send", {
+          actionType: "BREAKTHROUGH_ATTACK",
+          target: { x: to.x, y: to.y },
+          origin: { x: from.x, y: from.y },
+          targetKey,
+          startedAt: state.actionStartedAt,
+          wsReadyState: deps.ws.readyState
+        });
         logActionQueue("action-send", {
           type: "BREAKTHROUGH_ATTACK",
           from: { x: from.x, y: from.y },
@@ -967,6 +1021,14 @@ export const processActionQueue = (
         deps.pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
       } else {
         deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        attackSyncLog("send", {
+          actionType: "ATTACK",
+          target: { x: to.x, y: to.y },
+          origin: { x: from.x, y: from.y },
+          targetKey,
+          startedAt: state.actionStartedAt,
+          wsReadyState: deps.ws.readyState
+        });
         logActionQueue("action-send", {
           type: "ATTACK",
           from: { x: from.x, y: from.y },
