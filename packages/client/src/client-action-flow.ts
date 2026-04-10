@@ -765,7 +765,17 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           x: tile.x,
           y: tile.y,
           detailLevel: tile.detailLevel,
+          ownerId: tile.ownerId,
+          ownershipState: tile.ownershipState,
           resource: tile.resource,
+          fort: tile.fort
+            ? {
+                ownerId: tile.fort.ownerId,
+                status: tile.fort.status,
+                disabledUntil: tile.fort.disabledUntil ?? null,
+                completesAt: tile.fort.completesAt ?? null
+              }
+            : null,
           economicStructure: tile.economicStructure?.type,
           buildings: view.buildings.map((building) => ({
             id: building.id,
