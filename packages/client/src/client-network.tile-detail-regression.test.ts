@@ -135,6 +135,7 @@ const createState = () =>
     actionQueue: [],
     queuedTargetKeys: new Set<string>(),
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
+    frontierLateAckUntilByTarget: new Map<string, number>(),
     autoSettleTargets: new Set<string>(),
     attackPreviewPendingKey: "",
     attackPreview: undefined,

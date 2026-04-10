@@ -222,6 +222,7 @@ export const createInitialState = () => ({
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,
   actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
+  frontierLateAckUntilByTarget: new Map<string, number>(),
   developmentQueue: [] as Array<
     | { kind: "SETTLE"; x: number; y: number; tileKey: string; label: string }
     | {

@@ -28,7 +28,8 @@ describe("client optimistic state", () => {
           }
         ]
       ]),
-      optimisticTileSnapshots: new Map<string, Tile | undefined>()
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
     } as any;
 
     const { mergeServerTileWithOptimisticState } = createClientOptimisticStateController({
@@ -53,7 +54,8 @@ describe("client optimistic state", () => {
       actionTargetKey: "",
       tiles: new Map<string, Tile>([["12,18", baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" })]]),
       settleProgressByTile: new Map<string, unknown>(),
-      optimisticTileSnapshots: new Map<string, Tile | undefined>()
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
     } as any;
 
     const { mergeServerTileWithOptimisticState } = createClientOptimisticStateController({
@@ -104,7 +106,8 @@ describe("client optimistic state", () => {
       selected: undefined,
       tiles: new Map<string, Tile>([["12,18", existing]]),
       settleProgressByTile: new Map<string, unknown>(),
-      optimisticTileSnapshots: new Map<string, Tile | undefined>()
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
     } as any;
 
     const { mergeServerTileWithOptimisticState } = createClientOptimisticStateController({
@@ -141,7 +144,8 @@ describe("client optimistic state", () => {
       selected: undefined,
       tiles: new Map<string, Tile>([["12,18", existing]]),
       settleProgressByTile: new Map<string, unknown>(),
-      optimisticTileSnapshots: new Map<string, Tile | undefined>()
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
     } as any;
 
     const { mergeIncomingTileDetail } = createClientOptimisticStateController({
@@ -155,5 +159,35 @@ describe("client optimistic state", () => {
 
     expect(merged.detailLevel).toBe("full");
     expect(merged.upkeepEntries).toEqual(existing.upkeepEntries);
+  });
+
+  it("keeps optimistic frontier ownership during the late-ack wait window", () => {
+    const state = {
+      me: "me",
+      selected: undefined,
+      actionInFlight: false,
+      actionTargetKey: "",
+      actionCurrent: undefined,
+      tiles: new Map<string, Tile>([["12,18", baseTile({ ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" })]]),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>([["12,18", Date.now() + 10_000]])
+    } as any;
+
+    const { mergeServerTileWithOptimisticState } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible"
+    });
+
+    const incoming = { ...baseTile() } as Tile & { ownerId?: string; ownershipState?: Tile["ownershipState"] };
+    delete incoming.ownerId;
+    delete incoming.ownershipState;
+    const merged = mergeServerTileWithOptimisticState(incoming);
+
+    expect(merged.ownerId).toBe("me");
+    expect(merged.ownershipState).toBe("FRONTIER");
+    expect(merged.optimisticPending).toBe("expand");
   });
 });
