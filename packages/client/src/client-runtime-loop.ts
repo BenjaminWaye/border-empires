@@ -14,7 +14,7 @@ import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
-import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -360,7 +360,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
       if (t && vis === "visible" && t.economicStructure) {
-        if (tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+        if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
           debugTileLog(
             "render",
             {
@@ -417,7 +417,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
           deps.ctx.lineWidth = 1;
         }
-      } else if (t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+      } else if (verboseTileDebugEnabled() && t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
         debugTileLog(
           "render-missing-structure",
           {
@@ -433,7 +433,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
         );
       }
-      if (tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+      if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
         const renderKey = deps.keyFor(wx, wy);
         const renderSignature = JSON.stringify({
           ownerId: t?.ownerId ?? null,
