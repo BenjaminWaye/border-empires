@@ -13,7 +13,7 @@ import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js"
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
-import { attackSyncLog, debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -118,6 +118,7 @@ type StartClientRuntimeLoopDeps = {
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
   let lastDrawAt = 0;
   let roadNetwork = new Map<string, RoadDirections>();
+  const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
 
   const draw = (): void => {
@@ -382,6 +383,32 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           },
           { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
         );
+      }
+      if (tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+        const renderKey = deps.keyFor(wx, wy);
+        const renderSignature = JSON.stringify({
+          ownerId: t?.ownerId ?? null,
+          ownershipState: t?.ownershipState ?? null,
+          optimisticPending: t?.optimisticPending ?? null,
+          detailLevel: t?.detailLevel ?? null,
+          fogged: t?.fogged ?? null,
+          vis
+        });
+        const previousRenderSignature = lastRenderedTileStateByKey.get(renderKey);
+        if (previousRenderSignature !== renderSignature) {
+          debugTileTimeline("frontier-render-transition", {
+            x: wx,
+            y: wy,
+            after: t,
+            state,
+            keyFor: deps.keyFor,
+            extra: {
+              vis,
+              previousRenderSignature
+            }
+          });
+          lastRenderedTileStateByKey.set(renderKey, renderSignature);
+        }
       }
       if (t && vis === "visible" && t.terrain === "LAND") {
         const remainingConstructionMs = deps.constructionRemainingMsForTile(t);

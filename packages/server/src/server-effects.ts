@@ -66,6 +66,7 @@ export interface PlayerEffects {
   dockRoutesVisible: boolean;
   marketCrystalUpkeepMult: number;
   settledDefenseMult: number;
+  settledDefenseNearFortMult: number;
   attackVsSettledMult: number;
   attackVsFortsMult: number;
   newSettlementDefenseMult: number;
@@ -130,6 +131,7 @@ export const emptyPlayerEffects = (): PlayerEffects => ({
   dockRoutesVisible: false,
   marketCrystalUpkeepMult: 1,
   settledDefenseMult: 1,
+  settledDefenseNearFortMult: 1,
   attackVsSettledMult: 1,
   attackVsFortsMult: 1,
   newSettlementDefenseMult: 1,
