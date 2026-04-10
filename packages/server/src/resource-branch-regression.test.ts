@@ -56,6 +56,14 @@ describe("resource branch regression guard", () => {
     expect(serverMainSource).toContain("if (!config.activeNodeIds.has(tech.id)) return false;");
   });
 
+  it("mutates the active season tech config in place so runtime readers do not keep a stale reference", () => {
+    const serverMainSource = readFileSync(resolve(here, "./main.ts"), "utf8");
+
+    expect(serverMainSource).toContain("const replaceActiveSeasonTechConfig = (nextConfig: SeasonalTechConfig): void => {");
+    expect(serverMainSource).toContain("replaceActiveSeasonTechConfig(chooseSeasonalTechConfig(activeSeason.worldSeed));");
+    expect(serverMainSource).not.toContain("activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);");
+  });
+
   it("prefers the packaged tech tree over a stale cwd data file", () => {
     const fakeCwd = mkdtempSync(resolve(tmpdir(), "border-empires-tech-tree-"));
     const staleTreePath = resolve(fakeCwd, "data/tech-tree.json");
