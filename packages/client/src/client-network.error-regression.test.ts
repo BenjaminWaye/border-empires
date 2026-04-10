@@ -129,6 +129,7 @@ const createState = () =>
     discoveredTiles: new Set<string>(),
     discoveredDockTiles: new Set<string>(),
     tileDetailRequestedAt: new Map<string, number>(),
+    lastChunkSnapshotGeneration: 0,
     lastSubAt: Date.now(),
     lastSubCx: 0,
     lastSubCy: 0,
@@ -356,6 +357,7 @@ describe("client network regression guards", () => {
     ws.emit("message", {
       data: JSON.stringify({
         type: "CHUNK_FULL",
+        generation: 1,
         tilesMaskedByFog: [{ x: 5, y: 6, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "SETTLED", detailLevel: "summary" }]
       })
     });
@@ -426,6 +428,7 @@ describe("client network regression guards", () => {
     ws.emit("message", {
       data: JSON.stringify({
         type: "CHUNK_FULL",
+        generation: 1,
         tilesMaskedByFog: [{ x: 100, y: 247, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER" }]
       })
     });
@@ -436,6 +439,50 @@ describe("client network regression guards", () => {
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("100,247");
     expect(deps.processActionQueue).toHaveBeenCalled();
     expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 247, ownerId: "me" }));
+  });
+
+  it("ignores stale chunk snapshots that arrive after a newer generation", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_BATCH",
+        generation: 2,
+        chunks: [
+          {
+            cx: 0,
+            cy: 0,
+            tilesMaskedByFog: [{ x: 40, y: 238, terrain: "LAND", fogged: false, ownerId: "enemy", ownershipState: "SETTLED" }]
+          }
+        ]
+      })
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_BATCH",
+        generation: 1,
+        chunks: [
+          {
+            cx: 0,
+            cy: 0,
+            tilesMaskedByFog: [{ x: 40, y: 238, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER" }]
+          }
+        ]
+      })
+    });
+
+    expect(state.lastChunkSnapshotGeneration).toBe(2);
+    expect(state.tiles.get("40,238")).toEqual(
+      expect.objectContaining({
+        x: 40,
+        y: 238,
+        ownerId: "enemy",
+        ownershipState: "SETTLED"
+      })
+    );
   });
 
   it("requeues a settlement when the server rejects it only because development slots are full", () => {
