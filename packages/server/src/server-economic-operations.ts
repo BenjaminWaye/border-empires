@@ -80,6 +80,7 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
     activeAirportAt,
     hostileRadarProtectingTile,
     economicStructureGoldUpkeepPerInterval,
+    economicStructureFoodUpkeepPerInterval,
     economicStructureUpkeepDue,
     prettyEconomicStructureLabel,
     economicStructureBuildDurationMs,
@@ -234,10 +235,7 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
       if (!consumeStrategicResource(actor, matching, deps.MINE_BUILD_RESOURCE_COST)) return fail(`insufficient ${matching} for mine`);
     } else {
       const structuredCosts: Partial<Record<EconomicStructureType, { crystal?: number; food?: number }>> = {
-        MARKET: { crystal: deps.MARKET_BUILD_CRYSTAL_COST },
         GRANARY: { food: deps.GRANARY_BUILD_FOOD_COST },
-        BANK: { crystal: deps.BANK_BUILD_CRYSTAL_COST },
-        CARAVANARY: { crystal: deps.CARAVANARY_BUILD_CRYSTAL_COST },
         GARRISON_HALL: { crystal: deps.GARRISON_HALL_BUILD_CRYSTAL_COST },
         CUSTOMS_HOUSE: { crystal: deps.CUSTOMS_HOUSE_BUILD_CRYSTAL_COST },
         RADAR_SYSTEM: { crystal: deps.RADAR_SYSTEM_BUILD_CRYSTAL_COST },
@@ -306,14 +304,13 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
         continue;
       }
       if (!economicStructureUpkeepDue(structure)) continue;
-      if (structure.type === "MARKET" || structure.type === "BANK") {
-        const crystalUpkeep = (structure.type === "MARKET" ? deps.MARKET_CRYSTAL_UPKEEP : deps.BANK_CRYSTAL_UPKEEP) * getPlayerEffectsForPlayer(player.id).marketCrystalUpkeepMult;
-        if ((stock.CRYSTAL ?? 0) >= crystalUpkeep) {
-          stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - crystalUpkeep);
-          structure.status = "active";
-        } else {
-          structure.status = "inactive";
-        }
+      const foodUpkeep = economicStructureFoodUpkeepPerInterval(structure.type, player.id);
+      if (foodUpkeep > 0) {
+        const fromYield = consumeYieldStrategicForPlayer(player, "FOOD", foodUpkeep, touched);
+        const remaining = Math.max(0, foodUpkeep - fromYield);
+        const fromStock = Math.min(remaining, Math.max(0, stock.FOOD ?? 0));
+        stock.FOOD = Math.max(0, Math.max(0, stock.FOOD ?? 0) - fromStock);
+        structure.status = remaining - fromStock <= 1e-9 ? "active" : "inactive";
       } else {
         const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
         if (player.points >= upkeep) {
