@@ -38,8 +38,11 @@ const isActiveOwnedFortWithinRange = (tiles: Iterable<Tile>, ownerId: string, ta
   const nowMs = Date.now();
   for (const candidate of tiles) {
     const fort = candidate.fort;
-    if (!fort || fort.ownerId !== ownerId || fort.status !== "active") continue;
-    if ((fort.disabledUntil ?? 0) > nowMs) continue;
+    if (fort && fort.ownerId === ownerId && fort.status === "active" && (fort.disabledUntil ?? 0) <= nowMs) {
+      if (wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y) <= radius) return true;
+    }
+    const structure = candidate.economicStructure;
+    if (!structure || structure.ownerId !== ownerId || structure.status !== "active" || structure.type !== "WOODEN_FORT") continue;
     if (wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y) <= radius) return true;
   }
   return false;
