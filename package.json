@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @border-empires/shared build && pnpm --parallel --filter @border-empires/server --filter @border-empires/client dev",
     "dev:clean": "./scripts/clean-dev.sh",
     "dev:nofog": "DISABLE_FOG=1 pnpm dev",
+    "ci:local": "./scripts/local-ci.sh",
     "server:restart": "./scripts/restart-server.sh",
     "deploy:client:prod": "node ./scripts/deploy-client-prod.mjs",
     "build": "pnpm -r build",
