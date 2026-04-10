@@ -64,6 +64,24 @@ pnpm dev
 - Client: http://localhost:5173
 - Server health: http://localhost:3001/health
 
+## Local CI
+
+Run the full local gate from a clean worktree with:
+
+```bash
+pnpm ci:local
+```
+
+This runs install, builds `@border-empires/shared` first, then lints, tests, and builds each workspace package in a fixed order so local checks are deterministic.
+
+Install the local git hook for this checkout with:
+
+```bash
+./scripts/setup-git-hooks.sh
+```
+
+That configures `pre-push` to run `pnpm ci:local`.
+
 ## Implemented in this slice
 
 - Monorepo (`shared`, `server`, `client`) with strict TypeScript.
