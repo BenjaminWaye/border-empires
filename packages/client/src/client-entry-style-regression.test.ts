@@ -8,4 +8,10 @@ describe("client entry style regression", () => {
     expect(source).toContain('import "./style.css";');
     expect(source).toContain('import "./client-app.js";');
   });
+
+  it("keeps the runtime behind a dynamic import boundary", () => {
+    const source = readFileSync(new URL("./client-app.ts", import.meta.url), "utf8");
+
+    expect(source).toContain('import("./client-app-runtime.js")');
+  });
 });
