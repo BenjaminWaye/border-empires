@@ -87,6 +87,32 @@ describe("client structure effects", () => {
     ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
   });
 
+  it("prefers the selected tile fort state over a stale cached copy at the same coordinate", () => {
+    const selectedFortTile: Tile = {
+      x: 40,
+      y: 40,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      detailLevel: "full",
+      fort: { ownerId: "me", status: "active" }
+    };
+    const staleCachedTile: Tile = {
+      x: 40,
+      y: 40,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      detailLevel: "summary"
+    };
+
+    expect(
+      tileAreaEffectModifiersForTile(selectedFortTile, [staleCachedTile], [
+        { reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" }
+      ])
+    ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
+  });
+
   it("shows the near-fort bonus for adjacent wooden forts too", () => {
     const woodenFort: Tile = {
       x: 40,
