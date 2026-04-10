@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { structureAreaPreviewForTile, tileAreaEffectModifiersForTile } from "./client-structure-effects.js";
+import { settledDefenseNearFortDomainModifiers, structureAreaPreviewForTile, tileAreaEffectModifiersForTile } from "./client-structure-effects.js";
 import type { Tile } from "./client-types.js";
 
 describe("client structure effects", () => {
@@ -49,5 +49,41 @@ describe("client structure effects", () => {
       { reason: "Foundry", effect: "+100% iron production", tone: "positive" },
       { reason: "Garrison Hall", effect: "+20% defense", tone: "positive" }
     ]);
+  });
+
+  it("shows owned domain defense bonuses on settled land near active forts", () => {
+    const fort: Tile = {
+      x: 40,
+      y: 40,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fort: { ownerId: "me", status: "active" }
+    };
+    const settledTile: Tile = {
+      x: 41,
+      y: 40,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED"
+    };
+
+    expect(
+      tileAreaEffectModifiersForTile(settledTile, [fort, settledTile], settledDefenseNearFortDomainModifiers(
+        [
+          {
+            id: "stone-curtain",
+            tier: 2,
+            name: "Stone Curtain",
+            description: "",
+            requiresTechId: "fortified-walls",
+            mods: {},
+            effects: { settledDefenseNearFortMult: 1.1 },
+            requirements: { gold: 0, resources: {} }
+          }
+        ],
+        ["stone-curtain"]
+      ))
+    ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
   });
 });
