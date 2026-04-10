@@ -92,7 +92,10 @@ import {
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support.js";
-import { tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule } from "./client-structure-effects.js";
+import {
+  settledDefenseNearFortDomainModifiers,
+  tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
+} from "./client-structure-effects.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui.js";
 import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
@@ -698,7 +701,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       constructionCountdownLineForTile,
       tileHistoryLines,
       isTileOwnedByAlly,
-      areaEffectModifiersForTile: (targetTile: Tile) => tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values())
+      areaEffectModifiersForTile: (targetTile: Tile) =>
+        tileAreaEffectModifiersForTileFromModule(
+          targetTile,
+          state.tiles.values(),
+          targetTile.ownerId === state.me ? settledDefenseNearFortDomainModifiers(state.domainCatalog, state.domainIds) : []
+        )
     });
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {

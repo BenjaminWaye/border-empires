@@ -2,7 +2,7 @@ import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
-import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, tileSyncDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -67,13 +67,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearPendingCollectTileDelta,
     playerNameForOwner
   } = deps;
-  const tileSyncDebugEnabled = (): boolean =>
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.hostname === "0.0.0.0" ||
-      window.localStorage.getItem("tile-sync-debug") === "1");
-
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -144,6 +137,34 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         : undefined,
       ...(extra ?? {})
     });
+  };
+
+  const logFrontierTimeline = (
+    scope: string,
+    x: number,
+    y: number,
+    args: {
+      before?: any;
+      incoming?: any;
+      after?: any;
+      extra?: Record<string, unknown>;
+      throttleKey?: string;
+      minIntervalMs?: number;
+    }
+  ): void => {
+    const timelineArgs = {
+      x,
+      y,
+      before: args.before,
+      incoming: args.incoming,
+      after: args.after,
+      state,
+      keyFor,
+      ...(args.extra ? { extra: args.extra } : {}),
+      ...(args.throttleKey ? { throttleKey: args.throttleKey } : {}),
+      ...(typeof args.minIntervalMs === "number" ? { minIntervalMs: args.minIntervalMs } : {})
+    };
+    debugTileTimeline(scope, timelineArgs);
   };
 
   let reconnectReloadTimer: number | undefined;
@@ -435,6 +456,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             };
       const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, normalizedTile));
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
+      logFrontierTimeline("frontier-chunk-apply", mergedTile.x, mergedTile.y, {
+        before: existing,
+        incoming: normalizedTile,
+        after: mergedTile,
+        extra: {
+          source: "CHUNK",
+          existingEconomicStructure: existing?.economicStructure?.type
+        }
+      });
       logDebugTileState("chunk-merge", mergedTile, {
         source: "CHUNK",
         existingEconomicStructure: existing?.economicStructure?.type
@@ -461,6 +491,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
         state.queuedTargetKeys.delete(tileKey);
         resolvedQueuedFrontierCapture = true;
+        logFrontierTimeline("frontier-queue-resolved-by-chunk", mergedTile.x, mergedTile.y, {
+          before: existing,
+          after: mergedTile,
+          extra: {
+            source: "CHUNK"
+          }
+        });
       }
       maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
@@ -500,6 +537,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   ws.addEventListener("open", () => {
+    attackSyncLog("ws-open", {
+      readyState: ws.readyState,
+      authReady: state.authReady,
+      authSessionReady: state.authSessionReady
+    });
     state.connection = "connected";
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
@@ -514,6 +556,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   ws.addEventListener("close", () => {
     clearDeferredBootstrapRefreshTimer();
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    attackSyncLog("ws-close", {
+      currentActionKey,
+      currentAction: state.actionCurrent,
+      actionStartedAt: state.actionStartedAt,
+      combatStartAck: state.combatStartAck,
+      capture: state.capture
+        ? {
+            target: state.capture.target,
+            resolvesAt: state.capture.resolvesAt
+          }
+        : undefined
+    });
     state.connection = "disconnected";
     state.actionInFlight = false;
     state.combatStartAck = false;
@@ -532,6 +586,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("error", () => {
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    attackSyncLog("ws-error", {
+      currentActionKey,
+      currentAction: state.actionCurrent,
+      actionStartedAt: state.actionStartedAt,
+      combatStartAck: state.combatStartAck,
+      capture: state.capture
+        ? {
+            target: state.capture.target,
+            resolvesAt: state.capture.resolvesAt
+          }
+        : undefined
+    });
     state.connection = "disconnected";
     state.actionInFlight = false;
     state.combatStartAck = false;
@@ -553,6 +619,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    if (msg.type === "COMBAT_START" || msg.type === "COMBAT_RESULT" || msg.type === "ERROR") {
+      const currentTarget = state.actionCurrent ? { x: state.actionCurrent.x, y: state.actionCurrent.y } : undefined;
+      attackSyncLog("message", {
+        type: msg.type,
+        currentTarget,
+        currentActionKey: state.actionTargetKey,
+        combatStartAck: state.combatStartAck,
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        msgTarget:
+          typeof msg.target === "object" && msg.target !== null && "x" in msg.target && "y" in msg.target
+            ? msg.target
+            : undefined,
+        code: typeof msg.code === "string" ? msg.code : undefined,
+        message: typeof msg.message === "string" ? msg.message : undefined
+      });
+    }
     if (msg.type === "LOGIN_PHASE") {
       if (!state.authSessionReady) {
         applyLoginPhase(
@@ -914,6 +996,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           totalElapsedMs: resultReceivedAt - timing.acceptedAt
         });
       }
+      attackSyncLog("combat-result", {
+        attackType: msg.attackType,
+        target: msg.target,
+        origin: msg.origin,
+        attackerWon: msg.attackerWon,
+        startedAgoMs: state.actionStartedAt ? resultReceivedAt - state.actionStartedAt : undefined,
+        hadCombatStartAck: state.combatStartAck
+      });
       applyCombatOutcomeMessage(msg as Record<string, unknown>);
       return;
     }
@@ -921,6 +1011,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "COMBAT_START") {
       const target = msg.target as { x: number; y: number };
       const resolvesAt = msg.resolvesAt as number;
+      attackSyncLog("combat-start", {
+        target,
+        origin: msg.origin,
+        resolvesAt,
+        predictedResult: Boolean(msg.predictedResult),
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        currentAction: state.actionCurrent
+      });
       state.combatStartAck = true;
       const existingCapture =
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
@@ -1088,6 +1186,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
+        logFrontierTimeline("frontier-delta-apply", resolved.x, resolved.y, {
+          before: existing,
+          incoming: normalizedUpdate,
+          after: resolved,
+          extra: {
+            source: "TILE_DELTA",
+            updateHasEconomicStructure: "economicStructure" in normalizedUpdate
+          }
+        });
         logDebugTileState("tile-delta", resolved, {
           source: "TILE_DELTA",
           updateHasEconomicStructure: "economicStructure" in normalizedUpdate,
@@ -1115,6 +1222,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           state.frontierSyncWaitUntilByTarget.delete(updateKey);
           state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
           state.queuedTargetKeys.delete(updateKey);
+          logFrontierTimeline("frontier-queue-resolved-by-delta", resolved.x, resolved.y, {
+            before: existing,
+            after: resolved,
+            extra: {
+              source: "TILE_DELTA"
+            }
+          });
         }
         maybeAnnounceShardSite(existing, resolved);
         if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
@@ -1382,6 +1496,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.pendingDomainUnlockId = "";
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
+      if (typeof msg.x === "number" && typeof msg.y === "number") {
+        logFrontierTimeline("frontier-error", Number(msg.x), Number(msg.y), {
+          before: state.tiles.get(errorTileKey),
+          after: state.tiles.get(errorTileKey),
+          extra: {
+            code: errorCode,
+            message: errorMessage
+          }
+        });
+      }
       if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
@@ -1478,6 +1602,20 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       const shouldResetFrontierAction = shouldResetFrontierActionStateForError(errorCode);
       if (shouldResetFrontierAction) {
+        if (failedTargetKey) {
+          const failedTile = state.tiles.get(failedTargetKey);
+          if (failedTile) {
+            logFrontierTimeline("frontier-reset-after-error", failedTile.x, failedTile.y, {
+              before: failedTile,
+              after: failedTile,
+              extra: {
+                code: errorCode,
+                message: errorMessage,
+                failedCurrentKey
+              }
+            });
+          }
+        }
         state.capture = undefined;
         if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
         state.actionInFlight = false;
