@@ -12,8 +12,9 @@ import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
-import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
-import { debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
+import { createVisibleTileDetailRequester } from "./client-visible-tile-detail.js";
+import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -38,6 +39,9 @@ type StartClientRuntimeLoopDeps = {
   wrapY: (y: number) => number;
   parseKey: (key: string) => { x: number; y: number };
   selectedTile: () => Tile | undefined;
+  aetherWallDirectionTargetTiles: (
+    tile: Tile
+  ) => Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }>;
   settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => "amber" | "cyan" | "red";
@@ -98,8 +102,17 @@ type StartClientRuntimeLoopDeps = {
     toY: number,
     nowMs: number
   ) => void;
+  drawAetherWallSegment: (
+    ctx: CanvasRenderingContext2D,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    options?: { preview?: boolean; nowMs?: number }
+  ) => void;
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
+  requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
   renderHud: () => void;
   renderCaptureProgress: () => void;
   renderShardAlert: () => void;
@@ -120,6 +133,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
+  const requestVisibleTileDetails = createVisibleTileDetailRequester({
+    state,
+    keyFor: deps.keyFor,
+    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded,
+    isMobile: deps.isMobile
+  });
 
   const draw = (): void => {
     const nowMs = performance.now();
@@ -185,6 +204,36 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       roadNetworkBuiltAt = nowMs;
     }
     const overlayTiles: VisibleRenderTile[] = [];
+    const drawAetherWallEdge = (
+      baseX: number,
+      baseY: number,
+      direction: "N" | "E" | "S" | "W",
+      options?: { preview?: boolean; nowMs?: number }
+    ): void => {
+      const center = deps.worldToScreen(baseX, baseY, size, halfW, halfH);
+      const halfSize = size * 0.5;
+      let fromX = center.sx - halfSize;
+      let fromY = center.sy - halfSize;
+      let toX = center.sx + halfSize;
+      let toY = center.sy - halfSize;
+      if (direction === "E") {
+        fromX = center.sx + halfSize;
+        fromY = center.sy - halfSize;
+        toX = center.sx + halfSize;
+        toY = center.sy + halfSize;
+      } else if (direction === "S") {
+        fromX = center.sx - halfSize;
+        fromY = center.sy + halfSize;
+        toX = center.sx + halfSize;
+        toY = center.sy + halfSize;
+      } else if (direction === "W") {
+        fromX = center.sx - halfSize;
+        fromY = center.sy - halfSize;
+        toX = center.sx - halfSize;
+        toY = center.sy + halfSize;
+      }
+      deps.drawAetherWallSegment(deps.ctx, fromX, fromY, toX, toY, options);
+    };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && state.fogDisabled) || vis === "visible";
@@ -311,7 +360,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
       if (t && vis === "visible" && t.economicStructure) {
-        if (tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+        if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
           debugTileLog(
             "render",
             {
@@ -368,7 +417,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
           deps.ctx.lineWidth = 1;
         }
-      } else if (t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+      } else if (verboseTileDebugEnabled() && t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
         debugTileLog(
           "render-missing-structure",
           {
@@ -384,7 +433,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
         );
       }
-      if (tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+      if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
         const renderKey = deps.keyFor(wx, wy);
         const renderSignature = JSON.stringify({
           ownerId: t?.ownerId ?? null,
@@ -1199,6 +1248,51 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
     }
 
+    if (state.aetherWallTargeting.active) {
+      const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
+      const selectedOrigin = state.selected ? state.tiles.get(selectedKey) : undefined;
+      for (const tile of overlayTiles) {
+        if (tile.vis !== "visible" || !state.aetherWallTargeting.validOrigins.has(tile.wk)) continue;
+        const selectedOriginTile = tile.wk === selectedKey;
+        deps.ctx.save();
+        deps.ctx.fillStyle = selectedOriginTile ? "rgba(44, 184, 255, 0.2)" : "rgba(44, 184, 255, 0.1)";
+        deps.ctx.fillRect(tile.px + 1, tile.py + 1, size - 2, size - 2);
+        deps.ctx.strokeStyle = selectedOriginTile ? "rgba(171, 237, 255, 0.98)" : "rgba(88, 214, 255, 0.88)";
+        deps.ctx.lineWidth = selectedOriginTile ? 3 : 2;
+        deps.ctx.strokeRect(tile.px + 1.5, tile.py + 1.5, size - 3, size - 3);
+        deps.ctx.restore();
+      }
+      if (selectedOrigin) {
+        const directionTargets = deps.aetherWallDirectionTargetTiles(selectedOrigin);
+        for (const target of directionTargets) {
+          const targetScreen = deps.worldToScreen(target.x, target.y, size, halfW, halfH);
+          const hovered = state.hover?.x === target.x && state.hover?.y === target.y;
+          const active = state.aetherWallTargeting.direction === target.direction;
+          deps.ctx.save();
+          deps.ctx.fillStyle = active ? "rgba(99, 228, 255, 0.18)" : hovered ? "rgba(99, 228, 255, 0.12)" : "rgba(99, 228, 255, 0.08)";
+          deps.ctx.fillRect(targetScreen.sx - size / 2 + 1, targetScreen.sy - size / 2 + 1, size - 2, size - 2);
+          deps.ctx.strokeStyle = active ? "rgba(201, 248, 255, 0.96)" : "rgba(102, 223, 255, 0.86)";
+          deps.ctx.lineWidth = active ? 3 : 2;
+          deps.ctx.strokeRect(targetScreen.sx - size / 2 + 1.5, targetScreen.sy - size / 2 + 1.5, size - 3, size - 3);
+          deps.ctx.restore();
+          deps.drawStartingExpansionArrow(targetScreen.sx - size / 2, targetScreen.sy - size / 2, size, target.dx, target.dy);
+        }
+      }
+      if (state.selected) {
+        const previewSegments = buildAetherWallSegments(
+          state.selected.x,
+          state.selected.y,
+          state.aetherWallTargeting.direction,
+          state.aetherWallTargeting.length,
+          deps.wrapX,
+          deps.wrapY
+        );
+        for (const segment of previewSegments) {
+          drawAetherWallEdge(segment.baseX, segment.baseY, state.aetherWallTargeting.direction, { preview: true, nowMs });
+        }
+      }
+    }
+
     if (crystalTargetingActive) {
       const hoveredKey = state.hover ? deps.keyFor(state.hover.x, state.hover.y) : "";
       const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
@@ -1306,6 +1400,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
 
+    const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
+    for (const wall of visibleAetherWalls) {
+      const segments = buildAetherWallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length, deps.wrapX, deps.wrapY);
+      for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs });
+    }
+
     const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
     for (const bridge of visibleAetherBridges) {
       const from = deps.worldToScreen(bridge.from.x, bridge.from.y, size, halfW, halfH);
@@ -1335,6 +1435,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     deps.drawMiniMap();
+    requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     deps.maybeRefreshForCamera(false);
     requestAnimationFrame(draw);
   };
@@ -1352,13 +1453,29 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;
-    if (!state.combatStartAck && Date.now() - started > 4_500) {
+    if (!state.actionAcceptedAck && Date.now() - started > 2_000) {
       const current = state.actionCurrent;
       const currentKey = current ? deps.keyFor(current.x, current.y) : "";
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(currentKey);
+      attackSyncLog("action-accept-timeout", {
+        current,
+        currentKey,
+        elapsedMs: Date.now() - started,
+        actionAcceptedAck: state.actionAcceptedAck,
+        keepOptimisticExpand,
+        queueLength: state.actionQueue.length,
+        queuedKeys: Array.from(state.queuedTargetKeys),
+        pendingCombatReveal: state.pendingCombatReveal
+          ? {
+              targetKey: state.pendingCombatReveal.targetKey,
+              revealed: state.pendingCombatReveal.revealed
+            }
+          : undefined
+      });
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
@@ -1369,10 +1486,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
-        deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
+        deps.pushFeed("No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
+        attackSyncLog("action-accept-timeout-refresh", {
+          strategy: "wait-for-frontier-sync",
+          currentKey,
+          refreshRadius: 1
+        });
       } else if (current && (current.retries ?? 0) < 3) {
-        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");
+        deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles and retrying.", "warn");
         deps.requestViewRefresh(1, true);
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
           x: current.x,
@@ -1382,12 +1504,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (current.mode) retryAction.mode = current.mode;
         state.actionQueue.unshift(retryAction);
         state.queuedTargetKeys.add(deps.keyFor(current.x, current.y));
-        deps.pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
+        deps.pushFeed(`No server acceptance within 2s; retrying action (${retryAction.retries}/3).`, "combat", "warn");
+        attackSyncLog("action-accept-timeout-refresh", {
+          strategy: "retry",
+          currentKey,
+          retryAction,
+          refreshRadius: 1
+        });
       } else {
-        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");
+        deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");
         deps.requestViewRefresh(1, true);
-        deps.pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
+        deps.pushFeed("No server acceptance within 2s; skipping queued action.", "combat", "warn");
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
+        attackSyncLog("action-accept-timeout-refresh", {
+          strategy: "resync-without-retry",
+          currentKey,
+          refreshRadius: 1
+        });
       }
       deps.processActionQueue();
       deps.renderHud();
@@ -1397,9 +1530,19 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (Date.now() > state.capture.resolvesAt + 5_000) {
       const timedOutCurrentKey = state.actionCurrent ? deps.keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(timedOutCurrentKey);
+      attackSyncLog("combat-result-timeout", {
+        current: state.actionCurrent,
+        currentKey: timedOutCurrentKey,
+        elapsedMs: Date.now() - started,
+        captureTarget: state.capture.target,
+        captureResolvesAt: state.capture.resolvesAt,
+        keepOptimisticExpand,
+        queueLength: state.actionQueue.length
+      });
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === timedOutCurrentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";

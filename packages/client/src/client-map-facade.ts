@@ -11,6 +11,7 @@ import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
   drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
+  drawAetherWallSegment as drawAetherWallSegmentOnCanvas,
   drawBarbarianSkullOverlay as drawBarbarianSkullOverlayOnCanvas,
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
@@ -145,6 +146,14 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     nowMs: number,
     options?: { compact?: boolean }
   ): void => drawAetherBridgeLaneOnCanvas(renderCtx, fromX, fromY, toX, toY, nowMs, options);
+  const drawAetherWallSegment = (
+    renderCtx: CanvasRenderingContext2D,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    options?: { preview?: boolean; nowMs?: number }
+  ): void => drawAetherWallSegmentOnCanvas(renderCtx, fromX, fromY, toX, toY, options);
 
   const isCoastalSea = (x: number, y: number): boolean => {
     const neighbors = [
@@ -355,6 +364,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     borderLineWidthForOwner,
     structureAccentColor,
     drawAetherBridgeLane,
+    drawAetherWallSegment,
     drawTerrainTile,
     drawForestOverlay,
     drawBarbarianSkullOverlay,

@@ -204,7 +204,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   });
   window.addEventListener("mouseup", (ev) => {
     clearHoldOpenTimer();
-    if (shouldCommitMouseSelection({
+    if (dragActive && shouldCommitMouseSelection({
       button: ev.button,
       boxSelectionMode,
       boxSelectionEngaged,

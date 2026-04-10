@@ -1,4 +1,5 @@
 import type {
+  AetherWallDirection,
   BarbarianAgent,
   ClusterType,
   Dock,
@@ -18,6 +19,7 @@ import type {
   SeasonWinnerView,
   SiegeOutpost,
   StrategicReplayEvent,
+  RevealEmpireStatsView,
   Tile,
   TileKey
 } from "@border-empires/shared";
@@ -170,6 +172,7 @@ export interface SnapshotState {
   economicStructures?: EconomicStructure[];
   sabotage?: ActiveSabotage[];
   abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
+  aetherWalls?: ActiveAetherWall[];
   docks?: Dock[];
   towns?: TownDefinition[];
   shardSites?: ShardSiteState[];
@@ -239,6 +242,7 @@ export interface SnapshotSystemsSection {
   economicStructures?: EconomicStructure[];
   sabotage?: ActiveSabotage[];
   abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
+  aetherWalls?: ActiveAetherWall[];
 }
 
 export interface SnapshotSectionIndex {
@@ -342,6 +346,16 @@ export interface ActiveAetherBridge {
   endsAt: number;
 }
 
+export interface ActiveAetherWall {
+  wallId: string;
+  ownerId: string;
+  originTileKey: TileKey;
+  direction: AetherWallDirection;
+  length: 1 | 2 | 3;
+  startedAt: number;
+  endsAt: number;
+}
+
 export interface TileYieldBuffer {
   gold: number;
   strategic: Record<StrategicResource, number>;
@@ -364,13 +378,17 @@ export interface PlayerEconomyIndex {
 }
 
 export interface AbilityDefinition {
-  id: "reveal_empire" | "aether_bridge" | "siphon" | "create_mountain" | "remove_mountain";
+  id: "reveal_empire" | "reveal_empire_stats" | "aether_bridge" | "aether_wall" | "siphon" | "create_mountain" | "remove_mountain";
   name: string;
   requiredTechIds: string[];
   crystalCost: number;
   cooldownMs: number;
   upkeepCrystalPerMinute?: number;
   durationMs?: number;
+}
+
+export interface RevealEmpireStatsResult {
+  stats: RevealEmpireStatsView;
 }
 
 export interface DynamicMissionDef {
