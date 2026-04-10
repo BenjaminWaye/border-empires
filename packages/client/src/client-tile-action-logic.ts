@@ -33,6 +33,8 @@ import type {
 } from "./client-types.js";
 
 type BuildableStructureId = BuildableStructureType;
+type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
+type AetherWallLength = 1 | 2 | 3;
 
 const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: number } | undefined => {
   if (tile.fort) return { label: "Fort", durationMs: structureBuildDurationMs("FORT") };
@@ -51,7 +53,7 @@ type TileActionLogicDeps = {
   chebyshevDistanceClient: (ax: number, ay: number, bx: number, by: number) => number;
   isTileOwnedByAlly: (tile: Tile) => boolean;
   hostileObservatoryProtectingTile: (tile: Tile) => Tile | undefined;
-  abilityCooldownRemainingMs: (ability: keyof ClientState["abilityCooldowns"]) => number;
+  abilityCooldownRemainingMs: (ability: AbilityCooldownId) => number;
   formatCooldownShort: (ms: number) => string;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
   hideTileActionMenu: () => void;
@@ -137,7 +139,7 @@ export const canPlaceAetherWallFromOrigin = (
   originX: number,
   originY: number,
   direction: ClientState["aetherWallTargeting"]["direction"],
-  length: 1 | 2 | 3,
+  length: AetherWallLength,
   deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
 ): boolean => {
   const localhostOverride = hasLocalDevAetherWallOverride(state);
@@ -270,6 +272,8 @@ export const beginCrystalTargeting = (
     | "hideHoldBuildMenu"
     | "selectedTile"
     | "parseKey"
+    | "wrapX"
+    | "wrapY"
     | "renderHud"
   >
 ): void => {

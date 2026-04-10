@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
-const state = { techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "cartography", "leatherworking"] };
+const state = {
+  localhostDevAetherWall: false,
+  techIds: ["navigation", "trade", "coinage", "industrial-extraction", "masonry", "cartography", "leatherworking"]
+};
 
 describe("splitTileActionsIntoTabs", () => {
   it("keeps crystal-only menu content visible", () => {

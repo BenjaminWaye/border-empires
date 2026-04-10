@@ -553,15 +553,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
   };
 
-  const abilityCooldownRemainingMs = (
-    abilityId: "aether_bridge" | "siphon" | "reveal_empire" | "create_mountain" | "remove_mountain"
-  ): number => {
+  const abilityCooldownRemainingMs = (abilityId: keyof ClientState["abilityCooldowns"]): number => {
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
       return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now());
     }
     return Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - Date.now());
   };
+
+  const isAetherWallLength = (length: 0 | 1 | 2 | 3): length is 1 | 2 | 3 => length !== 0;
 
   const formatCooldownShort = (ms: number): string => {
     const totalSeconds = Math.ceil(ms / 1000);
@@ -1275,7 +1275,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         const clickedDirection = aetherWallDirectionTargetTiles(selectedOrigin).find((target) => target.x === wx && target.y === wy);
         if (clickedDirection) {
           const length = preferredAetherWallLength(selectedOrigin.x, selectedOrigin.y, clickedDirection.direction);
-          if (length > 0) {
+          if (isAetherWallLength(length)) {
             state.aetherWallTargeting.direction = clickedDirection.direction;
             state.aetherWallTargeting.length = length;
             sendGameMessage({
@@ -1307,7 +1307,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         if (validDirections.length === 1) {
           const direction = validDirections[0]!;
           const length = preferredAetherWallLength(clicked.x, clicked.y, direction);
-          if (length > 0) {
+          if (isAetherWallLength(length)) {
             state.aetherWallTargeting.direction = direction;
             state.aetherWallTargeting.length = length;
             sendGameMessage({ type: "CAST_AETHER_WALL", x: clicked.x, y: clicked.y, direction, length });
@@ -1320,7 +1320,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           state.aetherWallTargeting.direction = validDirections[0]!;
         }
         const preferredLength = preferredAetherWallLength(clicked.x, clicked.y, state.aetherWallTargeting.direction);
-        if (preferredLength > 0) state.aetherWallTargeting.length = preferredLength;
+        if (isAetherWallLength(preferredLength)) state.aetherWallTargeting.length = preferredLength;
       }
       renderHud();
       return;
