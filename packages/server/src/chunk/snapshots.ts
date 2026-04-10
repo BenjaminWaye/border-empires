@@ -122,6 +122,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   serializeChunkBatchViaWorker: (inputs: ChunkBuildInput[]) => Promise<string[]>;
   serializeChunkBatchDirect: (inputs: ChunkBuildInput[]) => string[];
   serializeChunkBatchBodies: (generation: number, chunkBodies: string[]) => string;
+  sendChunkBatchPayload: (socket: SocketLike, payload: string) => void;
   runtimeLoadShedLevel: () => "normal" | "soft" | "hard";
 };
 
@@ -445,7 +446,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 
       if (chunkBatchBodies.length > 0) {
         const sendStartedAt = deps.now();
-        socket.send(deps.serializeChunkBatchBodies(generation, chunkBatchBodies));
+        deps.sendChunkBatchPayload(socket, deps.serializeChunkBatchBodies(generation, chunkBatchBodies));
         phases.sendMs += deps.now() - sendStartedAt;
         phases.batches += 1;
       }
