@@ -543,6 +543,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     drawAetherBridgeLane,
     drawMiniMap,
     maybeRefreshForCamera,
+    requestTileDetailIfNeeded: actionFlow.requestTileDetailIfNeeded,
     renderHud,
     renderCaptureProgress,
     renderShardAlert,
