@@ -178,6 +178,7 @@ import { assignMissingTownNames } from "./town-names.js";
 import { appendPlayerActivityEntry, buildTownActivityEntry } from "./player-activity.js";
 import { createRuntimeIncidentLog } from "./runtime-incident-log.js";
 import { createSnapshotSaveRunner } from "./snapshot-save-runner.js";
+import { resolvePlayerTechPayloadSnapshot } from "./server-tech-payload-guard.js";
 import {
   AI_AUTH_PRIORITY_BATCH_SIZE,
   AI_COMPETITION_CONTEXT_TTL_MS,
@@ -3665,6 +3666,24 @@ const broadcastLocalVisionDelta = (centers: Array<{ x: number; y: number }>): vo
   for (const playerId of socketsByPlayer.keys()) sendLocalVisionDeltaForPlayer(playerId, centers);
 };
 
+const techPayloadSnapshotForPlayer = (player: Player, scope: "init" | "player_update" | "tech_update") =>
+  resolvePlayerTechPayloadSnapshot({
+    player,
+    activeSeasonTechConfig,
+    worldSeed: activeSeason.worldSeed,
+    chooseSeasonalTechConfig,
+    seasonTechConfigIsCompatible,
+    setActiveSeasonTechConfig: (config) => {
+      activeSeasonTechConfig = config;
+      activeSeason.techTreeConfigId = config.configId;
+    },
+    reachableTechs,
+    activeTechCatalog,
+    onRepair: (event) => {
+      console.warn("[tech] repaired payload before send", { scope, ...event });
+    }
+  });
+
 const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
   applyManpowerRegen(p);
   const ws = socketsByPlayer.get(p.id);
@@ -3672,6 +3691,7 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
   refreshGlobalStatusCache(false);
   const economy = playerEconomySnapshot(p);
   const strategicStocks = getOrInitStrategicStocks(p.id);
+  const techPayload = techPayloadSnapshotForPlayer(p, "player_update");
   const pendingSettlements = [...pendingSettlementsByTile.values()]
     .filter((settlement) => settlement.ownerId === p.id)
     .map((settlement) => {
@@ -3718,8 +3738,8 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       availableTechPicks: availableTechPicks(p),
       developmentProcessLimit: developmentProcessCapacityForPlayer(p.id),
       activeDevelopmentProcessCount: activeDevelopmentProcessCountForPlayer(p.id),
-      techChoices: reachableTechs(p),
-      techCatalog: activeTechCatalog(p),
+      techChoices: techPayload.techChoices,
+      techCatalog: techPayload.techCatalog,
       domainIds: [...p.domainIds],
       domainChoices: reachableDomains(p),
       domainCatalog: activeDomainCatalog(p),
@@ -9241,6 +9261,7 @@ const startTechResearch = (player: Player, techId: string): { ok: boolean; reaso
 };
 
 const sendTechUpdate = (player: Player, status: "started" | "completed"): void => {
+  const techPayload = techPayloadSnapshotForPlayer(player, "tech_update");
   sendToPlayer(player.id, {
     type: "TECH_UPDATE",
     status,
@@ -9253,10 +9274,10 @@ const sendTechUpdate = (player: Player, status: "started" | "completed"): void =
     modBreakdown: playerModBreakdown(player),
     incomePerMinute: currentIncomePerMinute(player),
     powerups: player.powerups,
-    nextChoices: reachableTechs(player),
+    nextChoices: techPayload.techChoices,
     availableTechPicks: availableTechPicks(player),
     missions: missionPayload(player),
-    techCatalog: activeTechCatalog(player),
+    techCatalog: techPayload.techCatalog,
     domainChoices: reachableDomains(player),
     domainCatalog: activeDomainCatalog(player),
     domainIds: [...player.domainIds],
@@ -12374,6 +12395,7 @@ registerServerHttpRoutes(app, {
       const strategicStocks = getOrInitStrategicStocks(player.id);
       const dockPairs = exportDockPairs();
       const offlineActivity = consumeOfflinePlayerActivity(player.id);
+      const techPayload = techPayloadSnapshotForPlayer(player, "init");
       sendLoginPhase(socket, "PLAYER_LOADED", "Connecting your empire...", "Empire record ready. Preparing your session...");
       socket.send(
         JSON.stringify({
@@ -12450,8 +12472,8 @@ registerServerHttpRoutes(app, {
             dockPairs
           },
           shardRainNotice: shardRainNoticePayload(),
-          techChoices: reachableTechs(player),
-          techCatalog: activeTechCatalog(player),
+          techChoices: techPayload.techChoices,
+          techCatalog: techPayload.techCatalog,
           domainChoices: reachableDomains(player),
           domainCatalog: activeDomainCatalog(player),
           playerStyles: exportPlayerStyles(),
