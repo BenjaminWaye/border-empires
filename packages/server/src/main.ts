@@ -174,6 +174,7 @@ import {
 import { assignMissingTownNames } from "./town-names.js";
 import { appendPlayerActivityEntry, buildTownActivityEntry } from "./player-activity.js";
 import { createRuntimeIncidentLog } from "./runtime-incident-log.js";
+import { createSnapshotSaveRunner } from "./snapshot-save-runner.js";
 import {
   AI_AUTH_PRIORITY_BATCH_SIZE,
   AI_COMPETITION_CONTEXT_TTL_MS,
@@ -11521,10 +11522,15 @@ const saveSnapshot = async (): Promise<void> => {
   return snapshotSavePromise;
 };
 
-const saveSnapshotInBackground = (): void => {
-  void saveSnapshot().catch((err) => {
+const snapshotSaveRunner = createSnapshotSaveRunner({
+  save: saveSnapshot,
+  onError: (err) => {
     logRuntimeError("snapshot save failed", err);
-  });
+  }
+});
+
+const saveSnapshotInBackground = (): void => {
+  snapshotSaveRunner.request();
 };
 
 const loadSectionedSnapshot = (): SnapshotState | undefined => {
