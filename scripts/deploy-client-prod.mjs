@@ -52,9 +52,13 @@ const fetchText = (url) =>
   });
 
 const normalizeDeploymentUrl = (value) => {
-  const trimmed = value.trim().split(/\s+/).at(-1) ?? "";
-  if (!trimmed) throw new Error("Vercel deploy did not return a deployment URL");
-  return trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+  const matches = [...value.matchAll(/https:\/\/[a-zA-Z0-9.-]+\.vercel\.app\/?/g)].map((match) => match[0]);
+  const preferred =
+    matches.find((url) => url.includes("border-empires-client-") && !url.includes("border-empires-client.vercel.app")) ??
+    matches.find((url) => !url.includes("border-empires-client.vercel.app")) ??
+    matches.at(-1);
+  if (!preferred) throw new Error("Vercel deploy did not return a deployment URL");
+  return preferred.endsWith("/") ? preferred : `${preferred}/`;
 };
 
 const verifyAliasMatchesDeployment = async (deploymentUrl) => {
