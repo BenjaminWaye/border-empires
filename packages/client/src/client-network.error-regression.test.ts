@@ -40,6 +40,7 @@ const createState = () =>
     actionInFlight: true,
     capture: { startAt: 1, resolvesAt: 2, target: { x: 60, y: 302 } },
     pendingCombatReveal: undefined,
+    actionAcceptedAck: false,
     combatStartAck: true,
     actionStartedAt: 123,
     actionCurrent: { x: 60, y: 302 },
@@ -129,6 +130,7 @@ const createState = () =>
     discoveredTiles: new Set<string>(),
     discoveredDockTiles: new Set<string>(),
     tileDetailRequestedAt: new Map<string, number>(),
+    lastChunkSnapshotGeneration: 0,
     lastSubAt: Date.now(),
     lastSubCx: 0,
     lastSubCy: 0,
@@ -236,6 +238,32 @@ describe("client network regression guards", () => {
     ).not.toThrow();
   });
 
+  it("falls back to pushFeed when pushFeedEntry is missing during combat resolution", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const pushFeed = vi.fn();
+    bindWithDeps(state, ws, {
+      pushFeed,
+      pushFeedEntry: undefined,
+      combatResolutionAlert: vi.fn(() => ({
+        title: "Victory",
+        detail: "You captured the tile.",
+        tone: "success"
+      }))
+    });
+
+    expect(() =>
+      ws.emit("message", {
+        data: JSON.stringify({
+          type: "COMBAT_RESULT",
+          target: { x: 60, y: 302 },
+          changes: [{ x: 60, y: 302, ownerId: "me", ownershipState: "FRONTIER" }]
+        })
+      })
+    ).not.toThrow();
+    expect(pushFeed).toHaveBeenCalledWith("You captured the tile.", "combat", "success");
+  });
+
   it("clears stuck frontier state on LOCKED errors and refreshes the tile immediately", () => {
     const state = createState();
     const ws = new FakeWebSocket();
@@ -302,6 +330,26 @@ describe("client network regression guards", () => {
     );
   });
 
+  it("marks an in-flight attack as accepted before combat start arrives", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ACTION_ACCEPTED",
+        actionType: "ATTACK",
+        origin: { x: 59, y: 302 },
+        target: { x: 60, y: 302 },
+        resolvesAt: Date.now() + 3_000
+      })
+    });
+
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionTargetKey).toBe("60,302");
+  });
+
   it("does not clear active settlement progress when PLAYER_UPDATE omits pendingSettlements", () => {
     const state = createState();
     const ws = new FakeWebSocket();
@@ -330,6 +378,7 @@ describe("client network regression guards", () => {
     ws.emit("message", {
       data: JSON.stringify({
         type: "CHUNK_FULL",
+        generation: 1,
         tilesMaskedByFog: [{ x: 5, y: 6, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "SETTLED", detailLevel: "summary" }]
       })
     });
@@ -400,6 +449,7 @@ describe("client network regression guards", () => {
     ws.emit("message", {
       data: JSON.stringify({
         type: "CHUNK_FULL",
+        generation: 1,
         tilesMaskedByFog: [{ x: 100, y: 247, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER" }]
       })
     });
@@ -410,6 +460,50 @@ describe("client network regression guards", () => {
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("100,247");
     expect(deps.processActionQueue).toHaveBeenCalled();
     expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 247, ownerId: "me" }));
+  });
+
+  it("ignores stale chunk snapshots that arrive after a newer generation", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_BATCH",
+        generation: 2,
+        chunks: [
+          {
+            cx: 0,
+            cy: 0,
+            tilesMaskedByFog: [{ x: 40, y: 238, terrain: "LAND", fogged: false, ownerId: "enemy", ownershipState: "SETTLED" }]
+          }
+        ]
+      })
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_BATCH",
+        generation: 1,
+        chunks: [
+          {
+            cx: 0,
+            cy: 0,
+            tilesMaskedByFog: [{ x: 40, y: 238, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER" }]
+          }
+        ]
+      })
+    });
+
+    expect(state.lastChunkSnapshotGeneration).toBe(2);
+    expect(state.tiles.get("40,238")).toEqual(
+      expect.objectContaining({
+        x: 40,
+        y: 238,
+        ownerId: "enemy",
+        ownershipState: "SETTLED"
+      })
+    );
   });
 
   it("requeues a settlement when the server rejects it only because development slots are full", () => {

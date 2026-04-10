@@ -133,6 +133,16 @@ export interface ActiveAetherBridgeView {
   endsAt: number;
 }
 
+export interface ActiveAetherWallView {
+  wallId: string;
+  ownerId: PlayerId;
+  origin: { x: number; y: number };
+  direction: "N" | "E" | "S" | "W";
+  length: 1 | 2 | 3;
+  startedAt: number;
+  endsAt: number;
+}
+
 export type StrategicReplayEventType =
   | "OWNERSHIP"
   | "STRUCTURE"
@@ -437,6 +447,22 @@ export interface ActiveRevealEmpire {
   casterPlayerId: string;
   targetPlayerId: string;
   isActive: boolean;
+}
+
+export interface RevealEmpireStatsView {
+  playerId: PlayerId;
+  playerName: string;
+  revealedAt: number;
+  tiles: number;
+  settledTiles: number;
+  frontierTiles: number;
+  controlledTowns: number;
+  incomePerMinute: number;
+  techCount: number;
+  gold: number;
+  manpower: number;
+  manpowerCap: number;
+  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
 }
 
 export interface ActiveSabotage {
