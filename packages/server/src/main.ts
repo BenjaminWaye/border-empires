@@ -3856,6 +3856,12 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
       const [x, y] = parseKey(settlement.tileKey);
       return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
     });
+  logTileSync("development_player_update", {
+    playerId: p.id,
+    incomeDelta,
+    pendingSettlements,
+    ...developmentProcessDebugBreakdownForPlayer(p.id)
+  });
   ws.send(
     JSON.stringify({
       type: "PLAYER_UPDATE",
@@ -10448,6 +10454,50 @@ const activeDevelopmentProcessCountForPlayer = (playerId: string): number => {
   return n;
 };
 
+const developmentProcessDebugBreakdownForPlayer = (playerId: string): Record<string, unknown> => {
+  const pendingSettlementKeys: string[] = [];
+  const fortKeys: string[] = [];
+  const observatoryKeys: string[] = [];
+  const siegeOutpostKeys: string[] = [];
+  const economicStructureKeys: string[] = [];
+  for (const pending of pendingSettlementsByTile.values()) {
+    if (pending.ownerId === playerId) pendingSettlementKeys.push(pending.tileKey);
+  }
+  for (const fort of fortsByTile.values()) {
+    if (fort.ownerId === playerId && (fort.status === "under_construction" || fort.status === "removing")) fortKeys.push(fort.tileKey);
+  }
+  for (const observatory of observatoriesByTile.values()) {
+    if (observatory.ownerId === playerId && (observatory.status === "under_construction" || observatory.status === "removing")) {
+      observatoryKeys.push(observatory.tileKey);
+    }
+  }
+  for (const siege of siegeOutpostsByTile.values()) {
+    if (siege.ownerId === playerId && (siege.status === "under_construction" || siege.status === "removing")) {
+      siegeOutpostKeys.push(siege.tileKey);
+    }
+  }
+  for (const structure of economicStructuresByTile.values()) {
+    if (structure.ownerId === playerId && (structure.status === "under_construction" || structure.status === "removing")) {
+      economicStructureKeys.push(structure.tileKey);
+    }
+  }
+  return {
+    developmentProcessLimit: developmentProcessCapacityForPlayer(playerId),
+    activeDevelopmentProcessCount:
+      pendingSettlementKeys.length + fortKeys.length + observatoryKeys.length + siegeOutpostKeys.length + economicStructureKeys.length,
+    pendingSettlementCount: pendingSettlementKeys.length,
+    pendingSettlementKeys,
+    fortCount: fortKeys.length,
+    fortKeys,
+    observatoryCount: observatoryKeys.length,
+    observatoryKeys,
+    siegeOutpostCount: siegeOutpostKeys.length,
+    siegeOutpostKeys,
+    economicStructureCount: economicStructureKeys.length,
+    economicStructureKeys
+  };
+};
+
 const developmentProcessCapacityForPlayer = (playerId: string): number =>
   Math.max(1, DEVELOPMENT_PROCESS_LIMIT + getPlayerEffectsForPlayer(playerId).developmentProcessCapacityAdd);
 
@@ -10782,7 +10832,8 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
     tileKey: settlement.tileKey,
     liveOwnerId: live.ownerId,
     liveOwnershipState: live.ownershipState,
-    resolvesAt: settlement.resolvesAt
+    resolvesAt: settlement.resolvesAt,
+    ...developmentProcessDebugBreakdownForPlayer(settlement.ownerId)
   });
   if (live.ownerId !== liveActor.id) {
     const capturedByEnemy = Boolean(live.ownerId && live.ownerId !== liveActor.id);
@@ -10806,7 +10857,8 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
     playerId: liveActor.id,
     tileKey: settlement.tileKey,
     ownerId: liveActor.id,
-    ownershipState: "SETTLED"
+    ownershipState: "SETTLED",
+    ...developmentProcessDebugBreakdownForPlayer(liveActor.id)
   });
   revealLinkedDocksForPlayer(liveActor.id, settlement.tileKey);
   recordFrontierSettlementForPressure(liveActor.id);
@@ -10852,7 +10904,8 @@ const startSettlement = (
     playerId: actor.id,
     tileKey: key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT)),
     ownerId: t.ownerId,
-    ownershipState: t.ownershipState
+    ownershipState: t.ownershipState,
+    ...developmentProcessDebugBreakdownForPlayer(actor.id)
   });
   if (t.terrain !== "LAND") return { ok: false, reason: "settlement requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "tile must be owned" };
@@ -10861,7 +10914,14 @@ const startSettlement = (
   const tk = key(t.x, t.y);
   if (pendingSettlementsByTile.has(tk)) return { ok: false, reason: "tile already settling" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile is locked in combat" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
+  if (!canStartDevelopmentProcess(actor.id)) {
+    logTileSync("settlement_slot_busy", {
+      playerId: actor.id,
+      tileKey: tk,
+      ...developmentProcessDebugBreakdownForPlayer(actor.id)
+    });
+    return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
+  }
 
   const startedAt = now();
   const resolvesAt = startedAt + settleMs;
@@ -10880,7 +10940,8 @@ const startSettlement = (
     playerId: actor.id,
     tileKey: tk,
     startedAt,
-    resolvesAt
+    resolvesAt,
+    ...developmentProcessDebugBreakdownForPlayer(actor.id)
   });
   schedulePendingSettlementResolution(pending);
   sendPlayerUpdate(actor, 0);
