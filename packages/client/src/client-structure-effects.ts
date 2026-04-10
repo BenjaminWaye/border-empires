@@ -18,6 +18,15 @@ export type StructureAreaPreview = {
   lineDash: number[];
 };
 
+const tilesWithPreferredTarget = (target: Tile, tiles: Iterable<Tile>): Tile[] => {
+  const next: Tile[] = [target];
+  for (const candidate of tiles) {
+    if (candidate.x === target.x && candidate.y === target.y) continue;
+    next.push(candidate);
+  }
+  return next;
+};
+
 const isActiveOwnedStructureWithinRange = (
   tiles: Iterable<Tile>,
   ownerId: string,
@@ -195,11 +204,12 @@ export const tileAreaEffectModifiersForTile = (
   const modifiers: TileAreaEffectModifier[] = [];
   if (!tile.ownerId || tile.fogged) return modifiers;
   const shouldDebug = verboseTileDebugEnabled() && tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: tile });
+  const tilesForScan = tilesWithPreferredTarget(tile, tiles);
 
   if (
     tile.economicStructure?.type === "MINE" &&
     tile.economicStructure.status === "active" &&
-    isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "FOUNDRY", FOUNDRY_RADIUS)
+    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "FOUNDRY", FOUNDRY_RADIUS)
   ) {
     const resource = tile.resource === "IRON" ? "IRON" : tile.resource === "GEMS" ? "CRYSTAL" : undefined;
     modifiers.push({
@@ -211,7 +221,7 @@ export const tileAreaEffectModifiersForTile = (
 
   if (
     tile.ownershipState === "SETTLED" &&
-    isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "GOVERNORS_OFFICE", GOVERNORS_OFFICE_RADIUS)
+    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "GOVERNORS_OFFICE", GOVERNORS_OFFICE_RADIUS)
   ) {
     modifiers.push({
       reason: "Governor's Office",
@@ -222,7 +232,7 @@ export const tileAreaEffectModifiersForTile = (
 
   if (
     tile.ownershipState === "SETTLED" &&
-    isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "GARRISON_HALL", GARRISON_HALL_RADIUS)
+    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "GARRISON_HALL", GARRISON_HALL_RADIUS)
   ) {
     modifiers.push({
       reason: "Garrison Hall",
@@ -234,12 +244,12 @@ export const tileAreaEffectModifiersForTile = (
   if (
     tile.ownershipState === "SETTLED" &&
     settledDefenseNearFortModifiers.length > 0 &&
-    isActiveOwnedFortWithinRange(tiles, tile.ownerId, tile, SETTLED_DEFENSE_NEAR_FORT_RADIUS)
+    isActiveOwnedFortWithinRange(tilesForScan, tile.ownerId, tile, SETTLED_DEFENSE_NEAR_FORT_RADIUS)
   ) {
     modifiers.push(...settledDefenseNearFortModifiers);
   }
 
-  if (isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "RADAR_SYSTEM", RADAR_SYSTEM_RADIUS)) {
+  if (isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "RADAR_SYSTEM", RADAR_SYSTEM_RADIUS)) {
     modifiers.push({
       reason: "Radar System",
       effect: "Protected from airport strikes",
