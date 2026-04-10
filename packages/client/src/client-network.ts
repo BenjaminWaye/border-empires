@@ -71,6 +71,63 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
   };
+  const logIncomingTechPayload = (
+    source: "INIT" | "PLAYER_UPDATE" | "TECH_UPDATE",
+    payload: {
+      techIds?: unknown;
+      techChoices?: unknown;
+      nextChoices?: unknown;
+      techCatalog?: unknown;
+      currentResearch?: unknown;
+      techRootId?: unknown;
+      availableTechPicks?: unknown;
+    }
+  ): void => {
+    const techIds = Array.isArray(payload.techIds) ? [...payload.techIds] : undefined;
+    const techChoicesSource = Array.isArray(payload.techChoices)
+      ? payload.techChoices
+      : Array.isArray(payload.nextChoices)
+        ? payload.nextChoices
+        : undefined;
+    const techChoices = Array.isArray(techChoicesSource) ? [...techChoicesSource] : undefined;
+    const techCatalog = Array.isArray(payload.techCatalog)
+      ? payload.techCatalog.map((entry) => {
+          if (!entry || typeof entry !== "object") return entry;
+          const tech = entry as {
+            id?: unknown;
+            name?: unknown;
+            tier?: unknown;
+            rootId?: unknown;
+            requires?: unknown;
+            prereqIds?: unknown;
+            requirements?: { canResearch?: unknown } | undefined;
+          };
+          return {
+            id: tech.id,
+            name: tech.name,
+            tier: tech.tier,
+            rootId: tech.rootId,
+            requires: tech.requires,
+            prereqIds: Array.isArray(tech.prereqIds) ? [...tech.prereqIds] : tech.prereqIds,
+            canResearch: tech.requirements?.canResearch
+          };
+        })
+      : undefined;
+    console.info(`[tech] ${source} payload`, {
+      hasTechIds: Array.isArray(payload.techIds),
+      hasTechChoices: Array.isArray(payload.techChoices) || Array.isArray(payload.nextChoices),
+      hasTechCatalog: Array.isArray(payload.techCatalog),
+      techIdsCount: techIds?.length ?? 0,
+      techChoicesCount: techChoices?.length ?? 0,
+      techCatalogCount: techCatalog?.length ?? 0,
+      techIds,
+      techChoices,
+      techCatalog,
+      techRootId: payload.techRootId,
+      currentResearch: payload.currentResearch,
+      availableTechPicks: payload.availableTechPicks
+    });
+  };
   const shouldResetFrontierActionStateForError =
     typeof deps.shouldResetFrontierActionStateForError === "function"
       ? deps.shouldResetFrontierActionStateForError
@@ -807,6 +864,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       requestViewRefresh(1, true);
       state.techChoices = (msg.techChoices as string[]) ?? [];
       state.techCatalog = (msg.techCatalog as any[]) ?? [];
+      logIncomingTechPayload("INIT", {
+        techIds: player.techIds,
+        techChoices: msg.techChoices,
+        techCatalog: msg.techCatalog,
+        currentResearch: player.currentResearch,
+        techRootId: player.techRootId,
+        availableTechPicks: player.availableTechPicks
+      });
       state.domainChoices = (msg.domainChoices as string[]) ?? [];
       state.domainCatalog = (msg.domainCatalog as any[]) ?? [];
       if (!state.domainUiSelectedId && state.domainChoices.length > 0) state.domainUiSelectedId = state.domainChoices[0]!;
@@ -1004,6 +1069,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
+      logIncomingTechPayload("PLAYER_UPDATE", {
+        techIds: (msg as { techIds?: unknown }).techIds,
+        techChoices: msg.techChoices,
+        techCatalog: msg.techCatalog,
+        currentResearch: msg.currentResearch,
+        techRootId: (msg as { techRootId?: unknown }).techRootId,
+        availableTechPicks: msg.availableTechPicks
+      });
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
       state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
@@ -1405,11 +1478,20 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "TECH_UPDATE") {
+      logIncomingTechPayload("TECH_UPDATE", {
+        techIds: msg.techIds,
+        nextChoices: msg.nextChoices,
+        techCatalog: msg.techCatalog,
+        currentResearch: msg.currentResearch,
+        techRootId: msg.techRootId,
+        availableTechPicks: msg.availableTechPicks
+      });
       console.info("[tech] TECH_UPDATE received", {
         status: msg.status,
         techRootId: msg.techRootId,
         ownedTechs: (msg.techIds as string[])?.length ?? 0,
-        nextChoices: (msg.nextChoices as string[])?.length ?? 0
+        nextChoices: (msg.nextChoices as string[])?.length ?? 0,
+        techCatalogCount: (msg.techCatalog as any[] | undefined)?.length ?? 0
       });
       applyTechUpdateToState(state, {
         status: msg.status as "started" | "completed" | undefined,

@@ -248,15 +248,11 @@ import {
   verifiedFirebaseTokenCacheSize,
   verifyFirebaseToken
 } from "./server-auth.js";
-
-const socketUsesLoopback = (socket: Ws): boolean => {
-  const remoteAddress = (socket as Ws & { _socket?: import("node:net").Socket })._socket?.remoteAddress ?? "";
-  return (
-    remoteAddress === "127.0.0.1" ||
-    remoteAddress === "::1" ||
-    remoteAddress === "::ffff:127.0.0.1"
-  );
-};
+import {
+  enqueueLowPrioritySocketMessage,
+  pauseLowPrioritySocketMessages,
+  sendHighPrioritySocketMessage
+} from "./server-socket-priority.js";
 import {
   type AbilityDefinition,
   type ActiveAetherBridge,
@@ -331,9 +327,8 @@ import {
   BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS,
   BARBARIAN_OWNER_ID,
   BARBARIAN_TICK_MS,
-  BANK_BUILD_CRYSTAL_COST,
   BANK_BUILD_GOLD_COST,
-  BANK_CRYSTAL_UPKEEP,
+  BANK_FOOD_UPKEEP,
   BREAKTHROUGH_DEF_MULT_FACTOR,
   BREAKTHROUGH_GOLD_COST,
   BREAKTHROUGH_IRON_COST,
@@ -344,9 +339,8 @@ import {
   CAMP_BUILD_SUPPLY_COST,
   CAMP_GOLD_UPKEEP,
   canAffordGoldCost,
-  CARAVANARY_BUILD_CRYSTAL_COST,
   CARAVANARY_BUILD_GOLD_COST,
-  CARAVANARY_GOLD_UPKEEP,
+  CARAVANARY_FOOD_UPKEEP,
   COLLECT_VISIBLE_COOLDOWN_MS,
   colorFromId,
   CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST,
@@ -405,9 +399,8 @@ import {
   LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MANPOWER_EPSILON,
-  MARKET_BUILD_CRYSTAL_COST,
   MARKET_BUILD_GOLD_COST,
-  MARKET_CRYSTAL_UPKEEP,
+  MARKET_FOOD_UPKEEP,
   MINE_BUILD_GOLD_COST,
   MINE_BUILD_RESOURCE_COST,
   MINE_GOLD_UPKEEP,
@@ -515,6 +508,16 @@ import type {
   ServerWorldgenTownsRuntime
 } from "./server-world-runtime-types.js";
 
+const socketUsesLoopback = (socket: Ws): boolean => {
+  const remoteAddress = (socket as Ws & { _socket?: import("node:net").Socket })._socket?.remoteAddress ?? "";
+  return (
+    remoteAddress === "127.0.0.1" ||
+    remoteAddress === "::1" ||
+    remoteAddress === "::ffff:127.0.0.1"
+  );
+};
+
+const ACTION_CONTROL_PRIORITY_WINDOW_MS = 2_500;
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
 const GLOBAL_STATUS_BROADCAST_MS = 2_000;
 const STRATEGIC_REPLAY_LIMIT = 16_000;
@@ -1911,6 +1914,7 @@ const {
   roundedUpkeepPerMinute,
   tileUpkeepEntriesForTile,
   economicStructureGoldUpkeepPerInterval,
+  economicStructureFoodUpkeepPerInterval,
   economicStructureCrystalUpkeepPerInterval,
   pushUpkeepContributor,
   sortedUpkeepContributors,
@@ -1967,7 +1971,9 @@ const {
   CAMP_GOLD_UPKEEP,
   MINE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
-  CARAVANARY_GOLD_UPKEEP,
+  MARKET_FOOD_UPKEEP,
+  BANK_FOOD_UPKEEP,
+  CARAVANARY_FOOD_UPKEEP,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   WOODEN_FORT_GOLD_UPKEEP,
   LIGHT_OUTPOST_GOLD_UPKEEP,
@@ -1978,9 +1984,7 @@ const {
   GARRISON_HALL_GOLD_UPKEEP,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
-  RADAR_SYSTEM_GOLD_UPKEEP,
-  MARKET_CRYSTAL_UPKEEP,
-  BANK_CRYSTAL_UPKEEP
+  RADAR_SYSTEM_GOLD_UPKEEP
 });
 
 const {
@@ -2077,6 +2081,7 @@ const {
     structureType === "FORT" ? FORT_BUILD_MS : structureType === "OBSERVATORY" ? OBSERVATORY_BUILD_MS : structureType === "SIEGE_OUTPOST" ? SIEGE_OUTPOST_BUILD_MS : (structureType === "WOODEN_FORT" ? WOODEN_FORT_BUILD_MS : structureType === "LIGHT_OUTPOST" ? LIGHT_OUTPOST_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS),
   baseSynthTypeForAdvanced: (structureType: EconomicStructureType) =>
     structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER" : structureType === "ADVANCED_IRONWORKS" ? "IRONWORKS" : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? "CRYSTAL_SYNTHESIZER" : undefined,
+  economicStructureFoodUpkeepPerInterval,
   economicStructureCrystalUpkeepPerInterval,
   playerEconomySnapshot,
   dockIncomeForOwner,
@@ -2092,16 +2097,11 @@ const {
   FARMSTEAD_BUILD_FOOD_COST,
   CAMP_BUILD_SUPPLY_COST,
   MINE_BUILD_RESOURCE_COST,
-  MARKET_BUILD_CRYSTAL_COST,
   GRANARY_BUILD_FOOD_COST,
-  BANK_BUILD_CRYSTAL_COST,
-  CARAVANARY_BUILD_CRYSTAL_COST,
   GARRISON_HALL_BUILD_CRYSTAL_COST,
   CUSTOMS_HOUSE_BUILD_CRYSTAL_COST,
   RADAR_SYSTEM_BUILD_CRYSTAL_COST,
   AIRPORT_BUILD_CRYSTAL_COST,
-  MARKET_CRYSTAL_UPKEEP,
-  BANK_CRYSTAL_UPKEEP,
   randomUUID: () => crypto.randomUUID()
 });
 
@@ -3283,7 +3283,7 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.dockGoldCapMult === "number") next.dockGoldCapMult *= effects.dockGoldCapMult;
     if (typeof effects.dockConnectionBonusPerLink === "number") next.dockConnectionBonusPerLink = effects.dockConnectionBonusPerLink;
     if (effects.dockRoutesVisible) next.dockRoutesVisible = true;
-    if (typeof effects.marketCrystalUpkeepMult === "number") next.marketCrystalUpkeepMult *= effects.marketCrystalUpkeepMult;
+    if (typeof effects.supportEconomicFoodUpkeepMult === "number") next.supportEconomicFoodUpkeepMult *= effects.supportEconomicFoodUpkeepMult;
     if (typeof effects.frontierDefenseAdd === "number") next.frontierDefenseAdd += effects.frontierDefenseAdd;
     if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
     if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
@@ -3784,7 +3784,7 @@ const playerDefensiveness = (p: Player): number => {
 
 const sendToPlayer = (playerId: string, payload: unknown): void => {
   const ws = socketsByPlayer.get(playerId);
-  if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload));
+  sendHighPrioritySocketMessage(ws, JSON.stringify(payload));
 };
 
 const onlineSocketCount = (): number => {
@@ -6563,8 +6563,7 @@ const buildAiPlanningStaticCache = (
       actor.techIds.has("leatherworking") && actor.points >= CAMP_BUILD_GOLD_COST && (stock.SUPPLY ?? 0) >= CAMP_BUILD_SUPPLY_COST;
     const canPlaceMine =
       actor.techIds.has("mining") && actor.points >= MINE_BUILD_GOLD_COST;
-    const canPlaceMarket =
-      actor.techIds.has("trade") && actor.points >= MARKET_BUILD_GOLD_COST && (stock.CRYSTAL ?? 0) >= MARKET_BUILD_CRYSTAL_COST;
+    const canPlaceMarket = actor.techIds.has("trade") && actor.points >= MARKET_BUILD_GOLD_COST;
 
     for (const tile of territorySummary.structureCandidateTiles) {
       const tk = key(tile.x, tile.y);
@@ -7124,7 +7123,7 @@ const bestAiEconomicStructure = (
       best.structureType === "MINE" &&
       (!actor.techIds.has("mining") || actor.points < MINE_BUILD_GOLD_COST || ((best.tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)
     ) best = undefined;
-    else if (best.structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST || (stock.CRYSTAL ?? 0) < MARKET_BUILD_CRYSTAL_COST)) best = undefined;
+    else if (best.structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST)) best = undefined;
     else if (
       best.structureType === "GRANARY" &&
       (!getPlayerEffectsForPlayer(actor.id).unlockGranary || actor.points < GRANARY_BUILD_GOLD_COST || (stock.FOOD ?? 0) < GRANARY_BUILD_FOOD_COST)
@@ -7150,7 +7149,7 @@ const bestAiEconomicStructure = (
       if (structureType === "FARMSTEAD" && (!actor.techIds.has("agriculture") || actor.points < FARMSTEAD_BUILD_GOLD_COST || (stock.FOOD ?? 0) < FARMSTEAD_BUILD_FOOD_COST)) continue;
       if (structureType === "CAMP" && (!actor.techIds.has("leatherworking") || actor.points < CAMP_BUILD_GOLD_COST || (stock.SUPPLY ?? 0) < CAMP_BUILD_SUPPLY_COST)) continue;
       if (structureType === "MINE" && (!actor.techIds.has("mining") || actor.points < MINE_BUILD_GOLD_COST || ((tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)) continue;
-      if (structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST || (stock.CRYSTAL ?? 0) < MARKET_BUILD_CRYSTAL_COST)) continue;
+      if (structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST)) continue;
       if (structureType === "GRANARY" && (!getPlayerEffectsForPlayer(actor.id).unlockGranary || actor.points < GRANARY_BUILD_GOLD_COST || (stock.FOOD ?? 0) < GRANARY_BUILD_FOOD_COST)) continue;
       return { tile, structureType };
     }
@@ -9192,6 +9191,7 @@ const {
   serializeChunkBatchViaWorker,
   serializeChunkBatchDirect: (inputs) => inputs.map((chunk) => serializeChunkBody(buildChunkFromInput(chunk))),
   serializeChunkBatchBodies,
+  sendChunkBatchPayload: (socket, payload) => enqueueLowPrioritySocketMessage(socket as Ws, payload),
   runtimeLoadShedLevel
 });
 
@@ -9415,6 +9415,7 @@ const {
 } = createServerTechDomainRuntime({
   TECHS,
   activeSeasonTechConfig,
+  getActiveSeasonTechConfig: () => activeSeasonTechConfig,
   techById,
   domainById,
   ownershipStateByTile,
@@ -14170,10 +14171,15 @@ app.post("/admin/world/regenerate", async () => {
         "attack trace"
       );
     }
+    pauseLowPrioritySocketMessages(socket, nowMs + ACTION_CONTROL_PRIORITY_WINDOW_MS, { dropQueued: true });
+
     const actionTimes = pruneActionTimes(actor.id, nowMs);
     if (actionTimes.length >= ACTION_LIMIT) {
       app.log.info({ playerId: actor.id, action: msg.type }, "action rejected: rate limit");
-      socket.send(JSON.stringify({ type: "ERROR", code: "RATE_LIMIT", message: "too many actions; slow down briefly" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "RATE_LIMIT", message: "too many actions; slow down briefly" })
+      );
       return;
     }
     actionTimes.push(nowMs);
@@ -14201,32 +14207,48 @@ app.post("/admin/world/regenerate", async () => {
     if (msg.type === "EXPAND" && to.ownerId) {
       logTileSync("action_validation_rejected_target_owned", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk, ownerId: to.ownerId }, "action rejected: expand target owned");
-      socket.send(JSON.stringify({ type: "ERROR", code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" })
+      );
       return;
     }
     if (isBreakthroughAttack && !to.ownerId) {
       logTileSync("action_validation_rejected_breakthrough_target_invalid", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk }, "action rejected: breakthrough target not enemy");
-      socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "breakthrough requires enemy tile" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "breakthrough requires enemy tile" })
+      );
       return;
     }
     if (isBreakthroughAttack && !actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID)) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Breach Doctrine" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Breach Doctrine" })
+      );
       return;
     }
     if (msg.type === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) {
       logTileSync("action_validation_rejected_attack_target_invalid", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk, ownerId: to.ownerId }, "action rejected: attack target not enemy");
-      socket.send(JSON.stringify({ type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" })
+      );
       return;
     }
     if (!hasEnoughManpower(actor, manpowerMin)) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerMin.toFixed(0)} manpower to launch attack` }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerMin.toFixed(0)} manpower to launch attack` })
+      );
       return;
     }
     if ((msg.type === "EXPAND" || msg.type === "ATTACK") && actor.points < FRONTIER_ACTION_GOLD_COST) {
       app.log.info({ playerId: actor.id, action: msg.type, points: actor.points, required: FRONTIER_ACTION_GOLD_COST }, "action rejected: insufficient gold");
-      socket.send(
+      sendHighPrioritySocketMessage(
+        socket,
         JSON.stringify({
           type: "ERROR",
           code: "INSUFFICIENT_GOLD",
@@ -14237,7 +14259,10 @@ app.post("/admin/world/regenerate", async () => {
     }
     if (isBreakthroughAttack && actor.points < BREAKTHROUGH_GOLD_COST) {
       app.log.info({ playerId: actor.id, points: actor.points, required: BREAKTHROUGH_GOLD_COST }, "action rejected: insufficient gold for breakthrough");
-      socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for breakthrough" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for breakthrough" })
+      );
       return;
     }
     let fk = key(from.x, from.y);
@@ -14288,7 +14313,8 @@ app.post("/admin/world/regenerate", async () => {
         })
       );
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: not adjacent and not dock crossing");
-      socket.send(
+      sendHighPrioritySocketMessage(
+        socket,
         JSON.stringify({
           type: "ERROR",
           code: "NOT_ADJACENT",
@@ -14299,28 +14325,38 @@ app.post("/admin/world/regenerate", async () => {
     }
     if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) {
       app.log.info({ playerId: actor.id, dockId: fromDock.dockId, cooldownUntil: fromDock.cooldownUntil }, "action rejected: dock cooldown");
-      socket.send(JSON.stringify({ type: "ERROR", code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" })
+      );
       return;
     }
 
     if (from.ownerId !== actor.id) {
       logTileSync("action_validation_rejected_origin_not_owned", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, from: fk, fromOwner: from.ownerId }, "action rejected: origin not owned");
-      socket.send(JSON.stringify({ type: "ERROR", code: "NOT_OWNER", message: "origin not owned" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "NOT_OWNER", message: "origin not owned" })
+      );
       return;
     }
 
     if (to.terrain !== "LAND") {
       logTileSync("action_validation_rejected_barrier", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: tk, terrain: to.terrain }, "action rejected: barrier target");
-      socket.send(JSON.stringify({ type: "ERROR", code: "BARRIER", message: "target is barrier" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "BARRIER", message: "target is barrier" })
+      );
       return;
     }
 
     if (combatLocks.has(fk)) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: attack cooldown");
       const cooldownRemainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
-      socket.send(
+      sendHighPrioritySocketMessage(
+        socket,
         JSON.stringify({
           type: "ERROR",
           code: "ATTACK_COOLDOWN",
@@ -14333,7 +14369,10 @@ app.post("/admin/world/regenerate", async () => {
 
     if (combatLocks.has(tk)) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: combat lock");
-      socket.send(JSON.stringify({ type: "ERROR", code: "LOCKED", message: "tile locked in combat" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "LOCKED", message: "tile locked in combat" })
+      );
       return;
     }
 
@@ -14342,13 +14381,19 @@ app.post("/admin/world/regenerate", async () => {
     if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
       logTileSync("action_validation_rejected_ally_target", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, defenderId: defender.id }, "action rejected: allied target");
-      socket.send(JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied or truced tile" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied or truced tile" })
+      );
       return;
     }
     if (isBreakthroughAttack) {
       if (!consumeStrategicResource(actor, "IRON", BREAKTHROUGH_IRON_COST)) {
         app.log.info({ playerId: actor.id }, "action rejected: insufficient IRON for breakthrough");
-        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient IRON for breakthrough" }));
+        sendHighPrioritySocketMessage(
+          socket,
+          JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient IRON for breakthrough" })
+        );
         return;
       }
       actor.points -= BREAKTHROUGH_GOLD_COST;
@@ -14465,7 +14510,8 @@ app.post("/admin/world/regenerate", async () => {
       requestedTo: requestedToKey,
       socketReadyState: socket.readyState
     });
-    socket.send(
+    sendHighPrioritySocketMessage(
+      socket,
       JSON.stringify({
         type: "ACTION_ACCEPTED",
         actionType: msg.type,
@@ -14500,7 +14546,8 @@ app.post("/admin/world/regenerate", async () => {
               manpowerDelta: 0
             }
           : undefined;
-    socket.send(
+    sendHighPrioritySocketMessage(
+      socket,
       JSON.stringify({
         type: "COMBAT_START",
         origin: { x: from.x, y: from.y },
@@ -14559,7 +14606,8 @@ app.post("/admin/world/regenerate", async () => {
             "neutral expand timing"
           );
         }
-        socket.send(
+        sendHighPrioritySocketMessage(
+          socket,
           JSON.stringify({
             type: "COMBAT_RESULT",
             attackType: msg.type,
@@ -14583,7 +14631,10 @@ app.post("/admin/world/regenerate", async () => {
       }
 
       if (defender && defender.spawnShieldUntil > now()) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "SHIELDED", message: "target shielded" }));
+        sendHighPrioritySocketMessage(
+          socket,
+          JSON.stringify({ type: "ERROR", code: "SHIELDED", message: "target shielded" })
+        );
         return;
       }
 
@@ -14720,25 +14771,28 @@ app.post("/admin/world/regenerate", async () => {
       resolveEliminationIfNeeded(actor, true);
       if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
 
-      socket.send(JSON.stringify({
-        type: "COMBAT_RESULT",
-        attackType: msg.type,
-        attackerWon: win,
-        winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
-        defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
-        origin: { x: from.x, y: from.y },
-        target: { x: to.x, y: to.y },
-        atkEff: atkEffWithSiege,
-        defEff,
-        winChance: p,
-        changes: resultChanges,
-        pointsDelta,
-        manpowerDelta,
-        pillagedGold,
-        pillagedShare,
-        pillagedStrategic,
-        levelDelta: 0
-      }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({
+          type: "COMBAT_RESULT",
+          attackType: msg.type,
+          attackerWon: win,
+          winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+          defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+          origin: { x: from.x, y: from.y },
+          target: { x: to.x, y: to.y },
+          atkEff: atkEffWithSiege,
+          defEff,
+          winChance: p,
+          changes: resultChanges,
+          pointsDelta,
+          manpowerDelta,
+          pillagedGold,
+          pillagedShare,
+          pillagedStrategic,
+          levelDelta: 0
+        })
+      );
       logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
       logAttackTrace("combat_result_sent", pending, {
         neutralTarget: false,
