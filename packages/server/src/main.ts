@@ -8562,6 +8562,29 @@ const logExpandTrace = (
   );
 };
 
+const logAttackTrace = (
+  phase: "received" | "queued" | "combat_start_sent" | "result_applied" | "combat_result_sent" | "vision_delta_sent",
+  capture: PendingCapture,
+  extra?: Record<string, unknown>
+): void => {
+  if (capture.actionType !== "ATTACK" && capture.actionType !== "BREAKTHROUGH_ATTACK") return;
+  if (!capture.traceId || typeof capture.startedAt !== "number") return;
+  app.log.info(
+    {
+      traceId: capture.traceId,
+      attackerId: capture.attackerId,
+      actionType: capture.actionType,
+      origin: capture.origin,
+      target: capture.target,
+      phase,
+      elapsedMs: now() - capture.startedAt,
+      resolvesAt: capture.resolvesAt,
+      ...extra
+    },
+    "attack trace"
+  );
+};
+
 const cancelAllBarbarianPendingCaptures = (): void => {
   const uniq = new Set<PendingCapture>();
   for (const lock of combatLocks.values()) {
@@ -15136,6 +15159,8 @@ app.post("/admin/world/regenerate", async () => {
     );
     const nowMs = now();
     const expandTraceId = msg.type === "EXPAND" ? `${actor.id}:${nowMs}:${msg.toX},${msg.toY}` : undefined;
+    const attackTraceId =
+      msg.type === "ATTACK" || msg.type === "BREAKTHROUGH_ATTACK" ? `${actor.id}:${msg.type}:${nowMs}:${msg.toX},${msg.toY}` : undefined;
     if (msg.type === "EXPAND") {
       app.log.info(
         {
@@ -15147,6 +15172,21 @@ app.post("/admin/world/regenerate", async () => {
           elapsedMs: 0
         },
         "expand trace"
+      );
+    }
+    if (attackTraceId) {
+      app.log.info(
+        {
+          traceId: attackTraceId,
+          attackerId: actor.id,
+          actionType: msg.type,
+          origin: key(msg.fromX, msg.fromY),
+          target: key(msg.toX, msg.toY),
+          phase: "received",
+          elapsedMs: 0,
+          socketReadyState: socket.readyState
+        },
+        "attack trace"
       );
     }
     const actionTimes = pruneActionTimes(actor.id, nowMs);
@@ -15426,6 +15466,7 @@ app.post("/admin/world/regenerate", async () => {
     };
     if (precomputedCombat) pending.precomputedCombat = precomputedCombat;
     if (expandTraceId) pending.traceId = expandTraceId;
+    if (attackTraceId) pending.traceId = attackTraceId;
     combatLocks.set(fk, pending);
     combatLocks.set(tk, pending);
     logTileSync(
@@ -15438,6 +15479,11 @@ app.post("/admin/world/regenerate", async () => {
     );
     app.log.info({ playerId: actor.id, action: msg.type, from: fk, to: tk, resolvesAt }, "action accepted");
     logExpandTrace("queued", pending);
+    logAttackTrace("queued", pending, {
+      requestedFrom: requestedFromKey,
+      requestedTo: requestedToKey,
+      socketReadyState: socket.readyState
+    });
     const predictedResult =
       pending.precomputedCombat
         ? {
@@ -15471,6 +15517,10 @@ app.post("/admin/world/regenerate", async () => {
       })
     );
     logExpandTrace("combat_start_sent", pending);
+    logAttackTrace("combat_start_sent", pending, {
+      predictedResult: Boolean(predictedResult),
+      socketReadyState: socket.readyState
+    });
     if (isBreakthroughAttack || bridgeCrossing) sendPlayerUpdate(actor, 0);
     if (defender && !defenderIsBarbarian) {
       sendToPlayer(defender.id, {
@@ -15531,9 +15581,11 @@ app.post("/admin/world/regenerate", async () => {
           })
         );
         logExpandTrace("combat_result_sent", pending, { neutralTarget: true });
+        logAttackTrace("combat_result_sent", pending, { neutralTarget: true });
         sendPlayerUpdate(actor, 0);
         sendLocalVisionDeltaForPlayer(actor.id, [{ x: to.x, y: to.y }]);
         logExpandTrace("vision_delta_sent", pending, { centers: 1, neutralTarget: true });
+        logAttackTrace("vision_delta_sent", pending, { centers: 1, neutralTarget: true });
         return;
       }
 
@@ -15664,6 +15716,13 @@ app.post("/admin/world/regenerate", async () => {
       updateMissionState(actor);
       if (defender) updateMissionState(defender);
       logExpandTrace("result_applied", pending, { neutralTarget: false, attackerWon: win, changes: resultChanges.length });
+      logAttackTrace("result_applied", pending, {
+        neutralTarget: false,
+        attackerWon: win,
+        changes: resultChanges.length,
+        defenderId: defender?.id,
+        defenderIsBarbarian
+      });
 
       resolveEliminationIfNeeded(actor, true);
       if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
@@ -15688,11 +15747,20 @@ app.post("/admin/world/regenerate", async () => {
         levelDelta: 0
       }));
       logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
+      logAttackTrace("combat_result_sent", pending, {
+        neutralTarget: false,
+        changes: resultChanges.length,
+        socketReadyState: socket.readyState
+      });
       sendPlayerUpdate(actor, 0);
       if (defender && !defenderIsBarbarian) sendPlayerUpdate(defender, 0);
       const changedCenters = resultChanges.map((change) => ({ x: change.x, y: change.y }));
       sendLocalVisionDeltaForPlayer(actor.id, changedCenters);
       logExpandTrace("vision_delta_sent", pending, { centers: changedCenters.length, targetPlayer: actor.id });
+      logAttackTrace("vision_delta_sent", pending, {
+        centers: changedCenters.length,
+        targetPlayer: actor.id
+      });
       if (defender && !defenderIsBarbarian) sendLocalVisionDeltaForPlayer(defender.id, changedCenters);
     }, resolvesAt - now());
   });
