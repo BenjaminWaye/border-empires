@@ -90,19 +90,19 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
   const byId = new Map(args.techCatalog.map((tech) => [tech.id, tech]));
   const tierMemo = new Map<string, number>();
   const techLayoutOrder = new Map(args.orderedTechIdsByTier(args.techCatalog).map((id, index) => [id, index]));
-  const ownedSet = new Set(args.effectiveOwnedTechIds);
-  const choiceSet = new Set(args.effectiveTechChoices);
-  const techs = args.techCatalog
-    .slice()
+  const ownedTechIds = args.effectiveOwnedTechIds;
+  const choices = args.effectiveTechChoices
+    .map((id) => byId.get(id))
+    .filter((tech): tech is TechInfo => Boolean(tech))
     .sort(
       (a, b) =>
         args.techTier(a.id, byId, tierMemo) - args.techTier(b.id, byId, tierMemo) ||
         (techLayoutOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (techLayoutOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
         a.name.localeCompare(b.name)
     );
-  if (techs.length === 0) return `<article class="card"><p>No technologies are available this season.</p></article>`;
+  if (choices.length === 0) return `<article class="card"><p>No available technologies right now.</p></article>`;
   const grouped = new Map<number, TechInfo[]>();
-  for (const tech of techs) {
+  for (const tech of choices) {
     const tier = args.techTier(tech.id, byId, tierMemo);
     const arr = grouped.get(tier) ?? [];
     arr.push(tech);
@@ -119,30 +119,22 @@ export const renderCompactTechChoiceGridHtml = (args: TechTreeArgs): string => {
         )
         .map((tech) => {
           const selected = args.techUiSelectedId === tech.id ? " selected" : "";
-          const owned = ownedSet.has(tech.id) ? " owned" : "";
-          const pending = args.isPendingTechUnlock(tech.id);
-          const available = tech.requirements.canResearch && !pending;
-          const choice = choiceSet.has(tech.id) ? " choice" : "";
-          const blocked = owned || available || pending ? "" : " blocked";
+          const owned = ownedTechIds.includes(tech.id) ? " owned" : "";
+          const blocked = tech.requirements.canResearch || args.isPendingTechUnlock(tech.id) ? "" : " blocked";
           const researchingThis = args.currentResearch?.techId === tech.id;
           const researchRemaining =
             researchingThis && typeof args.currentResearch?.completesAt === "number"
               ? Math.max(0, args.currentResearch.completesAt - Date.now())
               : 0;
-          const stateLabel = researchingThis ? "Researching" : pending ? "Unlocking" : owned ? "Unlocked" : available ? "Available" : "Locked";
           const costLabel = researchingThis
             ? `Researching • ${args.formatCooldownShort(researchRemaining)}`
-            : pending
+            : args.isPendingTechUnlock(tech.id)
               ? "Unlocking..."
-              : available
-                ? args.formatTechCost(tech)
-                : args.techPrereqIds(tech).length > 0
-                  ? `Requires ${args.techNameList(args.techPrereqIds(tech))}`
-                  : "Entry technology";
-          return `<button class="tech-card${selected}${owned}${choice}${blocked}" data-tech-card="${tech.id}">
+              : args.formatTechCost(tech);
+          return `<button class="tech-card${selected}${owned}${blocked}" data-tech-card="${tech.id}">
             <div class="tech-card-top">
               <strong>${tech.name}</strong>
-              <span class="tech-root">${stateLabel}</span>
+              <span class="tech-root">Tier ${args.techTier(tech.id, byId, tierMemo)}</span>
             </div>
             <p>${formatTechBenefitSummary(tech)}</p>
             <p class="tech-card-cost">${costLabel}</p>
