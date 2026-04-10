@@ -9422,6 +9422,7 @@ const {
 } = createServerTechDomainRuntime({
   TECHS,
   activeSeasonTechConfig,
+  getActiveSeasonTechConfig: () => activeSeasonTechConfig,
   techById,
   domainById,
   ownershipStateByTile,
