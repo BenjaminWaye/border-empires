@@ -243,7 +243,7 @@ import {
 } from "./server-auth.js";
 
 const socketUsesLoopback = (socket: Ws): boolean => {
-  const remoteAddress = socket._socket?.remoteAddress ?? "";
+  const remoteAddress = (socket as Ws & { _socket?: import("node:net").Socket })._socket?.remoteAddress ?? "";
   return (
     remoteAddress === "127.0.0.1" ||
     remoteAddress === "::1" ||
