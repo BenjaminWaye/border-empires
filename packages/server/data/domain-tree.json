@@ -237,7 +237,7 @@
       "effects": {
         "townGoldCapMult": 1.2,
         "marketBonusMult": 1.1,
-        "marketCrystalUpkeepMult": 0.9
+        "supportEconomicFoodUpkeepMult": 0.9
       }
     },
     {
