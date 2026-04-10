@@ -117,6 +117,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
       <div class="tile-action-head">
         <div class="tile-action-title">${view.title}</div>
         <div class="tile-action-subtitle">${view.subtitleHtml ?? view.subtitle}</div>
+        ${view.statusText ? `<div class="tile-action-status is-${view.statusTone ?? "neutral"}">${view.statusText}</div>` : ""}
       </div>
       ${tabsHtml}
       <div class="tile-menu-body" data-tile-menu-scroll>${tileMenuBodyHtml(view, activeTab)}</div>

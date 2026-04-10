@@ -516,6 +516,8 @@ export type TileMenuView = {
   title: string;
   subtitle: string;
   subtitleHtml?: string;
+  statusText?: string;
+  statusTone?: "warning" | "neutral";
   tabs: TileMenuTab[];
   overviewKicker?: string;
   overviewLines: TileOverviewLine[];
