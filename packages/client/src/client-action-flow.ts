@@ -553,12 +553,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
   };
 
-  const abilityCooldownRemainingMs = (abilityId: keyof ClientState["abilityCooldowns"]): number => {
+  const abilityCooldownRemainingMs = (abilityId: string): number => {
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
       return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now());
     }
-    return Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - Date.now());
+    return Math.max(0, ((state.abilityCooldowns as Partial<Record<string, number>>)[abilityId] ?? 0) - Date.now());
   };
 
   const formatCooldownShort = (ms: number): string => {
@@ -837,12 +837,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   ): Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }> =>
     aetherWallDirectionTargetTilesFromModule(state, tile, tileActionLogicDeps());
 
+  type AetherWallLength = ClientState["aetherWallTargeting"]["length"];
+
   const preferredAetherWallLength = (
     x: number,
     y: number,
     direction: ClientState["aetherWallTargeting"]["direction"]
-  ): 1 | 2 | 3 | undefined => {
-    for (const length of [3, 2, 1] as const) {
+  ): AetherWallLength | undefined => {
+    const candidateLengths: readonly AetherWallLength[] = [3, 2, 1];
+    for (const length of candidateLengths) {
       if (canPlaceAetherWallFromOriginFromModule(state, x, y, direction, length, tileActionLogicDeps())) return length;
     }
     return undefined;
