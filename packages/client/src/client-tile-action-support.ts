@@ -5,6 +5,8 @@ import type { Tile, TileActionDef, TileMenuView } from "./client-types.js";
 
 export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "reveal_empire" ||
+  id === "reveal_empire_stats" ||
+  id === "aether_wall" ||
   id === "aether_bridge" ||
   id === "siphon_tile" ||
   id === "purge_siphon" ||
@@ -110,8 +112,13 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_customs_house":
       return "global-trade-networks";
     case "reveal_empire":
-    case "siphon_tile":
       return "cryptography";
+    case "siphon_tile":
+      return "logistics";
+    case "reveal_empire_stats":
+      return "surveying";
+    case "aether_wall":
+      return "harborcraft";
     case "aether_bridge":
       return "navigation";
     case "create_mountain":
@@ -124,8 +131,9 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
 
 export const hideTechLockedTileAction = (
   action: TileActionDef,
-  state: Pick<ClientState, "techIds">
+  state: Pick<ClientState, "techIds" | "localhostDevAetherWall">
 ): boolean => {
+  if (action.id === "aether_wall" && state.localhostDevAetherWall) return false;
   const requiredTech = requiredTechForTileAction(action.id);
   if (requiredTech && !state.techIds.includes(requiredTech)) return true;
   if (!action.disabled || !action.disabledReason) return false;
@@ -134,7 +142,7 @@ export const hideTechLockedTileAction = (
 
 export const splitTileActionsIntoTabs = (
   actions: TileActionDef[],
-  state: Pick<ClientState, "techIds">
+  state: Pick<ClientState, "techIds" | "localhostDevAetherWall">
 ): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
   const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
@@ -152,7 +160,7 @@ export const splitTileActionsIntoTabs = (
   return {
     actions: actionRows.some(visibleIfShown) ? actionRows : [],
     buildings: buildingRows.length ? buildingRows : [],
-    crystal: crystalRows.some(visibleIfShown) ? crystalRows : []
+    crystal: crystalRows.some(visibleIfShown) || (state.localhostDevAetherWall && crystalRows.some((action) => action.id === "aether_wall")) ? crystalRows : []
   };
 };
 

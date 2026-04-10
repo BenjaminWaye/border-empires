@@ -6,17 +6,36 @@ const cryptographyTech: TechInfo = {
   id: "cryptography",
   tier: 5,
   name: "Cryptography",
-  description: "Unlocks reveal empire and sabotage.",
+  description: "Unlocks reveal empire.",
   mods: {},
   effects: {
-    unlockRevealEmpire: true,
-    unlockSabotage: true
+    unlockRevealEmpire: true
   },
   requirements: {
     gold: 14000,
     resources: {
       CRYSTAL: 200,
       SHARD: 1
+    },
+    checklist: [],
+    canResearch: true
+  }
+};
+
+const logisticsTech: TechInfo = {
+  id: "logistics",
+  tier: 3,
+  name: "Logistics",
+  description: "Improves operational tempo and unlocks Siphon.",
+  mods: {},
+  effects: {
+    operationalTempoMult: 1.1,
+    unlockSabotage: true
+  },
+  requirements: {
+    gold: 7000,
+    resources: {
+      SUPPLY: 80
     },
     checklist: [],
     canResearch: true
@@ -45,7 +64,7 @@ describe("tech detail crystal ability previews", () => {
 
     expect(html).toContain("Crystal abilities:");
     expect(html).toContain('data-crystal-ability-info="reveal_empire"');
-    expect(html).toContain('data-crystal-ability-info="siphon"');
+    expect(html).not.toContain('data-crystal-ability-info="siphon"');
   });
 
   it("shows crystal ability preview buttons in the modal tech detail view", () => {
@@ -65,6 +84,24 @@ describe("tech detail crystal ability previews", () => {
 
     expect(html).toContain("Crystal abilities");
     expect(html).toContain('data-crystal-ability-info="reveal_empire"');
+    expect(html).not.toContain('data-crystal-ability-info="siphon"');
+  });
+
+  it("shows siphon on logistics tech detail", () => {
+    const html = renderTechDetailCard({
+      tech: logisticsTech,
+      techDetailOpen: true,
+      techCatalog: [logisticsTech],
+      ownedTechIds: [],
+      techPrereqIds: () => [],
+      unlockedByTech: () => [],
+      isPendingTechUnlock: () => false,
+      pendingTechUnlockId: "",
+      techNameList: () => "",
+      structureInfoButtonHtml: () => "",
+      techTier: () => 3
+    });
+
     expect(html).toContain('data-crystal-ability-info="siphon"');
   });
 
