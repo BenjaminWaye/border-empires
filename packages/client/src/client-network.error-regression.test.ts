@@ -45,6 +45,7 @@ const createState = () =>
     actionStartedAt: 123,
     actionCurrent: { x: 60, y: 302 },
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
+    frontierLateAckUntilByTarget: new Map<string, number>(),
     autoSettleTargets: new Set<string>(["60,302"]),
     attackPreviewPendingKey: "60,302->61,302",
     attackPreview: { valid: true },
@@ -350,6 +351,36 @@ describe("client network regression guards", () => {
     expect(state.actionTargetKey).toBe("60,302");
   });
 
+  it("rebinds a timed-out frontier target when combat start arrives late", () => {
+    const state = createState();
+    state.actionInFlight = false;
+    state.actionAcceptedAck = false;
+    state.combatStartAck = false;
+    state.actionStartedAt = 0;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    state.capture = undefined;
+    state.frontierLateAckUntilByTarget.set("60,302", Date.now() + 10_000);
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "COMBAT_START",
+        target: { x: 60, y: 302 },
+        origin: { x: 59, y: 302 },
+        resolvesAt: Date.now() + 3_000
+      })
+    });
+
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.combatStartAck).toBe(true);
+    expect(state.actionTargetKey).toBe("60,302");
+    expect(state.actionCurrent).toEqual(expect.objectContaining({ x: 60, y: 302, retries: 0 }));
+    expect(state.frontierLateAckUntilByTarget.has("60,302")).toBe(false);
+  });
+
   it("does not clear active settlement progress when PLAYER_UPDATE omits pendingSettlements", () => {
     const state = createState();
     const ws = new FakeWebSocket();
@@ -460,6 +491,40 @@ describe("client network regression guards", () => {
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("100,247");
     expect(deps.processActionQueue).toHaveBeenCalled();
     expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 247, ownerId: "me" }));
+  });
+
+  it("keeps waiting for frontier sync when a chunk refresh still shows the target as neutral", () => {
+    const state = createState();
+    state.actionInFlight = false;
+    state.capture = undefined;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    state.actionQueue = [{ x: 100, y: 247, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["100,247"]);
+    state.frontierSyncWaitUntilByTarget.set("100,247", Date.now() + 10_000);
+    state.tiles.set("100,247", {
+      x: 100,
+      y: 247,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "expand"
+    });
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_FULL",
+        generation: 1,
+        tilesMaskedByFog: [{ x: 100, y: 247, terrain: "LAND", fogged: false, detailLevel: "summary" }]
+      })
+    });
+
+    expect(state.frontierSyncWaitUntilByTarget.get("100,247")).toBeGreaterThan(Date.now());
+    expect(state.actionQueue).toEqual([{ x: 100, y: 247, retries: 0 }]);
+    expect(state.queuedTargetKeys.has("100,247")).toBe(true);
   });
 
   it("ignores stale chunk snapshots that arrive after a newer generation", () => {
