@@ -248,15 +248,11 @@ import {
   verifiedFirebaseTokenCacheSize,
   verifyFirebaseToken
 } from "./server-auth.js";
-
-const socketUsesLoopback = (socket: Ws): boolean => {
-  const remoteAddress = (socket as Ws & { _socket?: import("node:net").Socket })._socket?.remoteAddress ?? "";
-  return (
-    remoteAddress === "127.0.0.1" ||
-    remoteAddress === "::1" ||
-    remoteAddress === "::ffff:127.0.0.1"
-  );
-};
+import {
+  enqueueLowPrioritySocketMessage,
+  pauseLowPrioritySocketMessages,
+  sendHighPrioritySocketMessage
+} from "./server-socket-priority.js";
 import {
   type AbilityDefinition,
   type ActiveAetherBridge,
@@ -515,6 +511,16 @@ import type {
   ServerWorldgenTownsRuntime
 } from "./server-world-runtime-types.js";
 
+const socketUsesLoopback = (socket: Ws): boolean => {
+  const remoteAddress = (socket as Ws & { _socket?: import("node:net").Socket })._socket?.remoteAddress ?? "";
+  return (
+    remoteAddress === "127.0.0.1" ||
+    remoteAddress === "::1" ||
+    remoteAddress === "::ffff:127.0.0.1"
+  );
+};
+
+const ACTION_CONTROL_PRIORITY_WINDOW_MS = 2_500;
 const GLOBAL_STATUS_CACHE_TTL_MS = 1_000;
 const GLOBAL_STATUS_BROADCAST_MS = 2_000;
 const STRATEGIC_REPLAY_LIMIT = 16_000;
@@ -3784,7 +3790,7 @@ const playerDefensiveness = (p: Player): number => {
 
 const sendToPlayer = (playerId: string, payload: unknown): void => {
   const ws = socketsByPlayer.get(playerId);
-  if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload));
+  sendHighPrioritySocketMessage(ws, JSON.stringify(payload));
 };
 
 const onlineSocketCount = (): number => {
@@ -9192,6 +9198,7 @@ const {
   serializeChunkBatchViaWorker,
   serializeChunkBatchDirect: (inputs) => inputs.map((chunk) => serializeChunkBody(buildChunkFromInput(chunk))),
   serializeChunkBatchBodies,
+  sendChunkBatchPayload: (socket, payload) => enqueueLowPrioritySocketMessage(socket as Ws, payload),
   runtimeLoadShedLevel
 });
 
@@ -14170,10 +14177,15 @@ app.post("/admin/world/regenerate", async () => {
         "attack trace"
       );
     }
+    pauseLowPrioritySocketMessages(socket, nowMs + ACTION_CONTROL_PRIORITY_WINDOW_MS, { dropQueued: true });
+
     const actionTimes = pruneActionTimes(actor.id, nowMs);
     if (actionTimes.length >= ACTION_LIMIT) {
       app.log.info({ playerId: actor.id, action: msg.type }, "action rejected: rate limit");
-      socket.send(JSON.stringify({ type: "ERROR", code: "RATE_LIMIT", message: "too many actions; slow down briefly" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "RATE_LIMIT", message: "too many actions; slow down briefly" })
+      );
       return;
     }
     actionTimes.push(nowMs);
@@ -14201,32 +14213,48 @@ app.post("/admin/world/regenerate", async () => {
     if (msg.type === "EXPAND" && to.ownerId) {
       logTileSync("action_validation_rejected_target_owned", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk, ownerId: to.ownerId }, "action rejected: expand target owned");
-      socket.send(JSON.stringify({ type: "ERROR", code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" })
+      );
       return;
     }
     if (isBreakthroughAttack && !to.ownerId) {
       logTileSync("action_validation_rejected_breakthrough_target_invalid", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk }, "action rejected: breakthrough target not enemy");
-      socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "breakthrough requires enemy tile" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "breakthrough requires enemy tile" })
+      );
       return;
     }
     if (isBreakthroughAttack && !actor.techIds.has(BREAKTHROUGH_REQUIRED_TECH_ID)) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Breach Doctrine" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "BREAKTHROUGH_TARGET_INVALID", message: "requires Breach Doctrine" })
+      );
       return;
     }
     if (msg.type === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) {
       logTileSync("action_validation_rejected_attack_target_invalid", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk, ownerId: to.ownerId }, "action rejected: attack target not enemy");
-      socket.send(JSON.stringify({ type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" })
+      );
       return;
     }
     if (!hasEnoughManpower(actor, manpowerMin)) {
-      socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerMin.toFixed(0)} manpower to launch attack` }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerMin.toFixed(0)} manpower to launch attack` })
+      );
       return;
     }
     if ((msg.type === "EXPAND" || msg.type === "ATTACK") && actor.points < FRONTIER_ACTION_GOLD_COST) {
       app.log.info({ playerId: actor.id, action: msg.type, points: actor.points, required: FRONTIER_ACTION_GOLD_COST }, "action rejected: insufficient gold");
-      socket.send(
+      sendHighPrioritySocketMessage(
+        socket,
         JSON.stringify({
           type: "ERROR",
           code: "INSUFFICIENT_GOLD",
@@ -14237,7 +14265,10 @@ app.post("/admin/world/regenerate", async () => {
     }
     if (isBreakthroughAttack && actor.points < BREAKTHROUGH_GOLD_COST) {
       app.log.info({ playerId: actor.id, points: actor.points, required: BREAKTHROUGH_GOLD_COST }, "action rejected: insufficient gold for breakthrough");
-      socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for breakthrough" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for breakthrough" })
+      );
       return;
     }
     let fk = key(from.x, from.y);
@@ -14288,7 +14319,8 @@ app.post("/admin/world/regenerate", async () => {
         })
       );
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: not adjacent and not dock crossing");
-      socket.send(
+      sendHighPrioritySocketMessage(
+        socket,
         JSON.stringify({
           type: "ERROR",
           code: "NOT_ADJACENT",
@@ -14299,28 +14331,38 @@ app.post("/admin/world/regenerate", async () => {
     }
     if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) {
       app.log.info({ playerId: actor.id, dockId: fromDock.dockId, cooldownUntil: fromDock.cooldownUntil }, "action rejected: dock cooldown");
-      socket.send(JSON.stringify({ type: "ERROR", code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" })
+      );
       return;
     }
 
     if (from.ownerId !== actor.id) {
       logTileSync("action_validation_rejected_origin_not_owned", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, from: fk, fromOwner: from.ownerId }, "action rejected: origin not owned");
-      socket.send(JSON.stringify({ type: "ERROR", code: "NOT_OWNER", message: "origin not owned" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "NOT_OWNER", message: "origin not owned" })
+      );
       return;
     }
 
     if (to.terrain !== "LAND") {
       logTileSync("action_validation_rejected_barrier", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: tk, terrain: to.terrain }, "action rejected: barrier target");
-      socket.send(JSON.stringify({ type: "ERROR", code: "BARRIER", message: "target is barrier" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "BARRIER", message: "target is barrier" })
+      );
       return;
     }
 
     if (combatLocks.has(fk)) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: attack cooldown");
       const cooldownRemainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
-      socket.send(
+      sendHighPrioritySocketMessage(
+        socket,
         JSON.stringify({
           type: "ERROR",
           code: "ATTACK_COOLDOWN",
@@ -14333,7 +14375,10 @@ app.post("/admin/world/regenerate", async () => {
 
     if (combatLocks.has(tk)) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: combat lock");
-      socket.send(JSON.stringify({ type: "ERROR", code: "LOCKED", message: "tile locked in combat" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "LOCKED", message: "tile locked in combat" })
+      );
       return;
     }
 
@@ -14342,13 +14387,19 @@ app.post("/admin/world/regenerate", async () => {
     if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
       logTileSync("action_validation_rejected_ally_target", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, defenderId: defender.id }, "action rejected: allied target");
-      socket.send(JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied or truced tile" }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied or truced tile" })
+      );
       return;
     }
     if (isBreakthroughAttack) {
       if (!consumeStrategicResource(actor, "IRON", BREAKTHROUGH_IRON_COST)) {
         app.log.info({ playerId: actor.id }, "action rejected: insufficient IRON for breakthrough");
-        socket.send(JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient IRON for breakthrough" }));
+        sendHighPrioritySocketMessage(
+          socket,
+          JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_RESOURCE", message: "insufficient IRON for breakthrough" })
+        );
         return;
       }
       actor.points -= BREAKTHROUGH_GOLD_COST;
@@ -14465,7 +14516,8 @@ app.post("/admin/world/regenerate", async () => {
       requestedTo: requestedToKey,
       socketReadyState: socket.readyState
     });
-    socket.send(
+    sendHighPrioritySocketMessage(
+      socket,
       JSON.stringify({
         type: "ACTION_ACCEPTED",
         actionType: msg.type,
@@ -14500,7 +14552,8 @@ app.post("/admin/world/regenerate", async () => {
               manpowerDelta: 0
             }
           : undefined;
-    socket.send(
+    sendHighPrioritySocketMessage(
+      socket,
       JSON.stringify({
         type: "COMBAT_START",
         origin: { x: from.x, y: from.y },
@@ -14559,7 +14612,8 @@ app.post("/admin/world/regenerate", async () => {
             "neutral expand timing"
           );
         }
-        socket.send(
+        sendHighPrioritySocketMessage(
+          socket,
           JSON.stringify({
             type: "COMBAT_RESULT",
             attackType: msg.type,
@@ -14583,7 +14637,10 @@ app.post("/admin/world/regenerate", async () => {
       }
 
       if (defender && defender.spawnShieldUntil > now()) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "SHIELDED", message: "target shielded" }));
+        sendHighPrioritySocketMessage(
+          socket,
+          JSON.stringify({ type: "ERROR", code: "SHIELDED", message: "target shielded" })
+        );
         return;
       }
 
@@ -14720,25 +14777,28 @@ app.post("/admin/world/regenerate", async () => {
       resolveEliminationIfNeeded(actor, true);
       if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
 
-      socket.send(JSON.stringify({
-        type: "COMBAT_RESULT",
-        attackType: msg.type,
-        attackerWon: win,
-        winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
-        defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
-        origin: { x: from.x, y: from.y },
-        target: { x: to.x, y: to.y },
-        atkEff: atkEffWithSiege,
-        defEff,
-        winChance: p,
-        changes: resultChanges,
-        pointsDelta,
-        manpowerDelta,
-        pillagedGold,
-        pillagedShare,
-        pillagedStrategic,
-        levelDelta: 0
-      }));
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({
+          type: "COMBAT_RESULT",
+          attackType: msg.type,
+          attackerWon: win,
+          winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+          defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+          origin: { x: from.x, y: from.y },
+          target: { x: to.x, y: to.y },
+          atkEff: atkEffWithSiege,
+          defEff,
+          winChance: p,
+          changes: resultChanges,
+          pointsDelta,
+          manpowerDelta,
+          pillagedGold,
+          pillagedShare,
+          pillagedStrategic,
+          levelDelta: 0
+        })
+      );
       logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
       logAttackTrace("combat_result_sent", pending, {
         neutralTarget: false,
