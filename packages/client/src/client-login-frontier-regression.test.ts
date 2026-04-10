@@ -18,7 +18,9 @@ describe("login and frontier retry regression guard", () => {
     const source = clientSource("./client-runtime-loop.ts");
     expect(source).toContain('No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.');
     expect(source).toContain("frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 12_000);");
+    expect(source).toContain("frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);");
     expect(source).toContain("frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);");
+    expect(source).toContain("frontierLateAckUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);");
   });
 
   it("does not re-dispatch a queued frontier target while that target is still waiting on server sync", () => {
@@ -32,6 +34,8 @@ describe("login and frontier retry regression guard", () => {
     const source = clientSource("./client-network.ts");
     expect(source).toContain('state.frontierSyncWaitUntilByTarget.delete(tileKey);');
     expect(source).toContain('state.frontierSyncWaitUntilByTarget.delete(updateKey);');
+    expect(source).toContain("clearLateFrontierAck(tileKey);");
+    expect(source).toContain("clearLateFrontierAck(updateKey);");
     expect(source).toContain('state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);');
     expect(source).toContain('state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);');
   });
@@ -46,6 +50,7 @@ describe("login and frontier retry regression guard", () => {
 
   it("keeps the earlier optimistic frontier timer when combat start arrives late", () => {
     const source = clientSource("./client-network.ts");
+    expect(source).toContain('rebindLateFrontierAck(target, "COMBAT_START");');
     expect(source).toContain("const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;");
     expect(source).toContain("state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };");
   });
