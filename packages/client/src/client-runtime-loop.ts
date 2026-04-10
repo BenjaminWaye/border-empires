@@ -12,6 +12,7 @@ import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
+import { createVisibleTileDetailRequester } from "./client-visible-tile-detail.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
 import { debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
 
@@ -100,6 +101,7 @@ type StartClientRuntimeLoopDeps = {
   ) => void;
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
+  requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
   renderHud: () => void;
   renderCaptureProgress: () => void;
   renderShardAlert: () => void;
@@ -120,6 +122,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   let roadNetwork = new Map<string, RoadDirections>();
   const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
+  const requestVisibleTileDetails = createVisibleTileDetailRequester({
+    state,
+    keyFor: deps.keyFor,
+    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded,
+    isMobile: deps.isMobile
+  });
 
   const draw = (): void => {
     const nowMs = performance.now();
@@ -1335,6 +1343,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     deps.drawMiniMap();
+    requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     deps.maybeRefreshForCamera(false);
     requestAnimationFrame(draw);
   };
