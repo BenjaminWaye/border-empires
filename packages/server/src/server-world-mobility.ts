@@ -1,10 +1,9 @@
 import crypto from "node:crypto";
 
 import type { BarbarianAgent, Dock, Player, Tile, TileKey } from "@border-empires/shared";
+import type { ServerWorldMobilityDeps, ServerWorldMobilityRuntime } from "./server-world-runtime-types.js";
 
-type WorldMobilityDeps = Record<string, any>;
-
-export const createServerWorldMobility = (deps: WorldMobilityDeps) => {
+export const createServerWorldMobility = (deps: ServerWorldMobilityDeps): ServerWorldMobilityRuntime => {
   const {
     now,
     key,
@@ -49,7 +48,9 @@ export const createServerWorldMobility = (deps: WorldMobilityDeps) => {
     settledDefenseMultiplierForTarget,
     ownershipDefenseMultiplierForTarget,
     isAdjacentTile,
-    markSummaryChunkDirtyAtTile
+    markSummaryChunkDirtyAtTile,
+    logBarbarianEvent,
+    DOCK_DEFENSE_MULT
   } = deps;
 
   const worldLooksBland = (): boolean => {
@@ -235,24 +236,28 @@ export const createServerWorldMobility = (deps: WorldMobilityDeps) => {
       updateOwnership(x, y, BARBARIAN_OWNER_ID, "BARBARIAN");
       spawnBarbarianAgentAt(x, y, 0);
       spawned += 1;
-      deps.logBarbarianEvent(`spawn maintenance @ ${x},${y}`);
+      logBarbarianEvent(`spawn maintenance @ ${x},${y}`);
     }
   };
 
   const enqueueBarbarianMaintenance = (): void => {
-    if (!hasQueuedSystemSimulationCommand((job: any) => job.command.type === "BARBARIAN_MAINTENANCE")) enqueueSystemSimulationCommand({ type: "BARBARIAN_MAINTENANCE" });
+    if (!hasQueuedSystemSimulationCommand((job) => job.command.type === "BARBARIAN_MAINTENANCE")) enqueueSystemSimulationCommand({ type: "BARBARIAN_MAINTENANCE" });
   };
 
-  const barbarianDefenseScore = (tile: Tile): number => {
+  const barbarianDefenseScore = (tile: Tile | undefined): number => {
+    if (!tile) return 0;
     if (!tile.ownerId || tile.ownerId === BARBARIAN_OWNER_ID) return 0;
     const defender = players.get(tile.ownerId);
     if (!defender) return 10;
     const tk = key(tile.x, tile.y);
-    return 10 * defender.mods.defense * playerDefensiveness(defender) * fortDefenseMultAt(defender.id, tk) * (docksByTile.has(tk) ? deps.DOCK_DEFENSE_MULT : 1) * settledDefenseMultiplierForTarget(defender.id, tile) * ownershipDefenseMultiplierForTarget(tile);
+    return 10 * defender.mods.defense * playerDefensiveness(defender) * fortDefenseMultAt(defender.id, tk) * (docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1) * settledDefenseMultiplierForTarget(defender.id, tile) * ownershipDefenseMultiplierForTarget(defender.id, tile);
   };
 
   const chooseBarbarianTarget = (agent: BarbarianAgent): Tile | undefined => {
-    const candidates = adjacentNeighbors(agent.x, agent.y).map((tile) => ({ tile, priority: getBarbarianTargetPriority(tile), defenseScore: barbarianDefenseScore(tile), random: Math.random() })).filter((entry) => entry.priority !== null) as Array<{ tile: Tile; priority: number; defenseScore: number; random: number }>;
+    const candidates = adjacentNeighbors(agent.x, agent.y)
+      .filter((tile): tile is Tile => Boolean(tile))
+      .map((tile) => ({ tile, priority: getBarbarianTargetPriority(tile), defenseScore: barbarianDefenseScore(tile), random: Math.random() }))
+      .filter((entry) => entry.priority !== null) as Array<{ tile: Tile; priority: number; defenseScore: number; random: number }>;
     candidates.sort((a, b) => (a.priority !== b.priority ? a.priority - b.priority : a.defenseScore !== b.defenseScore ? a.defenseScore - b.defenseScore : a.random - b.random));
     return candidates[0]?.tile;
   };

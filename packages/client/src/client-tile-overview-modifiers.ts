@@ -42,6 +42,7 @@ const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStruct
 
 export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
+  const nowMs = Date.now();
 
   if (tile.town) {
     if (tile.town.connectedTownCount > 0 && tile.town.connectedTownBonus !== 0) {
@@ -69,7 +70,9 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     });
   }
 
-  if (tile.fort?.status === "active") modifiers.push({ reason: "Fort", effect: "+25% defense", tone: "positive" });
+  if (tile.fort?.status === "active" && (tile.fort.disabledUntil ?? 0) <= nowMs) {
+    modifiers.push({ reason: "Fort", effect: "+25% defense", tone: "positive" });
+  }
   if (tile.siegeOutpost?.status === "active") modifiers.push({ reason: "Siege Outpost", effect: "+25% offense", tone: "positive" });
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
     modifiers.push({

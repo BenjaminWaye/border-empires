@@ -106,6 +106,7 @@ import {
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 import type { ClientState } from "./client-state.js";
 import type { ActiveTruceView, CrystalTargetingAbility, OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuView, TileOverviewLine, TileTimedProgress } from "./client-types.js";
+import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -187,6 +188,24 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const sendGameMessage = (payload: unknown, message?: string): boolean => {
     if (!requireAuthedSession(message)) return false;
+    if (
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname === "0.0.0.0" ||
+        window.localStorage.getItem("tile-sync-debug") === "1")
+    ) {
+      const typedPayload = payload as { type?: string; x?: number; y?: number; fromX?: number; fromY?: number; toX?: number; toY?: number };
+      if (
+        typedPayload.type === "SETTLE" ||
+        typedPayload.type === "EXPAND" ||
+        typedPayload.type === "ATTACK" ||
+        typedPayload.type === "BREAKTHROUGH_ATTACK" ||
+        typedPayload.type === "REQUEST_TILE_DETAIL"
+      ) {
+        console.info("[tile-sync] client_send", typedPayload);
+      }
+    }
     ws.send(JSON.stringify(payload));
     return true;
   };
@@ -224,7 +243,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const chooseTech = (techIdRaw?: string): void => chooseTechFromUi(techIdRaw, playerActionDeps());
   const chooseDomain = (domainIdRaw?: string): void => chooseDomainFromUi(domainIdRaw, playerActionDeps());
 
-  const explainActionFailure = (code: string, message: string): string => explainActionFailureFromServer(code, message);
+  const explainActionFailure = (
+    code: string,
+    message: string,
+    opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
+  ): string => explainActionFailureFromServer(code, message, opts);
 
   const enqueueTarget = (x: number, y: number, mode: "normal" | "breakthrough" = "normal"): boolean =>
     enqueueTargetFromModule(state, x, y, keyFor, mode);
@@ -678,8 +701,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       areaEffectModifiersForTile: (targetTile: Tile) => tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values())
     });
 
-  const tileMenuViewForTile = (tile: Tile): TileMenuView =>
-    tileMenuViewForTileFromModule(tile, {
+  const tileMenuViewForTile = (tile: Tile): TileMenuView => {
+    const view = tileMenuViewForTileFromModule(tile, {
       menuActionsForSingleTile,
       splitTileActionsIntoTabs,
       settlementProgressForTile: (x, y) => {
@@ -709,6 +732,23 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isTileOwnedByAlly,
       state
     });
+    if (tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) {
+      debugTileLog("tile-menu-view", {
+        x: tile.x,
+        y: tile.y,
+        detailLevel: tile.detailLevel,
+        resource: tile.resource,
+        economicStructure: tile.economicStructure?.type,
+        buildings: view.buildings.map((building) => ({
+          id: building.id,
+          disabled: building.disabled,
+          disabledReason: building.disabledReason
+        })),
+        overviewLineCount: view.overviewLines.length
+      });
+    }
+    return view;
+  };
 
   const tileActionLogicDeps = () => ({
     keyFor,

@@ -13,6 +13,7 @@ import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js"
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
+import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -118,6 +119,7 @@ type StartClientRuntimeLoopDeps = {
   clearOptimisticTileState: (tileKey: string, revert?: boolean) => void;
   dropQueuedTargetKeyIfAbsent: (targetKey: string) => void;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
+  showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number) => void;
   processActionQueue: () => boolean;
   shouldPreserveOptimisticExpandByKey: (tileKey: string) => boolean;
   requestViewRefresh: (radius?: number, force?: boolean) => void;
@@ -349,6 +351,22 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
       if (t && vis === "visible" && t.economicStructure) {
+        if (tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+          debugTileLog(
+            "render",
+            {
+              x: wx,
+              y: wy,
+              vis,
+              detailLevel: t.detailLevel,
+              economicStructure: t.economicStructure.type,
+              overlayLoaded: Boolean(deps.structureOverlayImages[t.economicStructure.type]?.complete),
+              hasBuiltResourceOverlay: Boolean(deps.builtResourceOverlayForTile(t)),
+              zoom: size
+            },
+            { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
+          );
+        }
         const markerSize = Math.max(3, Math.floor(size * 0.2));
         const active = t.economicStructure.status === "active";
         const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
@@ -390,6 +408,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
           deps.ctx.lineWidth = 1;
         }
+      } else if (t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+        debugTileLog(
+          "render-missing-structure",
+          {
+            x: wx,
+            y: wy,
+            vis,
+            detailLevel: t.detailLevel,
+            resource: t.resource,
+            town: Boolean(t.town),
+            economicStructure: undefined,
+            zoom: size
+          },
+          { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
+        );
       }
       if (t && vis === "visible" && t.terrain === "LAND") {
         const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
@@ -1404,6 +1437,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
       } else if (current && (current.retries ?? 0) < 3) {
+        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");
+        deps.requestViewRefresh(1, true);
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
           x: current.x,
           y: current.y,
@@ -1414,6 +1449,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.queuedTargetKeys.add(deps.keyFor(current.x, current.y));
         deps.pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
       } else {
+        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");
+        deps.requestViewRefresh(1, true);
         deps.pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
       }
@@ -1445,6 +1482,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== timedOutCurrentKey);
         state.queuedTargetKeys.delete(timedOutCurrentKey);
+        deps.requestViewRefresh(1, true);
+      } else {
+        deps.showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");
         deps.requestViewRefresh(1, true);
       }
       deps.reconcileActionQueue();

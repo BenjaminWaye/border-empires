@@ -1,8 +1,8 @@
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
-import type { ActiveTruceView } from "./client-types.js";
+import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 
-type PlayerActionDeps = Record<string, any> & {
+type PlayerActionDeps = {
   state: ClientState;
   techPickEl: HTMLSelectElement;
   mobileTechPickEl: HTMLSelectElement;
@@ -10,7 +10,7 @@ type PlayerActionDeps = Record<string, any> & {
   wsUrl: string;
   setAuthStatus: (message: string, tone?: "normal" | "error") => void;
   syncAuthOverlay: () => void;
-  pushFeed: (...args: any[]) => void;
+  pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
   renderHud: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
 };
@@ -124,7 +124,11 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
   deps.renderHud();
 };
 
-export const explainActionFailureFromServer = (code: string, message: string): string => {
+export const explainActionFailureFromServer = (
+  code: string,
+  message: string,
+  opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
+): string => {
   if (code === "INSUFFICIENT_GOLD") return `Action blocked: ${message}.`;
   if (code === "SETTLE_INVALID") return `Cannot settle: ${message}.`;
   if (code === "FORT_BUILD_INVALID") return `Cannot build fort: ${message}.`;
@@ -140,8 +144,15 @@ export const explainActionFailureFromServer = (code: string, message: string): s
   if (code === "AETHER_BRIDGE_INVALID") return `Cannot cast Aether Bridge: ${message}.`;
   if (code === "CREATE_MOUNTAIN_INVALID") return `Cannot create mountain: ${message}.`;
   if (code === "REMOVE_MOUNTAIN_INVALID") return `Cannot remove mountain: ${message}.`;
+  if (code === "ATTACK_TARGET_INVALID") return "Action blocked: target must be enemy-controlled land.";
   if (code === "NOT_ADJACENT") return "Action blocked: target must border your territory or a linked dock.";
   if (code === "NOT_OWNER") return "Action blocked: you need to launch from one of your own tiles.";
+  if (code === "ATTACK_COOLDOWN") {
+    const remainingMs = Math.max(0, opts?.cooldownRemainingMs ?? 0);
+    if (remainingMs <= 0) return "Action blocked: that origin tile is still on attack cooldown.";
+    const remainingLabel = opts?.formatCooldownShort ? opts.formatCooldownShort(remainingMs) : `${Math.ceil(remainingMs / 1000)}s`;
+    return `Action blocked: that origin tile is still on attack cooldown for ${remainingLabel}.`;
+  }
   if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
   if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";
   if (code === "AETHER_WALL_BLOCKED") return "Action blocked: that border is sealed by an Aether Wall.";
