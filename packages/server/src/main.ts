@@ -108,6 +108,10 @@ import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
 import { currentShardRainNotice, nextShardRainStartAt } from "./server-shard-rain.js";
+import { createServerPlayerProgression } from "./server-player-progression.js";
+import { createServerStatusMetrics } from "./server-status-metrics.js";
+import { createServerVictoryPressure } from "./server-victory-pressure.js";
+import { createServerTechDomainRuntime } from "./server-tech-domain-runtime.js";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
 import { z } from "zod";
@@ -9181,422 +9185,88 @@ const {
   runtimeLoadShedLevel
 });
 
-const hasActiveResearch = (player: Player): boolean => Boolean(player.currentResearch && player.currentResearch.completesAt > now());
-
-const availableTechPicks = (player: Player): number => {
-  return hasActiveResearch(player) ? 0 : 1;
-};
-
-const defaultMissionStats = (): MissionStats => ({
-  neutralCaptures: 0,
-  enemyCaptures: 0,
-  combatWins: 0,
-  maxTilesHeld: 0,
-  maxSettledTilesHeld: 0,
-  maxFarmsHeld: 0,
-  maxContinentsHeld: 0,
-  maxTechPicks: 0
+const {
+  hasActiveResearch,
+  availableTechPicks,
+  defaultMissionStats,
+  ensureMissionDefaults,
+  missionProgressValue,
+  dynamicMissionProgress,
+  applyDynamicMissionReward,
+  maybeIssueVendettaMission,
+  maybeIssueDockMission,
+  maybeIssueResourceMission,
+  dynamicMissionPayload,
+  applyStaticMissionReward,
+  syncMissionProgress,
+  unlockMissions,
+  continentsHeldCount,
+  updateMissionState,
+  missionPayload,
+  normalizePlayerProgressionState
+} = createServerPlayerProgression({
+  now,
+  docksByTile,
+  parseKey,
+  playerTile,
+  vendettaCaptureCountsByPlayer,
+  getOrInitResourceCounts,
+  temporaryAttackBuffUntilByPlayer,
+  VENDETTA_ATTACK_BUFF_MS,
+  getOrInitForcedReveal,
+  dockById,
+  visible,
+  key,
+  wrapX,
+  wrapY,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  temporaryIncomeBuffUntilByPlayer,
+  RESOURCE_CHAIN_BUFF_MS,
+  getOrInitStrategicStocks,
+  dynamicMissionsByPlayer,
+  techById,
+  domainById,
+  playerManpowerCap,
+  applyManpowerRegen,
+  continentIdAt
 });
 
-const ensureMissionDefaults = (player: Player): void => {
-  if (!player.missionStats) player.missionStats = defaultMissionStats();
-  if (player.missionStats.maxSettledTilesHeld === undefined) player.missionStats.maxSettledTilesHeld = 0;
-  if (player.missionStats.maxContinentsHeld === undefined) player.missionStats.maxContinentsHeld = 0;
-  if (player.missionStats.maxTechPicks === undefined) player.missionStats.maxTechPicks = 0;
-  if (!player.missions) player.missions = [];
-};
-
-const missionProgressValue = (player: Player, kind: MissionKind): number => {
-  ensureMissionDefaults(player);
-  if (kind === "NEUTRAL_CAPTURES") return player.missionStats.neutralCaptures;
-  if (kind === "ENEMY_CAPTURES") return player.missionStats.enemyCaptures;
-  if (kind === "COMBAT_WINS") return player.missionStats.combatWins;
-  if (kind === "TILES_HELD") return player.missionStats.maxTilesHeld;
-  if (kind === "SETTLED_TILES_HELD") return player.missionStats.maxSettledTilesHeld;
-  if (kind === "FARMS_HELD") return player.missionStats.maxFarmsHeld;
-  if (kind === "CONTINENTS_HELD") return player.missionStats.maxContinentsHeld;
-  return player.missionStats.maxTechPicks;
-};
-
-const ownedDockCount = (playerId: string): number => {
-  let n = 0;
-  for (const d of docksByTile.values()) {
-    const [x, y] = parseKey(d.tileKey);
-    const t = playerTile(x, y);
-    if (t.ownerId === playerId) n += 1;
-  }
-  return n;
-};
-
-const dynamicMissionProgress = (player: Player, mission: DynamicMissionDef): { progress: number; target: number } => {
-  if (mission.type === "VENDETTA") {
-    const target = 8;
-    const map = vendettaCaptureCountsByPlayer.get(player.id);
-    const progress = mission.targetPlayerId ? (map?.get(mission.targetPlayerId) ?? 0) : 0;
-    return { progress: Math.min(target, progress), target };
-  }
-  if (mission.type === "DOCK_HUNT") {
-    return { progress: ownedDockCount(player.id) >= 1 ? 1 : 0, target: mission.targetDockCount ?? 1 };
-  }
-  const pair = mission.focusResources;
-  if (!pair) return { progress: 0, target: 16 };
-  const counts = getOrInitResourceCounts(player.id);
-  const a = Math.min(8, counts[pair[0]] ?? 0);
-  const b = Math.min(8, counts[pair[1]] ?? 0);
-  return { progress: a + b, target: 16 };
-};
-
-const applyDynamicMissionReward = (player: Player, mission: DynamicMissionDef): void => {
-  if (mission.rewarded) return;
-  if (mission.type === "VENDETTA") {
-    temporaryAttackBuffUntilByPlayer.set(player.id, Math.max(temporaryAttackBuffUntilByPlayer.get(player.id) ?? 0, now() + VENDETTA_ATTACK_BUFF_MS));
-  } else if (mission.type === "DOCK_HUNT") {
-    const reveal = getOrInitForcedReveal(player.id);
-    const candidates = [...dockById.values()].filter((d) => {
-      const [x, y] = parseKey(d.tileKey);
-      return !visible(player, x, y);
-    });
-    for (let i = 0; i < Math.min(3, candidates.length); i += 1) {
-      const d = candidates[i]!;
-      const [x, y] = parseKey(d.tileKey);
-      for (let dy = -1; dy <= 1; dy += 1) {
-        for (let dx = -1; dx <= 1; dx += 1) {
-          reveal.add(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)));
-        }
-      }
-    }
-  } else if (mission.focusResources) {
-    temporaryIncomeBuffUntilByPlayer.set(player.id, { until: now() + RESOURCE_CHAIN_BUFF_MS, resources: mission.focusResources });
-  }
-  mission.rewarded = true;
-};
-
-const maybeIssueVendettaMission = (_player: Player, _targetPlayerId: string): void => {};
-
-const maybeIssueDockMission = (_player: Player): void => {};
-
-const maybeIssueResourceMission = (_player: Player, _captured?: ResourceType): void => {};
-
-const dynamicMissionPayload = (_player: Player): MissionState[] => [];
-
-const applyStaticMissionReward = (player: Player, mission: MissionState): void => {
-  const stock = getOrInitStrategicStocks(player.id);
-  if (mission.id === "frontier-scout") {
-    stock.FOOD += 1;
-    stock.SUPPLY += 1;
-    return;
-  }
-  if (mission.id === "frontier-commander") {
-    stock.IRON += 1;
-    stock.CRYSTAL += 1;
-    return;
-  }
-  if (mission.id === "regional-footprint") {
-    stock.SHARD += 1;
-  }
-};
-
-const syncMissionProgress = (_player: Player): boolean => false;
-
-const unlockMissions = (_player: Player): boolean => false;
-
-const continentsHeldCount = (player: Player): number => {
-  const set = new Set<number>();
-  for (const tk of player.territoryTiles) {
-    const [x, y] = parseKey(tk);
-    const cid = continentIdAt(x, y);
-    if (cid !== undefined) set.add(cid);
-  }
-  return set.size;
-};
-
-const updateMissionState = (player: Player): boolean => {
-  ensureMissionDefaults(player);
-  player.missions = [];
-  dynamicMissionsByPlayer.delete(player.id);
-  return false;
-};
-
-const missionPayload = (_player: Player): MissionState[] => [];
-
-const normalizePlayerProgressionState = (player: Player): void => {
-  player.techIds = new Set([...player.techIds].filter((id) => techById.has(id)));
-  player.domainIds = new Set([...player.domainIds].filter((id) => domainById.has(id)));
-  if (!Number.isFinite(player.manpower)) player.manpower = playerManpowerCap(player);
-  if (!Number.isFinite(player.manpowerUpdatedAt)) player.manpowerUpdatedAt = now();
-  applyManpowerRegen(player);
-  if (player.currentResearch) {
-    const researchingTech = techById.get(player.currentResearch.techId);
-    if (!researchingTech || player.techIds.has(player.currentResearch.techId)) {
-      delete player.currentResearch;
-    }
-  }
-};
-
-const computeLeaderboardSnapshot = (limitTop = 5): LeaderboardSnapshotView => {
-  const rows = collectPlayerCompetitionMetrics().map((metric) => ({
-    id: metric.playerId,
-    name: metric.name,
-    tiles: metric.settledTiles,
-    incomePerMinute: metric.incomePerMinute,
-    techs: metric.techs
-  }));
-  const overallRanked = [...rows]
-    .map((r) => ({ ...r, score: r.tiles * 1 + r.incomePerMinute * 3 + r.techs * 8 }))
-    .sort((a, b) => b.score - a.score || b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute || b.techs - a.techs || a.id.localeCompare(b.id))
-    .map((r, index) => ({ ...r, rank: index + 1 }));
-  const overall = overallRanked.slice(0, limitTop);
-  const rankMetricEntries = (
-    valueFor: (row: (typeof rows)[number]) => number,
-    tieBreak: (a: (typeof rows)[number], b: (typeof rows)[number]) => number = () => 0
-  ): LeaderboardMetricEntry[] =>
-    [...rows]
-      .sort((a, b) => valueFor(b) - valueFor(a) || tieBreak(a, b) || a.id.localeCompare(b.id))
-      .map((r, index) => ({ id: r.id, name: r.name, value: valueFor(r), rank: index + 1 }));
-  const byTiles = rankMetricEntries((row) => row.tiles, (a, b) => b.incomePerMinute - a.incomePerMinute || b.techs - a.techs).slice(0, limitTop);
-  const byIncome = rankMetricEntries((row) => row.incomePerMinute, (a, b) => b.tiles - a.tiles || b.techs - a.techs).slice(0, limitTop);
-  const byTechs = rankMetricEntries((row) => row.techs, (a, b) => b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute).slice(0, limitTop);
-
-  return {
-    overall,
-    selfOverall: undefined,
-    selfByTiles: undefined,
-    selfByIncome: undefined,
-    selfByTechs: undefined,
-    byTiles,
-    byIncome,
-    byTechs
-  };
-};
-
-const leaderboardSnapshotForPlayer = (playerId: string | undefined): LeaderboardSnapshotView => {
-  const base = cachedLeaderboardSnapshot;
-  if (!playerId) return { ...base, selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined };
-  const rows = collectPlayerCompetitionMetrics().map((metric) => ({
-    id: metric.playerId,
-    name: metric.name,
-    tiles: metric.settledTiles,
-    incomePerMinute: metric.incomePerMinute,
-    techs: metric.techs,
-    score: metric.settledTiles * 1 + metric.incomePerMinute * 3 + metric.techs * 8
-  }));
-  const ranked = rows
-    .sort((a, b) => b.score - a.score || b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute || b.techs - a.techs || a.id.localeCompare(b.id))
-    .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  const rankMetricEntries = (
-    valueFor: (row: (typeof rows)[number]) => number,
-    tieBreak: (a: (typeof rows)[number], b: (typeof rows)[number]) => number = () => 0
-  ): LeaderboardMetricEntry[] =>
-    [...rows]
-      .sort((a, b) => valueFor(b) - valueFor(a) || tieBreak(a, b) || a.id.localeCompare(b.id))
-      .map((entry, index) => ({ id: entry.id, name: entry.name, value: valueFor(entry), rank: index + 1 }));
-  const selfOverall = base.overall.some((entry) => entry.id === playerId) ? undefined : ranked.find((entry) => entry.id === playerId);
-  const selfByTiles = base.byTiles.some((entry) => entry.id === playerId)
-    ? undefined
-    : rankMetricEntries((row) => row.tiles, (a, b) => b.incomePerMinute - a.incomePerMinute || b.techs - a.techs).find((entry) => entry.id === playerId);
-  const selfByIncome = base.byIncome.some((entry) => entry.id === playerId)
-    ? undefined
-    : rankMetricEntries((row) => row.incomePerMinute, (a, b) => b.tiles - a.tiles || b.techs - a.techs).find((entry) => entry.id === playerId);
-  const selfByTechs = base.byTechs.some((entry) => entry.id === playerId)
-    ? undefined
-    : rankMetricEntries((row) => row.techs, (a, b) => b.tiles - a.tiles || b.incomePerMinute - a.incomePerMinute).find((entry) => entry.id === playerId);
-  return { ...base, selfOverall, selfByTiles, selfByIncome, selfByTechs };
-};
-
-const trimFrontierSettlementsWindow = (playerId: string, nowMs = now()): number[] => {
-  const timestamps = frontierSettlementsByPlayer.get(playerId);
-  if (!timestamps || timestamps.length === 0) return [];
-  let writeIndex = 0;
-  for (let readIndex = 0; readIndex < timestamps.length; readIndex += 1) {
-    const timestamp = timestamps[readIndex]!;
-    if (nowMs - timestamp > VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS) continue;
-    timestamps[writeIndex] = timestamp;
-    writeIndex += 1;
-  }
-  if (writeIndex !== timestamps.length) timestamps.length = writeIndex;
-  if (writeIndex === 0) {
-    frontierSettlementsByPlayer.delete(playerId);
-    return [];
-  }
-  return timestamps;
-};
-
-const recordFrontierSettlementForPressure = (playerId: string): void => {
-  const next = trimFrontierSettlementsWindow(playerId);
-  next.push(now());
-  frontierSettlementsByPlayer.set(playerId, next);
-};
-
-const uniqueLeader = (entries: Array<{ playerId: string; value: number }>): { playerId?: string; value: number } => {
-  if (entries.length === 0) return { value: 0 };
-  let top = entries[0]!;
-  let runnerUp: { playerId: string; value: number } | undefined;
-  for (let i = 1; i < entries.length; i += 1) {
-    const entry = entries[i]!;
-    if (entry.value > top.value) {
-      runnerUp = top;
-      top = entry;
-      continue;
-    }
-    if (!runnerUp || entry.value > runnerUp.value) runnerUp = entry;
-  }
-  if (top.value <= 0) return { value: top.value };
-  if (runnerUp && runnerUp.value === top.value) return { value: top.value };
-  return { playerId: top.playerId, value: top.value };
-};
-
-const leadingPair = (entries: Array<{ playerId: string; value: number }>): {
-  leaderPlayerId?: string;
-  leaderValue: number;
-  runnerUpValue: number;
-  tied: boolean;
-} => {
-  if (entries.length === 0) return { leaderValue: 0, runnerUpValue: 0, tied: false };
-  const sorted = [...entries].sort((a, b) => b.value - a.value);
-  const leader = sorted[0]!;
-  const runnerUp = sorted[1];
-  return {
-    leaderPlayerId: leader.playerId,
-    leaderValue: leader.value,
-    runnerUpValue: runnerUp?.value ?? 0,
-    tied: Boolean(runnerUp && runnerUp.value === leader.value)
-  };
-};
-
-const countControlledTowns = (playerId: string): number => {
-  let count = 0;
-  for (const tk of townsByTile.keys()) {
-    if (ownership.get(tk) !== playerId) continue;
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    count += 1;
-  }
-  return count;
-};
-
-const worldResourceTileCounts = (): Record<ResourceType, number> => {
-  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 };
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAtRuntime(x, y) !== "LAND") continue;
-      const resource = applyClusterResources(x, y, resourceAt(x, y));
-      if (!resource) continue;
-      counts[resource] = (counts[resource] ?? 0) + 1;
-    }
-  }
-  return counts;
-};
-
-const controlledResourceTileCounts = (playerId: string): Record<ResourceType, number> => {
-  const counts: Record<ResourceType, number> = { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 };
-  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
-    const [x, y] = parseKey(tk);
-    if (terrainAtRuntime(x, y) !== "LAND") continue;
-    const resource = applyClusterResources(x, y, resourceAt(x, y));
-    if (!resource) continue;
-    counts[resource] = (counts[resource] ?? 0) + 1;
-  }
-  return counts;
-};
-
-let cachedIslandMap:
-  | {
-      seed: number;
-      islandIdByTile: Map<TileKey, number>;
-      landCounts: Map<number, number>;
-    }
-  | undefined;
-
-const buildIslandMap = (): { islandIdByTile: Map<TileKey, number>; landCounts: Map<number, number> } => {
-  const islandIdByTile = new Map<TileKey, number>();
-  const landCounts = new Map<number, number>();
-  let nextIslandId = 0;
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAtRuntime(x, y) !== "LAND") continue;
-      const startKey = key(x, y);
-      if (islandIdByTile.has(startKey)) continue;
-      const islandId = nextIslandId;
-      nextIslandId += 1;
-      const queue: Array<{ x: number; y: number }> = [{ x, y }];
-      islandIdByTile.set(startKey, islandId);
-      let islandLand = 0;
-      while (queue.length > 0) {
-        const current = queue.shift()!;
-        islandLand += 1;
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = wrapX(current.x + dx, WORLD_WIDTH);
-            const ny = wrapY(current.y + dy, WORLD_HEIGHT);
-            if (terrainAtRuntime(nx, ny) !== "LAND") continue;
-            const neighborKey = key(nx, ny);
-            if (islandIdByTile.has(neighborKey)) continue;
-            islandIdByTile.set(neighborKey, islandId);
-            queue.push({ x: nx, y: ny });
-          }
-        }
-      }
-      landCounts.set(islandId, islandLand);
-    }
-  }
-  return { islandIdByTile, landCounts };
-};
-
-const islandMap = (): { islandIdByTile: Map<TileKey, number>; landCounts: Map<number, number> } => {
-  const cached = cachedIslandMap;
-  if (cached && cached.seed === activeSeason.worldSeed) {
-    return { islandIdByTile: cached.islandIdByTile, landCounts: cached.landCounts };
-  }
-  const next = buildIslandMap();
-  cachedIslandMap = { seed: activeSeason.worldSeed, ...next };
-  return next;
-};
-
-const islandLandCounts = (): Map<number, number> => islandMap().landCounts;
-
-const islandSettledCounts = (playerId: string): Map<number, number> => {
-  const counts = new Map<number, number>();
-  const ids = islandMap().islandIdByTile;
-  for (const tk of players.get(playerId)?.territoryTiles ?? []) {
-    const [x, y] = parseKey(tk);
-    if (terrainAtRuntime(x, y) !== "LAND") continue;
-    if (ownership.get(tk) !== playerId || ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    const islandId = ids.get(tk);
-    if (islandId === undefined) continue;
-    counts.set(islandId, (counts.get(islandId) ?? 0) + 1);
-  }
-  return counts;
-};
-
-let cachedClaimableLandTileCount: { seed: number; count: number } | undefined;
-const claimableLandTileCount = (): number => {
-  if (cachedClaimableLandTileCount?.seed === activeSeason.worldSeed) return cachedClaimableLandTileCount?.count ?? 0;
-  let count = 0;
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAtRuntime(x, y) === "LAND") count += 1;
-    }
-  }
-  cachedClaimableLandTileCount = { seed: activeSeason.worldSeed, count };
-  return count;
-};
-
-const collectPlayerCompetitionMetrics = (nowMs = now()): PlayerCompetitionMetrics[] => {
-  const metrics: PlayerCompetitionMetrics[] = [];
-  for (const player of players.values()) {
-    const territoryStructure = cachedAiTerritoryStructureForPlayer(player);
-    metrics.push({
-      playerId: player.id,
-      name: player.name,
-      tiles: player.T,
-      settledTiles: territoryStructure.settledTileCount,
-      incomePerMinute: currentIncomePerMinute(player),
-      techs: player.techIds.size,
-      controlledTowns: territoryStructure.controlledTowns
-    });
-  }
-  return metrics;
-};
+const {
+  computeLeaderboardSnapshot,
+  uniqueLeader,
+  leadingPair,
+  countControlledTowns,
+  worldResourceTileCounts,
+  controlledResourceTileCounts,
+  islandMap,
+  islandLandCounts,
+  islandSettledCounts,
+  claimableLandTileCount,
+  collectPlayerCompetitionMetrics,
+  trimFrontierSettlementsWindow,
+  recordFrontierSettlementForPressure
+} = createServerStatusMetrics({
+  cachedAiTerritoryStructureForPlayer,
+  currentIncomePerMinute,
+  frontierSettlementsByPlayer,
+  VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS,
+  now,
+  townsByTile,
+  ownership,
+  ownershipStateByTile,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  terrainAtRuntime,
+  applyClusterResources,
+  resourceAt,
+  players,
+  parseKey,
+  activeSeason,
+  key,
+  wrapX,
+  wrapY
+});
 
 const {
   state: aiSchedulerState,
@@ -9671,787 +9341,83 @@ const {
   }
 });
 
-const uniqueLeaderFromMetrics = (
-  metrics: PlayerCompetitionMetrics[],
-  selectValue: (metric: PlayerCompetitionMetrics) => number
-): { playerId?: string; value: number } => {
-  return uniqueLeader(metrics.map((metric) => ({ playerId: metric.playerId, value: selectValue(metric) })));
-};
+const {
+  currentSeasonWinner,
+  isFinalPushActive,
+  pushStrategicReplayEvent,
+  refreshGlobalStatusCache,
+  currentLeaderboardSnapshot,
+  currentVictoryPressureObjectives,
+  leaderboardSnapshotForPlayer,
+  seasonVictoryObjectivesForPlayer,
+  broadcastGlobalStatusUpdate,
+  broadcastVictoryPressureUpdate,
+  evaluateVictoryPressure
+} = createServerVictoryPressure({
+  now,
+  townsByTile,
+  SEASON_VICTORY_TOWN_CONTROL_SHARE,
+  SEASON_VICTORY_SETTLED_TERRITORY_SHARE,
+  VICTORY_PRESSURE_DEFS,
+  players,
+  HOLD_START_BROADCAST_DELAY_MS,
+  HOLD_REMAINING_BROADCAST_HOURS,
+  FINAL_PUSH_MS,
+  crypto,
+  strategicReplayEvents,
+  STRATEGIC_REPLAY_LIMIT,
+  broadcast,
+  sendToPlayer,
+  GLOBAL_STATUS_CACHE_TTL_MS,
+  getSeasonWinner: () => seasonWinner,
+  setSeasonWinner: (winner: SeasonWinnerView | undefined) => {
+    seasonWinner = winner;
+  },
+  getActiveSeason: () => activeSeason,
+  victoryPressureById,
+  uniqueLeader,
+  leadingPair,
+  computeLeaderboardSnapshot,
+  collectPlayerCompetitionMetrics,
+  worldResourceTileCounts,
+  controlledResourceTileCounts,
+  islandLandCounts,
+  claimableLandTileCount,
+  continentalFootprintProgressForPlayer,
+  SEASON_VICTORY_ECONOMY_MIN_INCOME,
+  SEASON_VICTORY_ECONOMY_LEAD_MULT
+});
 
-const getVictoryPressureTracker = (id: SeasonVictoryPathId): VictoryPressureTracker => {
-  let tracker = victoryPressureById.get(id);
-  if (!tracker) {
-    tracker = {};
-    victoryPressureById.set(id, tracker);
-  }
-  return tracker;
-};
-
-const currentSeasonWinner = (): SeasonWinnerView | undefined => seasonWinner;
-const isFinalPushActive = (nowMs = now()): boolean => activeSeason.endAt - nowMs <= FINAL_PUSH_MS;
-
-const pushStrategicReplayEvent = (event: Omit<StrategicReplayEvent, "id">): StrategicReplayEvent => {
-  const fullEvent: StrategicReplayEvent = { ...event, id: crypto.randomUUID() };
-  strategicReplayEvents.push(fullEvent);
-  while (strategicReplayEvents.length > STRATEGIC_REPLAY_LIMIT) strategicReplayEvents.shift();
-  broadcast({ type: "STRATEGIC_REPLAY_EVENT", event: fullEvent });
-  return fullEvent;
-};
-
-const computeVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
-  const nowMs = now();
-  const totalTownCount = Math.max(1, townsByTile.size);
-  const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
-  const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
-  const metrics = collectPlayerCompetitionMetrics(nowMs);
-  const totalResourceCounts = worldResourceTileCounts();
-  const allIslands = islandLandCounts();
-  return VICTORY_PRESSURE_DEFS.map((def) => {
-    const tracker = getVictoryPressureTracker(def.id);
-    let leaderPlayerId: string | undefined;
-    let leaderValue = 0;
-    let conditionMet = false;
-    let progressLabel = "";
-    let thresholdLabel = "";
-
-    if (def.id === "TOWN_CONTROL") {
-      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.controlledTowns);
-      leaderPlayerId = leader.playerId;
-      leaderValue = leader.value;
-      conditionMet = Boolean(leaderPlayerId && leaderValue >= townTarget);
-      progressLabel = `${leaderValue}/${townTarget} towns`;
-      thresholdLabel = `Need ${townTarget} towns`;
-    } else if (def.id === "SETTLED_TERRITORY") {
-      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.settledTiles);
-      leaderPlayerId = leader.playerId;
-      leaderValue = leader.value;
-      conditionMet = Boolean(leaderPlayerId && leaderValue >= settledTarget);
-      progressLabel = `${leaderValue}/${settledTarget} settled land`;
-      thresholdLabel = `Need ${settledTarget} settled land tiles`;
-    } else if (def.id === "ECONOMIC_HEGEMONY") {
-      const pair = leadingPair(metrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute })));
-      leaderPlayerId = pair.tied ? undefined : pair.leaderPlayerId;
-      leaderValue = pair.leaderValue;
-      const incomeThreshold = pair.runnerUpValue <= 0 ? Number.POSITIVE_INFINITY : pair.runnerUpValue * SEASON_VICTORY_ECONOMY_LEAD_MULT;
-      conditionMet = Boolean(
-        leaderPlayerId &&
-          !pair.tied &&
-          leaderValue >= SEASON_VICTORY_ECONOMY_MIN_INCOME &&
-          pair.runnerUpValue > 0 &&
-          leaderValue >= incomeThreshold
-      );
-      progressLabel = `${leaderValue.toFixed(1)} gold/m vs ${pair.runnerUpValue.toFixed(1)}`;
-      thresholdLabel = `Need at least ${SEASON_VICTORY_ECONOMY_MIN_INCOME} gold/m and 33% lead`;
-    } else if (def.id === "RESOURCE_MONOPOLY") {
-      let bestLeaderId: string | undefined;
-      let bestOwned = 0;
-      let bestTotal = 0;
-      let bestResource: ResourceType | undefined;
-      for (const metric of metrics) {
-        const controlled = controlledResourceTileCounts(metric.playerId);
-        for (const resource of Object.keys(totalResourceCounts) as ResourceType[]) {
-          const total = totalResourceCounts[resource];
-          if ((total ?? 0) <= 0) continue;
-          const owned = controlled[resource] ?? 0;
-          if (owned > bestOwned) {
-            bestLeaderId = metric.playerId;
-            bestOwned = owned;
-            bestTotal = total ?? 0;
-            bestResource = resource;
-          }
-        }
-      }
-      leaderPlayerId = bestLeaderId;
-      leaderValue = bestOwned;
-      conditionMet = Boolean(leaderPlayerId && bestResource && bestTotal > 0 && bestOwned >= bestTotal);
-      progressLabel = bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource leader";
-      thresholdLabel = "Need 100% control of one resource type";
-    } else {
-      let bestLeaderId: string | undefined;
-      let bestQualifiedCount = 0;
-      let bestWeakestQualifiedRatio = -1;
-      let bestWeakestQualifiedOwned = 0;
-      let bestWeakestQualifiedTotal = 0;
-      for (const metric of metrics) {
-        const progress = continentalFootprintProgressForPlayer(metric.playerId, allIslands);
-        if (progress.totalIslands === 0) continue;
-        if (
-          progress.qualifiedCount > bestQualifiedCount ||
-          (progress.qualifiedCount === bestQualifiedCount &&
-            (progress.weakestQualifiedRatio > bestWeakestQualifiedRatio ||
-              (progress.weakestQualifiedRatio === bestWeakestQualifiedRatio && metric.playerId < (bestLeaderId ?? "~"))))
-        ) {
-          bestQualifiedCount = progress.qualifiedCount;
-          bestWeakestQualifiedRatio = progress.weakestQualifiedRatio;
-          bestWeakestQualifiedOwned = progress.weakestQualifiedOwned;
-          bestWeakestQualifiedTotal = progress.weakestQualifiedTotal;
-          bestLeaderId = metric.playerId;
-        }
-      }
-      const totalIslands = Math.max(1, [...allIslands.values()].filter((count) => count > 0).length);
-      leaderPlayerId = bestLeaderId;
-      leaderValue = bestQualifiedCount;
-      conditionMet = Boolean(leaderPlayerId && bestQualifiedCount >= totalIslands && totalIslands > 0);
-      const bestPct = Math.round(bestWeakestQualifiedRatio * 100);
-      progressLabel =
-        bestQualifiedCount > 0 && bestWeakestQualifiedTotal > 0
-          ? `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled · weakest island ${bestPct}% (${bestWeakestQualifiedOwned}/${bestWeakestQualifiedTotal})`
-          : `${bestQualifiedCount}/${totalIslands} islands at 10%+ settled`;
-      thresholdLabel = "Need 10% settled land on every island";
-    }
-
-    const winner = currentSeasonWinner();
-    const holdRemainingSeconds =
-      !winner &&
-      conditionMet &&
-      tracker.leaderPlayerId === leaderPlayerId &&
-      tracker.holdStartedAt
-        ? Math.max(0, Math.ceil((tracker.holdStartedAt + def.holdDurationSeconds * 1000 - nowMs) / 1000))
-        : undefined;
-    const statusLabel = winner
-      ? winner.objectiveId === def.id
-        ? `Winner crowned: ${winner.playerName}`
-        : "Season already decided"
-      : conditionMet
-        ? holdRemainingSeconds !== undefined
-          ? `Holding · ${Math.max(0, Math.ceil(holdRemainingSeconds / 3600))}h left`
-          : "Threshold met"
-        : leaderValue > 0
-          ? "Pressure building"
-          : "No contender";
-    const view: SeasonVictoryObjectiveView = {
-      id: def.id,
-      name: def.name,
-      description: def.description,
-      leaderName: leaderPlayerId ? players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8) : leaderValue > 0 ? "Contested" : "No leader",
-      progressLabel,
-      thresholdLabel,
-      holdDurationSeconds: def.holdDurationSeconds,
-      statusLabel,
-      conditionMet
-    };
-    if (leaderPlayerId !== undefined) view.leaderPlayerId = leaderPlayerId;
-    if (holdRemainingSeconds !== undefined) view.holdRemainingSeconds = holdRemainingSeconds;
-    return view;
-  });
-};
-
-let cachedLeaderboardSnapshot: LeaderboardSnapshotView = {
-  overall: [],
-  selfOverall: undefined,
-  selfByTiles: undefined,
-  selfByIncome: undefined,
-  selfByTechs: undefined,
-  byTiles: [],
-  byIncome: [],
-  byTechs: []
-};
-let cachedVictoryPressureObjectives: SeasonVictoryObjectiveView[] = [];
-let globalStatusCacheExpiresAt = 0;
-let lastGlobalStatusBroadcastSig = "";
-
-const refreshGlobalStatusCache = (force = false): void => {
-  const nowMs = now();
-  if (!force && nowMs < globalStatusCacheExpiresAt) return;
-  cachedLeaderboardSnapshot = computeLeaderboardSnapshot();
-  cachedVictoryPressureObjectives = computeVictoryPressureObjectives();
-  globalStatusCacheExpiresAt = nowMs + GLOBAL_STATUS_CACHE_TTL_MS;
-};
-
-const currentLeaderboardSnapshot = (): LeaderboardSnapshotView => {
-  refreshGlobalStatusCache(false);
-  return cachedLeaderboardSnapshot;
-};
-
-const currentVictoryPressureObjectives = (): SeasonVictoryObjectiveView[] => {
-  refreshGlobalStatusCache(false);
-  return cachedVictoryPressureObjectives;
-};
-
-const seasonVictorySelfProgressLabel = (
-  playerId: string,
-  objectiveId: SeasonVictoryPathId,
-  deps?: { metrics?: PlayerCompetitionMetrics[]; totalResourceCounts?: Record<ResourceType, number>; allIslands?: Map<number, number> }
-): string | undefined => {
-  const metrics = deps?.metrics ?? collectPlayerCompetitionMetrics();
-  const metric = metrics.find((entry) => entry.playerId === playerId);
-  if (!metric) return undefined;
-  const totalTownCount = Math.max(1, townsByTile.size);
-  const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
-  const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
-  const totalResourceCounts = deps?.totalResourceCounts ?? worldResourceTileCounts();
-  const allIslands = deps?.allIslands ?? islandLandCounts();
-
-  if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;
-  if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;
-  if (objectiveId === "ECONOMIC_HEGEMONY") return `${metric.incomePerMinute.toFixed(1)} gold/m`;
-  if (objectiveId === "RESOURCE_MONOPOLY") {
-    const controlled = controlledResourceTileCounts(playerId);
-    let bestResource: ResourceType | undefined;
-    let bestOwned = 0;
-    let bestTotal = 0;
-    for (const resource of Object.keys(totalResourceCounts) as ResourceType[]) {
-      const total = totalResourceCounts[resource] ?? 0;
-      if (total <= 0) continue;
-      const owned = controlled[resource] ?? 0;
-      if (owned > bestOwned) {
-        bestOwned = owned;
-        bestTotal = total;
-        bestResource = resource;
-      }
-    }
-    return bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource control";
-  }
-
-  const progress = continentalFootprintProgressForPlayer(playerId, allIslands);
-  return progress.qualifiedCount > 0 && progress.weakestQualifiedTotal > 0
-    ? `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled · weakest island ${Math.round(progress.weakestQualifiedRatio * 100)}% (${progress.weakestQualifiedOwned}/${progress.weakestQualifiedTotal})`
-    : `${progress.qualifiedCount}/${progress.totalIslands} islands at 10%+ settled`;
-};
-
-const seasonVictoryObjectivesForPlayer = (playerId: string | undefined): SeasonVictoryObjectiveView[] => {
-  const objectives = currentVictoryPressureObjectives();
-  if (!playerId) return objectives;
-  const metrics = collectPlayerCompetitionMetrics();
-  const totalResourceCounts = worldResourceTileCounts();
-  const allIslands = islandLandCounts();
-  return objectives.map((objective) => {
-    if (objective.leaderPlayerId === playerId) return objective;
-    const selfProgressLabel = seasonVictorySelfProgressLabel(playerId, objective.id, { metrics, totalResourceCounts, allIslands });
-    return selfProgressLabel ? { ...objective, selfProgressLabel } : objective;
-  });
-};
-
-const globalStatusBroadcastSignature = (): string =>
-  JSON.stringify({
-    leaderboard: cachedLeaderboardSnapshot,
-    seasonVictory: cachedVictoryPressureObjectives,
-    seasonWinner
-  });
-
-const broadcastGlobalStatusUpdate = (force = false): void => {
-  refreshGlobalStatusCache(force);
-  const nextSig = globalStatusBroadcastSignature();
-  if (!force && nextSig === lastGlobalStatusBroadcastSig) return;
-  lastGlobalStatusBroadcastSig = nextSig;
-  for (const player of players.values()) {
-    sendToPlayer(player.id, {
-      type: "GLOBAL_STATUS_UPDATE",
-      leaderboard: leaderboardSnapshotForPlayer(player.id),
-      seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
-      seasonWinner
-    });
-  }
-};
-
-const broadcastVictoryPressureUpdate = (announcement?: string): void => {
-  refreshGlobalStatusCache(true);
-  lastGlobalStatusBroadcastSig = globalStatusBroadcastSignature();
-  for (const player of players.values()) {
-    sendToPlayer(player.id, {
-      type: "SEASON_VICTORY_UPDATE",
-      objectives: seasonVictoryObjectivesForPlayer(player.id),
-      announcement,
-      seasonWinner
-    });
-  }
-};
-
-const crownSeasonWinner = (playerId: string, def: VictoryPressureDefinition): void => {
-  if (seasonWinner) return;
-  const player = players.get(playerId);
-  if (!player) return;
-  seasonWinner = {
-    playerId,
-    playerName: player.name,
-    crownedAt: now(),
-    objectiveId: def.id,
-    objectiveName: def.name
-  };
-  pushStrategicReplayEvent({
-    at: seasonWinner.crownedAt,
-    type: "WINNER",
-    label: `${player.name} won the season via ${def.name}`,
-    playerId,
-    playerName: player.name,
-    objectiveId: def.id,
-    objectiveName: def.name,
-    isBookmark: true
-  });
-  refreshGlobalStatusCache(true);
-  lastGlobalStatusBroadcastSig = globalStatusBroadcastSignature();
-  broadcast({
-    type: "SEASON_WINNER_CROWNED",
-    winner: seasonWinner,
-    leaderboard: cachedLeaderboardSnapshot,
-    objectives: cachedVictoryPressureObjectives
-  });
-};
-
-const evaluateVictoryPressure = (): void => {
-  if (seasonWinner) {
-    refreshGlobalStatusCache(false);
-    return;
-  }
-  const nowMs = now();
-  const finalPushActive = isFinalPushActive(nowMs);
-  const totalTownCount = Math.max(1, townsByTile.size);
-  const townTarget = Math.max(1, Math.ceil(totalTownCount * SEASON_VICTORY_TOWN_CONTROL_SHARE));
-  const settledTarget = Math.max(1, Math.ceil(claimableLandTileCount() * SEASON_VICTORY_SETTLED_TERRITORY_SHARE));
-  const metrics = collectPlayerCompetitionMetrics(nowMs);
-  let crowned: SeasonWinnerView | undefined;
-  let announcement: string | undefined;
-
-  for (const def of VICTORY_PRESSURE_DEFS) {
-    const tracker = getVictoryPressureTracker(def.id);
-    const previousLeaderPlayerId = tracker.leaderPlayerId;
-    let leaderPlayerId: string | undefined;
-    let conditionMet = false;
-
-    if (def.id === "TOWN_CONTROL") {
-      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.controlledTowns);
-      leaderPlayerId = leader.playerId;
-      conditionMet = Boolean(leaderPlayerId && leader.value >= townTarget);
-    } else if (def.id === "SETTLED_TERRITORY") {
-      const leader = uniqueLeaderFromMetrics(metrics, (metric) => metric.settledTiles);
-      leaderPlayerId = leader.playerId;
-      conditionMet = Boolean(leaderPlayerId && leader.value >= settledTarget);
-    } else {
-      const pair = leadingPair(metrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute })));
-      leaderPlayerId = pair.tied ? undefined : pair.leaderPlayerId;
-      conditionMet = Boolean(
-        leaderPlayerId &&
-          !pair.tied &&
-          pair.leaderValue >= SEASON_VICTORY_ECONOMY_MIN_INCOME &&
-          pair.runnerUpValue > 0 &&
-          pair.leaderValue >= pair.runnerUpValue * SEASON_VICTORY_ECONOMY_LEAD_MULT
-      );
-    }
-
-    if (!conditionMet || !leaderPlayerId) {
-      if (tracker.holdAnnouncedAt && previousLeaderPlayerId) {
-        const previousLeaderName = players.get(previousLeaderPlayerId)?.name ?? previousLeaderPlayerId.slice(0, 8);
-        announcement = `${previousLeaderName} lost the ${def.name} victory hold.`;
-        pushStrategicReplayEvent({
-          at: nowMs,
-          type: "HOLD_BREAK",
-          label: `${previousLeaderName} lost the ${def.name} hold`,
-          playerId: previousLeaderPlayerId,
-          playerName: previousLeaderName,
-          objectiveId: def.id,
-          objectiveName: def.name,
-          isBookmark: true
-        });
-      }
-      delete tracker.leaderPlayerId;
-      delete tracker.holdStartedAt;
-      delete tracker.holdAnnouncedAt;
-      delete tracker.lastRemainingMilestoneHours;
-      continue;
-    }
-    if (tracker.leaderPlayerId !== leaderPlayerId) {
-      tracker.leaderPlayerId = leaderPlayerId;
-      tracker.holdStartedAt = nowMs;
-      delete tracker.holdAnnouncedAt;
-      delete tracker.lastRemainingMilestoneHours;
-      if (finalPushActive) {
-        const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
-        announcement = `${leaderName} took the ${def.name} lead.`;
-      }
-      continue;
-    }
-    if (!tracker.holdStartedAt) {
-      tracker.holdStartedAt = nowMs;
-      delete tracker.holdAnnouncedAt;
-      delete tracker.lastRemainingMilestoneHours;
-      continue;
-    }
-    const holdElapsedMs = nowMs - tracker.holdStartedAt;
-    const holdRemainingMs = Math.max(0, def.holdDurationSeconds * 1000 - holdElapsedMs);
-    if (!tracker.holdAnnouncedAt && holdElapsedMs >= HOLD_START_BROADCAST_DELAY_MS) {
-      const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
-      announcement = `${leaderName} has started a ${def.name} victory hold.`;
-      tracker.holdAnnouncedAt = nowMs;
-      pushStrategicReplayEvent({
-        at: nowMs,
-        type: "HOLD_START",
-        label: `${leaderName} started a ${def.name} hold`,
-        playerId: leaderPlayerId,
-        playerName: leaderName,
-        objectiveId: def.id,
-        objectiveName: def.name,
-        isBookmark: true
-      });
-    } else if (tracker.holdAnnouncedAt) {
-      for (const milestoneHours of HOLD_REMAINING_BROADCAST_HOURS) {
-        if (holdRemainingMs > milestoneHours * 60 * 60_000) continue;
-        if (tracker.lastRemainingMilestoneHours !== undefined && tracker.lastRemainingMilestoneHours <= milestoneHours) continue;
-        const leaderName = players.get(leaderPlayerId)?.name ?? leaderPlayerId.slice(0, 8);
-        announcement = `${leaderName} has ${milestoneHours}h left on ${def.name}.`;
-        tracker.lastRemainingMilestoneHours = milestoneHours;
-        break;
-      }
-    }
-    if (nowMs - tracker.holdStartedAt < def.holdDurationSeconds * 1000) continue;
-    crownSeasonWinner(leaderPlayerId, def);
-    crowned = currentSeasonWinner();
-    break;
-  }
-  broadcastVictoryPressureUpdate(crowned ? `${crowned.playerName} was crowned season winner via ${crowned.objectiveName}.` : announcement);
-};
-
-const reachableTechs = (player: Player): string[] => {
-  const out: string[] = [];
-  for (const tech of TECHS) {
-    if (!activeSeasonTechConfig.activeNodeIds.has(tech.id)) continue;
-    if (player.techIds.has(tech.id)) continue;
-    const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
-    if (prereqs.every((req) => player.techIds.has(req))) out.push(tech.id);
-  }
-  return out;
-};
-
-const techDepth = (id: string): number => {
-  const seen = new Set<string>();
-  const walk = (techId: string): number => {
-    if (seen.has(techId)) return 0;
-    seen.add(techId);
-    const cur = techById.get(techId);
-    if (!cur) return 0;
-    const parents = cur.prereqIds && cur.prereqIds.length > 0 ? cur.prereqIds : cur.requires ? [cur.requires] : [];
-    if (parents.length === 0) return 0;
-    return Math.max(...parents.map((p) => walk(p))) + 1;
-  };
-  return walk(id);
-};
-
-const playerWorldFlags = (player: Player): Set<string> => {
-  const flags = new Set<string>();
-  if (player.Ts >= 8) flags.add("settled_tiles_8");
-  if (player.Ts >= 16) flags.add("settled_tiles_16");
-  let hasIron = false;
-  let hasCrystal = false;
-  let hasTown = false;
-  let hasDock = false;
-  for (const tk of player.territoryTiles) {
-    if (ownershipStateByTile.get(tk) !== "SETTLED") continue;
-    const [x, y] = parseKey(tk);
-    const t = runtimeTileCore(x, y);
-    if (t.resource === "IRON") hasIron = true;
-    if (t.resource === "GEMS") hasCrystal = true;
-    if (docksByTile.has(tk)) hasDock = true;
-    const town = townsByTile.get(tk);
-    if (town) hasTown = true;
-  }
-  if (hasIron) flags.add("active_iron_site");
-  if (hasCrystal) flags.add("active_crystal_site");
-  if (hasTown) flags.add("active_town");
-  if (hasDock) flags.add("active_dock");
-  return flags;
-};
-
-const techRequirements = (tech: (typeof TECHS)[number]): { gold: number; resources: Partial<Record<StrategicResource, number>> } => {
-  if (tech.cost) {
-    const resources: Partial<Record<StrategicResource, number>> = {};
-    const food = tech.cost.food ?? 0;
-    const iron = tech.cost.iron ?? 0;
-    const crystal = tech.cost.crystal ?? 0;
-    const supply = tech.cost.supply ?? 0;
-    const shard = tech.cost.shard ?? 0;
-    if (food > 0) resources.FOOD = food;
-    if (iron > 0) resources.IRON = iron;
-    if (crystal > 0) resources.CRYSTAL = crystal;
-    if (supply > 0) resources.SUPPLY = supply;
-    if (shard > 0) resources.SHARD = shard;
-    return { gold: tech.cost.gold ?? 0, resources };
-  }
-  const depth = techDepth(tech.id);
-  const gold = Math.max(15, 12 + depth * 9);
-  const resources: Partial<Record<StrategicResource, number>> = {};
-
-  const mods = tech.mods ?? {};
-  const offensive = (mods.attack ?? 1) > 1;
-  const defensive = (mods.defense ?? 1) > 1;
-  const economic = (mods.income ?? 1) > 1;
-  const vision = (mods.vision ?? 1) > 1;
-
-  if (offensive) resources.IRON = Math.max(resources.IRON ?? 0, Math.max(0, Math.ceil(depth / 2)));
-  if (defensive) resources.SUPPLY = Math.max(resources.SUPPLY ?? 0, Math.max(0, Math.ceil(depth / 3)));
-  if (economic) resources.FOOD = Math.max(resources.FOOD ?? 0, Math.max(0, Math.ceil(depth / 2)));
-  if (vision) resources.CRYSTAL = Math.max(resources.CRYSTAL ?? 0, Math.max(0, Math.ceil(depth / 2)));
-  if (depth >= 6) {
-    resources.SHARD = Math.max(resources.SHARD ?? 0, 1);
-  }
-  return { gold, resources };
-};
-
-const techChecklistFor = (
-  player: Player,
-  tech: (typeof TECHS)[number]
-): { ok: boolean; checks: TechRequirementChecklist[]; resources: Partial<Record<StrategicResource, number>>; gold: number } => {
-  const req = techRequirements(tech);
-  const checks: TechRequirementChecklist[] = [];
-  const stocks = getOrInitStrategicStocks(player.id);
-  checks.push({ label: `Gold ${req.gold}`, met: player.points >= req.gold });
-  for (const [r, amount] of Object.entries(req.resources) as Array<[StrategicResource, number]>) {
-    checks.push({ label: `${r} ${amount}`, met: (stocks[r] ?? 0) >= amount });
-  }
-  return { ok: checks.every((c) => c.met), checks, resources: req.resources, gold: req.gold };
-};
-
-const activeTechCatalog = (player?: Player): Array<{
-  id: string;
-  tier: number;
-  name: string;
-  researchTimeSeconds?: number;
-  rootId?: string;
-  requires?: string;
-  prereqIds?: string[];
-  description: string;
-  mods: Partial<Record<StatsModKey, number>>;
-  effects?: (typeof TECHS)[number]["effects"];
-  requirements: {
-    gold: number;
-    resources: Partial<Record<StrategicResource, number>>;
-    checklist?: TechRequirementChecklist[];
-    canResearch?: boolean;
-  };
-  grantsPowerup?: { id: string; charges: number };
-}> => {
-  return TECHS.filter((t) => activeSeasonTechConfig.activeNodeIds.has(t.id)).map((t) => {
-    const out: {
-      id: string;
-      tier: number;
-      name: string;
-      researchTimeSeconds?: number;
-      rootId?: string;
-      requires?: string;
-      prereqIds?: string[];
-      description: string;
-      mods: Partial<Record<StatsModKey, number>>;
-      effects?: (typeof TECHS)[number]["effects"];
-      requirements: {
-        gold: number;
-        resources: Partial<Record<StrategicResource, number>>;
-        checklist?: TechRequirementChecklist[];
-        canResearch?: boolean;
-      };
-      grantsPowerup?: { id: string; charges: number };
-    } = {
-      id: t.id,
-      tier: t.tier ?? 0,
-      name: t.name,
-      description: t.description,
-      mods: t.mods ?? {},
-      requirements: techRequirements(t)
-    };
-    if (t.effects) out.effects = { ...t.effects };
-    if (t.rootId) out.rootId = t.rootId;
-    if (t.requires) out.requires = t.requires;
-    if (t.prereqIds && t.prereqIds.length > 0) out.prereqIds = [...t.prereqIds];
-    if (t.grantsPowerup) out.grantsPowerup = t.grantsPowerup;
-    if (player) {
-      const check = techChecklistFor(player, t);
-      out.requirements.checklist = check.checks;
-      out.requirements.canResearch = check.ok;
-    }
-    return out;
-  });
-};
-
-const IRON_DOMAIN_IDS = new Set<string>();
-const SUPPLY_DOMAIN_IDS = new Set(["expansion"]);
-const FOOD_DOMAIN_IDS = new Set(["urbanization"]);
-const CRYSTAL_DOMAIN_IDS = new Set<string>();
-
-const IRON_TECH_IDS = new Set(["masonry", "mining", "bronze-working", "fortified-walls", "siegecraft", "industrial-extraction", "breach-doctrine", "steelworking"]);
-const SUPPLY_TECH_IDS = new Set(["toolmaking", "leatherworking", "harborcraft", "logistics", "navigation", "organized-supply", "deep-operations", "terrain-engineering", "imperial-roads", "workshops"]);
-const FOOD_TECH_IDS = new Set(["agriculture", "irrigation", "pottery", "banking", "civil-service", "workshops"]);
-const CRYSTAL_TECH_IDS = new Set([
-  "cartography",
-  "signal-fires",
-  "surveying",
-  "beacon-towers",
-  "cryptography",
-  "grand-cartography",
-  "banking",
-  "trade",
-  "ledger-keeping",
-  "coinage",
-  "maritime-trade",
-  "port-infrastructure",
-  "global-trade-networks",
-  "urban-markets",
-  "aeronautics",
-  "radar",
-  "plastics"
-]);
-
-const empireStyleFromPlayer = (player: Player): EmpireVisualStyle => {
-  const primaryOverlay = player.tileColor ?? colorFromId(player.id);
-  let secondaryTint: EmpireVisualStyle["secondaryTint"] = "BALANCED";
-
-  for (const id of player.domainIds) {
-    if (IRON_DOMAIN_IDS.has(id)) {
-      secondaryTint = "IRON";
-      break;
-    }
-    if (SUPPLY_DOMAIN_IDS.has(id)) {
-      secondaryTint = "SUPPLY";
-      break;
-    }
-    if (FOOD_DOMAIN_IDS.has(id)) {
-      secondaryTint = "FOOD";
-      break;
-    }
-    if (CRYSTAL_DOMAIN_IDS.has(id)) {
-      secondaryTint = "CRYSTAL";
-      break;
-    }
-  }
-
-  if (secondaryTint === "BALANCED") {
-    const scores = { IRON: 0, SUPPLY: 0, FOOD: 0, CRYSTAL: 0 } satisfies Record<Exclude<EmpireVisualStyle["secondaryTint"], "BALANCED">, number>;
-    for (const id of player.techIds) {
-      if (IRON_TECH_IDS.has(id)) scores.IRON += 1;
-      if (SUPPLY_TECH_IDS.has(id)) scores.SUPPLY += 1;
-      if (FOOD_TECH_IDS.has(id)) scores.FOOD += 1;
-      if (CRYSTAL_TECH_IDS.has(id)) scores.CRYSTAL += 1;
-    }
-    const ranked = (Object.entries(scores) as Array<[Exclude<EmpireVisualStyle["secondaryTint"], "BALANCED">, number]>)
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    if ((ranked[0]?.[1] ?? 0) >= 2) secondaryTint = ranked[0]![0];
-  }
-
-  const borderStyle: EmpireVisualStyle["borderStyle"] =
-    secondaryTint === "IRON" ? "HEAVY" : secondaryTint === "SUPPLY" ? "DASHED" : secondaryTint === "FOOD" ? "SOFT" : secondaryTint === "CRYSTAL" ? "GLOW" : "SHARP";
-  const structureAccent: EmpireVisualStyle["structureAccent"] = secondaryTint === "BALANCED" ? "NEUTRAL" : secondaryTint;
-
-  return { primaryOverlay, secondaryTint, borderStyle, structureAccent };
-};
-
-const domainCostResources = (
-  cost: Partial<Record<"gold" | "food" | "iron" | "supply" | "crystal" | "shard", number>>
-): Partial<Record<StrategicResource, number>> => {
-  const resources: Partial<Record<StrategicResource, number>> = {};
-  if ((cost.food ?? 0) > 0) resources.FOOD = cost.food ?? 0;
-  if ((cost.iron ?? 0) > 0) resources.IRON = cost.iron ?? 0;
-  if ((cost.supply ?? 0) > 0) resources.SUPPLY = cost.supply ?? 0;
-  if ((cost.crystal ?? 0) > 0) resources.CRYSTAL = cost.crystal ?? 0;
-  if ((cost.shard ?? 0) > 0) resources.SHARD = cost.shard ?? 0;
-  return resources;
-};
-
-const chosenDomainTierMax = (player: Player): number => {
-  let tier = 0;
-  for (const id of player.domainIds) {
-    const d = domainById.get(id);
-    if (d) tier = Math.max(tier, d.tier);
-  }
-  return tier;
-};
-
-const domainChecklistFor = (
-  player: Player,
-  domainId: string
-): { ok: boolean; checks: DomainRequirementChecklist[]; gold: number; resources: Partial<Record<StrategicResource, number>> } => {
-  const d = domainById.get(domainId);
-  if (!d) return { ok: false, checks: [{ label: "Domain exists", met: false }], gold: 0, resources: {} };
-  const checks: DomainRequirementChecklist[] = [];
-  const stocks = getOrInitStrategicStocks(player.id);
-  const gold = d.cost.gold ?? 0;
-  const resources = domainCostResources(d.cost);
-  const tierMax = chosenDomainTierMax(player);
-  const pickedThisTier = [...player.domainIds].some((id) => domainById.get(id)?.tier === d.tier);
-  checks.push({ label: `Requires tech ${d.requiresTechId}`, met: player.techIds.has(d.requiresTechId) });
-  checks.push({ label: `Tier ${d.tier} progression`, met: d.tier <= tierMax + 1 });
-  checks.push({ label: `One domain per tier`, met: !pickedThisTier });
-  checks.push({ label: `Gold ${gold}`, met: player.points >= gold });
-  for (const [r, amount] of Object.entries(resources) as Array<[StrategicResource, number]>) {
-    checks.push({ label: `${r} ${amount}`, met: (stocks[r] ?? 0) >= amount });
-  }
-  return { ok: checks.every((c) => c.met), checks, gold, resources };
-};
-
-const reachableDomains = (player: Player): string[] => {
-  const tierMax = chosenDomainTierMax(player);
-  const targetTier = Math.min(5, tierMax + 1);
-  const pickedAtTargetTier = [...player.domainIds].some((id) => domainById.get(id)?.tier === targetTier);
-  if (pickedAtTargetTier) return [];
-  return DOMAINS.filter((d) => d.tier === targetTier).map((d) => d.id);
-};
-
-const activeDomainCatalog = (player?: Player): Array<{
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  requiresTechId: string;
-  mods: Partial<Record<StatsModKey, number>>;
-  effects?: (typeof DOMAINS)[number]["effects"];
-  requirements: {
-    gold: number;
-    resources: Partial<Record<StrategicResource, number>>;
-    checklist?: DomainRequirementChecklist[];
-    canResearch?: boolean;
-  };
-}> => {
-  return DOMAINS.map((d) => {
-    const out: {
-      id: string;
-      tier: number;
-      name: string;
-      description: string;
-      requiresTechId: string;
-      mods: Partial<Record<StatsModKey, number>>;
-      effects?: (typeof DOMAINS)[number]["effects"];
-      requirements: {
-        gold: number;
-        resources: Partial<Record<StrategicResource, number>>;
-        checklist?: DomainRequirementChecklist[];
-        canResearch?: boolean;
-      };
-    } = {
-      id: d.id,
-      tier: d.tier,
-      name: d.name,
-      description: d.description,
-      requiresTechId: d.requiresTechId,
-      mods: d.mods ?? {},
-      requirements: {
-        gold: d.cost.gold ?? 0,
-        resources: domainCostResources(d.cost)
-      }
-    };
-    if (d.effects) out.effects = { ...d.effects };
-    if (player) {
-      const check = domainChecklistFor(player, d.id);
-      out.requirements.checklist = check.checks;
-      out.requirements.canResearch = check.ok;
-    }
-    return out;
-  });
-};
-
-const applyDomain = (player: Player, domainId: string): { ok: boolean; reason?: string } => {
-  const d = domainById.get(domainId);
-  if (!d) return { ok: false, reason: "domain not found" };
-  if (player.domainIds.has(domainId)) return { ok: false, reason: "domain already selected" };
-  const check = domainChecklistFor(player, domainId);
-  if (!check.ok) {
-    const miss = check.checks.find((c) => !c.met);
-    return { ok: false, reason: `requirements not met: ${miss?.label ?? "unknown"}` };
-  }
-  player.points = Math.max(0, player.points - check.gold);
-  const stock = getOrInitStrategicStocks(player.id);
-  for (const [r, amount] of Object.entries(check.resources) as Array<[StrategicResource, number]>) {
-    stock[r] = Math.max(0, stock[r] - amount);
-  }
-  player.domainIds.add(domainId);
-  recomputeTechModsFromOwnedTechs(player);
-  telemetryCounters.techUnlocks += 1;
-  return { ok: true };
-};
+const {
+  reachableTechs,
+  techDepth,
+  playerWorldFlags,
+  techRequirements,
+  techChecklistFor,
+  activeTechCatalog,
+  empireStyleFromPlayer,
+  domainCostResources,
+  chosenDomainTierMax,
+  domainChecklistFor,
+  reachableDomains,
+  activeDomainCatalog,
+  applyDomain
+} = createServerTechDomainRuntime({
+  TECHS,
+  activeSeasonTechConfig,
+  techById,
+  domainById,
+  ownershipStateByTile,
+  parseKey,
+  runtimeTileCore,
+  docksByTile,
+  townsByTile,
+  getOrInitStrategicStocks,
+  recomputeTechModsFromOwnedTechs,
+  telemetryCounters,
+  DOMAINS,
+  colorFromId
+});
 
 const grantTech = (player: Player, tech: (typeof TECHS)[number]): void => {
   player.techIds.add(tech.id);
