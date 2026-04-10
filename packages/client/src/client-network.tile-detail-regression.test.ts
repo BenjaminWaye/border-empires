@@ -143,6 +143,101 @@ const createState = () =>
   }) as any;
 
 describe("client network tile detail regression", () => {
+  it("preserves nearby fort data when a summary TILE_DELTA omits fort fields", () => {
+    const state = createState();
+    state.tiles.set("79,236", {
+      x: 79,
+      y: 236,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      detailLevel: "summary",
+      fort: { ownerId: "me", status: "active" }
+    });
+    const ws = new FakeWebSocket();
+
+    bindClientNetwork({
+      state,
+      ws: ws as unknown as WebSocket,
+      wsUrl: "ws://localhost:3001/ws",
+      keyFor: (x: number, y: number) => `${x},${y}`,
+      renderHud: vi.fn(),
+      setAuthStatus: vi.fn(),
+      syncAuthOverlay: vi.fn(),
+      authenticateSocket: vi.fn(async () => {}),
+      pushFeed: vi.fn(),
+      pushFeedEntry: vi.fn(),
+      clearOptimisticTileState: vi.fn(),
+      requestViewRefresh: vi.fn(),
+      applyPendingSettlementsFromServer: vi.fn(),
+      mergeIncomingTileDetail: vi.fn((existing, incoming) => incoming ?? existing),
+      mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
+      maybeAnnounceShardSite: vi.fn(),
+      markDockDiscovered: vi.fn(),
+      centerOnOwnedTile: vi.fn(),
+      authProfileNameEl: { value: "" },
+      authProfileColorEl: { value: "" },
+      defensibilityPctFromTE: vi.fn(() => 0),
+      clearPendingCollectVisibleDelta: vi.fn(),
+      seedProfileSetupFields: vi.fn(),
+      resetStrategicReplayState: vi.fn(),
+      setWorldSeed: vi.fn(),
+      clearRenderCaches: vi.fn(),
+      buildMiniMapBase: vi.fn(),
+      shardAlertKeyForPayload: vi.fn(),
+      showShardAlert: vi.fn(),
+      combatResolutionAlert: vi.fn(),
+      wasPredictedCombatAlreadyShown: vi.fn(() => false),
+      showCaptureAlert: vi.fn(),
+      requestSettlement: vi.fn(() => false),
+      dropQueuedTargetKeyIfAbsent: vi.fn(),
+      processActionQueue: vi.fn(() => false),
+      clearSettlementProgressForTile: vi.fn(),
+      terrainAt: vi.fn(() => "LAND"),
+      requestTileDetailIfNeeded: vi.fn(),
+      requestAttackPreviewForTarget: vi.fn(),
+      openSingleTileActionMenu: vi.fn(),
+      isTileOwnedByAlly: vi.fn(() => false),
+      hideShardAlert: vi.fn(),
+      explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      clearSettlementProgressByKey: vi.fn(),
+      showCollectVisibleCooldownAlert: vi.fn(),
+      formatCooldownShort: vi.fn(() => "1s"),
+      reconcileActionQueue: vi.fn(),
+      revertOptimisticVisibleCollectDelta: vi.fn(),
+      revertOptimisticTileCollectDelta: vi.fn(),
+      clearPendingCollectTileDelta: vi.fn(),
+      playerNameForOwner: vi.fn(),
+      settlementProgressForTile: vi.fn(() => undefined)
+    } as any);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [
+          {
+            x: 79,
+            y: 236,
+            terrain: "LAND",
+            fogged: false,
+            ownerId: "me",
+            ownershipState: "SETTLED",
+            detailLevel: "summary"
+          }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("79,236")).toEqual(
+      expect.objectContaining({
+        detailLevel: "summary",
+        fort: { ownerId: "me", status: "active" }
+      })
+    );
+  });
+
   it("preserves upkeep entries from full TILE_DELTA updates", () => {
     const state = createState();
     const ws = new FakeWebSocket();
