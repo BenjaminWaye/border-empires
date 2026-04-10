@@ -108,6 +108,9 @@ import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
 import { currentShardRainNotice, nextShardRainStartAt } from "./server-shard-rain.js";
+import { createServerRuntimeAdminDashboard } from "./server-runtime-admin-dashboard.js";
+import { renderRuntimeDashboardHtml } from "./server-runtime-dashboard-html.js";
+import { registerServerHttpRoutes } from "./server-http-routes.js";
 import { createServerPlayerProgression } from "./server-player-progression.js";
 import { createServerStatusMetrics } from "./server-status-metrics.js";
 import { createServerVictoryPressure } from "./server-victory-pressure.js";
@@ -1169,235 +1172,6 @@ const activeAetherWallsById = new Map<string, ActiveAetherWall>();
 const activeAetherWallIdsByEdgeKey = new Map<string, Set<string>>();
 const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
 const victoryPressureById = new Map<SeasonVictoryPathId, VictoryPressureTracker>();
-const cachedChunkPayloadDiagnostics = (): { payloads: number; approxPayloadMb: number } => {
-  let payloads = 0;
-  let bytes = 0;
-  for (const cached of cachedChunkSnapshotByPlayer.values()) {
-    payloads += cached.payloadByChunkKey.size;
-    for (const payload of cached.payloadByChunkKey.values()) bytes += Buffer.byteLength(payload, "utf8");
-  }
-  return {
-    payloads,
-    approxPayloadMb: roundTo(bytes / (1024 * 1024), 1)
-  };
-};
-const maybeLogRuntimeMemoryWatermark = (
-  reason: string,
-  memory: ReturnType<typeof runtimeMemoryStats>,
-  extra: Record<string, unknown> = {}
-): void => {
-  for (const thresholdMb of RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB) {
-    if (memory.rssMb < thresholdMb || runtimeMemoryWatermarksLogged.has(thresholdMb)) continue;
-    runtimeMemoryWatermarksLogged.add(thresholdMb);
-    app.log.warn(
-      {
-        reason,
-        thresholdMb,
-        ...memory,
-        ...extra
-      },
-      "runtime memory watermark crossed"
-    );
-    runtimeIncidentLog.record("memory_watermark", {
-      reason,
-      thresholdMb,
-      ...memory,
-      ...extra
-    });
-  }
-};
-const logSnapshotSerializationMemory = (
-  stage: string,
-  startedAt: number,
-  memory: ReturnType<typeof runtimeMemoryStats>,
-  extra: Record<string, unknown> = {}
-): void => {
-  app.log.warn(
-    {
-      stage,
-      elapsedMs: Date.now() - startedAt,
-      ...memory,
-      ...extra
-    },
-    "snapshot serialization memory"
-  );
-  runtimeIncidentLog.record("snapshot_serialization", {
-    stage,
-    elapsedMs: Date.now() - startedAt,
-    ...memory,
-    ...extra
-  });
-  maybeLogRuntimeMemoryWatermark(`snapshot:${stage}`, memory, extra);
-};
-const runtimeCollectionDiagnostics = (): Array<{ name: string; entries: number }> => {
-  const collections = [
-    { name: "players", entries: players.size },
-    { name: "ownership", entries: ownership.size },
-    { name: "townsByTile", entries: townsByTile.size },
-    { name: "barbarianAgents", entries: barbarianAgents.size },
-    { name: "clustersById", entries: clustersById.size },
-    { name: "chunkSubscriptionByPlayer", entries: chunkSubscriptionByPlayer.size },
-    { name: "cachedVisibilitySnapshotByPlayer", entries: cachedVisibilitySnapshotByPlayer.size },
-    { name: "cachedChunkSnapshotByPlayer", entries: cachedChunkSnapshotByPlayer.size },
-    { name: "cachedSummaryChunkByChunkKey", entries: cachedSummaryChunkByChunkKey.size },
-    { name: "chunkSnapshotGenerationByPlayer", entries: chunkSnapshotGenerationByPlayer.size },
-    { name: "chunkSnapshotSentAtByPlayer", entries: chunkSnapshotSentAtByPlayer.size },
-    { name: "actionTimestampsByPlayer", entries: actionTimestampsByPlayer.size },
-    { name: "authIdentityByUid", entries: authIdentityByUid.size },
-    { name: "verifiedFirebaseTokenCache", entries: verifiedFirebaseTokenCacheSize() },
-    { name: "townFeedingStateByPlayer", entries: townFeedingStateByPlayer.size },
-    { name: "tileYieldByTile", entries: tileYieldByTile.size },
-    { name: "tileHistoryByTile", entries: tileHistoryByTile.size },
-    { name: "terrainShapesByTile", entries: terrainShapesByTile.size },
-    { name: "economicStructuresByTile", entries: economicStructuresByTile.size },
-    { name: "docksByTile", entries: docksByTile.size },
-    { name: "fortsByTile", entries: fortsByTile.size },
-    { name: "observatoriesByTile", entries: observatoriesByTile.size },
-    { name: "siegeOutpostsByTile", entries: siegeOutpostsByTile.size },
-    { name: "runtimeIntervals", entries: runtimeIntervals.length }
-  ];
-  return collections.sort((a, b) => b.entries - a.entries || a.name.localeCompare(b.name)).slice(0, 12);
-};
-const perfSummary = <T,>(
-  entries: T[],
-  selectElapsedMs: (entry: T) => number
-): {
-  samples: number;
-  avgMs: number;
-  p95Ms: number;
-  maxMs: number;
-  lastMs: number;
-} => {
-  const elapsed = entries.map(selectElapsedMs).filter((value) => Number.isFinite(value));
-  if (!elapsed.length) {
-    return { samples: 0, avgMs: 0, p95Ms: 0, maxMs: 0, lastMs: 0 };
-  }
-  const sum = elapsed.reduce((total, value) => total + value, 0);
-  return {
-    samples: elapsed.length,
-    avgMs: roundTo(sum / elapsed.length, 1),
-    p95Ms: roundTo(percentile(elapsed, 0.95), 1),
-    maxMs: roundTo(Math.max(...elapsed), 1),
-    lastMs: roundTo(elapsed[elapsed.length - 1] ?? 0, 1)
-  };
-};
-const chunkPhaseSummary = <
-  T extends {
-    visibilityMaskMs: number;
-    summaryReadMs: number;
-    serializeMs: number;
-    sendMs: number;
-    cachedPayloadChunks: number;
-    rebuiltChunks: number;
-    batches: number;
-  }
->(
-  entries: T[]
-): {
-  visibilityMaskP95Ms: number;
-  summaryReadP95Ms: number;
-  serializeP95Ms: number;
-  sendP95Ms: number;
-  cachedPayloadChunksAvg: number;
-  rebuiltChunksAvg: number;
-  batchesAvg: number;
-  lastVisibilityMaskMs: number;
-  lastSummaryReadMs: number;
-  lastSerializeMs: number;
-  lastSendMs: number;
-  lastCachedPayloadChunks: number;
-  lastRebuiltChunks: number;
-  lastBatches: number;
-} => {
-  const lastEntry = entries[entries.length - 1];
-  return {
-    visibilityMaskP95Ms: perfSummary(entries, (entry) => entry.visibilityMaskMs).p95Ms,
-    summaryReadP95Ms: perfSummary(entries, (entry) => entry.summaryReadMs).p95Ms,
-    serializeP95Ms: perfSummary(entries, (entry) => entry.serializeMs).p95Ms,
-    sendP95Ms: perfSummary(entries, (entry) => entry.sendMs).p95Ms,
-    cachedPayloadChunksAvg: perfSummary(entries, (entry) => entry.cachedPayloadChunks).avgMs,
-    rebuiltChunksAvg: perfSummary(entries, (entry) => entry.rebuiltChunks).avgMs,
-    batchesAvg: perfSummary(entries, (entry) => entry.batches).avgMs,
-    lastVisibilityMaskMs: roundTo(lastEntry?.visibilityMaskMs ?? 0, 1),
-    lastSummaryReadMs: roundTo(lastEntry?.summaryReadMs ?? 0, 1),
-    lastSerializeMs: roundTo(lastEntry?.serializeMs ?? 0, 1),
-    lastSendMs: roundTo(lastEntry?.sendMs ?? 0, 1),
-    lastCachedPayloadChunks: roundTo(lastEntry?.cachedPayloadChunks ?? 0, 1),
-    lastRebuiltChunks: roundTo(lastEntry?.rebuiltChunks ?? 0, 1),
-    lastBatches: roundTo(lastEntry?.batches ?? 0, 1)
-  };
-};
-const hottestAiTurnPhase = (phaseTimings: Record<string, number>): { phase: string; elapsedMs: number } => {
-  let phase = "unknown";
-  let elapsedMs = 0;
-  for (const [phaseName, phaseDuration] of Object.entries(phaseTimings)) {
-    if (phaseDuration <= elapsedMs) continue;
-    phase = phaseName;
-    elapsedMs = phaseDuration;
-  }
-  return { phase, elapsedMs };
-};
-const recordAiBudgetBreach = (
-  actor: Player,
-  totalElapsedMs: number,
-  phaseTimings: Record<string, number>,
-  extras?: { reason?: string; actionKey?: string }
-): void => {
-  if (totalElapsedMs < AI_TICK_BUDGET_MS) return;
-  const hottestPhase = hottestAiTurnPhase(phaseTimings);
-  const sample = {
-    at: now(),
-    playerId: actor.id,
-    elapsedMs: totalElapsedMs,
-    overBudgetMs: totalElapsedMs - AI_TICK_BUDGET_MS,
-    phase: hottestPhase.phase,
-    phaseElapsedMs: hottestPhase.elapsedMs,
-    ...(extras?.reason ? { reason: extras.reason } : {}),
-    ...(extras?.actionKey ? { actionKey: extras.actionKey } : {})
-  };
-  recentAiBudgetBreachPerf.push(sample);
-  runtimeState.appRef?.log.warn(sample, "ai budget breach");
-};
-const runtimeHotspotDiagnostics = (): {
-  aiTicks: ReturnType<typeof perfSummary> & { lastAiPlayers: number };
-  aiBudget: ReturnType<typeof perfSummary> & {
-    budgetMs: number;
-    breaches: number;
-    lastPhase?: string;
-    lastReason?: string;
-    lastActionKey?: string;
-  };
-  chunkSnapshots: ReturnType<typeof perfSummary> &
-    ReturnType<typeof chunkPhaseSummary> & {
-      maxChunks: number;
-      maxTiles: number;
-    };
-} => {
-  const aiEntries = recentAiTickPerf.values();
-  const aiBudgetEntries = recentAiBudgetBreachPerf.values();
-  const chunkEntries = recentChunkSnapshotPerf.values();
-  const lastAiBudgetEntry = aiBudgetEntries[aiBudgetEntries.length - 1];
-  return {
-    aiTicks: {
-      ...perfSummary(aiEntries, (entry) => entry.elapsedMs),
-      lastAiPlayers: aiEntries[aiEntries.length - 1]?.aiPlayers ?? 0
-    },
-    aiBudget: {
-      ...perfSummary(aiBudgetEntries, (entry) => entry.elapsedMs),
-      budgetMs: AI_TICK_BUDGET_MS,
-      breaches: aiBudgetEntries.length,
-      ...(lastAiBudgetEntry?.phase ? { lastPhase: lastAiBudgetEntry.phase } : {}),
-      ...(lastAiBudgetEntry?.reason ? { lastReason: lastAiBudgetEntry.reason } : {}),
-      ...(lastAiBudgetEntry?.actionKey ? { lastActionKey: lastAiBudgetEntry.actionKey } : {})
-    },
-    chunkSnapshots: {
-      ...perfSummary(chunkEntries, (entry) => entry.elapsedMs),
-      ...chunkPhaseSummary(chunkEntries),
-      maxChunks: chunkEntries.reduce((max, entry) => Math.max(max, entry.chunks), 0),
-      maxTiles: chunkEntries.reduce((max, entry) => Math.max(max, entry.tiles), 0)
-    }
-  };
-};
 const frontierSettlementsByPlayer = new Map<string, number[]>();
 const aiIntentLatchState = createAiIntentLatchState();
 const aiExecuteCandidateCacheState = createAiExecuteCandidateCacheState();
@@ -12336,583 +12110,6 @@ if (SEASONS_ENABLED) {
   }, 60_000);
 }
 
-const runtimeDashboardPayload = (): {
-  ok: true;
-  at: number;
-  runtime: ReturnType<typeof sampleRuntimeVitals> & { pid: number; cpuCount: number; nodeVersion: string };
-  counts: {
-    onlinePlayers: number;
-    totalPlayers: number;
-    aiPlayers: number;
-    ownershipTiles: number;
-    towns: number;
-    docks: number;
-    clusters: number;
-    barbarianAgents: number;
-  };
-  caches: {
-    visibilitySnapshots: number;
-    cachedChunkPlayers: number;
-    cachedChunkPayloads: number;
-    cachedChunkPayloadMb: number;
-  };
-  queuePressure: {
-    pendingAuthVerifications: number;
-    runtimeIntervals: number;
-    humanSimulationQueueDepth: number;
-    systemSimulationQueueDepth: number;
-    aiSimulationQueueDepth: number;
-    aiQueueDepth: number;
-    aiPlannerPending: number;
-    combatWorkerPending: number;
-    chunkSerializerPending: number;
-    chunkReadPending: number;
-    simulationCommandQueueDepth: number;
-    aiDraining: boolean;
-    simulationCommandDraining: boolean;
-    lastSimulationPriority: "human" | "system" | "ai" | "idle";
-    lastSimulationDrainAt: number;
-    lastSimulationDrainElapsedMs: number;
-    lastSimulationDrainCommands: number;
-    lastSimulationDrainHumanCommands: number;
-    lastSimulationDrainSystemCommands: number;
-    lastSimulationDrainAiCommands: number;
-    aiPlannerAvailable: boolean;
-    aiPlannerCrashed: boolean;
-    aiPlannerLastRoundTripMs: number;
-    aiPlannerLastUsedWorker: boolean;
-    aiPlannerLastFallbackReason?: string;
-    combatWorkerAvailable: boolean;
-    combatWorkerCrashed: boolean;
-    combatWorkerLastRoundTripMs: number;
-    combatWorkerLastUsedWorker: boolean;
-    combatWorkerLastFallbackReason?: string;
-    chunkSerializerAvailable: boolean;
-    chunkSerializerCrashed: boolean;
-    chunkSerializerLastRoundTripMs: number;
-    chunkSerializerLastUsedWorker: boolean;
-    chunkSerializerLastFallbackReason?: string;
-    chunkReadAvailable: boolean;
-    chunkReadCrashed: boolean;
-    chunkReadLastRoundTripMs: number;
-    chunkReadLastUsedWorker: boolean;
-    chunkReadHydrated: boolean;
-  };
-  aiScheduler: {
-    at: number;
-    dispatchIntervalMs: number;
-    targetCadenceMs: number;
-    batchSize: number;
-    selectedAiPlayers: number;
-    totalAiPlayers: number;
-    urgentAiPlayers: number;
-    humanPlayersOnline: boolean;
-    authPriorityActive: boolean;
-    aiQueueBackpressure: boolean;
-    simulationQueueBackpressure: boolean;
-    eventLoopOverloaded: boolean;
-    reason: string;
-  };
-  aiBudget: {
-    budgetMs: number;
-    breaches: number;
-    lastPhase?: string;
-    lastReason?: string;
-    lastActionKey?: string;
-    recent: ReturnType<typeof recentAiBudgetBreachPerf.values>;
-  };
-  hotspots: ReturnType<typeof runtimeHotspotDiagnostics>;
-  collections: Array<{ name: string; entries: number }>;
-  history: {
-    vitals: ReturnType<typeof recentRuntimeVitals.values>;
-    aiTicks: ReturnType<typeof recentAiTickPerf.values>;
-    chunkSnapshots: ReturnType<typeof recentChunkSnapshotPerf.values>;
-  };
-} => {
-  const latestVitals = recentRuntimeVitals.values().at(-1) ?? sampleRuntimeVitals();
-  const cachePayloads = cachedChunkPayloadDiagnostics();
-  const recentAiBudgetBreaches = recentAiBudgetBreachPerf.values();
-  const lastAiBudgetBreach = recentAiBudgetBreaches.at(-1);
-  return {
-    ok: true,
-    at: now(),
-    runtime: {
-      ...latestVitals,
-      pid: process.pid,
-      cpuCount: runtimeCpuCount,
-      nodeVersion: process.version
-    },
-    counts: {
-      onlinePlayers: onlineSocketCount(),
-      totalPlayers: players.size,
-      aiPlayers: [...players.values()].filter((player) => player.isAi).length,
-      ownershipTiles: ownership.size,
-      towns: townsByTile.size,
-      docks: docksByTile.size,
-      clusters: clustersById.size,
-      barbarianAgents: barbarianAgents.size
-    },
-    caches: {
-      visibilitySnapshots: cachedVisibilitySnapshotByPlayer.size,
-      cachedChunkPlayers: cachedChunkSnapshotByPlayer.size,
-      cachedChunkPayloads: cachePayloads.payloads,
-      cachedChunkPayloadMb: cachePayloads.approxPayloadMb
-    },
-    queuePressure: {
-      pendingAuthVerifications: authPressureState.pendingAuthVerifications,
-      runtimeIntervals: runtimeIntervals.length,
-      humanSimulationQueueDepth: simulationCommandWorkerState.humanQueue.length,
-      systemSimulationQueueDepth: simulationCommandWorkerState.systemQueue.length,
-      aiSimulationQueueDepth: simulationCommandWorkerState.aiQueue.length,
-      aiQueueDepth: aiWorkerState.queue.length,
-      aiPlannerPending: aiPlannerWorkerState.pending,
-      combatWorkerPending: combatWorkerState.pending,
-      chunkSerializerPending: chunkSerializerWorkerState.pending,
-      chunkReadPending: chunkReadWorkerState.pending,
-      simulationCommandQueueDepth: simulationCommandQueueDepth(),
-      aiDraining: aiWorkerState.draining,
-      simulationCommandDraining: simulationCommandWorkerState.draining,
-      lastSimulationPriority: simulationCommandWorkerState.lastDequeuedPriority,
-      lastSimulationDrainAt: simulationCommandWorkerState.lastDrainAt,
-      lastSimulationDrainElapsedMs: simulationCommandWorkerState.lastDrainElapsedMs,
-      lastSimulationDrainCommands: simulationCommandWorkerState.lastDrainCommands,
-      lastSimulationDrainHumanCommands: simulationCommandWorkerState.lastDrainHumanCommands,
-      lastSimulationDrainSystemCommands: simulationCommandWorkerState.lastDrainSystemCommands,
-      lastSimulationDrainAiCommands: simulationCommandWorkerState.lastDrainAiCommands,
-      aiPlannerAvailable: aiPlannerWorkerState.available,
-      aiPlannerCrashed: aiPlannerWorkerState.crashed,
-      aiPlannerLastRoundTripMs: aiPlannerWorkerState.lastRoundTripMs,
-      aiPlannerLastUsedWorker: aiPlannerWorkerState.lastUsedWorker,
-      ...(aiPlannerWorkerState.lastFallbackReason ? { aiPlannerLastFallbackReason: aiPlannerWorkerState.lastFallbackReason } : {}),
-      combatWorkerAvailable: combatWorkerState.available,
-      combatWorkerCrashed: combatWorkerState.crashed,
-      combatWorkerLastRoundTripMs: combatWorkerState.lastRoundTripMs,
-      combatWorkerLastUsedWorker: combatWorkerState.lastUsedWorker,
-      ...(combatWorkerState.lastFallbackReason ? { combatWorkerLastFallbackReason: combatWorkerState.lastFallbackReason } : {}),
-      chunkSerializerAvailable: chunkSerializerWorkerState.available,
-      chunkSerializerCrashed: chunkSerializerWorkerState.crashed,
-      chunkSerializerLastRoundTripMs: chunkSerializerWorkerState.lastRoundTripMs,
-      chunkSerializerLastUsedWorker: chunkSerializerWorkerState.lastUsedWorker,
-      ...(chunkSerializerWorkerState.lastFallbackReason ? { chunkSerializerLastFallbackReason: chunkSerializerWorkerState.lastFallbackReason } : {}),
-      chunkReadAvailable: chunkReadWorkerState.available,
-      chunkReadCrashed: chunkReadWorkerState.crashed,
-      chunkReadLastRoundTripMs: chunkReadWorkerState.lastRoundTripMs,
-      chunkReadLastUsedWorker: chunkReadWorkerState.lastUsedWorker,
-      chunkReadHydrated: chunkReadWorkerState.hydrated
-    },
-    aiScheduler: {
-      dispatchIntervalMs: AI_DISPATCH_INTERVAL_MS,
-      targetCadenceMs: AI_TICK_MS,
-      ...aiSchedulerState
-    },
-    aiBudget: {
-      budgetMs: AI_TICK_BUDGET_MS,
-      breaches: recentAiBudgetBreaches.length,
-      ...(lastAiBudgetBreach?.phase ? { lastPhase: lastAiBudgetBreach.phase } : {}),
-      ...(lastAiBudgetBreach?.reason ? { lastReason: lastAiBudgetBreach.reason } : {}),
-      ...(lastAiBudgetBreach?.actionKey ? { lastActionKey: lastAiBudgetBreach.actionKey } : {}),
-      recent: recentAiBudgetBreaches
-    },
-    hotspots: runtimeHotspotDiagnostics(),
-    collections: runtimeCollectionDiagnostics(),
-    history: {
-      vitals: recentRuntimeVitals.values(),
-      aiTicks: recentAiTickPerf.values(),
-      chunkSnapshots: recentChunkSnapshotPerf.values()
-    }
-  };
-};
-
-const renderRuntimeDashboardHtml = (): string => `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Border Empires Runtime Dashboard</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #09131a;
-        --bg2: #10222c;
-        --panel: rgba(14, 29, 37, 0.9);
-        --panel-border: rgba(156, 198, 210, 0.18);
-        --text: #e7f4f7;
-        --muted: #8da7af;
-        --accent: #67e8f9;
-        --warn: #fbbf24;
-        --danger: #f87171;
-        --good: #4ade80;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        background:
-          radial-gradient(circle at top left, rgba(103, 232, 249, 0.16), transparent 28rem),
-          radial-gradient(circle at top right, rgba(248, 113, 113, 0.12), transparent 24rem),
-          linear-gradient(180deg, var(--bg), #050a0e 75%);
-        color: var(--text);
-      }
-      .wrap {
-        max-width: 1440px;
-        margin: 0 auto;
-        padding: 24px;
-      }
-      .hero {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 16px;
-        align-items: end;
-        margin-bottom: 20px;
-      }
-      .hero h1 {
-        margin: 0;
-        font-size: clamp(28px, 4vw, 44px);
-        letter-spacing: -0.04em;
-      }
-      .hero p, .meta {
-        margin: 6px 0 0;
-        color: var(--muted);
-      }
-      .status {
-        display: inline-flex;
-        gap: 10px;
-        align-items: center;
-        border: 1px solid var(--panel-border);
-        background: rgba(103, 232, 249, 0.06);
-        padding: 10px 14px;
-        border-radius: 999px;
-      }
-      .dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 999px;
-        background: var(--good);
-        box-shadow: 0 0 18px rgba(74, 222, 128, 0.8);
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(12, minmax(0, 1fr));
-        gap: 14px;
-      }
-      .panel {
-        grid-column: span 12;
-        background: var(--panel);
-        border: 1px solid var(--panel-border);
-        border-radius: 18px;
-        padding: 16px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
-      }
-      .span-3 { grid-column: span 3; }
-      .span-4 { grid-column: span 4; }
-      .span-5 { grid-column: span 5; }
-      .span-6 { grid-column: span 6; }
-      .span-7 { grid-column: span 7; }
-      .span-8 { grid-column: span 8; }
-      .span-12 { grid-column: span 12; }
-      .panel h2, .panel h3 {
-        margin: 0 0 12px;
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-        color: var(--muted);
-      }
-      .metric {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 10px 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
-      }
-      .metric:first-of-type { border-top: 0; padding-top: 0; }
-      .metric strong {
-        font-size: 24px;
-        display: block;
-        margin-top: 4px;
-      }
-      .muted { color: var(--muted); }
-      .flag {
-        display: inline-block;
-        padding: 4px 8px;
-        border-radius: 999px;
-        font-size: 12px;
-        border: 1px solid currentColor;
-      }
-      .flag.good { color: var(--good); }
-      .flag.warn { color: var(--warn); }
-      .flag.danger { color: var(--danger); }
-      .mini-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-      .chart {
-        margin-top: 14px;
-        height: 160px;
-        border-radius: 12px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-        border: 1px solid rgba(255,255,255,0.06);
-        padding: 10px;
-      }
-      svg { width: 100%; height: 100%; overflow: visible; }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-      }
-      th, td {
-        text-align: left;
-        padding: 10px 0;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-      }
-      th { color: var(--muted); font-weight: 500; }
-      .bar {
-        height: 10px;
-        border-radius: 999px;
-        background: rgba(255,255,255,0.08);
-        overflow: hidden;
-      }
-      .bar > span {
-        display: block;
-        height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, var(--accent), #38bdf8);
-      }
-      .empty {
-        color: var(--muted);
-        padding: 18px 0 4px;
-      }
-      @media (max-width: 980px) {
-        .span-3, .span-4, .span-5, .span-6, .span-7, .span-8, .span-12 { grid-column: span 12; }
-        .mini-grid { grid-template-columns: 1fr; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="hero">
-        <div>
-          <h1>Runtime Pressure Dashboard</h1>
-          <p>Track what is consuming CPU time, memory, and event-loop headroom on this server.</p>
-          <p class="meta" id="subtitle">Waiting for first sample...</p>
-        </div>
-        <div class="status">
-          <span class="dot"></span>
-          <span id="status-text">Polling /admin/runtime/debug every 5s</span>
-        </div>
-      </div>
-
-      <div class="grid">
-        <section class="panel span-3" id="summary-runtime"></section>
-        <section class="panel span-3" id="summary-memory"></section>
-        <section class="panel span-3" id="summary-load"></section>
-        <section class="panel span-3" id="summary-world"></section>
-        <section class="panel span-8" id="timeline-panel"></section>
-        <section class="panel span-4" id="hotspots-panel"></section>
-        <section class="panel span-6" id="collections-panel"></section>
-        <section class="panel span-6" id="events-panel"></section>
-      </div>
-    </div>
-    <script>
-      const setHtml = (id, html) => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = html;
-      };
-      const fmt = (value, suffix = "") => {
-        if (value === null || value === undefined || Number.isNaN(Number(value))) return "n/a";
-        return \`\${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })}\${suffix}\`;
-      };
-      const fmtTime = (ts) => new Date(ts).toLocaleTimeString();
-      const healthFlag = (value, warnAt, dangerAt, inverse = false) => {
-        const state = inverse
-          ? value <= dangerAt ? "danger" : value <= warnAt ? "warn" : "good"
-          : value >= dangerAt ? "danger" : value >= warnAt ? "warn" : "good";
-        return \`<span class="flag \${state}">\${state}</span>\`;
-      };
-      const sparkline = (values, color, maxValue) => {
-        if (!values.length) return '<div class="empty">No samples yet.</div>';
-        const width = 600;
-        const height = 140;
-        const max = Math.max(maxValue || 0, ...values, 1);
-        const min = Math.min(...values, 0);
-        const range = Math.max(1, max - min);
-        const points = values.map((value, index) => {
-          const x = (index / Math.max(1, values.length - 1)) * width;
-          const y = height - ((value - min) / range) * height;
-          return \`\${x},\${y}\`;
-        }).join(" ");
-        return \`
-          <svg viewBox="0 0 \${width} \${height}" preserveAspectRatio="none">
-            <polyline fill="none" stroke="\${color}" stroke-width="3" points="\${points}" />
-          </svg>
-        \`;
-      };
-      const metricRow = (label, value, detail = "") => \`
-        <div class="metric">
-          <div>
-            <div class="muted">\${label}</div>
-            \${detail ? \`<div class="muted">\${detail}</div>\` : ""}
-          </div>
-          <div style="text-align:right"><strong>\${value}</strong></div>
-        </div>
-      \`;
-      const renderCollections = (items) => {
-        if (!items.length) return '<div class="empty">No collection stats available.</div>';
-        const max = Math.max(...items.map((item) => item.entries), 1);
-        return \`
-          <h2>Largest Internal Collections</h2>
-          <table>
-            <thead><tr><th>Collection</th><th>Entries</th><th>Share</th></tr></thead>
-            <tbody>
-              \${items.map((item) => \`
-                <tr>
-                  <td>\${item.name}</td>
-                  <td>\${item.entries.toLocaleString()}</td>
-                  <td style="width:38%">
-                    <div class="bar"><span style="width:\${Math.max(4, (item.entries / max) * 100)}%"></span></div>
-                  </td>
-                </tr>\`).join("")}
-            </tbody>
-          </table>
-        \`;
-      };
-      const renderHotspotBlock = (title, hotspot, extraHtml) => \`
-        <div style="padding:12px 0;border-top:1px solid rgba(255,255,255,0.06)">
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
-            <strong>\${title}</strong>
-            \${healthFlag(hotspot.p95Ms, 40, 100)}
-          </div>
-          <div class="mini-grid" style="margin-top:10px">
-            <div>\${metricRow("Last", fmt(hotspot.lastMs, " ms"))}</div>
-            <div>\${metricRow("P95", fmt(hotspot.p95Ms, " ms"))}</div>
-            <div>\${metricRow("Average", fmt(hotspot.avgMs, " ms"))}</div>
-            <div>\${metricRow("Max", fmt(hotspot.maxMs, " ms"))}</div>
-          </div>
-          \${extraHtml}
-        </div>
-      \`;
-      const load = async () => {
-        try {
-          const res = await fetch("/admin/runtime/debug", { cache: "no-store" });
-          const data = await res.json();
-          const runtime = data.runtime;
-          const vitals = data.history.vitals || [];
-          const rssSeries = vitals.map((entry) => entry.rssMb);
-          const cpuSeries = vitals.map((entry) => entry.cpuPercent);
-          const loopSeries = vitals.map((entry) => entry.eventLoopUtilizationPercent);
-          document.getElementById("subtitle").textContent =
-            \`PID \${runtime.pid} • Node \${runtime.nodeVersion} • \${runtime.cpuCount} CPU cores • last sample \${fmtTime(data.at)}\`;
-
-          setHtml("summary-runtime", \`
-            <h2>Process Runtime</h2>
-            \${metricRow("CPU (host normalized)", fmt(runtime.cpuPercent, "%"), "Percent of total machine CPU capacity")}
-            \${metricRow("CPU (single core view)", fmt(runtime.cpuSingleCorePercent, "%"), "Can exceed 100% when multiple cores are busy")}
-            \${metricRow("Event loop utilization", fmt(runtime.eventLoopUtilizationPercent, "%"))}
-            \${metricRow("Uptime", fmt(runtime.uptimeSec, " s"))}
-            \${metricRow("Handles / requests", \`\${fmt(runtime.activeHandles)} / \${fmt(runtime.activeRequests)}\`)}
-          \`);
-
-          setHtml("summary-memory", \`
-            <h2>Memory</h2>
-            \${metricRow("RSS", fmt(runtime.rssMb, " MB"), healthFlag(runtime.rssMb, 700, 1200))}
-            \${metricRow("Heap used", fmt(runtime.heapUsedMb, " MB"))}
-            \${metricRow("Heap total", fmt(runtime.heapTotalMb, " MB"))}
-            \${metricRow("External", fmt(runtime.externalMb, " MB"))}
-            \${metricRow("Array buffers", fmt(runtime.arrayBuffersMb, " MB"))}
-          \`);
-
-          setHtml("summary-load", \`
-            <h2>Pressure</h2>
-            \${metricRow("Event loop p95", fmt(runtime.eventLoopDelayP95Ms, " ms"), healthFlag(runtime.eventLoopDelayP95Ms, 30, 80))}
-            \${metricRow("Event loop max", fmt(runtime.eventLoopDelayMaxMs, " ms"))}
-            \${metricRow("Pending auth verifications", fmt(data.queuePressure.pendingAuthVerifications))}
-            \${metricRow("Runtime intervals", fmt(data.queuePressure.runtimeIntervals))}
-            \${metricRow("AI budget breaches", fmt(data.aiBudget.breaches), healthFlag(data.aiBudget.breaches, 1, 3))}
-            \${metricRow("Chunk cache payload", fmt(data.caches.cachedChunkPayloadMb, " MB"))}
-          \`);
-
-          setHtml("summary-world", \`
-            <h2>World / Cache Load</h2>
-            \${metricRow("Players online / total", \`\${fmt(data.counts.onlinePlayers)} / \${fmt(data.counts.totalPlayers)}\`)}
-            \${metricRow("AI players", fmt(data.counts.aiPlayers))}
-            \${metricRow("Ownership tiles", fmt(data.counts.ownershipTiles))}
-            \${metricRow("Towns / docks / clusters", \`\${fmt(data.counts.towns)} / \${fmt(data.counts.docks)} / \${fmt(data.counts.clusters)}\`)}
-            \${metricRow("Visibility / chunk cache", \`\${fmt(data.caches.visibilitySnapshots)} / \${fmt(data.caches.cachedChunkPlayers)}\`)}
-          \`);
-
-          setHtml("timeline-panel", \`
-            <h2>Recent Pressure Timeline</h2>
-            <div class="mini-grid">
-              <div>
-                <div class="muted">CPU % of host</div>
-                <div class="chart">\${sparkline(cpuSeries, "#67e8f9", 100)}</div>
-              </div>
-              <div>
-                <div class="muted">RSS MB</div>
-                <div class="chart">\${sparkline(rssSeries, "#f87171")}</div>
-              </div>
-              <div>
-                <div class="muted">Event loop utilization %</div>
-                <div class="chart">\${sparkline(loopSeries, "#fbbf24", 100)}</div>
-              </div>
-              <div>
-                <div class="muted">Actionable read</div>
-                <div class="metric">
-                  <div>
-                    <div class="muted">If CPU climbs with AI p95, AI ticks are the likely thief.</div>
-                    <div class="muted">If RSS climbs with chunk cache MB, snapshot caching is the likely thief.</div>
-                    <div class="muted">If event-loop delay spikes while handles stay flat, a synchronous code path is blocking.</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          \`);
-
-          setHtml("hotspots-panel", \`
-            <h2>Internal Hotspots</h2>
-            \${renderHotspotBlock("AI tick loop", data.hotspots.aiTicks, \`
-              <div class="muted" style="margin-top:8px">Last AI player count: \${fmt(data.hotspots.aiTicks.lastAiPlayers)}</div>
-            \`)}
-            \${renderHotspotBlock("AI budget breaches", data.hotspots.aiBudget, \`
-              <div class="muted" style="margin-top:8px">Budget: \${fmt(data.hotspots.aiBudget.budgetMs, " ms")} • Last phase: \${data.hotspots.aiBudget.lastPhase || "n/a"} • Last action: \${data.hotspots.aiBudget.lastActionKey || "n/a"}</div>
-            \`)}
-            \${renderHotspotBlock("Chunk snapshot generation", data.hotspots.chunkSnapshots, \`
-              <div class="muted" style="margin-top:8px">Largest recent snapshot: \${fmt(data.hotspots.chunkSnapshots.maxChunks)} chunks / \${fmt(data.hotspots.chunkSnapshots.maxTiles)} tiles</div>
-              <div class="muted" style="margin-top:8px">Last phases: mask \${fmt(data.hotspots.chunkSnapshots.lastVisibilityMaskMs, " ms")} • read \${fmt(data.hotspots.chunkSnapshots.lastSummaryReadMs, " ms")} • serialize \${fmt(data.hotspots.chunkSnapshots.lastSerializeMs, " ms")} • send \${fmt(data.hotspots.chunkSnapshots.lastSendMs, " ms")}</div>
-              <div class="muted" style="margin-top:4px">P95 phases: mask \${fmt(data.hotspots.chunkSnapshots.visibilityMaskP95Ms, " ms")} • read \${fmt(data.hotspots.chunkSnapshots.summaryReadP95Ms, " ms")} • serialize \${fmt(data.hotspots.chunkSnapshots.serializeP95Ms, " ms")} • send \${fmt(data.hotspots.chunkSnapshots.sendP95Ms, " ms")}</div>
-              <div class="muted" style="margin-top:4px">Reuse: cached chunks avg \${fmt(data.hotspots.chunkSnapshots.cachedPayloadChunksAvg)} • rebuilt avg \${fmt(data.hotspots.chunkSnapshots.rebuiltChunksAvg)} • batches avg \${fmt(data.hotspots.chunkSnapshots.batchesAvg)}</div>
-            \`)}
-          \`);
-
-          setHtml("collections-panel", renderCollections(data.collections));
-
-          const aiHistory = data.history.aiTicks || [];
-          const chunkHistory = data.history.chunkSnapshots || [];
-          setHtml("events-panel", \`
-            <h2>Recent Heavy Operations</h2>
-            <table>
-              <thead><tr><th>Category</th><th>Latest</th><th>P95</th><th>Samples</th></tr></thead>
-              <tbody>
-                <tr><td>AI ticks</td><td>\${fmt(data.hotspots.aiTicks.lastMs, " ms")}</td><td>\${fmt(data.hotspots.aiTicks.p95Ms, " ms")}</td><td>\${fmt(data.hotspots.aiTicks.samples)}</td></tr>
-                <tr><td>AI budget</td><td>\${fmt(data.hotspots.aiBudget.lastMs, " ms")}</td><td>\${fmt(data.hotspots.aiBudget.p95Ms, " ms")}</td><td>\${fmt(data.hotspots.aiBudget.samples)}</td></tr>
-                <tr><td>Chunk snapshots</td><td>\${fmt(data.hotspots.chunkSnapshots.lastMs, " ms")}</td><td>\${fmt(data.hotspots.chunkSnapshots.p95Ms, " ms")}</td><td>\${fmt(data.hotspots.chunkSnapshots.samples)}</td></tr>
-                <tr><td>Last AI sample at</td><td colspan="3">\${aiHistory.length ? fmtTime(aiHistory[aiHistory.length - 1].at) : "n/a"}</td></tr>
-                <tr><td>Last chunk snapshot at</td><td colspan="3">\${chunkHistory.length ? fmtTime(chunkHistory[chunkHistory.length - 1].at) : "n/a"}</td></tr>
-              </tbody>
-            </table>
-          \`);
-        } catch (err) {
-          document.getElementById("status-text").textContent = \`Dashboard fetch failed: \${err instanceof Error ? err.message : String(err)}\`;
-        }
-      };
-      load();
-      setInterval(load, 5000);
-    </script>
-  </body>
-</html>`;
-
 const app = Fastify({ logger: true });
 runtimeState.appRef = app;
 const runtimeIncidentLog = createRuntimeIncidentLog({
@@ -12925,115 +12122,116 @@ await runtimeIncidentLog.notifyLastCrashReport();
 await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
-app.get("/health", async (_request, reply) => {
-  if (!startupState.ready) {
-    reply.code(503);
-    return {
-      ok: false,
-      status: "starting",
-      startupElapsedMs: Date.now() - startupState.startedAt,
-      phase: startupState.currentPhase ?? "boot"
-    };
+const {
+  cachedChunkPayloadDiagnostics,
+  maybeLogRuntimeMemoryWatermark,
+  logSnapshotSerializationMemory,
+  runtimeCollectionDiagnostics,
+  recordAiBudgetBreach,
+  runtimeHotspotDiagnostics,
+  runtimeDashboardPayload
+} = createServerRuntimeAdminDashboard({
+  cachedChunkSnapshotByPlayer,
+  roundTo,
+  runtimeMemoryWatermarkThresholdsMb: RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB,
+  runtimeMemoryWatermarksLogged,
+  logger: app.log,
+  runtimeIncidentLog,
+  players,
+  ownership,
+  townsByTile,
+  barbarianAgents,
+  clustersById,
+  chunkSubscriptionByPlayer,
+  cachedVisibilitySnapshotByPlayer,
+  cachedSummaryChunkByChunkKey,
+  chunkSnapshotGenerationByPlayer,
+  chunkSnapshotSentAtByPlayer,
+  actionTimestampsByPlayer,
+  authIdentityByUid,
+  verifiedFirebaseTokenCacheSize,
+  townFeedingStateByPlayer,
+  tileYieldByTile,
+  tileHistoryByTile,
+  terrainShapesByTile,
+  economicStructuresByTile,
+  docksByTile,
+  fortsByTile,
+  observatoriesByTile,
+  siegeOutpostsByTile,
+  runtimeIntervalsLength: () => runtimeIntervals.length,
+  percentile,
+  now,
+  recentAiBudgetBreachPerf,
+  aiTickBudgetMs: AI_TICK_BUDGET_MS,
+  recentAiTickPerf,
+  recentChunkSnapshotPerf,
+  sampleRuntimeVitals,
+  recentRuntimeVitals,
+  cachedChunkPayloadDiagnosticsExtras: {
+    onlineSocketCount,
+    runtimeCpuCount,
+    authPressurePending: () => authPressureState.pendingAuthVerifications,
+    simulationCommandQueueDepth,
+    aiSchedulerState,
+    aiWorkerState,
+    combatWorkerState,
+    chunkSerializerWorkerState,
+    chunkReadWorkerState,
+    simulationCommandWorkerState,
+    runtimeHotspotExtra: () => ({ chunkCacheMb: cachedChunkPayloadDiagnostics().approxPayloadMb })
   }
-  return {
-    ok: true,
-    startupElapsedMs: (startupState.completedAt ?? Date.now()) - startupState.startedAt
-  };
 });
-app.get("/season", async () => ({
+
+registerServerHttpRoutes(app, {
+  startupState,
   activeSeason,
-  seasonWinner,
-  seasonTechTreeId: activeSeason.techTreeConfigId,
-  activeRoots: activeSeasonTechConfig.rootNodeIds,
+  ...(seasonWinner ? { seasonWinner } : {}),
+  activeRootNodeIds: activeSeasonTechConfig.rootNodeIds,
   activeTechNodeCount: activeSeasonTechConfig.activeNodeIds.size,
-  archiveCount: seasonArchives.length
-}));
-app.get("/admin/telemetry", async () => {
-  let activeTowns = 0;
-  let supportSum = 0;
-  let supportCount = 0;
-  for (const town of townsByTile.values()) {
-    const [x, y] = parseKey(town.tileKey);
-    const t = playerTile(x, y);
-    if (!t.ownerId || t.ownershipState !== "SETTLED") continue;
-    activeTowns += 1;
-    const support = townSupport(town.tileKey, t.ownerId);
-    if (support.supportMax > 0) {
-      supportSum += support.supportCurrent / support.supportMax;
-      supportCount += 1;
-    }
-  }
-  return {
-    ok: true,
-    at: now(),
-    onlinePlayers: onlineSocketCount(),
-    totalPlayers: players.size,
-    activeTowns,
-    avgTownSupportRatio: supportCount > 0 ? supportSum / supportCount : 0,
-    counters: telemetryCounters
-  };
-});
-app.get("/admin/ai/debug", async () => {
-  const entries = [...aiTurnDebugByPlayer.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const reasons = new Map<string, number>();
-  for (const entry of entries) reasons.set(entry.reason, (reasons.get(entry.reason) ?? 0) + 1);
-  return {
-    ok: true,
-    at: now(),
-    aiPlayers: entries.length,
-    reasons: [...reasons.entries()]
-      .map(([reason, count]) => ({ reason, count }))
-      .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)),
-    entries
-  };
-});
-app.get("/admin/players", async () =>
-  buildAdminPlayerListPayload(
-    [...players.values()].map((player) => {
-      const settledTiles = [...player.territoryTiles].reduce(
-        (count, tileKey) => count + (ownershipStateByTile.get(tileKey) === "SETTLED" ? 1 : 0),
-        0
-      );
-      const frontierTiles = [...player.territoryTiles].reduce(
-        (count, tileKey) => count + (ownershipStateByTile.get(tileKey) === "FRONTIER" ? 1 : 0),
-        0
-      );
-      return {
-        id: player.id,
-        name: player.name,
-        isAi: Boolean(player.isAi),
-        ...(player.tileColor ? { rawTileColor: player.tileColor } : {}),
-        effectiveTileColor: player.tileColor ?? colorFromId(player.id),
-        visualStyle: empireStyleFromPlayer(player),
-        shieldUntil: player.spawnShieldUntil,
-        territoryTiles: player.territoryTiles.size,
-        settledTiles,
-        frontierTiles
-      };
-    }),
-    now()
-  )
-);
-app.get("/admin/runtime/debug", async () => runtimeDashboardPayload());
-app.get("/admin/runtime/incidents", async () => ({
-  ok: true,
-  currentBootId: runtimeIncidentLog.bootId,
-  lastUncleanShutdown: runtimeIncidentLog.getLastCrashReport()
-}));
-app.get("/admin/runtime/dashboard", async (_request, reply) => {
-  reply.type("text/html; charset=utf-8");
-  return renderRuntimeDashboardHtml();
-});
-app.post("/admin/season/rollover", async () => {
-  if (!SEASONS_ENABLED) return { ok: false, disabled: true, message: "seasons temporarily disabled" };
-  startNewSeason();
-  await saveSnapshot();
-  return { ok: true, activeSeason };
-});
-app.post("/admin/world/regenerate", async () => {
-  regenerateWorldInPlace();
-  await saveSnapshot();
-  return { ok: true, activeSeason, regenerated: true };
+  archiveCount: seasonArchives.length,
+  runtimeDashboardPayload,
+  renderRuntimeDashboardHtml,
+  runtimeIncidentLog,
+  seasonsEnabled: SEASONS_ENABLED,
+  startNewSeason,
+  saveSnapshot,
+  regenerateWorldInPlace,
+  players,
+  onlineSocketCount,
+  townsByTile,
+  parseKey,
+  playerTile,
+  townSupport,
+  now,
+  telemetryCounters,
+  aiTurnDebugByPlayer,
+  buildAdminPlayersPayload: () =>
+    buildAdminPlayerListPayload(
+      [...players.values()].map((player) => {
+        const settledTiles = [...player.territoryTiles].reduce(
+          (count, tileKey) => count + (ownershipStateByTile.get(tileKey) === "SETTLED" ? 1 : 0),
+          0
+        );
+        const frontierTiles = [...player.territoryTiles].reduce(
+          (count, tileKey) => count + (ownershipStateByTile.get(tileKey) === "FRONTIER" ? 1 : 0),
+          0
+        );
+        return {
+          id: player.id,
+          name: player.name,
+          isAi: Boolean(player.isAi),
+          ...(player.tileColor ? { rawTileColor: player.tileColor } : {}),
+          effectiveTileColor: player.tileColor ?? colorFromId(player.id),
+          visualStyle: empireStyleFromPlayer(player),
+          shieldUntil: player.spawnShieldUntil,
+          territoryTiles: player.territoryTiles.size,
+          settledTiles,
+          frontierTiles
+        };
+      }),
+      now()
+    )
 });
 
 (
