@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TechInfo } from "./client-types.js";
-import { renderExpandedTechChoiceTreeHtml } from "./client-tech-tree-html.js";
+import { renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml } from "./client-tech-tree-html.js";
 
 const baseTech = (overrides: Partial<TechInfo> & Pick<TechInfo, "id" | "name">): TechInfo => ({
   id: overrides.id,
@@ -23,6 +23,50 @@ const baseTech = (overrides: Partial<TechInfo> & Pick<TechInfo, "id" | "name">):
 });
 
 describe("expanded tech tree rendering", () => {
+  it("shows the compact catalog even when there are no available picks", () => {
+    const techCatalog: TechInfo[] = [
+      baseTech({ id: "agriculture", name: "Agriculture", tier: 1, requirements: { gold: 0, resources: {}, canResearch: false, checklist: [] } }),
+      baseTech({ id: "irrigation", name: "Irrigation", tier: 2, requires: "agriculture", requirements: { gold: 3500, resources: {}, canResearch: false, checklist: [] } })
+    ];
+    const byId = new Map(techCatalog.map((tech) => [tech.id, tech]));
+    const tierMemo = new Map<string, number>();
+    const techTier = (id: string): number => {
+      const cached = tierMemo.get(id);
+      if (typeof cached === "number") return cached;
+      const tech = byId.get(id);
+      if (!tech) return 1;
+      const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+      const tier = prereqs.length === 0 ? 1 : Math.max(...prereqs.map((prereq) => techTier(prereq))) + 1;
+      tierMemo.set(id, tier);
+      return tier;
+    };
+
+    const html = renderCompactTechChoiceGridHtml({
+      techCatalog,
+      techUiSelectedId: "agriculture",
+      techRootId: undefined,
+      currentResearch: null,
+      effectiveOwnedTechIds: ["agriculture"],
+      effectiveTechChoices: [],
+      orderedTechIdsByTier: (catalog) => catalog.map((tech) => tech.id),
+      techTier: (id) => techTier(id),
+      techPrereqIds: (tech) => (tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : []),
+      techNameList: (ids) => ids.map((id) => byId.get(id)?.name ?? id).join(", "),
+      formatTechCost: (tech) => (tech.requirements.checklist ?? []).map((entry) => entry.label).join(" · ") || "Cost not listed",
+      isPendingTechUnlock: () => false,
+      formatCooldownShort: () => "0s",
+      titleCaseFromId: (id) => id,
+      viewportHeight: 700,
+      isMobile: false
+    });
+
+    expect(html).toContain(">Agriculture<");
+    expect(html).toContain(">Irrigation<");
+    expect(html).not.toContain("No available technologies right now.");
+    expect(html).toContain(">Unlocked<");
+    expect(html).toContain(">Locked<");
+  });
+
   it("keeps toolmaking branches visible even when rootId is absent", () => {
     const techCatalog: TechInfo[] = [
       baseTech({ id: "toolmaking", name: "Toolmaking", tier: 1, requirements: { gold: 2000, resources: {}, canResearch: false, checklist: [] } }),
