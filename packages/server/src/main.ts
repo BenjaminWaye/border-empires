@@ -1087,6 +1087,7 @@ const cachedChunkSnapshotByPlayer = new Map<
     visibility: VisibilitySnapshot;
     visibilityVersion: number;
     payloadByChunkKey: Map<string, string>;
+    summaryVersionByPayloadKey: Map<string, number>;
     visibilityMaskByChunkKey: Map<string, Uint8Array>;
     visibilityVersionByChunkKey: Map<string, number>;
   }
@@ -9179,6 +9180,8 @@ const {
     return tiles;
   },
   summaryChunkTiles,
+  summaryChunkVersion: (worldCx, worldCy) =>
+    simulationChunkState.summaryChunkVersionByChunkKey.get(`${worldCx},${worldCy}`) ?? 0,
   loadSummaryChunkTilesBatch: (requests) => chunkReadManager.loadBatch(requests),
   visibleInSnapshot,
   wrapX,

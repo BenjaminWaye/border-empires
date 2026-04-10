@@ -97,6 +97,7 @@ describe("createChunkSnapshotController", () => {
       authSyncTimingByPlayer: new Map(),
       fogChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
       summaryChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
+      summaryChunkVersion: () => 0,
       loadSummaryChunkTilesBatch: async (requests) => requests.map(({ cx, cy }) => [makeTile(cx, cy)]),
       visibleInSnapshot: () => true,
       wrapX: (value) => value,
@@ -170,6 +171,7 @@ describe("createChunkSnapshotController", () => {
         nowMs += 6;
         return [makeTile(worldCx, worldCy)];
       },
+      summaryChunkVersion: () => 0,
       loadSummaryChunkTilesBatch: async (requests) => {
         return requests.map(({ cx, cy }) => [makeTile(cx, cy)]);
       },
@@ -237,6 +239,7 @@ describe("createChunkSnapshotController", () => {
       authSyncTimingByPlayer: new Map(),
       fogChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
       summaryChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
+      summaryChunkVersion: () => 0,
       loadSummaryChunkTilesBatch: async (requests) => requests.map(({ cx, cy }) => [makeTile(cx, cy)]),
       visibleInSnapshot: () => true,
       wrapX: (value) => value,
