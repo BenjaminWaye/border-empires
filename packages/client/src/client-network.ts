@@ -1,7 +1,6 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
-import { resolveTechCatalog } from "./client-tech-catalog.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
@@ -776,12 +775,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       requestViewRefresh(1, true);
       state.techChoices = (msg.techChoices as string[]) ?? [];
-      state.techCatalog = resolveTechCatalog({
-        incoming: msg.techCatalog,
-        previous: state.techCatalog,
-        ownedIds: state.techIds,
-        choiceIds: state.techChoices
-      });
+      state.techCatalog = (msg.techCatalog as any[]) ?? [];
       state.domainChoices = (msg.domainChoices as string[]) ?? [];
       state.domainCatalog = (msg.domainCatalog as any[]) ?? [];
       if (!state.domainUiSelectedId && state.domainChoices.length > 0) state.domainUiSelectedId = state.domainChoices[0]!;
@@ -980,12 +974,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
-      state.techCatalog = resolveTechCatalog({
-        incoming: msg.techCatalog,
-        previous: state.techCatalog,
-        ownedIds: state.techIds,
-        choiceIds: state.techChoices
-      });
+      state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
       if (typeof msg.profileNeedsSetup === "boolean") state.profileSetupRequired = msg.profileNeedsSetup;
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
@@ -1401,12 +1390,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         modBreakdown: (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown,
         incomePerMinute: (msg.incomePerMinute as number) ?? state.incomePerMinute,
         missions: (msg.missions as any[]) ?? state.missions,
-        techCatalog: resolveTechCatalog({
-          incoming: msg.techCatalog,
-          previous: state.techCatalog,
-          ownedIds: (msg.techIds as string[]) ?? state.techIds,
-          choiceIds: (msg.nextChoices as string[]) ?? state.techChoices
-        }),
+        techCatalog: (msg.techCatalog as any[]) ?? state.techCatalog,
         domainIds: (msg.domainIds as string[]) ?? state.domainIds,
         domainChoices: (msg.domainChoices as string[]) ?? state.domainChoices,
         domainCatalog: (msg.domainCatalog as any[]) ?? state.domainCatalog,
