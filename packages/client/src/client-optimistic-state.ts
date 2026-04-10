@@ -13,6 +13,7 @@ type OptimisticStateDeps = {
 
 export const createClientOptimisticStateController = (deps: OptimisticStateDeps) => {
   const { state, keyFor, terrainAt, tileVisibilityStateAt } = deps;
+  const hasLateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
   const tileSyncDebugEnabled = (): boolean =>
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" ||
@@ -196,8 +197,18 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     });
   };
 
-  const shouldPreserveOptimisticExpandByKey = (tileKey: string): boolean =>
-    shouldPreserveOptimisticExpand(tileKey ? state.tiles.get(tileKey) : undefined, state.me);
+  const shouldPreserveOptimisticExpandByKey = (tileKey: string): boolean => {
+    const tile = tileKey ? state.tiles.get(tileKey) : undefined;
+    if (shouldPreserveOptimisticExpand(tile, state.me)) return true;
+    if (!tileKey) return false;
+    if (hasLateFrontierAckPending(tileKey)) return true;
+    return Boolean(
+      state.actionInFlight &&
+        state.actionCurrent &&
+        keyFor(state.actionCurrent.x, state.actionCurrent.y) === tileKey &&
+        !tile?.ownerId
+    );
+  };
 
   const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
     const tileKey = keyFor(incoming.x, incoming.y);
@@ -251,7 +262,8 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     if (existing.optimisticPending === "expand") {
       if (incoming.ownerId === state.me && incoming.ownershipState === "FRONTIER") return incoming;
       const awaitingActiveExpand = state.actionInFlight && state.actionTargetKey === tileKey;
-      if (!awaitingActiveExpand) {
+      const awaitingLateAck = hasLateFrontierAckPending(tileKey);
+      if (!awaitingActiveExpand && !awaitingLateAck) {
         debugTileTimeline("frontier-merge-authority-restored", {
           x: incoming.x,
           y: incoming.y,
@@ -277,22 +289,23 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
         optimisticPending: existing.optimisticPending
       };
       if (existing.ownershipState) merged.ownershipState = existing.ownershipState;
-      debugTileTimeline("frontier-merge-preserve-inflight", {
-        x: incoming.x,
-        y: incoming.y,
-        before: existing,
-        incoming,
-        after: merged,
-        state,
-        keyFor,
-        extra: { awaitingActiveExpand }
-      });
+        debugTileTimeline("frontier-merge-preserve-inflight", {
+          x: incoming.x,
+          y: incoming.y,
+          before: existing,
+          incoming,
+          after: merged,
+          state,
+          keyFor,
+          extra: { awaitingActiveExpand, awaitingLateAck }
+        });
       logTileSync("expand_preserved_while_inflight", {
         tileKey,
         existingOwnerId: existing.ownerId,
         existingOwnershipState: existing.ownershipState,
         incomingOwnerId: incoming.ownerId,
-        incomingOwnershipState: incoming.ownershipState
+        incomingOwnershipState: incoming.ownershipState,
+        awaitingLateAck
       });
       return merged;
     }

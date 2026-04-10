@@ -1483,6 +1483,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (currentKey && !keepOptimisticExpand) deps.clearOptimisticTileState(currentKey, true);
       if (keepOptimisticExpand) {
         state.frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 12_000);
+        state.frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
@@ -1558,6 +1559,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       );
       if (keepOptimisticExpand) {
         state.frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);
+        state.frontierLateAckUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== timedOutCurrentKey);
         state.queuedTargetKeys.delete(timedOutCurrentKey);
         deps.requestViewRefresh(1, true);
