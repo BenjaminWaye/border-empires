@@ -13,7 +13,7 @@ import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js"
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
-import { debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -1356,6 +1356,20 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       const current = state.actionCurrent;
       const currentKey = current ? deps.keyFor(current.x, current.y) : "";
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(currentKey);
+      attackSyncLog("combat-start-timeout", {
+        current,
+        currentKey,
+        elapsedMs: Date.now() - started,
+        keepOptimisticExpand,
+        queueLength: state.actionQueue.length,
+        queuedKeys: Array.from(state.queuedTargetKeys),
+        pendingCombatReveal: state.pendingCombatReveal
+          ? {
+              targetKey: state.pendingCombatReveal.targetKey,
+              revealed: state.pendingCombatReveal.revealed
+            }
+          : undefined
+      });
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
@@ -1371,6 +1385,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
         deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
+        attackSyncLog("combat-start-timeout-refresh", {
+          strategy: "wait-for-frontier-sync",
+          currentKey,
+          refreshRadius: 1
+        });
       } else if (current && (current.retries ?? 0) < 3) {
         deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");
         deps.requestViewRefresh(1, true);
@@ -1383,11 +1402,22 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.actionQueue.unshift(retryAction);
         state.queuedTargetKeys.add(deps.keyFor(current.x, current.y));
         deps.pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
+        attackSyncLog("combat-start-timeout-refresh", {
+          strategy: "retry",
+          currentKey,
+          retryAction,
+          refreshRadius: 1
+        });
       } else {
         deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");
         deps.requestViewRefresh(1, true);
         deps.pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
+        attackSyncLog("combat-start-timeout-refresh", {
+          strategy: "resync-without-retry",
+          currentKey,
+          refreshRadius: 1
+        });
       }
       deps.processActionQueue();
       deps.renderHud();
@@ -1397,6 +1427,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (Date.now() > state.capture.resolvesAt + 5_000) {
       const timedOutCurrentKey = state.actionCurrent ? deps.keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(timedOutCurrentKey);
+      attackSyncLog("combat-result-timeout", {
+        current: state.actionCurrent,
+        currentKey: timedOutCurrentKey,
+        elapsedMs: Date.now() - started,
+        captureTarget: state.capture.target,
+        captureResolvesAt: state.capture.resolvesAt,
+        keepOptimisticExpand,
+        queueLength: state.actionQueue.length
+      });
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === timedOutCurrentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
