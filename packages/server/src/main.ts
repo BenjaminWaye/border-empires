@@ -307,9 +307,8 @@ import {
   BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS,
   BARBARIAN_OWNER_ID,
   BARBARIAN_TICK_MS,
-  BANK_BUILD_CRYSTAL_COST,
   BANK_BUILD_GOLD_COST,
-  BANK_CRYSTAL_UPKEEP,
+  BANK_FOOD_UPKEEP,
   BREAKTHROUGH_DEF_MULT_FACTOR,
   BREAKTHROUGH_GOLD_COST,
   BREAKTHROUGH_IRON_COST,
@@ -320,9 +319,8 @@ import {
   CAMP_BUILD_SUPPLY_COST,
   CAMP_GOLD_UPKEEP,
   canAffordGoldCost,
-  CARAVANARY_BUILD_CRYSTAL_COST,
   CARAVANARY_BUILD_GOLD_COST,
-  CARAVANARY_GOLD_UPKEEP,
+  CARAVANARY_FOOD_UPKEEP,
   COLLECT_VISIBLE_COOLDOWN_MS,
   colorFromId,
   CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST,
@@ -381,9 +379,8 @@ import {
   LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
   LIGHT_OUTPOST_GOLD_UPKEEP,
   MANPOWER_EPSILON,
-  MARKET_BUILD_CRYSTAL_COST,
   MARKET_BUILD_GOLD_COST,
-  MARKET_CRYSTAL_UPKEEP,
+  MARKET_FOOD_UPKEEP,
   MINE_BUILD_GOLD_COST,
   MINE_BUILD_RESOURCE_COST,
   MINE_GOLD_UPKEEP,
@@ -1871,6 +1868,7 @@ const {
   roundedUpkeepPerMinute,
   tileUpkeepEntriesForTile,
   economicStructureGoldUpkeepPerInterval,
+  economicStructureFoodUpkeepPerInterval,
   economicStructureCrystalUpkeepPerInterval,
   pushUpkeepContributor,
   sortedUpkeepContributors,
@@ -1927,7 +1925,9 @@ const {
   CAMP_GOLD_UPKEEP,
   MINE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
-  CARAVANARY_GOLD_UPKEEP,
+  MARKET_FOOD_UPKEEP,
+  BANK_FOOD_UPKEEP,
+  CARAVANARY_FOOD_UPKEEP,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   WOODEN_FORT_GOLD_UPKEEP,
   LIGHT_OUTPOST_GOLD_UPKEEP,
@@ -1938,9 +1938,7 @@ const {
   GARRISON_HALL_GOLD_UPKEEP,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
-  RADAR_SYSTEM_GOLD_UPKEEP,
-  MARKET_CRYSTAL_UPKEEP,
-  BANK_CRYSTAL_UPKEEP
+  RADAR_SYSTEM_GOLD_UPKEEP
 });
 
 const {
@@ -2037,6 +2035,7 @@ const {
     structureType === "FORT" ? FORT_BUILD_MS : structureType === "OBSERVATORY" ? OBSERVATORY_BUILD_MS : structureType === "SIEGE_OUTPOST" ? SIEGE_OUTPOST_BUILD_MS : (structureType === "WOODEN_FORT" ? WOODEN_FORT_BUILD_MS : structureType === "LIGHT_OUTPOST" ? LIGHT_OUTPOST_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS),
   baseSynthTypeForAdvanced: (structureType: EconomicStructureType) =>
     structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER" : structureType === "ADVANCED_IRONWORKS" ? "IRONWORKS" : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? "CRYSTAL_SYNTHESIZER" : undefined,
+  economicStructureFoodUpkeepPerInterval,
   economicStructureCrystalUpkeepPerInterval,
   playerEconomySnapshot,
   dockIncomeForOwner,
@@ -2052,16 +2051,11 @@ const {
   FARMSTEAD_BUILD_FOOD_COST,
   CAMP_BUILD_SUPPLY_COST,
   MINE_BUILD_RESOURCE_COST,
-  MARKET_BUILD_CRYSTAL_COST,
   GRANARY_BUILD_FOOD_COST,
-  BANK_BUILD_CRYSTAL_COST,
-  CARAVANARY_BUILD_CRYSTAL_COST,
   GARRISON_HALL_BUILD_CRYSTAL_COST,
   CUSTOMS_HOUSE_BUILD_CRYSTAL_COST,
   RADAR_SYSTEM_BUILD_CRYSTAL_COST,
   AIRPORT_BUILD_CRYSTAL_COST,
-  MARKET_CRYSTAL_UPKEEP,
-  BANK_CRYSTAL_UPKEEP,
   randomUUID: () => crypto.randomUUID()
 });
 
@@ -3241,7 +3235,7 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.dockGoldCapMult === "number") next.dockGoldCapMult *= effects.dockGoldCapMult;
     if (typeof effects.dockConnectionBonusPerLink === "number") next.dockConnectionBonusPerLink = effects.dockConnectionBonusPerLink;
     if (effects.dockRoutesVisible) next.dockRoutesVisible = true;
-    if (typeof effects.marketCrystalUpkeepMult === "number") next.marketCrystalUpkeepMult *= effects.marketCrystalUpkeepMult;
+    if (typeof effects.supportEconomicFoodUpkeepMult === "number") next.supportEconomicFoodUpkeepMult *= effects.supportEconomicFoodUpkeepMult;
     if (typeof effects.frontierDefenseAdd === "number") next.frontierDefenseAdd += effects.frontierDefenseAdd;
     if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
     if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
@@ -6505,8 +6499,7 @@ const buildAiPlanningStaticCache = (
       actor.techIds.has("leatherworking") && actor.points >= CAMP_BUILD_GOLD_COST && (stock.SUPPLY ?? 0) >= CAMP_BUILD_SUPPLY_COST;
     const canPlaceMine =
       actor.techIds.has("mining") && actor.points >= MINE_BUILD_GOLD_COST;
-    const canPlaceMarket =
-      actor.techIds.has("trade") && actor.points >= MARKET_BUILD_GOLD_COST && (stock.CRYSTAL ?? 0) >= MARKET_BUILD_CRYSTAL_COST;
+    const canPlaceMarket = actor.techIds.has("trade") && actor.points >= MARKET_BUILD_GOLD_COST;
 
     for (const tile of territorySummary.structureCandidateTiles) {
       const tk = key(tile.x, tile.y);
@@ -7066,7 +7059,7 @@ const bestAiEconomicStructure = (
       best.structureType === "MINE" &&
       (!actor.techIds.has("mining") || actor.points < MINE_BUILD_GOLD_COST || ((best.tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)
     ) best = undefined;
-    else if (best.structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST || (stock.CRYSTAL ?? 0) < MARKET_BUILD_CRYSTAL_COST)) best = undefined;
+    else if (best.structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST)) best = undefined;
     else if (
       best.structureType === "GRANARY" &&
       (!getPlayerEffectsForPlayer(actor.id).unlockGranary || actor.points < GRANARY_BUILD_GOLD_COST || (stock.FOOD ?? 0) < GRANARY_BUILD_FOOD_COST)
@@ -7092,7 +7085,7 @@ const bestAiEconomicStructure = (
       if (structureType === "FARMSTEAD" && (!actor.techIds.has("agriculture") || actor.points < FARMSTEAD_BUILD_GOLD_COST || (stock.FOOD ?? 0) < FARMSTEAD_BUILD_FOOD_COST)) continue;
       if (structureType === "CAMP" && (!actor.techIds.has("leatherworking") || actor.points < CAMP_BUILD_GOLD_COST || (stock.SUPPLY ?? 0) < CAMP_BUILD_SUPPLY_COST)) continue;
       if (structureType === "MINE" && (!actor.techIds.has("mining") || actor.points < MINE_BUILD_GOLD_COST || ((tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)) continue;
-      if (structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST || (stock.CRYSTAL ?? 0) < MARKET_BUILD_CRYSTAL_COST)) continue;
+      if (structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST)) continue;
       if (structureType === "GRANARY" && (!getPlayerEffectsForPlayer(actor.id).unlockGranary || actor.points < GRANARY_BUILD_GOLD_COST || (stock.FOOD ?? 0) < GRANARY_BUILD_FOOD_COST)) continue;
       return { tile, structureType };
     }
