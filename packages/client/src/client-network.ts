@@ -276,6 +276,35 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     requestViewRefresh(radius, force);
   };
 
+  const lateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
+
+  const clearLateFrontierAck = (tileKey: string): void => {
+    if (!tileKey) return;
+    state.frontierLateAckUntilByTarget.delete(tileKey);
+  };
+
+  const rebindLateFrontierAck = (
+    target: { x: number; y: number },
+    source: "ACTION_ACCEPTED" | "COMBAT_START"
+  ): void => {
+    const targetKey = keyFor(target.x, target.y);
+    const lateAckUntil = state.frontierLateAckUntilByTarget.get(targetKey) ?? 0;
+    if (!lateFrontierAckPending(targetKey)) return;
+    state.actionInFlight = true;
+    state.actionTargetKey = targetKey;
+    if (!state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) {
+      state.actionCurrent = { x: target.x, y: target.y, retries: 0 };
+    }
+    if (!state.actionStartedAt) state.actionStartedAt = Date.now();
+    clearLateFrontierAck(targetKey);
+    attackSyncLog("late-frontier-ack-rebound", {
+      source,
+      target,
+      targetKey,
+      lateAckWaitRemainingMs: Math.max(0, lateAckUntil - Date.now())
+    });
+  };
+
   const reconcileActionQueueSafely = (): void => {
     if (typeof reconcileActionQueue !== "function") return;
     reconcileActionQueue();
@@ -421,6 +450,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.tiles.set(tileKey, merged);
       if (merged.ownerId === state.me && (merged.ownershipState === "FRONTIER" || merged.ownershipState === "SETTLED")) {
         state.frontierSyncWaitUntilByTarget.delete(tileKey);
+        clearLateFrontierAck(tileKey);
         state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
         state.queuedTargetKeys.delete(tileKey);
       }
@@ -544,8 +574,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           optimisticPending: mergedTile.optimisticPending
         });
       }
-      state.frontierSyncWaitUntilByTarget.delete(keyFor(mergedTile.x, mergedTile.y));
       if (mergedTile.ownerId === state.me && (mergedTile.ownershipState === "FRONTIER" || mergedTile.ownershipState === "SETTLED")) {
+        state.frontierSyncWaitUntilByTarget.delete(tileKey);
+        clearLateFrontierAck(tileKey);
         state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
         state.queuedTargetKeys.delete(tileKey);
         resolvedQueuedFrontierCapture = true;
@@ -1097,6 +1128,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
         currentAction: state.actionCurrent
       });
+      rebindLateFrontierAck(target, "ACTION_ACCEPTED");
       state.actionAcceptedAck = true;
       state.actionInFlight = true;
       state.actionTargetKey = targetKey;
@@ -1148,6 +1180,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
         currentAction: state.actionCurrent
       });
+      rebindLateFrontierAck(target, "COMBAT_START");
       state.actionAcceptedAck = true;
       state.combatStartAck = true;
       const existingCapture =
@@ -1213,6 +1246,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
+      clearLateFrontierAck(cancelledCurrentKey);
       if (cancelledCurrentKey) state.queuedTargetKeys.delete(cancelledCurrentKey);
       if (cancelledCurrentKey) clearOptimisticTileState(cancelledCurrentKey, true);
       state.autoSettleTargets.clear();
@@ -1384,6 +1418,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         if (resolved.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
           state.frontierSyncWaitUntilByTarget.delete(updateKey);
+          clearLateFrontierAck(updateKey);
           state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
           state.queuedTargetKeys.delete(updateKey);
           logFrontierTimeline("frontier-queue-resolved-by-delta", resolved.x, resolved.y, {
@@ -1811,6 +1846,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.actionStartedAt = 0;
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
+        clearLateFrontierAck(failedCurrentKey);
+        clearLateFrontierAck(failedTargetKey);
         if (errorCode === "ATTACK_COOLDOWN") {
           if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + COMBAT_LOCK_MS);
           if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + COMBAT_LOCK_MS);
