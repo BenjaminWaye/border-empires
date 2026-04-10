@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  debugTileSnapshot,
   debugEnabledForAccount,
   debugTileLoggingEnabled,
   setDebugAuthEmail,
@@ -47,5 +48,33 @@ describe("client debug tile controls", () => {
     expect(debugTileLoggingEnabled()).toBe(true);
     expect(tileMatchesDebugKey(78, 322, 1, { fallbackTile: { x: 78, y: 322 } })).toBe(true);
     expect(tileMatchesDebugKey(80, 322, 0, { fallbackTile: { x: 78, y: 322 } })).toBe(false);
+  });
+
+  it("summarizes tile state for timeline logs", () => {
+    expect(
+      debugTileSnapshot({
+        x: 78,
+        y: 322,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "FRONTIER",
+        optimisticPending: "expand",
+        detailLevel: "summary",
+        fogged: false,
+        lastChangedAt: 123
+      } as any)
+    ).toEqual({
+      x: 78,
+      y: 322,
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "expand",
+      detailLevel: "summary",
+      fogged: false,
+      lastChangedAt: 123,
+      terrain: "LAND",
+      resource: undefined
+    });
+    expect(debugTileSnapshot(undefined)).toBeNull();
   });
 });

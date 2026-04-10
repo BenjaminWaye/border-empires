@@ -1,6 +1,6 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { SETTLED_DEFENSE_NEAR_FORT_RADIUS, wrappedChebyshevDistance } from "@border-empires/shared";
 import type { TileOverviewModifier } from "./client-tile-overview-modifiers.js";
-import type { Tile } from "./client-types.js";
+import type { DomainInfo, Tile } from "./client-types.js";
 
 const FOUNDRY_RADIUS = 10;
 const GOVERNORS_OFFICE_RADIUS = 10;
@@ -17,12 +17,6 @@ export type StructureAreaPreview = {
   lineDash: number[];
 };
 
-const chebyshevDistanceWrapped = (ax: number, ay: number, bx: number, by: number): number => {
-  const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
-  const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
-  return Math.max(dx, dy);
-};
-
 const isActiveOwnedStructureWithinRange = (
   tiles: Iterable<Tile>,
   ownerId: string,
@@ -33,9 +27,39 @@ const isActiveOwnedStructureWithinRange = (
   for (const candidate of tiles) {
     const structure = candidate.economicStructure;
     if (!structure || structure.ownerId !== ownerId || structure.type !== structureType || structure.status !== "active") continue;
-    if (chebyshevDistanceWrapped(candidate.x, candidate.y, target.x, target.y) <= radius) return true;
+    if (wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y) <= radius) return true;
   }
   return false;
+};
+
+const percentLabel = (value: number): string => `${value >= 0 ? "+" : "-"}${Math.abs(Math.round(value))}%`;
+
+const isActiveOwnedFortWithinRange = (tiles: Iterable<Tile>, ownerId: string, target: Tile, radius: number): boolean => {
+  const nowMs = Date.now();
+  for (const candidate of tiles) {
+    const fort = candidate.fort;
+    if (!fort || fort.ownerId !== ownerId || fort.status !== "active") continue;
+    if ((fort.disabledUntil ?? 0) > nowMs) continue;
+    if (wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y) <= radius) return true;
+  }
+  return false;
+};
+
+export const settledDefenseNearFortDomainModifiers = (domainCatalog: DomainInfo[], domainIds: string[]): TileAreaEffectModifier[] => {
+  const domainById = new Map(domainCatalog.map((domain) => [domain.id, domain]));
+  const modifiers: TileAreaEffectModifier[] = [];
+  for (const id of domainIds) {
+    const value = domainById.get(id)?.effects?.settledDefenseNearFortMult;
+    if (typeof value !== "number" || value === 1) continue;
+    const domain = domainById.get(id);
+    if (!domain) continue;
+    modifiers.push({
+      reason: domain.name,
+      effect: `${percentLabel((value - 1) * 100)} defense near forts`,
+      tone: "positive"
+    });
+  }
+  return modifiers;
 };
 
 export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | undefined => {
@@ -84,7 +108,11 @@ export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | 
   return undefined;
 };
 
-export const tileAreaEffectModifiersForTile = (tile: Tile, tiles: Iterable<Tile>): TileAreaEffectModifier[] => {
+export const tileAreaEffectModifiersForTile = (
+  tile: Tile,
+  tiles: Iterable<Tile>,
+  settledDefenseNearFortModifiers: TileAreaEffectModifier[] = []
+): TileAreaEffectModifier[] => {
   const modifiers: TileAreaEffectModifier[] = [];
   if (!tile.ownerId || tile.fogged) return modifiers;
 
@@ -121,6 +149,14 @@ export const tileAreaEffectModifiersForTile = (tile: Tile, tiles: Iterable<Tile>
       effect: "+20% defense",
       tone: "positive"
     });
+  }
+
+  if (
+    tile.ownershipState === "SETTLED" &&
+    settledDefenseNearFortModifiers.length > 0 &&
+    isActiveOwnedFortWithinRange(tiles, tile.ownerId, tile, SETTLED_DEFENSE_NEAR_FORT_RADIUS)
+  ) {
+    modifiers.push(...settledDefenseNearFortModifiers);
   }
 
   if (isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "RADAR_SYSTEM", RADAR_SYSTEM_RADIUS)) {
