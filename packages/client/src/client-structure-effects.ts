@@ -1,4 +1,5 @@
 import { SETTLED_DEFENSE_NEAR_FORT_RADIUS, wrappedChebyshevDistance } from "@border-empires/shared";
+import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 import type { TileOverviewModifier } from "./client-tile-overview-modifiers.js";
 import type { DomainInfo, Tile } from "./client-types.js";
 
@@ -36,14 +37,89 @@ const percentLabel = (value: number): string => `${value >= 0 ? "+" : "-"}${Math
 
 const isActiveOwnedFortWithinRange = (tiles: Iterable<Tile>, ownerId: string, target: Tile, radius: number): boolean => {
   const nowMs = Date.now();
+  const debugCandidates: Array<Record<string, unknown>> = [];
+  const shouldDebug = verboseTileDebugEnabled() && tileMatchesDebugKey(target.x, target.y, 1, { fallbackTile: target });
   for (const candidate of tiles) {
     const fort = candidate.fort;
     if (fort && fort.ownerId === ownerId && fort.status === "active" && (fort.disabledUntil ?? 0) <= nowMs) {
-      if (wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y) <= radius) return true;
+      const distance = wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y);
+      if (shouldDebug) {
+        debugCandidates.push({
+          x: candidate.x,
+          y: candidate.y,
+          source: "fort",
+          status: fort.status,
+          disabledUntil: fort.disabledUntil ?? null,
+          ownerId: fort.ownerId,
+          distance,
+          inRange: distance <= radius
+        });
+      }
+      if (distance <= radius) {
+        if (shouldDebug) {
+          debugTileLog("stone-curtain-fort-scan", {
+            target: {
+              x: target.x,
+              y: target.y,
+              ownerId: target.ownerId,
+              ownershipState: target.ownershipState,
+              detailLevel: target.detailLevel
+            },
+            radius,
+            matched: true,
+            matchSource: "fort",
+            candidates: debugCandidates
+          });
+        }
+        return true;
+      }
     }
     const structure = candidate.economicStructure;
     if (!structure || structure.ownerId !== ownerId || structure.status !== "active" || structure.type !== "WOODEN_FORT") continue;
-    if (wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y) <= radius) return true;
+    const distance = wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y);
+    if (shouldDebug) {
+      debugCandidates.push({
+        x: candidate.x,
+        y: candidate.y,
+        source: "wooden_fort",
+        status: structure.status,
+        ownerId: structure.ownerId,
+        distance,
+        inRange: distance <= radius
+      });
+    }
+    if (distance <= radius) {
+      if (shouldDebug) {
+        debugTileLog("stone-curtain-fort-scan", {
+          target: {
+            x: target.x,
+            y: target.y,
+            ownerId: target.ownerId,
+            ownershipState: target.ownershipState,
+            detailLevel: target.detailLevel
+          },
+          radius,
+          matched: true,
+          matchSource: "wooden_fort",
+          candidates: debugCandidates
+        });
+      }
+      return true;
+    }
+  }
+  if (shouldDebug) {
+    debugTileLog("stone-curtain-fort-scan", {
+      target: {
+        x: target.x,
+        y: target.y,
+        ownerId: target.ownerId,
+        ownershipState: target.ownershipState,
+        detailLevel: target.detailLevel
+      },
+      radius,
+      matched: false,
+      candidates: debugCandidates
+    });
   }
   return false;
 };
@@ -118,6 +194,7 @@ export const tileAreaEffectModifiersForTile = (
 ): TileAreaEffectModifier[] => {
   const modifiers: TileAreaEffectModifier[] = [];
   if (!tile.ownerId || tile.fogged) return modifiers;
+  const shouldDebug = verboseTileDebugEnabled() && tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: tile });
 
   if (
     tile.economicStructure?.type === "MINE" &&
@@ -167,6 +244,22 @@ export const tileAreaEffectModifiersForTile = (
       reason: "Radar System",
       effect: "Protected from airport strikes",
       tone: "positive"
+    });
+  }
+
+  if (shouldDebug) {
+    debugTileLog("stone-curtain-area-modifiers", {
+      tile: {
+        x: tile.x,
+        y: tile.y,
+        ownerId: tile.ownerId,
+        ownershipState: tile.ownershipState,
+        detailLevel: tile.detailLevel,
+        fogged: tile.fogged
+      },
+      radius: SETTLED_DEFENSE_NEAR_FORT_RADIUS,
+      settledDefenseNearFortModifiers,
+      resultingModifiers: modifiers
     });
   }
 
