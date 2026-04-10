@@ -200,7 +200,7 @@ export const sampleRuntimeVitals = (): {
   };
 };
 
-export type Ws = import("ws").WebSocket;
+export type Ws = import("ws").WebSocket & { _socket?: import("node:net").Socket };
 export const NOOP_WS = { send: () => undefined, readyState: 1, OPEN: 1 } as unknown as Ws;
 
 export const logStartupPhase = (phase: string, startedAt: number, extra?: Record<string, unknown>): void => {
