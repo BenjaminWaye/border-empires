@@ -1211,6 +1211,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (normalizedUpdate.yieldCap) merged.yieldCap = normalizedUpdate.yieldCap;
           else delete merged.yieldCap;
         }
+        if ("upkeepEntries" in normalizedUpdate) {
+          if (normalizedUpdate.upkeepEntries) merged.upkeepEntries = normalizedUpdate.upkeepEntries;
+          else delete merged.upkeepEntries;
+        }
         if ("history" in normalizedUpdate) {
           if (normalizedUpdate.history) merged.history = normalizedUpdate.history;
           else delete merged.history;
