@@ -1,6 +1,6 @@
 import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "./client-constants.js";
-import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
 import { queuedSettlementOrderForTile } from "./client-development-queue.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "./client-types.js";
@@ -842,6 +842,20 @@ export const processActionQueue = (
     state.captureAlert = undefined;
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
     state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    const actionType = !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK";
+    attackSyncLog("queue-dispatch", {
+      actionType,
+      target: { x: to.x, y: to.y },
+      origin: { x: from.x, y: from.y },
+      targetKey,
+      toOwnerId: to.ownerId,
+      toOwnershipState: to.ownershipState,
+      retries: next.retries ?? 0,
+      queueLengthAfterShift: state.actionQueue.length,
+      wsReadyState: deps.ws.readyState,
+      authSessionReady: deps.authSessionReady,
+      optimisticMs
+    });
     if (!to.ownerId) {
       deps.applyOptimisticTileState(to.x, to.y, (tile) => {
         tile.ownerId = state.me;
@@ -865,6 +879,14 @@ export const processActionQueue = (
         continue;
       }
       deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+      attackSyncLog("send", {
+        actionType: "EXPAND",
+        target: { x: to.x, y: to.y },
+        origin: { x: from.x, y: from.y },
+        targetKey,
+        startedAt: state.actionStartedAt,
+        wsReadyState: deps.ws.readyState
+      });
       logActionQueue("action-send", {
         type: "EXPAND",
         from: { x: from.x, y: from.y },
@@ -887,6 +909,14 @@ export const processActionQueue = (
       }
       if (next.mode === "breakthrough") {
         deps.ws.send(JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        attackSyncLog("send", {
+          actionType: "BREAKTHROUGH_ATTACK",
+          target: { x: to.x, y: to.y },
+          origin: { x: from.x, y: from.y },
+          targetKey,
+          startedAt: state.actionStartedAt,
+          wsReadyState: deps.ws.readyState
+        });
         logActionQueue("action-send", {
           type: "BREAKTHROUGH_ATTACK",
           from: { x: from.x, y: from.y },
@@ -897,6 +927,14 @@ export const processActionQueue = (
         deps.pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
       } else {
         deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        attackSyncLog("send", {
+          actionType: "ATTACK",
+          target: { x: to.x, y: to.y },
+          origin: { x: from.x, y: from.y },
+          targetKey,
+          startedAt: state.actionStartedAt,
+          wsReadyState: deps.ws.readyState
+        });
         logActionQueue("action-send", {
           type: "ATTACK",
           from: { x: from.x, y: from.y },
