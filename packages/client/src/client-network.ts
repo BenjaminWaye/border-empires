@@ -416,6 +416,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.capture = undefined;
     if (!handedOffToSettle) {
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
@@ -561,6 +562,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       currentActionKey,
       currentAction: state.actionCurrent,
       actionStartedAt: state.actionStartedAt,
+      actionAcceptedAck: state.actionAcceptedAck,
       combatStartAck: state.combatStartAck,
       capture: state.capture
         ? {
@@ -571,6 +573,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
     state.connection = "disconnected";
     state.actionInFlight = false;
+    state.actionAcceptedAck = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
@@ -592,6 +595,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       currentActionKey,
       currentAction: state.actionCurrent,
       actionStartedAt: state.actionStartedAt,
+      actionAcceptedAck: state.actionAcceptedAck,
       combatStartAck: state.combatStartAck,
       capture: state.capture
         ? {
@@ -602,6 +606,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
     state.connection = "disconnected";
     state.actionInFlight = false;
+    state.actionAcceptedAck = false;
     state.combatStartAck = false;
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
@@ -640,12 +645,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       return true;
     };
-    if (msg.type === "COMBAT_START" || msg.type === "COMBAT_RESULT" || msg.type === "ERROR") {
+    if (msg.type === "ACTION_ACCEPTED" || msg.type === "COMBAT_START" || msg.type === "COMBAT_RESULT" || msg.type === "ERROR") {
       const currentTarget = state.actionCurrent ? { x: state.actionCurrent.x, y: state.actionCurrent.y } : undefined;
       attackSyncLog("message", {
         type: msg.type,
         currentTarget,
         currentActionKey: state.actionTargetKey,
+        actionAcceptedAck: state.actionAcceptedAck,
         combatStartAck: state.combatStartAck,
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
         msgTarget:
@@ -1018,6 +1024,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
+    if (msg.type === "ACTION_ACCEPTED") {
+      const target = msg.target as { x: number; y: number };
+      const targetKey = keyFor(target.x, target.y);
+      attackSyncLog("action-accepted", {
+        actionType: msg.actionType,
+        target,
+        origin: msg.origin,
+        resolvesAt: msg.resolvesAt,
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        currentAction: state.actionCurrent
+      });
+      state.actionAcceptedAck = true;
+      state.actionInFlight = true;
+      state.actionTargetKey = targetKey;
+      renderHud();
+      return;
+    }
+
     if (msg.type === "COMBAT_RESULT") {
       const resultReceivedAt = Date.now();
       const timing = msg.timing as { acceptedAt?: number; resolvesAt?: number; resultSentAt?: number } | undefined;
@@ -1044,6 +1068,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         origin: msg.origin,
         attackerWon: msg.attackerWon,
         startedAgoMs: state.actionStartedAt ? resultReceivedAt - state.actionStartedAt : undefined,
+        actionAcceptedAck: state.actionAcceptedAck,
         hadCombatStartAck: state.combatStartAck
       });
       applyCombatOutcomeMessage(msg as Record<string, unknown>);
@@ -1061,6 +1086,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
         currentAction: state.actionCurrent
       });
+      state.actionAcceptedAck = true;
       state.combatStartAck = true;
       const existingCapture =
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
@@ -1120,6 +1146,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
@@ -1313,6 +1340,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.capture = undefined;
         if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
         state.actionInFlight = false;
+        state.actionAcceptedAck = false;
         state.combatStartAck = false;
         state.actionStartedAt = 0;
         if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
@@ -1687,6 +1715,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.capture = undefined;
         if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
         state.actionInFlight = false;
+        state.actionAcceptedAck = false;
         state.combatStartAck = false;
         state.actionStartedAt = 0;
         state.actionTargetKey = "";

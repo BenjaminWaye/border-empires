@@ -910,6 +910,7 @@ export const processActionQueue = (
       ...(next.mode ? { mode: next.mode } : {})
     };
     state.actionInFlight = true;
+    state.actionAcceptedAck = false;
     state.combatStartAck = false;
     state.actionStartedAt = Date.now();
     state.actionTargetKey = targetKey;
@@ -967,6 +968,7 @@ export const processActionQueue = (
         state.actionInFlight = false;
         state.actionCurrent = undefined;
         state.actionTargetKey = "";
+        state.actionAcceptedAck = false;
         state.combatStartAck = false;
         state.queuedTargetKeys.delete(targetKey);
         deps.renderHud();
@@ -996,6 +998,7 @@ export const processActionQueue = (
         state.actionInFlight = false;
         state.actionCurrent = undefined;
         state.actionTargetKey = "";
+        state.actionAcceptedAck = false;
         state.combatStartAck = false;
         state.queuedTargetKeys.delete(targetKey);
         deps.renderHud();
