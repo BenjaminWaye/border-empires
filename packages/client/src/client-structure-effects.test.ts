@@ -86,4 +86,28 @@ describe("client structure effects", () => {
       ))
     ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
   });
+
+  it("keeps the near-fort bonus available across the wider local defense area", () => {
+    const fort: Tile = {
+      x: 40,
+      y: 40,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fort: { ownerId: "me", status: "active" }
+    };
+    const settledTile: Tile = {
+      x: 50,
+      y: 40,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED"
+    };
+
+    expect(
+      tileAreaEffectModifiersForTile(settledTile, [fort, settledTile], [
+        { reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" }
+      ])
+    ).toContainEqual({ reason: "Stone Curtain", effect: "+10% defense near forts", tone: "positive" });
+  });
 });
