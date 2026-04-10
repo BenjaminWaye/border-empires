@@ -1,6 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
 import { isForestTile } from "./client-constants.js";
+import type { RoadDirections } from "./client-road-network.js";
 import type { EmpireVisualStyle, Tile } from "./client-types.js";
 
 type TileMap = Map<string, Tile>;
@@ -781,7 +782,7 @@ const drawSettlementFlag = (
 
 export const drawRoadOverlay = (
   ctx: CanvasRenderingContext2D,
-  directions: { north?: boolean; east?: boolean; south?: boolean; west?: boolean; terminal?: boolean },
+  directions: RoadDirections,
   px: number,
   py: number,
   size: number
@@ -790,15 +791,16 @@ export const drawRoadOverlay = (
   const centerY = py + size / 2;
   const roadWidth = Math.max(1.2, size * 0.07);
   const segments: Array<[number, number]> = [];
-  const degree =
-    (directions.north ? 1 : 0) +
-    (directions.east ? 1 : 0) +
-    (directions.south ? 1 : 0) +
-    (directions.west ? 1 : 0);
+  const degree = Object.entries(directions).reduce(
+    (count, [dir, enabled]) => count + (dir !== "terminal" && enabled ? 1 : 0),
+    0
+  );
   // Draw each shared road edge only once so the line runs center-to-center
   // across neighboring tiles instead of stopping at tile borders.
   if (directions.east) segments.push([centerX + size, centerY]);
   if (directions.south) segments.push([centerX, centerY + size]);
+  if (directions.southeast) segments.push([centerX + size, centerY + size]);
+  if (directions.southwest) segments.push([centerX - size, centerY + size]);
   if (segments.length === 0 && !directions.terminal) return;
 
   ctx.save();

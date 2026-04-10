@@ -1,6 +1,9 @@
+import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
+import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
+import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -64,6 +67,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearPendingCollectTileDelta,
     playerNameForOwner
   } = deps;
+  const tileSyncDebugEnabled = (): boolean =>
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.localStorage.getItem("tile-sync-debug") === "1");
+
+  const logTileSync = (event: string, payload: Record<string, unknown>): void => {
+    if (!tileSyncDebugEnabled()) return;
+    console.info(`[tile-sync] ${event}`, payload);
+  };
   const shouldResetFrontierActionStateForError =
     typeof deps.shouldResetFrontierActionStateForError === "function"
       ? deps.shouldResetFrontierActionStateForError
@@ -105,9 +119,138 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
   };
 
+  const logDebugTileState = (scope: string, tile: any, extra?: Record<string, unknown>): void => {
+    if (!tile || !tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) return;
+    debugTileLog(scope, {
+      x: tile.x,
+      y: tile.y,
+      detailLevel: tile.detailLevel,
+      ownerId: tile.ownerId,
+      ownershipState: tile.ownershipState,
+      resource: tile.resource,
+      economicStructure: tile.economicStructure
+        ? {
+            type: tile.economicStructure.type,
+            status: tile.economicStructure.status
+          }
+        : undefined,
+      town: tile.town
+        ? {
+            hasMarket: tile.town.hasMarket,
+            hasGranary: tile.town.hasGranary,
+            hasBank: tile.town.hasBank,
+            populationTier: tile.town.populationTier
+          }
+        : undefined,
+      ...(extra ?? {})
+    });
+  };
+
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
+
+  const clearSettlementProgressSafely = (tileKey: string): void => {
+    if (!tileKey) return;
+    if (typeof clearSettlementProgressByKey === "function") {
+      clearSettlementProgressByKey(tileKey);
+      return;
+    }
+    clearSettlementProgressByKeyFromModule(state, tileKey, { clearOptimisticTileState: (key) => clearOptimisticTileState(key, true) });
+  };
+
+  const clearOptimisticTileStateSafely = (tileKey: string, revert = false): void => {
+    if (!tileKey || typeof clearOptimisticTileState !== "function") return;
+    clearOptimisticTileState(tileKey, revert);
+  };
+
+  const showCaptureAlertSafely = (
+    title: string,
+    detail: string,
+    tone: "info" | "success" | "warn" | "error",
+    manpowerLoss?: number
+  ): void => {
+    if (typeof showCaptureAlert !== "function") return;
+    showCaptureAlert(title, detail, tone, manpowerLoss);
+  };
+
+  const pushFeedSafely = (
+    message: string,
+    type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech",
+    severity?: "info" | "success" | "warn" | "error"
+  ): void => {
+    if (typeof pushFeed !== "function") return;
+    pushFeed(message, type, severity);
+  };
+
+  const explainActionFailureSafely = (
+    code: string,
+    message: string,
+    opts?: {
+      cooldownRemainingMs?: number;
+      formatCooldownShort?: (ms: number) => string;
+    }
+  ): string =>
+    typeof explainActionFailure === "function" ? explainActionFailure(code, message, opts) : message || "Action failed";
+
+  const requestViewRefreshSafely = (radius?: number, force?: boolean): void => {
+    if (typeof requestViewRefresh !== "function") return;
+    requestViewRefresh(radius, force);
+  };
+
+  const reconcileActionQueueSafely = (): void => {
+    if (typeof reconcileActionQueue !== "function") return;
+    reconcileActionQueue();
+  };
+
+  const processActionQueueSafely = (): void => {
+    if (typeof processActionQueue !== "function") return;
+    processActionQueue();
+  };
+
+  const maybeRecoverBusyDevelopmentAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
+    if (!errorMessage.includes("development slots are busy")) return false;
+    if (errorCode !== "SETTLE_INVALID" && !errorCode.endsWith("_BUILD_INVALID") && errorCode !== "STRUCTURE_REMOVE_INVALID") return false;
+    const attempt = state.lastDevelopmentAttempt;
+    if (!attempt || attempt.tileKey !== errorTileKey) return false;
+    const tile = state.tiles.get(errorTileKey);
+    const matchesOptimisticState =
+      attempt.kind === "SETTLE"
+        ? state.settleProgressByTile.has(errorTileKey)
+        : tile?.optimisticPending === (attempt.payload.type === "REMOVE_STRUCTURE" ? "structure_remove" : "structure_build");
+    if (!matchesOptimisticState) return false;
+    clearOptimisticTileState(errorTileKey, true);
+    if (attempt.kind === "SETTLE") clearSettlementProgressSafely(errorTileKey);
+    state.queuedDevelopmentDispatchPending = false;
+    state.lastDevelopmentAttempt = undefined;
+    return queueDevelopmentActionFromModule(state, attempt, {
+      pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
+      renderHud: typeof renderHud === "function" ? renderHud : () => {}
+    });
+  };
+
+  const maybeRecoverTransientSettlementAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
+    if (errorCode !== "SETTLE_INVALID" || !errorTileKey) return false;
+    const attempt = state.lastDevelopmentAttempt;
+    if (!attempt || attempt.kind !== "SETTLE" || attempt.tileKey !== errorTileKey) return false;
+    const transientOwnershipFailure =
+      errorMessage === "tile must be owned" &&
+      ((state.actionInFlight && state.actionTargetKey === errorTileKey) ||
+        (state.capture && keyFor(state.capture.target.x, state.capture.target.y) === errorTileKey));
+    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && errorMessage !== "tile already settling") return false;
+    clearOptimisticTileStateSafely(errorTileKey, true);
+    clearSettlementProgressSafely(errorTileKey);
+    state.queuedDevelopmentDispatchPending = false;
+    state.lastDevelopmentAttempt = undefined;
+    return queueDevelopmentActionFromModule(state, attempt, {
+      pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
+      renderHud: typeof renderHud === "function" ? renderHud : () => {}
+    });
+  };
+
+  const clearQueuedDevelopmentDispatchPending = (): void => {
+    state.queuedDevelopmentDispatchPending = false;
+  };
 
   const clearReconnectReloadTimer = (): void => {
     if (reconnectReloadTimer !== undefined) {
@@ -276,27 +419,67 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.chunkFullCount += 1;
     if (state.firstChunkAt === 0) state.firstChunkAt = Date.now();
     let sawOwnedTile = false;
+    let resolvedQueuedFrontierCapture = false;
     let detailRequests = 0;
     for (const tile of tiles) {
-      const existing = state.tiles.get(keyFor(tile.x, tile.y));
-      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, tile));
+      const tileKey = keyFor(tile.x, tile.y);
+      const existing = state.tiles.get(tileKey);
+      const normalizedTile =
+        "ownerId" in tile
+          ? tile
+          : {
+              ...tile,
+              ownerId: undefined,
+              ownershipState: undefined,
+              capital: undefined
+            };
+      const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, normalizedTile));
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
+      logDebugTileState("chunk-merge", mergedTile, {
+        source: "CHUNK",
+        existingEconomicStructure: existing?.economicStructure?.type
+      });
+      if (
+        existing?.ownerId !== mergedTile.ownerId ||
+        existing?.ownershipState !== mergedTile.ownershipState ||
+        tileKey === state.actionTargetKey ||
+        state.settleProgressByTile.has(tileKey)
+      ) {
+        logTileSync("chunk_tile_applied", {
+          tileKey,
+          existingOwnerId: existing?.ownerId,
+          existingOwnershipState: existing?.ownershipState,
+          incomingOwnerId: normalizedTile.ownerId,
+          incomingOwnershipState: normalizedTile.ownershipState,
+          resolvedOwnerId: mergedTile.ownerId,
+          resolvedOwnershipState: mergedTile.ownershipState,
+          optimisticPending: mergedTile.optimisticPending
+        });
+      }
       state.frontierSyncWaitUntilByTarget.delete(keyFor(mergedTile.x, mergedTile.y));
+      if (mergedTile.ownerId === state.me && (mergedTile.ownershipState === "FRONTIER" || mergedTile.ownershipState === "SETTLED")) {
+        state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
+        state.queuedTargetKeys.delete(tileKey);
+        resolvedQueuedFrontierCapture = true;
+      }
       maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
       markDockDiscovered(mergedTile);
       if (!mergedTile.fogged) state.discoveredTiles.add(keyFor(mergedTile.x, mergedTile.y));
       if (mergedTile.ownerId === state.me) sawOwnedTile = true;
-      if (detailRequests < 4) {
-        const tileKey = keyFor(mergedTile.x, mergedTile.y);
-        const before = state.tileDetailRequestedAt.get(tileKey) ?? 0;
-        maybeRequestTileDetail(mergedTile);
-        const after = state.tileDetailRequestedAt.get(tileKey) ?? 0;
-        if (after > before) detailRequests += 1;
+        if (detailRequests < 4) {
+          const tileKey = keyFor(mergedTile.x, mergedTile.y);
+          const before = state.tileDetailRequestedAt.get(tileKey) ?? 0;
+          maybeRequestTileDetail(mergedTile);
+          const after = state.tileDetailRequestedAt.get(tileKey) ?? 0;
+          if (after > before) detailRequests += 1;
+        }
       }
-    }
     if (sawOwnedTile) state.hasOwnedTileInCache = true;
     else if (!state.hasOwnedTileInCache) centerOnOwnedTile();
+    if (resolvedQueuedFrontierCapture && !state.actionInFlight && !state.capture && state.actionQueue.length > 0) {
+      processActionQueue();
+    }
     if (
       firstChunkArriving &&
       !state.fogDisabled &&
@@ -434,6 +617,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.defensibilityAnimUntil = 0;
       state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
       state.developmentProcessLimit = (player.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof player.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (player.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techRootId = player.techRootId as string | undefined;
@@ -667,6 +851,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.availableTechPicks = (msg.availableTechPicks as number) ?? state.availableTechPicks;
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
@@ -820,78 +1005,112 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       let resolvedQueuedFrontierCapture = false;
       let detailRequests = 0;
       for (const update of updates) {
+        const normalizedUpdate =
+          "ownerId" in update
+            ? update
+            : {
+                ...update,
+                ownerId: undefined,
+                ownershipState: undefined,
+                capital: undefined
+              };
         const updateKey = keyFor(update.x, update.y);
         state.incomingAttacksByTile.delete(updateKey);
         state.pendingCollectVisibleKeys.delete(keyFor(update.x, update.y));
         const existing = state.tiles.get(keyFor(update.x, update.y));
-        const merged: any = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
-        if (update.terrain) merged.terrain = update.terrain;
-        if ("detailLevel" in update) merged.detailLevel = update.detailLevel;
-        if (update.fogged !== undefined) merged.fogged = update.fogged;
-        if (update.resource !== undefined) merged.resource = update.resource;
-        if (update.ownerId) merged.ownerId = update.ownerId;
-        else delete merged.ownerId;
-        if ("ownershipState" in update) {
-          if (update.ownershipState) merged.ownershipState = update.ownershipState;
+        const merged: any = existing ?? { x: normalizedUpdate.x, y: normalizedUpdate.y, terrain: normalizedUpdate.terrain ?? "LAND" };
+        if (normalizedUpdate.terrain) merged.terrain = normalizedUpdate.terrain;
+        if ("detailLevel" in normalizedUpdate) merged.detailLevel = normalizedUpdate.detailLevel;
+        if (normalizedUpdate.fogged !== undefined) merged.fogged = normalizedUpdate.fogged;
+        if (normalizedUpdate.resource !== undefined) merged.resource = normalizedUpdate.resource;
+        if ("ownerId" in normalizedUpdate) {
+          if (normalizedUpdate.ownerId) merged.ownerId = normalizedUpdate.ownerId;
+          else delete merged.ownerId;
+        }
+        if ("ownershipState" in normalizedUpdate) {
+          if (normalizedUpdate.ownershipState) merged.ownershipState = normalizedUpdate.ownershipState;
           else delete merged.ownershipState;
         }
-        if ("capital" in update) {
-          if (update.capital) merged.capital = update.capital;
+        if ("capital" in normalizedUpdate) {
+          if (normalizedUpdate.capital) merged.capital = normalizedUpdate.capital;
           else delete merged.capital;
         }
-        if ("breachShockUntil" in update) {
-          if (typeof update.breachShockUntil === "number") merged.breachShockUntil = update.breachShockUntil;
+        if ("breachShockUntil" in normalizedUpdate) {
+          if (typeof normalizedUpdate.breachShockUntil === "number") merged.breachShockUntil = normalizedUpdate.breachShockUntil;
           else delete merged.breachShockUntil;
         }
-        if ("ownerId" in update && !update.ownerId) delete merged.ownershipState;
-        if (update.clusterId !== undefined) merged.clusterId = update.clusterId;
-        if (update.clusterType !== undefined) merged.clusterType = update.clusterType;
-        if (update.regionType !== undefined) merged.regionType = update.regionType;
-        if (update.dockId !== undefined) merged.dockId = update.dockId;
-        if ("dock" in update) {
-          if (update.dock) merged.dock = update.dock;
+        if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
+        if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;
+        if (normalizedUpdate.clusterType !== undefined) merged.clusterType = normalizedUpdate.clusterType;
+        if (normalizedUpdate.regionType !== undefined) merged.regionType = normalizedUpdate.regionType;
+        if (normalizedUpdate.dockId !== undefined) merged.dockId = normalizedUpdate.dockId;
+        if ("dock" in normalizedUpdate) {
+          if (normalizedUpdate.dock) merged.dock = normalizedUpdate.dock;
           else delete merged.dock;
         }
-        if ("shardSite" in update) {
-          if (update.shardSite) merged.shardSite = update.shardSite;
+        if ("shardSite" in normalizedUpdate) {
+          if (normalizedUpdate.shardSite) merged.shardSite = normalizedUpdate.shardSite;
           else delete merged.shardSite;
         }
-        if (update.town !== undefined) merged.town = update.town;
-        if ("town" in update && !update.town) delete merged.town;
-        if (update.fort !== undefined) merged.fort = update.fort;
-        if (!update.fort) delete merged.fort;
-        if ("observatory" in update) {
-          if (update.observatory) merged.observatory = update.observatory;
+        if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;
+        if ("town" in normalizedUpdate && !normalizedUpdate.town) delete merged.town;
+        if (normalizedUpdate.fort !== undefined) merged.fort = normalizedUpdate.fort;
+        if (!normalizedUpdate.fort) delete merged.fort;
+        if ("observatory" in normalizedUpdate) {
+          if (normalizedUpdate.observatory) merged.observatory = normalizedUpdate.observatory;
           else delete merged.observatory;
         }
-        if ("economicStructure" in update) {
-          if (update.economicStructure) merged.economicStructure = update.economicStructure;
+        if ("economicStructure" in normalizedUpdate) {
+          if (normalizedUpdate.economicStructure) merged.economicStructure = normalizedUpdate.economicStructure;
           else delete merged.economicStructure;
         }
-        if (update.siegeOutpost !== undefined) merged.siegeOutpost = update.siegeOutpost;
-        if (!update.siegeOutpost) delete merged.siegeOutpost;
-        if ("sabotage" in update) {
-          if (update.sabotage) merged.sabotage = update.sabotage;
+        if (normalizedUpdate.siegeOutpost !== undefined) merged.siegeOutpost = normalizedUpdate.siegeOutpost;
+        if (!normalizedUpdate.siegeOutpost) delete merged.siegeOutpost;
+        if ("sabotage" in normalizedUpdate) {
+          if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;
           else delete merged.sabotage;
         }
-        if ("yield" in update) {
-          if (update.yield) merged.yield = update.yield;
+        if ("yield" in normalizedUpdate) {
+          if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;
           else delete merged.yield;
         }
-        if ("yieldRate" in update) {
-          if (update.yieldRate) merged.yieldRate = update.yieldRate;
+        if ("yieldRate" in normalizedUpdate) {
+          if (normalizedUpdate.yieldRate) merged.yieldRate = normalizedUpdate.yieldRate;
           else delete merged.yieldRate;
         }
-        if ("yieldCap" in update) {
-          if (update.yieldCap) merged.yieldCap = update.yieldCap;
+        if ("yieldCap" in normalizedUpdate) {
+          if (normalizedUpdate.yieldCap) merged.yieldCap = normalizedUpdate.yieldCap;
           else delete merged.yieldCap;
         }
-        if ("history" in update) {
-          if (update.history) merged.history = update.history;
+        if ("history" in normalizedUpdate) {
+          if (normalizedUpdate.history) merged.history = normalizedUpdate.history;
           else delete merged.history;
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
+        logDebugTileState("tile-delta", resolved, {
+          source: "TILE_DELTA",
+          updateHasEconomicStructure: "economicStructure" in normalizedUpdate,
+          updateEconomicStructure: normalizedUpdate.economicStructure?.type,
+          existingEconomicStructure: existing?.economicStructure?.type
+        });
+        if (
+          existing?.ownerId !== resolved.ownerId ||
+          existing?.ownershipState !== resolved.ownershipState ||
+          updateKey === state.actionTargetKey ||
+          state.settleProgressByTile.has(updateKey)
+        ) {
+          logTileSync("tile_delta_applied", {
+            tileKey: updateKey,
+            existingOwnerId: existing?.ownerId,
+            existingOwnershipState: existing?.ownershipState,
+            updateOwnerId: "ownerId" in normalizedUpdate ? normalizedUpdate.ownerId ?? null : "__omitted__",
+            updateOwnershipState: "ownershipState" in normalizedUpdate ? normalizedUpdate.ownershipState ?? null : "__omitted__",
+            resolvedOwnerId: resolved.ownerId,
+            resolvedOwnershipState: resolved.ownershipState,
+            optimisticPending: resolved.optimisticPending
+          });
+        }
         if (resolved.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
           state.frontierSyncWaitUntilByTarget.delete(updateKey);
           state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
@@ -972,6 +1191,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         revealCapacity: (msg.revealCapacity as number) ?? state.revealCapacity,
         activeRevealTargets: (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets
       }, pushFeed);
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       renderHud();
       return;
     }
@@ -979,6 +1199,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "DOMAIN_UPDATE") {
       state.pendingDomainUnlockId = "";
       state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
@@ -1130,11 +1351,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
       }
       const failedTargetKey = state.actionTargetKey;
+      const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
       console.error("[server-error]", {
         code: msg.code,
         message: msg.message,
         actionInFlight: state.actionInFlight,
         actionTargetKey: failedTargetKey,
+        actionTargetTile: failedTargetTile
+          ? {
+              x: failedTargetTile.x,
+              y: failedTargetTile.y,
+              ownerId: failedTargetTile.ownerId,
+              ownershipState: failedTargetTile.ownershipState,
+              optimisticPending: failedTargetTile.optimisticPending,
+              detailLevel: failedTargetTile.detailLevel
+            }
+          : undefined,
+        actionCurrent: state.actionCurrent,
         queuedActions: state.actionQueue.length,
         selected: state.selected,
         hover: state.hover
@@ -1197,33 +1430,49 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
+      if (maybeRecoverBusyDevelopmentAttempt(errorCode, errorMessage, errorTileKey)) return;
+      if (maybeRecoverTransientSettlementAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
       } else if (errorCode === "SETTLE_INVALID") {
-        clearOptimisticTileState(errorTileKey, true);
-        clearSettlementProgressByKey(errorTileKey);
-        showCaptureAlert("Action failed", errorMessage, "warn");
+        clearOptimisticTileStateSafely(errorTileKey, true);
+        clearSettlementProgressSafely(errorTileKey);
+        state.queuedDevelopmentDispatchPending = false;
+        showCaptureAlertSafely("Action failed", errorMessage, "warn");
+        if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (isStructureActionError && errorTileKey) {
-        clearOptimisticTileState(errorTileKey, true);
-        showCaptureAlert(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
+        clearOptimisticTileStateSafely(errorTileKey, true);
+        state.queuedDevelopmentDispatchPending = false;
+        showCaptureAlertSafely(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
+        if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
-        showCaptureAlert("Town unfed", errorMessage, "warn");
+        showCaptureAlertSafely("Town unfed", errorMessage, "warn");
       }
       if (errorCode === "COLLECT_EMPTY") {
-        pushFeed(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
+        pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
       } else if (errorCode === "COLLECT_COOLDOWN") {
         if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + deps.COLLECT_VISIBLE_COOLDOWN_MS;
         showCollectVisibleCooldownAlert();
-        pushFeed(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
+        pushFeedSafely(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
       } else if (errorCode === "TOWN_UNFED") {
-        pushFeed(errorMessage, "info", "warn");
+        pushFeedSafely(errorMessage, "info", "warn");
       } else {
-        pushFeed(explainActionFailure(errorCode, errorMessage), "error", "error");
+        const failureExplanationOptions = {
+          ...(typeof msg.cooldownRemainingMs === "number" ? { cooldownRemainingMs: msg.cooldownRemainingMs } : {}),
+          formatCooldownShort
+        };
+        pushFeedSafely(
+          explainActionFailureSafely(errorCode, errorMessage, failureExplanationOptions),
+          "error",
+          "error"
+        );
       }
       const frontierActionError =
         errorCode === "ACTION_INVALID" ||
+        errorCode === "ATTACK_TARGET_INVALID" ||
         errorCode === "NOT_ADJACENT" ||
         errorCode === "NOT_OWNER" ||
+        errorCode === "ATTACK_COOLDOWN" ||
         errorCode === "EXPAND_TARGET_OWNED" ||
         errorCode === "LOCKED";
       const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
@@ -1236,24 +1485,28 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.actionStartedAt = 0;
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
+        if (errorCode === "ATTACK_COOLDOWN") {
+          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + COMBAT_LOCK_MS);
+          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + COMBAT_LOCK_MS);
+        }
         if (errorCode === "LOCKED") {
           if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + 12_000);
           if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + 12_000);
         }
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
-        if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
-        if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
+        if (failedCurrentKey) clearOptimisticTileStateSafely(failedCurrentKey, true);
+        if (failedTargetKey) clearOptimisticTileStateSafely(failedTargetKey, true);
         if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
       } else if (failedTargetKey) {
-        clearOptimisticTileState(failedTargetKey, true);
+        clearOptimisticTileStateSafely(failedTargetKey, true);
       }
       state.attackPreviewPendingKey = "";
       if (frontierActionError || !shouldResetFrontierAction) {
         state.lastSubAt = 0;
-        requestViewRefresh(2, true);
+        requestViewRefreshSafely(2, true);
       }
-      reconcileActionQueue();
-      processActionQueue();
+      reconcileActionQueueSafely();
+      processActionQueueSafely();
       renderHud();
       return;
     }
