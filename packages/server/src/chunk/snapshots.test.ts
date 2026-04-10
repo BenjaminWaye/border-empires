@@ -107,6 +107,7 @@ describe("createChunkSnapshotController", () => {
       serializeChunkBatchViaWorker: async (inputs) => inputs.map((input) => `worker:${input.cx},${input.cy}`),
       serializeChunkBatchDirect: (inputs) => inputs.map((input) => `direct:${input.cx},${input.cy}`),
       serializeChunkBatchBodies: (_generation, chunkBodies) => chunkBodies.join("|"),
+      sendChunkBatchPayload: (socket, payload) => socket.send(payload),
       runtimeLoadShedLevel: () => "hard"
     });
 
@@ -183,6 +184,7 @@ describe("createChunkSnapshotController", () => {
       serializeChunkBatchViaWorker: async (inputs) => inputs.map((input) => `worker:${input.cx},${input.cy}`),
       serializeChunkBatchDirect: (inputs) => inputs.map((input) => `direct:${input.cx},${input.cy}`),
       serializeChunkBatchBodies: (_generation, chunkBodies) => chunkBodies.join("|"),
+      sendChunkBatchPayload: (socket, payload) => socket.send(payload),
       runtimeLoadShedLevel: () => "normal"
     });
 
@@ -249,6 +251,7 @@ describe("createChunkSnapshotController", () => {
       serializeChunkBatchViaWorker: async (inputs) => inputs.map((input) => `worker:${input.cx},${input.cy}`),
       serializeChunkBatchDirect: (inputs) => inputs.map((input) => `direct:${input.cx},${input.cy}`),
       serializeChunkBatchBodies: (_generation, chunkBodies) => chunkBodies.join("|"),
+      sendChunkBatchPayload: (socket, payload) => socket.send(payload),
       runtimeLoadShedLevel: () => "normal"
     });
 

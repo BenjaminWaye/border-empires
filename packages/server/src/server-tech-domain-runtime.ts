@@ -4,6 +4,7 @@ export const createServerTechDomainRuntime = (deps) => {
   const {
     TECHS,
     activeSeasonTechConfig,
+    getActiveSeasonTechConfig,
     techById,
     domainById,
     ownershipStateByTile,
@@ -17,11 +18,13 @@ export const createServerTechDomainRuntime = (deps) => {
     DOMAINS,
     colorFromId
   } = deps;
+  const seasonTechConfig = () => (typeof getActiveSeasonTechConfig === "function" ? getActiveSeasonTechConfig() : activeSeasonTechConfig);
 
   const reachableTechs = (player: Player): string[] => {
     const out: string[] = [];
+    const activeNodeIds = seasonTechConfig().activeNodeIds;
     for (const tech of TECHS) {
-      if (!activeSeasonTechConfig.activeNodeIds.has(tech.id)) continue;
+      if (!activeNodeIds.has(tech.id)) continue;
       if (player.techIds.has(tech.id)) continue;
       const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
       if (prereqs.every((req) => player.techIds.has(req))) out.push(tech.id);
@@ -136,7 +139,8 @@ export const createServerTechDomainRuntime = (deps) => {
     };
     grantsPowerup?: { id: string; charges: number };
   }> => {
-    return TECHS.filter((t) => activeSeasonTechConfig.activeNodeIds.has(t.id)).map((t) => {
+    const activeNodeIds = seasonTechConfig().activeNodeIds;
+    return TECHS.filter((t) => activeNodeIds.has(t.id)).map((t) => {
       const out: {
         id: string;
         tier: number;

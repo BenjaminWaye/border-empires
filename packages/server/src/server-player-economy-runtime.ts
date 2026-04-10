@@ -66,6 +66,7 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     let outpostCount = 0;
     let observatoryCount = 0;
     let airportCount = 0;
+    let foodStructureUpkeep = 0;
     let goldStructureUpkeep = 0;
     let crystalStructureUpkeep = 0;
     for (const tk of player.territoryTiles) {
@@ -83,6 +84,7 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
       if (observatory?.ownerId === player.id && observatory?.status === "active") observatoryCount += 1;
       const structure = economicStructuresByTile.get(tk);
       if (structure?.ownerId === player.id && structure.status === "active") {
+        foodStructureUpkeep += economicStructureFoodUpkeepPerInterval(structure.type, player.id) / 10;
         goldStructureUpkeep += economicStructureGoldUpkeepPerInterval(structure.type) / 10;
         crystalStructureUpkeep += economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;
         if (structure.type === "AIRPORT") airportCount += 1;
@@ -91,7 +93,7 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
     const effects = getPlayerEffectsForPlayer(player.id);
     return {
-      food: townFoodUpkeep * effects.townFoodUpkeepMult,
+      food: townFoodUpkeep * effects.townFoodUpkeepMult + foodStructureUpkeep,
       iron: fortCount * 0.025 * effects.fortIronUpkeepMult,
       supply: outpostCount * 0.025 * effects.outpostSupplyUpkeepMult,
       crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN + crystalStructureUpkeep,
@@ -137,11 +139,20 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     }
     const structure = economicStructuresByTile.get(tileKey);
     if (structure?.ownerId === ownerId && structure.status === "active") {
+      const food = economicStructureFoodUpkeepPerInterval(structure.type, ownerId) / 10;
       const gold = economicStructureGoldUpkeepPerInterval(structure.type) / 10;
       const crystal = economicStructureCrystalUpkeepPerInterval(structure.type, ownerId) / 10;
       const oil = structure.type === "AIRPORT" ? AIRPORT_OIL_UPKEEP_PER_MIN : 0;
-      if (gold > 0.0001 || crystal > 0.0001 || oil > 0.0001) {
-        entries.push({ label: prettyEconomicStructureLabel(structure.type), perMinute: { ...(gold > 0.0001 ? { GOLD: roundedUpkeepPerMinute(gold) } : {}), ...(crystal > 0.0001 ? { CRYSTAL: roundedUpkeepPerMinute(crystal) } : {}), ...(oil > 0.0001 ? { OIL: roundedUpkeepPerMinute(oil) } : {}) } });
+      if (food > 0.0001 || gold > 0.0001 || crystal > 0.0001 || oil > 0.0001) {
+        entries.push({
+          label: prettyEconomicStructureLabel(structure.type),
+          perMinute: {
+            ...(food > 0.0001 ? { FOOD: roundedUpkeepPerMinute(food) } : {}),
+            ...(gold > 0.0001 ? { GOLD: roundedUpkeepPerMinute(gold) } : {}),
+            ...(crystal > 0.0001 ? { CRYSTAL: roundedUpkeepPerMinute(crystal) } : {}),
+            ...(oil > 0.0001 ? { OIL: roundedUpkeepPerMinute(oil) } : {})
+          }
+        });
       }
     }
     return entries;
@@ -152,7 +163,6 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
       : structureType === "CAMP" ? deps.CAMP_GOLD_UPKEEP
       : structureType === "MINE" ? deps.MINE_GOLD_UPKEEP
       : structureType === "GRANARY" ? deps.GRANARY_GOLD_UPKEEP
-      : structureType === "CARAVANARY" ? deps.CARAVANARY_GOLD_UPKEEP
       : structureType === "ADVANCED_FUR_SYNTHESIZER" ? deps.FUR_SYNTHESIZER_GOLD_UPKEEP
       : structureType === "WOODEN_FORT" ? deps.WOODEN_FORT_GOLD_UPKEEP
       : structureType === "LIGHT_OUTPOST" ? deps.LIGHT_OUTPOST_GOLD_UPKEEP
@@ -169,10 +179,17 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
       : structureType === "RADAR_SYSTEM" ? deps.RADAR_SYSTEM_GOLD_UPKEEP
       : 0;
 
-  const economicStructureCrystalUpkeepPerInterval = (structureType: EconomicStructureType, playerId: string): number =>
-    structureType === "MARKET" || structureType === "BANK"
-      ? (structureType === "MARKET" ? deps.MARKET_CRYSTAL_UPKEEP : deps.BANK_CRYSTAL_UPKEEP) * getPlayerEffectsForPlayer(playerId).marketCrystalUpkeepMult
+  const economicStructureFoodUpkeepPerInterval = (structureType: EconomicStructureType, playerId: string): number =>
+    structureType === "MARKET" || structureType === "BANK" || structureType === "CARAVANARY"
+      ? (
+        structureType === "MARKET" ? deps.MARKET_FOOD_UPKEEP
+          : structureType === "BANK" ? deps.BANK_FOOD_UPKEEP
+          : deps.CARAVANARY_FOOD_UPKEEP
+      ) * getPlayerEffectsForPlayer(playerId).supportEconomicFoodUpkeepMult
       : 0;
+
+  const economicStructureCrystalUpkeepPerInterval = (structureType: EconomicStructureType, _playerId: string): number =>
+    0;
 
   const pushUpkeepContributor = (map: Map<string, UpkeepContributor>, label: string, amountPerMinute: number, options: { count?: number; note?: string } = {}): void => {
     if (amountPerMinute <= 0.0001) return;
@@ -207,6 +224,7 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     let outpostCount = 0;
     let observatoryCount = 0;
     let airportCount = 0;
+    const foodStructureCounts = new Map<EconomicStructureType, number>();
     const goldStructureCounts = new Map<EconomicStructureType, number>();
     const crystalStructureCounts = new Map<EconomicStructureType, number>();
     for (const tk of player.territoryTiles) {
@@ -222,8 +240,10 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
       if (observatory && observatory.ownerId === player.id && observatory.status === "active") observatoryCount += 1;
       const structure = economicStructuresByTile.get(tk);
       if (structure?.ownerId === player.id && structure.status === "active") {
+        const foodPerMinute = economicStructureFoodUpkeepPerInterval(structure.type, player.id) / 10;
         const goldPerMinute = economicStructureGoldUpkeepPerInterval(structure.type) / 10;
         const crystalPerMinute = economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;
+        if (foodPerMinute > 0) foodStructureCounts.set(structure.type, (foodStructureCounts.get(structure.type) ?? 0) + 1);
         if (goldPerMinute > 0) goldStructureCounts.set(structure.type, (goldStructureCounts.get(structure.type) ?? 0) + 1);
         if (crystalPerMinute > 0) crystalStructureCounts.set(structure.type, (crystalStructureCounts.get(structure.type) ?? 0) + 1);
         if (structure.type === "AIRPORT") airportCount += 1;
@@ -252,6 +272,12 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     if (activeRevealCount > 0) pushUpkeepContributor(crystal, "Empire reveal upkeep", activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult, { count: activeRevealCount, note: `${activeRevealCount} active reveal` });
     if (observatoryCount > 0) pushUpkeepContributor(crystal, "Observatory upkeep", observatoryCount * OBSERVATORY_UPKEEP_PER_MIN, { count: observatoryCount, note: `${observatoryCount} active observator${observatoryCount === 1 ? "y" : "ies"}` });
     if (airportCount > 0) pushUpkeepContributor(oil, "Airport upkeep", airportCount * AIRPORT_OIL_UPKEEP_PER_MIN, { count: airportCount, note: `${airportCount} active airport${airportCount === 1 ? "" : "s"}` });
+    for (const [type, count] of foodStructureCounts) {
+      pushUpkeepContributor(food, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureFoodUpkeepPerInterval(type, player.id) / 10) * count, {
+        count,
+        note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}`
+      });
+    }
     for (const [type, count] of goldStructureCounts) pushUpkeepContributor(gold, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureGoldUpkeepPerInterval(type) / 10) * count, { count, note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}` });
     for (const [type, count] of crystalStructureCounts) pushUpkeepContributor(crystal, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureCrystalUpkeepPerInterval(type, player.id) / 10) * count, { count, note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}` });
     return { food: sortedUpkeepContributors(food), iron: sortedUpkeepContributors(iron), supply: sortedUpkeepContributors(supply), crystal: sortedUpkeepContributors(crystal), oil: sortedUpkeepContributors(oil), gold: sortedUpkeepContributors(gold) };
@@ -382,6 +408,7 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     roundedUpkeepPerMinute,
     tileUpkeepEntriesForTile,
     economicStructureGoldUpkeepPerInterval,
+    economicStructureFoodUpkeepPerInterval,
     economicStructureCrystalUpkeepPerInterval,
     pushUpkeepContributor,
     sortedUpkeepContributors,
