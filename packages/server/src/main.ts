@@ -40,6 +40,7 @@ import {
   PVP_REPEAT_FLOOR,
   PVP_REPEAT_WINDOW_MS,
   SEASON_LENGTH_DAYS,
+  SETTLED_DEFENSE_NEAR_FORT_RADIUS,
   SETTLE_COST,
   SETTLE_MS,
   STAMINA_MAX,
@@ -71,6 +72,7 @@ import {
   terrainAt,
   wrapX,
   wrapY,
+  wrappedChebyshevDistance,
   type Player,
   type PendingResearch,
   type MissionKind,
@@ -3301,6 +3303,7 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (typeof effects.observatoryVisionBonus === "number") next.observatoryVisionBonus += effects.observatoryVisionBonus;
     if (typeof effects.frontierDefenseAdd === "number") next.frontierDefenseAdd += effects.frontierDefenseAdd;
     if (typeof effects.settledDefenseMult === "number") next.settledDefenseMult *= effects.settledDefenseMult;
+    if (typeof effects.settledDefenseNearFortMult === "number") next.settledDefenseNearFortMult *= effects.settledDefenseNearFortMult;
     if (typeof effects.attackVsSettledMult === "number") next.attackVsSettledMult *= effects.attackVsSettledMult;
     if (typeof effects.attackVsFortsMult === "number") next.attackVsFortsMult *= effects.attackVsFortsMult;
     if (typeof effects.newSettlementDefenseMult === "number") next.newSettlementDefenseMult *= effects.newSettlementDefenseMult;
@@ -3523,6 +3526,17 @@ const fortDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
   return WOODEN_FORT_DEFENSE_MULT;
 };
 
+const settledDefenseNearFortApplies = (defenderId: string, target: Tile): boolean => {
+  for (const [tileKey, fort] of fortsByTile) {
+    if (fort.ownerId !== defenderId || fort.status !== "active") continue;
+    if (fortRecoveryReadyAt(fort) > now()) continue;
+    const [x, y] = parseKey(tileKey);
+    if (terrainAtRuntime(x, y) !== "LAND" || ownership.get(tileKey) !== defenderId) continue;
+    if (wrappedChebyshevDistance(x, y, target.x, target.y) <= SETTLED_DEFENSE_NEAR_FORT_RADIUS) return true;
+  }
+  return false;
+};
+
 const settlementDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
   const entry = settlementDefenseByTile.get(tileKey);
   if (!entry || entry.ownerId !== defenderId || entry.expiresAt <= now()) return 1;
@@ -3567,7 +3581,16 @@ const attackMultiplierForTarget = (attackerId: string, target: Tile): number => 
 
 const settledDefenseMultiplierForTarget = (defenderId: string, target: Tile): number => {
   if (target.ownershipState !== "SETTLED" && !supportedFrontierUsesSettledDefenseAt(defenderId, target)) return 1;
-  return getPlayerEffectsForPlayer(defenderId).settledDefenseMult;
+  const effects = getPlayerEffectsForPlayer(defenderId);
+  let mult = effects.settledDefenseMult;
+  if (
+    target.ownershipState === "SETTLED" &&
+    effects.settledDefenseNearFortMult > 1 &&
+    settledDefenseNearFortApplies(defenderId, target)
+  ) {
+    mult *= effects.settledDefenseNearFortMult;
+  }
+  return mult;
 };
 
 const originTileHeldByActiveFort = (actorId: string, tileKey: TileKey): boolean => {

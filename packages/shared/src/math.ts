@@ -1,4 +1,4 @@
-import { DEF_MULT_MAX, DEF_MULT_MIN, LEVEL_CURVE_C, RATING_A, RATING_B, UNDERDOG_K } from "./config.js";
+import { DEF_MULT_MAX, DEF_MULT_MIN, LEVEL_CURVE_C, RATING_A, RATING_B, UNDERDOG_K, WORLD_HEIGHT, WORLD_WIDTH } from "./config.js";
 
 const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));
 const wrap = (value: number, size: number): number => {
@@ -8,6 +8,20 @@ const wrap = (value: number, size: number): number => {
 
 export const wrapX = (x: number, width: number): number => wrap(x, width);
 export const wrapY = (y: number, height: number): number => wrap(y, height);
+export const SETTLED_DEFENSE_NEAR_FORT_RADIUS = 1;
+
+export const wrappedChebyshevDistance = (
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  width = WORLD_WIDTH,
+  height = WORLD_HEIGHT
+): number => {
+  const dx = Math.min(Math.abs(ax - bx), width - Math.abs(ax - bx));
+  const dy = Math.min(Math.abs(ay - by), height - Math.abs(ay - by));
+  return Math.max(dx, dy);
+};
 
 export const exposureWeightFromSides = (exposedSides: number): number => {
   const boundedSides = Math.max(0, Math.min(4, Math.round(exposedSides)));
