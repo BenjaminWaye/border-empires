@@ -20,8 +20,8 @@ describe("wrappedChebyshevDistance", () => {
     expect(wrappedChebyshevDistance(10, 10, 12, 11)).toBe(2);
   });
 
-  it("covers the same 10-tile area used by other local structure bonuses", () => {
-    expect(wrappedChebyshevDistance(30, 30, 40, 30)).toBeLessThanOrEqual(SETTLED_DEFENSE_NEAR_FORT_RADIUS);
-    expect(wrappedChebyshevDistance(30, 30, 41, 30)).toBeGreaterThan(SETTLED_DEFENSE_NEAR_FORT_RADIUS);
+  it("keeps near-fort coverage to the immediate surrounding ring", () => {
+    expect(wrappedChebyshevDistance(30, 30, 31, 31)).toBeLessThanOrEqual(SETTLED_DEFENSE_NEAR_FORT_RADIUS);
+    expect(wrappedChebyshevDistance(30, 30, 32, 30)).toBeGreaterThan(SETTLED_DEFENSE_NEAR_FORT_RADIUS);
   });
 });
