@@ -169,6 +169,7 @@ import {
 } from "./chunk/snapshots.js";
 import { assignMissingTownNames } from "./town-names.js";
 import { appendPlayerActivityEntry, buildTownActivityEntry } from "./player-activity.js";
+import { createRuntimeIncidentLog } from "./runtime-incident-log.js";
 import {
   AI_AUTH_PRIORITY_BATCH_SIZE,
   AI_COMPETITION_CONTEXT_TTL_MS,
@@ -202,6 +203,7 @@ import {
   MAX_SUBSCRIBE_RADIUS,
   NOOP_WS,
   PORT,
+  RUNTIME_INCIDENT_WEBHOOK_URL,
   SIM_COMBAT_TIMEOUT_MS,
   SIM_COMBAT_WORKER_ENABLED,
   SIM_DRAIN_AI_QUOTA,
@@ -1187,6 +1189,12 @@ const maybeLogRuntimeMemoryWatermark = (
       },
       "runtime memory watermark crossed"
     );
+    runtimeIncidentLog.record("memory_watermark", {
+      reason,
+      thresholdMb,
+      ...memory,
+      ...extra
+    });
   }
 };
 const logSnapshotSerializationMemory = (
@@ -1204,6 +1212,12 @@ const logSnapshotSerializationMemory = (
     },
     "snapshot serialization memory"
   );
+  runtimeIncidentLog.record("snapshot_serialization", {
+    stage,
+    elapsedMs: Date.now() - startedAt,
+    ...memory,
+    ...extra
+  });
   maybeLogRuntimeMemoryWatermark(`snapshot:${stage}`, memory, extra);
 };
 const runtimeCollectionDiagnostics = (): Array<{ name: string; entries: number }> => {
@@ -9031,6 +9045,7 @@ const {
   runtimeMemoryStats,
   pushChunkSnapshotPerf: (sample) => {
     recentChunkSnapshotPerf.push(sample);
+    runtimeIncidentLog.record("chunk_snapshot", sample);
     if (sample.rssMb >= RUNTIME_MEMORY_WATERMARK_THRESHOLDS_MB[0]) {
       app.log.warn(sample, "chunk snapshot memory watermark");
     }
@@ -9066,12 +9081,30 @@ const {
       },
       "auth sync first chunk sent"
     );
+    runtimeIncidentLog.record("auth_sync_first_chunk", {
+      playerId,
+      sinceAuthVerifiedMs: authSync.authVerifiedAt ? authSync.firstChunkSentAt - authSync.authVerifiedAt : undefined,
+      sinceInitSentMs: authSync.initSentAt ? authSync.firstChunkSentAt - authSync.initSentAt : undefined,
+      sinceFirstSubscribeMs: authSync.firstSubscribeAt ? authSync.firstChunkSentAt - authSync.firstSubscribeAt : undefined,
+      chunkCount,
+      tileCount,
+      radius
+    });
   },
   onSlowChunkSnapshot: ({ playerId, elapsedMs, chunks, tiles, radius, phases, memory }) => {
     app.log.warn(
       { playerId, elapsedMs, chunks, tiles, radius, ...phases, ...memory },
       "slow chunk snapshot"
     );
+    runtimeIncidentLog.record("slow_chunk_snapshot", {
+      playerId,
+      elapsedMs,
+      chunks,
+      tiles,
+      radius,
+      ...phases,
+      ...memory
+    });
   },
   visibilitySnapshotForPlayer,
   cachedChunkSnapshotByPlayer,
@@ -13143,6 +13176,17 @@ registerInterval(() => {
   const vitals = sampleRuntimeVitals();
   recentRuntimeVitals.push(vitals);
   const cachePayloads = cachedChunkPayloadDiagnostics();
+  runtimeIncidentLog.record("runtime_memory", {
+    ...vitals,
+    onlinePlayers: onlineSocketCount(),
+    aiPlayers: [...players.values()].filter((player) => player.isAi).length,
+    totalPlayers: players.size,
+    ownershipTiles: ownership.size,
+    visibilitySnapshots: cachedVisibilitySnapshotByPlayer.size,
+    cachedChunkPlayers: cachedChunkSnapshotByPlayer.size,
+    cachedChunkPayloads: cachePayloads.payloads,
+    cachedChunkPayloadMb: cachePayloads.approxPayloadMb
+  });
   maybeLogRuntimeMemoryWatermark("runtime_interval", vitals, {
     onlinePlayers: onlineSocketCount(),
     cachedChunkPayloadMb: cachePayloads.approxPayloadMb
@@ -13866,6 +13910,13 @@ const renderRuntimeDashboardHtml = (): string => `<!doctype html>
 
 const app = Fastify({ logger: true });
 runtimeState.appRef = app;
+const runtimeIncidentLog = createRuntimeIncidentLog({
+  snapshotDir: SNAPSHOT_DIR,
+  ...(RUNTIME_INCIDENT_WEBHOOK_URL ? { notifyWebhookUrl: RUNTIME_INCIDENT_WEBHOOK_URL } : {}),
+  logger: app.log
+});
+runtimeIncidentLog.record("boot_started", { pid: process.pid, startedAt: startupState.startedAt });
+await runtimeIncidentLog.notifyLastCrashReport();
 await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
@@ -13959,6 +14010,11 @@ app.get("/admin/players", async () =>
   )
 );
 app.get("/admin/runtime/debug", async () => runtimeDashboardPayload());
+app.get("/admin/runtime/incidents", async () => ({
+  ok: true,
+  currentBootId: runtimeIncidentLog.bootId,
+  lastUncleanShutdown: runtimeIncidentLog.getLastCrashReport()
+}));
 app.get("/admin/runtime/dashboard", async (_request, reply) => {
   reply.type("text/html; charset=utf-8");
   return renderRuntimeDashboardHtml();
@@ -14098,6 +14154,13 @@ app.post("/admin/world/regenerate", async () => {
         },
         "auth verified"
       );
+      runtimeIncidentLog.record("auth_verified", {
+        playerId: player.id,
+        uid: decoded.uid,
+        cachedToken: Boolean(cachedFirebaseIdentityForToken(msg.token)),
+        cachedUidIdentity: !cachedFirebaseIdentityForToken(msg.token) && Boolean(cachedFirebaseIdentityForDecodedToken(msg.token)),
+        verifyElapsedMs: verifiedAt - authStartedAt
+      });
 
       authedPlayer = player;
       socketsByPlayer.set(player.id, socket);
@@ -14209,6 +14272,10 @@ app.post("/admin/world/regenerate", async () => {
           },
           "auth sync init sent"
         );
+        runtimeIncidentLog.record("auth_sync_init", {
+          playerId: player.id,
+          sinceAuthVerifiedMs: authSync.initSentAt - (authSync.authVerifiedAt ?? authSync.initSentAt)
+        });
       }
       return;
     }
@@ -14880,6 +14947,14 @@ app.post("/admin/world/regenerate", async () => {
           },
           "auth sync first subscribe"
         );
+        runtimeIncidentLog.record("auth_sync_first_subscribe", {
+          playerId: actor.id,
+          sinceAuthVerifiedMs: authSync.authVerifiedAt ? authSync.firstSubscribeAt - authSync.authVerifiedAt : undefined,
+          sinceInitSentMs: authSync.initSentAt ? authSync.firstSubscribeAt - authSync.initSentAt : undefined,
+          cx: sub.cx,
+          cy: sub.cy,
+          radius: sub.radius
+        });
       }
       const last = chunkSnapshotSentAtByPlayer.get(actor.id);
       if (last && last.cx === sub.cx && last.cy === sub.cy && last.radius === sub.radius && now() - last.sentAt < 2500) {
@@ -15644,6 +15719,7 @@ app.post("/admin/world/regenerate", async () => {
 
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info({ signal }, "shutting down server");
+  runtimeIncidentLog.record("clean_shutdown_started", { signal });
   let exitCode = 0;
   for (const interval of runtimeIntervals) clearInterval(interval);
   runtimeIntervals.length = 0;
@@ -15659,6 +15735,7 @@ const shutdown = async (signal: string): Promise<void> => {
     exitCode = 1;
     app.log.error({ err, signal }, "error during shutdown");
   } finally {
+    await runtimeIncidentLog.markCleanShutdown(signal);
     process.exit(exitCode);
   }
 };
