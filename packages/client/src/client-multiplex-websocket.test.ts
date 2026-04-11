@@ -49,7 +49,7 @@ describe("client-multiplex-websocket", () => {
     globalThis.WebSocket = originalWebSocket;
   });
 
-  it("routes control and bulk messages to separate sockets", () => {
+  it("routes control and bulk messages to separate sockets once both sockets are open", () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
 
     const socket = createMultiplexWebSocket("wss://example.com/ws");
@@ -73,7 +73,7 @@ describe("client-multiplex-websocket", () => {
     ]);
   });
 
-  it("waits for both channels before reporting open", () => {
+  it("reports open as soon as the control channel is ready", () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
 
     const socket = createMultiplexWebSocket("wss://example.com/ws");
@@ -82,10 +82,38 @@ describe("client-multiplex-websocket", () => {
 
     const [control, bulk] = FakeWebSocket.instances;
     control?.open();
-    expect(openSpy).not.toHaveBeenCalled();
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(socket.readyState).toBe(socket.OPEN);
 
     bulk?.open();
     expect(openSpy).toHaveBeenCalledTimes(1);
-    expect(socket.readyState).toBe(socket.OPEN);
+  });
+
+  it("falls back to the control channel for bulk messages until the bulk socket is ready", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const [control, bulk] = FakeWebSocket.instances;
+    control?.open();
+
+    socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 1, cy: 2, radius: 3 }));
+
+    expect(control?.sent).toEqual([JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 1, cy: 2, radius: 3 })]);
+    expect(bulk?.sent).toEqual([]);
+  });
+
+  it("replays the latest auth payload to the bulk socket when it opens later", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const [control, bulk] = FakeWebSocket.instances;
+    control?.open();
+
+    socket.send(JSON.stringify({ type: "AUTH", token: "abc" }));
+    expect(control?.sent).toEqual([JSON.stringify({ type: "AUTH", token: "abc" })]);
+    expect(bulk?.sent).toEqual([]);
+
+    bulk?.open();
+    expect(bulk?.sent).toEqual([JSON.stringify({ type: "AUTH", token: "abc" })]);
   });
 });
