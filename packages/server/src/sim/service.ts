@@ -1,4 +1,4 @@
-import type { ClientMessage, EconomicStructureType } from "@border-empires/shared";
+import type { ClientMessage, EconomicStructureType, TileKey } from "@border-empires/shared";
 
 import { createSimulationCommandBus, type SimulationCommandPriority, type SimulationCommandWorkerState } from "./command-bus.js";
 
@@ -16,6 +16,7 @@ export type QueuedSimulationMessage =
 
 export type SystemSimulationCommand =
   | { type: "BARBARIAN_ACTION"; agentId: string }
+  | { type: "BARBARIAN_COMBAT_RESOLVE"; agentId: string; originKey: TileKey; targetX: number; targetY: number }
   | { type: "BARBARIAN_MAINTENANCE" };
 
 export type SimulationCommandJob<TActor, TSocket> = {
