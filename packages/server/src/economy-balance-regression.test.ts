@@ -27,6 +27,7 @@ const serverSource = (): string => {
     readFileSync(resolve(here, "./server-economic-operations.ts"), "utf8"),
     readFileSync(resolve(here, "./server-territory-structure-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-economy-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-tile-view-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./server-game-constants.ts"), "utf8"),
     readFileSync(resolve(here, "./server-player-progression.ts"), "utf8"),
     readFileSync(resolve(here, "./server-status-metrics.ts"), "utf8"),
