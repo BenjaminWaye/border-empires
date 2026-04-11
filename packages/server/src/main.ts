@@ -6611,6 +6611,10 @@ const executeSystemSimulationCommand = async (command: SystemSimulationCommand):
     maintainBarbarianPopulation();
     return;
   }
+  if (command.type === "BARBARIAN_COMBAT_RESOLVE") {
+    await resolveQueuedBarbarianCombat(command);
+    return;
+  }
   const live = barbarianAgents.get(command.agentId);
   if (!live) return;
   runBarbarianAction(live);
@@ -8114,6 +8118,97 @@ const cancelAllBarbarianPendingCaptures = (): void => {
   for (const capture of uniq) cancelPendingCapture(capture);
 };
 
+const resolveQueuedBarbarianCombat = async (
+  command: Extract<SystemSimulationCommand, { type: "BARBARIAN_COMBAT_RESOLVE" }>
+): Promise<void> => {
+  const live = barbarianAgents.get(command.agentId);
+  if (!live) return;
+  const liveTile = runtimeTileCore(live.x, live.y);
+  if (liveTile.ownerId !== BARBARIAN_OWNER_ID || key(liveTile.x, liveTile.y) !== command.originKey) return;
+  const targetKey = key(command.targetX, command.targetY);
+  const currentTarget = playerTile(command.targetX, command.targetY);
+  if (!currentTarget.ownerId || currentTarget.ownerId === BARBARIAN_OWNER_ID) {
+    live.lastActionAt = now();
+    live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
+    upsertBarbarianAgent(live);
+    return;
+  }
+  const defender = players.get(currentTarget.ownerId);
+  if (!defender) {
+    live.lastActionAt = now();
+    live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
+    upsertBarbarianAgent(live);
+    return;
+  }
+  const shock = breachShockByTile.get(targetKey);
+  const shockMult = shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
+  const fortMult = fortDefenseMultAt(defender.id, targetKey);
+  const dockMult = docksByTile.has(targetKey) ? DOCK_DEFENSE_MULT : 1;
+  const combat = await resolveCombatViaWorker({
+    attackBase: 10 * BARBARIAN_ATTACK_POWER,
+    defenseBase:
+      10 *
+      BARBARIAN_DEFENSE_POWER *
+      defender.mods.defense *
+      playerDefensiveness(defender) *
+      shockMult *
+      fortMult *
+      dockMult *
+      settledDefenseMultiplierForTarget(defender.id, currentTarget) *
+      settlementDefenseMultAt(defender.id, targetKey) *
+      ownershipDefenseMultiplierForTarget(defender.id, currentTarget)
+  });
+  const win = combat.win;
+  const progressBefore = live.progress;
+  if (!win) {
+    live.lastActionAt = now();
+    live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
+    upsertBarbarianAgent(live);
+    logBarbarianEvent(`attack-loss ${live.id} @ ${live.x},${live.y} vs ${command.targetX},${command.targetY}`);
+    return;
+  }
+  const gain = getBarbarianProgressGain(currentTarget);
+  live.progress += gain;
+  logBarbarianEvent(`progress ${live.id} ${progressBefore} -> ${live.progress} at ${command.targetX},${command.targetY}`);
+  const shouldMultiply = live.progress >= BARBARIAN_MULTIPLY_THRESHOLD;
+  const oldX = live.x;
+  const oldY = live.y;
+  updateOwnership(command.targetX, command.targetY, BARBARIAN_OWNER_ID, "BARBARIAN");
+  live.x = command.targetX;
+  live.y = command.targetY;
+  if (shouldMultiply) {
+    updateOwnership(oldX, oldY, BARBARIAN_OWNER_ID, "BARBARIAN");
+    spawnBarbarianAgentAt(oldX, oldY, 0);
+    live.progress = 0;
+    logBarbarianEvent(`multiply ${live.id} @ ${oldX},${oldY} after capture ${command.targetX},${command.targetY}`);
+  } else {
+    updateOwnership(oldX, oldY, undefined);
+  }
+  live.lastActionAt = now();
+  live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
+  upsertBarbarianAgent(live);
+  recalcPlayerDerived(defender);
+  updateMissionState(defender);
+  resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
+  logBarbarianEvent(`attack-win ${live.id} now @ ${live.x},${live.y} after ${command.targetX},${command.targetY}`);
+};
+
+const enqueueBarbarianCombatResolve = (agentId: string, originKey: TileKey, targetX: number, targetY: number): void => {
+  if (
+    hasQueuedSystemSimulationCommand(
+      (job) =>
+        job.command.type === "BARBARIAN_COMBAT_RESOLVE" &&
+        job.command.agentId === agentId &&
+        job.command.originKey === originKey &&
+        job.command.targetX === targetX &&
+        job.command.targetY === targetY
+    )
+  ) {
+    return;
+  }
+  enqueueSystemSimulationCommand({ type: "BARBARIAN_COMBAT_RESOLVE", agentId, originKey, targetX, targetY });
+};
+
 const runBarbarianAction = (agent: BarbarianAgent): void => {
   const currentTile = playerTile(agent.x, agent.y);
   const currentKey = key(currentTile.x, currentTile.y);
@@ -8179,7 +8274,7 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
       resolvesAt: pending.resolvesAt
     });
   }
-  pending.timeout = setTimeout(async () => {
+  pending.timeout = setTimeout(() => {
     if (pending.cancelled) return;
     if (!hasOnlinePlayers()) {
       cancelPendingCapture(pending);
@@ -8187,75 +8282,7 @@ const runBarbarianAction = (agent: BarbarianAgent): void => {
     }
     combatLocks.delete(currentKey);
     combatLocks.delete(targetKey);
-    const live = barbarianAgents.get(agent.id);
-    if (!live) return;
-    const liveTile = runtimeTileCore(live.x, live.y);
-    if (liveTile.ownerId !== BARBARIAN_OWNER_ID || key(liveTile.x, liveTile.y) !== currentKey) return;
-    const currentTarget = playerTile(target.x, target.y);
-    if (!currentTarget.ownerId || currentTarget.ownerId === BARBARIAN_OWNER_ID) {
-      live.lastActionAt = now();
-      live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
-      upsertBarbarianAgent(live);
-      return;
-    }
-    const defender = players.get(currentTarget.ownerId);
-    if (!defender) {
-      live.lastActionAt = now();
-      live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
-      upsertBarbarianAgent(live);
-      return;
-    }
-    const shock = breachShockByTile.get(targetKey);
-    const shockMult = shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
-    const fortMult = fortDefenseMultAt(defender.id, targetKey);
-    const dockMult = docksByTile.has(targetKey) ? DOCK_DEFENSE_MULT : 1;
-    const combat = await resolveCombatViaWorker({
-      attackBase: 10 * BARBARIAN_ATTACK_POWER,
-      defenseBase:
-        10 *
-        BARBARIAN_DEFENSE_POWER *
-        defender.mods.defense *
-        playerDefensiveness(defender) *
-        shockMult *
-        fortMult *
-        dockMult *
-        settledDefenseMultiplierForTarget(defender.id, currentTarget) *
-        settlementDefenseMultAt(defender.id, targetKey) *
-        ownershipDefenseMultiplierForTarget(defender.id, currentTarget)
-    });
-    const win = combat.win;
-    const progressBefore = live.progress;
-    if (!win) {
-      live.lastActionAt = now();
-      live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
-      upsertBarbarianAgent(live);
-      logBarbarianEvent(`attack-loss ${live.id} @ ${live.x},${live.y} vs ${target.x},${target.y}`);
-      return;
-    }
-    const gain = getBarbarianProgressGain(currentTarget);
-    live.progress += gain;
-    logBarbarianEvent(`progress ${live.id} ${progressBefore} -> ${live.progress} at ${target.x},${target.y}`);
-    const shouldMultiply = live.progress >= BARBARIAN_MULTIPLY_THRESHOLD;
-    const oldX = live.x;
-    const oldY = live.y;
-    updateOwnership(target.x, target.y, BARBARIAN_OWNER_ID, "BARBARIAN");
-    live.x = target.x;
-    live.y = target.y;
-    if (shouldMultiply) {
-      updateOwnership(oldX, oldY, BARBARIAN_OWNER_ID, "BARBARIAN");
-      spawnBarbarianAgentAt(oldX, oldY, 0);
-      live.progress = 0;
-      logBarbarianEvent(`multiply ${live.id} @ ${oldX},${oldY} after capture ${target.x},${target.y}`);
-    } else {
-      updateOwnership(oldX, oldY, undefined);
-    }
-    live.lastActionAt = now();
-    live.nextActionAt = now() + BARBARIAN_ACTION_INTERVAL_MS;
-    upsertBarbarianAgent(live);
-    recalcPlayerDerived(defender);
-    updateMissionState(defender);
-    resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
-    logBarbarianEvent(`attack-win ${live.id} now @ ${live.x},${live.y} after ${target.x},${target.y}`);
+    enqueueBarbarianCombatResolve(agent.id, currentKey, target.x, target.y);
   }, COMBAT_LOCK_MS);
 };
 
