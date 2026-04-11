@@ -936,16 +936,9 @@ export const processActionQueue = (
       optimisticMs
     });
     if (!to.ownerId) {
-      const beforeOptimistic = { ...to };
-      deps.applyOptimisticTileState(to.x, to.y, (tile) => {
-        tile.ownerId = state.me;
-        tile.ownershipState = "FRONTIER";
-        tile.fogged = false;
-        tile.optimisticPending = "expand";
-      });
       logFrontierQueue("frontier-queue-started", {
-        before: beforeOptimistic,
-        after: state.tiles.get(targetKey),
+        before: to,
+        after: to,
         extra: {
           optimisticMs,
           mode: next.mode ?? "normal",
