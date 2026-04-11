@@ -46,9 +46,63 @@ describe("frontier combat queue regression guard", () => {
 
   it("uses queued frontier action results to send combat start and inbound attack alerts", () => {
     const body = functionBody(serverMainSource(), "executeUnifiedGameplayMessage");
+    expect(body).toContain('type: "ACTION_ACCEPTED"');
     expect(body).toContain("origin: result.origin");
     expect(body).toContain("target: result.target");
     expect(body).toContain("result.attackAlert");
     expect(body).toContain('type: "ATTACK_ALERT"');
+  });
+
+  it("does not await combat worker resolution before sending the live frontier acceptance ack", () => {
+    const source = serverMainSource();
+    const livePathStart = source.indexOf('if ((msg.type === "EXPAND" || msg.type === "ATTACK") && actor.points < FRONTIER_ACTION_GOLD_COST)');
+    const livePathEnd = source.indexOf("pending.timeout = setTimeout(async () => {", livePathStart);
+    expect(livePathStart).toBeGreaterThan(-1);
+    expect(livePathEnd).toBeGreaterThan(livePathStart);
+    const livePath = source.slice(livePathStart, livePathEnd);
+    expect(livePath).toContain('type: "ACTION_ACCEPTED"');
+    expect(livePath).toContain("precomputedCombatPromise = resolveCombatViaWorker");
+    expect(livePath).not.toContain("await resolveCombatViaWorker");
+  });
+
+  it("defers bulky post-combat refresh work instead of doing inline player updates after frontier results", () => {
+    const source = serverMainSource();
+    const helperBody = functionBody(source, "sendPostCombatFollowUps");
+    expect(helperBody).toContain("queuePostCombatFollowUpsForPlayer(attackerId, changedCenters)");
+    expect(helperBody).toContain("if (defenderId) queuePostCombatFollowUpsForPlayer(defenderId, changedCenters);");
+
+    const flushBody = functionBody(source, "flushPostCombatFollowUpsForPlayer");
+    expect(flushBody).toContain('sendPlayerUpdate(player, 0, { detail: "combat" })');
+    expect(flushBody).toContain("sendLocalVisionDeltaForPlayer(playerId, changedCenters)");
+
+    const queuedBody = functionBody(source, "tryQueueBasicFrontierAction");
+    expect(queuedBody).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
+
+    const livePathStart = source.indexOf("logExpandTrace(\"combat_result_sent\", pending, { neutralTarget: false, changes: resultChanges.length });");
+    const livePathEnd = source.indexOf("}, resolvesAt - now());", livePathStart);
+    expect(livePathStart).toBeGreaterThan(-1);
+    expect(livePathEnd).toBeGreaterThan(livePathStart);
+    const liveResultPath = source.slice(livePathStart, livePathEnd);
+    expect(liveResultPath).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
+    expect(liveResultPath).not.toContain("sendPlayerUpdate(actor, 0);");
+  });
+
+  it("batches visible tile delta fanout instead of sending each ownership tile inline", () => {
+    const source = serverMainSource();
+    const deltaBody = functionBody(source, "sendVisibleTileDeltaAt");
+    expect(deltaBody).toContain("queueVisibleTileDeltaForPlayer(p.id, current)");
+    expect(deltaBody).not.toContain('sendBulkToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });');
+
+    const flushBody = functionBody(source, "flushQueuedVisibleTileDeltas");
+    expect(flushBody).toContain('sendBulkToPlayer(playerId, { type: "TILE_DELTA", updates: [...updatesByTileKey.values()] })');
+  });
+
+  it("uses combat-detail player updates for frontier follow-up batching", () => {
+    const source = serverMainSource();
+    const body = functionBody(source, "sendPlayerUpdate");
+    expect(body).toContain('const detail = options.detail ?? "full";');
+    expect(body).toContain('const includeEconomy = options.includeEconomy ?? detail === "full";');
+    expect(body).toContain('const includeBreakdowns = options.includeBreakdowns ?? detail === "full";');
+    expect(body).toContain('const includeDevelopmentStatus = options.includeDevelopmentStatus ?? detail === "full";');
   });
 });

@@ -31,12 +31,12 @@ describe("settlement relocation regression guard", () => {
   });
 
   it("repairs missing settlements and keeps the active settlement authoritative for the capital marker", () => {
-    const mainSource = readServerSource("./main.ts");
     const settlementFlowSource = readServerSource("./server-settlement-flow.ts");
+    const tileViewSource = readServerSource("./server-tile-view-runtime.ts");
     expect(settlementFlowSource).toContain("const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>");
     expect(settlementFlowSource).toContain("const ensureActiveSettlementForPlayer = (playerId: string): boolean => {");
     expect(settlementFlowSource).toContain("for (const candidate of [player.spawnOrigin, player.capitalTileKey, oldestSettledSettlementCandidateForPlayer(playerId)]) {");
-    expect(mainSource).toContain("if (ownerId !== BARBARIAN_OWNER_ID && activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;");
+    expect(tileViewSource).toContain("if (ownerId !== deps.BARBARIAN_OWNER_ID && deps.activeSettlementTileKeyForPlayer(ownerId) === tileKey) tile.capital = true;");
   });
 
   it("relocates captured settlement-tier towns instead of leaving them on the captured tile", () => {

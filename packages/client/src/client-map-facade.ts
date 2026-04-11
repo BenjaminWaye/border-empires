@@ -11,6 +11,7 @@ import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
   drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
+  drawAetherWallSegment as drawAetherWallSegmentOnCanvas,
   drawBarbarianSkullOverlay as drawBarbarianSkullOverlayOnCanvas,
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
@@ -29,6 +30,7 @@ import {
   structureAccentColor as structureAccentColorFromModule
 } from "./client-map-render.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
+import type { RoadDirections } from "./client-road-network.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, EmpireVisualStyle, StrategicReplayEvent, Tile, TileVisibilityState } from "./client-types.js";
 
@@ -144,6 +146,14 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     nowMs: number,
     options?: { compact?: boolean }
   ): void => drawAetherBridgeLaneOnCanvas(renderCtx, fromX, fromY, toX, toY, nowMs, options);
+  const drawAetherWallSegment = (
+    renderCtx: CanvasRenderingContext2D,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    options?: { preview?: boolean; nowMs?: number }
+  ): void => drawAetherWallSegmentOnCanvas(renderCtx, fromX, fromY, toX, toY, options);
 
   const isCoastalSea = (x: number, y: number): boolean => {
     const neighbors = [
@@ -232,7 +242,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const drawResourceCornerMarker = (tile: Tile, px: number, py: number, size: number): void =>
     drawResourceCornerMarkerOnCanvas(ctx, tile, px, py, size, resourceColor);
   const drawRoadOverlay = (
-    directions: { north?: boolean; east?: boolean; south?: boolean; west?: boolean; terminal?: boolean },
+    directions: RoadDirections,
     px: number,
     py: number,
     size: number
@@ -354,6 +364,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     borderLineWidthForOwner,
     structureAccentColor,
     drawAetherBridgeLane,
+    drawAetherWallSegment,
     drawTerrainTile,
     drawForestOverlay,
     drawBarbarianSkullOverlay,

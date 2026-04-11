@@ -1,8 +1,36 @@
+import type { Tile } from "./client-types.js";
+
 const DEBUG_TILE_STORAGE_KEY = "debug_tile_key";
 const DEBUG_TILE_ENABLED_STORAGE_KEY = "debug_tile_enabled";
 const DEBUG_EMAIL_STORAGE_KEY = "debug_auth_email";
 const DEBUG_ACCOUNT_EMAIL = "bw199005@gmail.com";
 const lastLogAtByKey = new Map<string, number>();
+
+export const tileSyncDebugEnabled = (): boolean => {
+  try {
+    return (
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.localStorage.getItem("tile-sync-debug") === "1"
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const attackSyncLog = (event: string, payload: Record<string, unknown>): void => {
+  if (!tileSyncDebugEnabled()) return;
+  console.info(`[attack-sync] ${event}`, payload);
+};
+
+export const verboseTileDebugEnabled = (): boolean => {
+  try {
+    return window.localStorage.getItem("tile-debug-verbose") === "1";
+  } catch {
+    return false;
+  }
+};
 
 const normalizeTileKey = (value: string | null): string => {
   if (!value) return "";
@@ -102,4 +130,63 @@ export const debugTileLog = (
     lastLogAtByKey.set(throttleKey, now);
   }
   console.log(`[debug-tile:${scope}]`, payload);
+};
+
+export const debugTileSnapshot = (tile: Tile | undefined): Record<string, unknown> | null => {
+  if (!tile) return null;
+  return {
+    x: tile.x,
+    y: tile.y,
+    ownerId: tile.ownerId,
+    ownershipState: tile.ownershipState,
+    optimisticPending: tile.optimisticPending,
+    detailLevel: tile.detailLevel,
+    fogged: tile.fogged,
+    lastChangedAt: (tile as Tile & { lastChangedAt?: number }).lastChangedAt,
+    terrain: tile.terrain,
+    resource: tile.resource
+  };
+};
+
+export const debugTileTimeline = (
+  scope: string,
+  args: {
+    x: number;
+    y: number;
+    before?: Tile | undefined;
+    incoming?: Tile | undefined;
+    after?: Tile | undefined;
+    state: {
+      selected?: { x: number; y: number } | undefined;
+      actionInFlight?: boolean | undefined;
+      actionTargetKey?: string | undefined;
+      queuedTargetKeys?: Pick<Set<string>, "has"> | undefined;
+      settleProgressByTile?: Pick<Map<string, unknown>, "has"> | undefined;
+      frontierSyncWaitUntilByTarget?: Pick<Map<string, number>, "get"> | undefined;
+    };
+    keyFor: (x: number, y: number) => string;
+    extra?: Record<string, unknown>;
+    radius?: number;
+    throttleKey?: string;
+    minIntervalMs?: number;
+  }
+): void => {
+  if (!tileMatchesDebugKey(args.x, args.y, args.radius ?? 1, { fallbackTile: args.state.selected })) return;
+  const tileKey = args.keyFor(args.x, args.y);
+  debugTileLog(
+    scope,
+    {
+      tileKey,
+      before: debugTileSnapshot(args.before),
+      incoming: debugTileSnapshot(args.incoming),
+      after: debugTileSnapshot(args.after),
+      actionInFlight: args.state.actionInFlight,
+      actionTargetKey: args.state.actionTargetKey,
+      queued: args.state.queuedTargetKeys?.has(tileKey) ?? false,
+      settlePending: args.state.settleProgressByTile?.has(tileKey) ?? false,
+      frontierSyncWaitMs: Math.max(0, (args.state.frontierSyncWaitUntilByTarget?.get(tileKey) ?? 0) - Date.now()),
+      ...(args.extra ?? {})
+    },
+    args.throttleKey ? { throttleKey: args.throttleKey, ...(typeof args.minIntervalMs === "number" ? { minIntervalMs: args.minIntervalMs } : {}) } : undefined
+  );
 };

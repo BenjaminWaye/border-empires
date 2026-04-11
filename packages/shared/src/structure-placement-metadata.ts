@@ -1,0 +1,130 @@
+export const structurePlacementMetadataData = {
+  FORT: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "military"
+  },
+  OBSERVATORY: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "military"
+  },
+  SIEGE_OUTPOST: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "military"
+  },
+  FARMSTEAD: {
+    showOn: ["resource"],
+    placementMode: "same_tile",
+    sortGroup: "resource",
+    resourceTypes: ["FARM", "FISH"]
+  },
+  CAMP: {
+    showOn: ["resource"],
+    placementMode: "same_tile",
+    sortGroup: "resource",
+    resourceTypes: ["WOOD", "FUR"]
+  },
+  MINE: {
+    showOn: ["resource"],
+    placementMode: "same_tile",
+    sortGroup: "resource",
+    resourceTypes: ["IRON", "GEMS"]
+  },
+  MARKET: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  GRANARY: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  BANK: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  AIRPORT: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "general"
+  },
+  WOODEN_FORT: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "military"
+  },
+  LIGHT_OUTPOST: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "military"
+  },
+  FUR_SYNTHESIZER: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  ADVANCED_FUR_SYNTHESIZER: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  IRONWORKS: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  ADVANCED_IRONWORKS: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  CRYSTAL_SYNTHESIZER: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  ADVANCED_CRYSTAL_SYNTHESIZER: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  FUEL_PLANT: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  CARAVANARY: {
+    showOn: ["town", "support"],
+    placementMode: "town_support",
+    sortGroup: "support"
+  },
+  FOUNDRY: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "general"
+  },
+  GARRISON_HALL: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "general"
+  },
+  CUSTOMS_HOUSE: {
+    showOn: ["dock"],
+    placementMode: "same_tile",
+    sortGroup: "general"
+  },
+  GOVERNORS_OFFICE: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "general"
+  },
+  RADAR_SYSTEM: {
+    showOn: ["settled", "resource", "town", "support", "dock"],
+    placementMode: "same_tile",
+    sortGroup: "general"
+  }
+} as const;

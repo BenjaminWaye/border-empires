@@ -16,9 +16,13 @@ describe("login and frontier retry regression guard", () => {
 
   it("waits for sync instead of immediately retrying the same neutral frontier capture on missing combat start", () => {
     const source = clientSource("./client-runtime-loop.ts");
-    expect(source).toContain('No combat start from server yet; waiting for frontier sync instead of retrying the same tile.');
+    expect(source).toContain('No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.');
+    expect(source).toContain("const waitForFrontierSync =");
+    expect(source).toContain("!state.actionAcceptedAck && !state.combatStartAck && !currentTile?.ownerId");
     expect(source).toContain("frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 12_000);");
+    expect(source).toContain("frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);");
     expect(source).toContain("frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);");
+    expect(source).toContain("frontierLateAckUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);");
   });
 
   it("does not re-dispatch a queued frontier target while that target is still waiting on server sync", () => {
@@ -32,6 +36,8 @@ describe("login and frontier retry regression guard", () => {
     const source = clientSource("./client-network.ts");
     expect(source).toContain('state.frontierSyncWaitUntilByTarget.delete(tileKey);');
     expect(source).toContain('state.frontierSyncWaitUntilByTarget.delete(updateKey);');
+    expect(source).toContain("clearLateFrontierAck(tileKey);");
+    expect(source).toContain("clearLateFrontierAck(updateKey);");
     expect(source).toContain('state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);');
     expect(source).toContain('state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);');
   });
@@ -46,8 +52,18 @@ describe("login and frontier retry regression guard", () => {
 
   it("keeps the earlier optimistic frontier timer when combat start arrives late", () => {
     const source = clientSource("./client-network.ts");
+    expect(source).toContain('rebindLateFrontierAck(target, "COMBAT_START");');
     expect(source).toContain("const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;");
     expect(source).toContain("state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };");
+  });
+
+  it("preserves the existing optimistic frontier timer when retrying the same target", () => {
+    const queueSource = clientSource("./client-queue-logic.ts");
+    const runtimeSource = clientSource("./client-runtime-loop.ts");
+    expect(queueSource).toContain("const existingCapture =");
+    expect(queueSource).toContain("state.capture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };");
+    expect(runtimeSource).toContain("const preservedCapture =");
+    expect(runtimeSource).toContain("state.capture = preservedCapture;");
   });
 
   it("uses a local radius-1 refresh while waiting for delayed frontier confirmation", () => {
@@ -58,8 +74,23 @@ describe("login and frontier retry regression guard", () => {
 
   it("forces a nearby refresh and warning alert when combat start or result goes missing for attacks", () => {
     const source = clientSource("./client-runtime-loop.ts");
-    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");');
-    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");');
+    expect(source).toContain('"No server acceptance arrived within 2 seconds. Keeping the current attack active while waiting for the server result."');
+    expect(source).toContain('showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");');
     expect(source).toContain('showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");');
+  });
+
+  it("times out waiting for server acceptance after 2 seconds instead of waiting for combat start", () => {
+    const source = clientSource("./client-runtime-loop.ts");
+    expect(source).toContain("if (!state.actionAcceptedAck && !state.actionAcceptTimeoutHandledAt && Date.now() - started > 2_000) {");
+    expect(source).toContain('attackSyncLog("action-accept-timeout"');
+    expect(source).toContain('attackSyncLog("action-accept-timeout-refresh"');
+  });
+
+  it("keeps attack actions bound to the original combat instead of retrying duplicate sends after the 2-second accept timeout", () => {
+    const source = clientSource("./client-runtime-loop.ts");
+    expect(source).toContain('strategy: "wait-for-authoritative-result"');
+    expect(source).toContain("state.actionAcceptTimeoutHandledAt = Date.now();");
+    expect(source).toContain("state.frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);");
+    expect(source).not.toContain("No server acceptance within 2s; retrying action");
   });
 });

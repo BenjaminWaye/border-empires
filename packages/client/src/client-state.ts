@@ -5,6 +5,7 @@ import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
+  ActiveAetherWallView,
   StrategicReplayEvent,
   ActiveTruceView,
   CrystalTargetingAbility,
@@ -16,6 +17,7 @@ import type {
   LeaderboardOverallEntry,
   MissionState,
   PendingResearch,
+  RevealEmpireStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   TechInfo,
@@ -114,6 +116,7 @@ export const createInitialState = () => ({
   tileDetailRequestedAt: new Map<string, number>(),
   hover: undefined as { x: number; y: number } | undefined,
   homeTile: undefined as { x: number; y: number } | undefined,
+  localhostDevAetherWall: false,
   tiles: new Map<string, Tile>(),
   camX: 0,
   camY: 0,
@@ -129,8 +132,9 @@ export const createInitialState = () => ({
   domainUiSelectedId: "" as string,
   revealCapacity: 1,
   activeRevealTargets: [] as string[],
-  abilityCooldowns: {} as Partial<Record<"aether_bridge" | "siphon" | "reveal_empire" | "create_mountain" | "remove_mountain", number>>,
+  abilityCooldowns: {} as Partial<Record<"aether_bridge" | "aether_wall" | "siphon" | "reveal_empire" | "reveal_empire_stats" | "create_mountain" | "remove_mountain", number>>,
   revealTargetId: "" as string,
+  revealedEmpireStatsByPlayer: new Map<string, RevealEmpireStatsView>(),
   allies: [] as string[],
   activeTruces: [] as ActiveTruceView[],
   playerNames: new Map<string, string>(),
@@ -142,6 +146,7 @@ export const createInitialState = () => ({
   outgoingAllianceRequests: [] as AllianceRequest[],
   incomingTruceRequests: [] as TruceRequest[],
   activeAetherBridges: [] as ActiveAetherBridgeView[],
+  activeAetherWalls: [] as ActiveAetherWallView[],
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
   replayPlaying: false,
@@ -217,6 +222,7 @@ export const createInitialState = () => ({
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,
   actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
+  frontierLateAckUntilByTarget: new Map<string, number>(),
   developmentQueue: [] as Array<
     | { kind: "SETTLE"; x: number; y: number; tileKey: string; label: string }
     | {
@@ -358,7 +364,9 @@ export const createInitialState = () => ({
   queuedDevelopmentDispatchPending: false,
   queuedTargetKeys: new Set<string>(),
   actionInFlight: false,
+  actionAcceptedAck: false,
   combatStartAck: false,
+  actionAcceptTimeoutHandledAt: 0,
   actionStartedAt: 0,
   actionTargetKey: "",
   actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } | undefined,
@@ -405,6 +413,7 @@ export const createInitialState = () => ({
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,
   lastSubAt: 0,
+  lastChunkSnapshotGeneration: 0,
   dockPairs: [] as DockPair[],
   dockRouteCache: new Map<string, Array<{ x: number; y: number }>>(),
   discoveredDockTiles: new Set<string>(),
@@ -428,6 +437,12 @@ export const createInitialState = () => ({
     ability: "aether_bridge" as CrystalTargetingAbility,
     validTargets: new Set<string>(),
     originByTarget: new Map<string, string>()
+  },
+  aetherWallTargeting: {
+    active: false,
+    validOrigins: new Set<string>(),
+    direction: "N" as "N" | "E" | "S" | "W",
+    length: 1 as 1 | 2 | 3
   },
   airportTargeting: {
     active: false,

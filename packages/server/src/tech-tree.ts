@@ -32,8 +32,10 @@ export interface TechEffects {
   unlockSiegeOutposts?: boolean;
   unlockRevealRegion?: boolean;
   unlockRevealEmpire?: boolean;
+  unlockRevealEmpireStats?: boolean;
   unlockDeepStrike?: boolean;
   unlockNavalInfiltration?: boolean;
+  unlockAetherWall?: boolean;
   unlockSabotage?: boolean;
   unlockMountainPass?: boolean;
   unlockTerrainShaping?: boolean;
@@ -76,7 +78,7 @@ export interface TechEffects {
   dockGoldCapMult?: number;
   dockConnectionBonusPerLink?: number;
   dockRoutesVisible?: boolean;
-  marketCrystalUpkeepMult?: number;
+  supportEconomicFoodUpkeepMult?: number;
   frontierDefenseAdd?: number;
   settledDefenseMult?: number;
   attackVsSettledMult?: number;
@@ -144,8 +146,10 @@ const TechEffectsSchema = z
     unlockSiegeOutposts: z.boolean().optional(),
     unlockRevealRegion: z.boolean().optional(),
     unlockRevealEmpire: z.boolean().optional(),
+    unlockRevealEmpireStats: z.boolean().optional(),
     unlockDeepStrike: z.boolean().optional(),
     unlockNavalInfiltration: z.boolean().optional(),
+    unlockAetherWall: z.boolean().optional(),
     unlockSabotage: z.boolean().optional(),
     unlockMountainPass: z.boolean().optional(),
     unlockTerrainShaping: z.boolean().optional(),
@@ -188,7 +192,7 @@ const TechEffectsSchema = z
     dockGoldCapMult: z.number().positive().optional(),
     dockConnectionBonusPerLink: z.number().nonnegative().optional(),
     dockRoutesVisible: z.boolean().optional(),
-    marketCrystalUpkeepMult: z.number().positive().optional(),
+    supportEconomicFoodUpkeepMult: z.number().positive().optional(),
     frontierDefenseAdd: z.number().nonnegative().optional(),
     settledDefenseMult: z.number().positive().optional(),
     attackVsSettledMult: z.number().positive().optional(),

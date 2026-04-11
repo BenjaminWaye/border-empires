@@ -10,28 +10,45 @@ import {
   type GoapGoal
 } from "./goap.js";
 
+const baseGoapState = (): AiEmpireGoapState => ({
+  hasNeutralLandOpportunity: false,
+  hasScoutOpportunity: false,
+  hasScaffoldOpportunity: false,
+  hasBarbarianTarget: false,
+  hasWeakEnemyBorder: false,
+  hasSiegeOutpostSite: false,
+  attackReady: false,
+  needsSettlement: false,
+  frontierDebtHigh: false,
+  foodCoverageLow: false,
+  underThreat: false,
+  threatCritical: false,
+  economyWeak: false,
+  needsFortifiedAnchor: false,
+  canAffordFrontierAction: false,
+  canAffordSettlement: false,
+  canBuildFort: false,
+  canBuildEconomy: false,
+  canBuildSiegeOutpost: false,
+  goldHealthy: true,
+  staminaHealthy: true
+});
+
 describe("planBestGoal", () => {
   it("prefers defensive stabilization when under threat", () => {
     const state: AiEmpireGoapState = {
+      ...baseGoapState(),
       hasNeutralLandOpportunity: true,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
-      hasBarbarianTarget: false,
       hasWeakEnemyBorder: true,
       attackReady: true,
-      needsSettlement: false,
-      frontierDebtHigh: false,
-      foodCoverageLow: false,
       underThreat: true,
       threatCritical: true,
-      economyWeak: false,
       needsFortifiedAnchor: true,
       canAffordFrontierAction: true,
       canAffordSettlement: true,
       canBuildFort: true,
       canBuildEconomy: true,
-      goldHealthy: true,
-      staminaHealthy: true
+      goldHealthy: true
     };
 
     const plan = planBestGoal(state, AI_EMPIRE_GOALS, AI_EMPIRE_ACTIONS);
@@ -42,19 +59,10 @@ describe("planBestGoal", () => {
 
   it("uses recovery when the empire cannot afford frontier actions yet", () => {
     const state: AiEmpireGoapState = {
+      ...baseGoapState(),
       hasNeutralLandOpportunity: true,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
       hasBarbarianTarget: true,
-      hasWeakEnemyBorder: false,
-      attackReady: false,
-      needsSettlement: false,
-      frontierDebtHigh: false,
-      foodCoverageLow: false,
-      underThreat: false,
-      threatCritical: false,
       economyWeak: true,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: false,
       canAffordSettlement: false,
       canBuildFort: false,
@@ -71,25 +79,10 @@ describe("planBestGoal", () => {
 
   it("does not choose barbarian attacks until the empire is attack-ready", () => {
     const state: AiEmpireGoapState = {
-      hasNeutralLandOpportunity: false,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
+      ...baseGoapState(),
       hasBarbarianTarget: true,
-      hasWeakEnemyBorder: false,
-      attackReady: false,
-      needsSettlement: false,
-      frontierDebtHigh: false,
-      foodCoverageLow: false,
-      underThreat: false,
-      threatCritical: false,
-      economyWeak: false,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: true,
-      canAffordSettlement: false,
-      canBuildFort: false,
-      canBuildEconomy: false,
-      goldHealthy: true,
-      staminaHealthy: true
+      goldHealthy: true
     };
 
     const plan = planBestGoal(state, AI_EMPIRE_GOALS, AI_EMPIRE_ACTIONS);
@@ -152,25 +145,11 @@ describe("planBestGoal", () => {
 
   it("promotes season victory routes to explicit GOAP goals", () => {
     const state: AiEmpireGoapState = {
-      hasNeutralLandOpportunity: false,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
-      hasBarbarianTarget: false,
-      hasWeakEnemyBorder: false,
-      attackReady: false,
+      ...baseGoapState(),
       needsSettlement: true,
       frontierDebtHigh: true,
-      foodCoverageLow: false,
-      underThreat: false,
-      threatCritical: false,
-      economyWeak: false,
-      needsFortifiedAnchor: false,
-      canAffordFrontierAction: false,
       canAffordSettlement: true,
-      canBuildFort: false,
-      canBuildEconomy: false,
-      goldHealthy: true,
-      staminaHealthy: true
+      goldHealthy: true
     };
 
     const plan = planBestGoal(state, goalsForVictoryPath("SETTLED_TERRITORY"), AI_EMPIRE_ACTIONS);
@@ -181,23 +160,11 @@ describe("planBestGoal", () => {
 
   it("can still expand cheaply while conserving settlement reserve", () => {
     const state: AiEmpireGoapState = {
+      ...baseGoapState(),
       hasNeutralLandOpportunity: true,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
-      hasBarbarianTarget: false,
-      hasWeakEnemyBorder: false,
-      attackReady: false,
-      needsSettlement: false,
-      frontierDebtHigh: false,
-      foodCoverageLow: false,
-      underThreat: false,
-      threatCritical: false,
       economyWeak: true,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: true,
       canAffordSettlement: false,
-      canBuildFort: false,
-      canBuildEconomy: false,
       goldHealthy: false,
       staminaHealthy: true
     };
@@ -210,25 +177,12 @@ describe("planBestGoal", () => {
 
   it("prefers reducing frontier debt for the settled territory route", () => {
     const state: AiEmpireGoapState = {
-      hasNeutralLandOpportunity: false,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
-      hasBarbarianTarget: false,
-      hasWeakEnemyBorder: false,
-      attackReady: false,
+      ...baseGoapState(),
       needsSettlement: true,
       frontierDebtHigh: true,
-      foodCoverageLow: false,
-      underThreat: false,
-      threatCritical: false,
-      economyWeak: false,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: true,
       canAffordSettlement: true,
-      canBuildFort: false,
-      canBuildEconomy: false,
-      goldHealthy: true,
-      staminaHealthy: true
+      goldHealthy: true
     };
 
     const plan = planBestGoal(state, goalsForVictoryPath("SETTLED_TERRITORY"), AI_EMPIRE_ACTIONS);
@@ -239,25 +193,11 @@ describe("planBestGoal", () => {
 
   it("can choose scaffold claims as a distinct frontier plan", () => {
     const state: AiEmpireGoapState = {
-      hasNeutralLandOpportunity: false,
-      hasScoutOpportunity: false,
+      ...baseGoapState(),
       hasScaffoldOpportunity: true,
-      hasBarbarianTarget: false,
-      hasWeakEnemyBorder: false,
-      attackReady: false,
-      needsSettlement: false,
-      frontierDebtHigh: false,
-      foodCoverageLow: false,
-      underThreat: false,
-      threatCritical: false,
-      economyWeak: false,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: true,
       canAffordSettlement: true,
-      canBuildFort: false,
-      canBuildEconomy: false,
-      goldHealthy: true,
-      staminaHealthy: true
+      goldHealthy: true
     };
 
     const plan = planBestGoal(state, goalsForVictoryPath("SETTLED_TERRITORY"), AI_EMPIRE_ACTIONS);
@@ -268,23 +208,13 @@ describe("planBestGoal", () => {
 
   it("can still choose enemy pressure when threatened but not critically", () => {
     const state: AiEmpireGoapState = {
-      hasNeutralLandOpportunity: false,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
-      hasBarbarianTarget: false,
+      ...baseGoapState(),
       hasWeakEnemyBorder: true,
       attackReady: true,
-      needsSettlement: false,
-      frontierDebtHigh: false,
-      foodCoverageLow: false,
       underThreat: true,
-      threatCritical: false,
       economyWeak: true,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: true,
       canAffordSettlement: false,
-      canBuildFort: false,
-      canBuildEconomy: false,
       goldHealthy: false,
       staminaHealthy: true
     };
@@ -297,23 +227,15 @@ describe("planBestGoal", () => {
 
   it("still allows enemy pressure plans under critical threat when fortification is unavailable", () => {
     const state: AiEmpireGoapState = {
-      hasNeutralLandOpportunity: false,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
-      hasBarbarianTarget: false,
+      ...baseGoapState(),
       hasWeakEnemyBorder: true,
       attackReady: true,
-      needsSettlement: false,
       frontierDebtHigh: true,
-      foodCoverageLow: false,
       underThreat: true,
       threatCritical: true,
       economyWeak: true,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: true,
       canAffordSettlement: false,
-      canBuildFort: false,
-      canBuildEconomy: false,
       goldHealthy: false,
       staminaHealthy: true
     };
@@ -330,23 +252,12 @@ describe("planBestGoal", () => {
 
   it("prioritizes food recovery as an explicit economic goal", () => {
     const state: AiEmpireGoapState = {
+      ...baseGoapState(),
       hasNeutralLandOpportunity: true,
-      hasScoutOpportunity: false,
-      hasScaffoldOpportunity: false,
-      hasBarbarianTarget: false,
-      hasWeakEnemyBorder: false,
-      attackReady: false,
-      needsSettlement: false,
-      frontierDebtHigh: false,
       foodCoverageLow: true,
-      underThreat: false,
-      threatCritical: false,
       economyWeak: true,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: true,
       canAffordSettlement: false,
-      canBuildFort: false,
-      canBuildEconomy: false,
       goldHealthy: false,
       staminaHealthy: true
     };
@@ -359,23 +270,13 @@ describe("planBestGoal", () => {
 
   it("does not scout while the empire is under threat", () => {
     const state: AiEmpireGoapState = {
-      hasNeutralLandOpportunity: false,
+      ...baseGoapState(),
       hasScoutOpportunity: true,
-      hasScaffoldOpportunity: false,
-      hasBarbarianTarget: false,
-      hasWeakEnemyBorder: false,
-      attackReady: false,
-      needsSettlement: false,
-      frontierDebtHigh: false,
-      foodCoverageLow: false,
       underThreat: true,
       threatCritical: true,
       economyWeak: true,
-      needsFortifiedAnchor: false,
       canAffordFrontierAction: true,
       canAffordSettlement: false,
-      canBuildFort: false,
-      canBuildEconomy: false,
       goldHealthy: false,
       staminaHealthy: true
     };

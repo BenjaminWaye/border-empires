@@ -40,10 +40,12 @@ const createState = () =>
     actionInFlight: true,
     capture: { startAt: 1, resolvesAt: 2, target: { x: 60, y: 302 } },
     pendingCombatReveal: undefined,
+    actionAcceptedAck: false,
     combatStartAck: true,
     actionStartedAt: 123,
     actionCurrent: { x: 60, y: 302 },
     frontierSyncWaitUntilByTarget: new Map<string, number>(),
+    frontierLateAckUntilByTarget: new Map<string, number>(),
     autoSettleTargets: new Set<string>(["60,302"]),
     attackPreviewPendingKey: "60,302->61,302",
     attackPreview: { valid: true },
@@ -129,6 +131,7 @@ const createState = () =>
     discoveredTiles: new Set<string>(),
     discoveredDockTiles: new Set<string>(),
     tileDetailRequestedAt: new Map<string, number>(),
+    lastChunkSnapshotGeneration: 0,
     lastSubAt: Date.now(),
     lastSubCx: 0,
     lastSubCy: 0,
@@ -148,6 +151,13 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
   const reconcileActionQueue = vi.fn();
   const processActionQueue = vi.fn(() => false);
   const pushFeed = vi.fn();
+  const applyOptimisticTileState = vi.fn((x: number, y: number, update: (tile: Record<string, unknown>) => void) => {
+    const tileKey = `${x},${y}`;
+    const current = state.tiles.get(tileKey) ?? { x, y, terrain: "LAND", fogged: false };
+    const next = { ...current };
+    update(next);
+    state.tiles.set(tileKey, next);
+  });
   const applyPendingSettlementsFromServer = vi.fn();
   const requestTileDetailIfNeeded = vi.fn((tile: { x: number; y: number }) => {
     state.tileDetailRequestedAt.set(`${tile.x},${tile.y}`, Date.now());
@@ -165,6 +175,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
     pushFeed,
     pushFeedEntry: vi.fn(),
     clearOptimisticTileState,
+    applyOptimisticTileState,
     requestViewRefresh,
     applyPendingSettlementsFromServer,
     mergeIncomingTileDetail: vi.fn((existing, incoming) => incoming ?? existing),
@@ -215,6 +226,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
     pushFeed,
     requestViewRefresh,
     clearOptimisticTileState,
+    applyOptimisticTileState,
     reconcileActionQueue,
     clearSettlementProgressByKey,
     applyPendingSettlementsFromServer,
@@ -231,9 +243,35 @@ describe("client network regression guards", () => {
 
     expect(() =>
       ws.emit("message", {
-        data: JSON.stringify({ type: "ERROR", code: "NOT_ADJACENT", message: "target must be enemy-controlled land" })
+        data: JSON.stringify({ type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" })
       })
     ).not.toThrow();
+  });
+
+  it("falls back to pushFeed when pushFeedEntry is missing during combat resolution", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const pushFeed = vi.fn();
+    bindWithDeps(state, ws, {
+      pushFeed,
+      pushFeedEntry: undefined,
+      combatResolutionAlert: vi.fn(() => ({
+        title: "Victory",
+        detail: "You captured the tile.",
+        tone: "success"
+      }))
+    });
+
+    expect(() =>
+      ws.emit("message", {
+        data: JSON.stringify({
+          type: "COMBAT_RESULT",
+          target: { x: 60, y: 302 },
+          changes: [{ x: 60, y: 302, ownerId: "me", ownershipState: "FRONTIER" }]
+        })
+      })
+    ).not.toThrow();
+    expect(pushFeed).toHaveBeenCalledWith("You captured the tile.", "combat", "success");
   });
 
   it("clears stuck frontier state on LOCKED errors and refreshes the tile immediately", () => {
@@ -293,6 +331,122 @@ describe("client network regression guards", () => {
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
   });
 
+  it("ignores duplicate attack cooldown errors once the current frontier action is already accepted", () => {
+    const state = createState();
+    state.actionAcceptedAck = true;
+    state.combatStartAck = true;
+    state.capture = { startAt: Date.now() - 1_200, resolvesAt: Date.now() + 1_800, target: { x: 60, y: 302 } };
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true)
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: 1_600 })
+    });
+
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.combatStartAck).toBe(true);
+    expect(state.actionTargetKey).toBe("60,302");
+    expect(state.actionCurrent).toEqual(expect.objectContaining({ x: 60, y: 302 }));
+    expect(state.capture).toEqual(expect.objectContaining({ target: { x: 60, y: 302 } }));
+    expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
+    expect(deps.requestViewRefresh).toHaveBeenCalledWith(1, true);
+    expect(deps.clearOptimisticTileState).not.toHaveBeenCalled();
+    expect(deps.reconcileActionQueue).not.toHaveBeenCalled();
+  });
+
+  it("explains invalid attack targets separately from adjacency failures", () => {
+    expect(explainActionFailureFromServer("ATTACK_TARGET_INVALID", "target must be enemy-controlled land")).toBe(
+      "Action blocked: target must be enemy-controlled land."
+    );
+    expect(explainActionFailureFromServer("NOT_ADJACENT", "target must be adjacent or valid dock crossing")).toBe(
+      "Action blocked: target must border your territory or a linked dock."
+    );
+  });
+
+  it("marks an in-flight attack as accepted before combat start arrives", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ACTION_ACCEPTED",
+        actionType: "ATTACK",
+        origin: { x: 59, y: 302 },
+        target: { x: 60, y: 302 },
+        resolvesAt: Date.now() + 3_000
+      })
+    });
+
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionTargetKey).toBe("60,302");
+  });
+
+  it("applies pending frontier ownership only after an expand is accepted", () => {
+    const state = createState();
+    state.tiles.set("60,302", {
+      x: 60,
+      y: 302,
+      terrain: "LAND",
+      fogged: false
+    });
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ACTION_ACCEPTED",
+        actionType: "EXPAND",
+        origin: { x: 59, y: 302 },
+        target: { x: 60, y: 302 },
+        resolvesAt: Date.now() + 3_000
+      })
+    });
+
+    expect(deps.applyOptimisticTileState).toHaveBeenCalledWith(60, 302, expect.any(Function));
+    expect(state.tiles.get("60,302")).toEqual(
+      expect.objectContaining({
+        ownerId: "me",
+        ownershipState: "FRONTIER",
+        optimisticPending: "expand"
+      })
+    );
+  });
+
+  it("rebinds a timed-out frontier target when combat start arrives late", () => {
+    const state = createState();
+    state.actionInFlight = false;
+    state.actionAcceptedAck = false;
+    state.combatStartAck = false;
+    state.actionStartedAt = 0;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    state.capture = undefined;
+    state.frontierLateAckUntilByTarget.set("60,302", Date.now() + 10_000);
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "COMBAT_START",
+        target: { x: 60, y: 302 },
+        origin: { x: 59, y: 302 },
+        resolvesAt: Date.now() + 3_000
+      })
+    });
+
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.combatStartAck).toBe(true);
+    expect(state.actionTargetKey).toBe("60,302");
+    expect(state.actionCurrent).toEqual(expect.objectContaining({ x: 60, y: 302, retries: 0 }));
+    expect(state.frontierLateAckUntilByTarget.has("60,302")).toBe(false);
+  });
+
   it("does not clear active settlement progress when PLAYER_UPDATE omits pendingSettlements", () => {
     const state = createState();
     const ws = new FakeWebSocket();
@@ -321,6 +475,7 @@ describe("client network regression guards", () => {
     ws.emit("message", {
       data: JSON.stringify({
         type: "CHUNK_FULL",
+        generation: 1,
         tilesMaskedByFog: [{ x: 5, y: 6, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "SETTLED", detailLevel: "summary" }]
       })
     });
@@ -330,16 +485,17 @@ describe("client network regression guards", () => {
     );
   });
 
-  it("preserves confirmed frontier ownership when TILE_DELTA omits owner fields", () => {
+  it("clears stale barbarian ownership when an authoritative TILE_DELTA omits owner fields", () => {
     const state = createState();
     state.tiles.set("100,247", {
       x: 100,
       y: 247,
       terrain: "LAND",
       fogged: false,
-      ownerId: "me",
-      ownershipState: "FRONTIER",
-      detailLevel: "summary"
+      ownerId: "barbarian",
+      ownershipState: "BARBARIAN",
+      detailLevel: "summary",
+      capital: true
     });
     const ws = new FakeWebSocket();
     bindWithDeps(state, ws);
@@ -355,11 +511,12 @@ describe("client network regression guards", () => {
       expect.objectContaining({
         x: 100,
         y: 247,
-        ownerId: "me",
-        ownershipState: "FRONTIER",
         regionType: "ANCIENT_HEARTLAND"
       })
     );
+    expect(state.tiles.get("100,247")?.ownerId).toBeUndefined();
+    expect(state.tiles.get("100,247")?.ownershipState).toBeUndefined();
+    expect(state.tiles.get("100,247")?.capital).toBeUndefined();
   });
 
   it("resumes the frontier queue when a chunk refresh confirms a queued capture", () => {
@@ -389,6 +546,7 @@ describe("client network regression guards", () => {
     ws.emit("message", {
       data: JSON.stringify({
         type: "CHUNK_FULL",
+        generation: 1,
         tilesMaskedByFog: [{ x: 100, y: 247, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER" }]
       })
     });
@@ -399,6 +557,84 @@ describe("client network regression guards", () => {
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("100,247");
     expect(deps.processActionQueue).toHaveBeenCalled();
     expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 247, ownerId: "me" }));
+  });
+
+  it("keeps waiting for frontier sync when a chunk refresh still shows the target as neutral", () => {
+    const state = createState();
+    state.actionInFlight = false;
+    state.capture = undefined;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    state.actionQueue = [{ x: 100, y: 247, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["100,247"]);
+    state.frontierSyncWaitUntilByTarget.set("100,247", Date.now() + 10_000);
+    state.tiles.set("100,247", {
+      x: 100,
+      y: 247,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "expand"
+    });
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_FULL",
+        generation: 1,
+        tilesMaskedByFog: [{ x: 100, y: 247, terrain: "LAND", fogged: false, detailLevel: "summary" }]
+      })
+    });
+
+    expect(state.frontierSyncWaitUntilByTarget.get("100,247")).toBeGreaterThan(Date.now());
+    expect(state.actionQueue).toEqual([{ x: 100, y: 247, retries: 0 }]);
+    expect(state.queuedTargetKeys.has("100,247")).toBe(true);
+  });
+
+  it("ignores stale chunk snapshots that arrive after a newer generation", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_BATCH",
+        generation: 2,
+        chunks: [
+          {
+            cx: 0,
+            cy: 0,
+            tilesMaskedByFog: [{ x: 40, y: 238, terrain: "LAND", fogged: false, ownerId: "enemy", ownershipState: "SETTLED" }]
+          }
+        ]
+      })
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "CHUNK_BATCH",
+        generation: 1,
+        chunks: [
+          {
+            cx: 0,
+            cy: 0,
+            tilesMaskedByFog: [{ x: 40, y: 238, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER" }]
+          }
+        ]
+      })
+    });
+
+    expect(state.lastChunkSnapshotGeneration).toBe(2);
+    expect(state.tiles.get("40,238")).toEqual(
+      expect.objectContaining({
+        x: 40,
+        y: 238,
+        ownerId: "enemy",
+        ownershipState: "SETTLED"
+      })
+    );
   });
 
   it("requeues a settlement when the server rejects it only because development slots are full", () => {
@@ -427,6 +663,137 @@ describe("client network regression guards", () => {
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
     expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
+  });
+
+  it("requeues a settlement without crashing when settlement clear wiring is missing", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    state.settleProgressByTile.set("12,18", {
+      startAt: Date.now() - 1000,
+      resolvesAt: Date.now() + 10_000,
+      target: { x: 12, y: 18 },
+      awaitingServerConfirm: false
+    });
+    const ws = new FakeWebSocket();
+    const pushFeed = vi.fn();
+    bindWithDeps(state, ws, { clearSettlementProgressByKey: undefined, pushFeed });
+
+    expect(() =>
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 4 development slots are busy", x: 12, y: 18 })
+      })
+    ).not.toThrow();
+
+    expect(state.settleProgressByTile.has("12,18")).toBe(false);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
+  });
+
+  it("handles non-busy settlement failures without crashing when settlement clear wiring is missing", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    state.settleProgressByTile.set("12,18", {
+      startAt: Date.now() - 1000,
+      resolvesAt: Date.now() + 10_000,
+      target: { x: 12, y: 18 },
+      awaitingServerConfirm: false
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    bindWithDeps(state, ws, { clearSettlementProgressByKey: undefined, showCaptureAlert });
+
+    expect(() =>
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "tile is already settled", x: 12, y: 18 })
+      })
+    ).not.toThrow();
+
+    expect(state.settleProgressByTile.has("12,18")).toBe(false);
+    expect(showCaptureAlert).toHaveBeenCalledWith("Action failed", "tile is already settled", "warn", undefined);
+  });
+
+  it("requeues a settlement when the server rejects it during a combat lock window", () => {
+    const state = createState();
+    state.actionInFlight = true;
+    state.actionTargetKey = "12,18";
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    state.settleProgressByTile.set("12,18", {
+      startAt: Date.now() - 1000,
+      resolvesAt: Date.now() + 10_000,
+      target: { x: 12, y: 18 },
+      awaitingServerConfirm: false
+    });
+    const ws = new FakeWebSocket();
+    const pushFeed = vi.fn();
+    const showCaptureAlert = vi.fn();
+    bindWithDeps(state, ws, { pushFeed, showCaptureAlert, clearSettlementProgressByKey: undefined });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "tile is locked in combat", x: 12, y: 18 })
+    });
+
+    expect(state.settleProgressByTile.has("12,18")).toBe(false);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
+    expect(showCaptureAlert).not.toHaveBeenCalled();
+    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
+  });
+
+  it("does not crash on settlement errors when alert and queue callbacks are missing", () => {
+    const state = createState();
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    state.settleProgressByTile.set("12,18", {
+      startAt: Date.now() - 1000,
+      resolvesAt: Date.now() + 10_000,
+      target: { x: 12, y: 18 },
+      awaitingServerConfirm: false
+    });
+    const ws = new FakeWebSocket();
+    bindWithDeps(state, ws, {
+      clearSettlementProgressByKey: undefined,
+      showCaptureAlert: undefined,
+      pushFeed: undefined,
+      explainActionFailure: undefined,
+      reconcileActionQueue: undefined,
+      processActionQueue: undefined
+    });
+
+    expect(() =>
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "tile is already settled", x: 12, y: 18 })
+      })
+    ).not.toThrow();
   });
 
   it("requeues a structure build when the server rejects it only because development slots are full", () => {

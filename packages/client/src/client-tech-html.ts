@@ -28,6 +28,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockRadarSystem" && value === true) return "Unlocks radar systems";
   if (key === "unlockRevealRegion" && value === true) return "Unlocks reveal region";
   if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
+  if (key === "unlockRevealEmpireStats" && value === true) return "Unlocks Reveal Empire Stats";
+  if (key === "unlockAetherWall" && value === true) return "Unlocks Aether Wall";
   if (key === "unlockDeepStrike" && value === true) return "Unlocks deep strike";
   if (key === "unlockNavalInfiltration" && value === true) return "Unlocks Aether Bridge";
   if (key === "unlockSabotage" && value === true) return "Unlocks sabotage";
@@ -38,7 +40,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "dockGoldCapMult" && typeof value === "number") return `Dock cap +${Math.round((value - 1) * 100)}%`;
   if (key === "dockConnectionBonusPerLink" && typeof value === "number") return `Dock route bonus ${Math.round(value * 100)}% per link`;
   if (key === "dockRoutesVisible" && value === true) return "Shows dock routes";
-  if (key === "marketCrystalUpkeepMult" && typeof value === "number") return `Market crystal upkeep -${Math.round((1 - value) * 100)}%`;
+  if (key === "supportEconomicFoodUpkeepMult" && typeof value === "number") return `Town support food upkeep -${Math.round((1 - value) * 100)}%`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
     const resourceOutput = value as Record<string, unknown>;
     const labels: string[] = [];

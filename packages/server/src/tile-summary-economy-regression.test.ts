@@ -3,9 +3,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const serverMainSource = (): string => {
+const tileViewSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return readFileSync(resolve(here, "./server-tile-view-runtime.ts"), "utf8");
 };
 
 const chunkStateSource = (): string => {
@@ -40,7 +40,7 @@ const declarationSnippet = (source: string, functionName: string): string => {
 
 describe("tile summary economy regression guard", () => {
   it("does not zero out town economy fields in the thin town summary", () => {
-    const body = declarationSnippet(serverMainSource(), "thinTownSummaryForTile");
+    const body = declarationSnippet(tileViewSource(), "thinTownSummaryForTile");
     const forbiddenSnippets = [
       "supportCurrent: 0",
       "supportMax: 0",

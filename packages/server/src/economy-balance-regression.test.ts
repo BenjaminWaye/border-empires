@@ -27,7 +27,12 @@ const serverSource = (): string => {
     readFileSync(resolve(here, "./server-economic-operations.ts"), "utf8"),
     readFileSync(resolve(here, "./server-territory-structure-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-economy-runtime.ts"), "utf8"),
-    readFileSync(resolve(here, "./server-game-constants.ts"), "utf8")
+    readFileSync(resolve(here, "./server-tile-view-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-game-constants.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-player-progression.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-status-metrics.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-victory-pressure.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-tech-domain-runtime.ts"), "utf8")
   ].join("\n");
 };
 
@@ -78,8 +83,9 @@ describe("economy balance regression guard", () => {
 
   it("includes structure upkeep in totals and sends the shared economy snapshot on init/update", () => {
     const source = serverSource();
+    expect(source).toContain("foodStructureUpkeep += economicStructureFoodUpkeepPerInterval(structure.type, player.id) / 10;");
     expect(source).toContain("goldStructureUpkeep += economicStructureGoldUpkeepPerInterval(structure.type) / 10;");
-    expect(source).toContain("crystalStructureUpkeep += economicStructureCrystalUpkeepPerInterval(structure.type, player.id) / 10;");
+    expect(source).toContain("const economicStructureFoodUpkeepPerInterval = (structureType: EconomicStructureType, playerId: string): number =>");
     expect(source).toContain("const tileUpkeepEntriesForTile = (tileKey: TileKey, ownerId: string | undefined): NonNullable<Tile[\"upkeepEntries\"]> => {");
     expect(source).toContain("tile.upkeepEntries = upkeepEntries;");
     expect(source).toContain("economyBreakdown: economy.economyBreakdown");
@@ -90,6 +96,7 @@ describe("economy balance regression guard", () => {
   it("wires upkeep diagnostics into the economic operations runtime", () => {
     const source = serverSource();
     expect(source).toContain("deps.lastUpkeepByPlayer.set(player.id, diag);");
+    expect(source).toContain("const foodUpkeep = economicStructureFoodUpkeepPerInterval(structure.type, player.id);");
     expect(source).toContain("upkeepContributorsForPlayer,");
     expect(source).toContain("lastUpkeepByPlayer,");
     expect(source).toContain("foodUpkeepCoverageByPlayer,");
@@ -140,7 +147,7 @@ describe("economy balance regression guard", () => {
 
   it("sends per-player leaderboard snapshots on init/update and includes self progress for every victory path", () => {
     const source = serverSource();
-    expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(p.id)");
+    expect(source).toContain("payload.leaderboard = leaderboardSnapshotForPlayer(p.id);");
     expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(player.id)");
     expect(source).toContain("if (objective.leaderPlayerId === playerId) return objective;");
     expect(source).toContain('if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;');
