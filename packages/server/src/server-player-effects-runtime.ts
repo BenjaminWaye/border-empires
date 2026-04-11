@@ -52,7 +52,7 @@ export interface ServerPlayerEffectsRuntime {
   getOrInitDynamicMissions: (playerId: string) => DynamicMissionDef[];
   getOrInitForcedReveal: (playerId: string) => Set<TileKey>;
   activeAttackBuffMult: (playerId: string) => number;
-  revealLinkedDocksForPlayer: (playerId: string, tileKey: TileKey) => void;
+  revealLinkedDocksForPlayer: (playerId: string, tileKey: TileKey) => TileKey[];
   activeResourceIncomeMult: (playerId: string, resource: ResourceType) => number;
 }
 
@@ -270,10 +270,11 @@ export const createServerPlayerEffectsRuntime = (
     return until > deps.now() ? deps.VENDETTA_ATTACK_BUFF_MULT : 1;
   };
 
-  const revealLinkedDocksForPlayer = (playerId: string, tileKey: TileKey): void => {
+  const revealLinkedDocksForPlayer = (playerId: string, tileKey: TileKey): TileKey[] => {
     const dock = deps.docksByTile.get(tileKey);
-    if (!dock) return;
+    if (!dock) return [];
     const forced = getOrInitForcedReveal(playerId);
+    const revealedTileKeys: TileKey[] = [];
     let changed = false;
     for (const linked of deps.dockLinkedDestinations(dock)) {
       const [x, y] = deps.parseKey(linked.tileKey);
@@ -285,11 +286,13 @@ export const createServerPlayerEffectsRuntime = (
           );
           if (forced.has(revealTileKey)) continue;
           forced.add(revealTileKey);
+          revealedTileKeys.push(revealTileKey);
           changed = true;
         }
       }
     }
     if (changed) deps.markVisibilityDirty(playerId);
+    return revealedTileKeys;
   };
 
   const activeResourceIncomeMult = (playerId: string, resource: ResourceType): number => {
