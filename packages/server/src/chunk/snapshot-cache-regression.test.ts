@@ -68,6 +68,7 @@ describe("chunk snapshot cache regression guard", () => {
       1, 1, 0, 0
     ]);
 
+    const summaryChunkReads: Array<{ cx: number; cy: number; mode: string }> = [];
     const loadBatchRequests: Array<Array<{ cx: number; cy: number; mode: string }>> = [];
     const workerSerializeCounts: number[] = [];
     const sentPayloads: string[] = [];
@@ -129,7 +130,8 @@ describe("chunk snapshot cache regression guard", () => {
           makeTile(startX + 1, 1)
         ];
       },
-      summaryChunkTiles: (cx) => {
+      summaryChunkTiles: (cx, _cy, mode) => {
+        summaryChunkReads.push({ cx, cy: 0, mode });
         const startX = cx * 2;
         return [
           makeTile(startX, 0, `visible-${cx}`),
@@ -226,13 +228,12 @@ describe("chunk snapshot cache regression guard", () => {
     );
     await flushSnapshotWork();
 
-    expect(loadBatchRequests).toEqual([
-      [
-        { cx: 0, cy: 0, mode: "thin" },
-        { cx: 1, cy: 0, mode: "thin" }
-      ],
-      [{ cx: 1, cy: 0, mode: "thin" }]
+    expect(summaryChunkReads).toEqual([
+      { cx: 0, cy: 0, mode: "thin" },
+      { cx: 1, cy: 0, mode: "thin" },
+      { cx: 1, cy: 0, mode: "thin" }
     ]);
+    expect(loadBatchRequests).toEqual([]);
     expect(workerSerializeCounts).toEqual([1]);
     expect(sentPayloads).toHaveLength(3);
     expect(perfSamples).toEqual([

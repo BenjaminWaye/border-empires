@@ -153,7 +153,6 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 } => {
   const CHUNK_PAYLOAD_MODES: ChunkSummaryMode[] = ["shell", "bootstrap", "thin", "standard"];
   const DIRECT_CHUNK_SERIALIZE_MAX = 2;
-  const workerReadableChunkMode = (mode: ChunkSummaryMode): mode is ChunkReadRequest["mode"] => mode === "shell" || mode === "thin";
 
   const chunkCoordsForSubscription = (
     sub: { cx: number; cy: number; radius: number },
@@ -420,15 +419,9 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 
       if (pendingBuilds.length > 0) {
         const summaryReadStartedAt = deps.now();
-        const visibleTileBatches = workerReadableChunkMode(summaryMode)
-          ? await deps.loadSummaryChunkTilesBatch(
-              pendingBuilds.map((chunk) => ({
-                cx: chunk.cx,
-                cy: chunk.cy,
-                mode: summaryMode
-              }))
-            )
-          : pendingBuilds.map((chunk) => deps.summaryChunkTiles(chunk.cx, chunk.cy, summaryMode));
+        // Snapshot rebuilds already have direct access to the warmed summary cache.
+        // Re-reading hot-path chunks through a worker turns cached tiles into a costly structured-clone round trip.
+        const visibleTileBatches = pendingBuilds.map((chunk) => deps.summaryChunkTiles(chunk.cx, chunk.cy, summaryMode));
         phases.summaryReadMs += deps.now() - summaryReadStartedAt;
         const chunkInputs = pendingBuilds.map((chunk, payloadIndex) => ({
           ...chunk.buildInput,
