@@ -43,6 +43,7 @@ export type AiPlanningSnapshot = {
   fortProtectsCore: boolean;
   fortIsDockChokePoint: boolean;
   economicBuildAvailable: boolean;
+  siegeOutpostAvailable: boolean;
   frontierOpportunityEconomic: number;
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
@@ -52,7 +53,9 @@ export type AiPlanningSnapshot = {
   canAffordSettlement: boolean;
   canBuildFort: boolean;
   canBuildEconomy: boolean;
+  canBuildSiegeOutpost: boolean;
   goldHealthy: boolean;
+  victoryPathContender: boolean;
 };
 
 export type AiPlanningDecision = {
@@ -97,6 +100,13 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
         !snapshot.foodCoverageLow &&
         !snapshot.settlementAvailable)
     );
+  const siegePressureReady =
+    snapshot.siegeOutpostAvailable &&
+    snapshot.canBuildSiegeOutpost &&
+    snapshot.frontPosture !== "TRUCE" &&
+    !snapshot.underThreat &&
+    (snapshot.primaryVictoryPath === "TOWN_CONTROL" || snapshot.primaryVictoryPath === "ECONOMIC_HEGEMONY") &&
+    (snapshot.victoryPathContender || snapshot.pressureAttackScore >= 180);
 
   if (urgentPressureAttackReady) {
     return { reason: "executed_pressure_counterattack_priority", actionKey: "attack_enemy_border_tile", goapActionKey: "attack_enemy_border_tile" };
@@ -139,9 +149,16 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   if (
     pressureAttackReady &&
     (snapshot.frontPosture === "BREAK" || snapshot.pressureThreatensCore) &&
-    (snapshot.primaryVictoryPath === "TOWN_CONTROL" || snapshot.pressureAttackScore >= 150)
+    (
+      snapshot.primaryVictoryPath === "TOWN_CONTROL" ||
+      snapshot.primaryVictoryPath === "ECONOMIC_HEGEMONY" ||
+      snapshot.pressureAttackScore >= 120
+    )
   ) {
     return { reason: "executed_pressure_attack_priority", actionKey: "attack_enemy_border_tile", goapActionKey: "attack_enemy_border_tile" };
+  }
+  if (siegePressureReady && !pressureAttackReady) {
+    return { reason: "executed_siege_pressure_priority", actionKey: "build_siege_outpost", goapActionKey: "build_siege_outpost" };
   }
   if (
     snapshot.frontPosture === "CONTAIN" &&
@@ -168,6 +185,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     hasScaffoldOpportunity: snapshot.scaffoldExpandAvailable,
     hasBarbarianTarget: snapshot.barbarianAttackAvailable,
     hasWeakEnemyBorder: snapshot.pressureAttackAvailable || snapshot.enemyAttackAvailable,
+    hasSiegeOutpostSite: snapshot.siegeOutpostAvailable,
     attackReady: snapshot.attackReady,
     needsSettlement: snapshot.settlementAvailable,
     frontierDebtHigh: snapshot.frontierDebt,
@@ -180,6 +198,7 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     canAffordSettlement: snapshot.canAffordSettlement,
     canBuildFort: snapshot.canBuildFort,
     canBuildEconomy: snapshot.canBuildEconomy,
+    canBuildSiegeOutpost: snapshot.canBuildSiegeOutpost,
     goldHealthy: snapshot.goldHealthy,
     staminaHealthy: snapshot.stamina >= 0
   };

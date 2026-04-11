@@ -114,6 +114,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(executeBody).toContain("queueAiActionWithIntentLatch(actor, { type: \"EXPAND\"");
     expect(executeBody).toContain("queueAiActionWithIntentLatch(actor, { type: \"ATTACK\"");
     expect(executeBody).toContain("queueAiActionWithIntentLatch(actor, { type: \"SETTLE\"");
+    expect(executeBody).toContain("queueAiActionWithIntentLatch(actor, { type: \"BUILD_SIEGE_OUTPOST\"");
     expect(executeBody).toContain("frontierPlanningSummaryForPlayer(actor, territorySummary ?? collectAiTerritorySummary(actor))");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestIslandExpand");
     expect(executeBody).toContain("cachedFrontierPlanningSummary().bestEconomicExpand");
@@ -183,7 +184,8 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(source).toContain("const economicOpportunityScore = territorySummary.neutralEconomicExpandCount * 4 + territorySummary.hostileEconomicAttackCount * 3;");
     expect(source).toContain("const expansionOpportunityScore = territorySummary.neutralLandExpandCount + Math.min(territorySummary.frontierTileCount, 24);");
     expect(source).toContain("const populationCounts = aiVictoryPathPopulationCounts();");
-    expect(source).toContain("Math.max(0, populationCounts[entry.id] - minimumPopulation) * AI_VICTORY_PATH_POPULATION_PENALTY");
+    expect(source).toContain("const contenderBonus = aiVictoryPathContenderBonus(entry.id, analysis, townsTarget, settledTilesTarget);");
+    expect(source).toContain("Math.max(0, crowdingPenalty - contenderBonus)");
     const body = functionBody(source, "scoreAiVictoryPathChoices");
     expect(body).not.toContain("frontierPlanningSummaryForPlayer(");
   });
@@ -252,6 +254,20 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(ensureBody).toContain("AI_VICTORY_PATH_REEVALUATE_MS");
     expect(ensureBody).toContain("scoreAiVictoryPathChoices(actor, analysis, townsTarget, settledTilesTarget)");
     expect(ensureBody).toContain("best.score >= currentScore + AI_VICTORY_PATH_REPIVOT_MARGIN");
+  });
+
+  it("tracks contender-aware siege pressure in planning snapshot and runtime debug only", () => {
+    const source = serverMainSource();
+    const snapshotBody = functionBody(source, "buildAiPlanningSnapshot");
+    const staticBody = functionBody(source, "buildAiPlanningStaticCache");
+
+    expect(staticBody).toContain("let siegeOutpostAvailable = false;");
+    expect(staticBody).toContain("canBuildSiegeOutpostAt(actor, tile.x, tile.y).ok");
+    expect(snapshotBody).toContain("siegeOutpostAvailable: planningStatic.siegeOutpostAvailable");
+    expect(snapshotBody).toContain("canBuildSiegeOutpost:");
+    expect(snapshotBody).toContain("victoryPathContender: primaryVictoryPath ? isAiVictoryPathContender(primaryVictoryPath, analysis, townsTarget, settledTilesTarget) : false");
+    expect(source).toContain("const runtimeVictoryOverview = (): Record<string, unknown> =>");
+    expect(source).toContain("runtimeVictoryOverview");
   });
 
   it("avoids queueing behind a busy planner worker for cheap planner decisions", () => {

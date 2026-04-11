@@ -7,12 +7,12 @@ export type SimulationCommand =
   | { type: "ATTACK"; fromX: number; fromY: number; toX: number; toY: number }
   | { type: "SETTLE"; x: number; y: number }
   | { type: "BUILD_FORT"; x: number; y: number }
+  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
   | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
 
 export type QueuedSimulationMessage =
   | SimulationCommand
-  | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number };
+  | { type: "BUILD_OBSERVATORY"; x: number; y: number };
 
 export type SystemSimulationCommand =
   | { type: "BARBARIAN_ACTION"; agentId: string }
