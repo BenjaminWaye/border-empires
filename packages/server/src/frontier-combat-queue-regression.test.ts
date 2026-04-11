@@ -52,4 +52,16 @@ describe("frontier combat queue regression guard", () => {
     expect(body).toContain("result.attackAlert");
     expect(body).toContain('type: "ATTACK_ALERT"');
   });
+
+  it("does not await combat worker resolution before sending the live frontier acceptance ack", () => {
+    const source = serverMainSource();
+    const livePathStart = source.indexOf('if ((msg.type === "EXPAND" || msg.type === "ATTACK") && actor.points < FRONTIER_ACTION_GOLD_COST)');
+    const livePathEnd = source.indexOf("pending.timeout = setTimeout(async () => {", livePathStart);
+    expect(livePathStart).toBeGreaterThan(-1);
+    expect(livePathEnd).toBeGreaterThan(livePathStart);
+    const livePath = source.slice(livePathStart, livePathEnd);
+    expect(livePath).toContain('type: "ACTION_ACCEPTED"');
+    expect(livePath).toContain("precomputedCombatPromise = resolveCombatViaWorker");
+    expect(livePath).not.toContain("await resolveCombatViaWorker");
+  });
 });

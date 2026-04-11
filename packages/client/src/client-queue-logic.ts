@@ -916,7 +916,9 @@ export const processActionQueue = (
     state.actionTargetKey = targetKey;
     state.captureAlert = undefined;
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
-    state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    const existingCapture =
+      state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y ? state.capture : undefined;
+    state.capture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
     const actionType = !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK";
     attackSyncLog("queue-dispatch", {
       actionType,
