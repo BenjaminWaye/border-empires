@@ -1705,6 +1705,32 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.pendingDomainUnlockId = "";
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
+      const duplicateAcceptedFrontierCooldown =
+        errorCode === "ATTACK_COOLDOWN" &&
+        state.actionAcceptedAck &&
+        Boolean(failedTargetKey) &&
+        (!state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) === failedTargetKey);
+      if (duplicateAcceptedFrontierCooldown) {
+        const cooldownRemainingMs =
+          typeof msg.cooldownRemainingMs === "number" && Number.isFinite(msg.cooldownRemainingMs)
+            ? Math.max(0, msg.cooldownRemainingMs)
+            : COMBAT_LOCK_MS;
+        state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + cooldownRemainingMs);
+        attackSyncLog("duplicate-accepted-cooldown-ignored", {
+          targetKey: failedTargetKey,
+          cooldownRemainingMs,
+          combatStartAck: state.combatStartAck,
+          capture: state.capture
+            ? {
+                target: state.capture.target,
+                resolvesAt: state.capture.resolvesAt
+              }
+            : undefined
+        });
+        requestViewRefreshSafely(1, true);
+        renderHud();
+        return;
+      }
       if (errorMessage.includes("development slots are busy")) {
         logTileSync("development_slot_busy_error", {
           code: errorCode,

@@ -1456,6 +1456,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!state.actionAcceptedAck && Date.now() - started > 2_000) {
       const current = state.actionCurrent;
       const currentKey = current ? deps.keyFor(current.x, current.y) : "";
+      const preservedCapture =
+        current && state.capture && state.capture.target.x === current.x && state.capture.target.y === current.y ? state.capture : undefined;
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(currentKey);
       attackSyncLog("action-accept-timeout", {
         current,
@@ -1495,6 +1497,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           refreshRadius: 1
         });
       } else if (current && (current.retries ?? 0) < 3) {
+        state.capture = preservedCapture;
         deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles and retrying.", "warn");
         deps.requestViewRefresh(1, true);
         const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {

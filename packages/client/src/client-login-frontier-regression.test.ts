@@ -55,6 +55,15 @@ describe("login and frontier retry regression guard", () => {
     expect(source).toContain("state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };");
   });
 
+  it("preserves the existing optimistic frontier timer when retrying the same target", () => {
+    const queueSource = clientSource("./client-queue-logic.ts");
+    const runtimeSource = clientSource("./client-runtime-loop.ts");
+    expect(queueSource).toContain("const existingCapture =");
+    expect(queueSource).toContain("state.capture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };");
+    expect(runtimeSource).toContain("const preservedCapture =");
+    expect(runtimeSource).toContain("state.capture = preservedCapture;");
+  });
+
   it("uses a local radius-1 refresh while waiting for delayed frontier confirmation", () => {
     const source = clientSource("./client-runtime-loop.ts");
     const occurrences = [...source.matchAll(/requestViewRefresh\(1, true\);/g)].length;

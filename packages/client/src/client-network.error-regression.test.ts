@@ -322,6 +322,32 @@ describe("client network regression guards", () => {
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
   });
 
+  it("ignores duplicate attack cooldown errors once the current frontier action is already accepted", () => {
+    const state = createState();
+    state.actionAcceptedAck = true;
+    state.combatStartAck = true;
+    state.capture = { startAt: Date.now() - 1_200, resolvesAt: Date.now() + 1_800, target: { x: 60, y: 302 } };
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true)
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: 1_600 })
+    });
+
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionAcceptedAck).toBe(true);
+    expect(state.combatStartAck).toBe(true);
+    expect(state.actionTargetKey).toBe("60,302");
+    expect(state.actionCurrent).toEqual(expect.objectContaining({ x: 60, y: 302 }));
+    expect(state.capture).toEqual(expect.objectContaining({ target: { x: 60, y: 302 } }));
+    expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
+    expect(deps.requestViewRefresh).toHaveBeenCalledWith(1, true);
+    expect(deps.clearOptimisticTileState).not.toHaveBeenCalled();
+    expect(deps.reconcileActionQueue).not.toHaveBeenCalled();
+  });
+
   it("explains invalid attack targets separately from adjacency failures", () => {
     expect(explainActionFailureFromServer("ATTACK_TARGET_INVALID", "target must be enemy-controlled land")).toBe(
       "Action blocked: target must be enemy-controlled land."
