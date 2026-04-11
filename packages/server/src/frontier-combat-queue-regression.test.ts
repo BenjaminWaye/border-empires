@@ -46,6 +46,7 @@ describe("frontier combat queue regression guard", () => {
 
   it("uses queued frontier action results to send combat start and inbound attack alerts", () => {
     const body = functionBody(serverMainSource(), "executeUnifiedGameplayMessage");
+    expect(body).toContain('type: "ACTION_ACCEPTED"');
     expect(body).toContain("origin: result.origin");
     expect(body).toContain("target: result.target");
     expect(body).toContain("result.attackAlert");

@@ -58,6 +58,9 @@ type SimulationService<TActor, TSocket> = {
 export const createSimulationService = <TActor, TSocket>(
   deps: CreateSimulationServiceDeps<TActor, TSocket>
 ): SimulationService<TActor, TSocket> => {
+  const shouldExecuteHumanFrontierImmediately = (msg: ClientMessage): msg is Extract<ClientMessage, { type: "ATTACK" | "EXPAND" }> =>
+    msg.type === "ATTACK" || msg.type === "EXPAND";
+
   const isQueuedSimulationMessage = (msg: ClientMessage): msg is QueuedSimulationMessage =>
     msg.type === "SETTLE" ||
     msg.type === "BUILD_FORT" ||
@@ -106,6 +109,9 @@ export const createSimulationService = <TActor, TSocket>(
     hasQueuedSystemCommand: bus.hasQueuedSystemCommand,
     isQueuedSimulationMessage,
     handleGatewayMessage: async (actor, msg, socket) => {
+      if (shouldExecuteHumanFrontierImmediately(msg)) {
+        return Boolean(await deps.executeGatewayMessage(actor, msg, socket));
+      }
       if (isQueuedSimulationMessage(msg)) {
         enqueueJob(actor, msg, socket, "human");
         return true;

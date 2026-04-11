@@ -63,7 +63,7 @@ afterEach(() => {
 });
 
 describe("createSimulationService", () => {
-  it("queues mutating gameplay messages and executes non-queued messages directly", async () => {
+  it("executes human frontier combat immediately instead of queueing it", async () => {
     const { createSimulationService } = await import("./service.js");
     const executeGatewayMessage = vi.fn(async () => true);
     const executeSystemCommand = vi.fn(async () => undefined);
@@ -94,13 +94,49 @@ describe("createSimulationService", () => {
     executeGatewayMessage.mockClear();
 
     expect(await service.handleGatewayMessage(actor, { type: "ATTACK", fromX: 1, fromY: 1, toX: 2, toY: 2 }, socket)).toBe(true);
+    expect(executeGatewayMessage).toHaveBeenCalledTimes(1);
+    expect(executeGatewayMessage).toHaveBeenCalledWith(actor, { type: "ATTACK", fromX: 1, fromY: 1, toX: 2, toY: 2 }, socket);
+    expect(service.queueDepth()).toBe(0);
     expect(queuedTasks).toHaveLength(0);
+    expect(executeSystemCommand).not.toHaveBeenCalled();
+  });
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  it("still queues slower mutating messages behind the simulation worker", async () => {
+    const { createSimulationService } = await import("./service.js");
+    const executeGatewayMessage = vi.fn(async () => true);
+    const executeSystemCommand = vi.fn(async () => undefined);
+    const queuedTasks: Array<() => void> = [];
+    const service = createSimulationService<{ id: string }, { id: string }>({
+      now: () => 1,
+      drainBudgetMs: 10,
+      drainMaxCommands: 4,
+      drainHumanQuota: 1,
+      drainSystemQuota: 1,
+      drainAiQuota: 1,
+      queueTask: (fn) => {
+        queuedTasks.push(fn);
+      },
+      executeGatewayMessage,
+      executeSystemCommand,
+      onError: vi.fn(),
+      noopSocket: { id: "noop" }
+    });
+
+    const actor = { id: "p1" };
+    const socket = { id: "ws1" };
+
+    expect(await service.handleGatewayMessage(actor, { type: "BUILD_FORT", x: 2, y: 3 }, socket)).toBe(true);
+    expect(executeGatewayMessage).toHaveBeenCalledTimes(0);
+    expect(service.queueDepth()).toBe(1);
+    expect(queuedTasks).toHaveLength(1);
+
+    const drain = queuedTasks.shift();
+    expect(drain).toBeTypeOf("function");
+    drain?.();
+    await Promise.resolve();
 
     expect(executeGatewayMessage).toHaveBeenCalledTimes(1);
-    expect(executeGatewayMessage).toHaveBeenCalledWith(actor, { type: "ATTACK", fromX: 1, fromY: 1, toX: 2, toY: 2 }, socket, true);
+    expect(executeGatewayMessage).toHaveBeenCalledWith(actor, { type: "BUILD_FORT", x: 2, y: 3 }, socket, true);
     expect(service.queueDepth()).toBe(0);
-    expect(executeSystemCommand).not.toHaveBeenCalled();
   });
 });

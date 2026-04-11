@@ -4431,7 +4431,8 @@ const executeUnifiedGameplayMessage = async (
           { x: msg.toX, y: msg.toY }
         );
       }
-      socket.send(
+      sendHighPrioritySocketMessage(
+        socket,
         JSON.stringify({
           type: "ERROR",
           code: result.code,
@@ -4451,7 +4452,18 @@ const executeUnifiedGameplayMessage = async (
           key(result.origin.x, result.origin.y)
         );
       }
-      socket.send(
+      sendHighPrioritySocketMessage(
+        socket,
+        JSON.stringify({
+          type: "ACTION_ACCEPTED",
+          actionType: msg.type,
+          origin: result.origin,
+          target: result.target,
+          resolvesAt: result.resolvesAt
+        })
+      );
+      sendHighPrioritySocketMessage(
+        socket,
         JSON.stringify({
           type: "COMBAT_START",
           origin: result.origin,
