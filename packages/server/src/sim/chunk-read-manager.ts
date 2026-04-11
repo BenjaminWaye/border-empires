@@ -3,6 +3,7 @@ import { Worker } from "node:worker_threads";
 import type { Tile } from "@border-empires/shared";
 
 import type { ChunkSummaryMode } from "../chunk/snapshots.js";
+import { resolveServerWorkerEntryUrl, resolveServerWorkerOptions } from "../server-worker-entry.js";
 import type { ChunkReadEntry, ChunkReadMode, ChunkReadRequest, ChunkReadTilePatch, ChunkReadWorkerResponse } from "./chunk-read-shared.js";
 
 type CreateChunkReadManagerDeps = {
@@ -78,7 +79,7 @@ export const createChunkReadManager = (deps: CreateChunkReadManagerDeps): {
     if (!deps.enabled) return undefined;
     if (worker) return worker;
     try {
-      const created = new Worker(new URL("./chunk-read-worker.js", import.meta.url));
+      const created = new Worker(resolveServerWorkerEntryUrl("chunkRead"), resolveServerWorkerOptions());
       created.on("message", (message: ChunkReadWorkerResponse) => {
         if (message.type === "ready") {
           state.available = true;

@@ -39,6 +39,7 @@ wait_port_free() {
 
 # Kill known stale watchers first, then listeners.
 kill_match "tsx watch src/main.ts"
+kill_match "node --import tsx src/main.ts"
 kill_match "border-empires/packages/server/src/main.ts"
 kill_match "border-empires/packages/server/dist/main.js"
 kill_match "vite --host 0.0.0.0 --port 5173 --strictPort"
