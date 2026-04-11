@@ -17,6 +17,17 @@ describe("offline economy regression guard", () => {
     expect(source).not.toContain("if (now() - p.lastActiveAt > OFFLINE_YIELD_ACCUM_MAX_MS) {");
   });
 
+  it("keeps town population growth ticking after inactivity even when upkeep is paused", () => {
+    const source = readLocal("./main.ts");
+    const tickLoopIndex = source.indexOf("for (const p of players.values()) {");
+    const populationIndex = source.indexOf("const populationTouched = updateTownPopulationForPlayer(p);", tickLoopIndex);
+    const upkeepGateIndex = source.indexOf("if (!upkeepPaused) {", tickLoopIndex);
+    expect(tickLoopIndex).toBeGreaterThan(-1);
+    expect(populationIndex).toBeGreaterThan(-1);
+    expect(upkeepGateIndex).toBeGreaterThan(-1);
+    expect(populationIndex).toBeLessThan(upkeepGateIndex);
+  });
+
   it("wakes offline upkeep again when a player loses territory", () => {
     const source = readLocal("./main.ts");
     expect(source).toContain("const wakeOfflineEconomyForPlayer = (playerId: string | undefined): void => {");
