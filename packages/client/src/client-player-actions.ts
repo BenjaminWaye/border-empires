@@ -1,12 +1,13 @@
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 
 type PlayerActionDeps = {
   state: ClientState;
   techPickEl: HTMLSelectElement;
   mobileTechPickEl: HTMLSelectElement;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   wsUrl: string;
   setAuthStatus: (message: string, tone?: "normal" | "error") => void;
   syncAuthOverlay: () => void;

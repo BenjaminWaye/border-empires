@@ -22,6 +22,7 @@ import { connectedEnemyRegionKeys } from "./client-connected-region.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
 import { economicStructureBuildMs, economicStructureName } from "./client-map-display.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type {
   ActiveTruceView,
@@ -61,7 +62,7 @@ type TileActionLogicDeps = {
   selectedTile: () => Tile | undefined;
   renderHud: () => void;
   requireAuthedSession: (message?: string) => boolean;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   attackPreviewDetailForTarget: (to: Tile, mode?: "normal" | "breakthrough") => string | undefined;
   attackPreviewPendingForTarget: (to: Tile) => boolean;
   pickOriginForTarget: (x: number, y: number, allowAdjacentToDock?: boolean, allowOptimisticExpandOrigin?: boolean) => Tile | undefined;
