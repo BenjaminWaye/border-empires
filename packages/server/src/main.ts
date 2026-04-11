@@ -11824,12 +11824,12 @@ registerInterval(() => {
     const upkeepPaused = offlineUpkeepPausedForPlayer(p);
     const touchedTileKeys = new Set<TileKey>();
     applyManpowerRegen(p);
+    const populationTouched = updateTownPopulationForPlayer(p);
+    for (const tk of populationTouched) touchedTileKeys.add(tk);
     if (!upkeepPaused) {
       applyStaminaRegen(p);
       recomputeTownNetworkForPlayer(p.id);
-      const populationTouched = updateTownPopulationForPlayer(p);
       const economicTouched = syncEconomicStructuresForPlayer(p);
-      for (const tk of populationTouched) touchedTileKeys.add(tk);
       for (const tk of economicTouched) touchedTileKeys.add(tk);
     }
     accumulatePassiveIncomeForPlayer(p);
