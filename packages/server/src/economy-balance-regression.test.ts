@@ -147,7 +147,7 @@ describe("economy balance regression guard", () => {
 
   it("sends per-player leaderboard snapshots on init/update and includes self progress for every victory path", () => {
     const source = serverSource();
-    expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(p.id)");
+    expect(source).toContain("payload.leaderboard = leaderboardSnapshotForPlayer(p.id);");
     expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(player.id)");
     expect(source).toContain("if (objective.leaderPlayerId === playerId) return objective;");
     expect(source).toContain('if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;');
