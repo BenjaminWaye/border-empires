@@ -43,6 +43,7 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   fortProtectsCore: false,
   fortIsDockChokePoint: false,
   economicBuildAvailable: false,
+  siegeOutpostAvailable: false,
   frontierOpportunityEconomic: 0,
   frontierOpportunityScout: 0,
   frontierOpportunityScaffold: 0,
@@ -52,7 +53,9 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   canAffordSettlement: true,
   canBuildFort: false,
   canBuildEconomy: false,
-  goldHealthy: true
+  canBuildSiegeOutpost: false,
+  goldHealthy: true,
+  victoryPathContender: false
 });
 
 describe("planAiDecision", () => {
@@ -260,6 +263,21 @@ describe("planAiDecision", () => {
     });
 
     expect(decision.actionKey).not.toBe("attack_enemy_border_tile");
+  });
+
+  it("builds siege pressure when a contender has an uncontested hostile breach site", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "TOWN_CONTROL",
+      frontPosture: "BREAK",
+      siegeOutpostAvailable: true,
+      canBuildSiegeOutpost: true,
+      victoryPathContender: true,
+      pressureAttackScore: 90
+    });
+
+    expect(decision.actionKey).toBe("build_siege_outpost");
+    expect(decision.reason).toBe("executed_siege_pressure_priority");
   });
 
   it("does not force island expansion before the empire has a growth foundation", () => {

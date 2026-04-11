@@ -1,16 +1,17 @@
 import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
-import type { ActiveTruceView } from "./client-types.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
+import type { ActiveTruceView, FeedSeverity, FeedType } from "./client-types.js";
 
-type PlayerActionDeps = Record<string, any> & {
+type PlayerActionDeps = {
   state: ClientState;
   techPickEl: HTMLSelectElement;
   mobileTechPickEl: HTMLSelectElement;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   wsUrl: string;
   setAuthStatus: (message: string, tone?: "normal" | "error") => void;
   syncAuthOverlay: () => void;
-  pushFeed: (...args: any[]) => void;
+  pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
   renderHud: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
 };
@@ -137,11 +138,14 @@ export const explainActionFailureFromServer = (
   if (code === "ECONOMIC_STRUCTURE_BUILD_INVALID") return `Cannot build structure: ${message}.`;
   if (code === "STRUCTURE_REMOVE_INVALID") return `Cannot remove structure: ${message}.`;
   if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;
+  if (code === "REVEAL_EMPIRE_STATS_INVALID") return `Cannot reveal empire stats: ${message}.`;
   if (code === "SIPHON_INVALID") return `Cannot siphon tile: ${message}.`;
   if (code === "PURGE_SIPHON_INVALID") return `Cannot purge siphon: ${message}.`;
+  if (code === "AETHER_WALL_INVALID") return `Cannot cast Aether Wall: ${message}.`;
   if (code === "AETHER_BRIDGE_INVALID") return `Cannot cast Aether Bridge: ${message}.`;
   if (code === "CREATE_MOUNTAIN_INVALID") return `Cannot create mountain: ${message}.`;
   if (code === "REMOVE_MOUNTAIN_INVALID") return `Cannot remove mountain: ${message}.`;
+  if (code === "ATTACK_TARGET_INVALID") return "Action blocked: target must be enemy-controlled land.";
   if (code === "NOT_ADJACENT") return "Action blocked: target must border your territory or a linked dock.";
   if (code === "NOT_OWNER") return "Action blocked: you need to launch from one of your own tiles.";
   if (code === "ATTACK_COOLDOWN") {
@@ -152,6 +156,7 @@ export const explainActionFailureFromServer = (
   }
   if (code === "LOCKED") return "Action blocked: the tile is already in combat.";
   if (code === "BARRIER") return "Action blocked: only land tiles can be claimed or attacked.";
+  if (code === "AETHER_WALL_BLOCKED") return "Action blocked: that border is sealed by an Aether Wall.";
   if (code === "SHIELDED") return "Action blocked: that empire is still under spawn protection.";
   if (code === "ALLY_TARGET") return "Action blocked: you cannot attack an allied or truced empire.";
   if (code === "BREAKTHROUGH_TARGET_INVALID") return `Cannot launch breach attack: ${message}.`;

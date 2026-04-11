@@ -64,8 +64,9 @@ export interface PlayerEffects {
   dockGoldCapMult: number;
   dockConnectionBonusPerLink: number;
   dockRoutesVisible: boolean;
-  marketCrystalUpkeepMult: number;
+  supportEconomicFoodUpkeepMult: number;
   settledDefenseMult: number;
+  settledDefenseNearFortMult: number;
   attackVsSettledMult: number;
   attackVsFortsMult: number;
   newSettlementDefenseMult: number;
@@ -128,8 +129,9 @@ export const emptyPlayerEffects = (): PlayerEffects => ({
   dockGoldCapMult: 1,
   dockConnectionBonusPerLink: 0.5,
   dockRoutesVisible: false,
-  marketCrystalUpkeepMult: 1,
+  supportEconomicFoodUpkeepMult: 1,
   settledDefenseMult: 1,
+  settledDefenseNearFortMult: 1,
   attackVsSettledMult: 1,
   attackVsFortsMult: 1,
   newSettlementDefenseMult: 1,

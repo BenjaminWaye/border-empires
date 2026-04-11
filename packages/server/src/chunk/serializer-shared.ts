@@ -29,11 +29,12 @@ export const buildChunkFromInput = (input: ChunkBuildInput): ChunkPayloadChunk =
   };
 };
 
-export const serializeChunkBatch = (chunks: ChunkPayloadChunk[]): string =>
+export const serializeChunkBatch = (generation: number, chunks: ChunkPayloadChunk[]): string =>
   JSON.stringify({
     type: "CHUNK_BATCH",
+    generation,
     chunks
   });
 
-export const serializeChunkBatchBodies = (chunkBodies: string[]): string =>
-  `{"type":"CHUNK_BATCH","chunks":[${chunkBodies.join(",")}]}`
+export const serializeChunkBatchBodies = (generation: number, chunkBodies: string[]): string =>
+  `{"type":"CHUNK_BATCH","generation":${generation},"chunks":[${chunkBodies.join(",")}]}`

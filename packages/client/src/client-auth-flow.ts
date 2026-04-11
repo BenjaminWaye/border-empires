@@ -9,9 +9,11 @@ import {
   signInWithEmailLink,
   signInWithPopup,
   updateProfile,
+  type Auth,
   type GoogleAuthProvider,
   type User
 } from "firebase/auth";
+import type { initClientDom } from "./client-dom.js";
 import {
   authLabelForUser as authLabelForUserFromModule,
   seedProfileSetupFields as seedProfileSetupFieldsFromModule,
@@ -20,6 +22,7 @@ import {
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "./client-auth-ui.js";
 import { setDebugAuthEmail } from "./client-debug.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 
 export type AuthSession = {
@@ -29,18 +32,32 @@ export type AuthSession = {
   emailLinkPending: boolean;
 };
 
-type AuthFlowDeps = Record<string, any> & {
+type ClientDom = ReturnType<typeof initClientDom>;
+
+type AuthFlowDeps = {
   state: ClientState;
-  dom: any;
-  firebaseAuth?: any;
+  dom: ClientDom;
+  firebaseAuth?: Auth;
   googleProvider?: GoogleAuthProvider | undefined;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   wsUrl: string;
   requireAuthedSession: (message?: string) => boolean;
   renderHud: () => void;
 };
 
-export const createClientAuthFlow = (deps: AuthFlowDeps) => {
+type ClientAuthFlow = {
+  authSession: AuthSession;
+  setAuthStatus: (message: string, tone?: "normal" | "error") => void;
+  syncAuthPanelState: () => void;
+  syncAuthOverlay: () => void;
+  authLabelForUser: (user: User) => string;
+  seedProfileSetupFields: (name?: string, color?: string) => void;
+  authenticateSocket: (forceRefresh?: boolean) => Promise<void>;
+  bindAuthUi: () => void;
+  bindFirebaseAuth: () => void;
+};
+
+export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   const {
     state,
     dom,
@@ -302,12 +319,12 @@ export const createClientAuthFlow = (deps: AuthFlowDeps) => {
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
         state.authBusyTitle = "Securing session";
-        state.authBusyDetail = "Refreshing your Google session and waiting for the realtime server connection.";
+        state.authBusyDetail = "Loading your Google session and waiting for the realtime server connection.";
         seedProfileSetupFields(user.displayName ?? user.email?.split("@")[0] ?? "", dom.authProfileColorEl.value);
         setAuthStatus("Authorizing empire...");
         syncAuthOverlay();
         try {
-          authSession.token = await user.getIdToken(true);
+          authSession.token = await user.getIdToken();
           authSession.uid = user.uid;
           state.authBusyTitle = "Connecting your empire...";
           state.authBusyDetail = `Realtime connection open. Sending your Google session for ${state.authUserLabel}...`;

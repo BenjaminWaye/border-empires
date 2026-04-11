@@ -1,6 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays.js";
 import { isForestTile } from "./client-constants.js";
+import type { RoadDirections } from "./client-road-network.js";
 import type { EmpireVisualStyle, Tile } from "./client-types.js";
 
 type TileMap = Map<string, Tile>;
@@ -55,6 +56,9 @@ const createTownOverlaySet = (
 const aetherBridgeAnchorImage = new Image();
 aetherBridgeAnchorImage.decoding = "async";
 aetherBridgeAnchorImage.src = overlaySrc("aether-pylon-overlay.svg");
+const aetherWallPylonImage = new Image();
+aetherWallPylonImage.decoding = "async";
+aetherWallPylonImage.src = overlaySrc("aether-wall-pylon-overlay.svg");
 
 const defaultTownOverlayByTier = createTownOverlaySet({
   SETTLEMENT: overlaySrc("settlement-overlay-sand.svg"),
@@ -528,6 +532,64 @@ export const drawAetherBridgeLane = (
   ctx.restore();
 };
 
+export const drawAetherWallSegment = (
+  ctx: CanvasRenderingContext2D,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  options?: { preview?: boolean; nowMs?: number }
+): void => {
+  const preview = options?.preview ?? false;
+  const nowMs = options?.nowMs ?? performance.now();
+  const pulse = 0.5 + 0.5 * Math.sin(nowMs / 180);
+  const beamWidth = preview ? 8 : 12;
+  const coreWidth = preview ? 3 : 4;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = preview ? `rgba(124, 224, 255, ${0.42 + pulse * 0.16})` : `rgba(28, 170, 255, ${0.78 + pulse * 0.14})`;
+  ctx.shadowColor = preview ? "rgba(114, 224, 255, 0.45)" : `rgba(86, 212, 255, ${0.48 + pulse * 0.2})`;
+  ctx.shadowBlur = preview ? 10 : 18;
+  ctx.lineWidth = beamWidth;
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = preview ? "rgba(227, 250, 255, 0.9)" : `rgba(235, 251, 255, ${0.96 + pulse * 0.04})`;
+  ctx.lineWidth = coreWidth;
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  const midX = (fromX + toX) * 0.5;
+  const midY = (fromY + toY) * 0.5;
+  ctx.fillStyle = preview ? `rgba(180, 241, 255, ${0.6 + pulse * 0.16})` : `rgba(212, 247, 255, ${0.78 + pulse * 0.18})`;
+  ctx.beginPath();
+  ctx.arc(midX, midY, preview ? 2.6 : 3.6 + pulse * 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  const angle = Math.atan2(toY - fromY, toX - fromX);
+  const drawPylon = (x: number, y: number, rotation: number): void => {
+    if (!aetherWallPylonImage.complete || !aetherWallPylonImage.naturalWidth) {
+      ctx.fillStyle = preview ? `rgba(86, 184, 214, ${0.7 + pulse * 0.12})` : `rgba(118, 228, 255, ${0.9 + pulse * 0.08})`;
+      ctx.beginPath();
+      ctx.arc(x, y, preview ? 3 : 4.2 + pulse * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    const size = preview ? 16 : 22 + pulse * 2;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.globalAlpha = preview ? 0.82 : 0.96;
+    ctx.drawImage(aetherWallPylonImage, -size * 0.5, -size * 0.5, size, size);
+    ctx.restore();
+  };
+  drawPylon(fromX, fromY, angle + Math.PI / 2);
+  drawPylon(toX, toY, angle - Math.PI / 2);
+  ctx.restore();
+};
+
 const sharesBorderTerritory = (tile: Tile, neighbor?: Tile): boolean => {
   if (!neighbor || neighbor.fogged || neighbor.ownerId !== tile.ownerId) return false;
   return neighbor.ownershipState === tile.ownershipState;
@@ -720,7 +782,7 @@ const drawSettlementFlag = (
 
 export const drawRoadOverlay = (
   ctx: CanvasRenderingContext2D,
-  directions: { north?: boolean; east?: boolean; south?: boolean; west?: boolean; terminal?: boolean },
+  directions: RoadDirections,
   px: number,
   py: number,
   size: number
@@ -729,15 +791,16 @@ export const drawRoadOverlay = (
   const centerY = py + size / 2;
   const roadWidth = Math.max(1.2, size * 0.07);
   const segments: Array<[number, number]> = [];
-  const degree =
-    (directions.north ? 1 : 0) +
-    (directions.east ? 1 : 0) +
-    (directions.south ? 1 : 0) +
-    (directions.west ? 1 : 0);
+  const degree = Object.entries(directions).reduce(
+    (count, [dir, enabled]) => count + (dir !== "terminal" && enabled ? 1 : 0),
+    0
+  );
   // Draw each shared road edge only once so the line runs center-to-center
   // across neighboring tiles instead of stopping at tile borders.
   if (directions.east) segments.push([centerX + size, centerY]);
   if (directions.south) segments.push([centerX, centerY + size]);
+  if (directions.southeast) segments.push([centerX + size, centerY + size]);
+  if (directions.southwest) segments.push([centerX - size, centerY + size]);
   if (segments.length === 0 && !directions.terminal) return;
 
   ctx.save();

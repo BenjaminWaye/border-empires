@@ -2139,6 +2139,15 @@ body {
   color: rgba(255, 209, 102, 0.86);
   font-size: 13px;
 }
+.tile-action-status {
+  margin-top: 4px;
+  color: rgba(216, 228, 242, 0.78);
+  font-size: 12px;
+  font-weight: 700;
+}
+.tile-action-status.is-warning {
+  color: #ffd166;
+}
 .tile-action-subtitle .tile-owner-label.is-ally {
   color: #7ee29d;
 }

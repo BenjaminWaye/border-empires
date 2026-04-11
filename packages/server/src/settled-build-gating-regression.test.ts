@@ -7,7 +7,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 describe("settled build gating regression guard", () => {
   it("routes placement through shared structure metadata", () => {
-    const source = readFileSync(resolve(here, "./main.ts"), "utf8");
+    const source = [
+      readFileSync(resolve(here, "./main.ts"), "utf8"),
+      readFileSync(resolve(here, "./server-economic-operations.ts"), "utf8")
+    ].join("\n");
 
     expect(source).toContain('!structureShowsOnTile("OBSERVATORY", {');
     expect(source).toContain('!structureShowsOnTile("FORT", {');

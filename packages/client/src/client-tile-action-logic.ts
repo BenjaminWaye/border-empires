@@ -1,4 +1,5 @@
 import {
+  buildAetherWallSegments,
   type BuildableStructureType,
   FORT_BUILD_MS,
   FORT_DEFENSE_MULT,
@@ -21,6 +22,7 @@ import { connectedEnemyRegionKeys } from "./client-connected-region.js";
 import { hasQueuedSettlementForTile } from "./client-development-queue.js";
 import { economicStructureBuildMs, economicStructureName } from "./client-map-display.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type {
   ActiveTruceView,
@@ -32,6 +34,8 @@ import type {
 } from "./client-types.js";
 
 type BuildableStructureId = BuildableStructureType;
+type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
+type AetherWallLength = 1 | 2 | 3;
 
 const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: number } | undefined => {
   if (tile.fort) return { label: "Fort", durationMs: structureBuildDurationMs("FORT") };
@@ -50,7 +54,7 @@ type TileActionLogicDeps = {
   chebyshevDistanceClient: (ax: number, ay: number, bx: number, by: number) => number;
   isTileOwnedByAlly: (tile: Tile) => boolean;
   hostileObservatoryProtectingTile: (tile: Tile) => Tile | undefined;
-  abilityCooldownRemainingMs: (ability: keyof ClientState["abilityCooldowns"]) => number;
+  abilityCooldownRemainingMs: (ability: AbilityCooldownId) => number;
   formatCooldownShort: (ms: number) => string;
   pushFeed: (msg: string, type?: FeedType, severity?: FeedSeverity) => void;
   hideTileActionMenu: () => void;
@@ -58,7 +62,7 @@ type TileActionLogicDeps = {
   selectedTile: () => Tile | undefined;
   renderHud: () => void;
   requireAuthedSession: (message?: string) => boolean;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   attackPreviewDetailForTarget: (to: Tile, mode?: "normal" | "breakthrough") => string | undefined;
   attackPreviewPendingForTarget: (to: Tile) => boolean;
   pickOriginForTarget: (x: number, y: number, allowAdjacentToDock?: boolean, allowOptimisticExpandOrigin?: boolean) => Tile | undefined;
@@ -84,7 +88,12 @@ export const hasBreakthroughCapability = (state: ClientState): boolean => state.
 
 export const hasAetherBridgeCapability = (state: ClientState): boolean => state.techIds.includes("navigation");
 
-export const hasSiphonCapability = (state: ClientState): boolean => state.techIds.includes("cryptography");
+export const hasLocalDevAetherWallOverride = (state: ClientState): boolean => state.localhostDevAetherWall === true;
+
+export const hasAetherWallCapability = (state: ClientState): boolean =>
+  state.techIds.includes("harborcraft") || hasLocalDevAetherWallOverride(state);
+
+export const hasSiphonCapability = (state: ClientState): boolean => state.techIds.includes("logistics");
 
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
 
@@ -102,16 +111,103 @@ export const hasOwnedLandWithinClientRange = (
   return false;
 };
 
-export const crystalTargetingTitle = (ability: CrystalTargetingAbility): string =>
-  ability === "aether_bridge" ? "Aether Bridge" : "Siphon";
+export const crystalTargetingTitle = (ability: CrystalTargetingAbility): string => {
+  if (ability === "aether_bridge") return "Aether Bridge";
+  if (ability === "aether_wall") return "Aether Wall";
+  return "Siphon";
+};
 
 export const crystalTargetingTone = (ability: CrystalTargetingAbility): "amber" | "cyan" | "red" =>
-  ability === "aether_bridge" ? "cyan" : "red";
+  ability === "aether_bridge" ? "cyan" : ability === "aether_wall" ? "amber" : "red";
 
 export const clearCrystalTargeting = (state: ClientState): void => {
   state.crystalTargeting.active = false;
   state.crystalTargeting.validTargets.clear();
   state.crystalTargeting.originByTarget.clear();
+  state.aetherWallTargeting.active = false;
+  state.aetherWallTargeting.validOrigins.clear();
+};
+
+export const aetherWallDirectionLabel = (direction: ClientState["aetherWallTargeting"]["direction"]): string => {
+  if (direction === "N") return "North";
+  if (direction === "E") return "East";
+  if (direction === "S") return "South";
+  return "West";
+};
+
+export const canPlaceAetherWallFromOrigin = (
+  state: ClientState,
+  originX: number,
+  originY: number,
+  direction: ClientState["aetherWallTargeting"]["direction"],
+  length: AetherWallLength,
+  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
+): boolean => {
+  const localhostOverride = hasLocalDevAetherWallOverride(state);
+  const segments = buildAetherWallSegments(originX, originY, direction, length, deps.wrapX, deps.wrapY);
+  if (segments.length !== length) return false;
+  for (const segment of segments) {
+    const baseTile = state.tiles.get(deps.keyFor(segment.baseX, segment.baseY));
+    if (!baseTile || baseTile.fogged || baseTile.ownerId !== state.me || baseTile.terrain !== "LAND") {
+      return false;
+    }
+    if (!localhostOverride && baseTile.ownershipState !== "SETTLED") {
+      return false;
+    }
+    const outwardTile = state.tiles.get(deps.keyFor(segment.toX, segment.toY));
+    if (outwardTile) {
+      if (outwardTile.fogged || outwardTile.terrain !== "LAND" || outwardTile.ownerId === state.me) return false;
+      continue;
+    }
+    if (!localhostOverride) return false;
+    if (deps.terrainAt(segment.toX, segment.toY) !== "LAND") return false;
+  }
+  return true;
+};
+
+export const validAetherWallDirectionsForTile = (
+  state: ClientState,
+  tile: Tile,
+  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
+): Array<ClientState["aetherWallTargeting"]["direction"]> => {
+  if (tile.fogged || tile.ownerId !== state.me || tile.terrain !== "LAND") return [];
+  if (!hasLocalDevAetherWallOverride(state) && tile.ownershipState !== "SETTLED") return [];
+  const out: Array<ClientState["aetherWallTargeting"]["direction"]> = [];
+  const directions: Array<ClientState["aetherWallTargeting"]["direction"]> = ["N", "E", "S", "W"];
+  for (const direction of directions) {
+    if ([1, 2, 3].some((length) => canPlaceAetherWallFromOrigin(state, tile.x, tile.y, direction, length as 1 | 2 | 3, deps))) out.push(direction);
+  }
+  return out;
+};
+
+export const aetherWallDirectionTargetTiles = (
+  state: ClientState,
+  tile: Tile,
+  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
+): Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }> =>
+  validAetherWallDirectionsForTile(state, tile, deps)
+    .map((direction) => {
+      const segment = buildAetherWallSegments(tile.x, tile.y, direction, 1, deps.wrapX, deps.wrapY)[0];
+      if (!segment) return undefined;
+      return {
+        x: segment.toX,
+        y: segment.toY,
+        direction,
+        dx: segment.toX - segment.baseX,
+        dy: segment.toY - segment.baseY
+      };
+    })
+    .filter((value): value is { x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number } => Boolean(value));
+
+const collectValidAetherWallOrigins = (
+  state: ClientState,
+  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
+): Set<string> => {
+  const out = new Set<string>();
+  for (const tile of state.tiles.values()) {
+    if (validAetherWallDirectionsForTile(state, tile, deps).length > 0) out.add(deps.keyFor(tile.x, tile.y));
+  }
+  return out;
 };
 
 export const lineStepsBetween = (
@@ -167,6 +263,8 @@ export const beginCrystalTargeting = (
   deps: Pick<
     TileActionLogicDeps,
     | "keyFor"
+    | "wrapX"
+    | "wrapY"
     | "terrainAt"
     | "isTileOwnedByAlly"
     | "hostileObservatoryProtectingTile"
@@ -177,6 +275,8 @@ export const beginCrystalTargeting = (
     | "hideHoldBuildMenu"
     | "selectedTile"
     | "parseKey"
+    | "wrapX"
+    | "wrapY"
     | "renderHud"
   >
 ): void => {
@@ -198,7 +298,7 @@ export const beginCrystalTargeting = (
   if (ability === "siphon") {
     const cooldown = deps.abilityCooldownRemainingMs("siphon");
     if (!hasSiphonCapability(state)) {
-      deps.pushFeed("Siphon requires Cryptography.", "combat", "warn");
+      deps.pushFeed("Siphon requires Logistics.", "combat", "warn");
       return;
     }
     if ((state.strategicResources.CRYSTAL ?? 0) < 20) {
@@ -209,6 +309,33 @@ export const beginCrystalTargeting = (
       deps.pushFeed(`Siphon cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
+  }
+  if (ability === "aether_wall") {
+    const cooldown = deps.abilityCooldownRemainingMs("aether_wall");
+    const localhostOverride = hasLocalDevAetherWallOverride(state);
+    if (!hasAetherWallCapability(state)) {
+      deps.pushFeed("Aether Wall requires Aether Moorings.", "combat", "warn");
+      return;
+    }
+    if (!localhostOverride && (state.strategicResources.CRYSTAL ?? 0) < 25) {
+      deps.pushFeed("Aether Wall needs 25 CRYSTAL.", "combat", "warn");
+      return;
+    }
+    if (!localhostOverride && cooldown > 0) {
+      deps.pushFeed(`Aether Wall cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
+      return;
+    }
+    const validOrigins = collectValidAetherWallOrigins(state, deps);
+    if (validOrigins.size === 0) {
+      deps.pushFeed(`Aether Wall has no valid ${localhostOverride ? "owned" : "settled border"} origins in view.`, "combat", "warn");
+      return;
+    }
+    state.aetherWallTargeting.active = true;
+    state.aetherWallTargeting.validOrigins = validOrigins;
+    deps.hideTileActionMenu();
+    deps.hideHoldBuildMenu();
+    deps.renderHud();
+    return;
   }
 
   const { validTargets, originByTarget } = computeCrystalTargets(state, ability, deps);
@@ -346,7 +473,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             state.gold >= 8000 &&
             (state.strategicResources.CRYSTAL ?? 0) >= 400,
           !hasTerrainShapingCapability(state)
-            ? "Requires Terrain Engineering"
+            ? "Requires Aether Moorings"
             : observatoryProtection
               ? "Blocked by observatory field"
               : !hasOwnedLandWithinClientRange(state, tile.x, tile.y, 2, deps)
@@ -380,7 +507,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           state.gold >= 8000 &&
           (state.strategicResources.CRYSTAL ?? 0) >= 400,
         !hasTerrainShapingCapability(state)
-          ? "Requires Terrain Engineering"
+          ? "Requires Aether Moorings"
           : observatoryProtection
             ? "Blocked by observatory field"
             : !hasRange
@@ -1097,6 +1224,22 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         });
       }
     }
+    out.push({
+      id: "aether_wall",
+      label: "Aether Wall",
+      ...tileActionAvailability(
+        hasAetherWallCapability(state) &&
+          (hasLocalDevAetherWallOverride(state) || (deps.abilityCooldownRemainingMs("aether_wall") <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25)),
+        !hasAetherWallCapability(state)
+          ? "Requires Terrain Engineering"
+          : !hasLocalDevAetherWallOverride(state) && deps.abilityCooldownRemainingMs("aether_wall") > 0
+            ? `Cooldown ${deps.formatCooldownShort(deps.abilityCooldownRemainingMs("aether_wall"))}`
+            : !hasLocalDevAetherWallOverride(state) && (state.strategicResources.CRYSTAL ?? 0) < 25
+              ? "Need 25 CRYSTAL"
+              : "",
+        "25 CRYSTAL • 20m duration • up to 3 borders"
+      )
+    });
     out.push(createMountainAction());
     if (tile.town?.populationTier !== "SETTLEMENT") out.push({ id: "abandon_territory", label: "Abandon Territory" });
     return out;
@@ -1193,6 +1336,22 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
   out.push({
+    id: "aether_wall",
+    label: "Aether Wall",
+    ...tileActionAvailability(
+      hasAetherWallCapability(state) &&
+        (hasLocalDevAetherWallOverride(state) || (deps.abilityCooldownRemainingMs("aether_wall") <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25)),
+      !hasAetherWallCapability(state)
+        ? "Requires Aether Moorings"
+        : !hasLocalDevAetherWallOverride(state) && deps.abilityCooldownRemainingMs("aether_wall") > 0
+          ? `Cooldown ${deps.formatCooldownShort(deps.abilityCooldownRemainingMs("aether_wall"))}`
+          : !hasLocalDevAetherWallOverride(state) && (state.strategicResources.CRYSTAL ?? 0) < 25
+            ? "Need 25 CRYSTAL"
+            : "",
+      "25 CRYSTAL • 20m duration • up to 3 borders"
+    )
+  });
+  out.push({
     id: "aether_bridge",
     label: "Aether Bridge",
     ...tileActionAvailability(
@@ -1256,6 +1415,25 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         revealActive || (hasCapability && hasCapacity && hasCrystal),
         revealActive ? "Stop revealing this empire" : !hasCapability ? "Requires Cryptography" : !hasCapacity ? "Reveal capacity full" : "Need crystal",
         revealActive ? "Cancel current reveal" : "20 CRYSTAL • 0.15 / 10m"
+      )
+    });
+    const revealStatsCooldown = deps.abilityCooldownRemainingMs("reveal_empire_stats");
+    out.push({
+      id: "reveal_empire_stats",
+      label: "Reveal Empire Stats",
+      ...tileActionAvailability(
+        hasRevealCapability(state) &&
+          !revealActive &&
+          revealStatsCooldown <= 0 &&
+          (state.strategicResources.CRYSTAL ?? 0) >= 15,
+        !hasRevealCapability(state)
+          ? "Requires Logistics"
+          : revealActive
+            ? "Cancel reveal first"
+            : revealStatsCooldown > 0
+              ? `Cooldown ${deps.formatCooldownShort(revealStatsCooldown)}`
+              : "Need 15 CRYSTAL",
+        "15 CRYSTAL • one-shot empire intel"
       )
     });
     const sabotageCooldown = deps.abilityCooldownRemainingMs("siphon");

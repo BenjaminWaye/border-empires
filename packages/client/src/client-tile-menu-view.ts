@@ -8,6 +8,7 @@ import {
 import { economicStructureBuildMs, economicStructureName, resourceLabel, storedYieldSummary, strategicResourceKeyForTile, tileProductionHtml } from "./client-map-display.js";
 import { tileOverviewModifiersForTile } from "./client-tile-overview-modifiers.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "./client-tile-menu-copy.js";
+import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
 import { tileOverviewUpkeepLines } from "./client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "./client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "./client-types.js";
@@ -354,6 +355,11 @@ export const menuOverviewForTile = (
       pushLine("Observatory is inactive here and currently provides no vision or protection.");
     }
   }
+  const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
+  const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
+  if (tile.fort?.status === "active" && structureRecentlyCaptured) {
+    pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
+  }
   if (tile.economicStructure) {
     if (tile.economicStructure.status === "removing") {
       pushLine("Removal is underway. Income, upkeep, and structure effects are currently disabled.");
@@ -361,6 +367,8 @@ export const menuOverviewForTile = (
     if (isSynthLikeStructureType(tile.economicStructure.type)) {
       if (tile.economicStructure.status === "active") {
         pushLine("Structure is active and currently contributing output and upkeep.");
+      } else if (structureRecentlyCaptured) {
+        pushLine("Recently captured. Structure stays offline during capture shock and contributes no output or upkeep until the timer ends.");
       } else if (tile.economicStructure.disabledUntil && tile.economicStructure.disabledUntil > Date.now()) {
         pushLine("Structure is disabled while recovering from overload and currently contributes no output or upkeep.");
       } else if (tile.economicStructure.inactiveReason === "upkeep") {
@@ -370,6 +378,8 @@ export const menuOverviewForTile = (
       } else if (tile.economicStructure.status === "inactive") {
         pushLine("Structure is disabled and currently contributes no output or upkeep.");
       }
+    } else if (structureRecentlyCaptured) {
+      pushLine("Recently captured. Structure stays offline during capture shock and contributes no output or upkeep until the timer ends.");
     } else if (tile.economicStructure.status === "inactive") {
       pushLine("Structure is inactive and currently contributes no output or upkeep.");
     }
@@ -469,10 +479,12 @@ export const tileMenuViewForTile = (
         : tile.resource
           ? deps.prettyToken(resourceLabel(tile.resource))
           : deps.terrainLabel(tile.x, tile.y, tile.terrain);
+  const headerStatus = tileMenuHeaderStatusForTile(tile);
   return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),
+    ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone } : {}),
     tabs,
     ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: deps.menuOverviewForTile(tile),

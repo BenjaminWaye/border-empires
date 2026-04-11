@@ -259,6 +259,32 @@ export type ActiveAetherBridgeView = {
   endsAt: number;
 };
 
+export type ActiveAetherWallView = {
+  wallId: string;
+  ownerId: string;
+  origin: { x: number; y: number };
+  direction: "N" | "E" | "S" | "W";
+  length: 1 | 2 | 3;
+  startedAt: number;
+  endsAt: number;
+};
+
+export type RevealEmpireStatsView = {
+  playerId: string;
+  playerName: string;
+  revealedAt: number;
+  tiles: number;
+  settledTiles: number;
+  frontierTiles: number;
+  controlledTowns: number;
+  incomePerMinute: number;
+  techCount: number;
+  gold: number;
+  manpower: number;
+  manpowerCap: number;
+  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
+};
+
 export type StrategicReplayEventType =
   | "OWNERSHIP"
   | "STRUCTURE"
@@ -391,7 +417,7 @@ export type FeedEntry = {
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number };
-export type CrystalTargetingAbility = "aether_bridge" | "siphon";
+export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon";
 
 export type GuideStep = {
   title: string;
@@ -415,6 +441,7 @@ export type TileActionDef = {
     | "attack_connected_region"
     | "launch_breach_attack"
     | "reveal_empire"
+    | "reveal_empire_stats"
     | "collect_yield"
     | "collect_shard"
     | "build_fortification"
@@ -452,6 +479,7 @@ export type TileActionDef = {
     | "offer_truce_12h"
     | "offer_truce_24h"
     | "break_truce"
+    | "aether_wall"
     | "aether_bridge"
     | "siphon_tile"
     | "purge_siphon"
@@ -488,6 +516,8 @@ export type TileMenuView = {
   title: string;
   subtitle: string;
   subtitleHtml?: string;
+  statusText?: string;
+  statusTone?: "warning" | "neutral";
   tabs: TileMenuTab[];
   overviewKicker?: string;
   overviewLines: TileOverviewLine[];

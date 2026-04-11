@@ -7,12 +7,21 @@ describe("crystal ability tech previews", () => {
     const tech: Pick<TechInfo, "effects"> = {
       effects: {
         unlockRevealEmpire: true,
+        unlockRevealEmpireStats: true,
+        unlockAetherWall: true,
         unlockSabotage: true,
         unlockTerrainShaping: true
       }
     };
 
-    expect(relatedCrystalAbilitiesForTech(tech)).toEqual(["reveal_empire", "siphon", "create_mountain", "remove_mountain"]);
+    expect(relatedCrystalAbilitiesForTech(tech)).toEqual([
+      "reveal_empire",
+      "reveal_empire_stats",
+      "aether_wall",
+      "siphon",
+      "create_mountain",
+      "remove_mountain"
+    ]);
   });
 
   it("renders a detailed preview overlay for Aether Bridge", () => {
