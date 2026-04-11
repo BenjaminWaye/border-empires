@@ -190,4 +190,27 @@ describe("client optimistic state", () => {
     expect(merged.ownershipState).toBe("FRONTIER");
     expect(merged.optimisticPending).toBe("expand");
   });
+
+  it("does not preserve a neutral in-flight frontier target before the server accepts it", () => {
+    const state = {
+      me: "me",
+      selected: undefined,
+      actionInFlight: true,
+      actionTargetKey: "12,18",
+      actionCurrent: { x: 12, y: 18 },
+      tiles: new Map<string, Tile>([["12,18", baseTile()]]),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
+    } as any;
+
+    const { shouldPreserveOptimisticExpandByKey } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible"
+    });
+
+    expect(shouldPreserveOptimisticExpandByKey("12,18")).toBe(false);
+  });
 });
