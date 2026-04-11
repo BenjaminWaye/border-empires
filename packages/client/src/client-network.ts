@@ -1,5 +1,6 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
@@ -7,7 +8,7 @@ import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule,
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   wsUrl: string;
   firebaseAuth?: any;
 };

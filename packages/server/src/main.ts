@@ -258,6 +258,12 @@ import {
   sendHighPrioritySocketMessage
 } from "./server-socket-priority.js";
 import {
+  broadcastBulk as broadcastBulkAcrossSockets,
+  bulkSocketForPlayer as resolveBulkSocketForPlayer,
+  controlSocketForPlayer as resolveControlSocketForPlayer,
+  sendBulkToPlayer as sendBulkPayloadToPlayer
+} from "./server-player-sockets.js";
+import {
   type AbilityDefinition,
   type ActiveAetherBridge,
   type ActiveAetherWall,
@@ -785,6 +791,7 @@ const continentalFootprintProgressForPlayer = (
 const players = new Map<string, Player>();
 const authIdentityByUid = new Map<string, AuthIdentity>();
 const socketsByPlayer = new Map<string, Ws>();
+const bulkSocketsByPlayer = new Map<string, Ws>();
 const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
 const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
 const aiVictoryPathByPlayer = new Map<string, AiSeasonVictoryPathId>();
@@ -920,6 +927,7 @@ const ensureAiPlayers = (): void => {
       observatoryTileKeysByPlayer.delete(player.id);
       economicStructureTileKeysByPlayer.delete(player.id);
       socketsByPlayer.delete(player.id);
+      bulkSocketsByPlayer.delete(player.id);
       chunkSubscriptionByPlayer.delete(player.id);
       chunkSnapshotSentAtByPlayer.delete(player.id);
       chunkSnapshotGenerationByPlayer.delete(player.id);
@@ -2698,7 +2706,7 @@ const sendVisibleTileDeltaAt = (x: number, y: number): void => {
       ownerId: current.ownerId,
       ownershipState: current.ownershipState
     });
-    sendToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
+    sendBulkToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
   }
 };
 
@@ -3554,9 +3562,20 @@ const playerDefensiveness = (p: Player): number => {
   return defensivenessMultiplier(Math.max(1, p.Ts), Math.max(1, p.Es));
 };
 
-const sendToPlayer = (playerId: string, payload: unknown): void => {
-  const ws = socketsByPlayer.get(playerId);
+const controlSocketForPlayer = (playerId: string): Ws | undefined => resolveControlSocketForPlayer(socketsByPlayer, playerId) as Ws | undefined;
+
+const bulkSocketForPlayer = (playerId: string): Ws | undefined =>
+  resolveBulkSocketForPlayer(socketsByPlayer, bulkSocketsByPlayer, playerId) as Ws | undefined;
+
+const sendControlToPlayer = (playerId: string, payload: unknown): void => {
+  const ws = controlSocketForPlayer(playerId);
   sendHighPrioritySocketMessage(ws, JSON.stringify(payload));
+};
+
+const sendToPlayer = sendControlToPlayer;
+
+const sendBulkToPlayer = (playerId: string, payload: unknown): void => {
+  sendBulkPayloadToPlayer(socketsByPlayer, bulkSocketsByPlayer, playerId, JSON.stringify(payload));
 };
 
 const onlineSocketCount = (): number => {
@@ -3599,7 +3618,7 @@ const logBarbarianEvent = (message: string): void => {
 };
 
 const refreshSubscribedViewForPlayer = (playerId: string): void => {
-  const ws = socketsByPlayer.get(playerId);
+  const ws = bulkSocketForPlayer(playerId);
   const p = players.get(playerId);
   const sub = chunkSubscriptionByPlayer.get(playerId);
   if (!ws || ws.readyState !== ws.OPEN || !p || !sub) return;
@@ -3656,7 +3675,7 @@ const sendLocalVisionDeltaForPlayer = (playerId: string, centers: Array<{ x: num
       }
     }
   }
-  if (updates.length > 0) sendToPlayer(playerId, { type: "TILE_DELTA", updates });
+  if (updates.length > 0) sendBulkToPlayer(playerId, { type: "TILE_DELTA", updates });
 };
 
 const broadcastLocalVisionDelta = (centers: Array<{ x: number; y: number }>): void => {
@@ -3683,7 +3702,7 @@ const techPayloadSnapshotForPlayer = (player: Player, scope: "init" | "player_up
 
 const sendPlayerUpdate = (p: Player, incomeDelta: number): void => {
   applyManpowerRegen(p);
-  const ws = socketsByPlayer.get(p.id);
+  const ws = bulkSocketForPlayer(p.id);
   if (!ws || ws.readyState !== ws.OPEN) return;
   refreshGlobalStatusCache(false);
   const economy = playerEconomySnapshot(p);
@@ -4369,7 +4388,7 @@ const executeUnifiedGameplayMessage = async (
         const [x, y] = parseKey(tk);
         return playerTile(x, y);
       });
-      sendToPlayer(actor.id, { type: "TILE_DELTA", updates });
+      sendBulkToPlayer(actor.id, { type: "TILE_DELTA", updates });
     }
     sendToPlayer(actor.id, { type: "COLLECT_RESULT", mode: "visible", tiles: got.tiles, gold: got.gold, strategic: got.strategic });
     sendPlayerUpdate(actor, got.gold);
@@ -4383,7 +4402,7 @@ const executeUnifiedGameplayMessage = async (
       return true;
     }
     sendTechUpdate(actor, "started");
-    broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
+    broadcastBulk({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
     sendPlayerUpdate(actor, 0);
     return true;
   }
@@ -4408,7 +4427,7 @@ const executeUnifiedGameplayMessage = async (
         activeRevealTargets: [...getOrInitRevealTargets(actor.id)]
       })
     );
-    broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
+    broadcastBulk({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
     sendPlayerUpdate(actor, 0);
     return true;
   }
@@ -8585,6 +8604,10 @@ const broadcast = (payload: unknown): void => {
   }
 };
 
+const broadcastBulk = (payload: unknown): void => {
+  broadcastBulkAcrossSockets(socketsByPlayer, bulkSocketsByPlayer, JSON.stringify(payload));
+};
+
 const pruneExpiredTruces = (): void => {
   const nowMs = now();
   for (const [pairKey, truce] of trucesByPair) {
@@ -9989,7 +10012,7 @@ const activeAetherWallViews = (): ActiveAetherWallView[] => [...activeAetherWall
 
 const registerAetherWallEdges = (wall: ActiveAetherWall): void => {
   const [originX, originY] = parseKey(wall.originTileKey);
-  for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+  for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x: number) => wrapX(x, WORLD_WIDTH), (y: number) => wrapY(y, WORLD_HEIGHT))) {
     const edgeKey = aetherWallEdgeKey(segment.fromX, segment.fromY, segment.toX, segment.toY);
     let wallIds = activeAetherWallIdsByEdgeKey.get(edgeKey);
     if (!wallIds) {
@@ -10002,7 +10025,7 @@ const registerAetherWallEdges = (wall: ActiveAetherWall): void => {
 
 const unregisterAetherWallEdges = (wall: ActiveAetherWall): void => {
   const [originX, originY] = parseKey(wall.originTileKey);
-  for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+  for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x: number) => wrapX(x, WORLD_WIDTH), (y: number) => wrapY(y, WORLD_HEIGHT))) {
     const edgeKey = aetherWallEdgeKey(segment.fromX, segment.fromY, segment.toX, segment.toY);
     const wallIds = activeAetherWallIdsByEdgeKey.get(edgeKey);
     if (!wallIds) continue;
@@ -10015,7 +10038,7 @@ const crossingBlockedByAetherWall = (fromX: number, fromY: number, toX: number, 
   activeAetherWallIdsByEdgeKey.has(aetherWallEdgeKey(fromX, fromY, toX, toY));
 
 const broadcastAetherWallUpdate = (): void => {
-  broadcast({ type: "AETHER_WALL_UPDATE", walls: activeAetherWallViews() });
+  broadcastBulk({ type: "AETHER_WALL_UPDATE", walls: activeAetherWallViews() });
 };
 
 const tryCastAetherWall = (
@@ -10029,7 +10052,7 @@ const tryCastAetherWall = (
   const ignoreRequirements = options?.ignoreRequirements === true;
   if (!ignoreRequirements && !playerHasTechIds(actor, ABILITY_DEFS.aether_wall.requiredTechIds)) return { ok: false, reason: "requires Aether Moorings" };
   if (!ignoreRequirements && abilityOnCooldown(actor.id, "aether_wall")) return { ok: false, reason: "aether wall is cooling down" };
-  const segments = buildAetherWallSegments(x, y, direction, length, (wx) => wrapX(wx, WORLD_WIDTH), (wy) => wrapY(wy, WORLD_HEIGHT));
+  const segments = buildAetherWallSegments(x, y, direction, length, (wx: number) => wrapX(wx, WORLD_WIDTH), (wy: number) => wrapY(wy, WORLD_HEIGHT));
   if (segments.length === 0) return { ok: false, reason: "invalid wall path" };
   for (const segment of segments) {
     const base = playerTile(segment.baseX, segment.baseY);
@@ -10781,7 +10804,7 @@ const spawnPlayer = (p: Player): void => {
     p.spawnShieldUntil = now() + 120_000;
     p.isEliminated = false;
     p.respawnPending = false;
-    broadcast({ type: "PLAYER_STYLE", playerId: p.id, ...playerStylePayload(p) });
+    broadcastBulk({ type: "PLAYER_STYLE", playerId: p.id, ...playerStylePayload(p) });
     if (runtimeState.appRef) runtimeState.appRef.log.info({ playerId: p.id, x, y }, "spawned player");
     return true;
   };
@@ -12054,7 +12077,7 @@ registerInterval(() => {
       if (!visible(p, sx, sy)) continue;
       const current = playerTile(sx, sy);
       current.fogged = false;
-      sendToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
+      sendBulkToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
     }
   }
   for (const [playerId, caches] of siphonCacheByPlayer) {
@@ -12076,7 +12099,7 @@ registerInterval(() => {
     activeAetherWallsById.delete(wallId);
     unregisterAetherWallEdges(wall);
     const [originX, originY] = parseKey(wall.originTileKey);
-    for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x) => wrapX(x, WORLD_WIDTH), (y) => wrapY(y, WORLD_HEIGHT))) {
+    for (const segment of buildAetherWallSegments(originX, originY, wall.direction, wall.length, (x: number) => wrapX(x, WORLD_WIDTH), (y: number) => wrapY(y, WORLD_HEIGHT))) {
       markSummaryChunkDirtyAtTile(segment.baseX, segment.baseY);
       markSummaryChunkDirtyAtTile(segment.toX, segment.toY);
     }
@@ -12117,7 +12140,7 @@ registerInterval(() => {
         const [x, y] = parseKey(tk);
         return playerTile(x, y);
       });
-      sendToPlayer(p.id, { type: "TILE_DELTA", updates });
+      sendBulkToPlayer(p.id, { type: "TILE_DELTA", updates });
     }
     updateMissionState(p);
     sendPlayerUpdate(p, 0);
@@ -12269,10 +12292,20 @@ registerServerHttpRoutes(app, {
     get: (path: string, opts: { websocket: boolean }, handler: (connection: unknown) => void) => void;
   }
 ).get("/ws", { websocket: true }, (connection) => {
-  const maybeSocket = (connection as { socket?: Ws } | Ws);
+  const maybeSocket = (connection as { socket?: Ws; request?: { url?: string } } | Ws);
   const socket: Ws | undefined = (
     "socket" in maybeSocket ? maybeSocket.socket : maybeSocket
   ) as Ws | undefined;
+  const requestUrl = "request" in maybeSocket ? maybeSocket.request?.url : undefined;
+  const socketChannel: "control" | "bulk" = (() => {
+    if (!requestUrl) return "control";
+    try {
+      const parsed = new URL(requestUrl, "http://localhost");
+      return parsed.searchParams.get("channel") === "bulk" ? "bulk" : "control";
+    } catch {
+      return "control";
+    }
+  })();
   if (!socket || typeof socket.on !== "function" || typeof socket.send !== "function") {
     app.log.error({ connectionType: typeof connection }, "Invalid websocket connection object");
     return;
@@ -12303,7 +12336,9 @@ registerServerHttpRoutes(app, {
     if (msg.type === "AUTH") {
       const authStartedAt = now();
       authPressureState.authPriorityUntil = Math.max(authPressureState.authPriorityUntil, now() + AUTH_PRIORITY_WINDOW_MS);
-      sendLoginPhase(socket, "AUTH_RECEIVED", "Securing session", "Game server reached. Verifying your Google session...");
+      if (socketChannel === "control") {
+        sendLoginPhase(socket, "AUTH_RECEIVED", "Securing session", "Game server reached. Verifying your Google session...");
+      }
       let decoded = cachedFirebaseIdentityForDecodedToken(msg.token);
       try {
         if (!decoded) {
@@ -12375,8 +12410,10 @@ registerServerHttpRoutes(app, {
         return;
       }
       const verifiedAt = now();
-      authSyncTimingByPlayer.set(player.id, { authVerifiedAt: verifiedAt });
-      sendLoginPhase(socket, "AUTH_VERIFIED", "Securing session", "Google session verified. Loading your empire record...");
+      if (socketChannel === "control") {
+        authSyncTimingByPlayer.set(player.id, { authVerifiedAt: verifiedAt });
+        sendLoginPhase(socket, "AUTH_VERIFIED", "Securing session", "Google session verified. Loading your empire record...");
+      }
       app.log.info(
         {
           playerId: player.id,
@@ -12396,6 +12433,13 @@ registerServerHttpRoutes(app, {
       });
 
       authedPlayer = player;
+      if (socketChannel === "bulk") {
+        bulkSocketsByPlayer.set(player.id, socket);
+        const sub = chunkSubscriptionByPlayer.get(player.id);
+        if (sub) sendChunkSnapshot(socket, player, sub);
+        return;
+      }
+
       socketsByPlayer.set(player.id, socket);
       resumeVictoryPressureTimers();
       completeDueResearchForPlayer(player);
@@ -12528,7 +12572,7 @@ registerServerHttpRoutes(app, {
 
     if (msg.type === "SET_TILE_COLOR") {
       actor.tileColor = msg.color;
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
+      broadcastBulk({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       return;
     }
 
@@ -12547,7 +12591,7 @@ registerServerHttpRoutes(app, {
           break;
         }
       }
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
+      broadcastBulk({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;
     }
@@ -12558,10 +12602,11 @@ registerServerHttpRoutes(app, {
         return;
       }
       fogDisabledByPlayer.set(actor.id, msg.disabled);
-      socket.send(JSON.stringify({ type: "FOG_UPDATE", fogDisabled: DISABLE_FOG || msg.disabled }));
+      const responseSocket = bulkSocketForPlayer(actor.id) ?? socket;
+      responseSocket.send(JSON.stringify({ type: "FOG_UPDATE", fogDisabled: DISABLE_FOG || msg.disabled }));
       const sub = chunkSubscriptionByPlayer.get(actor.id);
       if (sub) {
-        sendChunkSnapshot(socket, actor, sub);
+        sendChunkSnapshot(responseSocket, actor, sub);
       }
       return;
     }
@@ -12884,7 +12929,7 @@ registerServerHttpRoutes(app, {
         return;
       }
       recalcPlayerDerived(actor);
-      sendToPlayer(actor.id, { type: "TILE_DELTA", updates: [playerTile(x, y)] });
+      sendBulkToPlayer(actor.id, { type: "TILE_DELTA", updates: [playerTile(x, y)] });
       sendToPlayer(actor.id, { type: "COLLECT_RESULT", mode: "tile", x, y, gold: got.gold, strategic: got.strategic });
       sendPlayerUpdate(actor, got.gold);
       return;
@@ -12916,7 +12961,7 @@ registerServerHttpRoutes(app, {
           const [x, y] = parseKey(tk);
           return playerTile(x, y);
         });
-        sendToPlayer(actor.id, { type: "TILE_DELTA", updates });
+        sendBulkToPlayer(actor.id, { type: "TILE_DELTA", updates });
       }
       sendToPlayer(actor.id, { type: "COLLECT_RESULT", mode: "visible", tiles: got.tiles, gold: got.gold, strategic: got.strategic });
       sendPlayerUpdate(actor, got.gold);
@@ -12958,7 +13003,7 @@ registerServerHttpRoutes(app, {
       applyManpowerRegen(actor);
       recomputeClusterBonusForPlayer(actor);
       sendTechUpdate(actor, "completed");
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
+      broadcastBulk({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;
     }
@@ -12986,7 +13031,7 @@ registerServerHttpRoutes(app, {
           activeRevealTargets: [...getOrInitRevealTargets(actor.id)]
         })
       );
-      broadcast({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
+      broadcastBulk({ type: "PLAYER_STYLE", playerId: actor.id, ...playerStylePayload(actor) });
       sendPlayerUpdate(actor, 0);
       return;
     }
@@ -13169,7 +13214,7 @@ registerServerHttpRoutes(app, {
       const authSync = authSyncTimingByPlayer.get(actor.id);
       if (authSync && authSync.firstSubscribeAt === undefined) {
         authSync.firstSubscribeAt = now();
-        sendLoginPhase(socket, "MAP_SUBSCRIBE", "Connecting your empire...", `Requesting your world view near (${sub.cx}, ${sub.cy})...`);
+        sendLoginPhase(controlSocketForPlayer(actor.id), "MAP_SUBSCRIBE", "Connecting your empire...", `Requesting your world view near (${sub.cx}, ${sub.cy})...`);
         app.log.info(
           {
             playerId: actor.id,
@@ -13196,7 +13241,7 @@ registerServerHttpRoutes(app, {
       }
       if (sub.radius > INITIAL_CHUNK_BOOTSTRAP_RADIUS) {
         sendChunkSnapshot(
-          socket,
+          bulkSocketForPlayer(actor.id) ?? socket,
           actor,
           { ...sub, radius: INITIAL_CHUNK_BOOTSTRAP_RADIUS },
           buildBootstrapChunkStages(sub),
@@ -13204,7 +13249,7 @@ registerServerHttpRoutes(app, {
         );
         return;
       }
-      sendChunkSnapshot(socket, actor, sub);
+      sendChunkSnapshot(bulkSocketForPlayer(actor.id) ?? socket, actor, sub);
       return;
     }
 
@@ -13216,7 +13261,7 @@ registerServerHttpRoutes(app, {
         socket.send(JSON.stringify({ type: "ERROR", code: "TILE_DETAIL_UNAVAILABLE", message: "tile detail requires current vision" }));
         return;
       }
-      sendToPlayer(actor.id, { type: "TILE_DELTA", updates: [playerTile(wx, wy)] });
+      sendBulkToPlayer(actor.id, { type: "TILE_DELTA", updates: [playerTile(wx, wy)] });
       return;
     }
 
@@ -14026,8 +14071,18 @@ registerServerHttpRoutes(app, {
 
   socket.on("close", () => {
     if (authedPlayer) {
+      if (socketChannel === "bulk") {
+        if (bulkSocketsByPlayer.get(authedPlayer.id) === socket) bulkSocketsByPlayer.delete(authedPlayer.id);
+        chunkSubscriptionByPlayer.delete(authedPlayer.id);
+        chunkSnapshotSentAtByPlayer.delete(authedPlayer.id);
+        chunkSnapshotGenerationByPlayer.delete(authedPlayer.id);
+        chunkSnapshotInFlightByPlayer.delete(authedPlayer.id);
+        return;
+      }
+      if (socketsByPlayer.get(authedPlayer.id) !== socket) return;
       for (const pcap of pendingCapturesByAttacker(authedPlayer.id)) cancelPendingCapture(pcap);
       socketsByPlayer.delete(authedPlayer.id);
+      bulkSocketsByPlayer.delete(authedPlayer.id);
       chunkSubscriptionByPlayer.delete(authedPlayer.id);
       chunkSnapshotSentAtByPlayer.delete(authedPlayer.id);
       chunkSnapshotGenerationByPlayer.delete(authedPlayer.id);

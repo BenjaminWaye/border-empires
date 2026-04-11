@@ -107,13 +107,14 @@ import {
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type { ActiveTruceView, CrystalTargetingAbility, OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuView, TileOverviewLine, TileTimedProgress } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   wsUrl: string;
   canvas: HTMLCanvasElement;
   techPickEl: HTMLSelectElement;
