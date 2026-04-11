@@ -68,9 +68,12 @@ describe("frontier combat queue regression guard", () => {
   it("defers bulky post-combat refresh work instead of doing inline player updates after frontier results", () => {
     const source = serverMainSource();
     const helperBody = functionBody(source, "sendPostCombatFollowUps");
-    expect(helperBody).toContain("queueMicrotaskFn(() => {");
-    expect(helperBody).toContain("sendPlayerUpdate(actor, 0, { includeProgression: false, includeGlobalStatus: false, includeWorldStatus: false })");
-    expect(helperBody).toContain("sendLocalVisionDeltaForPlayer(attackerId, changedCenters)");
+    expect(helperBody).toContain("queuePostCombatFollowUpsForPlayer(attackerId, changedCenters)");
+    expect(helperBody).toContain("if (defenderId) queuePostCombatFollowUpsForPlayer(defenderId, changedCenters);");
+
+    const flushBody = functionBody(source, "flushPostCombatFollowUpsForPlayer");
+    expect(flushBody).toContain('sendPlayerUpdate(player, 0, { detail: "combat" })');
+    expect(flushBody).toContain("sendLocalVisionDeltaForPlayer(playerId, changedCenters)");
 
     const queuedBody = functionBody(source, "tryQueueBasicFrontierAction");
     expect(queuedBody).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
@@ -82,5 +85,24 @@ describe("frontier combat queue regression guard", () => {
     const liveResultPath = source.slice(livePathStart, livePathEnd);
     expect(liveResultPath).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
     expect(liveResultPath).not.toContain("sendPlayerUpdate(actor, 0);");
+  });
+
+  it("batches visible tile delta fanout instead of sending each ownership tile inline", () => {
+    const source = serverMainSource();
+    const deltaBody = functionBody(source, "sendVisibleTileDeltaAt");
+    expect(deltaBody).toContain("queueVisibleTileDeltaForPlayer(p.id, current)");
+    expect(deltaBody).not.toContain('sendBulkToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });');
+
+    const flushBody = functionBody(source, "flushQueuedVisibleTileDeltas");
+    expect(flushBody).toContain('sendBulkToPlayer(playerId, { type: "TILE_DELTA", updates: [...updatesByTileKey.values()] })');
+  });
+
+  it("uses combat-detail player updates for frontier follow-up batching", () => {
+    const source = serverMainSource();
+    const body = functionBody(source, "sendPlayerUpdate");
+    expect(body).toContain('const detail = options.detail ?? "full";');
+    expect(body).toContain('const includeEconomy = options.includeEconomy ?? detail === "full";');
+    expect(body).toContain('const includeBreakdowns = options.includeBreakdowns ?? detail === "full";');
+    expect(body).toContain('const includeDevelopmentStatus = options.includeDevelopmentStatus ?? detail === "full";');
   });
 });
