@@ -1456,15 +1456,20 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!state.actionAcceptedAck && !state.actionAcceptTimeoutHandledAt && Date.now() - started > 2_000) {
       const current = state.actionCurrent;
       const currentKey = current ? deps.keyFor(current.x, current.y) : "";
+      const currentTile = currentKey ? state.tiles.get(currentKey) : undefined;
       const preservedCapture =
         current && state.capture && state.capture.target.x === current.x && state.capture.target.y === current.y ? state.capture : undefined;
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(currentKey);
+      const waitForFrontierSync =
+        keepOptimisticExpand ||
+        Boolean(current && !state.actionAcceptedAck && !state.combatStartAck && !currentTile?.ownerId);
       attackSyncLog("action-accept-timeout", {
         current,
         currentKey,
         elapsedMs: Date.now() - started,
         actionAcceptedAck: state.actionAcceptedAck,
         keepOptimisticExpand,
+        waitForFrontierSync,
         queueLength: state.actionQueue.length,
         queuedKeys: Array.from(state.queuedTargetKeys),
         pendingCombatReveal: state.pendingCombatReveal
@@ -1475,7 +1480,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           : undefined
       });
       state.actionAcceptTimeoutHandledAt = Date.now();
-      if (keepOptimisticExpand) {
+      if (waitForFrontierSync) {
         state.capture = undefined;
         if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
         state.actionInFlight = false;
