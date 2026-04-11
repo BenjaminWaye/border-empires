@@ -982,6 +982,22 @@ const ownership = new Map<TileKey, string>();
 const ownershipStateByTile = new Map<TileKey, OwnershipState>();
 const barbarianAgents = new Map<string, BarbarianAgent>();
 const barbarianAgentByTileKey = new Map<TileKey, string>();
+type CombatResultChange = {
+  x: number;
+  y: number;
+  ownerId?: string;
+  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+};
+type PrecomputedFrontierCombat = {
+  atkEff: number;
+  defEff: number;
+  winChance: number;
+  win: boolean;
+  previewChanges: CombatResultChange[];
+  previewWinnerId?: string;
+  defenderOwnerId?: string;
+  previewManpowerDelta?: number;
+};
 interface PendingCapture {
   resolvesAt: number;
   origin: TileKey;
@@ -993,29 +1009,10 @@ interface PendingCapture {
   actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | "DEEP_STRIKE_ATTACK" | "NAVAL_INFILTRATION_ATTACK";
   startedAt?: number;
   traceId?: string;
-  precomputedCombat?: {
-    atkEff: number;
-    defEff: number;
-    winChance: number;
-    win: boolean;
-    previewChanges: Array<{
-      x: number;
-      y: number;
-      ownerId?: string;
-      ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
-    }>;
-    previewWinnerId?: string;
-    defenderOwnerId?: string;
-    previewManpowerDelta?: number;
-  };
+  precomputedCombat?: PrecomputedFrontierCombat;
+  precomputedCombatPromise?: Promise<PrecomputedFrontierCombat>;
   timeout?: NodeJS.Timeout;
 }
-type CombatResultChange = {
-  x: number;
-  y: number;
-  ownerId?: string;
-  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
-};
 type NeutralExpandTiming = {
   acceptedAt: number;
   resolvesAt: number;
@@ -13633,23 +13630,7 @@ registerServerHttpRoutes(app, {
       telemetryCounters.breakthroughAttacks += 1;
     }
     if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
-    let precomputedCombat:
-      | {
-          atkEff: number;
-          defEff: number;
-          winChance: number;
-          win: boolean;
-          previewChanges: Array<{
-            x: number;
-            y: number;
-            ownerId?: string;
-            ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
-          }>;
-          previewWinnerId?: string;
-          defenderOwnerId?: string;
-          previewManpowerDelta?: number;
-        }
-      | undefined;
+    let precomputedCombatPromise: Promise<PrecomputedFrontierCombat> | undefined;
     if (defender || defenderIsBarbarian) {
       const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
       const shock = breachShockByTile.get(tk);
@@ -13662,7 +13643,7 @@ registerServerHttpRoutes(app, {
       const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
       const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
       const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
-      const combat = await resolveCombatViaWorker({
+      precomputedCombatPromise = resolveCombatViaWorker({
         attackBase:
           10 *
           actor.mods.attack *
@@ -13673,42 +13654,43 @@ registerServerHttpRoutes(app, {
           ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
           : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
             frontierDefenseAdd
+      }).then((combat): PrecomputedFrontierCombat => {
+        const atkEffWithSiege = combat.atkEff;
+        const defEff = combat.defEff;
+        const winChance = combat.winChance;
+        const win = combat.win;
+        const previewChanges = (() => {
+          if (win) return [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }];
+          const fortHeldOrigin = originTileHeldByActiveFort(actor.id, fk);
+          if (defenderIsBarbarian) {
+            return fortHeldOrigin
+              ? [{ x: to.x, y: to.y }]
+              : [
+                  { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" as const },
+                  { x: to.x, y: to.y }
+                ];
+          }
+          if (defender) {
+            return fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" as const }];
+          }
+          return [];
+        })();
+        const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id;
+        return {
+          atkEff: atkEffWithSiege,
+          defEff,
+          winChance,
+          win,
+          previewChanges,
+          previewManpowerDelta: -(
+            win
+              ? Math.max(10, manpowerCost * 0.16)
+              : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEffWithSiege)) * 0.35)
+          ),
+          ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defender?.id ? { defenderOwnerId: defender.id } : {}),
+          ...(previewWinnerId ? { previewWinnerId } : {})
+        };
       });
-      const atkEffWithSiege = combat.atkEff;
-      const defEff = combat.defEff;
-      const winChance = combat.winChance;
-      const win = combat.win;
-      const previewChanges = (() => {
-        if (win) return [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }];
-        const fortHeldOrigin = originTileHeldByActiveFort(actor.id, fk);
-        if (defenderIsBarbarian) {
-          return fortHeldOrigin
-            ? [{ x: to.x, y: to.y }]
-            : [
-                { x: from.x, y: from.y, ownerId: BARBARIAN_OWNER_ID, ownershipState: "BARBARIAN" as const },
-                { x: to.x, y: to.y }
-              ];
-        }
-        if (defender) {
-          return fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" as const }];
-        }
-        return [];
-      })();
-      const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id;
-      precomputedCombat = {
-        atkEff: atkEffWithSiege,
-        defEff,
-        winChance,
-        win,
-        previewChanges,
-        previewManpowerDelta: -(
-          win
-            ? Math.max(10, manpowerCost * 0.16)
-            : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEffWithSiege)) * 0.35)
-        ),
-        ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defender?.id ? { defenderOwnerId: defender.id } : {}),
-        ...(previewWinnerId ? { previewWinnerId } : {})
-      };
     }
     const resolvesAt = now() + (msg.type === "EXPAND" && !to.ownerId ? frontierClaimDurationMsAt(to.x, to.y) : COMBAT_LOCK_MS);
     const pending: PendingCapture = {
@@ -13722,7 +13704,6 @@ registerServerHttpRoutes(app, {
       actionType: msg.type,
       startedAt: nowMs
     };
-    if (precomputedCombat) pending.precomputedCombat = precomputedCombat;
     if (expandTraceId) pending.traceId = expandTraceId;
     if (attackTraceId) pending.traceId = attackTraceId;
     combatLocks.set(fk, pending);
@@ -13755,29 +13736,24 @@ registerServerHttpRoutes(app, {
     logAttackTrace("accepted_ack_sent", pending, {
       socketReadyState: socket.readyState
     });
+    if (precomputedCombatPromise) {
+      pending.precomputedCombatPromise = precomputedCombatPromise.then((computed) => {
+        pending.precomputedCombat = computed;
+        return computed;
+      });
+    }
     const predictedResult =
-      pending.precomputedCombat
+      msg.type === "EXPAND" && !to.ownerId
         ? {
             attackType: msg.type,
-            attackerWon: pending.precomputedCombat.win,
-            winnerId: pending.precomputedCombat.previewWinnerId,
-            defenderOwnerId: pending.precomputedCombat.defenderOwnerId,
+            attackerWon: true,
+            winnerId: actor.id,
             origin: { x: from.x, y: from.y },
             target: { x: to.x, y: to.y },
-            changes: pending.precomputedCombat.previewChanges,
-            manpowerDelta: pending.precomputedCombat.previewManpowerDelta
+            changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }],
+            manpowerDelta: 0
           }
-        : msg.type === "EXPAND" && !to.ownerId
-          ? {
-              attackType: msg.type,
-              attackerWon: true,
-              winnerId: actor.id,
-              origin: { x: from.x, y: from.y },
-              target: { x: to.x, y: to.y },
-              changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }],
-              manpowerDelta: 0
-            }
-          : undefined;
+        : undefined;
     sendHighPrioritySocketMessage(
       socket,
       JSON.stringify({
@@ -13868,6 +13844,10 @@ registerServerHttpRoutes(app, {
           JSON.stringify({ type: "ERROR", code: "SHIELDED", message: "target shielded" })
         );
         return;
+      }
+
+      if (!pending.precomputedCombat && pending.precomputedCombatPromise) {
+        pending.precomputedCombat = await pending.precomputedCombatPromise;
       }
 
       if (msg.type === "ATTACK") {
