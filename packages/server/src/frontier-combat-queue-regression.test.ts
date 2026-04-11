@@ -105,4 +105,19 @@ describe("frontier combat queue regression guard", () => {
     expect(body).toContain('const includeBreakdowns = options.includeBreakdowns ?? detail === "full";');
     expect(body).toContain('const includeDevelopmentStatus = options.includeDevelopmentStatus ?? detail === "full";');
   });
+
+  it("routes barbarian combat resolution back through the system queue instead of resolving inline in timer callbacks", () => {
+    const source = serverMainSource();
+    const runBarbarianActionBody = functionBody(source, "runBarbarianAction");
+    expect(runBarbarianActionBody).toContain("enqueueBarbarianCombatResolve(agent.id, currentKey, target.x, target.y);");
+    expect(runBarbarianActionBody).not.toContain("const combat = await resolveCombatViaWorker");
+
+    const resolveBody = functionBody(source, "resolveQueuedBarbarianCombat");
+    expect(resolveBody).toContain("const combat = await resolveCombatViaWorker");
+    expect(resolveBody).toContain('updateOwnership(command.targetX, command.targetY, BARBARIAN_OWNER_ID, "BARBARIAN");');
+
+    const executeSystemBody = functionBody(source, "executeSystemSimulationCommand");
+    expect(executeSystemBody).toContain('if (command.type === "BARBARIAN_COMBAT_RESOLVE")');
+    expect(executeSystemBody).toContain("await resolveQueuedBarbarianCombat(command);");
+  });
 });
