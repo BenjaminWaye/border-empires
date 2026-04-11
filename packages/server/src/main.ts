@@ -2379,6 +2379,31 @@ const actionValidationPayload = (
   ...extra
 });
 
+const VISIBLE_TILE_DELTA_BATCH_MS = 25;
+
+const pendingVisibleTileDeltasByPlayer = new Map<string, Map<TileKey, Tile>>();
+let visibleTileDeltaFlushTimeout: ReturnType<typeof setTimeout> | undefined;
+
+const flushQueuedVisibleTileDeltas = (): void => {
+  visibleTileDeltaFlushTimeout = undefined;
+  for (const [playerId, updatesByTileKey] of pendingVisibleTileDeltasByPlayer) {
+    pendingVisibleTileDeltasByPlayer.delete(playerId);
+    if (updatesByTileKey.size === 0) continue;
+    sendBulkToPlayer(playerId, { type: "TILE_DELTA", updates: [...updatesByTileKey.values()] });
+  }
+};
+
+const queueVisibleTileDeltaForPlayer = (playerId: string, tile: Tile): void => {
+  let updatesByTileKey = pendingVisibleTileDeltasByPlayer.get(playerId);
+  if (!updatesByTileKey) {
+    updatesByTileKey = new Map<TileKey, Tile>();
+    pendingVisibleTileDeltasByPlayer.set(playerId, updatesByTileKey);
+  }
+  updatesByTileKey.set(key(tile.x, tile.y), { ...tile, fogged: false });
+  if (visibleTileDeltaFlushTimeout !== undefined) return;
+  visibleTileDeltaFlushTimeout = setTimeout(flushQueuedVisibleTileDeltas, VISIBLE_TILE_DELTA_BATCH_MS);
+};
+
 const sendVisibleTileDeltaAt = (x: number, y: number): void => {
   for (const p of players.values()) {
     if (!tileInSubscription(p.id, x, y)) continue;
@@ -2391,7 +2416,7 @@ const sendVisibleTileDeltaAt = (x: number, y: number): void => {
       ownerId: current.ownerId,
       ownershipState: current.ownershipState
     });
-    sendBulkToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });
+    queueVisibleTileDeltaForPlayer(p.id, current);
   }
 };
 
@@ -3037,110 +3062,155 @@ const techPayloadSnapshotForPlayer = (player: Player, scope: "init" | "player_up
     }
   });
 
+type PlayerUpdateDetail = "full" | "combat";
+
 type PlayerUpdateOptions = {
+  detail?: PlayerUpdateDetail;
   includeProgression?: boolean;
   includeGlobalStatus?: boolean;
   includeWorldStatus?: boolean;
+  includeEconomy?: boolean;
+  includeBreakdowns?: boolean;
+  includeSocial?: boolean;
+  includeMissions?: boolean;
+  includeAllianceRequests?: boolean;
+  includeDevelopmentStatus?: boolean;
 };
 
 const HOT_PLAYER_UPDATE_WARN_MS = 40;
 
 const sendPlayerUpdate = (p: Player, incomeDelta: number, options: PlayerUpdateOptions = {}): void => {
+  const detail = options.detail ?? "full";
+  const regenStartedAt = now();
   applyManpowerRegen(p);
+  const regenMs = now() - regenStartedAt;
   const ws = bulkSocketForPlayer(p.id);
   if (!ws || ws.readyState !== ws.OPEN) return;
   const startedAt = now();
-  const includeProgression = options.includeProgression ?? true;
-  const includeGlobalStatus = options.includeGlobalStatus ?? true;
-  const includeWorldStatus = options.includeWorldStatus ?? true;
-  const economy = playerEconomySnapshot(p);
+  const includeProgression = options.includeProgression ?? detail === "full";
+  const includeGlobalStatus = options.includeGlobalStatus ?? detail === "full";
+  const includeWorldStatus = options.includeWorldStatus ?? detail === "full";
+  const includeEconomy = options.includeEconomy ?? detail === "full";
+  const includeBreakdowns = options.includeBreakdowns ?? detail === "full";
+  const includeSocial = options.includeSocial ?? detail === "full";
+  const includeMissions = options.includeMissions ?? detail === "full";
+  const includeAllianceRequests = options.includeAllianceRequests ?? detail === "full";
+  const includeDevelopmentStatus = options.includeDevelopmentStatus ?? detail === "full";
+  const economyStartedAt = now();
+  const economy = includeEconomy ? playerEconomySnapshot(p) : undefined;
+  const economyMs = now() - economyStartedAt;
   const strategicStocks = getOrInitStrategicStocks(p.id);
   const techPayload = includeProgression ? techPayloadSnapshotForPlayer(p, "player_update") : undefined;
   if (includeGlobalStatus) refreshGlobalStatusCache(false);
-  const pendingSettlements = [...pendingSettlementsByTile.values()]
-    .filter((settlement) => settlement.ownerId === p.id)
-    .map((settlement) => {
-      const [x, y] = parseKey(settlement.tileKey);
-      return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
-    });
-  logTileSync("development_player_update", {
-    playerId: p.id,
-    incomeDelta,
-    pendingSettlements,
-    ...developmentProcessDebugBreakdownForPlayer(p.id)
-  });
-  ws.send(
-    JSON.stringify({
-      type: "PLAYER_UPDATE",
-      gold: p.points,
-      points: p.points,
-      name: p.name,
-      tileColor: p.tileColor,
-      visualStyle: empireStyleFromPlayer(p),
-      profileNeedsSetup: p.profileComplete !== true,
-      level: p.level,
-      mods: p.mods,
-      modBreakdown: playerModBreakdown(p),
-      incomePerMinute: economy.incomePerMinute,
+  const developmentStartedAt = now();
+  const pendingSettlements = includeDevelopmentStatus
+    ? [...pendingSettlementsByTile.values()]
+        .filter((settlement) => settlement.ownerId === p.id)
+        .map((settlement) => {
+          const [x, y] = parseKey(settlement.tileKey);
+          return { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt };
+        })
+    : undefined;
+  const developmentProcessLimit = includeDevelopmentStatus ? developmentProcessCapacityForPlayer(p.id) : undefined;
+  const activeDevelopmentProcessCount = includeDevelopmentStatus ? activeDevelopmentProcessCountForPlayer(p.id) : undefined;
+  const developmentMs = now() - developmentStartedAt;
+  if (includeDevelopmentStatus) {
+    logTileSync("development_player_update", {
+      playerId: p.id,
       incomeDelta,
-      strategicResources: strategicStocks,
-      strategicProductionPerMinute: economy.strategicProductionPerMinute,
-      economyBreakdown: economy.economyBreakdown,
-      upkeepPerMinute: economy.upkeepPerMinute,
-      upkeepLastTick: economy.upkeepLastTick,
-      stamina: p.stamina,
-      manpower: p.manpower,
-      manpowerCap: playerManpowerCap(p),
-      manpowerRegenPerMinute: playerManpowerRegenPerMinute(p),
-      manpowerBreakdown: playerManpowerBreakdown(p),
-      T: p.T,
-      E: p.E,
-      Ts: p.Ts,
-      Es: p.Es,
-      shieldUntil: p.spawnShieldUntil,
-      defensiveness: playerDefensiveness(p),
-      ...(includeProgression ? { currentResearch: p.currentResearch } : {}),
-      availableTechPicks: availableTechPicks(p),
-      developmentProcessLimit: developmentProcessCapacityForPlayer(p.id),
-      activeDevelopmentProcessCount: activeDevelopmentProcessCountForPlayer(p.id),
-      ...(includeProgression && techPayload ? { techChoices: techPayload.techChoices, techCatalog: techPayload.techCatalog } : {}),
-      domainIds: [...p.domainIds],
-      ...(includeProgression ? { domainChoices: reachableDomains(p), domainCatalog: activeDomainCatalog(p) } : {}),
-      ...(includeProgression ? { revealCapacity: revealCapacityForPlayer(p), activeRevealTargets: [...getOrInitRevealTargets(p.id)] } : {}),
-      ...(includeProgression ? { abilityCooldowns: Object.fromEntries(getAbilityCooldowns(p.id)) } : {}),
-      activeTruces: activeTruceViewsForPlayer(p.id),
-      ...(includeWorldStatus
-        ? {
-            activeAetherBridges: [...activeAetherBridgesById.values()]
-              .filter((bridge) => bridge.ownerId === p.id)
-              .map((bridge) => {
-                const [fromX, fromY] = parseKey(bridge.fromTileKey);
-                const [toX, toY] = parseKey(bridge.toTileKey);
-                return {
-                  bridgeId: bridge.bridgeId,
-                  ownerId: bridge.ownerId,
-                  from: { x: fromX, y: fromY },
-                  to: { x: toX, y: toY },
-                  startedAt: bridge.startedAt,
-                  endsAt: bridge.endsAt
-                };
-              }),
-            activeAetherWalls: activeAetherWallViews()
-          }
-        : {}),
       pendingSettlements,
-      incomingAllianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === p.id),
-      outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === p.id),
-      missions: missionPayload(p),
-      ...(includeGlobalStatus
-        ? {
-            leaderboard: leaderboardSnapshotForPlayer(p.id),
-            seasonVictory: seasonVictoryObjectivesForPlayer(p.id),
-            seasonWinner
-          }
-        : {})
-    })
-  );
+      ...developmentProcessDebugBreakdownForPlayer(p.id)
+    });
+  }
+
+  const payload: Record<string, unknown> = {
+    type: "PLAYER_UPDATE",
+    gold: p.points,
+    points: p.points,
+    level: p.level,
+    strategicResources: strategicStocks,
+    stamina: p.stamina,
+    manpower: p.manpower,
+    manpowerCap: playerManpowerCap(p),
+    manpowerRegenPerMinute: playerManpowerRegenPerMinute(p),
+    T: p.T,
+    E: p.E,
+    Ts: p.Ts,
+    Es: p.Es,
+    shieldUntil: p.spawnShieldUntil,
+    defensiveness: playerDefensiveness(p),
+    profileNeedsSetup: p.profileComplete !== true
+  };
+
+  if (detail === "full") {
+    payload.name = p.name;
+    payload.tileColor = p.tileColor;
+    payload.visualStyle = empireStyleFromPlayer(p);
+    payload.mods = p.mods;
+  }
+  if (includeBreakdowns) {
+    payload.modBreakdown = playerModBreakdown(p);
+    payload.manpowerBreakdown = playerManpowerBreakdown(p);
+  }
+  if (includeEconomy && economy) {
+    payload.incomePerMinute = economy.incomePerMinute;
+    payload.incomeDelta = incomeDelta;
+    payload.strategicProductionPerMinute = economy.strategicProductionPerMinute;
+    payload.economyBreakdown = economy.economyBreakdown;
+    payload.upkeepPerMinute = economy.upkeepPerMinute;
+    payload.upkeepLastTick = economy.upkeepLastTick;
+  }
+  if (includeProgression) {
+    payload.currentResearch = p.currentResearch;
+    payload.availableTechPicks = availableTechPicks(p);
+    payload.techChoices = techPayload?.techChoices ?? [];
+    payload.techCatalog = techPayload?.techCatalog ?? [];
+    payload.domainIds = [...p.domainIds];
+    payload.domainChoices = reachableDomains(p);
+    payload.domainCatalog = activeDomainCatalog(p);
+    payload.revealCapacity = revealCapacityForPlayer(p);
+    payload.activeRevealTargets = [...getOrInitRevealTargets(p.id)];
+    payload.abilityCooldowns = Object.fromEntries(getAbilityCooldowns(p.id));
+  } else if (detail === "full") {
+    payload.domainIds = [...p.domainIds];
+  }
+  if (includeWorldStatus) {
+    payload.activeAetherBridges = [...activeAetherBridgesById.values()]
+      .filter((bridge) => bridge.ownerId === p.id)
+      .map((bridge) => {
+        const [fromX, fromY] = parseKey(bridge.fromTileKey);
+        const [toX, toY] = parseKey(bridge.toTileKey);
+        return {
+          bridgeId: bridge.bridgeId,
+          ownerId: bridge.ownerId,
+          from: { x: fromX, y: fromY },
+          to: { x: toX, y: toY },
+          startedAt: bridge.startedAt,
+          endsAt: bridge.endsAt
+        };
+      });
+    payload.activeAetherWalls = activeAetherWallViews();
+  }
+  if (includeDevelopmentStatus) {
+    payload.pendingSettlements = pendingSettlements;
+    payload.developmentProcessLimit = developmentProcessLimit;
+    payload.activeDevelopmentProcessCount = activeDevelopmentProcessCount;
+  }
+  if (includeAllianceRequests) {
+    payload.incomingAllianceRequests = [...allianceRequests.values()].filter((r) => r.toPlayerId === p.id);
+    payload.outgoingAllianceRequests = [...allianceRequests.values()].filter((r) => r.fromPlayerId === p.id);
+  }
+  if (includeSocial) payload.activeTruces = activeTruceViewsForPlayer(p.id);
+  if (includeMissions) payload.missions = missionPayload(p);
+  if (includeGlobalStatus) {
+    payload.leaderboard = leaderboardSnapshotForPlayer(p.id);
+    payload.seasonVictory = seasonVictoryObjectivesForPlayer(p.id);
+    payload.seasonWinner = seasonWinner;
+  }
+
+  const sendStartedAt = now();
+  ws.send(JSON.stringify(payload));
+  const sendMs = now() - sendStartedAt;
   const elapsedMs = now() - startedAt;
   if (elapsedMs >= HOT_PLAYER_UPDATE_WARN_MS) {
     app.log.warn(
@@ -3148,10 +3218,21 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number, options: PlayerUpdateO
         playerId: p.id,
         incomeDelta,
         elapsedMs,
+        regenMs,
+        economyMs,
+        developmentMs,
+        sendMs,
+        detail,
         includeProgression,
         includeGlobalStatus,
         includeWorldStatus,
-        pendingSettlements: pendingSettlements.length
+        includeEconomy,
+        includeBreakdowns,
+        includeSocial,
+        includeMissions,
+        includeAllianceRequests,
+        includeDevelopmentStatus,
+        pendingSettlements: pendingSettlements?.length ?? 0
       },
       "slow player update"
     );
@@ -7956,35 +8037,72 @@ const logAttackTrace = (
 };
 
 const HOT_POST_COMBAT_FOLLOW_UP_WARN_MS = 40;
+const POST_COMBAT_FOLLOW_UP_BATCH_MS = 75;
+
+type PendingPostCombatFollowUp = {
+  centersByKey: Map<TileKey, { x: number; y: number }>;
+  flushTimeout: ReturnType<typeof setTimeout> | undefined;
+};
+
+const pendingPostCombatFollowUpsByPlayer = new Map<string, PendingPostCombatFollowUp>();
+
+const flushPostCombatFollowUpsForPlayer = (playerId: string): void => {
+  const pending = pendingPostCombatFollowUpsByPlayer.get(playerId);
+  if (!pending) return;
+  pending.flushTimeout = undefined;
+  const changedCenters = [...pending.centersByKey.values()];
+  pending.centersByKey.clear();
+  if (changedCenters.length === 0) {
+    pendingPostCombatFollowUpsByPlayer.delete(playerId);
+    return;
+  }
+
+  const startedAt = now();
+  const player = players.get(playerId);
+  const playerUpdateStartedAt = now();
+  if (player) sendPlayerUpdate(player, 0, { detail: "combat" });
+  const playerUpdateMs = now() - playerUpdateStartedAt;
+  const visionStartedAt = now();
+  sendLocalVisionDeltaForPlayer(playerId, changedCenters);
+  const visionMs = now() - visionStartedAt;
+  const elapsedMs = now() - startedAt;
+
+  if (pending.centersByKey.size === 0) pendingPostCombatFollowUpsByPlayer.delete(playerId);
+  else pending.flushTimeout = setTimeout(() => flushPostCombatFollowUpsForPlayer(playerId), POST_COMBAT_FOLLOW_UP_BATCH_MS);
+
+  if (elapsedMs >= HOT_POST_COMBAT_FOLLOW_UP_WARN_MS) {
+    app.log.warn(
+      {
+        playerId,
+        changedCenters: changedCenters.length,
+        elapsedMs,
+        playerUpdateMs,
+        visionMs
+      },
+      "slow post-combat follow-up"
+    );
+  }
+};
+
+const queuePostCombatFollowUpsForPlayer = (playerId: string, changedCenters: Array<{ x: number; y: number }>): void => {
+  if (changedCenters.length === 0) return;
+  let pending = pendingPostCombatFollowUpsByPlayer.get(playerId);
+  if (!pending) {
+    pending = { centersByKey: new Map<TileKey, { x: number; y: number }>(), flushTimeout: undefined };
+    pendingPostCombatFollowUpsByPlayer.set(playerId, pending);
+  }
+  for (const center of changedCenters) pending.centersByKey.set(key(center.x, center.y), center);
+  if (pending.flushTimeout !== undefined) return;
+  pending.flushTimeout = setTimeout(() => flushPostCombatFollowUpsForPlayer(playerId), POST_COMBAT_FOLLOW_UP_BATCH_MS);
+};
 
 const sendPostCombatFollowUps = (
   attackerId: string,
   changedCenters: Array<{ x: number; y: number }>,
   defenderId?: string
 ): void => {
-  queueMicrotaskFn(() => {
-    const startedAt = now();
-    const actor = players.get(attackerId);
-    if (actor) sendPlayerUpdate(actor, 0, { includeProgression: false, includeGlobalStatus: false, includeWorldStatus: false });
-    if (defenderId) {
-      const defender = players.get(defenderId);
-      if (defender) sendPlayerUpdate(defender, 0, { includeProgression: false, includeGlobalStatus: false, includeWorldStatus: false });
-    }
-    sendLocalVisionDeltaForPlayer(attackerId, changedCenters);
-    if (defenderId) sendLocalVisionDeltaForPlayer(defenderId, changedCenters);
-    const elapsedMs = now() - startedAt;
-    if (elapsedMs >= HOT_POST_COMBAT_FOLLOW_UP_WARN_MS) {
-      app.log.warn(
-        {
-          attackerId,
-          defenderId,
-          changedCenters: changedCenters.length,
-          elapsedMs
-        },
-        "slow post-combat follow-up"
-      );
-    }
-  });
+  queuePostCombatFollowUpsForPlayer(attackerId, changedCenters);
+  if (defenderId) queuePostCombatFollowUpsForPlayer(defenderId, changedCenters);
 };
 
 const cancelAllBarbarianPendingCaptures = (): void => {
@@ -10246,6 +10364,7 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     }
   }
 
+  const affectedPlayerRefreshStartedAt = now();
   for (const pid of affectedPlayers) {
     const p = players.get(pid);
     if (!p) continue;
@@ -10263,7 +10382,9 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
       rebuildEconomyIndexForPlayer(displacedPlayer.id);
     }
   }
+  const affectedPlayerRefreshMs = now() - affectedPlayerRefreshStartedAt;
 
+  const visibilityRefreshStartedAt = now();
   for (const pid of affectedPlayers) refreshVisibleOwnedTownsForPlayer(pid);
   if (displacedSettlement) refreshVisibleOwnedTownsForPlayer(displacedSettlement.ownerId);
   markAiTerritoryDirtyForPlayers(affectedPlayers);
@@ -10286,8 +10407,12 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     for (const allyId of players.get(newOwner)?.allies ?? []) visibilityAffectedPlayers.add(allyId);
     for (const watcherPlayerId of revealWatchersByTarget.get(newOwner) ?? []) visibilityAffectedPlayers.add(watcherPlayerId);
   }
+  const visibilityRefreshMs = now() - visibilityRefreshStartedAt;
+
+  const snapshotInvalidationStartedAt = now();
   markVisibilityDirtyForPlayers(visibilityAffectedPlayers);
   markSummaryChunkDirtyAtTile(t.x, t.y);
+  const snapshotInvalidationMs = now() - snapshotInvalidationStartedAt;
 
   if (oldOwner !== newOwner || oldOwnershipState !== t.ownershipState) {
     const ownerName = t.ownerId ? players.get(t.ownerId)?.name : undefined;
@@ -10306,7 +10431,9 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
     pushStrategicReplayEvent(replayEvent);
   }
 
+  const tileDeltaFanoutStartedAt = now();
   sendVisibleTileDeltaSquare(t.x, t.y, 1);
+  const tileDeltaFanoutMs = now() - tileDeltaFanoutStartedAt;
   const elapsedMs = now() - startedAt;
   if (elapsedMs >= 40) {
     app.log.warn(
@@ -10319,6 +10446,10 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
         oldOwnershipState,
         newOwnershipState: t.ownershipState,
         affectedPlayers: [...affectedPlayers],
+        affectedPlayerRefreshMs,
+        visibilityRefreshMs,
+        snapshotInvalidationMs,
+        tileDeltaFanoutMs,
         elapsedMs
       },
       "slow update ownership"
