@@ -226,7 +226,13 @@ describe("chunk snapshot cache regression guard", () => {
     );
     await flushSnapshotWork();
 
-    expect(loadBatchRequests).toEqual([]);
+    expect(loadBatchRequests).toEqual([
+      [
+        { cx: 0, cy: 0, mode: "thin" },
+        { cx: 1, cy: 0, mode: "thin" }
+      ],
+      [{ cx: 1, cy: 0, mode: "thin" }]
+    ]);
     expect(workerSerializeCounts).toEqual([1]);
     expect(sentPayloads).toHaveLength(3);
     expect(perfSamples).toEqual([
