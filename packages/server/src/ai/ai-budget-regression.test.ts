@@ -60,7 +60,7 @@ describe("AI budget regression guard", () => {
     const dashboardBody = functionBody(source, "runtimeDashboardPayload");
     expect(dashboardBody).toContain("aiBudget: {");
     expect(dashboardBody).toContain("budgetMs: deps.aiTickBudgetMs");
-    expect(dashboardBody).toContain("const recentAiBudgetBreaches = recentAiBudgetBreachPerf.values();");
+    expect(dashboardBody).toContain("const recentAiBudgetBreaches = deps.recentAiBudgetBreachPerf.values();");
     expect(dashboardBody).toContain("recent: recentAiBudgetBreaches");
     expect(source).toContain('metricRow("AI budget breaches"');
     expect(source).toContain('renderHotspotBlock("AI budget breaches"');
