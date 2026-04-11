@@ -64,4 +64,23 @@ describe("frontier combat queue regression guard", () => {
     expect(livePath).toContain("precomputedCombatPromise = resolveCombatViaWorker");
     expect(livePath).not.toContain("await resolveCombatViaWorker");
   });
+
+  it("defers bulky post-combat refresh work instead of doing inline player updates after frontier results", () => {
+    const source = serverMainSource();
+    const helperBody = functionBody(source, "sendPostCombatFollowUps");
+    expect(helperBody).toContain("queueMicrotaskFn(() => {");
+    expect(helperBody).toContain("sendPlayerUpdate(actor, 0, { includeProgression: false, includeGlobalStatus: false, includeWorldStatus: false })");
+    expect(helperBody).toContain("sendLocalVisionDeltaForPlayer(attackerId, changedCenters)");
+
+    const queuedBody = functionBody(source, "tryQueueBasicFrontierAction");
+    expect(queuedBody).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
+
+    const livePathStart = source.indexOf("logExpandTrace(\"combat_result_sent\", pending, { neutralTarget: false, changes: resultChanges.length });");
+    const livePathEnd = source.indexOf("}, resolvesAt - now());", livePathStart);
+    expect(livePathStart).toBeGreaterThan(-1);
+    expect(livePathEnd).toBeGreaterThan(livePathStart);
+    const liveResultPath = source.slice(livePathStart, livePathEnd);
+    expect(liveResultPath).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
+    expect(liveResultPath).not.toContain("sendPlayerUpdate(actor, 0);");
+  });
 });
