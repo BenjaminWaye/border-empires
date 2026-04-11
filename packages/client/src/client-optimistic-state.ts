@@ -202,12 +202,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     if (shouldPreserveOptimisticExpand(tile, state.me)) return true;
     if (!tileKey) return false;
     if (hasLateFrontierAckPending(tileKey)) return true;
-    return Boolean(
-      state.actionInFlight &&
-        state.actionCurrent &&
-        keyFor(state.actionCurrent.x, state.actionCurrent.y) === tileKey &&
-        !tile?.ownerId
-    );
+    return false;
   };
 
   const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
