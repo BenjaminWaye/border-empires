@@ -117,6 +117,7 @@ import { createServerVictoryPressure } from "./server-victory-pressure.js";
 import { createServerTechDomainRuntime } from "./server-tech-domain-runtime.js";
 import { createServerEconomyStateRuntime } from "./server-economy-state-runtime.js";
 import { createServerPlayerEffectsRuntime } from "./server-player-effects-runtime.js";
+import { syncForcedRevealTileUpdatesForPlayer } from "./server-reveal-sync.js";
 import { createServerTileViewRuntime } from "./server-tile-view-runtime.js";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
@@ -9314,7 +9315,12 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
     ownershipState: "SETTLED",
     ...developmentProcessDebugBreakdownForPlayer(liveActor.id)
   });
-  revealLinkedDocksForPlayer(liveActor.id, settlement.tileKey);
+  const linkedDockRevealTileKeys = revealLinkedDocksForPlayer(liveActor.id, settlement.tileKey);
+  syncForcedRevealTileUpdatesForPlayer(liveActor.id, linkedDockRevealTileKeys, {
+    parseKey,
+    playerTile,
+    sendBulkToPlayer
+  });
   recordFrontierSettlementForPressure(liveActor.id);
   const effects = getPlayerEffectsForPlayer(liveActor.id);
   if (effects.newSettlementDefenseMult > 1) {
