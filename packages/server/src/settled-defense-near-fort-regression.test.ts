@@ -4,9 +4,14 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { SETTLED_DEFENSE_NEAR_FORT_RADIUS } from "@border-empires/shared";
 
-const serverSource = (): string => {
+const mainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
   return readFileSync(resolve(here, "./main.ts"), "utf8");
+};
+
+const playerEffectsSource = (): string => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(resolve(here, "./server-player-effects-runtime.ts"), "utf8");
 };
 
 const functionBody = (source: string, functionName: string): string => {
@@ -30,12 +35,12 @@ const functionBody = (source: string, functionName: string): string => {
 
 describe("settled defense near fort regression guard", () => {
   it("applies the domain multiplier only when a settled tile is covered by an active fort", () => {
-    const source = serverSource();
-    const recomputeBody = functionBody(source, "recomputePlayerEffectsForPlayer");
-    const defenseBody = functionBody(source, "settledDefenseMultiplierForTarget");
-    const coverageBody = functionBody(source, "settledDefenseNearFortApplies");
+    const effectsSource = playerEffectsSource();
+    const domainEffectsBody = functionBody(effectsSource, "applyDomainEffects");
+    const defenseBody = functionBody(mainSource(), "settledDefenseMultiplierForTarget");
+    const coverageBody = functionBody(mainSource(), "settledDefenseNearFortApplies");
 
-    expect(recomputeBody).toContain("next.settledDefenseNearFortMult *= effects.settledDefenseNearFortMult;");
+    expect(domainEffectsBody).toContain("next.settledDefenseNearFortMult *= effects.settledDefenseNearFortMult;");
     expect(defenseBody).toContain("effects.settledDefenseNearFortMult > 1");
     expect(defenseBody).toContain("settledDefenseNearFortApplies(defenderId, target)");
     expect(coverageBody).toContain("wrappedChebyshevDistance(x, y, target.x, target.y) <= SETTLED_DEFENSE_NEAR_FORT_RADIUS");
