@@ -77,6 +77,7 @@ import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import { createClientInspectionFlow } from "./client-inspection-flow.js";
 import { createClientMapFacade } from "./client-map-facade.js";
 import { createClientMapMath } from "./client-map-math.js";
+import { createMultiplexWebSocket } from "./client-multiplex-websocket.js";
 import { createClientOptimisticStateController } from "./client-optimistic-state.js";
 import { createClientOriginSelection } from "./client-origin-selection.js";
 import { shouldHideCaptureOverlayAfterTimer, shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
@@ -681,7 +682,7 @@ const defaultWsUrl = (() => {
 })();
 const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? defaultWsUrl;
 state.localhostDevAetherWall = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "0.0.0.0";
-const ws = new WebSocket(wsUrl);
+const ws = createMultiplexWebSocket(wsUrl);
 bootstrapClientApp({
   state,
   dom: {

@@ -22,6 +22,7 @@ import {
   syncAuthPanelState as syncAuthPanelStateFromModule
 } from "./client-auth-ui.js";
 import { setDebugAuthEmail } from "./client-debug.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 
 export type AuthSession = {
@@ -38,7 +39,7 @@ type AuthFlowDeps = {
   dom: ClientDom;
   firebaseAuth?: Auth;
   googleProvider?: GoogleAuthProvider | undefined;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   wsUrl: string;
   requireAuthedSession: (message?: string) => boolean;
   renderHud: () => void;
