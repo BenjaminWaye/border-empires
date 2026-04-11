@@ -505,6 +505,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
       state.combatStartAck = false;
+      state.actionAcceptTimeoutHandledAt = 0;
       state.actionStartedAt = 0;
       if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
       if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
@@ -663,6 +664,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionInFlight = false;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
@@ -696,6 +698,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionInFlight = false;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
@@ -1131,6 +1134,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       });
       rebindLateFrontierAck(target, "ACTION_ACCEPTED");
       state.actionAcceptedAck = true;
+      state.actionAcceptTimeoutHandledAt = 0;
       state.actionInFlight = true;
       state.actionTargetKey = targetKey;
       renderHud();
@@ -1184,6 +1188,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       rebindLateFrontierAck(target, "COMBAT_START");
       state.actionAcceptedAck = true;
       state.combatStartAck = true;
+      state.actionAcceptTimeoutHandledAt = 0;
       const existingCapture =
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
       const startAt = existingCapture?.startAt ?? Date.now();
@@ -1244,6 +1249,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
       state.combatStartAck = false;
+      state.actionAcceptTimeoutHandledAt = 0;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
@@ -1465,6 +1471,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.actionInFlight = false;
         state.actionAcceptedAck = false;
         state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
         state.actionStartedAt = 0;
         if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
         if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey);
@@ -1870,6 +1877,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.actionInFlight = false;
         state.actionAcceptedAck = false;
         state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
         state.actionStartedAt = 0;
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
