@@ -3947,6 +3947,7 @@ type AiPlanningStaticCache = {
   fortProtectsCore: boolean;
   fortIsDockChokePoint: boolean;
   economicBuildAvailable: boolean;
+  siegeOutpostAvailable: boolean;
   frontierOpportunityEconomic: number;
   frontierOpportunityScout: number;
   frontierOpportunityScaffold: number;
@@ -5515,6 +5516,9 @@ const bestAiEnemyPressureAttack = (
   victoryPath?: AiSeasonVictoryPathId,
   territorySummary = collectAiTerritorySummary(actor)
 ): { from: Tile; to: Tile; score: number } | undefined => {
+  const competitionMetrics = collectPlayerCompetitionMetrics();
+  const townLeaderId = uniqueLeader(competitionMetrics.map((metric) => ({ playerId: metric.playerId, value: metric.controlledTowns }))).playerId;
+  const incomeLeaderId = leadingPair(competitionMetrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute }))).leaderPlayerId;
   let best: { from: Tile; to: Tile; score: number } | undefined;
   for (const { from, to } of territorySummary.attackCandidates) {
     if (
@@ -5529,24 +5533,32 @@ const bestAiEnemyPressureAttack = (
     const signal = aiEnemyPressureSignal(actor, to, territorySummary.visibility, territorySummary);
     if (signal <= 0) continue;
     let score = signal;
+    const targetKey = key(to.x, to.y);
     const defender = players.get(to.ownerId);
     const attackBase = 10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to);
     const defenseBase =
       10 *
       (defender?.mods.defense ?? 1) *
       (defender ? playerDefensiveness(defender) : 1) *
-      (defender ? fortDefenseMultAt(defender.id, key(to.x, to.y)) : 1) *
-      (docksByTile.has(key(to.x, to.y)) ? DOCK_DEFENSE_MULT : 1) *
+      (defender ? fortDefenseMultAt(defender.id, targetKey) : 1) *
+      (docksByTile.has(targetKey) ? DOCK_DEFENSE_MULT : 1) *
       (defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1) *
       ownershipDefenseMultiplierForTarget(defender?.id, to);
     const winChance = combatWinChance(attackBase, defenseBase);
     score += Math.round(winChance * 220);
+    if (townsByTile.has(targetKey)) score += victoryPath === "TOWN_CONTROL" ? 320 : 180;
+    if (docksByTile.has(targetKey)) score += victoryPath === "ECONOMIC_HEGEMONY" ? 180 : 90;
+    if (economicStructuresByTile.has(targetKey) || Boolean(to.resource)) score += victoryPath === "ECONOMIC_HEGEMONY" ? 220 : 120;
     if (to.ownershipState === "FRONTIER") score += 120;
-    if (victoryPath === "TOWN_CONTROL") score += 45;
-    if (victoryPath === "ECONOMIC_HEGEMONY") score += 20;
+    if (victoryPath === "TOWN_CONTROL") score += 140;
+    if (victoryPath === "ECONOMIC_HEGEMONY") score += 80;
+    if (victoryPath === "TOWN_CONTROL" && to.ownerId === townLeaderId) score += 180;
+    if (victoryPath === "ECONOMIC_HEGEMONY" && to.ownerId === incomeLeaderId) score += 220;
+    if (defender && !defender.isAi) score += 50;
     if (!best || score > best.score) best = { from, to, score };
   }
-  return best && best.score >= 80 ? best : undefined;
+  const minScore = victoryPath === "TOWN_CONTROL" || victoryPath === "ECONOMIC_HEGEMONY" ? 55 : 80;
+  return best && best.score >= minScore ? best : undefined;
 };
 
 const aiFrontierOpportunityCounts = (
@@ -5685,6 +5697,7 @@ const buildAiPlanningStaticCache = (
   let fortProtectsCore = false;
   let fortIsDockChokePoint = false;
   let economicBuildAvailable = false;
+  let siegeOutpostAvailable = false;
   let undercoveredIslandCount = 0;
   let weakestIslandRatio = 1;
 
@@ -5733,6 +5746,13 @@ const buildAiPlanningStaticCache = (
           fortIsDockChokePoint = adjacentLandCount <= 3;
         }
       }
+      if (!siegeOutpostAvailable && canBuildSiegeOutpostAt(actor, tile.x, tile.y).ok) {
+        const hostileAdjacency = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => {
+          if (neighbor.terrain !== "LAND" || !neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) return count;
+          return count + 1;
+        }, 0);
+        if (hostileAdjacency > 0) siegeOutpostAvailable = true;
+      }
       if (economicBuildAvailable || tile.economicStructure) continue;
       if ((tile.resource === "FARM" || tile.resource === "FISH") && (canPlaceFarmstead || canPlaceGranary)) {
         economicBuildAvailable = true;
@@ -5772,6 +5792,7 @@ const buildAiPlanningStaticCache = (
     fortProtectsCore,
     fortIsDockChokePoint,
     economicBuildAvailable,
+    siegeOutpostAvailable,
     frontierOpportunityEconomic: frontierAvailability.frontierOpportunityEconomic,
     frontierOpportunityScout: frontierAvailability.frontierOpportunityScout,
     frontierOpportunityScaffold: frontierAvailability.frontierOpportunityScaffold,
@@ -5978,6 +5999,7 @@ const buildAiPlanningSnapshot = (
     fortProtectsCore: planningStatic.fortProtectsCore,
     fortIsDockChokePoint: planningStatic.fortIsDockChokePoint,
     economicBuildAvailable: planningStatic.economicBuildAvailable,
+    siegeOutpostAvailable: planningStatic.siegeOutpostAvailable,
     frontierOpportunityEconomic: planningStatic.frontierOpportunityEconomic,
     frontierOpportunityScout: planningStatic.frontierOpportunityScout,
     frontierOpportunityScaffold: planningStatic.frontierOpportunityScaffold,
@@ -5991,7 +6013,14 @@ const buildAiPlanningSnapshot = (
       actor.points >= structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")) &&
       (strategicStocks.IRON ?? 0) >= FORT_BUILD_IRON_COST,
     canBuildEconomy: developmentAvailable && planningStatic.economicBuildAvailable,
-    goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST)
+    canBuildSiegeOutpost:
+      developmentAvailable &&
+      planningStatic.siegeOutpostAvailable &&
+      getPlayerEffectsForPlayer(actor.id).unlockSiegeOutposts &&
+      actor.points >= structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST")) &&
+      (strategicStocks.SUPPLY ?? 0) >= SIEGE_OUTPOST_BUILD_SUPPLY_COST,
+    goldHealthy: canAffordGoldCost(actor.points, SETTLE_COST + FRONTIER_ACTION_GOLD_COST),
+    victoryPathContender: primaryVictoryPath ? isAiVictoryPathContender(primaryVictoryPath, analysis, townsTarget, settledTilesTarget) : false
   };
 };
 
@@ -6313,6 +6342,83 @@ const bestAiEconomicStructure = (
     }
   }
   return undefined;
+};
+
+const canBuildSiegeOutpostAt = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  const effects = getPlayerEffectsForPlayer(actor.id);
+  if (!effects.unlockSiegeOutposts) return { ok: false, reason: "unlock siege outposts via Leatherworking first" };
+  const t = playerTile(x, y);
+  if (t.terrain !== "LAND") return { ok: false, reason: "siege outpost requires land tile" };
+  if (t.ownerId !== actor.id) return { ok: false, reason: "siege outpost tile must be owned" };
+  const tk = key(t.x, t.y);
+  const existingEconomic = economicStructuresByTile.get(tk);
+  const upgradingLightOutpost =
+    existingEconomic?.ownerId === actor.id &&
+    existingEconomic.type === "LIGHT_OUTPOST" &&
+    (existingEconomic.status === "active" || existingEconomic.status === "inactive");
+  if (isRelocatableSettlementTown(townsByTile.get(tk))) return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
+  if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
+  if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
+  if (observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradingLightOutpost)) return { ok: false, reason: "tile already has structure" };
+  if (
+    !structureShowsOnTile("SIEGE_OUTPOST", {
+      ownershipState: t.ownershipState,
+      resource: t.resource,
+      dockId: t.dockId,
+      townPopulationTier: townsByTile.get(tk) ? townPopulationTierForTown(townsByTile.get(tk)!) : undefined,
+      supportedTownCount: supportedTownKeysForTile(tk, actor.id).length,
+      supportedDockCount: supportedDockKeysForTile(tk, actor.id).length
+    })
+  ) {
+    return { ok: false, reason: "siege outpost cannot be built on this tile" };
+  }
+  if (existingEconomic?.type === "LIGHT_OUTPOST" && !upgradingLightOutpost) return { ok: false, reason: "light outpost is still being modified" };
+  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
+  const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST"));
+  if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for siege outpost" };
+  if ((getOrInitStrategicStocks(actor.id).SUPPLY ?? 0) < SIEGE_OUTPOST_BUILD_SUPPLY_COST) {
+    return { ok: false, reason: "insufficient SUPPLY for siege outpost" };
+  }
+  return { ok: true };
+};
+
+const bestAiSiegeOutpostTile = (
+  actor: Player,
+  victoryPath?: AiSeasonVictoryPathId,
+  territorySummary = collectAiTerritorySummary(actor)
+): Tile | undefined => {
+  const competitionMetrics = collectPlayerCompetitionMetrics();
+  const townLeaderId = uniqueLeader(competitionMetrics.map((metric) => ({ playerId: metric.playerId, value: metric.controlledTowns }))).playerId;
+  const incomeLeaderId = leadingPair(competitionMetrics.map((metric) => ({ playerId: metric.playerId, value: metric.incomePerMinute }))).leaderPlayerId;
+  let best: { tile: Tile; score: number } | undefined;
+  for (const tile of territorySummary.structureCandidateTiles) {
+    if (!canBuildSiegeOutpostAt(actor, tile.x, tile.y).ok) continue;
+    let hostileAdjacency = 0;
+    let townPressure = 0;
+    let economicPressure = 0;
+    let leaderPressure = 0;
+    for (const neighbor of adjacentNeighborCores(tile.x, tile.y)) {
+      if (neighbor.terrain !== "LAND" || !neighbor.ownerId || neighbor.ownerId === actor.id || actor.allies.has(neighbor.ownerId)) continue;
+      hostileAdjacency += 1;
+      const neighborKey = key(neighbor.x, neighbor.y);
+      if (townsByTile.has(neighborKey)) townPressure += 1;
+      if (docksByTile.has(neighborKey) || economicStructuresByTile.has(neighborKey) || Boolean(neighbor.resource)) economicPressure += 1;
+      if ((victoryPath === "TOWN_CONTROL" && neighbor.ownerId === townLeaderId) || (victoryPath === "ECONOMIC_HEGEMONY" && neighbor.ownerId === incomeLeaderId)) {
+        leaderPressure += 1;
+      }
+    }
+    if (hostileAdjacency <= 0) continue;
+    const tileKey = key(tile.x, tile.y);
+    let score = hostileAdjacency * 120 + townPressure * 140 + economicPressure * 90 + leaderPressure * 180;
+    if (victoryPath === "TOWN_CONTROL") score += townPressure * 140;
+    if (victoryPath === "ECONOMIC_HEGEMONY") score += economicPressure * 140;
+    if (townsByTile.has(tileKey)) score += 50;
+    if (docksByTile.has(tileKey)) score += 70;
+    const adjacentLandCount = adjacentNeighborCores(tile.x, tile.y).reduce((count, neighbor) => count + (neighbor.terrain === "LAND" ? 1 : 0), 0);
+    if (adjacentLandCount <= 3) score += 60;
+    if (!best || score > best.score) best = { tile, score };
+  }
+  return best && best.score >= 180 ? best.tile : undefined;
 };
 
 const buildAiTurnAnalysis = (
@@ -6766,6 +6872,23 @@ const executeAiGoapAction = (
       targetTileKey: key(tile.x, tile.y)
     });
   }
+  if (actionKey === "build_siege_outpost") {
+    const tile =
+      aiTileCandidateFromExecuteCandidate(
+        cachedExecuteCandidate(() => {
+          const resolved = bestAiSiegeOutpostTile(actor, victoryPath, territorySummary);
+          return resolved ? { kind: "tile", tileKey: key(resolved.x, resolved.y) } : null;
+        })
+      ) ?? bestAiSiegeOutpostTile(actor, victoryPath, territorySummary);
+    if (!tile) return false;
+    if (!canBuildSiegeOutpostAt(actor, tile.x, tile.y).ok) return false;
+    return queueAiActionWithIntentLatch(actor, { type: "BUILD_SIEGE_OUTPOST", x: tile.x, y: tile.y }, {
+      actionKey,
+      kind: "structure",
+      expectedDurationMs: structureBuildDurationMsForRuntime("SIEGE_OUTPOST"),
+      targetTileKey: key(tile.x, tile.y)
+    });
+  }
   if (actionKey === "build_economic_structure") {
     const cachedCandidate = cachedExecuteCandidate(() => {
       const resolved = candidates?.economicBuild ?? bestAiEconomicStructure(actor, territorySummary);
@@ -6829,10 +6952,16 @@ const chooseOpeningAiVictoryPath = (
   return scored[0]?.id ?? "ECONOMIC_HEGEMONY";
 };
 
-const AI_VICTORY_PATH_REEVALUATE_MS = 5 * 60_000;
+const AI_VICTORY_PATH_REEVALUATE_MS = 30 * 60_000;
 const AI_VICTORY_PATH_REPIVOT_MARGIN = 22;
 const AI_VICTORY_PATH_ARCHETYPE_BONUS = 34;
 const AI_VICTORY_PATH_POPULATION_PENALTY = 18;
+const AI_VICTORY_PATH_CONTENDER_PROGRESS_RATIO = 0.72;
+const AI_VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO = 0.58;
+const AI_VICTORY_PATH_CONTENDER_ECONOMY_MIN = 140;
+const AI_VICTORY_PATH_SOFT_CONTENDER_ECONOMY_MIN = 110;
+const AI_VICTORY_PATH_CONTENDER_ECONOMY_GAP = -15;
+const AI_VICTORY_PATH_SOFT_CONTENDER_ECONOMY_GAP = -30;
 
 const aiVictoryPathPopulationCounts = (): Record<AiSeasonVictoryPathId, number> => {
   const counts: Record<AiSeasonVictoryPathId, number> = {
@@ -6845,6 +6974,39 @@ const aiVictoryPathPopulationCounts = (): Record<AiSeasonVictoryPathId, number> 
   }
   return counts;
 };
+
+const aiVictoryPathContenderBonus = (
+  victoryPath: AiSeasonVictoryPathId,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): number => {
+  const townProgress = townsTarget > 0 ? analysis.controlledTowns / townsTarget : 0;
+  const settledProgress = settledTilesTarget > 0 ? analysis.settledTiles / settledTilesTarget : 0;
+  const incomeGap = analysis.aiIncome - analysis.runnerUpIncome;
+  if (victoryPath === "TOWN_CONTROL") {
+    if (townProgress >= AI_VICTORY_PATH_CONTENDER_PROGRESS_RATIO) return 999;
+    if (townProgress >= AI_VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO) return Math.round(AI_VICTORY_PATH_POPULATION_PENALTY * 0.7);
+    return 0;
+  }
+  if (victoryPath === "SETTLED_TERRITORY") {
+    if (settledProgress >= AI_VICTORY_PATH_CONTENDER_PROGRESS_RATIO) return 999;
+    if (settledProgress >= AI_VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO) return Math.round(AI_VICTORY_PATH_POPULATION_PENALTY * 0.7);
+    return 0;
+  }
+  if (analysis.aiIncome >= AI_VICTORY_PATH_CONTENDER_ECONOMY_MIN && incomeGap >= AI_VICTORY_PATH_CONTENDER_ECONOMY_GAP) return 999;
+  if (analysis.aiIncome >= AI_VICTORY_PATH_SOFT_CONTENDER_ECONOMY_MIN && incomeGap >= AI_VICTORY_PATH_SOFT_CONTENDER_ECONOMY_GAP) {
+    return Math.round(AI_VICTORY_PATH_POPULATION_PENALTY * 0.7);
+  }
+  return 0;
+};
+
+const isAiVictoryPathContender = (
+  victoryPath: AiSeasonVictoryPathId,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): boolean => aiVictoryPathContenderBonus(victoryPath, analysis, townsTarget, settledTilesTarget) >= AI_VICTORY_PATH_POPULATION_PENALTY;
 
 const scoreAiVictoryPathChoices = (
   actor: Player,
@@ -6896,10 +7058,12 @@ const scoreAiVictoryPathChoices = (
   return [...ranked]
     .map((entry) => ({
       id: entry.id,
-      score:
-        openingScores[entry.id] +
-        entry.score * 0.28 -
-        Math.max(0, populationCounts[entry.id] - minimumPopulation) * AI_VICTORY_PATH_POPULATION_PENALTY
+      score: (() => {
+        const crowdingPenalty =
+          Math.max(0, populationCounts[entry.id] - minimumPopulation) * AI_VICTORY_PATH_POPULATION_PENALTY;
+        const contenderBonus = aiVictoryPathContenderBonus(entry.id, analysis, townsTarget, settledTilesTarget);
+        return openingScores[entry.id] + entry.score * 0.28 - Math.max(0, crowdingPenalty - contenderBonus);
+      })()
     }))
     .sort((left, right) => right.score - left.score);
 };
@@ -9770,37 +9934,16 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
 };
 
 const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
-  const effects = getPlayerEffectsForPlayer(actor.id);
-  if (!effects.unlockSiegeOutposts) return { ok: false, reason: "unlock siege outposts via Leatherworking first" };
+  const placement = canBuildSiegeOutpostAt(actor, x, y);
+  if (!placement.ok) return placement;
   const t = playerTile(x, y);
-  if (t.terrain !== "LAND") return { ok: false, reason: "siege outpost requires land tile" };
-  if (t.ownerId !== actor.id) return { ok: false, reason: "siege outpost tile must be owned" };
   const tk = key(t.x, t.y);
   const existingEconomic = economicStructuresByTile.get(tk);
   const upgradingLightOutpost =
     existingEconomic?.ownerId === actor.id &&
     existingEconomic.type === "LIGHT_OUTPOST" &&
     (existingEconomic.status === "active" || existingEconomic.status === "inactive");
-  if (isRelocatableSettlementTown(townsByTile.get(tk))) return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
-  if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
-  if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
-  if (observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradingLightOutpost)) return { ok: false, reason: "tile already has structure" };
-  if (
-    !structureShowsOnTile("SIEGE_OUTPOST", {
-      ownershipState: t.ownershipState,
-      resource: t.resource,
-      dockId: t.dockId,
-      townPopulationTier: townsByTile.get(tk) ? townPopulationTierForTown(townsByTile.get(tk)!) : undefined,
-      supportedTownCount: supportedTownKeysForTile(tk, actor.id).length,
-      supportedDockCount: supportedDockKeysForTile(tk, actor.id).length
-    })
-  ) {
-    return { ok: false, reason: "siege outpost cannot be built on this tile" };
-  }
-  if (existingEconomic?.type === "LIGHT_OUTPOST" && !upgradingLightOutpost) return { ok: false, reason: "light outpost is still being modified" };
-  if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
   const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST"));
-  if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for siege outpost" };
   if (!consumeStrategicResource(actor, "SUPPLY", SIEGE_OUTPOST_BUILD_SUPPLY_COST))
     return { ok: false, reason: "insufficient SUPPLY for siege outpost" };
   actor.points -= goldCost;
@@ -11511,6 +11654,53 @@ await runtimeIncidentLog.notifyLastCrashReport();
 await app.register(cors, { origin: true });
 await app.register(websocket as never);
 
+const runtimeVictoryOverview = (): Record<string, unknown> => {
+  const objectives = currentVictoryPressureObjectives();
+  const metrics = collectPlayerCompetitionMetrics();
+  const aiMetrics = metrics.filter((metric) => players.get(metric.playerId)?.isAi);
+  const topAiByTowns = [...aiMetrics]
+    .sort((a, b) => b.controlledTowns - a.controlledTowns || b.settledTiles - a.settledTiles || a.playerId.localeCompare(b.playerId))
+    .slice(0, 3)
+    .map((metric) => ({
+      playerId: metric.playerId,
+      name: metric.name,
+      towns: metric.controlledTowns,
+      settledTiles: metric.settledTiles,
+      incomePerMinute: roundTo(metric.incomePerMinute, 1),
+      victoryPath: aiVictoryPathByPlayer.get(metric.playerId) ?? null
+    }));
+  const topAiBySettledTiles = [...aiMetrics]
+    .sort((a, b) => b.settledTiles - a.settledTiles || b.controlledTowns - a.controlledTowns || a.playerId.localeCompare(b.playerId))
+    .slice(0, 3)
+    .map((metric) => ({
+      playerId: metric.playerId,
+      name: metric.name,
+      settledTiles: metric.settledTiles,
+      towns: metric.controlledTowns,
+      incomePerMinute: roundTo(metric.incomePerMinute, 1),
+      victoryPath: aiVictoryPathByPlayer.get(metric.playerId) ?? null
+    }));
+  const topAiByIncome = [...aiMetrics]
+    .sort((a, b) => b.incomePerMinute - a.incomePerMinute || b.controlledTowns - a.controlledTowns || a.playerId.localeCompare(b.playerId))
+    .slice(0, 3)
+    .map((metric) => ({
+      playerId: metric.playerId,
+      name: metric.name,
+      incomePerMinute: roundTo(metric.incomePerMinute, 1),
+      towns: metric.controlledTowns,
+      settledTiles: metric.settledTiles,
+      victoryPath: aiVictoryPathByPlayer.get(metric.playerId) ?? null
+    }));
+
+  return {
+    objectives,
+    aiPathCounts: aiVictoryPathPopulationCounts(),
+    topAiByTowns,
+    topAiBySettledTiles,
+    topAiByIncome
+  };
+};
+
 const {
   cachedChunkPayloadDiagnostics,
   maybeLogRuntimeMemoryWatermark,
@@ -11568,7 +11758,8 @@ const {
     chunkSerializerWorkerState,
     chunkReadWorkerState,
     simulationCommandWorkerState,
-    runtimeHotspotExtra: () => ({ chunkCacheMb: cachedChunkPayloadDiagnostics().approxPayloadMb })
+    runtimeHotspotExtra: () => ({ chunkCacheMb: cachedChunkPayloadDiagnostics().approxPayloadMb }),
+    runtimeVictoryOverview
   }
 });
 
