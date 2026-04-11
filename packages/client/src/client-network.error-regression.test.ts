@@ -151,6 +151,13 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
   const reconcileActionQueue = vi.fn();
   const processActionQueue = vi.fn(() => false);
   const pushFeed = vi.fn();
+  const applyOptimisticTileState = vi.fn((x: number, y: number, update: (tile: Record<string, unknown>) => void) => {
+    const tileKey = `${x},${y}`;
+    const current = state.tiles.get(tileKey) ?? { x, y, terrain: "LAND", fogged: false };
+    const next = { ...current };
+    update(next);
+    state.tiles.set(tileKey, next);
+  });
   const applyPendingSettlementsFromServer = vi.fn();
   const requestTileDetailIfNeeded = vi.fn((tile: { x: number; y: number }) => {
     state.tileDetailRequestedAt.set(`${tile.x},${tile.y}`, Date.now());
@@ -168,6 +175,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
     pushFeed,
     pushFeedEntry: vi.fn(),
     clearOptimisticTileState,
+    applyOptimisticTileState,
     requestViewRefresh,
     applyPendingSettlementsFromServer,
     mergeIncomingTileDetail: vi.fn((existing, incoming) => incoming ?? existing),
@@ -218,6 +226,7 @@ const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, u
     pushFeed,
     requestViewRefresh,
     clearOptimisticTileState,
+    applyOptimisticTileState,
     reconcileActionQueue,
     clearSettlementProgressByKey,
     applyPendingSettlementsFromServer,
@@ -375,6 +384,37 @@ describe("client network regression guards", () => {
     expect(state.actionAcceptedAck).toBe(true);
     expect(state.actionInFlight).toBe(true);
     expect(state.actionTargetKey).toBe("60,302");
+  });
+
+  it("applies pending frontier ownership only after an expand is accepted", () => {
+    const state = createState();
+    state.tiles.set("60,302", {
+      x: 60,
+      y: 302,
+      terrain: "LAND",
+      fogged: false
+    });
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ACTION_ACCEPTED",
+        actionType: "EXPAND",
+        origin: { x: 59, y: 302 },
+        target: { x: 60, y: 302 },
+        resolvesAt: Date.now() + 3_000
+      })
+    });
+
+    expect(deps.applyOptimisticTileState).toHaveBeenCalledWith(60, 302, expect.any(Function));
+    expect(state.tiles.get("60,302")).toEqual(
+      expect.objectContaining({
+        ownerId: "me",
+        ownershipState: "FRONTIER",
+        optimisticPending: "expand"
+      })
+    );
   });
 
   it("rebinds a timed-out frontier target when combat start arrives late", () => {

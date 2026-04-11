@@ -66,7 +66,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     revertOptimisticVisibleCollectDelta,
     revertOptimisticTileCollectDelta,
     clearPendingCollectTileDelta,
-    playerNameForOwner
+    playerNameForOwner,
+    applyOptimisticTileState
   } = deps;
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
@@ -303,6 +304,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       target,
       targetKey,
       lateAckWaitRemainingMs: Math.max(0, lateAckUntil - Date.now())
+    });
+  };
+
+  const applyAcceptedExpandOptimisticState = (target: { x: number; y: number }): void => {
+    if (typeof applyOptimisticTileState !== "function") return;
+    const targetKey = keyFor(target.x, target.y);
+    const existing = state.tiles.get(targetKey);
+    if (existing?.ownerId === state.me && (existing.ownershipState === "FRONTIER" || existing.ownershipState === "SETTLED")) return;
+    applyOptimisticTileState(target.x, target.y, (tile: { ownerId?: string; ownershipState?: string; fogged?: boolean; optimisticPending?: string }) => {
+      tile.ownerId = state.me;
+      tile.ownershipState = "FRONTIER";
+      tile.fogged = false;
+      tile.optimisticPending = "expand";
     });
   };
 
@@ -1133,6 +1147,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         currentAction: state.actionCurrent
       });
       rebindLateFrontierAck(target, "ACTION_ACCEPTED");
+      if (msg.actionType === "EXPAND") applyAcceptedExpandOptimisticState(target);
       state.actionAcceptedAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
       state.actionInFlight = true;
@@ -1186,6 +1201,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         currentAction: state.actionCurrent
       });
       rebindLateFrontierAck(target, "COMBAT_START");
+      if ((msg.predictedResult as { attackType?: string } | undefined)?.attackType === "EXPAND") applyAcceptedExpandOptimisticState(target);
       state.actionAcceptedAck = true;
       state.combatStartAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
