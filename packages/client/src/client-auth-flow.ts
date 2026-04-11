@@ -319,12 +319,12 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
         state.authBusyTitle = "Securing session";
-        state.authBusyDetail = "Refreshing your Google session and waiting for the realtime server connection.";
+        state.authBusyDetail = "Loading your Google session and waiting for the realtime server connection.";
         seedProfileSetupFields(user.displayName ?? user.email?.split("@")[0] ?? "", dom.authProfileColorEl.value);
         setAuthStatus("Authorizing empire...");
         syncAuthOverlay();
         try {
-          authSession.token = await user.getIdToken(true);
+          authSession.token = await user.getIdToken();
           authSession.uid = user.uid;
           state.authBusyTitle = "Connecting your empire...";
           state.authBusyDetail = `Realtime connection open. Sending your Google session for ${state.authUserLabel}...`;
