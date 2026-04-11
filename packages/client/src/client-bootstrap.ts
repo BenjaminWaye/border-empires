@@ -440,6 +440,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     pushFeed,
     pushFeedEntry,
     clearOptimisticTileState,
+    applyOptimisticTileState,
     requestViewRefresh,
     applyPendingSettlementsFromServer: actionFlow.applyPendingSettlementsFromServer,
     mergeIncomingTileDetail,
