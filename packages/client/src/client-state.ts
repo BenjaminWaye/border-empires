@@ -366,6 +366,7 @@ export const createInitialState = () => ({
   actionInFlight: false,
   actionAcceptedAck: false,
   combatStartAck: false,
+  actionAcceptTimeoutHandledAt: 0,
   actionStartedAt: 0,
   actionTargetKey: "",
   actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } | undefined,

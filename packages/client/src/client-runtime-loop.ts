@@ -1453,7 +1453,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;
-    if (!state.actionAcceptedAck && Date.now() - started > 2_000) {
+    if (!state.actionAcceptedAck && !state.actionAcceptTimeoutHandledAt && Date.now() - started > 2_000) {
       const current = state.actionCurrent;
       const currentKey = current ? deps.keyFor(current.x, current.y) : "";
       const preservedCapture =
@@ -1474,16 +1474,17 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             }
           : undefined
       });
-      state.capture = undefined;
-      if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
-      state.actionInFlight = false;
-      state.actionAcceptedAck = false;
-      state.combatStartAck = false;
-      state.actionStartedAt = 0;
-      state.actionTargetKey = "";
-      state.actionCurrent = undefined;
-      if (currentKey && !keepOptimisticExpand) deps.clearOptimisticTileState(currentKey, true);
+      state.actionAcceptTimeoutHandledAt = Date.now();
       if (keepOptimisticExpand) {
+        state.capture = undefined;
+        if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
+        state.actionInFlight = false;
+        state.actionAcceptedAck = false;
+        state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
+        state.actionStartedAt = 0;
+        state.actionTargetKey = "";
+        state.actionCurrent = undefined;
         state.frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 12_000);
         state.frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
@@ -1496,26 +1497,32 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           currentKey,
           refreshRadius: 1
         });
-      } else if (current && (current.retries ?? 0) < 3) {
+      } else if (current) {
         state.capture = preservedCapture;
-        deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles and retrying.", "warn");
+        if (currentKey) state.frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);
+        deps.showCaptureAlert(
+          "Attack sync delayed",
+          "No server acceptance arrived within 2 seconds. Keeping the current attack active while waiting for the server result.",
+          "warn"
+        );
         deps.requestViewRefresh(1, true);
-        const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
-          x: current.x,
-          y: current.y,
-          retries: (current.retries ?? 0) + 1
-        };
-        if (current.mode) retryAction.mode = current.mode;
-        state.actionQueue.unshift(retryAction);
-        state.queuedTargetKeys.add(deps.keyFor(current.x, current.y));
-        deps.pushFeed(`No server acceptance within 2s; retrying action (${retryAction.retries}/3).`, "combat", "warn");
+        deps.pushFeed("No server acceptance within 2s; holding the current attack and waiting for the authoritative result.", "combat", "warn");
         attackSyncLog("action-accept-timeout-refresh", {
-          strategy: "retry",
+          strategy: "wait-for-authoritative-result",
           currentKey,
-          retryAction,
           refreshRadius: 1
         });
       } else {
+        state.capture = undefined;
+        if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
+        state.actionInFlight = false;
+        state.actionAcceptedAck = false;
+        state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
+        state.actionStartedAt = 0;
+        state.actionTargetKey = "";
+        state.actionCurrent = undefined;
+        if (currentKey) deps.clearOptimisticTileState(currentKey, true);
         deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");
         deps.requestViewRefresh(1, true);
         deps.pushFeed("No server acceptance within 2s; skipping queued action.", "combat", "warn");
@@ -1526,7 +1533,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           refreshRadius: 1
         });
       }
-      deps.processActionQueue();
       deps.renderHud();
       return;
     }
@@ -1548,6 +1554,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       state.actionInFlight = false;
       state.actionAcceptedAck = false;
       state.combatStartAck = false;
+      state.actionAcceptTimeoutHandledAt = 0;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
       state.actionCurrent = undefined;

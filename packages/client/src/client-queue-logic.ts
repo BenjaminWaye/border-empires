@@ -913,6 +913,7 @@ export const processActionQueue = (
     state.actionInFlight = true;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
     state.actionStartedAt = Date.now();
     state.actionTargetKey = targetKey;
     state.captureAlert = undefined;
@@ -973,6 +974,7 @@ export const processActionQueue = (
         state.actionTargetKey = "";
         state.actionAcceptedAck = false;
         state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
         state.queuedTargetKeys.delete(targetKey);
         deps.renderHud();
         continue;
@@ -1003,6 +1005,7 @@ export const processActionQueue = (
         state.actionTargetKey = "";
         state.actionAcceptedAck = false;
         state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
         state.queuedTargetKeys.delete(targetKey);
         deps.renderHud();
         continue;
