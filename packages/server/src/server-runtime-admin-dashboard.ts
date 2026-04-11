@@ -36,6 +36,7 @@ export interface RuntimeDashboardPayload {
   queuePressure: Record<string, unknown>;
   aiScheduler: Record<string, unknown>;
   aiBudget: Record<string, unknown>;
+  victory: Record<string, unknown>;
   hotspots: Record<string, unknown>;
   collections: Array<{ name: string; entries: number }>;
   history: {
@@ -95,6 +96,7 @@ export interface CreateServerRuntimeAdminDashboardDeps {
     chunkReadWorkerState: Record<string, unknown>;
     simulationCommandWorkerState: Record<string, unknown>;
     runtimeHotspotExtra: () => { chunkCacheMb: number };
+    runtimeVictoryOverview: () => Record<string, unknown>;
   };
 }
 
@@ -289,6 +291,7 @@ export const createServerRuntimeAdminDashboard = (deps: CreateServerRuntimeAdmin
         ...(lastAiBudgetBreach?.actionKey ? { lastActionKey: lastAiBudgetBreach.actionKey } : {}),
         recent: recentAiBudgetBreaches
       },
+      victory: extras.runtimeVictoryOverview(),
       hotspots: {
         ...runtimeHotspotDiagnostics(),
         ...extras.runtimeHotspotExtra()
