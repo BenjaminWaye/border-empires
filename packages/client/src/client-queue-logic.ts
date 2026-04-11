@@ -2,6 +2,7 @@ import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "./client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
 import { queuedSettlementOrderForTile } from "./client-development-queue.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "./client-types.js";
 
@@ -43,7 +44,7 @@ const requestAttackPreview = (
     toX: number;
     toY: number;
   },
-  deps: { ws: WebSocket }
+  deps: { ws: RealtimeSocket }
 ): void => {
   const previewKey = attackPreviewKey(args.fromKey, args.toKey);
   const cached = freshCachedAttackPreview(state, previewKey);
@@ -443,7 +444,7 @@ export const sendDevelopmentBuild = (
 export const processDevelopmentQueue = (
   state: ClientState,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     authSessionReady: boolean;
     developmentSlotSummary: () => DevelopmentSlotSummary;
     requestSettlement: (x: number, y: number, opts: { allowQueueWhenBusy: false; fromQueue: true; suppressWarnings: true }) => boolean;
@@ -755,7 +756,7 @@ export const reconcileActionQueue = (
 export const processActionQueue = (
   state: ClientState,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     authSessionReady: boolean;
     keyFor: (x: number, y: number) => string;
     isAdjacent: (ax: number, ay: number, bx: number, by: number) => boolean;
@@ -1054,7 +1055,7 @@ export const processActionQueue = (
 export const requestAttackPreviewForHover = (
   state: ClientState,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     authSessionReady: boolean;
     keyFor: (x: number, y: number) => string;
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
@@ -1108,7 +1109,7 @@ export const requestAttackPreviewForTarget = (
   state: ClientState,
   to: Tile,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     authSessionReady: boolean;
     keyFor: (x: number, y: number) => string;
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
