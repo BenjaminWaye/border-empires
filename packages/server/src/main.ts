@@ -12206,11 +12206,11 @@ const {
 
 registerServerHttpRoutes(app, {
   startupState,
-  activeSeason,
-  ...(seasonWinner ? { seasonWinner } : {}),
-  activeRootNodeIds: activeSeasonTechConfig.rootNodeIds,
-  activeTechNodeCount: activeSeasonTechConfig.activeNodeIds.size,
-  archiveCount: seasonArchives.length,
+  activeSeason: () => activeSeason,
+  seasonWinner: () => seasonWinner,
+  activeRootNodeIds: () => activeSeasonTechConfig.rootNodeIds,
+  activeTechNodeCount: () => activeSeasonTechConfig.activeNodeIds.size,
+  archiveCount: () => seasonArchives.length,
   runtimeDashboardPayload,
   renderRuntimeDashboardHtml,
   runtimeIncidentLog,

@@ -9,11 +9,11 @@ type RuntimeIncidentLogLike = {
 
 interface RegisterServerHttpRoutesDeps {
   startupState: { ready: boolean; startedAt: number; completedAt?: number; currentPhase?: string };
-  activeSeason: Season;
-  seasonWinner?: SeasonWinnerView;
-  activeRootNodeIds: string[];
-  activeTechNodeCount: number;
-  archiveCount: number;
+  activeSeason: () => Season;
+  seasonWinner?: () => SeasonWinnerView | undefined;
+  activeRootNodeIds: () => string[];
+  activeTechNodeCount: () => number;
+  archiveCount: () => number;
   runtimeDashboardPayload: () => unknown;
   renderRuntimeDashboardHtml: () => string;
   runtimeIncidentLog: RuntimeIncidentLogLike;
@@ -51,12 +51,12 @@ export const registerServerHttpRoutes = (app: FastifyInstance, deps: RegisterSer
   });
 
   app.get("/season", async () => ({
-    activeSeason: deps.activeSeason,
-    seasonWinner: deps.seasonWinner,
-    seasonTechTreeId: deps.activeSeason.techTreeConfigId,
-    activeRoots: deps.activeRootNodeIds,
-    activeTechNodeCount: deps.activeTechNodeCount,
-    archiveCount: deps.archiveCount
+    activeSeason: deps.activeSeason(),
+    seasonWinner: deps.seasonWinner?.(),
+    seasonTechTreeId: deps.activeSeason().techTreeConfigId,
+    activeRoots: deps.activeRootNodeIds(),
+    activeTechNodeCount: deps.activeTechNodeCount(),
+    archiveCount: deps.archiveCount()
   }));
 
   app.get("/admin/telemetry", async () => {
@@ -113,12 +113,12 @@ export const registerServerHttpRoutes = (app: FastifyInstance, deps: RegisterSer
     if (!deps.seasonsEnabled) return { ok: false, disabled: true, message: "seasons temporarily disabled" };
     deps.startNewSeason();
     await deps.saveSnapshot();
-    return { ok: true, activeSeason: deps.activeSeason };
+    return { ok: true, activeSeason: deps.activeSeason() };
   });
 
   app.post("/admin/world/regenerate", async () => {
     deps.regenerateWorldInPlace();
     await deps.saveSnapshot();
-    return { ok: true, activeSeason: deps.activeSeason, regenerated: true };
+    return { ok: true, activeSeason: deps.activeSeason(), regenerated: true };
   });
 };
