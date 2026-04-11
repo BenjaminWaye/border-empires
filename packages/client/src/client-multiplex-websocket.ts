@@ -30,10 +30,11 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
   let readyState: number = WebSocket.CONNECTING;
   let syntheticOpenDispatched = false;
   let syntheticClosed = false;
+  let latestAuthPayload: string | undefined;
 
   const maybeDispatchOpen = (): void => {
     if (syntheticOpenDispatched) return;
-    if (controlSocket.readyState !== WebSocket.OPEN || bulkSocket.readyState !== WebSocket.OPEN) return;
+    if (controlSocket.readyState !== WebSocket.OPEN) return;
     readyState = WebSocket.OPEN;
     syntheticOpenDispatched = true;
     eventTarget.dispatchEvent(new Event("open"));
@@ -51,8 +52,16 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     eventTarget.dispatchEvent(new CloseEvent("close", { code: event.code, reason: event.reason, wasClean: event.wasClean }));
   };
 
+  const maybeSyncBulkAuth = (): void => {
+    if (!latestAuthPayload || bulkSocket.readyState !== WebSocket.OPEN) return;
+    bulkSocket.send(latestAuthPayload);
+  };
+
   const bindChannelSocket = (socket: WebSocket): void => {
     socket.addEventListener("open", maybeDispatchOpen);
+    socket.addEventListener("open", () => {
+      if (socket === bulkSocket) maybeSyncBulkAuth();
+    });
     socket.addEventListener("message", (event) => {
       eventTarget.dispatchEvent(new MessageEvent<string>("message", { data: String(event.data) }));
     });
@@ -71,10 +80,15 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
   bindChannelSocket(controlSocket);
   bindChannelSocket(bulkSocket);
 
-  const sendOnChannel = (channel: Channel, payload: string): void => {
+  const sendOnChannel = (channel: Channel, payload: string, allowControlFallback = true): void => {
     const socket = channel === "control" ? controlSocket : bulkSocket;
-    if (socket.readyState !== WebSocket.OPEN) return;
-    socket.send(payload);
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(payload);
+      return;
+    }
+    if (allowControlFallback && channel === "bulk" && controlSocket.readyState === WebSocket.OPEN) {
+      controlSocket.send(payload);
+    }
   };
 
   const proxy: RealtimeSocket = {
@@ -88,8 +102,9 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     send(data: string) {
       const messageType = parseMessageType(data);
       if (messageType === "AUTH") {
+        latestAuthPayload = data;
         sendOnChannel("control", data);
-        sendOnChannel("bulk", data);
+        sendOnChannel("bulk", data, false);
         return;
       }
       sendOnChannel(bulkOnlyMessageTypes.has(messageType ?? "") ? "bulk" : "control", data);
