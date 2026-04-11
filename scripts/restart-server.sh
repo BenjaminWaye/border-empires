@@ -14,6 +14,7 @@ kill_match() {
 }
 
 kill_match "tsx watch src/main.ts"
+kill_match "node --import tsx src/main.ts"
 kill_match "border-empires/packages/server/src/main.ts"
 kill_match "border-empires/packages/server/dist/main.js"
 

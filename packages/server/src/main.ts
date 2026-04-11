@@ -110,6 +110,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { loadTechTree, type StatsModKey } from "./tech-tree.js";
 import { loadDomainTree } from "./domain-tree.js";
 import { buildAdminPlayerListPayload } from "./player-admin-payload.js";
+import { resolveServerWorkerEntryUrl, resolveServerWorkerOptions } from "./server-worker-entry.js";
 import { rankSeasonVictoryPaths, type AiSeasonVictoryPathId } from "./ai/goap.js";
 import {
   clearAllAiLatchedIntents,
@@ -8041,7 +8042,7 @@ const ensureAiPlannerWorker = (): Worker | undefined => {
   if (!aiPlannerWorkerState.enabled) return undefined;
   if (aiPlannerWorkerState.worker) return aiPlannerWorkerState.worker;
   try {
-    const worker = new Worker(new URL("./ai/planner-worker.js", import.meta.url));
+    const worker = new Worker(resolveServerWorkerEntryUrl("aiPlanner"), resolveServerWorkerOptions());
     worker.on("message", (message: AiPlannerWorkerResponse) => {
       const entry = aiPlannerWorkerState.inflight.get(message.id);
       if (!entry) return;
@@ -8158,7 +8159,7 @@ const ensureCombatWorker = (): Worker | undefined => {
   if (!combatWorkerState.enabled) return undefined;
   if (combatWorkerState.worker) return combatWorkerState.worker;
   try {
-    const worker = new Worker(new URL("./sim/combat-worker.js", import.meta.url));
+    const worker = new Worker(resolveServerWorkerEntryUrl("combat"), resolveServerWorkerOptions());
     worker.on("message", (message: CombatWorkerResponse) => {
       const entry = combatWorkerState.inflight.get(message.id);
       if (!entry) return;
@@ -8277,7 +8278,7 @@ const ensureChunkSerializerWorker = (): Worker | undefined => {
   if (!chunkSerializerWorkerState.enabled) return undefined;
   if (chunkSerializerWorkerState.worker) return chunkSerializerWorkerState.worker;
   try {
-    const worker = new Worker(new URL("./chunk/serializer-worker.js", import.meta.url));
+    const worker = new Worker(resolveServerWorkerEntryUrl("chunkSerializer"), resolveServerWorkerOptions());
     worker.on("message", (message: ChunkSerializerResponse) => {
       const entry = chunkSerializerWorkerState.inflight.get(message.id);
       if (!entry) return;

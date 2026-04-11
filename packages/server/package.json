@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "predev": "pnpm --dir ../.. --filter @border-empires/shared build && pnpm build",
+    "dev": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "lint": "tsc --noEmit -p tsconfig.json",

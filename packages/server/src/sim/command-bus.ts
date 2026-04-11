@@ -1,5 +1,6 @@
 import { Worker } from "node:worker_threads";
 
+import { resolveServerWorkerEntryUrl, resolveServerWorkerOptions } from "../server-worker-entry.js";
 import type {
   SimulationCommandBusWorkerMessage,
   SimulationCommandBusWorkerResponse,
@@ -240,7 +241,7 @@ export const createSimulationCommandBus = <TJob, TQueuedCommand, TSystemCommand>
 
   const startWorker = (): void => {
     try {
-      const created = new Worker(new URL("./command-bus-worker.js", import.meta.url));
+      const created = new Worker(resolveServerWorkerEntryUrl("commandBus"), resolveServerWorkerOptions());
       created.on("message", (message: SimulationCommandBusWorkerResponse) => {
         if (message.type === "ready") {
           workerReady = true;
