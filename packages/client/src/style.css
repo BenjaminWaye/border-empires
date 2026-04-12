@@ -780,6 +780,7 @@ body {
 #hud #hold-build-menu,
 #hud #tile-action-menu,
 #hud #targeting-overlay,
+#hud #changelog-overlay,
 #hud #guide-overlay,
 #hud #structure-info-overlay,
 #hud #tech-detail-overlay {
@@ -1348,6 +1349,7 @@ body {
   z-index: 27;
 }
 
+#changelog-overlay,
 #guide-overlay {
   position: fixed;
   inset: 0;
@@ -1358,6 +1360,7 @@ body {
   overflow: auto;
 }
 
+.changelog-backdrop,
 .guide-backdrop {
   position: absolute;
   inset: 0;
@@ -1365,6 +1368,7 @@ body {
   backdrop-filter: blur(4px);
 }
 
+.changelog-modal,
 .guide-modal {
   position: relative;
   width: min(780px, calc(100vw - 40px));
@@ -1383,6 +1387,7 @@ body {
   overflow: hidden;
 }
 
+.changelog-modal-scroll,
 .guide-modal-scroll {
   display: flex;
   flex-direction: column;
@@ -1410,18 +1415,86 @@ body {
   place-items: center;
 }
 
+.changelog-kicker,
 .guide-kicker {
   font-size: 14px;
   color: rgba(201, 208, 201, 0.74);
   font-weight: 600;
 }
 
+.changelog-title,
 .guide-title {
   margin: 0;
   font-size: clamp(36px, 4vw, 54px);
   line-height: 1.02;
   letter-spacing: -0.05em;
   color: #fbfdf9;
+}
+
+.changelog-summary {
+  margin: 0;
+  max-width: 54ch;
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgba(226, 233, 226, 0.82);
+}
+
+.changelog-entry-list {
+  display: grid;
+  gap: 16px;
+}
+
+.changelog-entry {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(191, 206, 184, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+}
+
+.changelog-entry-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+  color: #f8fbf7;
+}
+
+.changelog-section {
+  display: grid;
+  gap: 6px;
+}
+
+.changelog-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(170, 214, 177, 0.86);
+}
+
+.changelog-section-copy {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.58;
+  color: rgba(226, 233, 226, 0.88);
+}
+
+.changelog-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+  color: rgba(235, 240, 235, 0.92);
+}
+
+.changelog-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.changelog-primary-btn {
+  min-width: 150px;
 }
 
 .guide-body {
@@ -1718,13 +1791,19 @@ body {
 }
 
 @media (min-width: 901px) {
+  #changelog-overlay,
   #guide-overlay {
     padding: 32px;
   }
 
+  .changelog-modal,
   .guide-modal {
     width: min(920px, calc(100vw - 64px));
     padding: 32px 32px 28px;
+  }
+
+  .changelog-modal-scroll {
+    gap: 22px;
   }
 
   .guide-modal::before {
@@ -4336,6 +4415,7 @@ button:disabled,
     width: auto;
   }
 
+  #changelog-overlay,
   #guide-overlay {
     align-items: end;
     padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
@@ -4351,6 +4431,7 @@ button:disabled,
     padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
   }
 
+  .changelog-modal,
   .guide-modal {
     width: calc(100vw - 24px);
     max-width: 560px;
@@ -4362,11 +4443,16 @@ button:disabled,
     box-sizing: border-box;
   }
 
+  .changelog-modal {
+    padding-right: 18px;
+  }
+
   .guide-modal::before,
   .guide-modal::after {
     content: none;
   }
 
+  .changelog-modal-scroll,
   .guide-modal-scroll {
     min-height: 0;
     max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 96px);
@@ -4377,6 +4463,7 @@ button:disabled,
     max-width: none;
   }
 
+  .changelog-title,
   .guide-title {
     font-size: 28px;
   }

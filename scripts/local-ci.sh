@@ -31,6 +31,7 @@ run_step "shared:lint" pnpm --filter @border-empires/shared lint
 run_step "shared:test" pnpm --filter @border-empires/shared test
 run_step "server:lint" pnpm --filter @border-empires/server lint
 run_step "server:test" pnpm --filter @border-empires/server test
+run_step "client:changelog" pnpm check:client-changelog
 run_step "client:lint" pnpm --filter @border-empires/client lint
 run_step "client:test" pnpm --filter @border-empires/client test
 run_step "server:build" pnpm --filter @border-empires/server build

@@ -82,6 +82,14 @@ Install the local git hook for this checkout with:
 
 That configures `pre-push` to run `pnpm ci:local`.
 
+## Client Release Notes
+
+When you ship a user-facing client update, update `packages/client/src/client-changelog.ts` in the same branch.
+
+- Bump the changelog `version` so users who already saw the previous release will only see the popup again for the new release.
+- Write both why the change was made and what changed for each release note entry.
+- `pnpm check:client-changelog` now fails when product code changes on a branch without a changelog update and release-version bump.
+
 ## Implemented in this slice
 
 - Monorepo (`shared`, `server`, `client`) with strict TypeScript.

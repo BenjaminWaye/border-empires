@@ -1,3 +1,4 @@
+import { CLIENT_CHANGELOG_STORAGE_KEY } from "./client-changelog.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY } from "./client-constants.js";
 import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
 import type { EconomyBreakdown } from "./client-economy-model.js";
@@ -454,6 +455,10 @@ export const createInitialState = () => ({
     stepIndex: 0,
     completed: storageGet(GUIDE_STORAGE_KEY) === "1",
     autoOpened: storageGet(GUIDE_AUTO_OPEN_STORAGE_KEY) === "1"
+  },
+  changelog: {
+    open: false,
+    seenVersion: storageGet(CLIENT_CHANGELOG_STORAGE_KEY) ?? ""
   },
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
