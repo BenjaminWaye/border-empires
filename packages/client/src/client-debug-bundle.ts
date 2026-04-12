@@ -26,6 +26,8 @@ type JsonFetchResult =
   | { ok: true; status: number; body: unknown }
   | { ok: false; status?: number; error: string };
 
+type ClientDebugEvent = ReturnType<typeof snapshotClientDebugEvents>[number];
+
 const DEBUG_FETCH_TIMEOUT_MS = 4_000;
 const browserLocationHref = (): string =>
   typeof window !== "undefined" && typeof window.location?.href === "string" ? window.location.href : "";
@@ -94,11 +96,28 @@ const stateSnapshot = (state: DebugBundleState): Record<string, unknown> => ({
   developmentQueueLength: state.developmentQueue.length
 });
 
+const attackDebugClientEvents = (events: ClientDebugEvent[]) => {
+  const attackSync = events.filter((event) => event.scope === "attack-sync");
+  const serverErrors = events.filter((event) => event.scope === "server-error");
+  const timeouts = attackSync.filter(
+    (event) =>
+      event.event === "action-accept-timeout" ||
+      event.event === "combat-start-timeout" ||
+      event.event === "combat-result-timeout"
+  );
+  return {
+    attackSync: attackSync.slice(-160),
+    serverErrors: serverErrors.slice(-80),
+    timeouts: timeouts.slice(-80)
+  };
+};
+
 export const buildClientDebugBundle = async (args: {
   state: DebugBundleState;
   wsUrl: string;
 }): Promise<Record<string, unknown>> => {
   const serverOrigin = serverHttpOriginFromWsUrl(args.wsUrl);
+  const clientEvents = snapshotClientDebugEvents(300);
   const [health, debugBundle] = await Promise.all([
     withTimeout(`${serverOrigin}/health`),
     withTimeout(`${serverOrigin}/admin/runtime/debug-bundle`)
@@ -110,7 +129,17 @@ export const buildClientDebugBundle = async (args: {
     wsUrl: args.wsUrl,
     serverOrigin,
     clientState: stateSnapshot(args.state),
-    clientEvents: snapshotClientDebugEvents(300),
+    clientEvents,
+    attackDebug: {
+      client: attackDebugClientEvents(clientEvents),
+      server:
+        debugBundle.ok && typeof debugBundle.body === "object" && debugBundle.body !== null
+          ? {
+              timeline: (debugBundle.body as { attackDebug?: unknown }).attackDebug,
+              traces: (debugBundle.body as { attackTraces?: unknown }).attackTraces
+            }
+          : undefined
+    },
     serverHealth: health,
     serverBundle: debugBundle
   };

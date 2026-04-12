@@ -2956,6 +2956,38 @@ const recordServerDebugEvent = (
   serverDebugBundle.record(level, event, payload);
 };
 
+const HOT_PATH_TIMING_INFO_MS = 8;
+
+let snapshotSaveRequestedAt = 0;
+let snapshotSaveRunning = false;
+let snapshotSavePending = false;
+let snapshotSaveDeferredTimer: ReturnType<typeof setTimeout> | undefined;
+
+const hotPathContentionContext = (): Record<string, unknown> => ({
+  humanFrontierActionPriorityActive: humanFrontierActionPriorityActive(),
+  humanChunkSnapshotPriorityActive: humanChunkSnapshotPriorityActive(),
+  snapshotSaveRunning,
+  snapshotSavePending,
+  snapshotSaveRequestedAt: snapshotSaveRequestedAt || undefined,
+  aiQueueDepth: aiWorkerState.queue.length,
+  simulationQueueDepth: simulationCommandQueueDepth(),
+  onlineHumanPlayerCount: onlineHumanPlayerCount()
+});
+
+const recordHotPathTimingEvent = (
+  event: string,
+  payload: Record<string, unknown>,
+  elapsedMs: number,
+  warnMs = 40
+): void => {
+  if (elapsedMs < warnMs && elapsedMs < HOT_PATH_TIMING_INFO_MS && !humanFrontierActionPriorityActive()) return;
+  recordServerDebugEvent(elapsedMs >= warnMs ? "warn" : "info", event, {
+    elapsedMs,
+    ...hotPathContentionContext(),
+    ...payload
+  });
+};
+
 const sendControlToPlayer = (playerId: string, payload: unknown): void => {
   const ws = controlSocketForPlayer(playerId);
   const compactPayload = compactServerControlPayload(payload);
@@ -3065,6 +3097,7 @@ const visibleTileForPlayer = (p: Player, x: number, y: number, snapshot?: Visibi
 };
 
 const sendLocalVisionDeltaForPlayer = (playerId: string, centers: Array<{ x: number; y: number }>): void => {
+  const startedAt = now();
   const ws = socketsByPlayer.get(playerId);
   const p = players.get(playerId);
   const sub = chunkSubscriptionByPlayer.get(playerId);
@@ -3087,6 +3120,17 @@ const sendLocalVisionDeltaForPlayer = (playerId: string, centers: Array<{ x: num
     }
   }
   if (updates.length > 0) sendBulkToPlayer(playerId, { type: "TILE_DELTA", updates });
+  recordHotPathTimingEvent(
+    "vision_delta_timing",
+    {
+      playerId,
+      centers: centers.length,
+      updates: updates.length,
+      radius
+    },
+    now() - startedAt,
+    30
+  );
 };
 
 const broadcastLocalVisionDelta = (centers: Array<{ x: number; y: number }>): void => {
@@ -3261,6 +3305,30 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number, options: PlayerUpdateO
   ws.send(JSON.stringify(payload));
   const sendMs = now() - sendStartedAt;
   const elapsedMs = now() - startedAt;
+  recordHotPathTimingEvent(
+    "player_update_timing",
+    {
+      playerId: p.id,
+      incomeDelta,
+      regenMs,
+      economyMs,
+      developmentMs,
+      sendMs,
+      detail,
+      includeProgression,
+      includeGlobalStatus,
+      includeWorldStatus,
+      includeEconomy,
+      includeBreakdowns,
+      includeSocial,
+      includeMissions,
+      includeAllianceRequests,
+      includeDevelopmentStatus,
+      pendingSettlements: pendingSettlements?.length ?? 0
+    },
+    elapsedMs,
+    HOT_PLAYER_UPDATE_WARN_MS
+  );
   if (elapsedMs >= HOT_PLAYER_UPDATE_WARN_MS) {
     recordServerDebugEvent("warn", "slow_player_update", {
       playerId: p.id,
@@ -6676,6 +6744,13 @@ const aiTerritoryVersionForPlayer = aiIndexStore.territoryVersionForPlayer;
 const markAiTerritoryDirtyForPlayers = aiIndexStore.markTerritoryDirtyForPlayers;
 
 const executeSystemSimulationCommand = async (command: SystemSimulationCommand): Promise<void> => {
+  if (humanFrontierActionPriorityActive()) {
+    if (command.type === "BARBARIAN_MAINTENANCE") return;
+    setTimeout(() => {
+      enqueueSystemSimulationCommand(command);
+    }, AI_WORKER_DRAIN_RETRY_MS);
+    return;
+  }
   if (command.type === "BARBARIAN_MAINTENANCE") {
     maintainBarbarianPopulation();
     return;
@@ -6960,6 +7035,7 @@ const executeAiGoapAction = (
     });
   }
   if (actionKey === "attack_barbarian_border_tile") {
+    if (!candidates?.barbarianAttack && humanFrontierActionPriorityActive()) return false;
     const candidate =
       aiFrontierCandidateFromExecuteCandidate(
         cachedExecuteCandidate(() => {
@@ -6985,6 +7061,7 @@ const executeAiGoapAction = (
     });
   }
   if (actionKey === "attack_enemy_border_tile") {
+    if (!candidates?.pressureAttack && !candidates?.enemyAttack && humanFrontierActionPriorityActive()) return false;
     const candidate =
       aiFrontierCandidateFromExecuteCandidate(
         cachedExecuteCandidate(() => {
@@ -7318,6 +7395,19 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const markAiTurnPhase = (phase: string, startedAt: number): void => {
     phaseTimings[phase] = now() - startedAt;
   };
+  const yieldToHumanFrontierPriority = (phase: string): boolean => {
+    if (!humanFrontierActionPriorityActive()) return false;
+    const totalElapsedMs = now() - turnStartedAt;
+    recordAiBudgetBreach(actor, totalElapsedMs, phaseTimings, { reason: `yielded_to_human_frontier_priority_${phase}` });
+    setAiTurnDebug(actor, "yielded_to_human_frontier_priority", {
+      details: {
+        phase,
+        pendingCaptures: pendingCapturesByAttacker(actor.id).length,
+        pendingSettlement: hasPendingSettlementForPlayer(actor.id)
+      }
+    });
+    return true;
+  };
   if (!actor.isAi) return;
   actor.lastActiveAt = now();
   if (actor.T <= 0 || actor.territoryTiles.size === 0 || actor.respawnPending) {
@@ -7384,6 +7474,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
       buildAiTurnAnalysis(actor, territoryMetrics, tickContext.incomeByPlayerId))
     : buildAiTurnAnalysis(actor, territoryMetrics, new Map<string, number>());
   markAiTurnPhase("analysis", analysisStartedAt);
+  if (yieldToHumanFrontierPriority("analysis")) return;
   const aiIncome = analysis.aiIncome;
   const runnerUpIncome = analysis.runnerUpIncome;
   maybePickAiTech(actor);
@@ -7407,6 +7498,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const planningSnapshotStartedAt = now();
   const planningSnapshot = buildAiPlanningSnapshot(actor, primaryVictoryPath, analysis, townsTarget, settledTilesTarget);
   markAiTurnPhase("planningSnapshot", planningSnapshotStartedAt);
+  if (yieldToHumanFrontierPriority("planningSnapshot")) return;
   const strategicState = aiStrategicStateByPlayer.get(actor.id);
   const shardOrTruceStartedAt = now();
   const shardOrTruceResult = strategicState ? await maybeHandleAiShardOrTruce(actor, strategicState, planningSnapshot) : undefined;
@@ -7435,6 +7527,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
   const plannerStartedAt = now();
   const decision = await planAiDecisionViaWorker(planningSnapshot);
   markAiTurnPhase("planner", plannerStartedAt);
+  if (yieldToHumanFrontierPriority("planner")) return;
   const debugDetails = {
     strategicFocus: planningSnapshot.strategicFocus,
     frontPosture: planningSnapshot.frontPosture,
@@ -7508,6 +7601,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
 
   if (decision.actionKey === "opening_scout_expand") {
     const executeStartedAt = now();
+    if (yieldToHumanFrontierPriority("pre_execute")) return;
     const opening = bestAiOpeningScoutExpand(actor, territorySummary);
     const executed = Boolean(
       opening &&
@@ -7545,6 +7639,7 @@ const runAiTurn = async (actor: Player, tickContext?: AiTickContext): Promise<vo
 
   const planningStatic = cachedAiPlanningStaticForPlayer(actor, territorySummary);
   const executeStartedAt = now();
+  if (yieldToHumanFrontierPriority("pre_execute")) return;
   const executed = executeAiGoapAction(actor, decision.actionKey, primaryVictoryPath, territorySummary);
   markAiTurnPhase("execute", executeStartedAt);
   const totalElapsedMs = now() - turnStartedAt;
@@ -7581,6 +7676,9 @@ type AiWorkerJob = {
   onComplete: (elapsedMs: number) => void;
 };
 
+const HUMAN_FRONTIER_PRIORITY_GRACE_MS = 12_000;
+const AI_WORKER_DRAIN_RETRY_MS = 250;
+
 const aiWorkerState: {
   queue: AiWorkerJob[];
   draining: boolean;
@@ -7588,6 +7686,9 @@ const aiWorkerState: {
   queue: [],
   draining: false
 };
+
+let aiWorkerDrainRetryTimeout: ReturnType<typeof setTimeout> | undefined;
+let humanFrontierPriorityUntil = 0;
 
 type AiPlannerWorkerResponse =
   | { id: number; decision: AiPlanningDecision }
@@ -7617,10 +7718,12 @@ const aiPlannerWorkerState: {
   inflight: new Map()
 };
 
-const resolveAiPlannerFallback = (snapshot: AiPlanningSnapshot, reason: string): AiPlanningDecision => {
+const resolveAiPlannerFallback = (_snapshot: AiPlanningSnapshot, reason: string): AiPlanningDecision => {
   aiPlannerWorkerState.lastUsedWorker = false;
   aiPlannerWorkerState.lastFallbackReason = reason;
-  return planAiDecision(snapshot);
+  return {
+    reason: `skipped_${reason}`
+  };
 };
 
 const clearAiPlannerInflight = (error: Error): void => {
@@ -7972,7 +8075,25 @@ const serializeChunkBatchViaWorker = async (chunks: ChunkBuildInput[]): Promise<
   }
 };
 
+const scheduleAiWorkerDrainRetry = (): void => {
+  if (aiWorkerDrainRetryTimeout !== undefined) return;
+  aiWorkerDrainRetryTimeout = setTimeout(() => {
+    aiWorkerDrainRetryTimeout = undefined;
+    if (aiWorkerState.draining || aiWorkerState.queue.length <= 0 || humanFrontierActionPriorityActive()) {
+      if (aiWorkerState.queue.length > 0 && humanFrontierActionPriorityActive()) scheduleAiWorkerDrainRetry();
+      return;
+    }
+    aiWorkerState.draining = true;
+    void drainAiWorkerQueue();
+  }, AI_WORKER_DRAIN_RETRY_MS);
+};
+
 const drainAiWorkerQueue = async (): Promise<void> => {
+  if (humanFrontierActionPriorityActive()) {
+    aiWorkerState.draining = false;
+    scheduleAiWorkerDrainRetry();
+    return;
+  }
   const job = aiWorkerState.queue.shift();
   if (!job) {
     aiWorkerState.draining = false;
@@ -7997,6 +8118,10 @@ const drainAiWorkerQueue = async (): Promise<void> => {
 
 const enqueueAiWorkerJob = (job: AiWorkerJob): void => {
   aiWorkerState.queue.push(job);
+  if (humanFrontierActionPriorityActive()) {
+    scheduleAiWorkerDrainRetry();
+    return;
+  }
   if (aiWorkerState.draining) return;
   aiWorkerState.draining = true;
   queueMicrotaskFn(() => {
@@ -8031,6 +8156,34 @@ const onlineHumanPlayerCount = (): number => {
     if (!player?.isAi) count += 1;
   }
   return count;
+};
+
+const noteHumanFrontierActionPriority = (durationMs = HUMAN_FRONTIER_PRIORITY_GRACE_MS): void => {
+  humanFrontierPriorityUntil = Math.max(humanFrontierPriorityUntil, now() + durationMs);
+};
+
+const humanFrontierActionMessage = (
+  msg: ClientMessage
+): msg is Extract<ClientMessage, { type: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK" }> =>
+  msg.type === "ATTACK" || msg.type === "EXPAND" || msg.type === "BREAKTHROUGH_ATTACK";
+
+const hasOnlineHumanPendingCapture = (): boolean => {
+  const pending = new Set<PendingCapture>();
+  for (const capture of combatLocks.values()) pending.add(capture);
+  for (const capture of pending) {
+    const player = players.get(capture.attackerId);
+    if (!player || player.isAi) continue;
+    if (socketsByPlayer.has(player.id)) return true;
+  }
+  return false;
+};
+
+const humanFrontierActionPriorityActive = (): boolean => {
+  if (onlineHumanPlayerCount() <= 0) return false;
+  if (humanFrontierPriorityUntil > now()) return true;
+  if (!hasOnlineHumanPendingCapture()) return false;
+  noteHumanFrontierActionPriority(500);
+  return true;
 };
 
 const humanChunkSnapshotPriorityActive = (): boolean => {
@@ -8071,17 +8224,21 @@ const logExpandTrace = (
   extra?: Record<string, unknown>
 ): void => {
   if (capture.actionType !== "EXPAND" || !capture.traceId || typeof capture.startedAt !== "number") return;
+  const payload = {
+    traceId: capture.traceId,
+    playerId: capture.attackerId,
+    attackerId: capture.attackerId,
+    actionType: capture.actionType,
+    origin: capture.origin,
+    target: capture.target,
+    phase,
+    elapsedMs: now() - capture.startedAt,
+    resolvesAt: capture.resolvesAt,
+    ...extra
+  };
+  recordServerDebugEvent("info", "expand_trace", payload);
   app.log.info(
-    {
-      traceId: capture.traceId,
-      attackerId: capture.attackerId,
-      origin: capture.origin,
-      target: capture.target,
-      phase,
-      elapsedMs: now() - capture.startedAt,
-      resolvesAt: capture.resolvesAt,
-      ...extra
-    },
+    payload,
     "expand trace"
   );
 };
@@ -8093,18 +8250,21 @@ const logAttackTrace = (
 ): void => {
   if (capture.actionType !== "ATTACK" && capture.actionType !== "BREAKTHROUGH_ATTACK") return;
   if (!capture.traceId || typeof capture.startedAt !== "number") return;
+  const payload = {
+    traceId: capture.traceId,
+    playerId: capture.attackerId,
+    attackerId: capture.attackerId,
+    actionType: capture.actionType,
+    origin: capture.origin,
+    target: capture.target,
+    phase,
+    elapsedMs: now() - capture.startedAt,
+    resolvesAt: capture.resolvesAt,
+    ...extra
+  };
+  recordServerDebugEvent("info", "attack_trace", payload);
   app.log.info(
-    {
-      traceId: capture.traceId,
-      attackerId: capture.attackerId,
-      actionType: capture.actionType,
-      origin: capture.origin,
-      target: capture.target,
-      phase,
-      elapsedMs: now() - capture.startedAt,
-      resolvesAt: capture.resolvesAt,
-      ...extra
-    },
+    payload,
     "attack trace"
   );
 };
@@ -8139,6 +8299,17 @@ const flushPostCombatFollowUpsForPlayer = (playerId: string): void => {
   sendLocalVisionDeltaForPlayer(playerId, changedCenters);
   const visionMs = now() - visionStartedAt;
   const elapsedMs = now() - startedAt;
+  recordHotPathTimingEvent(
+    "post_combat_follow_up_timing",
+    {
+      playerId,
+      changedCenters: changedCenters.length,
+      playerUpdateMs,
+      visionMs
+    },
+    elapsedMs,
+    HOT_POST_COMBAT_FOLLOW_UP_WARN_MS
+  );
 
   if (pending.centersByKey.size === 0) pendingPostCombatFollowUpsByPlayer.delete(playerId);
   else pending.flushTimeout = setTimeout(() => flushPostCombatFollowUpsForPlayer(playerId), POST_COMBAT_FOLLOW_UP_BATCH_MS);
@@ -8375,6 +8546,7 @@ const enqueueBarbarianAction = (agentId: string): void => {
 
 const runBarbarianTick = (): void => {
   if (!hasOnlinePlayers()) return;
+  if (humanFrontierActionPriorityActive()) return;
   const current = [...barbarianAgents.values()];
   for (const agent of current) {
     const live = barbarianAgents.get(agent.id);
@@ -8808,7 +8980,8 @@ const {
   serializeChunkBatchDirect: (inputs) => inputs.map((chunk) => serializeChunkBody(buildChunkFromInput(chunk))),
   serializeChunkBatchBodies,
   sendChunkBatchPayload: (socket, payload) => enqueueLowPrioritySocketMessage(socket as Ws, payload),
-  runtimeLoadShedLevel
+  runtimeLoadShedLevel,
+  humanFrontierActionPriorityActive
 });
 
 const {
@@ -8931,6 +9104,7 @@ const {
   aiQueueDepth: () => aiWorkerState.queue.length,
   simulationQueueDepth: simulationCommandQueueDepth,
   humanChunkSnapshotPriorityActive,
+  humanFrontierActionPriorityActive,
   collectCompetitionMetrics: collectPlayerCompetitionMetrics,
   incomeForMetric: (metric) => metric.incomePerMinute,
   playerIdForMetric: (metric) => metric.playerId,
@@ -9498,6 +9672,7 @@ const refundPendingSettlement = (settlement: PendingSettlement): void => {
 
 const resolvePendingSettlement = (settlement: PendingSettlement): void => {
   if (settlement.cancelled) return;
+  const startedAt = now();
   pendingSettlementsByTile.delete(settlement.tileKey);
   const [x, y] = parseKey(settlement.tileKey);
   const liveActor = players.get(settlement.ownerId);
@@ -9520,15 +9695,45 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
       sendToPlayer(liveActor.id, { type: "ERROR", code: "SETTLE_INVALID", message: "tile captured during settlement; gold forfeited", x, y });
     }
     sendPlayerUpdate(liveActor, 0);
+    recordHotPathTimingEvent(
+      "settlement_resolve_timing",
+      {
+        playerId: liveActor.id,
+        tileKey: settlement.tileKey,
+        x,
+        y,
+        outcome: capturedByEnemy ? "captured_by_enemy" : "cancelled_refund",
+        liveOwnerId: live.ownerId,
+        liveOwnershipState: live.ownershipState
+      },
+      now() - startedAt,
+      30
+    );
     return;
   }
   if (live.ownershipState !== "FRONTIER") {
     refundPendingSettlement(settlement);
     sendToPlayer(liveActor.id, { type: "ERROR", code: "SETTLE_INVALID", message: "settlement cancelled and gold returned", x, y });
     sendPlayerUpdate(liveActor, 0);
+    recordHotPathTimingEvent(
+      "settlement_resolve_timing",
+      {
+        playerId: liveActor.id,
+        tileKey: settlement.tileKey,
+        x,
+        y,
+        outcome: "cancelled_not_frontier",
+        liveOwnerId: live.ownerId,
+        liveOwnershipState: live.ownershipState
+      },
+      now() - startedAt,
+      30
+    );
     return;
   }
+  const ownershipStartedAt = now();
   updateOwnership(x, y, liveActor.id, "SETTLED");
+  const updateOwnershipMs = now() - ownershipStartedAt;
   logTileSync("settlement_applied", {
     playerId: liveActor.id,
     tileKey: settlement.tileKey,
@@ -9536,12 +9741,14 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
     ownershipState: "SETTLED",
     ...developmentProcessDebugBreakdownForPlayer(liveActor.id)
   });
+  const revealStartedAt = now();
   const linkedDockRevealTileKeys = revealLinkedDocksForPlayer(liveActor.id, settlement.tileKey);
   syncForcedRevealTileUpdatesForPlayer(liveActor.id, linkedDockRevealTileKeys, {
     parseKey,
     playerTile,
     sendBulkToPlayer
   });
+  const revealMs = now() - revealStartedAt;
   recordFrontierSettlementForPressure(liveActor.id);
   const effects = getPlayerEffectsForPlayer(liveActor.id);
   if (effects.newSettlementDefenseMult > 1) {
@@ -9551,6 +9758,7 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
       mult: effects.newSettlementDefenseMult
     });
   }
+  const resultStartedAt = now();
   sendToPlayer(liveActor.id, {
     type: "COMBAT_RESULT",
     attackType: "SETTLE",
@@ -9561,8 +9769,28 @@ const resolvePendingSettlement = (settlement: PendingSettlement): void => {
     pointsDelta: 0,
     levelDelta: 0
   });
+  const sendResultMs = now() - resultStartedAt;
+  const playerUpdateStartedAt = now();
   sendPlayerUpdate(liveActor, 0);
+  const playerUpdateMs = now() - playerUpdateStartedAt;
   telemetryCounters.settlements += 1;
+  recordHotPathTimingEvent(
+    "settlement_resolve_timing",
+    {
+      playerId: liveActor.id,
+      tileKey: settlement.tileKey,
+      x,
+      y,
+      outcome: "settled",
+      updateOwnershipMs,
+      revealMs,
+      sendResultMs,
+      playerUpdateMs,
+      linkedDockRevealTileCount: linkedDockRevealTileKeys.length
+    },
+    now() - startedAt,
+    30
+  );
 };
 
 const schedulePendingSettlementResolution = (settlement: PendingSettlement): void => {
@@ -10538,6 +10766,25 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   sendVisibleTileDeltaSquare(t.x, t.y, 1);
   const tileDeltaFanoutMs = now() - tileDeltaFanoutStartedAt;
   const elapsedMs = now() - startedAt;
+  recordHotPathTimingEvent(
+    "update_ownership_timing",
+    {
+      tileKey: k,
+      x: t.x,
+      y: t.y,
+      oldOwner,
+      newOwner,
+      oldOwnershipState,
+      newOwnershipState: t.ownershipState,
+      affectedPlayers: [...affectedPlayers],
+      affectedPlayerRefreshMs,
+      visibilityRefreshMs,
+      snapshotInvalidationMs,
+      tileDeltaFanoutMs
+    },
+    elapsedMs,
+    40
+  );
   if (elapsedMs >= 40) {
     recordServerDebugEvent("warn", "slow_update_ownership", {
       tileKey: k,
@@ -11171,13 +11418,54 @@ const saveSnapshot = async (): Promise<void> => {
 };
 
 const snapshotSaveRunner = createSnapshotSaveRunner({
-  save: saveSnapshot,
+  save: async () => {
+    snapshotSaveRunning = true;
+    snapshotSavePending = false;
+    const startedAt = now();
+    recordServerDebugEvent("info", "snapshot_save_started", {
+      startedAt,
+      ...hotPathContentionContext()
+    });
+    try {
+      await saveSnapshot();
+      recordHotPathTimingEvent(
+        "snapshot_save_timing",
+        {
+          startedAt
+        },
+        now() - startedAt,
+        100
+      );
+    } finally {
+      snapshotSaveRunning = false;
+    }
+  },
   onError: (err) => {
     logRuntimeError("snapshot save failed", err);
   }
 });
 
 const saveSnapshotInBackground = (): void => {
+  snapshotSaveRequestedAt = now();
+  snapshotSavePending = true;
+  recordServerDebugEvent("info", "snapshot_save_requested", {
+    requestedAt: snapshotSaveRequestedAt,
+    ...hotPathContentionContext()
+  });
+  if (humanFrontierActionPriorityActive() || humanChunkSnapshotPriorityActive()) {
+    if (snapshotSaveDeferredTimer === undefined) {
+      snapshotSaveDeferredTimer = setTimeout(() => {
+        snapshotSaveDeferredTimer = undefined;
+        saveSnapshotInBackground();
+      }, 1_000);
+    }
+    recordServerDebugEvent("info", "snapshot_save_deferred", {
+      requestedAt: snapshotSaveRequestedAt,
+      reason: humanFrontierActionPriorityActive() ? "human_frontier_action_priority" : "human_chunk_snapshot_priority",
+      ...hotPathContentionContext()
+    });
+    return;
+  }
   snapshotSaveRunner.request();
 };
 
@@ -12433,6 +12721,7 @@ registerServerHttpRoutes(app, {
       return;
     }
     const actor = authedPlayer;
+    if (!actor.isAi && humanFrontierActionMessage(msg)) noteHumanFrontierActionPriority();
     if (await simulationService.handleGatewayMessage(actor, msg, socket)) return;
 
     if (msg.type === "PING") {
@@ -13655,6 +13944,7 @@ registerServerHttpRoutes(app, {
       actionType: msg.type,
       startedAt: nowMs
     };
+    if (!actor.isAi) noteHumanFrontierActionPriority();
     if (expandTraceId) pending.traceId = expandTraceId;
     if (attackTraceId) pending.traceId = attackTraceId;
     combatLocks.set(fk, pending);
@@ -13680,6 +13970,7 @@ registerServerHttpRoutes(app, {
       from: { x: from.x, y: from.y },
       target: { x: to.x, y: to.y },
       resolvesAt,
+      elapsedMs: now() - nowMs,
       ...(pending.traceId ? { traceId: pending.traceId } : {})
     });
     sendControlToSocket(
@@ -13692,6 +13983,19 @@ registerServerHttpRoutes(app, {
         resolvesAt
       },
       { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
+    );
+    recordHotPathTimingEvent(
+      "frontier_action_accept_timing",
+      {
+        playerId: actor.id,
+        actionType: msg.type,
+        from: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        resolvesAt,
+        traceId: pending.traceId
+      },
+      now() - nowMs,
+      50
     );
     logAttackTrace("accepted_ack_sent", pending, {
       socketReadyState: socket.readyState
@@ -13733,6 +14037,20 @@ registerServerHttpRoutes(app, {
         ...(predictedResult ? { predictedResult } : {})
       },
       { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
+    );
+    recordHotPathTimingEvent(
+      "frontier_combat_start_timing",
+      {
+        playerId: actor.id,
+        actionType: msg.type,
+        from: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        resolvesAt,
+        predictedResult: Boolean(predictedResult),
+        traceId: pending.traceId
+      },
+      now() - nowMs,
+      50
     );
     logExpandTrace("combat_start_sent", pending);
     logAttackTrace("combat_start_sent", pending, {
@@ -13799,6 +14117,20 @@ registerServerHttpRoutes(app, {
             ...(neutralExpandTiming ? { timing: neutralExpandTiming } : {})
           },
           { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
+        );
+        recordHotPathTimingEvent(
+          "frontier_combat_result_timing",
+          {
+            playerId: actor.id,
+            actionType: msg.type,
+            from: { x: from.x, y: from.y },
+            target: { x: to.x, y: to.y },
+            attackerWon: true,
+            neutralTarget: true,
+            traceId: pending.traceId
+          },
+          now() - nowMs,
+          50
         );
         logExpandTrace("combat_result_sent", pending, { neutralTarget: true });
         logAttackTrace("combat_result_sent", pending, { neutralTarget: true });
@@ -13975,6 +14307,23 @@ registerServerHttpRoutes(app, {
           levelDelta: 0
         },
         { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
+      );
+      recordHotPathTimingEvent(
+        "frontier_combat_result_timing",
+        {
+          playerId: actor.id,
+          actionType: msg.type,
+          from: { x: from.x, y: from.y },
+          target: { x: to.x, y: to.y },
+          attackerWon: win,
+          neutralTarget: false,
+          defenderId: defender?.id,
+          defenderIsBarbarian,
+          changes: resultChanges.length,
+          traceId: pending.traceId
+        },
+        now() - nowMs,
+        50
       );
       logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
       logAttackTrace("combat_result_sent", pending, {

@@ -52,7 +52,7 @@ describe("login and frontier retry regression guard", () => {
 
   it("keeps the earlier optimistic frontier timer when combat start arrives late", () => {
     const source = clientSource("./client-network.ts");
-    expect(source).toContain('rebindLateFrontierAck(target, "COMBAT_START");');
+    expect(source).toMatch(/rebindLateFrontierAck\(\s*target,\s*"COMBAT_START"/);
     expect(source).toContain("const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;");
     expect(source).toContain("state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };");
   });
