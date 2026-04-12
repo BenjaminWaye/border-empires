@@ -17,10 +17,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.4",
+  version: "2026.04.12.5",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including icon-based combat rewards and tougher fortified border fights.",
+  summary: "Recent updates now explain what changed after sign-in, including shard rain pings, icon-based combat rewards, and tougher fortified border fights.",
   entries: [
+    {
+      title: "Shard rain now pings fresh drop spots",
+      why: "Shard rain was easy to miss because players had to manually spot each new shardfall tile while the event timer was already ticking down.",
+      changes: [
+        "Added animated minimap pings for newly revealed shardfall deposits during active shard rain.",
+        "Staggered shardfall reveals over the first two minutes of shard rain and let each minimap ping persist for 30 seconds before clearing."
+      ]
+    },
     {
       title: "Plunder rewards now use resource icons",
       why: "The attack victory popup now lists stolen resources, but reading raw resource names is slower than scanning the same icons used elsewhere in the HUD.",

@@ -1,6 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { drawAetherBridgeLane, hexWithAlpha } from "./client-map-render.js";
 import { resourceIconForKey } from "./client-map-display.js";
+import { shardRainPingActiveAt, visibleShardSiteForTile, type ClientShardRainPing } from "./client-shard-rain-pings.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "./client-types.js";
 
 type ReplayTileView = { ownerId?: string; ownershipState?: Tile["ownershipState"] };
@@ -30,6 +31,7 @@ export const drawMiniMap = (options: {
     fogDisabled: boolean;
     tiles: Map<string, Tile>;
     dockPairs: DockPair[];
+    shardRainPingsByTile: Map<string, ClientShardRainPing>;
   };
   canvas: HTMLCanvasElement;
   miniMapEl: HTMLCanvasElement;
@@ -171,12 +173,26 @@ export const drawMiniMap = (options: {
   options.miniMapCtx.textBaseline = "middle";
   options.miniMapCtx.font = "8px monospace";
   for (const tile of options.state.tiles.values()) {
-    if (!tile.shardSite) continue;
-    if (!options.state.fogDisabled && tile.fogged) continue;
+    const shardSite = visibleShardSiteForTile(tile, options.state.shardRainPingsByTile, options.nowMs);
+    if (!shardSite) continue;
     const tx = Math.floor((tile.x / WORLD_WIDTH) * w);
     const ty = Math.floor((tile.y / WORLD_HEIGHT) * h);
-    options.miniMapCtx.fillStyle = tile.shardSite.kind === "FALL" ? "rgba(255, 244, 176, 0.98)" : "rgba(147, 235, 255, 0.96)";
+    options.miniMapCtx.fillStyle = shardSite.kind === "FALL" ? "rgba(255, 244, 176, 0.98)" : "rgba(147, 235, 255, 0.96)";
     options.miniMapCtx.fillText(resourceIconForKey("SHARD"), tx, ty);
+  }
+  const pingPhase = 0.5 + 0.5 * Math.sin(options.nowMs / 240);
+  options.miniMapCtx.lineWidth = 1.2;
+  for (const [tileKey, ping] of options.state.shardRainPingsByTile) {
+    const tile = options.state.tiles.get(tileKey);
+    if (tile?.shardSite?.kind !== "FALL") continue;
+    if (!options.state.fogDisabled && tile.fogged) continue;
+    if (!shardRainPingActiveAt(ping, options.nowMs)) continue;
+    const tx = Math.floor((ping.x / WORLD_WIDTH) * w);
+    const ty = Math.floor((ping.y / WORLD_HEIGHT) * h);
+    options.miniMapCtx.strokeStyle = `rgba(255, 236, 170, ${0.55 + pingPhase * 0.25})`;
+    options.miniMapCtx.beginPath();
+    options.miniMapCtx.arc(tx, ty, 3.4 + pingPhase * 2.1, 0, Math.PI * 2);
+    options.miniMapCtx.stroke();
   }
   options.miniMapCtx.restore();
 
