@@ -95,8 +95,6 @@ export interface ServerWorldgenTownsDeps {
   wrapX: (x: number, width: number) => number;
   wrapY: (y: number, height: number) => number;
   parseKey: (tileKey: TileKey) => [number, number];
-  ownership: Map<TileKey, string>;
-  players: Map<string, Player>;
   assignMissingTownNames: (towns: Iterable<TownDefinition>, islandIdByTile: Map<TileKey, number>, seed: number) => void;
   getIslandMap: () => { islandIdByTile: Map<TileKey, number> };
   WORLD_TOWN_POPULATION_MIN: number;
@@ -114,7 +112,6 @@ export interface ServerWorldgenTownsRuntime {
   findNearestTownPlacement: (originX: number, originY: number, ignoreTileKey?: TileKey) => TileKey | undefined;
   townPlacementsNeedNormalization: () => boolean;
   normalizeTownPlacements: () => void;
-  normalizeLegacySettlementTowns: () => void;
   assignMissingTownNamesForWorld: () => void;
   ensureBaselineEconomyCoverage: (seed: number) => void;
   ensureInterestCoverage: (seed: number) => void;

@@ -1354,7 +1354,6 @@ const {
   findNearestTownPlacement,
   townPlacementsNeedNormalization,
   normalizeTownPlacements,
-  normalizeLegacySettlementTowns,
   assignMissingTownNamesForWorld,
   ensureBaselineEconomyCoverage,
   ensureInterestCoverage,
@@ -1378,8 +1377,6 @@ const {
   wrapX,
   wrapY,
   parseKey,
-  ownership,
-  players,
   assignMissingTownNames,
   getIslandMap: () => islandMap(),
   WORLD_TOWN_POPULATION_MIN,
@@ -10465,7 +10462,15 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
   for (const [tk, until] of raw.townCaptureShock ?? []) townCaptureShockUntilByTile.set(tk, until);
   for (const [tk, until] of raw.townGrowthShock ?? []) townGrowthShockUntilByTile.set(tk, until);
-  normalizeLegacySettlementTowns();
+  if (raw.season) activeSeason = raw.season;
+  if (raw.seasonWinner) seasonWinner = raw.seasonWinner;
+  if (raw.seasonArchives) seasonArchives.push(...raw.seasonArchives);
+  if (raw.seasonTechConfig) {
+    activeSeasonTechConfig = {
+      ...raw.seasonTechConfig,
+      activeNodeIds: new Set(raw.seasonTechConfig.activeNodeIds)
+    };
+  }
   logHydratePhase("world_maps", {
     docks: raw.docks?.length ?? 0,
     towns: raw.towns?.length ?? 0,
@@ -10481,15 +10486,6 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
     logHydratePhase("town_normalization", { normalized: 0, towns: raw.towns?.length ?? 0 });
   }
   assignMissingTownNamesForWorld();
-  if (raw.season) activeSeason = raw.season;
-  if (raw.seasonWinner) seasonWinner = raw.seasonWinner;
-  if (raw.seasonArchives) seasonArchives.push(...raw.seasonArchives);
-  if (raw.seasonTechConfig) {
-    activeSeasonTechConfig = {
-      ...raw.seasonTechConfig,
-      activeNodeIds: new Set(raw.seasonTechConfig.activeNodeIds)
-    };
-  }
   if (!seasonTechConfigIsCompatible(activeSeasonTechConfig)) {
     activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
     activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
