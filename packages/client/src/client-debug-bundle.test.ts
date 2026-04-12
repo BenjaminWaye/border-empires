@@ -25,10 +25,29 @@ describe("client debug bundle", () => {
             headers: { "Content-Type": "application/json" }
           });
         }
-        return new Response(JSON.stringify({ ok: true, recentServerEvents: [{ event: "frontier_action_received" }] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            recentServerEvents: [{ event: "frontier_action_received" }],
+            attackTraces: [
+              {
+                traceId: "trace-1",
+                firstAt: 1,
+                lastAt: 2,
+                events: [{ event: "frontier_action_received" }]
+              }
+            ],
+            attackDebug: {
+              controlPath: [{ event: "frontier_action_accept_timing" }],
+              hotPath: [{ event: "player_update_timing" }],
+              slowOrWarn: [{ event: "slow_player_update" }]
+            }
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        );
       })
     );
 
@@ -58,6 +77,23 @@ describe("client debug bundle", () => {
     expect(bundle).toMatchObject({
       wsUrl: "wss://border-empires.fly.dev/ws",
       serverOrigin: "https://border-empires.fly.dev",
+      attackDebug: {
+        client: {
+          timeouts: [expect.objectContaining({ event: "action-accept-timeout" })]
+        },
+        server: {
+          timeline: {
+            controlPath: [{ event: "frontier_action_accept_timing" }],
+            hotPath: [{ event: "player_update_timing" }],
+            slowOrWarn: [{ event: "slow_player_update" }]
+          },
+          traces: [
+            expect.objectContaining({
+              traceId: "trace-1"
+            })
+          ]
+        }
+      },
       serverHealth: {
         ok: true,
         status: 200,
@@ -66,7 +102,12 @@ describe("client debug bundle", () => {
       serverBundle: {
         ok: true,
         status: 200,
-        body: { ok: true, recentServerEvents: [{ event: "frontier_action_received" }] }
+        body: {
+          ok: true,
+          recentServerEvents: [{ event: "frontier_action_received" }],
+          attackDebug: expect.any(Object),
+          attackTraces: expect.any(Array)
+        }
       }
     });
     expect((bundle.clientEvents as Array<{ event: string }>).some((event) => event.event === "action-accept-timeout")).toBe(true);

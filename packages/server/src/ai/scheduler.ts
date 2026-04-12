@@ -76,6 +76,7 @@ type CreateAiSchedulerDeps<TPlayer extends Player, TCompetitionMetric, TAnalysis
   aiQueueDepth: () => number;
   simulationQueueDepth: () => number;
   humanChunkSnapshotPriorityActive: () => boolean;
+  humanFrontierActionPriorityActive: () => boolean;
   getAiCompetitionContext: (nowMs: number) => AiCompetitionContext<TCompetitionMetric, TAnalysis>;
   createTickContext: (cycleId: number, context: AiCompetitionContext<TCompetitionMetric, TAnalysis>) => TTickContext;
   enqueueAiWorkerJob: (job: AiWorkerJob<TPlayer, TTickContext>) => void;
@@ -239,6 +240,20 @@ export const createAiScheduler = <
   const runAiTick = (): void => {
     const aiPlayers = deps.getAllPlayers().filter((actor) => actor.isAi);
     if (aiPlayers.length === 0) return;
+    if (deps.humanFrontierActionPriorityActive()) {
+      state.at = deps.now();
+      state.batchSize = 0;
+      state.selectedAiPlayers = 0;
+      state.totalAiPlayers = aiPlayers.length;
+      state.urgentAiPlayers = 0;
+      state.humanPlayersOnline = deps.onlineHumanPlayerCount() > 0;
+      state.authPriorityActive = deps.pendingAuthVerifications() > 0 || deps.authPriorityUntil() > deps.now();
+      state.aiQueueBackpressure = deps.aiQueueDepth() >= deps.config.workerQueueSoftLimit;
+      state.simulationQueueBackpressure = deps.simulationQueueDepth() >= deps.config.simulationQueueSoftLimit;
+      state.eventLoopOverloaded = false;
+      state.reason = "human_frontier_action_priority";
+      return;
+    }
     if (deps.humanChunkSnapshotPriorityActive()) {
       state.at = deps.now();
       state.batchSize = 0;
