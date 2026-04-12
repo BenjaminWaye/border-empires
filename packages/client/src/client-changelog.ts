@@ -17,10 +17,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.3",
+  version: "2026.04.12.4",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including clearer combat rewards and tougher fortified border fights.",
+  summary: "Recent updates now explain what changed after sign-in, including icon-based combat rewards and tougher fortified border fights.",
   entries: [
+    {
+      title: "Plunder rewards now use resource icons",
+      why: "The attack victory popup now lists stolen resources, but reading raw resource names is slower than scanning the same icons used elsewhere in the HUD.",
+      changes: [
+        "Updated plundered gold in the successful attack popup to use the gold icon.",
+        "Updated plundered strategic resources in the same popup to use their matching resource icons."
+      ]
+    },
     {
       title: "Forts now demand real siege support",
       why: "Fortified border tiles were still too easy to brute-force, so forts now anchor territory more reliably unless the attacker stages from an outpost.",
