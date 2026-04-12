@@ -18,10 +18,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.7",
+  version: "2026.04.12.8",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including staged shard-rain reveals, steadier release-note scrolling, icon-based combat rewards, tougher fortified border fights, and lower-risk server sync work.",
+  summary: "Recent updates now explain what changed after sign-in, including steadier town data after restarts, staged shard-rain reveals, steadier release-note scrolling, icon-based combat rewards, tougher fortified border fights, and lower-risk server sync work.",
   entries: [
+    {
+      title: "Town names now stay stable across restarts",
+      why: "Some towns could come back from a restart with the wrong generated name, which made it look like the town at a tile had changed identity.",
+      changes: [
+        "Loaded season seed data before filling in any missing town names during snapshot hydrate.",
+        "Removed an obsolete legacy town-hydrate normalization path that no longer matched live save data."
+      ]
+    },
     {
       title: "Under-the-hood server sync was split into safer modules",
       why: "The live server had grown into one large runtime file, which made future fixes riskier than they needed to be even when behavior stayed the same.",
