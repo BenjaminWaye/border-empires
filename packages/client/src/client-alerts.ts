@@ -1,5 +1,6 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { formatGoldAmount } from "./client-constants.js";
+import { resourceIconForKey } from "./client-map-display.js";
 import type { ClientState } from "./client-state.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type { FeedEntry, FeedSeverity, FeedType, Tile } from "./client-types.js";
@@ -144,11 +145,11 @@ const plunderSummary = (
   const pillagedGold = typeof msg.pillagedGold === "number" ? msg.pillagedGold : 0;
   const strategic = (msg.pillagedStrategic as Record<string, number> | undefined) ?? {};
   const parts: string[] = [];
-  if (pillagedGold > 0.01) parts.push(`${formatGoldAmount(pillagedGold)} gold`);
+  if (pillagedGold > 0.01) parts.push(`${resourceIconForKey("GOLD")} ${formatGoldAmount(pillagedGold)}`);
   for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
     const amount = strategic[resource];
     if (typeof amount !== "number" || amount <= 0.01) continue;
-    parts.push(`${formatPlunderAmount(amount)} ${deps.prettyToken(resource)}`);
+    parts.push(`${resourceIconForKey(resource)} ${formatPlunderAmount(amount)} ${deps.prettyToken(resource)}`);
   }
   if (parts.length === 0) return undefined;
   return ` Plundered ${parts.join(", ")}.`;
