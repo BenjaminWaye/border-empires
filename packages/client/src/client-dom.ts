@@ -45,6 +45,7 @@ const hudMarkup = `
           <div id="capture-bar"></div>
         </div>
         <div id="capture-target"></div>
+        <button id="capture-download-debug" class="capture-debug-btn" type="button">Download debug log</button>
       </div>
       <button id="capture-cancel" class="capture-cancel-btn" title="Cancel capture">Cancel</button>
     </div>
@@ -339,6 +340,7 @@ export const initClientDom = () => {
   const miniMapLabelEl = requireElement<HTMLDivElement>("#mini-map-label");
   const captureCancelBtn = requireElement<HTMLButtonElement>("#capture-cancel");
   const captureCloseBtn = requireElement<HTMLButtonElement>("#capture-close");
+  const captureDownloadDebugBtn = requireElement<HTMLButtonElement>("#capture-download-debug");
   const captureCardEl = requireElement<HTMLDivElement>("#capture-card");
   const captureWrapEl = requireElement<HTMLDivElement>("#capture-wrap");
   const captureBarEl = requireElement<HTMLDivElement>("#capture-bar");
@@ -486,6 +488,7 @@ export const initClientDom = () => {
     captureBarEl,
     captureCancelBtn,
     captureCloseBtn,
+    captureDownloadDebugBtn,
     captureCardEl,
     captureTargetEl,
     captureTimeEl,

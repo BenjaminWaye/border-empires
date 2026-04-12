@@ -63,6 +63,7 @@ type UiControlsDeps = {
   collectVisibleMobileBtn: ClientDom["collectVisibleMobileBtn"];
   captureCancelBtn: ClientDom["captureCancelBtn"];
   captureCloseBtn: ClientDom["captureCloseBtn"];
+  captureDownloadDebugBtn: ClientDom["captureDownloadDebugBtn"];
   captureTimeEl: ClientDom["captureTimeEl"];
   shardAlertCloseBtn: ClientDom["shardAlertCloseBtn"];
   panelCloseBtn: ClientDom["panelCloseBtn"];
@@ -85,6 +86,7 @@ type UiControlsDeps = {
   hideShardAlert: () => void;
   renderShardAlert: () => void;
   renderCaptureProgress: () => void;
+  downloadDebugBundle: () => void | Promise<void>;
   setActivePanel: (panel: ClientState["activePanel"]) => void;
   syncAuthPanelState: () => void;
 };
@@ -420,6 +422,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     collectVisibleMobileBtn,
     captureCancelBtn,
     captureCloseBtn,
+    captureDownloadDebugBtn,
     captureTimeEl,
     shardAlertCloseBtn,
     panelCloseBtn,
@@ -441,6 +444,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     hideShardAlert,
     renderShardAlert,
     renderCaptureProgress,
+    downloadDebugBundle,
     setActivePanel,
     syncAuthPanelState
   } = deps;
@@ -492,6 +496,9 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     state.captureAlert = undefined;
     captureTimeEl.classList.remove("capture-loss");
     renderCaptureProgress();
+  };
+  captureDownloadDebugBtn.onclick = () => {
+    void downloadDebugBundle();
   };
   shardAlertCloseBtn.onclick = () => {
     hideShardAlert();

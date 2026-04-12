@@ -2099,6 +2099,26 @@ body {
   font-weight: 700;
 }
 
+.capture-debug-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(219, 236, 255, 0.35);
+  background: rgba(15, 29, 45, 0.64);
+  color: #f6f7fa;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.capture-debug-btn:hover {
+  background: rgba(27, 45, 68, 0.8);
+}
+
 #tile-action-menu {
   position: fixed;
   z-index: 26;

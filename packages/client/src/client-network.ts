@@ -3,7 +3,7 @@ import type { ClientState } from "./client-state.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
-import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
 
 type NetworkDeps = Record<string, any> & {
@@ -1699,6 +1699,26 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
+      recordClientDebugEvent("error", "server-error", "message", {
+        code: msg.code,
+        message: msg.message,
+        actionInFlight: state.actionInFlight,
+        actionTargetKey: failedTargetKey,
+        actionTargetTile: failedTargetTile
+          ? {
+              x: failedTargetTile.x,
+              y: failedTargetTile.y,
+              ownerId: failedTargetTile.ownerId,
+              ownershipState: failedTargetTile.ownershipState,
+              optimisticPending: failedTargetTile.optimisticPending,
+              detailLevel: failedTargetTile.detailLevel
+            }
+          : undefined,
+        actionCurrent: state.actionCurrent,
+        queuedActions: state.actionQueue.length,
+        selected: state.selected,
+        hover: state.hover
+      });
       console.error("[server-error]", {
         code: msg.code,
         message: msg.message,

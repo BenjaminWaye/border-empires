@@ -49,7 +49,8 @@ describe("server HTTP routes", () => {
       now: () => 0,
       telemetryCounters: { frontierClaims: 0, settlements: 0, breakthroughAttacks: 0, techUnlocks: 0 },
       aiTurnDebugByPlayer: new Map(),
-      buildAdminPlayersPayload: () => ({ ok: true })
+      buildAdminPlayersPayload: () => ({ ok: true }),
+      serverDebugBundle: { snapshot: () => [{ event: "frontier_action_received" }] }
     });
 
     activeSeason = makeSeason({ techTreeConfigId: "seasonal-default" });
@@ -76,6 +77,18 @@ describe("server HTTP routes", () => {
         seasonId: "s-2",
         techTreeConfigId: "seasonal-default"
       })
+    });
+
+    const debugBundleResponse = await app.inject({ method: "GET", url: "/admin/runtime/debug-bundle" });
+
+    expect(debugBundleResponse.statusCode).toBe(200);
+    expect(debugBundleResponse.json()).toMatchObject({
+      ok: true,
+      health: {
+        ok: true,
+        startupElapsedMs: 1
+      },
+      recentServerEvents: [{ event: "frontier_action_received" }]
     });
 
     await app.close();

@@ -10,6 +10,7 @@ import { bindClientMapInput } from "./client-map-input.js";
 import { bindClientNetwork } from "./client-network.js";
 import { renderClientHud, resizeClientViewport } from "./client-hud.js";
 import { bindClientUiControls } from "./client-ui-controls.js";
+import { downloadClientDebugBundle } from "./client-debug-bundle.js";
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
 
 type BootstrapDeps = Record<string, any>;
@@ -275,10 +276,17 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       captureWrapEl: dom.captureWrapEl,
       captureCancelBtn: dom.captureCancelBtn,
       captureCloseBtn: dom.captureCloseBtn,
+      captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
       captureBarEl: dom.captureBarEl,
       captureTitleEl: dom.captureTitleEl,
       captureTimeEl: dom.captureTimeEl,
       captureTargetEl: dom.captureTargetEl
+    });
+
+  const downloadDebugBundle = (): Promise<void> =>
+    downloadClientDebugBundle({
+      state,
+      wsUrl
     });
 
   const renderShardAlert = (): void =>
@@ -401,6 +409,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     collectVisibleMobileBtn,
     captureCancelBtn,
     captureCloseBtn,
+    captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
     captureTimeEl,
     shardAlertCloseBtn,
     panelCloseBtn,
@@ -423,6 +432,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     hideShardAlert: deps.hideShardAlert,
     renderShardAlert,
     renderCaptureProgress,
+    downloadDebugBundle,
     setActivePanel,
     syncAuthPanelState
   });
