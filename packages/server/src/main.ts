@@ -29,16 +29,12 @@ import {
   DOCK_PAIRS_MIN,
   FORT_BUILD_COST,
   FORT_BUILD_MS,
-  FORT_DEFENSE_MULT,
-  LIGHT_OUTPOST_ATTACK_MULT,
   LIGHT_OUTPOST_BUILD_MS,
   OBSERVATORY_BUILD_MS,
   OBSERVATORY_UPKEEP_PER_MIN,
-  SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_OUTPOST_BUILD_COST,
   SIEGE_OUTPOST_BUILD_MS,
   WOODEN_FORT_BUILD_MS,
-  WOODEN_FORT_DEFENSE_MULT,
   PVP_REPEAT_FLOOR,
   PVP_REPEAT_WINDOW_MS,
   SEASON_LENGTH_DAYS,
@@ -506,6 +502,7 @@ import { createServerWorldgenTerrain } from "./server-worldgen-terrain.js";
 import { createServerWorldgenTowns } from "./server-worldgen-towns.js";
 import { supportedFrontierUsesSettledDefense } from "./frontier-defense.js";
 import { resolveFailedBarbarianDefenseOutcome } from "./barbarian-defense.js";
+import { fortDefenseMultiplier, fortifiedTargetAttackMultiplier, outpostAttackMultiplier } from "./fort-combat-balance.js";
 import { createServerSeasonTech } from "./server-season-tech.js";
 import { createServerTerritoryStructureRuntime } from "./server-territory-structure-runtime.js";
 import { createServerPlayerEconomyRuntime } from "./server-player-economy-runtime.js";
@@ -2702,13 +2699,46 @@ const fortOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => 
   return fortRecoveryReadyAt(fort) <= now();
 };
 
+const woodenFortOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => {
+  const structure = economicStructuresByTile.get(tileKey);
+  if (!structure || structure.ownerId !== ownerId || structure.status !== "active" || structure.type !== "WOODEN_FORT") return false;
+  const [x, y] = parseKey(tileKey);
+  return terrainAtRuntime(x, y) === "LAND" && ownership.get(tileKey) === ownerId;
+};
+
+const siegeOutpostOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => {
+  const siegeOutpost = siegeOutpostsByTile.get(tileKey);
+  if (!siegeOutpost || siegeOutpost.ownerId !== ownerId || siegeOutpost.status !== "active") return false;
+  const [x, y] = parseKey(tileKey);
+  return terrainAtRuntime(x, y) === "LAND" && ownership.get(tileKey) === ownerId;
+};
+
+const lightOutpostOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => {
+  const structure = economicStructuresByTile.get(tileKey);
+  if (!structure || structure.ownerId !== ownerId || structure.status !== "active" || structure.type !== "LIGHT_OUTPOST") return false;
+  const [x, y] = parseKey(tileKey);
+  return terrainAtRuntime(x, y) === "LAND" && ownership.get(tileKey) === ownerId;
+};
+
+const targetHasActiveFortification = (ownerId: string, tileKey: TileKey): boolean =>
+  fortOperationalForOwner(ownerId, tileKey) || woodenFortOperationalForOwner(ownerId, tileKey);
+
+const originHasActiveOutpost = (ownerId: string, tileKey: TileKey): boolean =>
+  siegeOutpostOperationalForOwner(ownerId, tileKey) || lightOutpostOperationalForOwner(ownerId, tileKey);
+
 const fortDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
   if (fortOperationalForOwner(defenderId, tileKey)) {
-    return FORT_DEFENSE_MULT * getPlayerEffectsForPlayer(defenderId).fortDefenseMult;
+    return fortDefenseMultiplier({
+      hasFort: true,
+      hasWoodenFort: false,
+      fortDefenseEffectsMult: getPlayerEffectsForPlayer(defenderId).fortDefenseMult
+    });
   }
-  const structure = economicStructuresByTile.get(tileKey);
-  if (structure?.status !== "active" || structure.ownerId !== defenderId || structure.type !== "WOODEN_FORT") return 1;
-  return WOODEN_FORT_DEFENSE_MULT;
+  return fortDefenseMultiplier({
+    hasFort: false,
+    hasWoodenFort: woodenFortOperationalForOwner(defenderId, tileKey),
+    fortDefenseEffectsMult: getPlayerEffectsForPlayer(defenderId).fortDefenseMult
+  });
 };
 
 const settledDefenseNearFortApplies = (defenderId: string, target: Tile): boolean => {
@@ -2746,26 +2776,24 @@ const frontierDefenseAddForTarget = (defenderId: string, target: Tile): number =
 };
 
 const outpostAttackMultAt = (attackerId: string, tileKey: TileKey): number => {
-  const siegeOnOrigin = siegeOutpostsByTile.get(tileKey);
-  if (siegeOnOrigin?.status === "active" && siegeOnOrigin.ownerId === attackerId) {
-    return SIEGE_OUTPOST_ATTACK_MULT * getPlayerEffectsForPlayer(attackerId).outpostAttackMult;
-  }
-  const structure = economicStructuresByTile.get(tileKey);
-  if (structure?.status !== "active" || structure.ownerId !== attackerId || structure.type !== "LIGHT_OUTPOST") return 1;
-  return LIGHT_OUTPOST_ATTACK_MULT;
+  return outpostAttackMultiplier({
+    hasSiegeOutpost: siegeOutpostOperationalForOwner(attackerId, tileKey),
+    hasLightOutpost: lightOutpostOperationalForOwner(attackerId, tileKey),
+    outpostAttackEffectsMult: getPlayerEffectsForPlayer(attackerId).outpostAttackMult
+  });
 };
 
-const attackMultiplierForTarget = (attackerId: string, target: Tile): number => {
+const attackMultiplierForTarget = (attackerId: string, target: Tile, originTileKey?: TileKey): number => {
   const effects = getPlayerEffectsForPlayer(attackerId);
   let mult = 1;
   if (target.ownershipState === "SETTLED") mult *= effects.attackVsSettledMult;
   const targetKey = key(target.x, target.y);
-  if (
-    (target.ownerId ? fortOperationalForOwner(target.ownerId, targetKey) : false) ||
-    economicStructuresByTile.get(targetKey)?.status === "active" && economicStructuresByTile.get(targetKey)?.type === "WOODEN_FORT"
-  ) {
-    mult *= effects.attackVsFortsMult;
-  }
+  const targetHasFortification = target.ownerId ? targetHasActiveFortification(target.ownerId, targetKey) : false;
+  if (targetHasFortification) mult *= effects.attackVsFortsMult;
+  mult *= fortifiedTargetAttackMultiplier({
+    targetHasFortification,
+    originHasOutpost: originTileKey ? originHasActiveOutpost(attackerId, originTileKey) : false
+  });
   if (target.ownerId) mult *= truceBreakAttackMultiplier(attackerId, target.ownerId);
   return mult;
 };
@@ -2786,8 +2814,7 @@ const settledDefenseMultiplierForTarget = (defenderId: string, target: Tile): nu
 
 const originTileHeldByActiveFort = (actorId: string, tileKey: TileKey): boolean => {
   if (fortOperationalForOwner(actorId, tileKey)) return true;
-  const structure = economicStructuresByTile.get(tileKey);
-  return Boolean(structure?.ownerId === actorId && structure.status === "active" && structure.type === "WOODEN_FORT");
+  return woodenFortOperationalForOwner(actorId, tileKey);
 };
 
 const applyFailedAttackTerritoryOutcome = (
@@ -3478,7 +3505,7 @@ const tryQueueBasicFrontierAction = (
   if (defender || defenderIsBarbarian) {
     const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
     const atkEff =
-      10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to) * siegeAtkMult * randomFactor();
+      10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to, fk) * siegeAtkMult * randomFactor();
     const shock = breachShockByTile.get(tk);
     const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
     const defMult = defender ? playerDefensiveness(defender) * shockMult : 1;
@@ -5721,8 +5748,10 @@ const bestAiEnemyPressureAttack = (
     if (signal <= 0) continue;
     let score = signal;
     const targetKey = key(to.x, to.y);
+    const originTileKey = key(from.x, from.y);
     const defender = players.get(to.ownerId);
-    const attackBase = 10 * actor.mods.attack * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to);
+    const attackBase =
+      10 * actor.mods.attack * activeAttackBuffMult(actor.id) * outpostAttackMultAt(actor.id, originTileKey) * attackMultiplierForTarget(actor.id, to, originTileKey);
     const defenseBase =
       10 *
       (defender?.mods.defense ?? 1) *
@@ -13238,7 +13267,7 @@ registerServerHttpRoutes(app, {
       const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
       const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
-      const atkEff = 10 * actor.mods.attack * siegeAtkMult * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to);
+      const atkEff = 10 * actor.mods.attack * siegeAtkMult * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to, fk);
       const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
       const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
       const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
@@ -13599,7 +13628,7 @@ registerServerHttpRoutes(app, {
           10 *
           actor.mods.attack *
           activeAttackBuffMult(actor.id) *
-          attackMultiplierForTarget(actor.id, to) *
+          attackMultiplierForTarget(actor.id, to, fk) *
           siegeAtkMult,
         defenseBase: defenderIsBarbarian
           ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
