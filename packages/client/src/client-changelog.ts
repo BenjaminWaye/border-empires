@@ -18,9 +18,9 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.5",
+  version: "2026.04.12.6",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including icon-based combat rewards and tougher fortified border fights.",
+  summary: "Recent updates now explain what changed after sign-in, including staged shard-rain reveals, steadier release-note scrolling, icon-based combat rewards, and tougher fortified border fights.",
   entries: [
     {
       title: "Changelog scrolling now stays where you left it",
@@ -28,6 +28,14 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Stopped rebuilding the changelog modal on every HUD render while the same release is open.",
         "Preserved the popup scroll position so long changelog entries stay stable while you read them."
+      ]
+    },
+    {
+      title: "Shard rain now pings fresh drop spots",
+      why: "Shard rain was easy to miss because players had to manually spot each new shardfall tile while the event timer was already ticking down.",
+      changes: [
+        "Added animated minimap pings for newly revealed shardfall deposits during active shard rain.",
+        "Staggered shardfall reveals over the first two minutes of shard rain and let each minimap ping persist for 30 seconds before clearing."
       ]
     },
     {

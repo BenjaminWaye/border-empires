@@ -1,4 +1,5 @@
 import { COLLECT_VISIBLE_COOLDOWN_MS } from "./client-constants.js";
+import { visibleShardSiteForTile } from "./client-shard-rain-pings.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile } from "./client-types.js";
 
@@ -156,7 +157,7 @@ export const collectSelectedYield = (
 };
 
 export const collectSelectedShard = (
-  state: Pick<ClientState, "selected" | "tiles">,
+  state: Pick<ClientState, "selected" | "tiles" | "shardRainPingsByTile">,
   deps: {
     keyFor: (x: number, y: number) => string;
     renderHud: () => void;
@@ -166,7 +167,8 @@ export const collectSelectedShard = (
   const selected = state.selected;
   if (!selected) return;
   const tile = state.tiles.get(deps.keyFor(selected.x, selected.y));
-  if (!tile?.shardSite || tile.fogged) return;
+  const shardSite = visibleShardSiteForTile(tile, state.shardRainPingsByTile);
+  if (!tile || !shardSite) return;
   state.tiles.set(deps.keyFor(selected.x, selected.y), { ...tile, shardSite: null });
   deps.renderHud();
   deps.sendGameMessage({ type: "COLLECT_SHARD", x: selected.x, y: selected.y });
