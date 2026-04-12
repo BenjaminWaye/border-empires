@@ -10,6 +10,7 @@ import { structureAreaPreviewForTile } from "./client-structure-effects.js";
 import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
+import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail.js";
@@ -278,15 +279,17 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
 
-      if (t && vis === "visible" && t.terrain === "LAND" && t.shardSite) {
-        const overlay = deps.shardOverlayForTile(t);
+      const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
+      if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite) {
+        const tileWithVisibleShard = visibleShardSite === t.shardSite ? t : { ...t, shardSite: visibleShardSite };
+        const overlay = deps.shardOverlayForTile(tileWithVisibleShard);
         const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
         const pulse = 0.82 + 0.18 * pulsePhase;
-        const glowRadius = size * (0.28 + pulsePhase * (t.shardSite.kind === "FALL" ? 0.3 : 0.24));
+        const glowRadius = size * (0.28 + pulsePhase * (visibleShardSite.kind === "FALL" ? 0.3 : 0.24));
         deps.ctx.save();
         deps.ctx.globalCompositeOperation = "screen";
         deps.ctx.fillStyle =
-          t.shardSite.kind === "FALL"
+          visibleShardSite.kind === "FALL"
             ? `rgba(255, 220, 112, ${0.16 + pulsePhase * 0.18})`
             : `rgba(96, 244, 255, ${0.14 + pulsePhase * 0.16})`;
         deps.ctx.beginPath();
@@ -294,7 +297,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.fill();
         deps.ctx.lineWidth = Math.max(2, size * 0.08);
         deps.ctx.strokeStyle =
-          t.shardSite.kind === "FALL"
+          visibleShardSite.kind === "FALL"
             ? `rgba(255, 245, 180, ${0.38 + pulsePhase * 0.34})`
             : `rgba(184, 255, 255, ${0.34 + pulsePhase * 0.3})`;
         deps.ctx.beginPath();
@@ -307,13 +310,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             px,
             py,
             size,
-            (t.shardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
+            (visibleShardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
             0.86 + pulse * 0.18
           );
         } else {
           const prevAlpha = deps.ctx.globalAlpha;
           deps.ctx.globalAlpha = prevAlpha * (0.88 + pulse * 0.16);
-          deps.drawShardFallback(t, px, py, size * (0.99 + pulse * 0.03));
+          deps.drawShardFallback(tileWithVisibleShard, px, py, size * (0.99 + pulse * 0.03));
           deps.ctx.globalAlpha = prevAlpha;
         }
       }
@@ -806,15 +809,17 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.shardSite) {
-          const overlay = deps.shardOverlayForTile(t);
+        const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
+        if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite) {
+          const tileWithVisibleShard = visibleShardSite === t.shardSite ? t : { ...t, shardSite: visibleShardSite };
+          const overlay = deps.shardOverlayForTile(tileWithVisibleShard);
           const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
           const pulse = 0.82 + 0.18 * pulsePhase;
-          const glowRadius = size * (0.28 + pulsePhase * (t.shardSite.kind === "FALL" ? 0.3 : 0.24));
+          const glowRadius = size * (0.28 + pulsePhase * (visibleShardSite.kind === "FALL" ? 0.3 : 0.24));
           deps.ctx.save();
           deps.ctx.globalCompositeOperation = "screen";
           deps.ctx.fillStyle =
-            t.shardSite.kind === "FALL"
+            visibleShardSite.kind === "FALL"
               ? `rgba(255, 220, 112, ${0.16 + pulsePhase * 0.18})`
               : `rgba(96, 244, 255, ${0.14 + pulsePhase * 0.16})`;
           deps.ctx.beginPath();
@@ -822,7 +827,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fill();
           deps.ctx.lineWidth = Math.max(2, size * 0.08);
           deps.ctx.strokeStyle =
-            t.shardSite.kind === "FALL"
+            visibleShardSite.kind === "FALL"
               ? `rgba(255, 245, 180, ${0.38 + pulsePhase * 0.34})`
               : `rgba(184, 255, 255, ${0.34 + pulsePhase * 0.3})`;
           deps.ctx.beginPath();
@@ -835,13 +840,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
               px,
               py,
               size,
-              (t.shardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
+              (visibleShardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
               0.86 + pulse * 0.18
             );
           } else {
             const prevAlpha = deps.ctx.globalAlpha;
             deps.ctx.globalAlpha = prevAlpha * (0.88 + pulse * 0.16);
-            deps.drawShardFallback(t, px, py, size * (0.99 + pulse * 0.03));
+            deps.drawShardFallback(tileWithVisibleShard, px, py, size * (0.99 + pulse * 0.03));
             deps.ctx.globalAlpha = prevAlpha;
           }
         }
@@ -1415,6 +1420,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       deps.drawAetherBridgeLane(deps.ctx, from.sx, from.sy, to.sx, to.sy, nowMs);
     }
 
+    pruneShardRainPings(state);
     if (state.shardRainFxUntil > nowMs) {
       const fxProgress = Math.max(0, (state.shardRainFxUntil - nowMs) / 8_000);
       deps.ctx.save();
