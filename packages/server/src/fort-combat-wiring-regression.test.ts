@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 
 const mainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return [
+    readFileSync(resolve(here, "./main.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-combat-support-runtime.ts"), "utf8")
+  ].join("\n");
 };
 
 const functionBody = (source: string, functionName: string): string => {
@@ -35,8 +38,8 @@ describe("fort combat wiring regression guard", () => {
     expect(source).toContain(
       "const attackMultiplierForTarget = (attackerId: string, target: Tile, originTileKey?: TileKey): number => {"
     );
-    expect(body).toContain("const targetHasFortification = target.ownerId ? targetHasActiveFortification(target.ownerId, targetKey) : false;");
-    expect(body).toContain("fortifiedTargetAttackMultiplier({");
+    expect(body).toContain("const fortifiedTarget = target.ownerId ? targetHasActiveFortification(target.ownerId, targetKey) : false;");
+    expect(body).toContain("deps.fortifiedTargetAttackMultiplier({");
     expect(body).toContain("originHasOutpost: originTileKey ? originHasActiveOutpost(attackerId, originTileKey) : false");
     expect(source).toContain("attackMultiplierForTarget(actor.id, to, fk)");
   });

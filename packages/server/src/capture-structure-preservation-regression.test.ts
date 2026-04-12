@@ -8,6 +8,7 @@ const serverSource = (): string => {
   return [
     readFileSync(resolve(here, "./main.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-support.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-combat-support-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./sim/chunk-state.ts"), "utf8")
   ].join("\n");
 };
@@ -47,7 +48,7 @@ describe("captured structure preservation regression guard", () => {
     const source = serverSource();
     const fortHelperBody = functionBody(source, "fortOperationalForOwner");
     const defenseBody = functionBody(source, "fortDefenseMultAt");
-    expect(fortHelperBody).toContain("return fortRecoveryReadyAt(fort) <= now();");
+    expect(fortHelperBody).toContain("return fortRecoveryReadyAt(fort) <= deps.now();");
     expect(defenseBody).toContain("if (fortOperationalForOwner(defenderId, tileKey)) {");
     expect(source).toContain("if (fort.disabledUntil !== undefined) fortView.disabledUntil = fort.disabledUntil;");
   });
