@@ -116,6 +116,6 @@ describe("combatResolutionAlert", () => {
       }
     );
 
-    expect(result.detail).toBe("Aetherwick was conquered from Enemy Empire. Plundered 132.50 gold, 4 FOOD, 1.50 IRON.");
+    expect(result.detail).toBe("Aetherwick was conquered from Enemy Empire. Plundered ◉ 132.50, 🍞 4 FOOD, ⛏ 1.50 IRON.");
   });
 });
