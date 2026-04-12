@@ -55,6 +55,7 @@ type CreateAiRuntimeDeps<TPlayer extends Player, TCompetitionMetric, TAnalysis, 
   aiQueueDepth: () => number;
   simulationQueueDepth: () => number;
   humanChunkSnapshotPriorityActive: () => boolean;
+  humanFrontierActionPriorityActive: () => boolean;
   collectCompetitionMetrics: (nowMs: number) => TCompetitionMetric[];
   incomeForMetric: (metric: TCompetitionMetric) => number;
   playerIdForMetric: (metric: TCompetitionMetric) => string;
@@ -120,6 +121,7 @@ export const createAiRuntime = <
     aiQueueDepth: deps.aiQueueDepth,
     simulationQueueDepth: deps.simulationQueueDepth,
     humanChunkSnapshotPriorityActive: deps.humanChunkSnapshotPriorityActive,
+    humanFrontierActionPriorityActive: deps.humanFrontierActionPriorityActive,
     getAiCompetitionContext: getCompetitionContext,
     createTickContext: deps.createTickContext,
     enqueueAiWorkerJob: deps.enqueueAiWorkerJob,

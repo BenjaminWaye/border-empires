@@ -50,7 +50,23 @@ describe("server HTTP routes", () => {
       telemetryCounters: { frontierClaims: 0, settlements: 0, breakthroughAttacks: 0, techUnlocks: 0 },
       aiTurnDebugByPlayer: new Map(),
       buildAdminPlayersPayload: () => ({ ok: true }),
-      serverDebugBundle: { snapshot: () => [{ event: "frontier_action_received" }] }
+      serverDebugBundle: {
+        snapshot: () => [
+          { at: 1, level: "info", event: "frontier_action_received", payload: {} }
+        ],
+        snapshotAttackTraces: () => [
+          {
+            traceId: "trace-1",
+            firstAt: 1,
+            lastAt: 2,
+            playerId: "p1",
+            actionType: "ATTACK",
+            origin: { x: 1, y: 2 },
+            target: { x: 3, y: 4 },
+            events: [{ at: 1, level: "info", event: "frontier_action_received", payload: {} }]
+          }
+        ]
+      }
     });
 
     activeSeason = makeSeason({ techTreeConfigId: "seasonal-default" });
@@ -84,6 +100,12 @@ describe("server HTTP routes", () => {
     expect(debugBundleResponse.statusCode).toBe(200);
     expect(debugBundleResponse.json()).toMatchObject({
       ok: true,
+      attackDebug: {
+        controlPath: [{ event: "frontier_action_received" }],
+        hotPath: [],
+        slowOrWarn: []
+      },
+      attackTraces: [{ traceId: "trace-1", actionType: "ATTACK" }],
       health: {
         ok: true,
         startupElapsedMs: 1

@@ -559,6 +559,44 @@ describe("client network regression guards", () => {
     expect(deps.requestTileDetailIfNeeded).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 247, ownerId: "me" }));
   });
 
+  it("does not advance the queued attack chain when an attack target flips to frontier before combat result arrives", () => {
+    const state = createState();
+    state.actionInFlight = true;
+    state.actionTargetKey = "100,247";
+    state.actionAcceptedAck = true;
+    state.combatStartAck = true;
+    state.actionStartedAt = Date.now() - 500;
+    state.actionCurrent = { x: 100, y: 247, retries: 0, actionType: "ATTACK" };
+    state.capture = { startAt: Date.now() - 500, resolvesAt: Date.now() + 2_500, target: { x: 100, y: 247 } };
+    state.actionQueue = [{ x: 101, y: 247, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["100,247", "101,247"]);
+    state.tiles.set("100,247", {
+      x: 100,
+      y: 247,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "enemy",
+      ownershipState: "SETTLED",
+      detailLevel: "full"
+    });
+    const ws = new FakeWebSocket();
+    const deps = bindWithDeps(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [{ x: 100, y: 247, terrain: "LAND", fogged: false, ownerId: "me", ownershipState: "FRONTIER", detailLevel: "full" }]
+      })
+    });
+
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionTargetKey).toBe("100,247");
+    expect(state.actionCurrent).toEqual(expect.objectContaining({ x: 100, y: 247, actionType: "ATTACK" }));
+    expect(state.capture).toEqual(expect.objectContaining({ target: { x: 100, y: 247 } }));
+    expect(state.actionQueue).toEqual([{ x: 101, y: 247, retries: 0 }]);
+    expect(deps.processActionQueue).not.toHaveBeenCalled();
+  });
+
   it("keeps waiting for frontier sync when a chunk refresh still shows the target as neutral", () => {
     const state = createState();
     state.actionInFlight = false;
