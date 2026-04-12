@@ -355,4 +355,70 @@ describe("createChunkSnapshotController", () => {
       expect(sentPayloads).toEqual(["direct:0,0|direct:1,0"]);
     }
   );
+
+  it("defers chunk snapshot streaming while human frontier priority is active", async () => {
+    vi.useFakeTimers();
+    let humanPriorityActive = true;
+    const sentPayloads: string[] = [];
+    const actor = makePlayer("player-1");
+    const controller = createChunkSnapshotController<Player>({
+      chunkSize: 1,
+      chunkCountX: 8,
+      chunkCountY: 8,
+      initialBootstrapRadius: 0,
+      chunkStreamBatchSize: 4,
+      chunkSnapshotBatchSize: 4,
+      chunkSnapshotBudgetMs: 24,
+      chunkSnapshotWarnMs: 60,
+      chunkSnapshotYieldMs: 4,
+      chunkSnapshotOverloadYieldMs: 16,
+      now: () => Date.now(),
+      wrapChunkX: (value) => value,
+      wrapChunkY: (value) => value,
+      runtimeMemoryStats: () => ({ rssMb: 0, heapUsedMb: 0, heapTotalMb: 0, externalMb: 0, arrayBuffersMb: 0 }),
+      pushChunkSnapshotPerf: () => undefined,
+      onFirstChunkSent: () => undefined,
+      onSlowChunkSnapshot: () => undefined,
+      visibilitySnapshotForPlayer: () => ({ allVisible: true, visibleMask: new Uint8Array(0) }),
+      cachedChunkSnapshotByPlayer: new Map(),
+      fogChunkTilesByChunkKey: new Map(),
+      chunkSnapshotGenerationByPlayer: new Map(),
+      chunkSnapshotInFlightByPlayer: new Map(),
+      chunkSnapshotSentAtByPlayer: new Map(),
+      chunkSubscriptionByPlayer: new Map([[actor.id, { cx: 0, cy: 0, radius: 0 }]]),
+      authSyncTimingByPlayer: new Map(),
+      fogChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
+      summaryChunkTiles: (worldCx, worldCy) => [makeTile(worldCx, worldCy)],
+      summaryChunkVersion: () => 0,
+      loadSummaryChunkTilesBatch: async (requests) => requests.map(({ cx, cy }) => [makeTile(cx, cy)]),
+      visibleInSnapshot: () => true,
+      wrapX: (value) => value,
+      wrapY: (value) => value,
+      worldWidth: 32,
+      worldHeight: 32,
+      serializeChunkBatchViaWorker: async (inputs) => inputs.map((input) => `worker:${input.cx},${input.cy}`),
+      serializeChunkBatchDirect: (inputs) => inputs.map((input) => `direct:${input.cx},${input.cy}`),
+      serializeChunkBatchBodies: (_generation, chunkBodies) => chunkBodies.join("|"),
+      sendChunkBatchPayload: (socket, payload) => socket.send(payload),
+      runtimeLoadShedLevel: () => "normal",
+      humanFrontierActionPriorityActive: () => humanPriorityActive
+    });
+
+    controller.sendChunkSnapshot(
+      { readyState: 1, OPEN: 1, send: (payload) => sentPayloads.push(payload) },
+      actor,
+      { cx: 0, cy: 0, radius: 0 },
+      undefined,
+      [{ cx: 0, cy: 0 }],
+      "thin",
+      1
+    );
+
+    await vi.advanceTimersByTimeAsync(15);
+    expect(sentPayloads).toEqual([]);
+
+    humanPriorityActive = false;
+    await vi.advanceTimersByTimeAsync(1);
+    expect(sentPayloads).toEqual(["direct:0,0"]);
+  });
 });

@@ -276,6 +276,24 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(body).toContain('return resolveAiPlannerFallback(snapshot, "worker_backpressure");');
   });
 
+  it("never falls back to running the planner on the main thread when the worker is unavailable", () => {
+    const body = functionBody(serverMainSource(), "resolveAiPlannerFallback");
+    expect(body).toContain('reason: `skipped_${reason}`');
+    expect(body).not.toContain("planAiDecision(snapshot)");
+  });
+
+  it("yields AI attack execution before heavy frontier selectors when human frontier priority is active", () => {
+    const body = functionBody(serverMainSource(), "executeAiGoapAction");
+    const barbarianAttackStart = body.indexOf('if (actionKey === "attack_barbarian_border_tile")');
+    const enemyAttackStart = body.indexOf('if (actionKey === "attack_enemy_border_tile")');
+    expect(barbarianAttackStart).toBeGreaterThanOrEqual(0);
+    expect(enemyAttackStart).toBeGreaterThanOrEqual(0);
+    const barbarianAttackBranch = body.slice(barbarianAttackStart, enemyAttackStart);
+    const enemyAttackBranch = body.slice(enemyAttackStart, body.indexOf('if (actionKey === "settle_owned_frontier_tile")', enemyAttackStart));
+    expect(barbarianAttackBranch).toContain("if (!candidates?.barbarianAttack && humanFrontierActionPriorityActive()) return false;");
+    expect(enemyAttackBranch).toContain("if (!candidates?.pressureAttack && !candidates?.enemyAttack && humanFrontierActionPriorityActive()) return false;");
+  });
+
   it("deduplicates frontier candidates before heavy planning scans", () => {
     const body = functionBody(serverMainSource(), "buildAiTerritoryStructureCache");
     expect(body).toContain("const expandCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();");

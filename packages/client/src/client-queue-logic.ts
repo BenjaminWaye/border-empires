@@ -908,6 +908,7 @@ export const processActionQueue = (
       x: to.x,
       y: to.y,
       retries: next.retries ?? 0,
+      actionType: !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK",
       ...(next.mode ? { mode: next.mode } : {})
     };
     state.actionInFlight = true;

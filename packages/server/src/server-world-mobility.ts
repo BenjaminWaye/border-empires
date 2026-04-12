@@ -134,16 +134,14 @@ export const createServerWorldMobility = (deps: ServerWorldMobilityDeps): Server
   };
 
   const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): boolean =>
-    dockLinkedDestinations(fromDock).some((targetDock) => {
-      const [px, py] = parseKey(targetDock.tileKey);
+    dockLinkedTileKeys(fromDock).some((targetDockTileKey) => {
+      const [px, py] = parseKey(targetDockTileKey);
       return (toX === px && toY === py) || (allowAdjacentToDock && isAdjacentTile(px, py, toX, toY));
     });
 
   const findOwnedDockOriginForCrossing = (actor: Player, toX: number, toY: number, allowAdjacentToDock = true): Tile | undefined => {
-    for (const tk of actor.territoryTiles) {
-      const dock = docksByTile.get(tk);
-      if (!dock) continue;
-      const tile = playerTile(...parseKey(tk));
+    for (const [tileKey, dock] of docksByTile) {
+      const tile = playerTile(...parseKey(tileKey));
       if (tile.ownerId !== actor.id || tile.terrain !== "LAND") continue;
       if (validDockCrossingTarget(dock, toX, toY, allowAdjacentToDock)) return tile;
     }

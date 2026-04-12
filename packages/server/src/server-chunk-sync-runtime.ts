@@ -1,5 +1,6 @@
 import type { Player, Tile } from "@border-empires/shared";
 import { createChunkReadManager } from "./sim/chunk-read-manager.js";
+import type { ChunkReadRequest } from "./sim/chunk-read-shared.js";
 import {
   createChunkSnapshotController,
   type ChunkFollowUpStage,
@@ -104,6 +105,7 @@ export interface CreateServerChunkSyncRuntimeDeps {
   sendChunkBatchPayload: (socket: { readyState: number; OPEN: number; send: (payload: string) => void }, payload: string) => void;
   runtimeLoadShedLevel: () => "normal" | "soft" | "hard";
   bulkSocketForPlayer: (playerId: string) => { readyState: number; OPEN: number; send: (payload: string) => void } | undefined;
+  humanFrontierActionPriorityActive?: () => boolean;
 }
 
 export interface ServerChunkSyncRuntime {
@@ -135,12 +137,7 @@ export const createServerChunkSyncRuntime = (
     loadChunkTileLocal: (x, y, mode) => deps.summaryTileAt(x, y, mode)
   });
 
-  const {
-    chunkCoordsForSubscription,
-    buildBootstrapChunkStages,
-    sendChunkSnapshot,
-    tileInSubscription
-  } = createChunkSnapshotController<Player>({
+  const chunkSnapshotControllerDeps = {
     chunkSize: deps.CHUNK_SIZE,
     chunkCountX,
     chunkCountY,
@@ -166,7 +163,7 @@ export const createServerChunkSyncRuntime = (
     chunkSnapshotSentAtByPlayer: deps.chunkSnapshotSentAtByPlayer,
     chunkSubscriptionByPlayer: deps.chunkSubscriptionByPlayer,
     authSyncTimingByPlayer: deps.authSyncTimingByPlayer,
-    fogChunkTiles: (worldCx, worldCy) => {
+    fogChunkTiles: (worldCx: number, worldCy: number) => {
       const chunkKey = `${worldCx},${worldCy}`;
       const cached = deps.fogChunkTilesByChunkKey.get(chunkKey);
       if (cached) return cached;
@@ -198,8 +195,8 @@ export const createServerChunkSyncRuntime = (
       return tiles;
     },
     summaryChunkTiles: deps.summaryChunkTiles,
-    summaryChunkVersion: (worldCx, worldCy) => deps.summaryChunkVersionByChunkKey.get(`${worldCx},${worldCy}`) ?? 0,
-    loadSummaryChunkTilesBatch: (requests) => chunkReadManager.loadBatch(requests),
+    summaryChunkVersion: (worldCx: number, worldCy: number) => deps.summaryChunkVersionByChunkKey.get(`${worldCx},${worldCy}`) ?? 0,
+    loadSummaryChunkTilesBatch: (requests: ChunkReadRequest[]) => chunkReadManager.loadBatch(requests),
     visibleInSnapshot: deps.visibleInSnapshot,
     wrapX: deps.wrapX,
     wrapY: deps.wrapY,
@@ -209,8 +206,18 @@ export const createServerChunkSyncRuntime = (
     serializeChunkBatchDirect: deps.serializeChunkBatchDirect,
     serializeChunkBatchBodies: deps.serializeChunkBatchBodies,
     sendChunkBatchPayload: deps.sendChunkBatchPayload,
-    runtimeLoadShedLevel: deps.runtimeLoadShedLevel
-  });
+    runtimeLoadShedLevel: deps.runtimeLoadShedLevel,
+    ...(deps.humanFrontierActionPriorityActive
+      ? { humanFrontierActionPriorityActive: deps.humanFrontierActionPriorityActive }
+      : {})
+  };
+
+  const {
+    chunkCoordsForSubscription,
+    buildBootstrapChunkStages,
+    sendChunkSnapshot,
+    tileInSubscription
+  } = createChunkSnapshotController<Player>(chunkSnapshotControllerDeps);
 
   const refreshSubscribedViewForPlayer = (playerId: string): void => {
     const socket = deps.bulkSocketForPlayer(playerId);

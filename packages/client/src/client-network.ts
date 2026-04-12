@@ -285,9 +285,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.frontierLateAckUntilByTarget.delete(tileKey);
   };
 
+  const currentActionCanResolveFromFrontierOwnership = (targetKey: string): boolean => {
+    if (!state.actionInFlight || !state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) return false;
+    return state.actionCurrent.actionType === "EXPAND";
+  };
+
   const rebindLateFrontierAck = (
     target: { x: number; y: number },
-    source: "ACTION_ACCEPTED" | "COMBAT_START"
+    source: "ACTION_ACCEPTED" | "COMBAT_START",
+    actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK"
   ): void => {
     const targetKey = keyFor(target.x, target.y);
     const lateAckUntil = state.frontierLateAckUntilByTarget.get(targetKey) ?? 0;
@@ -295,7 +301,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.actionInFlight = true;
     state.actionTargetKey = targetKey;
     if (!state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) {
-      state.actionCurrent = { x: target.x, y: target.y, retries: 0 };
+      state.actionCurrent = { x: target.x, y: target.y, retries: 0, ...(actionType ? { actionType } : {}) };
+    } else if (actionType) {
+      state.actionCurrent.actionType = actionType;
     }
     if (!state.actionStartedAt) state.actionStartedAt = Date.now();
     clearLateFrontierAck(targetKey);
@@ -1146,7 +1154,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
         currentAction: state.actionCurrent
       });
-      rebindLateFrontierAck(target, "ACTION_ACCEPTED");
+      rebindLateFrontierAck(target, "ACTION_ACCEPTED", msg.actionType as "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | undefined);
       if (msg.actionType === "EXPAND") applyAcceptedExpandOptimisticState(target);
       state.actionAcceptedAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
@@ -1200,7 +1208,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
         currentAction: state.actionCurrent
       });
-      rebindLateFrontierAck(target, "COMBAT_START");
+      rebindLateFrontierAck(
+        target,
+        "COMBAT_START",
+        ((msg.predictedResult as { attackType?: string } | undefined)?.attackType as "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | undefined) ??
+          state.actionCurrent?.actionType
+      );
       if ((msg.predictedResult as { attackType?: string } | undefined)?.attackType === "EXPAND") applyAcceptedExpandOptimisticState(target);
       state.actionAcceptedAck = true;
       state.combatStartAck = true;
@@ -1473,7 +1486,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (
           !resolvedQueuedFrontierCapture &&
           updateKey === state.actionTargetKey &&
-          state.actionInFlight &&
+          currentActionCanResolveFromFrontierOwnership(updateKey) &&
           resolved.ownerId === state.me &&
           resolved.ownershipState === "FRONTIER"
         ) {

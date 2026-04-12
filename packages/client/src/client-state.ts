@@ -371,7 +371,15 @@ export const createInitialState = () => ({
   actionAcceptTimeoutHandledAt: 0,
   actionStartedAt: 0,
   actionTargetKey: "",
-  actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } | undefined,
+  actionCurrent: undefined as
+    | {
+        x: number;
+        y: number;
+        mode?: "normal" | "breakthrough";
+        retries: number;
+        actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK";
+      }
+    | undefined,
   attackPreview: undefined as
     | {
         fromKey: string;
