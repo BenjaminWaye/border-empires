@@ -124,6 +124,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   serializeChunkBatchBodies: (generation: number, chunkBodies: string[]) => string;
   sendChunkBatchPayload: (socket: SocketLike, payload: string) => void;
   runtimeLoadShedLevel: () => "normal" | "soft" | "hard";
+  humanFrontierActionPriorityActive?: () => boolean;
 };
 
 const chunkDist = (a: number, b: number, mod: number): number => {
@@ -394,6 +395,12 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
       }
       if (socket.readyState !== socket.OPEN) {
         clearInFlight();
+        return;
+      }
+      if (deps.humanFrontierActionPriorityActive?.()) {
+        setTimeout(() => {
+          void streamNext();
+        }, deps.chunkSnapshotOverloadYieldMs);
         return;
       }
 

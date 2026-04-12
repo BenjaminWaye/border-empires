@@ -42,4 +42,17 @@ describe("server world mobility regression guard", () => {
     const body = functionBody(serverWorldMobilitySource(), "barbarianDefenseScore");
     expect(body).toContain("ownershipDefenseMultiplierForTarget(defender.id, tile)");
   });
+
+  it("uses cached dock-linked tile keys when validating dock crossings", () => {
+    const source = serverWorldMobilitySource();
+    expect(source).toContain("const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): boolean =>");
+    expect(source).toContain("dockLinkedTileKeys(fromDock).some");
+    expect(source).not.toContain("const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): boolean =>\n    dockLinkedDestinations(fromDock)");
+  });
+
+  it("searches dock origins across dock tiles instead of scanning all player territory", () => {
+    const body = functionBody(serverWorldMobilitySource(), "findOwnedDockOriginForCrossing");
+    expect(body).toContain("for (const [tileKey, dock] of docksByTile)");
+    expect(body).not.toContain("for (const tk of actor.territoryTiles)");
+  });
 });
