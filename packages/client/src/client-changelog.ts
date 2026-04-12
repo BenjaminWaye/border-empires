@@ -18,10 +18,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.6",
+  version: "2026.04.12.7",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including staged shard-rain reveals, steadier release-note scrolling, icon-based combat rewards, and tougher fortified border fights.",
+  summary: "Recent updates now explain what changed after sign-in, including staged shard-rain reveals, steadier release-note scrolling, icon-based combat rewards, tougher fortified border fights, and lower-risk server sync work.",
   entries: [
+    {
+      title: "Under-the-hood server sync was split into safer modules",
+      why: "The live server had grown into one large runtime file, which made future fixes riskier than they needed to be even when behavior stayed the same.",
+      changes: [
+        "Split more of the server's visibility, chunk sync, combat support, realtime sync, and player update wiring into focused modules.",
+        "Kept the same gameplay behavior while adding regression coverage around frontier combat results and leaderboard/player-update payloads."
+      ]
+    },
     {
       title: "Changelog scrolling now stays where you left it",
       why: "The release-notes popup could jump back to the top while the HUD refreshed underneath it, which made longer updates frustrating to read.",
