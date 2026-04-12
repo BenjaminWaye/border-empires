@@ -17,10 +17,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.1",
+  version: "2026.04.12.2",
   title: "What's New",
-  summary: "Recent updates now explain why they shipped and what changed right after sign-in.",
+  summary: "Recent updates now explain what changed after sign-in, including clearer combat rewards when attacks succeed.",
   entries: [
+    {
+      title: "Successful attacks now show what you plundered",
+      why: "When an attack succeeded, the battle timer popup confirmed the capture but did not show the gold and resources taken from the defender.",
+      changes: [
+        "Added plundered gold to the successful attack popup when a settled enemy tile is captured.",
+        "Added any stolen strategic resources to the same popup so attack rewards are visible immediately."
+      ]
+    },
     {
       title: "Versioned release notes now appear after login",
       why: "Players could miss important changes between sessions, so each release now gets an in-game summary the next time that build loads.",
