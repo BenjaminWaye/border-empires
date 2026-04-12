@@ -1,5 +1,6 @@
 import { signOut, type Auth } from "firebase/auth";
 import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
+import { renderClientChangelogOverlay } from "./client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
@@ -857,7 +858,15 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired;
+  renderClientChangelogOverlay({
+    state,
+    changelogOverlayEl: dom.changelogOverlayEl,
+    buildVersion: CLIENT_BUILD_VERSION,
+    persistSeenVersion: storageSet,
+    renderHud: () => renderClientHud(deps)
+  });
+
+  const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired && !state.changelog.open;
   dom.guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
   if (canShowGuide) {
     const step = guideSteps[Math.min(state.guide.stepIndex, guideSteps.length - 1)]!;
