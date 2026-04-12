@@ -205,6 +205,7 @@ export const createInitialState = () => ({
   mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower",
   activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | null,
   showWeakDefensibility: false,
+  shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined,
   dismissedShardAlertKeys: new Set<string>(),
