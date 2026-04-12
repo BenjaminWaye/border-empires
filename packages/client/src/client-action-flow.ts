@@ -106,6 +106,7 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view.js";
+import { tileWithVisibleShardSite } from "./client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
@@ -730,7 +731,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {
-    const view = tileMenuViewForTileFromModule(tile, {
+    const visibleTile = tileWithVisibleShardSite(tile, state.shardRainPingsByTile);
+    const view = tileMenuViewForTileFromModule(visibleTile ?? tile, {
       menuActionsForSingleTile,
       splitTileActionsIntoTabs,
       settlementProgressForTile: (x, y) => {
