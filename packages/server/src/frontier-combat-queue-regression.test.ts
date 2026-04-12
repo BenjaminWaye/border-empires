@@ -5,7 +5,12 @@ import { describe, expect, it } from "vitest";
 
 const serverMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return [
+    readFileSync(resolve(here, "./main.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-realtime-sync-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-frontier-action-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-player-update-runtime.ts"), "utf8")
+  ].join("\n");
 };
 
 const functionBody = (source: string, functionName: string): string => {
@@ -47,8 +52,8 @@ describe("frontier combat queue regression guard", () => {
   it("plunders settled captures in the queued frontier action helper and includes the loot in combat results", () => {
     const body = functionBody(serverMainSource(), "tryQueueBasicFrontierAction");
     expect(body).toContain("const targetWasSettled = to.ownershipState === \"SETTLED\";");
-    expect(body).toContain("seizeStoredYieldOnCapture(actor, tk);");
-    expect(body).toContain("const pillage = pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);");
+    expect(body).toContain("deps.seizeStoredYieldOnCapture(actor, tk);");
+    expect(body).toContain("const pillage = deps.pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);");
     expect(body).toContain("pillagedGold,");
     expect(body).toContain("pillagedShare,");
     expect(body).toContain("pillagedStrategic");
@@ -86,7 +91,7 @@ describe("frontier combat queue regression guard", () => {
     expect(flushBody).toContain("sendLocalVisionDeltaForPlayer(playerId, changedCenters)");
 
     const queuedBody = functionBody(source, "tryQueueBasicFrontierAction");
-    expect(queuedBody).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
+    expect(queuedBody).toContain("deps.sendPostCombatFollowUps(actor.id, [{ x: from.x, y: from.y }, { x: to.x, y: to.y }]");
 
     const livePathStart = source.indexOf("logExpandTrace(\"combat_result_sent\", pending, { neutralTarget: false, changes: resultChanges.length });");
     const livePathEnd = source.indexOf("}, resolvesAt - now());", livePathStart);
@@ -100,8 +105,8 @@ describe("frontier combat queue regression guard", () => {
   it("batches visible tile delta fanout instead of sending each ownership tile inline", () => {
     const source = serverMainSource();
     const deltaBody = functionBody(source, "sendVisibleTileDeltaAt");
-    expect(deltaBody).toContain("queueVisibleTileDeltaForPlayer(p.id, current)");
-    expect(deltaBody).not.toContain('sendBulkToPlayer(p.id, { type: "TILE_DELTA", updates: [current] });');
+    expect(deltaBody).toContain("queueVisibleTileDeltaForPlayer(player.id, current)");
+    expect(deltaBody).not.toContain('sendBulkToPlayer(player.id, { type: "TILE_DELTA", updates: [current] });');
 
     const flushBody = functionBody(source, "flushQueuedVisibleTileDeltas");
     expect(flushBody).toContain('sendBulkToPlayer(playerId, { type: "TILE_DELTA", updates: [...updatesByTileKey.values()] })');
