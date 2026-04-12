@@ -1,6 +1,7 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { formatGoldAmount } from "./client-constants.js";
 import { resourceIconForKey } from "./client-map-display.js";
+import { maybeRegisterShardRainPing } from "./client-shard-rain-pings.js";
 import type { ClientState } from "./client-state.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type { FeedEntry, FeedSeverity, FeedType, Tile } from "./client-types.js";
@@ -15,9 +16,12 @@ export const pushFeedEntry = (state: Pick<ClientState, "feed">, entry: FeedEntry
   state.feed = state.feed.slice(0, 18);
 };
 
-export const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => {
-  if (next.fogged || !next.shardSite) return;
-  if (previous?.shardSite?.kind === next.shardSite.kind && previous.shardSite.amount === next.shardSite.amount) return;
+export const maybeAnnounceShardSite = (
+  state: Pick<ClientState, "shardRainPingsByTile" | "shardAlert">,
+  previous: Tile | undefined,
+  next: Tile
+): void => {
+  maybeRegisterShardRainPing(state, previous, next);
 };
 
 export const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string => `${phase}:${startsAt}`;

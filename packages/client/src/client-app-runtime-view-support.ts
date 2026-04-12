@@ -40,7 +40,7 @@ export const createClientViewSupport = (deps: {
   const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void =>
     pushFeedFromModule(state, msg, type, severity);
   const pushFeedEntry = (entry: FeedEntry): void => pushFeedEntryFromModule(state, entry);
-  const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => maybeAnnounceShardSiteFromModule(previous, next);
+  const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => maybeAnnounceShardSiteFromModule(state, previous, next);
   const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string =>
     shardAlertKeyForPayloadFromModule(phase, startsAt);
   const showShardAlert = (alert: ClientShardRainAlert): void => showShardAlertFromModule(state, alert);
