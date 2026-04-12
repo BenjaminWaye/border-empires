@@ -17,6 +17,7 @@ export const renderCaptureProgress = (
     captureWrapEl: HTMLElement;
     captureCancelBtn: HTMLElement;
     captureCloseBtn: HTMLElement;
+    captureDownloadDebugBtn: HTMLElement;
     captureBarEl: HTMLElement;
     captureTitleEl: HTMLElement;
     captureTimeEl: HTMLElement;
@@ -36,6 +37,7 @@ export const renderCaptureProgress = (
     deps.captureWrapEl.style.display = "block";
     deps.captureCancelBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "inline-flex";
+    deps.captureDownloadDebugBtn.style.display = state.captureAlert.tone === "success" ? "none" : "inline-flex";
     deps.captureBarEl.style.width = "100%";
     deps.captureTitleEl.textContent = state.captureAlert.title;
     deps.captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
@@ -91,6 +93,7 @@ export const renderCaptureProgress = (
       deps.captureWrapEl.style.display = "none";
       deps.captureCancelBtn.style.display = "none";
       deps.captureCloseBtn.style.display = "none";
+      deps.captureDownloadDebugBtn.style.display = "none";
       deps.captureBarEl.style.width = "0%";
       deps.captureTitleEl.textContent = "";
       deps.captureTimeEl.textContent = "";
@@ -101,6 +104,7 @@ export const renderCaptureProgress = (
     deps.captureWrapEl.style.display = "block";
     deps.captureCancelBtn.style.display = "inline-flex";
     deps.captureCloseBtn.style.display = "none";
+    deps.captureDownloadDebugBtn.style.display = "none";
     deps.captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
     deps.captureTitleEl.textContent = awaitingResult
       ? "Resolving battle..."
@@ -116,6 +120,7 @@ export const renderCaptureProgress = (
     deps.captureWrapEl.style.display = "none";
     deps.captureCancelBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
+    deps.captureDownloadDebugBtn.style.display = "none";
     deps.captureBarEl.style.width = "0%";
     deps.captureTitleEl.textContent = "";
     deps.captureTimeEl.textContent = "";

@@ -110,6 +110,7 @@ import os from "node:os";
 import { currentShardRainNotice, nextShardRainStartAt } from "./server-shard-rain.js";
 import { createServerRuntimeAdminDashboard } from "./server-runtime-admin-dashboard.js";
 import { renderRuntimeDashboardHtml } from "./server-runtime-dashboard-html.js";
+import { createServerDebugBundleStore } from "./server-debug-bundle.js";
 import { registerServerHttpRoutes } from "./server-http-routes.js";
 import { createServerPlayerProgression } from "./server-player-progression.js";
 import { createServerStatusMetrics } from "./server-status-metrics.js";
@@ -2929,12 +2930,60 @@ const controlSocketForPlayer = (playerId: string): Ws | undefined => resolveCont
 const bulkSocketForPlayer = (playerId: string): Ws | undefined =>
   resolveBulkSocketForPlayer(socketsByPlayer, bulkSocketsByPlayer, playerId) as Ws | undefined;
 
+const compactServerControlPayload = (payload: unknown): Record<string, unknown> | undefined => {
+  if (!payload || typeof payload !== "object") return undefined;
+  const message = payload as Record<string, unknown>;
+  const messageType = typeof message.type === "string" ? message.type : undefined;
+  if (!messageType || !new Set(["ACTION_ACCEPTED", "COMBAT_START", "COMBAT_RESULT", "ERROR", "ATTACK_ALERT"]).has(messageType)) return undefined;
+  return {
+    type: messageType,
+    ...(typeof message.actionType === "string" ? { actionType: message.actionType } : {}),
+    ...(typeof message.code === "string" ? { code: message.code } : {}),
+    ...(typeof message.message === "string" ? { message: message.message } : {}),
+    ...(message.origin && typeof message.origin === "object" ? { origin: message.origin } : {}),
+    ...(message.target && typeof message.target === "object" ? { target: message.target } : {}),
+    ...(typeof message.resolvesAt === "number" ? { resolvesAt: message.resolvesAt } : {}),
+    ...(typeof message.attackerId === "string" ? { attackerId: message.attackerId } : {}),
+    ...(typeof message.x === "number" && typeof message.y === "number" ? { x: message.x, y: message.y } : {})
+  };
+};
+
+const recordServerDebugEvent = (
+  level: "info" | "warn" | "error",
+  event: string,
+  payload: Record<string, unknown>
+): void => {
+  serverDebugBundle.record(level, event, payload);
+};
+
 const sendControlToPlayer = (playerId: string, payload: unknown): void => {
   const ws = controlSocketForPlayer(playerId);
+  const compactPayload = compactServerControlPayload(payload);
+  if (compactPayload) {
+    recordServerDebugEvent("info", "send_control_message", {
+      playerId,
+      socketReadyState: ws?.readyState,
+      bufferedAmount: typeof ws?.bufferedAmount === "number" ? ws.bufferedAmount : undefined,
+      ...compactPayload
+    });
+  }
   sendHighPrioritySocketMessage(ws, JSON.stringify(payload));
 };
 
 const sendToPlayer = sendControlToPlayer;
+
+const sendControlToSocket = (socket: Ws | undefined, payload: unknown, meta?: Record<string, unknown>): void => {
+  const compactPayload = compactServerControlPayload(payload);
+  if (compactPayload) {
+    recordServerDebugEvent("info", "send_control_socket_message", {
+      socketReadyState: socket?.readyState,
+      bufferedAmount: typeof socket?.bufferedAmount === "number" ? socket.bufferedAmount : undefined,
+      ...(meta ?? {}),
+      ...compactPayload
+    });
+  }
+  sendHighPrioritySocketMessage(socket, JSON.stringify(payload));
+};
 
 const sendBulkToPlayer = (playerId: string, payload: unknown): void => {
   sendBulkPayloadToPlayer(socketsByPlayer, bulkSocketsByPlayer, playerId, JSON.stringify(payload));
@@ -3213,6 +3262,26 @@ const sendPlayerUpdate = (p: Player, incomeDelta: number, options: PlayerUpdateO
   const sendMs = now() - sendStartedAt;
   const elapsedMs = now() - startedAt;
   if (elapsedMs >= HOT_PLAYER_UPDATE_WARN_MS) {
+    recordServerDebugEvent("warn", "slow_player_update", {
+      playerId: p.id,
+      incomeDelta,
+      elapsedMs,
+      regenMs,
+      economyMs,
+      developmentMs,
+      sendMs,
+      detail,
+      includeProgression,
+      includeGlobalStatus,
+      includeWorldStatus,
+      includeEconomy,
+      includeBreakdowns,
+      includeSocial,
+      includeMissions,
+      includeAllianceRequests,
+      includeDevelopmentStatus,
+      pendingSettlements: pendingSettlements?.length ?? 0
+    });
     app.log.warn(
       {
         playerId: p.id,
@@ -8075,6 +8144,13 @@ const flushPostCombatFollowUpsForPlayer = (playerId: string): void => {
   else pending.flushTimeout = setTimeout(() => flushPostCombatFollowUpsForPlayer(playerId), POST_COMBAT_FOLLOW_UP_BATCH_MS);
 
   if (elapsedMs >= HOT_POST_COMBAT_FOLLOW_UP_WARN_MS) {
+    recordServerDebugEvent("warn", "slow_post_combat_follow_up", {
+      playerId,
+      changedCenters: changedCenters.length,
+      elapsedMs,
+      playerUpdateMs,
+      visionMs
+    });
     app.log.warn(
       {
         playerId,
@@ -10463,6 +10539,21 @@ const updateOwnership = (x: number, y: number, newOwner: string | undefined, new
   const tileDeltaFanoutMs = now() - tileDeltaFanoutStartedAt;
   const elapsedMs = now() - startedAt;
   if (elapsedMs >= 40) {
+    recordServerDebugEvent("warn", "slow_update_ownership", {
+      tileKey: k,
+      x: t.x,
+      y: t.y,
+      oldOwner,
+      newOwner,
+      oldOwnershipState,
+      newOwnershipState: t.ownershipState,
+      affectedPlayers: [...affectedPlayers],
+      affectedPlayerRefreshMs,
+      visibilityRefreshMs,
+      snapshotInvalidationMs,
+      tileDeltaFanoutMs,
+      elapsedMs
+    });
     app.log.warn(
       {
         tileKey: k,
@@ -11894,6 +11985,7 @@ if (SEASONS_ENABLED) {
 
 const app = Fastify({ logger: true });
 runtimeState.appRef = app;
+const serverDebugBundle = createServerDebugBundleStore();
 const runtimeIncidentLog = createRuntimeIncidentLog({
   snapshotDir: SNAPSHOT_DIR,
   ...(RUNTIME_INCIDENT_WEBHOOK_URL ? { notifyWebhookUrl: RUNTIME_INCIDENT_WEBHOOK_URL } : {}),
@@ -12036,6 +12128,7 @@ registerServerHttpRoutes(app, {
   now,
   telemetryCounters,
   aiTurnDebugByPlayer,
+  serverDebugBundle,
   buildAdminPlayersPayload: () =>
     buildAdminPlayerListPayload(
       [...players.values()].map((player) => {
@@ -13222,15 +13315,30 @@ registerServerHttpRoutes(app, {
         "attack trace"
       );
     }
+    recordServerDebugEvent("info", "frontier_action_received", {
+      playerId: actor.id,
+      actionType: msg.type,
+      from: { x: msg.fromX, y: msg.fromY },
+      target: { x: msg.toX, y: msg.toY },
+      socketReadyState: socket.readyState,
+      bufferedAmount: typeof socket.bufferedAmount === "number" ? socket.bufferedAmount : undefined,
+      ...(attackTraceId ? { traceId: attackTraceId } : {}),
+      ...(expandTraceId ? { traceId: expandTraceId } : {})
+    });
     pauseLowPrioritySocketMessages(socket, nowMs + ACTION_CONTROL_PRIORITY_WINDOW_MS, { dropQueued: true });
 
     const actionTimes = pruneActionTimes(actor.id, nowMs);
     if (actionTimes.length >= ACTION_LIMIT) {
       app.log.info({ playerId: actor.id, action: msg.type }, "action rejected: rate limit");
-      sendHighPrioritySocketMessage(
-        socket,
-        JSON.stringify({ type: "ERROR", code: "RATE_LIMIT", message: "too many actions; slow down briefly" })
-      );
+      recordServerDebugEvent("warn", "frontier_action_rejected", {
+        playerId: actor.id,
+        actionType: msg.type,
+        code: "RATE_LIMIT",
+        message: "too many actions; slow down briefly",
+        from: { x: msg.fromX, y: msg.fromY },
+        target: { x: msg.toX, y: msg.toY }
+      });
+      sendControlToSocket(socket, { type: "ERROR", code: "RATE_LIMIT", message: "too many actions; slow down briefly" }, { playerId: actor.id });
       return;
     }
     actionTimes.push(nowMs);
@@ -13283,10 +13391,15 @@ registerServerHttpRoutes(app, {
     if (msg.type === "ATTACK" && (!to.ownerId || to.ownerId === actor.id)) {
       logTileSync("action_validation_rejected_attack_target_invalid", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, to: preTk, ownerId: to.ownerId }, "action rejected: attack target not enemy");
-      sendHighPrioritySocketMessage(
-        socket,
-        JSON.stringify({ type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" })
-      );
+      recordServerDebugEvent("warn", "frontier_action_rejected", {
+        playerId: actor.id,
+        actionType: msg.type,
+        code: "ATTACK_TARGET_INVALID",
+        message: "target must be enemy-controlled land",
+        from: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y }
+      });
+      sendControlToSocket(socket, { type: "ERROR", code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" }, { playerId: actor.id });
       return;
     }
     if (!hasEnoughManpower(actor, manpowerMin)) {
@@ -13386,10 +13499,16 @@ registerServerHttpRoutes(app, {
     if (from.ownerId !== actor.id) {
       logTileSync("action_validation_rejected_origin_not_owned", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, from: fk, fromOwner: from.ownerId }, "action rejected: origin not owned");
-      sendHighPrioritySocketMessage(
-        socket,
-        JSON.stringify({ type: "ERROR", code: "NOT_OWNER", message: "origin not owned" })
-      );
+      recordServerDebugEvent("warn", "frontier_action_rejected", {
+        playerId: actor.id,
+        actionType: msg.type,
+        code: "NOT_OWNER",
+        message: "origin not owned",
+        from: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        fromOwnerId: from.ownerId
+      });
+      sendControlToSocket(socket, { type: "ERROR", code: "NOT_OWNER", message: "origin not owned" }, { playerId: actor.id });
       return;
     }
 
@@ -13406,24 +13525,34 @@ registerServerHttpRoutes(app, {
     if (combatLocks.has(fk)) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: attack cooldown");
       const cooldownRemainingMs = Math.max(0, (combatLocks.get(fk)?.resolvesAt ?? now()) - now());
-      sendHighPrioritySocketMessage(
+      recordServerDebugEvent("warn", "frontier_action_rejected", {
+        playerId: actor.id,
+        actionType: msg.type,
+        code: "ATTACK_COOLDOWN",
+        message: "origin tile is still on attack cooldown",
+        from: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y },
+        cooldownRemainingMs
+      });
+      sendControlToSocket(
         socket,
-        JSON.stringify({
-          type: "ERROR",
-          code: "ATTACK_COOLDOWN",
-          message: "origin tile is still on attack cooldown",
-          cooldownRemainingMs
-        })
+        { type: "ERROR", code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs },
+        { playerId: actor.id }
       );
       return;
     }
 
     if (combatLocks.has(tk)) {
       app.log.info({ playerId: actor.id, from: fk, to: tk }, "action rejected: combat lock");
-      sendHighPrioritySocketMessage(
-        socket,
-        JSON.stringify({ type: "ERROR", code: "LOCKED", message: "tile locked in combat" })
-      );
+      recordServerDebugEvent("warn", "frontier_action_rejected", {
+        playerId: actor.id,
+        actionType: msg.type,
+        code: "LOCKED",
+        message: "tile locked in combat",
+        from: { x: from.x, y: from.y },
+        target: { x: to.x, y: to.y }
+      });
+      sendControlToSocket(socket, { type: "ERROR", code: "LOCKED", message: "tile locked in combat" }, { playerId: actor.id });
       return;
     }
 
@@ -13545,15 +13674,24 @@ registerServerHttpRoutes(app, {
       requestedTo: requestedToKey,
       socketReadyState: socket.readyState
     });
-    sendHighPrioritySocketMessage(
+    recordServerDebugEvent("info", "frontier_action_accepted", {
+      playerId: actor.id,
+      actionType: msg.type,
+      from: { x: from.x, y: from.y },
+      target: { x: to.x, y: to.y },
+      resolvesAt,
+      ...(pending.traceId ? { traceId: pending.traceId } : {})
+    });
+    sendControlToSocket(
       socket,
-      JSON.stringify({
+      {
         type: "ACTION_ACCEPTED",
         actionType: msg.type,
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         resolvesAt
-      })
+      },
+      { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
     );
     logAttackTrace("accepted_ack_sent", pending, {
       socketReadyState: socket.readyState
@@ -13576,15 +13714,25 @@ registerServerHttpRoutes(app, {
             manpowerDelta: 0
           }
         : undefined;
-    sendHighPrioritySocketMessage(
+    recordServerDebugEvent("info", "frontier_combat_start", {
+      playerId: actor.id,
+      actionType: msg.type,
+      from: { x: from.x, y: from.y },
+      target: { x: to.x, y: to.y },
+      resolvesAt,
+      predictedResult: Boolean(predictedResult),
+      ...(pending.traceId ? { traceId: pending.traceId } : {})
+    });
+    sendControlToSocket(
       socket,
-      JSON.stringify({
+      {
         type: "COMBAT_START",
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         resolvesAt,
         ...(predictedResult ? { predictedResult } : {})
-      })
+      },
+      { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
     );
     logExpandTrace("combat_start_sent", pending);
     logAttackTrace("combat_start_sent", pending, {
@@ -13636,9 +13784,9 @@ registerServerHttpRoutes(app, {
             "neutral expand timing"
           );
         }
-        sendHighPrioritySocketMessage(
+        sendControlToSocket(
           socket,
-          JSON.stringify({
+          {
             type: "COMBAT_RESULT",
             attackType: msg.type,
             attackerWon: true,
@@ -13649,7 +13797,8 @@ registerServerHttpRoutes(app, {
             pointsDelta: siteBonusGold,
             levelDelta: 0,
             ...(neutralExpandTiming ? { timing: neutralExpandTiming } : {})
-          })
+          },
+          { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
         );
         logExpandTrace("combat_result_sent", pending, { neutralTarget: true });
         logAttackTrace("combat_result_sent", pending, { neutralTarget: true });
@@ -13804,9 +13953,9 @@ registerServerHttpRoutes(app, {
       resolveEliminationIfNeeded(actor, true);
       if (defender) resolveEliminationIfNeeded(defender, socketsByPlayer.has(defender.id));
 
-      sendHighPrioritySocketMessage(
+      sendControlToSocket(
         socket,
-        JSON.stringify({
+        {
           type: "COMBAT_RESULT",
           attackType: msg.type,
           attackerWon: win,
@@ -13824,7 +13973,8 @@ registerServerHttpRoutes(app, {
           pillagedShare,
           pillagedStrategic,
           levelDelta: 0
-        })
+        },
+        { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
       );
       logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
       logAttackTrace("combat_result_sent", pending, {

@@ -4,7 +4,34 @@ const DEBUG_TILE_STORAGE_KEY = "debug_tile_key";
 const DEBUG_TILE_ENABLED_STORAGE_KEY = "debug_tile_enabled";
 const DEBUG_EMAIL_STORAGE_KEY = "debug_auth_email";
 const DEBUG_ACCOUNT_EMAIL = "bw199005@gmail.com";
+const MAX_CLIENT_DEBUG_EVENTS = 400;
 const lastLogAtByKey = new Map<string, number>();
+const clientDebugEvents: Array<{
+  at: number;
+  level: "info" | "warn" | "error";
+  scope: string;
+  event: string;
+  payload: Record<string, unknown>;
+}> = [];
+
+export const recordClientDebugEvent = (
+  level: "info" | "warn" | "error",
+  scope: string,
+  event: string,
+  payload: Record<string, unknown>
+): void => {
+  clientDebugEvents.push({
+    at: Date.now(),
+    level,
+    scope,
+    event,
+    payload
+  });
+  while (clientDebugEvents.length > MAX_CLIENT_DEBUG_EVENTS) clientDebugEvents.shift();
+};
+
+export const snapshotClientDebugEvents = (limit = MAX_CLIENT_DEBUG_EVENTS) =>
+  clientDebugEvents.slice(-Math.max(1, limit));
 
 export const tileSyncDebugEnabled = (): boolean => {
   try {
@@ -20,6 +47,7 @@ export const tileSyncDebugEnabled = (): boolean => {
 };
 
 export const attackSyncLog = (event: string, payload: Record<string, unknown>): void => {
+  recordClientDebugEvent("info", "attack-sync", event, payload);
   if (!tileSyncDebugEnabled()) return;
   console.info(`[attack-sync] ${event}`, payload);
 };
