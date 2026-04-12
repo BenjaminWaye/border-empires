@@ -3597,6 +3597,9 @@ const tryQueueBasicFrontierAction = (
     const win = pending.precomputedCombat?.win ?? false;
     const manpowerDelta = -settleAttackManpower(actor, pending.manpowerCost, win, atkEff, defEff);
     applyTownWarShock(tk);
+    let pillagedGold = 0;
+    let pillagedShare = 0;
+    let pillagedStrategic: Partial<Record<StrategicResource, number>> = {};
 
     let resultChanges: Array<{
       x: number;
@@ -3606,6 +3609,8 @@ const tryQueueBasicFrontierAction = (
     }> = [];
 
     if (win) {
+      const targetWasSettled = to.ownershipState === "SETTLED";
+      const defenderTileCountBeforeCapture = defender ? Math.max(1, settledTileCountForPlayer(defender)) : 0;
       updateOwnership(to.x, to.y, actor.id, "FRONTIER");
       resultChanges = [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }];
       if (defenderIsBarbarian) {
@@ -3616,6 +3621,13 @@ const tryQueueBasicFrontierAction = (
       }
       actor.missionStats.combatWins += 1;
       if (defender) {
+        if (targetWasSettled) {
+          seizeStoredYieldOnCapture(actor, tk);
+          const pillage = pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);
+          pillagedGold = pillage.gold;
+          pillagedShare = pillage.share;
+          pillagedStrategic = pillage.strategic;
+        }
         incrementVendettaCount(actor.id, defender.id);
         maybeIssueVendettaMission(actor, defender.id);
         const attackerRating = ratingFromPointsLevel(actor.points, actor.level);
@@ -3678,7 +3690,10 @@ const tryQueueBasicFrontierAction = (
       defEff,
       winChance,
         changes: resultChanges,
-        manpowerDelta
+        manpowerDelta,
+        pillagedGold,
+        pillagedShare,
+        pillagedStrategic
       });
     const changedCenters = [{ x: from.x, y: from.y }, { x: to.x, y: to.y }];
     sendPostCombatFollowUps(actor.id, changedCenters, defender && !defenderIsBarbarian ? defender.id : undefined);

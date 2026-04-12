@@ -44,6 +44,16 @@ describe("frontier combat queue regression guard", () => {
     expect(body).toContain('message: "tile locked in combat"');
   });
 
+  it("plunders settled captures in the queued frontier action helper and includes the loot in combat results", () => {
+    const body = functionBody(serverMainSource(), "tryQueueBasicFrontierAction");
+    expect(body).toContain("const targetWasSettled = to.ownershipState === \"SETTLED\";");
+    expect(body).toContain("seizeStoredYieldOnCapture(actor, tk);");
+    expect(body).toContain("const pillage = pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);");
+    expect(body).toContain("pillagedGold,");
+    expect(body).toContain("pillagedShare,");
+    expect(body).toContain("pillagedStrategic");
+  });
+
   it("uses queued frontier action results to send combat start and inbound attack alerts", () => {
     const body = functionBody(serverMainSource(), "executeUnifiedGameplayMessage");
     expect(body).toContain('type: "ACTION_ACCEPTED"');

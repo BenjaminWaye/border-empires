@@ -17,9 +17,9 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.2",
+  version: "2026.04.12.3",
   title: "What's New",
-  summary: "Recent updates now explain why they shipped, and fortified border fights now rely more on proper siege support.",
+  summary: "Recent updates now explain what changed after sign-in, including clearer combat rewards and tougher fortified border fights.",
   entries: [
     {
       title: "Forts now demand real siege support",
@@ -27,6 +27,14 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       changes: [
         "Raised fort and wooden fort defensive strength so fortified tiles hold much more consistently.",
         "Buffed siege outposts, kept light outposts weaker than wooden forts, and heavily penalized attacks into fortified tiles that do not originate from an active outpost."
+      ]
+    },
+    {
+      title: "Successful attacks now show what you plundered",
+      why: "When an attack succeeded, the battle timer popup confirmed the capture but did not show the gold and resources taken from the defender.",
+      changes: [
+        "Added plundered gold to the successful attack popup when a settled enemy tile is captured.",
+        "Added any stolen strategic resources to the same popup so attack rewards are visible immediately."
       ]
     },
     {
