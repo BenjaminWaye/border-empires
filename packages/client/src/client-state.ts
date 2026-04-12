@@ -458,7 +458,8 @@ export const createInitialState = () => ({
   },
   changelog: {
     open: false,
-    seenVersion: storageGet(CLIENT_CHANGELOG_STORAGE_KEY) ?? ""
+    seenVersion: storageGet(CLIENT_CHANGELOG_STORAGE_KEY) ?? "",
+    scrollTop: 0
   },
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
