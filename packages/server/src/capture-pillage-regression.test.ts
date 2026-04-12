@@ -7,7 +7,8 @@ const serverMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
   return [
     readFileSync(resolve(here, "./main.ts"), "utf8"),
-    readFileSync(resolve(here, "./server-town-support.ts"), "utf8")
+    readFileSync(resolve(here, "./server-town-support.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-combat-support-runtime.ts"), "utf8")
   ].join("\n");
 };
 
@@ -40,8 +41,8 @@ describe("capture payout regression guard", () => {
   it("transfers stored yield to the attacker on settled capture", () => {
     const body = functionBody(serverMainSource(), "seizeStoredYieldOnCapture");
     expect(body).toContain("attacker.points += gold");
-    expect(body).toContain("stock[r] += amt");
-    expect(body).toContain("pruneEmptyTileYield(tileKey, y)");
+    expect(body).toContain("stock[resource] += amount");
+    expect(body).toContain("deps.pruneEmptyTileYield(tileKey, yieldBuffer)");
   });
 
   it("only applies town capture population loss on the first capture inside the recent-capture window", () => {

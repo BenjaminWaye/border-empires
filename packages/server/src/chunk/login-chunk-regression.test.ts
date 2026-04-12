@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 
 const serverSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "../main.ts"), "utf8");
+  return [
+    readFileSync(resolve(here, "../main.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-chunk-sync-runtime.ts"), "utf8")
+  ].join("\n");
 };
 
 describe("login chunk regression guard", () => {
@@ -16,6 +19,6 @@ describe("login chunk regression guard", () => {
 
   it("avoids full subscribed-view refreshes while a snapshot is already in flight", () => {
     const source = serverSource();
-    expect(source).toContain("if (chunkSnapshotInFlightByPlayer.has(playerId)) return;");
+    expect(source).toContain("if (deps.chunkSnapshotInFlightByPlayer.has(playerId)) return;");
   });
 });

@@ -6,7 +6,10 @@ import { SETTLED_DEFENSE_NEAR_FORT_RADIUS } from "@border-empires/shared";
 
 const mainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return [
+    readFileSync(resolve(here, "./main.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-combat-support-runtime.ts"), "utf8")
+  ].join("\n");
 };
 
 const playerEffectsSource = (): string => {
@@ -43,7 +46,7 @@ describe("settled defense near fort regression guard", () => {
     expect(domainEffectsBody).toContain("next.settledDefenseNearFortMult *= effects.settledDefenseNearFortMult;");
     expect(defenseBody).toContain("effects.settledDefenseNearFortMult > 1");
     expect(defenseBody).toContain("settledDefenseNearFortApplies(defenderId, target)");
-    expect(coverageBody).toContain("wrappedChebyshevDistance(x, y, target.x, target.y) <= SETTLED_DEFENSE_NEAR_FORT_RADIUS");
+    expect(coverageBody).toContain("deps.wrappedChebyshevDistance(x, y, target.x, target.y) <= deps.SETTLED_DEFENSE_NEAR_FORT_RADIUS");
     expect(coverageBody).toContain('structure.type !== "WOODEN_FORT"');
   });
 

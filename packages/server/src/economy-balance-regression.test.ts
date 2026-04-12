@@ -32,7 +32,8 @@ const serverSource = (): string => {
     readFileSync(resolve(here, "./server-player-progression.ts"), "utf8"),
     readFileSync(resolve(here, "./server-status-metrics.ts"), "utf8"),
     readFileSync(resolve(here, "./server-victory-pressure.ts"), "utf8"),
-    readFileSync(resolve(here, "./server-tech-domain-runtime.ts"), "utf8")
+    readFileSync(resolve(here, "./server-tech-domain-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-player-update-runtime.ts"), "utf8")
   ].join("\n");
 };
 
@@ -147,8 +148,7 @@ describe("economy balance regression guard", () => {
 
   it("sends per-player leaderboard snapshots on init/update and includes self progress for every victory path", () => {
     const source = serverSource();
-    expect(source).toContain("payload.leaderboard = leaderboardSnapshotForPlayer(p.id);");
-    expect(source).toContain("leaderboard: leaderboardSnapshotForPlayer(player.id)");
+    expect(source).toContain("leaderboard: deps.leaderboardSnapshotForPlayer(player.id)");
     expect(source).toContain("if (objective.leaderPlayerId === playerId) return objective;");
     expect(source).toContain('if (objectiveId === "TOWN_CONTROL") return `${metric.controlledTowns}/${townTarget} towns`;');
     expect(source).toContain('if (objectiveId === "SETTLED_TERRITORY") return `${metric.settledTiles}/${settledTarget} settled land`;');
