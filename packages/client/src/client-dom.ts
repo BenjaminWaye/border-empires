@@ -187,6 +187,7 @@ const hudMarkup = `
   <div id="hold-build-menu" style="display:none;"></div>
   <div id="tile-action-menu" style="display:none;"></div>
   <div id="targeting-overlay" style="display:none;"></div>
+  <div id="changelog-overlay" style="display:none;"></div>
   <div id="guide-overlay" style="display:none;"></div>
   <div id="structure-info-overlay" style="display:none;"></div>
   <div id="tech-detail-overlay" style="display:none;"></div>
@@ -450,6 +451,7 @@ export const initClientDom = () => {
   const collectVisibleDesktopBtn = requireElement<HTMLButtonElement>("#collect-visible-desktop");
   const collectVisibleDesktopMetaEl = requireElement<HTMLSpanElement>("#collect-visible-desktop-meta");
   const collectVisibleMobileMetaEl = requireElement<HTMLSpanElement>("#collect-visible-mobile-meta");
+  const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
   const structureInfoOverlayEl = requireElement<HTMLDivElement>("#structure-info-overlay");
   const techDetailOverlayEl = requireElement<HTMLDivElement>("#tech-detail-overlay");
@@ -496,6 +498,7 @@ export const initClientDom = () => {
     captureWrapEl,
     centerMeBtn,
     centerMeDesktopBtn,
+    changelogOverlayEl,
     collectVisibleDesktopBtn,
     collectVisibleDesktopMetaEl,
     collectVisibleMobileBtn,
