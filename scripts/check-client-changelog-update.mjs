@@ -67,10 +67,10 @@ const extractVersion = (source) => {
 
 const currentSource = readFileSync(resolve(repoRoot, changelogPath), "utf8");
 const currentVersion = extractVersion(currentSource);
-const previousSource = optionalGit(["show", `HEAD:${changelogPath}`]);
+const previousSource = mergeBase ? optionalGit(["show", `${mergeBase}:${changelogPath}`]) : "";
 const previousVersion = previousSource ? extractVersion(previousSource) : "";
 
-if (currentVersion === previousVersion) {
+if (previousVersion && currentVersion === previousVersion) {
   console.error("Client changelog check failed.");
   console.error("packages/client/src/client-changelog.ts changed, but the release version was not bumped.");
   console.error(`Current release version: ${currentVersion}`);
