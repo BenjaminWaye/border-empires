@@ -22,8 +22,6 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     wrapX,
     wrapY,
     parseKey,
-    ownership,
-    players,
     assignMissingTownNames,
     getIslandMap,
     WORLD_TOWN_POPULATION_MIN,
@@ -119,21 +117,6 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
       if (!destinationKey) continue;
       const [destX, destY] = parseKey(destinationKey);
       townsByTile.set(destinationKey, { ...town, tileKey: destinationKey, type: townTypeAt(destX, destY) });
-    }
-  };
-
-  const normalizeLegacySettlementTowns = (): void => {
-    for (const town of townsByTile.values()) {
-      if (town.isSettlement !== undefined) continue;
-      if (town.population >= POPULATION_TOWN_MIN) continue;
-      const ownerId = ownership.get(town.tileKey);
-      const owner = ownerId ? players.get(ownerId) : undefined;
-      if (owner && owner.capitalTileKey === town.tileKey) {
-        town.isSettlement = true;
-      } else {
-        const [x, y] = parseKey(town.tileKey);
-        town.population = initialTownPopulationAt(x, y, activeSeason.worldSeed);
-      }
     }
   };
 
@@ -234,7 +217,6 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     findNearestTownPlacement,
     townPlacementsNeedNormalization,
     normalizeTownPlacements,
-    normalizeLegacySettlementTowns,
     assignMissingTownNamesForWorld,
     ensureBaselineEconomyCoverage,
     ensureInterestCoverage,
