@@ -23,7 +23,7 @@ const createState = (overrides?: {
 
 describe("client changelog", () => {
   it("stores visibility against the explicit changelog release version instead of the build sha", () => {
-    expect(LATEST_CLIENT_CHANGELOG.version).toBe("2026.04.12.1");
+    expect(LATEST_CLIENT_CHANGELOG.version).toBe("2026.04.12.2");
   });
 
   it("shows the latest release only after the session is fully ready and the build is unseen", () => {

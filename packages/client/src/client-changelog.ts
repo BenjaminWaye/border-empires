@@ -17,10 +17,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.1",
+  version: "2026.04.12.2",
   title: "What's New",
-  summary: "Recent updates now explain why they shipped and what changed right after sign-in.",
+  summary: "Recent updates now explain why they shipped, and fortified border fights now rely more on proper siege support.",
   entries: [
+    {
+      title: "Forts now demand real siege support",
+      why: "Fortified border tiles were still too easy to brute-force, so forts now anchor territory more reliably unless the attacker stages from an outpost.",
+      changes: [
+        "Raised fort and wooden fort defensive strength so fortified tiles hold much more consistently.",
+        "Buffed siege outposts, kept light outposts weaker than wooden forts, and heavily penalized attacks into fortified tiles that do not originate from an active outpost."
+      ]
+    },
     {
       title: "Versioned release notes now appear after login",
       why: "Players could miss important changes between sessions, so each release now gets an in-game summary the next time that build loads.",
