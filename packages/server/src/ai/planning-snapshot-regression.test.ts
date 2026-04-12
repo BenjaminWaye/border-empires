@@ -5,7 +5,15 @@ import { describe, expect, it } from "vitest";
 
 const serverMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "../main.ts"), "utf8");
+  return [
+    readFileSync(resolve(here, "../main.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-types.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-territory.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-scout.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-settlement.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-signals.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-pressure.ts"), "utf8")
+  ].join("\n");
 };
 
 const aiIndexStoreSource = (): string => {
@@ -242,7 +250,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
 
     expect(source).toContain("const bestAiIslandFocusTargetId =");
     expect(source).toContain("const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);");
-    expect(source).toContain("const foodCoverageLow = controlledTowns > 0 && currentFoodCoverageForPlayer(actor.id) < 1;");
+    expect(source).toContain("const foodCoverageLow = controlledTowns > 0 && deps.currentFoodCoverageForPlayer(actor.id) < 1;");
     expect(staticBody).toContain("const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);");
     expect(staticBody).toContain("weakestIslandRatio = focusLand > 0 ? (islandProgress.settledCounts.get(focusIslandId) ?? 0) / focusLand : islandProgress.weakestRatio;");
     expect(turnAnalysisBody).toContain("foodCoverage < 1");
@@ -299,7 +307,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(body).toContain("const expandCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();");
     expect(body).toContain("const attackCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();");
     expect(body).toContain("preferAiFrontierCandidate(");
-    expect(body).toContain("const expandCandidates = [...expandCandidateByTarget.values()];");
-    expect(body).toContain("const attackCandidates = [...attackCandidateByTarget.values()];");
+    expect(body).toContain("expandCandidates: [...expandCandidateByTarget.values()]");
+    expect(body).toContain("attackCandidates: [...attackCandidateByTarget.values()]");
   });
 });

@@ -9,7 +9,10 @@ const serverMainSource = (): string => {
     readFileSync(resolve(here, "../main.ts"), "utf8"),
     readFileSync(resolve(here, "../server-runtime-config.ts"), "utf8"),
     readFileSync(resolve(here, "../server-runtime-admin-dashboard.ts"), "utf8"),
-    readFileSync(resolve(here, "../server-runtime-dashboard-html.ts"), "utf8")
+    readFileSync(resolve(here, "../server-runtime-dashboard-html.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-types.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-scout.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-signals.ts"), "utf8")
   ].join("\n");
 };
 
@@ -68,11 +71,11 @@ describe("AI budget regression guard", () => {
 
   it("hard-caps scout frontier selector scans so one AI execute path cannot monopolize the process", () => {
     const body = functionBody(serverMainSource(), "bestAiScoutExpand");
-    expect(body).toContain("const startedAt = now();");
+    expect(body).toContain("const startedAt = deps.now();");
     expect(body).toContain("let scannedCandidates = 0;");
     expect(body).toContain("if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0)");
-    expect(body).toContain("if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
-    expect(body).toContain("if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
+    expect(body).toContain("if ((scannedCandidates & 3) === 0 && deps.now() - startedAt >= deps.AI_FRONTIER_SELECTOR_BUDGET_MS)");
+    expect(body).toContain("if ((scannedCandidates & 31) === 0 && deps.now() - startedAt >= deps.AI_FRONTIER_SELECTOR_BUDGET_MS)");
     expect(body).toContain('"ai frontier selector budget hit"');
   });
 
