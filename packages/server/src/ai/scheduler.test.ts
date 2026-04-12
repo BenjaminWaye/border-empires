@@ -82,6 +82,7 @@ describe("createAiScheduler", () => {
       aiQueueDepth: () => 0,
       simulationQueueDepth: () => 0,
       humanChunkSnapshotPriorityActive: () => true,
+      humanFrontierActionPriorityActive: () => false,
       getAiCompetitionContext: () => ({
         competitionMetrics: [],
         incomeByPlayerId: new Map(),
@@ -135,6 +136,7 @@ describe("createAiScheduler", () => {
       aiQueueDepth: () => 0,
       simulationQueueDepth: () => 0,
       humanChunkSnapshotPriorityActive: () => false,
+      humanFrontierActionPriorityActive: () => false,
       getAiCompetitionContext: () => ({
         competitionMetrics: [],
         incomeByPlayerId: new Map(),
@@ -191,6 +193,7 @@ describe("createAiScheduler", () => {
       aiQueueDepth: () => 0,
       simulationQueueDepth: () => 0,
       humanChunkSnapshotPriorityActive: () => false,
+      humanFrontierActionPriorityActive: () => false,
       getAiCompetitionContext: () => ({
         competitionMetrics: [],
         incomeByPlayerId: new Map(),
@@ -248,6 +251,7 @@ describe("createAiScheduler", () => {
       aiQueueDepth: () => 0,
       simulationQueueDepth: () => 0,
       humanChunkSnapshotPriorityActive: () => false,
+      humanFrontierActionPriorityActive: () => false,
       getAiCompetitionContext: () => ({
         competitionMetrics: [],
         incomeByPlayerId: new Map(),
@@ -271,5 +275,56 @@ describe("createAiScheduler", () => {
     expect(scheduler.state.selectedAiPlayers).toBe(0);
     expect(scheduler.state.eventLoopOverloaded).toBe(true);
     expect(scheduler.state.reason).toBe("event_loop_hard_overload");
+  });
+
+  it("skips dispatch while a human frontier action is active", () => {
+    const enqueued: Array<{ actor: Player }> = [];
+    const scheduler = createAiScheduler<Player, { playerId: string }, { score: number }, { cycleId: number }>({
+      config: {
+        tickMs: 10_000,
+        dispatchIntervalMs: 250,
+        tickBatchSize: 2,
+        humanPriorityBatchSize: 1,
+        humanDefenseBatchSize: 2,
+        authPriorityBatchSize: 1,
+        defensePriorityMs: 15_000,
+        workerQueueSoftLimit: 4,
+        simulationQueueSoftLimit: 6,
+        eventLoopP95SoftLimitMs: 60,
+        eventLoopUtilizationSoftLimitPct: 65,
+        eventLoopP95HardLimitMs: 120,
+        eventLoopUtilizationHardLimitPct: 90
+      },
+      now: () => 1_000,
+      getAllPlayers: () => [makeAiPlayer("ai-1"), makeAiPlayer("ai-2")],
+      onlineHumanPlayerCount: () => 1,
+      latestRuntimeVitalsSample: () => undefined,
+      pendingAuthVerifications: () => 0,
+      authPriorityUntil: () => 0,
+      aiQueueDepth: () => 0,
+      simulationQueueDepth: () => 0,
+      humanChunkSnapshotPriorityActive: () => false,
+      humanFrontierActionPriorityActive: () => true,
+      getAiCompetitionContext: () => ({
+        competitionMetrics: [],
+        incomeByPlayerId: new Map(),
+        townsTarget: 0,
+        settledTilesTarget: 0,
+        analysisByPlayerId: new Map()
+      }),
+      createTickContext: (cycleId) => ({ cycleId }),
+      enqueueAiWorkerJob: (job) => {
+        enqueued.push({ actor: job.actor });
+      },
+      runtimeMemoryStats: () => ({ rssMb: 0, heapUsedMb: 0, heapTotalMb: 0, externalMb: 0, arrayBuffersMb: 0 }),
+      pushAiTickPerf: () => undefined,
+      onSlowAiTick: () => undefined
+    });
+
+    scheduler.runAiTick();
+
+    expect(enqueued).toHaveLength(0);
+    expect(scheduler.state.reason).toBe("human_frontier_action_priority");
+    expect(scheduler.state.batchSize).toBe(0);
   });
 });

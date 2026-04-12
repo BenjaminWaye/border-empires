@@ -8,7 +8,62 @@ type RuntimeIncidentLogLike = {
 };
 
 type ServerDebugBundleLike = {
-  snapshot: (limit?: number) => unknown;
+  snapshot: (limit?: number) => Array<{
+    at: number;
+    level: "info" | "warn" | "error";
+    event: string;
+    payload: Record<string, unknown>;
+  }>;
+  snapshotAttackTraces: (limit?: number) => Array<{
+    traceId: string;
+    firstAt: number;
+    lastAt: number;
+    playerId?: string;
+    actionType?: string;
+    origin?: unknown;
+    target?: unknown;
+    events: Array<{
+      at: number;
+      level: "info" | "warn" | "error";
+      event: string;
+      payload: Record<string, unknown>;
+    }>;
+  }>;
+};
+
+const ATTACK_DEBUG_EVENT_PREFIXES = ["frontier_", "send_control_"];
+const ATTACK_DEBUG_EVENT_NAMES = new Set([
+  "player_update_timing",
+  "vision_delta_timing",
+  "update_ownership_timing",
+  "post_combat_follow_up_timing",
+  "settlement_resolve_timing",
+  "snapshot_save_requested",
+  "snapshot_save_started",
+  "snapshot_save_timing",
+  "slow_player_update",
+  "slow_post_combat_follow_up",
+  "slow_update_ownership"
+]);
+
+const attackDebugServerEvents = (
+  events: Array<{
+    at: number;
+    level: "info" | "warn" | "error";
+    event: string;
+    payload: Record<string, unknown>;
+  }>
+) => {
+  const controlPath = events.filter((entry) =>
+    ATTACK_DEBUG_EVENT_PREFIXES.some((prefix) => entry.event.startsWith(prefix))
+  );
+  const hotPath = events.filter((entry) => ATTACK_DEBUG_EVENT_NAMES.has(entry.event));
+  const slowOrWarn = events.filter((entry) => entry.level !== "info" || entry.event.startsWith("slow_"));
+  return {
+    controlPath: controlPath.slice(-120),
+    hotPath: hotPath.slice(-120),
+    slowOrWarn: slowOrWarn.slice(-120)
+  };
 };
 
 interface RegisterServerHttpRoutesDeps {
@@ -110,6 +165,9 @@ export const registerServerHttpRoutes = (app: FastifyInstance, deps: RegisterSer
     lastUncleanShutdown: deps.runtimeIncidentLog.getLastCrashReport()
   }));
   app.get("/admin/runtime/debug-bundle", async () => ({
+    recentServerEvents: deps.serverDebugBundle.snapshot(250),
+    attackDebug: attackDebugServerEvents(deps.serverDebugBundle.snapshot(250)),
+    attackTraces: deps.serverDebugBundle.snapshotAttackTraces(40),
     ok: true,
     at: deps.now(),
     health: deps.startupState.ready
@@ -128,7 +186,6 @@ export const registerServerHttpRoutes = (app: FastifyInstance, deps: RegisterSer
       currentBootId: deps.runtimeIncidentLog.bootId,
       lastUncleanShutdown: deps.runtimeIncidentLog.getLastCrashReport()
     },
-    recentServerEvents: deps.serverDebugBundle.snapshot(250)
   }));
   app.get("/admin/runtime/dashboard", async (_request, reply) => {
     reply.type("text/html; charset=utf-8");
