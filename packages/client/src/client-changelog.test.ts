@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CLIENT_CHANGELOG_STORAGE_KEY,
   LATEST_CLIENT_CHANGELOG,
+  clientChangelogRenderSignature,
   markClientChangelogSeen,
   shouldShowClientChangelog,
+  shouldRebuildClientChangelogOverlay,
   syncClientChangelogVisibility
 } from "./client-changelog.js";
 
@@ -17,7 +19,8 @@ const createState = (overrides?: {
   profileSetupRequired: overrides?.profileSetupRequired ?? false,
   changelog: {
     open: overrides?.open ?? false,
-    seenVersion: overrides?.seenVersion ?? ""
+    seenVersion: overrides?.seenVersion ?? "",
+    scrollTop: 0
   }
 });
 
@@ -67,5 +70,13 @@ describe("client changelog", () => {
       expect(entry.changes.length).toBeGreaterThan(0);
       expect(entry.changes.every((change) => change.trim().length > 0)).toBe(true);
     }
+  });
+
+  it("reuses the existing overlay DOM while the same release/build stays open", () => {
+    const renderSignature = clientChangelogRenderSignature("2026.04.12.4", "deadbeef");
+
+    expect(shouldRebuildClientChangelogOverlay({ innerHTML: "", dataset: {} }, renderSignature)).toBe(true);
+    expect(shouldRebuildClientChangelogOverlay({ innerHTML: "<div></div>", dataset: { renderSig: renderSignature } }, renderSignature)).toBe(false);
+    expect(shouldRebuildClientChangelogOverlay({ innerHTML: "<div></div>", dataset: { renderSig: "older" } }, renderSignature)).toBe(true);
   });
 });

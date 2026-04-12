@@ -1,6 +1,7 @@
 import type { ClientState, storageSet } from "./client-state.js";
 
 export const CLIENT_CHANGELOG_STORAGE_KEY = "border-empires-client-changelog-seen-v1";
+const CLIENT_CHANGELOG_SCROLL_SELECTOR = ".changelog-modal-scroll";
 
 export type ClientChangelogEntry = {
   title: string;
@@ -17,10 +18,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.4",
+  version: "2026.04.12.5",
   title: "What's New",
   summary: "Recent updates now explain what changed after sign-in, including icon-based combat rewards and tougher fortified border fights.",
   entries: [
+    {
+      title: "Changelog scrolling now stays where you left it",
+      why: "The release-notes popup could jump back to the top while the HUD refreshed underneath it, which made longer updates frustrating to read.",
+      changes: [
+        "Stopped rebuilding the changelog modal on every HUD render while the same release is open.",
+        "Preserved the popup scroll position so long changelog entries stay stable while you read them."
+      ]
+    },
     {
       title: "Plunder rewards now use resource icons",
       why: "The attack victory popup now lists stolen resources, but reading raw resource names is slower than scanning the same icons used elsewhere in the HUD.",
@@ -116,6 +125,14 @@ const changelogBodyHtml = (): string =>
     )
     .join("");
 
+export const clientChangelogRenderSignature = (releaseVersion: string, buildVersion: string): string =>
+  `${releaseVersion}:${buildVersion}`;
+
+export const shouldRebuildClientChangelogOverlay = (
+  overlayEl: Pick<HTMLDivElement, "innerHTML" | "dataset">,
+  renderSignature: string
+): boolean => overlayEl.innerHTML === "" || overlayEl.dataset.renderSig !== renderSignature;
+
 export const renderClientChangelogOverlay = (deps: {
   state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "changelog">;
   changelogOverlayEl: HTMLDivElement;
@@ -124,29 +141,44 @@ export const renderClientChangelogOverlay = (deps: {
   renderHud: () => void;
 }): void => {
   const releaseVersion = LATEST_CLIENT_CHANGELOG.version;
+  const renderSignature = clientChangelogRenderSignature(releaseVersion, deps.buildVersion);
   const isOpen = syncClientChangelogVisibility(deps.state, releaseVersion);
   deps.changelogOverlayEl.style.display = isOpen ? "grid" : "none";
   if (!isOpen) {
     if (deps.changelogOverlayEl.innerHTML) deps.changelogOverlayEl.innerHTML = "";
+    delete deps.changelogOverlayEl.dataset.renderSig;
     return;
   }
 
-  deps.changelogOverlayEl.innerHTML = `
-    <div class="changelog-backdrop" id="changelog-backdrop"></div>
-    <div class="changelog-modal card" role="dialog" aria-modal="true" aria-labelledby="changelog-title">
-      <div class="changelog-modal-scroll">
-        <div class="changelog-kicker">Release ${escapeHtml(releaseVersion)} • Build ${escapeHtml(deps.buildVersion)}</div>
-        <h2 id="changelog-title" class="changelog-title">${escapeHtml(LATEST_CLIENT_CHANGELOG.title)}</h2>
-        <p class="changelog-summary">${escapeHtml(LATEST_CLIENT_CHANGELOG.summary)}</p>
-        <div class="changelog-entry-list">
-          ${changelogBodyHtml()}
-        </div>
-        <div class="changelog-actions">
-          <button id="changelog-close" class="panel-btn changelog-primary-btn" type="button">Continue</button>
+  if (shouldRebuildClientChangelogOverlay(deps.changelogOverlayEl, renderSignature)) {
+    deps.changelogOverlayEl.innerHTML = `
+      <div class="changelog-backdrop" id="changelog-backdrop"></div>
+      <div class="changelog-modal card" role="dialog" aria-modal="true" aria-labelledby="changelog-title">
+        <div class="changelog-modal-scroll">
+          <div class="changelog-kicker">Release ${escapeHtml(releaseVersion)} • Build ${escapeHtml(deps.buildVersion)}</div>
+          <h2 id="changelog-title" class="changelog-title">${escapeHtml(LATEST_CLIENT_CHANGELOG.title)}</h2>
+          <p class="changelog-summary">${escapeHtml(LATEST_CLIENT_CHANGELOG.summary)}</p>
+          <div class="changelog-entry-list">
+            ${changelogBodyHtml()}
+          </div>
+          <div class="changelog-actions">
+            <button id="changelog-close" class="panel-btn changelog-primary-btn" type="button">Continue</button>
+          </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
+    deps.changelogOverlayEl.dataset.renderSig = renderSignature;
+  }
+
+  const scrollEl = deps.changelogOverlayEl.querySelector(CLIENT_CHANGELOG_SCROLL_SELECTOR) as HTMLDivElement | null;
+  if (scrollEl) {
+    if (Math.abs(scrollEl.scrollTop - deps.state.changelog.scrollTop) > 1) {
+      scrollEl.scrollTop = deps.state.changelog.scrollTop;
+    }
+    scrollEl.onscroll = () => {
+      deps.state.changelog.scrollTop = scrollEl.scrollTop;
+    };
+  }
 
   const close = (): void => {
     markClientChangelogSeen(deps.state, releaseVersion, deps.persistSeenVersion);
