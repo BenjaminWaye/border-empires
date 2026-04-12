@@ -18,10 +18,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.8",
+  version: "2026.04.12.9",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including steadier town data after restarts, staged shard-rain reveals, steadier release-note scrolling, icon-based combat rewards, tougher fortified border fights, and lower-risk server sync work.",
+  summary: "Recent updates now explain what changed after sign-in, including steadier frontier attack syncing, downloadable debug bundles for sync failures, staged shard-rain reveals, icon-based combat rewards, tougher fortified border fights, and lower-risk server sync work.",
   entries: [
+    {
+      title: "Frontier attack sync now keeps the original combat alive",
+      why: "Repeated border attacks could desync after delayed server acknowledgements, which made capture timers restart, queue duplicate sends, and hid the data needed to debug player reports.",
+      changes: [
+        "Kept delayed attack acknowledgements bound to the original frontier action instead of re-dispatching duplicate sends after a missed 2-second acceptance window.",
+        "Added downloadable debug bundles on sync failure popups so client attack logs, server health, and recent server timing traces can be shared directly for investigation.",
+        "Reduced several server-side hot paths around AI scheduling, dock-crossing validation, chunk sync priority, and post-combat follow-up so frontier actions clear more predictably under load."
+      ]
+    },
     {
       title: "Town names now stay stable across restarts",
       why: "Some towns could come back from a restart with the wrong generated name, which made it look like the town at a tile had changed identity.",
