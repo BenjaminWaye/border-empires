@@ -7,6 +7,10 @@ type RuntimeIncidentLogLike = {
   getLastCrashReport: () => unknown;
 };
 
+type ServerDebugBundleLike = {
+  snapshot: (limit?: number) => unknown;
+};
+
 interface RegisterServerHttpRoutesDeps {
   startupState: { ready: boolean; startedAt: number; completedAt?: number; currentPhase?: string };
   activeSeason: () => Season;
@@ -31,6 +35,7 @@ interface RegisterServerHttpRoutesDeps {
   telemetryCounters: TelemetryCounters;
   aiTurnDebugByPlayer: Map<string, { name: string; reason: string }>;
   buildAdminPlayersPayload: () => unknown;
+  serverDebugBundle: ServerDebugBundleLike;
 }
 
 export const registerServerHttpRoutes = (app: FastifyInstance, deps: RegisterServerHttpRoutesDeps): void => {
@@ -103,6 +108,27 @@ export const registerServerHttpRoutes = (app: FastifyInstance, deps: RegisterSer
     ok: true,
     currentBootId: deps.runtimeIncidentLog.bootId,
     lastUncleanShutdown: deps.runtimeIncidentLog.getLastCrashReport()
+  }));
+  app.get("/admin/runtime/debug-bundle", async () => ({
+    ok: true,
+    at: deps.now(),
+    health: deps.startupState.ready
+      ? {
+          ok: true,
+          startupElapsedMs: (deps.startupState.completedAt ?? Date.now()) - deps.startupState.startedAt
+        }
+      : {
+          ok: false,
+          status: "starting",
+          startupElapsedMs: Date.now() - deps.startupState.startedAt,
+          phase: deps.startupState.currentPhase ?? "boot"
+        },
+    runtime: deps.runtimeDashboardPayload(),
+    incidents: {
+      currentBootId: deps.runtimeIncidentLog.bootId,
+      lastUncleanShutdown: deps.runtimeIncidentLog.getLastCrashReport()
+    },
+    recentServerEvents: deps.serverDebugBundle.snapshot(250)
   }));
   app.get("/admin/runtime/dashboard", async (_request, reply) => {
     reply.type("text/html; charset=utf-8");
