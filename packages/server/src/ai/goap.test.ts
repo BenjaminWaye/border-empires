@@ -268,6 +268,23 @@ describe("planBestGoal", () => {
     expect(plan?.steps.map((step) => step.action.key)).toEqual(["claim_food_border_tile"]);
   });
 
+  it("lets economic-hegemony plans attack weak borders when the empire is otherwise stable", () => {
+    const state: AiEmpireGoapState = {
+      ...baseGoapState(),
+      hasWeakEnemyBorder: true,
+      attackReady: true,
+      canAffordFrontierAction: true,
+      canBuildEconomy: true,
+      goldHealthy: true,
+      staminaHealthy: true
+    };
+
+    const plan = planBestGoal(state, goalsForVictoryPath("ECONOMIC_HEGEMONY"), AI_EMPIRE_ACTIONS);
+
+    expect(plan?.goalId).toBe("season_economic_hegemony");
+    expect(plan?.steps.map((step) => step.action.key)).toEqual(["attack_enemy_border_tile"]);
+  });
+
   it("does not scout while the empire is under threat", () => {
     const state: AiEmpireGoapState = {
       ...baseGoapState(),
