@@ -1439,6 +1439,37 @@ body {
   color: rgba(226, 233, 226, 0.82);
 }
 
+.changelog-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px;
+  margin: -28px -28px 0;
+  border-bottom: 1px solid rgba(191, 206, 184, 0.12);
+  background:
+    linear-gradient(180deg, rgba(33, 39, 33, 0.98), rgba(26, 31, 26, 0.96)),
+    radial-gradient(circle at top left, rgba(57, 102, 78, 0.14), transparent 44%);
+  backdrop-filter: blur(10px);
+}
+
+.changelog-topbar-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.changelog-unseen-count {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(170, 214, 177, 0.86);
+}
+
 .changelog-entry-list {
   display: grid;
   gap: 16px;
@@ -1458,6 +1489,14 @@ body {
   font-size: 22px;
   line-height: 1.15;
   color: #f8fbf7;
+}
+
+.changelog-entry-version {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(179, 207, 180, 0.74);
 }
 
 .changelog-section {
@@ -1495,6 +1534,7 @@ body {
 
 .changelog-primary-btn {
   min-width: 150px;
+  flex: 0 0 auto;
 }
 
 .guide-body {
@@ -1800,6 +1840,11 @@ body {
   .guide-modal {
     width: min(920px, calc(100vw - 64px));
     padding: 32px 32px 28px;
+  }
+
+  .changelog-topbar {
+    margin: -32px -32px 0;
+    padding: 20px 24px;
   }
 
   .changelog-modal-scroll {
@@ -4447,6 +4492,12 @@ button:disabled,
     padding-right: 18px;
   }
 
+  .changelog-topbar {
+    margin: -20px -18px 0;
+    padding: 14px 16px;
+    align-items: start;
+  }
+
   .guide-modal::before,
   .guide-modal::after {
     content: none;
@@ -4466,6 +4517,10 @@ button:disabled,
   .changelog-title,
   .guide-title {
     font-size: 28px;
+  }
+
+  .changelog-topbar .changelog-primary-btn {
+    min-width: 124px;
   }
 
   .guide-body {
