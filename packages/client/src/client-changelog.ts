@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.4",
+  version: "2026.04.13.5",
   title: "What's New",
-  summary: "Recent updates include safer server AI planning internals, more stable loaded saves after restarts, and a shorter unseen-only release log.",
+  summary: "Recent updates include more opportunistic AI pressure, stronger economic AI compounding, and safer server AI planning internals.",
   entries: [
+    {
+      introducedIn: "2026.04.13.5",
+      title: "AI leaders now repivot and punish weak borders more aggressively",
+      why: "Too many AI empires were getting stuck on low-value long-term plans, staying passive near humans, and failing to turn economic leads into real pressure.",
+      changes: [
+        "Added emergency victory-path repivots when an AI is clearly on a dead-end objective and another path is materially stronger.",
+        "Made town-control and economic AIs more willing to break passive postures and attack soft enemy borders when they have a real opening.",
+        "Taught economic AIs to value connected, higher-payoff towns more directly so Markets and Banks are used for compounding instead of generic expansion only."
+      ]
+    },
     {
       introducedIn: "2026.04.13.4",
       title: "Server AI planning internals were split into smaller modules",
