@@ -1449,11 +1449,13 @@ body {
   gap: 14px;
   padding: 18px 20px;
   margin: -28px -28px 0;
-  border-bottom: 1px solid rgba(191, 206, 184, 0.12);
+  border-bottom: 1px solid rgba(148, 182, 214, 0.14);
   background:
-    linear-gradient(180deg, rgba(33, 39, 33, 0.98), rgba(26, 31, 26, 0.96)),
-    radial-gradient(circle at top left, rgba(57, 102, 78, 0.14), transparent 44%);
-  backdrop-filter: blur(10px);
+    linear-gradient(180deg, rgba(9, 17, 28, 0.94), rgba(8, 13, 23, 0.82)),
+    radial-gradient(circle at top left, rgba(77, 154, 255, 0.12), transparent 42%),
+    radial-gradient(circle at top right, rgba(76, 201, 169, 0.1), transparent 36%);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .changelog-topbar-copy {
@@ -1467,7 +1469,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(170, 214, 177, 0.86);
+  color: rgba(155, 222, 202, 0.9);
 }
 
 .changelog-entry-list {
@@ -1535,6 +1537,25 @@ body {
 .changelog-primary-btn {
   min-width: 150px;
   flex: 0 0 auto;
+  border: 1px solid rgba(145, 194, 255, 0.26);
+  background:
+    linear-gradient(180deg, rgba(245, 249, 255, 0.96), rgba(228, 238, 250, 0.92)),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(219, 235, 255, 0.28));
+  color: #112235;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.changelog-primary-btn:hover {
+  transform: translateY(-1px);
+  background:
+    linear-gradient(180deg, rgba(252, 254, 255, 0.98), rgba(235, 244, 255, 0.94)),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(219, 235, 255, 0.36));
+}
+
+.changelog-modal-scroll {
+  padding-top: 18px;
 }
 
 .guide-body {
@@ -1849,6 +1870,7 @@ body {
 
   .changelog-modal-scroll {
     gap: 22px;
+    padding-top: 22px;
   }
 
   .guide-modal::before {
@@ -4521,6 +4543,10 @@ button:disabled,
 
   .changelog-topbar .changelog-primary-btn {
     min-width: 124px;
+  }
+
+  .changelog-modal-scroll {
+    padding-top: 16px;
   }
 
   .guide-body {
