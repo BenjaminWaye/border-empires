@@ -17,7 +17,7 @@ describe("startup world validation regression guard", () => {
   });
 
   it("returns whether a snapshot was successfully loaded", () => {
-    const source = readLocal("./main.ts");
+    const source = readLocal("./server-snapshot-hydrate.ts");
     expect(source).toContain("const loadSnapshot = (): boolean => {");
     expect(source).toContain("if (!raw) return false;");
     expect(source).toContain("hydrateSnapshotState(raw);");
