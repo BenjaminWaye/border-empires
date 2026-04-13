@@ -28,6 +28,17 @@ const functionBody = (source: string, functionName: string): string => {
 };
 
 describe("server world mobility regression guard", () => {
+  it("requires maintenance spawns to come from a substantial fog buffer", () => {
+    const source = serverWorldMobilitySource();
+    expect(source).toContain("const isValidMaintenanceBarbarianSpawnTile = (x: number, y: number): boolean =>");
+    expect(source).toContain("hasBarbarianMaintenanceFogBuffer({ x, y, tileAt: playerTile, isOutOfSight: isOutOfSightOfAllPlayers })");
+  });
+
+  it("keeps maintenance spawns separated from nearby barbarian agents", () => {
+    const source = serverWorldMobilitySource();
+    expect(source).toContain("!hasNearbyBarbarianAgent(x, y, BARBARIAN_MAINTENANCE_MIN_AGENT_SEPARATION)");
+  });
+
   it("filters missing adjacent barbarian target tiles before scoring defense", () => {
     const body = functionBody(serverWorldMobilitySource(), "chooseBarbarianTarget");
     expect(body).toContain(".filter((tile): tile is Tile => Boolean(tile))");
