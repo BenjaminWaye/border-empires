@@ -488,7 +488,7 @@ const SEASON_GOAL_BY_VICTORY_PATH: Record<AiSeasonVictoryPathId, GoapGoal<AiEmpi
   ECONOMIC_HEGEMONY: {
     id: "season_economic_hegemony",
     priority: 13,
-    desired: { economyWeak: false, foodCoverageLow: false }
+    desired: { economyWeak: false, foodCoverageLow: false, hasWeakEnemyBorder: false }
   }
 };
 
@@ -520,6 +520,7 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
     secure_core_income: 5,
     settle_high_value_frontier: 5,
     secure_high_value_frontier: 4,
+    remove_core_threat: 4,
     clear_barbarian_pressure: 1,
     stabilize_reserves: -2
   }

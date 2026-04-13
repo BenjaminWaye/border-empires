@@ -3837,13 +3837,24 @@ const chooseAiStrategicState = (
     aiIncome: analysis.aiIncome
   });
   const shardOpportunity = !analysis.underThreat && !analysis.foodCoverageLow && !analysis.economyWeak && Boolean(bestAiCollectShardTile(actor));
+  const opportunisticBreakPressure =
+    planningStatic.pressureAttackScore >= (primaryVictoryPath === "TOWN_CONTROL" ? 120 : 180) &&
+    canPivotToGrowth &&
+    !analysis.foodCoverageLow &&
+    analysis.aiIncome >= 10;
 
   let frontPosture: AiFrontPosture = "BREAK";
   if (!planningStatic.pressureThreatensCore && planningStatic.pressureAttackScore > 0 && canPivotToGrowth) {
     frontPosture =
-      analysis.underThreat && (analysis.foodCoverageLow || analysis.economyWeak) && primaryVictoryPath !== "TOWN_CONTROL" ? "TRUCE" : "CONTAIN";
+      analysis.underThreat && (analysis.foodCoverageLow || analysis.economyWeak) && primaryVictoryPath !== "TOWN_CONTROL" && !opportunisticBreakPressure
+        ? "TRUCE"
+        : "CONTAIN";
   }
-  if (planningStatic.pressureThreatensCore || (primaryVictoryPath === "TOWN_CONTROL" && planningStatic.pressureAttackScore >= 160)) {
+  if (
+    planningStatic.pressureThreatensCore ||
+    (primaryVictoryPath === "TOWN_CONTROL" && planningStatic.pressureAttackScore >= 160) ||
+    opportunisticBreakPressure
+  ) {
     frontPosture = "BREAK";
   }
 
@@ -3870,6 +3881,13 @@ const chooseAiStrategicState = (
     })
   ) {
     focus = "ISLAND_FOOTPRINT";
+  } else if (
+    frontPosture === "BREAK" &&
+    planningStatic.pressureAttackScore >= (primaryVictoryPath === "TOWN_CONTROL" ? 100 : 180) &&
+    (primaryVictoryPath === "TOWN_CONTROL" || primaryVictoryPath === "ECONOMIC_HEGEMONY") &&
+    !analysis.foodCoverageLow
+  ) {
+    focus = "MILITARY_PRESSURE";
   } else if (analysis.foodCoverageLow || analysis.economyWeak) {
     focus = "ECONOMIC_RECOVERY";
   } else if (frontPosture === "CONTAIN" || frontPosture === "TRUCE") {
@@ -4243,6 +4261,27 @@ const bestAiFortTile = (actor: Player, territorySummary = collectAiTerritorySumm
   return best && best.score >= 70 ? best.tile : undefined;
 };
 
+const aiTownCompoundingStructureScore = (tileKey: TileKey, actorId: string): number => {
+  const supportedTownKeys = townsByTile.has(tileKey) ? [tileKey] : supportedTownKeysForTile(tileKey, actorId);
+  let bestScore = 0;
+  for (const supportedTownKey of supportedTownKeys) {
+    if (ownership.get(supportedTownKey) !== actorId || ownershipStateByTile.get(supportedTownKey) !== "SETTLED") continue;
+    const town = townsByTile.get(supportedTownKey);
+    if (!town || typeof town !== "object") continue;
+    const townRecord = town as { connectedTownCount?: unknown; connectedTownBonus?: unknown; population?: unknown };
+    const connectedTownCount = typeof townRecord.connectedTownCount === "number" ? townRecord.connectedTownCount : 0;
+    const connectedTownBonus = typeof townRecord.connectedTownBonus === "number" ? townRecord.connectedTownBonus : 0;
+    const population = typeof townRecord.population === "number" ? townRecord.population : 0;
+    const support = townSupport(supportedTownKey, actorId);
+    let score = connectedTownCount * 55 + Math.round(connectedTownBonus * 140) + population * 3;
+    if (support.supportCurrent >= support.supportMax) score += 18;
+    if (supportedTownKey === tileKey) score += 12;
+    if (connectedTownCount > 0) score += 24;
+    if (score > bestScore) bestScore = score;
+  }
+  return bestScore;
+};
+
 const bestAiEconomicStructure = (
   actor: Player,
   territorySummary = collectAiTerritorySummary(actor)
@@ -4257,6 +4296,7 @@ const bestAiEconomicStructure = (
   for (const tile of territorySummary.structureCandidateTiles) {
     const tileKey = key(tile.x, tile.y);
     if (tile.economicStructure) continue;
+    const townCompoundingScore = aiTownCompoundingStructureScore(tileKey, actor.id);
     if (tile.resource === "FARM" || tile.resource === "FISH") {
       consider(foodCoverageLow ? 190 : 60, tile, "FARMSTEAD");
       consider(foodCoverageLow ? 140 : 28, tile, "GRANARY");
@@ -4267,9 +4307,14 @@ const bestAiEconomicStructure = (
       consider(economicVictoryBias ? 58 : 45, tile, "MINE");
       consider(economicVictoryBias ? 34 : 22, tile, "MARKET");
     } else if (townsByTile.has(tileKey)) {
-      consider(foodCoverageLow ? 160 : economicVictoryBias ? 54 : 35, tile, foodCoverageLow ? "GRANARY" : "MARKET");
+      consider(
+        foodCoverageLow ? 160 : (economicVictoryBias ? 54 : 35) + Math.round(townCompoundingScore * (economicVictoryBias ? 0.34 : 0.2)),
+        tile,
+        foodCoverageLow ? "GRANARY" : "MARKET"
+      );
       consider(foodCoverageLow ? 132 : 22, tile, "GRANARY");
-      consider(economicVictoryBias ? 44 : 20, tile, "MARKET");
+      consider((economicVictoryBias ? 44 : 20) + Math.round(townCompoundingScore * 0.28), tile, "MARKET");
+      consider((economicVictoryBias ? 68 : 26) + Math.round(townCompoundingScore * (economicVictoryBias ? 0.45 : 0.3)), tile, "BANK");
     }
   }
   if (best) {
@@ -4282,6 +4327,7 @@ const bestAiEconomicStructure = (
       (!actor.techIds.has("mining") || actor.points < MINE_BUILD_GOLD_COST || ((best.tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)
     ) best = undefined;
     else if (best.structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST)) best = undefined;
+    else if (best.structureType === "BANK" && (!actor.techIds.has("coinage") || actor.points < BANK_BUILD_GOLD_COST)) best = undefined;
     else if (
       best.structureType === "GRANARY" &&
       (!getPlayerEffectsForPlayer(actor.id).unlockGranary || actor.points < GRANARY_BUILD_GOLD_COST || (stock.FOOD ?? 0) < GRANARY_BUILD_FOOD_COST)
@@ -4291,6 +4337,7 @@ const bestAiEconomicStructure = (
   for (const tile of territorySummary.structureCandidateTiles) {
     const tileKey = key(tile.x, tile.y);
     if (tile.economicStructure) continue;
+    const townCompoundingScore = aiTownCompoundingStructureScore(tileKey, actor.id);
     const candidates: EconomicStructureType[] =
       tile.resource === "FARM" || tile.resource === "FISH"
         ? ["FARMSTEAD", "GRANARY"]
@@ -4299,7 +4346,9 @@ const bestAiEconomicStructure = (
           : tile.resource === "IRON" || tile.resource === "GEMS"
             ? ["MINE", "MARKET"]
             : townsByTile.has(tileKey)
-              ? ["MARKET", "GRANARY"]
+              ? townCompoundingScore >= 90 || economicVictoryBias
+                ? ["BANK", "MARKET", "GRANARY"]
+                : ["MARKET", "GRANARY", "BANK"]
               : [];
     for (const structureType of candidates) {
       const placed = canPlaceEconomicStructure(actor, tile, structureType);
@@ -4308,6 +4357,7 @@ const bestAiEconomicStructure = (
       if (structureType === "CAMP" && (!actor.techIds.has("leatherworking") || actor.points < CAMP_BUILD_GOLD_COST || (stock.SUPPLY ?? 0) < CAMP_BUILD_SUPPLY_COST)) continue;
       if (structureType === "MINE" && (!actor.techIds.has("mining") || actor.points < MINE_BUILD_GOLD_COST || ((tile.resource === "IRON" ? stock.IRON : stock.CRYSTAL) ?? 0) < MINE_BUILD_RESOURCE_COST)) continue;
       if (structureType === "MARKET" && (!actor.techIds.has("trade") || actor.points < MARKET_BUILD_GOLD_COST)) continue;
+      if (structureType === "BANK" && (!actor.techIds.has("coinage") || actor.points < BANK_BUILD_GOLD_COST)) continue;
       if (structureType === "GRANARY" && (!getPlayerEffectsForPlayer(actor.id).unlockGranary || actor.points < GRANARY_BUILD_GOLD_COST || (stock.FOOD ?? 0) < GRANARY_BUILD_FOOD_COST)) continue;
       return { tile, structureType };
     }
@@ -5093,6 +5143,7 @@ const chooseOpeningAiVictoryPath = (
 
 const AI_VICTORY_PATH_REEVALUATE_MS = 30 * 60_000;
 const AI_VICTORY_PATH_REPIVOT_MARGIN = 22;
+const AI_VICTORY_PATH_EMERGENCY_REPIVOT_MARGIN = 72;
 const AI_VICTORY_PATH_ARCHETYPE_BONUS = 34;
 const AI_VICTORY_PATH_POPULATION_PENALTY = 18;
 const AI_VICTORY_PATH_CONTENDER_PROGRESS_RATIO = 0.72;
@@ -5146,6 +5197,45 @@ const isAiVictoryPathContender = (
   townsTarget: number,
   settledTilesTarget: number
 ): boolean => aiVictoryPathContenderBonus(victoryPath, analysis, townsTarget, settledTilesTarget) >= AI_VICTORY_PATH_POPULATION_PENALTY;
+
+const aiVictoryPathProgressRatio = (
+  victoryPath: AiSeasonVictoryPathId,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): number => {
+  if (victoryPath === "TOWN_CONTROL") return townsTarget > 0 ? analysis.controlledTowns / townsTarget : 0;
+  if (victoryPath === "SETTLED_TERRITORY") return settledTilesTarget > 0 ? analysis.settledTiles / settledTilesTarget : 0;
+  return Math.max(0, Math.min(1, analysis.aiIncome / AI_VICTORY_PATH_CONTENDER_ECONOMY_MIN));
+};
+
+const shouldForceAiVictoryRepivot = (
+  existing: AiSeasonVictoryPathId,
+  best: { id: AiSeasonVictoryPathId; score: number } | undefined,
+  currentScore: number,
+  analysis: AiTurnAnalysis,
+  townsTarget: number,
+  settledTilesTarget: number
+): boolean => {
+  if (!best || best.id === existing) return false;
+  if (isAiVictoryPathContender(existing, analysis, townsTarget, settledTilesTarget)) return false;
+  if (best.score < currentScore + AI_VICTORY_PATH_EMERGENCY_REPIVOT_MARGIN) return false;
+
+  const existingProgress = aiVictoryPathProgressRatio(existing, analysis, townsTarget, settledTilesTarget);
+  if (existingProgress >= AI_VICTORY_PATH_SOFT_CONTENDER_PROGRESS_RATIO) return false;
+
+  if (existing === "SETTLED_TERRITORY") {
+    return (
+      analysis.economyWeak ||
+      analysis.underThreat ||
+      analysis.territorySummary.neutralLandExpandCount < Math.max(6, Math.min(18, analysis.frontierTiles))
+    );
+  }
+  if (existing === "ECONOMIC_HEGEMONY") {
+    return analysis.economyWeak || (!analysis.worldFlags.has("active_town") && !analysis.worldFlags.has("active_dock"));
+  }
+  return analysis.territorySummary.hostileTownAttackCount <= 0 && analysis.territorySummary.enemyAttackAvailable === false;
+};
 
 const scoreAiVictoryPathChoices = (
   actor: Player,
@@ -5216,10 +5306,15 @@ const ensureAiVictoryPath = (
   const existing = aiVictoryPathByPlayer.get(actor.id);
   const updatedAt = aiVictoryPathUpdatedAtByPlayer.get(actor.id) ?? 0;
   if (existing) {
-    if (now() - updatedAt < AI_VICTORY_PATH_REEVALUATE_MS) return existing;
     const scored = scoreAiVictoryPathChoices(actor, analysis, townsTarget, settledTilesTarget);
     const best = scored[0];
     const currentScore = scored.find((entry) => entry.id === existing)?.score ?? Number.NEGATIVE_INFINITY;
+    if (shouldForceAiVictoryRepivot(existing, best, currentScore, analysis, townsTarget, settledTilesTarget)) {
+      aiVictoryPathByPlayer.set(actor.id, best!.id);
+      aiVictoryPathUpdatedAtByPlayer.set(actor.id, now());
+      return best!.id;
+    }
+    if (now() - updatedAt < AI_VICTORY_PATH_REEVALUATE_MS) return existing;
     aiVictoryPathUpdatedAtByPlayer.set(actor.id, now());
     if (best && best.id !== existing && !analysis.underThreat && best.score >= currentScore + AI_VICTORY_PATH_REPIVOT_MARGIN) {
       aiVictoryPathByPlayer.set(actor.id, best.id);
