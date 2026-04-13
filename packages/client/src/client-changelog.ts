@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.3",
+  version: "2026.04.13.4",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including stable saved towns after restarts, a shorter unseen-only release log, and a continue action that stays available while you read.",
+  summary: "Recent updates include safer server AI planning internals, more stable loaded saves after restarts, and a shorter unseen-only release log.",
   entries: [
+    {
+      introducedIn: "2026.04.13.4",
+      title: "Server AI planning internals were split into smaller modules",
+      why: "The live server still had large AI frontier-selection and victory-planning blocks inside the main runtime file, which made fixes riskier even when behavior stayed the same.",
+      changes: [
+        "Split AI planning types, frontier selection helpers, frontier planning helpers, and victory-path scoring into focused server modules.",
+        "Kept full server and client regression coverage green after the refactor so live AI behavior stays stable while the server runtime gets easier to maintain."
+      ]
+    },
     {
       introducedIn: "2026.04.13.3",
       title: "Loaded saves no longer regenerate towns on startup",
