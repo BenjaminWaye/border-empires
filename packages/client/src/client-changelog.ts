@@ -18,10 +18,18 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.12.9",
+  version: "2026.04.13.1",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including steadier frontier attack syncing, downloadable debug bundles for sync failures, staged shard-rain reveals, icon-based combat rewards, tougher fortified border fights, and lower-risk server sync work.",
+  summary: "Recent updates now explain what changed after sign-in, including steadier frontier attack syncing, downloadable debug bundles for sync failures, staged shard-rain reveals, icon-based combat rewards, tougher fortified border fights, and safer server-side AI/runtime maintenance.",
   entries: [
+    {
+      title: "AI frontier planning was split into smaller server modules",
+      why: "The live server still had large AI frontier-planning blocks inside one runtime file, which made future fixes riskier even when gameplay behavior stayed the same.",
+      changes: [
+        "Split AI frontier territory, scout, settlement, signal, and pressure helpers into focused server modules under the 500-line file target.",
+        "Kept full server and client regression coverage green after the refactor so the live AI/runtime path stays behaviorally stable."
+      ]
+    },
     {
       title: "Frontier attack sync now keeps the original combat alive",
       why: "Repeated border attacks could desync after delayed server acknowledgements, which made capture timers restart, queue duplicate sends, and hid the data needed to debug player reports.",
