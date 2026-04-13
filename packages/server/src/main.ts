@@ -99,8 +99,6 @@ import {
   type EconomicStructureType,
   type ClientMessage,
 } from "@border-empires/shared";
-import fs from "node:fs";
-import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
 import { currentShardRainNotice, nextShardRainStartAt } from "./server-shard-rain.js";
@@ -114,6 +112,11 @@ import { createServerVictoryPressure } from "./server-victory-pressure.js";
 import { createServerTechDomainRuntime } from "./server-tech-domain-runtime.js";
 import { createServerEconomyStateRuntime } from "./server-economy-state-runtime.js";
 import { createServerPlayerEffectsRuntime } from "./server-player-effects-runtime.js";
+import { createServerPlayerRuntimeSupport } from "./server-player-runtime-support.js";
+import { createServerOwnershipRuntime } from "./server-ownership-runtime.js";
+import { createServerSnapshotIoRuntime } from "./server-snapshot-io.js";
+import { createServerSnapshotHydrateRuntime } from "./server-snapshot-hydrate.js";
+import { createServerPlayerIdentityRuntime } from "./server-player-identity-runtime.js";
 import { createServerAiFrontierSignalsRuntime } from "./server-ai-frontier-signals.js";
 import { createServerAiFrontierTerritoryRuntime } from "./server-ai-frontier-territory.js";
 import { createServerAiFrontierScoutRuntime } from "./server-ai-frontier-scout.js";
@@ -212,7 +215,6 @@ import {
   type VisibilitySnapshot
 } from "./chunk/snapshots.js";
 import { assignMissingTownNames } from "./town-names.js";
-import { appendPlayerActivityEntry, buildTownActivityEntry } from "./player-activity.js";
 import { createRuntimeIncidentLog } from "./runtime-incident-log.js";
 import { createSnapshotSaveRunner } from "./snapshot-save-runner.js";
 import { resolvePlayerTechPayloadSnapshot } from "./server-tech-payload-guard.js";
@@ -323,13 +325,7 @@ import {
   type SeasonalTechConfig,
   type ShardSiteState,
   type SiphonCache,
-  type SnapshotEconomySection,
-  type SnapshotMetaSection,
-  type SnapshotPlayersSection,
-  type SnapshotSectionIndex,
   type SnapshotState,
-  type SnapshotSystemsSection,
-  type SnapshotTerritorySection,
   STRATEGIC_RESOURCE_KEYS,
   type StrategicResource,
   type TerrainShapeState,
@@ -806,196 +802,6 @@ const aiTurnDebugByPlayer = new Map<string, AiTurnDebugEntry>();
 const aiLastActionFailureByPlayer = new Map<string, AiActionFailureEntry>();
 const aiVictoryPathByPlayer = new Map<string, AiSeasonVictoryPathId>();
 const aiVictoryPathUpdatedAtByPlayer = new Map<string, number>();
-
-const normalizedPlayerHandle = (name: string): string => {
-  const cleaned = name.replace(/\s+/g, " ").trim();
-  if (!cleaned) return "Empire";
-  return cleaned.slice(0, 24);
-};
-
-const playerNameTaken = (candidate: string, excludePlayerId?: string): boolean => {
-  for (const player of players.values()) {
-    if (excludePlayerId && player.id === excludePlayerId) continue;
-    if (player.name === candidate) return true;
-  }
-  return false;
-};
-
-const uniquePlayerName = (uid: string, preferred: string): string => {
-  const base = normalizedPlayerHandle(preferred);
-  const existingIdentity = authIdentityByUid.get(uid);
-  if (existingIdentity) return existingIdentity.name;
-  let candidate = base;
-  let suffix = 2;
-  while (playerNameTaken(candidate)) {
-    candidate = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}-${suffix}`;
-    suffix += 1;
-  }
-  return candidate;
-};
-
-const claimPlayerName = (playerId: string, preferred: string): string => {
-  const base = normalizedPlayerHandle(preferred);
-  let candidate = base;
-  let suffix = 2;
-  while (playerNameTaken(candidate, playerId)) {
-    candidate = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}-${suffix}`;
-    suffix += 1;
-  }
-  return candidate;
-};
-
-const AI_SINGLE_NAMES = [
-  "Conan",
-  "Boudica",
-  "Ragnar",
-  "Nyx",
-  "Ivar",
-  "Brakka",
-  "Skarn",
-  "Valka",
-  "Torvin",
-  "Morrigan",
-  "Korga",
-  "Thyra"
-] as const;
-
-const AI_NAME_PREFIXES = [
-  "Bastard",
-  "Iron",
-  "Wolf",
-  "Raven",
-  "Blood",
-  "Ash",
-  "Bone",
-  "Storm",
-  "Night",
-  "Skull",
-  "Dread",
-  "Black"
-] as const;
-
-const AI_NAME_SUFFIXES = [
-  "Cleaver",
-  "Reaver",
-  "Fang",
-  "Hammer",
-  "Render",
-  "Maw",
-  "Howl",
-  "Breaker",
-  "Warden",
-  "Rider",
-  "Seer",
-  "Brand"
-] as const;
-
-const randomFrom = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)]!;
-
-const generateAiNickname = (): string => {
-  for (let i = 0; i < 24; i += 1) {
-    const preferred =
-      Math.random() < 0.35
-        ? randomFrom(AI_SINGLE_NAMES)
-        : `${randomFrom(AI_NAME_PREFIXES)}${randomFrom(AI_NAME_SUFFIXES)}`;
-    if (!playerNameTaken(preferred)) return preferred;
-  }
-  return `${randomFrom(AI_NAME_PREFIXES)}${randomFrom(AI_NAME_SUFFIXES)}`;
-};
-
-const aiHasPlaceholderName = (name: string): boolean => /^AI Empire \d+$/.test(name);
-
-const playerHasFogAdminAccess = (playerId: string): boolean => {
-  for (const identity of authIdentityByUid.values()) {
-    if (identity.playerId !== playerId) continue;
-    return identity.email?.toLowerCase() === FOG_ADMIN_EMAIL;
-  }
-  return false;
-};
-
-const ensureAiPlayers = (): void => {
-  const existing = [...players.values()].filter((player) => player.isAi);
-  if (existing.length > AI_PLAYERS) {
-    for (const player of existing.slice(AI_PLAYERS)) {
-      players.delete(player.id);
-      playerBaseMods.delete(player.id);
-      strategicResourceStockByPlayer.delete(player.id);
-      strategicResourceBufferByPlayer.delete(player.id);
-      economyIndexByPlayer.delete(player.id);
-      dynamicMissionsByPlayer.delete(player.id);
-      forcedRevealTilesByPlayer.delete(player.id);
-      revealedEmpireTargetsByPlayer.delete(player.id);
-      playerEffectsByPlayer.delete(player.id);
-      clusterControlledTilesByPlayer.delete(player.id);
-      resourceCountsByPlayer.delete(player.id);
-      frontierSettlementsByPlayer.delete(player.id);
-      temporaryAttackBuffUntilByPlayer.delete(player.id);
-      temporaryIncomeBuffUntilByPlayer.delete(player.id);
-      abilityCooldownsByPlayer.delete(player.id);
-      growthPausedUntilByPlayer.delete(player.id);
-      townFeedingStateByPlayer.delete(player.id);
-      observatoryTileKeysByPlayer.delete(player.id);
-      economicStructureTileKeysByPlayer.delete(player.id);
-      socketsByPlayer.delete(player.id);
-      bulkSocketsByPlayer.delete(player.id);
-      chunkSubscriptionByPlayer.delete(player.id);
-      chunkSnapshotSentAtByPlayer.delete(player.id);
-      chunkSnapshotGenerationByPlayer.delete(player.id);
-      cachedVisibilitySnapshotByPlayer.delete(player.id);
-      cachedChunkSnapshotByPlayer.delete(player.id);
-    }
-  }
-  if (AI_PLAYERS <= 0) return;
-  for (const player of existing) {
-    if (!aiHasPlaceholderName(player.name)) continue;
-    player.name = claimPlayerName(player.id, generateAiNickname());
-  }
-  for (let i = existing.length; i < AI_PLAYERS; i += 1) {
-    const id = crypto.randomUUID();
-    const player: Player = {
-      id,
-      name: claimPlayerName(id, generateAiNickname()),
-      isAi: true,
-      profileComplete: true,
-      points: STARTING_GOLD,
-      level: 0,
-      techIds: new Set<string>(),
-      domainIds: new Set<string>(),
-      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-      powerups: {},
-      tileColor: colorFromId(id),
-      missions: [],
-      missionStats: defaultMissionStats(),
-      territoryTiles: new Set<TileKey>(),
-      T: 0,
-      E: 0,
-      Ts: 0,
-      Es: 0,
-      stamina: STAMINA_MAX,
-      staminaUpdatedAt: now(),
-      manpower: STARTING_MANPOWER,
-      manpowerUpdatedAt: now(),
-      manpowerCapSnapshot: STARTING_MANPOWER,
-      allies: new Set<string>(),
-      spawnShieldUntil: now() + 120_000,
-      isEliminated: false,
-      respawnPending: false,
-      lastActiveAt: now(),
-      lastEconomyWakeAt: now(),
-      activityInbox: []
-    };
-    players.set(id, player);
-    playerBaseMods.set(id, { attack: 1, defense: 1, income: 1, vision: 1 });
-    strategicResourceStockByPlayer.set(id, emptyStrategicStocks());
-    strategicResourceBufferByPlayer.set(id, emptyStrategicStocks());
-    economyIndexByPlayer.set(id, emptyPlayerEconomyIndex());
-    dynamicMissionsByPlayer.set(id, []);
-    forcedRevealTilesByPlayer.set(id, new Set<TileKey>());
-    setRevealTargetsForPlayer(id, []);
-    playerEffectsByPlayer.set(id, emptyPlayerEffects());
-    clusterControlledTilesByPlayer.set(id, new Map());
-  }
-};
 const ownership = new Map<TileKey, string>();
 const ownershipStateByTile = new Map<TileKey, OwnershipState>();
 const barbarianAgents = new Map<string, BarbarianAgent>();
@@ -5799,6 +5605,64 @@ const {
 });
 
 const {
+  normalizedPlayerHandle,
+  uniquePlayerName,
+  claimPlayerName,
+  playerHasFogAdminAccess,
+  ensureAiPlayers
+} = createServerPlayerIdentityRuntime({
+  players,
+  authIdentityByUid,
+  AI_PLAYERS,
+  FOG_ADMIN_EMAIL,
+  STARTING_GOLD,
+  STARTING_MANPOWER,
+  STAMINA_MAX,
+  colorFromId,
+  defaultMissionStats,
+  now,
+  randomUUID: () => crypto.randomUUID(),
+  initializeAiPlayerRuntimeState: (player: Player) => {
+    playerBaseMods.set(player.id, { attack: 1, defense: 1, income: 1, vision: 1 });
+    strategicResourceStockByPlayer.set(player.id, emptyStrategicStocks());
+    strategicResourceBufferByPlayer.set(player.id, emptyStrategicStocks());
+    economyIndexByPlayer.set(player.id, emptyPlayerEconomyIndex());
+    dynamicMissionsByPlayer.set(player.id, []);
+    forcedRevealTilesByPlayer.set(player.id, new Set<TileKey>());
+    setRevealTargetsForPlayer(player.id, []);
+    playerEffectsByPlayer.set(player.id, emptyPlayerEffects());
+    clusterControlledTilesByPlayer.set(player.id, new Map());
+  },
+  cleanupRemovedAiPlayer: (playerId: string) => {
+    playerBaseMods.delete(playerId);
+    strategicResourceStockByPlayer.delete(playerId);
+    strategicResourceBufferByPlayer.delete(playerId);
+    economyIndexByPlayer.delete(playerId);
+    dynamicMissionsByPlayer.delete(playerId);
+    forcedRevealTilesByPlayer.delete(playerId);
+    revealedEmpireTargetsByPlayer.delete(playerId);
+    playerEffectsByPlayer.delete(playerId);
+    clusterControlledTilesByPlayer.delete(playerId);
+    resourceCountsByPlayer.delete(playerId);
+    frontierSettlementsByPlayer.delete(playerId);
+    temporaryAttackBuffUntilByPlayer.delete(playerId);
+    temporaryIncomeBuffUntilByPlayer.delete(playerId);
+    abilityCooldownsByPlayer.delete(playerId);
+    growthPausedUntilByPlayer.delete(playerId);
+    townFeedingStateByPlayer.delete(playerId);
+    observatoryTileKeysByPlayer.delete(playerId);
+    economicStructureTileKeysByPlayer.delete(playerId);
+    socketsByPlayer.delete(playerId);
+    bulkSocketsByPlayer.delete(playerId);
+    chunkSubscriptionByPlayer.delete(playerId);
+    chunkSnapshotSentAtByPlayer.delete(playerId);
+    chunkSnapshotGenerationByPlayer.delete(playerId);
+    cachedVisibilitySnapshotByPlayer.delete(playerId);
+    cachedChunkSnapshotByPlayer.delete(playerId);
+  }
+});
+
+const {
   computeLeaderboardSnapshot,
   uniqueLeader,
   leadingPair,
@@ -7280,580 +7144,6 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   return { ok: true };
 };
 
-const updateOwnership = (x: number, y: number, newOwner: string | undefined, newState?: OwnershipState): void => {
-  const startedAt = now();
-  const t = playerTile(x, y);
-  const oldOwner = t.ownerId;
-  const oldOwnershipState = t.ownershipState;
-  const k = key(t.x, t.y);
-  const clusterId = t.clusterId;
-  let displacedSettlement: { ownerId: string; town: Pick<TownDefinition, "townId" | "type" | "name"> } | undefined;
-  const affectedPlayers = new Set<string>();
-  if (oldOwner) affectedPlayers.add(oldOwner);
-  if (newOwner) affectedPlayers.add(newOwner);
-  for (const n of cardinalNeighborCores(t.x, t.y)) {
-    if (n.ownerId) affectedPlayers.add(n.ownerId);
-  }
-
-  if (oldOwner && newOwner !== oldOwner) {
-    wakeOfflineEconomyForPlayer(oldOwner);
-    const capturedTown = townsByTile.get(k);
-    if (capturedTown) queueOfflineTownCaptureActivity(oldOwner, newOwner, capturedTown);
-    if (oldOwner !== BARBARIAN_OWNER_ID && capturedTown && isRelocatableSettlementTown(capturedTown)) {
-      displacedSettlement = {
-        ownerId: oldOwner,
-        town: {
-          townId: capturedTown.townId,
-          type: capturedTown.type,
-          ...(capturedTown.name ? { name: capturedTown.name } : {})
-        }
-      };
-      townsByTile.delete(k);
-      markSummaryChunkDirtyAtTile(t.x, t.y);
-    }
-    if (oldOwner === BARBARIAN_OWNER_ID) {
-      removeBarbarianAtTile(k);
-    }
-    const settle = pendingSettlementsByTile.get(k);
-    if (settle) {
-      clearPendingSettlement(settle);
-      if (!newOwner || newOwner === settle.ownerId) {
-        refundPendingSettlement(settle);
-        const player = players.get(settle.ownerId);
-        if (player) {
-          sendToPlayer(player.id, { type: "ERROR", code: "SETTLE_INVALID", message: "settlement cancelled and gold returned", x: t.x, y: t.y });
-          sendPlayerUpdate(player, 0);
-        }
-      } else {
-        const player = players.get(settle.ownerId);
-        if (player) {
-          sendToPlayer(player.id, { type: "ERROR", code: "SETTLE_INVALID", message: "tile captured during settlement; gold forfeited", x: t.x, y: t.y });
-          sendPlayerUpdate(player, 0);
-        }
-      }
-    }
-    const fort = fortsByTile.get(k);
-    if (fort) {
-      if (fort.status === "under_construction" || fort.status === "removing") {
-        cancelFortBuild(k);
-        fortsByTile.delete(k);
-      } else if (newOwner) {
-        fort.ownerId = newOwner;
-        fort.disabledUntil = now() + TOWN_CAPTURE_SHOCK_MS;
-        delete fort.completesAt;
-        delete fort.previousStatus;
-      } else {
-        fortsByTile.delete(k);
-      }
-    }
-    const observatory = observatoriesByTile.get(k);
-    if (observatory) {
-      if (observatory.status === "under_construction") {
-        cancelObservatoryBuild(k);
-      } else {
-        untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, k);
-        observatoriesByTile.delete(k);
-      }
-    }
-    const economic = economicStructuresByTile.get(k);
-    const siege = siegeOutpostsByTile.get(k);
-    if (siege) {
-      cancelSiegeOutpostBuild(k);
-      siegeOutpostsByTile.delete(k);
-    }
-    siphonByTile.delete(k);
-    breachShockByTile.delete(k);
-    settlementDefenseByTile.delete(k);
-    if (economic) {
-      if (economic.status === "under_construction" || economic.status === "removing") {
-        const timer = economicStructureBuildTimers.get(k);
-        if (timer) clearTimeout(timer);
-        economicStructureBuildTimers.delete(k);
-        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
-        economicStructuresByTile.delete(k);
-        markSummaryChunkDirtyAtTile(t.x, t.y);
-      } else if (newOwner) {
-        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
-        economic.ownerId = newOwner;
-        economic.status = "inactive";
-        delete economic.completesAt;
-        economic.disabledUntil = now() + TOWN_CAPTURE_SHOCK_MS;
-        delete economic.inactiveReason;
-        economic.nextUpkeepAt = economic.disabledUntil;
-        trackOwnedTileKey(economicStructureTileKeysByPlayer, newOwner, k);
-      } else {
-        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
-        economicStructuresByTile.delete(k);
-      }
-    }
-  }
-
-  if (newOwner) {
-    ownership.set(k, newOwner);
-    const stateToSet =
-      newState ??
-      (newOwner === BARBARIAN_OWNER_ID ? "BARBARIAN" : oldOwner === newOwner ? ownershipStateByTile.get(k) : "FRONTIER");
-    ownershipStateByTile.set(k, stateToSet ?? (newOwner === BARBARIAN_OWNER_ID ? "BARBARIAN" : "FRONTIER"));
-  } else {
-    ownership.delete(k);
-    ownershipStateByTile.delete(k);
-    const observatory = observatoriesByTile.get(k);
-    if (observatory) {
-      if (observatory.status === "under_construction") {
-        cancelObservatoryBuild(k);
-      } else {
-        untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, k);
-        observatoriesByTile.delete(k);
-      }
-    }
-    const economic = economicStructuresByTile.get(k);
-    if (economic) {
-      if (economic.status === "under_construction" || economic.status === "removing") {
-        const timer = economicStructureBuildTimers.get(k);
-        if (timer) clearTimeout(timer);
-        economicStructureBuildTimers.delete(k);
-        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
-        economicStructuresByTile.delete(k);
-        markSummaryChunkDirtyAtTile(t.x, t.y);
-      } else {
-        untrackOwnedTileKey(economicStructureTileKeysByPlayer, economic.ownerId, k);
-        economicStructuresByTile.delete(k);
-      }
-    }
-    siphonByTile.delete(k);
-    breachShockByTile.delete(k);
-    settlementDefenseByTile.delete(k);
-  }
-  const finalState = ownershipStateByTile.get(k);
-  if (newOwner && newOwner !== BARBARIAN_OWNER_ID && finalState === "SETTLED") {
-    if (!(oldOwner === newOwner && oldOwnershipState === "SETTLED")) settledSinceByTile.set(k, now());
-  } else {
-    settledSinceByTile.delete(k);
-  }
-  if (oldOwner !== newOwner) {
-    if (!newOwner) tileYieldByTile.delete(k);
-    if (oldOwner && newOwner) recordTileCaptureHistory(k, oldOwner, newOwner);
-    if (oldOwner && newOwner) {
-      const capturedTown = townsByTile.get(k);
-      if (capturedTown) {
-        applyTownCapturePopulationLoss(capturedTown);
-        applyTownCaptureShock(k);
-      }
-    }
-  }
-
-  if (oldOwner) {
-    const p = players.get(oldOwner);
-    if (p) {
-      p.territoryTiles.delete(k);
-      const r = t.resource;
-      if (r) getOrInitResourceCounts(oldOwner)[r] = (getOrInitResourceCounts(oldOwner)[r] ?? 0) - 1;
-      if (clusterId) setClusterControlDelta(oldOwner, clusterId, -1);
-    }
-  }
-
-  if (newOwner) {
-    const p = players.get(newOwner);
-    if (p) {
-      p.territoryTiles.add(k);
-      const r = t.resource;
-      if (r) getOrInitResourceCounts(newOwner)[r] = (getOrInitResourceCounts(newOwner)[r] ?? 0) + 1;
-      if (clusterId) setClusterControlDelta(newOwner, clusterId, 1);
-    }
-  }
-
-  const affectedPlayerRefreshStartedAt = now();
-  for (const pid of affectedPlayers) {
-    const p = players.get(pid);
-    if (!p) continue;
-    recomputeExposure(p);
-    recomputeTownNetworkForPlayer(pid);
-    reconcileCapitalForPlayer(p);
-    if (!displacedSettlement || displacedSettlement.ownerId !== pid) ensureFallbackSettlementForPlayer(pid);
-    rebuildEconomyIndexForPlayer(pid);
-  }
-  if (displacedSettlement) {
-    relocateCapturedSettlementForPlayer(displacedSettlement.ownerId, displacedSettlement.town);
-    const displacedPlayer = players.get(displacedSettlement.ownerId);
-    if (displacedPlayer) {
-      ensureFallbackSettlementForPlayer(displacedPlayer.id);
-      rebuildEconomyIndexForPlayer(displacedPlayer.id);
-    }
-  }
-  const affectedPlayerRefreshMs = now() - affectedPlayerRefreshStartedAt;
-
-  const visibilityRefreshStartedAt = now();
-  for (const pid of affectedPlayers) refreshVisibleOwnedTownsForPlayer(pid);
-  if (displacedSettlement) refreshVisibleOwnedTownsForPlayer(displacedSettlement.ownerId);
-  markAiTerritoryDirtyForPlayers(affectedPlayers);
-
-  const changedFoodTile = t.resource === "FARM" || t.resource === "FISH";
-  const changedTownTile = townsByTile.has(k);
-  const changedSupportAdjacency = adjacentNeighborCores(t.x, t.y).some((neighbor) => townsByTile.has(key(neighbor.x, neighbor.y)));
-  if (changedFoodTile || changedTownTile || changedSupportAdjacency) {
-    refreshVisibleNearbyTownDeltas(t.x, t.y);
-  }
-
-  const visibilityAffectedPlayers = new Set<string>();
-  if (oldOwner) {
-    visibilityAffectedPlayers.add(oldOwner);
-    for (const allyId of players.get(oldOwner)?.allies ?? []) visibilityAffectedPlayers.add(allyId);
-    for (const watcherPlayerId of revealWatchersByTarget.get(oldOwner) ?? []) visibilityAffectedPlayers.add(watcherPlayerId);
-  }
-  if (newOwner) {
-    visibilityAffectedPlayers.add(newOwner);
-    for (const allyId of players.get(newOwner)?.allies ?? []) visibilityAffectedPlayers.add(allyId);
-    for (const watcherPlayerId of revealWatchersByTarget.get(newOwner) ?? []) visibilityAffectedPlayers.add(watcherPlayerId);
-  }
-  const visibilityRefreshMs = now() - visibilityRefreshStartedAt;
-
-  const snapshotInvalidationStartedAt = now();
-  markVisibilityDirtyForPlayers(visibilityAffectedPlayers);
-  markSummaryChunkDirtyAtTile(t.x, t.y);
-  const snapshotInvalidationMs = now() - snapshotInvalidationStartedAt;
-
-  if (oldOwner !== newOwner || oldOwnershipState !== t.ownershipState) {
-    const ownerName = t.ownerId ? players.get(t.ownerId)?.name : undefined;
-    const replayEvent: Omit<StrategicReplayEvent, "id"> = {
-      at: now(),
-      type: "OWNERSHIP",
-      label: t.ownerId ? `${ownerName ?? t.ownerId.slice(0, 8)} ${t.ownershipState === "SETTLED" ? "settled" : "claimed"} (${t.x}, ${t.y})` : `Tile lost at (${t.x}, ${t.y})`,
-      ownerId: t.ownerId ?? null,
-      ownershipState: t.ownershipState ?? null,
-      x: t.x,
-      y: t.y,
-      isBookmark: townsByTile.has(k) && oldOwner !== newOwner
-    };
-    if (t.ownerId) replayEvent.playerId = t.ownerId;
-    if (ownerName) replayEvent.playerName = ownerName;
-    pushStrategicReplayEvent(replayEvent);
-  }
-
-  const tileDeltaFanoutStartedAt = now();
-  sendVisibleTileDeltaSquare(t.x, t.y, 1);
-  const tileDeltaFanoutMs = now() - tileDeltaFanoutStartedAt;
-  const elapsedMs = now() - startedAt;
-  recordHotPathTimingEvent(
-    "update_ownership_timing",
-    {
-      tileKey: k,
-      x: t.x,
-      y: t.y,
-      oldOwner,
-      newOwner,
-      oldOwnershipState,
-      newOwnershipState: t.ownershipState,
-      affectedPlayers: [...affectedPlayers],
-      affectedPlayerRefreshMs,
-      visibilityRefreshMs,
-      snapshotInvalidationMs,
-      tileDeltaFanoutMs
-    },
-    elapsedMs,
-    40
-  );
-  if (elapsedMs >= 40) {
-    recordServerDebugEvent("warn", "slow_update_ownership", {
-      tileKey: k,
-      x: t.x,
-      y: t.y,
-      oldOwner,
-      newOwner,
-      oldOwnershipState,
-      newOwnershipState: t.ownershipState,
-      affectedPlayers: [...affectedPlayers],
-      affectedPlayerRefreshMs,
-      visibilityRefreshMs,
-      snapshotInvalidationMs,
-      tileDeltaFanoutMs,
-      elapsedMs
-    });
-    app.log.warn(
-      {
-        tileKey: k,
-        x: t.x,
-        y: t.y,
-        oldOwner,
-        newOwner,
-        oldOwnershipState,
-        newOwnershipState: t.ownershipState,
-        affectedPlayers: [...affectedPlayers],
-        affectedPlayerRefreshMs,
-        visibilityRefreshMs,
-        snapshotInvalidationMs,
-        tileDeltaFanoutMs,
-        elapsedMs
-      },
-      "slow update ownership"
-    );
-  }
-};
-
-const spawnPlayer = (p: Player): void => {
-  const hasNearbyPlayerSpawn = (x: number, y: number, radius: number): boolean => {
-    for (const other of players.values()) {
-      if (other.id === p.id) continue;
-      const home = playerHomeTile(other);
-      const spawnOrigin = other.spawnOrigin;
-      const [ox, oy] = home ? [home.x, home.y] : spawnOrigin ? parseKey(spawnOrigin) : [Number.NaN, Number.NaN];
-      if (Number.isNaN(ox) || Number.isNaN(oy)) continue;
-      if (chebyshevDistance(x, y, ox, oy) < radius) return true;
-    }
-    return false;
-  };
-  const hasNearbyTown = (x: number, y: number, radius: number): boolean => {
-    for (let dy = -radius; dy <= radius; dy += 1) {
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
-        if (townsByTile.has(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)))) return true;
-      }
-    }
-    return false;
-  };
-  const hasNearbyFood = (x: number, y: number, radius: number): boolean => {
-    for (let dy = -radius; dy <= radius; dy += 1) {
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
-        const tk = key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
-        const clusterId = clusterByTile.get(tk);
-        const cluster = clusterId ? clustersById.get(clusterId) : undefined;
-        if (!cluster) continue;
-        const resource = clusterResourceType(cluster);
-        if (resource === "FARM" || resource === "FISH") return true;
-      }
-    }
-    return false;
-  };
-  const trySpawnAt = (x: number, y: number): boolean => {
-    const t = playerTile(x, y);
-    if (t.terrain !== "LAND") return false;
-    if (townsByTile.has(key(x, y))) return false;
-    const owner = t.ownerId;
-    if (owner && owner !== BARBARIAN_OWNER_ID) return false;
-    updateOwnership(x, y, p.id, "SETTLED");
-    if (!townsByTile.has(key(x, y))) createSettlementAtTile(p.id, key(x, y));
-    p.spawnOrigin = key(x, y);
-    p.capitalTileKey = key(x, y);
-    sendVisibleTileDeltaAt(x, y);
-    p.spawnShieldUntil = now() + 120_000;
-    p.isEliminated = false;
-    p.respawnPending = false;
-    broadcastBulk({ type: "PLAYER_STYLE", playerId: p.id, ...playerStylePayload(p) });
-    if (runtimeState.appRef) runtimeState.appRef.log.info({ playerId: p.id, x, y }, "spawned player");
-    return true;
-  };
-
-  if (!p.isAi && DEBUG_SPAWN_NEAR_AI) {
-    for (const other of players.values()) {
-      if (!other.isAi) continue;
-      const home = playerHomeTile(other);
-      const spawnOrigin = other.spawnOrigin;
-      const [ox, oy] = home ? [home.x, home.y] : spawnOrigin ? parseKey(spawnOrigin) : [Number.NaN, Number.NaN];
-      if (Number.isNaN(ox) || Number.isNaN(oy)) continue;
-      const neighbors: Array<[number, number]> = [
-        [ox, oy - 1],
-        [ox + 1, oy],
-        [ox, oy + 1],
-        [ox - 1, oy]
-      ];
-      for (const [nxRaw, nyRaw] of neighbors) {
-        const nx = wrapX(nxRaw, WORLD_WIDTH);
-        const ny = wrapY(nyRaw, WORLD_HEIGHT);
-        if (trySpawnAt(nx, ny)) return;
-      }
-    }
-  }
-
-  for (let i = 0; i < 8000; i += 1) {
-    const x = Math.floor(Math.random() * WORLD_WIDTH);
-    const y = Math.floor(Math.random() * WORLD_HEIGHT);
-    const t = playerTile(x, y);
-    if (t.terrain !== "LAND" || t.ownerId) continue;
-    if (hasNearbyPlayerSpawn(x, y, 50)) continue;
-    if (!hasNearbyTown(x, y, 10)) continue;
-    if (!hasNearbyFood(x, y, 10)) continue;
-    if (trySpawnAt(x, y)) return;
-  }
-
-  for (let i = 0; i < 5000; i += 1) {
-    const x = Math.floor(Math.random() * WORLD_WIDTH);
-    const y = Math.floor(Math.random() * WORLD_HEIGHT);
-    const t = playerTile(x, y);
-    if (t.terrain !== "LAND" || t.ownerId) continue;
-    if (hasNearbyPlayerSpawn(x, y, 50)) continue;
-    if (!hasNearbyTown(x, y, 10)) continue;
-    if (trySpawnAt(x, y)) return;
-  }
-
-  for (let i = 0; i < 5000; i += 1) {
-    const x = Math.floor(Math.random() * WORLD_WIDTH);
-    const y = Math.floor(Math.random() * WORLD_HEIGHT);
-    const t = playerTile(x, y);
-    if (t.terrain !== "LAND" || t.ownerId) continue;
-    if (hasNearbyPlayerSpawn(x, y, 50)) continue;
-    if (!hasNearbyFood(x, y, 10)) continue;
-    if (trySpawnAt(x, y)) return;
-  }
-
-  for (let i = 0; i < 5000; i += 1) {
-    const x = Math.floor(Math.random() * WORLD_WIDTH);
-    const y = Math.floor(Math.random() * WORLD_HEIGHT);
-    const t = playerTile(x, y);
-    if (t.terrain !== "LAND") continue;
-    if (hasNearbyPlayerSpawn(x, y, 50)) continue;
-    if (!t.ownerId && trySpawnAt(x, y)) return;
-  }
-
-  // Fallback: allow reclaiming barbarian land so spawn is never impossible.
-  for (let i = 0; i < 20_000; i += 1) {
-    const x = Math.floor(Math.random() * WORLD_WIDTH);
-    const y = Math.floor(Math.random() * WORLD_HEIGHT);
-    const t = playerTile(x, y);
-    if (t.terrain !== "LAND" || t.ownerId !== BARBARIAN_OWNER_ID) continue;
-    if (trySpawnAt(x, y)) return;
-  }
-
-  // Final safety: deterministic scan in case random attempts miss.
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (trySpawnAt(x, y)) return;
-    }
-  }
-
-  if (runtimeState.appRef) runtimeState.appRef.log.error({ playerId: p.id }, "failed to find any land tile for spawn");
-  else console.error("failed to find any land tile for spawn", { playerId: p.id });
-};
-
-const serializePlayer = (p: Player) => ({
-  ...p,
-  techIds: [...p.techIds],
-  domainIds: [...p.domainIds],
-  territoryTiles: [...p.territoryTiles],
-  allies: [...p.allies]
-});
-
-const lastEconomyActivityAtForPlayer = (player: Player): number => Math.max(player.lastActiveAt, player.lastEconomyWakeAt ?? 0);
-
-const offlineUpkeepPausedForPlayer = (player: Player): boolean => now() - lastEconomyActivityAtForPlayer(player) > OFFLINE_YIELD_ACCUM_MAX_MS;
-
-const wakeOfflineEconomyForPlayer = (playerId: string | undefined): void => {
-  if (!playerId || playerId === BARBARIAN_OWNER_ID) return;
-  const player = players.get(playerId);
-  if (!player) return;
-  player.lastEconomyWakeAt = now();
-};
-
-const queueOfflinePlayerActivity = (playerId: string, entry: import("@border-empires/shared").PlayerActivityEntry): void => {
-  const player = players.get(playerId);
-  if (!player) return;
-  const socket = socketsByPlayer.get(playerId);
-  if (socket && socket.readyState === socket.OPEN) return;
-  player.activityInbox = appendPlayerActivityEntry(player.activityInbox ?? [], entry);
-};
-
-const consumeOfflinePlayerActivity = (playerId: string): import("@border-empires/shared").PlayerActivityEntry[] => {
-  const player = players.get(playerId);
-  if (!player || player.activityInbox.length === 0) return [];
-  const pending = [...player.activityInbox];
-  player.activityInbox = [];
-  return pending;
-};
-
-const playerActivityName = (playerId: string | undefined): string => {
-  if (!playerId) return "Neutral territory";
-  if (playerId === BARBARIAN_OWNER_ID) return "Barbarians";
-  return players.get(playerId)?.name ?? playerId.slice(0, 8);
-};
-
-const queueOfflineTownCaptureActivity = (oldOwnerId: string | undefined, newOwnerId: string | undefined, town: TownDefinition): void => {
-  if (!town.name) return;
-  const occurredAt = now();
-  if (oldOwnerId && oldOwnerId !== BARBARIAN_OWNER_ID && oldOwnerId !== newOwnerId) {
-    queueOfflinePlayerActivity(
-      oldOwnerId,
-      buildTownActivityEntry({
-        kind: "lost",
-        townName: town.name,
-        actorName: playerActivityName(newOwnerId),
-        tileKey: town.tileKey,
-        at: occurredAt
-      })
-    );
-  }
-  if (newOwnerId && newOwnerId !== BARBARIAN_OWNER_ID && newOwnerId !== oldOwnerId) {
-    queueOfflinePlayerActivity(
-      newOwnerId,
-      buildTownActivityEntry({
-        kind: "captured",
-        townName: town.name,
-        actorName: playerActivityName(oldOwnerId),
-        tileKey: town.tileKey,
-        at: occurredAt
-      })
-    );
-  }
-};
-
-const rebuildOwnershipDerivedState = (): void => {
-  for (const p of players.values()) {
-    p.territoryTiles.clear();
-    p.T = 0;
-    p.E = 0;
-    p.Ts = 0;
-    p.Es = 0;
-    resourceCountsByPlayer.set(p.id, { FARM: 0, FISH: 0, FUR: 0, WOOD: 0, IRON: 0, GEMS: 0, OIL: 0 });
-    clusterControlledTilesByPlayer.set(p.id, new Map());
-  }
-
-  for (const [tk, ownerId] of [...ownership.entries()]) {
-    if (ownerId === BARBARIAN_OWNER_ID) {
-      const [x, y] = parseKey(tk);
-      const t = playerTile(x, y);
-      if (t.terrain !== "LAND") {
-        ownership.delete(tk);
-        ownershipStateByTile.delete(tk);
-        continue;
-      }
-      ownershipStateByTile.set(tk, "BARBARIAN");
-      continue;
-    }
-    const p = players.get(ownerId);
-    if (!p) {
-      ownership.delete(tk);
-      continue;
-    }
-    const [x, y] = parseKey(tk);
-    const t = playerTile(x, y);
-    if (t.terrain !== "LAND") {
-      ownership.delete(tk);
-      ownershipStateByTile.delete(tk);
-      continue;
-    }
-    if (!ownershipStateByTile.has(tk)) ownershipStateByTile.set(tk, "SETTLED");
-    if (ownershipStateByTile.get(tk) === "SETTLED" && !settledSinceByTile.has(tk)) settledSinceByTile.set(tk, 0);
-    p.territoryTiles.add(tk);
-    p.T += 1;
-    if (t.resource) getOrInitResourceCounts(ownerId)[t.resource] = (getOrInitResourceCounts(ownerId)[t.resource] ?? 0) + 1;
-    if (t.clusterId) setClusterControlDelta(ownerId, t.clusterId, 1);
-  }
-
-  for (const p of players.values()) {
-    recomputeExposure(p);
-    ensureFallbackSettlementForPlayer(p.id);
-    recomputeTownNetworkForPlayer(p.id);
-    reconcileCapitalForPlayer(p);
-    updateMissionState(p);
-  }
-  for (const agent of [...barbarianAgents.values()]) {
-    const t = playerTile(agent.x, agent.y);
-    if (t.ownerId !== BARBARIAN_OWNER_ID || t.terrain !== "LAND") {
-      removeBarbarianAgent(agent.id);
-      continue;
-    }
-    upsertBarbarianAgent(agent);
-  }
-};
-
 const playerHomeTile = (p: Player): { x: number; y: number } | undefined => {
   const first = activeSettlementTileKeyForPlayer(p.id) ?? p.spawnOrigin ?? [...p.territoryTiles][0];
   if (!first) return undefined;
@@ -7861,73 +7151,151 @@ const playerHomeTile = (p: Player): { x: number; y: number } | undefined => {
   return { x, y };
 };
 
-const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefined => {
-  let player = players.get(identity.playerId);
-  if (!player) player = [...players.values()].find((p) => p.name === identity.name);
-  if (!player) {
-    player = {
-      id: crypto.randomUUID(),
-      name: identity.name,
-      profileComplete: false,
-      points: STARTING_GOLD,
-      level: 0,
-      techIds: new Set<string>(),
-      domainIds: new Set<string>(),
-      mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-      powerups: {},
-      tileColor: colorFromId(identity.name),
-      missions: [],
-      missionStats: defaultMissionStats(),
-      territoryTiles: new Set<TileKey>(),
-      T: 0,
-      E: 0,
-      Ts: 0,
-      Es: 0,
-      stamina: STAMINA_MAX,
-      staminaUpdatedAt: now(),
-      manpower: STARTING_MANPOWER,
-      manpowerUpdatedAt: now(),
-      manpowerCapSnapshot: STARTING_MANPOWER,
-      allies: new Set<string>(),
-      spawnShieldUntil: now() + 120_000,
-      isEliminated: false,
-      respawnPending: false,
-      lastActiveAt: now(),
-      lastEconomyWakeAt: now(),
-      activityInbox: []
-    };
-    players.set(player.id, player);
-    identity.playerId = player.id;
-    playerBaseMods.set(player.id, { attack: 1, defense: 1, income: 1, vision: 1 });
-    strategicResourceStockByPlayer.set(player.id, emptyStrategicStocks());
-    strategicResourceBufferByPlayer.set(player.id, emptyStrategicStocks());
-    economyIndexByPlayer.set(player.id, emptyPlayerEconomyIndex());
-    dynamicMissionsByPlayer.set(player.id, []);
-    forcedRevealTilesByPlayer.set(player.id, new Set<TileKey>());
-    setRevealTargetsForPlayer(player.id, []);
-    playerEffectsByPlayer.set(player.id, emptyPlayerEffects());
-    spawnPlayer(player);
+let updateOwnership: (x: number, y: number, newOwner: string | undefined, newState?: OwnershipState) => void;
+
+const {
+  serializePlayer,
+  offlineUpkeepPausedForPlayer,
+  wakeOfflineEconomyForPlayer,
+  consumeOfflinePlayerActivity,
+  queueOfflineTownCaptureActivity,
+  rebuildOwnershipDerivedState,
+  spawnPlayer,
+  getOrCreatePlayerForIdentity
+} = createServerPlayerRuntimeSupport({
+  players,
+  ownership,
+  ownershipStateByTile,
+  settledSinceByTile,
+  townsByTile,
+  clusterByTile,
+  clustersById,
+  resourceCountsByPlayer,
+  clusterControlledTilesByPlayer,
+  barbarianAgents,
+  strategicResourceStockByPlayer,
+  strategicResourceBufferByPlayer,
+  economyIndexByPlayer,
+  dynamicMissionsByPlayer,
+  forcedRevealTilesByPlayer,
+  playerEffectsByPlayer,
+  playerBaseMods,
+  socketsByPlayer,
+  BARBARIAN_OWNER_ID,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  DEBUG_SPAWN_NEAR_AI,
+  STARTING_GOLD,
+  STARTING_MANPOWER,
+  STAMINA_MAX,
+  OFFLINE_YIELD_ACCUM_MAX_MS,
+  colorFromId,
+  playerStylePayload,
+  defaultMissionStats,
+  emptyStrategicStocks,
+  emptyPlayerEconomyIndex,
+  emptyPlayerEffects,
+  setRevealTargetsForPlayer,
+  recomputePlayerEffectsForPlayer,
+  ensureMissionDefaults,
+  normalizePlayerProgressionState,
+  recomputeExposure,
+  ensureFallbackSettlementForPlayer,
+  recomputeTownNetworkForPlayer,
+  reconcileCapitalForPlayer,
+  updateMissionState,
+  removeBarbarianAgent,
+  upsertBarbarianAgent,
+  playerHomeTile,
+  playerTile,
+  updateOwnership: (x, y, ownerId, state) => updateOwnership(x, y, ownerId, state),
+  createSettlementAtTile,
+  sendVisibleTileDeltaAt,
+  broadcastBulk,
+  clusterResourceType,
+  key,
+  parseKey,
+  wrapX,
+  wrapY,
+  chebyshevDistance,
+  getOrInitResourceCounts,
+  setClusterControlDelta,
+  now,
+  runtimeLogInfo: (payload, message) => {
+    if (runtimeState.appRef) runtimeState.appRef.log.info(payload, message);
+    else console.info(message, payload);
+  },
+  runtimeLogError: (payload, message) => {
+    if (runtimeState.appRef) runtimeState.appRef.log.error(payload, message);
+    else console.error(message, payload);
   }
-  if (!player) return undefined;
-  if (!Array.isArray(player.activityInbox)) player.activityInbox = [];
-  if (!(player.domainIds instanceof Set)) {
-    (player as unknown as { domainIds: Set<string> }).domainIds = new Set<string>();
-  }
-  normalizePlayerProgressionState(player);
-  if (player.T <= 0 || player.territoryTiles.size === 0) {
-    spawnPlayer(player);
-  }
-  if (!player.tileColor) {
-    player.tileColor = colorFromId(player.id);
-  }
-  if (player.name !== identity.name) {
-    player.name = identity.name;
-  }
-  recomputePlayerEffectsForPlayer(player);
-  ensureMissionDefaults(player);
-  updateMissionState(player);
-  return player;
-};
+});
+
+({
+  updateOwnership
+} = createServerOwnershipRuntime({
+  ownership,
+  ownershipStateByTile,
+  settledSinceByTile,
+  townsByTile,
+  pendingSettlementsByTile,
+  fortsByTile,
+  observatoriesByTile,
+  siegeOutpostsByTile,
+  economicStructuresByTile,
+  siphonByTile,
+  breachShockByTile,
+  settlementDefenseByTile,
+  tileYieldByTile,
+  revealWatchersByTarget,
+  observatoryTileKeysByPlayer,
+  economicStructureTileKeysByPlayer,
+  players,
+  BARBARIAN_OWNER_ID,
+  TOWN_CAPTURE_SHOCK_MS,
+  playerTile,
+  runtimeTileCore,
+  key,
+  parseKey,
+  now,
+  cardinalNeighborCores,
+  adjacentNeighborCores,
+  removeBarbarianAtTile,
+  clearPendingSettlement,
+  refundPendingSettlement,
+  sendToPlayer,
+  sendPlayerUpdate,
+  cancelFortBuild,
+  cancelObservatoryBuild,
+  cancelSiegeOutpostBuild,
+  economicStructureBuildTimers,
+  untrackOwnedTileKey,
+  trackOwnedTileKey,
+  markSummaryChunkDirtyAtTile,
+  recordTileCaptureHistory: (tileKey, oldOwner, newOwner) => recordTileCaptureHistory(tileKey, oldOwner, newOwner),
+  applyTownCapturePopulationLoss,
+  applyTownCaptureShock,
+  getOrInitResourceCounts,
+  setClusterControlDelta,
+  recomputeExposure,
+  recomputeTownNetworkForPlayer,
+  reconcileCapitalForPlayer,
+  ensureFallbackSettlementForPlayer,
+  rebuildEconomyIndexForPlayer,
+  relocateCapturedSettlementForPlayer,
+  refreshVisibleOwnedTownsForPlayer,
+  markAiTerritoryDirtyForPlayers,
+  refreshVisibleNearbyTownDeltas,
+  markVisibilityDirtyForPlayers,
+  pushStrategicReplayEvent,
+  sendVisibleTileDeltaSquare,
+  recordHotPathTimingEvent,
+  recordServerDebugEvent,
+  runtimeWarn: (payload, message) => app.log.warn(payload, message),
+  isRelocatableSettlementTown,
+  queueOfflineTownCaptureActivity,
+  wakeOfflineEconomyForPlayer
+}));
 
 const getOrInitTileHistory = (tileKey: TileKey): TileHistoryState => {
   let history = tileHistoryByTile.get(tileKey);
@@ -7969,220 +7337,66 @@ const recordMountainShapeHistory = (tileKey: TileKey, kind: "created" | "removed
   if (kind === "removed") history.wasMountainRemovedByPlayer = true;
 };
 
-const buildSnapshotState = (): SnapshotState => {
-  const snapshot: SnapshotState = {
-    world: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
-    townPlacementsNormalized: true,
-    players: [...players.values()].map(serializePlayer),
-    ownership: [...ownership.entries()],
-    ownershipState: [...ownershipStateByTile.entries()],
-    settledSince: [...settledSinceByTile.entries()],
-    barbarianAgents: [...barbarianAgents.values()],
-    authIdentities: [...authIdentityByUid.values()],
-    resources: [...resourceCountsByPlayer.entries()],
-    strategicResources: [...strategicResourceStockByPlayer.entries()],
-    strategicResourceBuffer: [...strategicResourceBufferByPlayer.entries()],
-    tileYield: [...tileYieldByTile.entries()],
-    tileHistory: [...tileHistoryByTile.entries()],
-    terrainShapes: [...terrainShapesByTile.entries()],
-    seasonVictory: [...victoryPressureById.entries()],
-    frontierSettlements: [...frontierSettlementsByPlayer.entries()],
-    dynamicMissions: [...dynamicMissionsByPlayer.entries()],
-    temporaryAttackBuffUntil: [...temporaryAttackBuffUntilByPlayer.entries()],
-    temporaryIncomeBuff: [...temporaryIncomeBuffUntilByPlayer.entries()],
-    forcedReveal: [...forcedRevealTilesByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
-    revealedEmpireTargets: [...revealedEmpireTargetsByPlayer.entries()].map(([pid, set]) => [pid, [...set]]),
-    allianceRequests: [...allianceRequests.values()],
-    forts: [...fortsByTile.values()],
-    observatories: [...observatoriesByTile.values()],
-    siegeOutposts: [...siegeOutpostsByTile.values()],
-    economicStructures: [...economicStructuresByTile.values()],
-    sabotage: [...siphonByTile.values()],
-    abilityCooldowns: [...abilityCooldownsByPlayer.entries()].map(([pid, map]) => [pid, [...map.entries()]]),
-    aetherWalls: [...activeAetherWallsById.values()],
-    docks: [...dockById.values()],
-    towns: [...townsByTile.values()],
-    shardSites: [...shardSitesByTile.values()],
-    firstSpecialSiteCaptureClaimed: [...firstSpecialSiteCaptureClaimed],
-    clusters: [...clustersById.values()],
-    clusterTiles: [...clusterByTile.entries()],
-    pendingSettlements: [...pendingSettlementsByTile.values()].map((settle) => ({
-      tileKey: settle.tileKey,
-      ownerId: settle.ownerId,
-      startedAt: settle.startedAt,
-      resolvesAt: settle.resolvesAt,
-      goldCost: settle.goldCost
-    })),
-    townCaptureShock: [...townCaptureShockUntilByTile.entries()],
-    townGrowthShock: [...townGrowthShockUntilByTile.entries()],
-    season: activeSeason,
-    seasonArchives,
-    seasonTechConfig: {
-      ...activeSeasonTechConfig,
-      activeNodeIds: [...activeSeasonTechConfig.activeNodeIds]
-    }
-  };
-  if (seasonWinner) snapshot.seasonWinner = seasonWinner;
-  return snapshot;
-};
-
-const splitSnapshotState = (
-  snapshot: SnapshotState
-): {
-  meta: SnapshotMetaSection;
-  players: SnapshotPlayersSection;
-  territory: SnapshotTerritorySection;
-  economy: SnapshotEconomySection;
-  systems: SnapshotSystemsSection;
-} => ({
-  meta: {
-    world: snapshot.world,
-    ...(snapshot.townPlacementsNormalized ? { townPlacementsNormalized: snapshot.townPlacementsNormalized } : {}),
-    ...(snapshot.season ? { season: snapshot.season } : {}),
-    ...(snapshot.seasonWinner ? { seasonWinner: snapshot.seasonWinner } : {}),
-    ...(snapshot.seasonArchives ? { seasonArchives: snapshot.seasonArchives } : {}),
-    ...(snapshot.seasonTechConfig ? { seasonTechConfig: snapshot.seasonTechConfig } : {})
-  },
-  players: {
-    players: snapshot.players,
-    ...(snapshot.authIdentities ? { authIdentities: snapshot.authIdentities } : {})
-  },
-  territory: {
-    ownership: snapshot.ownership,
-    ...(snapshot.ownershipState ? { ownershipState: snapshot.ownershipState } : {}),
-    ...(snapshot.settledSince ? { settledSince: snapshot.settledSince } : {}),
-    ...(snapshot.barbarianAgents ? { barbarianAgents: snapshot.barbarianAgents } : {}),
-    ...(snapshot.tileHistory ? { tileHistory: snapshot.tileHistory } : {}),
-    ...(snapshot.terrainShapes ? { terrainShapes: snapshot.terrainShapes } : {}),
-    ...(snapshot.docks ? { docks: snapshot.docks } : {}),
-    ...(snapshot.towns ? { towns: snapshot.towns } : {}),
-    ...(snapshot.shardSites ? { shardSites: snapshot.shardSites } : {}),
-    ...(snapshot.firstSpecialSiteCaptureClaimed ? { firstSpecialSiteCaptureClaimed: snapshot.firstSpecialSiteCaptureClaimed } : {}),
-    ...(snapshot.clusters ? { clusters: snapshot.clusters } : {}),
-    ...(snapshot.clusterTiles ? { clusterTiles: snapshot.clusterTiles } : {}),
-    ...(snapshot.townCaptureShock ? { townCaptureShock: snapshot.townCaptureShock } : {}),
-    ...(snapshot.townGrowthShock ? { townGrowthShock: snapshot.townGrowthShock } : {})
-  },
-  economy: {
-    resources: snapshot.resources,
-    ...(snapshot.strategicResources ? { strategicResources: snapshot.strategicResources } : {}),
-    ...(snapshot.strategicResourceBuffer ? { strategicResourceBuffer: snapshot.strategicResourceBuffer } : {}),
-    ...(snapshot.tileYield ? { tileYield: snapshot.tileYield } : {}),
-    ...(snapshot.frontierSettlements ? { frontierSettlements: snapshot.frontierSettlements } : {}),
-    ...(snapshot.dynamicMissions ? { dynamicMissions: snapshot.dynamicMissions } : {}),
-    ...(snapshot.temporaryAttackBuffUntil ? { temporaryAttackBuffUntil: snapshot.temporaryAttackBuffUntil } : {}),
-    ...(snapshot.temporaryIncomeBuff ? { temporaryIncomeBuff: snapshot.temporaryIncomeBuff } : {}),
-    ...(snapshot.pendingSettlements ? { pendingSettlements: snapshot.pendingSettlements } : {})
-  },
-  systems: {
-    ...(snapshot.seasonVictory ? { seasonVictory: snapshot.seasonVictory } : {}),
-    ...(snapshot.forcedReveal ? { forcedReveal: snapshot.forcedReveal } : {}),
-    ...(snapshot.revealedEmpireTargets ? { revealedEmpireTargets: snapshot.revealedEmpireTargets } : {}),
-    ...(snapshot.allianceRequests ? { allianceRequests: snapshot.allianceRequests } : {}),
-    ...(snapshot.forts ? { forts: snapshot.forts } : {}),
-    ...(snapshot.observatories ? { observatories: snapshot.observatories } : {}),
-    ...(snapshot.siegeOutposts ? { siegeOutposts: snapshot.siegeOutposts } : {}),
-    ...(snapshot.economicStructures ? { economicStructures: snapshot.economicStructures } : {}),
-    ...(snapshot.sabotage ? { sabotage: snapshot.sabotage } : {}),
-    ...(snapshot.abilityCooldowns ? { abilityCooldowns: snapshot.abilityCooldowns } : {}),
-    ...(snapshot.aetherWalls ? { aetherWalls: snapshot.aetherWalls } : {})
-  }
+const {
+  saveSnapshot,
+  loadSectionedSnapshot,
+  loadLegacySnapshot
+} = createServerSnapshotIoRuntime({
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  players,
+  ownership,
+  ownershipStateByTile,
+  settledSinceByTile,
+  barbarianAgents,
+  authIdentities: () => [...authIdentityByUid.values()],
+  resourceCountsByPlayer,
+  strategicResourceStockByPlayer,
+  strategicResourceBufferByPlayer,
+  tileYieldByTile,
+  tileHistoryByTile,
+  terrainShapesByTile,
+  victoryPressureById,
+  frontierSettlementsByPlayer,
+  dynamicMissionsByPlayer,
+  temporaryAttackBuffUntilByPlayer,
+  temporaryIncomeBuffUntilByPlayer,
+  forcedRevealTilesByPlayer,
+  revealedEmpireTargetsByPlayer,
+  allianceRequests,
+  fortsByTile,
+  observatoriesByTile,
+  siegeOutpostsByTile,
+  economicStructuresByTile,
+  siphonByTile,
+  abilityCooldownsByPlayer,
+  activeAetherWallsById,
+  dockById,
+  townsByTile,
+  shardSitesByTile,
+  firstSpecialSiteCaptureClaimed,
+  clustersById,
+  clusterByTile,
+  pendingSettlementsByTile,
+  townCaptureShockUntilByTile,
+  townGrowthShockUntilByTile,
+  activeSeason: () => activeSeason,
+  seasonWinner: () => seasonWinner,
+  seasonArchives: () => seasonArchives,
+  activeSeasonTechConfig: () => ({
+    ...activeSeasonTechConfig,
+    activeNodeIds: [...activeSeasonTechConfig.activeNodeIds]
+  }),
+  serializePlayer,
+  SNAPSHOT_DIR,
+  SNAPSHOT_FILE,
+  SNAPSHOT_INDEX_FILE,
+  SNAPSHOT_SECTION_FILES,
+  snapshotSectionFile,
+  runtimeMemoryStats,
+  logSnapshotSerializationMemory: (phase, startedAt, stats, extra) =>
+    logSnapshotSerializationMemory(phase, startedAt, stats, extra)
 });
-
-const writeSnapshotJsonAtomic = async (targetFile: string, serialized: string): Promise<void> => {
-  const tmpFile = `${targetFile}.${process.pid}.tmp`;
-  await fs.promises.writeFile(tmpFile, serialized);
-  await fs.promises.rename(tmpFile, targetFile);
-};
-
-const readSnapshotJsonSync = <T>(file: string): { data: T; bytes: number; elapsedMs: number } => {
-  const startedAt = Date.now();
-  const text = fs.readFileSync(file, "utf8");
-  return {
-    data: JSON.parse(text) as T,
-    bytes: Buffer.byteLength(text),
-    elapsedMs: Date.now() - startedAt
-  };
-};
-
-let snapshotSavePromise: Promise<void> = Promise.resolve();
-const saveSnapshot = async (): Promise<void> => {
-  const startedAt = Date.now();
-  logSnapshotSerializationMemory("before_build", startedAt, runtimeMemoryStats());
-  const snapshot = buildSnapshotState();
-  logSnapshotSerializationMemory("after_build", startedAt, runtimeMemoryStats());
-  const sections = splitSnapshotState(snapshot);
-  logSnapshotSerializationMemory("after_split", startedAt, runtimeMemoryStats());
-  const serializedSections = {
-    meta: "",
-    players: "",
-    territory: "",
-    economy: "",
-    systems: ""
-  };
-  serializedSections.meta = JSON.stringify(sections.meta);
-  logSnapshotSerializationMemory("after_stringify_meta", startedAt, runtimeMemoryStats(), {
-    section: "meta",
-    bytes: Buffer.byteLength(serializedSections.meta, "utf8")
-  });
-  serializedSections.players = JSON.stringify(sections.players);
-  logSnapshotSerializationMemory("after_stringify_players", startedAt, runtimeMemoryStats(), {
-    section: "players",
-    bytes: Buffer.byteLength(serializedSections.players, "utf8")
-  });
-  serializedSections.territory = JSON.stringify(sections.territory);
-  logSnapshotSerializationMemory("after_stringify_territory", startedAt, runtimeMemoryStats(), {
-    section: "territory",
-    bytes: Buffer.byteLength(serializedSections.territory, "utf8")
-  });
-  serializedSections.economy = JSON.stringify(sections.economy);
-  logSnapshotSerializationMemory("after_stringify_economy", startedAt, runtimeMemoryStats(), {
-    section: "economy",
-    bytes: Buffer.byteLength(serializedSections.economy, "utf8")
-  });
-  serializedSections.systems = JSON.stringify(sections.systems);
-  logSnapshotSerializationMemory("after_stringify_systems", startedAt, runtimeMemoryStats(), {
-    section: "systems",
-    bytes: Buffer.byteLength(serializedSections.systems, "utf8")
-  });
-  const index: SnapshotSectionIndex = {
-    formatVersion: 2,
-    sections: {
-      meta: SNAPSHOT_SECTION_FILES.meta,
-      players: SNAPSHOT_SECTION_FILES.players,
-      territory: SNAPSHOT_SECTION_FILES.territory,
-      economy: SNAPSHOT_SECTION_FILES.economy,
-      systems: SNAPSHOT_SECTION_FILES.systems
-    }
-  };
-  const serializedIndex = JSON.stringify(index);
-  logSnapshotSerializationMemory("after_stringify_index", startedAt, runtimeMemoryStats(), {
-    section: "index",
-    bytes: Buffer.byteLength(serializedIndex, "utf8"),
-    totalBytes:
-      Buffer.byteLength(serializedSections.meta, "utf8") +
-      Buffer.byteLength(serializedSections.players, "utf8") +
-      Buffer.byteLength(serializedSections.territory, "utf8") +
-      Buffer.byteLength(serializedSections.economy, "utf8") +
-      Buffer.byteLength(serializedSections.systems, "utf8") +
-      Buffer.byteLength(serializedIndex, "utf8")
-  });
-  snapshotSavePromise = snapshotSavePromise
-    .catch(() => undefined)
-    .then(async () => {
-      await fs.promises.mkdir(SNAPSHOT_DIR, { recursive: true });
-      await Promise.all([
-        writeSnapshotJsonAtomic(snapshotSectionFile("meta"), serializedSections.meta),
-        writeSnapshotJsonAtomic(snapshotSectionFile("players"), serializedSections.players),
-        writeSnapshotJsonAtomic(snapshotSectionFile("territory"), serializedSections.territory),
-        writeSnapshotJsonAtomic(snapshotSectionFile("economy"), serializedSections.economy),
-        writeSnapshotJsonAtomic(snapshotSectionFile("systems"), serializedSections.systems)
-      ]);
-      await writeSnapshotJsonAtomic(SNAPSHOT_INDEX_FILE, serializedIndex);
-      logSnapshotSerializationMemory("after_write", startedAt, runtimeMemoryStats());
-    });
-  return snapshotSavePromise;
-};
 
 const snapshotSaveRunner = createSnapshotSaveRunner({
   save: async () => {
@@ -8236,359 +7450,97 @@ const saveSnapshotInBackground = (): void => {
   snapshotSaveRunner.request();
 };
 
-const loadSectionedSnapshot = (): SnapshotState | undefined => {
-  if (!fs.existsSync(SNAPSHOT_INDEX_FILE)) return undefined;
-  const indexStartedAt = Date.now();
-  const index = readSnapshotJsonSync<SnapshotSectionIndex>(SNAPSHOT_INDEX_FILE);
-  logStartupPhase("load_snapshot_index", indexStartedAt, { bytes: index.bytes });
-  if (index.data.formatVersion !== 2) {
-    throw new Error(`unsupported snapshot index format ${index.data.formatVersion}`);
+const {
+  loadSnapshot
+} = createServerSnapshotHydrateRuntime({
+  ownership,
+  ownershipStateByTile,
+  settledSinceByTile,
+  barbarianAgents,
+  barbarianAgentByTileKey,
+  authIdentityByUid,
+  resourceCountsByPlayer,
+  strategicResourceStockByPlayer,
+  strategicResourceBufferByPlayer,
+  tileHistoryByTile,
+  terrainShapesByTile,
+  victoryPressureById,
+  frontierSettlementsByPlayer,
+  tileYieldByTile,
+  dynamicMissionsByPlayer,
+  temporaryAttackBuffUntilByPlayer,
+  temporaryIncomeBuffUntilByPlayer,
+  cachedVisibilitySnapshotByPlayer,
+  cachedChunkSnapshotByPlayer,
+  simulationChunkStateClear: () => simulationChunkState.clear(),
+  chunkSnapshotGenerationByPlayer,
+  revealWatchersByTarget,
+  observatoryTileKeysByPlayer,
+  economicStructureTileKeysByPlayer,
+  forcedRevealTilesByPlayer,
+  revealedEmpireTargetsByPlayer,
+  allianceRequests,
+  fortsByTile,
+  observatoriesByTile,
+  siegeOutpostsByTile,
+  economicStructuresByTile,
+  siphonByTile,
+  abilityCooldownsByPlayer,
+  activeAetherWallsById,
+  docksByTile,
+  dockById,
+  dockLinkedTileKeysByDockTileKeyClear: () => dockLinkedTileKeysByDockTileKey.clear(),
+  townsByTile,
+  shardSitesByTile,
+  firstSpecialSiteCaptureClaimed,
+  clustersById,
+  clusterByTile,
+  townCaptureShockUntilByTile,
+  townGrowthShockUntilByTile,
+  players,
+  playerBaseMods,
+  pendingSettlementsByTile,
+  SNAPSHOT_INDEX_FILE,
+  SNAPSHOT_FILE,
+  logRuntimeError,
+  loadSectionedSnapshot,
+  loadLegacySnapshot,
+  BARBARIAN_OWNER_ID,
+  setRevealTargetsForPlayer,
+  trackOwnedTileKey,
+  isConverterStructureType,
+  registerAetherWallEdges,
+  townPlacementsNeedNormalization,
+  normalizeTownPlacements,
+  assignMissingTownNamesForWorld,
+  seasonTechConfigIsCompatible,
+  chooseSeasonalTechConfig,
+  activeSeason: () => activeSeason,
+  setActiveSeason: (season) => {
+    activeSeason = season;
+  },
+  seasonWinner: () => seasonWinner,
+  setSeasonWinner: (winner) => {
+    seasonWinner = winner;
+  },
+  seasonArchives: () => seasonArchives,
+  activeSeasonTechConfig: () => activeSeasonTechConfig,
+  setActiveSeasonTechConfig: (config) => {
+    activeSeasonTechConfig = config;
+  },
+  ensureMissionDefaults,
+  normalizePlayerProgressionState,
+  recomputePlayerEffectsForPlayer,
+  defaultMissionStats,
+  ensureFallbackSettlementForPlayer,
+  spawnBarbarianAgentAt,
+  parseKey,
+  playerTile,
+  runtimeLogInfo: (payload, message) => {
+    if (runtimeState.appRef) runtimeState.appRef.log.info(payload, message);
+    else console.info(message, payload);
   }
-  const meta = readSnapshotJsonSync<SnapshotMetaSection>(path.join(SNAPSHOT_DIR, index.data.sections.meta));
-  const playersSection = readSnapshotJsonSync<SnapshotPlayersSection>(path.join(SNAPSHOT_DIR, index.data.sections.players));
-  const territory = readSnapshotJsonSync<SnapshotTerritorySection>(path.join(SNAPSHOT_DIR, index.data.sections.territory));
-  const economy = readSnapshotJsonSync<SnapshotEconomySection>(path.join(SNAPSHOT_DIR, index.data.sections.economy));
-  const systems = readSnapshotJsonSync<SnapshotSystemsSection>(path.join(SNAPSHOT_DIR, index.data.sections.systems));
-  if (runtimeState.appRef) {
-    runtimeState.appRef.log.info(
-      {
-        sections: {
-          meta: { bytes: meta.bytes, elapsedMs: meta.elapsedMs },
-          players: { bytes: playersSection.bytes, elapsedMs: playersSection.elapsedMs },
-          territory: { bytes: territory.bytes, elapsedMs: territory.elapsedMs },
-          economy: { bytes: economy.bytes, elapsedMs: economy.elapsedMs },
-          systems: { bytes: systems.bytes, elapsedMs: systems.elapsedMs }
-        }
-      },
-      "snapshot section timings"
-    );
-  }
-  return {
-    ...meta.data,
-    townPlacementsNormalized: meta.data.townPlacementsNormalized ?? true,
-    ...playersSection.data,
-    ...territory.data,
-    ...economy.data,
-    ...systems.data
-  };
-};
-
-const loadLegacySnapshot = (): SnapshotState | undefined => {
-  if (!fs.existsSync(SNAPSHOT_FILE)) return undefined;
-  return readSnapshotJsonSync<SnapshotState>(SNAPSHOT_FILE).data;
-};
-
-const hydrateSnapshotState = (raw: SnapshotState): void => {
-  const hydrateStartedAt = Date.now();
-  let phaseStartedAt = hydrateStartedAt;
-  clearAllAiLatchedIntents(aiIntentLatchState);
-  clearAllAiExecuteCandidates(aiExecuteCandidateCacheState);
-  const logHydratePhase = (phase: string, extra: Record<string, number> = {}): void => {
-    if (!runtimeState.appRef) {
-      phaseStartedAt = Date.now();
-      return;
-    }
-    const nowMs = Date.now();
-    runtimeState.appRef.log.info(
-      {
-        phase: `hydrate_snapshot:${phase}`,
-        elapsedMs: nowMs - phaseStartedAt,
-        hydrateElapsedMs: nowMs - hydrateStartedAt,
-        ...extra
-      },
-      "startup phase"
-    );
-    phaseStartedAt = nowMs;
-  };
-  if (!raw.world || raw.world.width !== WORLD_WIDTH || raw.world.height !== WORLD_HEIGHT) {
-    return;
-  }
-  for (const [k, v] of raw.ownership) ownership.set(k, v);
-  if (raw.ownershipState && raw.ownershipState.length > 0) {
-    for (const [k, v] of raw.ownershipState) ownershipStateByTile.set(k, v);
-  } else {
-    // Legacy snapshots: treat owned tiles as settled for compatibility.
-    for (const [k, ownerId] of raw.ownership) {
-      ownershipStateByTile.set(k, ownerId === BARBARIAN_OWNER_ID ? "BARBARIAN" : "SETTLED");
-    }
-  }
-  for (const [k, settledAt] of raw.settledSince ?? []) settledSinceByTile.set(k, settledAt);
-  barbarianAgents.clear();
-  barbarianAgentByTileKey.clear();
-  for (const agent of raw.barbarianAgents ?? []) {
-    upsertBarbarianAgent(agent);
-  }
-  for (const identity of raw.authIdentities ?? []) authIdentityByUid.set(identity.uid, identity);
-  for (const [pid, c] of raw.resources) {
-    resourceCountsByPlayer.set(pid, {
-      FARM: c.FARM ?? 0,
-      FISH: c.FISH ?? 0,
-      FUR: c.FUR ?? 0,
-      WOOD: c.WOOD ?? 0,
-      IRON: c.IRON ?? 0,
-      GEMS: c.GEMS ?? 0,
-      OIL: c.OIL ?? 0
-    });
-  }
-  for (const [pid, c] of raw.strategicResources ?? []) {
-    const legacy = c as Record<string, number>;
-    strategicResourceStockByPlayer.set(pid, {
-      FOOD: c.FOOD ?? 0,
-      IRON: c.IRON ?? 0,
-      CRYSTAL: c.CRYSTAL ?? 0,
-      SUPPLY: c.SUPPLY ?? legacy.STONE ?? 0,
-      SHARD: c.SHARD ?? 0,
-      OIL: c.OIL ?? 0
-    });
-  }
-  for (const [tk, history] of raw.tileHistory ?? []) {
-    const normalized: TileHistoryState = {
-      previousOwners: [...(history.previousOwners ?? [])].slice(-5),
-      captureCount: history.captureCount ?? 0,
-      structureHistory: [...(history.structureHistory ?? [])].slice(-5)
-    };
-    if (history.lastOwnerId !== undefined) normalized.lastOwnerId = history.lastOwnerId;
-    if (history.lastCapturedAt !== undefined) normalized.lastCapturedAt = history.lastCapturedAt;
-    if (history.lastStructureType !== undefined) normalized.lastStructureType = history.lastStructureType;
-    if (history.wasMountainCreatedByPlayer !== undefined) normalized.wasMountainCreatedByPlayer = history.wasMountainCreatedByPlayer;
-    if (history.wasMountainRemovedByPlayer !== undefined) normalized.wasMountainRemovedByPlayer = history.wasMountainRemovedByPlayer;
-    tileHistoryByTile.set(tk, normalized);
-  }
-  for (const [tk, shape] of raw.terrainShapes ?? []) {
-    terrainShapesByTile.set(tk, shape);
-  }
-  const legacySnapshot = raw as SnapshotState & { victoryPressure?: [SeasonVictoryPathId, VictoryPressureTracker][] };
-  for (const [objectiveId, tracker] of raw.seasonVictory ?? legacySnapshot.victoryPressure ?? []) {
-    const normalized: VictoryPressureTracker = {};
-    if (tracker.leaderPlayerId !== undefined) normalized.leaderPlayerId = tracker.leaderPlayerId;
-    if (tracker.holdStartedAt !== undefined) normalized.holdStartedAt = tracker.holdStartedAt;
-    victoryPressureById.set(objectiveId, normalized);
-  }
-  for (const [playerId, timestamps] of raw.frontierSettlements ?? []) {
-    frontierSettlementsByPlayer.set(playerId, [...timestamps]);
-  }
-  for (const [pid, c] of raw.strategicResourceBuffer ?? []) {
-    const legacy = c as Record<string, number>;
-    strategicResourceBufferByPlayer.set(pid, {
-      FOOD: c.FOOD ?? 0,
-      IRON: c.IRON ?? 0,
-      CRYSTAL: c.CRYSTAL ?? 0,
-      SUPPLY: c.SUPPLY ?? legacy.STONE ?? 0,
-      SHARD: c.SHARD ?? 0,
-      OIL: c.OIL ?? 0
-    });
-  }
-  for (const [tk, y] of raw.tileYield ?? []) {
-    const legacyStrategic = (y.strategic ?? {}) as Record<string, number>;
-    tileYieldByTile.set(tk, {
-      gold: y.gold ?? 0,
-      strategic: {
-        FOOD: y.strategic?.FOOD ?? 0,
-        IRON: y.strategic?.IRON ?? 0,
-        CRYSTAL: y.strategic?.CRYSTAL ?? 0,
-        SUPPLY: y.strategic?.SUPPLY ?? legacyStrategic.STONE ?? 0,
-        SHARD: y.strategic?.SHARD ?? 0,
-        OIL: y.strategic?.OIL ?? 0
-      }
-    });
-  }
-  for (const [pid, missions] of raw.dynamicMissions ?? []) {
-    dynamicMissionsByPlayer.set(pid, missions);
-  }
-  for (const [pid, until] of raw.temporaryAttackBuffUntil ?? []) {
-    temporaryAttackBuffUntilByPlayer.set(pid, until);
-  }
-  for (const [pid, buff] of raw.temporaryIncomeBuff ?? []) {
-    temporaryIncomeBuffUntilByPlayer.set(pid, buff);
-  }
-  logHydratePhase("territory_and_economy", {
-    ownershipTiles: raw.ownership.length,
-    tileHistory: raw.tileHistory?.length ?? 0,
-    structures: (raw.forts?.length ?? 0) + (raw.observatories?.length ?? 0) + (raw.economicStructures?.length ?? 0)
-  });
-  cachedVisibilitySnapshotByPlayer.clear();
-  cachedChunkSnapshotByPlayer.clear();
-  simulationChunkState.clear();
-  chunkSnapshotGenerationByPlayer.clear();
-  revealWatchersByTarget.clear();
-  observatoryTileKeysByPlayer.clear();
-  economicStructureTileKeysByPlayer.clear();
-  for (const [pid, tiles] of raw.forcedReveal ?? []) {
-    forcedRevealTilesByPlayer.set(pid, new Set<TileKey>(tiles));
-  }
-  for (const [pid, targets] of raw.revealedEmpireTargets ?? []) {
-    setRevealTargetsForPlayer(pid, targets);
-  }
-  logHydratePhase("visibility_and_reveal", {
-    forcedRevealPlayers: raw.forcedReveal?.length ?? 0,
-    revealTargets: raw.revealedEmpireTargets?.length ?? 0
-  });
-  for (const request of raw.allianceRequests ?? []) allianceRequests.set(request.id, request);
-  for (const f of raw.forts ?? []) fortsByTile.set(f.tileKey, f);
-  for (const observatory of raw.observatories ?? []) {
-    const normalized: Observatory = {
-      observatoryId: observatory.observatoryId,
-      ownerId: observatory.ownerId,
-      tileKey: observatory.tileKey,
-      status: observatory.status ?? "active"
-    };
-    if (observatory.completesAt !== undefined) normalized.completesAt = observatory.completesAt;
-    if (observatory.cooldownUntil !== undefined) normalized.cooldownUntil = observatory.cooldownUntil;
-    observatoriesByTile.set(observatory.tileKey, normalized);
-    trackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, observatory.tileKey);
-  }
-  for (const s of raw.siegeOutposts ?? []) siegeOutpostsByTile.set(s.tileKey, s);
-  for (const structure of raw.economicStructures ?? []) {
-    const legacy = structure as EconomicStructure & { isActive?: boolean };
-    const normalized: EconomicStructure = {
-      id: structure.id,
-      type: structure.type,
-      tileKey: structure.tileKey,
-      ownerId: structure.ownerId,
-      status: structure.status ?? (legacy.isActive ? "active" : "inactive"),
-      nextUpkeepAt: structure.nextUpkeepAt
-    };
-    if (structure.completesAt !== undefined) normalized.completesAt = structure.completesAt;
-    if (structure.disabledUntil !== undefined) normalized.disabledUntil = structure.disabledUntil;
-    if (structure.inactiveReason !== undefined) normalized.inactiveReason = structure.inactiveReason;
-    else if (normalized.status === "inactive" && isConverterStructureType(normalized.type) && normalized.disabledUntil === undefined) normalized.inactiveReason = "manual";
-    economicStructuresByTile.set(structure.tileKey, normalized);
-    trackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, structure.tileKey);
-  }
-  for (const sabotage of raw.sabotage ?? []) siphonByTile.set(sabotage.targetTileKey, sabotage);
-  for (const [pid, entries] of raw.abilityCooldowns ?? []) {
-    abilityCooldownsByPlayer.set(pid, new Map(entries));
-  }
-  for (const wall of raw.aetherWalls ?? []) {
-    activeAetherWallsById.set(wall.wallId, wall);
-    registerAetherWallEdges(wall);
-  }
-  logHydratePhase("systems_structures", {
-    forts: raw.forts?.length ?? 0,
-    observatories: raw.observatories?.length ?? 0,
-    siegeOutposts: raw.siegeOutposts?.length ?? 0,
-    economicStructures: raw.economicStructures?.length ?? 0,
-    aetherWalls: raw.aetherWalls?.length ?? 0
-  });
-  for (const d of raw.docks ?? []) {
-    docksByTile.set(d.tileKey, d);
-    dockById.set(d.dockId, d);
-  }
-  dockLinkedTileKeysByDockTileKey.clear();
-  for (const t of raw.towns ?? []) townsByTile.set(t.tileKey, t);
-  for (const shardSite of raw.shardSites ?? []) shardSitesByTile.set(shardSite.tileKey, shardSite);
-  for (const tk of raw.firstSpecialSiteCaptureClaimed ?? []) firstSpecialSiteCaptureClaimed.add(tk);
-  for (const c of raw.clusters ?? []) clustersById.set(c.clusterId, c);
-  for (const [tk, cid] of raw.clusterTiles ?? []) clusterByTile.set(tk, cid);
-  for (const [tk, until] of raw.townCaptureShock ?? []) townCaptureShockUntilByTile.set(tk, until);
-  for (const [tk, until] of raw.townGrowthShock ?? []) townGrowthShockUntilByTile.set(tk, until);
-  if (raw.season) activeSeason = raw.season;
-  if (raw.seasonWinner) seasonWinner = raw.seasonWinner;
-  if (raw.seasonArchives) seasonArchives.push(...raw.seasonArchives);
-  if (raw.seasonTechConfig) {
-    activeSeasonTechConfig = {
-      ...raw.seasonTechConfig,
-      activeNodeIds: new Set(raw.seasonTechConfig.activeNodeIds)
-    };
-  }
-  logHydratePhase("world_maps", {
-    docks: raw.docks?.length ?? 0,
-    towns: raw.towns?.length ?? 0,
-    shardSites: raw.shardSites?.length ?? 0,
-    clusters: raw.clusters?.length ?? 0,
-    clusterTiles: raw.clusterTiles?.length ?? 0
-  });
-  const shouldNormalizeTownPlacements = raw.townPlacementsNormalized === true ? false : townPlacementsNeedNormalization();
-  if (shouldNormalizeTownPlacements) {
-    normalizeTownPlacements();
-    logHydratePhase("town_normalization", { normalized: 1, towns: raw.towns?.length ?? 0 });
-  } else {
-    logHydratePhase("town_normalization", { normalized: 0, towns: raw.towns?.length ?? 0 });
-  }
-  assignMissingTownNamesForWorld();
-  if (!seasonTechConfigIsCompatible(activeSeasonTechConfig)) {
-    activeSeasonTechConfig = chooseSeasonalTechConfig(activeSeason.worldSeed);
-    activeSeason.techTreeConfigId = activeSeasonTechConfig.configId;
-  }
-  logHydratePhase("season_and_meta", {
-    alliances: raw.allianceRequests?.length ?? 0,
-    seasonArchives: raw.seasonArchives?.length ?? 0
-  });
-  logHydratePhase("systems_and_world_meta", {
-    docks: raw.docks?.length ?? 0,
-    towns: raw.towns?.length ?? 0
-  });
-  for (const p of raw.players) {
-    const hydrated: Player = {
-      ...p,
-      profileComplete: p.profileComplete ?? true,
-      Ts: p.Ts ?? 0,
-      Es: p.Es ?? 0,
-      lastEconomyWakeAt: p.lastEconomyWakeAt ?? p.lastActiveAt,
-      techIds: new Set(p.techIds),
-      domainIds: new Set(p.domainIds ?? []),
-      territoryTiles: new Set(p.territoryTiles),
-      allies: new Set(p.allies),
-      missions: p.missions ?? [],
-      missionStats: p.missionStats ?? defaultMissionStats(),
-      activityInbox: p.activityInbox ?? []
-    };
-    ensureMissionDefaults(hydrated);
-    normalizePlayerProgressionState(hydrated);
-    players.set(p.id, hydrated);
-    playerBaseMods.set(hydrated.id, {
-      attack: hydrated.mods.attack,
-      defense: hydrated.mods.defense,
-      income: hydrated.mods.income,
-      vision: hydrated.mods.vision
-    });
-    recomputePlayerEffectsForPlayer(hydrated);
-  }
-  logHydratePhase("players", { players: raw.players.length });
-  for (const settlement of raw.pendingSettlements ?? []) {
-    const hydrated: PendingSettlement = {
-      tileKey: settlement.tileKey,
-      ownerId: settlement.ownerId,
-      startedAt: settlement.startedAt,
-      resolvesAt: settlement.resolvesAt,
-      goldCost: settlement.goldCost,
-      cancelled: false
-    };
-    pendingSettlementsByTile.set(hydrated.tileKey, hydrated);
-  }
-  logHydratePhase("pending_settlements", { pendingSettlements: raw.pendingSettlements?.length ?? 0 });
-  for (const playerId of players.keys()) ensureFallbackSettlementForPlayer(playerId);
-  if (barbarianAgents.size === 0) {
-    for (const [tk, ownerId] of ownership.entries()) {
-      if (ownerId !== BARBARIAN_OWNER_ID) continue;
-      const [x, y] = parseKey(tk);
-      spawnBarbarianAgentAt(x, y, 0);
-    }
-  }
-  logHydratePhase("barbarian_backfill", { barbarianAgents: barbarianAgents.size });
-};
-
-const loadSnapshot = (): boolean => {
-  let raw: SnapshotState | undefined;
-  try {
-    raw = loadSectionedSnapshot() ?? loadLegacySnapshot();
-  } catch (err) {
-    logRuntimeError("snapshot load failed", err);
-    try {
-      if (fs.existsSync(SNAPSHOT_INDEX_FILE)) {
-        fs.renameSync(SNAPSHOT_INDEX_FILE, `${SNAPSHOT_INDEX_FILE}.corrupt-${Date.now()}`);
-      } else if (fs.existsSync(SNAPSHOT_FILE)) {
-        fs.renameSync(SNAPSHOT_FILE, `${SNAPSHOT_FILE}.corrupt-${Date.now()}`);
-      }
-    } catch (renameErr) {
-      logRuntimeError("failed to quarantine corrupt snapshot", renameErr);
-    }
-    return false;
-  }
-  if (!raw) return false;
-  hydrateSnapshotState(raw);
-  return true;
-};
+});
 
 const bootstrapRuntimeState = async (): Promise<void> => {
   const loadStartedAt = Date.now();
