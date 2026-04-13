@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.8",
+  version: "2026.04.13.9",
   title: "What's New",
-  summary: "Recent updates include captured settlement relocation fixes, safer barbarian spawn pressure, and more modular server runtime internals.",
+  summary: "Recent updates include a redesigned alliance tab, captured settlement relocation fixes, and safer barbarian spawn pressure.",
   entries: [
+    {
+      introducedIn: "2026.04.13.9",
+      title: "The alliance tab now uses a dedicated social-panel layout",
+      why: "Alliance management had stayed in a bare utility layout, which made requests harder to scan and offered no direct way to reject incoming alliance or truce offers.",
+      changes: [
+        "Redesigned the alliance tab with sectioned cards for allies, truces, and incoming requests so social status is easier to scan on desktop and mobile.",
+        "Added reject actions for incoming alliance and truce requests so offers can be dismissed directly from the tab instead of only waiting for them to expire."
+      ]
+    },
     {
       introducedIn: "2026.04.13.8",
       title: "Captured settlement-tier towns relocate correctly again",

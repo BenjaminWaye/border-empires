@@ -638,14 +638,33 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.alliesListEl.innerHTML = safeValue(
     "alliesHtml",
     fallbackCard("Alliances"),
-    () => `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`
+    () => {
+      const nowMs = Date.now();
+      return `<section class="alliance-section-block">
+        <h4 class="alliance-section-title">Current Allies</h4>
+        <div class="alliance-card-stack">${alliesHtml(state.allies, playerNameForOwner)}</div>
+      </section>
+      <section class="alliance-section-block">
+        <h4 class="alliance-section-title">Active Truces</h4>
+        <div class="alliance-card-stack">${activeTrucesHtml(state.activeTruces, playerNameForOwner, nowMs)}</div>
+      </section>`;
+    }
   );
   dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML;
   dom.allianceRequestsEl.innerHTML = safeValue(
     "allianceRequestsHtml",
     fallbackCard("Alliance requests"),
-    () =>
-      `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`
+    () => {
+      const nowMs = Date.now();
+      return `<section class="alliance-section-block">
+        <h4 class="alliance-section-title">Incoming Alliance Requests</h4>
+        <div class="alliance-card-stack">${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming", nowMs)}</div>
+      </section>
+      <section class="alliance-section-block">
+        <h4 class="alliance-section-title">Incoming Truces</h4>
+        <div class="alliance-card-stack">${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner, nowMs)}</div>
+      </section>`;
+    }
   );
   dom.mobileAllianceRequestsEl.innerHTML = dom.allianceRequestsEl.innerHTML;
   const socialInspectCardHtml = safeValue("renderSocialInspectCardHtml", "", () =>
@@ -815,12 +834,12 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "ALLIANCE_ACCEPT", requestId: id }, "Finish sign-in before responding to alliance requests.");
     };
   });
-  const breakButtons = dom.hud.querySelectorAll(".break-ally") as NodeListOf<HTMLButtonElement>;
-  breakButtons.forEach((btn: HTMLButtonElement) => {
+  const rejectButtons = dom.hud.querySelectorAll(".reject-request") as NodeListOf<HTMLButtonElement>;
+  rejectButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
-      const id = btn.dataset.allyId;
+      const id = btn.dataset.requestId;
       if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing alliances.");
+      sendGameMessage({ type: "ALLIANCE_REJECT", requestId: id }, "Finish sign-in before responding to alliance requests.");
     };
   });
   const acceptTruceButtons = dom.hud.querySelectorAll(".accept-truce") as NodeListOf<HTMLButtonElement>;
@@ -831,12 +850,12 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "TRUCE_ACCEPT", requestId: id }, "Finish sign-in before responding to truces.");
     };
   });
-  const breakTruceButtons = dom.hud.querySelectorAll(".break-truce") as NodeListOf<HTMLButtonElement>;
-  breakTruceButtons.forEach((btn: HTMLButtonElement) => {
+  const rejectTruceButtons = dom.hud.querySelectorAll(".reject-truce") as NodeListOf<HTMLButtonElement>;
+  rejectTruceButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
-      const id = btn.dataset.trucePlayerId;
+      const id = btn.dataset.truceRequestId;
       if (!id) return;
-      sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing truces.");
+      sendGameMessage({ type: "TRUCE_REJECT", requestId: id }, "Finish sign-in before responding to truces.");
     };
   });
 

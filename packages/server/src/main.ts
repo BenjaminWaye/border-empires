@@ -8998,6 +8998,19 @@ registerServerHttpRoutes(app, {
       return;
     }
 
+    if (msg.type === "ALLIANCE_REJECT") {
+      const request = allianceRequests.get(msg.requestId);
+      if (!request || request.toPlayerId !== actor.id || request.expiresAt < now()) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" }));
+        return;
+      }
+      const from = players.get(request.fromPlayerId);
+      allianceRequests.delete(msg.requestId);
+      if (!from) return;
+      broadcastAllianceUpdate(actor, from);
+      return;
+    }
+
     if (msg.type === "TRUCE_ACCEPT") {
       const request = truceRequests.get(msg.requestId);
       if (!request || request.toPlayerId !== actor.id || request.expiresAt < now()) {
@@ -9035,6 +9048,19 @@ registerServerHttpRoutes(app, {
         isBookmark: true
       });
       broadcastTruceUpdate(actor, from, `${actor.name} and ${from.name} agreed to a ${request.durationHours}h truce.`);
+      return;
+    }
+
+    if (msg.type === "TRUCE_REJECT") {
+      const request = truceRequests.get(msg.requestId);
+      if (!request || request.toPlayerId !== actor.id || request.expiresAt < now()) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" }));
+        return;
+      }
+      const from = players.get(request.fromPlayerId);
+      truceRequests.delete(msg.requestId);
+      if (!from) return;
+      broadcastTruceUpdate(actor, from);
       return;
     }
 
