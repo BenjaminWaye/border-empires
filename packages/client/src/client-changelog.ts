@@ -19,17 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.6",
+  version: "2026.04.13.7",
   title: "What's New",
-  summary: "Recent updates include safer barbarian spawn pressure, more opportunistic AI attacks, and stronger economic AI compounding.",
+  summary: "Recent updates include safer barbarian spawn pressure, more modular server runtime internals, and stronger economic AI compounding.",
   entries: [
     {
-      introducedIn: "2026.04.13.6",
+      introducedIn: "2026.04.13.7",
       title: "Late-game barbarian spawns no longer pile into tiny fog pockets",
       why: "Once most of the map was revealed, maintenance spawns could keep landing in the same small unexplored island gaps and create sudden barbarian explosions.",
       changes: [
         "Maintenance spawns now require a larger surrounding fog buffer instead of treating a single dark tile as enough.",
         "Added extra separation between fresh barbarian maintenance spawns so one leftover pocket does not instantly stack a dense cluster."
+      ]
+    },
+    {
+      introducedIn: "2026.04.13.6",
+      title: "Server ownership and snapshot runtime were split into smaller modules",
+      why: "Large ownership, snapshot load/save, and player bootstrap blocks still lived in the main server runtime, which made production-safe fixes harder than they needed to be.",
+      changes: [
+        "Split server ownership updates, snapshot IO, snapshot hydrate, and player runtime support into focused modules under the 500-line file target.",
+        "Kept server and client regression coverage green after the refactor so live gameplay behavior stays stable while the server runtime gets easier to maintain."
       ]
     },
     {

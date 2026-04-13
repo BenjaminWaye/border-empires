@@ -10,11 +10,13 @@ const readLocal = (relativePath: string): string => {
 
 describe("offline economy regression guard", () => {
   it("keeps passive income ticking after inactivity while pausing upkeep", () => {
-    const source = readLocal("./main.ts");
-    expect(source).toContain("const offlineUpkeepPausedForPlayer = (player: Player): boolean => now() - lastEconomyActivityAtForPlayer(player) > OFFLINE_YIELD_ACCUM_MAX_MS;");
-    expect(source).toContain("const upkeepPaused = offlineUpkeepPausedForPlayer(p);");
-    expect(source).toContain("accumulatePassiveIncomeForPlayer(p);");
-    expect(source).not.toContain("if (now() - p.lastActiveAt > OFFLINE_YIELD_ACCUM_MAX_MS) {");
+    const supportSource = readLocal("./server-player-runtime-support.ts");
+    const mainSource = readLocal("./main.ts");
+    expect(supportSource).toContain("const offlineUpkeepPausedForPlayer = (player: Player): boolean =>");
+    expect(supportSource).toContain("deps.now() - lastEconomyActivityAtForPlayer(player) > deps.OFFLINE_YIELD_ACCUM_MAX_MS");
+    expect(mainSource).toContain("const upkeepPaused = offlineUpkeepPausedForPlayer(p);");
+    expect(mainSource).toContain("accumulatePassiveIncomeForPlayer(p);");
+    expect(mainSource).not.toContain("if (now() - p.lastActiveAt > OFFLINE_YIELD_ACCUM_MAX_MS) {");
   });
 
   it("keeps town population growth ticking after inactivity even when upkeep is paused", () => {
@@ -29,10 +31,11 @@ describe("offline economy regression guard", () => {
   });
 
   it("wakes offline upkeep again when a player loses territory", () => {
-    const source = readLocal("./main.ts");
-    expect(source).toContain("const wakeOfflineEconomyForPlayer = (playerId: string | undefined): void => {");
-    expect(source).toContain("player.lastEconomyWakeAt = now();");
-    expect(source).toContain("wakeOfflineEconomyForPlayer(oldOwner);");
+    const supportSource = readLocal("./server-player-runtime-support.ts");
+    const ownershipSource = readLocal("./server-ownership-runtime.ts");
+    expect(supportSource).toContain("const wakeOfflineEconomyForPlayer = (playerId: string | undefined): void => {");
+    expect(supportSource).toContain("player.lastEconomyWakeAt = deps.now();");
+    expect(ownershipSource).toContain("deps.wakeOfflineEconomyForPlayer(oldOwner);");
   });
 
   it("persists the offline economy wake timestamp on players", () => {
