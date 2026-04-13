@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.5",
+  version: "2026.04.13.6",
   title: "What's New",
-  summary: "Recent updates include more opportunistic AI pressure, stronger economic AI compounding, and safer server AI planning internals.",
+  summary: "Recent updates include more opportunistic AI pressure, stronger economic AI compounding, and safer server runtime internals.",
   entries: [
+    {
+      introducedIn: "2026.04.13.6",
+      title: "Server ownership and snapshot runtime were split into smaller modules",
+      why: "Large ownership, snapshot load/save, and player bootstrap blocks still lived in the main server runtime, which made production-safe fixes harder than they needed to be.",
+      changes: [
+        "Split server ownership updates, snapshot IO, snapshot hydrate, and player runtime support into focused modules under the 500-line file target.",
+        "Kept server and client regression coverage green after the refactor so live gameplay behavior stays stable while the server runtime gets easier to maintain."
+      ]
+    },
     {
       introducedIn: "2026.04.13.5",
       title: "AI leaders now repivot and punish weak borders more aggressively",
