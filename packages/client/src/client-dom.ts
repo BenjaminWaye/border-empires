@@ -245,18 +245,18 @@ const hudMarkup = `
       <section id="panel-domains" class="panel-body">
         <div id="panel-domains-content"></div>
       </section>
-      <section id="panel-alliance" class="panel-body">
-        <div class="row">
+      <section id="panel-alliance" class="panel-body alliance-panel">
+        <div class="alliance-form-section">
           <input id="alliance-target" placeholder="ally player name" />
-          <button id="alliance-send" class="panel-btn">Send</button>
+          <button id="alliance-send" class="panel-btn" type="button">Send</button>
         </div>
-        <div class="row">
+        <div class="alliance-form-section">
           <input id="alliance-break-id" placeholder="break by player id" />
-          <button id="alliance-break" class="panel-btn">Break</button>
+          <button id="alliance-break" class="panel-btn" type="button">Break</button>
         </div>
-        <div id="allies-list"></div>
-        <div id="alliance-requests"></div>
-        <div id="alliance-player-inspect"></div>
+        <div id="allies-list" class="alliance-section-stack"></div>
+        <div id="alliance-requests" class="alliance-section-stack"></div>
+        <div id="alliance-player-inspect" class="alliance-player-inspect-slot"></div>
       </section>
       <section id="panel-defensibility" class="panel-body"></section>
       <section id="panel-economy" class="panel-body"></section>
@@ -293,18 +293,18 @@ const hudMarkup = `
       </div>
     </section>
     <section id="mobile-panel-domains" class="mobile-panel"></section>
-    <section id="mobile-panel-social" class="mobile-panel">
-      <div class="row">
+    <section id="mobile-panel-social" class="mobile-panel alliance-panel">
+      <div class="alliance-form-section">
         <input id="mobile-alliance-target" placeholder="ally player name" />
-        <button id="mobile-alliance-send" class="panel-btn">Send</button>
+        <button id="mobile-alliance-send" class="panel-btn" type="button">Send</button>
       </div>
-      <div class="row">
+      <div class="alliance-form-section">
         <input id="mobile-alliance-break-id" placeholder="break by player id" />
-        <button id="mobile-alliance-break" class="panel-btn">Break</button>
+        <button id="mobile-alliance-break" class="panel-btn" type="button">Break</button>
       </div>
-      <div id="mobile-allies-list"></div>
-      <div id="mobile-alliance-requests"></div>
-      <div id="mobile-alliance-player-inspect"></div>
+      <div id="mobile-allies-list" class="alliance-section-stack"></div>
+      <div id="mobile-alliance-requests" class="alliance-section-stack"></div>
+      <div id="mobile-alliance-player-inspect" class="alliance-player-inspect-slot"></div>
     </section>
     <section id="mobile-panel-defensibility" class="mobile-panel"></section>
     <section id="mobile-panel-economy" class="mobile-panel"></section>
