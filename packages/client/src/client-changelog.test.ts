@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CLIENT_CHANGELOG_STORAGE_KEY,
   LATEST_CLIENT_CHANGELOG,
+  compareReleaseVersions,
   clientChangelogRenderSignature,
   markClientChangelogSeen,
   shouldShowClientChangelog,
   shouldRebuildClientChangelogOverlay,
-  syncClientChangelogVisibility
+  syncClientChangelogVisibility,
+  unseenClientChangelogEntries
 } from "./client-changelog.js";
 
 const createState = (overrides?: {
@@ -65,6 +67,7 @@ describe("client changelog", () => {
     expect(LATEST_CLIENT_CHANGELOG.version.trim().length).toBeGreaterThan(0);
     expect(LATEST_CLIENT_CHANGELOG.entries.length).toBeGreaterThan(0);
     for (const entry of LATEST_CLIENT_CHANGELOG.entries) {
+      expect(entry.introducedIn.trim().length).toBeGreaterThan(0);
       expect(entry.title.trim().length).toBeGreaterThan(0);
       expect(entry.why.trim().length).toBeGreaterThan(0);
       expect(entry.changes.length).toBeGreaterThan(0);
@@ -72,8 +75,21 @@ describe("client changelog", () => {
     }
   });
 
+  it("compares release versions numerically instead of lexically", () => {
+    expect(compareReleaseVersions("2026.04.13.2", "2026.04.13.1")).toBeGreaterThan(0);
+    expect(compareReleaseVersions("2026.04.12.9", "2026.04.13.1")).toBeLessThan(0);
+    expect(compareReleaseVersions("2026.04.13.2", "2026.04.13.2")).toBe(0);
+  });
+
+  it("filters the popup to only entries newer than the last seen release", () => {
+    const entries = unseenClientChangelogEntries("2026.04.13.1");
+
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.every((entry) => compareReleaseVersions(entry.introducedIn, "2026.04.13.1") > 0)).toBe(true);
+  });
+
   it("reuses the existing overlay DOM while the same release/build stays open", () => {
-    const renderSignature = clientChangelogRenderSignature("2026.04.12.4", "deadbeef");
+    const renderSignature = clientChangelogRenderSignature("2026.04.13.2", "deadbeef");
 
     expect(shouldRebuildClientChangelogOverlay({ innerHTML: "", dataset: {} }, renderSignature)).toBe(true);
     expect(shouldRebuildClientChangelogOverlay({ innerHTML: "<div></div>", dataset: { renderSig: renderSignature } }, renderSignature)).toBe(false);

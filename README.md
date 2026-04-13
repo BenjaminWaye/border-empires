@@ -87,6 +87,7 @@ That configures `pre-push` to run `pnpm ci:local`.
 When you ship a user-facing client update, update `packages/client/src/client-changelog.ts` in the same branch.
 
 - Bump the changelog `version` so users who already saw the previous release will only see the popup again for the new release.
+- Keep each release note entry in the same shape: `introducedIn`, `title`, `why`, and `changes`.
 - Write both why the change was made and what changed for each release note entry.
 - `pnpm check:client-changelog` now fails when product code changes on a branch without a changelog update and release-version bump.
 
