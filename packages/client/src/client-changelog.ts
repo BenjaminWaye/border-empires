@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.6",
+  version: "2026.04.13.7",
   title: "What's New",
-  summary: "Recent updates include more opportunistic AI pressure, stronger economic AI compounding, and safer server runtime internals.",
+  summary: "Recent updates include captured settlement relocation fixes, more opportunistic AI pressure, and stronger economic AI compounding.",
   entries: [
+    {
+      introducedIn: "2026.04.13.7",
+      title: "Captured settlement-tier towns relocate correctly again",
+      why: "Some towns that were still at settlement tier could survive conquest on the captured tile if they had lost their original settlement flag, which also let the defeated owner get a fallback settlement elsewhere.",
+      changes: [
+        "Made conquest relocation depend on the town's current settlement tier instead of a legacy settlement flag.",
+        "Settlement-tier towns now move off captured tiles consistently, while towns, cities, great cities, and metropolises still remain in place after conquest."
+      ]
+    },
     {
       introducedIn: "2026.04.13.6",
       title: "Server ownership and snapshot runtime were split into smaller modules",

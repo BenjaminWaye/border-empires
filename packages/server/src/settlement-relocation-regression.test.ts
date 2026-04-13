@@ -40,8 +40,11 @@ describe("settlement relocation regression guard", () => {
   });
 
   it("relocates captured settlement-tier towns instead of leaving them on the captured tile", () => {
-    const source = readServerSource("./server-ownership-runtime.ts");
-    expect(source).toContain('if (oldOwner !== deps.BARBARIAN_OWNER_ID && capturedTown && deps.isRelocatableSettlementTown(capturedTown)) {');
-    expect(source).toContain("deps.relocateCapturedSettlementForPlayer(displacedSettlement.ownerId, displacedSettlement.town);");
+    const ownershipSource = readServerSource("./server-ownership-runtime.ts");
+    const settlementFlowSource = readServerSource("./server-settlement-flow.ts");
+    expect(ownershipSource).toContain('if (oldOwner !== deps.BARBARIAN_OWNER_ID && capturedTown && deps.isRelocatableSettlementTown(capturedTown)) {');
+    expect(ownershipSource).toContain("deps.relocateCapturedSettlementForPlayer(displacedSettlement.ownerId, displacedSettlement.town);");
+    expect(settlementFlowSource).toContain('Boolean(town && townPopulationTierForTown(town) === "SETTLEMENT");');
+    expect(settlementFlowSource).not.toContain("town.isSettlement && townPopulationTierForTown(town) === \"SETTLEMENT\"");
   });
 });

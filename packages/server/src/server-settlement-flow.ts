@@ -186,7 +186,7 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
     POPULATION_MIN + Math.floor(seeded01(x, y, activeSeason.worldSeed + 9601) * POPULATION_START_SPREAD);
 
   const isRelocatableSettlementTown = (town: TownDefinition | undefined): town is TownDefinition =>
-    Boolean(town && town.isSettlement && townPopulationTierForTown(town) === "SETTLEMENT");
+    Boolean(town && townPopulationTierForTown(town) === "SETTLEMENT");
 
   const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>
     ownedTownKeysForPlayer(playerId).find((tk) => isRelocatableSettlementTown(townsByTile.get(tk)));
