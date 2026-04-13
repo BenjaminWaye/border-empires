@@ -12,7 +12,11 @@ const serverMainSource = (): string => {
     readFileSync(resolve(here, "../server-ai-frontier-scout.ts"), "utf8"),
     readFileSync(resolve(here, "../server-ai-frontier-settlement.ts"), "utf8"),
     readFileSync(resolve(here, "../server-ai-frontier-signals.ts"), "utf8"),
-    readFileSync(resolve(here, "../server-ai-frontier-pressure.ts"), "utf8")
+    readFileSync(resolve(here, "../server-ai-frontier-pressure.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-planning-types.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-selection-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-planning-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-victory-path-runtime.ts"), "utf8")
   ].join("\n");
 };
 
@@ -82,12 +86,12 @@ describe("buildAiPlanningSnapshot regression guard", () => {
 
   it("derives cached attack and build availability from lightweight cached signals", () => {
     const body = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
-    expect(body).toContain("const pressureAttackProfile = estimateAiPressureAttackProfile(actor, territorySummary);");
+    expect(body).toMatch(/const pressureAttackProfile = (?:deps\.)?estimateAiPressureAttackProfile\(actor, territorySummary\);/);
     expect(body).toContain("const settlementAvailability = estimateAiSettlementAvailabilityProfile(");
     expect(body).toContain("const frontierAvailability = estimateAiFrontierAvailabilityProfile(actor, territorySummary);");
     expect(body).toContain("islandExpandAvailable: hasAiFocusedIslandExpand(territorySummary, focusIslandId, undercoveredIslandCount)");
     expect(body).toContain("territorySummary.borderSettledTileKeys.has(tk)");
-    expect(body).toContain("!fortsByTile.has(tk)");
+    expect(body).toMatch(/!((?:deps\.)?fortsByTile)\.has\(tk\)/);
     expect(body).toContain("barbarianAttackAvailable: territorySummary.barbarianAttackAvailable");
     expect(body).toContain("enemyAttackAvailable: territorySummary.enemyAttackAvailable");
     expect(body).not.toContain("frontierSettlementSummaryForPlayer(");
@@ -249,10 +253,10 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     const staticBody = functionBody(serverMainSource(), "buildAiPlanningStaticCache");
 
     expect(source).toContain("const bestAiIslandFocusTargetId =");
-    expect(source).toContain("const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);");
+    expect(source).toMatch(/const focusIslandId = (?:deps\.)?bestAiIslandFocusTargetId\(actor, territorySummary\);/);
     expect(source).toContain("const foodCoverageLow = controlledTowns > 0 && deps.currentFoodCoverageForPlayer(actor.id) < 1;");
-    expect(staticBody).toContain("const focusIslandId = bestAiIslandFocusTargetId(actor, territorySummary);");
-    expect(staticBody).toContain("weakestIslandRatio = focusLand > 0 ? (islandProgress.settledCounts.get(focusIslandId) ?? 0) / focusLand : islandProgress.weakestRatio;");
+    expect(staticBody).toMatch(/const focusIslandId = (?:deps\.)?bestAiIslandFocusTargetId\(actor, territorySummary\);/);
+    expect(staticBody).toContain("focusLand > 0 ? (islandProgress.settledCounts.get(focusIslandId) ?? 0) / focusLand : islandProgress.weakestRatio");
     expect(turnAnalysisBody).toContain("foodCoverage < 1");
   });
 
