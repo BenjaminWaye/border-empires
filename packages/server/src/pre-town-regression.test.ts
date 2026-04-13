@@ -9,6 +9,7 @@ const serverMainSource = (): string => {
     readFileSync(resolve(here, "./main.ts"), "utf8"),
     readFileSync(resolve(here, "./server-game-constants.ts"), "utf8"),
     readFileSync(resolve(here, "./server-shared-types.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-snapshot-hydrate.ts"), "utf8"),
     readFileSync(resolve(here, "./server-worldgen-towns.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-support.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-economy-runtime.ts"), "utf8")
@@ -59,10 +60,11 @@ describe("pre-town settlement regression guard", () => {
   });
 
   it("loads snapshot season state before assigning missing town names", () => {
-    const source = serverMainSource();
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(resolve(here, "./server-snapshot-hydrate.ts"), "utf8");
     const hydrateStart = source.indexOf("const hydrateSnapshotState = (raw: SnapshotState): void => {");
-    const seasonIndex = source.indexOf("if (raw.season) activeSeason = raw.season;", hydrateStart);
-    const assignNamesIndex = source.indexOf("assignMissingTownNamesForWorld();", hydrateStart);
+    const seasonIndex = source.indexOf("if (raw.season) deps.setActiveSeason(raw.season);", hydrateStart);
+    const assignNamesIndex = source.indexOf("deps.assignMissingTownNamesForWorld();", hydrateStart);
     expect(hydrateStart).toBeGreaterThan(-1);
     expect(seasonIndex).toBeGreaterThan(-1);
     expect(assignNamesIndex).toBeGreaterThan(-1);

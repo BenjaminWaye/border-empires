@@ -326,7 +326,10 @@ export const createServerSettlementFlow = (deps: ServerSettlementFlowDeps): Serv
     return true;
   };
 
-  const relocateCapturedSettlementForPlayer = (playerId: string, displacedTown: Pick<TownDefinition, "townId" | "type" | "name">): boolean => {
+  const relocateCapturedSettlementForPlayer = (
+    playerId: string,
+    displacedTown: Pick<TownDefinition, "townId" | "type"> & { name?: string }
+  ): boolean => {
     const candidate = oldestSettledSettlementCandidateForPlayer(playerId);
     if (!candidate || !createSettlementAtTile(playerId, candidate, displacedTown)) return false;
     recomputeTownNetworkForPlayer(playerId);
