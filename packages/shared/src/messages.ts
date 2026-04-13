@@ -10,9 +10,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_ACCEPT"), requestId: z.string().min(1) }),
+  z.object({ type: z.literal("ALLIANCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_BREAK"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_REQUEST"), targetPlayerName: z.string().min(1), durationHours: z.union([z.literal(12), z.literal(24)]) }),
   z.object({ type: z.literal("TRUCE_ACCEPT"), requestId: z.string().min(1) }),
+  z.object({ type: z.literal("TRUCE_REJECT"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_BREAK"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("SET_TILE_COLOR"), color: z.string().regex(/^#[0-9a-fA-F]{6}$/) }),
   z.object({
