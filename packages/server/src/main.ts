@@ -9647,7 +9647,7 @@ const hydrateSnapshotState = (raw: SnapshotState): void => {
   logHydratePhase("barbarian_backfill", { barbarianAgents: barbarianAgents.size });
 };
 
-const loadSnapshot = (): void => {
+const loadSnapshot = (): boolean => {
   let raw: SnapshotState | undefined;
   try {
     raw = loadSectionedSnapshot() ?? loadLegacySnapshot();
@@ -9662,15 +9662,16 @@ const loadSnapshot = (): void => {
     } catch (renameErr) {
       logRuntimeError("failed to quarantine corrupt snapshot", renameErr);
     }
-    return;
+    return false;
   }
-  if (!raw) return;
+  if (!raw) return false;
   hydrateSnapshotState(raw);
+  return true;
 };
 
 const bootstrapRuntimeState = async (): Promise<void> => {
   const loadStartedAt = Date.now();
-  loadSnapshot();
+  const loadedSnapshot = loadSnapshot();
   logStartupPhase("load_snapshot", loadStartedAt, { players: players.size, ownershipTiles: ownership.size });
 
   const worldStartedAt = Date.now();
@@ -9698,6 +9699,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     return false;
   })();
   if (
+    !loadedSnapshot && (
     clustersById.size < minAcceptableClusters ||
     clusterByTile.size === 0 ||
     !hasBiomeLinkedClusters ||
@@ -9705,6 +9707,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     hasLegacyResourceMix ||
     !hasFurClusters ||
     hasGemOnNonSand
+    )
   ) {
     activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
     setWorldSeed(activeSeason.worldSeed);
@@ -9733,7 +9736,7 @@ const bootstrapRuntimeState = async (): Promise<void> => {
     }
     return dockById.size > 0 && hasCrossContinentLink;
   })();
-  if (dockById.size === 0 || docksByTile.size === 0 || !hasCrossContinentDockPairs || townsByTile.size === 0) {
+  if (!loadedSnapshot && (dockById.size === 0 || docksByTile.size === 0 || !hasCrossContinentDockPairs || townsByTile.size === 0)) {
     activeSeason.worldSeed = regenerateStrategicWorld(activeSeason.worldSeed);
     setWorldSeed(activeSeason.worldSeed);
   }

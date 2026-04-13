@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.2",
+  version: "2026.04.13.3",
   title: "What's New",
-  summary: "Recent updates now explain what changed after sign-in, including a shorter unseen-only release log and a continue action that stays available while you read.",
+  summary: "Recent updates now explain what changed after sign-in, including stable saved towns after restarts, a shorter unseen-only release log, and a continue action that stays available while you read.",
   entries: [
+    {
+      introducedIn: "2026.04.13.3",
+      title: "Loaded saves no longer regenerate towns on startup",
+      why: "A startup validation path could rebuild the strategic world under an existing save, which made some owned town tiles come back with the wrong town identity after a restart.",
+      changes: [
+        "Stopped strategic world regeneration from running when the server successfully loaded a saved snapshot.",
+        "Added regression coverage so loaded saves keep their own towns, docks, and clusters instead of silently replacing them at boot."
+      ]
+    },
     {
       introducedIn: "2026.04.13.2",
       title: "The changelog now shows only what you have not seen",
