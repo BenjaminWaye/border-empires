@@ -107,6 +107,10 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
     !snapshot.underThreat &&
     (snapshot.primaryVictoryPath === "TOWN_CONTROL" || snapshot.primaryVictoryPath === "ECONOMIC_HEGEMONY") &&
     (snapshot.victoryPathContender || snapshot.pressureAttackScore >= 180);
+  const opportunisticPressureReady =
+    pressureAttackReady &&
+    (snapshot.primaryVictoryPath === "TOWN_CONTROL" || snapshot.primaryVictoryPath === "ECONOMIC_HEGEMONY") &&
+    (snapshot.frontPosture === "BREAK" || snapshot.victoryPathContender || snapshot.pressureAttackScore >= 200);
 
   if (urgentPressureAttackReady) {
     return { reason: "executed_pressure_counterattack_priority", actionKey: "attack_enemy_border_tile", goapActionKey: "attack_enemy_border_tile" };
@@ -122,6 +126,18 @@ export const planAiDecision = (snapshot: AiPlanningSnapshot): AiPlanningDecision
   }
   if (snapshot.townSupportSettlementAvailable && snapshot.canAffordSettlement && !snapshot.pressureThreatensCore) {
     return { reason: "executed_town_support_settlement_priority", actionKey: "settle_owned_frontier_tile", goapActionKey: "settle_owned_frontier_tile" };
+  }
+  if (opportunisticPressureReady) {
+    return { reason: "executed_opportunistic_pressure_priority", actionKey: "attack_enemy_border_tile", goapActionKey: "attack_enemy_border_tile" };
+  }
+  if (
+    snapshot.primaryVictoryPath === "ECONOMIC_HEGEMONY" &&
+    snapshot.economicBuildAvailable &&
+    snapshot.canBuildEconomy &&
+    !snapshot.pressureThreatensCore &&
+    (!snapshot.settlementAvailable || snapshot.aiIncome >= 12 || snapshot.victoryPathContender)
+  ) {
+    return { reason: "executed_economic_compounding_priority", actionKey: "build_economic_structure", goapActionKey: "build_economic_structure" };
   }
   if (
     snapshot.strategicFocus === "ISLAND_FOOTPRINT" &&

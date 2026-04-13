@@ -261,6 +261,7 @@ describe("buildAiPlanningSnapshot regression guard", () => {
 
     expect(ensureBody).toContain("AI_VICTORY_PATH_REEVALUATE_MS");
     expect(ensureBody).toContain("scoreAiVictoryPathChoices(actor, analysis, townsTarget, settledTilesTarget)");
+    expect(ensureBody).toContain("shouldForceAiVictoryRepivot(existing, best, currentScore, analysis, townsTarget, settledTilesTarget)");
     expect(ensureBody).toContain("best.score >= currentScore + AI_VICTORY_PATH_REPIVOT_MARGIN");
   });
 
