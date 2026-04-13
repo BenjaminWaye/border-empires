@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.5",
+  version: "2026.04.13.6",
   title: "What's New",
-  summary: "Recent updates include more opportunistic AI pressure, stronger economic AI compounding, and safer server AI planning internals.",
+  summary: "Recent updates include safer barbarian spawn pressure, more opportunistic AI attacks, and stronger economic AI compounding.",
   entries: [
+    {
+      introducedIn: "2026.04.13.6",
+      title: "Late-game barbarian spawns no longer pile into tiny fog pockets",
+      why: "Once most of the map was revealed, maintenance spawns could keep landing in the same small unexplored island gaps and create sudden barbarian explosions.",
+      changes: [
+        "Maintenance spawns now require a larger surrounding fog buffer instead of treating a single dark tile as enough.",
+        "Added extra separation between fresh barbarian maintenance spawns so one leftover pocket does not instantly stack a dense cluster."
+      ]
+    },
     {
       introducedIn: "2026.04.13.5",
       title: "AI leaders now repivot and punish weak borders more aggressively",
