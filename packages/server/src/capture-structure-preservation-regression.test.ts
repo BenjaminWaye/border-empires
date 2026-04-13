@@ -9,6 +9,7 @@ const serverSource = (): string => {
     readFileSync(resolve(here, "./main.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-support.ts"), "utf8"),
     readFileSync(resolve(here, "./server-combat-support-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-ownership-runtime.ts"), "utf8"),
     readFileSync(resolve(here, "./sim/chunk-state.ts"), "utf8")
   ].join("\n");
 };
@@ -38,8 +39,8 @@ describe("captured structure preservation regression guard", () => {
     const ownershipBody = functionBody(source, "updateOwnership");
     expect(source).toContain("export const TOWN_CAPTURE_SHOCK_MS = 10 * 60 * 1000;");
     expect(ownershipBody).toContain("fort.ownerId = newOwner;");
-    expect(ownershipBody).toContain("fort.disabledUntil = now() + TOWN_CAPTURE_SHOCK_MS;");
-    expect(ownershipBody).toContain("economic.disabledUntil = now() + TOWN_CAPTURE_SHOCK_MS;");
+    expect(ownershipBody).toContain("fort.disabledUntil = deps.now() + deps.TOWN_CAPTURE_SHOCK_MS;");
+    expect(ownershipBody).toContain("economic.disabledUntil = deps.now() + deps.TOWN_CAPTURE_SHOCK_MS;");
     expect(ownershipBody).toContain("economic.nextUpkeepAt = economic.disabledUntil;");
     expect(ownershipBody).not.toContain('} else if (isLightCombatStructureType(economic.type)) {');
   });
