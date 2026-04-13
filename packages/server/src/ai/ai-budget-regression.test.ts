@@ -12,7 +12,8 @@ const serverMainSource = (): string => {
     readFileSync(resolve(here, "../server-runtime-dashboard-html.ts"), "utf8"),
     readFileSync(resolve(here, "../server-ai-frontier-types.ts"), "utf8"),
     readFileSync(resolve(here, "../server-ai-frontier-scout.ts"), "utf8"),
-    readFileSync(resolve(here, "../server-ai-frontier-signals.ts"), "utf8")
+    readFileSync(resolve(here, "../server-ai-frontier-signals.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-planning-runtime.ts"), "utf8")
   ].join("\n");
 };
 
@@ -81,7 +82,7 @@ describe("AI budget regression guard", () => {
 
   it("reuses cached scout adjacency in frontier planning availability instead of rescanning neighbors", () => {
     const body = functionBody(serverMainSource(), "estimateAiFrontierAvailabilityProfile");
-    expect(body).toContain("const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);");
-    expect(body).toContain("countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0");
+    expect(body).toContain("const adjacency = deps.cachedScoutAdjacencyMetrics(actor, to, territorySummary);");
+    expect(body).toContain("deps.countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0");
   });
 });
