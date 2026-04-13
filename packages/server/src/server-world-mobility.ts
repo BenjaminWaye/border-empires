@@ -3,6 +3,44 @@ import crypto from "node:crypto";
 import type { BarbarianAgent, Dock, Player, Tile, TileKey } from "@border-empires/shared";
 import type { ServerWorldMobilityDeps, ServerWorldMobilityRuntime } from "./server-world-runtime-types.js";
 
+type BarbarianSpawnTileProbe = Pick<Tile, "terrain" | "ownerId" | "town" | "dockId" | "fort" | "siegeOutpost">;
+
+export const BARBARIAN_MAINTENANCE_FOG_BUFFER_RADIUS = 2;
+export const BARBARIAN_MAINTENANCE_FOG_BUFFER_MIN_DARK_LAND_TILES = 10;
+export const BARBARIAN_MAINTENANCE_FOG_BUFFER_MIN_DARK_RATIO = 0.6;
+export const BARBARIAN_MAINTENANCE_MIN_AGENT_SEPARATION = 4;
+
+export const hasBarbarianMaintenanceFogBuffer = ({
+  x,
+  y,
+  tileAt,
+  isOutOfSight,
+  radius = BARBARIAN_MAINTENANCE_FOG_BUFFER_RADIUS,
+  minDarkLandTiles = BARBARIAN_MAINTENANCE_FOG_BUFFER_MIN_DARK_LAND_TILES,
+  minDarkRatio = BARBARIAN_MAINTENANCE_FOG_BUFFER_MIN_DARK_RATIO
+}: {
+  x: number;
+  y: number;
+  tileAt: (x: number, y: number) => BarbarianSpawnTileProbe;
+  isOutOfSight: (x: number, y: number) => boolean;
+  radius?: number;
+  minDarkLandTiles?: number;
+  minDarkRatio?: number;
+}): boolean => {
+  let landTiles = 0;
+  let darkLandTiles = 0;
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      const tile = tileAt(x + dx, y + dy);
+      if (tile.terrain !== "LAND") continue;
+      landTiles += 1;
+      if (isOutOfSight(x + dx, y + dy)) darkLandTiles += 1;
+    }
+  }
+  if (darkLandTiles < minDarkLandTiles) return false;
+  return darkLandTiles / Math.max(1, landTiles) >= minDarkRatio;
+};
+
 export const createServerWorldMobility = (deps: ServerWorldMobilityDeps): ServerWorldMobilityRuntime => {
   const {
     now,
@@ -223,6 +261,21 @@ export const createServerWorldMobility = (deps: ServerWorldMobilityDeps): Server
     const tile = playerTile(x, y);
     return tile.terrain === "LAND" && !tile.ownerId && !tile.town && !tile.dockId && !tile.fort && !tile.siegeOutpost;
   };
+  const hasNearbyBarbarianAgent = (x: number, y: number, radius: number): boolean => {
+    for (const agent of barbarianAgents.values()) {
+      const dx = Math.abs(agent.x - x);
+      const dy = Math.abs(agent.y - y);
+      const wrappedDx = Math.min(dx, WORLD_WIDTH - dx);
+      const wrappedDy = Math.min(dy, WORLD_HEIGHT - dy);
+      if (Math.max(wrappedDx, wrappedDy) <= radius) return true;
+    }
+    return false;
+  };
+  const isValidMaintenanceBarbarianSpawnTile = (x: number, y: number): boolean =>
+    isValidBarbarianSpawnTile(x, y) &&
+    isOutOfSightOfAllPlayers(x, y) &&
+    hasBarbarianMaintenanceFogBuffer({ x, y, tileAt: playerTile, isOutOfSight: isOutOfSightOfAllPlayers }) &&
+    !hasNearbyBarbarianAgent(x, y, BARBARIAN_MAINTENANCE_MIN_AGENT_SEPARATION);
 
   const maintainBarbarianPopulation = (): void => {
     if (!hasOnlinePlayers()) return;
@@ -230,7 +283,7 @@ export const createServerWorldMobility = (deps: ServerWorldMobilityDeps): Server
     for (let spawned = 0, attempts = 0; spawned < wanted && attempts < wanted * 600; attempts += 1) {
       const x = Math.floor(Math.random() * WORLD_WIDTH);
       const y = Math.floor(Math.random() * WORLD_HEIGHT);
-      if (!isValidBarbarianSpawnTile(x, y) || !isOutOfSightOfAllPlayers(x, y)) continue;
+      if (!isValidMaintenanceBarbarianSpawnTile(x, y)) continue;
       updateOwnership(x, y, BARBARIAN_OWNER_ID, "BARBARIAN");
       spawnBarbarianAgentAt(x, y, 0);
       spawned += 1;

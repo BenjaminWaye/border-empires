@@ -19,17 +19,26 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.7",
+  version: "2026.04.13.8",
   title: "What's New",
-  summary: "Recent updates include captured settlement relocation fixes, more opportunistic AI pressure, and stronger economic AI compounding.",
+  summary: "Recent updates include captured settlement relocation fixes, safer barbarian spawn pressure, and more modular server runtime internals.",
   entries: [
     {
-      introducedIn: "2026.04.13.7",
+      introducedIn: "2026.04.13.8",
       title: "Captured settlement-tier towns relocate correctly again",
       why: "Some towns that were still at settlement tier could survive conquest on the captured tile if they had lost their original settlement flag, which also let the defeated owner get a fallback settlement elsewhere.",
       changes: [
         "Made conquest relocation depend on the town's current settlement tier instead of a legacy settlement flag.",
         "Settlement-tier towns now move off captured tiles consistently, while towns, cities, great cities, and metropolises still remain in place after conquest."
+      ]
+    },
+    {
+      introducedIn: "2026.04.13.7",
+      title: "Late-game barbarian spawns no longer pile into tiny fog pockets",
+      why: "Once most of the map was revealed, maintenance spawns could keep landing in the same small unexplored island gaps and create sudden barbarian explosions.",
+      changes: [
+        "Maintenance spawns now require a larger surrounding fog buffer instead of treating a single dark tile as enough.",
+        "Added extra separation between fresh barbarian maintenance spawns so one leftover pocket does not instantly stack a dense cluster."
       ]
     },
     {
