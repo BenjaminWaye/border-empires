@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.10",
+  version: "2026.04.13.11",
   title: "What's New",
-  summary: "Recent updates include a closer alliance-tab UI remake, captured settlement relocation fixes, and safer barbarian spawn pressure.",
+  summary: "Recent updates include an exact alliance-tab reference copy, restored sidebar behavior, captured settlement relocation fixes, and safer barbarian spawn pressure.",
   entries: [
+    {
+      introducedIn: "2026.04.13.11",
+      title: "The alliance tab now uses the reference layout without changing sidebar behavior",
+      why: "The prior pass changed the sidebar shell itself and still let the shared bright input and button styles leak into the alliance tab, so the result did not match the supplied UI.",
+      changes: [
+        "Restored the normal sidebar container behavior so the alliance tab opens, sizes, and offsets like the other side panels again.",
+        "Raised the alliance tab styling specificity so its dark reference inputs, buttons, section dividers, and request cards render consistently instead of inheriting the shared white panel controls."
+      ]
+    },
     {
       introducedIn: "2026.04.13.10",
       title: "The alliance tab now mirrors the new reference layout more closely",
