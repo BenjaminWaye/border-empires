@@ -2453,6 +2453,7 @@ const { sendPlayerUpdate } = createServerPlayerUpdateRuntime({
   activeAetherBridgesById,
   activeAetherWallViews: () => activeAetherWallViews(),
   allianceRequests,
+  truceRequests,
   activeTruceViewsForPlayer: (playerId) => activeTruceViewsForPlayer(playerId),
   missionPayload: (player) => missionPayload(player),
   leaderboardSnapshotForPlayer: (playerId) => leaderboardSnapshotForPlayer(playerId),
@@ -5325,11 +5326,14 @@ const activeTruceViewsForPlayer = (playerId: string): Array<{ otherPlayerId: str
 const broadcastTruceUpdate = (a: Player, b: Player, announcement?: string): void => {
   const wa = socketsByPlayer.get(a.id);
   const wb = socketsByPlayer.get(b.id);
+  const outgoingFor = (playerId: string): TruceRequest[] => [...truceRequests.values()].filter((request) => request.fromPlayerId === playerId);
+  const incomingFor = (playerId: string): TruceRequest[] => [...truceRequests.values()].filter((request) => request.toPlayerId === playerId);
   wa?.send(
     JSON.stringify({
       type: "TRUCE_UPDATE",
       activeTruces: activeTruceViewsForPlayer(a.id),
-      incomingTruceRequests: [...truceRequests.values()].filter((request) => request.toPlayerId === a.id),
+      incomingTruceRequests: incomingFor(a.id),
+      outgoingTruceRequests: outgoingFor(a.id),
       announcement
     })
   );
@@ -5337,7 +5341,8 @@ const broadcastTruceUpdate = (a: Player, b: Player, announcement?: string): void
     JSON.stringify({
       type: "TRUCE_UPDATE",
       activeTruces: activeTruceViewsForPlayer(b.id),
-      incomingTruceRequests: [...truceRequests.values()].filter((request) => request.toPlayerId === b.id),
+      incomingTruceRequests: incomingFor(b.id),
+      outgoingTruceRequests: outgoingFor(b.id),
       announcement
     })
   );
@@ -8414,7 +8419,9 @@ registerServerHttpRoutes(app, {
           seasonVictory: seasonVictoryObjectivesForPlayer(player.id),
           seasonWinner,
           allianceRequests: [...allianceRequests.values()].filter((r) => r.toPlayerId === player.id),
+          outgoingAllianceRequests: [...allianceRequests.values()].filter((r) => r.fromPlayerId === player.id),
           truceRequests: [...truceRequests.values()].filter((r) => r.toPlayerId === player.id),
+          outgoingTruceRequests: [...truceRequests.values()].filter((r) => r.fromPlayerId === player.id),
           offlineActivity
         })
       );
@@ -9011,6 +9018,19 @@ registerServerHttpRoutes(app, {
       return;
     }
 
+    if (msg.type === "ALLIANCE_CANCEL") {
+      const request = allianceRequests.get(msg.requestId);
+      if (!request || request.fromPlayerId !== actor.id || request.expiresAt < now()) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" }));
+        return;
+      }
+      const target = players.get(request.toPlayerId);
+      allianceRequests.delete(msg.requestId);
+      if (!target) return;
+      broadcastAllianceUpdate(actor, target);
+      return;
+    }
+
     if (msg.type === "TRUCE_ACCEPT") {
       const request = truceRequests.get(msg.requestId);
       if (!request || request.toPlayerId !== actor.id || request.expiresAt < now()) {
@@ -9061,6 +9081,19 @@ registerServerHttpRoutes(app, {
       truceRequests.delete(msg.requestId);
       if (!from) return;
       broadcastTruceUpdate(actor, from);
+      return;
+    }
+
+    if (msg.type === "TRUCE_CANCEL") {
+      const request = truceRequests.get(msg.requestId);
+      if (!request || request.fromPlayerId !== actor.id || request.expiresAt < now()) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "TRUCE_REQUEST_INVALID", message: "request invalid or expired" }));
+        return;
+      }
+      const target = players.get(request.toPlayerId);
+      truceRequests.delete(msg.requestId);
+      if (!target) return;
+      broadcastTruceUpdate(actor, target);
       return;
     }
 

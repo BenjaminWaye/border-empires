@@ -146,6 +146,7 @@ export const createInitialState = () => ({
   incomingAllianceRequests: [] as AllianceRequest[],
   outgoingAllianceRequests: [] as AllianceRequest[],
   incomingTruceRequests: [] as TruceRequest[],
+  outgoingTruceRequests: [] as TruceRequest[],
   activeAetherBridges: [] as ActiveAetherBridgeView[],
   activeAetherWalls: [] as ActiveAetherWallView[],
   strategicReplayEvents: [] as StrategicReplayEvent[],

@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.9",
+  version: "2026.04.13.10",
   title: "What's New",
-  summary: "Recent updates include a redesigned alliance tab, captured settlement relocation fixes, and safer barbarian spawn pressure.",
+  summary: "Recent updates include a closer alliance-tab UI remake, captured settlement relocation fixes, and safer barbarian spawn pressure.",
   entries: [
+    {
+      introducedIn: "2026.04.13.10",
+      title: "The alliance tab now mirrors the new reference layout more closely",
+      why: "The first social-panel pass kept too much of the game's old panel styling and still did not match the attached reference layout for pending alliance and truce cards.",
+      changes: [
+        "Rebuilt the alliance tab around the reference panel chrome, section spacing, card surfaces, and button treatments instead of adapting the older HUD card style.",
+        "Pending alliance and truce sections now mix incoming requests with outgoing requests, showing accept or reject actions for incoming offers and cancel actions for requests you already sent."
+      ]
+    },
     {
       introducedIn: "2026.04.13.9",
       title: "The alliance tab now uses a dedicated social-panel layout",
