@@ -247,13 +247,14 @@ const hudMarkup = `
       </section>
       <section id="panel-alliance" class="panel-body alliance-panel">
         <div class="alliance-form-section">
-          <input id="alliance-target" placeholder="ally player name" />
+          <input id="alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
           <button id="alliance-send" class="panel-btn" type="button">Send</button>
         </div>
         <div class="alliance-form-section">
           <input id="alliance-break-id" placeholder="break by player id" />
           <button id="alliance-break" class="panel-btn" type="button">Break</button>
         </div>
+        <datalist id="alliance-target-options"></datalist>
         <div id="allies-list" class="alliance-section-stack"></div>
         <div id="alliance-requests" class="alliance-section-stack"></div>
         <div id="alliance-player-inspect" class="alliance-player-inspect-slot"></div>
@@ -295,7 +296,7 @@ const hudMarkup = `
     <section id="mobile-panel-domains" class="mobile-panel"></section>
     <section id="mobile-panel-social" class="mobile-panel alliance-panel">
       <div class="alliance-form-section">
-        <input id="mobile-alliance-target" placeholder="ally player name" />
+        <input id="mobile-alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
         <button id="mobile-alliance-send" class="panel-btn" type="button">Send</button>
       </div>
       <div class="alliance-form-section">
@@ -404,6 +405,7 @@ export const initClientDom = () => {
   const techOwnedEl = requireElement<HTMLDivElement>("#tech-owned");
   const techChoiceDetailsEl = requireElement<HTMLDivElement>("#tech-choice-details");
   const allianceTargetEl = requireElement<HTMLInputElement>("#alliance-target");
+  const allianceTargetOptionsEl = requireElement<HTMLDataListElement>("#alliance-target-options");
   const allianceBreakIdEl = requireElement<HTMLInputElement>("#alliance-break-id");
   const alliesListEl = requireElement<HTMLDivElement>("#allies-list");
   const allianceRequestsEl = requireElement<HTMLDivElement>("#alliance-requests");
@@ -466,6 +468,7 @@ export const initClientDom = () => {
     allianceRequestsEl,
     allianceSendBtn,
     allianceTargetEl,
+    allianceTargetOptionsEl,
     alliesListEl,
     authColorPresetButtons,
     authDisplayNameEl,
