@@ -102,6 +102,11 @@ import {
 import crypto from "node:crypto";
 import os from "node:os";
 import { currentShardRainNotice, nextShardRainStartAt } from "./server-shard-rain.js";
+import {
+  findAllianceRequestBetweenPlayers,
+  findAllianceRequestForRecipient,
+  findAllianceRequestForSender
+} from "./server-alliance-request-runtime.js";
 import { createServerRuntimeAdminDashboard } from "./server-runtime-admin-dashboard.js";
 import { renderRuntimeDashboardHtml } from "./server-runtime-dashboard-html.js";
 import { createServerDebugBundleStore } from "./server-debug-bundle.js";
@@ -365,7 +370,6 @@ import {
   AIRPORT_BUILD_CRYSTAL_COST,
   AIRPORT_BUILD_GOLD_COST,
   AIRPORT_OIL_UPKEEP_PER_MIN,
-  ALLIANCE_REQUEST_TTL_MS,
   BARBARIAN_MAINTENANCE_INTERVAL_MS,
   BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS,
   BARBARIAN_OWNER_ID,
@@ -7891,9 +7895,6 @@ registerInterval(() => {
   for (const [tk, until] of townGrowthShockUntilByTile) {
     if (until <= now()) townGrowthShockUntilByTile.delete(tk);
   }
-  for (const [id, req] of allianceRequests) {
-    if (req.expiresAt < now()) allianceRequests.delete(id);
-  }
   pruneExpiredTruces();
   for (const [pid, until] of temporaryAttackBuffUntilByPlayer) {
     if (until <= now()) temporaryAttackBuffUntilByPlayer.delete(pid);
@@ -8934,12 +8935,20 @@ registerServerHttpRoutes(app, {
         socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_EXISTS", message: "already allied" }));
         return;
       }
+      const existingRequest = findAllianceRequestBetweenPlayers(allianceRequests.values(), actor.id, target.id);
+      if (existingRequest) {
+        const message =
+          existingRequest.fromPlayerId === actor.id
+            ? "alliance request already pending"
+            : "that player already sent you an alliance request";
+        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_PENDING", message }));
+        return;
+      }
       const request: AllianceRequest = {
         id: crypto.randomUUID(),
         fromPlayerId: actor.id,
         toPlayerId: target.id,
         createdAt: now(),
-        expiresAt: now() + ALLIANCE_REQUEST_TTL_MS,
         fromName: actor.name,
         toName: target.name
       };
@@ -8985,9 +8994,9 @@ registerServerHttpRoutes(app, {
     }
 
     if (msg.type === "ALLIANCE_ACCEPT") {
-      const request = allianceRequests.get(msg.requestId);
-      if (!request || request.toPlayerId !== actor.id || request.expiresAt < now()) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" }));
+      const request = findAllianceRequestForRecipient(allianceRequests, msg.requestId, actor.id);
+      if (!request) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" }));
         return;
       }
       const from = players.get(request.fromPlayerId);
@@ -9006,9 +9015,9 @@ registerServerHttpRoutes(app, {
     }
 
     if (msg.type === "ALLIANCE_REJECT") {
-      const request = allianceRequests.get(msg.requestId);
-      if (!request || request.toPlayerId !== actor.id || request.expiresAt < now()) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" }));
+      const request = findAllianceRequestForRecipient(allianceRequests, msg.requestId, actor.id);
+      if (!request) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" }));
         return;
       }
       const from = players.get(request.fromPlayerId);
@@ -9019,9 +9028,9 @@ registerServerHttpRoutes(app, {
     }
 
     if (msg.type === "ALLIANCE_CANCEL") {
-      const request = allianceRequests.get(msg.requestId);
-      if (!request || request.fromPlayerId !== actor.id || request.expiresAt < now()) {
-        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request invalid or expired" }));
+      const request = findAllianceRequestForSender(allianceRequests, msg.requestId, actor.id);
+      if (!request) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "ALLIANCE_REQUEST_INVALID", message: "request invalid" }));
         return;
       }
       const target = players.get(request.toPlayerId);
