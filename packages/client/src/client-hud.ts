@@ -8,6 +8,7 @@ import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defe
 import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
+import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import type { StructureInfoKey } from "./client-map-display.js";
 import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
@@ -485,6 +486,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
+  dom.allianceTargetOptionsEl.innerHTML = allianceTargetSuggestionOptionsHtml(allianceTargetSuggestions(state));
   dom.panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
   dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);

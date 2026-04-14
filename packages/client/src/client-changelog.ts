@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.11",
+  version: "2026.04.13.12",
   title: "What's New",
-  summary: "Recent updates include an exact alliance-tab reference copy, restored sidebar behavior, captured settlement relocation fixes, and safer barbarian spawn pressure.",
+  summary: "Recent updates include alliance name suggestions, corrected alliance-panel input sizing, restored sidebar behavior, and captured settlement relocation fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.13.12",
+      title: "Alliance requests now suggest matching player names as you type",
+      why: "The new alliance field looked like a selector in the reference UI, but it had no suggestion list and its padded input could still overrun the right edge of the sidebar.",
+      changes: [
+        "Added live alliance target suggestions from known player names, leaderboard entries, and current social contacts so partial names can be picked from the dropdown.",
+        "Fixed the alliance input and button box sizing so the dark field layout stays inside the sidebar without spilling past the right edge."
+      ]
+    },
     {
       introducedIn: "2026.04.13.11",
       title: "The alliance tab now uses the reference layout without changing sidebar behavior",
