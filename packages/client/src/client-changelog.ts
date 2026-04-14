@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.13.12",
+  version: "2026.04.14.1",
   title: "What's New",
-  summary: "Recent updates include alliance name suggestions, corrected alliance-panel input sizing, restored sidebar behavior, and captured settlement relocation fixes.",
+  summary: "Recent updates include persistent alliance requests, alliance name suggestions, corrected alliance-panel input sizing, and restored sidebar behavior.",
   entries: [
+    {
+      introducedIn: "2026.04.14.1",
+      title: "Sent alliance requests now stay pending until someone resolves them",
+      why: "Alliance requests were silently disappearing after a few minutes because the server treated them like temporary offers instead of keeping them around until accepted, rejected, or canceled.",
+      changes: [
+        "Stopped auto-expiring alliance requests on the server, so sent and received alliance offers stay visible until one side resolves them.",
+        "Blocked duplicate alliance requests between the same two players while one is already pending, which keeps the persistent request list from filling with repeats."
+      ]
+    },
     {
       introducedIn: "2026.04.13.12",
       title: "Alliance requests now suggest matching player names as you type",
