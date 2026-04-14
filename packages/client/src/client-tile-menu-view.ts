@@ -255,6 +255,7 @@ export const menuOverviewForTile = (
     currentManpowerCap: number;
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
+    observatoryCooldownLineForTile?: (tile: Tile) => string | undefined;
     tileHistoryLines: (tile: Tile) => string[];
     isTileOwnedByAlly: (tile: Tile) => boolean;
     areaEffectModifiersForTile: (tile: Tile) => TileAreaEffectModifier[];
@@ -354,6 +355,8 @@ export const menuOverviewForTile = (
     } else {
       pushLine("Observatory is inactive here and currently provides no vision or protection.");
     }
+    const observatoryCooldownLine = deps.observatoryCooldownLineForTile?.(tile);
+    if (observatoryCooldownLine) pushLine(observatoryCooldownLine);
   }
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
@@ -421,6 +424,7 @@ export const tileMenuViewForTile = (
     queuedBuildProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     constructionProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     menuOverviewForTile: (tile: Tile) => TileOverviewLine[];
+    observatoryCooldownLineForTile?: (tile: Tile) => string | undefined;
     prettyToken: (value: string) => string;
     playerNameForOwner: (ownerId?: string | null) => string | undefined;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;

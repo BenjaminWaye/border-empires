@@ -160,7 +160,7 @@ export const splitTileActionsIntoTabs = (
   return {
     actions: actionRows.some(visibleIfShown) ? actionRows : [],
     buildings: buildingRows.length ? buildingRows : [],
-    crystal: crystalRows.some(visibleIfShown) || (state.localhostDevAetherWall && crystalRows.some((action) => action.id === "aether_wall")) ? crystalRows : []
+    crystal: crystalRows.length > 0 || (state.localhostDevAetherWall && crystalRows.some((action) => action.id === "aether_wall")) ? crystalRows : []
   };
 };
 

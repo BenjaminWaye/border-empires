@@ -1,7 +1,7 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { canAffordCost } from "./client-constants.js";
 import { connectedEnemyRegionKeys } from "./client-connected-region.js";
-import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown.js";
+import { observatoryBackedAbilityCooldownRemainingMs, ownedObservatoryCastStateForTarget } from "./client-observatory-cooldown.js";
 import {
   activeTruceWithPlayerFromState,
   breakAllianceFromUi,
@@ -539,6 +539,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const chebyshevDistanceClient = (ax: number, ay: number, bx: number, by: number): number =>
     chebyshevDistanceClientFromModule(ax, ay, bx, by);
   const hostileObservatoryProtectingTile = (tile: Tile): Tile | undefined => hostileObservatoryProtectingTileFromModule(state, tile);
+  const ownedObservatoryCastStateForTile = (tile: Tile) => ownedObservatoryCastStateForTarget(state.tiles.values(), state.me, tile, Date.now());
+  const hasOwnedObservatoryInRange = (tile: Tile): boolean => ownedObservatoryCastStateForTile(tile).hasInRange;
 
   const shouldResetFrontierActionStateForError = (errorCode: string): boolean => {
     if (!errorCode) return true;
@@ -557,11 +559,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   const abilityCooldownRemainingMs = (abilityId: keyof ClientState["abilityCooldowns"]): number => {
+    const nowMs = Date.now();
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
-      return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now());
+      return observatoryBackedAbilityCooldownRemainingMs(
+        ownedObservatoryCastStateForTile(selectedTile),
+        state.abilityCooldowns[abilityId],
+        nowMs
+      );
     }
-    return Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - Date.now());
+    return Math.max(0, (state.abilityCooldowns[abilityId] ?? 0) - nowMs);
   };
 
   const formatCooldownShort = (ms: number): string => {
@@ -577,6 +584,20 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  };
+
+  const observatoryCooldownLineForTile = (tile: Tile): string | undefined => {
+    if (tile.ownerId !== state.me || tile.observatory?.status !== "active") return undefined;
+    const cooldowns = [
+      { label: "Aether Wall", remainingMs: abilityCooldownRemainingMs("aether_wall") },
+      { label: "Siphon", remainingMs: abilityCooldownRemainingMs("siphon") },
+      { label: "Create Mountain", remainingMs: abilityCooldownRemainingMs("create_mountain") },
+      { label: "Remove Mountain", remainingMs: abilityCooldownRemainingMs("remove_mountain") }
+    ].filter((entry) => entry.remainingMs > 0);
+    if (cooldowns.length === 0) return undefined;
+    cooldowns.sort((a, b) => a.remainingMs - b.remainingMs || a.label.localeCompare(b.label));
+    const nextReady = cooldowns[0]!;
+    return `${nextReady.label} cooldown ${formatCooldownShort(nextReady.remainingMs)}.`;
   };
 
   const clearSettlementProgressByKey = (tileKey: string): void =>
@@ -760,6 +781,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       playerNameForOwner,
       terrainLabel,
       isTileOwnedByAlly,
+      observatoryCooldownLineForTile,
       state
     });
     if (tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) {
@@ -800,6 +822,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     terrainAt,
     chebyshevDistanceClient,
     isTileOwnedByAlly,
+    hasOwnedObservatoryInRange,
     hostileObservatoryProtectingTile,
     abilityCooldownRemainingMs,
     formatCooldownShort,
@@ -1250,7 +1273,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendGameMessage({ type: "REVEAL_EMPIRE_STATS", targetPlayerId: selected.ownerId });
     }
     if (actionId === "aether_wall") {
-      const selectedDirections = validAetherWallDirectionsForTile(selected);
+      if (!hasOwnedObservatoryInRange(selected) && !state.localhostDevAetherWall) {
+        pushFeed("Aether Wall must be within 30 tiles of your observatory.", "combat", "warn");
+      } else {
+        const selectedDirections = validAetherWallDirectionsForTile(selected);
       if (selectedDirections.length === 1) {
         const direction = selectedDirections[0]!;
         const length = preferredAetherWallLength(selected.x, selected.y, direction);
@@ -1258,8 +1284,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         else pushFeed("Aether Wall cannot extend from that selected tile.", "combat", "warn");
       } else if (selectedDirections.length > 1) {
         beginCrystalTargeting("aether_wall");
-      } else {
-        pushFeed("Select one of your settled border tiles before casting Aether Wall.", "combat", "warn");
+        } else {
+          pushFeed("Select one of your settled border tiles before casting Aether Wall.", "combat", "warn");
+        }
       }
     }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");

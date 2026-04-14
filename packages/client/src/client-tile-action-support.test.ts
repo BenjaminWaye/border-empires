@@ -61,6 +61,24 @@ describe("splitTileActionsIntoTabs", () => {
     });
   });
 
+  it("keeps a disabled-only Crystal tab visible so cast blockers stay readable", () => {
+    const disabledCrystal: TileActionDef[] = [
+      {
+        id: "aether_bridge",
+        label: "Aether Bridge",
+        disabled: true,
+        disabledReason: "Target must be coastal land",
+        cost: "30 CRYSTAL • crosses up to 4 sea tiles"
+      }
+    ];
+
+    expect(splitTileActionsIntoTabs(disabledCrystal, state)).toEqual({
+      actions: [],
+      buildings: [],
+      crystal: disabledCrystal
+    });
+  });
+
   it("sorts support-only buildings before general settled buildings", () => {
     const rows: TileActionDef[] = [
       {

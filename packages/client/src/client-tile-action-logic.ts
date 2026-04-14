@@ -53,6 +53,7 @@ type TileActionLogicDeps = {
   terrainAt: typeof terrainAt;
   chebyshevDistanceClient: (ax: number, ay: number, bx: number, by: number) => number;
   isTileOwnedByAlly: (tile: Tile) => boolean;
+  hasOwnedObservatoryInRange: (tile: Tile) => boolean;
   hostileObservatoryProtectingTile: (tile: Tile) => Tile | undefined;
   abilityCooldownRemainingMs: (ability: AbilityCooldownId) => number;
   formatCooldownShort: (ms: number) => string;
@@ -168,10 +169,11 @@ export const canPlaceAetherWallFromOrigin = (
 export const validAetherWallDirectionsForTile = (
   state: ClientState,
   tile: Tile,
-  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
+  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt" | "hasOwnedObservatoryInRange">
 ): Array<ClientState["aetherWallTargeting"]["direction"]> => {
   if (tile.fogged || tile.ownerId !== state.me || tile.terrain !== "LAND") return [];
   if (!hasLocalDevAetherWallOverride(state) && tile.ownershipState !== "SETTLED") return [];
+  if (!hasLocalDevAetherWallOverride(state) && !deps.hasOwnedObservatoryInRange(tile)) return [];
   const out: Array<ClientState["aetherWallTargeting"]["direction"]> = [];
   const directions: Array<ClientState["aetherWallTargeting"]["direction"]> = ["N", "E", "S", "W"];
   for (const direction of directions) {
@@ -183,7 +185,7 @@ export const validAetherWallDirectionsForTile = (
 export const aetherWallDirectionTargetTiles = (
   state: ClientState,
   tile: Tile,
-  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
+  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt" | "hasOwnedObservatoryInRange">
 ): Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }> =>
   validAetherWallDirectionsForTile(state, tile, deps)
     .map((direction) => {
@@ -201,7 +203,7 @@ export const aetherWallDirectionTargetTiles = (
 
 const collectValidAetherWallOrigins = (
   state: ClientState,
-  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt">
+  deps: Pick<TileActionLogicDeps, "wrapX" | "wrapY" | "keyFor" | "terrainAt" | "hasOwnedObservatoryInRange">
 ): Set<string> => {
   const out = new Set<string>();
   for (const tile of state.tiles.values()) {
@@ -267,6 +269,7 @@ export const beginCrystalTargeting = (
     | "wrapY"
     | "terrainAt"
     | "isTileOwnedByAlly"
+    | "hasOwnedObservatoryInRange"
     | "hostileObservatoryProtectingTile"
     | "abilityCooldownRemainingMs"
     | "formatCooldownShort"
@@ -313,8 +316,13 @@ export const beginCrystalTargeting = (
   if (ability === "aether_wall") {
     const cooldown = deps.abilityCooldownRemainingMs("aether_wall");
     const localhostOverride = hasLocalDevAetherWallOverride(state);
+    const current = deps.selectedTile();
     if (!hasAetherWallCapability(state)) {
       deps.pushFeed("Aether Wall requires Aether Moorings.", "combat", "warn");
+      return;
+    }
+    if (!localhostOverride && (!current || !deps.hasOwnedObservatoryInRange(current))) {
+      deps.pushFeed("Aether Wall must be within 30 tiles of your observatory.", "combat", "warn");
       return;
     }
     if (!localhostOverride && (state.strategicResources.CRYSTAL ?? 0) < 25) {
@@ -461,12 +469,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.terrain === "MOUNTAIN") {
     const removeCooldown = deps.abilityCooldownRemainingMs("remove_mountain");
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
+    const hasObservatoryInRange = deps.hasOwnedObservatoryInRange(tile);
     return [
       {
         id: "remove_mountain",
         label: "Remove Mountain",
         ...tileActionAvailability(
           hasTerrainShapingCapability(state) &&
+            hasObservatoryInRange &&
             !observatoryProtection &&
             hasOwnedLandWithinClientRange(state, tile.x, tile.y, 2, deps) &&
             removeCooldown <= 0 &&
@@ -474,6 +484,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             (state.strategicResources.CRYSTAL ?? 0) >= 400,
           !hasTerrainShapingCapability(state)
             ? "Requires Aether Moorings"
+            : !hasObservatoryInRange
+              ? "Must be within 30 tiles of your observatory"
             : observatoryProtection
               ? "Blocked by observatory field"
               : !hasOwnedLandWithinClientRange(state, tile.x, tile.y, 2, deps)
@@ -493,6 +505,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const createMountainAction = (): TileActionDef => {
     const createCooldown = deps.abilityCooldownRemainingMs("create_mountain");
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
+    const hasObservatoryInRange = deps.hasOwnedObservatoryInRange(tile);
     const hasRange = hasOwnedLandWithinClientRange(state, tile.x, tile.y, 2, deps);
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     return {
@@ -500,6 +513,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       label: "Create Mountain",
       ...tileActionAvailability(
         hasTerrainShapingCapability(state) &&
+          hasObservatoryInRange &&
           !observatoryProtection &&
           hasRange &&
           !blockedBySite &&
@@ -508,6 +522,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           (state.strategicResources.CRYSTAL ?? 0) >= 400,
         !hasTerrainShapingCapability(state)
           ? "Requires Aether Moorings"
+          : !hasObservatoryInRange
+            ? "Must be within 30 tiles of your observatory"
           : observatoryProtection
             ? "Blocked by observatory field"
             : !hasRange
@@ -1224,17 +1240,20 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         });
       }
     }
-    out.push({
-      id: "aether_wall",
-      label: "Aether Wall",
-      ...tileActionAvailability(
-        hasAetherWallCapability(state) &&
-          (hasLocalDevAetherWallOverride(state) || (deps.abilityCooldownRemainingMs("aether_wall") <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25)),
-        !hasAetherWallCapability(state)
-          ? "Requires Terrain Engineering"
-          : !hasLocalDevAetherWallOverride(state) && deps.abilityCooldownRemainingMs("aether_wall") > 0
-            ? `Cooldown ${deps.formatCooldownShort(deps.abilityCooldownRemainingMs("aether_wall"))}`
-            : !hasLocalDevAetherWallOverride(state) && (state.strategicResources.CRYSTAL ?? 0) < 25
+  out.push({
+    id: "aether_wall",
+    label: "Aether Wall",
+    ...tileActionAvailability(
+      hasAetherWallCapability(state) &&
+        (hasLocalDevAetherWallOverride(state) || deps.hasOwnedObservatoryInRange(tile)) &&
+        (hasLocalDevAetherWallOverride(state) || (deps.abilityCooldownRemainingMs("aether_wall") <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25)),
+      !hasAetherWallCapability(state)
+        ? "Requires Terrain Engineering"
+        : !hasLocalDevAetherWallOverride(state) && !deps.hasOwnedObservatoryInRange(tile)
+          ? "Must be within 30 tiles of your observatory"
+        : !hasLocalDevAetherWallOverride(state) && deps.abilityCooldownRemainingMs("aether_wall") > 0
+          ? `Cooldown ${deps.formatCooldownShort(deps.abilityCooldownRemainingMs("aether_wall"))}`
+        : !hasLocalDevAetherWallOverride(state) && (state.strategicResources.CRYSTAL ?? 0) < 25
               ? "Need 25 CRYSTAL"
               : "",
         "25 CRYSTAL • 20m duration • up to 3 borders"
@@ -1340,12 +1359,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     label: "Aether Wall",
     ...tileActionAvailability(
       hasAetherWallCapability(state) &&
+        (hasLocalDevAetherWallOverride(state) || deps.hasOwnedObservatoryInRange(tile)) &&
         (hasLocalDevAetherWallOverride(state) || (deps.abilityCooldownRemainingMs("aether_wall") <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 25)),
       !hasAetherWallCapability(state)
         ? "Requires Aether Moorings"
+        : !hasLocalDevAetherWallOverride(state) && !deps.hasOwnedObservatoryInRange(tile)
+          ? "Must be within 30 tiles of your observatory"
         : !hasLocalDevAetherWallOverride(state) && deps.abilityCooldownRemainingMs("aether_wall") > 0
           ? `Cooldown ${deps.formatCooldownShort(deps.abilityCooldownRemainingMs("aether_wall"))}`
-          : !hasLocalDevAetherWallOverride(state) && (state.strategicResources.CRYSTAL ?? 0) < 25
+        : !hasLocalDevAetherWallOverride(state) && (state.strategicResources.CRYSTAL ?? 0) < 25
             ? "Need 25 CRYSTAL"
             : "",
       "25 CRYSTAL • 20m duration • up to 3 borders"
@@ -1442,6 +1464,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       label: "Siphon",
       ...tileActionAvailability(
         hasSiphonCapability(state) &&
+          deps.hasOwnedObservatoryInRange(tile) &&
           !observatoryProtection &&
           sabotageCooldown <= 0 &&
           (state.strategicResources.CRYSTAL ?? 0) >= 20 &&
@@ -1449,6 +1472,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           !tile.sabotage,
         !hasSiphonCapability(state)
           ? "Requires Cryptography"
+          : !deps.hasOwnedObservatoryInRange(tile)
+            ? "Must be within 30 tiles of your observatory"
           : observatoryProtection
             ? "Blocked by observatory field"
             : tile.sabotage

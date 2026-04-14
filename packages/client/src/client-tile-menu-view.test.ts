@@ -51,6 +51,7 @@ const deps = {
   currentManpowerCap: 100,
   hostileObservatoryProtectingTile: () => undefined,
   constructionCountdownLineForTile: () => "",
+  observatoryCooldownLineForTile: () => undefined,
   tileHistoryLines: () => [] as string[],
   isTileOwnedByAlly: () => false,
   areaEffectModifiersForTile: () => [] as TileOverviewModifier[]
@@ -265,6 +266,14 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("blocks hostile crystal actions nearby"))).toBe(true);
     expect(lines.some((line) => line.kind === "section" && line.html === "Upkeep")).toBe(true);
     expect(lines.some((line) => line.html.includes("Observatory:") && line.html.includes("0.03/m"))).toBe(true);
+  });
+
+  it("shows observatory cooldown copy when the menu provides it", () => {
+    const lines = menuOverviewForTile(settledObservatoryTile("active"), {
+      ...deps,
+      observatoryCooldownLineForTile: () => "Aether Wall cooldown 7m 0s."
+    });
+    expect(lines.some((line) => line.html.includes("Aether Wall cooldown 7m 0s."))).toBe(true);
   });
 
   it("shows a dedicated upkeep section with one row per active upkeep source", () => {
