@@ -36,7 +36,7 @@ describe("feedHtml", () => {
     expect(html).toContain("Debug Selected Tile");
   });
 
-  it("renders redesigned alliance cards with reject actions and timestamps", () => {
+  it("renders incoming alliance cards with accept and reject actions", () => {
     const html = allianceRequestsHtml(
       [
         {
@@ -55,8 +55,32 @@ describe("feedHtml", () => {
 
     expect(html).toContain("BrassKnight");
     expect(html).toContain("1h ago");
+    expect(html).toContain("Sent by:");
+    expect(html).toContain("Waiting on:");
     expect(html).toContain("Reject");
     expect(html).toContain('data-request-id="request-1"');
+  });
+
+  it("renders outgoing alliance cards with a cancel action", () => {
+    const html = allianceRequestsHtml(
+      [
+        {
+          id: "request-2",
+          fromPlayerId: "me",
+          toPlayerId: "player-305",
+          createdAt: Date.UTC(2026, 3, 13, 8, 0, 0),
+          expiresAt: Date.UTC(2026, 3, 13, 9, 0, 0),
+          toName: "SteelForge"
+        }
+      ],
+      () => undefined,
+      "outgoing",
+      Date.UTC(2026, 3, 13, 11, 0, 0)
+    );
+
+    expect(html).toContain("SteelForge");
+    expect(html).toContain("Cancel Request");
+    expect(html).toContain("Waiting on:");
   });
 
   it("renders active allies and truces in the new status-card format", () => {
@@ -82,7 +106,7 @@ describe("feedHtml", () => {
     expect(trucesMarkup).toContain("remaining");
   });
 
-  it("renders truce requests with accept and reject actions", () => {
+  it("renders incoming truce requests with accept and reject actions", () => {
     const html = truceRequestsHtml(
       [
         {
@@ -95,6 +119,7 @@ describe("feedHtml", () => {
         }
       ],
       (id) => (id === "player-156" ? "GearHeart" : undefined),
+      "incoming",
       Date.UTC(2026, 3, 13, 11, 0, 0)
     );
 
@@ -102,5 +127,28 @@ describe("feedHtml", () => {
     expect(html).toContain("24h");
     expect(html).toContain("Reject");
     expect(html).toContain('data-truce-request-id="truce-1"');
+  });
+
+  it("renders outgoing truce requests with a cancel action", () => {
+    const html = truceRequestsHtml(
+      [
+        {
+          id: "truce-2",
+          fromPlayerId: "me",
+          toPlayerId: "player-421",
+          createdAt: Date.UTC(2026, 3, 13, 10, 0, 0),
+          expiresAt: Date.UTC(2026, 3, 13, 11, 0, 0),
+          durationHours: 12,
+          toName: "CopperWing"
+        }
+      ],
+      () => undefined,
+      "outgoing",
+      Date.UTC(2026, 3, 13, 11, 0, 0)
+    );
+
+    expect(html).toContain("CopperWing");
+    expect(html).toContain("12h");
+    expect(html).toContain("Cancel Request");
   });
 });

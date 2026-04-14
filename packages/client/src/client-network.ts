@@ -866,6 +866,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       );
       state.allies = (player.allies as string[]) ?? [];
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
+      state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? [];
       const myTileColor = player.tileColor as string | undefined;
       if (myTileColor) {
         state.playerColors.set(state.me, myTileColor);
@@ -909,6 +910,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
       state.activeTruces = (msg.activeTruces as any[]) ?? [];
       state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
+      state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? state.outgoingTruceRequests;
       state.activeAetherBridges = (msg.activeAetherBridges as any[]) ?? [];
       state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
       state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
@@ -1642,6 +1644,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "TRUCE_REQUESTED") {
       const request = msg.request as any;
+      if (request && !state.outgoingTruceRequests.some((existing: any) => existing.id === request.id)) {
+        state.outgoingTruceRequests.push(request);
+      }
       const targetName = (msg.targetName as string | undefined) ?? request?.toName ?? (request ? playerNameForOwner(request.toPlayerId) : undefined);
       pushFeed(`Truce offered${targetName ? ` to ${targetName}` : ""}.`, "alliance", "success");
       renderHud();
@@ -1651,6 +1656,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "TRUCE_UPDATE") {
       state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
       state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
+      state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? state.outgoingTruceRequests;
       const announcement = msg.announcement as string | undefined;
       if (announcement) pushFeed(announcement, "alliance", "warn");
       renderHud();

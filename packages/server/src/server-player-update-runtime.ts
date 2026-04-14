@@ -1,4 +1,4 @@
-import type { Player, SeasonWinnerView, SeasonVictoryObjectiveView, TileKey } from "@border-empires/shared";
+import type { Player, SeasonWinnerView, SeasonVictoryObjectiveView, TileKey, TruceRequest } from "@border-empires/shared";
 import type { Ws } from "./server-runtime-config.js";
 import type {
   AllianceRequest,
@@ -64,6 +64,7 @@ export interface CreateServerPlayerUpdateRuntimeDeps {
   activeAetherBridgesById: Map<string, { bridgeId: string; ownerId: string; fromTileKey: TileKey; toTileKey: TileKey; startedAt: number; endsAt: number }>;
   activeAetherWallViews: () => unknown[];
   allianceRequests: Map<string, AllianceRequest>;
+  truceRequests: Map<string, TruceRequest>;
   activeTruceViewsForPlayer: (playerId: string) => Array<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }>;
   missionPayload: (player: Player) => unknown;
   leaderboardSnapshotForPlayer: (playerId: string) => LeaderboardSnapshotView;
@@ -160,8 +161,16 @@ export const createServerPlayerUpdateRuntime = (
       payload.activeAetherWalls = deps.activeAetherWallViews();
     }
     if (includeDevelopmentStatus) Object.assign(payload, { pendingSettlements, developmentProcessLimit, activeDevelopmentProcessCount });
-    if (includeAllianceRequests) Object.assign(payload, { incomingAllianceRequests: [...deps.allianceRequests.values()].filter((request) => request.toPlayerId === player.id), outgoingAllianceRequests: [...deps.allianceRequests.values()].filter((request) => request.fromPlayerId === player.id) });
-    if (includeSocial) payload.activeTruces = deps.activeTruceViewsForPlayer(player.id);
+    if (includeAllianceRequests) {
+      Object.assign(payload, {
+        incomingAllianceRequests: [...deps.allianceRequests.values()].filter((request) => request.toPlayerId === player.id),
+        outgoingAllianceRequests: [...deps.allianceRequests.values()].filter((request) => request.fromPlayerId === player.id)
+      });
+    }
+    if (includeSocial) {
+      payload.activeTruces = deps.activeTruceViewsForPlayer(player.id);
+      payload.outgoingTruceRequests = [...deps.truceRequests.values()].filter((request) => request.fromPlayerId === player.id);
+    }
     if (includeMissions) payload.missions = deps.missionPayload(player);
     if (includeGlobalStatus) Object.assign(payload, { leaderboard: deps.leaderboardSnapshotForPlayer(player.id), seasonVictory: deps.seasonVictoryObjectivesForPlayer(player.id), seasonWinner: deps.seasonWinner });
     const sendStartedAt = deps.now();

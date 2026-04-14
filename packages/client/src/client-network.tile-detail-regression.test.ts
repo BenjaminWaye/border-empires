@@ -107,6 +107,7 @@ const createState = () =>
     abilityCooldowns: {},
     incomingAllianceRequests: [],
     outgoingAllianceRequests: [],
+    outgoingTruceRequests: [],
     strategicReplayEvents: [],
     hasEverInitialized: true,
     connection: "initialized",

@@ -86,14 +86,28 @@ const socialRemainingLabel = (untilMs: number, nowMs: number): string => {
 
 const socialPlayerIdLabel = (playerId: string): string => `ID: ${playerId.length > 12 ? playerId.slice(0, 8) : playerId}`;
 
+const socialClockIcon = (): string => '<span class="alliance-inline-icon alliance-inline-icon-clock" aria-hidden="true">◷</span>';
+
+const socialCheckIcon = (): string => '<span class="alliance-inline-icon alliance-inline-icon-check" aria-hidden="true">✓</span>';
+
+const socialMetaLineHtml = (sentBy: string, waitingOn: string): string =>
+  `<div class="alliance-reference-meta">
+    <span class="alliance-reference-meta-label">Sent by:</span>
+    <span class="alliance-reference-meta-sender">${sentBy}</span>
+    <span class="alliance-reference-meta-sep">•</span>
+    <span class="alliance-reference-meta-label">Waiting on:</span>
+    <span class="alliance-reference-meta-waiting">${waitingOn}</span>
+  </div>`;
+
 export const allianceRequestsHtml = (
   requests: AllianceRequest[],
   playerNameForOwner: (ownerId?: string | null) => string | undefined,
   kind: "incoming" | "outgoing" = "incoming",
   nowMs = Date.now()
 ): string => {
-  if (requests.length === 0) return `<article class="card alliance-empty-card"><p>No ${kind} requests.</p></article>`;
-  return requests
+  if (requests.length === 0) return "";
+  return [...requests]
+    .sort((a, b) => b.createdAt - a.createdAt)
     .map(
       (request) => {
         const playerId = kind === "incoming" ? request.fromPlayerId : request.toPlayerId;
@@ -102,23 +116,26 @@ export const allianceRequestsHtml = (
             ? request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)
             : request.toName ?? playerNameForOwner(request.toPlayerId) ?? request.toPlayerId.slice(0, 8);
         const ageLabel = socialRelativeAgeLabel(request.createdAt, nowMs);
-        return `<article class="card alliance-status-card alliance-status-card-pending">
-      <div class="alliance-status-card-top">
-        <div class="alliance-status-card-copy">
-          <button class="player-link alliance-player-name" type="button" data-inspect-player="${playerId}">${playerName}</button>
-          <p class="alliance-player-id">${socialPlayerIdLabel(playerId)}</p>
+        const sentBy = kind === "incoming" ? playerName : "You";
+        const waitingOn = kind === "incoming" ? "You" : playerName;
+        return `<article class="card alliance-reference-card alliance-reference-card-pending">
+      <div class="alliance-reference-top">
+        <div class="alliance-reference-copy">
+          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${playerId}">${playerName}</button>
+          <div class="alliance-reference-id">${socialPlayerIdLabel(playerId)}</div>
         </div>
-        <div class="alliance-status-side">
-          <span class="alliance-time-label">${ageLabel}</span>
+        <div class="alliance-reference-right">
+          <div class="alliance-reference-time">${ageLabel}</div>
         </div>
       </div>
+      ${socialMetaLineHtml(sentBy, waitingOn)}
       ${
         kind === "incoming"
-          ? `<div class="alliance-action-row">
-        <button class="panel-btn alliance-decision-btn alliance-accept-btn accept-request" type="button" data-request-id="${request.id}">Accept</button>
-        <button class="panel-btn alliance-decision-btn alliance-reject-btn reject-request" type="button" data-request-id="${request.id}">Reject</button>
+          ? `<div class="alliance-reference-actions">
+        <button class="panel-btn alliance-reference-action alliance-reference-action-accept accept-request" type="button" data-request-id="${request.id}">Accept</button>
+        <button class="panel-btn alliance-reference-action alliance-reference-action-reject reject-request" type="button" data-request-id="${request.id}">Reject</button>
       </div>`
-          : `<div class="alliance-card-footnote">Awaiting response.</div>`
+          : `<button class="panel-btn alliance-reference-action alliance-reference-action-cancel cancel-request" type="button" data-request-id="${request.id}">Cancel Request</button>`
       }
     </article>`;
       }
@@ -130,14 +147,14 @@ export const alliesHtml = (allies: string[], playerNameForOwner: (ownerId?: stri
   if (allies.length === 0) return `<article class="card alliance-empty-card"><p>No allies.</p></article>`;
   return allies
     .map(
-      (id) => `<article class="card alliance-status-card">
-      <div class="alliance-status-card-top">
-        <div class="alliance-status-card-copy">
-          <button class="player-link alliance-player-name" type="button" data-inspect-player="${id}">${playerNameForOwner(id) ?? id.slice(0, 8)}</button>
-          <p class="alliance-player-id">${socialPlayerIdLabel(id)}</p>
+      (id) => `<article class="card alliance-reference-card">
+      <div class="alliance-reference-top">
+        <div class="alliance-reference-copy">
+          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${id}">${playerNameForOwner(id) ?? id.slice(0, 8)}</button>
+          <div class="alliance-reference-id">${socialPlayerIdLabel(id)}</div>
         </div>
-        <div class="alliance-status-side">
-          <span class="alliance-status-chip alliance-status-chip-emerald">Active</span>
+        <div class="alliance-reference-right">
+          <div class="alliance-reference-status alliance-reference-status-active">${socialCheckIcon()}<span>Active</span></div>
         </div>
       </div>
     </article>`
@@ -148,29 +165,44 @@ export const alliesHtml = (allies: string[], playerNameForOwner: (ownerId?: stri
 export const truceRequestsHtml = (
   requests: TruceRequest[],
   playerNameForOwner: (ownerId?: string | null) => string | undefined,
+  kind: "incoming" | "outgoing" = "incoming",
   nowMs = Date.now()
 ): string => {
-  if (requests.length === 0) return `<article class="card alliance-empty-card"><p>No incoming truces.</p></article>`;
-  return requests
+  if (requests.length === 0) return "";
+  return [...requests]
+    .sort((a, b) => b.createdAt - a.createdAt)
     .map(
-      (request) => `<article class="card alliance-status-card alliance-status-card-pending">
-      <div class="alliance-status-card-top">
-        <div class="alliance-status-card-copy">
-          <button class="player-link alliance-player-name" type="button" data-inspect-player="${request.fromPlayerId}">${
-            request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)
-          }</button>
-          <p class="alliance-player-id">${socialPlayerIdLabel(request.fromPlayerId)}</p>
+      (request) => {
+        const playerId = kind === "incoming" ? request.fromPlayerId : request.toPlayerId;
+        const playerName =
+          kind === "incoming"
+            ? request.fromName ?? playerNameForOwner(request.fromPlayerId) ?? request.fromPlayerId.slice(0, 8)
+            : request.toName ?? playerNameForOwner(request.toPlayerId) ?? request.toPlayerId.slice(0, 8);
+        const ageLabel = socialRelativeAgeLabel(request.createdAt, nowMs);
+        const sentBy = kind === "incoming" ? playerName : "You";
+        const waitingOn = kind === "incoming" ? "You" : playerName;
+        return `<article class="card alliance-reference-card alliance-reference-card-pending" data-request-age="${ageLabel}">
+      <div class="alliance-reference-top">
+        <div class="alliance-reference-copy">
+          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${playerId}">${playerName}</button>
+          <div class="alliance-reference-id">${socialPlayerIdLabel(playerId)}</div>
         </div>
-        <div class="alliance-status-side">
-          <span class="alliance-time-pill alliance-time-pill-cyan">${request.durationHours}h</span>
-          <span class="alliance-time-note">${socialRelativeAgeLabel(request.createdAt, nowMs)}</span>
+        <div class="alliance-reference-right">
+          <div class="alliance-reference-duration">${socialClockIcon()}<span>${request.durationHours}h</span></div>
+          <div class="alliance-reference-duration-note">duration</div>
         </div>
       </div>
-      <div class="alliance-action-row">
-        <button class="panel-btn alliance-decision-btn alliance-accept-btn accept-truce" type="button" data-truce-request-id="${request.id}">Accept</button>
-        <button class="panel-btn alliance-decision-btn alliance-reject-btn reject-truce" type="button" data-truce-request-id="${request.id}">Reject</button>
-      </div>
-    </article>`
+      ${socialMetaLineHtml(sentBy, waitingOn)}
+      ${
+        kind === "incoming"
+          ? `<div class="alliance-reference-actions">
+        <button class="panel-btn alliance-reference-action alliance-reference-action-accept accept-truce" type="button" data-truce-request-id="${request.id}">Accept</button>
+        <button class="panel-btn alliance-reference-action alliance-reference-action-reject reject-truce" type="button" data-truce-request-id="${request.id}">Reject</button>
+      </div>`
+          : `<button class="panel-btn alliance-reference-action alliance-reference-action-cancel cancel-truce" type="button" data-truce-request-id="${request.id}">Cancel Request</button>`
+      }
+    </article>`;
+      }
     )
     .join("");
 };
@@ -184,17 +216,17 @@ export const activeTrucesHtml = (
   return truces
     .map((truce) => {
       const remainingLabel = socialRemainingLabel(truce.endsAt, nowMs);
-      return `<article class="card alliance-status-card">
-      <div class="alliance-status-card-top">
-        <div class="alliance-status-card-copy">
-          <button class="player-link alliance-player-name" type="button" data-inspect-player="${truce.otherPlayerId}">${
+      return `<article class="card alliance-reference-card">
+      <div class="alliance-reference-top">
+        <div class="alliance-reference-copy">
+          <button class="player-link alliance-reference-name" type="button" data-inspect-player="${truce.otherPlayerId}">${
             truce.otherPlayerName ?? playerNameForOwner(truce.otherPlayerId) ?? truce.otherPlayerId.slice(0, 8)
           }</button>
-          <p class="alliance-player-id">${socialPlayerIdLabel(truce.otherPlayerId)}</p>
+          <div class="alliance-reference-id">${socialPlayerIdLabel(truce.otherPlayerId)}</div>
         </div>
-        <div class="alliance-status-side">
-          <span class="alliance-time-pill alliance-time-pill-cyan">${remainingLabel}</span>
-          <span class="alliance-time-note">remaining</span>
+        <div class="alliance-reference-right">
+          <div class="alliance-reference-duration">${socialClockIcon()}<span>${remainingLabel}</span></div>
+          <div class="alliance-reference-duration-note">remaining</div>
         </div>
       </div>
     </article>`;
