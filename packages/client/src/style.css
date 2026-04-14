@@ -4043,7 +4043,9 @@ body {
 
 #hud #panel-alliance input,
 #hud #mobile-panel-social input {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 58px;
   padding: 0 24px;
@@ -4069,7 +4071,9 @@ body {
 
 #hud #panel-alliance .panel-btn,
 #hud #mobile-panel-social .panel-btn {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   min-height: 58px;
   border-radius: 8px;
   border: 1px solid #30363d;
