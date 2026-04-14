@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   hostileObservatoryProtectingTileAt,
+  observatoryBackedAbilityCooldownRemainingMs,
+  ownedObservatoryCastStateForTarget,
   observatoryProtectionActive,
   readyOwnedObservatoryCooldownRemainingMs
 } from "./client-observatory-cooldown.js";
@@ -54,5 +56,32 @@ describe("client observatory cooldown helpers", () => {
         100
       )
     ).toBe(150);
+  });
+
+  it("reports when no owned observatory is in cast range", () => {
+    expect(
+      ownedObservatoryCastStateForTarget(
+        [
+          {
+            ...baseTile(80, 80),
+            ownerId: "me",
+            observatory: { ownerId: "me", status: "active", cooldownUntil: 250 }
+          } as Tile
+        ],
+        "me",
+        baseTile(10, 10),
+        100
+      )
+    ).toEqual({ hasInRange: false, cooldownRemainingMs: 0 });
+  });
+
+  it("falls back to the synced ability cooldown when observatory tile cooldown data is missing", () => {
+    expect(
+      observatoryBackedAbilityCooldownRemainingMs(
+        { hasInRange: true, cooldownRemainingMs: 0 },
+        900,
+        100
+      )
+    ).toBe(800);
   });
 });

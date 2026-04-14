@@ -21,7 +21,8 @@ describe("aether wall targeting", () => {
       wrapX: (x: number) => x,
       wrapY: (y: number) => y,
       keyFor,
-      terrainAt: (_x: number, _y: number) => "LAND" as const
+      terrainAt: (_x: number, _y: number) => "LAND" as const,
+      hasOwnedObservatoryInRange: () => true
     };
 
     expect(validAetherWallDirectionsForTile(state, origin, deps)).toEqual(["N"]);
@@ -50,6 +51,7 @@ describe("aether wall targeting", () => {
       attackPreviewDetailForTarget: () => undefined,
       attackPreviewPendingForTarget: () => false,
       hostileObservatoryProtectingTile: () => undefined,
+      hasOwnedObservatoryInRange: () => true,
       ownerSpawnShieldActive: () => false,
       isTileOwnedByAlly: () => false,
       structureGoldCost: () => 0,
@@ -61,5 +63,21 @@ describe("aether wall targeting", () => {
     } as never);
 
     expect(actions.some((action) => action.id === "aether_wall")).toBe(true);
+  });
+
+  it("rejects aether wall targeting when no owned observatory can reach the tile", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const origin: Tile = { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+
+    const deps = {
+      wrapX: (x: number) => x,
+      wrapY: (y: number) => y,
+      keyFor,
+      terrainAt: (_x: number, _y: number) => "LAND" as const,
+      hasOwnedObservatoryInRange: () => false
+    };
+
+    expect(validAetherWallDirectionsForTile(state, origin, deps)).toEqual([]);
   });
 });

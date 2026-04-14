@@ -19,10 +19,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.14.1",
+  version: "2026.04.14.2",
   title: "What's New",
-  summary: "Recent updates include persistent alliance requests, alliance name suggestions, corrected alliance-panel input sizing, and restored sidebar behavior.",
+  summary: "Recent updates include crystal ability blocker visibility fixes, observatory-backed crystal ability gating fixes, persistent alliance requests, alliance name suggestions, corrected alliance-panel input sizing, and restored sidebar behavior.",
   entries: [
+    {
+      introducedIn: "2026.04.14.2",
+      title: "Crystal actions now stay visible when a tile blocks casting",
+      why: "The Crystal tab could disappear whenever every crystal action on the selected tile was blocked, which hid the exact reason a cast was unavailable.",
+      changes: [
+        "Kept unlocked crystal abilities visible in the Crystal tab even when the current tile cannot cast them.",
+        "Blocked crystal actions now keep showing their existing disabled reason text, such as terrain, cooldown, or crystal-cost requirements."
+      ]
+    },
+    {
+      introducedIn: "2026.04.14.2",
+      title: "Observatory-backed crystal actions now show range and cooldown state correctly",
+      why: "Some crystal actions could still be clicked outside observatory cast range, and observatory-backed cooldowns could disappear in the UI when the tile payload did not include per-observatory cooldown timing.",
+      changes: [
+        "Observatory-backed crystal abilities now show an explicit observatory-range blocker instead of behaving as if they were ready everywhere.",
+        "Observatory-backed crystal actions now fall back to the synced ability cooldown so cooldown text still appears when observatory tile cooldown data is missing."
+      ]
+    },
     {
       introducedIn: "2026.04.14.1",
       title: "Sent alliance requests now stay pending until someone resolves them",

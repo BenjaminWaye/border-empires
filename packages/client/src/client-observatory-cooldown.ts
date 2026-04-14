@@ -9,6 +9,11 @@ export const chebyshevDistanceWrapped = (ax: number, ay: number, bx: number, by:
 
 type ObservatoryViewWithCooldown = NonNullable<Tile["observatory"]> & { cooldownUntil?: number };
 
+export type OwnedObservatoryCastState = {
+  hasInRange: boolean;
+  cooldownRemainingMs: number;
+};
+
 export const observatoryProtectionActive = (tile: Pick<ObservatoryViewWithCooldown, "cooldownUntil">, nowMs: number): boolean =>
   (tile.cooldownUntil ?? 0) <= nowMs;
 
@@ -35,6 +40,15 @@ export const readyOwnedObservatoryCooldownRemainingMs = (
   target: Tile,
   nowMs: number
 ): number => {
+  return ownedObservatoryCastStateForTarget(tiles, me, target, nowMs).cooldownRemainingMs;
+};
+
+export const ownedObservatoryCastStateForTarget = (
+  tiles: Iterable<Tile>,
+  me: string,
+  target: Tile,
+  nowMs: number
+): OwnedObservatoryCastState => {
   let earliestPositive: number | undefined;
   let hasInRange = false;
   for (const tile of tiles) {
@@ -43,9 +57,14 @@ export const readyOwnedObservatoryCooldownRemainingMs = (
     if (chebyshevDistanceWrapped(tile.x, tile.y, target.x, target.y) > OBSERVATORY_CAST_RADIUS) continue;
     hasInRange = true;
     const remaining = Math.max(0, (tile.observatory.cooldownUntil ?? 0) - nowMs);
-    if (remaining <= 0) return 0;
+    if (remaining <= 0) return { hasInRange: true, cooldownRemainingMs: 0 };
     if (earliestPositive === undefined || remaining < earliestPositive) earliestPositive = remaining;
   }
-  if (!hasInRange) return 0;
-  return earliestPositive ?? 0;
+  return { hasInRange, cooldownRemainingMs: hasInRange ? (earliestPositive ?? 0) : 0 };
 };
+
+export const observatoryBackedAbilityCooldownRemainingMs = (
+  castState: OwnedObservatoryCastState,
+  syncedAbilityReadyAt: number | undefined,
+  nowMs: number
+): number => Math.max(castState.cooldownRemainingMs, Math.max(0, (syncedAbilityReadyAt ?? 0) - nowMs));
