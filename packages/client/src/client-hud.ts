@@ -490,6 +490,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
   dom.hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
+  dom.hud.classList.toggle("alliance-panel-open", !isMobile() && state.activePanel === "alliance");
   dom.techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   dom.mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   dom.techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
@@ -656,13 +657,25 @@ export const renderClientHud = (deps: HudDeps): void => {
     fallbackCard("Alliance requests"),
     () => {
       const nowMs = Date.now();
+      const pendingAllianceHtml = `${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming", nowMs)}${allianceRequestsHtml(
+        state.outgoingAllianceRequests,
+        playerNameForOwner,
+        "outgoing",
+        nowMs
+      )}`;
+      const pendingTruceHtml = `${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner, "incoming", nowMs)}${truceRequestsHtml(
+        state.outgoingTruceRequests,
+        playerNameForOwner,
+        "outgoing",
+        nowMs
+      )}`;
       return `<section class="alliance-section-block">
-        <h4 class="alliance-section-title">Incoming Alliance Requests</h4>
-        <div class="alliance-card-stack">${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming", nowMs)}</div>
+        <h4 class="alliance-section-title">Pending Alliance Requests</h4>
+        <div class="alliance-card-stack">${pendingAllianceHtml || '<article class="card alliance-empty-card"><p>No pending requests.</p></article>'}</div>
       </section>
       <section class="alliance-section-block">
-        <h4 class="alliance-section-title">Incoming Truces</h4>
-        <div class="alliance-card-stack">${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner, nowMs)}</div>
+        <h4 class="alliance-section-title">Pending Truce Requests</h4>
+        <div class="alliance-card-stack">${pendingTruceHtml || '<article class="card alliance-empty-card"><p>No pending truces.</p></article>'}</div>
       </section>`;
     }
   );
@@ -842,6 +855,14 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "ALLIANCE_REJECT", requestId: id }, "Finish sign-in before responding to alliance requests.");
     };
   });
+  const cancelButtons = dom.hud.querySelectorAll(".cancel-request") as NodeListOf<HTMLButtonElement>;
+  cancelButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      const id = btn.dataset.requestId;
+      if (!id) return;
+      sendGameMessage({ type: "ALLIANCE_CANCEL", requestId: id }, "Finish sign-in before changing alliance requests.");
+    };
+  });
   const acceptTruceButtons = dom.hud.querySelectorAll(".accept-truce") as NodeListOf<HTMLButtonElement>;
   acceptTruceButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
@@ -856,6 +877,14 @@ export const renderClientHud = (deps: HudDeps): void => {
       const id = btn.dataset.truceRequestId;
       if (!id) return;
       sendGameMessage({ type: "TRUCE_REJECT", requestId: id }, "Finish sign-in before responding to truces.");
+    };
+  });
+  const cancelTruceButtons = dom.hud.querySelectorAll(".cancel-truce") as NodeListOf<HTMLButtonElement>;
+  cancelTruceButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      const id = btn.dataset.truceRequestId;
+      if (!id) return;
+      sendGameMessage({ type: "TRUCE_CANCEL", requestId: id }, "Finish sign-in before changing truce requests.");
     };
   });
 

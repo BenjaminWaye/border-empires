@@ -1121,8 +1121,16 @@ body {
   right: 12px;
 }
 
+#hud.desktop-side-panel-open #side-panel.alliance-panel-active {
+  right: 0;
+}
+
 #hud.desktop-side-panel-open #mini-map-wrap {
   right: 456px;
+}
+
+#hud.desktop-side-panel-open.alliance-panel-open #mini-map-wrap {
+  right: 346px;
 }
 
 #mini-map {
@@ -4013,233 +4021,316 @@ body {
 
 .alliance-panel {
   display: grid;
-  gap: 18px;
+  gap: 0;
+  background: #0d1117;
 }
 
-.alliance-form-section {
-  display: grid;
-  gap: 12px;
+#side-panel.alliance-panel-active {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  border-radius: 0;
+  border: 0;
+  border-left: 1px solid #21262d;
+  background: #0d1117;
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
-.alliance-form-section + .alliance-form-section,
-.alliance-form-section + .alliance-section-stack,
-.alliance-section-stack + .alliance-section-stack,
-.alliance-section-stack + .alliance-player-inspect-slot {
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+#side-panel.alliance-panel-active #side-panel-head {
+  padding: 28px 28px 18px;
+  border-bottom: 1px solid #21262d;
+  background: #0d1117;
+}
+
+#side-panel.alliance-panel-active #side-panel-head h3 {
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+#side-panel.alliance-panel-active #panel-close {
+  min-height: 52px;
+  padding: 0 24px;
+  border-radius: 10px;
+  border: 1px solid #21262d;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+#side-panel.alliance-panel-active #panel-close:hover {
+  border-color: #30363d;
+  color: #ffffff;
+  background: transparent;
+}
+
+#side-panel.alliance-panel-active #side-panel-body {
+  padding: 0;
+  background: #0d1117;
 }
 
 #panel-alliance,
 #mobile-panel-social {
-  padding-top: 4px;
+  padding: 0;
+  gap: 0;
+  background: #0d1117;
+}
+
+.alliance-form-section,
+.alliance-section-block,
+.alliance-player-inspect-slot:not(:empty) {
+  padding: 18px 16px;
+  border-bottom: 1px solid #21262d;
+}
+
+.alliance-form-section {
+  display: grid;
+  gap: 16px;
 }
 
 #panel-alliance input,
 #mobile-panel-social input {
   width: 100%;
   min-width: 0;
-  min-height: 56px;
-  padding: 0 18px;
-  border-radius: 12px;
-  border: 1px solid rgba(64, 74, 90, 0.88);
-  background: rgba(22, 27, 34, 0.96);
-  color: #e6edf3;
+  min-height: 58px;
+  padding: 0 24px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #d1d5db;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
+  box-shadow: none;
 }
 
 #panel-alliance input::placeholder,
 #mobile-panel-social input::placeholder {
-  color: rgba(101, 111, 130, 0.96);
+  color: #5f6878;
 }
 
 #panel-alliance input:focus,
 #mobile-panel-social input:focus {
   outline: none;
-  border-color: rgba(104, 115, 138, 0.96);
-  box-shadow: 0 0 0 1px rgba(104, 115, 138, 0.24);
+  border-color: #484f58;
 }
 
 #panel-alliance .panel-btn,
 #mobile-panel-social .panel-btn {
-  min-height: 56px;
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid rgba(64, 74, 90, 0.88);
-  background: rgba(19, 24, 32, 0.98);
-  color: rgba(225, 231, 240, 0.9);
+  min-height: 58px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #d1d5db;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   box-shadow: none;
 }
 
 #panel-alliance .panel-btn:hover:not(:disabled),
 #mobile-panel-social .panel-btn:hover:not(:disabled) {
-  border-color: rgba(90, 100, 120, 0.96);
-  background: rgba(25, 31, 40, 0.98);
+  border-color: #484f58;
+  background: #1c2128;
   box-shadow: none;
 }
 
 #panel-alliance .panel-btn:disabled,
 #mobile-panel-social .panel-btn:disabled {
-  background: rgba(19, 24, 32, 0.72);
-  color: rgba(152, 160, 174, 0.6);
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.alliance-section-stack {
+.alliance-section-stack,
+.alliance-card-stack {
   display: grid;
-  gap: 18px;
-}
-
-.alliance-section-block {
-  display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .alliance-section-title {
-  margin: 0;
-  color: rgba(129, 138, 161, 0.92);
-  font-size: 12px;
-  font-weight: 800;
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
-.alliance-card-stack {
-  display: grid;
-  gap: 12px;
+.alliance-reference-card {
+  border-radius: 10px;
+  border: 1px solid #30363d;
+  background: #161b22;
+  padding: 20px;
 }
 
-.alliance-status-card {
-  border-radius: 14px;
-  border: 1px solid rgba(59, 69, 84, 0.92);
-  background: linear-gradient(180deg, rgba(26, 32, 41, 0.98), rgba(22, 28, 37, 0.96));
-  padding: 20px 21px;
+.alliance-reference-card-pending {
+  border-color: rgba(249, 115, 22, 0.7);
 }
 
-.alliance-status-card-pending {
-  border-color: rgba(205, 112, 28, 0.95);
-}
-
-.alliance-status-card-top {
+.alliance-reference-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
+  gap: 16px;
 }
 
-.alliance-status-card-copy {
+.alliance-reference-copy {
   min-width: 0;
-  display: grid;
-  gap: 6px;
 }
 
-.alliance-player-name {
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1.1;
-  color: #f3f6fb;
+.alliance-reference-name {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
-.alliance-status-card .player-link:hover {
+.alliance-reference-card .player-link:hover {
   color: #ffffff;
 }
 
-.alliance-player-id {
-  margin: 0;
-  color: rgba(96, 107, 127, 0.96);
-  font-size: 13px;
-  font-weight: 600;
+.alliance-reference-id {
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 12px;
 }
 
-.alliance-status-side {
-  min-width: 78px;
-  display: grid;
-  gap: 2px;
-  justify-items: end;
+.alliance-reference-right {
+  min-width: 72px;
   text-align: right;
 }
 
-.alliance-time-label,
-.alliance-time-note {
-  color: rgba(101, 111, 130, 0.96);
+.alliance-reference-time,
+.alliance-reference-duration-note {
+  color: #6b7280;
   font-size: 12px;
+}
+
+.alliance-reference-duration,
+.alliance-reference-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
   font-weight: 600;
 }
 
-.alliance-time-pill {
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.05;
+.alliance-reference-duration {
+  color: #22d3ee;
 }
 
-.alliance-time-pill-cyan {
-  color: #17d4ff;
+.alliance-reference-status-active {
+  color: #34d399;
 }
 
-.alliance-status-chip {
+.alliance-inline-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
   font-size: 12px;
-  font-weight: 800;
-  line-height: 1.05;
+  line-height: 1;
 }
 
-.alliance-status-chip-emerald {
-  color: #1ce7a7;
+.alliance-reference-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  color: #6b7280;
+  font-size: 12px;
 }
 
-.alliance-action-row {
+.alliance-reference-meta-label {
+  color: #6b7280;
+}
+
+.alliance-reference-meta-sender {
+  color: #fb923c;
+  font-weight: 600;
+}
+
+.alliance-reference-meta-waiting {
+  color: #22d3ee;
+  font-weight: 600;
+}
+
+.alliance-reference-meta-sep {
+  color: #4b5563;
+}
+
+.alliance-reference-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 18px;
-}
-
-#panel-alliance .alliance-decision-btn,
-#mobile-panel-social .alliance-decision-btn {
-  min-height: 50px;
-}
-
-#panel-alliance .alliance-accept-btn,
-#mobile-panel-social .alliance-accept-btn {
-  border-color: rgba(20, 135, 109, 0.95);
-  background: rgba(23, 47, 45, 0.96);
-  color: #1ce7a7;
-}
-
-#panel-alliance .alliance-accept-btn:hover:not(:disabled),
-#mobile-panel-social .alliance-accept-btn:hover:not(:disabled) {
-  border-color: rgba(27, 176, 141, 0.98);
-  background: rgba(25, 58, 54, 0.98);
-}
-
-#panel-alliance .alliance-reject-btn,
-#mobile-panel-social .alliance-reject-btn {
-  border-color: rgba(141, 43, 59, 0.96);
-  background: rgba(59, 30, 37, 0.96);
-  color: #ff6f78;
-}
-
-#panel-alliance .alliance-reject-btn:hover:not(:disabled),
-#mobile-panel-social .alliance-reject-btn:hover:not(:disabled) {
-  border-color: rgba(184, 56, 77, 0.98);
-  background: rgba(70, 34, 43, 0.98);
-}
-
-.alliance-card-footnote {
+  gap: 12px;
   margin-top: 16px;
-  color: rgba(111, 121, 138, 0.94);
+}
+
+#panel-alliance .alliance-reference-action,
+#mobile-panel-social .alliance-reference-action {
+  min-height: 46px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+#panel-alliance .alliance-reference-action-accept,
+#mobile-panel-social .alliance-reference-action-accept {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+
+#panel-alliance .alliance-reference-action-accept:hover:not(:disabled),
+#mobile-panel-social .alliance-reference-action-accept:hover:not(:disabled) {
+  border-color: rgba(16, 185, 129, 0.65);
+  background: rgba(16, 185, 129, 0.16);
+}
+
+#panel-alliance .alliance-reference-action-reject,
+#mobile-panel-social .alliance-reference-action-reject {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+#panel-alliance .alliance-reference-action-reject:hover:not(:disabled),
+#mobile-panel-social .alliance-reference-action-reject:hover:not(:disabled) {
+  border-color: rgba(239, 68, 68, 0.65);
+  background: rgba(239, 68, 68, 0.16);
+}
+
+#panel-alliance .alliance-reference-action-cancel,
+#mobile-panel-social .alliance-reference-action-cancel {
+  margin-top: 16px;
+  border-color: rgba(107, 114, 128, 0.45);
+  background: rgba(107, 114, 128, 0.1);
+  color: #9ca3af;
+}
+
+#panel-alliance .alliance-reference-action-cancel:hover:not(:disabled),
+#mobile-panel-social .alliance-reference-action-cancel:hover:not(:disabled) {
+  border-color: rgba(156, 163, 175, 0.65);
+  background: rgba(107, 114, 128, 0.14);
 }
 
 .alliance-empty-card {
-  padding: 16px 18px;
+  padding: 16px;
+  border-radius: 10px;
+  border-color: #30363d;
+  background: #161b22;
 }
 
 .alliance-empty-card p {
   margin: 0;
-  color: rgba(143, 152, 168, 0.76);
+  color: #6b7280;
+  font-size: 13px;
 }
 
 .alliance-player-inspect-slot:empty {
@@ -4966,10 +5057,31 @@ button:disabled,
     bottom: calc(var(--mobile-nav-height) + var(--mobile-bottom-safe));
   }
 
+  #mobile-sheet.alliance-panel-active {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 0;
+    border: 0;
+    background: #0d1117;
+  }
+
   #mobile-sheet-head {
     padding: 8px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.14);
     font-weight: 700;
+  }
+
+  #mobile-sheet.alliance-panel-active #mobile-sheet-head {
+    padding: 28px 28px 18px;
+    border-bottom: 1px solid #21262d;
+    background: #0d1117;
+    color: #ffffff;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
   }
 
   .mobile-panel {
@@ -5074,17 +5186,6 @@ button:disabled,
     flex: 0 0 auto;
   }
 
-  .alliance-panel {
-    gap: 14px;
-  }
-
-  .alliance-form-section + .alliance-form-section,
-  .alliance-form-section + .alliance-section-stack,
-  .alliance-section-stack + .alliance-section-stack,
-  .alliance-section-stack + .alliance-player-inspect-slot {
-    padding-top: 14px;
-  }
-
   #panel-alliance input,
   #mobile-panel-social input,
   #panel-alliance .panel-btn,
@@ -5092,26 +5193,36 @@ button:disabled,
     min-height: 50px;
   }
 
-  .alliance-status-card {
-    padding: 18px 16px;
+  .alliance-form-section,
+  .alliance-section-block,
+  .alliance-player-inspect-slot:not(:empty) {
+    padding: 16px;
   }
 
-  .alliance-status-card-top {
+  .alliance-reference-card {
+    padding: 16px;
+  }
+
+  .alliance-reference-top {
     gap: 12px;
   }
 
-  .alliance-player-name {
+  .alliance-reference-name {
     font-size: 15px;
   }
 
-  .alliance-player-id,
-  .alliance-time-label,
-  .alliance-time-note,
-  .alliance-status-chip {
+  .alliance-reference-id,
+  .alliance-reference-time,
+  .alliance-reference-duration,
+  .alliance-reference-duration-note,
+  .alliance-reference-status,
+  .alliance-reference-meta,
+  #panel-alliance .alliance-reference-action,
+  #mobile-panel-social .alliance-reference-action {
     font-size: 12px;
   }
 
-  .alliance-action-row {
+  .alliance-reference-actions {
     gap: 10px;
     margin-top: 14px;
   }

@@ -118,7 +118,9 @@ export const renderMobilePanels = (
   });
   deps.sidePanelEl.classList.toggle("tech-panel-active", state.activePanel === "tech" && state.techTreeExpanded);
   deps.sidePanelEl.classList.toggle("domain-panel-active", state.activePanel === "domains" && state.domainDetailOpen && !isMobile());
+  deps.sidePanelEl.classList.toggle("alliance-panel-active", state.activePanel === "alliance");
   deps.mobileSheetEl.classList.toggle("tech-panel-active", state.mobilePanel === "tech" && state.techTreeExpanded);
+  deps.mobileSheetEl.classList.toggle("alliance-panel-active", state.mobilePanel === "social");
 
   if (!isMobile()) {
     nav.style.display = "none";
