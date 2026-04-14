@@ -226,7 +226,7 @@ export type AllianceRequest = {
   fromPlayerId: string;
   toPlayerId: string;
   createdAt: number;
-  expiresAt: number;
+  expiresAt?: number;
   fromName?: string;
   toName?: string;
 };

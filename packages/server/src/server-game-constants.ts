@@ -10,7 +10,6 @@ export const BARBARIAN_OWNER_ID = "barbarian";
 export const BARBARIAN_TICK_MS = 5_000;
 export const playerPairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 export const now = (): number => Date.now();
-export const ALLIANCE_REQUEST_TTL_MS = 5 * 60_000;
 export const TRUCE_REQUEST_TTL_MS = 5 * 60_000;
 export const TRUCE_BREAK_LOCKOUT_MS = 12 * 60 * 60_000;
 export const TRUCE_BREAK_ATTACK_MULT = 0.75;
