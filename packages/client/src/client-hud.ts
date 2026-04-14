@@ -490,7 +490,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
   dom.hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
-  dom.hud.classList.toggle("alliance-panel-open", !isMobile() && state.activePanel === "alliance");
   dom.techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   dom.mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   dom.techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
