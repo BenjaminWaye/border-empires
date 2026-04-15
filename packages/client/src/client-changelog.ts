@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.14.1",
+  version: "2026.04.15.1",
   title: "What's New",
-  summary: "Recent updates include persistent alliance requests, alliance name suggestions, corrected alliance-panel input sizing, and restored sidebar behavior.",
+  summary: "Recent updates include a live HQ status feed, persistent alliance requests, and alliance workflow polish.",
   entries: [
+    {
+      introducedIn: "2026.04.15.1",
+      title: "The public HQ can now show live season status",
+      why: "The Border Empires homepage needed a safe public feed for leaderboard, victory pressure, and recent season winners without exposing the authenticated game websocket.",
+      changes: [
+        "Added a lean public HQ summary endpoint that serves cached leaderboard and victory-pressure data for the live season.",
+        "Trimmed recent season archives into a homepage-friendly feed so crowned empires and recent winners can be shown without shipping full replay history."
+      ]
+    },
     {
       introducedIn: "2026.04.14.1",
       title: "Sent alliance requests now stay pending until someone resolves them",

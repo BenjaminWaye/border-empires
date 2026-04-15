@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import type { Player, Season, SeasonWinnerView, Tile, TileKey } from "@border-empires/shared";
+import type { Player, Season, SeasonVictoryObjectiveView, SeasonWinnerView, Tile, TileKey } from "@border-empires/shared";
+import type { LeaderboardSnapshotView, SeasonArchiveEntry } from "./server-shared-types.js";
 import type { TelemetryCounters } from "./server-effects.js";
 
 type RuntimeIncidentLogLike = {
@@ -73,6 +74,9 @@ interface RegisterServerHttpRoutesDeps {
   activeRootNodeIds: () => string[];
   activeTechNodeCount: () => number;
   archiveCount: () => number;
+  currentLeaderboardSnapshot: () => LeaderboardSnapshotView;
+  currentVictoryPressureObjectives: () => SeasonVictoryObjectiveView[];
+  seasonArchives: () => SeasonArchiveEntry[];
   runtimeDashboardPayload: () => unknown;
   renderRuntimeDashboardHtml: () => string;
   runtimeIncidentLog: RuntimeIncidentLogLike;
@@ -92,6 +96,21 @@ interface RegisterServerHttpRoutesDeps {
   buildAdminPlayersPayload: () => unknown;
   serverDebugBundle: ServerDebugBundleLike;
 }
+
+const HQ_ARCHIVE_LIMIT = 5;
+const HQ_ARCHIVE_ROW_LIMIT = 3;
+
+const trimSeasonArchiveEntry = (entry: SeasonArchiveEntry): SeasonArchiveEntry => {
+  const trimmed: SeasonArchiveEntry = {
+    seasonId: entry.seasonId,
+    endedAt: entry.endedAt,
+    mostTerritory: entry.mostTerritory.slice(0, HQ_ARCHIVE_ROW_LIMIT),
+    mostPoints: entry.mostPoints.slice(0, HQ_ARCHIVE_ROW_LIMIT),
+    longestSurvivalMs: entry.longestSurvivalMs.slice(0, HQ_ARCHIVE_ROW_LIMIT)
+  };
+  if (entry.winner) trimmed.winner = entry.winner;
+  return trimmed;
+};
 
 export const registerServerHttpRoutes = (app: FastifyInstance, deps: RegisterServerHttpRoutesDeps): void => {
   app.get("/health", async (_request, reply) => {
@@ -117,6 +136,23 @@ export const registerServerHttpRoutes = (app: FastifyInstance, deps: RegisterSer
     activeRoots: deps.activeRootNodeIds(),
     activeTechNodeCount: deps.activeTechNodeCount(),
     archiveCount: deps.archiveCount()
+  }));
+
+  app.get("/hq/summary", async () => ({
+    ok: true,
+    at: deps.now(),
+    season: deps.activeSeason(),
+    seasonWinner: deps.seasonWinner?.(),
+    seasonTechTreeId: deps.activeSeason().techTreeConfigId,
+    activeRoots: deps.activeRootNodeIds(),
+    activeTechNodeCount: deps.activeTechNodeCount(),
+    archiveCount: deps.archiveCount(),
+    leaderboard: deps.currentLeaderboardSnapshot(),
+    seasonVictory: deps.currentVictoryPressureObjectives(),
+    seasonArchives: deps.seasonArchives().slice(-HQ_ARCHIVE_LIMIT).reverse().map(trimSeasonArchiveEntry),
+    onlinePlayers: deps.onlineSocketCount(),
+    totalPlayers: deps.players.size,
+    townCount: deps.townsByTile.size
   }));
 
   app.get("/admin/telemetry", async () => {

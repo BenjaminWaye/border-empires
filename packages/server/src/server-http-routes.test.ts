@@ -2,6 +2,7 @@ import fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import type { Player, Season, Tile, TileKey } from "@border-empires/shared";
 import { registerServerHttpRoutes } from "./server-http-routes.js";
+import type { LeaderboardSnapshotView, SeasonArchiveEntry } from "./server-shared-types.js";
 
 const makeSeason = (overrides: Partial<Season> = {}): Season => ({
   seasonId: "s-1",
@@ -20,6 +21,64 @@ describe("server HTTP routes", () => {
     let activeRootNodeIds: string[] = [];
     let activeTechNodeCount = 0;
     let archiveCount = 0;
+    const leaderboard: LeaderboardSnapshotView = {
+      overall: [{ id: "p1", name: "Ashen Reach", tiles: 42, incomePerMinute: 19, techs: 4, score: 131, rank: 1 }],
+      selfOverall: undefined,
+      selfByTiles: undefined,
+      selfByIncome: undefined,
+      selfByTechs: undefined,
+      byTiles: [{ id: "p1", name: "Ashen Reach", value: 42, rank: 1 }],
+      byIncome: [{ id: "p1", name: "Ashen Reach", value: 19, rank: 1 }],
+      byTechs: [{ id: "p1", name: "Ashen Reach", value: 4, rank: 1 }]
+    };
+    const seasonVictory = [
+      {
+        id: "TOWN_CONTROL" as const,
+        name: "Town Control",
+        description: "Control half the towns.",
+        leaderPlayerId: "p1",
+        leaderName: "Ashen Reach",
+        progressLabel: "21 / 50 towns",
+        thresholdLabel: "50 towns",
+        holdDurationSeconds: 86_400,
+        statusLabel: "Under pressure",
+        conditionMet: false
+      }
+    ];
+    const seasonArchives: SeasonArchiveEntry[] = Array.from({ length: 6 }, (_, index) => ({
+      seasonId: `s-${index + 1}`,
+      endedAt: 100 + index,
+      mostTerritory: Array.from({ length: 4 }, (__, row) => ({
+        playerId: `t-${index}-${row}`,
+        name: `Territory ${index}-${row}`,
+        value: 100 - row
+      })),
+      mostPoints: Array.from({ length: 4 }, (__, row) => ({
+        playerId: `p-${index}-${row}`,
+        name: `Points ${index}-${row}`,
+        value: 90 - row
+      })),
+      longestSurvivalMs: Array.from({ length: 4 }, (__, row) => ({
+        playerId: `l-${index}-${row}`,
+        name: `Survival ${index}-${row}`,
+        value: 80 - row
+      })),
+      winner: {
+        playerId: `w-${index}`,
+        playerName: `Winner ${index}`,
+        crownedAt: 1_000 + index,
+        objectiveId: "ECONOMIC_HEGEMONY",
+        objectiveName: "Economic Hegemony"
+      },
+      replayEvents: [
+        {
+          id: `event-${index}`,
+          at: 500 + index,
+          type: "WINNER",
+          label: `Winner event ${index}`
+        }
+      ]
+    }));
 
     registerServerHttpRoutes(app, {
       startupState: { ready: true, startedAt: 1, completedAt: 2 },
@@ -28,6 +87,9 @@ describe("server HTTP routes", () => {
       activeRootNodeIds: () => activeRootNodeIds,
       activeTechNodeCount: () => activeTechNodeCount,
       archiveCount: () => archiveCount,
+      currentLeaderboardSnapshot: () => leaderboard,
+      currentVictoryPressureObjectives: () => seasonVictory,
+      seasonArchives: () => seasonArchives,
       runtimeDashboardPayload: () => ({ ok: true }),
       renderRuntimeDashboardHtml: () => "<html></html>",
       runtimeIncidentLog: { bootId: "boot-1", getLastCrashReport: () => null },
@@ -75,6 +137,7 @@ describe("server HTTP routes", () => {
     archiveCount = 1;
 
     const seasonResponse = await app.inject({ method: "GET", url: "/season" });
+    const hqResponse = await app.inject({ method: "GET", url: "/hq/summary" });
 
     expect(seasonResponse.statusCode).toBe(200);
     expect(seasonResponse.json()).toMatchObject({
@@ -83,6 +146,33 @@ describe("server HTTP routes", () => {
       activeTechNodeCount: 46,
       archiveCount: 1
     });
+
+    expect(hqResponse.statusCode).toBe(200);
+    const hqPayload = hqResponse.json();
+    expect(hqPayload).toMatchObject({
+      ok: true,
+      seasonTechTreeId: "seasonal-default",
+      activeRoots: ["agriculture"],
+      activeTechNodeCount: 46,
+      archiveCount: 1,
+      leaderboard: {
+        overall: [{ id: "p1", name: "Ashen Reach", rank: 1 }]
+      },
+      seasonVictory: [{ id: "TOWN_CONTROL", leaderName: "Ashen Reach" }],
+      onlinePlayers: 0,
+      totalPlayers: 0,
+      townCount: 0
+    });
+    expect(hqPayload.seasonArchives).toHaveLength(5);
+    expect(hqPayload.seasonArchives[0]).toMatchObject({
+      seasonId: "s-6",
+      winner: { playerName: "Winner 5" },
+      mostTerritory: [{ name: "Territory 5-0" }, { name: "Territory 5-1" }, { name: "Territory 5-2" }]
+    });
+    expect(hqPayload.seasonArchives[0].mostTerritory).toHaveLength(3);
+    expect(hqPayload.seasonArchives[0].mostPoints).toHaveLength(3);
+    expect(hqPayload.seasonArchives[0].longestSurvivalMs).toHaveLength(3);
+    expect(hqPayload.seasonArchives[0].replayEvents).toBeUndefined();
 
     const rolloverResponse = await app.inject({ method: "POST", url: "/admin/season/rollover" });
 
