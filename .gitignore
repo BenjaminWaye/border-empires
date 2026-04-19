@@ -4,3 +4,4 @@ node_modules
 snapshots
 .DS_Store
 .vercel
+.localhost-seasons/

@@ -14,8 +14,9 @@ import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rai
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail.js";
+import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
-import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -1455,7 +1456,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (state.collectVisibleCooldownUntil > Date.now()) deps.renderHud();
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
-    if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment) deps.renderHud();
+    const recoveredExpiredFrontier = sweepExpiredFrontierRecovery(state, {
+      clearOptimisticTileState: deps.clearOptimisticTileState,
+      dropQueuedTargetKeyIfAbsent: deps.dropQueuedTargetKeyIfAbsent,
+      pushFeed: deps.pushFeed,
+      requestViewRefresh: deps.requestViewRefresh
+    });
+    if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment || recoveredExpiredFrontier) {
+      deps.renderHud();
+    }
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;
@@ -1605,6 +1614,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!loadingActive) return;
     deps.renderHud();
     if (state.connection === "initialized" && state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 4_000) {
+      const elapsedMs = Date.now() - (state.mapLoadStartedAt || Date.now());
+      if (elapsedMs >= 8_000) {
+        recordClientDebugEvent("warn", "bootstrap-sync", "map-sync-stalled", {
+          elapsedMs,
+          lastSubAt: state.lastSubAt,
+          lastSubAgeMs: Date.now() - state.lastSubAt,
+          chunkFullCount: state.chunkFullCount,
+          bridgeDebugMode: state.bridgeDebugMode,
+          bridgeDebugBootstrap: state.bridgeDebugBootstrap,
+          bridgeDebugInitialTileCount: state.bridgeDebugInitialTileCount,
+          bridgeDebugRuntimeFingerprint: state.bridgeDebugRuntimeFingerprint,
+          authSessionReady: state.authSessionReady,
+          hasOwnedTileInCache: state.hasOwnedTileInCache
+        });
+      }
       deps.requestViewRefresh(1, true);
     }
   }, 300);

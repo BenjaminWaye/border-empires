@@ -23,6 +23,9 @@ const channelUrl = (baseUrl: string, channel: Channel): string => {
   return url.toString();
 };
 
+const isSendableCloseCode = (code: number | undefined): code is number =>
+  code === 1000 || (typeof code === "number" && code >= 3000 && code <= 4999);
+
 export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
   const controlSocket = new WebSocket(channelUrl(baseUrl, "control"));
   const bulkSocket = new WebSocket(channelUrl(baseUrl, "bulk"));
@@ -41,8 +44,17 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
   };
 
   const closeUnderlyingSockets = (code?: number, reason?: string): void => {
-    if (controlSocket.readyState === WebSocket.OPEN || controlSocket.readyState === WebSocket.CONNECTING) controlSocket.close(code, reason);
-    if (bulkSocket.readyState === WebSocket.OPEN || bulkSocket.readyState === WebSocket.CONNECTING) bulkSocket.close(code, reason);
+    const closeSocket = (socket: WebSocket): void => {
+      if (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING) return;
+      if (isSendableCloseCode(code)) {
+        socket.close(code, reason);
+        return;
+      }
+      socket.close();
+    };
+
+    closeSocket(controlSocket);
+    closeSocket(bulkSocket);
   };
 
   const dispatchClose = (event: CloseEvent): void => {

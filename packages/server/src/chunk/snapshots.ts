@@ -99,8 +99,10 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   fogChunkTilesByChunkKey: Map<string, readonly Tile[]>;
   chunkSnapshotGenerationByPlayer: Map<string, number>;
   chunkSnapshotInFlightByPlayer: Map<string, number>;
+  pendingChunkRefreshByPlayer: Set<string>;
   chunkSnapshotSentAtByPlayer: Map<string, { cx: number; cy: number; radius: number; sentAt: number }>;
   chunkSubscriptionByPlayer: Map<string, { cx: number; cy: number; radius: number }>;
+  bulkSocketForPlayer: (playerId: string) => SocketLike | undefined;
   authSyncTimingByPlayer: Map<
     string,
     {
@@ -511,6 +513,16 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         });
       }
       clearInFlight();
+      if (deps.pendingChunkRefreshByPlayer.delete(actor.id)) {
+        const latestSocket = deps.bulkSocketForPlayer(actor.id);
+        const latestSub = deps.chunkSubscriptionByPlayer.get(actor.id);
+        if (latestSocket && latestSocket.readyState === latestSocket.OPEN && latestSub) {
+          setTimeout(() => {
+            if (latestSocket.readyState !== latestSocket.OPEN) return;
+            sendChunkSnapshot(latestSocket, actor, latestSub);
+          }, 0);
+        }
+      }
       if (
         followUpStage &&
         socket.readyState === socket.OPEN &&
@@ -559,6 +571,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
   const clearPlayer = (playerId: string): void => {
     deps.chunkSnapshotGenerationByPlayer.delete(playerId);
     deps.chunkSnapshotInFlightByPlayer.delete(playerId);
+    deps.pendingChunkRefreshByPlayer.delete(playerId);
     deps.chunkSnapshotSentAtByPlayer.delete(playerId);
   };
 

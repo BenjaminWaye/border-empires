@@ -69,6 +69,10 @@ const hudMarkup = `
         <div id="map-loading-meta">Preparing map data...</div>
       </div>
     </div>
+    <div id="map-loading-actions">
+      <button id="map-loading-retry" class="panel-btn map-loading-btn" type="button">Retry now</button>
+      <button id="map-loading-reload" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Reload</button>
+    </div>
   </div>
 
   <div id="auth-overlay">
@@ -359,6 +363,9 @@ export const initClientDom = () => {
   const mapLoadingSpinnerEl = requireElement<HTMLDivElement>("#map-loading-spinner");
   const mapLoadingTitleEl = requireElement<HTMLDivElement>("#map-loading-title");
   const mapLoadingMetaEl = requireElement<HTMLDivElement>("#map-loading-meta");
+  const mapLoadingActionsEl = requireElement<HTMLDivElement>("#map-loading-actions");
+  const mapLoadingRetryBtn = requireElement<HTMLButtonElement>("#map-loading-retry");
+  const mapLoadingReloadBtn = requireElement<HTMLButtonElement>("#map-loading-reload");
   const authOverlayEl = requireElement<HTMLDivElement>("#auth-overlay");
   const authDisplayNameEl = requireElement<HTMLInputElement>("#auth-display-name");
   const authEmailEl = requireElement<HTMLInputElement>("#auth-email");
@@ -515,7 +522,10 @@ export const initClientDom = () => {
     leaderboardEl,
     mapLoadingMetaEl,
     mapLoadingOverlayEl,
+    mapLoadingActionsEl,
+    mapLoadingReloadBtn,
     mapLoadingRowEl,
+    mapLoadingRetryBtn,
     mapLoadingSpinnerEl,
     mapLoadingTitleEl,
     miniMapBase,

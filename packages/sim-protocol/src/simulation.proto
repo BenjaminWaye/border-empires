@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package border_empires.simulation;
+
+message CommandEnvelope {
+  string command_id = 1;
+  string session_id = 2;
+  string player_id = 3;
+  uint32 client_seq = 4;
+  uint64 issued_at = 5;
+  string type = 6;
+  string payload_json = 7;
+}
+
+message SubscribePlayerRequest {
+  string player_id = 1;
+  string subscription_json = 2;
+}
+
+message UnsubscribePlayerRequest {
+  string player_id = 1;
+}
+
+message PingRequest {
+  uint64 at = 1;
+}
+
+message Ack {
+  bool ok = 1;
+}
+
+message TileDelta {
+  uint32 x = 1;
+  uint32 y = 2;
+  string owner_id = 3;
+  string ownership_state = 4;
+  string terrain = 5;
+  string resource = 6;
+  string town_type = 7;
+  string town_name = 8;
+  string town_population_tier = 9;
+  string dock_id = 10;
+  string town_json = 11;
+  string fort_json = 12;
+  string observatory_json = 13;
+  string siege_outpost_json = 14;
+  string economic_structure_json = 15;
+  string sabotage_json = 16;
+  string shard_site_json = 17;
+}
+
+message SubscribePlayerAck {
+  bool ok = 1;
+  string player_id = 2;
+  repeated TileDelta tiles = 3;
+  string player_json = 4;
+  string world_status_json = 5;
+}
+
+message SimulationEvent {
+  string event_type = 1;
+  string command_id = 2;
+  string player_id = 3;
+  string action_type = 4;
+  uint32 origin_x = 5;
+  uint32 origin_y = 6;
+  uint32 target_x = 7;
+  uint32 target_y = 8;
+  uint64 resolves_at = 9;
+  string code = 10;
+  string message = 11;
+  bool attacker_won = 12;
+  repeated TileDelta tile_deltas = 13;
+  uint32 count = 14;
+  string collect_mode = 15;
+  double gold = 16;
+  string strategic_json = 17;
+  uint32 tiles = 18;
+  uint32 collect_x = 19;
+  uint32 collect_y = 20;
+  string payload_json = 21;
+  double pillaged_gold = 22;
+  string pillaged_strategic_json = 23;
+  string message_type = 24;
+}
+
+service SimulationService {
+  rpc SubmitCommand(CommandEnvelope) returns (Ack);
+  rpc SubscribePlayer(SubscribePlayerRequest) returns (SubscribePlayerAck);
+  rpc UnsubscribePlayer(UnsubscribePlayerRequest) returns (Ack);
+  rpc Ping(PingRequest) returns (Ack);
+  rpc StreamEvents(PingRequest) returns (stream SimulationEvent);
+}
