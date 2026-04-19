@@ -10,6 +10,9 @@
  *
  * Production is always "legacy" by default until Phase 6 of the rewrite plan
  * flips the cookie for beta testers. The legacy WS URL is never changed.
+ *
+ * Browser globals (window, document) are read lazily and can be overridden via
+ * the `ctx` parameter for unit testing without a DOM environment.
  */
 
 export type BackendChoice = "legacy" | "gateway";
@@ -17,27 +20,44 @@ export type BackendChoice = "legacy" | "gateway";
 const COOKIE_NAME = "be-backend";
 const PARAM_NAME = "backend";
 
-function readUrlParam(): BackendChoice | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
+/** Injectable browser context — defaults to real globals when undefined. */
+export interface BrowserCtx {
+  /** window.location.search string, e.g. "?backend=gateway" */
+  search: string;
+  /** window.location.hostname, e.g. "localhost" */
+  hostname: string;
+  /** document.cookie string, e.g. "be-backend=gateway; other=value" */
+  cookieStr: string;
+}
+
+function readUrlParam(search: string): BackendChoice | null {
+  const params = new URLSearchParams(search);
   const v = params.get(PARAM_NAME);
   if (v === "gateway" || v === "legacy") return v;
   return null;
 }
 
-function readCookie(): BackendChoice | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.split(";").find((c) => c.trim().startsWith(COOKIE_NAME + "="));
+function readCookie(cookieStr: string): BackendChoice | null {
+  const match = cookieStr.split(";").find((c) => c.trim().startsWith(COOKIE_NAME + "="));
   if (!match) return null;
   const v = match.trim().slice(COOKIE_NAME.length + 1);
   if (v === "gateway" || v === "legacy") return v;
   return null;
 }
 
-function isLocalhost(): boolean {
-  if (typeof window === "undefined") return false;
-  const h = window.location.hostname;
-  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+function isLocalhostHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
+}
+
+function readBrowserCtx(): BrowserCtx {
+  if (typeof window === "undefined") {
+    return { search: "", hostname: "", cookieStr: "" };
+  }
+  return {
+    search: window.location.search,
+    hostname: window.location.hostname,
+    cookieStr: typeof document !== "undefined" ? document.cookie : ""
+  };
 }
 
 export interface BackendSelection {
@@ -53,10 +73,13 @@ export function selectBackend(opts: {
   legacyWsUrl: string;
   /** Value of VITE_GATEWAY_WS_URL (rewrite gateway). Required. */
   gatewayWsUrl: string;
+  /** Override browser globals for testing. Defaults to real window/document. */
+  ctx?: BrowserCtx;
 }): BackendSelection {
   const { legacyWsUrl, gatewayWsUrl } = opts;
+  const { search, hostname, cookieStr } = opts.ctx ?? readBrowserCtx();
 
-  const fromParam = readUrlParam();
+  const fromParam = readUrlParam(search);
   if (fromParam !== null) {
     return {
       backend: fromParam,
@@ -65,7 +88,7 @@ export function selectBackend(opts: {
     };
   }
 
-  const fromCookie = readCookie();
+  const fromCookie = readCookie(cookieStr);
   if (fromCookie !== null) {
     return {
       backend: fromCookie,
@@ -76,7 +99,7 @@ export function selectBackend(opts: {
 
   // Environment default: localhost → gateway (developer convenience);
   // anywhere else → legacy (production safety).
-  const defaultBackend: BackendChoice = isLocalhost() ? "gateway" : "legacy";
+  const defaultBackend: BackendChoice = isLocalhostHostname(hostname) ? "gateway" : "legacy";
   return {
     backend: defaultBackend,
     wsUrl: defaultBackend === "gateway" ? gatewayWsUrl : legacyWsUrl,
