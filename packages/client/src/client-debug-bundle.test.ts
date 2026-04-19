@@ -70,7 +70,15 @@ describe("client debug bundle", () => {
         combatStartAck: false,
         pendingCombatReveal: undefined,
         queuedTargetKeys: new Set<string>(["12,34"]),
-        developmentQueue: []
+        developmentQueue: [],
+        bridgeDebugMode: "rewrite-gateway",
+        bridgeDebugBootstrap: "rewrite-init",
+        bridgeDebugWsUrl: "wss://border-empires.fly.dev/ws",
+        bridgeDebugSeasonId: "season-test",
+        bridgeDebugRuntimeFingerprint: "snap-123456",
+        bridgeDebugSnapshotLabel: ".prod-snapshot-copy",
+        bridgeDebugInitialTileCount: 42,
+        bridgeDebugSupportedMessageCount: 5
       }
     });
 

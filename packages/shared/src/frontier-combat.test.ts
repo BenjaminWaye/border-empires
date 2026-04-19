@@ -1,0 +1,33 @@
+import { describe, expect, it } from "vitest";
+
+import { buildFrontierCombatPreview, rollFrontierCombat } from "./frontier-combat.js";
+
+describe("frontier combat", () => {
+  it("builds preview values for a settled town target", () => {
+    const preview = buildFrontierCombatPreview({
+      terrain: "LAND",
+      ownershipState: "SETTLED",
+      townType: "FARMING"
+    });
+
+    expect(preview.atkEff).toBe(10);
+    expect(preview.defEff).toBeCloseTo(16.2, 6);
+    expect(preview.winChance).toBeCloseTo(10 / 26.2, 6);
+    expect(preview.breakthroughWinChance).toBeCloseTo(10 / (10 + 16.2 * 0.6), 6);
+  });
+
+  it("uses the same preview chance when rolling combat", () => {
+    const result = rollFrontierCombat(
+      {
+        terrain: "LAND",
+        ownershipState: "SETTLED",
+        townType: "FARMING"
+      },
+      "ATTACK",
+      0.99
+    );
+
+    expect(result.winChance).toBeCloseTo(10 / 26.2, 6);
+    expect(result.attackerWon).toBe(false);
+  });
+});
