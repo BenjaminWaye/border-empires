@@ -94,6 +94,31 @@ For an explicit fresh-world reseed instead of durable recovery, run:
 pnpm rewrite:restart:20ai:seed
 ```
 
+## Rewrite DB Operations (Supabase)
+
+The rewrite stack now treats Postgres as an external database (Supabase) and keeps operational storage bounded.
+
+- Apply migrations:
+
+```bash
+DATABASE_URL="postgres://...sslmode=require" pnpm rewrite:db:migrate
+```
+
+- Check database size against guardrails (`300MB` warn, `400MB` critical, `450MB` emergency):
+
+```bash
+DATABASE_URL="postgres://...sslmode=require" pnpm rewrite:db:size
+```
+
+- Staging app bootstrap helper:
+
+```bash
+export STAGING_DATABASE_URL="postgres://...sslmode=require"
+./provision-fly-staging.command
+```
+
+Detailed cutover/rollback steps are in `docs/rewrite-supabase-cutover-runbook.md`.
+
 ## Client Release Notes
 
 When you ship a user-facing client update, update `packages/client/src/client-changelog.ts` in the same branch.
