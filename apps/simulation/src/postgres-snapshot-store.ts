@@ -1,5 +1,6 @@
 import type { SimulationSnapshotSections, SimulationSnapshotStore, StoredSimulationSnapshot } from "./snapshot-store.js";
 import { createResilientPostgresPool } from "./postgres-pool.js";
+import { writeProjectionsForSnapshot, type ProjectionExportState } from "./postgres-projection-writer.js";
 
 type QueryResultRow = Record<string, unknown>;
 
@@ -35,10 +36,12 @@ export class PostgresSimulationSnapshotStore implements SimulationSnapshotStore 
     lastAppliedEventId: number;
     snapshotSections: SimulationSnapshotSections;
     createdAt: number;
+    /** When provided, projection tables are written alongside world_snapshots. */
+    projectionState?: ProjectionExportState;
   }): Promise<void> {
     const initialStateJson = JSON.stringify(snapshot.snapshotSections.initialState);
     const commandEventsJson = JSON.stringify(snapshot.snapshotSections.commandEvents);
-    await this.db.query(
+    const result = await this.db.query<{ snapshot_id: number }>(
       `
       INSERT INTO world_snapshots (
         last_applied_event_id,
@@ -53,9 +56,19 @@ export class PostgresSimulationSnapshotStore implements SimulationSnapshotStore 
         ),
         $4
       )
+      RETURNING snapshot_id
       `,
       [snapshot.lastAppliedEventId, initialStateJson, commandEventsJson, snapshot.createdAt]
     );
+    const snapshotId = result.rows[0]?.snapshot_id;
+    if (snapshot.projectionState && snapshotId) {
+      await writeProjectionsForSnapshot(
+        this.db,
+        snapshotId,
+        snapshot.snapshotSections.initialState,
+        snapshot.projectionState
+      );
+    }
   }
 
   async loadLatestSnapshot(): Promise<StoredSimulationSnapshot | undefined> {

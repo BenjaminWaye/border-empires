@@ -347,6 +347,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     eventStore,
     snapshotStore,
     exportSnapshotSections: () => runtime.exportSnapshotSections(),
+    exportProjectionState: () => {
+      const s = runtime.exportState();
+      return { players: s.players, activeLocks: s.activeLocks };
+    },
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
     ...(typeof options.checkpointMaxRssBytes === "number" ? { maxCheckpointRssBytes: options.checkpointMaxRssBytes } : {}),
     ...(typeof options.checkpointMaxHeapUsedBytes === "number"
