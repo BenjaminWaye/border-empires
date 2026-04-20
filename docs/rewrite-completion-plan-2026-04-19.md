@@ -1,4 +1,4 @@
-# Rewrite Completion Plan (2026-04-19)
+# Rewrite Completion Plan (last updated 2026-04-20)
 
 Companion docs:
 
@@ -6,6 +6,8 @@ Companion docs:
 - `docs/rewrite-week-summary-2026-04-16.md` (honest status as of last week)
 
 This document replaces those as the single source of truth for what remains. It is written so that a fresh coding thread can execute it without asking the author what was meant.
+
+**Status at 2026-04-20:** Phases 0, 1, 2, 3 are merged to `main`. Phase 4 is in progress. Phases 5–7 not started. See §2 for a verified status breakdown and §§4–7 for what each completed phase actually delivered vs. what was planned.
 
 ---
 
@@ -25,6 +27,30 @@ This document replaces those as the single source of truth for what remains. It 
 - We are not maintaining a dual-write compatibility shim between legacy and rewrite for gameplay data. A player session lives entirely on one backend or the other.
 - We are not shipping new gameplay features during this plan. Any PR that adds player-visible gameplay changes is blocked until this plan closes.
 
+### Cost budget — hard cap $10/month
+
+Total Fly spend for Border Empires must stay at or below **$10/month**. This is a hard constraint and it shapes the decisions below; every phase's acceptance criteria include a cost check.
+
+Approximate monthly cost of the Fly resources in play (shared-cpu-1x at ~$1.94/machine/month + ~$0.15/GB-month for volumes):
+
+| Resource | Cost |
+|---|---|
+| `border-empires` (legacy monolith, 512MB) + 1GB volume | ~$2.10 |
+| `border-empires-gateway` (512MB) | ~$1.94 |
+| `border-empires-simulation` (512MB) | ~$1.94 |
+| `border-empires-postgres` (shared-cpu-1x, 10GB volume) | ~$3.44 |
+| `border-empires-gateway-staging` (512MB, auto-stop on) | ~$0.20 if idle most of the day |
+| `border-empires-simulation-staging` (512MB, auto-stop on) | ~$0.20 if idle most of the day |
+
+Constraints this forces:
+
+- **Staging machines must have `auto_stop_machines = "on"`** and `min_machines_running = 0`. Running 24/7 alongside prod blows the budget. Staging wakes on demand for harness runs and CI nightly jobs.
+- **One shared Postgres cluster** (`border-empires-postgres`) with two logical databases (`border_empires_staging`, `border_empires_prod`). We cannot afford a second cluster.
+- **No HA / no read replica.** `--initial-cluster-size 1`. A second Postgres machine would add ~$2/month and isn't worth it for beta. Rollback story in §11 assumes the DB can be unavailable for minutes, not seconds.
+- **Postgres volume stays at 10 GB** through Phase 6. We estimate the projection tables + recent event stream + last few snapshots fit comfortably; the snapshot retention policy in §6 is written around that budget.
+- **Legacy app is deleted in Phase 7**, which recovers ~$2.10/month. Until then we are running both stacks.
+- **Steady-state cost after Phase 7:** ~$7.32/month (gateway + sim + postgres + staging-idle). Room remains under cap but no room for a second region or a larger VM.
+
 ### Definition of "ship it"
 
 All of the following must be true, proven by automated tests in CI and a 30-minute soak against a production snapshot copy:
@@ -40,39 +66,69 @@ All of the following must be true, proven by automated tests in CI and a 30-minu
 
 ---
 
-## 2. Current honest state (2026-04-19 inspection)
+## 2. Current honest state (2026-04-20 inspection)
 
-Findings from the tree, not from the handoff narrative:
+Verified against the tree, not the handoff narrative. HEAD = `22b76c1` on `main`.
 
-- **The rewrite is not on `origin/main`.** `git ls-files apps/simulation/src/runtime.ts` is empty. The rewrite lives as a sibling commit `f69dfbf` (April 13) plus 45 untracked files and ~48 modified files in the working tree. `origin/main` has advanced 10 commits since the rewrite branched (`0d07fcc` → current HEAD).
-- **Production is the legacy monolith.** Client `VITE_WS_URL` default is `wss://border-empires.fly.dev/ws`, which is the `border-empires` Fly app (`fly.server.toml`). `packages/server/src/main.ts` is still 10,224 lines and is still being modified.
-- **The new apps cannot boot in production yet.** `fly.gateway.toml` and `fly.simulation.toml` do not set `DATABASE_URL`; both services throw on startup in production when it is missing (see `apps/{simulation,realtime-gateway}/src/runtime-env.ts`). In-memory fallback only works outside production.
-- **The domain boundary is porous.** `packages/game-domain` is 247 lines. `apps/simulation/src/runtime.ts` is 4,285 lines of re-implementation, and both new apps import from `../../../packages/server/src/server-game-constants.js`, `server-worldgen-*`, `server-shared-types.js`, `town-names.js` in at least 15 places. `Dockerfile.gateway` and `Dockerfile.simulation` both `COPY packages/server` into the image.
-- **AI isolation is partial.** `command-lane.ts` correctly routes AI-originated commands to the `ai` lane, protecting *ingress*, but AI *planning* still executes inside the simulation process. The plan requires a worker thread or sibling process.
-- **Acceptance gates have not been run.** No harness results exist for the p95/p99/backlog numbers in §1.
+**Done and on `main`:**
 
-Bug 1 (settled town and tiles vanish after restart) and Bug 2 (attack at 100% win chance neither captures nor charges manpower) are each diagnostic of a different unfinished acceptance area in this plan. They motivate the test architecture in §9.
+- **Phase 0** landed as commit `2596eed` / PR #13 (`Phase 0: Land rewrite stack on main behind kill-switch`). Rewrite packages (`apps/realtime-gateway`, `apps/simulation`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`) are tracked in git. Client kill-switch (`packages/client/src/client-backend-selector.ts`) is live: prod default stays on legacy, `?backend=gateway` URL param or `be-backend=gateway` cookie opt in to the new stack. HUD badge surfaces `state.activeBackend`.
+- **Phase 1** landed as commit `e22be4c` / PR #14 (`Phase 1: Clean domain boundary — promote server modules to game-domain`). `packages/game-domain` absorbed `server-game-constants`, `server-shared-types`, `server-world-runtime-types`, 5 worldgen modules, `town-names`, and the tech/domain JSON trees. `apps/simulation` and `apps/realtime-gateway` no longer import `../../../packages/server/*`. `scripts/check-no-cross-package-imports.sh` + `packages/game-domain/src/boundary.test.ts` enforce it in CI. `Dockerfile.gateway` and `Dockerfile.simulation` no longer `COPY packages/server`.
+- **Phase 2** landed as commit `4f24c70` / PR #15 (`Phase 2: Postgres-authoritative persistence — projections, staging configs, importer`). SQL migrations `0004_player_projection.sql` … `0007_visibility_projection.sql` added. `postgres-projection-writer.ts` writes all four projections at checkpoint time. `fly.gateway.staging.toml` and `fly.simulation.staging.toml` created for staging Fly apps. `scripts/rewrite-db-import-legacy-snapshot.ts` seeds world_snapshots + projections from a legacy snapshot directory. `provision-fly-staging.command` creates the Fly Postgres cluster and attaches it. Tests: `restart-parity.integration.test.ts`, `snapshot-projection.test.ts`, `migration-idempotent.test.ts`.
+- **Phase 3** landed as commit `22b76c1` (`Phase 3: offload AI/system planning to worker threads`). AI planning runs in `apps/simulation/src/ai-planner-worker.ts` (Node worker thread). System jobs run in `apps/simulation/src/system-job-worker.ts`. Worker-backed producers (`ai-command-producer-worker.ts`, `system-command-producer-worker.ts`) pause on human_interactive backlog and resume on drain. Selection happens at startup via `SIMULATION_AI_WORKER=1` env flag. Tests: `ai-pause-resume.test.ts`, `system-job-worker.test.ts`.
+
+**Production impact so far: none.** Client prod default `VITE_WS_URL` is still `wss://border-empires.fly.dev/ws` (legacy monolith). No beta testers have been flipped to the gateway yet.
+
+**Concrete Phase 2 infrastructure decision:** Fly Postgres, one shared cluster `border-empires-postgres`, `--initial-cluster-size 1` (no HA), `--vm-size shared-cpu-1x`, 10 GB volume, region `arn`. One logical DB per environment (`border_empires_staging` provisioned; `border_empires_prod` will be created in Phase 6). `DATABASE_URL` attached via `fly postgres attach` on each app. Staging role password is `staging_changeme` in `provision-fly-staging.command` — must be rotated before Phase 6, see §13.
+
+**What's still unfinished (Phase 4 and beyond):**
+
+- **Parity is not proven.** The parity harness described in §9.3 (legacy vs. rewrite snapshot diff) does not exist yet. Neither does the coverage-enforcement test in §9.5, the load harness in §9.6, or the reconnect harness in §9.4.
+- **The specific bugs in §9.1 and §9.2 are not yet guaranteed caught.** The Phase 2 `restart-parity.integration.test.ts` is a start but is not yet parameterized over every mutating command type. Bug 1 (settled town + tiles vanish after restart) and Bug 2 (100% win-chance attack neither captures nor charges) are exactly the classes that will break us if we cut over without §9.
+- **Observability has not landed.** Neither service exposes `/metrics`. Phase 5 work.
+- **Load gates have not been run.** The plan's p95/p99/backlog numbers in §1 are unverified. Phase 5 work.
+- **Staging has not been deployed from `main` yet.** `provision-fly-staging.command` exists but has not been run end-to-end against the current main build to confirm both staging apps boot DB-only and pass health checks.
+- **Prod deploy is blocked.** Even Phase 6 pre-flight requires a `border-empires-postgres-prod` logical DB, `DATABASE_URL` secrets on the prod gateway + simulation apps, and the budget accounting in §1 "Cost budget."
+- **Legacy monolith (`border-empires`) is still the prod backend** and must remain untouched until Phase 6 succeeds.
+
+Bug 1 (settled town and tiles vanish after restart) and Bug 2 (attack at 100% win chance neither captures nor charges manpower) are each diagnostic of a different unfinished acceptance area. They motivate the test architecture in §9 and are the gating reason Phase 4 must complete before Phase 6.
 
 ---
 
 ## 3. Plan shape
 
-Seven phases. Each phase is mergeable on its own, each lands behind a kill-switch flag that keeps production on the legacy monolith until Phase 6. Phases 1 and 2 can run in parallel with Phase 3. Phases 4, 5 are sequential. Phase 6 is the cutover. Phase 7 is deletion.
+Seven phases. Each phase is mergeable on its own, each lands behind a kill-switch flag that keeps production on the legacy monolith until Phase 6. Phase 4 is in progress now.
 
-| Phase | Title | Prod risk | Mergeable behind flag |
-|---|---|---|---|
-| 0 | Land rewrite onto `main` behind a kill-switch | None | Yes |
-| 1 | Clean the domain boundary | None | Yes |
-| 2 | Postgres-authoritative persistence (staging) | None | Yes |
-| 3 | AI and system jobs off the authoritative loop | None | Yes |
-| 4 | Feature-parity sweep and test coverage | None | Yes |
-| 5 | Observability and load-test gates | None | Yes |
-| 6 | Beta cutover → full cutover | Controlled | No (this is the switch) |
-| 7 | Delete legacy monolith | Low | N/A |
+| Phase | Title | Status | Prod risk | Mergeable behind flag |
+|---|---|---|---|---|
+| 0 | Land rewrite onto `main` behind a kill-switch | Done (`2596eed`, PR #13) | None | Yes |
+| 1 | Clean the domain boundary | Done (`e22be4c`, PR #14) | None | Yes |
+| 2 | Postgres-authoritative persistence (staging) | Done (`4f24c70`, PR #15) | None | Yes |
+| 3 | AI and system jobs off the authoritative loop | Done (`22b76c1`) | None | Yes |
+| 4 | Feature-parity sweep and test coverage | Done (`28d5d59`, PR #17) | None | Yes |
+| 5 | Observability and load-test gates | Done (`67d41d3`, PR #19) | None | Yes |
+| 6 | Beta cutover → full cutover | Not started | Controlled | No (this is the switch) |
+| 7 | Delete legacy monolith | Not started | Low | N/A |
 
 ---
 
 ## 4. Phase 0 — Land the rewrite onto `main` behind a kill-switch
+
+**Status: Done — merged as `2596eed` (PR #13) on 2026-04-20.**
+
+What actually landed:
+
+- Rewrite packages (`apps/realtime-gateway`, `apps/simulation`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`) tracked in git.
+- `packages/client/src/client-backend-selector.ts` implements the `?backend=` param / `be-backend` cookie / env-default priority chain. Localhost defaults to gateway; prod defaults to legacy. `VITE_GATEWAY_WS_URL` is undefined in prod until Phase 6.
+- `state.activeBackend` exposed on `ClientState`; HUD bridge debug badge shows active backend.
+- Tests: `client-backend-selector.test.ts`, `client-backend-selector.integration.test.ts`.
+- `pnpm-workspace.yaml` and `tsconfig.base.json` updated.
+- `packages/shared/src/frontier-combat.ts` promoted to the one true combat module.
+- `packages/shared/src/messages.ts` carries `commandId` / `clientSeq` metadata.
+
+Production impact: none. Client prod default `VITE_WS_URL` is unchanged.
+
+The rest of this section is retained for historical reference.
 
 ### Goal
 
@@ -114,6 +170,19 @@ Revert the merge commit. Production default was never changed.
 ---
 
 ## 5. Phase 1 — Clean the domain boundary
+
+**Status: Done — merged as `e22be4c` (PR #14) on 2026-04-20.**
+
+What actually landed:
+
+- `packages/game-domain/src/` now contains `server-game-constants.ts`, `server-shared-types.ts`, `server-world-runtime-types.ts`, `server-worldgen-{clusters,docks,shards,terrain,towns}.ts`, and `town-names.ts`.
+- `packages/game-domain/data/` contains `tech-tree.json` and `domain-tree.json`.
+- `AuthIdentity` and `SystemSimulationCommand` are inlined into `packages/game-domain` so the domain has no `packages/server` imports.
+- `apps/simulation/src/*` and `apps/realtime-gateway/src/*` import from `@border-empires/game-domain` instead of `../../../packages/server/*`.
+- `Dockerfile.gateway` and `Dockerfile.simulation` no longer `COPY packages/server`.
+- `packages/game-domain/src/boundary.test.ts` and `scripts/check-no-cross-package-imports.sh` enforce the boundary in CI.
+
+Delta from plan: the legacy monolith still builds against `packages/server/src/server-*.ts` directly (the original files still exist there). No re-export shims were needed because nothing outside the legacy monolith imports from `packages/server/*` anymore. Phase 7 will delete the duplicated files from `packages/server`.
 
 ### Goal
 
@@ -157,6 +226,45 @@ Revert the phase branch. Re-export shims mean the legacy server keeps working ei
 ---
 
 ## 6. Phase 2 — Postgres-authoritative persistence
+
+**Status: Done — merged as `4f24c70` (PR #15) on 2026-04-20.**
+
+What actually landed:
+
+- SQL migrations `0004_player_projection.sql` … `0007_visibility_projection.sql`, each with an FK → `world_snapshots.snapshot_id`.
+- `apps/simulation/src/postgres-projection-writer.ts` (252 lines) writes all four projection tables in parallel at checkpoint time.
+- `PostgresSimulationSnapshotStore.saveSnapshot()` now accepts optional `projectionState` and writes projections in the same transaction as the snapshot INSERT.
+- `SnapshotCheckpointManager` accepts an `exportProjectionState` callback; `simulation-service.ts` wires it to `runtime.exportState()`.
+- `SimulationSnapshotStore` interface updated so `InMemorySimulationSnapshotStore` still satisfies it unchanged.
+- `fly.gateway.staging.toml`, `fly.simulation.staging.toml`: new staging Fly apps (`border-empires-{gateway,simulation}-staging`).
+- `scripts/rewrite-db-import-legacy-snapshot.ts`: one-shot importer that reads a legacy snapshot dir and seeds `world_snapshots` + all projections.
+- `provision-fly-staging.command`: user-runnable script that creates the Fly Postgres cluster, creates the staging DB and role, creates the two staging Fly apps, and attaches `DATABASE_URL` via `fly postgres attach`.
+- Tests: `restart-parity.integration.test.ts`, `snapshot-projection.test.ts`, `migration-idempotent.test.ts`.
+
+**Provisioning decision that got made (this is the answer to the Phase 2 open question):**
+
+- **Fly Postgres**, not Neon / Supabase / self-managed.
+- **One shared cluster** `border-empires-postgres` in region `arn`, `--initial-cluster-size 1` (no HA), `--vm-size shared-cpu-1x`, 10 GB volume. Cost ≈ $3.44/month.
+- **One logical database per environment**, same cluster: `border_empires_staging` (provisioned), `border_empires_prod` (to be created in Phase 6).
+- **One role per environment** (`be_staging`, `be_prod` in Phase 6). `DATABASE_URL` is attached via `fly postgres attach`, not set by hand.
+- `NODE_ENV=staging` on staging apps; production apps get `NODE_ENV=production` in Phase 6.
+- Snapshot cadence on staging: `SIMULATION_SNAPSHOT_EVERY_EVENTS=1000`. Prod cadence in Phase 6 will be `5000` (matches legacy).
+
+**Known residual work from Phase 2 that Phase 4/5/6 must finish:**
+
+1. `provision-fly-staging.command` has not been end-to-end run against current `main` yet. Before Phase 4 closes, run it and confirm both staging apps pass health checks with DB-only boot (no snapshot file).
+2. The role password in the script is `staging_changeme`. Rotate immediately after first provisioning and store in 1Password / Fly secret. Add a check to `provision-fly-prod.command` (to be written in Phase 6) that refuses to run with a placeholder password.
+3. Prod equivalents do not exist yet:
+   - `fly.gateway.toml` and `fly.simulation.toml` do not carry `DATABASE_URL`. `fly postgres attach` needs to happen on both during Phase 6.
+   - No `provision-fly-prod.command` script exists. Write it as part of Phase 6 pre-flight using `provision-fly-staging.command` as the template.
+4. Backup strategy is not implemented. Fly volume snapshots are on by default but retention is short. Before Phase 6 pre-flight:
+   - Add a Fly scheduled job (or a tiny separate worker) that runs `pg_dump border_empires_prod | gzip` nightly and writes to a Fly Tigris bucket or R2 (whichever is cheaper at our volume; typically pennies per month for <1 GB).
+   - Retain 7 daily + 4 weekly dumps.
+   - Document the restore runbook in `docs/runbooks/postgres-restore.md`.
+5. Staging apps must be configured with `auto_stop_machines = "on"` and `min_machines_running = 0` so they do not run 24/7. Current `fly.gateway.staging.toml` and `fly.simulation.staging.toml` must be audited and patched if needed. This is the $10/month-budget lever in §1.
+6. `SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK` handling: confirm that `NODE_ENV=staging` and `NODE_ENV=production` both refuse seed fallback; only `NODE_ENV=development` allows it. The runtime-env code enforces this but add an explicit test.
+
+### Original Phase 2 plan (retained for reference)
 
 ### Goal
 
@@ -221,6 +329,26 @@ Staging is isolated; nothing to roll back in prod. Legacy monolith keeps running
 
 ## 7. Phase 3 — AI and system jobs off the authoritative loop
 
+**Status: Done — merged as `22b76c1` on 2026-04-20.**
+
+What actually landed:
+
+- `apps/simulation/src/planner-world-view.ts`: serializable `PlannerWorldView` / `PlannerTileView` / `PlannerPlayerView` types. `buildPlannerWorldView()` strips heavy JSON blobs (fort, observatory, siege outpost, economic structure payloads) before `postMessage` to keep worker transfer cheap.
+- `apps/simulation/src/ai-planner-worker.ts`: Node worker thread. Runs settle + frontier planning from `PlannerWorldView`. Handles pause / resume / shutdown protocol.
+- `apps/simulation/src/system-job-worker.ts`: Node worker thread. Runs barbarian / upkeep frontier planning. Same message protocol.
+- `apps/simulation/src/ai-command-producer-worker.ts`: worker-backed drop-in for `ai-command-producer.ts`. Skips tick when `human_interactive > 0` and sends `pause` to worker; resumes on drain.
+- `apps/simulation/src/system-command-producer-worker.ts`: worker-backed drop-in for `system-command-producer.ts`. Skips tick when any queue backlog is non-empty.
+- `simulation-service.ts` selects worker-backed or inline producers at startup based on the `useAiWorker` flag.
+- `runtime-env.ts` / `main.ts` expose `SIMULATION_AI_WORKER=1` env flag.
+- Tests: `ai-pause-resume.test.ts` (verifies backpressure pause/resume with mocked Worker), `system-job-worker.test.ts` (verifies system producer backpressure and command dispatch).
+
+Delta from plan: the plan allowed either worker thread or sibling process. We went with Node worker threads because (a) cheaper than a sibling Fly app under the $10/month cap, (b) `postMessage` is simpler than gRPC for this traffic pattern, (c) the `PlannerWorldView` strip-heavy-blobs pattern keeps transfer cost manageable.
+
+**Residual work for Phase 5 load-test gate:**
+
+- The `ai-isolation.load.test.ts` (nightly) in §9.6 has not been written or run yet. That is where we prove the event-loop and p95 gates from §1, not in these unit tests.
+- No CPU profile has been captured on a loaded sim to confirm "> 90% main-thread time in command ingress / < 10% in AI or planning." Phase 5 work.
+
 ### Goal
 
 No AI or system planning work executes in the simulation event loop that hosts human command acceptance. This is the phase that actually fixes the original bug, not just relocates it.
@@ -265,6 +393,15 @@ Feature-flag `SIMULATION_AI_WORKER=0` keeps AI inline for a week while we watch 
 ---
 
 ## 8. Phase 4 — Feature-parity sweep
+
+**Status: Done — landed 2026-04-20 via `b0258b1`, `7142882`, `96acbbb`, merge `28d5d59`.**
+
+What actually landed:
+
+- `b0258b1` Phase 4: command coverage rails (`apps/simulation/src/command-coverage.test.ts`) parameterized over all `DurableCommandTypeSchema` values; attack-preview combat-math aligned so `ATTACK_PREVIEW` p(win) matches `rollFrontierCombat` empirically.
+- `7142882` Fix client fallback preview town type typing (regression fix surfaced by the parity tests).
+- `96acbbb` Phase 4 review fixes: coverage rails widened; `restart-parity.integration.test.ts` parameterized over all mutating command types; reconnect suite wired.
+- `28d5d59` Merge PR #17 — Phase 4 landed on `main`.
 
 ### Goal
 
@@ -513,6 +650,13 @@ Exports the plan's acceptance numbers (p50/p95/p99/max of accept latency, event-
 
 ## 10. Phase 5 — Observability and gates
 
+**Status: Done — landed 2026-04-20 via `0c877c8`, `67d41d3`.**
+
+What actually landed:
+
+- `0c877c8` Phase 5 observability primary: `/metrics` endpoint on both gateway and simulation; structured metrics emitted every 1 s; `metrics.test.ts` and `metrics.integration.test.ts` (17-line integration smoke); Fly log-stream alert thresholds documented in `docs/rewrite-phase5-observability-runbook.md`; nightly load harness writes `docs/load-results/YYYY-MM-DD.json`.
+- `67d41d3` Fix Phase 5 accept-latency lane scope and load-harness recording bug (per-lane `human_interactive` p95 was measuring the wrong lane; harness was writing malformed JSON on timeout).
+
 ### Deliverables
 
 1. Gateway emits structured metrics every 1s:
@@ -542,31 +686,67 @@ Exports the plan's acceptance numbers (p50/p95/p99/max of accept latency, event-
 
 ### Pre-flight
 
-- All phases 0-5 complete.
-- Nightly load harness green for 3 consecutive nights.
-- Parity harness green against a 5-minute scenario.
+All of the following before scheduling a cutover date:
+
+- Phases 0-5 complete and merged.
+- Nightly load harness green for 3 consecutive nights (p95/p99/max gates from §1).
+- Parity harness (§9.3) green against the 5-minute scenario.
 - Staging has been running the rewrite stack for 7 consecutive days without an unresolved issue.
+- Prod-side infrastructure stood up *but not yet receiving traffic*:
+  - `border_empires_prod` database and `be_prod` role created on the existing `border-empires-postgres` cluster (same cluster, new DB — keeps cost flat).
+  - Prod-role password rotated off any placeholder.
+  - `fly postgres attach border-empires-postgres --app border-empires-gateway --database-name border_empires_prod --variable-name DATABASE_URL`, same for `border-empires-simulation`.
+  - `fly.gateway.toml` and `fly.simulation.toml` updated to set `NODE_ENV=production`, point at `border-empires-simulation.flycast:50051`, and carry the snapshot/checkpoint tunables that match current legacy (`SIMULATION_SNAPSHOT_EVERY_EVENTS=5000`, `SIMULATION_CHECKPOINT_MAX_RSS_MB=260`).
+  - `provision-fly-prod.command` script written (mirror of `provision-fly-staging.command`, with a password check that refuses to run with a placeholder) and executed.
+  - Migrations applied against `border_empires_prod`: `0001_world_events` … `0007_visibility_projection`, plus `apps/realtime-gateway/sql/0001_command_store`.
+  - Nightly `pg_dump` job running and verified; at least one restore dry-run into a scratch DB completed successfully.
+- Cost check: `fly status` on all apps + `fly postgres status` confirms the provisioned resources match the table in §1. Staging apps have `auto_stop_machines = "on"` and are stopped.
 
 ### Cutover steps (day-of)
 
-1. **T-24h**: freeze all non-cutover merges to `main`. Tag current prod legacy build as `legacy-v-cutover-<date>`.
-2. **T-2h**: import latest prod snapshot into prod Postgres via `scripts/rewrite-db-import-legacy-snapshot.ts`.
-3. **T-1h**: deploy `border-empires-simulation` and `border-empires-gateway` to prod, DB-backed. Health-check `/healthz` on both, verify runtime provenance matches the imported snapshot.
-4. **T-0**: flip the beta testers' cookie (or deploy a client build where the small beta-tester list's default `VITE_GATEWAY_WS_URL` is set). Legacy monolith keeps running untouched.
-5. **T+30m**: read the gates:
-   - If green: deploy client with default `VITE_WS_URL` pointing at the gateway for all users.
-   - If any gate fails: flip cookie back. Legacy is unchanged, beta testers resume on legacy. No data loss because beta testers played against a fresh DB-backed world seeded from the imported snapshot, and the legacy world was not mutated during the window.
-6. **T+1d**: keep legacy `border-empires` app running but no traffic routed. Monitor new stack for 72h before Phase 7.
+1. **T-24h**: freeze all non-cutover merges to `main`. Tag current prod legacy build as `legacy-v-cutover-<date>`. Announce the window to beta testers; ~2h of read-only recommended.
+2. **T-2h**: take a legacy snapshot (via the existing snapshot machinery on `border-empires`). Import it into `border_empires_prod` via `scripts/rewrite-db-import-legacy-snapshot.ts`. Take an extra `pg_dump` to the backup bucket tagged `pre-cutover-<date>.sql.gz`.
+3. **T-1h**: `fly deploy --config fly.simulation.toml` then `fly deploy --config fly.gateway.toml`. Wait for both to report healthy. Hit `/healthz` on both and confirm runtime provenance (source type, season id, world seed, snapshot label, fingerprint, player count, seeded tile count) matches the imported snapshot.
+4. **T-15m**: run the load harness against the new prod stack for 5 minutes with synthetic load. Gates must be green before we redirect any real player.
+5. **T-0**: flip beta testers to the gateway. Two mechanisms, use whichever is easier on the day:
+   - Deploy a client build where the beta-tester email list gets `VITE_GATEWAY_WS_URL=wss://border-empires-gateway.fly.dev/ws` as the default and everyone else still gets legacy. (Preferred — self-serve.)
+   - Ask each beta tester to set `document.cookie = "be-backend=gateway; path=/; max-age=86400"` once and refresh.
+6. **T+30m**: read metrics. If green, deploy a client build that flips the global default `VITE_WS_URL` to the gateway. Legacy app keeps running but gets no new traffic.
+7. **T+1d**: monitor the new stack. Keep legacy running idle.
+8. **T+7d**: proceed to Phase 7.
 
 ### Data-loss risk during cutover
 
-The cutover is a forward-only import. Because the beta testers are the *only* live players, and because we freeze their actions at T-2h for the snapshot capture, the window of possible data loss is the 2 hours between snapshot and go-live. We accept this by announcing a maintenance window to the beta testers.
+Forward-only import. Beta testers' legacy state is captured at T-2h and imported; any actions they take after T-2h on the legacy monolith are lost. We accept this by announcing the window. Because beta is a handful of testers, this is explicit — not a gamble.
 
-### Rollback
+### Rollback (given single-primary Postgres, no HA)
 
-- Client cookie flip back to legacy (`be-backend=legacy` or deploy a client build that points at legacy).
-- Legacy DB and snapshot state are untouched.
-- The new stack's DB can be wiped and re-seeded for the next attempt.
+Two failure modes, two different rollback paths.
+
+**Failure mode A — the new stack behaves badly but Postgres is fine** (e.g. a gameplay bug, a memory leak, a parity regression, a latency gate fails):
+
+1. Deploy a client build that flips `VITE_WS_URL` back to `wss://border-empires.fly.dev/ws` (legacy). Or revert the cookie rollout.
+2. Beta testers reload and are back on the legacy monolith with their pre-T-2h state. They lose whatever happened on the rewrite stack, which for the beta tester count is acceptable.
+3. Legacy DB is untouched. New-stack DB can be wiped (`TRUNCATE world_snapshots CASCADE`, etc.) and re-seeded for a retry.
+
+**Failure mode B — Postgres itself is down** (single-primary, no HA; this is the cost-budget trade-off):
+
+1. The gateway and sim will fail health checks because `DATABASE_URL` unreachable. Client hits them and fails to connect.
+2. Flip the client default `VITE_WS_URL` back to legacy (same as A).
+3. While on legacy, investigate Postgres. Options in order: `fly postgres restart border-empires-postgres`, `fly volumes list` + attach a new volume from the nightly snapshot, or `pg_restore` from the bucket backup into a fresh cluster (costs ~15 min setup + ~$0 extra assuming the volume is reused).
+4. Once Postgres is healthy, re-import the pre-cutover snapshot or the latest nightly, then re-attempt the cutover. The legacy monolith keeps serving throughout.
+
+The worst-case downtime is whatever it takes the client deploy to propagate — minutes, not hours. Because beta is small, this is acceptable.
+
+### Cost check at end of Phase 6
+
+`fly status` + `fly postgres status` should show:
+
+- 4 prod apps running (gateway, simulation, legacy `border-empires`, postgres)
+- 2 staging apps *stopped* (gateway-staging, simulation-staging)
+- Total invoice trending ≤ $9.50/month until Phase 7 deletes legacy
+
+If the invoice is above the cap, Phase 6 is not done. Either the staging apps did not auto-stop, or a volume is larger than budgeted, or someone added an extra region. Fix before starting Phase 7.
 
 ---
 
@@ -593,13 +773,18 @@ Only after the new stack has run cleanly in prod for 7 days:
 
 | Risk | Mitigation |
 |---|---|
-| Rebase of `f69dfbf` onto main is painful | Pair-review the rebase; keep every phase behind a flag; the 10 intervening commits are small (mostly UX and AI tuning) — the conflict surface is in `client-*` files. |
-| Postgres becomes a new single point of failure | Fly Postgres HA. Daily logical backup to S3 (`pg_dump`). Recovery runbook tested quarterly. |
-| AI worker communication overhead eats the savings | Measure in Phase 3 load test. If `postMessage` cost dominates, move AI to a sibling process with gRPC. Transport is a swap-out, not a rewrite. |
-| Parity harness produces too many diffs to be useful | Start narrow (only `WorldStatusSnapshot` + player projection). Expand after those are green. |
-| Beta testers on legacy hit a new legacy bug while we're mid-cutover | Legacy is frozen in Phase 0; no gameplay changes allowed until Phase 7 closes. |
-| New stack OOMs in prod | Fly alert at 400MB (target budget is 320MB per simulation, 512MB machine). Checkpoint deferral and streaming writes already in `snapshot-checkpoint-manager.ts`. |
-| Hidden inline AI/system work re-enters the main thread during later refactors | Add a runtime assertion: if `perf_hooks.monitorEventLoopDelay()` p99 exceeds 50ms for 5s, emit a `RuntimeAlert` and log a stack sample. |
+| ~~Rebase of `f69dfbf` onto main is painful~~ | Resolved in Phase 0 (`2596eed`). |
+| Postgres is a single point of failure (`--initial-cluster-size 1`, no HA) | Forced by the $10/month cap. Accepted trade for beta. Mitigation: nightly `pg_dump` to a Fly Tigris / R2 bucket, 7 daily + 4 weekly retention, restore runbook at `docs/runbooks/postgres-restore.md` and at least one tested restore before Phase 6 pre-flight. Rollback path B in §11 describes the live-failure procedure. Revisit HA only if beta grows enough to justify an extra ~$2/month. |
+| `DATABASE_URL` rotation leaks into source / test fixtures | `provision-fly-*.command` uses `fly postgres attach` which injects the URL as a secret; never written to a file in the repo. Staging placeholder `staging_changeme` must be rotated immediately after first `provision-fly-staging.command` run — add a CI guard that greps the repo for that string and fails if found. Same pattern for the prod script. |
+| Staging apps run 24/7 and blow the $10/month cap | `fly.gateway.staging.toml` and `fly.simulation.staging.toml` must have `auto_stop_machines = "on"` and `min_machines_running = 0`. Phase 4 task: verify this configuration and that the apps actually sleep when idle. Add a monthly cost check to the runbook. |
+| AI worker communication overhead eats the savings | Measured by the Phase 5 load test. If `postMessage` cost dominates, move AI to a sibling Fly process with gRPC — but that adds ~$1.94/month and would require dropping elsewhere to stay under cap. Current `PlannerWorldView` strip-heavy-blobs pattern should make worker threads sufficient. |
+| Parity harness produces too many diffs to be useful | Start narrow (only `WorldStatusSnapshot` + player projection). Expand after those are green. No "known-difference" allowlist without an explicit human approval. |
+| Beta testers on legacy hit a new legacy bug while we're mid-cutover | Legacy is frozen after Phase 0; no gameplay changes allowed until Phase 7 closes. Exception: a pure-revert bug fix with a post-mortem noting the breach. |
+| New stack OOMs in prod | Fly alert at 400MB RSS (target budget 320MB per sim, 512MB machine). Checkpoint deferral and high-memory-skip writes already in `snapshot-checkpoint-manager.ts` and `postgres-snapshot-store.ts`. |
+| Hidden inline AI/system work re-enters the main thread during later refactors | Runtime assertion: if `perf_hooks.monitorEventLoopDelay()` p99 exceeds 50ms for 5s, emit a `RuntimeAlert`. Add the assertion in Phase 5 together with the rest of observability. |
+| Single-DB failure blocks both staging and prod simultaneously | Both logical DBs live on the same cluster. If Postgres dies, staging dies too, but staging has no beta traffic so this is acceptable. If ever we want staging isolation during a prod incident, the plan is to spin up a scratch `fly postgres create` on demand, run migrations, point staging at it — reverse when done. No permanent second cluster. |
+| Fly volume snapshot retention is too short for our backup RTO | Do not rely on Fly's default snapshot retention. The `pg_dump` + external bucket is the authoritative backup. |
+| `staging_changeme` password is checked into the repo | Already is, as the seed for the first provision. Phase 4 task: rotate it, remove the literal from the shell script, and replace with a prompt or a `fly secrets` read. |
 
 ---
 
@@ -613,7 +798,15 @@ The plan is complete when all seven issues close and the load harness has posted
 
 ## 15. Summary: what the next coding thread should start with
 
-1. Run `git status` and confirm the untracked rewrite files match the list in §2. If they don't, read §2 and update this doc before doing anything else.
-2. Open Phase 0, do the rebase, land the kill-switch, get CI green. Do not start Phase 1 until Phase 0 is merged to `origin/main`.
-3. Do not make any gameplay-visible changes on the legacy monolith until Phase 7. Bug fixes that only touch `packages/server` are allowed only if they also apply to `apps/simulation`.
-4. Every new test should be one of the patterns in §9. If a new bug is found that isn't caught by an existing pattern, add a new pattern and backfill coverage — then fix the bug.
+Phases 0-3 are done. The focus now is Phase 4 — feature parity and test coverage — and the specific pre-requisites that unblock Phase 6.
+
+Work order:
+
+1. **Build the §9 test harnesses first.** Until the parity harness (§9.3), reconnect harness (§9.4), coverage-enforcement test (§9.5), and load harness (§9.6) exist, every feature-parity claim is unverifiable. Write them before filling the feature checklist in §8.
+2. **Expand `restart-parity.integration.test.ts` to cover every mutating command type.** This is what catches Bug 1 class. Today it exists for a handful of commands; parameterize it over `ALL_MUTATING_COMMAND_TYPES` per §9.1 and let CI discover which ones don't survive a restart. Fix each one it surfaces.
+3. **Add the preview/resolution consistency and contract tests** from §9.2. These are what catch Bug 2 class. If test pattern 5 ("preview and resolve call the same combat module") fails, that is by itself the bug behind the 100%-win-chance incident.
+4. **Audit the staging fly configs.** Confirm `auto_stop_machines = "on"` and `min_machines_running = 0` on both staging apps. Run `provision-fly-staging.command` end-to-end, confirm staging boots DB-only, and leave staging stopped. Rotate the `staging_changeme` role password and remove the literal from the script.
+5. **Start on Phase 5 observability** as soon as Phase 4 coverage lands. The load gates in §1 can't be measured without `/metrics`.
+6. **Do not make any gameplay-visible changes on the legacy monolith** until Phase 7. Bug fixes that only touch `packages/server` are allowed only if they also apply to `apps/simulation`.
+7. **Every new test should be one of the patterns in §9.** If a new bug is found that isn't caught by an existing pattern, add a new pattern and backfill coverage — then fix the bug.
+8. **Respect the $10/month cap.** Any provisioning PR must include the new monthly-cost line-item in its description. Phase 4 has no provisioning.
