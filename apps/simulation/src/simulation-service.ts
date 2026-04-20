@@ -26,6 +26,8 @@ import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subsc
 import { SimulationRuntime } from "./runtime.js";
 import { loadSimulationStartupRecovery } from "./startup-recovery.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
+import { laneForCommand } from "./command-lane.js";
+import { createSimulationMetrics } from "./metrics.js";
 
 type ProtoCommandEnvelope = {
   command_id: string;
@@ -346,6 +348,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: activePlayers
   });
+  const simulationMetrics = createSimulationMetrics();
   const snapshotCheckpointManager = createSnapshotCheckpointManager({
     eventStore,
     snapshotStore,
@@ -360,6 +363,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       ? { maxCheckpointHeapUsedBytes: options.checkpointMaxHeapUsedBytes }
       : {}),
     onCheckpointPhase: ({ phase, pendingEvents, memoryUsage, lastAppliedEventId }) => {
+      simulationMetrics.setSimCheckpointRssMb(memoryUsage.rssBytes / (1024 * 1024));
       log.info(
         {
           phase,
@@ -379,6 +383,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const persistenceQueue = createSimulationPersistenceQueue({
     commandStore,
     eventStore,
+    onEventStoreWrite: (durationMs) => simulationMetrics.observeSimEventStoreWriteMs(durationMs),
     onEventPersisted: () => {
       void snapshotCheckpointManager.onEventPersisted().catch((error) => {
         log.error({ err: error }, "simulation snapshot checkpoint failed");
@@ -402,6 +407,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 1000;
   let globalStatusBroadcastTimeout: ReturnType<typeof setTimeout> | undefined;
   let pendingGlobalStatusCommandId: string | undefined;
+  let metricsTicker: ReturnType<typeof setInterval> | undefined;
+  let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
+  let eventLoopWindowMaxMs = 0;
+  let expectedEventLoopTickAt = Date.now() + 100;
   const buildAndCachePlayerSnapshot = (playerId: string): PlayerSubscriptionSnapshot => {
     const runtimeState = runtime.exportState();
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState);
@@ -420,7 +429,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     const runtimeState = runtime.exportState();
     for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
-      const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState);
+      const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
+        acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+      });
       const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
       if (cachedSnapshot) {
         snapshotCacheByPlayerId.set(
@@ -428,7 +439,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           applyPlayerMessageToSnapshot(cachedSnapshot, {
             type: "GLOBAL_STATUS_UPDATE",
             leaderboard: worldStatus.leaderboard,
-            seasonVictory: worldStatus.seasonVictory
+            seasonVictory: worldStatus.seasonVictory,
+            ...(typeof worldStatus.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: worldStatus.acceptLatencyP95Ms } : {})
           })
         );
       }
@@ -440,7 +452,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         payloadJson: JSON.stringify({
           type: "GLOBAL_STATUS_UPDATE",
           leaderboard: worldStatus.leaderboard,
-          seasonVictory: worldStatus.seasonVictory
+          seasonVictory: worldStatus.seasonVictory,
+          ...(typeof worldStatus.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: worldStatus.acceptLatencyP95Ms } : {})
         })
       });
       for (const stream of eventStreams) stream.write(globalStatusEvent);
@@ -475,7 +488,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           submitCommand: submitDurableCommand,
           shouldRun: aiShouldRun,
           startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
-          tickIntervalMs: options.aiTickMs ?? 250
+          tickIntervalMs: options.aiTickMs ?? 250,
+          onPlannerTick: ({ breached }) => {
+            if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
+          }
         })
       : createAiCommandProducer({
           runtime,
@@ -483,7 +499,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           submitCommand: submitDurableCommand,
           shouldRun: aiShouldRun,
           startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
-          tickIntervalMs: options.aiTickMs ?? 250
+          tickIntervalMs: options.aiTickMs ?? 250,
+          onPlannerTick: ({ breached }) => {
+            if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
+          }
         })
     : undefined;
   const systemShouldRun = () =>
@@ -541,11 +560,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ) {
       const command = toCommandEnvelope(call.request);
       void (async () => {
+        const acceptStartedAt = Date.now();
         try {
           if (fatalPersistenceError) {
             throw fatalPersistenceError;
           }
           await submitDurableCommand(command);
+          simulationMetrics.observeSimCommandAcceptLatencyMs(laneForCommand(command), Date.now() - acceptStartedAt);
           callback(null, { ok: true });
         } catch (error) {
           callback(error instanceof Error ? error : new Error("failed to persist simulation command"), { ok: false });
@@ -683,6 +704,29 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       boundPort = port;
       server.start();
+      eventLoopSampler = setInterval(() => {
+        const now = Date.now();
+        const lagMs = Math.max(0, now - expectedEventLoopTickAt);
+        eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
+        expectedEventLoopTickAt = now + 100;
+      }, 100);
+      metricsTicker = setInterval(() => {
+        simulationMetrics.setSimEventLoopMaxMs(eventLoopWindowMaxMs);
+        eventLoopWindowMaxMs = 0;
+        simulationMetrics.setSimHumanInteractiveBacklogMs(runtime.queueBacklogMs().human_interactive);
+        const sample = simulationMetrics.snapshot();
+        log.info(
+          {
+            sim_event_loop_max_ms: sample.simEventLoopMaxMs,
+            sim_human_interactive_backlog_ms: sample.simHumanInteractiveBacklogMs,
+            sim_ai_planner_breaches: sample.simAiPlannerBreaches,
+            sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
+            sim_command_accept_latency_ms: sample.simCommandAcceptLatencyMsByLane,
+            sim_event_store_write_ms: sample.simEventStoreWriteMs
+          },
+          "simulation metrics sample"
+        );
+      }, 1_000);
       log.info(
         `recovered ${startupRecovery.recoveredCommandCount} commands and ${startupRecovery.recoveredEventCount} world events; ${startupRecovery.initialState.activeLocks.length} unresolved locks from event log`
       );
@@ -702,6 +746,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     async close(): Promise<void> {
       aiCommandProducer?.close();
       systemCommandProducer?.close();
+      if (metricsTicker) clearInterval(metricsTicker);
+      if (eventLoopSampler) clearInterval(eventLoopSampler);
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
         globalStatusBroadcastTimeout = undefined;
@@ -715,6 +761,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           resolve();
         });
       });
+    },
+    renderMetrics(): string {
+      return simulationMetrics.renderPrometheus();
+    },
+    metricsSnapshot() {
+      return simulationMetrics.snapshot();
     }
   };
 };

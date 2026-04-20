@@ -968,6 +968,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
       state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
       state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
@@ -1196,6 +1197,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
       state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       const myTileColor = msg.tileColor as string | undefined;
       if (myTileColor) {
         state.playerColors.set(state.me, myTileColor);
@@ -1212,6 +1214,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
       state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       renderHud();
       return;
     }

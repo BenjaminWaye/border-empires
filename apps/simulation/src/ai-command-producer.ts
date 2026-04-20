@@ -12,6 +12,8 @@ type AiCommandProducerOptions = {
   now?: () => number;
   tickIntervalMs?: number;
   pendingCommandTimeoutMs?: number;
+  plannerBreachThresholdMs?: number;
+  onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
   clearIntervalFn?: (handle: ReturnType<typeof setInterval>) => void;
 };
@@ -24,6 +26,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const pendingCommandTimeoutMs = Math.max(1, options.pendingCommandTimeoutMs ?? Math.max(tickIntervalMs * 2, 90_000));
   const setIntervalFn = options.setIntervalFn ?? ((task, intervalMs) => setInterval(task, intervalMs));
   const clearIntervalFn = options.clearIntervalFn ?? ((handle) => clearInterval(handle));
+  const plannerBreachThresholdMs = Math.max(1, options.plannerBreachThresholdMs ?? 50);
   const nextClientSeqByPlayer = new Map<string, number>(
     options.aiPlayerIds.map((playerId) => [playerId, options.startingClientSeqByPlayer?.[playerId] ?? 1] as const)
   );
@@ -70,7 +73,11 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         if (pendingCommandByPlayer.has(playerId)) continue;
         const nextClientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         const issuedAt = now();
+        const plannerStartedAt = now();
         const command = options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime");
+        const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
+        const breached = plannerDurationMs > plannerBreachThresholdMs;
+        options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
         if (!command) continue;
         pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
         nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);

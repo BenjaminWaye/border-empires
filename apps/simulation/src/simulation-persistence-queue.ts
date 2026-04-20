@@ -7,6 +7,7 @@ type SimulationPersistenceQueueDependencies = {
   commandStore: SimulationCommandStore;
   eventStore: SimulationEventStore;
   onEventPersisted?: () => void;
+  onEventStoreWrite?: (durationMs: number) => void;
   onPersistenceFailure?: (error: Error) => void;
   log?: Pick<Console, "error">;
 };
@@ -95,6 +96,7 @@ export const createSimulationPersistenceQueue = (
         }
 
         if (shouldPersistEvent(event)) {
+          const eventStoreWriteStartedAt = Date.now();
           try {
             await dependencies.eventStore.appendEvent(event, createdAt);
             dependencies.onEventPersisted?.();
@@ -102,6 +104,8 @@ export const createSimulationPersistenceQueue = (
             markFailure();
             reportFailure(error);
             log.error("failed to persist simulation event", error);
+          } finally {
+            dependencies.onEventStoreWrite?.(Math.max(0, Date.now() - eventStoreWriteStartedAt));
           }
         }
       } finally {
