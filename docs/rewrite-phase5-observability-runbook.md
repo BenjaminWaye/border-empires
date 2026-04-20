@@ -40,3 +40,5 @@ node scripts/rewrite-load-harness.mjs
 This writes a dated result file to:
 
 - `docs/load-results/YYYY-MM-DD.json`
+
+The harness drives synthetic frontier load via `scripts/rewrite-local-soak.mjs` for 30 minutes by default, scrapes gateway/simulation metrics throughout, and fails non-zero when any Phase 5 gate is red.

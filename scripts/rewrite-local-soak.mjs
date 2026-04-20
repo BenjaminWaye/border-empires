@@ -11,6 +11,7 @@ const allowAttacks = process.env.SOAK_ALLOW_ATTACKS === "1";
 const logEachIteration = process.env.SOAK_LOG_EACH_ITERATION !== "0";
 const refreshOnEmptyFrontier = process.env.SOAK_REFRESH_ON_EMPTY_FRONTIER !== "0";
 const candidateVisionRadius = Math.max(1, Number(process.env.SOAK_CANDIDATE_VISION_RADIUS ?? "4"));
+const emitAcceptedLatencies = process.env.SOAK_EMIT_LATENCIES === "1";
 
 const percentile = (values, fraction) => {
   if (values.length === 0) return null;
@@ -368,5 +369,6 @@ const summary = {
   acceptedP99Ms: percentile(acceptedLatencies, 0.99),
   acceptanceOver500Ms: acceptedLatencies.filter((value) => value > 500).length
 };
+if (emitAcceptedLatencies) summary.acceptedLatenciesMs = acceptedLatencies;
 
 console.log(JSON.stringify(summary));
