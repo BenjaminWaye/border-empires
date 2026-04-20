@@ -40,6 +40,7 @@ COPY --from=build /app/packages/shared/node_modules ./packages/shared/node_modul
 COPY --from=build /app/packages/game-domain/package.json ./packages/game-domain/package.json
 COPY --from=build /app/packages/game-domain/dist ./packages/game-domain/dist
 COPY --from=build /app/packages/game-domain/node_modules ./packages/game-domain/node_modules
+COPY --from=build /app/packages/game-domain/data ./packages/game-domain/data
 COPY --from=build /app/packages/client-protocol/package.json ./packages/client-protocol/package.json
 COPY --from=build /app/packages/client-protocol/dist ./packages/client-protocol/dist
 COPY --from=build /app/packages/client-protocol/node_modules ./packages/client-protocol/node_modules
@@ -57,4 +58,4 @@ EXPOSE 50051
 
 USER borderempires
 
-CMD ["node", "apps/simulation/dist/apps/simulation/src/main.js"]
+CMD ["sh", "-c", "if [ -f apps/simulation/dist/simulation/src/main.js ]; then exec node apps/simulation/dist/simulation/src/main.js; elif [ -f apps/simulation/dist/apps/simulation/src/main.js ]; then exec node apps/simulation/dist/apps/simulation/src/main.js; elif [ -f apps/simulation/dist/src/main.js ]; then exec node apps/simulation/dist/src/main.js; elif [ -f apps/simulation/dist/main.js ]; then exec node apps/simulation/dist/main.js; else echo 'simulation dist entrypoint not found' >&2; find apps/simulation/dist -maxdepth 4 -type f >&2 || true; exit 1; fi"]
