@@ -20,7 +20,7 @@ describe("gateway http routes", () => {
       snapshotDir: "/tmp/snapshot",
       supportedMessageTypes: ["ATTACK", "COLLECT_VISIBLE"],
       recentEvents: () => [{ at: 1_200, level: "info", event: "gateway_started", payload: {} }],
-      metrics: () => "gateway_event_loop_max_ms 0"
+      metrics: () => "gateway_event_loop_max_ms 4\n"
     });
 
     const healthResponse = await app.inject({ method: "GET", url: "/health", headers: { origin: "http://localhost:5173" } });
@@ -33,6 +33,15 @@ describe("gateway http routes", () => {
         lastReadyAt: 1_100
       }
     });
+
+    const healthzResponse = await app.inject({ method: "GET", url: "/healthz" });
+    expect(healthzResponse.statusCode).toBe(200);
+    expect(healthzResponse.json()).toEqual(healthResponse.json());
+
+    const metricsResponse = await app.inject({ method: "GET", url: "/metrics" });
+    expect(metricsResponse.statusCode).toBe(200);
+    expect(metricsResponse.headers["content-type"]).toContain("text/plain");
+    expect(metricsResponse.body).toContain("gateway_event_loop_max_ms 4");
 
     const debugResponse = await app.inject({ method: "GET", url: "/admin/runtime/debug-bundle", headers: { origin: "http://localhost:5173" } });
     expect(debugResponse.statusCode).toBe(200);
@@ -55,10 +64,6 @@ describe("gateway http routes", () => {
         }
       })
     );
-    const metricsResponse = await app.inject({ method: "GET", url: "/metrics" });
-    expect(metricsResponse.statusCode).toBe(200);
-    expect(metricsResponse.body).toContain("gateway_event_loop_max_ms 0");
-
     await app.close();
   });
 

@@ -16,8 +16,8 @@ primary_region = "arn"
   internal_port = 8080
   force_https = true
   auto_start_machines = true
-  auto_stop_machines = "off"
-  min_machines_running = 1
+  auto_stop_machines = "stop"
+  min_machines_running = 0
   processes = ["app"]
 
 [[vm]]
