@@ -1,3 +1,13 @@
+// Re-export domain modules promoted from packages/server
+export * from "./server-game-constants.js";
+export * from "./server-shared-types.js";
+export * from "./server-worldgen-clusters.js";
+export * from "./server-worldgen-docks.js";
+export * from "./server-worldgen-shards.js";
+export * from "./server-worldgen-terrain.js";
+export * from "./server-worldgen-towns.js";
+export * from "./town-names.js";
+
 import {
   ATTACK_MANPOWER_COST,
   ATTACK_MANPOWER_MIN,

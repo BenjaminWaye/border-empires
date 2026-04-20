@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { TRUCE_REQUEST_TTL_MS } from "../../../packages/server/src/server-game-constants.js";
+import { TRUCE_REQUEST_TTL_MS } from "@border-empires/game-domain";
 
 export type SocialAllianceRequest = {
   id: string;

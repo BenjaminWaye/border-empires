@@ -19,7 +19,7 @@ import {
   SEASON_VICTORY_SETTLED_TERRITORY_SHARE,
   SEASON_VICTORY_TOWN_CONTROL_SHARE,
   VICTORY_PRESSURE_DEFS
-} from "../../../packages/server/src/server-game-constants.js";
+} from "@border-empires/game-domain";
 
 import type { LegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { createSeedWorld, simulationWorldSeedForProfile, type SimulationSeedProfile } from "../../simulation/src/seed-state.js";
@@ -157,14 +157,14 @@ const resolveDataPath = (relativeCandidates: string[]): string => {
 };
 
 const TECH_TREE_PATH = resolveDataPath([
-  "../../../packages/server/data/tech-tree.json",
-  "../../../../packages/server/data/tech-tree.json",
-  "../../../../../../packages/server/data/tech-tree.json"
+  "../../../packages/game-domain/data/tech-tree.json",
+  "../../../../packages/game-domain/data/tech-tree.json",
+  "../../../../../../packages/game-domain/data/tech-tree.json"
 ]);
 const DOMAIN_TREE_PATH = resolveDataPath([
-  "../../../packages/server/data/domain-tree.json",
-  "../../../../packages/server/data/domain-tree.json",
-  "../../../../../../packages/server/data/domain-tree.json"
+  "../../../packages/game-domain/data/domain-tree.json",
+  "../../../../packages/game-domain/data/domain-tree.json",
+  "../../../../../../packages/game-domain/data/domain-tree.json"
 ]);
 
 const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: TechCatalogEntry[] };

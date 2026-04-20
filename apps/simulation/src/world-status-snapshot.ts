@@ -11,7 +11,7 @@ import {
   SEASON_VICTORY_SETTLED_TERRITORY_SHARE,
   SEASON_VICTORY_TOWN_CONTROL_SHARE,
   VICTORY_PRESSURE_DEFS
-} from "../../../packages/server/src/server-game-constants.js";
+} from "@border-empires/game-domain";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type {
   LeaderboardMetricEntry,
