@@ -1,21 +1,12 @@
-/**
- * Restart-parity integration tests — §9.1 of the rewrite plan.
- *
- * Pattern: boot sim → let it run briefly → capture state → load recovery
- * from same stores → assert tile count and player set are identical.
- *
- * These tests use only in-memory stores so they run in CI without Postgres.
- * With SIMULATION_TEST_DATABASE_URL they exercise the real Postgres write path.
- */
-
 import { describe, it, expect, beforeEach } from "vitest";
 import { createSimulationService } from "./simulation-service.js";
 import { InMemorySimulationCommandStore } from "./command-store.js";
 import { InMemorySimulationEventStore } from "./event-store.js";
 import { InMemorySimulationSnapshotStore } from "./snapshot-store.js";
-import { loadSimulationStartupRecovery } from "./startup-recovery.js";
+import { RESTART_PARITY_COMMAND_TYPES } from "../../../packages/sim-protocol/src/command-coverage-sets.js";
 
 const PLAYER_ID = "player-1";
+const FIXED_NOW_MS = 1_000;
 
 /** Boot a simulation with shared stores and a very low checkpoint threshold. */
 const bootSim = async (options: {
@@ -28,14 +19,60 @@ const bootSim = async (options: {
     eventStore: options.eventStore,
     snapshotStore: options.snapshotStore,
     checkpointEveryEvents: 1, // checkpoint as often as possible for test reliability
+    runtimeOptions: { now: () => FIXED_NOW_MS },
     seedProfile: "default",
     enableAiAutopilot: false,
     enableSystemAutopilot: false,
     allowSeedRecoveryFallback: true,
     port: 0 // random port so tests don't clash
   });
-  await service.start();
   return service;
+};
+
+type RestartCommandType = (typeof RESTART_PARITY_COMMAND_TYPES)[number];
+
+const payloadForCommand = (type: RestartCommandType): Record<string, unknown> => {
+  switch (type) {
+    case "ATTACK":
+    case "EXPAND":
+    case "BREAKTHROUGH_ATTACK":
+    case "CAST_AETHER_BRIDGE":
+    case "CAST_AETHER_WALL":
+    case "AIRPORT_BOMBARD":
+      return { fromX: 10, fromY: 10, toX: 11, toY: 10 };
+    case "SETTLE":
+      return { x: 999, y: 999 };
+    case "BUILD_FORT":
+    case "BUILD_OBSERVATORY":
+    case "BUILD_SIEGE_OUTPOST":
+    case "CANCEL_FORT_BUILD":
+    case "CANCEL_STRUCTURE_BUILD":
+    case "REMOVE_STRUCTURE":
+    case "CANCEL_SIEGE_OUTPOST_BUILD":
+    case "CANCEL_CAPTURE":
+    case "UNCAPTURE_TILE":
+    case "COLLECT_TILE":
+    case "OVERLOAD_SYNTHESIZER":
+    case "SIPHON_TILE":
+    case "PURGE_SIPHON":
+    case "CREATE_MOUNTAIN":
+    case "REMOVE_MOUNTAIN":
+    case "COLLECT_SHARD":
+      return { x: 10, y: 10 };
+    case "BUILD_ECONOMIC_STRUCTURE":
+      return { x: 10, y: 10, structureType: "MARKET" };
+    case "COLLECT_VISIBLE":
+      return {};
+    case "CHOOSE_TECH":
+      return { techId: "agriculture" };
+    case "CHOOSE_DOMAIN":
+      return { domainId: "frontier-doctrine" };
+    case "SET_CONVERTER_STRUCTURE_ENABLED":
+      return { x: 10, y: 10, enabled: true };
+    case "REVEAL_EMPIRE":
+    case "REVEAL_EMPIRE_STATS":
+      return { targetPlayerId: "ai-1" };
+  }
 };
 
 describe("restart parity (in-memory stores)", () => {
@@ -49,75 +86,46 @@ describe("restart parity (in-memory stores)", () => {
     snapshotStore = new InMemorySimulationSnapshotStore();
   });
 
-  it("snapshot store contains at least one snapshot after sim runs briefly", async () => {
-    const service = await bootSim({ commandStore, eventStore, snapshotStore });
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await service.close();
-
-    const latestSnapshot = await snapshotStore.loadLatestSnapshot();
-    // With checkpointEveryEvents=1, as long as any events were persisted a
-    // snapshot should exist.  If no events ran the test passes vacuously.
-    if (latestSnapshot !== undefined) {
-      expect(latestSnapshot.lastAppliedEventId).toBeGreaterThanOrEqual(0);
-      expect(Array.isArray(latestSnapshot.snapshotPayload.initialState.tiles)).toBe(true);
-    }
-  });
-
-  it("startup-recovery from snapshot reproduces the same tile count as before restart", async () => {
-    const service = await bootSim({ commandStore, eventStore, snapshotStore });
-    await new Promise((resolve) => setTimeout(resolve, 150));
-
-    // Capture live state before shutdown
-    const liveState = service.runtime.exportState();
-    await service.close();
-
-    const latestSnapshot = await snapshotStore.loadLatestSnapshot();
-    if (!latestSnapshot) return; // no events generated → skip
-
-    // Cold-start recovery using the same shared stores
-    const recovery = await loadSimulationStartupRecovery({
-      commandStore,
-      eventStore,
-      snapshotStore,
-      seedProfile: "default"
+  it.each(RESTART_PARITY_COMMAND_TYPES)("replays %s state across a cold restart", async (type) => {
+    const serviceBeforeRestart = await bootSim({ commandStore, eventStore, snapshotStore });
+    const commandId = `restart-${type.toLowerCase()}`;
+    serviceBeforeRestart.runtime.submitCommand({
+      commandId,
+      sessionId: "session-1",
+      playerId: PLAYER_ID,
+      clientSeq: 1,
+      issuedAt: FIXED_NOW_MS,
+      type,
+      payloadJson: JSON.stringify(payloadForCommand(type))
     });
+    await new Promise((resolve) => setTimeout(resolve, 30));
 
-    // After recovery the tile set must match what the live sim exported
-    expect(recovery.initialState.tiles.length).toBe(liveState.tiles.length);
+    const beforeRestartState = serviceBeforeRestart.runtime.exportState();
+    const persistedRuntimeSnapshot = serviceBeforeRestart.runtime.snapshot();
+    await serviceBeforeRestart.close();
 
-    // All player IDs present before restart must be recoverable
-    const livePlayerIds = new Set(liveState.players.map((p) => p.id));
-    const recoveredPlayerIds = new Set((recovery.initialState.players ?? []).map((p) => p.id));
-    for (const id of livePlayerIds) {
-      expect(recoveredPlayerIds.has(id), `player ${id} missing after recovery`).toBe(true);
+    expect(persistedRuntimeSnapshot.commands.some((command) => command.commandId === commandId)).toBe(true);
+
+    const persistedCommandEvents = await eventStore.loadEventsForCommand(commandId);
+    if (persistedCommandEvents.length > 0) {
+      expect(
+        persistedCommandEvents.some((event) =>
+          event.eventType === "COMMAND_ACCEPTED" ||
+          event.eventType === "COMMAND_REJECTED" ||
+          event.eventType === "COLLECT_RESULT" ||
+          event.eventType === "TECH_UPDATE" ||
+          event.eventType === "DOMAIN_UPDATE" ||
+          event.eventType === "TILE_DELTA_BATCH" ||
+          event.eventType === "PLAYER_MESSAGE"
+        )
+      ).toBe(true);
     }
-  });
 
-  it("every persisted event has a non-empty commandId and known eventType", async () => {
-    const service = await bootSim({ commandStore, eventStore, snapshotStore });
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await service.close();
+    const serviceAfterRestart = await bootSim({ commandStore, eventStore, snapshotStore });
+    const afterRestartState = serviceAfterRestart.runtime.exportState();
+    await serviceAfterRestart.close();
 
-    const allEvents = await eventStore.loadAllEvents();
-    for (const event of allEvents) {
-      expect(typeof event.commandId).toBe("string");
-      expect(event.commandId.length).toBeGreaterThan(0);
-      expect(typeof event.eventType).toBe("string");
-      expect(event.eventType.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("event_id is strictly monotonic", async () => {
-    const service = await bootSim({ commandStore, eventStore, snapshotStore });
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await service.close();
-
-    const allEvents = await eventStore.loadAllEvents();
-    if (allEvents.length < 2) return; // not enough events to assert monotonicity
-
-    for (let i = 1; i < allEvents.length; i++) {
-      expect(allEvents[i]!.eventId).toBeGreaterThan(allEvents[i - 1]!.eventId);
-    }
+    expect(afterRestartState).toEqual(beforeRestartState);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RECONNECT_COMMAND_TYPES } from "../../../packages/sim-protocol/src/command-coverage-sets.js";
+import { PHASE4_COMMAND_SURFACE_TYPES, RECONNECT_COMMAND_TYPES } from "../../../packages/sim-protocol/src/command-coverage-sets.js";
 
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
 
@@ -18,6 +18,10 @@ describe("supported client messages", () => {
   });
 
   it.each(RECONNECT_COMMAND_TYPES)("keeps durable command %s available on the websocket surface", (type) => {
+    expect(supportedClientMessageTypes).toContain(type);
+  });
+
+  it.each(PHASE4_COMMAND_SURFACE_TYPES)("keeps phase-4 command-surface action %s available on the websocket surface", (type) => {
     expect(supportedClientMessageTypes).toContain(type);
   });
 });
