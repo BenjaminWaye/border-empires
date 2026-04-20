@@ -16,7 +16,8 @@ describe("simulation runtime env", () => {
       systemTickMs: 500,
       globalStatusBroadcastDebounceMs: 15000,
       startupRecoveryTimeoutMs: 15000,
-      allowSeedRecoveryFallback: false
+      allowSeedRecoveryFallback: false,
+      useAiWorker: false
     });
   });
 
@@ -63,8 +64,15 @@ describe("simulation runtime env", () => {
       globalStatusBroadcastDebounceMs: 20000,
       startupRecoveryTimeoutMs: 20000,
       allowSeedRecoveryFallback: false,
-      systemPlayerIds: ["barbarian-1", "barbarian-2"]
+      systemPlayerIds: ["barbarian-1", "barbarian-2"],
+      useAiWorker: false
     });
+  });
+
+  it("enables AI worker when SIMULATION_AI_WORKER=1", () => {
+    expect(
+      parseSimulationRuntimeEnv({ SIMULATION_AI_WORKER: "1" })
+    ).toMatchObject({ useAiWorker: true });
   });
 
   it("allows seed fallback for non-db local startup only", () => {

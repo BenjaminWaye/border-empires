@@ -12,8 +12,10 @@ import { createSimulationSnapshotStore } from "./snapshot-store-factory.js";
 import type { SimulationSnapshotStore } from "./snapshot-store.js";
 import { createSnapshotCheckpointManager } from "./snapshot-checkpoint-manager.js";
 import { createAiCommandProducer } from "./ai-command-producer.js";
+import { createWorkerAiCommandProducer } from "./ai-command-producer-worker.js";
 import { recoverCommandHistory } from "./command-recovery.js";
 import { createSystemCommandProducer } from "./system-command-producer.js";
+import { createWorkerSystemCommandProducer } from "./system-command-producer-worker.js";
 import { loadLegacySnapshotBootstrap } from "./legacy-snapshot-bootstrap.js";
 import { buildNextClientSeqByPlayer } from "./next-client-seq.js";
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
@@ -116,6 +118,7 @@ type SimulationServiceOptions = {
   systemPlayerIds?: string[];
   startupRecoveryTimeoutMs?: number;
   allowSeedRecoveryFallback?: boolean;
+  useAiWorker?: boolean;
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
   snapshotStore?: SimulationSnapshotStore;
@@ -461,30 +464,49 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const recoveredCommands = startupRecovery.initialCommandHistory.commands;
   const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
     buildNextClientSeqByPlayer(recoveredCommands, playerIds);
-  const aiCommandProducer =
-    options.enableAiAutopilot
-      ? createAiCommandProducer({
+  const useAiWorker = options.useAiWorker ?? false;
+  const aiShouldRun = () =>
+    !persistenceQueue.isDegraded() && persistenceQueue.pendingCount() < autopilotMaxPersistencePending;
+  const aiCommandProducer = options.enableAiAutopilot
+    ? useAiWorker
+      ? createWorkerAiCommandProducer({
           runtime,
           aiPlayerIds,
           submitCommand: submitDurableCommand,
-          shouldRun: () =>
-            !persistenceQueue.isDegraded() && persistenceQueue.pendingCount() < autopilotMaxPersistencePending,
+          shouldRun: aiShouldRun,
           startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
           tickIntervalMs: options.aiTickMs ?? 250
         })
-      : undefined;
-  const systemCommandProducer =
-    options.enableSystemAutopilot
-      ? createSystemCommandProducer({
+      : createAiCommandProducer({
+          runtime,
+          aiPlayerIds,
+          submitCommand: submitDurableCommand,
+          shouldRun: aiShouldRun,
+          startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
+          tickIntervalMs: options.aiTickMs ?? 250
+        })
+    : undefined;
+  const systemShouldRun = () =>
+    !persistenceQueue.isDegraded() && persistenceQueue.pendingCount() < autopilotMaxPersistencePending;
+  const systemCommandProducer = options.enableSystemAutopilot
+    ? useAiWorker
+      ? createWorkerSystemCommandProducer({
           runtime,
           systemPlayerIds,
           submitCommand: submitDurableCommand,
-          shouldRun: () =>
-            !persistenceQueue.isDegraded() && persistenceQueue.pendingCount() < autopilotMaxPersistencePending,
+          shouldRun: systemShouldRun,
           startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
           tickIntervalMs: options.systemTickMs ?? 500
         })
-      : undefined;
+      : createSystemCommandProducer({
+          runtime,
+          systemPlayerIds,
+          submitCommand: submitDurableCommand,
+          shouldRun: systemShouldRun,
+          startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
+          tickIntervalMs: options.systemTickMs ?? 500
+        })
+    : undefined;
 
   runtime.onEvent((event) => {
     const shouldBroadcastGlobalStatus =
