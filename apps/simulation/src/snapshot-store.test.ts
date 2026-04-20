@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { InMemorySimulationSnapshotStore, buildSimulationSnapshotPayload } from "./snapshot-store.js";
+import { InMemorySimulationSnapshotStore, buildSimulationSnapshotSections } from "./snapshot-store.js";
 
 describe("InMemorySimulationSnapshotStore", () => {
   it("saves and loads the latest snapshot", async () => {
     const store = new InMemorySimulationSnapshotStore();
-    const snapshotPayload = buildSimulationSnapshotPayload({
+    const snapshotSections = buildSimulationSnapshotSections({
       initialState: {
         tiles: [{ x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" }],
         activeLocks: []
@@ -44,7 +44,7 @@ describe("InMemorySimulationSnapshotStore", () => {
 
     await store.saveSnapshot({
       lastAppliedEventId: 3,
-      snapshotPayload,
+      snapshotSections,
       createdAt: 1000
     });
 
@@ -56,7 +56,7 @@ describe("InMemorySimulationSnapshotStore", () => {
         initialState: {
           tiles: [{ x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" }]
         },
-        commandEvents: [{ commandId: "cmd-1" }]
+        commandEvents: []
       }
     });
   });

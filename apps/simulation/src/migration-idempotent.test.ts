@@ -21,7 +21,8 @@ const MIGRATIONS = [
   "0004_player_projection.sql",
   "0005_tile_projection.sql",
   "0006_combat_lock_projection.sql",
-  "0007_visibility_projection.sql"
+  "0007_visibility_projection.sql",
+  "0008_bounded_storage.sql"
 ];
 
 describe.skipIf(!DB_URL)("migration idempotency", () => {

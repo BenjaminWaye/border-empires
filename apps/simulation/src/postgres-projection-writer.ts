@@ -8,6 +8,7 @@
  */
 
 import type { RecoveredSimulationState } from "./event-recovery.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 
 type Queryable = {
   query: (sql: string, params?: readonly unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>;
@@ -95,32 +96,32 @@ const buildVisibilityMap = (
 };
 
 /**
- * Write all four projection tables for the given snapshot in a single
- * database round-trip per table. Safe to call inside or outside a transaction.
+ * Refresh all current-state projection tables from one runtime export.
+ * Call from within the checkpoint transaction for consistent compaction.
  */
-export const writeProjectionsForSnapshot = async (
+export const writeCurrentProjections = async (
   db: Queryable,
-  snapshotId: number,
   recoveredState: RecoveredSimulationState,
-  exportedState: ProjectionExportState
+  exportedState: ProjectionExportState,
+  updatedAt: number
 ): Promise<void> => {
+  await db.query("TRUNCATE player_projection_current, tile_projection_current, combat_lock_projection_current, visibility_projection_current");
   await Promise.all([
-    writePlayerProjection(db, snapshotId, exportedState.players),
-    writeTileProjection(db, snapshotId, recoveredState.tiles),
-    writeCombatLockProjection(db, snapshotId, exportedState.activeLocks),
-    writeVisibilityProjection(db, snapshotId, exportedState.players)
+    writePlayerProjection(db, exportedState.players, updatedAt),
+    writeTileProjection(db, recoveredState.tiles, updatedAt),
+    writeCombatLockProjection(db, exportedState.activeLocks, updatedAt),
+    writeVisibilityProjection(db, exportedState.players, updatedAt)
   ]);
 };
 
 const writePlayerProjection = async (
   db: Queryable,
-  snapshotId: number,
-  players: ProjectionExportState["players"]
+  players: ProjectionExportState["players"],
+  updatedAt: number
 ): Promise<void> => {
   if (players.length === 0) return;
 
   const rows = players.map((p) => [
-    snapshotId,
     p.id,
     p.name ?? null,
     p.points,
@@ -133,33 +134,33 @@ const writePlayerProjection = async (
     p.territoryTileKeys.length,
     p.settledTileCount ?? null,
     p.townCount ?? null,
-    p.incomePerMinute ?? null
+    p.incomePerMinute ?? null,
+    updatedAt
   ]);
 
   // Build a multi-row INSERT for performance
   const placeholders = rows
     .map(
       (_, i) =>
-        `($${i * 14 + 1},$${i * 14 + 2},$${i * 14 + 3},$${i * 14 + 4},$${i * 14 + 5},$${i * 14 + 6},$${i * 14 + 7}::jsonb,$${i * 14 + 8}::jsonb,$${i * 14 + 9}::jsonb,$${i * 14 + 10}::jsonb,$${i * 14 + 11},$${i * 14 + 12},$${i * 14 + 13},$${i * 14 + 14})`
+        `($${i * 14 + 1},$${i * 14 + 2},$${i * 14 + 3},$${i * 14 + 4},$${i * 14 + 5},$${i * 14 + 6}::jsonb,$${i * 14 + 7}::jsonb,$${i * 14 + 8}::jsonb,$${i * 14 + 9}::jsonb,$${i * 14 + 10},$${i * 14 + 11},$${i * 14 + 12},$${i * 14 + 13},$${i * 14 + 14})`
     )
     .join(",");
   const values = rows.flat();
 
   await db.query(
-    `INSERT INTO player_projection (
-       snapshot_id,player_id,name,points,manpower,manpower_cap,
+    `INSERT INTO player_projection_current (
+       player_id,name,points,manpower,manpower_cap,
        tech_ids,domain_ids,strategic_resources,allies,
-       territory_tile_count,settled_tile_count,town_count,income_per_minute
-     ) VALUES ${placeholders}
-     ON CONFLICT (snapshot_id, player_id) DO NOTHING`,
+       territory_tile_count,settled_tile_count,town_count,income_per_minute,updated_at
+     ) VALUES ${placeholders}`,
     values
   );
 };
 
 const writeTileProjection = async (
   db: Queryable,
-  snapshotId: number,
-  tiles: RecoveredSimulationState["tiles"]
+  tiles: RecoveredSimulationState["tiles"],
+  updatedAt: number
 ): Promise<void> => {
   if (tiles.length === 0) return;
 
@@ -168,7 +169,6 @@ const writeTileProjection = async (
   for (let offset = 0; offset < tiles.length; offset += BATCH) {
     const batch = tiles.slice(offset, offset + BATCH);
     const rows = batch.map((t) => [
-      snapshotId,
       tileKeyOf(t.x, t.y),
       t.x,
       t.y,
@@ -183,23 +183,23 @@ const writeTileProjection = async (
       t.siegeOutpost ? JSON.stringify(t.siegeOutpost) : null,
       t.economicStructure ? JSON.stringify(t.economicStructure) : null,
       t.sabotage ? JSON.stringify(t.sabotage) : null,
-      t.shardSite ? JSON.stringify(t.shardSite) : null
+      t.shardSite ? JSON.stringify(t.shardSite) : null,
+      updatedAt
     ]);
 
     const placeholders = rows
       .map(
         (_, i) =>
-          `($${i * 16 + 1},$${i * 16 + 2},$${i * 16 + 3},$${i * 16 + 4},$${i * 16 + 5},$${i * 16 + 6},$${i * 16 + 7},$${i * 16 + 8},$${i * 16 + 9},$${i * 16 + 10}::jsonb,$${i * 16 + 11}::jsonb,$${i * 16 + 12}::jsonb,$${i * 16 + 13}::jsonb,$${i * 16 + 14}::jsonb,$${i * 16 + 15}::jsonb,$${i * 16 + 16}::jsonb)`
+          `($${i * 16 + 1},$${i * 16 + 2},$${i * 16 + 3},$${i * 16 + 4},$${i * 16 + 5},$${i * 16 + 6},$${i * 16 + 7},$${i * 16 + 8},$${i * 16 + 9}::jsonb,$${i * 16 + 10}::jsonb,$${i * 16 + 11}::jsonb,$${i * 16 + 12}::jsonb,$${i * 16 + 13}::jsonb,$${i * 16 + 14}::jsonb,$${i * 16 + 15}::jsonb,$${i * 16 + 16})`
       )
       .join(",");
 
     await db.query(
-      `INSERT INTO tile_projection (
-         snapshot_id,tile_key,x,y,terrain,resource,dock_id,
+      `INSERT INTO tile_projection_current (
+         tile_key,x,y,terrain,resource,dock_id,
          owner_id,ownership_state,town,fort,observatory,
-         siege_outpost,economic_structure,sabotage,shard_site
-       ) VALUES ${placeholders}
-       ON CONFLICT (snapshot_id, tile_key) DO NOTHING`,
+         siege_outpost,economic_structure,sabotage,shard_site,updated_at
+       ) VALUES ${placeholders}`,
       rows.flat()
     );
   }
@@ -207,46 +207,44 @@ const writeTileProjection = async (
 
 const writeCombatLockProjection = async (
   db: Queryable,
-  snapshotId: number,
-  locks: ProjectionExportState["activeLocks"]
+  locks: ProjectionExportState["activeLocks"],
+  updatedAt: number
 ): Promise<void> => {
   if (locks.length === 0) return;
 
-  const rows = locks.map((l) => [snapshotId, l.commandId, l.playerId, l.originKey, l.targetKey, l.resolvesAt]);
+  const rows = locks.map((l) => [l.commandId, l.playerId, l.originKey, l.targetKey, l.resolvesAt, updatedAt]);
   const placeholders = rows
     .map((_, i) => `($${i * 6 + 1},$${i * 6 + 2},$${i * 6 + 3},$${i * 6 + 4},$${i * 6 + 5},$${i * 6 + 6})`)
     .join(",");
 
   await db.query(
-    `INSERT INTO combat_lock_projection (snapshot_id,command_id,player_id,origin_key,target_key,resolves_at)
-     VALUES ${placeholders}
-     ON CONFLICT (snapshot_id, command_id) DO NOTHING`,
+    `INSERT INTO combat_lock_projection_current (command_id,player_id,origin_key,target_key,resolves_at,updated_at)
+     VALUES ${placeholders}`,
     rows.flat()
   );
 };
 
 const writeVisibilityProjection = async (
   db: Queryable,
-  snapshotId: number,
-  players: ProjectionExportState["players"]
+  players: ProjectionExportState["players"],
+  updatedAt: number
 ): Promise<void> => {
   if (players.length === 0) return;
 
-  const visibilityMap = buildVisibilityMap(players);
+  const visibilityMap = buildVisibilityMap(players, WORLD_WIDTH, WORLD_HEIGHT, 3);
   const rows = [...visibilityMap.entries()].map(([playerId, keys]) => [
-    snapshotId,
     playerId,
-    JSON.stringify(keys)
+    JSON.stringify(keys),
+    updatedAt
   ]);
 
   const placeholders = rows
-    .map((_, i) => `($${i * 3 + 1},$${i * 3 + 2},$${i * 3 + 3}::jsonb)`)
+    .map((_, i) => `($${i * 3 + 1},$${i * 3 + 2}::jsonb,$${i * 3 + 3})`)
     .join(",");
 
   await db.query(
-    `INSERT INTO visibility_projection (snapshot_id,player_id,visible_tile_keys)
-     VALUES ${placeholders}
-     ON CONFLICT (snapshot_id, player_id) DO NOTHING`,
+    `INSERT INTO visibility_projection_current (player_id,visible_tile_keys,updated_at)
+     VALUES ${placeholders}`,
     rows.flat()
   );
 };
