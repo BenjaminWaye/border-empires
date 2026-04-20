@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@border-empires/client-protocol": "workspace:*",
+    "@border-empires/game-domain": "workspace:*",
     "@border-empires/shared": "workspace:*",
     "@border-empires/sim-protocol": "workspace:*",
     "@fastify/websocket": "^10.0.1",
