@@ -22,18 +22,7 @@ export type SimulationRuntimeEnv = {
   allowSeedRecoveryFallback: boolean;
   /** When true, AI/system planning runs in worker threads off the main event loop. */
   useAiWorker: boolean;
-  runtimeIdentity?: {
-    sourceType: "legacy-snapshot" | "seed-profile";
-    seasonId: string;
-    worldSeed: number;
-    fingerprint: string;
-    snapshotLabel?: string;
-    seedProfile?: string;
-    playerCount: number;
-    seededTileCount: number;
-  };
 };
-type RuntimeSourceType = "legacy-snapshot" | "seed-profile";
 
 const parsePositiveNumber = (value: string | undefined, fallback: number, label: string): number => {
   const parsed = Number(value ?? String(fallback));
@@ -57,34 +46,6 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   const checkpointMaxRssMb = env.SIMULATION_CHECKPOINT_MAX_RSS_MB;
   const checkpointMaxHeapUsedMb = env.SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB;
   const allowSeedRecoveryFallback = env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK === "1" && !databaseUrl;
-  const runtimeSeasonId = env.SIMULATION_RUNTIME_SEASON_ID;
-  const runtimeSourceType = env.SIMULATION_RUNTIME_SOURCE_TYPE;
-  const runtimeWorldSeed = env.SIMULATION_RUNTIME_WORLD_SEED;
-  const runtimeFingerprint = env.SIMULATION_RUNTIME_FINGERPRINT;
-  const runtimePlayerCount = env.SIMULATION_RUNTIME_PLAYER_COUNT;
-  const runtimeSeededTileCount = env.SIMULATION_RUNTIME_SEEDED_TILE_COUNT;
-  const parseRuntimeSourceType = (value: string): RuntimeSourceType => {
-    if (value === "legacy-snapshot" || value === "seed-profile") return value;
-    throw new Error(`invalid simulation runtime source type: ${value}`);
-  };
-  const runtimeIdentity =
-    runtimeSeasonId &&
-    runtimeSourceType &&
-    runtimeWorldSeed &&
-    runtimeFingerprint &&
-    runtimePlayerCount &&
-    runtimeSeededTileCount
-      ? {
-          sourceType: parseRuntimeSourceType(runtimeSourceType),
-          seasonId: runtimeSeasonId,
-          worldSeed: parsePositiveNumber(runtimeWorldSeed, 0, "simulation runtime world seed"),
-          fingerprint: runtimeFingerprint,
-          playerCount: parsePositiveNumber(runtimePlayerCount, 0, "simulation runtime player count"),
-          seededTileCount: parsePositiveNumber(runtimeSeededTileCount, 0, "simulation runtime seeded tile count"),
-          ...(env.SIMULATION_RUNTIME_SNAPSHOT_LABEL ? { snapshotLabel: env.SIMULATION_RUNTIME_SNAPSHOT_LABEL } : {}),
-          ...(env.SIMULATION_RUNTIME_SEED_PROFILE ? { seedProfile: env.SIMULATION_RUNTIME_SEED_PROFILE } : {})
-        }
-      : undefined;
 
   return {
     host: env.SIMULATION_HOST ?? "127.0.0.1",
@@ -125,7 +86,6 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     ),
     allowSeedRecoveryFallback,
     useAiWorker: env.SIMULATION_AI_WORKER === "1",
-    ...(systemPlayerIds && systemPlayerIds.length > 0 ? { systemPlayerIds } : {}),
-    ...(runtimeIdentity ? { runtimeIdentity } : {})
+    ...(systemPlayerIds && systemPlayerIds.length > 0 ? { systemPlayerIds } : {})
   };
 };
