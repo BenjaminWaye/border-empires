@@ -55,6 +55,8 @@ COPY --from=build /app/apps/realtime-gateway/dist ./apps/realtime-gateway/dist
 COPY --from=build /app/apps/realtime-gateway/node_modules ./apps/realtime-gateway/node_modules
 COPY --from=build /app/apps/realtime-gateway/sql ./apps/realtime-gateway/sql
 
+RUN chmod -R a+rX /app/packages/game-domain/data /app/apps/realtime-gateway/packages/game-domain/data
+
 RUN mkdir -p /app/node_modules/@border-empires \
   && ln -sfn /app/packages/shared /app/node_modules/@border-empires/shared \
   && ln -sfn /app/packages/game-domain /app/node_modules/@border-empires/game-domain \
