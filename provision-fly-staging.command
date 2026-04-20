@@ -34,10 +34,23 @@ fi
 echo ""
 echo "=== Creating staging databases ==="
 
-# Create staging database and role
-fly postgres connect -a border-empires-postgres << 'SQL'
+# Create staging database and role.
+# IMPORTANT: Replace <STAGING_PASSWORD> with a strong random password before running.
+# Generate one with: openssl rand -base64 32
+# Store in 1Password under "Border Empires / be_staging Postgres".
+# Do NOT commit the real password to the repo.
+STAGING_PASSWORD="${STAGING_DB_PASSWORD:-}"
+if [ -z "$STAGING_PASSWORD" ]; then
+  echo ""
+  echo "ERROR: Set STAGING_DB_PASSWORD env var to a strong password before running."
+  echo "  export STAGING_DB_PASSWORD=\"\$(openssl rand -base64 32)\""
+  echo "Then re-run this script."
+  exit 1
+fi
+
+fly postgres connect -a border-empires-postgres << SQL
 CREATE DATABASE border_empires_staging;
-CREATE ROLE be_staging LOGIN PASSWORD 'staging_changeme';
+CREATE ROLE be_staging LOGIN PASSWORD '${STAGING_PASSWORD}';
 GRANT ALL PRIVILEGES ON DATABASE border_empires_staging TO be_staging;
 SQL
 

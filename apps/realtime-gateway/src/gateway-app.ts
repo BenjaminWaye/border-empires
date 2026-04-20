@@ -311,6 +311,36 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           playerSubscriptions.updateSnapshot(session.playerId, (snapshot) => applyPlayerMessageToSnapshot(snapshot, event.payload));
         }
       }
+      // TILE_DELTA_BATCH: snapshot updates and persistence must run exactly once
+      // per event (not once per socket), so handle them before the per-socket fan-out loop.
+      if (event.eventType === "TILE_DELTA_BATCH") {
+        const tileDeltas = event.tileDeltas.length > 0 ? event.tileDeltas : (fallbackTileDeltasByCommandId.get(event.commandId) ?? []);
+        fallbackTileDeltasByCommandId.delete(event.commandId);
+        // Update cached snapshot for every subscriber (all sockets, all channels) — once.
+        for (const targetSocket of sockets) {
+          const session = sessionsBySocket.get(targetSocket);
+          if (!session?.playerId) continue;
+          playerSubscriptions.updateSnapshot(session.playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
+        }
+        // Persist command resolution exactly once, not once per socket.
+        void commandStore.get(event.commandId).then((command) => {
+          if (!command) return;
+          if (command.type === "ATTACK" || command.type === "EXPAND" || command.type === "BREAKTHROUGH_ATTACK") return;
+          void commandStore.markResolved(event.commandId, Date.now()).catch((error) =>
+            app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved non-frontier command")
+          );
+        });
+        // Fan out the TILE_DELTA_BATCH message to the preferred channel (bulk > control).
+        const tileDeltaPayload = {
+          type: "TILE_DELTA_BATCH",
+          commandId: event.commandId,
+          tiles: jsonSafeTileDeltaBatch(tileDeltas)
+        };
+        for (const targetSocket of socketsForEvent(sockets, "TILE_DELTA_BATCH")) {
+          queueOrSendSessionPayload(targetSocket, tileDeltaPayload);
+        }
+        return;
+      }
       for (const socket of socketsForEvent(sockets, event.eventType)) {
         if (event.eventType === "COMMAND_ACCEPTED") {
           void commandStore
@@ -355,28 +385,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             type: "COMBAT_CANCELLED",
             commandId: event.commandId,
             count: event.count
-          });
-          continue;
-        }
-        if (event.eventType === "TILE_DELTA_BATCH") {
-          const tileDeltas = event.tileDeltas.length > 0 ? event.tileDeltas : (fallbackTileDeltasByCommandId.get(event.commandId) ?? []);
-          fallbackTileDeltasByCommandId.delete(event.commandId);
-          for (const socket of sockets) {
-            const session = sessionsBySocket.get(socket);
-            if (!session?.playerId) continue;
-            playerSubscriptions.updateSnapshot(session.playerId, (snapshot) => applyTileDeltasToSnapshot(snapshot, tileDeltas));
-          }
-          void commandStore.get(event.commandId).then((command) => {
-            if (!command) return;
-            if (command.type === "ATTACK" || command.type === "EXPAND" || command.type === "BREAKTHROUGH_ATTACK") return;
-            void commandStore.markResolved(event.commandId, Date.now()).catch((error) =>
-              app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved non-frontier command")
-            );
-          });
-          queueOrSendSessionPayload(socket, {
-            type: "TILE_DELTA_BATCH",
-            commandId: event.commandId,
-            tiles: jsonSafeTileDeltaBatch(tileDeltas)
           });
           continue;
         }
