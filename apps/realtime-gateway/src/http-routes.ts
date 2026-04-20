@@ -52,14 +52,28 @@ const addCorsHeaders = (app: FastifyInstance): void => {
 export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGatewayHttpRoutesDeps): void => {
   addCorsHeaders(app);
 
-  app.get("/health", async (_request, reply) => {
+  const readHealth = () => {
     const health = deps.health();
-    if (!health.ok) reply.code(503);
     return {
-      ok: health.ok,
-      simulation: health.simulation,
-      runtimeIdentity: deps.runtimeIdentity
+      statusCode: health.ok ? 200 : 503,
+      body: {
+        ok: health.ok,
+        simulation: health.simulation,
+        runtimeIdentity: deps.runtimeIdentity
+      }
     };
+  };
+
+  app.get("/health", async (_request, reply) => {
+    const health = readHealth();
+    reply.code(health.statusCode);
+    return health.body;
+  });
+
+  app.get("/healthz", async (_request, reply) => {
+    const health = readHealth();
+    reply.code(health.statusCode);
+    return health.body;
   });
 
   app.get("/admin/runtime/debug-bundle", async () => ({
@@ -88,7 +102,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   }));
 
   app.get("/metrics", async (_request, reply) => {
-    reply.header("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    reply.header("Content-Type", "text/plain; version=0.0.4");
     return deps.metrics();
   });
 };
