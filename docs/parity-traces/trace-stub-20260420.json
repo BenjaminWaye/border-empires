@@ -1,0 +1,77 @@
+{
+  "description": "10-minute canonical parity trace — recorded 2026-04-20",
+  "recordedAt": "2026-04-20T00:00:00.000Z",
+  "playerId": "__parity_harness_player__",
+  "durationMinutes": 10,
+  "note": "This is a stub trace demonstrating the format. Replace with a real recorded trace captured via PARITY_RECORD=1 mode (to be implemented). Commands must be executable against both the legacy server and the rewrite gateway from the same starting world state (same seed, same snapshot import).",
+  "worldSeed": 20,
+  "snapshotLabel": "parity-stub",
+  "commands": [
+    {
+      "description": "Expand to an adjacent frontier tile",
+      "commandId": "parity-expand-001",
+      "waitForEvent": "FRONTIER_RESULT",
+      "message": {
+        "type": "EXPAND",
+        "fromX": 10,
+        "fromY": 10,
+        "toX": 11,
+        "toY": 10
+      }
+    },
+    {
+      "description": "Settle the newly captured frontier tile",
+      "commandId": "parity-settle-001",
+      "waitForEvent": "TILE_DELTA_BATCH",
+      "message": {
+        "type": "SETTLE",
+        "x": 11,
+        "y": 10
+      }
+    },
+    {
+      "description": "Attack a neighbouring hostile tile",
+      "commandId": "parity-attack-001",
+      "waitForEvent": "COMBAT_RESULT",
+      "message": {
+        "type": "ATTACK",
+        "fromX": 10,
+        "fromY": 10,
+        "toX": 10,
+        "toY": 9
+      }
+    },
+    {
+      "description": "Collect visible resources",
+      "commandId": "parity-collect-001",
+      "waitForEvent": "COLLECT_RESULT",
+      "message": {
+        "type": "COLLECT_VISIBLE"
+      }
+    },
+    {
+      "description": "Choose a tech (if not already chosen)",
+      "commandId": "parity-tech-001",
+      "waitForEvent": "TECH_UPDATE",
+      "message": {
+        "type": "CHOOSE_TECH",
+        "techId": "tech_fortification"
+      }
+    },
+    {
+      "description": "Build a fort on owned tile",
+      "commandId": "parity-fort-001",
+      "waitForEvent": "TILE_DELTA_BATCH",
+      "message": {
+        "type": "BUILD_FORT",
+        "x": 10,
+        "y": 10
+      }
+    }
+  ],
+  "expectedFinalState": {
+    "note": "Expected state is not enforced by the harness — it only diffs legacy vs rewrite. Fill this in after a green parity run.",
+    "tileCount": null,
+    "ownedTileKeys": []
+  }
+}
