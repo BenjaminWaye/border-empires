@@ -102,7 +102,7 @@ const localAttackPreview = (
     terrain: target.terrain,
     ownershipState: target.ownershipState,
     dockId: target.dockId,
-    townType: target.townType
+    townType: target.town?.type
   });
   preview.valid = true;
   preview.winChance = sharedPreview.winChance;
