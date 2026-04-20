@@ -10,6 +10,7 @@ import type { GatewayCommandStore } from "./command-store.js";
 import { createGatewayCommandStore } from "./command-store-factory.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "./frontier-submit.js";
 import { registerGatewayHttpRoutes } from "./http-routes.js";
+import { createGatewayMetrics } from "./metrics.js";
 import { createPlayerSubscriptions } from "./player-subscriptions.js";
 import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
 import { withTimeout } from "./promise-timeout.js";
@@ -151,6 +152,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     lastReadyAt: undefined as number | undefined,
     lastError: undefined as string | undefined
   };
+  const gatewayMetrics = createGatewayMetrics();
+  let gatewayMetricsTimer: ReturnType<typeof setInterval> | undefined;
+  let gatewayEventLoopTimer: ReturnType<typeof setInterval> | undefined;
+  let gatewayEventLoopWindowMaxMs = 0;
+  let expectedEventLoopTickAt = Date.now() + 100;
   let simulationHealthTimer: ReturnType<typeof setInterval> | undefined;
   const markSimulationReady = (): void => {
     simulationHealth.connected = true;
@@ -251,7 +257,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     ...(options.snapshotDir ? { snapshotDir: options.snapshotDir } : {}),
     ...(legacySnapshotBootstrap ? { runtimeIdentity: legacySnapshotBootstrap.runtimeIdentity } : {}),
     supportedMessageTypes: [...supportedClientMessageTypes],
-    recentEvents: () => [...recentGatewayEvents]
+    recentEvents: () => [...recentGatewayEvents],
+    metrics: () => gatewayMetrics.renderPrometheus()
   });
 
   const socketsForEvent = (
@@ -465,9 +472,34 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   simulationHealthTimer = setInterval(() => {
     void refreshSimulationHealth();
   }, 2_000);
+  gatewayEventLoopTimer = setInterval(() => {
+    const now = Date.now();
+    const lagMs = Math.max(0, now - expectedEventLoopTickAt);
+    gatewayEventLoopWindowMaxMs = Math.max(gatewayEventLoopWindowMaxMs, lagMs);
+    expectedEventLoopTickAt = now + 100;
+  }, 100);
+  gatewayMetricsTimer = setInterval(() => {
+    gatewayMetrics.setGatewayEventLoopMaxMs(gatewayEventLoopWindowMaxMs);
+    gatewayEventLoopWindowMaxMs = 0;
+    gatewayMetrics.setGatewayWsSessions(playerSubscriptions.allSockets().size);
+    gatewayMetrics.setGatewayBackendConnected(simulationHealth.connected);
+    const sample = gatewayMetrics.snapshot();
+    app.log.info(
+      {
+        gateway_event_loop_max_ms: sample.gatewayEventLoopMaxMs,
+        gateway_ws_sessions: sample.gatewayWsSessions,
+        gateway_backend_connected: sample.gatewayBackendConnected,
+        gateway_command_submit_latency_ms: sample.gatewayCommandSubmitLatencyMs,
+        gateway_sim_rpc_latency_ms: sample.gatewaySimRpcLatencyMs
+      },
+      "gateway metrics sample"
+    );
+  }, 1_000);
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
+    if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
+    if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     stopSimulationStream();
   });
 
@@ -808,370 +840,441 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             createCommandId: options.createCommandId ?? (() => crypto.randomUUID()),
             now: options.now ?? (() => Date.now()),
             commandStore,
-            submitCommand: (command: Parameters<typeof simulationClient.submitCommand>[0]) => simulationClient.submitCommand(command),
+            submitCommand: async (command: Parameters<typeof simulationClient.submitCommand>[0]) => {
+              const rpcStartedAt = Date.now();
+              try {
+                await simulationClient.submitCommand(command);
+              } finally {
+                gatewayMetrics.observeGatewaySimRpcLatencyMs(Date.now() - rpcStartedAt);
+              }
+            },
             sendJson: (payload: unknown) => sendJson(socket, payload)
+          };
+          const trackSubmitLatency = async (submit: () => Promise<void>): Promise<void> => {
+            const submitStartedAt = Date.now();
+            try {
+              await submit();
+            } finally {
+              gatewayMetrics.observeGatewayCommandSubmitLatencyMs(Date.now() - submitStartedAt);
+            }
           };
           if (message.type === "SETTLE") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "SETTLE",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "SETTLE",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "BUILD_FORT") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "BUILD_FORT",
-                payload: {
-                  x: message.x,
-                  y: message.y
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "BUILD_FORT",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "BUILD_OBSERVATORY") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "BUILD_OBSERVATORY",
-                payload: {
-                  x: message.x,
-                  y: message.y
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "BUILD_OBSERVATORY",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "BUILD_SIEGE_OUTPOST") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "BUILD_SIEGE_OUTPOST",
-                payload: {
-                  x: message.x,
-                  y: message.y
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "BUILD_SIEGE_OUTPOST",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "BUILD_ECONOMIC_STRUCTURE") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "BUILD_ECONOMIC_STRUCTURE",
-                payload: {
-                  x: message.x,
-                  y: message.y,
-                  structureType: message.structureType
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "BUILD_ECONOMIC_STRUCTURE",
+                  payload: {
+                    x: message.x,
+                    y: message.y,
+                    structureType: message.structureType
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "CANCEL_FORT_BUILD") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CANCEL_FORT_BUILD",
-                payload: {
-                  x: message.x,
-                  y: message.y
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CANCEL_FORT_BUILD",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "CANCEL_STRUCTURE_BUILD") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CANCEL_STRUCTURE_BUILD",
-                payload: {
-                  x: message.x,
-                  y: message.y
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CANCEL_STRUCTURE_BUILD",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "REMOVE_STRUCTURE") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "REMOVE_STRUCTURE",
-                payload: {
-                  x: message.x,
-                  y: message.y
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "REMOVE_STRUCTURE",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "CANCEL_SIEGE_OUTPOST_BUILD") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CANCEL_SIEGE_OUTPOST_BUILD",
-                payload: {
-                  x: message.x,
-                  y: message.y
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CANCEL_SIEGE_OUTPOST_BUILD",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "COLLECT_VISIBLE") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "COLLECT_VISIBLE",
-                payload: {}
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "COLLECT_VISIBLE",
+                  payload: {}
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "COLLECT_TILE") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "COLLECT_TILE",
-                payload: {
-                  x: message.x,
-                  y: message.y
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "COLLECT_TILE",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "UNCAPTURE_TILE") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "UNCAPTURE_TILE",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "UNCAPTURE_TILE",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "CHOOSE_TECH") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CHOOSE_TECH",
-                payload: {
-                  techId: message.techId
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CHOOSE_TECH",
+                  payload: {
+                    techId: message.techId
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "CHOOSE_DOMAIN") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CHOOSE_DOMAIN",
-                payload: {
-                  domainId: message.domainId
-                }
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CHOOSE_DOMAIN",
+                  payload: {
+                    domainId: message.domainId
+                  }
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "CANCEL_CAPTURE") {
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CANCEL_CAPTURE",
-                payload: {}
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CANCEL_CAPTURE",
+                  payload: {}
+                },
+                submitDeps
+              )
             );
           } else if (message.type === "OVERLOAD_SYNTHESIZER") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "OVERLOAD_SYNTHESIZER",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "OVERLOAD_SYNTHESIZER",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "SET_CONVERTER_STRUCTURE_ENABLED",
-                payload: {
-                  x: message.x,
-                  y: message.y,
-                  enabled: message.enabled
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "SET_CONVERTER_STRUCTURE_ENABLED",
+                  payload: {
+                    x: message.x,
+                    y: message.y,
+                    enabled: message.enabled
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "REVEAL_EMPIRE") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "REVEAL_EMPIRE",
-                payload: {
-                  targetPlayerId: message.targetPlayerId
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "REVEAL_EMPIRE",
+                  payload: {
+                    targetPlayerId: message.targetPlayerId
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "REVEAL_EMPIRE_STATS") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "REVEAL_EMPIRE_STATS",
-                payload: {
-                  targetPlayerId: message.targetPlayerId
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "REVEAL_EMPIRE_STATS",
+                  payload: {
+                    targetPlayerId: message.targetPlayerId
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "CAST_AETHER_BRIDGE") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CAST_AETHER_BRIDGE",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CAST_AETHER_BRIDGE",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "CAST_AETHER_WALL") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CAST_AETHER_WALL",
-                payload: {
-                  x: message.x,
-                  y: message.y,
-                  direction: message.direction,
-                  length: message.length
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CAST_AETHER_WALL",
+                  payload: {
+                    x: message.x,
+                    y: message.y,
+                    direction: message.direction,
+                    length: message.length
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "SIPHON_TILE") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "SIPHON_TILE",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "SIPHON_TILE",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "PURGE_SIPHON") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "PURGE_SIPHON",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "PURGE_SIPHON",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "CREATE_MOUNTAIN") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "CREATE_MOUNTAIN",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "CREATE_MOUNTAIN",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "REMOVE_MOUNTAIN") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "REMOVE_MOUNTAIN",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "REMOVE_MOUNTAIN",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "AIRPORT_BOMBARD") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "AIRPORT_BOMBARD",
-                payload: {
-                  fromX: message.fromX,
-                  fromY: message.fromY,
-                  toX: message.toX,
-                  toY: message.toY
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "AIRPORT_BOMBARD",
+                  payload: {
+                    fromX: message.fromX,
+                    fromY: message.fromY,
+                    toX: message.toX,
+                    toY: message.toY
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else if (message.type === "COLLECT_SHARD") {
             const metadata = optionalCommandMetadata(message);
-            await submitDurableCommand(
-              authedSession,
-              {
-                type: "COLLECT_SHARD",
-                payload: {
-                  x: message.x,
-                  y: message.y
+            await trackSubmitLatency(() =>
+              submitDurableCommand(
+                authedSession,
+                {
+                  type: "COLLECT_SHARD",
+                  payload: {
+                    x: message.x,
+                    y: message.y
+                  },
+                  ...metadata
                 },
-                ...metadata
-              },
-              submitDeps
+                submitDeps
+              )
             );
           } else {
             const metadata = optionalCommandMetadata(message);
-            await submitFrontierCommand(
-              authedSession,
-              {
-                type: message.type,
-                fromX: message.fromX,
-                fromY: message.fromY,
-                toX: message.toX,
-                toY: message.toY,
-                ...metadata
-              },
-              submitDeps
+            await trackSubmitLatency(() =>
+              submitFrontierCommand(
+                authedSession,
+                {
+                  type: message.type,
+                  fromX: message.fromX,
+                  fromY: message.fromY,
+                  toX: message.toX,
+                  toY: message.toY,
+                  ...metadata
+                },
+                submitDeps
+              )
             );
           }
           session.nextClientSeq = authedSession.nextClientSeq;

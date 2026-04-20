@@ -206,11 +206,14 @@ export const renderClientHud = (deps: HudDeps): void => {
     const runtimeFingerprint = state.bridgeDebugRuntimeFingerprint || "unknown";
     const snapshotLabel = state.bridgeDebugSnapshotLabel || "n/a";
     const backendLabel = state.activeBackend;
+    const acceptLatencyLabel =
+      state.bridgeDebugAcceptLatencyP95Ms > 0 ? `${Math.round(state.bridgeDebugAcceptLatencyP95Ms)}ms` : "n/a";
     const copyPayload = encodeURIComponent(
       [
         `Backend ${backendLabel}`,
         `Bridge ${modeLabel}`,
         `Bootstrap ${bootstrapLabel}`,
+        `Accept p95 ${acceptLatencyLabel}`,
         `Season ${seasonLabel}`,
         `Runtime ${runtimeFingerprint}`,
         `Snapshot ${snapshotLabel}`,
@@ -225,6 +228,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         <div><strong>Backend</strong> ${backendLabel}</div>
         <div><strong>Bridge</strong> ${modeLabel}</div>
         <div><strong>Bootstrap</strong> ${bootstrapLabel}</div>
+        <div><strong>Accept p95</strong> ${acceptLatencyLabel}</div>
         <div><strong>Season</strong> ${seasonLabel}</div>
         <div><strong>Runtime</strong> ${runtimeFingerprint}</div>
         <div><strong>Snapshot</strong> ${snapshotLabel}</div>

@@ -128,6 +128,7 @@ type ActiveAetherWallView = {
 type SimulationJob = {
   lane: QueueLane;
   run: () => void;
+  enqueuedAt: number;
 };
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -534,6 +535,20 @@ export class SimulationRuntime {
       human_noninteractive: this.jobsByLane.human_noninteractive.length,
       system: this.jobsByLane.system.length,
       ai: this.jobsByLane.ai.length
+    };
+  }
+
+  queueBacklogMs(nowMs = this.now()): Record<QueueLane, number> {
+    const backlogFor = (lane: QueueLane): number => {
+      const oldest = this.jobsByLane[lane][0];
+      if (!oldest) return 0;
+      return Math.max(0, nowMs - oldest.enqueuedAt);
+    };
+    return {
+      human_interactive: backlogFor("human_interactive"),
+      human_noninteractive: backlogFor("human_noninteractive"),
+      system: backlogFor("system"),
+      ai: backlogFor("ai")
     };
   }
 
@@ -960,7 +975,7 @@ export class SimulationRuntime {
   }
 
   private enqueueJob(lane: QueueLane, run: () => void): void {
-    this.jobsByLane[lane].push({ lane, run });
+    this.jobsByLane[lane].push({ lane, run, enqueuedAt: this.now() });
     this.scheduleDrain();
   }
 

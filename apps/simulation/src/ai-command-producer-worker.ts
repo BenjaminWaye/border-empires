@@ -30,6 +30,8 @@ type WorkerAiCommandProducerOptions = {
   now?: () => number;
   tickIntervalMs?: number;
   workerScriptPath?: string;
+  plannerBreachThresholdMs?: number;
+  onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -44,6 +46,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const now = options.now ?? (() => Date.now());
   const tickIntervalMs = Math.max(25, options.tickIntervalMs ?? 250);
   const shouldRun = options.shouldRun ?? (() => true);
+  const plannerBreachThresholdMs = Math.max(1, options.plannerBreachThresholdMs ?? 50);
 
   const nextClientSeqByPlayer = new Map<string, number>(
     options.aiPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
@@ -134,7 +137,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
 
         try {
+          const plannerStartedAt = now();
           const command = await requestPlan(playerId, clientSeq, issuedAt);
+          const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
+          const breached = plannerDurationMs > plannerBreachThresholdMs;
+          options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
           if (command) await options.submitCommand(command);
         } catch {
           // swallow — will retry on next tick

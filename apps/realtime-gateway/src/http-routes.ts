@@ -32,6 +32,7 @@ type RegisterGatewayHttpRoutesDeps = {
   };
   supportedMessageTypes: string[];
   recentEvents: () => GatewayDebugEvent[];
+  metrics: () => string;
 };
 
 const addCorsHeaders = (app: FastifyInstance): void => {
@@ -85,4 +86,9 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       }
     }
   }));
+
+  app.get("/metrics", async (_request, reply) => {
+    reply.header("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    return deps.metrics();
+  });
 };
