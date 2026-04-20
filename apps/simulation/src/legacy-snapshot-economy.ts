@@ -30,18 +30,15 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   STRUCTURE_OUTPUT_MULT,
   TOWN_BASE_GOLD_PER_MIN,
-  WOODEN_FORT_GOLD_UPKEEP
-} from "../../../packages/server/src/server-game-constants.js";
-import { OBSERVATORY_UPKEEP_PER_MIN } from "@border-empires/shared";
-import type {
-  SnapshotEconomySection,
-  SnapshotPlayersSection,
-  SnapshotSystemsSection,
-  SnapshotTerritorySection,
-  StrategicResource,
-  TownDefinition
-} from "../../../packages/server/src/server-shared-types.js";
-import { terrainAt } from "@border-empires/shared";
+  WOODEN_FORT_GOLD_UPKEEP,
+  type SnapshotEconomySection,
+  type SnapshotPlayersSection,
+  type SnapshotSystemsSection,
+  type SnapshotTerritorySection,
+  type StrategicResource,
+  type TownDefinition
+} from "@border-empires/game-domain";
+import { OBSERVATORY_UPKEEP_PER_MIN, terrainAt } from "@border-empires/shared";
 
 type EconomyResourceKey = "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
 

@@ -43,14 +43,14 @@ const resolveDataPath = (relativeCandidates: string[]): string => {
 };
 
 const TECH_TREE_PATH = resolveDataPath([
-  "../../../packages/server/data/tech-tree.json",
-  "../../../../packages/server/data/tech-tree.json",
-  "../../../../../../packages/server/data/tech-tree.json"
+  "../../../packages/game-domain/data/tech-tree.json",
+  "../../../../packages/game-domain/data/tech-tree.json",
+  "../../../../../../packages/game-domain/data/tech-tree.json"
 ]);
 const DOMAIN_TREE_PATH = resolveDataPath([
-  "../../../packages/server/data/domain-tree.json",
-  "../../../../packages/server/data/domain-tree.json",
-  "../../../../../../packages/server/data/domain-tree.json"
+  "../../../packages/game-domain/data/domain-tree.json",
+  "../../../../packages/game-domain/data/domain-tree.json",
+  "../../../../../../packages/game-domain/data/domain-tree.json"
 ]);
 
 const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: TechCatalogEntry[] };

@@ -9,7 +9,7 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TILE_YIELD_CAP_GOLD,
   TILE_YIELD_CAP_RESOURCE
-} from "../../../packages/server/src/server-game-constants.js";
+} from "@border-empires/game-domain";
 
 type StrategicYieldKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL";
 

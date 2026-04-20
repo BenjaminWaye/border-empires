@@ -29,7 +29,7 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
   WOODEN_FORT_GOLD_UPKEEP
-} from "../../../packages/server/src/server-game-constants.js";
+} from "@border-empires/game-domain";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
