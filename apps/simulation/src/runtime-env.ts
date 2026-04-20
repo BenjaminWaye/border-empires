@@ -18,6 +18,8 @@ export type SimulationRuntimeEnv = {
   systemPlayerIds?: string[];
   startupRecoveryTimeoutMs: number;
   allowSeedRecoveryFallback: boolean;
+  /** When true, AI/system planning runs in worker threads off the main event loop. */
+  useAiWorker: boolean;
 };
 
 const parsePositiveNumber = (value: string | undefined, fallback: number, label: string): number => {
@@ -79,6 +81,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       "simulation startup recovery timeout"
     ),
     allowSeedRecoveryFallback,
+    useAiWorker: env.SIMULATION_AI_WORKER === "1",
     ...(systemPlayerIds && systemPlayerIds.length > 0 ? { systemPlayerIds } : {})
   };
 };
