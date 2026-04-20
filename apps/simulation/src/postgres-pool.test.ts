@@ -63,4 +63,33 @@ describe("createResilientPostgresPool", () => {
     expect(constructedOptions).toHaveLength(1);
     expect(errorListeners).toHaveLength(1);
   });
+
+  it("disables TLS verification for Supabase-hosted connections", async () => {
+    const { createResilientPostgresPool } = await import("./postgres-pool.js");
+
+    createResilientPostgresPool("postgresql://postgres:pw@db.example.supabase.co:5432/postgres", "simulation-store");
+
+    expect(constructedOptions).toHaveLength(1);
+    expect(constructedOptions[0]).toEqual(
+      expect.objectContaining({
+        ssl: { rejectUnauthorized: false }
+      })
+    );
+  });
+
+  it("strips sslmode params for Supabase URLs so pg doesn't force verify-full", async () => {
+    const { createResilientPostgresPool } = await import("./postgres-pool.js");
+
+    createResilientPostgresPool(
+      "postgresql://postgres:pw@db.example.supabase.co:5432/postgres?sslmode=require",
+      "simulation-store"
+    );
+
+    expect(constructedOptions).toHaveLength(1);
+    expect(constructedOptions[0]).toEqual(
+      expect.objectContaining({
+        connectionString: "postgresql://postgres:pw@db.example.supabase.co:5432/postgres"
+      })
+    );
+  });
 });

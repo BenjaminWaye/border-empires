@@ -52,6 +52,13 @@ COPY --from=build /app/apps/simulation/dist ./apps/simulation/dist
 COPY --from=build /app/apps/simulation/node_modules ./apps/simulation/node_modules
 COPY --from=build /app/apps/simulation/sql ./apps/simulation/sql
 
+RUN chmod -R a+rX /app/packages/game-domain/data \
+  && mkdir -p /app/apps/simulation/dist/packages/game-domain \
+  && mkdir -p /app/apps/simulation/dist/packages/game-domain/data \
+  && mkdir -p /app/apps/simulation/dist/packages/server/data \
+  && cp -R /app/packages/game-domain/data/. /app/apps/simulation/dist/packages/game-domain/data/. \
+  && cp -R /app/packages/game-domain/data/. /app/apps/simulation/dist/packages/server/data/.
+
 ENV NODE_ENV=production
 ENV SIMULATION_PORT=50051
 EXPOSE 50051
