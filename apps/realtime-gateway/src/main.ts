@@ -10,8 +10,7 @@ const gateway = await createRealtimeGatewayApp({
   ...(runtimeEnv.snapshotDir ? { snapshotDir: runtimeEnv.snapshotDir } : {}),
   applySchema: runtimeEnv.applySchema,
   ...(runtimeEnv.defaultHumanPlayerId ? { defaultHumanPlayerId: runtimeEnv.defaultHumanPlayerId } : {}),
-  ...(runtimeEnv.simulationSeedProfile ? { simulationSeedProfile: runtimeEnv.simulationSeedProfile } : {}),
-  ...(runtimeEnv.runtimeIdentity ? { runtimeIdentity: runtimeEnv.runtimeIdentity } : {})
+  ...(runtimeEnv.simulationSeedProfile ? { simulationSeedProfile: runtimeEnv.simulationSeedProfile } : {})
 });
 
 await gateway.start();
