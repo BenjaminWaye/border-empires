@@ -83,4 +83,66 @@ describe("attack preview prefetch and cache", () => {
       })
     ).toBe(true);
   });
+
+  it("falls back to a local preview estimate when no server preview has arrived yet", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    const origin = makeTile({ x: 8, y: 8, ownerId: "me" });
+    const target = makeTile({ x: 9, y: 8, ownerId: "barbarian", ownershipState: "FRONTIER", terrain: "LAND" });
+    state.tiles.set("8,8", origin);
+    state.tiles.set("9,8", target);
+    const send = vi.fn();
+
+    requestAttackPreviewForTarget(state, target, {
+      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      pickOriginForTarget: () => origin
+    });
+
+    expect(send).toHaveBeenCalledWith(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: 8, fromY: 8, toX: 9, toY: 8 }));
+    expect(state.attackPreviewPendingKey).toBe("");
+    expect(state.attackPreview?.valid).toBe(true);
+    expect(typeof state.attackPreview?.winChance).toBe("number");
+    expect(
+      attackPreviewPendingForTarget(state, target, {
+        keyFor: (x, y) => `${x},${y}`,
+        pickOriginForTarget: () => origin
+      })
+    ).toBe(false);
+    expect(
+      attackPreviewDetailForTarget(state, target, {
+        keyFor: (x, y) => `${x},${y}`,
+        pickOriginForTarget: () => origin
+      })
+    ).toContain("% win chance");
+  });
+
+  it("treats unsupported hostile frontier tiles as zero-defense in the local fallback preview", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    const origin = makeTile({ x: 13, y: 239, ownerId: "me" });
+    const target = makeTile({ x: 14, y: 239, ownerId: "enemy", ownershipState: "FRONTIER", terrain: "LAND" });
+    state.tiles.set("13,239", origin);
+    state.tiles.set("14,239", target);
+    const send = vi.fn();
+
+    requestAttackPreviewForTarget(state, target, {
+      ws: { OPEN: 1, readyState: 1, send } as unknown as WebSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      pickOriginForTarget: () => origin
+    });
+
+    expect(state.attackPreview?.valid).toBe(true);
+    expect(state.attackPreview?.winChance).toBe(1);
+    expect(
+      attackPreviewDetailForTarget(state, target, {
+        keyFor: (x, y) => `${x},${y}`,
+        pickOriginForTarget: () => origin
+      })
+    ).toBe("100% win chance");
+  });
 });

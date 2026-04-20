@@ -78,6 +78,8 @@ export interface CreateServerOwnershipRuntimeDeps {
   markAiTerritoryDirtyForPlayers: (playerIds: Set<string>) => void;
   refreshVisibleNearbyTownDeltas: (x: number, y: number) => void;
   markVisibilityDirtyForPlayers: (playerIds: Set<string>) => void;
+  sendLocalVisionDeltaForPlayer: (playerId: string, centers: Array<{ x: number; y: number }>) => void;
+  refreshSubscribedViewForPlayer: (playerId: string) => void;
   pushStrategicReplayEvent: (event: Omit<StrategicReplayEvent, "id">) => void;
   sendVisibleTileDeltaSquare: (x: number, y: number, radius: number) => void;
   recordHotPathTimingEvent: (name: string, payload: Record<string, unknown>, elapsedMs: number, thresholdMs: number) => void;
@@ -312,6 +314,10 @@ export const createServerOwnershipRuntime = (
     const snapshotInvalidationStartedAt = deps.now();
     deps.markVisibilityDirtyForPlayers(visibilityAffectedPlayers);
     deps.markSummaryChunkDirtyAtTile(tile.x, tile.y);
+    for (const playerId of visibilityAffectedPlayers) {
+      deps.sendLocalVisionDeltaForPlayer(playerId, [{ x: tile.x, y: tile.y }]);
+      deps.refreshSubscribedViewForPlayer(playerId);
+    }
     const snapshotInvalidationMs = deps.now() - snapshotInvalidationStartedAt;
 
     if (oldOwner !== newOwner || oldOwnershipState !== tile.ownershipState) {

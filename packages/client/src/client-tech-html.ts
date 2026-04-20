@@ -265,10 +265,46 @@ const compactChecklistHtml = (items: Array<{ label: string; met: boolean }>): st
         .join("")}</ul>`
     : `<p class="muted">No requirements listed.</p>`;
 
+const fallbackRequirementChecklist = (requirements: {
+  gold?: number;
+  resources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+}): Array<{ label: string; met: boolean }> => {
+  const out: Array<{ label: string; met: boolean }> = [];
+  const goldCost = requirements.gold ?? 0;
+  if (goldCost > 0) {
+    out.push({ label: `Gold ${goldCost.toLocaleString()}`, met: false });
+  }
+  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+    const amount = requirements.resources?.[resourceKey] ?? 0;
+    if (amount > 0) {
+      out.push({ label: `${resourceKey} ${amount.toLocaleString()}`, met: false });
+    }
+  }
+  return out;
+};
+
+const effectiveRequirementChecklist = (requirements: {
+  gold?: number;
+  resources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+  checklist?: Array<{ label: string; met: boolean }>;
+}): Array<{ label: string; met: boolean }> => {
+  const checklist = requirements.checklist ?? [];
+  return checklist.length > 0 ? checklist : fallbackRequirementChecklist(requirements);
+};
+
 export const formatDomainCost = (domain: DomainInfo): string => {
   const checklist = domain.requirements.checklist ?? [];
   const costBits = checklist.filter((item) => /gold|food|iron|crystal|supply|shard/i.test(item.label)).map((item) => item.label);
-  return costBits.length > 0 ? costBits.join(" · ") : "Cost not listed";
+  if (costBits.length > 0) return costBits.join(" · ");
+  const fallbackCostBits: string[] = [];
+  if ((domain.requirements.gold ?? 0) > 0) {
+    fallbackCostBits.push(`${domain.requirements.gold.toLocaleString()} gold`);
+  }
+  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    const amount = domain.requirements.resources?.[resourceKey] ?? 0;
+    if (amount > 0) fallbackCostBits.push(`${amount.toLocaleString()} ${resourceKey.toLowerCase()}`);
+  }
+  return fallbackCostBits.length > 0 ? fallbackCostBits.join(" · ") : "Cost not listed";
 };
 
 export const renderDomainProgressCardHtml = (args: {
@@ -378,7 +414,7 @@ export const renderTechDetailCardHtml = (args: {
 }): string => {
   const { tech, statusText, buttonLabel, buttonDisabled, prereqs, prereqText, unlocks, relatedStructuresHtml, relatedCrystalAbilitiesHtml } = args;
   if (!tech) return `<article class="card"><p>Select a technology card to inspect details.</p></article>`;
-  const checklist = tech.requirements.checklist ?? [];
+  const checklist = effectiveRequirementChecklist(tech.requirements);
   return `<article class="card tech-detail-card">
     <div class="tech-detail-head">
       <div>
@@ -490,7 +526,7 @@ export const renderDomainDetailCardHtml = (args: {
 }): string => {
   const { domain, domainIds, chosenInTier, currentTier, requiresTechName, pendingDomainUnlockId, showInlineClose = true } = args;
   if (!domain) return `<article class="card"><p>Select a domain card to inspect details.</p></article>`;
-  const checklist = domain.requirements.checklist ?? [];
+  const checklist = effectiveRequirementChecklist(domain.requirements);
   const owned = domainIds.includes(domain.id);
   const pendingUnlock = pendingDomainUnlockId === domain.id;
   const blockedByPending = Boolean(pendingDomainUnlockId && pendingDomainUnlockId !== domain.id);
@@ -570,7 +606,7 @@ export const renderTechChoiceDetailsHtml = (args: {
     <p>${tech.description}</p>
     <p><strong>Prerequisites:</strong> ${prereqs.length > 0 ? prereqs.join(", ") : "None"}</p>
     <p><strong>Requirements:</strong></p>
-    ${compactChecklistHtml(tech.requirements.checklist ?? [])}
+    ${compactChecklistHtml(effectiveRequirementChecklist(tech.requirements))}
     <p><strong>Modifiers:</strong> ${mods || "None"}</p>
     <p><strong>Current:</strong> atk x${currentMods.attack.toFixed(3)} | def x${currentMods.defense.toFixed(3)} | inc x${currentMods.income.toFixed(3)} | vis x${currentMods.vision.toFixed(3)}</p>
     <p><strong>Projected:</strong> atk x${projected.attack.toFixed(3)} | def x${projected.defense.toFixed(3)} | inc x${projected.income.toFixed(3)} | vis x${projected.vision.toFixed(3)}</p>

@@ -11,3 +11,4 @@ export * from "./exposure.js";
 export * from "./structure-costs.js";
 export * from "./structure-placement.js";
 export * from "./worldgen.js";
+export * from "./frontier-combat.js";

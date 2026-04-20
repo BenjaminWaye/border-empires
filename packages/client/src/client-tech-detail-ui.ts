@@ -18,6 +18,15 @@ export const formatTechCost = (tech: TechInfo): string => {
   const checklist = tech.requirements.checklist ?? [];
   const costBits = checklist.filter((item) => /gold|food|iron|crystal|supply|shard/i.test(item.label)).map((item) => item.label);
   if (costBits.length > 0) return costBits.join(" · ");
+  const fallbackCostBits: string[] = [];
+  if ((tech.requirements.gold ?? 0) > 0) {
+    fallbackCostBits.push(`${tech.requirements.gold.toLocaleString()} gold`);
+  }
+  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+    const amount = tech.requirements.resources?.[resourceKey] ?? 0;
+    if (amount > 0) fallbackCostBits.push(`${amount.toLocaleString()} ${resourceKey.toLowerCase()}`);
+  }
+  if (fallbackCostBits.length > 0) return fallbackCostBits.join(" · ");
   const fallback = checklist.map((item) => item.label);
   return fallback.length > 0 ? fallback.join(" · ") : "Cost not listed";
 };

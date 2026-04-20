@@ -118,8 +118,10 @@ describe("chunk snapshot cache regression guard", () => {
       fogChunkTilesByChunkKey: new Map(),
       chunkSnapshotGenerationByPlayer: new Map(),
       chunkSnapshotInFlightByPlayer: new Map(),
+      pendingChunkRefreshByPlayer: new Set(),
       chunkSnapshotSentAtByPlayer: new Map(),
       chunkSubscriptionByPlayer: new Map(),
+      bulkSocketForPlayer: () => undefined,
       authSyncTimingByPlayer: new Map(),
       fogChunkTiles: (cx) => {
         const startX = cx * 2;
@@ -280,8 +282,10 @@ describe("chunk snapshot cache regression guard", () => {
       fogChunkTilesByChunkKey: new Map(),
       chunkSnapshotGenerationByPlayer: new Map(),
       chunkSnapshotInFlightByPlayer: new Map(),
+      pendingChunkRefreshByPlayer: new Set(),
       chunkSnapshotSentAtByPlayer: new Map(),
       chunkSubscriptionByPlayer: new Map(),
+      bulkSocketForPlayer: () => undefined,
       authSyncTimingByPlayer: new Map(),
       fogChunkTiles: () => [makeTile(0, 0)],
       summaryChunkTiles: () => [makeTile(0, 0, `owner-${summaryVersion}`)],

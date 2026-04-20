@@ -897,6 +897,7 @@ const cachedChunkSnapshotByPlayer = new Map<
 const fogChunkTilesByChunkKey = new Map<string, readonly Tile[]>();
 const chunkSnapshotGenerationByPlayer = new Map<string, number>();
 const chunkSnapshotInFlightByPlayer = new Map<string, number>();
+const pendingChunkRefreshByPlayer = new Set<string>();
 const allianceRequests = new Map<string, AllianceRequest>();
 const truceRequests = new Map<string, TruceRequest>();
 const trucesByPair = new Map<string, ActiveTruce>();
@@ -5410,6 +5411,7 @@ const {
   fogChunkTilesByChunkKey,
   chunkSnapshotGenerationByPlayer,
   chunkSnapshotInFlightByPlayer,
+  pendingChunkRefreshByPlayer,
   chunkSnapshotSentAtByPlayer,
   chunkSubscriptionByPlayer,
   summaryChunkTiles,
@@ -5534,6 +5536,7 @@ const {
   bulkSocketsByPlayer,
   chunkSubscriptionByPlayer,
   chunkSnapshotInFlightByPlayer,
+  pendingChunkRefreshByPlayer,
   townsByTile,
   docksByTile,
   clusterByTile,
@@ -5666,6 +5669,7 @@ const {
     chunkSubscriptionByPlayer.delete(playerId);
     chunkSnapshotSentAtByPlayer.delete(playerId);
     chunkSnapshotGenerationByPlayer.delete(playerId);
+    pendingChunkRefreshByPlayer.delete(playerId);
     cachedVisibilitySnapshotByPlayer.delete(playerId);
     cachedChunkSnapshotByPlayer.delete(playerId);
   }
@@ -7296,6 +7300,8 @@ const {
   markAiTerritoryDirtyForPlayers,
   refreshVisibleNearbyTownDeltas,
   markVisibilityDirtyForPlayers,
+  sendLocalVisionDeltaForPlayer: (playerId, changedCenters) => sendLocalVisionDeltaForPlayer(playerId, changedCenters),
+  refreshSubscribedViewForPlayer: (playerId) => refreshSubscribedViewForPlayer(playerId),
   pushStrategicReplayEvent,
   sendVisibleTileDeltaSquare,
   recordHotPathTimingEvent,
@@ -9569,10 +9575,19 @@ registerServerHttpRoutes(app, {
       return;
     }
     if (dockCrossing && fromDock && fromDock.cooldownUntil > now()) {
-      app.log.info({ playerId: actor.id, dockId: fromDock.dockId, cooldownUntil: fromDock.cooldownUntil }, "action rejected: dock cooldown");
+      const cooldownRemainingMs = Math.max(0, fromDock.cooldownUntil - now());
+      app.log.info(
+        { playerId: actor.id, dockId: fromDock.dockId, cooldownUntil: fromDock.cooldownUntil, cooldownRemainingMs },
+        "action rejected: dock cooldown"
+      );
       sendHighPrioritySocketMessage(
         socket,
-        JSON.stringify({ type: "ERROR", code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown" })
+        JSON.stringify({
+          type: "ERROR",
+          code: "DOCK_COOLDOWN",
+          message: "dock crossing endpoint on cooldown",
+          cooldownRemainingMs
+        })
       );
       return;
     }

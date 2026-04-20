@@ -79,6 +79,7 @@ export interface CreateServerChunkSyncRuntimeDeps {
   fogChunkTilesByChunkKey: Map<string, readonly Tile[]>;
   chunkSnapshotGenerationByPlayer: Map<string, number>;
   chunkSnapshotInFlightByPlayer: Map<string, number>;
+  pendingChunkRefreshByPlayer: Set<string>;
   chunkSnapshotSentAtByPlayer: Map<string, { cx: number; cy: number; radius: number; sentAt: number }>;
   chunkSubscriptionByPlayer: Map<string, { cx: number; cy: number; radius: number }>;
   summaryChunkTiles: (worldCx: number, worldCy: number, mode: ChunkSummaryMode) => readonly Tile[];
@@ -160,8 +161,10 @@ export const createServerChunkSyncRuntime = (
     fogChunkTilesByChunkKey: deps.fogChunkTilesByChunkKey,
     chunkSnapshotGenerationByPlayer: deps.chunkSnapshotGenerationByPlayer,
     chunkSnapshotInFlightByPlayer: deps.chunkSnapshotInFlightByPlayer,
+    pendingChunkRefreshByPlayer: deps.pendingChunkRefreshByPlayer,
     chunkSnapshotSentAtByPlayer: deps.chunkSnapshotSentAtByPlayer,
     chunkSubscriptionByPlayer: deps.chunkSubscriptionByPlayer,
+    bulkSocketForPlayer: deps.bulkSocketForPlayer,
     authSyncTimingByPlayer: deps.authSyncTimingByPlayer,
     fogChunkTiles: (worldCx: number, worldCy: number) => {
       const chunkKey = `${worldCx},${worldCy}`;
@@ -224,7 +227,10 @@ export const createServerChunkSyncRuntime = (
     const player = deps.players.get(playerId);
     const sub = deps.chunkSubscriptionByPlayer.get(playerId);
     if (!socket || socket.readyState !== socket.OPEN || !player || !sub) return;
-    if (deps.chunkSnapshotInFlightByPlayer.has(playerId)) return;
+    if (deps.chunkSnapshotInFlightByPlayer.has(playerId)) {
+      deps.pendingChunkRefreshByPlayer.add(playerId);
+      return;
+    }
     sendChunkSnapshot(socket, player, sub);
   };
 

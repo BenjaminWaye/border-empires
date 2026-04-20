@@ -436,14 +436,18 @@ export const tileActionAvailabilityWithDevelopmentSlot = (
   baseReason: string,
   cost?: string,
   summary?: DevelopmentSlotSummary,
-  deps?: Pick<TileActionLogicDeps, "developmentSlotSummary" | "developmentSlotReason">
+  deps?: Partial<Pick<TileActionLogicDeps, "developmentSlotSummary" | "developmentSlotReason">>
 ): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> => {
-  const slotSummary = summary ?? deps?.developmentSlotSummary();
+  const slotSummary = summary ?? deps?.developmentSlotSummary?.();
   if (!slotSummary) return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
   if (slotSummary.available <= 0 && enabledWithoutSlot) {
-    return tileActionAvailability(true, deps?.developmentSlotReason(slotSummary) ?? baseReason, cost ? `${cost} • queues` : "Queues when slot frees up");
+    return tileActionAvailability(
+      true,
+      deps?.developmentSlotReason?.(slotSummary) ?? baseReason,
+      cost ? `${cost} • queues` : "Queues when slot frees up"
+    );
   }
-  if (slotSummary.available <= 0) return tileActionAvailability(false, deps?.developmentSlotReason(slotSummary) ?? baseReason, cost);
+  if (slotSummary.available <= 0) return tileActionAvailability(false, baseReason, cost);
   return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
 };
 

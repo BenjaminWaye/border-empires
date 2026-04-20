@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { tileActionAvailabilityWithDevelopmentSlot } from "./client-tile-action-logic.js";
 import { shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
+import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 
 const state = {
@@ -191,5 +193,28 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
 
   it("keeps same-tile structures optimistic on town tiles", () => {
     expect(shouldOptimisticallyBuildOnSelectedTile("build_foundry", townTile)).toBe(true);
+  });
+});
+
+describe("tileActionAvailabilityWithDevelopmentSlot", () => {
+  const fullSlots: DevelopmentSlotSummary = { busy: 3, limit: 3, available: 0 };
+
+  it("keeps otherwise-valid builds enabled and marked as queued when development slots are full", () => {
+    expect(
+      tileActionAvailabilityWithDevelopmentSlot(true, "Build Wooden Fort", "900 gold", fullSlots, {
+        developmentSlotReason: () => "No available development slots (3/3 busy)"
+      })
+    ).toEqual({
+      disabled: false,
+      cost: "900 gold • queues"
+    });
+  });
+
+  it("preserves the real blocker instead of blaming full development slots for unavailable builds", () => {
+    expect(tileActionAvailabilityWithDevelopmentSlot(false, "Need 900 gold", "Need 900 gold", fullSlots)).toEqual({
+      disabled: true,
+      disabledReason: "Need 900 gold",
+      cost: "Need 900 gold"
+    });
   });
 });

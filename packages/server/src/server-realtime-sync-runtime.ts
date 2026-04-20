@@ -21,6 +21,7 @@ export interface CreateServerRealtimeSyncRuntimeDeps {
   bulkSocketsByPlayer: Map<string, Ws>;
   chunkSubscriptionByPlayer: Map<string, { cx: number; cy: number; radius: number }>;
   chunkSnapshotInFlightByPlayer: Map<string, number>;
+  pendingChunkRefreshByPlayer: Set<string>;
   townsByTile: Map<TileKey, unknown>;
   docksByTile: Map<TileKey, { dockId: string }>;
   clusterByTile: Map<TileKey, string>;
@@ -304,7 +305,10 @@ export const createServerRealtimeSyncRuntime = (
     const player = deps.players.get(playerId);
     const sub = deps.chunkSubscriptionByPlayer.get(playerId);
     if (!socket || socket.readyState !== socket.OPEN || !player || !sub) return;
-    if (deps.chunkSnapshotInFlightByPlayer.has(playerId)) return;
+    if (deps.chunkSnapshotInFlightByPlayer.has(playerId)) {
+      deps.pendingChunkRefreshByPlayer.add(playerId);
+      return;
+    }
     deps.sendChunkSnapshot(socket, player, sub);
   };
 

@@ -142,6 +142,7 @@ export const createInitialState = () => ({
   playerColors: new Map<string, string>(),
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   playerShieldUntil: new Map<string, number>(),
+  serverSupportedMessageTypes: new Set<string>(),
   incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
   incomingAllianceRequests: [] as AllianceRequest[],
   outgoingAllianceRequests: [] as AllianceRequest[],
@@ -366,6 +367,7 @@ export const createInitialState = () => ({
     | undefined,
   queuedDevelopmentDispatchPending: false,
   queuedTargetKeys: new Set<string>(),
+  nextCommandClientSeq: 1,
   actionInFlight: false,
   actionAcceptedAck: false,
   combatStartAck: false,
@@ -378,6 +380,8 @@ export const createInitialState = () => ({
         y: number;
         mode?: "normal" | "breakthrough";
         retries: number;
+        commandId?: string;
+        clientSeq?: number;
         actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK";
       }
     | undefined,
@@ -471,6 +475,15 @@ export const createInitialState = () => ({
     seenVersion: storageGet(CLIENT_CHANGELOG_STORAGE_KEY) ?? "",
     scrollTop: 0
   },
+  activeBackend: "legacy" as "legacy" | "gateway",
+  bridgeDebugMode: "unknown" as "unknown" | "legacy-server" | "rewrite-gateway",
+  bridgeDebugBootstrap: "pending" as "pending" | "legacy-init" | "rewrite-init",
+  bridgeDebugWsUrl: "",
+  bridgeDebugSeasonId: "",
+  bridgeDebugRuntimeFingerprint: "",
+  bridgeDebugSnapshotLabel: "",
+  bridgeDebugInitialTileCount: 0,
+  bridgeDebugSupportedMessageCount: 0,
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
   chunkFullCount: 0

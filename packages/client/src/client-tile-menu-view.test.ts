@@ -110,6 +110,48 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
 
+  it("falls back to zero settlement gold when snapshot detail is missing the numeric rate", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 19,
+        y: 43,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Qadarstrand Mast",
+          type: "MARKET",
+          baseGoldPerMinute: 0,
+          supportCurrent: 0,
+          supportMax: 0,
+          goldPerMinute: 0,
+          cap: 40,
+          isFed: true,
+          population: 1,
+          maxPopulation: 10_000,
+          populationTier: "SETTLEMENT",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 0
+        }
+      },
+      {
+        ...deps,
+        displayTownGoldPerMinute: () => Number.NaN
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Settlement is producing 0.00 gold/m."))).toBe(true);
+  });
+
   it("uses the modifier section instead of a raw connected-town count when bonuses are active", () => {
     const lines = menuOverviewForTile(
       {

@@ -1,9 +1,74 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "./client-state.js";
-import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
+import {
+  busyDevelopmentProcessCount,
+  hasQueuedSettlementForTile,
+  persistDevelopmentQueueForPlayer,
+  queuedSettlementOrderForTile,
+  restorePersistedDevelopmentQueueForPlayer
+} from "./client-development-queue.js";
 import { developmentSlotSummary, processDevelopmentQueue, requestSettlement } from "./client-queue-logic.js";
 
+const installSessionStorageMock = () => {
+  let values = new Map<string, string>();
+  vi.stubGlobal("sessionStorage", {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
+    clear: () => {
+      values = new Map<string, string>();
+    }
+  });
+};
+
 describe("development queue helpers", () => {
+  it("persists and restores queued settlements for the same player session", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+
+    const restored = restorePersistedDevelopmentQueueForPlayer(
+      "me",
+      new Map([
+        [
+          "2,2",
+          {
+            ownerId: "me",
+            ownershipState: "FRONTIER"
+          }
+        ]
+      ])
+    );
+
+    expect(restored).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+  });
+
+  it("drops persisted settlements that are already pending on the server", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+
+    const restored = restorePersistedDevelopmentQueueForPlayer(
+      "me",
+      new Map([
+        [
+          "2,2",
+          {
+            ownerId: "me",
+            ownershipState: "FRONTIER"
+          }
+        ]
+      ]),
+      new Set(["2,2"])
+    );
+
+    expect(restored).toEqual([]);
+  });
+
   it("finds the ordinal for queued settlements without counting builds separately", () => {
     const queue = [
       { kind: "BUILD" as const, tileKey: "1,1" },
