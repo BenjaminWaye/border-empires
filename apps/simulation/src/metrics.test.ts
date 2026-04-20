@@ -13,6 +13,8 @@ describe("simulation metrics", () => {
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 8);
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 12);
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 20);
+    metrics.observeSimCommandAcceptLatencyMs("ai", 1);
+    metrics.observeSimCommandAcceptLatencyMs("system", 2);
     metrics.observeSimEventStoreWriteMs(3);
     metrics.observeSimEventStoreWriteMs(7);
     metrics.observeSimEventStoreWriteMs(11);
