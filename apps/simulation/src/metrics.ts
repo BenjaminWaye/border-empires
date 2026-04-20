@@ -83,8 +83,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       appendSample(simEventStoreWriteMs, value);
     },
     currentAcceptLatencyP95Ms(): number {
-      const combined = LANES.flatMap((lane) => simCommandAcceptLatencyMsByLane.get(lane) ?? []);
-      return quantile(combined, 0.95);
+      const humanInteractive = simCommandAcceptLatencyMsByLane.get("human_interactive") ?? [];
+      return quantile(humanInteractive, 0.95);
     },
     snapshot,
     renderPrometheus(): string {
