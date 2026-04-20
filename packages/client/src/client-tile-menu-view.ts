@@ -308,7 +308,9 @@ export const menuOverviewForTile = (
   const supportedTowns = tile.ownerId === deps.state.me && tile.ownershipState === "SETTLED" ? deps.supportedOwnedTownsForTile(tile) : [];
   if (tile.town) {
     if (tile.town.populationTier === "SETTLEMENT") {
-      pushLine(`Settlement is producing ${deps.displayTownGoldPerMinute(tile).toFixed(2)} gold/m.`);
+      const displayedTownGoldPerMinute = deps.displayTownGoldPerMinute(tile);
+      const settlementGoldPerMinute = Number.isFinite(displayedTownGoldPerMinute) ? displayedTownGoldPerMinute : 0;
+      pushLine(`Settlement is producing ${settlementGoldPerMinute.toFixed(2)} gold/m.`);
     } else if (!tile.town.isFed) {
       pushLine("Town is unfed. Needs settled fish or grain nearby.");
     } else if (
@@ -320,7 +322,11 @@ export const menuOverviewForTile = (
     if (tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");
     }
-    if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);
+    if (tile.town.populationTier !== "SETTLEMENT") {
+      const supportCurrent = Number.isFinite(tile.town.supportCurrent) ? tile.town.supportCurrent : 0;
+      const supportMax = Number.isFinite(tile.town.supportMax) ? tile.town.supportMax : 0;
+      pushLine(`Support ${supportCurrent}/${supportMax}`);
+    }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${deps.prettyToken(tile.town.populationTier)}`);
     pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
     pushLine(`Next size: ${deps.townNextGrowthEtaLabel(tile.town)}.`);

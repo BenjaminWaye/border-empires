@@ -12,6 +12,8 @@ import {
   sendAllianceRequestFromUi,
   sendTruceRequestFromUi
 } from "./client-player-actions.js";
+import { createNextFrontierCommandIdentity } from "./client-frontier-command.js";
+import { blockUnsupportedRewriteMessage } from "./client-send-message-guard.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
@@ -191,8 +193,54 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     return false;
   };
 
+  const rewriteEnvelopeTypes = new Set([
+    "ATTACK",
+    "EXPAND",
+    "BREAKTHROUGH_ATTACK",
+    "SETTLE",
+    "CANCEL_CAPTURE",
+    "UNCAPTURE_TILE",
+    "COLLECT_TILE",
+    "COLLECT_VISIBLE",
+    "CHOOSE_TECH",
+    "CHOOSE_DOMAIN",
+    "OVERLOAD_SYNTHESIZER",
+    "SET_CONVERTER_STRUCTURE_ENABLED",
+    "REVEAL_EMPIRE",
+    "REVEAL_EMPIRE_STATS",
+    "CAST_AETHER_BRIDGE",
+    "CAST_AETHER_WALL",
+    "SIPHON_TILE",
+    "PURGE_SIPHON",
+    "CREATE_MOUNTAIN",
+    "REMOVE_MOUNTAIN",
+    "AIRPORT_BOMBARD",
+    "COLLECT_SHARD"
+  ]);
+
   const sendGameMessage = (payload: unknown, message?: string): boolean => {
     if (!requireAuthedSession(message)) return false;
+    if (
+      blockUnsupportedRewriteMessage(payload, {
+        state,
+        pushFeed,
+        showCaptureAlert
+      })
+    ) {
+      return false;
+    }
+    const maybeRewritePayload =
+      payload && typeof payload === "object" ? (payload as { type?: unknown; commandId?: unknown; clientSeq?: unknown }) : undefined;
+    if (
+      maybeRewritePayload &&
+      typeof maybeRewritePayload.type === "string" &&
+      rewriteEnvelopeTypes.has(maybeRewritePayload.type) &&
+      (typeof maybeRewritePayload.commandId !== "string" || !maybeRewritePayload.commandId || typeof maybeRewritePayload.clientSeq !== "number")
+    ) {
+      const { commandId, clientSeq } = createNextFrontierCommandIdentity(state);
+      maybeRewritePayload.commandId = commandId;
+      maybeRewritePayload.clientSeq = clientSeq;
+    }
     if (
       typeof window !== "undefined" &&
       (window.location.hostname === "localhost" ||
@@ -200,7 +248,17 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         window.location.hostname === "0.0.0.0" ||
         window.localStorage.getItem("tile-sync-debug") === "1")
     ) {
-      const typedPayload = payload as { type?: string; x?: number; y?: number; fromX?: number; fromY?: number; toX?: number; toY?: number };
+      const typedPayload = payload as {
+        type?: string;
+        x?: number;
+        y?: number;
+        fromX?: number;
+        fromY?: number;
+        toX?: number;
+        toY?: number;
+        commandId?: string;
+        clientSeq?: number;
+      };
       if (
         typedPayload.type === "SETTLE" ||
         typedPayload.type === "EXPAND" ||
@@ -1404,7 +1462,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
     const to = clicked;
     state.selected = { x: wx, y: wy };
-    const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
+    const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),

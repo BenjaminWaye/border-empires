@@ -1,0 +1,31 @@
+{
+  "name": "@border-empires/realtime-gateway",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/apps/realtime-gateway/src/main.js",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@border-empires/client-protocol": "workspace:*",
+    "@border-empires/shared": "workspace:*",
+    "@border-empires/sim-protocol": "workspace:*",
+    "@fastify/websocket": "^10.0.1",
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
+    "@types/pg": "^8.20.0",
+    "fastify": "^4.29.1",
+    "pg": "^8.20.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

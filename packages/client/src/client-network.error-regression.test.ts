@@ -332,6 +332,29 @@ describe("client network regression guards", () => {
     expect(deps.reconcileActionQueue).toHaveBeenCalled();
   });
 
+  it("delays queued frontier retries until attack cooldown expires", () => {
+    vi.useFakeTimers();
+    try {
+      const state = createState();
+      const ws = new FakeWebSocket();
+      const deps = bindWithDeps(state, ws, {
+        shouldResetFrontierActionStateForError: vi.fn(() => true),
+        explainActionFailure: vi.fn(explainActionFailureFromServer),
+        formatCooldownShort: vi.fn((ms: number) => `${Math.ceil(ms / 1000)}s`)
+      });
+
+      ws.emit("message", {
+        data: JSON.stringify({ type: "ERROR", code: "ATTACK_COOLDOWN", message: "origin tile is still on attack cooldown", cooldownRemainingMs: 2_400 })
+      });
+
+      expect(deps.processActionQueue).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(2_450);
+      expect(deps.processActionQueue).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("ignores duplicate attack cooldown errors once the current frontier action is already accepted", () => {
     const state = createState();
     state.actionAcceptedAck = true;
@@ -364,6 +387,79 @@ describe("client network regression guards", () => {
     );
     expect(explainActionFailureFromServer("NOT_ADJACENT", "target must be adjacent or valid dock crossing")).toBe(
       "Action blocked: target must border your territory or a linked dock."
+    );
+  });
+
+  it("shows a warning popup for dock cooldown on an in-flight frontier action", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const deps = bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true),
+      explainActionFailure: vi.fn(explainActionFailureFromServer),
+      formatCooldownShort: vi.fn((ms: number) => `${Math.ceil(ms / 1000)}s`),
+      showCaptureAlert
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "DOCK_COOLDOWN", message: "dock crossing endpoint on cooldown", cooldownRemainingMs: 2_400 })
+    });
+
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Action blocked",
+      "Action blocked: that dock crossing endpoint is still on cooldown for 3s.",
+      "warn",
+      undefined
+    );
+    expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeGreaterThan(Date.now());
+    expect(state.frontierSyncWaitUntilByTarget.get("60,302")).toBeLessThanOrEqual(Date.now() + 3_500);
+    expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
+  });
+
+  it("shows a warning popup for insufficient manpower on an in-flight attack", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const deps = bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true),
+      explainActionFailure: vi.fn(explainActionFailureFromServer),
+      showCaptureAlert
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_MANPOWER", message: "need 60 manpower to launch attack" })
+    });
+
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Action blocked",
+      "Action blocked: need 60 manpower to launch attack.",
+      "warn",
+      undefined
+    );
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionTargetKey).toBe("");
+    expect(state.actionCurrent).toBeUndefined();
+    expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
+  });
+
+  it("shows a frontier resync popup when the server says an expand target is already owned", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true),
+      showCaptureAlert
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" })
+    });
+
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Frontier sync mismatch",
+      "Server says that tile is already owned. Download the debug log from this popup and refresh nearby tiles to resync.",
+      "warn",
+      undefined
     );
   });
 
@@ -692,6 +788,7 @@ describe("client network regression guards", () => {
     const showCaptureAlert = vi.fn();
     const pushFeed = vi.fn();
     const deps = bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     ws.emit("message", {
       data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 4 development slots are busy", x: 12, y: 18 })
@@ -702,6 +799,8 @@ describe("client network regression guards", () => {
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
     expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 
   it("requeues a settlement without crashing when settlement clear wiring is missing", () => {
@@ -877,5 +976,96 @@ describe("client network regression guards", () => {
     ]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
     expect(pushFeed).toHaveBeenCalledWith("Fort at (33, 44) queued. It will start when a development slot frees up.", "combat", "info");
+  });
+
+  it("drops back to disconnected bootstrap state when the server reports SERVER_STARTING", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const renderHud = vi.fn();
+    const syncAuthOverlay = vi.fn();
+    const setAuthStatus = vi.fn();
+    const windowStub = {
+      setTimeout: vi.fn(() => 1),
+      clearTimeout: vi.fn()
+    };
+    vi.stubGlobal("window", windowStub);
+
+    bindClientNetwork({
+      state,
+      ws: ws as unknown as WebSocket,
+      wsUrl: "ws://localhost:3001/ws",
+      firebaseAuth: { currentUser: { uid: "player-1" } },
+      keyFor: (x: number, y: number) => `${x},${y}`,
+      renderHud,
+      setAuthStatus,
+      syncAuthOverlay,
+      authenticateSocket: vi.fn(async () => {}),
+      pushFeed: vi.fn(),
+      pushFeedEntry: vi.fn(),
+      clearOptimisticTileState: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      requestViewRefresh: vi.fn(),
+      applyPendingSettlementsFromServer: vi.fn(),
+      mergeIncomingTileDetail: vi.fn((existing, incoming) => incoming ?? existing),
+      mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
+      maybeAnnounceShardSite: vi.fn(),
+      markDockDiscovered: vi.fn(),
+      centerOnOwnedTile: vi.fn(),
+      authProfileNameEl: { value: "" },
+      authProfileColorEl: { value: "" },
+      defensibilityPctFromTE: vi.fn(() => 0),
+      clearPendingCollectVisibleDelta: vi.fn(),
+      seedProfileSetupFields: vi.fn(),
+      resetStrategicReplayState: vi.fn(),
+      setWorldSeed: vi.fn(),
+      clearRenderCaches: vi.fn(),
+      buildMiniMapBase: vi.fn(),
+      shardAlertKeyForPayload: vi.fn(),
+      showShardAlert: vi.fn(),
+      combatResolutionAlert: vi.fn(),
+      wasPredictedCombatAlreadyShown: vi.fn(() => false),
+      showCaptureAlert: vi.fn(),
+      requestSettlement: vi.fn(() => false),
+      dropQueuedTargetKeyIfAbsent: vi.fn(),
+      processActionQueue: vi.fn(() => false),
+      clearSettlementProgressForTile: vi.fn(),
+      terrainAt: vi.fn(() => "LAND"),
+      requestTileDetailIfNeeded: vi.fn(),
+      requestAttackPreviewForTarget: vi.fn(),
+      openSingleTileActionMenu: vi.fn(),
+      isTileOwnedByAlly: vi.fn(() => false),
+      hideShardAlert: vi.fn(),
+      explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      clearSettlementProgressByKey: vi.fn(),
+      showCollectVisibleCooldownAlert: vi.fn(),
+      formatCooldownShort: vi.fn(() => "1s"),
+      reconcileActionQueue: vi.fn(),
+      revertOptimisticVisibleCollectDelta: vi.fn(),
+      revertOptimisticTileCollectDelta: vi.fn(),
+      clearPendingCollectTileDelta: vi.fn(),
+      playerNameForOwner: vi.fn(),
+      settlementProgressForTile: vi.fn(() => undefined),
+      COLLECT_VISIBLE_COOLDOWN_MS: 1_000
+    } as any);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ERROR",
+        code: "SERVER_STARTING",
+        message: "Realtime simulation is temporarily unavailable. Retry shortly."
+      })
+    });
+
+    expect(state.authSessionReady).toBe(false);
+    expect(state.connection).toBe("disconnected");
+    expect(state.firstChunkAt).toBe(0);
+    expect(state.chunkFullCount).toBe(0);
+    expect(state.authBusy).toBe(true);
+    expect(state.authRetrying).toBe(true);
+    expect(setAuthStatus).toHaveBeenCalledWith("Game server is still starting. Retrying sign-in...");
+    expect(syncAuthOverlay).toHaveBeenCalled();
+    expect(renderHud).toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

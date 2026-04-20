@@ -20,6 +20,14 @@ type DebugBundleState = Pick<
   | "pendingCombatReveal"
   | "queuedTargetKeys"
   | "developmentQueue"
+  | "bridgeDebugMode"
+  | "bridgeDebugBootstrap"
+  | "bridgeDebugWsUrl"
+  | "bridgeDebugSeasonId"
+  | "bridgeDebugRuntimeFingerprint"
+  | "bridgeDebugSnapshotLabel"
+  | "bridgeDebugInitialTileCount"
+  | "bridgeDebugSupportedMessageCount"
 >;
 
 type JsonFetchResult =
@@ -93,7 +101,15 @@ const stateSnapshot = (state: DebugBundleState): Record<string, unknown> => ({
   combatStartAck: state.combatStartAck,
   pendingCombatReveal: state.pendingCombatReveal,
   queuedTargetKeys: Array.from(state.queuedTargetKeys),
-  developmentQueueLength: state.developmentQueue.length
+  developmentQueueLength: state.developmentQueue.length,
+  bridgeDebugMode: state.bridgeDebugMode,
+  bridgeDebugBootstrap: state.bridgeDebugBootstrap,
+  bridgeDebugWsUrl: state.bridgeDebugWsUrl,
+  bridgeDebugSeasonId: state.bridgeDebugSeasonId,
+  bridgeDebugRuntimeFingerprint: state.bridgeDebugRuntimeFingerprint,
+  bridgeDebugSnapshotLabel: state.bridgeDebugSnapshotLabel,
+  bridgeDebugInitialTileCount: state.bridgeDebugInitialTileCount,
+  bridgeDebugSupportedMessageCount: state.bridgeDebugSupportedMessageCount
 });
 
 const attackDebugClientEvents = (events: ClientDebugEvent[]) => {

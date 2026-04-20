@@ -99,4 +99,31 @@ describe("renderEconomyPanelHtml", () => {
     expect(html).toContain("Paused until manpower is full (3135/3300)");
     expect(html).toContain("+0.00/m");
   });
+
+  it("falls back to a live income row when the session has rates but no detailed source buckets yet", () => {
+    const html = renderEconomyPanelHtml({
+      focus: "GOLD",
+      gold: 63.6,
+      me: "me",
+      incomePerMinute: 10.8,
+      strategicResources: { FOOD: 8, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 2, OIL: 0 },
+      strategicProductionPerMinute: { FOOD: 8, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [],
+      economyBreakdown: undefined,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).toContain("Live empire income");
+    expect(html).toContain("Detailed source rows are still catching up on this session.");
+    expect(html).toContain("+10.80/m");
+    expect(html).not.toContain("No current income");
+  });
 });

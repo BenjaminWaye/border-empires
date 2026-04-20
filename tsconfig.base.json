@@ -13,7 +13,10 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@border-empires/shared": ["packages/shared/dist/index"]
+      "@border-empires/shared": ["packages/shared/dist/index"],
+      "@border-empires/client-protocol": ["packages/client-protocol/dist/index"],
+      "@border-empires/game-domain": ["packages/game-domain/dist/index"],
+      "@border-empires/sim-protocol": ["packages/sim-protocol/dist/index"]
     }
   }
 }

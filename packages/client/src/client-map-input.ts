@@ -43,6 +43,15 @@ export const shouldCommitMouseSelection = (args: {
   return args.button === 0 && !args.boxSelectionMode && !args.boxSelectionEngaged && !args.mousePanMoved;
 };
 
+export type BoxSelectionMouseUpAction =
+  | { type: "none" }
+  | { type: "open-bulk-menu"; targetKeys: string[] };
+
+export const resolveBoxSelectionMouseUpAction = (dragKeys: string[]): BoxSelectionMouseUpAction => {
+  if (dragKeys.length === 0) return { type: "none" };
+  return { type: "open-bulk-menu", targetKeys: dragKeys };
+};
+
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
   const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
     const raw = deps.worldTileRawFromPointer(offsetX, offsetY);
@@ -225,34 +234,9 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       }
     }
     if (dragActive && boxSelectionMode && boxSelectionEngaged) {
-      const dragKeys = [...state.dragPreviewKeys];
-      if (dragKeys.length > 0) {
-        const neutralKeys = dragKeys.filter((k) => {
-          const t = state.tiles.get(k);
-          return t && t.terrain === "LAND" && !t.fogged && !t.ownerId;
-        });
-        const enemyKeys = dragKeys.filter((k) => {
-          const t = state.tiles.get(k);
-          return t && t.terrain === "LAND" && !t.fogged && t.ownerId && t.ownerId !== state.me && !deps.isTileOwnedByAlly(t);
-        });
-        const ownedYieldKeys = dragKeys.filter((k) => {
-          const t = state.tiles.get(k);
-          if (!t || t.ownerId !== state.me) return false;
-          const y = (t as Tile & { yield?: { gold?: number; strategic?: Record<string, number> } }).yield;
-          return Boolean(y && ((y.gold ?? 0) > 0.01 || Object.values(y.strategic ?? {}).some((v) => Number(v) > 0.01)));
-        });
-
-        if (neutralKeys.length > 0 && enemyKeys.length === 0 && ownedYieldKeys.length === 0) {
-          const out = deps.queueSpecificTargets(neutralKeys, "normal");
-          if (out.queued > 0) deps.processActionQueue();
-          deps.pushFeed(
-            `Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`,
-            "combat",
-            "info"
-          );
-        } else {
-          deps.openBulkTileActionMenu(dragKeys, ev.clientX, ev.clientY);
-        }
+      const action = resolveBoxSelectionMouseUpAction([...state.dragPreviewKeys]);
+      if (action.type === "open-bulk-menu") {
+        deps.openBulkTileActionMenu(action.targetKeys, ev.clientX, ev.clientY);
       }
       deps.interactionFlags.suppressNextClick = true;
     }

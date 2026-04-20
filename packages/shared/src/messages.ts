@@ -1,11 +1,31 @@
 import { z } from "zod";
 
+const FrontierCommandMetadataSchema = {
+  commandId: z.string().min(1).optional(),
+  clientSeq: z.number().int().positive().optional()
+};
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("AUTH"), token: z.string().min(1) }),
   z.object({ type: z.literal("PING"), t: z.number() }),
   z.object({ type: z.literal("SUBSCRIBE_CHUNKS"), cx: z.number(), cy: z.number(), radius: z.number().int().min(0).max(8) }),
-  z.object({ type: z.literal("EXPAND"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
-  z.object({ type: z.literal("ATTACK"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), powerupId: z.string().optional() }),
+  z.object({
+    type: z.literal("EXPAND"),
+    fromX: z.number().int(),
+    fromY: z.number().int(),
+    toX: z.number().int(),
+    toY: z.number().int(),
+    ...FrontierCommandMetadataSchema
+  }),
+  z.object({
+    type: z.literal("ATTACK"),
+    fromX: z.number().int(),
+    fromY: z.number().int(),
+    toX: z.number().int(),
+    toY: z.number().int(),
+    powerupId: z.string().optional(),
+    ...FrontierCommandMetadataSchema
+  }),
   z.object({ type: z.literal("ATTACK_PREVIEW"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
   z.object({ type: z.literal("CHOOSE_TECH"), techId: z.string().min(1) }),
   z.object({ type: z.literal("ALLIANCE_REQUEST"), targetPlayerName: z.string().min(1) }),
@@ -58,31 +78,57 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_STRUCTURE_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REMOVE_STRUCTURE"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("OVERLOAD_SYNTHESIZER"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("SET_CONVERTER_STRUCTURE_ENABLED"), x: z.number().int(), y: z.number().int(), enabled: z.boolean() }),
-  z.object({ type: z.literal("SETTLE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("OVERLOAD_SYNTHESIZER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({
+    type: z.literal("SET_CONVERTER_STRUCTURE_ENABLED"),
+    x: z.number().int(),
+    y: z.number().int(),
+    enabled: z.boolean(),
+    ...FrontierCommandMetadataSchema
+  }),
+  z.object({
+    type: z.literal("SETTLE"),
+    x: z.number().int(),
+    y: z.number().int(),
+    ...FrontierCommandMetadataSchema
+  }),
   z.object({ type: z.literal("BUILD_SIEGE_OUTPOST"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1) }),
-  z.object({ type: z.literal("REVEAL_EMPIRE_STATS"), targetPlayerId: z.string().min(1) }),
-  z.object({ type: z.literal("CAST_AETHER_BRIDGE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("REVEAL_EMPIRE_STATS"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("CAST_AETHER_BRIDGE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({
     type: z.literal("CAST_AETHER_WALL"),
     x: z.number().int(),
     y: z.number().int(),
     direction: z.enum(["N", "E", "S", "W"]),
-    length: z.union([z.literal(1), z.literal(2), z.literal(3)])
+    length: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    ...FrontierCommandMetadataSchema
   }),
-  z.object({ type: z.literal("SIPHON_TILE"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("PURGE_SIPHON"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("REMOVE_MOUNTAIN"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("AIRPORT_BOMBARD"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
-  z.object({ type: z.literal("BREAKTHROUGH_ATTACK"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int() }),
+  z.object({ type: z.literal("SIPHON_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("PURGE_SIPHON"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("REMOVE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({
+    type: z.literal("AIRPORT_BOMBARD"),
+    fromX: z.number().int(),
+    fromY: z.number().int(),
+    toX: z.number().int(),
+    toY: z.number().int(),
+    ...FrontierCommandMetadataSchema
+  }),
+  z.object({
+    type: z.literal("BREAKTHROUGH_ATTACK"),
+    fromX: z.number().int(),
+    fromY: z.number().int(),
+    toX: z.number().int(),
+    toY: z.number().int(),
+    ...FrontierCommandMetadataSchema
+  }),
   z.object({ type: z.literal("CANCEL_SIEGE_OUTPOST_BUILD"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("CANCEL_CAPTURE" ) }),
-  z.object({ type: z.literal("UNCAPTURE_TILE"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("UNCAPTURE_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("COLLECT_TILE"), x: z.number().int(), y: z.number().int() }),
-  z.object({ type: z.literal("COLLECT_SHARD"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("COLLECT_SHARD"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("COLLECT_VISIBLE") }),
   z.object({ type: z.literal("REQUEST_TILE_DETAIL"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("SET_FOG_DISABLED"), disabled: z.boolean() }),

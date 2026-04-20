@@ -37,6 +37,24 @@ describe("fortification overlay selection", () => {
     expect(fortificationOpeningForTile(south, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("NORTH");
   });
 
+  it("opens fortifications horizontally toward the nearest matching neighbor", () => {
+    const west = {
+      ...landTile(7, 3),
+      fort: { ownerId: "p1", status: "active" as const }
+    };
+    const east = {
+      ...landTile(8, 3),
+      fort: { ownerId: "p1", status: "active" as const }
+    };
+    const tiles = new Map<string, Tile>([
+      [keyFor(west.x, west.y), west],
+      [keyFor(east.x, east.y), east]
+    ]);
+
+    expect(fortificationOpeningForTile(west, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("EAST");
+    expect(fortificationOpeningForTile(east, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("WEST");
+  });
+
   it("treats wooden forts and light outposts as fortification overlay tiles", () => {
     const woodenFort = {
       ...landTile(1, 1),
@@ -77,5 +95,28 @@ describe("fortification overlay selection", () => {
     ]);
 
     expect(fortificationOpeningForTile(siegeOutpost, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("CLOSED");
+  });
+
+  it("does not open toward enemy or mixed fortifications", () => {
+    const fort = {
+      ...landTile(4, 4),
+      fort: { ownerId: "p1", status: "active" as const }
+    };
+    const enemyFort = {
+      ...landTile(5, 4),
+      ownerId: "p2",
+      fort: { ownerId: "p2", status: "active" as const }
+    };
+    const lightOutpost = {
+      ...landTile(4, 5),
+      economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
+    };
+    const tiles = new Map<string, Tile>([
+      [keyFor(fort.x, fort.y), fort],
+      [keyFor(enemyFort.x, enemyFort.y), enemyFort],
+      [keyFor(lightOutpost.x, lightOutpost.y), lightOutpost]
+    ]);
+
+    expect(fortificationOpeningForTile(fort, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("CLOSED");
   });
 });
