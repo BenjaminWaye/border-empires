@@ -116,4 +116,21 @@ describe("client-multiplex-websocket", () => {
     bulk?.open();
     expect(bulk?.sent).toEqual([JSON.stringify({ type: "AUTH", token: "abc" })]);
   });
+
+  it("does not try to mirror-close with illegal code 1006", () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+    const socket = createMultiplexWebSocket("wss://example.com/ws");
+    const [control, bulk] = FakeWebSocket.instances;
+    const controlCloseSpy = vi.spyOn(control!, "close");
+    const bulkCloseSpy = vi.spyOn(bulk!, "close");
+
+    control?.open();
+    bulk?.open();
+    control?.dispatchEvent(new CloseEvent("close", { code: 1006, reason: "abnormal", wasClean: false }));
+
+    expect(controlCloseSpy).toHaveBeenCalledWith();
+    expect(bulkCloseSpy).toHaveBeenCalledWith();
+    expect(socket.readyState).toBe(socket.CLOSED);
+  });
 });

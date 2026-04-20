@@ -372,7 +372,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       feedHtml,
       renderMobilePanels,
         effectiveTechChoices: techFlow.effectiveTechChoices,
-        renderManpowerPanelHtml
+        renderManpowerPanelHtml,
+        retryBootstrapNow: () => {
+          void authenticateSocket(true).catch(() => {});
+        }
       });
     } catch (error) {
       console.error("[hud-render-fatal]", error);

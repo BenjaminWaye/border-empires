@@ -1,0 +1,32 @@
+app = "border-empires-simulation"
+primary_region = "arn"
+
+[build]
+  dockerfile = "Dockerfile.simulation"
+
+[env]
+  NODE_ENV = "production"
+  NODE_OPTIONS = "--max-old-space-size=320"
+  SIMULATION_HOST = "0.0.0.0"
+  SIMULATION_PORT = "50051"
+  SIMULATION_SNAPSHOT_DIR = "/app/packages/server/snapshots"
+  SIMULATION_SNAPSHOT_EVERY_EVENTS = "5000"
+  SIMULATION_CHECKPOINT_MAX_RSS_MB = "260"
+  SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB = "170"
+  SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS = "15000"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 50051
+  auto_start_machines = true
+  auto_stop_machines = "off"
+  min_machines_running = 1
+
+  [[services.ports]]
+    handlers = []
+    port = 50051
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"

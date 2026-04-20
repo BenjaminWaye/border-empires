@@ -326,4 +326,141 @@ describe("client network tile detail regression", () => {
       })
     );
   });
+
+  it("enriches partial rewrite town payloads so support, fed state, and upkeep do not render as stubs", () => {
+    const state = createState();
+    state.tiles.set("80,240", {
+      x: 80,
+      y: 240,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      detailLevel: "summary",
+      resource: "FARM"
+    });
+    state.tiles.set("79,241", {
+      x: 79,
+      y: 241,
+      terrain: "LAND",
+      fogged: false,
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      detailLevel: "summary",
+      economicStructure: {
+        ownerId: "me",
+        type: "MARKET",
+        status: "active"
+      }
+    });
+    const ws = new FakeWebSocket();
+
+    bindClientNetwork({
+      state,
+      ws: ws as unknown as WebSocket,
+      wsUrl: "ws://localhost:3001/ws",
+      keyFor: (x: number, y: number) => `${x},${y}`,
+      renderHud: vi.fn(),
+      setAuthStatus: vi.fn(),
+      syncAuthOverlay: vi.fn(),
+      authenticateSocket: vi.fn(async () => {}),
+      pushFeed: vi.fn(),
+      pushFeedEntry: vi.fn(),
+      clearOptimisticTileState: vi.fn(),
+      requestViewRefresh: vi.fn(),
+      applyPendingSettlementsFromServer: vi.fn(),
+      mergeIncomingTileDetail: vi.fn((existing, incoming) => incoming ?? existing),
+      mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
+      maybeAnnounceShardSite: vi.fn(),
+      markDockDiscovered: vi.fn(),
+      centerOnOwnedTile: vi.fn(),
+      authProfileNameEl: { value: "" },
+      authProfileColorEl: { value: "" },
+      defensibilityPctFromTE: vi.fn(() => 0),
+      clearPendingCollectVisibleDelta: vi.fn(),
+      seedProfileSetupFields: vi.fn(),
+      resetStrategicReplayState: vi.fn(),
+      setWorldSeed: vi.fn(),
+      clearRenderCaches: vi.fn(),
+      buildMiniMapBase: vi.fn(),
+      shardAlertKeyForPayload: vi.fn(),
+      showShardAlert: vi.fn(),
+      combatResolutionAlert: vi.fn(),
+      wasPredictedCombatAlreadyShown: vi.fn(() => false),
+      showCaptureAlert: vi.fn(),
+      requestSettlement: vi.fn(() => false),
+      dropQueuedTargetKeyIfAbsent: vi.fn(),
+      processActionQueue: vi.fn(() => false),
+      clearSettlementProgressForTile: vi.fn(),
+      terrainAt: vi.fn(() => "LAND"),
+      requestTileDetailIfNeeded: vi.fn(),
+      requestAttackPreviewForTarget: vi.fn(),
+      openSingleTileActionMenu: vi.fn(),
+      isTileOwnedByAlly: vi.fn(() => false),
+      hideShardAlert: vi.fn(),
+      explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      clearSettlementProgressByKey: vi.fn(),
+      showCollectVisibleCooldownAlert: vi.fn(),
+      formatCooldownShort: vi.fn(() => "1s"),
+      reconcileActionQueue: vi.fn(),
+      revertOptimisticVisibleCollectDelta: vi.fn(),
+      revertOptimisticTileCollectDelta: vi.fn(),
+      clearPendingCollectTileDelta: vi.fn(),
+      playerNameForOwner: vi.fn(),
+      settlementProgressForTile: vi.fn(() => undefined)
+    } as any);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [
+          {
+            x: 79,
+            y: 240,
+            terrain: "LAND",
+            fogged: false,
+            ownerId: "me",
+            ownershipState: "SETTLED",
+            detailLevel: "full",
+            townJson: JSON.stringify({
+              name: "Qadarstrand",
+              type: "MARKET",
+              populationTier: "TOWN",
+              population: 18_977,
+              maxPopulation: 50_000,
+              baseGoldPerMinute: 0,
+              goldPerMinute: 0,
+              cap: 0,
+              isFed: false,
+              connectedTownCount: 0,
+              connectedTownBonus: 0,
+              hasMarket: false,
+              marketActive: false,
+              hasGranary: false,
+              granaryActive: false,
+              hasBank: false,
+              bankActive: false
+            })
+          }
+        ]
+      })
+    });
+
+    expect(state.tiles.get("79,240")).toEqual(
+      expect.objectContaining({
+        detailLevel: "full",
+        town: expect.objectContaining({
+          name: "Qadarstrand",
+          populationTier: "TOWN",
+          isFed: true,
+          supportCurrent: 2,
+          supportMax: 2,
+          hasMarket: true,
+          marketActive: true,
+          foodUpkeepPerMinute: 0.1
+        })
+      })
+    );
+  });
 });

@@ -19,6 +19,15 @@ describe("login chunk regression guard", () => {
 
   it("avoids full subscribed-view refreshes while a snapshot is already in flight", () => {
     const source = serverSource();
-    expect(source).toContain("if (deps.chunkSnapshotInFlightByPlayer.has(playerId)) return;");
+    expect(source).toContain("deps.pendingChunkRefreshByPlayer.add(playerId);");
+  });
+
+  it("replays a queued subscribed-view refresh once the in-flight snapshot finishes", () => {
+    const chunkSnapshotSource = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "./snapshots.ts"),
+      "utf8"
+    );
+    expect(chunkSnapshotSource).toContain("if (deps.pendingChunkRefreshByPlayer.delete(actor.id))");
+    expect(chunkSnapshotSource).toContain("sendChunkSnapshot(latestSocket, actor, latestSub);");
   });
 });

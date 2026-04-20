@@ -8,6 +8,7 @@ import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defe
 import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
+import { buildMapLoadingView } from "./client-map-loading-view.js";
 import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import type { StructureInfoKey } from "./client-map-display.js";
@@ -100,6 +101,7 @@ type HudDeps = {
   renderMobilePanels: () => void;
   effectiveTechChoices: () => string[];
   renderManpowerPanelHtml: typeof import("./client-side-panel-html.js").renderManpowerPanelHtml;
+  retryBootstrapNow: () => void;
 };
 
 export const renderClientHud = (deps: HudDeps): void => {
@@ -170,7 +172,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     resourceLabel,
     economicStructureName,
     leaderboardHtml,
-    feedHtml
+    feedHtml,
+    retryBootstrapNow
   } = deps;
 
   const safeValue = <T>(label: string, fallback: T, render: () => T): T => {
@@ -184,6 +187,52 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const fallbackCard = (label: string): string =>
     `<article class="card"><p>${label} is temporarily unavailable.</p></article>`;
+
+  const bridgeStatusHtml = (): string => {
+    const modeLabel =
+      state.bridgeDebugMode === "rewrite-gateway"
+        ? "rewrite-gateway"
+        : state.bridgeDebugMode === "legacy-server"
+          ? "legacy-server"
+          : "unknown";
+    const bootstrapLabel =
+      state.bridgeDebugBootstrap === "rewrite-init"
+        ? "rewrite-init"
+        : state.bridgeDebugBootstrap === "legacy-init"
+          ? "legacy-init"
+          : "pending";
+    const wsLabel = state.bridgeDebugWsUrl || wsUrl;
+    const seasonLabel = state.bridgeDebugSeasonId || "unknown";
+    const runtimeFingerprint = state.bridgeDebugRuntimeFingerprint || "unknown";
+    const snapshotLabel = state.bridgeDebugSnapshotLabel || "n/a";
+    const backendLabel = state.activeBackend;
+    const copyPayload = encodeURIComponent(
+      [
+        `Backend ${backendLabel}`,
+        `Bridge ${modeLabel}`,
+        `Bootstrap ${bootstrapLabel}`,
+        `Season ${seasonLabel}`,
+        `Runtime ${runtimeFingerprint}`,
+        `Snapshot ${snapshotLabel}`,
+        `Tiles ${state.bridgeDebugInitialTileCount}`,
+        `Msgs ${state.bridgeDebugSupportedMessageCount}`,
+        wsLabel
+      ].join("\n")
+    );
+    return `
+      <div class="bridge-debug-status" title="${wsLabel}">
+        <button type="button" class="bridge-debug-copy-btn" data-copy-bridge-debug="${copyPayload}">Copy</button>
+        <div><strong>Backend</strong> ${backendLabel}</div>
+        <div><strong>Bridge</strong> ${modeLabel}</div>
+        <div><strong>Bootstrap</strong> ${bootstrapLabel}</div>
+        <div><strong>Season</strong> ${seasonLabel}</div>
+        <div><strong>Runtime</strong> ${runtimeFingerprint}</div>
+        <div><strong>Snapshot</strong> ${snapshotLabel}</div>
+        <div><strong>Tiles</strong> ${state.bridgeDebugInitialTileCount} · <strong>Msgs</strong> ${state.bridgeDebugSupportedMessageCount}</div>
+        <div class="bridge-debug-ws">${wsLabel}</div>
+      </div>
+    `;
+  };
 
   const replayToolbarHtml = (): string => {
     return `<div class="mini-map-toolbar">
@@ -383,24 +432,20 @@ export const renderClientHud = (deps: HudDeps): void => {
   deps.miniMapReplayEl.innerHTML = replayPanelHtml();
   const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (loadingActive) {
+    const loadingView = buildMapLoadingView(state, wsUrl);
     dom.mapLoadingOverlayEl.style.display = "grid";
-    if (state.connection === "disconnected") {
-      dom.mapLoadingTitleEl.textContent = "Disconnected from server";
-      dom.mapLoadingMetaEl.textContent = "Retrying connection...";
-    } else if (state.connection === "connecting") {
-      dom.mapLoadingTitleEl.textContent = "Connecting to server...";
-      dom.mapLoadingMetaEl.textContent = "Retrying connection...";
-    } else if (state.connection === "connected" || (state.connection === "initialized" && state.firstChunkAt === 0)) {
-      const startAt = state.mapLoadStartedAt || Date.now();
-      const elapsed = ((Date.now() - startAt) / 1000).toFixed(1);
-      dom.mapLoadingTitleEl.textContent = state.authSessionReady ? "Loading nearby land..." : "Syncing empire...";
-      dom.mapLoadingMetaEl.textContent = state.authSessionReady ? `Elapsed ${elapsed}s · chunks ${state.chunkFullCount}` : `Connected to ${wsUrl}`;
-    } else {
-      dom.mapLoadingTitleEl.textContent = "Loading world...";
-      dom.mapLoadingMetaEl.textContent = "Finalizing map render...";
-    }
+    dom.mapLoadingOverlayEl.dataset.tone = loadingView.tone;
+    dom.mapLoadingTitleEl.textContent = loadingView.title;
+    dom.mapLoadingMetaEl.textContent = loadingView.meta;
+    dom.mapLoadingActionsEl.dataset.visible = loadingView.showRetry || loadingView.showReload ? "true" : "false";
+    dom.mapLoadingRetryBtn.style.display = loadingView.showRetry ? "" : "none";
+    dom.mapLoadingReloadBtn.style.display = loadingView.showReload ? "" : "none";
+    dom.mapLoadingRetryBtn.onclick = () => retryBootstrapNow();
+    dom.mapLoadingReloadBtn.onclick = () => window.location.reload();
   } else {
     dom.mapLoadingOverlayEl.style.display = "none";
+    dom.mapLoadingOverlayEl.dataset.tone = "normal";
+    dom.mapLoadingActionsEl.dataset.visible = "false";
   }
 
   const visibleTechChoices = deps.effectiveTechChoices();
@@ -681,6 +726,20 @@ export const renderClientHud = (deps: HudDeps): void => {
     }
   );
   dom.mobileAllianceRequestsEl.innerHTML = dom.allianceRequestsEl.innerHTML;
+  const bridgeDebugCopyButtons = dom.hud.querySelectorAll("[data-copy-bridge-debug]") as NodeListOf<HTMLButtonElement>;
+  bridgeDebugCopyButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = async () => {
+      const encoded = btn.dataset.copyBridgeDebug;
+      if (!encoded) return;
+      try {
+        await navigator.clipboard.writeText(decodeURIComponent(encoded));
+        pushFeed("Bridge debug copied.", "info", "success");
+      } catch {
+        pushFeed("Could not copy bridge debug.", "error", "warn");
+      }
+      renderClientHud(deps);
+    };
+  });
   const socialInspectCardHtml = safeValue("renderSocialInspectCardHtml", "", () =>
     renderSocialInspectCardHtml({
       socialInspectPlayerId: state.socialInspectPlayerId,
@@ -831,6 +890,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       <div class="card auth-settings-card">
         <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
+        ${bridgeStatusHtml()}
         <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
       </div>
     </div>

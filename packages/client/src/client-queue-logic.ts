@@ -1,7 +1,8 @@
-import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, SETTLE_COST, combatWinChance } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "./client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
-import { queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { persistDevelopmentQueueForPlayer, queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { createNextFrontierCommandIdentity } from "./client-frontier-command.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "./client-types.js";
@@ -19,6 +20,7 @@ const SETTLEMENT_CONFIRM_REFRESH_MS = 4_000;
 const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
 const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
 const ATTACK_PREVIEW_CACHE_TTL_MS = 5_000;
+const BREAKTHROUGH_PREVIEW_DEF_MULT_FACTOR = 0.6;
 
 type AttackPreview = NonNullable<ClientState["attackPreview"]>;
 
@@ -59,6 +61,60 @@ const requestAttackPreview = (
   state.lastAttackPreviewAt = nowMs;
   state.attackPreviewPendingKey = previewKey;
   deps.ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: args.fromX, fromY: args.fromY, toX: args.toX, toY: args.toY }));
+};
+
+const localAttackPreview = (
+  state: ClientState,
+  args: {
+    fromKey: string;
+    toKey: string;
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+  }
+): AttackPreview | undefined => {
+  const origin = state.tiles.get(args.fromKey);
+  const target = state.tiles.get(args.toKey);
+  if (!target) return undefined;
+  const preview: AttackPreview = {
+    fromKey: args.fromKey,
+    toKey: args.toKey,
+    valid: false,
+    receivedAt: Date.now()
+  };
+  if (origin && origin.ownerId && origin.ownerId !== state.me) {
+    preview.reason = "origin not owned";
+    return preview;
+  }
+  if (!target.ownerId) {
+    preview.reason = "target not hostile";
+    return preview;
+  }
+  if (target.ownerId === state.me) {
+    preview.reason = "target not hostile";
+    return preview;
+  }
+  if (target.fogged) {
+    preview.reason = "target not visible";
+    return preview;
+  }
+  let defMult = 1;
+  if (target.ownershipState === "FRONTIER") defMult = 0;
+  if (target.ownershipState === "SETTLED") defMult *= 1.35;
+  if (target.town) defMult *= 1.2;
+  if (target.dockId) defMult *= 1.1;
+  if (target.terrain === "MOUNTAIN") defMult *= 1.15;
+  const atkEff = 10;
+  const defEff = 10 * defMult;
+  preview.valid = true;
+  preview.winChance = combatWinChance(atkEff, defEff);
+  preview.breakthroughWinChance = combatWinChance(atkEff, defEff * BREAKTHROUGH_PREVIEW_DEF_MULT_FACTOR);
+  preview.atkEff = atkEff;
+  preview.defEff = defEff;
+  preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
+  delete preview.reason;
+  return preview;
 };
 
 const resolvedAttackPreviewForTarget = (
@@ -159,6 +215,7 @@ export const queueDevelopmentAction = (
     return false;
   }
   state.developmentQueue.push(entry);
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -234,6 +291,7 @@ export const cancelQueuedSettlement = (
   const nextQueue = state.developmentQueue.filter((entry) => !(entry.kind === "SETTLE" && entry.tileKey === tileKey));
   if (nextQueue.length === state.developmentQueue.length) return false;
   state.developmentQueue = nextQueue;
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.pushFeed(`Queued settlement at ${tileKey} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -251,6 +309,7 @@ export const cancelQueuedBuild = (
   if (!entry) return false;
   const nextQueue = state.developmentQueue.filter((queued) => queued !== entry);
   state.developmentQueue = nextQueue;
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.pushFeed(`${entry.label} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -515,10 +574,12 @@ export const processDevelopmentQueue = (
           });
     if (ok) {
       state.developmentQueue.shift();
+      persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
       deps.pushFeed(`${next.label} started.`, "combat", "info");
       started = true;
     } else {
       state.developmentQueue.shift();
+      persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
       deps.pushFeed(`${next.label} could not start and was removed from queue.`, "combat", "warn");
     }
     break;
@@ -868,7 +929,7 @@ export const processActionQueue = (
     ) {
       from = selectedFrom;
     }
-    if (!from && !allowOptimisticOrigin && optimisticFrom) return false;
+    if (!from && !allowOptimisticOrigin && optimisticFrom) from = optimisticFrom;
     if (!from && to.ownerId && to.dockId) from = to;
     if (!from) {
       logActionQueue("action-queue-drop-no-origin", {
@@ -911,6 +972,9 @@ export const processActionQueue = (
       actionType: !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK",
       ...(next.mode ? { mode: next.mode } : {})
     };
+    const { commandId, clientSeq } = createNextFrontierCommandIdentity(state);
+    state.actionCurrent.commandId = commandId;
+    state.actionCurrent.clientSeq = clientSeq;
     state.actionInFlight = true;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;
@@ -973,7 +1037,7 @@ export const processActionQueue = (
         deps.renderHud();
         continue;
       }
-      deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+      deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
       attackSyncLog("send", {
         actionType: "EXPAND",
         target: { x: to.x, y: to.y },
@@ -1005,7 +1069,9 @@ export const processActionQueue = (
         continue;
       }
       if (next.mode === "breakthrough") {
-        deps.ws.send(JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        deps.ws.send(
+          JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq })
+        );
         attackSyncLog("send", {
           actionType: "BREAKTHROUGH_ATTACK",
           target: { x: to.x, y: to.y },
@@ -1023,7 +1089,7 @@ export const processActionQueue = (
         });
         deps.pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
       } else {
-        deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
         attackSyncLog("send", {
           actionType: "ATTACK",
           target: { x: to.x, y: to.y },
@@ -1100,6 +1166,19 @@ export const requestAttackPreviewForHover = (
     },
     deps
   );
+  const fallbackPreview = localAttackPreview(state, {
+    fromKey: deps.keyFor(from?.x ?? hoveredTile.x, from?.y ?? hoveredTile.y),
+    toKey: deps.keyFor(hoveredTile.x, hoveredTile.y),
+    fromX: from?.x ?? hoveredTile.x,
+    fromY: from?.y ?? hoveredTile.y,
+    toX: hoveredTile.x,
+    toY: hoveredTile.y
+  });
+  if (fallbackPreview) {
+    state.attackPreview = fallbackPreview;
+    state.attackPreviewCacheByKey.set(`${fallbackPreview.fromKey}->${fallbackPreview.toKey}`, fallbackPreview);
+    state.attackPreviewPendingKey = "";
+  }
 };
 
 export const requestAttackPreviewForTarget = (
@@ -1133,6 +1212,19 @@ export const requestAttackPreviewForTarget = (
     },
     deps
   );
+  const fallbackPreview = localAttackPreview(state, {
+    fromKey,
+    toKey,
+    fromX: from?.x ?? to.x,
+    fromY: from?.y ?? to.y,
+    toX: to.x,
+    toY: to.y
+  });
+  if (fallbackPreview) {
+    state.attackPreview = fallbackPreview;
+    state.attackPreviewCacheByKey.set(`${fallbackPreview.fromKey}->${fallbackPreview.toKey}`, fallbackPreview);
+    state.attackPreviewPendingKey = "";
+  }
 };
 
 export const attackPreviewDetailForTarget = (
@@ -1146,12 +1238,21 @@ export const attackPreviewDetailForTarget = (
 ): string | undefined => {
   const from = deps.pickOriginForTarget(to.x, to.y);
   const toKey = deps.keyFor(to.x, to.y);
-  const preview = resolvedAttackPreviewForTarget(
-    state,
-    from
-      ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
-      : { toKey, dockFallback: Boolean(to.dockId) }
-  );
+  const preview =
+    resolvedAttackPreviewForTarget(
+      state,
+      from
+        ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
+        : { toKey, dockFallback: Boolean(to.dockId) }
+    ) ??
+    localAttackPreview(state, {
+      fromKey: deps.keyFor(from?.x ?? to.x, from?.y ?? to.y),
+      toKey,
+      fromX: from?.x ?? to.x,
+      fromY: from?.y ?? to.y,
+      toX: to.x,
+      toY: to.y
+    });
   if (!preview) return undefined;
   if (!preview.valid) return preview.reason ? `Attack ${preview.reason}` : undefined;
   if (mode === "breakthrough" && typeof preview.breakthroughWinChance === "number") {
@@ -1178,6 +1279,15 @@ export const attackPreviewPendingForTarget = (
       : { toKey, dockFallback: Boolean(to.dockId) }
   );
   if (preview) return false;
+  const fallbackPreview = localAttackPreview(state, {
+    fromKey: deps.keyFor(from?.x ?? to.x, from?.y ?? to.y),
+    toKey,
+    fromX: from?.x ?? to.x,
+    fromY: from?.y ?? to.y,
+    toX: to.x,
+    toY: to.y
+  });
+  if (fallbackPreview) return false;
   if (from) return state.attackPreviewPendingKey === attackPreviewKey(deps.keyFor(from.x, from.y), toKey);
   if (!to.dockId) return false;
   return state.attackPreviewPendingKey === attackPreviewKey(toKey, toKey);

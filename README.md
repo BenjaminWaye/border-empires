@@ -82,6 +82,18 @@ Install the local git hook for this checkout with:
 
 That configures `pre-push` to run `pnpm ci:local`.
 
+For rewrite localhost stress testing with a durable DB-backed 20-AI world on `http://localhost:5173`, run:
+
+```bash
+pnpm rewrite:restart:20ai
+```
+
+For an explicit fresh-world reseed instead of durable recovery, run:
+
+```bash
+pnpm rewrite:restart:20ai:seed
+```
+
 ## Client Release Notes
 
 When you ship a user-facing client update, update `packages/client/src/client-changelog.ts` in the same branch.
@@ -184,6 +196,72 @@ Set environment variable:
 - `VITE_WS_URL=wss://border-empires-api.fly.dev/ws`
 
 Then deploy.
+
+## Rewrite Memory Safety
+
+The split simulation service now supports checkpoint memory watermarks so checkpoint saves can be deferred instead of pushing a hot process into OOM during a bad moment.
+
+Environment variables:
+
+- `SIMULATION_SNAPSHOT_EVERY_EVENTS`: checkpoint cadence by persisted events
+- `SIMULATION_CHECKPOINT_MAX_RSS_MB`: defer checkpoint when RSS is at or above this many MB
+- `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB`: defer checkpoint when heap used is at or above this many MB
+
+The simulation logs checkpoint phases and any high-memory deferrals so you can confirm what runtime state existed before a checkpoint was skipped.
+
+## Rewrite Acceptance Additions
+
+The original split gateway/simulation rewrite plan remains the right direction, but localhost parity work uncovered three additional acceptance areas that must be treated as hard requirements before production cutover.
+
+### Runtime Provenance / Anti-Stale Guarantees
+
+Every rewrite runtime should expose an explicit identity so a browser or operator can tell exactly which world is running instead of guessing from symptoms.
+
+Required fields:
+
+- source type (`legacy-snapshot`, seed profile, DB-backed recovery, etc.)
+- season id
+- world seed
+- snapshot label / source
+- runtime fingerprint
+- player count
+- seeded tile count
+
+This identity should be surfaced in:
+
+- gateway `/health`
+- runtime/debug endpoints
+- client bridge/debug badge
+- downloaded debug bundles
+
+Rewrite boot should fail when snapshot provenance is ambiguous or inconsistent.
+
+### Snapshot-Bridge Parity Checklist
+
+When localhost is validating the rewrite against an imported season snapshot, the bridge must preserve gameplay-facing parity for:
+
+- town overview values
+- visibility radius and discovered-terrain shaping
+- docks / coastline / resource rendering
+- economy source and upkeep breakdowns
+- leaderboard settled/income/victory rows
+- frontier claim behavior
+- attack preview and win chance behavior
+- reconnect persistence
+
+Do not treat a snapshot-backed localhost session as “good enough” until this checklist is verified on the running client.
+
+### Operational Memory Safety
+
+The production monolith OOM incident showed that memory safety needs to be explicit in the rewrite acceptance criteria.
+
+Required protections:
+
+- gateway chunk-cache byte/count caps
+- simulation checkpoint streaming or section-at-a-time writes
+- checkpoint-phase memory watermarks sampled during build/write, not only before/after
+- checkpoint deferral under high memory
+- split-service memory budgets verified before production cutover
 
 ### 3) Local vs Production WS config
 
