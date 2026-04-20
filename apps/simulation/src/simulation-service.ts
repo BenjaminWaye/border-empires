@@ -19,7 +19,7 @@ import { createWorkerSystemCommandProducer } from "./system-command-producer-wor
 import { loadLegacySnapshotBootstrap } from "./legacy-snapshot-bootstrap.js";
 import { buildNextClientSeqByPlayer } from "./next-client-seq.js";
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
-import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "./seed-state.js";
+import { createSeedPlayers, createSeedWorld, simulationWorldSeedForProfile, type SimulationSeedProfile } from "./seed-state.js";
 import { createPlayerSubscriptionRegistry } from "./subscription-registry.js";
 import { createSimulationPersistenceQueue } from "./simulation-persistence-queue.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-cache.js";
@@ -126,6 +126,16 @@ type SimulationServiceOptions = {
   snapshotStore?: SimulationSnapshotStore;
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info">;
+  runtimeIdentity?: {
+    sourceType: "legacy-snapshot" | "seed-profile";
+    seasonId: string;
+    worldSeed: number;
+    fingerprint: string;
+    snapshotLabel?: string;
+    seedProfile?: string;
+    playerCount: number;
+    seededTileCount: number;
+  };
 };
 
 type SimulationTileDelta = {
@@ -340,6 +350,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   })();
   const activePlayers = legacySnapshotBootstrap?.players ?? seedPlayers;
+  const runtimeIdentity = options.runtimeIdentity
+    ? options.runtimeIdentity
+    : legacySnapshotBootstrap
+      ? legacySnapshotBootstrap.runtimeIdentity
+      : (() => {
+          const seedProfile = options.seedProfile ?? "default";
+          const worldSeed = simulationWorldSeedForProfile(seedProfile);
+          return {
+            sourceType: "seed-profile" as const,
+            seasonId: `rewrite-${seedProfile}`,
+            worldSeed,
+            fingerprint: `seed-${seedProfile}-${worldSeed}`,
+            seedProfile,
+            playerCount: activePlayers.size,
+            seededTileCount: startupRecovery.initialState.tiles.length
+          };
+        })();
   const runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
@@ -687,6 +714,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   return {
     runtime,
     startupRecovery,
+    runtimeIdentity,
+    health() {
+      const persistenceDegraded = persistenceQueue.isDegraded();
+      return {
+        ok: !persistenceDegraded && !fatalPersistenceError,
+        persistenceDegraded,
+        ...(fatalPersistenceError ? { fatalPersistenceError: fatalPersistenceError.message } : {}),
+        runtimeIdentity
+      };
+    },
     async start(): Promise<{ host: string; port: number; address: string }> {
       const requestedPort = options.port ?? 50051;
       const port = await new Promise<number>((resolve, reject) => {
