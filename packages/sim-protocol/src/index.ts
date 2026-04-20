@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { DurableCommandTypeSchema } from "@border-empires/client-protocol";
+import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
+import {
+  ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
+  RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
+  RESTART_PARITY_COMMAND_TYPES as RESTART_PARITY_COMMAND_TYPES_UNTYPED
+} from "./command-coverage-sets.js";
 
 export const CommandEnvelopeSchema = z.object({
   commandId: z.string().min(1),
@@ -12,6 +17,12 @@ export const CommandEnvelopeSchema = z.object({
 });
 
 export type CommandEnvelope = z.infer<typeof CommandEnvelopeSchema>;
+
+export const DURABLE_COMMAND_TYPES = [...DurableCommandTypeSchema.options] as readonly DurableCommandType[];
+
+export const RESTART_PARITY_COMMAND_TYPES = RESTART_PARITY_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
+export const ACCEPTANCE_RESOLUTION_COMMAND_TYPES = ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
+export const RECONNECT_COMMAND_TYPES = RECONNECT_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 
 export type LeaderboardOverallEntry = {
   id: string;

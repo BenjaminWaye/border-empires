@@ -17,6 +17,8 @@ export type FrontierCombatPreview = {
   breakthroughWinChance: number;
 };
 
+export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
+
 const defenseMultiplierForTile = (target: FrontierCombatPreviewTile): number => {
   let defMult = 1;
   if (target.ownershipState === "FRONTIER") defMult *= 1.1;
@@ -27,7 +29,7 @@ const defenseMultiplierForTile = (target: FrontierCombatPreviewTile): number => 
   return defMult;
 };
 
-export const buildFrontierCombatPreview = (target: FrontierCombatPreviewTile): FrontierCombatPreview => {
+const buildFrontierCombatPreviewImpl = (target: FrontierCombatPreviewTile): FrontierCombatPreview => {
   const atkEff = 10;
   const defMult = defenseMultiplierForTile(target);
   const defEff = 10 * defMult;
@@ -40,7 +42,15 @@ export const buildFrontierCombatPreview = (target: FrontierCombatPreviewTile): F
   };
 };
 
-export const rollFrontierCombat = (
+type FrontierCombatPreviewFn = ((target: FrontierCombatPreviewTile) => FrontierCombatPreview) & {
+  __combatModule: symbol;
+};
+
+export const buildFrontierCombatPreview: FrontierCombatPreviewFn = Object.assign(buildFrontierCombatPreviewImpl, {
+  __combatModule: FRONTIER_COMBAT_MODULE
+});
+
+const rollFrontierCombatImpl = (
   target: FrontierCombatPreviewTile,
   actionType: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK",
   randomValue = Math.random()
@@ -52,3 +62,15 @@ export const rollFrontierCombat = (
     attackerWon: randomValue < chance
   };
 };
+
+type RollFrontierCombatFn = ((
+  target: FrontierCombatPreviewTile,
+  actionType: "ATTACK" | "EXPAND" | "BREAKTHROUGH_ATTACK",
+  randomValue?: number
+) => FrontierCombatPreview & { attackerWon: boolean }) & {
+  __combatModule: symbol;
+};
+
+export const rollFrontierCombat: RollFrontierCombatFn = Object.assign(rollFrontierCombatImpl, {
+  __combatModule: FRONTIER_COMBAT_MODULE
+});

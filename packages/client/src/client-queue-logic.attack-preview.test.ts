@@ -119,7 +119,7 @@ describe("attack preview prefetch and cache", () => {
     ).toContain("% win chance");
   });
 
-  it("treats unsupported hostile frontier tiles as zero-defense in the local fallback preview", () => {
+  it("uses shared combat math for local fallback attack preview estimates", () => {
     const state = createInitialState();
     state.authSessionReady = true;
     state.me = "me";
@@ -137,12 +137,14 @@ describe("attack preview prefetch and cache", () => {
     });
 
     expect(state.attackPreview?.valid).toBe(true);
-    expect(state.attackPreview?.winChance).toBe(1);
+    expect(state.attackPreview?.winChance).toBeCloseTo(10 / 21, 6);
+    expect(state.attackPreview?.breakthroughWinChance).toBeCloseTo(10 / 16.6, 6);
+    expect(state.attackPreview?.defEff).toBeCloseTo(11, 6);
     expect(
       attackPreviewDetailForTarget(state, target, {
         keyFor: (x, y) => `${x},${y}`,
         pickOriginForTarget: () => origin
       })
-    ).toBe("100% win chance");
+    ).toBe("48% win chance");
   });
 });
