@@ -11,6 +11,8 @@
     "rewrite:restart": "./scripts/restart-rewrite-stack.sh",
     "rewrite:restart:20ai": "./scripts/restart-rewrite-stack-20ai.sh",
     "rewrite:restart:20ai:seed": "./scripts/restart-rewrite-stack-20ai-seed.sh",
+    "rewrite:db:migrate": "node ./scripts/rewrite-db-migrate.mjs",
+    "rewrite:db:size": "node ./scripts/rewrite-db-size.mjs",
     "deploy:rewrite:gateway": "fly deploy --config fly.gateway.toml",
     "deploy:rewrite:simulation": "fly deploy --config fly.simulation.toml",
     "check:client-changelog": "node ./scripts/check-client-changelog-update.mjs",
