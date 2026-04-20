@@ -4,6 +4,9 @@ import type { StoredSimulationCommand } from "./command-store.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
+const isTerminalCommandEvent = (event: SimulationEvent): boolean =>
+  event.eventType === "COMMAND_REJECTED" || event.eventType === "COMBAT_RESOLVED";
+
 export type StoredSnapshotCommandEvents = {
   commandId: string;
   events: SimulationEvent[];
@@ -48,6 +51,7 @@ export const buildSimulationSnapshotSections = ({
 }): SimulationSnapshotSections => ({
   initialState,
   commandEvents: commands
+    .filter((command) => command.status === "QUEUED" || command.status === "ACCEPTED")
     .filter((command) => eventsByCommandId.has(command.commandId))
     .map((command) => ({
       commandId: command.commandId,
@@ -59,6 +63,7 @@ export const buildSimulationSnapshotCommandEvents = (
   eventsByCommandId: ReadonlyMap<string, SimulationEvent[]>
 ): StoredSnapshotCommandEvents[] =>
   [...eventsByCommandId.entries()]
+    .filter(([, events]) => !events.some(isTerminalCommandEvent))
     .map(([commandId, events]) => ({
       commandId,
       events: [...events]

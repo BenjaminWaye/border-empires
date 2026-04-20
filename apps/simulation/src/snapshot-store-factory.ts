@@ -17,9 +17,12 @@ export const createSimulationSnapshotStore = async (
 
   const store = createPostgresSimulationSnapshotStore(options.databaseUrl);
   if (options.applySchema) {
-    const migrationPath = await resolveSimulationMigrationPath("0003_world_snapshots.sql", import.meta.url);
-    const migrationSql = await readFile(migrationPath, "utf8");
-    await store.applySchema(migrationSql);
+    const snapshotMigrationPath = await resolveSimulationMigrationPath("0003_world_snapshots.sql", import.meta.url);
+    const snapshotMigrationSql = await readFile(snapshotMigrationPath, "utf8");
+    await store.applySchema(snapshotMigrationSql);
+    const boundedMigrationPath = await resolveSimulationMigrationPath("0008_bounded_storage.sql", import.meta.url);
+    const boundedMigrationSql = await readFile(boundedMigrationPath, "utf8");
+    await store.applySchema(boundedMigrationSql);
   }
   return store;
 };

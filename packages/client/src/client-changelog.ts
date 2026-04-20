@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.20.1",
+  version: "2026.04.20.2",
   title: "What's New",
-  summary: "Recent updates include attack-preview fallback math now sourced from the same shared combat module the server uses to resolve fights, rewrite recovery that restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding from seed defaults on restart, stricter simulation durability handling so the server stops instead of drifting when Postgres persistence fails, live tile yield that now survives gateway sync so collect and production views stay coherent, and building actions that now keep the correct queueability and blocker messaging when development slots are full.",
+  summary: "Recent updates include bounded rewrite Postgres storage for Supabase-backed environments, deterministic checkpoint compaction that keeps only the active snapshot plus post-checkpoint event tail, and operational runbook tooling for migration and database-size guardrails while preserving season replay archives.",
   entries: [
+    {
+      introducedIn: "2026.04.20.2",
+      title: "Rewrite Postgres now uses bounded checkpoint storage compatible with Supabase free-tier limits",
+      why: "The split rewrite originally treated command/event/snapshot storage as effectively append-only. That model works on larger paid databases but can drift into read-only risk on capped environments, and it made DB growth harder to reason about during long seasons.",
+      changes: [
+        "Simulation checkpoint writes now compact durable storage by keeping the active snapshot pointer and pruning pre-checkpoint world events.",
+        "Rewrite projection persistence now refreshes current-state projection tables instead of appending per-snapshot historical copies.",
+        "Operational tooling now includes explicit rewrite DB migration and DB-size guardrail commands, and staging provisioning now expects an external Supabase DATABASE_URL rather than creating Fly Postgres."
+      ]
+    },
     {
       introducedIn: "2026.04.20.1",
       title: "Fallback attack preview now matches shared combat math",
