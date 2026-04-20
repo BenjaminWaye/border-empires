@@ -10,12 +10,16 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "ATTACK":
     case "EXPAND":
     case "BREAKTHROUGH_ATTACK":
-    case "CANCEL_CAPTURE":
     case "SETTLE":
     case "BUILD_FORT":
     case "BUILD_OBSERVATORY":
     case "BUILD_SIEGE_OUTPOST":
     case "BUILD_ECONOMIC_STRUCTURE":
+    case "CANCEL_FORT_BUILD":
+    case "CANCEL_STRUCTURE_BUILD":
+    case "REMOVE_STRUCTURE":
+    case "CANCEL_SIEGE_OUTPOST_BUILD":
+    case "CANCEL_CAPTURE":
     case "UNCAPTURE_TILE":
     case "OVERLOAD_SYNTHESIZER":
     case "SET_CONVERTER_STRUCTURE_ENABLED":

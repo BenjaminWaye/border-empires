@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RECONNECT_COMMAND_TYPES } from "../../../packages/sim-protocol/src/command-coverage-sets.js";
 
 import { supportedClientMessageTypes } from "./supported-client-messages.js";
 
@@ -14,5 +15,9 @@ describe("supported client messages", () => {
     expect(supportedClientMessageTypes).toContain("TRUCE_REJECT");
     expect(supportedClientMessageTypes).toContain("TRUCE_CANCEL");
     expect(supportedClientMessageTypes).toContain("TRUCE_BREAK");
+  });
+
+  it.each(RECONNECT_COMMAND_TYPES)("keeps durable command %s available on the websocket surface", (type) => {
+    expect(supportedClientMessageTypes).toContain(type);
   });
 });
