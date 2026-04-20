@@ -24,12 +24,20 @@ const service = await createSimulationService({
   startupRecoveryTimeoutMs: runtimeEnv.startupRecoveryTimeoutMs,
   allowSeedRecoveryFallback: runtimeEnv.allowSeedRecoveryFallback,
   useAiWorker: runtimeEnv.useAiWorker,
-  ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {})
+  ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {}),
+  ...(runtimeEnv.runtimeIdentity ? { runtimeIdentity: runtimeEnv.runtimeIdentity } : {})
 });
 
 await service.start();
 
 const metricsServer = createServer((request, response) => {
+  if (request.url === "/health" || request.url === "/healthz") {
+    const health = service.health();
+    response.statusCode = health.ok ? 200 : 503;
+    response.setHeader("Content-Type", "application/json; charset=utf-8");
+    response.end(JSON.stringify(health));
+    return;
+  }
   if (request.url !== "/metrics") {
     response.statusCode = 404;
     response.end("not found");
