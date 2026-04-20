@@ -19,7 +19,9 @@ const sqlFile = async (relativePath) =>
 const applySchemas = async () => {
   await pool.query(await sqlFile("apps/realtime-gateway/sql/0001_command_store.sql"));
   await pool.query(await sqlFile("apps/simulation/sql/0001_world_events.sql"));
+  await pool.query(await sqlFile("apps/simulation/sql/0002_command_store.sql"));
   await pool.query(await sqlFile("apps/simulation/sql/0003_world_snapshots.sql"));
+  await pool.query(await sqlFile("apps/simulation/sql/0008_bounded_storage.sql"));
 };
 
 const snapshotInitialStateFromSeed = (seedWorld) => ({
@@ -45,7 +47,9 @@ const snapshotInitialStateFromSeed = (seedWorld) => ({
 });
 
 await applySchemas();
-await pool.query("TRUNCATE TABLE command_results, commands, world_events, world_snapshots RESTART IDENTITY CASCADE");
+await pool.query(
+  "TRUNCATE TABLE command_results, commands, world_events, world_snapshots, checkpoint_metadata, player_projection_current, tile_projection_current, combat_lock_projection_current, visibility_projection_current RESTART IDENTITY CASCADE"
+);
 
 const seedWorld = createSeedWorld(seedProfile);
 const initialState = snapshotInitialStateFromSeed(seedWorld);
@@ -71,6 +75,29 @@ await pool.query(
   [JSON.stringify(initialState), JSON.stringify(commandEvents), createdAt]
 );
 
+const snapshotIdResult = await pool.query("SELECT snapshot_id FROM world_snapshots ORDER BY snapshot_id DESC LIMIT 1");
+const snapshotId = Number(snapshotIdResult.rows[0]?.snapshot_id ?? 0);
+if (snapshotId > 0) {
+  await pool.query(
+    `INSERT INTO checkpoint_metadata (
+       season_id,
+       current_snapshot_id,
+       last_applied_event_id,
+       last_compacted_event_id,
+       checkpointed_at,
+       updated_at
+     )
+     VALUES ($1, $2, 0, 0, $3, $3)
+     ON CONFLICT (season_id) DO UPDATE
+     SET current_snapshot_id = EXCLUDED.current_snapshot_id,
+         last_applied_event_id = EXCLUDED.last_applied_event_id,
+         last_compacted_event_id = EXCLUDED.last_compacted_event_id,
+         checkpointed_at = EXCLUDED.checkpointed_at,
+         updated_at = EXCLUDED.updated_at`,
+    ["active", snapshotId, createdAt]
+  );
+}
+
 console.log(
   JSON.stringify(
     {
@@ -78,6 +105,7 @@ console.log(
       seedProfile,
       tileCount: initialState.tiles.length,
       players: seedWorld.players.size,
+      snapshotId,
       createdAt
     },
     null,

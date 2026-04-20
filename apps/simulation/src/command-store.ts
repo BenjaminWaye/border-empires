@@ -25,6 +25,7 @@ export type SimulationCommandStore = {
   markResolved(commandId: string, resolvedAt: number): Promise<void>;
   get(commandId: string): Promise<StoredSimulationCommand | undefined>;
   findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredSimulationCommand | undefined>;
+  loadRecoverableCommands(): Promise<StoredSimulationCommand[]>;
   loadAllCommands(): Promise<StoredSimulationCommand[]>;
 };
 
@@ -88,6 +89,12 @@ export class InMemorySimulationCommandStore implements SimulationCommandStore {
   async findByPlayerSeq(playerId: string, clientSeq: number): Promise<StoredSimulationCommand | undefined> {
     const commandId = this.commandIdsByPlayerSeq.get(`${playerId}:${clientSeq}`);
     return commandId ? this.commands.get(commandId) : undefined;
+  }
+
+  async loadRecoverableCommands(): Promise<StoredSimulationCommand[]> {
+    return [...this.commands.values()]
+      .filter((command) => command.status === "QUEUED" || command.status === "ACCEPTED")
+      .sort((left, right) => left.queuedAt - right.queuedAt);
   }
 
   async loadAllCommands(): Promise<StoredSimulationCommand[]> {
