@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST, SETTLE_COST, combatWinChance } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, SETTLE_COST, buildFrontierCombatPreview } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "./client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
 import { persistDevelopmentQueueForPlayer, queuedSettlementOrderForTile } from "./client-development-queue.js";
@@ -20,7 +20,6 @@ const SETTLEMENT_CONFIRM_REFRESH_MS = 4_000;
 const SETTLEMENT_CONFIRM_REFRESH_COOLDOWN_MS = 4_000;
 const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
 const ATTACK_PREVIEW_CACHE_TTL_MS = 5_000;
-const BREAKTHROUGH_PREVIEW_DEF_MULT_FACTOR = 0.6;
 
 type AttackPreview = NonNullable<ClientState["attackPreview"]>;
 
@@ -99,20 +98,18 @@ const localAttackPreview = (
     preview.reason = "target not visible";
     return preview;
   }
-  let defMult = 1;
-  if (target.ownershipState === "FRONTIER") defMult = 0;
-  if (target.ownershipState === "SETTLED") defMult *= 1.35;
-  if (target.town) defMult *= 1.2;
-  if (target.dockId) defMult *= 1.1;
-  if (target.terrain === "MOUNTAIN") defMult *= 1.15;
-  const atkEff = 10;
-  const defEff = 10 * defMult;
+  const sharedPreview = buildFrontierCombatPreview({
+    terrain: target.terrain,
+    ownershipState: target.ownershipState,
+    dockId: target.dockId,
+    townType: target.townType
+  });
   preview.valid = true;
-  preview.winChance = combatWinChance(atkEff, defEff);
-  preview.breakthroughWinChance = combatWinChance(atkEff, defEff * BREAKTHROUGH_PREVIEW_DEF_MULT_FACTOR);
-  preview.atkEff = atkEff;
-  preview.defEff = defEff;
-  preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
+  preview.winChance = sharedPreview.winChance;
+  preview.breakthroughWinChance = sharedPreview.breakthroughWinChance;
+  preview.atkEff = sharedPreview.atkEff;
+  preview.defEff = sharedPreview.defEff;
+  preview.defenseEffPct = Math.max(0, Math.min(100, sharedPreview.defMult * 100));
   delete preview.reason;
   return preview;
 };
