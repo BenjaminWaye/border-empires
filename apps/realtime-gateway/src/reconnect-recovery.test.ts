@@ -1,47 +1,84 @@
 import { describe, expect, it } from "vitest";
 
 import type { DomainPlayer } from "@border-empires/game-domain";
+import { RECONNECT_COMMAND_TYPES } from "../../../packages/sim-protocol/src/command-coverage-sets.js";
 import { InMemoryGatewayCommandStore } from "./command-store.js";
 import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
 import { buildInitMessage } from "./reconnect-recovery.js";
 import { createSocialState } from "./social-state.js";
 import type { LegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 
+const payloadForReconnectCommand = (type: (typeof RECONNECT_COMMAND_TYPES)[number], index: number): Record<string, unknown> => {
+  switch (type) {
+    case "ATTACK":
+    case "EXPAND":
+    case "BREAKTHROUGH_ATTACK":
+    case "CAST_AETHER_BRIDGE":
+    case "CAST_AETHER_WALL":
+    case "AIRPORT_BOMBARD":
+      return { fromX: 10, fromY: 10, toX: 11, toY: 10 };
+    case "SETTLE":
+    case "BUILD_FORT":
+    case "BUILD_OBSERVATORY":
+    case "BUILD_SIEGE_OUTPOST":
+    case "BUILD_ECONOMIC_STRUCTURE":
+    case "CANCEL_FORT_BUILD":
+    case "CANCEL_STRUCTURE_BUILD":
+    case "CANCEL_SIEGE_OUTPOST_BUILD":
+    case "REMOVE_STRUCTURE":
+    case "CANCEL_CAPTURE":
+    case "UNCAPTURE_TILE":
+    case "COLLECT_TILE":
+    case "OVERLOAD_SYNTHESIZER":
+    case "SIPHON_TILE":
+    case "PURGE_SIPHON":
+    case "CREATE_MOUNTAIN":
+    case "REMOVE_MOUNTAIN":
+    case "COLLECT_SHARD":
+      return { x: 10, y: 10 };
+    case "COLLECT_VISIBLE":
+      return {};
+    case "CHOOSE_TECH":
+      return { techId: "agriculture" };
+    case "CHOOSE_DOMAIN":
+      return { domainId: "frontier-doctrine" };
+    case "SET_CONVERTER_STRUCTURE_ENABLED":
+      return { x: 10, y: 10, enabled: index % 2 === 0 };
+    case "REVEAL_EMPIRE":
+    case "REVEAL_EMPIRE_STATS":
+      return { targetPlayerId: "ai-1" };
+  }
+};
+
 describe("buildInitMessage", () => {
-  it("keeps frontier recovery empty for reconnecting players", async () => {
+  it("keeps reconnect recovery empty while preserving nextClientSeq across the full phase-4 command surface", async () => {
     const store = new InMemoryGatewayCommandStore();
-    await store.persistQueuedCommand(
-      {
-        commandId: "cmd-1",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1000,
-        type: "ATTACK",
-        payloadJson: "{\"fromX\":10,\"fromY\":10,\"toX\":10,\"toY\":11}"
-      },
-      1001
-    );
-    await store.markAccepted("cmd-1", 1002);
-    await store.persistQueuedCommand(
-      {
-        commandId: "cmd-2",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 2,
-        issuedAt: 1003,
-        type: "EXPAND",
-        payloadJson: "{}"
-      },
-      1004
-    );
-    await store.markRejected("cmd-2", 1005, "SIMULATION_UNAVAILABLE", "failed");
+    let clientSeq = 1;
+    for (const type of RECONNECT_COMMAND_TYPES) {
+      const commandId = `cmd-${type.toLowerCase()}-${clientSeq}`;
+      await store.persistQueuedCommand(
+        {
+          commandId,
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq,
+          issuedAt: 1000 + clientSeq,
+          type,
+          payloadJson: JSON.stringify(payloadForReconnectCommand(type, clientSeq))
+        },
+        1001 + clientSeq
+      );
+      if (clientSeq % 2 === 0) {
+        await store.markAccepted(commandId, 1100 + clientSeq);
+      } else {
+        await store.markRejected(commandId, 1100 + clientSeq, "SIMULATION_UNAVAILABLE", "failed");
+      }
+      clientSeq += 1;
+    }
 
     const init = await buildInitMessage({ playerId: "player-1", playerName: "Nauticus" }, store);
     expect(init.type).toBe("INIT");
-    expect(init.supportedMessageTypes).toEqual(
-      expect.arrayContaining(["ATTACK", "EXPAND", "BREAKTHROUGH_ATTACK", "SETTLE", "COLLECT_TILE", "COLLECT_VISIBLE", "CHOOSE_TECH", "CHOOSE_DOMAIN"])
-    );
+    expect(init.supportedMessageTypes).toEqual(expect.arrayContaining([...RECONNECT_COMMAND_TYPES]));
     expect(init.player).toEqual(
       expect.objectContaining({
         id: "player-1",
@@ -64,7 +101,7 @@ describe("buildInitMessage", () => {
     expect(init.leaderboard.overall).toEqual(expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus" })]));
     expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus" })]));
     expect(init.recovery).toEqual({
-      nextClientSeq: 3,
+      nextClientSeq: RECONNECT_COMMAND_TYPES.length + 1,
       pendingCommands: []
     });
   });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RESTART_PARITY_COMMAND_TYPES } from "../../../packages/sim-protocol/src/command-coverage-sets.js";
 
 import { laneForCommand } from "./command-lane.js";
 
@@ -28,5 +29,14 @@ describe("command lane routing", () => {
         type: "ATTACK"
       })
     ).toBe("human_interactive");
+  });
+
+  it.each(RESTART_PARITY_COMMAND_TYPES)("routes human command %s to a human lane", (type) => {
+    expect(
+      laneForCommand({
+        sessionId: "session-1",
+        type
+      })
+    ).not.toBe("system");
   });
 });
