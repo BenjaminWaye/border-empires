@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const candidatePathsFor = (filename: string, metaUrl: string): string[] => [
   path.resolve(fileURLToPath(new URL(`../sql/${filename}`, metaUrl))),
+  path.resolve(fileURLToPath(new URL(`../../../sql/${filename}`, metaUrl))),
   path.resolve(fileURLToPath(new URL(`../../../../sql/${filename}`, metaUrl)))
 ];
 
