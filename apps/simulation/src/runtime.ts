@@ -59,7 +59,7 @@ import {
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
-} from "../../../packages/server/src/server-game-constants.js";
+} from "@border-empires/game-domain";
 import { hasStrategicSettlementValue, rankSettlementTile } from "./ai-settlement-priority.js";
 import { laneForCommand, type QueueLane } from "./command-lane.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";

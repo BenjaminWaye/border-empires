@@ -21,7 +21,7 @@ import {
   MINE_GOLD_UPKEEP,
   RADAR_SYSTEM_GOLD_UPKEEP,
   WOODEN_FORT_GOLD_UPKEEP
-} from "../../../packages/server/src/server-game-constants.js";
+} from "@border-empires/game-domain";
 
 type SnapshotTile = PlayerSubscriptionSnapshot["tiles"][number];
 type TileUpdate = Record<string, unknown>;

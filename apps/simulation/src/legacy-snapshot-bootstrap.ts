@@ -14,19 +14,19 @@ import type {
   StrategicResource,
   TileYieldBuffer,
   VictoryPressureTracker
-} from "../../../packages/server/src/server-shared-types.js";
+} from "@border-empires/game-domain";
+import {
+  PASSIVE_INCOME_MULT,
+  POPULATION_GROWTH_BASE_RATE,
+  SETTLEMENT_BASE_GOLD_PER_MIN,
+  TOWN_BASE_GOLD_PER_MIN
+} from "@border-empires/game-domain";
 import type { SeasonVictoryPathId, SeasonWinnerView } from "@border-empires/shared";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import {
   buildLegacySnapshotPlayerEconomies,
   type LegacySnapshotPlayerEconomy
 } from "./legacy-snapshot-economy.js";
-import {
-  PASSIVE_INCOME_MULT,
-  POPULATION_GROWTH_BASE_RATE,
-  SETTLEMENT_BASE_GOLD_PER_MIN,
-  TOWN_BASE_GOLD_PER_MIN
-} from "../../../packages/server/src/server-game-constants.js";
 
 export type LegacySnapshotAuthIdentity = {
   uid: string;
