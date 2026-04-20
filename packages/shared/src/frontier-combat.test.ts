@@ -30,4 +30,26 @@ describe("frontier combat", () => {
     expect(result.winChance).toBeCloseTo(10 / 26.2, 6);
     expect(result.attackerWon).toBe(false);
   });
+
+  it("keeps preview and resolution tagged to the same combat module", () => {
+    expect(buildFrontierCombatPreview.__combatModule).toBe(rollFrontierCombat.__combatModule);
+  });
+
+  it("keeps empirical win rate close to preview win chance", () => {
+    const preview = buildFrontierCombatPreview({
+      terrain: "LAND",
+      ownershipState: "SETTLED",
+      townType: "FARMING",
+      dockId: "dock-1"
+    });
+    let wins = 0;
+    const samples = 2_000;
+    for (let i = 0; i < samples; i += 1) {
+      const randomValue = (i + 0.5) / samples;
+      if (rollFrontierCombat({ terrain: "LAND", ownershipState: "SETTLED", townType: "FARMING", dockId: "dock-1" }, "ATTACK", randomValue).attackerWon) {
+        wins += 1;
+      }
+    }
+    expect(wins / samples).toBeCloseTo(preview.winChance, 2);
+  });
 });

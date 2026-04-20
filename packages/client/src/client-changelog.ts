@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.19.3",
+  version: "2026.04.20.1",
   title: "What's New",
-  summary: "Recent updates include rewrite recovery that now restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding those from seed defaults on restart, playtests that no longer silently reseed after startup trouble, stricter simulation durability handling so the server stops instead of drifting when Postgres persistence fails, live tile yield that now survives gateway sync so collect and production views stay coherent, tile-detail requests that no longer blank settlement production/storage, outage overlays that now explain when the simulation is unavailable or map sync has stalled and offer retry/reload actions, frontier refreshes that now come back clean instead of resurrecting stale in-flight commands, gateway auth that now fails cleanly instead of mixing retryable server errors with half-finished bootstrap, simulation status broadcasts that are throttled to reduce playtest stalls on large worlds, and building actions that now keep the correct queueability and blocker messaging when development slots are full.",
+  summary: "Recent updates include attack-preview fallback math now sourced from the same shared combat module the server uses to resolve fights, rewrite recovery that restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding from seed defaults on restart, stricter simulation durability handling so the server stops instead of drifting when Postgres persistence fails, live tile yield that now survives gateway sync so collect and production views stay coherent, and building actions that now keep the correct queueability and blocker messaging when development slots are full.",
   entries: [
+    {
+      introducedIn: "2026.04.20.1",
+      title: "Fallback attack preview now matches shared combat math",
+      why: "When websocket attack-preview responses were still in flight, the client fallback estimate used a local formula that could diverge from authoritative combat resolution odds, which made some hostile frontier tiles look like guaranteed captures even when they were not.",
+      changes: [
+        "Client-side fallback attack preview now calls the same shared frontier combat module used by the gateway and simulation.",
+        "Fallback win chance, breakthrough win chance, and displayed defense efficiency now stay aligned with authoritative combat calculation instead of a client-only formula."
+      ]
+    },
     {
       introducedIn: "2026.04.19.3",
       title: "Building cards now queue correctly when development slots are full",
