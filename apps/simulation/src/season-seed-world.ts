@@ -26,20 +26,18 @@ import {
   WORLD_TOWN_POPULATION_MIN,
   WORLD_TOWN_POPULATION_START_SPREAD,
   key,
-  parseKey
-} from "../../../packages/server/src/server-game-constants.js";
-import type {
-  ClusterDefinition,
-  ShardSiteState,
-  TerrainShapeState,
-  TownDefinition
-} from "../../../packages/server/src/server-shared-types.js";
-import { createServerWorldgenClusters } from "../../../packages/server/src/server-worldgen-clusters.js";
-import { createServerWorldgenDocks } from "../../../packages/server/src/server-worldgen-docks.js";
-import { createServerWorldgenShards } from "../../../packages/server/src/server-worldgen-shards.js";
-import { createServerWorldgenTerrain } from "../../../packages/server/src/server-worldgen-terrain.js";
-import { createServerWorldgenTowns } from "../../../packages/server/src/server-worldgen-towns.js";
-import { assignMissingTownNames } from "../../../packages/server/src/town-names.js";
+  parseKey,
+  type ClusterDefinition,
+  type ShardSiteState,
+  type TerrainShapeState,
+  type TownDefinition,
+  createServerWorldgenClusters,
+  createServerWorldgenDocks,
+  createServerWorldgenShards,
+  createServerWorldgenTerrain,
+  createServerWorldgenTowns,
+  assignMissingTownNames
+} from "@border-empires/game-domain";
 
 export type GeneratedSeedPlayerSummary = {
   playerId: string;

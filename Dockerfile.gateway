@@ -5,7 +5,6 @@ RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/package.json
-COPY packages/server/package.json packages/server/package.json
 COPY packages/game-domain/package.json packages/game-domain/package.json
 COPY packages/client-protocol/package.json packages/client-protocol/package.json
 COPY packages/sim-protocol/package.json packages/sim-protocol/package.json
@@ -15,7 +14,6 @@ COPY apps/simulation/package.json apps/simulation/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY packages/shared packages/shared
-COPY packages/server packages/server
 COPY packages/game-domain packages/game-domain
 COPY packages/client-protocol packages/client-protocol
 COPY packages/sim-protocol packages/sim-protocol
@@ -41,7 +39,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=build /app/packages/server ./packages/server
+COPY --from=build /app/packages/game-domain/package.json ./packages/game-domain/package.json
+COPY --from=build /app/packages/game-domain/dist ./packages/game-domain/dist
 COPY --from=build /app/packages/client-protocol/package.json ./packages/client-protocol/package.json
 COPY --from=build /app/packages/client-protocol/dist ./packages/client-protocol/dist
 COPY --from=build /app/packages/client-protocol/node_modules ./packages/client-protocol/node_modules
