@@ -1,0 +1,26 @@
+app = "border-empires-gateway-staging"
+primary_region = "arn"
+
+[build]
+  dockerfile = "Dockerfile.gateway"
+
+[env]
+  NODE_ENV = "staging"
+  HOST = "0.0.0.0"
+  PORT = "8080"
+  GATEWAY_ALLOW_SEED_FALLBACK = "0"
+  SIMULATION_ADDRESS = "border-empires-simulation-staging.flycast:50051"
+  GATEWAY_DB_APPLY_SCHEMA = "1"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = "off"
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"
