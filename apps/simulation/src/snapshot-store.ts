@@ -2,6 +2,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 
 import type { StoredSimulationCommand } from "./command-store.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
+import type { ProjectionExportState } from "./postgres-projection-writer.js";
 
 export type StoredSnapshotCommandEvents = {
   commandId: string;
@@ -30,6 +31,8 @@ export type SimulationSnapshotStore = {
     lastAppliedEventId: number;
     snapshotSections: SimulationSnapshotSections;
     createdAt: number;
+    /** When provided, implementations may write projection tables alongside the snapshot. */
+    projectionState?: ProjectionExportState;
   }): Promise<void>;
   loadLatestSnapshot(): Promise<StoredSimulationSnapshot | undefined>;
 };
@@ -77,6 +80,7 @@ export class InMemorySimulationSnapshotStore implements SimulationSnapshotStore 
     lastAppliedEventId: number;
     snapshotSections: SimulationSnapshotSections;
     createdAt: number;
+    projectionState?: ProjectionExportState;
   }): Promise<void> {
     this.snapshots.push({
       snapshotId: this.nextSnapshotId++,
