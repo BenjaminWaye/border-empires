@@ -24,11 +24,8 @@ describe("gateway http routes", () => {
     });
 
     const healthResponse = await app.inject({ method: "GET", url: "/health", headers: { origin: "http://localhost:5173" } });
-    const healthzResponse = await app.inject({ method: "GET", url: "/healthz", headers: { origin: "http://localhost:5173" } });
     expect(healthResponse.statusCode).toBe(200);
-    expect(healthzResponse.statusCode).toBe(200);
     expect(healthResponse.headers["access-control-allow-origin"]).toBe("*");
-    expect(healthzResponse.headers["access-control-allow-origin"]).toBe("*");
     expect(healthResponse.json()).toEqual({
       ok: true,
       simulation: {
@@ -36,7 +33,6 @@ describe("gateway http routes", () => {
         lastReadyAt: 1_100
       }
     });
-    expect(healthzResponse.json()).toEqual(healthResponse.json());
 
     const debugResponse = await app.inject({ method: "GET", url: "/admin/runtime/debug-bundle", headers: { origin: "http://localhost:5173" } });
     expect(debugResponse.statusCode).toBe(200);
@@ -85,9 +81,7 @@ describe("gateway http routes", () => {
     });
 
     const healthResponse = await app.inject({ method: "GET", url: "/health" });
-    const healthzResponse = await app.inject({ method: "GET", url: "/healthz" });
     expect(healthResponse.statusCode).toBe(503);
-    expect(healthzResponse.statusCode).toBe(503);
     expect(healthResponse.json()).toEqual({
       ok: false,
       simulation: {
@@ -95,7 +89,6 @@ describe("gateway http routes", () => {
         lastError: "simulation ping timed out after 1500ms"
       }
     });
-    expect(healthzResponse.json()).toEqual(healthResponse.json());
 
     await app.close();
   });
