@@ -50,6 +50,8 @@ case "${BE_PROD_PASSWORD}" in
     ;;
 esac
 
+BE_PROD_PASSWORD_SQL=${BE_PROD_PASSWORD//\'/\'\'}
+
 echo ""
 echo "=== Ensuring border_empires_prod database + be_prod role ==="
 cat <<SQL | fly postgres connect -a border-empires-postgres
@@ -57,22 +59,21 @@ DO
 \$\$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'be_prod') THEN
-    CREATE ROLE be_prod LOGIN PASSWORD '${BE_PROD_PASSWORD}';
+    CREATE ROLE be_prod LOGIN PASSWORD '${BE_PROD_PASSWORD_SQL}';
   ELSE
-    ALTER ROLE be_prod WITH PASSWORD '${BE_PROD_PASSWORD}';
+    ALTER ROLE be_prod WITH PASSWORD '${BE_PROD_PASSWORD_SQL}';
   END IF;
 END
 \$\$;
+SQL
 
-DO
-\$\$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'border_empires_prod') THEN
-    CREATE DATABASE border_empires_prod;
-  END IF;
-END
-\$\$;
+cat <<'SQL' | fly postgres connect -a border-empires-postgres
+SELECT 'CREATE DATABASE border_empires_prod'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'border_empires_prod')
+\gexec
+SQL
 
+cat <<SQL | fly postgres connect -a border-empires-postgres
 GRANT ALL PRIVILEGES ON DATABASE border_empires_prod TO be_prod;
 SQL
 

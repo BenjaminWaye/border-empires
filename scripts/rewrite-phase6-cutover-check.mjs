@@ -12,6 +12,11 @@ const expectedWorldSeed = process.env.RUNTIME_EXPECT_WORLD_SEED;
 const expectedSnapshotLabel = process.env.RUNTIME_EXPECT_SNAPSHOT_LABEL;
 const expectedFingerprint = process.env.RUNTIME_EXPECT_FINGERPRINT;
 const soakMinutes = Math.max(1, Number(process.env.CUTOVER_SOAK_MINUTES ?? "5"));
+const gatewayHealthz = new URL(gatewayHealthzUrl);
+const simulationHealthz = new URL(simulationHealthzUrl);
+const derivedGatewayMetricsUrl = new URL("/metrics", gatewayHealthz).toString();
+const derivedSimulationMetricsUrl = new URL("/metrics", simulationHealthz).toString();
+const derivedWsUrl = new URL("/ws", gatewayHealthz).toString().replace(/^http/, "ws");
 
 const fetchJson = async (url) => {
   const response = await fetch(url, { headers: { accept: "application/json" } });
@@ -51,7 +56,10 @@ const runLoadHarness = async () => {
   const harnessScript = resolve(root, "scripts", "rewrite-load-harness.mjs");
   const env = {
     ...process.env,
-    LOAD_HARNESS_SOAK_MINUTES: String(soakMinutes)
+    LOAD_HARNESS_SOAK_MINUTES: String(soakMinutes),
+    WS_URL: process.env.WS_URL ?? derivedWsUrl,
+    GATEWAY_METRICS_URL: process.env.GATEWAY_METRICS_URL ?? derivedGatewayMetricsUrl,
+    SIMULATION_METRICS_URL: process.env.SIMULATION_METRICS_URL ?? derivedSimulationMetricsUrl
   };
 
   return new Promise((resolvePromise, rejectPromise) => {
