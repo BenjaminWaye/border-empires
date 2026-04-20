@@ -20,7 +20,7 @@ import pg from "../apps/simulation/node_modules/pg/esm/index.mjs";
 import { loadLegacySnapshotBootstrap } from "../apps/simulation/src/legacy-snapshot-bootstrap.js";
 import { buildSimulationSnapshotSections } from "../apps/simulation/src/snapshot-store.js";
 import { recoverCommandHistory } from "../apps/simulation/src/command-recovery.js";
-import { writeProjectionsForSnapshot } from "../apps/simulation/src/postgres-projection-writer.js";
+import { writeCurrentProjections } from "../apps/simulation/src/postgres-projection-writer.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -44,7 +44,8 @@ const MIGRATIONS = [
   "0004_player_projection.sql",
   "0005_tile_projection.sql",
   "0006_combat_lock_projection.sql",
-  "0007_visibility_projection.sql"
+  "0007_visibility_projection.sql",
+  "0008_bounded_storage.sql"
 ];
 
 const applyMigrations = async (pool: InstanceType<typeof pg.Pool>): Promise<void> => {
@@ -110,8 +111,8 @@ const main = async (): Promise<void> => {
     if (!snapshotId) throw new Error("snapshot insert did not return snapshot_id");
     console.log(`\n  ✓ Inserted world_snapshots row id=${snapshotId}`);
 
-    // 6. Write projection tables from the bootstrap state
-    console.log("Writing projection tables...");
+    // 6. Write current-state projections from the bootstrap state
+    console.log("Writing current-state projection tables...");
     const exportedPlayers = [...bootstrap.playerProfiles.values()].map((profile) => ({
       id: profile.id,
       name: profile.name,
@@ -132,9 +133,8 @@ const main = async (): Promise<void> => {
       incomePerMinute: profile.incomePerMinute
     }));
 
-    await writeProjectionsForSnapshot(
+    await writeCurrentProjections(
       pool,
-      snapshotId,
       bootstrap.initialState,
       { players: exportedPlayers, activeLocks: bootstrap.initialState.activeLocks.map((l) => ({
         commandId: l.commandId,
@@ -142,12 +142,33 @@ const main = async (): Promise<void> => {
         originKey: l.originKey,
         targetKey: l.targetKey,
         resolvesAt: l.resolvesAt
-      })) }
+      })) },
+      Date.now()
     );
-    console.log(`  ✓ player_projection  (${exportedPlayers.length} rows)`);
-    console.log(`  ✓ tile_projection    (${bootstrap.initialState.tiles.length} rows)`);
-    console.log(`  ✓ combat_lock_projection (${bootstrap.initialState.activeLocks.length} rows)`);
-    console.log(`  ✓ visibility_projection  (${exportedPlayers.length} rows)`);
+    console.log(`  ✓ player_projection_current  (${exportedPlayers.length} rows)`);
+    console.log(`  ✓ tile_projection_current    (${bootstrap.initialState.tiles.length} rows)`);
+    console.log(`  ✓ combat_lock_projection_current (${bootstrap.initialState.activeLocks.length} rows)`);
+    console.log(`  ✓ visibility_projection_current  (${exportedPlayers.length} rows)`);
+
+    await pool.query(
+      `INSERT INTO checkpoint_metadata (
+         season_id,
+         current_snapshot_id,
+         last_applied_event_id,
+         last_compacted_event_id,
+         checkpointed_at,
+         updated_at
+       )
+       VALUES ($1, $2, 0, 0, $3, $3)
+       ON CONFLICT (season_id) DO UPDATE
+       SET current_snapshot_id = EXCLUDED.current_snapshot_id,
+           last_applied_event_id = EXCLUDED.last_applied_event_id,
+           last_compacted_event_id = EXCLUDED.last_compacted_event_id,
+           checkpointed_at = EXCLUDED.checkpointed_at,
+           updated_at = EXCLUDED.updated_at`,
+      ["active", snapshotId, Date.now()]
+    );
+    console.log("  ✓ checkpoint_metadata seeded");
 
     console.log(`\nImport complete. Simulation can now boot from DB (snapshotId=${snapshotId}).`);
     console.log("Next: set DATABASE_URL on both staging apps and deploy.");

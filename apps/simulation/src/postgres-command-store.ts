@@ -161,6 +161,13 @@ export class PostgresSimulationCommandStore implements SimulationCommandStore {
     return result.rows[0] ? toStoredSimulationCommand(result.rows[0]) : undefined;
   }
 
+  async loadRecoverableCommands(): Promise<StoredSimulationCommand[]> {
+    const result = await this.db.query<CommandRow>(
+      `${selectCommandSql} WHERE r.status IN ('QUEUED', 'ACCEPTED') ORDER BY c.queued_at ASC`
+    );
+    return result.rows.map(toStoredSimulationCommand);
+  }
+
   async loadAllCommands(): Promise<StoredSimulationCommand[]> {
     const result = await this.db.query<CommandRow>(`${selectCommandSql} ORDER BY c.queued_at ASC`);
     return result.rows.map(toStoredSimulationCommand);

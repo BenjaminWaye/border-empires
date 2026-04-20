@@ -30,8 +30,8 @@ export const loadSimulationStartupRecovery = async ({
   seedProfile?: SimulationSeedProfile;
   bootstrapState?: RecoveredSimulationState;
 }): Promise<SimulationStartupRecovery> => {
-  const [historicalCommands, latestSnapshot] = await Promise.all([
-    commandStore.loadAllCommands(),
+  const [recoverableCommands, latestSnapshot] = await Promise.all([
+    commandStore.loadRecoverableCommands(),
     snapshotStore?.loadLatestSnapshot()
   ]);
   const usableSnapshot =
@@ -59,19 +59,19 @@ export const loadSimulationStartupRecovery = async ({
   const initialCommandHistory = usableSnapshot
     ? applyEventsToRecoveredCommandHistory(
         {
-          commands: [...historicalCommands].sort((left, right) => left.queuedAt - right.queuedAt),
+          commands: [...recoverableCommands].sort((left, right) => left.queuedAt - right.queuedAt),
           eventsByCommandId: new Map(
             usableSnapshot.snapshotPayload.commandEvents.map((entry) => [entry.commandId, [...entry.events]])
           )
         },
         eventPayloads
       )
-    : recoverCommandHistory(historicalCommands, eventPayloads);
+    : recoverCommandHistory(recoverableCommands, eventPayloads);
 
   return {
     initialState,
     initialCommandHistory,
-    recoveredCommandCount: historicalCommands.length,
+    recoveredCommandCount: recoverableCommands.length,
     recoveredEventCount: historicalEvents.length
   };
 };

@@ -71,7 +71,7 @@ describe("loadSimulationStartupRecovery", () => {
       eventStore
     });
 
-    expect(startupRecovery.recoveredCommandCount).toBe(2);
+    expect(startupRecovery.recoveredCommandCount).toBe(1);
     expect(startupRecovery.recoveredEventCount).toBe(2);
     expect(startupRecovery.initialState.tiles).toEqual(
       expect.arrayContaining([
@@ -238,7 +238,7 @@ describe("loadSimulationStartupRecovery", () => {
       snapshotStore
     });
 
-    expect(startupRecovery.recoveredCommandCount).toBe(2);
+    expect(startupRecovery.recoveredCommandCount).toBe(0);
     expect(startupRecovery.recoveredEventCount).toBe(2);
     expect(startupRecovery.initialState.tiles).toEqual(
       expect.arrayContaining([
@@ -250,7 +250,7 @@ describe("loadSimulationStartupRecovery", () => {
         })
       ])
     );
-    expect(startupRecovery.initialCommandHistory.eventsByCommandId.get("cmd-1")).toHaveLength(2);
+    expect(startupRecovery.initialCommandHistory.eventsByCommandId.get("cmd-1")).toBeUndefined();
     expect(startupRecovery.initialCommandHistory.eventsByCommandId.get("cmd-2")).toHaveLength(2);
   });
 
