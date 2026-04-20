@@ -24,7 +24,6 @@ import { supportedClientMessageTypes } from "./supported-client-messages.js";
 import { buildSnapshotTileDetail } from "./tile-detail-snapshot.js";
 import { loadLegacySnapshotBootstrap } from "../../simulation/src/legacy-snapshot-bootstrap.js";
 import { isFrontierAdjacent } from "../../simulation/src/frontier-adjacency.js";
-import { simulationWorldSeedForProfile } from "../../simulation/src/seed-state.js";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
@@ -51,16 +50,6 @@ type RealtimeGatewayAppOptions = {
   createCommandId?: () => string;
   now?: () => number;
   simulationSubscribeTimeoutMs?: number;
-  runtimeIdentity?: {
-    sourceType: "legacy-snapshot" | "seed-profile";
-    seasonId: string;
-    worldSeed: number;
-    fingerprint: string;
-    snapshotLabel?: string;
-    seedProfile?: string;
-    playerCount: number;
-    seededTileCount: number;
-  };
 };
 
 const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
@@ -266,19 +255,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
     }),
     ...(options.snapshotDir ? { snapshotDir: options.snapshotDir } : {}),
-    runtimeIdentity: options.runtimeIdentity
-      ? options.runtimeIdentity
-      : legacySnapshotBootstrap
-      ? legacySnapshotBootstrap.runtimeIdentity
-      : {
-          sourceType: "seed-profile",
-          seasonId: `rewrite-${simulationSeedProfile}`,
-          worldSeed: simulationWorldSeedForProfile(simulationSeedProfile),
-          fingerprint: `seed-${simulationSeedProfile}-${simulationWorldSeedForProfile(simulationSeedProfile)}`,
-          seedProfile: simulationSeedProfile,
-          playerCount: 0,
-          seededTileCount: 0
-        },
+    ...(legacySnapshotBootstrap ? { runtimeIdentity: legacySnapshotBootstrap.runtimeIdentity } : {}),
     supportedMessageTypes: [...supportedClientMessageTypes],
     recentEvents: () => [...recentGatewayEvents],
     metrics: () => gatewayMetrics.renderPrometheus()

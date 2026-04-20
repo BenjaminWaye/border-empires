@@ -50,15 +50,7 @@ describe("simulation runtime env", () => {
         SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS: "20000",
         SIMULATION_SYSTEM_PLAYER_IDS: "barbarian-1, barbarian-2",
         SIMULATION_STARTUP_RECOVERY_TIMEOUT_MS: "20000",
-        SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1",
-        SIMULATION_RUNTIME_SOURCE_TYPE: "legacy-snapshot",
-        SIMULATION_RUNTIME_SEASON_ID: "season-prod-1",
-        SIMULATION_RUNTIME_WORLD_SEED: "12345",
-        SIMULATION_RUNTIME_FINGERPRINT: "snap-abc123",
-        SIMULATION_RUNTIME_SNAPSHOT_LABEL: "snapshot-2026-04-20",
-        SIMULATION_RUNTIME_PLAYER_COUNT: "21",
-        SIMULATION_RUNTIME_SEEDED_TILE_COUNT: "640",
-        SIMULATION_RUNTIME_SEED_PROFILE: "season-20ai"
+        SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1"
       })
     ).toEqual({
       host: "0.0.0.0",
@@ -79,17 +71,7 @@ describe("simulation runtime env", () => {
       startupRecoveryTimeoutMs: 20000,
       allowSeedRecoveryFallback: false,
       systemPlayerIds: ["barbarian-1", "barbarian-2"],
-      useAiWorker: false,
-      runtimeIdentity: {
-        sourceType: "legacy-snapshot",
-        seasonId: "season-prod-1",
-        worldSeed: 12345,
-        fingerprint: "snap-abc123",
-        snapshotLabel: "snapshot-2026-04-20",
-        playerCount: 21,
-        seededTileCount: 640,
-        seedProfile: "season-20ai"
-      }
+      useAiWorker: false
     });
   });
 
