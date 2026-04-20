@@ -75,6 +75,7 @@ export type WorldStatusSnapshot = {
     byTechs: LeaderboardMetricEntry[];
   };
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
+  acceptLatencyP95Ms?: number;
 };
 
 export type SimulationEvent =

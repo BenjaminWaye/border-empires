@@ -13,6 +13,9 @@ importers:
       '@border-empires/client-protocol':
         specifier: workspace:*
         version: link:../../packages/client-protocol
+      '@border-empires/game-domain':
+        specifier: workspace:*
+        version: link:../../packages/game-domain
       '@border-empires/shared':
         specifier: workspace:*
         version: link:../../packages/shared
