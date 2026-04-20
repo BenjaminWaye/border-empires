@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.20.1",
+  version: "2026.04.20.2",
   title: "What's New",
-  summary: "Recent updates include attack-preview fallback math now sourced from the same shared combat module the server uses to resolve fights, rewrite recovery that restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding from seed defaults on restart, stricter simulation durability handling so the server stops instead of drifting when Postgres persistence fails, live tile yield that now survives gateway sync so collect and production views stay coherent, and building actions that now keep the correct queueability and blocker messaging when development slots are full.",
+  summary: "Recent updates include a rewrite observability pass with live backend accept-latency p95 in the debug badge, attack-preview fallback math now sourced from the same shared combat module the server uses to resolve fights, rewrite recovery that restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding from seed defaults on restart, stricter simulation durability handling so the server stops instead of drifting when Postgres persistence fails, live tile yield that now survives gateway sync so collect and production views stay coherent, and building actions that now keep the correct queueability and blocker messaging when development slots are full.",
   entries: [
+    {
+      introducedIn: "2026.04.20.2",
+      title: "Rewrite debug badge now shows live accept-latency p95",
+      why: "Phase-5 rewrite observability requires the client to expose active backend health signals, but the badge only showed backend identity and bootstrap metadata, so you could not directly see live command-accept latency pressure while testing.",
+      changes: [
+        "The rewrite world-status stream now includes accept-latency p95 from simulation command-accept metrics.",
+        "Client bridge debug state now tracks that accept-latency p95 value and renders it in the backend debug badge.",
+        "Copied debug payloads now include the accept-latency p95 line so parity and load investigations can include the same live value."
+      ]
+    },
     {
       introducedIn: "2026.04.20.1",
       title: "Fallback attack preview now matches shared combat math",

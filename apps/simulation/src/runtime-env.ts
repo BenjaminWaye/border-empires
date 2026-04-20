@@ -3,6 +3,8 @@ import { parseSimulationSeedProfile, type SimulationSeedProfile } from "./seed-s
 export type SimulationRuntimeEnv = {
   host: string;
   port: number;
+  metricsHost: string;
+  metricsPort: number;
   databaseUrl?: string;
   snapshotDir?: string;
   applySchema: boolean;
@@ -48,6 +50,8 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   return {
     host: env.SIMULATION_HOST ?? "127.0.0.1",
     port: parsePositiveNumber(env.SIMULATION_PORT, 50051, "simulation port"),
+    metricsHost: env.SIMULATION_METRICS_HOST ?? (env.SIMULATION_HOST ?? "127.0.0.1"),
+    metricsPort: parsePositiveNumber(env.SIMULATION_METRICS_PORT, 50052, "simulation metrics port"),
     ...(databaseUrl ? { databaseUrl } : {}),
     ...(env.SIMULATION_SNAPSHOT_DIR ? { snapshotDir: env.SIMULATION_SNAPSHOT_DIR } : {}),
     applySchema: env.SIMULATION_DB_APPLY_SCHEMA === "1",

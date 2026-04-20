@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+
 import { createSimulationService } from "./simulation-service.js";
 import { parseSimulationRuntimeEnv } from "./runtime-env.js";
 
@@ -26,3 +28,33 @@ const service = await createSimulationService({
 });
 
 await service.start();
+
+const metricsServer = createServer((request, response) => {
+  if (request.url !== "/metrics") {
+    response.statusCode = 404;
+    response.end("not found");
+    return;
+  }
+  response.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+  response.end(service.renderMetrics());
+});
+
+await new Promise<void>((resolve, reject) => {
+  metricsServer.once("error", reject);
+  metricsServer.listen(runtimeEnv.metricsPort, runtimeEnv.metricsHost, () => {
+    metricsServer.off("error", reject);
+    resolve();
+  });
+});
+
+const closeWithMetrics = async (): Promise<void> => {
+  await new Promise<void>((resolve) => metricsServer.close(() => resolve()));
+  await service.close();
+};
+
+process.once("SIGTERM", () => {
+  void closeWithMetrics();
+});
+process.once("SIGINT", () => {
+  void closeWithMetrics();
+});

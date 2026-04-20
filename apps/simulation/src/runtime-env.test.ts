@@ -7,6 +7,8 @@ describe("simulation runtime env", () => {
     expect(parseSimulationRuntimeEnv({})).toEqual({
       host: "127.0.0.1",
       port: 50051,
+      metricsHost: "127.0.0.1",
+      metricsPort: 50052,
       applySchema: false,
       checkpointEveryEvents: 5000,
       seedProfile: "default",
@@ -33,6 +35,8 @@ describe("simulation runtime env", () => {
         NODE_ENV: "production",
         SIMULATION_HOST: "0.0.0.0",
         SIMULATION_PORT: "50051",
+        SIMULATION_METRICS_HOST: "0.0.0.0",
+        SIMULATION_METRICS_PORT: "5100",
         DATABASE_URL: "postgres://simulation",
         SIMULATION_DB_APPLY_SCHEMA: "1",
         SIMULATION_SNAPSHOT_EVERY_EVENTS: "75",
@@ -51,6 +55,8 @@ describe("simulation runtime env", () => {
     ).toEqual({
       host: "0.0.0.0",
       port: 50051,
+      metricsHost: "0.0.0.0",
+      metricsPort: 5100,
       databaseUrl: "postgres://simulation",
       applySchema: true,
       checkpointEveryEvents: 75,

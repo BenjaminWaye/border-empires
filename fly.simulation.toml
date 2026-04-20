@@ -9,6 +9,8 @@ primary_region = "arn"
   NODE_OPTIONS = "--max-old-space-size=320"
   SIMULATION_HOST = "0.0.0.0"
   SIMULATION_PORT = "50051"
+  SIMULATION_METRICS_HOST = "0.0.0.0"
+  SIMULATION_METRICS_PORT = "50052"
   SIMULATION_SNAPSHOT_DIR = "/app/packages/server/snapshots"
   SIMULATION_SNAPSHOT_EVERY_EVENTS = "5000"
   SIMULATION_CHECKPOINT_MAX_RSS_MB = "260"
@@ -25,6 +27,17 @@ primary_region = "arn"
   [[services.ports]]
     handlers = []
     port = 50051
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 50052
+  auto_start_machines = true
+  auto_stop_machines = "off"
+  min_machines_running = 1
+
+  [[services.ports]]
+    handlers = []
+    port = 50052
 
 [[vm]]
   cpu_kind = "shared"

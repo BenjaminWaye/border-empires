@@ -19,7 +19,8 @@ describe("gateway http routes", () => {
       }),
       snapshotDir: "/tmp/snapshot",
       supportedMessageTypes: ["ATTACK", "COLLECT_VISIBLE"],
-      recentEvents: () => [{ at: 1_200, level: "info", event: "gateway_started", payload: {} }]
+      recentEvents: () => [{ at: 1_200, level: "info", event: "gateway_started", payload: {} }],
+      metrics: () => "gateway_event_loop_max_ms 0"
     });
 
     const healthResponse = await app.inject({ method: "GET", url: "/health", headers: { origin: "http://localhost:5173" } });
@@ -54,6 +55,9 @@ describe("gateway http routes", () => {
         }
       })
     );
+    const metricsResponse = await app.inject({ method: "GET", url: "/metrics" });
+    expect(metricsResponse.statusCode).toBe(200);
+    expect(metricsResponse.body).toContain("gateway_event_loop_max_ms 0");
 
     await app.close();
   });
@@ -72,7 +76,8 @@ describe("gateway http routes", () => {
         }
       }),
       supportedMessageTypes: ["ATTACK"],
-      recentEvents: () => []
+      recentEvents: () => [],
+      metrics: () => ""
     });
 
     const healthResponse = await app.inject({ method: "GET", url: "/health" });

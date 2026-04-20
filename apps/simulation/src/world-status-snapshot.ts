@@ -351,7 +351,8 @@ const buildSeasonVictoryObjectives = (
 export const buildWorldStatusSnapshot = (
   playerId: string,
   runtimeState: RuntimeState,
-  fallbackTiles?: Iterable<DomainTileState>
+  fallbackTiles?: Iterable<DomainTileState>,
+  options?: { acceptLatencyP95Ms?: number }
 ): WorldStatusSnapshot => {
   const worldTiles = runtimeState.tiles.length > 0 ? runtimeState.tiles : fallbackTiles ? [...fallbackTiles].map((tile) => toFallbackWorldTile(tile)) : [];
   const overall = runtimeState.players
@@ -402,6 +403,7 @@ export const buildWorldStatusSnapshot = (
       ...(selfByIncome ? { selfByIncome } : {}),
       ...(selfByTechs ? { selfByTechs } : {})
     },
-    seasonVictory: buildSeasonVictoryObjectives(playerId, worldTiles, overall)
+    seasonVictory: buildSeasonVictoryObjectives(playerId, worldTiles, overall),
+    ...(typeof options?.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: options.acceptLatencyP95Ms } : {})
   };
 };

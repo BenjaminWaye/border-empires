@@ -484,6 +484,7 @@ export const createInitialState = () => ({
   bridgeDebugSnapshotLabel: "",
   bridgeDebugInitialTileCount: 0,
   bridgeDebugSupportedMessageCount: 0,
+  bridgeDebugAcceptLatencyP95Ms: 0,
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
   chunkFullCount: 0
