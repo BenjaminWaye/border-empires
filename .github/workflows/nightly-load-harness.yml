@@ -1,0 +1,155 @@
+name: Nightly load harness
+
+on:
+  schedule:
+    # 02:00 UTC every night
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      soak_minutes:
+        description: "Soak duration in minutes (default: 30)"
+        required: false
+        default: "30"
+
+jobs:
+  load-harness:
+    name: Run load harness against staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      # Staging gateway WebSocket and metrics URLs.
+      # Set GATEWAY_WS_URL, GATEWAY_METRICS_URL, SIMULATION_METRICS_URL in
+      # GitHub repository secrets (Settings → Secrets → Actions).
+      WS_URL: ${{ secrets.GATEWAY_WS_URL }}
+      GATEWAY_METRICS_URL: ${{ secrets.GATEWAY_METRICS_URL }}
+      SIMULATION_METRICS_URL: ${{ secrets.SIMULATION_METRICS_URL }}
+
+      # Soak duration. Manual dispatch can override; schedule uses 30 min.
+      LOAD_HARNESS_SOAK_MINUTES: ${{ inputs.soak_minutes || '30' }}
+      LOAD_HARNESS_POLL_MS: "2000"
+      LOAD_HARNESS_BATCH_ITERATIONS: "120"
+      LOAD_HARNESS_SOAK_TIMEOUT_MS: "15000"
+
+      # Fly API token for waking staging apps before the run.
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Use a deploy key or PAT so the subsequent commit push works.
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+        if: env.FLY_API_TOKEN != ''
+
+      - name: Wake staging apps
+        if: env.FLY_API_TOKEN != ''
+        run: |
+          # Staging apps use auto_stop_machines = "on", so they may be asleep.
+          # Wake them by hitting /healthz — Fly starts the machine on first request.
+          GATEWAY_HTTP="${WS_URL/wss\:\/\//https://}"
+          GATEWAY_HTTP="${GATEWAY_HTTP/ws\:\/\//http://}"
+          GATEWAY_HTTP="${GATEWAY_HTTP%/ws}/healthz"
+          echo "Waking gateway at ${GATEWAY_HTTP}..."
+          for i in $(seq 1 12); do
+            if curl -sf "${GATEWAY_HTTP}" > /dev/null 2>&1; then
+              echo "Gateway awake after ${i} attempts."
+              break
+            fi
+            echo "  attempt ${i}/12 — sleeping 10s..."
+            sleep 10
+          done
+        env:
+          WS_URL: ${{ env.WS_URL }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run load harness
+        id: harness
+        run: |
+          mkdir -p docs/load-results
+          node scripts/rewrite-load-harness.mjs 2>&1 | tee /tmp/harness-output.txt
+          RESULT_FILE="$(tail -1 /tmp/harness-output.txt | grep -o 'docs/load-results/[^ ]*' || true)"
+          echo "result_file=${RESULT_FILE}" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Check Phase 6 gate metrics
+        id: gate-check
+        run: |
+          RESULT_FILE="$(cat /tmp/harness-output.txt | grep -o 'docs/load-results/[^ ]*' | tail -1)"
+          if [ -z "$RESULT_FILE" ] || [ ! -f "$RESULT_FILE" ]; then
+            echo "ERROR: Result file not found — harness may have failed to start."
+            exit 1
+          fi
+
+          echo "Result file: $RESULT_FILE"
+          cat "$RESULT_FILE" | jq .
+
+          # Phase 6 gate thresholds (§10 of rewrite-completion-plan):
+          #   gateway event_loop_max_ms < 100
+          #   simulation human_interactive p95 accept-latency < 100
+          #   sim_human_interactive_backlog_ms < 500
+          #   sim_checkpoint_rss_mb < 400
+          GATEWAY_LOOP=$(jq -r '.metrics.gatewayEventLoopMaxMs // 9999' "$RESULT_FILE")
+          P95=$(jq -r '.soak.acceptedP95Ms // 9999' "$RESULT_FILE")
+          ALL_GREEN=$(jq -r '.allGatesGreen' "$RESULT_FILE")
+
+          echo "gateway_event_loop_max_ms=${GATEWAY_LOOP}"
+          echo "accepted_p95_ms=${P95}"
+          echo "all_gates_green=${ALL_GREEN}"
+
+          if [ "${ALL_GREEN}" != "true" ]; then
+            echo "GATES FAILED — at least one Phase 6 gate metric exceeded threshold."
+            exit 1
+          fi
+
+          echo "All Phase 6 gate metrics GREEN."
+
+      - name: Commit load results
+        if: always() && steps.harness.outcome != 'skipped'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          DATE="$(date -u +%Y-%m-%d)"
+          RESULT_FILE="docs/load-results/${DATE}.json"
+
+          if [ ! -f "${RESULT_FILE}" ]; then
+            echo "No result file to commit."
+            exit 0
+          fi
+
+          git add "${RESULT_FILE}"
+          git diff --cached --quiet && echo "Nothing to commit." && exit 0
+
+          GATE_STATUS="PASS"
+          if [ "${{ steps.gate-check.outcome }}" != "success" ]; then
+            GATE_STATUS="FAIL"
+          fi
+
+          git commit -m "ci: load harness ${DATE} — gates ${GATE_STATUS}
+
+Auto-committed by nightly-load-harness workflow.
+Run: ${{ github.run_id }}"
+
+          git push origin HEAD:main
+
+      - name: Annotate PR / commit on failure
+        if: failure()
+        run: |
+          echo "::error::Nightly load harness FAILED. Check docs/load-results/ for details."
+          echo "::error::Phase 6 pre-flight requires 3 consecutive GREEN nights. Streak reset."
