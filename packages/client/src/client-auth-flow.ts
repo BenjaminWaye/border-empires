@@ -107,6 +107,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authBusyTitleEl: dom.authBusyTitleEl,
       authBusyCopyEl: dom.authBusyCopyEl,
       authStatusEl: dom.authStatusEl,
+      authDebugRouteEl: dom.authDebugRouteEl,
+      wsUrl,
       syncAuthPanelState,
       setAuthStatus
     });

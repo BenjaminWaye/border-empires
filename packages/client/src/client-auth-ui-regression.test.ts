@@ -16,6 +16,7 @@ describe("syncAuthOverlay", () => {
     const authOverlayEl = makeElement();
     const authBusyModalEl = makeElement();
     const authStatusEl = makeElement();
+    const authDebugRouteEl = makeElement();
     const authBusyTitleEl = makeElement();
     const authBusyCopyEl = makeElement();
     authStatusEl.textContent = "Generic status";
@@ -29,7 +30,9 @@ describe("syncAuthOverlay", () => {
         authError: "",
         authReady: true,
         authBusyTitle: "Securing session",
-        authBusyDetail: "Game server reached. Verifying your Google session..."
+        authBusyDetail: "Game server reached. Verifying your Google session...",
+        activeBackend: "gateway",
+        bridgeDebugWsUrl: "wss://border-empires-gateway-staging.fly.dev/ws"
       },
       {
         authOverlayEl,
@@ -48,6 +51,8 @@ describe("syncAuthOverlay", () => {
         authBusyTitleEl,
         authBusyCopyEl,
         authStatusEl,
+        authDebugRouteEl,
+        wsUrl: "wss://border-empires.fly.dev/ws",
         syncAuthPanelState: vi.fn(),
         setAuthStatus: vi.fn()
       }
@@ -55,5 +60,7 @@ describe("syncAuthOverlay", () => {
 
     expect(authBusyTitleEl.textContent).toBe("Securing session");
     expect(authBusyCopyEl.textContent).toBe("Game server reached. Verifying your Google session...");
+    expect(authDebugRouteEl.textContent).toContain("Backend gateway");
+    expect(authDebugRouteEl.textContent).toContain("border-empires-gateway-staging");
   });
 });
