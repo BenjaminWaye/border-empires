@@ -41,18 +41,18 @@ Approximate monthly cost of the Fly resources in play (shared-cpu-1x at ~$1.94/m
 | `border-empires` (legacy monolith, 512MB) + 1GB volume | ~$2.10 |
 | `border-empires-gateway` (512MB) | ~$1.94 |
 | `border-empires-simulation` (512MB) | ~$1.94 |
-| `border-empires-postgres` (shared-cpu-1x, 10GB volume) | ~$3.44 |
+| Supabase free tier (database) | $0/mo — 500MB ceiling, 7-day inactivity auto-pause, 7-day PITR |
 | `border-empires-gateway-staging` (512MB, auto-stop on) | ~$0.20 if idle most of the day |
 | `border-empires-simulation-staging` (512MB, auto-stop on) | ~$0.20 if idle most of the day |
 
 Constraints this forces:
 
 - **Staging machines must have `auto_stop_machines = "on"`** and `min_machines_running = 0`. Running 24/7 alongside prod blows the budget. Staging wakes on demand for harness runs and CI nightly jobs.
-- **One shared Postgres cluster** (`border-empires-postgres`) with two logical databases (`border_empires_staging`, `border_empires_prod`). We cannot afford a second cluster.
-- **No HA / no read replica.** `--initial-cluster-size 1`. A second Postgres machine would add ~$2/month and isn't worth it for beta. Rollback story in §11 assumes the DB can be unavailable for minutes, not seconds.
-- **Postgres volume stays at 10 GB** through Phase 6. We estimate the projection tables + recent event stream + last few snapshots fit comfortably; the snapshot retention policy in §6 is written around that budget.
+- **Database is Supabase free tier.** No Fly Postgres cluster. `DATABASE_URL` is set as a Fly secret pointing at the Supabase session-mode pooler (port 5432, `sslmode=require`). See `docs/rewrite-supabase-cutover-runbook.md` for the full operational runbook.
+- **Supabase 500MB ceiling** is the storage constraint through Phase 6. `apps/simulation/sql/0008_bounded_storage.sql` adds `checkpoint_metadata`, `season_archive`, and `*_current` projection tables for compaction. Monitor thresholds: warn ≥300MB, critical ≥400MB, emergency ≥450MB.
+- **Supabase 7-day inactivity auto-pause** risk is mitigated by the nightly `pg_dump` backup job hitting the DB each night, keeping it active. If a pause occurs, expect a ~60-second wake-up penalty on the first query.
 - **Legacy app is deleted in Phase 7**, which recovers ~$2.10/month. Until then we are running both stacks.
-- **Steady-state cost after Phase 7:** ~$7.32/month (gateway + sim + postgres + staging-idle). Room remains under cap but no room for a second region or a larger VM.
+- **Steady-state cost after Phase 7:** ~$3.88/month (gateway + sim + staging-idle + Supabase $0). Significant headroom under the $10 cap.
 
 ### Definition of "ship it"
 
@@ -82,7 +82,7 @@ Verified against the tree, not the handoff narrative. HEAD = `22b76c1` on `main`
 
 **Production impact so far: none.** Client prod default `VITE_WS_URL` is still `wss://border-empires.fly.dev/ws` (legacy monolith). No beta testers have been flipped to the gateway yet.
 
-**Concrete Phase 2 infrastructure decision:** Fly Postgres, one shared cluster `border-empires-postgres`, `--initial-cluster-size 1` (no HA), `--vm-size shared-cpu-1x`, 10 GB volume, region `arn`. One logical DB per environment (`border_empires_staging` provisioned; `border_empires_prod` will be created in Phase 6). `DATABASE_URL` attached via `fly postgres attach` on each app. Staging role password is `staging_changeme` in `provision-fly-staging.command` — must be rotated before Phase 6, see §13.
+**Concrete Phase 2 infrastructure decision (updated):** ~~Fly Postgres~~ → **Supabase free tier**. No `border-empires-postgres` cluster. `DATABASE_URL` is set as a Fly secret pointing at the Supabase session-mode pooler (port 5432, `sslmode=require`). Migration files in `apps/simulation/sql/` are applied via `provision-fly-prod.command` using `psql`. The operational source of truth is `docs/rewrite-supabase-cutover-runbook.md`.
 
 **What's still unfinished (Phase 4 and beyond):**
 
@@ -91,7 +91,7 @@ Verified against the tree, not the handoff narrative. HEAD = `22b76c1` on `main`
 - **Observability has not landed.** Neither service exposes `/metrics`. Phase 5 work.
 - **Load gates have not been run.** The plan's p95/p99/backlog numbers in §1 are unverified. Phase 5 work.
 - **Staging has not been deployed from `main` yet.** `provision-fly-staging.command` exists but has not been run end-to-end against the current main build to confirm both staging apps boot DB-only and pass health checks.
-- **Prod deploy is blocked.** Even Phase 6 pre-flight requires a `border-empires-postgres-prod` logical DB, `DATABASE_URL` secrets on the prod gateway + simulation apps, and the budget accounting in §1 "Cost budget."
+- **Prod deploy is blocked.** Phase 6 pre-flight requires `DATABASE_URL` secrets (Supabase) on the prod gateway + simulation apps, all migrations applied via `provision-fly-prod.command`, and the budget accounting in §1 "Cost budget."
 - **Legacy monolith (`border-empires`) is still the prod backend** and must remain untouched until Phase 6 succeeds.
 
 Bug 1 (settled town and tiles vanish after restart) and Bug 2 (attack at 100% win chance neither captures nor charges manpower) are each diagnostic of a different unfinished acceptance area. They motivate the test architecture in §9 and are the gating reason Phase 4 must complete before Phase 6.
@@ -246,24 +246,21 @@ What actually landed:
 
 **Provisioning decision that got made (this is the answer to the Phase 2 open question):**
 
-- **Fly Postgres**, not Neon / Supabase / self-managed.
-- **One shared cluster** `border-empires-postgres` in region `arn`, `--initial-cluster-size 1` (no HA), `--vm-size shared-cpu-1x`, 10 GB volume. Cost ≈ $3.44/month.
-- **One logical database per environment**, same cluster: `border_empires_staging` (provisioned), `border_empires_prod` (to be created in Phase 6).
-- **One role per environment** (`be_staging`, `be_prod` in Phase 6). `DATABASE_URL` is attached via `fly postgres attach`, not set by hand.
+- **Supabase free tier**, not Fly Postgres / Neon / self-managed. Cost: $0/mo. See `docs/rewrite-supabase-cutover-runbook.md` as the operational source of truth.
+- **Single Supabase project** for both staging and prod environments. `DATABASE_URL` is set as a Fly secret on each app pointing at the Supabase session-mode pooler (port 5432, `sslmode=require`). Never use port 6543 (transaction-mode pooler — breaks `pg_dump` and multi-statement migrations).
+- **Storage ceiling: 500MB.** `apps/simulation/sql/0008_bounded_storage.sql` adds compaction tables (`checkpoint_metadata`, `season_archive`, `*_current` projections). Monitor thresholds: warn ≥300MB, critical ≥400MB, emergency ≥450MB.
+- **7-day inactivity auto-pause** is mitigated by the nightly backup job. If paused, first query incurs ~60s wake-up penalty.
+- **7-day PITR** (Point-in-Time Recovery) on free tier.
 - `NODE_ENV=staging` on staging apps; production apps get `NODE_ENV=production` in Phase 6.
 - Snapshot cadence on staging: `SIMULATION_SNAPSHOT_EVERY_EVENTS=1000`. Prod cadence in Phase 6 will be `5000` (matches legacy).
+- Migrations are applied via `provision-fly-prod.command` using `psql` (not `fly postgres connect`). The script is idempotent — safe to re-run.
 
 **Known residual work from Phase 2 that Phase 4/5/6 must finish:**
 
 1. `provision-fly-staging.command` has not been end-to-end run against current `main` yet. Before Phase 4 closes, run it and confirm both staging apps pass health checks with DB-only boot (no snapshot file).
-2. The role password in the script is `staging_changeme`. Rotate immediately after first provisioning and store in 1Password / Fly secret. Add a check to `provision-fly-prod.command` (to be written in Phase 6) that refuses to run with a placeholder password.
-3. Prod equivalents do not exist yet:
-   - `fly.gateway.toml` and `fly.simulation.toml` do not carry `DATABASE_URL`. `fly postgres attach` needs to happen on both during Phase 6.
-   - No `provision-fly-prod.command` script exists. Write it as part of Phase 6 pre-flight using `provision-fly-staging.command` as the template.
-4. Backup strategy is not implemented. Fly volume snapshots are on by default but retention is short. Before Phase 6 pre-flight:
-   - Add a Fly scheduled job (or a tiny separate worker) that runs `pg_dump border_empires_prod | gzip` nightly and writes to a Fly Tigris bucket or R2 (whichever is cheaper at our volume; typically pennies per month for <1 GB).
-   - Retain 7 daily + 4 weekly dumps.
-   - Document the restore runbook in `docs/runbooks/postgres-restore.md`.
+2. ~~Role password rotation~~ — Supabase uses project-level credentials managed in the Supabase dashboard, not role passwords set by scripts. `SUPABASE_DB_URL` is stored as a Fly secret, never committed. See `docs/rewrite-supabase-cutover-runbook.md`.
+3. Prod `DATABASE_URL` (Supabase) must be set as a Fly secret on `border-empires-gateway` and `border-empires-simulation` before Phase 6. `provision-fly-prod.command` handles the migration apply step; the `DATABASE_URL` Fly secret must be set separately via `fly secrets set DATABASE_URL=... --app <app>`.
+4. Backup strategy is implemented: `.github/workflows/nightly-pg-backup.yml` runs `pg_dump` nightly at 03:00 UTC → Fly Tigris bucket `border-empires-backups` (7 daily + 4 weekly retention). Verify a recent backup exists: `aws --endpoint-url https://fly.storage.tigris.dev s3 ls s3://border-empires-backups/daily/ | tail -3`. Restore runbook: `docs/rewrite-supabase-cutover-runbook.md`.
 5. Staging apps must be configured with `auto_stop_machines = "on"` and `min_machines_running = 0` so they do not run 24/7. Current `fly.gateway.staging.toml` and `fly.simulation.staging.toml` must be audited and patched if needed. This is the $10/month-budget lever in §1.
 6. `SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK` handling: confirm that `NODE_ENV=staging` and `NODE_ENV=production` both refuse seed fallback; only `NODE_ENV=development` allows it. The runtime-env code enforces this but add an explicit test.
 
@@ -696,14 +693,12 @@ All of the following before scheduling a cutover date:
 - Parity harness (§9.3) green against the 5-minute scenario.
 - Staging has been running the rewrite stack for 7 consecutive days without an unresolved issue.
 - Prod-side infrastructure stood up *but not yet receiving traffic*:
-  - `border_empires_prod` database and `be_prod` role created on the existing `border-empires-postgres` cluster (same cluster, new DB — keeps cost flat).
-  - Prod-role password rotated off any placeholder.
-  - `fly postgres attach border-empires-postgres --app border-empires-gateway --database-name border_empires_prod --variable-name DATABASE_URL`, same for `border-empires-simulation`.
+  - Supabase project is active (not auto-paused) and DB size is under 400MB. Check: `psql "$DATABASE_URL" -c "SELECT pg_size_pretty(pg_database_size(current_database()));"`.
+  - `DATABASE_URL` Fly secret set on `border-empires-gateway` and `border-empires-simulation` pointing at the Supabase session-mode pooler (port 5432, `sslmode=require`).
   - `fly.gateway.toml` and `fly.simulation.toml` updated to set `NODE_ENV=production`, point at `border-empires-simulation.flycast:50051`, and carry the snapshot/checkpoint tunables that match current legacy (`SIMULATION_SNAPSHOT_EVERY_EVENTS=5000`, `SIMULATION_CHECKPOINT_MAX_RSS_MB=260`).
-  - `provision-fly-prod.command` script written (mirror of `provision-fly-staging.command`, with a password check that refuses to run with a placeholder) and executed.
-  - Migrations applied against `border_empires_prod`: `0001_world_events` … `0007_visibility_projection`, plus `apps/realtime-gateway/sql/0001_command_store`.
-  - Nightly `pg_dump` job running and verified; at least one restore dry-run into a scratch DB completed successfully.
-- Cost check: `fly status` on all apps + `fly postgres status` confirms the provisioned resources match the table in §1. Staging apps have `auto_stop_machines = "on"` and are stopped.
+  - `provision-fly-prod.command` executed (idempotent — safe to re-run). All migrations 0001–0008 (simulation) + gateway 0001 applied to Supabase.
+  - Fly Tigris backup completed last night; verify: `aws --endpoint-url https://fly.storage.tigris.dev s3 ls s3://border-empires-backups/daily/ | tail -3`. At least one restore dry-run into a scratch Supabase project completed successfully.
+- Cost check: `fly status` on all apps confirms the provisioned resources match the table in §1. Staging apps have `auto_stop_machines = "on"` and are stopped.
 
 ### Cutover steps (day-of)
 
@@ -732,22 +727,23 @@ Two failure modes, two different rollback paths.
 2. Beta testers reload and are back on the legacy monolith with their pre-T-2h state. They lose whatever happened on the rewrite stack, which for the beta tester count is acceptable.
 3. Legacy DB is untouched. New-stack DB can be wiped (`TRUNCATE world_snapshots CASCADE`, etc.) and re-seeded for a retry.
 
-**Failure mode B — Postgres itself is down** (single-primary, no HA; this is the cost-budget trade-off):
+**Failure mode B — Supabase itself is down or auto-paused**:
 
-1. The gateway and sim will fail health checks because `DATABASE_URL` unreachable. Client hits them and fails to connect.
+1. The gateway and sim will fail health checks because `DATABASE_URL` is unreachable. Client hits them and fails to connect.
 2. Flip the client default `VITE_WS_URL` back to legacy (same as A).
-3. While on legacy, investigate Postgres. Options in order: `fly postgres restart border-empires-postgres`, `fly volumes list` + attach a new volume from the nightly snapshot, or `pg_restore` from the bucket backup into a fresh cluster (costs ~15 min setup + ~$0 extra assuming the volume is reused).
-4. Once Postgres is healthy, re-import the pre-cutover snapshot or the latest nightly, then re-attempt the cutover. The legacy monolith keeps serving throughout.
+3. While on legacy, investigate Supabase. Check the Supabase dashboard for project status. If auto-paused, resume from the dashboard (takes ~60s). If a broader outage, check https://status.supabase.com.
+4. Once Supabase is healthy, re-import the pre-cutover snapshot or the latest nightly Tigris backup, then re-attempt the cutover. The legacy monolith keeps serving throughout.
 
 The worst-case downtime is whatever it takes the client deploy to propagate — minutes, not hours. Because beta is small, this is acceptable.
 
 ### Cost check at end of Phase 6
 
-`fly status` + `fly postgres status` should show:
+`fly status` should show:
 
-- 4 prod apps running (gateway, simulation, legacy `border-empires`, postgres)
+- 3 prod Fly apps running (gateway, simulation, legacy `border-empires`)
 - 2 staging apps *stopped* (gateway-staging, simulation-staging)
-- Total invoice trending ≤ $9.50/month until Phase 7 deletes legacy
+- Supabase free tier: $0/mo (verify project is active and DB size < 400MB)
+- Total invoice trending ≤ $8.18/month until Phase 7 deletes legacy
 
 If the invoice is above the cap, Phase 6 is not done. Either the staging apps did not auto-stop, or a volume is larger than budgeted, or someone added an extra region. Fix before starting Phase 7.
 
@@ -777,7 +773,8 @@ Only after the new stack has run cleanly in prod for 7 days:
 | Risk | Mitigation |
 |---|---|
 | ~~Rebase of `f69dfbf` onto main is painful~~ | Resolved in Phase 0 (`2596eed`). |
-| Postgres is a single point of failure (`--initial-cluster-size 1`, no HA) | Forced by the $10/month cap. Accepted trade for beta. Mitigation: nightly `pg_dump` to a Fly Tigris / R2 bucket, 7 daily + 4 weekly retention, restore runbook at `docs/runbooks/postgres-restore.md` and at least one tested restore before Phase 6 pre-flight. Rollback path B in §11 describes the live-failure procedure. Revisit HA only if beta grows enough to justify an extra ~$2/month. |
+| Supabase 500MB ceiling reached | Mitigation: `apps/simulation/sql/0008_bounded_storage.sql` compaction tables (`checkpoint_metadata`, `season_archive`, `*_current` projections) keep storage bounded. Monitoring thresholds: warn ≥300MB, critical ≥400MB, emergency ≥450MB. At emergency level, run manual compaction and escalate to Benjamin before Phase 6 cutover. |
+| Supabase 7-day inactivity auto-pause | Mitigation: nightly backup job (`nightly-pg-backup.yml`) hits the DB every night at 03:00 UTC, keeping it active. If a pause occurs (detectable via failed health checks or connection errors with "project is paused"), resume from the Supabase dashboard — takes ~60 seconds. First query after unpause incurs the 60s wake-up penalty. |
 | `DATABASE_URL` rotation leaks into source / test fixtures | `provision-fly-*.command` uses `fly postgres attach` which injects the URL as a secret; never written to a file in the repo. Staging placeholder `staging_changeme` must be rotated immediately after first `provision-fly-staging.command` run — add a CI guard that greps the repo for that string and fails if found. Same pattern for the prod script. |
 | Staging apps run 24/7 and blow the $10/month cap | `fly.gateway.staging.toml` and `fly.simulation.staging.toml` must have `auto_stop_machines = "on"` and `min_machines_running = 0`. Phase 4 task: verify this configuration and that the apps actually sleep when idle. Add a monthly cost check to the runbook. |
 | AI worker communication overhead eats the savings | Measured by the Phase 5 load test. If `postMessage` cost dominates, move AI to a sibling Fly process with gRPC — but that adds ~$1.94/month and would require dropping elsewhere to stay under cap. Current `PlannerWorldView` strip-heavy-blobs pattern should make worker threads sufficient. |
@@ -785,8 +782,8 @@ Only after the new stack has run cleanly in prod for 7 days:
 | Beta testers on legacy hit a new legacy bug while we're mid-cutover | Legacy is frozen after Phase 0; no gameplay changes allowed until Phase 7 closes. Exception: a pure-revert bug fix with a post-mortem noting the breach. |
 | New stack OOMs in prod | Fly alert at 400MB RSS (target budget 320MB per sim, 512MB machine). Checkpoint deferral and high-memory-skip writes already in `snapshot-checkpoint-manager.ts` and `postgres-snapshot-store.ts`. |
 | Hidden inline AI/system work re-enters the main thread during later refactors | Runtime assertion: if `perf_hooks.monitorEventLoopDelay()` p99 exceeds 50ms for 5s, emit a `RuntimeAlert`. Add the assertion in Phase 5 together with the rest of observability. |
-| Single-DB failure blocks both staging and prod simultaneously | Both logical DBs live on the same cluster. If Postgres dies, staging dies too, but staging has no beta traffic so this is acceptable. If ever we want staging isolation during a prod incident, the plan is to spin up a scratch `fly postgres create` on demand, run migrations, point staging at it — reverse when done. No permanent second cluster. |
-| Fly volume snapshot retention is too short for our backup RTO | Do not rely on Fly's default snapshot retention. The `pg_dump` + external bucket is the authoritative backup. |
+| Supabase single project used by both staging and prod | Both environments share one Supabase project (free tier allows one). If Supabase has an outage, both staging and prod are affected — but staging has no beta traffic so acceptable. For prod isolation during incidents, the fallback is the nightly Tigris backup (`pg_restore` into a temporary Supabase project takes ~15 min). |
+| Supabase PITR window is 7 days (free tier) | Do not rely solely on PITR. The nightly `pg_dump` to Fly Tigris is the authoritative backup: 7 daily + 4 weekly retention, restore runbook at `docs/rewrite-supabase-cutover-runbook.md`. At least one restore dry-run must be completed before Phase 6 pre-flight. |
 | `staging_changeme` password is checked into the repo | Already is, as the seed for the first provision. Phase 4 task: rotate it, remove the literal from the shell script, and replace with a prompt or a `fly secrets` read. |
 
 ---
