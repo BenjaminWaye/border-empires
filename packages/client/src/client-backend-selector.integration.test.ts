@@ -83,4 +83,15 @@ describe("backend cookie mid-session toggle", () => {
     expect(result.source).toBe("env-default");
     expect(result.wsUrl).toBe(GATEWAY);
   });
+
+  it("staging hostname ignores legacy cookie and still resolves to gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY,
+      gatewayWsUrl: GATEWAY,
+      ctx: stagingCtx("be-backend=legacy")
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.source).toBe("env-default");
+    expect(result.wsUrl).toBe(GATEWAY);
+  });
 });
