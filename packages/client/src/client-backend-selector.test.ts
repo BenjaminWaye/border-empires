@@ -166,4 +166,15 @@ describe("selectBackend — env default", () => {
     expect(result.wsUrl).toBe(GATEWAY_URL);
     expect(result.source).toBe("env-default");
   });
+
+  it("staging Vercel hostname ignores legacy cookie and stays on gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY_URL,
+      gatewayWsUrl: GATEWAY_URL,
+      ctx: stagingCtx({ cookieStr: "be-backend=legacy" })
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY_URL);
+    expect(result.source).toBe("env-default");
+  });
 });

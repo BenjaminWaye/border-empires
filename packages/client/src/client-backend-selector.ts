@@ -5,8 +5,9 @@
  * should connect to. Priority order:
  *
  *   1. URL param  ?backend=gateway|legacy     — highest, overrides everything
- *   2. Cookie     be-backend=gateway|legacy   — per-session override
- *   3. Environment default                    — localhost/staging → gateway, prod → legacy
+ *   2. Staging host hard-default              — gateway (cookie ignored)
+ *   3. Cookie     be-backend=gateway|legacy   — per-session override (non-staging)
+ *   4. Environment default                    — localhost/staging → gateway, prod → legacy
  *
  * Production stays "legacy" by default unless explicitly overridden, while
  * localhost and staging hostnames default to gateway.
@@ -90,6 +91,14 @@ export function selectBackend(opts: {
       backend: fromParam,
       wsUrl: fromParam === "gateway" ? gatewayWsUrl : legacyWsUrl,
       source: "url-param"
+    };
+  }
+
+  if (isStagingHostname(hostname)) {
+    return {
+      backend: "gateway",
+      wsUrl: gatewayWsUrl,
+      source: "env-default"
     };
   }
 
