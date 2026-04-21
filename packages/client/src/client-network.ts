@@ -81,6 +81,40 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
   };
+  const frontierQueueDebug = (event: string, payload: Record<string, unknown> = {}): void => {
+    const activeFrontierContext =
+      state.actionInFlight || state.actionQueue.length > 0 || state.queuedTargetKeys.size > 0 || Boolean(state.actionTargetKey);
+    if (!activeFrontierContext && payload.force !== true) return;
+    const currentAction = state.actionCurrent
+      ? {
+          x: state.actionCurrent.x,
+          y: state.actionCurrent.y,
+          actionType: state.actionCurrent.actionType,
+          commandId: state.actionCurrent.commandId,
+          clientSeq: state.actionCurrent.clientSeq,
+          retries: state.actionCurrent.retries
+        }
+      : undefined;
+    const captureTarget = state.capture ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt } : undefined;
+    const queuedActions = state.actionQueue.map((entry) => ({
+      x: entry.x,
+      y: entry.y,
+      mode: entry.mode ?? "normal",
+      retries: entry.retries ?? 0
+    }));
+    console.info("[frontier-queue-debug]", event, {
+      actionInFlight: state.actionInFlight,
+      actionTargetKey: state.actionTargetKey,
+      actionAcceptedAck: state.actionAcceptedAck,
+      combatStartAck: state.combatStartAck,
+      actionStartedAt: state.actionStartedAt,
+      currentAction,
+      queuedTargetKeys: [...state.queuedTargetKeys],
+      queuedActions,
+      captureTarget,
+      ...payload
+    });
+  };
   const logIncomingTechPayload = (
     source: "INIT" | "PLAYER_UPDATE" | "TECH_UPDATE",
     payload: {
@@ -762,6 +796,35 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
+    if (
+      msgType === "COMMAND_QUEUED" ||
+      msgType === "ACTION_ACCEPTED" ||
+      msgType === "COMBAT_START" ||
+      msgType === "FRONTIER_RESULT" ||
+      msgType === "COMBAT_RESULT" ||
+      msgType === "TILE_DELTA_BATCH" ||
+      msgType === "TILE_DELTA" ||
+      msgType === "ERROR"
+    ) {
+      const msgTarget =
+        typeof msg.target === "object" &&
+        msg.target !== null &&
+        typeof (msg.target as { x?: unknown }).x === "number" &&
+        typeof (msg.target as { y?: unknown }).y === "number"
+          ? {
+              x: (msg.target as { x: number }).x,
+              y: (msg.target as { y: number }).y
+            }
+          : undefined;
+      frontierQueueDebug("incoming", {
+        type: msgType,
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined,
+        code: typeof msg.code === "string" ? msg.code : undefined,
+        msgTarget
+      });
+    }
     const shouldApplyChunkGeneration = (generation: unknown): boolean => {
       if (typeof generation !== "number" || !Number.isFinite(generation)) return true;
       if (generation < state.lastChunkSnapshotGeneration) {
@@ -1224,6 +1287,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         commandId: msg.commandId,
         clientSeq: msg.clientSeq
       });
+      frontierQueueDebug("command_queued_bound", {
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined
+      });
       renderHud();
       return;
     }
@@ -1259,6 +1326,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       };
       state.actionTargetKey = targetKey;
       if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
+      frontierQueueDebug("action_accepted_applied", {
+        actionType: msg.actionType,
+        target,
+        targetKey
+      });
       renderHud();
       return;
     }
@@ -1299,6 +1371,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       });
       showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
       state.capture = undefined;
+      frontierQueueDebug("frontier_result_received", {
+        actionType: msg.actionType,
+        target: msg.target,
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined
+      });
       renderHud();
       return;
     }
@@ -1402,6 +1479,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionInFlight = true;
       if (!state.actionStartedAt) state.actionStartedAt = startAt;
       state.actionTargetKey = keyFor(target.x, target.y);
+      frontierQueueDebug("combat_start_applied", {
+        target,
+        resolvesAt
+      });
       renderHud();
       return;
     }
@@ -1458,6 +1539,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "TILE_DELTA_BATCH") {
       const tileUpdates =
         msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
+      const batchTouchesFrontierQueue =
+        Array.isArray(tileUpdates) &&
+        tileUpdates.some((update) => {
+          const updateKey = keyFor(update.x, update.y);
+          if (updateKey === state.actionTargetKey) return true;
+          if (state.queuedTargetKeys.has(updateKey)) return true;
+          return state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === updateKey);
+        });
+      if (batchTouchesFrontierQueue) {
+        frontierQueueDebug("tile_delta_batch_matches_frontier_target", {
+          updates: tileUpdates?.map((update) => ({
+            key: keyFor(update.x, update.y),
+            ownerId: update.ownerId,
+            ownershipState: update.ownershipState
+          }))
+        });
+      }
       applyGatewayTileDeltaBatch(
         {
           state,
@@ -1509,6 +1607,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
+        frontierQueueDebug("tile_delta_batch_resolved_frontier_capture", {
+          resolvedCurrentKey
+        });
         processActionQueue();
       }
       renderHud();
@@ -1517,6 +1618,21 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "TILE_DELTA") {
       const updates = (msg.updates as any[]) ?? [];
+      const deltaTouchesFrontierQueue = updates.some((update) => {
+        const updateKey = keyFor(update.x, update.y);
+        if (updateKey === state.actionTargetKey) return true;
+        if (state.queuedTargetKeys.has(updateKey)) return true;
+        return state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === updateKey);
+      });
+      if (deltaTouchesFrontierQueue) {
+        frontierQueueDebug("tile_delta_matches_frontier_target", {
+          updates: updates.map((update) => ({
+            key: keyFor(update.x, update.y),
+            ownerId: update.ownerId,
+            ownershipState: update.ownershipState
+          }))
+        });
+      }
       let resolvedQueuedFrontierCapture = false;
       let detailRequests = 0;
       for (const update of updates) {
@@ -1743,6 +1859,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
+        frontierQueueDebug("tile_delta_resolved_frontier_capture", {
+          resolvedCurrentKey
+        });
         processActionQueue();
         renderHud();
       }
