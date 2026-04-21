@@ -380,6 +380,41 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     processActionQueue();
   };
 
+  const resolveFrontierCapture = (source: "FRONTIER_RESULT" | "TILE_DELTA" | "TILE_DELTA_BATCH"): void => {
+    const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    const resolvedTargetKey = state.actionTargetKey;
+    state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
+    state.actionInFlight = false;
+    state.actionAcceptedAck = false;
+    state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
+    state.actionStartedAt = 0;
+    if (resolvedTargetKey) {
+      dropQueuedTargetKeyIfAbsent(resolvedTargetKey);
+      state.queuedTargetKeys.delete(resolvedTargetKey);
+      state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== resolvedTargetKey);
+    }
+    if (resolvedTargetKey) clearOptimisticTileState(resolvedTargetKey);
+    if (resolvedCurrentKey) {
+      dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+      state.queuedTargetKeys.delete(resolvedCurrentKey);
+      state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== resolvedCurrentKey);
+    }
+    if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    frontierQueueDebug(
+      source === "FRONTIER_RESULT"
+        ? "frontier_result_resolved_frontier_capture"
+        : source === "TILE_DELTA_BATCH"
+          ? "tile_delta_batch_resolved_frontier_capture"
+          : "tile_delta_resolved_frontier_capture",
+      { resolvedCurrentKey, source }
+    );
+    processActionQueueSafely();
+  };
+
   const resumeQueuedFrontierActionsAfter = (delayMs: number): void => {
     const boundedDelayMs = Math.max(0, Math.min(delayMs, 15_000));
     globalThis.setTimeout(() => {
@@ -1376,6 +1411,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         target: msg.target,
         commandId: typeof msg.commandId === "string" ? msg.commandId : undefined
       });
+      if (msg.actionType === "EXPAND" && target && currentActionCanResolveFromFrontierOwnership(keyFor(target.x, target.y))) {
+        resolveFrontierCapture("FRONTIER_RESULT");
+      }
       renderHud();
       return;
     }
@@ -1593,24 +1631,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
       }
       if (resolvedQueuedFrontierCapture) {
-        const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-        state.capture = undefined;
-        if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
-        state.actionInFlight = false;
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = 0;
-        if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
-        if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey);
-        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-        if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-        frontierQueueDebug("tile_delta_batch_resolved_frontier_capture", {
-          resolvedCurrentKey
-        });
-        processActionQueue();
+        resolveFrontierCapture("TILE_DELTA_BATCH");
       }
       renderHud();
       return;
@@ -1845,24 +1866,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
       }
       if (resolvedQueuedFrontierCapture) {
-        const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-        state.capture = undefined;
-        if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
-        state.actionInFlight = false;
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = 0;
-        if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
-        if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey);
-        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-        if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-        frontierQueueDebug("tile_delta_resolved_frontier_capture", {
-          resolvedCurrentKey
-        });
-        processActionQueue();
+        resolveFrontierCapture("TILE_DELTA");
         renderHud();
       }
       return;

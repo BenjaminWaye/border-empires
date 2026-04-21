@@ -219,7 +219,7 @@ describe("client gateway sync regression", () => {
     );
   });
 
-  it("resolves expand via frontier result and resumes queued frontier work on the following tile batch", () => {
+  it("resolves expand immediately on frontier result even before a follow-up tile delta", () => {
     const state = createState();
     state.me = "player-1";
     state.actionCurrent = { x: 10, y: 11, retries: 0, clientSeq: 7, commandId: "cmd-7", actionType: "EXPAND" };
@@ -249,8 +249,11 @@ describe("client gateway sync regression", () => {
         tone: "success"
       })
     );
-    expect(state.actionInFlight).toBe(true);
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionCurrent).toBeUndefined();
+    expect(state.actionTargetKey).toBe("");
     expect(state.capture).toBeUndefined();
+    expect(processActionQueue).toHaveBeenCalledTimes(1);
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -261,9 +264,38 @@ describe("client gateway sync regression", () => {
     });
 
     expect(state.tiles.get("10,11")).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" }));
+    expect(processActionQueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not leave queued frontier state stuck when frontier result arrives without any trailing tile delta", () => {
+    const state = createState();
+    state.me = "player-1";
+    state.actionCurrent = { x: 361, y: 179, retries: 0, clientSeq: 5, commandId: "cmd-5", actionType: "EXPAND" };
+    state.actionTargetKey = "361,179";
+    state.actionInFlight = true;
+    state.actionAcceptedAck = true;
+    state.capture = { startAt: 1_000, resolvesAt: 2_000, target: { x: 361, y: 179 } };
+    state.queuedTargetKeys.add("361,179");
+    state.tiles.set("361,179", { x: 361, y: 179, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", fogged: false } as any);
+    const ws = new FakeWebSocket();
+    const { processActionQueue } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "FRONTIER_RESULT",
+        commandId: "cmd-5",
+        actionType: "EXPAND",
+        origin: { x: 361, y: 178 },
+        target: { x: 361, y: 179 }
+      })
+    });
+
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionAcceptedAck).toBe(false);
     expect(state.actionCurrent).toBeUndefined();
     expect(state.actionTargetKey).toBe("");
-    expect(processActionQueue).toHaveBeenCalled();
+    expect(state.queuedTargetKeys.has("361,179")).toBe(false);
+    expect(processActionQueue).toHaveBeenCalledTimes(1);
   });
 
   it("preserves manpower loss on combat result alerts", () => {

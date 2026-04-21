@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.4",
+  version: "2026.04.21.5",
   title: "What's New",
-  summary: "Recent updates include login-screen backend routing diagnostics that show the active backend, websocket endpoint, and resolved Fly app before sign-in, plus staging gateway-default hardening and frontier queue diagnostics.",
+  summary: "Recent updates include a frontier queue desync fix that clears successful expands directly on FRONTIER_RESULT even when follow-up tile deltas are delayed or missing, plus login-screen backend routing diagnostics and staging gateway-default hardening.",
   entries: [
+    {
+      introducedIn: "2026.04.21.5",
+      title: "Successful expands no longer stay stuck as queued when tile deltas arrive out of order",
+      why: "A race where TILE_DELTA arrived before ACTION_ACCEPTED/FRONTIER_RESULT could leave the queued marker and purple border stuck even though the server had already confirmed a successful expand.",
+      changes: [
+        "Client frontier state now resolves successful EXPAND actions directly on FRONTIER_RESULT for the active command instead of waiting exclusively for a later tile-delta ownership update.",
+        "Added regression coverage for the missing-follow-up-delta path so successful expands still clear actionInFlight/actionTarget/queuedTargetKeys and resume queued work."
+      ]
+    },
     {
       introducedIn: "2026.04.21.4",
       title: "Login screen now shows live backend and Fly route diagnostics",
