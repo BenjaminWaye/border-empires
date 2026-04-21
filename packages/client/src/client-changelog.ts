@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.5",
+  version: "2026.04.21.6",
   title: "What's New",
-  summary: "Recent updates include a frontier queue desync fix that clears successful expands directly on FRONTIER_RESULT even when follow-up tile deltas are delayed or missing, plus login-screen backend routing diagnostics and staging gateway-default hardening.",
+  summary: "Recent updates include a frontier queue desync fix that clears successful expands directly on FRONTIER_RESULT, safer frontier origin confirmation to prevent false NOT_OWNER races, plus login-screen backend routing diagnostics and staging gateway-default hardening.",
   entries: [
+    {
+      introducedIn: "2026.04.21.6",
+      title: "Frontier queue now waits for confirmed origin ownership before sending follow-up expands or attacks",
+      why: "Fast chained actions could select an optimistic frontier tile as the next origin before the server had confirmed ownership, leading to intermittent NOT_OWNER errors even though the tile looked owned client-side.",
+      changes: [
+        "Queue dispatch now requires a confirmed origin tile and defers the action briefly when only optimistic ownership is available.",
+        "Added regression coverage for both expand and attack queue paths so optimistic-only origins are held instead of being sent and rejected."
+      ]
+    },
     {
       introducedIn: "2026.04.21.5",
       title: "Successful expands no longer stay stuck as queued when tile deltas arrive out of order",
