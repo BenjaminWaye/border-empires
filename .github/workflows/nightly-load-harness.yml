@@ -11,6 +11,12 @@ on:
         required: false
         default: "30"
 
+# Needed so the "Commit load results" step can `git push origin HEAD:main`
+# using the default GITHUB_TOKEN. Without this, the whole job can be skipped
+# ("No jobs were run") on protected branches.
+permissions:
+  contents: write
+
 jobs:
   load-harness:
     name: Run load harness against staging
@@ -26,7 +32,9 @@ jobs:
       SIMULATION_METRICS_URL: ${{ secrets.SIMULATION_METRICS_URL }}
 
       # Soak duration. Manual dispatch can override; schedule uses 30 min.
-      LOAD_HARNESS_SOAK_MINUTES: ${{ inputs.soak_minutes || '30' }}
+      # Use github.event.inputs.* so the expression is valid for both
+      # schedule and workflow_dispatch triggers.
+      LOAD_HARNESS_SOAK_MINUTES: ${{ github.event.inputs.soak_minutes || '30' }}
       LOAD_HARNESS_POLL_MS: "2000"
       LOAD_HARNESS_BATCH_ITERATIONS: "120"
       LOAD_HARNESS_SOAK_TIMEOUT_MS: "15000"
@@ -35,6 +43,30 @@ jobs:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
     steps:
+      - name: Preflight — verify required secrets are set
+        shell: bash
+        env:
+          GATEWAY_WS_URL: ${{ secrets.GATEWAY_WS_URL }}
+          GATEWAY_METRICS_URL: ${{ secrets.GATEWAY_METRICS_URL }}
+          SIMULATION_METRICS_URL: ${{ secrets.SIMULATION_METRICS_URL }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -eu
+          MISSING=""
+          for var in GATEWAY_WS_URL GATEWAY_METRICS_URL SIMULATION_METRICS_URL FLY_API_TOKEN; do
+            value="${!var:-}"
+            if [ -z "${value}" ]; then
+              MISSING="${MISSING} ${var}"
+            fi
+          done
+          if [ -n "${MISSING}" ]; then
+            echo "::error::Missing required GitHub Actions secret(s):${MISSING}"
+            echo "::error::Set them under Settings → Secrets and variables → Actions."
+            echo "::error::Required: GATEWAY_WS_URL, GATEWAY_METRICS_URL, SIMULATION_METRICS_URL, FLY_API_TOKEN"
+            exit 1
+          fi
+          echo "All required secrets present."
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -141,10 +173,8 @@ jobs:
             GATE_STATUS="FAIL"
           fi
 
-          git commit -m "ci: load harness ${DATE} — gates ${GATE_STATUS}
-
-Auto-committed by nightly-load-harness workflow.
-Run: ${{ github.run_id }}"
+          COMMIT_MSG=$'ci: load harness '"${DATE}"$' \u2014 gates '"${GATE_STATUS}"$'\n\nAuto-committed by nightly-load-harness workflow.\nRun: '"${{ github.run_id }}"
+          git commit -m "${COMMIT_MSG}"
 
           git push origin HEAD:main
 
