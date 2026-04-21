@@ -137,7 +137,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const startupStartedAt = Date.now();
   const allowSeedFallback = process.env.GATEWAY_ALLOW_SEED_FALLBACK !== "0";
   const simulationSeedProfile = options.simulationSeedProfile ?? "default";
-  const legacySnapshotBootstrap = options.snapshotDir ? loadLegacySnapshotBootstrap(options.snapshotDir) : undefined;
+  let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
+  if (options.snapshotDir) {
+    try {
+      legacySnapshotBootstrap = loadLegacySnapshotBootstrap(options.snapshotDir);
+    } catch (error) {
+      const isMissingSnapshotFile = typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+      if (!isMissingSnapshotFile) throw error;
+      app.log.warn(
+        { snapshotDir: options.snapshotDir, err: error },
+        "legacy snapshot bootstrap files not found; continuing without legacy bootstrap"
+      );
+    }
+  }
   const recentGatewayEvents: Array<{ at: number; level: "info" | "warn" | "error"; event: string; payload: Record<string, unknown> }> = [];
   const recordGatewayEvent = (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown> = {}): void => {
     recentGatewayEvents.push({ at: Date.now(), level, event, payload });
