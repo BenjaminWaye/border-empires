@@ -4,6 +4,7 @@ export type RealtimeGatewayRuntimeEnv = {
   host: string;
   port: number;
   simulationAddress: string;
+  simulationWakeAddress?: string;
   databaseUrl?: string;
   snapshotDir?: string;
   applySchema: boolean;
@@ -24,6 +25,9 @@ export const parseRealtimeGatewayRuntimeEnv = (
 ): RealtimeGatewayRuntimeEnv => {
   const databaseUrl = env.GATEWAY_DATABASE_URL ?? env.DATABASE_URL;
   const simulationAddress = env.SIMULATION_ADDRESS ?? "127.0.0.1:50051";
+  const simulationWakeAddress =
+    env.GATEWAY_SIMULATION_WAKE_ADDRESS ??
+    (simulationAddress.includes(".internal:") ? simulationAddress.replace(".internal:", ".flycast:") : undefined);
   const isProduction = env.NODE_ENV === "production";
 
   if (isProduction && !databaseUrl) {
@@ -37,6 +41,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
     host: env.HOST ?? "127.0.0.1",
     port: parsePort(env.PORT, 3101),
     simulationAddress,
+    ...(simulationWakeAddress ? { simulationWakeAddress } : {}),
     ...(databaseUrl ? { databaseUrl } : {}),
     ...(env.GATEWAY_SNAPSHOT_DIR ? { snapshotDir: env.GATEWAY_SNAPSHOT_DIR } : {}),
     applySchema: env.GATEWAY_DB_APPLY_SCHEMA === "1",

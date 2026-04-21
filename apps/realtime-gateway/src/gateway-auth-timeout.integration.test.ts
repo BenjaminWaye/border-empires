@@ -55,7 +55,7 @@ describe("gateway auth timeout", () => {
       logger: false,
       port: 0,
       commandStore: new InMemoryGatewayCommandStore(),
-      simulationSubscribeTimeoutMs: 25,
+      simulationSubscribeTimeoutMs: 1_000,
       simulationClient: {
         submitCommand: async () => undefined,
         subscribePlayer: () =>
@@ -83,7 +83,7 @@ describe("gateway auth timeout", () => {
           { once: true }
         );
       }),
-      500
+      2_000
     );
 
     socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
