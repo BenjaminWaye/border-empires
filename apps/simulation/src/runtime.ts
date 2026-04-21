@@ -82,6 +82,7 @@ import type { RecoveredCommandHistory } from "./command-recovery.js";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
 import { buildDomainUpdatePayload, buildTechUpdatePayload, chooseDomainForPlayer, chooseTechForPlayer } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
+import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
 
 type LockRecord = {
   commandId: string;
@@ -219,6 +220,21 @@ const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 const SETTLE_DURATION_MS = 60_000;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+
+const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
+  id: playerId,
+  isAi: false,
+  name: playerId,
+  points: 100,
+  manpower: MANPOWER_BASE_CAP,
+  techIds: new Set<string>(),
+  domainIds: new Set<string>(),
+  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+  techRootId: "rewrite-runtime",
+  allies: new Set<string>(),
+  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+});
 
 const strategicResourceForTile = (resource: DomainTileState["resource"] | undefined): StrategicResourceKey | undefined => {
   switch (resource) {
@@ -523,6 +539,49 @@ export class SimulationRuntime {
   onEvent(listener: (event: SimulationEvent) => void): () => void {
     this.events.on("event", listener);
     return () => this.events.off("event", listener);
+  }
+
+  ensurePlayerHasSpawnTerritory(playerId: string): boolean {
+    let player = this.players.get(playerId);
+    if (!player) {
+      player = createHumanRuntimePlayer(playerId);
+      this.players.set(playerId, player);
+      this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+    }
+
+    if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return false;
+
+    const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
+    const spawn = chooseLegacySpawnPlacement({
+      playerId,
+      tiles: this.tiles.values(),
+      blockedTileKeys
+    });
+    if (!spawn) return false;
+    const tileKey = simulationTileKey(spawn.x, spawn.y);
+    const tile = this.tiles.get(tileKey);
+    if (!tile || tile.terrain !== "LAND" || tile.ownerId) return false;
+    const spawnedTile: DomainTileState = {
+      ...tile,
+      ownerId: playerId,
+      ownershipState: "SETTLED",
+      town: tile.town ?? {
+        name: `Settlement ${tile.x},${tile.y}`,
+        type: "FARMING",
+        populationTier: "SETTLEMENT"
+      }
+    };
+    const commandId = `bootstrap-spawn:${playerId}:${this.now()}`;
+    this.tileYieldCollectedAtByTile.set(tileKey, this.now());
+    this.replaceTileState(tileKey, spawnedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(spawnedTile)]
+    });
+    this.emitPlayerStateUpdate({ commandId, playerId });
+    return true;
   }
 
   enqueueBackgroundJob(job: () => void): void {
@@ -3904,7 +3963,13 @@ export class SimulationRuntime {
     const previousTarget = this.tiles.get(lock.targetKey);
     const previousOwnerId = previousTarget?.ownerId;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
-    const combat = rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
+    const combat =
+      lock.actionType === "EXPAND"
+        ? {
+            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType),
+            attackerWon: true
+          }
+        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
     const defenderTileCountBeforeCapture = previousOwnerId
       ? Math.max(1, [...this.tiles.values()].filter((tile) => tile.ownerId === previousOwnerId && tile.ownershipState === "SETTLED").length)
       : 0;

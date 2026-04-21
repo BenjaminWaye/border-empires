@@ -6,6 +6,83 @@ import { SimulationRuntime } from "./runtime.js";
 type SimulationRuntimeEventShape = SimulationEvent;
 
 describe("simulation runtime", () => {
+  it("spawns a settled tile for unknown subscribed players", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const changed = runtime.ensurePlayerHasSpawnTerritory("firebase-user-1");
+    expect(changed).toBe(true);
+
+    const state = runtime.exportState();
+    expect(state.players.some((player) => player.id === "firebase-user-1")).toBe(true);
+    expect(
+      state.tiles.some(
+        (tile) => tile.x === 10 && tile.y === 11 && tile.ownerId === "firebase-user-1" && tile.ownershipState === "SETTLED"
+      )
+    ).toBe(true);
+  });
+
+  it("does not respawn players that already have territory", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const changed = runtime.ensurePlayerHasSpawnTerritory("player-1");
+    expect(changed).toBe(false);
+
+    const state = runtime.exportState();
+    expect(state.tiles.filter((tile) => tile.ownerId === "player-1")).toHaveLength(1);
+  });
+
   it("regenerates manpower from elapsed time before exporting player state", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
@@ -685,6 +762,62 @@ describe("simulation runtime", () => {
 
       expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(99);
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("always resolves neutral EXPAND as a successful frontier capture", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 100,
+              manpower: 150,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 11, y: 10, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "expand-always-success",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 11 && tile.y === 10)).toEqual(
+        expect.objectContaining({
+          ownerId: "player-1",
+          ownershipState: "FRONTIER"
+        })
+      );
+    } finally {
+      randomSpy.mockRestore();
       vi.useRealTimers();
     }
   });
