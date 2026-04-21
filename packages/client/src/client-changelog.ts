@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.1",
+  version: "2026.04.21.2",
   title: "What's New",
-  summary: "Recent updates include new frontier queue diagnostics in the browser console to trace queued/accepted/result/tile-delta transitions for stuck expand cases, plus the latest rewrite observability and runtime recovery hardening shipped in prior releases.",
+  summary: "Recent updates include forcing the staging Vercel client hostname to default to the rewrite gateway backend, plus frontier queue diagnostics and prior rewrite observability hardening.",
   entries: [
+    {
+      introducedIn: "2026.04.21.2",
+      title: "Staging client hostname now defaults to rewrite gateway",
+      why: "The staging Vercel alias could still boot into the legacy backend by default, which made staging validation inconsistent unless you manually appended query params or set a backend cookie first.",
+      changes: [
+        "Backend env-default selection now treats staging Vercel hostnames as gateway-default instead of legacy-default.",
+        "Added selector regression coverage so staging alias hosts keep routing to the rewrite gateway unless explicitly overridden by URL param or cookie."
+      ]
+    },
     {
       introducedIn: "2026.04.21.1",
       title: "Frontier queue diagnostics for stuck queued expands",
