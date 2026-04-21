@@ -16,6 +16,12 @@ const prodCtx = (cookieStr = ""): BrowserCtx => ({
   cookieStr
 });
 
+const stagingCtx = (cookieStr = ""): BrowserCtx => ({
+  hostname: "border-empires-client-staging-benjaminwayes-projects.vercel.app",
+  search: "",
+  cookieStr
+});
+
 describe("backend cookie mid-session toggle", () => {
   it("starts on legacy by default in prod", () => {
     const result = selectBackend({ legacyWsUrl: LEGACY, gatewayWsUrl: GATEWAY, ctx: prodCtx() });
@@ -65,5 +71,16 @@ describe("backend cookie mid-session toggle", () => {
     });
     expect(result.backend).toBe("legacy");
     expect(result.source).toBe("url-param");
+  });
+
+  it("staging hostname defaults to gateway when no overrides are set", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY,
+      gatewayWsUrl: GATEWAY,
+      ctx: stagingCtx("")
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.source).toBe("env-default");
+    expect(result.wsUrl).toBe(GATEWAY);
   });
 });
