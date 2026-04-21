@@ -13,6 +13,30 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Preflight — verify required secrets are set
+        shell: bash
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          TIGRIS_ACCESS_KEY_ID: ${{ secrets.TIGRIS_ACCESS_KEY_ID }}
+          TIGRIS_SECRET_ACCESS_KEY: ${{ secrets.TIGRIS_SECRET_ACCESS_KEY }}
+        run: |
+          set -eu
+          MISSING=""
+          for var in PROD_DATABASE_URL TIGRIS_ACCESS_KEY_ID TIGRIS_SECRET_ACCESS_KEY; do
+            value="${!var:-}"
+            if [ -z "${value}" ]; then
+              MISSING="${MISSING} ${var}"
+            fi
+          done
+          if [ -n "${MISSING}" ]; then
+            echo "::error::Missing required GitHub Actions secret(s):${MISSING}"
+            echo "::error::Set them under Settings → Secrets and variables → Actions."
+            echo "::error::Required: PROD_DATABASE_URL (Supabase pooler URL with sslmode=require),"
+            echo "::error::TIGRIS_ACCESS_KEY_ID, TIGRIS_SECRET_ACCESS_KEY (from \`fly storage show border-empires-backups\`)."
+            exit 1
+          fi
+          echo "All required secrets present."
+
       - name: Checkout
         uses: actions/checkout@v4
 
