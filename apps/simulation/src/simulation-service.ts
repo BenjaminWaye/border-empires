@@ -300,7 +300,19 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const snapshotStore =
     options.snapshotStore ??
     (await createSimulationSnapshotStore(storeFactoryOptions));
-  const legacySnapshotBootstrap = options.snapshotDir ? loadLegacySnapshotBootstrap(options.snapshotDir) : undefined;
+  let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
+  if (options.snapshotDir) {
+    try {
+      legacySnapshotBootstrap = loadLegacySnapshotBootstrap(options.snapshotDir);
+    } catch (error) {
+      const isMissingSnapshotFile = typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+      if (!isMissingSnapshotFile) throw error;
+      log.info(
+        { snapshotDir: options.snapshotDir, err: error },
+        "legacy snapshot bootstrap files not found; continuing without legacy bootstrap"
+      );
+    }
+  }
   const startupRecovery = await (async () => {
     try {
       const recoveryPromise = loadSimulationStartupRecovery({
