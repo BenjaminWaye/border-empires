@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.7",
+  version: "2026.04.21.8",
   title: "What's New",
-  summary: "Recent updates include frontier desync hardening on both client and simulation server paths to prevent false NOT_OWNER origin races, plus login-screen backend routing diagnostics and staging gateway-default hardening.",
+  summary: "Recent updates include authoritative-only client tile state (optimistic rendering disabled), frontier desync hardening on both client and simulation server paths, plus login-screen backend routing diagnostics and staging gateway-default hardening.",
   entries: [
+    {
+      introducedIn: "2026.04.21.8",
+      title: "Client tile state is now server-authoritative only",
+      why: "Optimistic tile ownership/building overlays could mask server ordering issues and make desync diagnosis harder when realtime updates were delayed or out of order.",
+      changes: [
+        "Disabled optimistic tile-state application and optimistic merge preservation, so map ownership and structure state now render only from authoritative server deltas/results.",
+        "Queued action progress UI still remains, but tile ownership/structure visuals no longer pre-apply before server confirmation."
+      ]
+    },
     {
       introducedIn: "2026.04.21.7",
       title: "Simulation now recovers stale frontier origin payloads server-side",
