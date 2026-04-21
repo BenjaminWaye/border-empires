@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.3",
+  version: "2026.04.21.4",
   title: "What's New",
-  summary: "Recent updates include forcing the staging Vercel client hostname to stay on the rewrite gateway backend (ignoring stale legacy cookies), plus frontier queue diagnostics and prior rewrite observability hardening.",
+  summary: "Recent updates include login-screen backend routing diagnostics that show the active backend, websocket endpoint, and resolved Fly app before sign-in, plus staging gateway-default hardening and frontier queue diagnostics.",
   entries: [
+    {
+      introducedIn: "2026.04.21.4",
+      title: "Login screen now shows live backend and Fly route diagnostics",
+      why: "Staging and preview URLs can route to different server stacks, and it was hard to tell whether a client session was about to hit legacy or rewrite before sign-in finished.",
+      changes: [
+        "Added a login-screen debug line that displays active backend mode, resolved websocket URL, and parsed Fly app hostname target.",
+        "Diagnostics refresh with auth overlay state updates so you can verify routing on reconnect and bootstrap retries."
+      ]
+    },
     {
       introducedIn: "2026.04.21.3",
       title: "Staging client hostname now defaults to rewrite gateway",
