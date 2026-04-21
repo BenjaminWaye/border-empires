@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.20.2",
+  version: "2026.04.21.1",
   title: "What's New",
-  summary: "Recent updates include a rewrite observability pass with live backend accept-latency p95 in the debug badge, attack-preview fallback math now sourced from the same shared combat module the server uses to resolve fights, rewrite recovery that restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding from seed defaults on restart, stricter simulation durability handling so the server stops instead of drifting when Postgres persistence fails, live tile yield that now survives gateway sync so collect and production views stay coherent, and building actions that now keep the correct queueability and blocker messaging when development slots are full.",
+  summary: "Recent updates include new frontier queue diagnostics in the browser console to trace queued/accepted/result/tile-delta transitions for stuck expand cases, plus the latest rewrite observability and runtime recovery hardening shipped in prior releases.",
   entries: [
+    {
+      introducedIn: "2026.04.21.1",
+      title: "Frontier queue diagnostics for stuck queued expands",
+      why: "A new regression could leave a queued frontier badge and border highlight visible after an expand had already resolved, but the client did not expose enough state-transition detail to quickly identify which message or clear path failed.",
+      changes: [
+        "Added explicit frontier queue debug logs for COMMAND_QUEUED, ACTION_ACCEPTED, COMBAT_START, FRONTIER_RESULT, COMBAT_RESULT, TILE_DELTA_BATCH, TILE_DELTA, and ERROR handling.",
+        "Added logs around queue-clear and resolve decisions so you can see when a tile-delta path should clear actionTarget, queuedTargetKeys, and optimistic expand state."
+      ]
+    },
     {
       introducedIn: "2026.04.20.2",
       title: "Rewrite debug badge now shows live accept-latency p95",
