@@ -31,6 +31,18 @@ describe("frontier combat", () => {
     expect(result.attackerWon).toBe(false);
   });
 
+  it("keeps plain frontier-vs-frontier preview at an even baseline", () => {
+    const preview = buildFrontierCombatPreview({
+      terrain: "LAND",
+      ownershipState: "FRONTIER"
+    });
+
+    expect(preview.defMult).toBeCloseTo(1, 6);
+    expect(preview.defEff).toBeCloseTo(10, 6);
+    expect(preview.winChance).toBeCloseTo(0.5, 6);
+    expect(preview.breakthroughWinChance).toBeCloseTo(10 / 16, 6);
+  });
+
   it("keeps preview and resolution tagged to the same combat module", () => {
     expect(buildFrontierCombatPreview.__combatModule).toBe(rollFrontierCombat.__combatModule);
   });
