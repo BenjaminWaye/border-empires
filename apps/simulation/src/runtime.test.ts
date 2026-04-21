@@ -490,6 +490,69 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("recovers stale frontier origin payloads by selecting a valid owned adjacent origin server-side", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 11, y: 10, terrain: "LAND" },
+            { x: 9, y: 9, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationRuntimeEventShape[] = [];
+      runtime.onEvent((event) => {
+        seen.push(event);
+      });
+
+      runtime.submitCommand({
+        commandId: "expand-stale-origin-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 9, fromY: 9, toX: 11, toY: 10 })
+      });
+
+      await Promise.resolve();
+
+      const accepted = seen.find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMMAND_ACCEPTED" }> => event.eventType === "COMMAND_ACCEPTED"
+      );
+      const rejected = seen.find((event) => event.eventType === "COMMAND_REJECTED");
+      expect(rejected).toBeUndefined();
+      expect(accepted).toEqual(
+        expect.objectContaining({
+          commandId: "expand-stale-origin-1",
+          actionType: "EXPAND",
+          originX: 10,
+          originY: 10,
+          targetX: 11,
+          targetY: 10
+        })
+      );
+
+      vi.advanceTimersByTime(3_100);
+      expect(runtime.exportState().tiles).toContainEqual(
+        expect.objectContaining({
+          x: 11,
+          y: 10,
+          ownerId: "player-1",
+          ownershipState: "FRONTIER"
+        })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("can resolve an attack as a loss and leave the defender tile owned by the defender", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);

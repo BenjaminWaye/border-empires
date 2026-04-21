@@ -1046,9 +1046,9 @@ export class SimulationRuntime {
     }
     this.applyManpowerRegen(actor);
 
-    const from = this.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
+    const submittedFrom = this.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
     const to = this.tiles.get(simulationTileKey(payload.toX, payload.toY));
-    if (!from || !to) {
+    if (!submittedFrom || !to) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -1058,6 +1058,13 @@ export class SimulationRuntime {
       });
       return;
     }
+
+    // Recover from stale client origin selection by re-picking a valid owned adjacent origin.
+    const from =
+      submittedFrom.ownerId === actor.id
+        ? submittedFrom
+        : this.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND") ??
+          submittedFrom;
 
     const originLock = this.locksByTile.get(simulationTileKey(from.x, from.y));
     const targetLock = this.locksByTile.get(simulationTileKey(to.x, to.y));
