@@ -6,10 +6,10 @@
  *
  *   1. URL param  ?backend=gateway|legacy     — highest, overrides everything
  *   2. Cookie     be-backend=gateway|legacy   — per-session override
- *   3. Environment default                    — localhost → gateway, prod → legacy
+ *   3. Environment default                    — localhost/staging → gateway, prod → legacy
  *
- * Production is always "legacy" by default until Phase 6 of the rewrite plan
- * flips the cookie for beta testers. The legacy WS URL is never changed.
+ * Production stays "legacy" by default unless explicitly overridden, while
+ * localhost and staging hostnames default to gateway.
  *
  * Browser globals (window, document) are read lazily and can be overridden via
  * the `ctx` parameter for unit testing without a DOM environment.
@@ -47,6 +47,11 @@ function readCookie(cookieStr: string): BackendChoice | null {
 
 function isLocalhostHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
+}
+
+function isStagingHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return normalized.endsWith(".vercel.app") && normalized.includes("-staging-");
 }
 
 function readBrowserCtx(): BrowserCtx {
@@ -97,9 +102,10 @@ export function selectBackend(opts: {
     };
   }
 
-  // Environment default: localhost → gateway (developer convenience);
-  // anywhere else → legacy (production safety).
-  const defaultBackend: BackendChoice = isLocalhostHostname(hostname) ? "gateway" : "legacy";
+  // Environment default: localhost/staging → gateway;
+  // everywhere else → legacy (production safety).
+  const defaultBackend: BackendChoice =
+    isLocalhostHostname(hostname) || isStagingHostname(hostname) ? "gateway" : "legacy";
   return {
     backend: defaultBackend,
     wsUrl: defaultBackend === "gateway" ? gatewayWsUrl : legacyWsUrl,
