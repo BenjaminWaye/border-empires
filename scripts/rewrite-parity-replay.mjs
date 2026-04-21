@@ -9,16 +9,11 @@
  * Usage:
  *   node scripts/rewrite-parity-replay.mjs [trace-file]
  *
- * To record a new trace first:
- *   node scripts/rewrite-parity-record.mjs [output-file]
- *   PARITY_RECORD=1 node scripts/rewrite-parity-replay.mjs  # alias for the above
- *
  * Environment variables:
  *   LEGACY_WS_URL     WebSocket URL for the legacy monolith (default: wss://border-empires.fly.dev/ws)
  *   REWRITE_WS_URL    WebSocket URL for the rewrite gateway (default: ws://127.0.0.1:3101/ws)
  *   PARITY_TIMEOUT_MS Per-command wait timeout in ms (default: 15000)
  *   PARITY_AUTH_TOKEN Auth token to use (default: "__parity_harness_player__")
- *   PARITY_RECORD     Set to "1" to run the recorder instead of the replayer
  *
  * Trace file format: docs/parity-traces/trace-stub-20260420.json
  *
@@ -29,17 +24,6 @@
  *
  * See §9.3 of docs/rewrite-completion-plan-2026-04-19.md for design context.
  */
-
-// PARITY_RECORD=1 redirects to the recorder script
-if (process.env.PARITY_RECORD === "1") {
-  const { resolve, dirname } = await import("node:path");
-  const { fileURLToPath } = await import("node:url");
-  const { spawnSync } = await import("node:child_process");
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-  const recorder = resolve(__dirname, "rewrite-parity-record.mjs");
-  const result = spawnSync(process.execPath, [recorder, ...process.argv.slice(2)], { stdio: "inherit" });
-  process.exit(result.status ?? 1);
-}
 
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";

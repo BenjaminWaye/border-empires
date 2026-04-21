@@ -3,7 +3,7 @@
   "recordedAt": "2026-04-20T00:00:00.000Z",
   "playerId": "__parity_harness_player__",
   "durationMinutes": 10,
-  "note": "This is a stub trace demonstrating the format. Replace with a real recorded trace captured via: node scripts/rewrite-parity-record.mjs (or PARITY_RECORD=1 node scripts/rewrite-parity-replay.mjs). The recorder drives an autonomous session on the legacy server and writes docs/parity-traces/real-YYYYMMDD.json. Commands must be executable against both the legacy server and the rewrite gateway from the same starting world state (same seed, same snapshot import). Run against staging: REWRITE_WS_URL=wss://border-empires-gateway-staging.fly.dev/ws node scripts/rewrite-parity-replay.mjs docs/parity-traces/real-YYYYMMDD.json",
+  "note": "This is a stub trace demonstrating the format. Replace with a real recorded trace captured via PARITY_RECORD=1 mode (to be implemented). Commands must be executable against both the legacy server and the rewrite gateway from the same starting world state (same seed, same snapshot import).",
   "worldSeed": 20,
   "snapshotLabel": "parity-stub",
   "commands": [
