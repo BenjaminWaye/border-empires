@@ -620,6 +620,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         });
         return;
       }
+      const spawnedOnSubscribe = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
+      if (spawnedOnSubscribe) {
+        snapshotCacheByPlayerId.delete(call.request.player_id);
+        log.info({ playerId: call.request.player_id }, "spawned runtime territory for unknown subscribed player");
+      }
       subscriptionRegistry.subscribe(call.request.player_id);
       const snapshotPayload = snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
       if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {

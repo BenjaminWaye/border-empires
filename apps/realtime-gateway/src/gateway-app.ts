@@ -491,18 +491,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           queueOrSendSessionPayload(socket, event.payload);
           continue;
         }
-        fallbackTileDeltasByCommandId.set(event.commandId, [
-          {
-            x: event.targetX,
-            y: event.targetY,
-            ownerId: event.playerId,
-            ownershipState: "FRONTIER"
-          }
-        ]);
+        if (event.attackerWon) {
+          fallbackTileDeltasByCommandId.set(event.commandId, [
+            {
+              x: event.targetX,
+              y: event.targetY,
+              ownerId: event.playerId,
+              ownershipState: "FRONTIER"
+            }
+          ]);
+        } else {
+          fallbackTileDeltasByCommandId.delete(event.commandId);
+        }
         void commandStore
           .markResolved(event.commandId, Date.now())
           .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved command"));
-        if (event.actionType === "EXPAND") {
+        if (event.actionType === "EXPAND" && event.attackerWon) {
           queueOrSendSessionPayload(socket, {
             type: "FRONTIER_RESULT",
             commandId: event.commandId,

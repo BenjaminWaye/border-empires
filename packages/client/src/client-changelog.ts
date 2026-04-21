@@ -19,10 +19,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.8",
+  version: "2026.04.21.10",
   title: "What's New",
-  summary: "Recent updates include authoritative-only client tile state (optimistic rendering disabled), frontier desync hardening on both client and simulation server paths, plus login-screen backend routing diagnostics and staging gateway-default hardening.",
+  summary: "Recent updates include deterministic neutral frontier expansion, runtime spawn provisioning for first-time authenticated players, and continued frontier desync hardening across client/server paths.",
   entries: [
+    {
+      introducedIn: "2026.04.21.10",
+      title: "Neutral frontier expansion is now deterministic server-side",
+      why: "Neutral EXPAND actions were being resolved through combat odds, which let clearly valid frontier claims sometimes fail and remain neutral despite player intent.",
+      changes: [
+        "Simulation now resolves neutral EXPAND captures as guaranteed success instead of rolling combat odds.",
+        "Added simulation regression coverage to lock deterministic EXPAND behavior regardless combat RNG."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.9",
+      title: "First-time authenticated players now get a runtime spawn instead of empty-map stall",
+      why: "When a valid authenticated player id had no matching runtime player/territory, subscribe could return an empty nearby map and the client would stay in map-sync-stalled state.",
+      changes: [
+        "Simulation subscribe now provisions a runtime player and a settled spawn tile for unknown player ids when neutral land is available.",
+        "Added simulation runtime regression coverage to lock this behavior so first-time auth no longer boots into zero-territory map sync stalls."
+      ]
+    },
     {
       introducedIn: "2026.04.21.8",
       title: "Client tile state is now server-authoritative only",
