@@ -147,11 +147,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const simulationClient =
     options.simulationClient ?? createSimulationClient(options.simulationAddress ?? "127.0.0.1:50051");
   const simulationSubscribeTimeoutMs = options.simulationSubscribeTimeoutMs ?? 3_000;
+  const simulationPingTimeoutMs = Math.max(1_500, Number(process.env.GATEWAY_SIMULATION_PING_TIMEOUT_MS ?? 20_000));
+  const simulationHealthFailureThreshold = Math.max(
+    1,
+    Number(process.env.GATEWAY_SIMULATION_HEALTH_FAILURE_THRESHOLD ?? 3)
+  );
   const simulationHealth = {
     connected: false,
     lastReadyAt: undefined as number | undefined,
     lastError: undefined as string | undefined
   };
+  let simulationConsecutiveHealthFailures = 0;
+  let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
   let gatewayMetricsTimer: ReturnType<typeof setInterval> | undefined;
   let gatewayEventLoopTimer: ReturnType<typeof setInterval> | undefined;
@@ -162,25 +169,40 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     simulationHealth.connected = true;
     simulationHealth.lastReadyAt = Date.now();
     simulationHealth.lastError = undefined;
+    simulationConsecutiveHealthFailures = 0;
   };
   const markSimulationUnavailable = (error: unknown): void => {
     simulationHealth.connected = false;
     simulationHealth.lastError = error instanceof Error ? error.message : String(error);
   };
   const refreshSimulationHealth = async (): Promise<void> => {
+    if (simulationHealthRefreshInFlight) return;
+    simulationHealthRefreshInFlight = true;
     // Test doubles and lightweight local adapters may omit ping; treat them as ready.
-    if (typeof simulationClient.ping !== "function") {
-      markSimulationReady();
-      return;
-    }
     try {
-      await withTimeout(simulationClient.ping(), 1_500, "simulation ping");
+      if (typeof simulationClient.ping !== "function") {
+        markSimulationReady();
+        return;
+      }
+      await withTimeout(simulationClient.ping(), simulationPingTimeoutMs, "simulation ping");
       markSimulationReady();
     } catch (error) {
-      markSimulationUnavailable(error);
+      simulationConsecutiveHealthFailures += 1;
+      if (
+        simulationConsecutiveHealthFailures >= simulationHealthFailureThreshold ||
+        typeof simulationHealth.lastReadyAt !== "number"
+      ) {
+        markSimulationUnavailable(error);
+      } else {
+        simulationHealth.lastError = error instanceof Error ? error.message : String(error);
+      }
       recordGatewayEvent("warn", "simulation_ping_failed", {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        consecutiveFailures: simulationConsecutiveHealthFailures,
+        failureThreshold: simulationHealthFailureThreshold
       });
+    } finally {
+      simulationHealthRefreshInFlight = false;
     }
   };
   const commandStoreFactoryOptions = {
