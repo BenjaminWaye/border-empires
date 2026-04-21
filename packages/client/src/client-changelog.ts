@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.6",
+  version: "2026.04.21.7",
   title: "What's New",
-  summary: "Recent updates include a frontier queue desync fix that clears successful expands directly on FRONTIER_RESULT, safer frontier origin confirmation to prevent false NOT_OWNER races, plus login-screen backend routing diagnostics and staging gateway-default hardening.",
+  summary: "Recent updates include frontier desync hardening on both client and simulation server paths to prevent false NOT_OWNER origin races, plus login-screen backend routing diagnostics and staging gateway-default hardening.",
   entries: [
+    {
+      introducedIn: "2026.04.21.7",
+      title: "Simulation now recovers stale frontier origin payloads server-side",
+      why: "Fast chained actions could send an outdated from-tile while the player still had a valid adjacent owned origin, causing avoidable NOT_OWNER rejects despite a legal move existing.",
+      changes: [
+        "Rewrite simulation now re-selects a valid owned adjacent origin for frontier commands when the submitted origin is stale, instead of failing immediately with NOT_OWNER.",
+        "Added runtime regression coverage to assert stale-origin expand payloads are accepted and resolved via the server-selected authoritative origin."
+      ]
+    },
     {
       introducedIn: "2026.04.21.6",
       title: "Frontier queue now waits for confirmed origin ownership before sending follow-up expands or attacks",
