@@ -19,10 +19,28 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.10",
+  version: "2026.04.21.12",
   title: "What's New",
-  summary: "Recent updates include deterministic neutral frontier expansion, runtime spawn provisioning for first-time authenticated players, and continued frontier desync hardening across client/server paths.",
+  summary: "Recent updates include persistent profile setup on rewrite gateway restarts, corrected frontier lock rejection classification, and updated frontier attack odds baseline.",
   entries: [
+    {
+      introducedIn: "2026.04.21.12",
+      title: "Frontier lock errors and frontier-vs-frontier odds are now clearer",
+      why: "Frontier attacks from tiles locked by another player could be misreported as your own attack cooldown, and plain frontier-vs-frontier previews were applying an extra defense multiplier that understated baseline odds.",
+      changes: [
+        "Simulation/domain validation now returns LOCKED when the origin lock belongs to another player instead of returning ATTACK_COOLDOWN.",
+        "Shared frontier combat math now treats plain FRONTIER ownership as neutral defense baseline, so matching frontier tiles preview at 50% instead of 48%."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.11",
+      title: "Profile name/color setup now survives gateway restarts",
+      why: "Profile completion and tile-color overrides were held only in gateway process memory, so restart cycles could force returning players back through setup despite valid identity.",
+      changes: [
+        "Gateway now persists player profile name/color/completion state in Postgres and hydrates it during AUTH before INIT is built.",
+        "SET_PROFILE and SET_TILE_COLOR now write through the durable profile store so restart cycles keep your banner identity stable."
+      ]
+    },
     {
       introducedIn: "2026.04.21.10",
       title: "Neutral frontier expansion is now deterministic server-side",

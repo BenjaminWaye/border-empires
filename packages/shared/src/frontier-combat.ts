@@ -21,7 +21,6 @@ export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
 
 const defenseMultiplierForTile = (target: FrontierCombatPreviewTile): number => {
   let defMult = 1;
-  if (target.ownershipState === "FRONTIER") defMult *= 1.1;
   if (target.ownershipState === "SETTLED") defMult *= 1.35;
   if (target.townType) defMult *= 1.2;
   if (target.dockId) defMult *= 1.1;

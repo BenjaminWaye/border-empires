@@ -1674,6 +1674,50 @@ describe("simulation runtime", () => {
     expect(seen).toEqual(["ATTACK_COOLDOWN"]);
   });
 
+  it("returns LOCKED when origin tile lock is owned by another player", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 10, y: 11, ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 10, y: 9, ownerId: "player-3", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: [
+          {
+            commandId: "enemy-lock",
+            playerId: "player-3",
+            actionType: "ATTACK",
+            originX: 10,
+            originY: 9,
+            targetX: 10,
+            targetY: 10,
+            originKey: "10,9",
+            targetKey: "10,10",
+            resolvesAt: 4_000
+          }
+        ]
+      }
+    });
+    const seen: string[] = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMMAND_REJECTED") seen.push(event.code);
+    });
+
+    runtime.submitCommand({
+      commandId: "cmd-origin-locked-by-enemy",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 3,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+    });
+
+    await Promise.resolve();
+    expect(seen).toEqual(["LOCKED"]);
+  });
+
   it("resolves recovered combat locks after restart", () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
