@@ -13,6 +13,8 @@ import { registerGatewayHttpRoutes } from "./http-routes.js";
 import { createGatewayMetrics } from "./metrics.js";
 import { createPlayerSubscriptions } from "./player-subscriptions.js";
 import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
+import type { GatewayPlayerProfileStore } from "./player-profile-store.js";
+import { createGatewayPlayerProfileStore } from "./player-profile-store-factory.js";
 import { withTimeout } from "./promise-timeout.js";
 import { resolveInitialState } from "./initial-state.js";
 import { buildInitMessage } from "./reconnect-recovery.js";
@@ -40,8 +42,10 @@ type RealtimeGatewayAppOptions = {
   port?: number;
   logger?: boolean;
   simulationAddress?: string;
+  simulationWakeAddress?: string;
   simulationClient?: SimulationClient;
   commandStore?: GatewayCommandStore;
+  profileStore?: GatewayPlayerProfileStore;
   databaseUrl?: string;
   applySchema?: boolean;
   defaultHumanPlayerId?: string;
@@ -51,6 +55,11 @@ type RealtimeGatewayAppOptions = {
   now?: () => number;
   simulationSubscribeTimeoutMs?: number;
 };
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(payload));
@@ -158,7 +167,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   const simulationClient =
     options.simulationClient ?? createSimulationClient(options.simulationAddress ?? "127.0.0.1:50051");
-  const simulationSubscribeTimeoutMs = options.simulationSubscribeTimeoutMs ?? 3_000;
+  const simulationWakeClient =
+    !options.simulationClient && options.simulationWakeAddress && options.simulationWakeAddress !== options.simulationAddress
+      ? createSimulationClient(options.simulationWakeAddress)
+      : undefined;
+  const simulationSubscribeTimeoutMs = Math.max(
+    1_000,
+    options.simulationSubscribeTimeoutMs ?? Number(process.env.GATEWAY_SIMULATION_SUBSCRIBE_TIMEOUT_MS ?? 8_000)
+  );
   const simulationPingTimeoutMs = Math.max(1_500, Number(process.env.GATEWAY_SIMULATION_PING_TIMEOUT_MS ?? 20_000));
   const simulationHealthFailureThreshold = Math.max(
     1,
@@ -217,6 +233,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       simulationHealthRefreshInFlight = false;
     }
   };
+  const ensureSimulationReadyForAuth = async (): Promise<void> => {
+    await refreshSimulationHealth();
+    if (simulationHealth.connected) return;
+    if (!simulationWakeClient) return;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await withTimeout(simulationWakeClient.ping(), simulationPingTimeoutMs, "simulation wake ping");
+      } catch {
+        // Wake ping can fail while the machine is still cold-starting.
+      }
+      await sleep(Math.min(2_000, 400 * (attempt + 1)));
+      await refreshSimulationHealth();
+      if (simulationHealth.connected) return;
+    }
+  };
   const commandStoreFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
     ...(typeof options.applySchema === "boolean" ? { applySchema: options.applySchema } : {})
@@ -224,6 +256,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const commandStore =
     options.commandStore ??
     (await createGatewayCommandStore(commandStoreFactoryOptions));
+  const profileStore =
+    options.profileStore ??
+    (await createGatewayPlayerProfileStore(commandStoreFactoryOptions));
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
     subscribePlayer: (playerId) => simulationClient.subscribePlayer(playerId),
     unsubscribePlayer: (playerId) => simulationClient.unsubscribePlayer(playerId)
@@ -608,14 +643,27 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (message.type === "AUTH") {
             recordGatewayEvent("info", "gateway_auth", { channel });
             if (!simulationHealth.connected) {
-              await refreshSimulationHealth();
+              await ensureSimulationReadyForAuth();
             }
             const playerIdentity = resolveGatewayAuthIdentity(message.token, {
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
               ...(legacySnapshotBootstrap ? { authIdentities: legacySnapshotBootstrap.authIdentities } : {})
             });
             session.playerId = playerIdentity.playerId;
-            socialState.registerPlayer(playerIdentity.playerId, playerIdentity.playerName);
+            const persistedProfile = await profileStore.get(playerIdentity.playerId);
+            if (persistedProfile) {
+              profileOverrides.upsert(playerIdentity.playerId, {
+                ...(persistedProfile.name ? { name: persistedProfile.name } : {}),
+                ...(persistedProfile.tileColor ? { tileColor: persistedProfile.tileColor } : {}),
+                ...(typeof persistedProfile.profileComplete === "boolean"
+                  ? { profileComplete: persistedProfile.profileComplete }
+                  : {})
+              });
+            }
+            socialState.registerPlayer(
+              playerIdentity.playerId,
+              persistedProfile?.name ?? playerIdentity.playerName
+            );
             let subscribedInitialState;
             try {
               subscribedInitialState = await withTimeout(
@@ -710,7 +758,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "SET_TILE_COLOR") {
-            const override = profileOverrides.setTileColor(session.playerId, message.color);
+            const storedProfile = await profileStore.setTileColor(session.playerId, message.color);
+            const override = profileOverrides.upsert(session.playerId, {
+              ...(storedProfile.name ? { name: storedProfile.name } : {}),
+              ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
+              ...(typeof storedProfile.profileComplete === "boolean"
+                ? { profileComplete: storedProfile.profileComplete }
+                : {})
+            });
             const payload = {
               type: "PLAYER_STYLE",
               playerId: session.playerId,
@@ -728,13 +783,20 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "SET_PROFILE") {
-            const override = profileOverrides.setProfile(session.playerId, message.displayName, message.color);
-            socialState.renamePlayer(session.playerId, message.displayName);
+            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, message.color);
+            const override = profileOverrides.upsert(session.playerId, {
+              ...(storedProfile.name ? { name: storedProfile.name } : {}),
+              ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
+              ...(typeof storedProfile.profileComplete === "boolean"
+                ? { profileComplete: storedProfile.profileComplete }
+                : {})
+            });
+            socialState.renamePlayer(session.playerId, override.name ?? message.displayName);
             const stylePayload = {
               type: "PLAYER_STYLE",
               playerId: session.playerId,
-              name: message.displayName,
-              tileColor: message.color
+              name: override.name ?? message.displayName,
+              tileColor: override.tileColor ?? message.color
             };
             for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);
             for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {

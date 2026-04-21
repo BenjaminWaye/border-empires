@@ -40,6 +40,7 @@ describe("realtime gateway runtime env", () => {
       host: "0.0.0.0",
       port: 8080,
       simulationAddress: "border-empires-simulation.internal:50051",
+      simulationWakeAddress: "border-empires-simulation.flycast:50051",
       databaseUrl: "postgres://gateway",
       applySchema: true
     });

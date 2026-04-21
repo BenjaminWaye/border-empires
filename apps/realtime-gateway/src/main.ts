@@ -6,6 +6,7 @@ const gateway = await createRealtimeGatewayApp({
   host: runtimeEnv.host,
   port: runtimeEnv.port,
   simulationAddress: runtimeEnv.simulationAddress,
+  ...(runtimeEnv.simulationWakeAddress ? { simulationWakeAddress: runtimeEnv.simulationWakeAddress } : {}),
   ...(runtimeEnv.databaseUrl ? { databaseUrl: runtimeEnv.databaseUrl } : {}),
   ...(runtimeEnv.snapshotDir ? { snapshotDir: runtimeEnv.snapshotDir } : {}),
   applySchema: runtimeEnv.applySchema,
