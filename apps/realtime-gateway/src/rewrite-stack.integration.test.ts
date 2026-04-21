@@ -347,6 +347,77 @@ describe("rewrite stack integration", () => {
     );
   });
 
+  it("delivers TILE_DELTA_BATCH to control-only players even when other players have bulk sockets", async () => {
+    const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog,
+      runtimeOptions: {
+        now: () => 1_000,
+        scheduleAfter: (delayMs, task) => {
+          scheduledResolutions.push({ delayMs, task });
+        }
+      }
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      now: () => 1_000
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const playerOneControl = await openSocket(`${gatewayAddress.wsUrl}?channel=control`);
+    cleanup.push(() => closeSocket(playerOneControl.socket));
+    playerOneControl.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect((await nextNonBootstrapMessage(playerOneControl, "player-1 init")).type).toBe("INIT");
+    playerOneControl.socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 0, cy: 0, radius: 2 }));
+
+    const playerTwoBulk = await openSocket(`${gatewayAddress.wsUrl}?channel=bulk`);
+    cleanup.push(() => closeSocket(playerTwoBulk.socket));
+    playerTwoBulk.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
+
+    playerOneControl.socket.send(
+      JSON.stringify({
+        type: "SETTLE",
+        x: 10,
+        y: 10,
+        commandId: "cmd-control-delta",
+        clientSeq: 1
+      })
+    );
+
+    expect(await nextNonBootstrapMessage(playerOneControl, "queued")).toEqual({
+      type: "COMMAND_QUEUED",
+      commandId: "cmd-control-delta",
+      clientSeq: 1
+    });
+    await waitUntil(() => scheduledResolutions.length === 1);
+    scheduledResolutions[0]?.task();
+    const settledDelta = await nextCommandMessage(playerOneControl, "settled delta", "cmd-control-delta", "TILE_DELTA_BATCH");
+    expect(settledDelta).toEqual(
+      expect.objectContaining({
+        type: "TILE_DELTA_BATCH",
+        commandId: "cmd-control-delta",
+        tiles: expect.arrayContaining([
+          expect.objectContaining({
+            x: 10,
+            y: 10,
+            ownerId: "player-1",
+            ownershipState: "SETTLED"
+          })
+        ])
+      })
+    );
+  });
+
   it("handles alliance and truce flows through the rewrite gateway", async () => {
     const simulation = await createSimulationService({
       host: "127.0.0.1",

@@ -304,6 +304,28 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     return controlSockets.length > 0 ? controlSockets : bulkSockets;
   };
 
+  const socketsForTileDeltaBatchByPlayer = (
+    sockets: ReadonlySet<import("ws").WebSocket>
+  ): import("ws").WebSocket[] => {
+    const socketsByPlayerId = new Map<
+      string,
+      { control: import("ws").WebSocket[]; bulk: import("ws").WebSocket[] }
+    >();
+    for (const socket of sockets) {
+      const session = sessionsBySocket.get(socket);
+      if (!session?.playerId) continue;
+      const grouped = socketsByPlayerId.get(session.playerId) ?? { control: [], bulk: [] };
+      if (session.channel === "bulk") grouped.bulk.push(socket);
+      else grouped.control.push(socket);
+      socketsByPlayerId.set(session.playerId, grouped);
+    }
+    const selected: import("ws").WebSocket[] = [];
+    for (const grouped of socketsByPlayerId.values()) {
+      selected.push(...(grouped.bulk.length > 0 ? grouped.bulk : grouped.control));
+    }
+    return selected;
+  };
+
   const queueOrSendSessionPayload = (socket: import("ws").WebSocket, payload: unknown): void => {
     const session = sessionsBySocket.get(socket);
     if (!session || session.initSent) {
@@ -363,7 +385,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           commandId: event.commandId,
           tiles: jsonSafeTileDeltaBatch(tileDeltas)
         };
-        for (const targetSocket of socketsForEvent(sockets, "TILE_DELTA_BATCH")) {
+        for (const targetSocket of socketsForTileDeltaBatchByPlayer(sockets)) {
           queueOrSendSessionPayload(targetSocket, tileDeltaPayload);
         }
         return;
