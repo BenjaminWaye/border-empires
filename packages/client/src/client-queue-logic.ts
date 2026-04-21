@@ -973,6 +973,30 @@ export const processActionQueue = (
       state.queuedTargetKeys.delete(targetKey);
       continue;
     }
+    const fromKey = deps.keyFor(from.x, from.y);
+    const originSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(fromKey) ?? 0;
+    if (originSyncWaitUntil > Date.now()) {
+      logActionQueue("action-queue-wait-origin-sync", {
+        targetKey,
+        originKey: fromKey,
+        waitMs: Math.max(0, originSyncWaitUntil - Date.now()),
+        queueLength: state.actionQueue.length
+      });
+      logFrontierQueue("frontier-queue-wait-origin-sync", {
+        before: to,
+        after: to,
+        extra: {
+          originKey: fromKey,
+          waitMs: Math.max(0, originSyncWaitUntil - Date.now())
+        }
+      });
+      const blocked = state.actionQueue.shift();
+      if (!blocked) return false;
+      state.actionQueue.push(blocked);
+      deferredFrontierSyncTargets += 1;
+      if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
+      continue;
+    }
     logActionQueue("action-queue-origin", {
       targetKey,
       mode: next.mode ?? "standard",
