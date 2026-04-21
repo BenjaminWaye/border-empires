@@ -9,7 +9,8 @@ primary_region = "arn"
   HOST = "0.0.0.0"
   PORT = "8080"
   GATEWAY_ALLOW_SEED_FALLBACK = "0"
-  SIMULATION_ADDRESS = "border-empires-simulation-staging.flycast:50051"
+  SIMULATION_ADDRESS = "border-empires-simulation-staging.internal:50051"
+  GATEWAY_SIMULATION_WAKE_ADDRESS = "border-empires-simulation-staging.flycast:50051"
   GATEWAY_DB_APPLY_SCHEMA = "1"
 
 [http_service]
