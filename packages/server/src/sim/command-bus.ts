@@ -5,6 +5,7 @@ import type {
   SimulationCommandBusWorkerResponse,
   SimulationDispatchJobMeta
 } from "./command-bus-shared.js";
+import { resolveWorkerEntryUrl } from "../runtime/resolve-worker-entry.js";
 
 export type SimulationCommandPriority = "human" | "system" | "ai";
 
@@ -240,7 +241,7 @@ export const createSimulationCommandBus = <TJob, TQueuedCommand, TSystemCommand>
 
   const startWorker = (): void => {
     try {
-      const created = new Worker(new URL("./command-bus-worker.js", import.meta.url));
+      const created = new Worker(resolveWorkerEntryUrl("./command-bus-worker.js", import.meta.url));
       created.on("message", (message: SimulationCommandBusWorkerResponse) => {
         if (message.type === "ready") {
           workerReady = true;
