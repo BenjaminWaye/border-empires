@@ -48,8 +48,15 @@ DUMP_FILE="/tmp/border-empires-backup-${NOW}.sql.gz"
 # ---------------------------------------------------------------------------
 # 1. Dump
 # ---------------------------------------------------------------------------
-echo "[$(date -u)] Starting pg_dump → ${DUMP_FILE}"
-pg_dump --no-owner --no-acl "${DATABASE_URL}" | gzip -9 > "${DUMP_FILE}"
+# Uses `supabase db dump` (Supabase CLI) rather than bare pg_dump.
+# Rationale: Supabase runs a patched PostgreSQL whose minor version often
+# exceeds what the PGDG apt repo ships.  The pg_dump bundled in the Supabase
+# CLI is compiled against Supabase's exact server version, so the
+# "aborting because of server version mismatch" error cannot occur.
+# The CLI also automatically excludes Supabase-internal schemas (auth,
+# storage, realtime, …) that the pooler user cannot access.
+echo "[$(date -u)] Starting supabase db dump → ${DUMP_FILE}"
+supabase db dump --db-url "${DATABASE_URL}" | gzip -9 > "${DUMP_FILE}"
 DUMP_SIZE="$(wc -c < "${DUMP_FILE}" | tr -d ' ')"
 echo "[$(date -u)] Dump complete (${DUMP_SIZE} bytes compressed)"
 
