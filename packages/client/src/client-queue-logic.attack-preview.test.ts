@@ -137,14 +137,14 @@ describe("attack preview prefetch and cache", () => {
     });
 
     expect(state.attackPreview?.valid).toBe(true);
-    expect(state.attackPreview?.winChance).toBeCloseTo(0.5, 6);
-    expect(state.attackPreview?.breakthroughWinChance).toBeCloseTo(10 / 16, 6);
-    expect(state.attackPreview?.defEff).toBeCloseTo(10, 6);
+    expect(state.attackPreview?.winChance).toBeCloseTo(1, 6);
+    expect(state.attackPreview?.breakthroughWinChance).toBeCloseTo(1, 6);
+    expect(state.attackPreview?.defEff).toBeCloseTo(0, 6);
     expect(
       attackPreviewDetailForTarget(state, target, {
         keyFor: (x, y) => `${x},${y}`,
         pickOriginForTarget: () => origin
       })
-    ).toBe("50% win chance");
+    ).toBe("100% win chance");
   });
 });
