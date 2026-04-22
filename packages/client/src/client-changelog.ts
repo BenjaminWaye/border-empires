@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.1",
+  version: "2026.04.22.2",
   title: "What's New",
-  summary: "Recent updates include explicit not-owner attack feedback, restored attack manpower losses in rewrite combat results, and legacy-parity frontier defense calculations.",
+  summary: "Recent updates include explicit simulation-outage rollback alerts, explicit not-owner attack feedback, restored attack manpower losses in rewrite combat results, and legacy-parity frontier defense calculations.",
   entries: [
+    {
+      introducedIn: "2026.04.22.2",
+      title: "Simulation-outage errors now stop fake progress immediately and show explicit failure feedback",
+      why: "When command queueing failed during rewrite simulation outages, frontier/settlement UI could look like it was still progressing even though the server had rejected the command.",
+      changes: [
+        "SERVER_STARTING and SIMULATION_UNAVAILABLE now force rollback of optimistic frontier/settlement action state so queued/progress UI does not keep running on rejected commands.",
+        "Outage rejections now trigger a high-visibility in-game error popup explaining that local action progress was rolled back and the command must be retried.",
+        "Added client regression coverage for SIMULATION_UNAVAILABLE settlement rollback and alert behavior."
+      ]
+    },
     {
       introducedIn: "2026.04.22.1",
       title: "Attack feedback, manpower losses, and frontier defense are now consistent with server outcomes",
