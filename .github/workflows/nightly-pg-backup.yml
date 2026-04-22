@@ -113,21 +113,11 @@ jobs:
           fi
           echo "Tigris bucket reachable."
 
-      - name: Test supabase db dump (schema-only probe)
-        env:
-          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      - name: Verify supabase CLI installed
         run: |
           set -eu
-          echo "Testing supabase db dump schema-only via --data-only=false ..."
-          # supabase db dump with --schema-only to quickly verify connectivity + permissions
-          timeout 30 supabase db dump --db-url "${DATABASE_URL}" \
-            > /tmp/schema-test.sql 2>/tmp/schema-test.err && EXIT=0 || EXIT=$?
-          echo "exit code: ${EXIT}"
-          if [ "${EXIT}" -ne 0 ]; then
-            echo "::error::supabase db dump probe failed (exit ${EXIT}). stderr: $(cat /tmp/schema-test.err)"
-            exit "${EXIT}"
-          fi
-          echo "supabase db dump probe passed — $(wc -l < /tmp/schema-test.sql) lines of SQL."
+          supabase --version
+          echo "Supabase CLI ready — dump will happen in the backup script step."
 
       - name: Run backup script
         env:
