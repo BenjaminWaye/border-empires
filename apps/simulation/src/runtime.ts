@@ -60,7 +60,7 @@ import {
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
 } from "@border-empires/game-domain";
-import { hasStrategicSettlementValue, rankSettlementTile } from "./ai-settlement-priority.js";
+import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import { laneForCommand, type QueueLane } from "./command-lane.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
@@ -708,8 +708,7 @@ export class SimulationRuntime {
     }
     const ownedTiles = [...this.summaryForPlayer(playerId).territoryTileKeys]
       .map((tileKey) => this.tiles.get(tileKey))
-      .filter((tile): tile is DomainTileState => Boolean(tile))
-      .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+      .filter((tile): tile is DomainTileState => Boolean(tile));
     const player = this.players.get(playerId);
     return chooseNextOwnedFrontierCommandFromLookup(this.tiles, ownedTiles, playerId, clientSeq, issuedAt, sessionPrefix, {
       canAttack: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= ATTACK_MANPOWER_MIN,
@@ -731,18 +730,14 @@ export class SimulationRuntime {
       summary.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
       player.points >= SETTLE_COST
     ) {
-      const rankedFrontierTiles = [...summary.frontierTileKeys]
-        .map((tileKey) => this.tiles.get(tileKey))
-        .filter((tile): tile is DomainTileState => tile !== undefined)
-        .filter((tile) => tile.terrain === "LAND" && tile.ownerId === playerId)
-        .filter((tile) => !summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y)))
-        .sort(
-          (left, right) =>
-            rankSettlementTile(playerId, right, this.tiles) - rankSettlementTile(playerId, left, this.tiles) ||
-            (left.x - right.x) ||
-            (left.y - right.y)
-        );
-      const nextFrontierTile = rankedFrontierTiles.find((tile) => hasStrategicSettlementValue(playerId, tile, this.tiles));
+      const nextFrontierTile = chooseBestStrategicSettlementTile(
+        playerId,
+        [...summary.frontierTileKeys]
+          .map((tileKey) => this.tiles.get(tileKey))
+          .filter((tile): tile is DomainTileState => tile !== undefined),
+        this.tiles,
+        (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y))
+      );
       if (nextFrontierTile) {
         return {
           commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
