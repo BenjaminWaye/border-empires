@@ -216,11 +216,35 @@ In Vercel project settings:
 - Build Command: `pnpm --filter @border-empires/client build`
 - Output Directory: `dist`
 
-Set environment variable:
+Set environment variables:
 
 - `VITE_WS_URL=wss://border-empires-api.fly.dev/ws`
+- `VITE_GATEWAY_WS_URL=wss://border-empires-gateway.fly.dev/ws`
 
-Then deploy.
+Release cadence (required):
+
+1. Deploy **preview** first (staging validation):
+
+```bash
+pnpm deploy:client:preview
+```
+
+2. Validate staging behavior on the preview URL:
+- login/session init
+- frontier expand resolution
+- launch attack resolution
+- reconnect/reload behavior
+
+3. Promote only after preview passes:
+
+```bash
+pnpm deploy:client:prod
+```
+
+Vercel env scopes:
+
+- Preview environment: staging backend URLs (`*-staging.fly.dev`)
+- Production environment: production backend URLs (`*.fly.dev`)
 
 ## Rewrite Memory Safety
 
