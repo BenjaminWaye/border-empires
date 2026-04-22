@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.6",
+  version: "2026.04.22.7",
   title: "What's New",
-  summary: "Recent updates include preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
+  summary: "Recent updates include worker-bootstrap parity fixes for local source-mode runs, preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.22.7",
+      title: "Server workers now boot correctly in local source-mode runs",
+      why: "Local parity/record test flows were failing early with module-not-found worker crashes because worker threads were hardwired to compiled .js paths even when only TypeScript sources existed in the active runtime path.",
+      changes: [
+        "Server worker entry resolution now prefers compiled .js entries and falls back to .ts entries when running directly from source.",
+        "Applied the same runtime worker-entry behavior across planner, simulation command bus, chunk read, combat, and chunk serializer workers to prevent startup-time worker crash noise."
+      ]
+    },
     {
       introducedIn: "2026.04.22.6",
       title: "Parity harness can now authenticate through gateway with an explicit bypass flag",
