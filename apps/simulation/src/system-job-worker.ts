@@ -48,8 +48,7 @@ const chooseSystemCommand = (
 
   const ownedTiles = player.territoryTileKeys
     .map((k) => tilesByKey.get(k))
-    .filter((t): t is PlannerTileView => t !== undefined)
-    .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    .filter((t): t is PlannerTileView => t !== undefined);
 
   const canAttack = player.points >= FRONTIER_CLAIM_COST && player.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = player.points >= FRONTIER_CLAIM_COST;
