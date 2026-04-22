@@ -558,6 +558,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           attackerWon: event.attackerWon,
           origin: { x: event.originX, y: event.originY },
           target: { x: event.targetX, y: event.targetY },
+          ...(typeof event.manpowerDelta === "number" ? { manpowerDelta: event.manpowerDelta } : {}),
           ...(typeof event.pillagedGold === "number" ? { pillagedGold: event.pillagedGold } : {}),
           ...(event.pillagedStrategic ? { pillagedStrategic: event.pillagedStrategic } : {}),
           changes: event.attackerWon

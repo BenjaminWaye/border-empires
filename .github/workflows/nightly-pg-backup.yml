@@ -111,15 +111,13 @@ jobs:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
           set -eu
-          echo "Running pg_dump --schema-only --schema=public to test connectivity..."
-          # Use timeout + redirect to /dev/null so pg_dump runs to completion (not truncated by head).
-          # --schema=public avoids Supabase internal schemas (auth, storage, realtime) the pooler user can't access.
-          timeout 30 pg_dump --no-owner --no-acl --schema-only --schema=public "${DATABASE_URL}" > /tmp/schema-test.sql 2>&1 && EXIT=0 || EXIT=$?
+          echo "Running pg_dump --schema-only to test connectivity..."
+          PGDUMP_OUT=$(pg_dump --no-owner --no-acl --schema-only "${DATABASE_URL}" 2>&1 | head -20) && EXIT=0 || EXIT=$?
           echo "pg_dump exit code: ${EXIT}"
-          echo "pg_dump output (last 10 lines):"
-          tail -10 /tmp/schema-test.sql
+          echo "pg_dump output (first 20 lines):"
+          echo "${PGDUMP_OUT}"
           if [ "${EXIT}" -ne 0 ]; then
-            echo "::error::pg_dump schema-only test failed (exit ${EXIT}). Output: $(tail -5 /tmp/schema-test.sql)"
+            echo "::error::pg_dump schema-only test failed (exit ${EXIT}). Output: ${PGDUMP_OUT}"
             exit "${EXIT}"
           fi
           echo "pg_dump schema-only test passed."

@@ -442,6 +442,32 @@ describe("client network regression guards", () => {
     expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
   });
 
+  it("shows a warning popup for not-owner rejects on an in-flight attack", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const deps = bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true),
+      explainActionFailure: vi.fn(explainActionFailureFromServer),
+      showCaptureAlert
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "NOT_OWNER", message: "origin not owned" })
+    });
+
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Action blocked",
+      "Action blocked: you need to launch from one of your own tiles.",
+      "warn",
+      undefined
+    );
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionTargetKey).toBe("");
+    expect(state.actionCurrent).toBeUndefined();
+    expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
+  });
+
   it("shows a frontier resync popup when the server says an expand target is already owned", () => {
     const state = createState();
     const ws = new FakeWebSocket();

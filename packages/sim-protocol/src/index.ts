@@ -113,6 +113,7 @@ export type SimulationEvent =
       targetX: number;
       targetY: number;
       attackerWon: boolean;
+      manpowerDelta?: number;
       pillagedGold?: number;
       pillagedStrategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
     }

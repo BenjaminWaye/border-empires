@@ -2231,6 +2231,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           "Server says that tile is already owned. Download the debug log from this popup and refresh nearby tiles to resync.",
           "warn"
         );
+      } else if (errorCode === "NOT_OWNER") {
+        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       } else if (errorCode === "DOCK_COOLDOWN" || errorCode === "INSUFFICIENT_MANPOWER") {
         showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       }
