@@ -130,18 +130,23 @@ jobs:
           TIGRIS_ENDPOINT_URL: "https://fly.storage.tigris.dev"
           TIGRIS_BUCKET: "border-empires-backups"
         run: |
-          # Capture all output (bash -x trace + stderr) to a log file
-          bash -x scripts/pg-backup.sh > /tmp/backup.log 2>&1; EXIT=$?
-          # Always print the log so it appears in the step output
-          cat /tmp/backup.log
+          # && EXIT=0 || EXIT=$? avoids set -e killing the shell before EXIT is captured
+          bash -x scripts/pg-backup.sh > /tmp/backup.log 2>&1 && EXIT=0 || EXIT=$?
+          # Write tail of log to the Job Summary (visible in Actions UI without auth)
+          {
+            echo "## Backup script log (exit ${EXIT})"
+            echo '```'
+            tail -40 /tmp/backup.log
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          # Also emit last lines as ::error:: annotations (visible via Checks API without auth)
           if [ "${EXIT}" -ne 0 ]; then
-            # Emit the last 10 lines as ::error:: annotations so they appear in the UI
-            echo "::error::Backup script exited ${EXIT}. Last lines:"
-            tail -10 /tmp/backup.log | while IFS= read -r line; do
+            while IFS= read -r line; do
               echo "::error::${line}"
-            done
-            exit "${EXIT}"
+            done < <(tail -20 /tmp/backup.log)
           fi
+          # Re-exit with the original code
+          exit "${EXIT}"
 
       - name: Notify on failure
         if: failure()
