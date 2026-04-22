@@ -40,34 +40,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL client (auto-detect server version)
-        env:
-          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      - name: Install PostgreSQL 17 client
         run: |
-          set -eu
           sudo sh -c 'echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
           sudo apt-get update -qq
-          # Install pg17 first so psql can connect to detect the actual server version
           sudo apt-get install -y postgresql-client-17
-          # Detect server major version via psql (works across major versions for simple queries)
-          SERVER_MAJOR=$(psql "${DATABASE_URL}" --no-psqlrc -t \
-            -c "SELECT current_setting('server_version_num')::int / 10000;" \
-            2>/dev/null | tr -d ' \n' || true)
-          echo "Detected server PostgreSQL major version: '${SERVER_MAJOR}'"
-          if [ -z "${SERVER_MAJOR}" ]; then
-            echo "::warning::Could not detect server version — defaulting to pg17 client"
-            SERVER_MAJOR=17
-          fi
-          echo "PG_MAJOR=${SERVER_MAJOR}" >> "${GITHUB_ENV}"
-          if [ "${SERVER_MAJOR}" != "17" ]; then
-            echo "Server is PG${SERVER_MAJOR} — installing matching postgresql-client-${SERVER_MAJOR}..."
-            sudo apt-get install -y "postgresql-client-${SERVER_MAJOR}"
-            # Prepend matching client bin dir so pg_dump picks the right version
-            echo "/usr/lib/postgresql/${SERVER_MAJOR}/bin" >> "${GITHUB_PATH}"
-          fi
           pg_dump --version
-          echo "pg_dump path: $(which pg_dump)"
 
       - name: Validate DATABASE_URL
         env:
@@ -132,15 +111,13 @@ jobs:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
           set -eu
-          echo "Running pg_dump --schema-only --schema=public to test connectivity..."
-          # Use timeout + redirect to /dev/null so pg_dump runs to completion (not truncated by head).
-          # --schema=public avoids Supabase internal schemas (auth, storage, realtime) the pooler user can't access.
-          timeout 30 pg_dump --no-owner --no-acl --schema-only --schema=public "${DATABASE_URL}" > /tmp/schema-test.sql 2>&1 && EXIT=0 || EXIT=$?
+          echo "Running pg_dump --schema-only to test connectivity..."
+          PGDUMP_OUT=$(pg_dump --no-owner --no-acl --schema-only "${DATABASE_URL}" 2>&1 | head -20) && EXIT=0 || EXIT=$?
           echo "pg_dump exit code: ${EXIT}"
-          echo "pg_dump output (last 10 lines):"
-          tail -10 /tmp/schema-test.sql
+          echo "pg_dump output (first 20 lines):"
+          echo "${PGDUMP_OUT}"
           if [ "${EXIT}" -ne 0 ]; then
-            echo "::error::pg_dump schema-only test failed (exit ${EXIT}). Output: $(tail -5 /tmp/schema-test.sql)"
+            echo "::error::pg_dump schema-only test failed (exit ${EXIT}). Output: ${PGDUMP_OUT}"
             exit "${EXIT}"
           fi
           echo "pg_dump schema-only test passed."

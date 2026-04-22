@@ -43,14 +43,28 @@ const openSocket = async (url: string): Promise<TestWebSocket> => {
 
 describe("gateway auth timeout", () => {
   const openApps: Array<{ close: () => Promise<void> }> = [];
+  const envBackup = {
+    wakeAttempts: process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS,
+    wakeTotalTimeout: process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS,
+    wakeBaseDelay: process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS,
+    wakeMaxDelay: process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS
+  };
 
   afterEach(async () => {
     while (openApps.length > 0) {
       await openApps.pop()?.close();
     }
+    process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS = envBackup.wakeAttempts;
+    process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS = envBackup.wakeTotalTimeout;
+    process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS = envBackup.wakeBaseDelay;
+    process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS = envBackup.wakeMaxDelay;
   });
 
   it("fails AUTH quickly when simulation subscribe hangs", async () => {
+    process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS = "1";
+    process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS = "1000";
+    process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS = "100";
+    process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS = "100";
     const app = await createRealtimeGatewayApp({
       logger: false,
       port: 0,
@@ -93,6 +107,54 @@ describe("gateway auth timeout", () => {
       code: "SERVER_STARTING",
       message: "Realtime simulation is temporarily unavailable. Retry shortly."
     });
+
+    socket.close();
+  });
+
+  it("keeps retrying health during auth until simulation becomes ready", async () => {
+    let pingAttempts = 0;
+    const app = await createRealtimeGatewayApp({
+      logger: false,
+      port: 0,
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationSubscribeTimeoutMs: 1_500,
+      simulationClient: {
+        submitCommand: async () => undefined,
+        subscribePlayer: async () => ({
+          playerId: "player-1",
+          tiles: []
+        }),
+        unsubscribePlayer: async () => undefined,
+        ping: async () => {
+          pingAttempts += 1;
+          if (pingAttempts < 3) throw new Error("still starting");
+        },
+        streamEvents: () => () => undefined
+      }
+    });
+    const started = await app.start();
+    openApps.push(app);
+    const socket = await openSocket(started.wsUrl);
+    const firstMessage = withTimeout(
+      "auth init after retries",
+      new Promise<Record<string, unknown>>((resolve) => {
+        socket.addEventListener(
+          "message",
+          (event) => {
+            resolve(JSON.parse(event.data) as Record<string, unknown>);
+          },
+          { once: true }
+        );
+      }),
+      3_000
+    );
+
+    socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+
+    await expect(firstMessage).resolves.toMatchObject({
+      type: "INIT"
+    });
+    expect(pingAttempts).toBeGreaterThanOrEqual(2);
 
     socket.close();
   });

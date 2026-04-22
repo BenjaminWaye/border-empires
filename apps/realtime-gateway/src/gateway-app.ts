@@ -176,6 +176,13 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     options.simulationSubscribeTimeoutMs ?? Number(process.env.GATEWAY_SIMULATION_SUBSCRIBE_TIMEOUT_MS ?? 8_000)
   );
   const simulationPingTimeoutMs = Math.max(1_500, Number(process.env.GATEWAY_SIMULATION_PING_TIMEOUT_MS ?? 20_000));
+  const simulationWakeMaxAttempts = Math.max(1, Number(process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS ?? 12));
+  const simulationWakeBaseDelayMs = Math.max(100, Number(process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS ?? 500));
+  const simulationWakeMaxDelayMs = Math.max(simulationWakeBaseDelayMs, Number(process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS ?? 5_000));
+  const simulationWakeTotalTimeoutMs = Math.max(
+    simulationPingTimeoutMs,
+    Number(process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS ?? 90_000)
+  );
   const simulationHealthFailureThreshold = Math.max(
     1,
     Number(process.env.GATEWAY_SIMULATION_HEALTH_FAILURE_THRESHOLD ?? 3)
@@ -236,18 +243,30 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ensureSimulationReadyForAuth = async (): Promise<void> => {
     await refreshSimulationHealth();
     if (simulationHealth.connected) return;
-    if (!simulationWakeClient) return;
+    const deadlineAt = Date.now() + simulationWakeTotalTimeoutMs;
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        await withTimeout(simulationWakeClient.ping(), simulationPingTimeoutMs, "simulation wake ping");
-      } catch {
-        // Wake ping can fail while the machine is still cold-starting.
+    for (let attempt = 1; attempt <= simulationWakeMaxAttempts && Date.now() < deadlineAt; attempt += 1) {
+      if (simulationWakeClient) {
+        try {
+          await withTimeout(simulationWakeClient.ping(), simulationPingTimeoutMs, "simulation wake ping");
+        } catch {
+          // Wake ping can fail while the machine is still cold-starting.
+        }
       }
-      await sleep(Math.min(2_000, 400 * (attempt + 1)));
       await refreshSimulationHealth();
       if (simulationHealth.connected) return;
+      const remainingMs = deadlineAt - Date.now();
+      if (remainingMs <= 0) break;
+      const backoffMs = Math.min(simulationWakeMaxDelayMs, simulationWakeBaseDelayMs * attempt);
+      await sleep(Math.min(backoffMs, remainingMs));
     }
+
+    recordGatewayEvent("warn", "simulation_wake_exhausted", {
+      attempts: simulationWakeMaxAttempts,
+      wakeTimeoutMs: simulationWakeTotalTimeoutMs,
+      simulationConnected: simulationHealth.connected,
+      simulationLastError: simulationHealth.lastError ?? ""
+    });
   };
   const commandStoreFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
