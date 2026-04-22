@@ -133,6 +133,11 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     ws.send(JSON.stringify({ type: "AUTH", token: authSession.token }));
   };
 
+  const setAuthBusy = (busy: boolean): void => {
+    state.authBusy = busy;
+    state.authBusyStartedAt = busy ? (state.authBusyStartedAt || Date.now()) : 0;
+  };
+
   const completeEmailLinkSignIn = async (emailRaw: string): Promise<void> => {
     if (!firebaseAuth) return;
     const email = emailRaw.trim();
@@ -141,7 +146,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       syncAuthOverlay();
       return;
     }
-    state.authBusy = true;
+    setAuthBusy(true);
     setAuthStatus("Completing email link sign-in...");
     syncAuthOverlay();
     try {
@@ -156,7 +161,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     } catch (error) {
       setAuthStatus(error instanceof Error ? error.message : "Email link sign-in failed.", "error");
     } finally {
-      state.authBusy = false;
+      setAuthBusy(false);
       syncAuthOverlay();
     }
   };
@@ -176,7 +181,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       syncAuthOverlay();
       return;
     }
-    state.authBusy = true;
+    setAuthBusy(true);
     setAuthStatus(mode === "login" ? "Signing in..." : "Creating account...");
     syncAuthOverlay();
     let authSucceeded = false;
@@ -191,7 +196,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     } catch (error) {
       setAuthStatus(error instanceof Error ? error.message : "Authentication failed.", "error");
     } finally {
-      if (!authSucceeded) state.authBusy = false;
+      if (!authSucceeded) setAuthBusy(false);
       syncAuthOverlay();
     }
   };
@@ -208,7 +213,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     dom.authGoogleBtn.onclick = async () => {
       if (!firebaseAuth || !googleProvider) return;
       authSession.emailLinkSentTo = "";
-      state.authBusy = true;
+      setAuthBusy(true);
       setAuthStatus("Opening Google sign-in...");
       syncAuthOverlay();
       let authSucceeded = false;
@@ -219,7 +224,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       } catch (error) {
         setAuthStatus(error instanceof Error ? error.message : "Google sign-in failed.", "error");
       } finally {
-        if (!authSucceeded) state.authBusy = false;
+        if (!authSucceeded) setAuthBusy(false);
         syncAuthOverlay();
       }
     };
@@ -236,7 +241,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         syncAuthOverlay();
         return;
       }
-      state.authBusy = true;
+      setAuthBusy(true);
       setAuthStatus("Sending sign-in link...");
       syncAuthOverlay();
       try {
@@ -251,7 +256,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         authSession.emailLinkSentTo = "";
         setAuthStatus(error instanceof Error ? error.message : "Could not send email link.", "error");
       } finally {
-        state.authBusy = false;
+        setAuthBusy(false);
         syncAuthOverlay();
       }
     };
@@ -274,7 +279,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         syncAuthOverlay();
         return;
       }
-      state.authBusy = true;
+      setAuthBusy(true);
       setAuthStatus("Raising your banner...");
       syncAuthOverlay();
       try {
@@ -285,7 +290,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       } catch (error) {
         setAuthStatus(error instanceof Error ? error.message : "Could not save your empire profile.", "error");
       } finally {
-        state.authBusy = false;
+        setAuthBusy(false);
         syncAuthOverlay();
       }
     };
@@ -306,7 +311,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           state.profileSetupRequired = false;
           authSession.token = "";
           authSession.uid = "";
-          state.authBusy = false;
+          setAuthBusy(false);
           state.authRetrying = false;
           dom.authProfileNameEl.value = "";
           dom.authProfileColorEl.value = "#38b000";
@@ -317,7 +322,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         setDebugAuthEmail(user.email ?? undefined);
         state.authReady = true;
         state.authSessionReady = false;
-        state.authBusy = true;
+        setAuthBusy(true);
         state.authRetrying = false;
         state.authUserLabel = authLabelForUser(user);
         state.authBusyTitle = "Securing session";
@@ -334,14 +339,14 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
           if (ws.readyState === ws.OPEN) {
             ws.send(JSON.stringify({ type: "AUTH", token: authSession.token }));
           } else {
-            state.authBusy = true;
+            setAuthBusy(true);
             state.authBusyTitle = "Securing session";
             state.authBusyDetail = `Google account connected, but the realtime game connection to ${wsUrl} has not opened yet. The server may still be starting or overloaded.`;
             setAuthStatus(`Google account connected. Waiting for the game server at ${wsUrl}...`);
           }
         } catch (error) {
           state.authSessionReady = false;
-          state.authBusy = false;
+          setAuthBusy(false);
           state.authBusyTitle = "";
           state.authBusyDetail = "";
           setAuthStatus(error instanceof Error ? error.message : "Could not authorize this session.", "error");

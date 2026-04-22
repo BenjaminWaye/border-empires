@@ -271,6 +271,29 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
+  const authProgressIntervalMs = 5000;
+  const authProgressIntervalId =
+    typeof globalThis.setInterval === "function"
+      ? globalThis.setInterval(() => {
+          if (!state.authBusy || state.authSessionReady || state.authBusyStartedAt <= 0) return;
+          const elapsedMs = Date.now() - state.authBusyStartedAt;
+          const elapsedSec = Math.max(0, Math.floor(elapsedMs / 1000));
+          const payload = {
+            elapsedSec,
+            connection: state.connection,
+            title: state.authBusyTitle,
+            detail: state.authBusyDetail,
+            wsReadyState: ws.readyState
+          };
+          recordClientDebugEvent("info", "auth-progress", "waiting", payload);
+          console.info("[auth-progress] waiting", payload);
+        }, authProgressIntervalMs)
+      : undefined;
+
+  const setAuthBusy = (busy: boolean): void => {
+    state.authBusy = busy;
+    state.authBusyStartedAt = busy ? (state.authBusyStartedAt || Date.now()) : 0;
+  };
   let lastBackendUnavailableAlertAt = 0;
 
   const clearSettlementProgressSafely = (tileKey: string): void => {
@@ -497,9 +520,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
   };
 
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function" && authProgressIntervalId !== undefined) {
+    window.addEventListener(
+      "beforeunload",
+      () => {
+        globalThis.clearInterval(authProgressIntervalId);
+      },
+      { once: true }
+    );
+  }
+
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => {
     clearAuthReconnectTimer();
-    state.authBusy = true;
+    setAuthBusy(true);
     state.authRetrying = true;
     setAuthStatus(message);
     syncAuthOverlay();
@@ -508,7 +541,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       authReconnectTimer = undefined;
       if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN || state.authSessionReady) return;
       void authenticateSocket(forceRefresh).catch((error: unknown) => {
-        state.authBusy = false;
+        setAuthBusy(false);
         state.authRetrying = false;
         setAuthStatus(error instanceof Error ? error.message : "Could not reconnect to the game server.", "error");
         syncAuthOverlay();
@@ -528,9 +561,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   const applyLoginPhase = (title: string, detail: string): void => {
-    state.authBusy = true;
+    setAuthBusy(true);
     state.authBusyTitle = title;
     state.authBusyDetail = detail;
+    recordClientDebugEvent("info", "auth-progress", "phase", { title, detail, wsReadyState: ws.readyState, connection: state.connection });
+    console.info("[auth-progress] phase", { title, detail, wsReadyState: ws.readyState, connection: state.connection });
     setAuthStatus(detail);
     syncAuthOverlay();
   };
@@ -924,7 +959,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.connection = "initialized";
       state.authSessionReady = true;
       state.hasEverInitialized = true;
-      state.authBusy = false;
+      setAuthBusy(false);
       state.authRetrying = false;
       state.authBusyTitle = "";
       state.authBusyDetail = "";
@@ -2232,7 +2267,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           return;
         }
         if (errorCode === "AUTH_FAIL" && firebaseAuth?.currentUser && !state.authRetrying) {
-          state.authBusy = true;
+          setAuthBusy(true);
           state.authRetrying = true;
           state.authBusyTitle = "Securing session";
           state.authBusyDetail = "Refreshing your Firebase session after a server auth failure.";
@@ -2240,7 +2275,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           syncAuthOverlay();
           void authenticateSocket(true)
             .catch(() => {
-              state.authBusy = false;
+              setAuthBusy(false);
               state.authRetrying = false;
               state.authBusyTitle = "";
               state.authBusyDetail = "";
@@ -2250,7 +2285,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           renderHud();
           return;
         }
-        state.authBusy = false;
+        setAuthBusy(false);
         state.authRetrying = false;
         state.authBusyTitle = "";
         state.authBusyDetail = "";

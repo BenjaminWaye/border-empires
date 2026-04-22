@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.4",
+  version: "2026.04.22.5",
   title: "What's New",
-  summary: "Recent updates include frontier-expand cooldown parity fixes, simulation command trace diagnostics, AI planner hot-path optimization for large worlds, explicit simulation-outage rollback alerts, explicit not-owner attack feedback, restored attack manpower losses in rewrite combat results, and legacy-parity frontier defense calculations.",
+  summary: "Recent updates include persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, frontier-expand cooldown parity fixes, simulation command trace diagnostics, and legacy-parity frontier defense calculations.",
   entries: [
+    {
+      introducedIn: "2026.04.22.5",
+      title: "Capture and login overlays now expose long-wait diagnostics instead of going silent",
+      why: "During staging instability, frontier actions could remain unresolved for several seconds and login could stall in session-secure phases without enough in-client timing feedback to diagnose what was waiting.",
+      changes: [
+        "Capture progress popup now stays visible while waiting for frontier/combat resolution instead of auto-hiding after timer expiry.",
+        "When capture resolution waits too long, the popup now exposes the existing Download log action so debugging data is one click away.",
+        "Auth busy overlay now appends elapsed time and emits periodic auth-progress debug logs while session setup is still in progress."
+      ]
+    },
     {
       introducedIn: "2026.04.22.4",
       title: "Frontier expansion now bypasses origin attack cooldown and simulation emits command-trace diagnostics",
