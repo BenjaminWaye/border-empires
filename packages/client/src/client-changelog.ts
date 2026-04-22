@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.3",
+  version: "2026.04.22.4",
   title: "What's New",
-  summary: "Recent updates include AI planner hot-path optimization for large worlds, explicit simulation-outage rollback alerts, explicit not-owner attack feedback, restored attack manpower losses in rewrite combat results, and legacy-parity frontier defense calculations.",
+  summary: "Recent updates include frontier-expand cooldown parity fixes, simulation command trace diagnostics, AI planner hot-path optimization for large worlds, explicit simulation-outage rollback alerts, explicit not-owner attack feedback, restored attack manpower losses in rewrite combat results, and legacy-parity frontier defense calculations.",
   entries: [
+    {
+      introducedIn: "2026.04.22.4",
+      title: "Frontier expansion now bypasses origin attack cooldown and simulation emits command-trace diagnostics",
+      why: "Players could hit ATTACK_COOLDOWN while expanding from a recently used owned origin tile, and staging investigations lacked command-lifecycle visibility to isolate timing and lock-state failures quickly.",
+      changes: [
+        "Shared frontier validation now allows EXPAND from an origin lock owned by the same player while keeping ATTACK/BREAKTHROUGH cooldown behavior unchanged.",
+        "Simulation now emits structured command trace logs (queued, validation context, reject code, accepted, resolved) when SIMULATION_COMMAND_TRACE is enabled.",
+        "Added game-domain regression coverage for EXPAND behavior on same-owner origin locks."
+      ]
+    },
     {
       introducedIn: "2026.04.22.3",
       title: "AI planner hot path no longer re-sorts whole frontier lists each tick",
