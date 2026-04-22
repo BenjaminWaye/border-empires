@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { InMemoryGatewayCommandStore } from "./command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
+import { InMemoryGatewayPlayerProfileStore } from "./player-profile-store.js";
 import { InMemorySimulationCommandStore } from "../../simulation/src/command-store.js";
 import { createSimulationService } from "../../simulation/src/simulation-service.js";
 
@@ -278,7 +279,8 @@ describe("rewrite stack integration", () => {
         expect.objectContaining({
           type: "COMBAT_RESULT",
           commandId: "cmd-1",
-          attackerWon: true
+          attackerWon: true,
+          manpowerDelta: expect.any(Number)
         }),
         expect.objectContaining({
           type: "TILE_DELTA_BATCH",
@@ -293,6 +295,63 @@ describe("rewrite stack integration", () => {
           ])
         })
       ])
+    );
+    const combatResultMessage = resolutionMessages.find((message) => message.type === "COMBAT_RESULT");
+    expect(typeof combatResultMessage?.manpowerDelta).toBe("number");
+    expect((combatResultMessage?.manpowerDelta as number) < -0.01).toBe(true);
+  });
+
+  it("persists profile setup state across gateway restarts", async () => {
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gatewayCommandStore = new InMemoryGatewayCommandStore();
+    const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+    const createGateway = async () =>
+      await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore
+      });
+
+    const gatewayOne = await createGateway();
+    const gatewayOneAddress = await gatewayOne.start();
+    const socketOne = await openSocket(gatewayOneAddress.wsUrl);
+    socketOne.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect(await nextTypedMessage(socketOne, "first init", "INIT")).toEqual(
+      expect.objectContaining({
+        player: expect.objectContaining({ profileNeedsSetup: true })
+      })
+    );
+    socketOne.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "Nauticus Prime", color: "#123456" }));
+    expect(await nextTypedMessage(socketOne, "profile update", "PLAYER_STYLE")).toEqual(
+      expect.objectContaining({ playerId: "player-1", name: "Nauticus Prime", tileColor: "#123456" })
+    );
+    await closeSocket(socketOne.socket);
+    await gatewayOne.close();
+
+    const gatewayTwo = await createGateway();
+    cleanup.push(() => gatewayTwo.close());
+    const gatewayTwoAddress = await gatewayTwo.start();
+    const socketTwo = await openSocket(gatewayTwoAddress.wsUrl);
+    cleanup.push(() => closeSocket(socketTwo.socket));
+    socketTwo.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect(await nextTypedMessage(socketTwo, "second init", "INIT")).toEqual(
+      expect.objectContaining({
+        player: expect.objectContaining({
+          name: "Nauticus Prime",
+          tileColor: "#123456",
+          profileNeedsSetup: false
+        })
+      })
     );
   });
 

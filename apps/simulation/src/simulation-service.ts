@@ -53,6 +53,7 @@ type ProtoSimulationEvent = {
   code: string;
   message: string;
   attacker_won: boolean;
+  manpower_delta?: number;
   pillaged_gold?: number;
   pillaged_strategic_json?: string;
   collect_mode?: string;
@@ -217,6 +218,7 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   code: "code" in value ? value.code : "",
   message: "message" in value ? value.message : "",
   attacker_won: "attackerWon" in value ? value.attackerWon : false,
+  ...("manpowerDelta" in value && typeof value.manpowerDelta === "number" ? { manpower_delta: value.manpowerDelta } : {}),
   ...("pillagedGold" in value && typeof value.pillagedGold === "number" ? { pillaged_gold: value.pillagedGold } : {}),
   ...("pillagedStrategic" in value && value.pillagedStrategic ? { pillaged_strategic_json: JSON.stringify(value.pillagedStrategic) } : {}),
   ...(value.eventType === "COLLECT_RESULT"
@@ -314,6 +316,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
   }
   const startupRecovery = await (async () => {
+    const startupRecoveryStartedAt = Date.now();
+    const timeoutMs = options.startupRecoveryTimeoutMs ?? 120_000;
     try {
       const recoveryPromise = loadSimulationStartupRecovery({
         commandStore,
@@ -322,13 +326,22 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
         ...(legacySnapshotBootstrap ? { bootstrapState: legacySnapshotBootstrap.initialState } : {})
       });
-      const timeoutMs = options.startupRecoveryTimeoutMs ?? 15_000;
-      return await Promise.race([
+      const recovery = await Promise.race([
         recoveryPromise,
         new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error(`simulation startup recovery timed out after ${timeoutMs}ms`)), timeoutMs);
         })
       ]);
+      log.info(
+        {
+          durationMs: Date.now() - startupRecoveryStartedAt,
+          timeoutMs,
+          recoveredCommandCount: recovery.recoveredCommandCount,
+          recoveredEventCount: recovery.recoveredEventCount
+        },
+        "simulation startup recovery completed"
+      );
+      return recovery;
     } catch (error) {
       if (
         !options.allowSeedRecoveryFallback ||
@@ -336,10 +349,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         !options.seedProfile ||
         isDbBackedStartup
       ) {
+        log.error(
+          { err: error, durationMs: Date.now() - startupRecoveryStartedAt, timeoutMs },
+          "simulation startup recovery failed"
+        );
         throw error;
       }
       log.error(
-        { err: error, seedProfile: options.seedProfile },
+        { err: error, seedProfile: options.seedProfile, durationMs: Date.now() - startupRecoveryStartedAt, timeoutMs },
         "simulation startup recovery failed; falling back to seed world"
       );
       const seedWorld = createSeedWorld(options.seedProfile);

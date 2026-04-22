@@ -88,6 +88,7 @@ type LockRecord = {
   commandId: string;
   playerId: string;
   actionType: FrontierCommandType;
+  manpowerCost: number;
   originX: number;
   originY: number;
   targetX: number;
@@ -1179,6 +1180,7 @@ export class SimulationRuntime {
       commandId: command.commandId,
       playerId: command.playerId,
       actionType,
+      manpowerCost: validation.manpowerCost,
       originX: validation.origin.x,
       originY: validation.origin.y,
       targetX: validation.target.x,
@@ -3977,6 +3979,10 @@ export class SimulationRuntime {
       : 0;
     const attacker = this.players.get(lock.playerId);
     const defender = previousOwnerId ? this.players.get(previousOwnerId) : undefined;
+    const manpowerDelta =
+      attacker && (lock.actionType === "ATTACK" || lock.actionType === "BREAKTHROUGH_ATTACK")
+        ? -this.settleAttackManpower(attacker, lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
+        : 0;
     const pillage =
       combat.attackerWon && attacker && defender && targetWasSettled
         ? this.computeSettledCapturePlunder({ attacker, defender, defenderTileCountBeforeCapture, target: previousTarget })
@@ -3994,6 +4000,7 @@ export class SimulationRuntime {
       targetX: lock.targetX,
       targetY: lock.targetY,
       attackerWon: combat.attackerWon,
+      ...(manpowerDelta < -0.01 ? { manpowerDelta } : {}),
       ...(typeof pillage?.gold === "number" && pillage.gold > 0.01 ? { pillagedGold: pillage.gold } : {}),
       ...(pillage?.strategic && Object.keys(pillage.strategic).length > 0 ? { pillagedStrategic: pillage.strategic } : {})
     });
@@ -4041,6 +4048,25 @@ export class SimulationRuntime {
       strategic[strategicResource] = 1;
     }
     return { gold, strategic };
+  }
+
+  private settleAttackManpower(
+    player: DomainPlayer,
+    committedManpower: number,
+    attackerWon: boolean,
+    atkEff: number,
+    defEff: number
+  ): number {
+    if (committedManpower <= 0) return 0;
+    if (attackerWon) {
+      const loss = Math.max(10, committedManpower * 0.16);
+      player.manpower = Math.max(0, player.manpower - loss);
+      return loss;
+    }
+    const combatRatio = defEff / Math.max(1, atkEff);
+    const loss = committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
+    player.manpower = Math.max(0, player.manpower - loss);
+    return loss;
   }
 
   private respawnIfEliminated(playerId: string, commandId: string): void {
@@ -4307,6 +4333,7 @@ const createLocksFromInitialState = (initialState?: RecoveredSimulationState): M
       commandId: lock.commandId,
       playerId: lock.playerId,
       actionType: lock.actionType,
+      manpowerCost: 0,
       originX: lock.originX,
       originY: lock.originY,
       targetX: lock.targetX,

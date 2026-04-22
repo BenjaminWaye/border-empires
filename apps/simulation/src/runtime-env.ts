@@ -81,7 +81,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     ),
     startupRecoveryTimeoutMs: parsePositiveNumber(
       env.SIMULATION_STARTUP_RECOVERY_TIMEOUT_MS,
-      15_000,
+      120_000,
       "simulation startup recovery timeout"
     ),
     allowSeedRecoveryFallback,
