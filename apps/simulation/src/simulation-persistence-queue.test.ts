@@ -62,7 +62,7 @@ describe("createSimulationPersistenceQueue", () => {
     expect(appendSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("continues draining after a persistence failure and still appends later events", async () => {
+  it("continues draining after a transient persistence failure and still appends later events", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
     const error = new Error("db timeout");
@@ -98,9 +98,9 @@ describe("createSimulationPersistenceQueue", () => {
 
     await queue.whenIdle();
 
-    expect(markAcceptedSpy).toHaveBeenCalledTimes(1);
+    expect(markAcceptedSpy).toHaveBeenCalledTimes(2);
     expect(appendSpy).toHaveBeenCalledTimes(2);
-    expect(log.error).toHaveBeenCalledWith("failed to persist simulation command acceptance", error);
+    expect(log.error).not.toHaveBeenCalled();
     expect(await eventStore.loadEventsForCommand("cmd-2")).toHaveLength(1);
   });
 
@@ -132,7 +132,7 @@ describe("createSimulationPersistenceQueue", () => {
   it("marks the queue degraded after a persistence failure", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
-    vi.spyOn(eventStore, "appendEvent").mockRejectedValueOnce(new Error("db timeout"));
+    vi.spyOn(eventStore, "appendEvent").mockRejectedValue(new Error("db timeout"));
     const queue = createSimulationPersistenceQueue({ commandStore, eventStore, log: { error: vi.fn() } });
 
     queue.enqueueEvent(
@@ -157,7 +157,7 @@ describe("createSimulationPersistenceQueue", () => {
     const eventStore = new InMemorySimulationEventStore();
     const failure = new Error("db timeout");
     const onPersistenceFailure = vi.fn();
-    vi.spyOn(eventStore, "appendEvent").mockRejectedValueOnce(failure);
+    vi.spyOn(eventStore, "appendEvent").mockRejectedValue(failure);
     const queue = createSimulationPersistenceQueue({
       commandStore,
       eventStore,
@@ -179,5 +179,39 @@ describe("createSimulationPersistenceQueue", () => {
     await queue.whenIdle();
 
     expect(onPersistenceFailure).toHaveBeenCalledWith(failure);
+  });
+
+  it("retries a transient event-store timeout and does not report a fatal failure when recovery succeeds", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const onPersistenceFailure = vi.fn();
+    const appendSpy = vi
+      .spyOn(eventStore, "appendEvent")
+      .mockRejectedValueOnce(new Error("Query read timeout"))
+      .mockImplementation(async (event, createdAt) => {
+        await InMemorySimulationEventStore.prototype.appendEvent.call(eventStore, event, createdAt);
+      });
+    const queue = createSimulationPersistenceQueue({
+      commandStore,
+      eventStore,
+      onPersistenceFailure,
+      log: { error: vi.fn() }
+    });
+
+    queue.enqueueEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "nope"
+      },
+      100
+    );
+
+    await queue.whenIdle();
+
+    expect(appendSpy).toHaveBeenCalledTimes(2);
+    expect(onPersistenceFailure).not.toHaveBeenCalled();
   });
 });
