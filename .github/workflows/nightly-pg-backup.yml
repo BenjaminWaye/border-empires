@@ -106,6 +106,22 @@ jobs:
           fi
           echo "Tigris bucket reachable."
 
+      - name: Test pg_dump directly
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -eu
+          echo "Running pg_dump --schema-only to test connectivity..."
+          PGDUMP_OUT=$(pg_dump --no-owner --no-acl --schema-only "${DATABASE_URL}" 2>&1 | head -20) && EXIT=0 || EXIT=$?
+          echo "pg_dump exit code: ${EXIT}"
+          echo "pg_dump output (first 20 lines):"
+          echo "${PGDUMP_OUT}"
+          if [ "${EXIT}" -ne 0 ]; then
+            echo "::error::pg_dump schema-only test failed (exit ${EXIT}). Output: ${PGDUMP_OUT}"
+            exit "${EXIT}"
+          fi
+          echo "pg_dump schema-only test passed."
+
       - name: Run backup script
         run: bash -x scripts/pg-backup.sh
         env:
