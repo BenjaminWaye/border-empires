@@ -65,7 +65,30 @@ jobs:
             echo "::error::Switch to port 5432 (direct or session-mode pooler)."
             exit 1
           fi
-          echo "DATABASE_URL validation passed (sslmode=require, not port 6543)."
+          # Must NOT use the direct Supabase host (IPv6-only on free tier, unreachable from GitHub Actions)
+          if [[ "${DATABASE_URL}" == *"db."*".supabase.co"* ]]; then
+            echo "::error::PROD_DATABASE_URL uses the direct Supabase host (db.*.supabase.co)."
+            echo "::error::This host is IPv6-only on Supabase free tier — GitHub Actions cannot reach it."
+            echo "::error::Switch to the Session Pooler: host=aws-1-eu-west-2.pooler.supabase.com port=5432"
+            echo "::error::User must be postgres.YOUR_PROJECT_REF (e.g. postgres.iwzgkjxmlhaywiznuczz)"
+            exit 1
+          fi
+          # Print host (without password) for diagnostics
+          HOST=$(echo "${DATABASE_URL}" | sed 's|.*@||' | sed 's|/.*||' | sed 's|:.*||')
+          echo "DATABASE_URL validation passed — host: ${HOST} (sslmode=require, port≠6543, not direct host)."
+
+      - name: Test database connectivity
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -eu
+          echo "Testing psql connectivity..."
+          if ! psql "${DATABASE_URL}" -c "SELECT 1 AS connection_ok;" --no-psqlrc -t 2>&1; then
+            echo "::error::psql connection test failed. Check PROD_DATABASE_URL credentials and host."
+            echo "::error::Expected format: postgresql://postgres.PROJECT_REF:PASSWORD@aws-1-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+            exit 1
+          fi
+          echo "psql connection test passed."
 
       - name: Run backup script
         run: bash scripts/pg-backup.sh
