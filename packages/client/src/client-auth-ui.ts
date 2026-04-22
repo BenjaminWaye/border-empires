@@ -36,6 +36,7 @@ export const syncAuthOverlay = (
     | "authSessionReady"
     | "profileSetupRequired"
     | "authBusy"
+    | "authBusyStartedAt"
     | "authConfigured"
     | "authError"
     | "authReady"
@@ -67,6 +68,8 @@ export const syncAuthOverlay = (
     setAuthStatus: (message: string, tone?: "normal" | "error") => void;
   }
 ): void => {
+  const authBusyElapsedSec =
+    state.authBusy && state.authBusyStartedAt > 0 ? Math.max(0, Math.floor((Date.now() - state.authBusyStartedAt) / 1000)) : 0;
   const resolvedWsUrl = state.bridgeDebugWsUrl || deps.wsUrl;
   let resolvedFlyApp = "non-fly";
   try {
@@ -96,9 +99,11 @@ export const syncAuthOverlay = (
   deps.authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   deps.authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authBusyTitleEl.textContent = state.authBusyTitle || (state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...");
-  deps.authBusyCopyEl.textContent = state.authError
+  const busyCopy = state.authError
     ? state.authError
     : state.authBusyDetail || deps.authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
+  deps.authBusyCopyEl.textContent =
+    authBusyElapsedSec > 0 && !state.authError ? `${busyCopy} (${authBusyElapsedSec}s elapsed)` : busyCopy;
   deps.syncAuthPanelState();
   if (!state.authConfigured) {
     deps.setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");

@@ -13,6 +13,7 @@ const makeElement = (): HTMLElement =>
 
 describe("syncAuthOverlay", () => {
   it("prefers explicit busy phase messaging over generic auth status copy", () => {
+    vi.spyOn(Date, "now").mockReturnValue(12_000);
     const authOverlayEl = makeElement();
     const authBusyModalEl = makeElement();
     const authStatusEl = makeElement();
@@ -26,6 +27,7 @@ describe("syncAuthOverlay", () => {
         authSessionReady: false,
         profileSetupRequired: false,
         authBusy: true,
+        authBusyStartedAt: 8_000,
         authConfigured: true,
         authError: "",
         authReady: true,
@@ -59,7 +61,7 @@ describe("syncAuthOverlay", () => {
     );
 
     expect(authBusyTitleEl.textContent).toBe("Securing session");
-    expect(authBusyCopyEl.textContent).toBe("Game server reached. Verifying your Google session...");
+    expect(authBusyCopyEl.textContent).toBe("Game server reached. Verifying your Google session... (4s elapsed)");
     expect(authDebugRouteEl.textContent).toContain("Backend gateway");
     expect(authDebugRouteEl.textContent).toContain("border-empires-gateway-staging");
   });
