@@ -101,6 +101,7 @@ import {
 } from "@border-empires/shared";
 import crypto from "node:crypto";
 import os from "node:os";
+import { resolveWorkerEntryUrl } from "./runtime/resolve-worker-entry.js";
 import { currentShardRainNotice, nextShardRainStartAt } from "./server-shard-rain.js";
 import {
   findAllianceRequestBetweenPlayers,
@@ -4343,7 +4344,7 @@ const ensureAiPlannerWorker = (): Worker | undefined => {
   if (!aiPlannerWorkerState.enabled) return undefined;
   if (aiPlannerWorkerState.worker) return aiPlannerWorkerState.worker;
   try {
-    const worker = new Worker(new URL("./ai/planner-worker.js", import.meta.url));
+    const worker = new Worker(resolveWorkerEntryUrl("./ai/planner-worker.js", import.meta.url));
     worker.on("message", (message: AiPlannerWorkerResponse) => {
       const entry = aiPlannerWorkerState.inflight.get(message.id);
       if (!entry) return;
@@ -4460,7 +4461,7 @@ const ensureCombatWorker = (): Worker | undefined => {
   if (!combatWorkerState.enabled) return undefined;
   if (combatWorkerState.worker) return combatWorkerState.worker;
   try {
-    const worker = new Worker(new URL("./sim/combat-worker.js", import.meta.url));
+    const worker = new Worker(resolveWorkerEntryUrl("./sim/combat-worker.js", import.meta.url));
     worker.on("message", (message: CombatWorkerResponse) => {
       const entry = combatWorkerState.inflight.get(message.id);
       if (!entry) return;
@@ -4579,7 +4580,7 @@ const ensureChunkSerializerWorker = (): Worker | undefined => {
   if (!chunkSerializerWorkerState.enabled) return undefined;
   if (chunkSerializerWorkerState.worker) return chunkSerializerWorkerState.worker;
   try {
-    const worker = new Worker(new URL("./chunk/serializer-worker.js", import.meta.url));
+    const worker = new Worker(resolveWorkerEntryUrl("./chunk/serializer-worker.js", import.meta.url));
     worker.on("message", (message: ChunkSerializerResponse) => {
       const entry = chunkSerializerWorkerState.inflight.get(message.id);
       if (!entry) return;
