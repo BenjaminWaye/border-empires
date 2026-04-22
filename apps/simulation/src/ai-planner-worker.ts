@@ -26,7 +26,7 @@ import {
   SETTLE_COST
 } from "@border-empires/shared";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import { hasStrategicSettlementValue, rankSettlementTile } from "./ai-settlement-priority.js";
+import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import type { PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
@@ -64,22 +64,18 @@ const choosePlannerCommand = (
     player.points >= SETTLE_COST;
 
   if (canSettle) {
+    const pendingSettlementTileKeys = new Set(player.pendingSettlementTileKeys);
     const frontierTiles = player.frontierTileKeys
       .map((k) => tilesByKey.get(k))
-      .filter((t): t is PlannerTileView => t !== undefined && t.terrain === "LAND" && t.ownerId === playerId)
-      .filter((t) => !player.pendingSettlementTileKeys.includes(`${t.x},${t.y}`))
-      .sort(
-        (a, b) =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rankSettlementTile(playerId, b as any, tilesAsGame as any) -
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rankSettlementTile(playerId, a as any, tilesAsGame as any) ||
-          (a.x - b.x) ||
-          (a.y - b.y)
-      );
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const best = frontierTiles.find((t) => hasStrategicSettlementValue(playerId, t as any, tilesAsGame as any));
+      .filter((t): t is PlannerTileView => t !== undefined);
+    const best = chooseBestStrategicSettlementTile(
+      playerId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      frontierTiles as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tilesAsGame as any,
+      (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`)
+    );
     if (best) {
       return {
         commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
@@ -96,8 +92,7 @@ const choosePlannerCommand = (
   // Frontier command (attack / expand)
   const ownedTiles = player.territoryTileKeys
     .map((k) => tilesByKey.get(k))
-    .filter((t): t is PlannerTileView => t !== undefined)
-    .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    .filter((t): t is PlannerTileView => t !== undefined);
 
   const canAttack = player.points >= FRONTIER_CLAIM_COST && player.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = player.points >= FRONTIER_CLAIM_COST;

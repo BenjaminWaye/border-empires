@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.2",
+  version: "2026.04.22.3",
   title: "What's New",
-  summary: "Recent updates include explicit simulation-outage rollback alerts, explicit not-owner attack feedback, restored attack manpower losses in rewrite combat results, and legacy-parity frontier defense calculations.",
+  summary: "Recent updates include AI planner hot-path optimization for large worlds, explicit simulation-outage rollback alerts, explicit not-owner attack feedback, restored attack manpower losses in rewrite combat results, and legacy-parity frontier defense calculations.",
   entries: [
+    {
+      introducedIn: "2026.04.22.3",
+      title: "AI planner hot path no longer re-sorts whole frontier lists each tick",
+      why: "Large-season rewrite simulations were spending too much CPU on repeated per-tick sorting and score recomputation for AI settlement/frontier planning, which could stall action responsiveness under load.",
+      changes: [
+        "Simulation AI settlement selection now uses a single-pass best-candidate scan instead of sorting all frontier tiles every tick.",
+        "Runtime and planner workers no longer sort owned-territory tile lists before frontier command scoring, removing unnecessary per-tick work.",
+        "Added simulation regression tests for strategic settlement candidate selection and pending-settlement skipping."
+      ]
+    },
     {
       introducedIn: "2026.04.22.2",
       title: "Simulation-outage errors now stop fake progress immediately and show explicit failure feedback",
