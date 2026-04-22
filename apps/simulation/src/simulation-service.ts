@@ -287,6 +287,11 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
 
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
+  const commandTraceEnabled = process.env.SIMULATION_COMMAND_TRACE === "1";
+  const commandTraceSample = (sample: Record<string, unknown>): void => {
+    if (!commandTraceEnabled) return;
+    log.info({ ...sample }, "simulation command trace");
+  };
   const isDbBackedStartup = typeof options.databaseUrl === "string" && options.databaseUrl.length > 0;
   const seedPlayers = createSeedPlayers(options.seedProfile);
   const storeFactoryOptions = {
@@ -374,6 +379,15 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
     initialState: startupRecovery.initialState,
     initialCommandHistory: startupRecovery.initialCommandHistory,
+    ...(commandTraceEnabled
+      ? {
+          commandTrace: (sample: Record<string, unknown>) =>
+            commandTraceSample({
+              source: "runtime",
+              ...sample
+            })
+        }
+      : {}),
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: activePlayers
   });
@@ -498,6 +512,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (fatalPersistenceError || persistenceQueue.isDegraded()) {
       throw fatalPersistenceError ?? new Error("simulation persistence degraded");
     }
+    commandTraceSample({
+      source: "service",
+      phase: "queued",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      clientSeq: command.clientSeq,
+      type: command.type
+    });
     runtime.submitCommand(command);
   };
   const aiPlayerIds = [...activePlayers.values()].filter((player) => player.isAi).map((player) => player.id);
@@ -557,6 +579,27 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     : undefined;
 
   runtime.onEvent((event) => {
+    if (
+      commandTraceEnabled &&
+      (event.eventType === "COMMAND_ACCEPTED" ||
+        event.eventType === "COMMAND_REJECTED" ||
+        event.eventType === "COMBAT_RESOLVED" ||
+        event.eventType === "TILE_DELTA_BATCH")
+    ) {
+      commandTraceSample({
+        source: "event",
+        phase: event.eventType,
+        commandId: event.commandId,
+        playerId: event.playerId,
+        actionType: "actionType" in event ? event.actionType : undefined,
+        code: "code" in event ? event.code : undefined,
+        message: "message" in event ? event.message : undefined,
+        attackerWon: "attackerWon" in event ? event.attackerWon : undefined,
+        manpowerDelta: "manpowerDelta" in event ? event.manpowerDelta : undefined,
+        targetX: "targetX" in event ? event.targetX : undefined,
+        targetY: "targetY" in event ? event.targetY : undefined
+      });
+    }
     const shouldBroadcastGlobalStatus =
       event.eventType === "TILE_DELTA_BATCH" || event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE";
     persistenceQueue.enqueueEvent(event);
