@@ -271,6 +271,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
+  let lastBackendUnavailableAlertAt = 0;
 
   const clearSettlementProgressSafely = (tileKey: string): void => {
     if (!tileKey) return;
@@ -318,6 +319,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const requestViewRefreshSafely = (radius?: number, force?: boolean): void => {
     if (typeof requestViewRefresh !== "function") return;
     requestViewRefresh(radius, force);
+  };
+
+  const shouldShowBackendUnavailableAlert = (): boolean => {
+    const now = Date.now();
+    if (now - lastBackendUnavailableAlertAt < 2_000) return false;
+    lastBackendUnavailableAlertAt = now;
+    return true;
   };
 
   const lateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
@@ -2080,6 +2088,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.pendingDomainUnlockId = "";
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
+      const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
       const serverErrorContext = {
         code: msg.code,
         message: msg.message,
@@ -2099,6 +2108,36 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         queuedActions: state.actionQueue.length,
         selected: state.selected,
         hover: state.hover
+      };
+      const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+      const rollbackBackendUnavailableOptimisticState = (): Set<string> => {
+        const targetKeys = new Set<string>();
+        if (errorTileKey) targetKeys.add(errorTileKey);
+        if (failedTargetKey) targetKeys.add(failedTargetKey);
+        if (failedCurrentKey) targetKeys.add(failedCurrentKey);
+        if (state.latestSettleTargetKey) targetKeys.add(state.latestSettleTargetKey);
+        if (state.lastDevelopmentAttempt?.tileKey) targetKeys.add(state.lastDevelopmentAttempt.tileKey);
+        for (const tileKey of targetKeys) {
+          clearOptimisticTileStateSafely(tileKey, true);
+          clearSettlementProgressSafely(tileKey);
+          state.queuedTargetKeys.delete(tileKey);
+          dropQueuedTargetKeyIfAbsent(tileKey);
+          state.autoSettleTargets.delete(tileKey);
+        }
+        if (backendUnavailableError) {
+          state.capture = undefined;
+          state.actionInFlight = false;
+          state.actionAcceptedAck = false;
+          state.combatStartAck = false;
+          state.actionAcceptTimeoutHandledAt = 0;
+          state.actionStartedAt = 0;
+          state.actionTargetKey = "";
+          state.actionCurrent = undefined;
+          state.queuedDevelopmentDispatchPending = false;
+          if (state.lastDevelopmentAttempt && targetKeys.has(state.lastDevelopmentAttempt.tileKey)) state.lastDevelopmentAttempt = undefined;
+          state.actionQueue = state.actionQueue.filter((entry) => !targetKeys.has(keyFor(entry.x, entry.y)));
+        }
+        return targetKeys;
       };
       const duplicateAcceptedFrontierCooldown =
         errorCode === "ATTACK_COOLDOWN" &&
@@ -2150,8 +2189,29 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         });
       }
       if (maybeRecoverBusyDevelopmentAttempt(errorCode, errorMessage, errorTileKey)) return;
+      const failureExplanationOptions = {
+        ...(typeof msg.cooldownRemainingMs === "number" ? { cooldownRemainingMs: msg.cooldownRemainingMs } : {}),
+        formatCooldownShort
+      };
+      const actionFailureExplanation = explainActionFailureSafely(errorCode, errorMessage, failureExplanationOptions);
       recordClientDebugEvent("error", "server-error", "message", serverErrorContext);
       console.error("[server-error]", serverErrorContext);
+      let backendUnavailableRollbackKeys = new Set<string>();
+      if (backendUnavailableError) {
+        backendUnavailableRollbackKeys = rollbackBackendUnavailableOptimisticState();
+        frontierQueueDebug("backend_unavailable_roll_back", {
+          code: errorCode,
+          message: errorMessage,
+          rolledBackKeys: [...backendUnavailableRollbackKeys]
+        });
+        if (backendUnavailableRollbackKeys.size > 0 && shouldShowBackendUnavailableAlert()) {
+          showCaptureAlertSafely(
+            "Simulation unavailable",
+            `${actionFailureExplanation}. Local action progress was rolled back. Please retry in a few seconds.`,
+            "error"
+          );
+        }
+      }
       if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
@@ -2204,11 +2264,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
-      const failureExplanationOptions = {
-        ...(typeof msg.cooldownRemainingMs === "number" ? { cooldownRemainingMs: msg.cooldownRemainingMs } : {}),
-        formatCooldownShort
-      };
-      const actionFailureExplanation = explainActionFailureSafely(errorCode, errorMessage, failureExplanationOptions);
       if (maybeRecoverTransientSettlementAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
@@ -2261,7 +2316,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "INSUFFICIENT_MANPOWER" ||
         errorCode === "EXPAND_TARGET_OWNED" ||
         errorCode === "LOCKED";
-      const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       const shouldResetFrontierAction = shouldResetFrontierActionStateForError(errorCode);
       if (shouldResetFrontierAction) {
         if (failedTargetKey) {
