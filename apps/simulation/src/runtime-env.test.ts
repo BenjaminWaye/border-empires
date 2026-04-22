@@ -17,7 +17,7 @@ describe("simulation runtime env", () => {
       enableSystemAutopilot: false,
       systemTickMs: 500,
       globalStatusBroadcastDebounceMs: 15000,
-      startupRecoveryTimeoutMs: 15000,
+      startupRecoveryTimeoutMs: 120000,
       allowSeedRecoveryFallback: false,
       useAiWorker: false
     });

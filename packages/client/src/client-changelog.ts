@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.21.12",
+  version: "2026.04.22.1",
   title: "What's New",
-  summary: "Recent updates include persistent profile setup on rewrite gateway restarts, corrected frontier lock rejection classification, and updated frontier attack odds baseline.",
+  summary: "Recent updates include explicit not-owner attack feedback, restored attack manpower losses in rewrite combat results, and legacy-parity frontier defense calculations.",
   entries: [
+    {
+      introducedIn: "2026.04.22.1",
+      title: "Attack feedback, manpower losses, and frontier defense are now consistent with server outcomes",
+      why: "Players could receive silent NOT_OWNER rejects in active combat flow, rewrite combat results were missing manpower losses, and frontier defense math diverged from legacy expectations.",
+      changes: [
+        "NOT_OWNER action rejects now raise an in-game warning popup instead of only appearing in debug console output.",
+        "Rewrite simulation now settles attack manpower loss on combat resolution and forwards manpowerDelta through gateway COMBAT_RESULT payloads.",
+        "Shared frontier combat math now treats FRONTIER-owned targets as zero-defense captures (legacy parity), so frontier attacks resolve at 100% expected win chance."
+      ]
+    },
     {
       introducedIn: "2026.04.21.12",
       title: "Frontier lock errors and frontier-vs-frontier odds are now clearer",

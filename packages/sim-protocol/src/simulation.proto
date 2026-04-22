@@ -82,6 +82,7 @@ message SimulationEvent {
   double pillaged_gold = 22;
   string pillaged_strategic_json = 23;
   string message_type = 24;
+  double manpower_delta = 25;
 }
 
 service SimulationService {

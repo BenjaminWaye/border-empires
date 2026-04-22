@@ -699,11 +699,14 @@ describe("simulation runtime", () => {
       expect(combatResult).toEqual(
         expect.objectContaining({
           commandId: "lose-attack-1",
-          attackerWon: false
+          attackerWon: false,
+          manpowerDelta: expect.any(Number)
         })
       );
+      expect((combatResult?.manpowerDelta ?? 0) < -0.01).toBe(true);
 
       const exported = runtime.exportState();
+      expect((exported.players.find((entry) => entry.id === "player-1")?.manpower ?? 0) < 150).toBe(true);
       expect(exported.tiles.find((tile) => tile.x === 10 && tile.y === 11)).toEqual(
         expect.objectContaining({
           ownerId: "player-2",
