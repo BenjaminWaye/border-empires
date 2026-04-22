@@ -48,8 +48,32 @@ DUMP_FILE="/tmp/border-empires-backup-${NOW}.sql.gz"
 # ---------------------------------------------------------------------------
 # 1. Dump
 # ---------------------------------------------------------------------------
+# Exclude Supabase-managed internal schemas — the pooler user (postgres.PROJECT_REF)
+# cannot SELECT from auth, storage, realtime, etc. tables and pg_dump would fail.
+# We only need to back up application schemas (public, and any custom ones you add).
+EXCLUDE_SCHEMAS=(
+  auth
+  storage
+  realtime
+  supabase_functions
+  supabase_migrations
+  _analytics
+  _realtime
+  graphql
+  graphql_public
+  pgbouncer
+  pgsodium
+  pgsodium_masks
+  vault
+  extensions
+)
+EXCLUDE_ARGS=()
+for s in "${EXCLUDE_SCHEMAS[@]}"; do
+  EXCLUDE_ARGS+=(--exclude-schema="${s}")
+done
+
 echo "[$(date -u)] Starting pg_dump → ${DUMP_FILE}"
-pg_dump --no-owner --no-acl "${DATABASE_URL}" | gzip -9 > "${DUMP_FILE}"
+pg_dump --no-owner --no-acl "${EXCLUDE_ARGS[@]}" "${DATABASE_URL}" | gzip -9 > "${DUMP_FILE}"
 DUMP_SIZE="$(wc -c < "${DUMP_FILE}" | tr -d ' ')"
 echo "[$(date -u)] Dump complete (${DUMP_SIZE} bytes compressed)"
 
