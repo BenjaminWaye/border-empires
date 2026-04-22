@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.5",
+  version: "2026.04.22.6",
   title: "What's New",
-  summary: "Recent updates include persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, frontier-expand cooldown parity fixes, simulation command trace diagnostics, and legacy-parity frontier defense calculations.",
+  summary: "Recent updates include preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.22.6",
+      title: "Parity harness can now authenticate through gateway with an explicit bypass flag",
+      why: "Automated parity replay/record tooling needed a controlled way to authenticate without normal Firebase token verification in staging harness scenarios.",
+      changes: [
+        "Gateway auth path now supports a parity-harness bypass mode gated by server configuration.",
+        "This is intended for controlled parity test workflows and not as a production-default auth path."
+      ]
+    },
     {
       introducedIn: "2026.04.22.5",
       title: "Capture and login overlays now expose long-wait diagnostics instead of going silent",
