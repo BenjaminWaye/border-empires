@@ -19,6 +19,7 @@
     "ci:local": "./scripts/local-ci.sh",
     "server:restart": "./scripts/restart-server.sh",
     "deploy:client:preview": "node ./scripts/deploy-client-preview.mjs",
+    "deploy:client:staging": "node ./scripts/deploy-client-preview.mjs",
     "deploy:client:prod": "node ./scripts/deploy-client-prod.mjs",
     "build": "pnpm -r build",
     "test": "pnpm -r test",

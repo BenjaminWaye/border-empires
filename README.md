@@ -223,10 +223,10 @@ Set environment variables:
 
 Release cadence (required):
 
-1. Deploy **preview** first (staging validation):
+1. Deploy **preview/staging** first (staging validation):
 
 ```bash
-pnpm deploy:client:preview
+pnpm deploy:client:staging
 ```
 
 2. Validate staging behavior on the preview URL:
@@ -243,8 +243,19 @@ pnpm deploy:client:prod
 
 Vercel env scopes:
 
-- Preview environment: staging backend URLs (`*-staging.fly.dev`)
+- Preview/staging deploy uses explicit build-time env from deploy script:
+  - `VITE_GATEWAY_WS_URL=wss://border-empires-gateway-staging.fly.dev/ws`
+  - `VITE_WS_URL=wss://border-empires-gateway-staging.fly.dev/ws`
 - Production environment: production backend URLs (`*.fly.dev`)
+
+Stable URLs:
+
+- Production: `https://play.borderempires.com` (aliased to latest production deploy)
+- Staging: `https://staging.borderempires.com` (aliased by `deploy:client:staging`)
+
+DNS requirement for stable staging alias:
+
+- Add `A staging.borderempires.com 76.76.21.21` at your DNS provider.
 
 ## Rewrite Memory Safety
 
