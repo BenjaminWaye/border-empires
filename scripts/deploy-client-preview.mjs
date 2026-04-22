@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 import { request as httpsRequest } from "node:https";
 
 const rootDir = new URL("../", import.meta.url);
+const stagingAlias = process.env.STAGING_CLIENT_ALIAS ?? "staging.borderempires.com";
+const stagingGatewayWsUrl = process.env.STAGING_GATEWAY_WS_URL ?? "wss://border-empires-gateway-staging.fly.dev/ws";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -70,9 +72,33 @@ const verifyPreviewServesClient = async (deploymentUrl) => {
   throw new Error(`Preview did not serve client app within timeout: ${deploymentUrl}`);
 };
 
+const aliasDeployment = (deploymentUrl, aliasHost) => {
+  const normalized = deploymentUrl.endsWith("/") ? deploymentUrl.slice(0, -1) : deploymentUrl;
+  run("npx", ["vercel", "alias", "set", normalized, aliasHost]);
+  console.log(`Staging alias updated: https://${aliasHost}/`);
+};
+
 run("pnpm", ["--filter", "@border-empires/shared", "build"]);
 run("pnpm", ["--filter", "@border-empires/client", "build"]);
-const deploymentUrl = normalizeDeploymentUrl(run("npx", ["vercel", "deploy", "--yes"]));
+const deploymentUrl = normalizeDeploymentUrl(
+  run("npx", [
+    "vercel",
+    "deploy",
+    "--yes",
+    "--build-env",
+    `VITE_GATEWAY_WS_URL=${stagingGatewayWsUrl}`,
+    "--build-env",
+    `VITE_WS_URL=${stagingGatewayWsUrl}`
+  ])
+);
 console.log(`Preview deployment URL: ${deploymentUrl}`);
 await verifyPreviewServesClient(deploymentUrl);
+try {
+  aliasDeployment(deploymentUrl, stagingAlias);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  throw new Error(
+    `Preview deployed but staging alias update failed. Ensure DNS record exists: A ${stagingAlias} 76.76.21.21. Original error: ${message}`
+  );
+}
 console.log("Preview release complete. Validate staging behavior before promoting to production.");
