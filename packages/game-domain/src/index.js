@@ -42,12 +42,14 @@ export const validateFrontierCommand = (input) => {
         if (input.originLockOwnerId && input.originLockOwnerId !== input.actor.id) {
             return { ok: false, code: "LOCKED", message: "tile locked in combat" };
         }
-        return {
-            ok: false,
-            code: "ATTACK_COOLDOWN",
-            message: "origin tile is still on attack cooldown",
-            cooldownRemainingMs: input.originLockedUntil - input.now
-        };
+        if (input.actionType !== "EXPAND") {
+            return {
+                ok: false,
+                code: "ATTACK_COOLDOWN",
+                message: "origin tile is still on attack cooldown",
+                cooldownRemainingMs: input.originLockedUntil - input.now
+            };
+        }
     }
     if (typeof input.targetLockedUntil === "number" && input.targetLockedUntil > input.now) {
         if (input.targetLockOwnerId && input.targetLockOwnerId !== input.actor.id) {

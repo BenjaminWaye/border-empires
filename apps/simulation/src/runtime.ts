@@ -179,6 +179,7 @@ type SimulationRuntimeOptions = {
   seedProfile?: SimulationSeedProfile;
   seedTiles?: Map<string, DomainTileState>;
   initialPlayers?: Map<string, RuntimePlayer>;
+  commandTrace?: (sample: Record<string, unknown>) => void;
 };
 
 const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState): Map<string, RuntimePlayer> | undefined => {
@@ -469,6 +470,7 @@ export class SimulationRuntime {
   private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
+  private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private drainScheduled = false;
   private draining = false;
 
@@ -479,6 +481,7 @@ export class SimulationRuntime {
     this.backgroundBatchSize = Math.max(1, options.backgroundBatchSize ?? 8);
     this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
+    this.commandTrace = options.commandTrace;
     this.players = createPlayersFromRecoveredState(options.initialState) ?? (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
     for (const player of this.players.values()) this.applyManpowerRegen(player);
     this.tiles = createTilesFromInitialState(options.initialState, options.seedTiles ?? seedWorld!.tiles);
@@ -1123,6 +1126,19 @@ export class SimulationRuntime {
 
     const originLock = this.locksByTile.get(simulationTileKey(from.x, from.y));
     const targetLock = this.locksByTile.get(simulationTileKey(to.x, to.y));
+    this.commandTrace?.({
+      phase: "frontier_validate",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      actionType,
+      submittedOrigin: { x: payload.fromX, y: payload.fromY },
+      resolvedOrigin: { x: from.x, y: from.y },
+      target: { x: to.x, y: to.y },
+      originLockOwnerId: originLock?.playerId,
+      originLockResolvesAt: originLock?.resolvesAt,
+      targetLockOwnerId: targetLock?.playerId,
+      targetLockResolvesAt: targetLock?.resolvesAt
+    });
     const validation = validateFrontierCommand({
       now: this.now(),
       actor,
@@ -1144,6 +1160,19 @@ export class SimulationRuntime {
     });
 
     if (!validation.ok) {
+      this.commandTrace?.({
+        phase: "frontier_reject",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        actionType,
+        code: validation.code,
+        message: validation.message,
+        cooldownRemainingMs: "cooldownRemainingMs" in validation ? validation.cooldownRemainingMs : undefined,
+        originLockOwnerId: originLock?.playerId,
+        originLockResolvesAt: originLock?.resolvesAt,
+        targetLockOwnerId: targetLock?.playerId,
+        targetLockResolvesAt: targetLock?.resolvesAt
+      });
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -1186,6 +1215,15 @@ export class SimulationRuntime {
     };
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
+    this.commandTrace?.({
+      phase: "frontier_accept",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      actionType,
+      origin: { x: lock.originX, y: lock.originY },
+      target: { x: lock.targetX, y: lock.targetY },
+      resolvesAt: lock.resolvesAt
+    });
     this.emitEvent({
       eventType: "COMMAND_ACCEPTED",
       commandId: command.commandId,
