@@ -123,13 +123,25 @@ jobs:
           echo "pg_dump schema-only test passed."
 
       - name: Run backup script
-        run: bash -x scripts/pg-backup.sh
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           AWS_ACCESS_KEY_ID: ${{ secrets.TIGRIS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TIGRIS_SECRET_ACCESS_KEY }}
           TIGRIS_ENDPOINT_URL: "https://fly.storage.tigris.dev"
           TIGRIS_BUCKET: "border-empires-backups"
+        run: |
+          # Capture all output (bash -x trace + stderr) to a log file
+          bash -x scripts/pg-backup.sh > /tmp/backup.log 2>&1; EXIT=$?
+          # Always print the log so it appears in the step output
+          cat /tmp/backup.log
+          if [ "${EXIT}" -ne 0 ]; then
+            # Emit the last 10 lines as ::error:: annotations so they appear in the UI
+            echo "::error::Backup script exited ${EXIT}. Last lines:"
+            tail -10 /tmp/backup.log | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit "${EXIT}"
+          fi
 
       - name: Notify on failure
         if: failure()
