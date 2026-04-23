@@ -308,6 +308,8 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
         detailLevel: "summary",
         fogged: false
       };
+  // Gateway tile updates are the current visible set for this player.
+  merged.fogged = false;
 
   const normalizedGateway = normalizeGatewayTileUpdate(update, {
     existing,
@@ -381,14 +383,27 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
 
 export const applyGatewayInitialState = (
   deps: GatewayTileSyncDeps,
-  initialState?: { tiles?: GatewayTileUpdate[] }
+  initialState?: { tiles?: GatewayTileUpdate[] },
+  options?: { preserveExistingDiscoveredTiles?: boolean }
 ): number => {
   const tiles = initialState?.tiles;
   if (!Array.isArray(tiles) || tiles.length === 0) return 0;
-  deps.state.tiles.clear();
-  deps.state.incomingAttacksByTile.clear();
-  deps.state.pendingCollectVisibleKeys.clear();
-  deps.state.discoveredTiles.clear();
+  const preserveExistingDiscoveredTiles = options?.preserveExistingDiscoveredTiles === true;
+  if (preserveExistingDiscoveredTiles) {
+    for (const [tileKey, tile] of deps.state.tiles) {
+      deps.state.tiles.set(tileKey, {
+        ...tile,
+        fogged: true
+      });
+    }
+    deps.state.incomingAttacksByTile.clear();
+    deps.state.pendingCollectVisibleKeys.clear();
+  } else {
+    deps.state.tiles.clear();
+    deps.state.incomingAttacksByTile.clear();
+    deps.state.pendingCollectVisibleKeys.clear();
+    deps.state.discoveredTiles.clear();
+  }
   for (const tile of tiles) applyGatewayTileUpdate(deps, tile);
   return tiles.length;
 };
