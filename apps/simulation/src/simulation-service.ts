@@ -121,6 +121,7 @@ type SimulationServiceOptions = {
   systemPlayerIds?: string[];
   startupRecoveryTimeoutMs?: number;
   allowSeedRecoveryFallback?: boolean;
+  requireDurableStartupState?: boolean;
   useAiWorker?: boolean;
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
@@ -293,6 +294,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     log.info({ ...sample }, "simulation command trace");
   };
   const isDbBackedStartup = typeof options.databaseUrl === "string" && options.databaseUrl.length > 0;
+  const requireDurableStartupState = options.requireDurableStartupState ?? isDbBackedStartup;
   const seedPlayers = createSeedPlayers(options.seedProfile);
   const storeFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
@@ -329,7 +331,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         eventStore,
         snapshotStore,
         ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
-        ...(legacySnapshotBootstrap ? { bootstrapState: legacySnapshotBootstrap.initialState } : {})
+        ...(legacySnapshotBootstrap ? { bootstrapState: legacySnapshotBootstrap.initialState } : {}),
+        requireDurableState: requireDurableStartupState
       });
       const recovery = await Promise.race([
         recoveryPromise,
@@ -379,6 +382,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
     initialState: startupRecovery.initialState,
     initialCommandHistory: startupRecovery.initialCommandHistory,
+    mergeSeedTilesWithInitialState: !isDbBackedStartup,
     ...(commandTraceEnabled
       ? {
           commandTrace: (sample: Record<string, unknown>) =>
