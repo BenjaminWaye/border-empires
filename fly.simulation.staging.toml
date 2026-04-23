@@ -27,7 +27,7 @@ primary_region = "arn"
   internal_port = 50051
   auto_start_machines = true
   auto_stop_machines = "suspend"
-  min_machines_running = 1
+  min_machines_running = 0
 
   [[services.ports]]
     handlers = []
@@ -38,7 +38,7 @@ primary_region = "arn"
   internal_port = 50052
   auto_start_machines = true
   auto_stop_machines = "suspend"
-  min_machines_running = 1
+  min_machines_running = 0
 
   [[services.ports]]
     handlers = []
