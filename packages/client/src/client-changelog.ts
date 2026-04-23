@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.7",
+  version: "2026.04.23.2",
   title: "What's New",
-  summary: "Recent updates include worker-bootstrap parity fixes for local source-mode runs, preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
+  summary: "Recent updates include durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, worker-bootstrap parity fixes for local source-mode runs, preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.23.2",
+      title: "Gateway auth now keeps each Firebase UID pinned to one player id across restart/retry churn",
+      why: "During simulation warmup or process restarts, repeated AUTH retries could resolve to different player ids in edge cases, making a refresh look like a switch to a different empire.",
+      changes: [
+        "Gateway now persists auth UID to player-id bindings and reuses that binding on every subsequent AUTH handshake.",
+        "When resolver fallback disagrees with an existing UID binding, gateway now keeps the persisted player id and logs an explicit binding override event for debugging.",
+        "Added rewrite-gateway integration coverage to ensure persisted UID bindings win even when fallback identity resolution would select a different player id."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.1",
+      title: "Reconnect no longer collapses discovered map areas on stable-runtime INIT refreshes",
+      why: "After gateway/simulation restarts, INIT could clear client discovered-tile caches and replace the whole tile map from the current visible snapshot, causing previously explored coast/resource zones (including fish tiles) to appear as unexplored again.",
+      changes: [
+        "Gateway INIT hydration now preserves previously discovered tiles when reconnecting as the same player within the same season, including process restarts with a new runtime fingerprint.",
+        "Preserved tiles are marked fogged during INIT replay, while newly received gateway tiles are explicitly marked visible.",
+        "Added client regression coverage for same-season reconnect INIT (including runtime changes) plus cross-player safety so map memory never leaks between empires."
+      ]
+    },
     {
       introducedIn: "2026.04.22.7",
       title: "Server workers now boot correctly in local source-mode runs",
