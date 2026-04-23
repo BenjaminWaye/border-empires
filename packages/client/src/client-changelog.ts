@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.7",
+  version: "2026.04.23.1",
   title: "What's New",
-  summary: "Recent updates include worker-bootstrap parity fixes for local source-mode runs, preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
+  summary: "Recent updates include faster/fail-fast staging auth behavior when simulation is unavailable, improved staging gateway-to-simulation routing, worker-bootstrap parity fixes for local source-mode runs, and preview/staging release-flow hardening.",
   entries: [
+    {
+      introducedIn: "2026.04.23.1",
+      title: "Staging login now fails fast when simulation is unavailable",
+      why: "Staging auth could sit in a long wait even when gateway could not establish a healthy simulation subscription, which made retries slow and hid the real outage state.",
+      changes: [
+        "Gateway AUTH now exits early with SERVER_STARTING when simulation health is still disconnected after readiness checks, instead of stacking long subscribe waits.",
+        "Staging gateway now targets simulation over flycast with tighter wake/ping/subscribe timeout budgets to reduce long login stalls when backend connectivity is down."
+      ]
+    },
     {
       introducedIn: "2026.04.22.7",
       title: "Server workers now boot correctly in local source-mode runs",
