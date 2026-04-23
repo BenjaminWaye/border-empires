@@ -12,11 +12,11 @@ describe("simulation service startup recovery", () => {
     const snapshotStore = new InMemorySimulationSnapshotStore();
     const eventStore: SimulationEventStore = {
       appendEvent: async () => undefined,
-      loadAllEvents: () =>
+      loadAllEvents: async () => [],
+      loadEventsAfter: () =>
         new Promise(() => {
           // Intentionally unresolved to simulate a dead startup recovery path.
         }),
-      loadEventsAfter: async () => [],
       loadEventsForCommand: async () => [],
       loadLatestEventId: async () => 0
     };
@@ -49,11 +49,11 @@ describe("simulation service startup recovery", () => {
     const snapshotStore = new InMemorySimulationSnapshotStore();
     const eventStore: SimulationEventStore = {
       appendEvent: async () => undefined,
-      loadAllEvents: () =>
+      loadAllEvents: async () => [],
+      loadEventsAfter: () =>
         new Promise(() => {
           // Intentionally unresolved to simulate a dead startup recovery path.
         }),
-      loadEventsAfter: async () => [],
       loadEventsForCommand: async () => [],
       loadLatestEventId: async () => 0
     };

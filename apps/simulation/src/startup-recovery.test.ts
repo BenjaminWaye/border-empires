@@ -388,4 +388,70 @@ describe("loadSimulationStartupRecovery", () => {
     expect(loadEventsAfterSpy).toHaveBeenNthCalledWith(1, 1, 5_000);
     expect(loadEventsAfterSpy).toHaveBeenNthCalledWith(2, 5_001, 5_000);
   });
+
+  it("streams startup events in batches even without a snapshot", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const loadEventsAfterSpy = vi.fn(async (eventId: number) => {
+      if (eventId === 0) {
+        return [
+          {
+            eventId: 1,
+            commandId: "cmd-1",
+            playerId: "player-1",
+            eventType: "COMMAND_ACCEPTED" as const,
+            eventPayload: {
+              eventType: "COMMAND_ACCEPTED" as const,
+              commandId: "cmd-1",
+              playerId: "player-1",
+              actionType: "ATTACK" as const,
+              originX: 10,
+              originY: 10,
+              targetX: 10,
+              targetY: 11,
+              resolvesAt: 1_100
+            },
+            createdAt: 1_000
+          },
+          {
+            eventId: 2,
+            commandId: "cmd-1",
+            playerId: "player-1",
+            eventType: "COMBAT_RESOLVED" as const,
+            eventPayload: {
+              eventType: "COMBAT_RESOLVED" as const,
+              commandId: "cmd-1",
+              playerId: "player-1",
+              originX: 10,
+              originY: 10,
+              targetX: 10,
+              targetY: 11,
+              attackerWon: true
+            },
+            createdAt: 1_050
+          }
+        ];
+      }
+      return [];
+    });
+    const loadAllEventsSpy = vi.fn(async () => {
+      throw new Error("should not be called");
+    });
+    const eventStore = {
+      appendEvent: vi.fn(),
+      loadAllEvents: loadAllEventsSpy,
+      loadEventsAfter: loadEventsAfterSpy,
+      loadEventsForCommand: vi.fn(async () => []),
+      loadLatestEventId: vi.fn(async () => 2)
+    };
+
+    const startupRecovery = await loadSimulationStartupRecovery({
+      commandStore,
+      eventStore
+    });
+
+    expect(startupRecovery.recoveredEventCount).toBe(2);
+    expect(loadAllEventsSpy).not.toHaveBeenCalled();
+    expect(loadEventsAfterSpy).toHaveBeenCalledTimes(1);
+    expect(loadEventsAfterSpy).toHaveBeenNthCalledWith(1, 0, 5_000);
+  });
 });

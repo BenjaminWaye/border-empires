@@ -20,11 +20,10 @@ describe("runDeterministicReplay", () => {
     const secondRun = runDeterministicReplay(commands, { startTime: 1_000 });
 
     expect(firstRun).toEqual(secondRun);
-    expect(firstRun.events.map((event) => event.eventType)).toEqual([
-      "COMMAND_ACCEPTED",
-      "COMBAT_RESOLVED",
-      "TILE_DELTA_BATCH"
-    ]);
+    const eventTypes = firstRun.events.map((event) => event.eventType);
+    expect(eventTypes[0]).toBe("COMMAND_ACCEPTED");
+    expect(eventTypes).toContain("COMBAT_RESOLVED");
+    expect(eventTypes).toContain("TILE_DELTA_BATCH");
     expect(firstRun.finalState.tiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

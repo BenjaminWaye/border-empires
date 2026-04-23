@@ -1477,6 +1477,45 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("does not swallow commands when recovered player-seq history has no replay events", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialCommandHistory: {
+        commands: [
+          {
+            commandId: "recovered-cmd",
+            sessionId: "session-1",
+            playerId: "player-1",
+            clientSeq: 1,
+            type: "ATTACK",
+            payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 }),
+            queuedAt: 900,
+            status: "RESOLVED",
+            resolvedAt: 950
+          }
+        ],
+        eventsByCommandId: new Map()
+      }
+    });
+    const seen: string[] = [];
+    runtime.onEvent((event) => {
+      seen.push(`${event.eventType}:${event.commandId}`);
+    });
+
+    runtime.submitCommand({
+      commandId: "new-cmd",
+      sessionId: "session-2",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+    });
+    await Promise.resolve();
+
+    expect(seen[0]).toBe("COMMAND_ACCEPTED:new-cmd");
+  });
+
   it("yields background lanes so a later human command is accepted before the rest of AI work", async () => {
     vi.useFakeTimers();
     try {
