@@ -467,6 +467,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       }
       for (const socket of socketsForEvent(sockets, event.eventType)) {
         if (event.eventType === "COMMAND_ACCEPTED") {
+          recordGatewayEvent("info", "gateway_command_accepted_event", {
+            playerId: event.playerId,
+            commandId: event.commandId,
+            actionType: event.actionType,
+            originX: event.originX,
+            originY: event.originY,
+            targetX: event.targetX,
+            targetY: event.targetY,
+            resolvesAt: event.resolvesAt
+          });
           void commandStore
             .markAccepted(event.commandId, Date.now())
             .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist accepted command"));
@@ -490,6 +500,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           continue;
         }
         if (event.eventType === "COMMAND_REJECTED") {
+          recordGatewayEvent("warn", "gateway_command_rejected_event", {
+            playerId: event.playerId,
+            commandId: event.commandId,
+            code: event.code,
+            message: event.message
+          });
           void commandStore
             .markRejected(event.commandId, Date.now(), event.code, event.message)
             .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist rejected command"));
@@ -566,6 +582,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         } else {
           fallbackTileDeltasByCommandId.delete(event.commandId);
         }
+        recordGatewayEvent("info", "gateway_command_resolved_event", {
+          playerId: event.playerId,
+          commandId: event.commandId,
+          actionType: event.actionType,
+          attackerWon: event.attackerWon,
+          targetX: event.targetX,
+          targetY: event.targetY
+        });
         void commandStore
           .markResolved(event.commandId, Date.now())
           .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved command"));
@@ -1031,6 +1055,20 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             playerId: session.playerId,
             nextClientSeq: session.nextClientSeq
           };
+          const commandMetadata = optionalCommandMetadata(message);
+          recordGatewayEvent("info", "gateway_command_received", {
+            channel: session.channel,
+            playerId: session.playerId,
+            messageType: message.type,
+            ...(typeof commandMetadata.commandId === "string" ? { commandId: commandMetadata.commandId } : {}),
+            ...(typeof commandMetadata.clientSeq === "number" ? { clientSeq: commandMetadata.clientSeq } : {}),
+            ...("x" in message && typeof message.x === "number" ? { x: message.x } : {}),
+            ...("y" in message && typeof message.y === "number" ? { y: message.y } : {}),
+            ...("fromX" in message && typeof message.fromX === "number" ? { fromX: message.fromX } : {}),
+            ...("fromY" in message && typeof message.fromY === "number" ? { fromY: message.fromY } : {}),
+            ...("toX" in message && typeof message.toX === "number" ? { toX: message.toX } : {}),
+            ...("toY" in message && typeof message.toY === "number" ? { toY: message.toY } : {})
+          });
           const submitDeps = {
             createCommandId: options.createCommandId ?? (() => crypto.randomUUID()),
             now: options.now ?? (() => Date.now()),
@@ -1043,7 +1081,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 gatewayMetrics.observeGatewaySimRpcLatencyMs(Date.now() - rpcStartedAt);
               }
             },
-            sendJson: (payload: unknown) => sendJson(socket, payload)
+            sendJson: (payload: unknown) => sendJson(socket, payload),
+            recordGatewayEvent
           };
           const trackSubmitLatency = async (submit: () => Promise<void>): Promise<void> => {
             const submitStartedAt = Date.now();

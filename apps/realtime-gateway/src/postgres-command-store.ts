@@ -99,7 +99,7 @@ export class PostgresGatewayCommandStore implements GatewayCommandStore {
           queued_at
         )
         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
-        ON CONFLICT (command_id) DO NOTHING
+        ON CONFLICT DO NOTHING
         RETURNING
           command_id,
           session_id,
