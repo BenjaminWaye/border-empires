@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.4",
+  version: "2026.04.23.5",
   title: "What's New",
-  summary: "Recent updates include staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include frontier-command stale-sequence recovery to prevent silent attack queue hangs after reconnect/retry churn, richer gateway command-lifecycle diagnostics in debug bundles, staging hostname hardening for the rewrite gateway default path, auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.23.5",
+      title: "Stale frontier command sequences now recover automatically instead of stalling combat sync",
+      why: "After reconnect/retry churn, a player could resend an old clientSeq that already belonged to a resolved command, causing action-accept/combat-result waits to time out with no useful command lifecycle signal in debug output.",
+      changes: [
+        "Gateway now detects stale duplicate clientSeq collisions against already-resolved/rejected commands and automatically re-queues the new command with the next authoritative player sequence.",
+        "The original commandId is preserved so in-flight client command matching still resolves correctly when ACTION_ACCEPTED/COMBAT_RESULT arrives.",
+        "Gateway debug bundles now include command receive/queue/submit/accept/reject/resolve lifecycle events to make frontier sync failures diagnosable from one captured log."
+      ]
+    },
     {
       introducedIn: "2026.04.23.4",
       title: "Staging custom domain now follows gateway-default routing and ignores stale legacy cookie state",

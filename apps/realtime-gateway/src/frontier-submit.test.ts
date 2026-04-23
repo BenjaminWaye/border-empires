@@ -151,6 +151,49 @@ describe("submitFrontierCommand", () => {
     expect(payloads).toEqual([{ type: "COMMAND_QUEUED", commandId: "cmd-existing", clientSeq: 4 }]);
   });
 
+  it("re-sequences stale duplicate player sequence requests when the collided command already resolved", async () => {
+    const payloads: unknown[] = [];
+    const commandStore = new InMemoryGatewayCommandStore();
+    await commandStore.persistQueuedCommand(
+      {
+        commandId: "cmd-old",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 4,
+        issuedAt: 1200,
+        type: "ATTACK",
+        payloadJson: "{\"fromX\":10,\"fromY\":10,\"toX\":10,\"toY\":11}"
+      },
+      1201
+    );
+    await commandStore.markResolved("cmd-old", 1202);
+    const submitCommand = vi.fn<Parameters<typeof submitFrontierCommand>[2]["submitCommand"]>().mockResolvedValue();
+
+    const session = { sessionId: "session-1", playerId: "player-1", nextClientSeq: 4 };
+    await submitFrontierCommand(
+      session,
+      { type: "ATTACK", fromX: 10, fromY: 10, toX: 10, toY: 11 },
+      {
+        createCommandId: () => "cmd-new",
+        now: () => 1234,
+        commandStore,
+        submitCommand,
+        sendJson: (payload) => {
+          payloads.push(payload);
+        }
+      }
+    );
+
+    expect(payloads).toEqual([{ type: "COMMAND_QUEUED", commandId: "cmd-new", clientSeq: 5 }]);
+    expect(submitCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandId: "cmd-new",
+        clientSeq: 5
+      })
+    );
+    expect(session.nextClientSeq).toBe(6);
+  });
+
   it("uses the client-provided command identity when present", async () => {
     const payloads: unknown[] = [];
     const submitCommand = vi.fn<Parameters<typeof submitFrontierCommand>[2]["submitCommand"]>().mockResolvedValue();
