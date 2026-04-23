@@ -80,6 +80,18 @@ export const buildInitMessage = (
     ([nextClientSeqResult, unresolvedCommandsResult]) => {
       const nextClientSeq = nextClientSeqResult.status === "fulfilled" ? nextClientSeqResult.value : 1;
       const bootstrap = buildGatewayInitPayload(playerIdentity, initialState, seedProfile, snapshotBootstrap);
+      if (
+        bootstrap.runtimeIdentity.seasonId !== bootstrap.config.season.seasonId ||
+        bootstrap.runtimeIdentity.worldSeed !== bootstrap.config.season.worldSeed
+      ) {
+        throw new Error("gateway bootstrap runtime identity does not match config season metadata");
+      }
+      if (
+        bootstrap.runtimeIdentity.sourceType === "seed-profile" &&
+        bootstrap.runtimeIdentity.seedProfile !== seedProfile
+      ) {
+        throw new Error("gateway bootstrap runtime identity seed profile mismatch");
+      }
       const override = profileOverrides?.get(playerIdentity.playerId);
       if (override?.name) bootstrap.player.name = override.name;
       if (override?.tileColor) bootstrap.player.tileColor = override.tileColor;
