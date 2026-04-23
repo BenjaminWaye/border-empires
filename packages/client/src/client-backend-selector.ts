@@ -52,7 +52,10 @@ function isLocalhostHostname(hostname: string): boolean {
 
 function isStagingHostname(hostname: string): boolean {
   const normalized = hostname.toLowerCase();
-  return normalized.endsWith(".vercel.app") && normalized.includes("-staging-");
+  return (
+    normalized === "staging.borderempires.com" ||
+    (normalized.endsWith(".vercel.app") && normalized.includes("-staging-"))
+  );
 }
 
 function readBrowserCtx(): BrowserCtx {

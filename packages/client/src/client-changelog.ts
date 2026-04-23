@@ -19,10 +19,19 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.3",
+  version: "2026.04.23.4",
   title: "What's New",
-  summary: "Recent updates include staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.23.4",
+      title: "Staging custom domain now follows gateway-default routing and ignores stale legacy cookie state",
+      why: "The dedicated staging domain was not included in staging-host detection, so saved be-backend=legacy cookies could still force the legacy server path there.",
+      changes: [
+        "Backend staging-host detection now explicitly includes staging.borderempires.com.",
+        "staging.borderempires.com now follows the same cookie-bypass behavior as staging Vercel aliases, so stale be-backend=legacy values can no longer override gateway default routing."
+      ]
+    },
     {
       introducedIn: "2026.04.23.3",
       title: "Staging auth now fails fast when simulation connectivity is unhealthy",

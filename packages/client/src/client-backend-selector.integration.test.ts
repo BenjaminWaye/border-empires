@@ -22,6 +22,12 @@ const stagingCtx = (cookieStr = ""): BrowserCtx => ({
   cookieStr
 });
 
+const stagingCustomDomainCtx = (cookieStr = ""): BrowserCtx => ({
+  hostname: "staging.borderempires.com",
+  search: "",
+  cookieStr
+});
+
 describe("backend cookie mid-session toggle", () => {
   it("starts on legacy by default in prod", () => {
     const result = selectBackend({ legacyWsUrl: LEGACY, gatewayWsUrl: GATEWAY, ctx: prodCtx() });
@@ -89,6 +95,17 @@ describe("backend cookie mid-session toggle", () => {
       legacyWsUrl: LEGACY,
       gatewayWsUrl: GATEWAY,
       ctx: stagingCtx("be-backend=legacy")
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.source).toBe("env-default");
+    expect(result.wsUrl).toBe(GATEWAY);
+  });
+
+  it("staging custom domain ignores legacy cookie and still resolves to gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY,
+      gatewayWsUrl: GATEWAY,
+      ctx: stagingCustomDomainCtx("be-backend=legacy")
     });
     expect(result.backend).toBe("gateway");
     expect(result.source).toBe("env-default");
