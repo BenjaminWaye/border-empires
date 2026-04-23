@@ -17,12 +17,12 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
-import { buildPlannerWorldView } from "./planner-world-view.js";
+import type { PlannerWorldView } from "./planner-world-view.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
 type WorkerAiCommandProducerOptions = {
-  runtime: Pick<SimulationRuntime, "queueDepths" | "exportState">;
+  runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView">;
   aiPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
@@ -82,16 +82,28 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     pendingRequests.clear();
   });
 
+  const stopListening = options.runtime.onEvent((event) => {
+    const pending = pendingCommandByPlayer.get(event.playerId);
+    if (!pending || pending.commandId !== event.commandId) return;
+    if (
+      event.eventType === "COMMAND_REJECTED" ||
+      event.eventType === "COMBAT_RESOLVED" ||
+      event.eventType === "TILE_DELTA_BATCH" ||
+      event.eventType === "COLLECT_RESULT" ||
+      event.eventType === "TECH_UPDATE" ||
+      event.eventType === "DOMAIN_UPDATE"
+    ) {
+      pendingCommandByPlayer.delete(event.playerId);
+    }
+  });
+
   const requestPlan = (
     playerId: string,
     clientSeq: number,
     issuedAt: number
   ): Promise<CommandEnvelope | null> => {
     return new Promise((resolve) => {
-      const worldView = buildPlannerWorldView(
-        options.runtime.exportState(),
-        [playerId]
-      );
+      const worldView: PlannerWorldView = options.runtime.exportPlannerWorldView([playerId]);
       pendingRequests.set(playerId, resolve);
       worker.postMessage({ type: "plan", playerId, clientSeq, issuedAt, sessionPrefix: "ai-runtime", worldView });
     });
@@ -132,21 +144,20 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         const clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         const issuedAt = now();
 
-        pendingCommandByPlayer.set(playerId, { commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`, startedAt: issuedAt });
-        nextClientSeqByPlayer.set(playerId, clientSeq + 1);
-        nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
-
         try {
           const plannerStartedAt = now();
           const command = await requestPlan(playerId, clientSeq, issuedAt);
           const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
           const breached = plannerDurationMs > plannerBreachThresholdMs;
           options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
-          if (command) await options.submitCommand(command);
+          if (!command) continue;
+          pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
+          nextClientSeqByPlayer.set(playerId, clientSeq + 1);
+          nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+          await options.submitCommand(command);
         } catch {
-          // swallow — will retry on next tick
-        } finally {
           pendingCommandByPlayer.delete(playerId);
+          // swallow — will retry on next tick
         }
         return; // one player per tick
       }
@@ -161,6 +172,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     tick,
     close(): void {
       clearInterval(intervalHandle);
+      stopListening();
       worker.postMessage({ type: "shutdown" });
       void worker.terminate();
     }

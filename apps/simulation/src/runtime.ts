@@ -83,6 +83,7 @@ import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections }
 import { buildDomainUpdatePayload, buildTechUpdatePayload, chooseDomainForPlayer, chooseTechForPlayer } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
+import type { PlannerWorldView } from "./planner-world-view.js";
 
 type LockRecord = {
   commandId: string;
@@ -852,6 +853,53 @@ export class SimulationRuntime {
       },
       commandEvents: buildSimulationSnapshotCommandEvents(this.recordedEventsByCommandId)
     };
+  }
+
+  exportPlannerWorldView(playerIds: string[]): PlannerWorldView {
+    const lockPlayerIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      lockPlayerIds.add(lock.playerId);
+    }
+
+    const tiles: PlannerWorldView["tiles"] = [];
+    for (const tile of this.tiles.values()) {
+      const plannerTile: PlannerWorldView["tiles"][number] = {
+        x: tile.x,
+        y: tile.y,
+        terrain: tile.terrain
+      };
+      if (tile.resource) plannerTile.resource = tile.resource;
+      if (tile.dockId) plannerTile.dockId = tile.dockId;
+      if (tile.ownerId) plannerTile.ownerId = tile.ownerId;
+      if (tile.ownershipState) plannerTile.ownershipState = tile.ownershipState;
+      if (tile.town) {
+        plannerTile.town = {
+          ...(typeof tile.town.supportMax === "number" ? { supportMax: tile.town.supportMax } : {}),
+          ...(typeof tile.town.supportCurrent === "number" ? { supportCurrent: tile.town.supportCurrent } : {})
+        };
+      }
+      tiles.push(plannerTile);
+    }
+
+    const players: PlannerWorldView["players"] = [];
+    for (const playerId of playerIds) {
+      const player = this.players.get(playerId);
+      if (!player) continue;
+      this.applyManpowerRegen(player);
+      const summary = this.summaryForPlayer(playerId);
+      players.push({
+        id: player.id,
+        points: player.points,
+        manpower: player.manpower,
+        hasActiveLock: lockPlayerIds.has(player.id),
+        territoryTileKeys: [...summary.territoryTileKeys],
+        frontierTileKeys: [...summary.frontierTileKeys],
+        pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()],
+        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+      });
+    }
+
+    return { tiles, players };
   }
 
   exportState(): {
