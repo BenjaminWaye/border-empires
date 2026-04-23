@@ -22,13 +22,15 @@ export const loadSimulationStartupRecovery = async ({
   eventStore,
   snapshotStore,
   seedProfile,
-  bootstrapState
+  bootstrapState,
+  requireDurableState
 }: {
   commandStore: SimulationCommandStore;
   eventStore: SimulationEventStore;
   snapshotStore?: SimulationSnapshotStore;
   seedProfile?: SimulationSeedProfile;
   bootstrapState?: RecoveredSimulationState;
+  requireDurableState?: boolean;
 }): Promise<SimulationStartupRecovery> => {
   const [recoverableCommands, latestSnapshot] = await Promise.all([
     commandStore.loadRecoverableCommands(),
@@ -50,11 +52,15 @@ export const loadSimulationStartupRecovery = async ({
         return events;
       })()
     : await eventStore.loadAllEvents();
+  const hasBootstrapState = Boolean(bootstrapState && hasUsableSnapshotState(bootstrapState.tiles));
+  if (requireDurableState && !usableSnapshot && historicalEvents.length === 0 && !hasBootstrapState) {
+    throw new Error("simulation startup recovery requires durable state but no snapshot, events, or bootstrap state were found");
+  }
   const eventPayloads = historicalEvents.map((event) => event.eventPayload);
   const initialState = usableSnapshot
     ? applySimulationEventsToRecoveredState(usableSnapshot.snapshotPayload.initialState, eventPayloads)
-    : bootstrapState
-      ? applySimulationEventsToRecoveredState(bootstrapState, eventPayloads)
+    : hasBootstrapState
+      ? applySimulationEventsToRecoveredState(bootstrapState!, eventPayloads)
       : recoverSimulationStateFromEvents(eventPayloads, seedProfile ?? "default");
   const initialCommandHistory = usableSnapshot
     ? applyEventsToRecoveredCommandHistory(
