@@ -17,6 +17,28 @@ const STARTUP_RECOVERY_EVENT_BATCH_SIZE = 5_000;
 
 const hasUsableSnapshotState = (tiles: RecoveredSimulationState["tiles"]): boolean => tiles.length > 0;
 
+const replayEventBatches = async ({
+  eventStore,
+  afterEventId,
+  onBatch
+}: {
+  eventStore: SimulationEventStore;
+  afterEventId: number;
+  onBatch: (events: StoredSimulationEvent[]) => void;
+}): Promise<number> => {
+  let cursor = afterEventId;
+  let recoveredEventCount = 0;
+  while (true) {
+    const batch = await eventStore.loadEventsAfter(cursor, STARTUP_RECOVERY_EVENT_BATCH_SIZE);
+    if (batch.length === 0) break;
+    recoveredEventCount += batch.length;
+    onBatch(batch);
+    cursor = batch.at(-1)?.eventId ?? cursor;
+    if (batch.length < STARTUP_RECOVERY_EVENT_BATCH_SIZE) break;
+  }
+  return recoveredEventCount;
+};
+
 export const loadSimulationStartupRecovery = async ({
   commandStore,
   eventStore,
@@ -38,46 +60,37 @@ export const loadSimulationStartupRecovery = async ({
   ]);
   const usableSnapshot =
     latestSnapshot && hasUsableSnapshotState(latestSnapshot.snapshotPayload.initialState.tiles) ? latestSnapshot : undefined;
-  const historicalEvents = usableSnapshot
-    ? await (async () => {
-        const events: StoredSimulationEvent[] = [];
-        let cursor = usableSnapshot.lastAppliedEventId;
-        while (true) {
-          const batch = await eventStore.loadEventsAfter(cursor, STARTUP_RECOVERY_EVENT_BATCH_SIZE);
-          if (batch.length === 0) break;
-          events.push(...batch);
-          cursor = batch.at(-1)?.eventId ?? cursor;
-          if (batch.length < STARTUP_RECOVERY_EVENT_BATCH_SIZE) break;
-        }
-        return events;
-      })()
-    : await eventStore.loadAllEvents();
   const hasBootstrapState = Boolean(bootstrapState && hasUsableSnapshotState(bootstrapState.tiles));
-  if (requireDurableState && !usableSnapshot && historicalEvents.length === 0 && !hasBootstrapState) {
+  let initialState = usableSnapshot
+    ? usableSnapshot.snapshotPayload.initialState
+    : hasBootstrapState
+      ? bootstrapState!
+      : recoverSimulationStateFromEvents([], seedProfile ?? "default");
+  let initialCommandHistory = usableSnapshot
+    ? {
+        commands: [...recoverableCommands].sort((left, right) => left.queuedAt - right.queuedAt),
+        eventsByCommandId: new Map(
+          usableSnapshot.snapshotPayload.commandEvents.map((entry) => [entry.commandId, [...entry.events]])
+        )
+      }
+    : recoverCommandHistory(recoverableCommands, []);
+  const recoveredEventCount = await replayEventBatches({
+    eventStore,
+    afterEventId: usableSnapshot?.lastAppliedEventId ?? 0,
+    onBatch: (events) => {
+      const eventPayloads = events.map((event) => event.eventPayload);
+      initialState = applySimulationEventsToRecoveredState(initialState, eventPayloads);
+      initialCommandHistory = applyEventsToRecoveredCommandHistory(initialCommandHistory, eventPayloads);
+    }
+  });
+  if (requireDurableState && !usableSnapshot && recoveredEventCount === 0 && !hasBootstrapState) {
     throw new Error("simulation startup recovery requires durable state but no snapshot, events, or bootstrap state were found");
   }
-  const eventPayloads = historicalEvents.map((event) => event.eventPayload);
-  const initialState = usableSnapshot
-    ? applySimulationEventsToRecoveredState(usableSnapshot.snapshotPayload.initialState, eventPayloads)
-    : hasBootstrapState
-      ? applySimulationEventsToRecoveredState(bootstrapState!, eventPayloads)
-      : recoverSimulationStateFromEvents(eventPayloads, seedProfile ?? "default");
-  const initialCommandHistory = usableSnapshot
-    ? applyEventsToRecoveredCommandHistory(
-        {
-          commands: [...recoverableCommands].sort((left, right) => left.queuedAt - right.queuedAt),
-          eventsByCommandId: new Map(
-            usableSnapshot.snapshotPayload.commandEvents.map((entry) => [entry.commandId, [...entry.events]])
-          )
-        },
-        eventPayloads
-      )
-    : recoverCommandHistory(recoverableCommands, eventPayloads);
 
   return {
     initialState,
     initialCommandHistory,
     recoveredCommandCount: recoverableCommands.length,
-    recoveredEventCount: historicalEvents.length
+    recoveredEventCount
   };
 };

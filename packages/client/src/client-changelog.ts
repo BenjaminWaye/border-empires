@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.3",
+  version: "2026.04.23.4",
   title: "What's New",
-  summary: "Recent updates include staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include replay-cache/memory stability hardening for rewrite simulation command history, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.23.4",
+      title: "Rewrite command replay history now stays bounded during long AI runs and restart recovery",
+      why: "Long staging sessions with active AI could accumulate unbounded replay history in simulation memory and spike startup memory during event recovery, which raised OOM risk and caused stale command-sequence edge cases.",
+      changes: [
+        "Simulation runtime now caps retained terminal command replay history and stale player-sequence replay mappings so replay cache growth stays bounded over time.",
+        "Startup recovery now replays persisted events in batches (with bounded terminal replay retention) instead of materializing the full event log in memory.",
+        "Recovered player-sequence mappings with no replay payload now auto-clear so new commands are processed instead of getting silently swallowed."
+      ]
+    },
     {
       introducedIn: "2026.04.23.3",
       title: "Staging auth now fails fast when simulation connectivity is unhealthy",
