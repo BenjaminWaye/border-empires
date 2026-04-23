@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { InMemoryGatewayCommandStore } from "./command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
+import { InMemoryGatewayAuthBindingStore } from "./auth-binding-store.js";
 import { InMemoryGatewayPlayerProfileStore } from "./player-profile-store.js";
 import { InMemorySimulationCommandStore } from "../../simulation/src/command-store.js";
 import { createSimulationService } from "../../simulation/src/simulation-service.js";
@@ -9,6 +10,12 @@ import { createSimulationService } from "../../simulation/src/simulation-service
 const silentLog = {
   info: () => undefined,
   error: () => undefined
+};
+
+const firebaseJwtFor = (payload: Record<string, unknown>): string => {
+  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${header}.${body}.sig`;
 };
 
 type TestWebSocket = {
@@ -350,6 +357,57 @@ describe("rewrite stack integration", () => {
           name: "Nauticus Prime",
           tileColor: "#123456",
           profileNeedsSetup: false
+        })
+      })
+    );
+  });
+
+  it("reuses persisted auth uid bindings even when resolver fallback would choose a different player id", async () => {
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({
+      uid: "firebase-user-1",
+      playerId: "bound-player-1",
+      email: "nauticus@example.com"
+    });
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      authBindingStore,
+      defaultHumanPlayerId: "default-player-id"
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const socket = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(socket.socket));
+    socket.socket.send(
+      JSON.stringify({
+        type: "AUTH",
+        token: firebaseJwtFor({
+          sub: "firebase-user-1",
+          user_id: "firebase-user-1",
+          email: "nauticus@example.com",
+          name: "Nauticus"
+        })
+      })
+    );
+
+    expect(await nextTypedMessage(socket, "bound init", "INIT")).toEqual(
+      expect.objectContaining({
+        player: expect.objectContaining({
+          id: "bound-player-1"
         })
       })
     );

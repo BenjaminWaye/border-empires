@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.2",
+  version: "2026.04.23.3",
   title: "What's New",
-  summary: "Recent updates include staging auth fail-fast routing/timeout hardening for simulation outages, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, db-backed tile recovery overlay fixes, worker-bootstrap parity fixes for local source-mode runs, and preview/staging release-flow hardening.",
+  summary: "Recent updates include staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
     {
-      introducedIn: "2026.04.23.2",
+      introducedIn: "2026.04.23.3",
       title: "Staging auth now fails fast when simulation connectivity is unhealthy",
       why: "Staging sign-in could appear stuck for long stretches when the gateway was up but still disconnected from simulation gRPC, even though retries were the only viable path.",
       changes: [
@@ -33,13 +33,33 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.23.1",
+      introducedIn: "2026.04.23.2",
+      title: "Gateway auth now keeps each Firebase UID pinned to one player id across restart/retry churn",
+      why: "During simulation warmup or process restarts, repeated AUTH retries could resolve to different player ids in edge cases, making a refresh look like a switch to a different empire.",
+      changes: [
+        "Gateway now persists auth UID to player-id bindings and reuses that binding on every subsequent AUTH handshake.",
+        "When resolver fallback disagrees with an existing UID binding, gateway now keeps the persisted player id and logs an explicit binding override event for debugging.",
+        "Added rewrite-gateway integration coverage to ensure persisted UID bindings win even when fallback identity resolution would select a different player id."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.3",
       title: "Rewrite startup now fails closed on durable-state drift risks",
       why: "Managed rewrite runs could still drift between restarts when startup paths quietly fell back to non-authoritative bootstrap sources or mixed inconsistent runtime identity metadata.",
       changes: [
         "Managed simulation startup now requires explicit seed-profile identity and durable startup state; db-backed boot no longer silently reseeds when snapshots/events are missing.",
         "Managed gateway auth bootstrap now disables cached/seed initial-state fallback by default and uses authoritative simulation subscription data only.",
         "Gateway init now enforces runtime-identity and season-config consistency, and db-backed simulation recovery no longer overlays seed tiles on top of recovered snapshot state."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.1",
+      title: "Reconnect no longer collapses discovered map areas on stable-runtime INIT refreshes",
+      why: "After gateway/simulation restarts, INIT could clear client discovered-tile caches and replace the whole tile map from the current visible snapshot, causing previously explored coast/resource zones (including fish tiles) to appear as unexplored again.",
+      changes: [
+        "Gateway INIT hydration now preserves previously discovered tiles when reconnecting as the same player within the same season, including process restarts with a new runtime fingerprint.",
+        "Preserved tiles are marked fogged during INIT replay, while newly received gateway tiles are explicitly marked visible.",
+        "Added client regression coverage for same-season reconnect INIT (including runtime changes) plus cross-player safety so map memory never leaks between empires."
       ]
     },
     {
