@@ -12,16 +12,18 @@ export const resolveInitialState = ({
   authoritativeSnapshot,
   cachedSnapshot,
   simulationSeedProfile,
+  allowCachedSnapshotFallback,
   allowSeedFallback
 }: {
   playerId: string;
   authoritativeSnapshot: PlayerSubscriptionSnapshot | undefined;
   cachedSnapshot: PlayerSubscriptionSnapshot | undefined;
   simulationSeedProfile: SimulationSeedProfile;
+  allowCachedSnapshotFallback: boolean;
   allowSeedFallback: boolean;
 }): PlayerSubscriptionSnapshot => {
   if (authoritativeSnapshot && authoritativeSnapshot.tiles.length > 0) return authoritativeSnapshot;
-  if (cachedSnapshot && cachedSnapshot.tiles.length > 0) return cachedSnapshot;
+  if (allowCachedSnapshotFallback && cachedSnapshot && cachedSnapshot.tiles.length > 0) return cachedSnapshot;
   if (allowSeedFallback) return fallbackInitialStateFromSeed(playerId, simulationSeedProfile);
   return emptyInitialState(playerId);
 };

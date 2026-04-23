@@ -19,17 +19,27 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.1",
+  version: "2026.04.23.2",
   title: "What's New",
-  summary: "Recent updates include faster/fail-fast staging auth behavior when simulation is unavailable, improved staging gateway-to-simulation routing, worker-bootstrap parity fixes for local source-mode runs, and preview/staging release-flow hardening.",
+  summary: "Recent updates include staging auth fail-fast routing/timeout hardening for simulation outages, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, db-backed tile recovery overlay fixes, worker-bootstrap parity fixes for local source-mode runs, and preview/staging release-flow hardening.",
   entries: [
     {
-      introducedIn: "2026.04.23.1",
-      title: "Staging login now fails fast when simulation is unavailable",
-      why: "Staging auth could sit in a long wait even when gateway could not establish a healthy simulation subscription, which made retries slow and hid the real outage state.",
+      introducedIn: "2026.04.23.2",
+      title: "Staging auth now fails fast when simulation connectivity is unhealthy",
+      why: "Staging sign-in could appear stuck for long stretches when the gateway was up but still disconnected from simulation gRPC, even though retries were the only viable path.",
       changes: [
-        "Gateway AUTH now exits early with SERVER_STARTING when simulation health is still disconnected after readiness checks, instead of stacking long subscribe waits.",
-        "Staging gateway now targets simulation over flycast with tighter wake/ping/subscribe timeout budgets to reduce long login stalls when backend connectivity is down."
+        "Gateway AUTH now returns SERVER_STARTING immediately after readiness checks if simulation is still disconnected, instead of piling onto a long subscribe wait.",
+        "Staging gateway wake/ping/subscribe timeout budgets are now tightened and routed over flycast so simulation connectivity failures surface quickly to clients."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.1",
+      title: "Rewrite startup now fails closed on durable-state drift risks",
+      why: "Managed rewrite runs could still drift between restarts when startup paths quietly fell back to non-authoritative bootstrap sources or mixed inconsistent runtime identity metadata.",
+      changes: [
+        "Managed simulation startup now requires explicit seed-profile identity and durable startup state; db-backed boot no longer silently reseeds when snapshots/events are missing.",
+        "Managed gateway auth bootstrap now disables cached/seed initial-state fallback by default and uses authoritative simulation subscription data only.",
+        "Gateway init now enforces runtime-identity and season-config consistency, and db-backed simulation recovery no longer overlays seed tiles on top of recovered snapshot state."
       ]
     },
     {
