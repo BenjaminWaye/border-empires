@@ -179,6 +179,7 @@ type SimulationRuntimeOptions = {
   seedProfile?: SimulationSeedProfile;
   seedTiles?: Map<string, DomainTileState>;
   initialPlayers?: Map<string, RuntimePlayer>;
+  mergeSeedTilesWithInitialState?: boolean;
   commandTrace?: (sample: Record<string, unknown>) => void;
 };
 
@@ -484,7 +485,11 @@ export class SimulationRuntime {
     this.commandTrace = options.commandTrace;
     this.players = createPlayersFromRecoveredState(options.initialState) ?? (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
     for (const player of this.players.values()) this.applyManpowerRegen(player);
-    this.tiles = createTilesFromInitialState(options.initialState, options.seedTiles ?? seedWorld!.tiles);
+    this.tiles = createTilesFromInitialState(
+      options.initialState,
+      options.seedTiles ?? seedWorld!.tiles,
+      options.mergeSeedTilesWithInitialState ?? true
+    );
     this.locksByTile = createLocksFromInitialState(options.initialState);
     for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
@@ -4325,10 +4330,11 @@ export class SimulationRuntime {
 
 const createTilesFromInitialState = (
   initialState: RecoveredSimulationState | undefined,
-  seedTiles: Map<string, DomainTileState>
+  seedTiles: Map<string, DomainTileState>,
+  mergeSeedTilesWithInitialState: boolean
 ): Map<string, DomainTileState> => {
-  const mergedTiles = new Map(seedTiles);
-  if (!initialState) return mergedTiles;
+  if (!initialState) return new Map(seedTiles);
+  const mergedTiles = mergeSeedTilesWithInitialState ? new Map(seedTiles) : new Map<string, DomainTileState>();
 
   for (const tile of initialState.tiles) {
     const tileKey = simulationTileKey(tile.x, tile.y);

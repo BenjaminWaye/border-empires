@@ -292,6 +292,24 @@ describe("loadSimulationStartupRecovery", () => {
     );
   });
 
+  it("fails closed when durable startup state is required and stores are empty", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+
+    await expect(
+      loadSimulationStartupRecovery({
+        commandStore,
+        eventStore,
+        snapshotStore,
+        seedProfile: "season-20ai",
+        requireDurableState: true
+      })
+    ).rejects.toThrow(
+      "simulation startup recovery requires durable state but no snapshot, events, or bootstrap state were found"
+    );
+  });
+
   it("loads snapshot follow-up events in batches instead of one giant query", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const snapshotStore = new InMemorySimulationSnapshotStore();

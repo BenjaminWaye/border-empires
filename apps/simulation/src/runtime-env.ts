@@ -32,12 +32,20 @@ const parsePositiveNumber = (value: string | undefined, fallback: number, label:
   return parsed;
 };
 
+const isManagedRuntimeEnv = (env: NodeJS.ProcessEnv): boolean => {
+  const nodeEnv = (env.NODE_ENV ?? "").toLowerCase();
+  return nodeEnv === "production" || nodeEnv === "staging" || typeof env.FLY_APP_NAME === "string";
+};
+
 export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRuntimeEnv => {
   const databaseUrl = env.SIMULATION_DATABASE_URL ?? env.DATABASE_URL;
-  const isProduction = env.NODE_ENV === "production";
+  const isManagedRuntime = isManagedRuntimeEnv(env);
 
-  if (isProduction && !databaseUrl) {
-    throw new Error("simulation requires SIMULATION_DATABASE_URL or DATABASE_URL in production");
+  if (isManagedRuntime && !databaseUrl) {
+    throw new Error("simulation requires SIMULATION_DATABASE_URL or DATABASE_URL in managed runtime");
+  }
+  if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE) {
+    throw new Error("simulation requires SIMULATION_SEED_PROFILE in managed runtime");
   }
 
   const systemPlayerIds = env.SIMULATION_SYSTEM_PLAYER_IDS
@@ -45,7 +53,10 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     : undefined;
   const checkpointMaxRssMb = env.SIMULATION_CHECKPOINT_MAX_RSS_MB;
   const checkpointMaxHeapUsedMb = env.SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB;
-  const allowSeedRecoveryFallback = env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK === "1" && !databaseUrl;
+  const allowSeedRecoveryFallback =
+    !isManagedRuntime &&
+    env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK === "1" &&
+    !databaseUrl;
 
   return {
     host: env.SIMULATION_HOST ?? "127.0.0.1",

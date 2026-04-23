@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.22.7",
+  version: "2026.04.23.1",
   title: "What's New",
-  summary: "Recent updates include worker-bootstrap parity fixes for local source-mode runs, preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
+  summary: "Recent updates include strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, db-backed tile recovery overlay fixes, worker-bootstrap parity fixes for local source-mode runs, preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.23.1",
+      title: "Rewrite startup now fails closed on durable-state drift risks",
+      why: "Managed rewrite runs could still drift between restarts when startup paths quietly fell back to non-authoritative bootstrap sources or mixed inconsistent runtime identity metadata.",
+      changes: [
+        "Managed simulation startup now requires explicit seed-profile identity and durable startup state; db-backed boot no longer silently reseeds when snapshots/events are missing.",
+        "Managed gateway auth bootstrap now disables cached/seed initial-state fallback by default and uses authoritative simulation subscription data only.",
+        "Gateway init now enforces runtime-identity and season-config consistency, and db-backed simulation recovery no longer overlays seed tiles on top of recovered snapshot state."
+      ]
+    },
     {
       introducedIn: "2026.04.22.7",
       title: "Server workers now boot correctly in local source-mode runs",
