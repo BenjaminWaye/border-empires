@@ -20,6 +20,7 @@ primary_region = "arn"
   SIMULATION_COMMAND_TRACE = "1"
   SIMULATION_ENABLE_AI_AUTOPILOT = "1"
   SIMULATION_ENABLE_SYSTEM_AUTOPILOT = "1"
+  SIMULATION_SEED_PROFILE = "season-20ai"
 
 [[services]]
   protocol = "tcp"
