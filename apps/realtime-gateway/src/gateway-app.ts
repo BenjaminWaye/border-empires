@@ -6,6 +6,8 @@ import { buildFrontierCombatPreview } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
+import type { GatewayAuthBindingStore } from "./auth-binding-store.js";
+import { createGatewayAuthBindingStore } from "./auth-binding-store-factory.js";
 import type { GatewayCommandStore } from "./command-store.js";
 import { createGatewayCommandStore } from "./command-store-factory.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "./frontier-submit.js";
@@ -46,6 +48,7 @@ type RealtimeGatewayAppOptions = {
   simulationClient?: SimulationClient;
   commandStore?: GatewayCommandStore;
   profileStore?: GatewayPlayerProfileStore;
+  authBindingStore?: GatewayAuthBindingStore;
   databaseUrl?: string;
   applySchema?: boolean;
   defaultHumanPlayerId?: string;
@@ -281,6 +284,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const profileStore =
     options.profileStore ??
     (await createGatewayPlayerProfileStore(commandStoreFactoryOptions));
+  const authBindingStore =
+    options.authBindingStore ??
+    (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
     subscribePlayer: (playerId) => simulationClient.subscribePlayer(playerId),
     unsubscribePlayer: (playerId) => simulationClient.unsubscribePlayer(playerId)
@@ -676,10 +682,41 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 return;
               }
             }
-            const playerIdentity = resolveGatewayAuthIdentity(message.token, {
+            const resolvedPlayerIdentity = resolveGatewayAuthIdentity(message.token, {
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
               ...(legacySnapshotBootstrap ? { authIdentities: legacySnapshotBootstrap.authIdentities } : {})
             });
+            const playerIdentity = { ...resolvedPlayerIdentity };
+            if (resolvedPlayerIdentity.authUid) {
+              try {
+                const binding = await authBindingStore.bindIdentity({
+                  uid: resolvedPlayerIdentity.authUid,
+                  playerId: resolvedPlayerIdentity.playerId,
+                  ...(resolvedPlayerIdentity.authEmail ? { email: resolvedPlayerIdentity.authEmail } : {})
+                });
+                if (binding.playerId !== resolvedPlayerIdentity.playerId) {
+                  playerIdentity.playerId = binding.playerId;
+                  recordGatewayEvent("warn", "gateway_auth_binding_override", {
+                    channel,
+                    authUid: resolvedPlayerIdentity.authUid,
+                    requestedPlayerId: resolvedPlayerIdentity.playerId,
+                    boundPlayerId: binding.playerId
+                  });
+                } else {
+                  recordGatewayEvent("info", "gateway_auth_binding_confirmed", {
+                    channel,
+                    authUid: resolvedPlayerIdentity.authUid,
+                    playerId: binding.playerId
+                  });
+                }
+              } catch (error) {
+                recordGatewayEvent("error", "gateway_auth_binding_failed", {
+                  channel,
+                  authUid: resolvedPlayerIdentity.authUid,
+                  error: error instanceof Error ? error.message : String(error)
+                });
+              }
+            }
             session.playerId = playerIdentity.playerId;
             const persistedProfile = await profileStore.get(playerIdentity.playerId);
             if (persistedProfile) {

@@ -973,7 +973,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.lastSubCy = Number.NaN;
       state.lastSubRadius = -1;
       state.lastChunkSnapshotGeneration = 0;
-      state.fogDisabled = Boolean(((msg.config as { fogDisabled?: boolean } | undefined) ?? {}).fogDisabled);
+      const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
+      const incomingSeason = incomingConfig.season;
+      const incomingRuntimeIdentity =
+        (msg.runtimeIdentity as
+          | {
+              fingerprint?: string;
+              snapshotLabel?: string;
+            }
+          | undefined) ?? undefined;
+      const incomingPlayer = (msg.player as Record<string, unknown>) ?? {};
+      const incomingPlayerId = typeof incomingPlayer.id === "string" ? incomingPlayer.id : "";
+      const preserveDiscoveredTilesOnReconnect =
+        Boolean(incomingSeason?.seasonId) &&
+        state.bridgeDebugSeasonId === incomingSeason?.seasonId &&
+        incomingPlayerId.length > 0 &&
+        state.me === incomingPlayerId &&
+        state.tiles.size > 0 &&
+        state.discoveredTiles.size > 0;
+      state.fogDisabled = Boolean(incomingConfig.fogDisabled);
       state.serverSupportedMessageTypes = new Set(
         Array.isArray((msg as { supportedMessageTypes?: unknown }).supportedMessageTypes)
           ? ((msg as { supportedMessageTypes: unknown[] }).supportedMessageTypes.filter((type): type is string => typeof type === "string"))
@@ -982,7 +1000,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.bridgeDebugSupportedMessageCount = state.serverSupportedMessageTypes.size;
       const gatewayRecovery = (msg.recovery as { nextClientSeq?: unknown; pendingCommands?: unknown } | undefined) ?? undefined;
       applyGatewayRecoveryNextClientSeq(state, gatewayRecovery?.nextClientSeq);
-      const player = msg.player as Record<string, unknown>;
+      const player = incomingPlayer;
       state.me = player.id as string;
       state.meName = player.name as string;
       state.playerNames.set(state.me, state.meName);
@@ -1037,8 +1055,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
       state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
       state.revealedEmpireStatsByPlayer.clear();
-      state.discoveredTiles.clear();
-      state.discoveredDockTiles.clear();
+      if (!preserveDiscoveredTilesOnReconnect) {
+        state.discoveredTiles.clear();
+        state.discoveredDockTiles.clear();
+      }
       state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
       applyPendingSettlementsFromServer(
         (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
@@ -1080,7 +1100,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           mergeIncomingTileDetail,
           mergeServerTileWithOptimisticState
         },
-        msg.initialState as { tiles?: Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> } | undefined
+        msg.initialState as { tiles?: Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> } | undefined,
+        { preserveExistingDiscoveredTiles: preserveDiscoveredTilesOnReconnect }
       );
       state.bridgeDebugInitialTileCount = appliedInitialTileCount;
       if (appliedInitialTileCount > 0) {
@@ -1120,21 +1141,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
       state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
       resetStrategicReplayState();
-      const config = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
-      const season = config.season;
-      state.bridgeDebugSeasonId = season?.seasonId ?? "";
-      const runtimeIdentity =
-        (msg.runtimeIdentity as
-          | {
-              fingerprint?: string;
-              snapshotLabel?: string;
-            }
-          | undefined) ?? undefined;
-      state.bridgeDebugRuntimeFingerprint = runtimeIdentity?.fingerprint ?? "";
-      state.bridgeDebugSnapshotLabel = runtimeIdentity?.snapshotLabel ?? "";
-      state.fogDisabled = Boolean(config.fogDisabled);
-      if (typeof season?.worldSeed === "number") {
-        setWorldSeed(season.worldSeed);
+      state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
+      state.bridgeDebugRuntimeFingerprint = incomingRuntimeIdentity?.fingerprint ?? "";
+      state.bridgeDebugSnapshotLabel = incomingRuntimeIdentity?.snapshotLabel ?? "";
+      state.fogDisabled = Boolean(incomingConfig.fogDisabled);
+      if (typeof incomingSeason?.worldSeed === "number") {
+        setWorldSeed(incomingSeason.worldSeed);
         clearRenderCaches();
         buildMiniMapBase();
       }
@@ -1149,8 +1161,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           | undefined) ?? [];
       state.dockPairs = mapMeta.dockPairs ?? [];
       state.dockRouteCache.clear();
-      pushFeed(`Spawned. ${season?.seasonId ? `Season ${season.seasonId}.` : ""} Your tile is centered.`, "info", "success");
-      if (config.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
+      pushFeed(`Spawned. ${incomingSeason?.seasonId ? `Season ${incomingSeason.seasonId}.` : ""} Your tile is centered.`, "info", "success");
+      if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
       if (typeof mapMeta.dockCount === "number") {
         pushFeed(
           `Map features: ${mapMeta.dockCount} docks (${mapMeta.dockPairCount ?? Math.floor(mapMeta.dockCount / 2)} pairs), ${mapMeta.clusterCount ?? 0} clusters.`,
