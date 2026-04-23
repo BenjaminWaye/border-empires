@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.2",
+  version: "2026.04.23.3",
   title: "What's New",
   summary: "Recent updates include staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
     {
-      introducedIn: "2026.04.23.2",
+      introducedIn: "2026.04.23.3",
       title: "Staging auth now fails fast when simulation connectivity is unhealthy",
       why: "Staging sign-in could appear stuck for long stretches when the gateway was up but still disconnected from simulation gRPC, even though retries were the only viable path.",
       changes: [
@@ -43,7 +43,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.23.1",
+      introducedIn: "2026.04.23.3",
       title: "Rewrite startup now fails closed on durable-state drift risks",
       why: "Managed rewrite runs could still drift between restarts when startup paths quietly fell back to non-authoritative bootstrap sources or mixed inconsistent runtime identity metadata.",
       changes: [
