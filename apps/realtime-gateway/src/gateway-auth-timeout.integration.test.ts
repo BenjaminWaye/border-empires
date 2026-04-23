@@ -65,6 +65,7 @@ describe("gateway auth timeout", () => {
     process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS = "1000";
     process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS = "100";
     process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS = "100";
+    let subscribeCalled = false;
     const app = await createRealtimeGatewayApp({
       logger: false,
       port: 0,
@@ -72,10 +73,12 @@ describe("gateway auth timeout", () => {
       simulationSubscribeTimeoutMs: 1_000,
       simulationClient: {
         submitCommand: async () => undefined,
-        subscribePlayer: () =>
-          new Promise(() => {
+        subscribePlayer: () => {
+          subscribeCalled = true;
+          return new Promise(() => {
             // Intentionally unresolved to simulate a dead simulation connection.
-          }),
+          });
+        },
         unsubscribePlayer: async () => undefined,
         ping: async () => {
           throw new Error("simulation unavailable");
@@ -107,6 +110,7 @@ describe("gateway auth timeout", () => {
       code: "SERVER_STARTING",
       message: "Realtime simulation is temporarily unavailable. Retry shortly."
     });
+    expect(subscribeCalled).toBe(false);
 
     socket.close();
   });
