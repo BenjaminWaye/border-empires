@@ -664,6 +664,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             recordGatewayEvent("info", "gateway_auth", { channel });
             if (!simulationHealth.connected) {
               await ensureSimulationReadyForAuth();
+              if (!simulationHealth.connected) {
+                sendJson(socket, {
+                  type: "ERROR",
+                  code: "SERVER_STARTING",
+                  message: "Realtime simulation is temporarily unavailable. Retry shortly."
+                });
+                return;
+              }
             }
             const playerIdentity = resolveGatewayAuthIdentity(message.token, {
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
