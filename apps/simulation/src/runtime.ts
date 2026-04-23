@@ -61,6 +61,11 @@ import {
   TERRAIN_SHAPING_GOLD_COST
 } from "@border-empires/game-domain";
 import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
+import {
+  DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES,
+  DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY,
+  isTerminalCommandEvent
+} from "./command-event-lifecycle.js";
 import { laneForCommand, type QueueLane } from "./command-lane.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
@@ -182,6 +187,8 @@ type SimulationRuntimeOptions = {
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
   commandTrace?: (sample: Record<string, unknown>) => void;
+  maxTerminalCommandReplayHistory?: number;
+  maxPlayerSeqReplayEntries?: number;
 };
 
 const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState): Map<string, RuntimePlayer> | undefined => {
@@ -469,6 +476,9 @@ export class SimulationRuntime {
   };
   private readonly recordedEventsByCommandId = new Map<string, SimulationEvent[]>();
   private readonly commandIdsByPlayerSeq = new Map<string, string>();
+  private readonly terminalReplayCommandIds = new Map<string, true>();
+  private readonly maxTerminalCommandReplayHistory: number;
+  private readonly maxPlayerSeqReplayEntries: number;
   private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
@@ -481,6 +491,14 @@ export class SimulationRuntime {
     this.now = options.now ?? (() => Date.now());
     this.persistence = options.persistence ?? new InMemorySimulationPersistence();
     this.backgroundBatchSize = Math.max(1, options.backgroundBatchSize ?? 8);
+    this.maxTerminalCommandReplayHistory = Math.max(
+      0,
+      options.maxTerminalCommandReplayHistory ?? DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY
+    );
+    this.maxPlayerSeqReplayEntries = Math.max(
+      0,
+      options.maxPlayerSeqReplayEntries ?? DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES
+    );
     this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
     this.commandTrace = options.commandTrace;
@@ -537,6 +555,8 @@ export class SimulationRuntime {
       recordedEventsByCommandId: this.recordedEventsByCommandId,
       ...(recoveredCommandHistory ? { recoveredCommandHistory } : {})
     });
+    this.rebuildTerminalReplayIndex();
+    this.pruneReplayCaches();
     for (const lock of uniqueLocksByCommandId(this.locksByTile.values())) {
       this.scheduleLockResolution(lock);
     }
@@ -619,6 +639,42 @@ export class SimulationRuntime {
       system: backlogFor("system"),
       ai: backlogFor("ai")
     };
+  }
+
+  private rebuildTerminalReplayIndex(): void {
+    this.terminalReplayCommandIds.clear();
+    for (const [commandId, events] of this.recordedEventsByCommandId.entries()) {
+      if (events.some(isTerminalCommandEvent)) {
+        this.terminalReplayCommandIds.set(commandId, true);
+      }
+    }
+  }
+
+  private markTerminalReplayCommand(commandId: string): void {
+    this.terminalReplayCommandIds.delete(commandId);
+    this.terminalReplayCommandIds.set(commandId, true);
+  }
+
+  private dropReplayHistoryForCommand(commandId: string): void {
+    this.recordedEventsByCommandId.delete(commandId);
+    this.terminalReplayCommandIds.delete(commandId);
+    for (const [playerSeqKey, mappedCommandId] of this.commandIdsByPlayerSeq.entries()) {
+      if (mappedCommandId === commandId) this.commandIdsByPlayerSeq.delete(playerSeqKey);
+    }
+  }
+
+  private pruneReplayCaches(): void {
+    while (this.terminalReplayCommandIds.size > this.maxTerminalCommandReplayHistory) {
+      const oldestTerminalCommandId = this.terminalReplayCommandIds.keys().next().value;
+      if (!oldestTerminalCommandId) break;
+      this.dropReplayHistoryForCommand(oldestTerminalCommandId);
+    }
+
+    while (this.commandIdsByPlayerSeq.size > this.maxPlayerSeqReplayEntries) {
+      const oldestPlayerSeqKey = this.commandIdsByPlayerSeq.keys().next().value;
+      if (!oldestPlayerSeqKey) break;
+      this.commandIdsByPlayerSeq.delete(oldestPlayerSeqKey);
+    }
   }
 
   private summaryForPlayer(playerId: string): PlayerRuntimeSummary {
@@ -763,6 +819,7 @@ export class SimulationRuntime {
   }
 
   submitCommand(command: CommandEnvelope): void {
+    this.pruneReplayCaches();
     const existingEvents = this.recordedEventsByCommandId.get(command.commandId);
     if (existingEvents) {
       for (const event of existingEvents) this.events.emit("event", event);
@@ -775,8 +832,9 @@ export class SimulationRuntime {
       const replayEvents = this.recordedEventsByCommandId.get(existingCommandId);
       if (replayEvents) {
         for (const event of replayEvents) this.events.emit("event", event);
+        return;
       }
-      return;
+      this.commandIdsByPlayerSeq.delete(playerSeqKey);
     }
 
     this.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
@@ -2890,6 +2948,8 @@ export class SimulationRuntime {
     const existingEvents = this.recordedEventsByCommandId.get(event.commandId) ?? [];
     existingEvents.push(event);
     this.recordedEventsByCommandId.set(event.commandId, existingEvents);
+    if (isTerminalCommandEvent(event)) this.markTerminalReplayCommand(event.commandId);
+    this.pruneReplayCaches();
     this.events.emit("event", event);
   }
 
