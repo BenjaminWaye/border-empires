@@ -145,6 +145,123 @@ describe("client gateway sync regression", () => {
     expect(requestViewRefresh).toHaveBeenCalledWith(1, true);
   });
 
+  it("preserves discovered fogged tiles across reconnect INIT for the same season and player", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 10, y: 10 } },
+        config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
+        runtimeIdentity: { fingerprint: "runtime-fp-1", snapshotLabel: "snap-a" },
+        initialState: {
+          playerId: "player-1",
+          tiles: [
+            {
+              x: 10,
+              y: 11,
+              terrain: "SEA",
+              resource: "FISH"
+            }
+          ]
+        }
+      })
+    });
+
+    expect(state.discoveredTiles.has("10,11")).toBe(true);
+    expect(state.tiles.get("10,11")).toMatchObject({
+      x: 10,
+      y: 11,
+      terrain: "SEA",
+      resource: "FISH",
+      fogged: false
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 10, y: 10 } },
+        config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
+        runtimeIdentity: { fingerprint: "runtime-fp-2", snapshotLabel: "snap-b" },
+        initialState: {
+          playerId: "player-1",
+          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]
+        }
+      })
+    });
+
+    expect(state.discoveredTiles.has("10,11")).toBe(true);
+    expect(state.tiles.get("10,11")).toMatchObject({
+      x: 10,
+      y: 11,
+      terrain: "SEA",
+      resource: "FISH",
+      fogged: true
+    });
+    expect(state.tiles.get("10,10")).toMatchObject({
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: "player-1",
+      ownershipState: "SETTLED",
+      fogged: false
+    });
+  });
+
+  it("clears discovered cache when reconnect INIT belongs to a different player", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 10, y: 10 } },
+        config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
+        runtimeIdentity: { fingerprint: "runtime-fp-1", snapshotLabel: "snap-a" },
+        initialState: {
+          playerId: "player-1",
+          tiles: [
+            {
+              x: 10,
+              y: 11,
+              terrain: "SEA",
+              resource: "FISH"
+            }
+          ]
+        }
+      })
+    });
+
+    expect(state.discoveredTiles.has("10,11")).toBe(true);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-2", name: "Player 2", points: 5, level: 1, stamina: 0, homeTile: { x: 20, y: 20 } },
+        config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
+        runtimeIdentity: { fingerprint: "runtime-fp-2", snapshotLabel: "snap-b" },
+        initialState: {
+          playerId: "player-2",
+          tiles: [{ x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }]
+        }
+      })
+    });
+
+    expect(state.discoveredTiles.has("10,11")).toBe(false);
+    expect(state.tiles.get("10,11")).toBeUndefined();
+    expect(state.tiles.get("20,20")).toMatchObject({
+      x: 20,
+      y: 20,
+      terrain: "LAND",
+      ownerId: "player-2",
+      ownershipState: "SETTLED",
+      fogged: false
+    });
+  });
+
   it("keeps existing numeric HUD state when rewrite init omits legacy player stats", () => {
     const state = createState();
     state.gold = 0;
