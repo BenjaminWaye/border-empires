@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.5",
+  version: "2026.04.23.6",
   title: "What's New",
-  summary: "Recent updates include frontier-command stale-sequence recovery to prevent silent attack queue hangs after reconnect/retry churn, richer gateway command-lifecycle diagnostics in debug bundles, staging hostname hardening for the rewrite gateway default path, auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include restart recovery replay fixes for tile/player state after snapshot checkpoints, fallback player/AI reconstruction for legacy snapshot gaps, frontier-command stale-sequence recovery to prevent silent attack queue hangs after reconnect/retry churn, richer gateway command-lifecycle diagnostics in debug bundles, staging hostname hardening for the rewrite gateway default path, auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.23.6",
+      title: "Restart recovery now replays tile/player deltas and backfills missing player rows from owned tiles",
+      why: "After gateway/simulation restarts, startup recovery could apply only a subset of post-checkpoint events, which let settled/frontier visibility around recent captures drift and could leave AI/human owners missing from recovered player state.",
+      changes: [
+        "Simulation startup state replay now applies TILE_DELTA_BATCH payloads directly, preserving post-checkpoint tile ownership/resource/town/structure outcomes instead of reverting to partial combat-only reconstruction.",
+        "Recovery now applies PLAYER_UPDATE and tech/domain payloads to recovered player snapshots so post-checkpoint balances/modifiers stay aligned after restart.",
+        "Runtime bootstrap now backfills missing player rows from owned tile state and infers AI identity for legacy player records that omitted isAi metadata."
+      ]
+    },
     {
       introducedIn: "2026.04.23.5",
       title: "Stale frontier command sequences now recover automatically instead of stalling combat sync",

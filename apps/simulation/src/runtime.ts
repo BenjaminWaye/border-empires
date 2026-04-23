@@ -183,40 +183,63 @@ type SimulationRuntimeOptions = {
   commandTrace?: (sample: Record<string, unknown>) => void;
 };
 
+type RecoveredPlayerState = NonNullable<RecoveredSimulationState["players"]>[number];
+const AI_LIKE_PLAYER_ID_PATTERN = /^ai(?:[-_ ]?\d+)?$/i;
+
+const inferRecoveredPlayerIsAi = (player: Pick<RecoveredPlayerState, "id" | "name" | "isAi">): boolean => {
+  if (typeof player.isAi === "boolean") return player.isAi;
+  const id = player.id.trim();
+  const name = (player.name ?? "").trim();
+  return AI_LIKE_PLAYER_ID_PATTERN.test(id) || AI_LIKE_PLAYER_ID_PATTERN.test(name);
+};
+
+const defaultRecoveredPlayerName = (playerId: string, providedName: string | undefined, isAi: boolean): string => {
+  if (providedName && providedName.trim().length > 0) return providedName;
+  if (isAi) {
+    const aiNumber = /^ai[-_ ]?(\d+)$/i.exec(playerId)?.[1];
+    if (aiNumber) return `AI ${aiNumber}`;
+    return "AI";
+  }
+  return playerId;
+};
+
 const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState): Map<string, RuntimePlayer> | undefined => {
   if (!initialState?.players || initialState.players.length === 0) return undefined;
   return new Map(
-    initialState.players.map((player) => [
-      player.id,
-      {
-        id: player.id,
-        isAi: player.isAi ?? false,
-        name: player.name ?? player.id,
-        points: player.points ?? 0,
-        manpower: player.manpower ?? MANPOWER_BASE_CAP,
-        ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
-        ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
-        techIds: new Set(player.techIds ?? []),
-        domainIds: new Set(player.domainIds ?? []),
-        mods: {
-          attack: 1,
-          defense: 1,
-          income: player.incomeMultiplier ?? 1,
-          vision: player.vision ?? 1
-        },
-        techRootId: "rewrite-recovered",
-        allies: new Set(player.allies ?? []),
-        strategicResources: {
-          FOOD: player.strategicResources?.FOOD ?? 0,
-          IRON: player.strategicResources?.IRON ?? 0,
-          CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-          SUPPLY: player.strategicResources?.SUPPLY ?? 0,
-          SHARD: player.strategicResources?.SHARD ?? 0,
-          OIL: player.strategicResources?.OIL ?? 0
-        },
-        strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
-      }
-    ])
+    initialState.players.map((player) => {
+      const isAi = inferRecoveredPlayerIsAi(player);
+      return [
+        player.id,
+        {
+          id: player.id,
+          isAi,
+          name: defaultRecoveredPlayerName(player.id, player.name, isAi),
+          points: player.points ?? 100,
+          manpower: player.manpower ?? MANPOWER_BASE_CAP,
+          ...(typeof player.manpowerUpdatedAt === "number" ? { manpowerUpdatedAt: player.manpowerUpdatedAt } : {}),
+          ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
+          techIds: new Set(player.techIds ?? []),
+          domainIds: new Set(player.domainIds ?? []),
+          mods: {
+            attack: 1,
+            defense: 1,
+            income: player.incomeMultiplier ?? 1,
+            vision: player.vision ?? 1
+          },
+          techRootId: "rewrite-recovered",
+          allies: new Set(player.allies ?? []),
+          strategicResources: {
+            FOOD: player.strategicResources?.FOOD ?? 0,
+            IRON: player.strategicResources?.IRON ?? 0,
+            CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
+            SUPPLY: player.strategicResources?.SUPPLY ?? 0,
+            SHARD: player.strategicResources?.SHARD ?? 0,
+            OIL: player.strategicResources?.OIL ?? 0
+          },
+          strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+        }
+      ] as const;
+    })
   );
 };
 
@@ -238,6 +261,24 @@ const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
   strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
   strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
 });
+
+const createRecoveredFallbackRuntimePlayer = (playerId: string): RuntimePlayer => {
+  const isAi = inferRecoveredPlayerIsAi({ id: playerId });
+  return {
+    id: playerId,
+    isAi,
+    name: defaultRecoveredPlayerName(playerId, undefined, isAi),
+    points: 100,
+    manpower: MANPOWER_BASE_CAP,
+    techIds: new Set<string>(isAi ? ["breach-doctrine"] : []),
+    domainIds: new Set<string>(),
+    mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+    techRootId: "rewrite-recovered-fallback",
+    allies: new Set<string>(),
+    strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+    strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+  };
+};
 
 const strategicResourceForTile = (resource: DomainTileState["resource"] | undefined): StrategicResourceKey | undefined => {
   switch (resource) {
@@ -490,6 +531,14 @@ export class SimulationRuntime {
       options.seedTiles ?? seedWorld!.tiles,
       options.mergeSeedTilesWithInitialState ?? true
     );
+    // Backfill player records for older snapshots that persisted owner ids but
+    // omitted some player rows; without this, ownership and AI turn recovery drift.
+    for (const tile of this.tiles.values()) {
+      if (!tile.ownerId || this.players.has(tile.ownerId)) continue;
+      const fallback = createRecoveredFallbackRuntimePlayer(tile.ownerId);
+      this.players.set(tile.ownerId, fallback);
+      this.applyManpowerRegen(fallback);
+    }
     this.locksByTile = createLocksFromInitialState(options.initialState);
     for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
