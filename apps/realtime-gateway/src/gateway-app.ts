@@ -53,6 +53,7 @@ type RealtimeGatewayAppOptions = {
   applySchema?: boolean;
   defaultHumanPlayerId?: string;
   simulationSeedProfile?: SimulationSeedProfile;
+  allowNonAuthoritativeInitialState?: boolean;
   snapshotDir?: string;
   createCommandId?: () => string;
   now?: () => number;
@@ -147,7 +148,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const app = Fastify({ logger: options.logger ?? true });
   await app.register(websocket);
   const startupStartedAt = Date.now();
-  const allowSeedFallback = process.env.GATEWAY_ALLOW_SEED_FALLBACK !== "0";
+  const allowNonAuthoritativeInitialState =
+    options.allowNonAuthoritativeInitialState ??
+    process.env.GATEWAY_ALLOW_SEED_FALLBACK !== "0";
   const simulationSeedProfile = options.simulationSeedProfile ?? "default";
   let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
   if (options.snapshotDir) {
@@ -670,6 +673,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             recordGatewayEvent("info", "gateway_auth", { channel });
             if (!simulationHealth.connected) {
               await ensureSimulationReadyForAuth();
+              if (!simulationHealth.connected) {
+                sendJson(socket, {
+                  type: "ERROR",
+                  code: "SERVER_STARTING",
+                  message: "Realtime simulation is temporarily unavailable. Retry shortly."
+                });
+                return;
+              }
             }
             const resolvedPlayerIdentity = resolveGatewayAuthIdentity(message.token, {
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
@@ -756,7 +767,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authoritativeSnapshot: subscribedInitialState,
               cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
               simulationSeedProfile,
-              allowSeedFallback
+              allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
+              allowSeedFallback: allowNonAuthoritativeInitialState
             });
             if (session.channel === "control") {
               const initMessage = await buildInitMessage(

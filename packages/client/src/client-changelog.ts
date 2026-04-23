@@ -21,8 +21,17 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.04.23.2",
   title: "What's New",
-  summary: "Recent updates include durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, worker-bootstrap parity fixes for local source-mode runs, preview/staging release-flow hardening, parity-harness auth bypass support, persistent frontier-resolution progress overlays, delayed-resolution debug download surfacing, login-phase elapsed-time diagnostics, and frontier-expand cooldown parity fixes.",
+  summary: "Recent updates include staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.23.2",
+      title: "Staging auth now fails fast when simulation connectivity is unhealthy",
+      why: "Staging sign-in could appear stuck for long stretches when the gateway was up but still disconnected from simulation gRPC, even though retries were the only viable path.",
+      changes: [
+        "Gateway AUTH now returns SERVER_STARTING immediately after readiness checks if simulation is still disconnected, instead of piling onto a long subscribe wait.",
+        "Staging gateway wake/ping/subscribe timeout budgets are now tightened and routed over flycast so simulation connectivity failures surface quickly to clients."
+      ]
+    },
     {
       introducedIn: "2026.04.23.2",
       title: "Gateway auth now keeps each Firebase UID pinned to one player id across restart/retry churn",
@@ -31,6 +40,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Gateway now persists auth UID to player-id bindings and reuses that binding on every subsequent AUTH handshake.",
         "When resolver fallback disagrees with an existing UID binding, gateway now keeps the persisted player id and logs an explicit binding override event for debugging.",
         "Added rewrite-gateway integration coverage to ensure persisted UID bindings win even when fallback identity resolution would select a different player id."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.1",
+      title: "Rewrite startup now fails closed on durable-state drift risks",
+      why: "Managed rewrite runs could still drift between restarts when startup paths quietly fell back to non-authoritative bootstrap sources or mixed inconsistent runtime identity metadata.",
+      changes: [
+        "Managed simulation startup now requires explicit seed-profile identity and durable startup state; db-backed boot no longer silently reseeds when snapshots/events are missing.",
+        "Managed gateway auth bootstrap now disables cached/seed initial-state fallback by default and uses authoritative simulation subscription data only.",
+        "Gateway init now enforces runtime-identity and season-config consistency, and db-backed simulation recovery no longer overlays seed tiles on top of recovered snapshot state."
       ]
     },
     {
