@@ -10,12 +10,12 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
-import { buildPlannerWorldView } from "./planner-world-view.js";
+import type { PlannerWorldView } from "./planner-world-view.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
 type WorkerSystemCommandProducerOptions = {
-  runtime: Pick<SimulationRuntime, "queueDepths" | "exportState">;
+  runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView">;
   systemPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
@@ -66,13 +66,20 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     pendingRequests.clear();
   });
 
+  const stopListening = options.runtime.onEvent((event) => {
+    if (!pendingPlayers.has(event.playerId)) return;
+    if (event.eventType === "COMMAND_REJECTED" || event.eventType === "COMBAT_RESOLVED") {
+      pendingPlayers.delete(event.playerId);
+    }
+  });
+
   const requestPlan = (
     playerId: string,
     clientSeq: number,
     issuedAt: number
   ): Promise<CommandEnvelope | null> => {
     return new Promise((resolve) => {
-      const worldView = buildPlannerWorldView(options.runtime.exportState(), [playerId]);
+      const worldView: PlannerWorldView = options.runtime.exportPlannerWorldView([playerId]);
       pendingRequests.set(playerId, resolve);
       worker.postMessage({ type: "plan", playerId, clientSeq, issuedAt, sessionPrefix: "system-runtime", worldView });
     });
@@ -97,15 +104,15 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
         if (pendingPlayers.has(playerId)) continue;
         const clientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         const issuedAt = now();
-        pendingPlayers.add(playerId);
-        nextClientSeqByPlayer.set(playerId, clientSeq + 1);
         try {
           const command = await requestPlan(playerId, clientSeq, issuedAt);
-          if (command) await options.submitCommand(command);
+          if (!command) continue;
+          pendingPlayers.add(playerId);
+          nextClientSeqByPlayer.set(playerId, clientSeq + 1);
+          await options.submitCommand(command);
         } catch {
-          // swallow
-        } finally {
           pendingPlayers.delete(playerId);
+          // swallow
         }
         return;
       }
@@ -120,6 +127,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     tick,
     close(): void {
       clearInterval(intervalHandle);
+      stopListening();
       worker.postMessage({ type: "shutdown" });
       void worker.terminate();
     }

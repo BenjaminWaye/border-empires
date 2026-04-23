@@ -19,7 +19,7 @@ class MockWorker extends EventEmitter {
 
   postMessage(msg: WorkerMessage): void {
     this.posted.push(msg);
-    if (msg.type === "plan" && this.replyWithCommand !== null) {
+    if (msg.type === "plan") {
       // Simulate asynchronous worker response
       const reply = {
         type: "command",
@@ -44,28 +44,44 @@ const { createWorkerAiCommandProducer } = await import("./ai-command-producer-wo
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const makeRuntime = (humanInteractive = 0) => ({
-  queueDepths: () => ({
-    human_interactive: humanInteractive,
-    human_noninteractive: 0,
-    system: 0,
-    ai: 0
-  }),
-  exportState: () => ({
-    tiles: [],
-    players: [
-      {
-        id: "ai-1",
-        points: 500,
-        manpower: 10,
-        territoryTileKeys: [] as string[],
-        frontierTileKeys: [] as string[]
+const makeRuntime = (humanInteractive = 0) => {
+  const eventEmitter = new EventEmitter();
+  return {
+    runtime: {
+      queueDepths: () => ({
+        human_interactive: humanInteractive,
+        human_noninteractive: 0,
+        system: 0,
+        ai: 0
+      }),
+      exportPlannerWorldView: () => ({
+        tiles: [],
+        players: [
+          {
+            id: "ai-1",
+            points: 500,
+            manpower: 10,
+            hasActiveLock: false,
+            territoryTileKeys: [] as string[],
+            frontierTileKeys: [] as string[],
+            pendingSettlementTileKeys: [] as string[],
+            activeDevelopmentProcessCount: 0
+          }
+        ]
+      }),
+      onEvent: (listener: (event: { playerId: string; commandId: string; eventType: string }) => void) => {
+        eventEmitter.on("event", listener);
+        return () => eventEmitter.off("event", listener);
       }
-    ],
-    activeLocks: [],
-    pendingSettlements: []
-  })
-});
+    },
+    emitEvent: (event: { playerId: string; commandId: string; eventType: string }) => {
+      eventEmitter.emit("event", event);
+    },
+    setHumanInteractive: (value: number) => {
+      humanInteractive = value;
+    }
+  };
+};
 
 const makeCommand = (playerId: string): CommandEnvelope => ({
   commandId: `ai-runtime-${playerId}-1-1000`,
@@ -85,7 +101,7 @@ describe("worker AI command producer pause/resume", () => {
     const submitCommand = vi.fn(async () => undefined);
 
     const producer = createWorkerAiCommandProducer({
-      runtime,
+      runtime: runtime.runtime,
       aiPlayerIds: ["ai-1"],
       submitCommand,
       tickIntervalMs: 10_000,
@@ -98,20 +114,16 @@ describe("worker AI command producer pause/resume", () => {
     // submitCommand must not have been called
     expect(submitCommand).not.toHaveBeenCalled();
 
-    // The worker must have received a "pause" message
-    const worker = producer as unknown as { worker?: MockWorker };
-    // Access the underlying mock worker via the module's Worker constructor
-    // (MockWorker constructor is captured as the last instantiated instance)
-    // We verify via the submitCommand mock instead — pause means no submit.
+    // Pause behavior is asserted via no submitted command.
     producer.close();
   });
 
   it("submits a command when no human backlog exists", async () => {
-    const command = makeCommand("ai-1");
+    const runtime = makeRuntime(0);
     const submitted: CommandEnvelope[] = [];
 
     const producer = createWorkerAiCommandProducer({
-      runtime: makeRuntime(0),
+      runtime: runtime.runtime,
       aiPlayerIds: ["ai-1"],
       submitCommand: async (cmd) => { submitted.push(cmd); },
       tickIntervalMs: 10_000,
@@ -142,24 +154,10 @@ describe("worker AI command producer pause/resume", () => {
       origPostMessage.call(this, msg);
     };
 
-    let humanInteractive = 1;
-    const runtime = {
-      queueDepths: () => ({
-        human_interactive: humanInteractive,
-        human_noninteractive: 0,
-        system: 0,
-        ai: 0
-      }),
-      exportState: () => ({
-        tiles: [],
-        players: [{ id: "ai-1", points: 500, manpower: 10, territoryTileKeys: [] as string[], frontierTileKeys: [] as string[] }],
-        activeLocks: [],
-        pendingSettlements: []
-      })
-    };
+    const runtime = makeRuntime(1);
 
     const producer = createWorkerAiCommandProducer({
-      runtime,
+      runtime: runtime.runtime,
       aiPlayerIds: ["ai-1"],
       submitCommand: async () => undefined,
       tickIntervalMs: 10_000,
@@ -167,7 +165,7 @@ describe("worker AI command producer pause/resume", () => {
     });
 
     await producer.tick(); // backlog present → pause
-    humanInteractive = 0;
+    runtime.setHumanInteractive(0);
     await producer.tick(); // backlog drained → resume
     producer.close();
 
@@ -183,7 +181,7 @@ describe("worker AI command producer pause/resume", () => {
     const submitCommand = vi.fn(async () => undefined);
 
     const producer = createWorkerAiCommandProducer({
-      runtime: makeRuntime(0),
+      runtime: makeRuntime(0).runtime,
       aiPlayerIds: ["ai-1"],
       submitCommand,
       shouldRun: () => false,
@@ -195,5 +193,54 @@ describe("worker AI command producer pause/resume", () => {
     producer.close();
 
     expect(submitCommand).not.toHaveBeenCalled();
+  });
+
+  it("waits for command resolution before issuing another command for the same AI", async () => {
+    const command = makeCommand("ai-1");
+    const runtime = makeRuntime(0);
+    const submitted: CommandEnvelope[] = [];
+
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (nextCommand) => {
+        submitted.push(nextCommand);
+      },
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(submitted).toHaveLength(1);
+
+    runtime.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      playerId: "ai-1",
+      commandId: command.commandId
+    });
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(submitted).toHaveLength(2);
+
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
   });
 });
