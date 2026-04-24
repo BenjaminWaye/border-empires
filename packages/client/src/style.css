@@ -9,11 +9,38 @@ body {
   overscroll-behavior: none;
 }
 
-#game {
-  display: block;
+#game-surface {
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
   touch-action: none;
+}
+
+#game-3d {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+#game[data-renderer="3d"] {
+  background: transparent;
 }
 
 #hud {

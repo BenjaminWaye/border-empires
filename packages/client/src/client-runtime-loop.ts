@@ -1,6 +1,8 @@
-import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS } from "./client-constants.js";
+import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile } from "./client-constants.js";
 import { exposedSidesForTile } from "./client-defensibility-html.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
+import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { resourceFor3DPopulation, townTierFor3DPopulation } from "./client-map-3d-population.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
@@ -15,7 +17,7 @@ import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail.js";
 import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery.js";
-import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, terrainAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
@@ -151,8 +153,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     lastDrawAt = nowMs;
 
-    deps.ctx.fillStyle = "#0b1320";
-    deps.ctx.fillRect(0, 0, deps.canvas.width, deps.canvas.height);
+    if (isTrue3DRendererActive()) deps.ctx.clearRect(0, 0, deps.canvas.width, deps.canvas.height);
+    else {
+      deps.ctx.fillStyle = "#0b1320";
+      deps.ctx.fillRect(0, 0, deps.canvas.width, deps.canvas.height);
+    }
 
     const size = state.zoom;
     const halfW = Math.floor(deps.canvas.width / size / 2);
@@ -206,6 +211,53 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       roadNetworkBuiltAt = nowMs;
     }
     const overlayTiles: VisibleRenderTile[] = [];
+    const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => {
+      if (tile) return undefined;
+      if (!isTrue3DRendererActive() || !revealWholeMapInTrue3DMode) return undefined;
+      const terrain = terrainAt(wx, wy);
+      if (terrain !== "LAND") return undefined;
+      const biome = landBiomeAt(wx, wy);
+      const forestTile = isForestTile(wx, wy);
+      const resource = resourceFor3DPopulation(wx, wy, terrain, undefined, true, biome, forestTile);
+      const populationTier = townTierFor3DPopulation(wx, wy, terrain, undefined, true);
+      if (!resource && !populationTier) return undefined;
+      return {
+        x: wx,
+        y: wy,
+        terrain,
+        ...(resource ? { resource } : {}),
+        ...(populationTier
+          ? {
+              town: {
+                type: ((wx + wy) & 1) === 0 ? "MARKET" : "FARMING",
+                baseGoldPerMinute: 0,
+                supportCurrent: 0,
+                supportMax: 0,
+                goldPerMinute: 0,
+                cap: 0,
+                isFed: true,
+                population:
+                  populationTier === "SETTLEMENT" ? 8_000
+                  : populationTier === "TOWN" ? 45_000
+                  : populationTier === "CITY" ? 220_000
+                  : populationTier === "GREAT_CITY" ? 1_200_000
+                  : 5_200_000,
+                maxPopulation: 10_000_000,
+                populationGrowthPerMinute: 0,
+                populationTier,
+                connectedTownCount: 0,
+                connectedTownBonus: 0,
+                hasMarket: false,
+                marketActive: false,
+                hasGranary: false,
+                granaryActive: false,
+                hasBank: false,
+                bankActive: false
+              }
+            }
+          : {})
+      };
+    };
     const drawAetherWallEdge = (
       baseX: number,
       baseY: number,
@@ -259,15 +311,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
 
-      if (t && vis === "visible" && t.resource && t.terrain === "LAND") {
-        const builtOverlay = deps.builtResourceOverlayForTile(t);
-        const overlay = builtOverlay ?? deps.resourceOverlayForTile(t);
+      const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
+      const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
+
+      if (overlayTile && overlayVisible && overlayTile.resource && overlayTile.terrain === "LAND") {
+        const builtOverlay = deps.builtResourceOverlayForTile(overlayTile);
+        const overlay = builtOverlay ?? deps.resourceOverlayForTile(overlayTile);
         if (overlay?.complete && overlay.naturalWidth) {
-          const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(t) : 1;
-          deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(t), alpha);
-          deps.drawResourceCornerMarker(t, px, py, size);
+          const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
+          deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
+          deps.drawResourceCornerMarker(overlayTile, px, py, size);
         } else {
-          const rc = deps.resourceColor(t.resource);
+          const rc = deps.resourceColor(overlayTile.resource);
           if (!rc) return;
           const marker = Math.max(3, Math.floor(size * 0.22));
           const mx = px + Math.floor((size - marker) / 2);
@@ -276,7 +331,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
           deps.ctx.fillStyle = rc;
           deps.ctx.fillRect(mx, my, marker, marker);
-          deps.drawResourceCornerMarker(t, px, py, size);
+          deps.drawResourceCornerMarker(overlayTile, px, py, size);
         }
       }
 
@@ -322,7 +377,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
 
-      if (t && vis === "visible" && t.town && t.terrain === "LAND") deps.drawTownOverlay(t, px, py, size);
+      if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
@@ -585,7 +640,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
 
-      if (state.selected && state.selected.x === wx && state.selected.y === wy) {
+      if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
         if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
           deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
           deps.ctx.fillRect(px, py, size, size);
@@ -613,7 +668,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
       }
-      if (state.hover && state.hover.x === wx && state.hover.y === wy) {
+      if (!isTrue3DRendererActive() && state.hover && state.hover.x === wx && state.hover.y === wy) {
         deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
         deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
       }
@@ -729,7 +784,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillStyle = "#06090f";
           deps.ctx.fillRect(px, py, size - 1, size - 1);
         } else if (!t) {
-          if (state.firstChunkAt === 0 || state.fogDisabled) {
+          if (state.firstChunkAt === 0 || state.fogDisabled || revealWholeMapInTrue3DMode) {
             deps.drawTerrainTile(wx, wy, terrainAt(wx, wy), px, py, size);
           } else {
             deps.ctx.fillStyle = "#06090f";
@@ -784,20 +839,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
+        const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
+        const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
+
         if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
           const roadDirections = roadNetwork.get(wk);
           if (roadDirections) deps.drawRoadOverlay(roadDirections, px, py, size);
         }
 
-        if (t && vis === "visible" && t.resource && t.terrain === "LAND") {
-          const builtOverlay = deps.builtResourceOverlayForTile(t);
-          const overlay = builtOverlay ?? deps.resourceOverlayForTile(t);
+        if (overlayTile && overlayVisible && overlayTile.resource && overlayTile.terrain === "LAND") {
+          const builtOverlay = deps.builtResourceOverlayForTile(overlayTile);
+          const overlay = builtOverlay ?? deps.resourceOverlayForTile(overlayTile);
           if (overlay?.complete && overlay.naturalWidth) {
-            const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(t) : 1;
-            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(t), alpha);
-            deps.drawResourceCornerMarker(t, px, py, size);
+            const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
+            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
+            deps.drawResourceCornerMarker(overlayTile, px, py, size);
           } else {
-            const rc = deps.resourceColor(t.resource);
+            const rc = deps.resourceColor(overlayTile.resource);
             if (!rc) continue;
             const marker = Math.max(3, Math.floor(size * 0.22));
             const mx = px + Math.floor((size - marker) / 2);
@@ -806,7 +864,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
             deps.ctx.fillStyle = rc;
             deps.ctx.fillRect(mx, my, marker, marker);
-            deps.drawResourceCornerMarker(t, px, py, size);
+            deps.drawResourceCornerMarker(overlayTile, px, py, size);
           }
         }
 
@@ -852,7 +910,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
-        if (t && vis === "visible" && t.town && t.terrain === "LAND") deps.drawTownOverlay(t, px, py, size);
+        if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
           const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
@@ -1056,7 +1114,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
 
-        if (state.selected && state.selected.x === wx && state.selected.y === wy) {
+        if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
           if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
             deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
             deps.ctx.fillRect(px, py, size, size);
@@ -1084,7 +1142,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             }
           }
         }
-        if (state.hover && state.hover.x === wx && state.hover.y === wy) {
+        if (!isTrue3DRendererActive() && state.hover && state.hover.x === wx && state.hover.y === wy) {
           deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
           deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
         }
