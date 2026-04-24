@@ -54,10 +54,14 @@ describe("gateway auth timeout", () => {
     while (openApps.length > 0) {
       await openApps.pop()?.close();
     }
-    process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS = envBackup.wakeAttempts;
-    process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS = envBackup.wakeTotalTimeout;
-    process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS = envBackup.wakeBaseDelay;
-    process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS = envBackup.wakeMaxDelay;
+    if (typeof envBackup.wakeAttempts === "string") process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS = envBackup.wakeAttempts;
+    else delete process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS;
+    if (typeof envBackup.wakeTotalTimeout === "string") process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS = envBackup.wakeTotalTimeout;
+    else delete process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS;
+    if (typeof envBackup.wakeBaseDelay === "string") process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS = envBackup.wakeBaseDelay;
+    else delete process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS;
+    if (typeof envBackup.wakeMaxDelay === "string") process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS = envBackup.wakeMaxDelay;
+    else delete process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS;
   });
 
   it("fails AUTH quickly when simulation subscribe hangs", async () => {
