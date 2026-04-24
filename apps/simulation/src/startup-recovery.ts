@@ -1,7 +1,18 @@
 import type { SimulationCommandStore } from "./command-store.js";
-import { applyEventsToRecoveredCommandHistory, recoverCommandHistory, type RecoveredCommandHistory } from "./command-recovery.js";
+import {
+  applyEventsToRecoveredCommandHistoryAccumulator,
+  createRecoveredCommandHistoryAccumulator,
+  finalizeRecoveredCommandHistoryAccumulator,
+  recoverCommandHistory,
+  type RecoveredCommandHistory
+} from "./command-recovery.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
-import { applySimulationEventsToRecoveredState, recoverSimulationStateFromEvents } from "./event-recovery.js";
+import {
+  applySimulationEventsToRecoveredAccumulator,
+  createRecoveredSimulationAccumulator,
+  finalizeRecoveredSimulationAccumulator,
+  recoverSimulationStateFromEvents
+} from "./event-recovery.js";
 import type { SimulationEventStore, StoredSimulationEvent } from "./event-store.js";
 import type { SimulationSeedProfile } from "./seed-state.js";
 import type { SimulationSnapshotStore } from "./snapshot-store.js";
@@ -61,12 +72,12 @@ export const loadSimulationStartupRecovery = async ({
   const usableSnapshot =
     latestSnapshot && hasUsableSnapshotState(latestSnapshot.snapshotPayload.initialState.tiles) ? latestSnapshot : undefined;
   const hasBootstrapState = Boolean(bootstrapState && hasUsableSnapshotState(bootstrapState.tiles));
-  let initialState = usableSnapshot
+  const initialState = usableSnapshot
     ? usableSnapshot.snapshotPayload.initialState
     : hasBootstrapState
       ? bootstrapState!
       : recoverSimulationStateFromEvents([], seedProfile ?? "default");
-  let initialCommandHistory = usableSnapshot
+  const initialCommandHistory = usableSnapshot
     ? {
         commands: [...recoverableCommands].sort((left, right) => left.queuedAt - right.queuedAt),
         eventsByCommandId: new Map(
@@ -74,13 +85,15 @@ export const loadSimulationStartupRecovery = async ({
         )
       }
     : recoverCommandHistory(recoverableCommands, []);
+  const recoveredStateAccumulator = createRecoveredSimulationAccumulator(initialState);
+  const recoveredCommandHistoryAccumulator = createRecoveredCommandHistoryAccumulator(initialCommandHistory);
   const recoveredEventCount = await replayEventBatches({
     eventStore,
     afterEventId: usableSnapshot?.lastAppliedEventId ?? 0,
     onBatch: (events) => {
       const eventPayloads = events.map((event) => event.eventPayload);
-      initialState = applySimulationEventsToRecoveredState(initialState, eventPayloads);
-      initialCommandHistory = applyEventsToRecoveredCommandHistory(initialCommandHistory, eventPayloads);
+      applySimulationEventsToRecoveredAccumulator(recoveredStateAccumulator, eventPayloads);
+      applyEventsToRecoveredCommandHistoryAccumulator(recoveredCommandHistoryAccumulator, eventPayloads);
     }
   });
   if (requireDurableState && !usableSnapshot && recoveredEventCount === 0 && !hasBootstrapState) {
@@ -88,8 +101,8 @@ export const loadSimulationStartupRecovery = async ({
   }
 
   return {
-    initialState,
-    initialCommandHistory,
+    initialState: finalizeRecoveredSimulationAccumulator(recoveredStateAccumulator),
+    initialCommandHistory: finalizeRecoveredCommandHistoryAccumulator(recoveredCommandHistoryAccumulator),
     recoveredCommandCount: recoverableCommands.length,
     recoveredEventCount
   };

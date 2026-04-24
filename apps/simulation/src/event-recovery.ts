@@ -57,73 +57,60 @@ export type RecoveredSimulationState = {
   collectVisibleCooldownByPlayer?: Array<{ playerId: string; cooldownUntil: number }>;
 };
 
-export const recoverSimulationStateFromEvents = (
-  events: SimulationEvent[],
-  seedProfile: SimulationSeedProfile = "default"
-): RecoveredSimulationState =>
-  applySimulationEventsToRecoveredState(
-    {
-      tiles: [...createSeedWorld(seedProfile).tiles.values()]
-        .map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          terrain: tile.terrain,
-          ...(tile.resource ? { resource: tile.resource } : {}),
-          ...(tile.dockId ? { dockId: tile.dockId } : {}),
-          ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-          ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-          ...(tile.town ? { town: tile.town } : {}),
-          ...(tile.fort ? { fort: tile.fort } : {}),
-          ...(tile.observatory ? { observatory: tile.observatory } : {}),
-          ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
-          ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-          ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
-        }))
-        .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
-      activeLocks: [],
-      players: [],
-      pendingSettlements: [],
-      tileYieldCollectedAtByTile: [],
-      collectVisibleCooldownByPlayer: []
-    },
-    events
-  );
+type RecoveredSimulationAccumulator = {
+  tiles: Map<string, RecoveredTileState>;
+  activeLocks: Map<string, RecoveredLock>;
+  players: NonNullable<RecoveredSimulationState["players"]>;
+  pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
+  tileYieldCollectedAtByTile: NonNullable<RecoveredSimulationState["tileYieldCollectedAtByTile"]>;
+  collectVisibleCooldownByPlayer: NonNullable<RecoveredSimulationState["collectVisibleCooldownByPlayer"]>;
+};
 
-export const applySimulationEventsToRecoveredState = (
-  baseState: RecoveredSimulationState,
-  events: SimulationEvent[]
-): RecoveredSimulationState => {
-  const tiles = new Map(
-    baseState.tiles.map((tile) => [
-      simulationTileKey(tile.x, tile.y),
-      {
-        x: tile.x,
-        y: tile.y,
-        terrain: tile.terrain,
-        ...(tile.resource ? { resource: tile.resource } : {}),
-        ...(tile.dockId ? { dockId: tile.dockId } : {}),
-        ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-        ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-        ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-        ...(tile.town ? { town: tile.town } : {}),
-        ...(tile.fort ? { fort: tile.fort } : {}),
-        ...(tile.observatory ? { observatory: tile.observatory } : {}),
-        ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
-        ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-        ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
-      }
-    ])
-  );
+const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
+  x: tile.x,
+  y: tile.y,
+  terrain: tile.terrain,
+  ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.dockId ? { dockId: tile.dockId } : {}),
+  ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+  ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+  ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+  ...(tile.town ? { town: tile.town } : {}),
+  ...(tile.fort ? { fort: tile.fort } : {}),
+  ...(tile.observatory ? { observatory: tile.observatory } : {}),
+  ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
+  ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
+  ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
+});
+
+export const createRecoveredSimulationAccumulator = (
+  baseState: RecoveredSimulationState
+): RecoveredSimulationAccumulator => {
+  const tiles = new Map<string, RecoveredTileState>();
+  for (const tile of baseState.tiles) {
+    tiles.set(simulationTileKey(tile.x, tile.y), cloneRecoveredTile(tile));
+  }
   const activeLocks = new Map<string, RecoveredLock>();
-
   for (const lock of baseState.activeLocks) {
     activeLocks.set(lock.commandId, { ...lock });
   }
+  return {
+    tiles,
+    activeLocks,
+    players: baseState.players ? [...baseState.players] : [],
+    pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
+    tileYieldCollectedAtByTile: baseState.tileYieldCollectedAtByTile ? [...baseState.tileYieldCollectedAtByTile] : [],
+    collectVisibleCooldownByPlayer: baseState.collectVisibleCooldownByPlayer ? [...baseState.collectVisibleCooldownByPlayer] : []
+  };
+};
 
+export const applySimulationEventsToRecoveredAccumulator = (
+  accumulator: RecoveredSimulationAccumulator,
+  events: SimulationEvent[]
+): void => {
   for (const event of events) {
     if (event.eventType === "COMMAND_ACCEPTED") {
-      activeLocks.set(event.commandId, {
+      accumulator.activeLocks.set(event.commandId, {
         commandId: event.commandId,
         playerId: event.playerId,
         actionType: event.actionType,
@@ -139,10 +126,11 @@ export const applySimulationEventsToRecoveredState = (
     }
 
     if (event.eventType === "COMBAT_RESOLVED") {
-      const existingLock = activeLocks.get(event.commandId);
-      if (existingLock) activeLocks.delete(event.commandId);
+      if (accumulator.activeLocks.has(event.commandId)) {
+        accumulator.activeLocks.delete(event.commandId);
+      }
       if (event.attackerWon) {
-        tiles.set(simulationTileKey(event.targetX, event.targetY), {
+        accumulator.tiles.set(simulationTileKey(event.targetX, event.targetY), {
           x: event.targetX,
           y: event.targetY,
           terrain: "LAND",
@@ -152,30 +140,44 @@ export const applySimulationEventsToRecoveredState = (
       }
     }
   }
+};
 
-  return {
-    tiles: [...tiles.values()]
-      .map((tile) => ({
-        x: tile.x,
-        y: tile.y,
-        terrain: tile.terrain,
-        ...(tile.resource ? { resource: tile.resource } : {}),
-        ...(tile.dockId ? { dockId: tile.dockId } : {}),
-        ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-        ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-        ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-        ...(tile.town ? { town: tile.town } : {}),
-        ...(tile.fort ? { fort: tile.fort } : {}),
-        ...(tile.observatory ? { observatory: tile.observatory } : {}),
-        ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
-        ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-        ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
-      }))
-      .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
-    activeLocks: [...activeLocks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId)),
-    players: baseState.players ? [...baseState.players] : [],
-    pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
-    tileYieldCollectedAtByTile: baseState.tileYieldCollectedAtByTile ? [...baseState.tileYieldCollectedAtByTile] : [],
-    collectVisibleCooldownByPlayer: baseState.collectVisibleCooldownByPlayer ? [...baseState.collectVisibleCooldownByPlayer] : []
-  };
+export const finalizeRecoveredSimulationAccumulator = (
+  accumulator: RecoveredSimulationAccumulator
+): RecoveredSimulationState => ({
+  tiles: [...accumulator.tiles.values()]
+    .map((tile) => cloneRecoveredTile(tile))
+    .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+  activeLocks: [...accumulator.activeLocks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId)),
+  players: [...accumulator.players],
+  pendingSettlements: [...accumulator.pendingSettlements],
+  tileYieldCollectedAtByTile: [...accumulator.tileYieldCollectedAtByTile],
+  collectVisibleCooldownByPlayer: [...accumulator.collectVisibleCooldownByPlayer]
+});
+
+export const recoverSimulationStateFromEvents = (
+  events: SimulationEvent[],
+  seedProfile: SimulationSeedProfile = "default"
+): RecoveredSimulationState =>
+  applySimulationEventsToRecoveredState(
+    {
+      tiles: [...createSeedWorld(seedProfile).tiles.values()]
+        .map((tile) => cloneRecoveredTile(tile))
+        .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+      activeLocks: [],
+      players: [],
+      pendingSettlements: [],
+      tileYieldCollectedAtByTile: [],
+      collectVisibleCooldownByPlayer: []
+    },
+    events
+  );
+
+export const applySimulationEventsToRecoveredState = (
+  baseState: RecoveredSimulationState,
+  events: SimulationEvent[]
+): RecoveredSimulationState => {
+  const accumulator = createRecoveredSimulationAccumulator(baseState);
+  applySimulationEventsToRecoveredAccumulator(accumulator, events);
+  return finalizeRecoveredSimulationAccumulator(accumulator);
 };

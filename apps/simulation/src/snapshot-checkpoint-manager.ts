@@ -26,6 +26,7 @@ type SnapshotCheckpointManagerOptions = {
   getMemoryUsage?: () => SnapshotCheckpointMemoryUsage;
   maxCheckpointRssBytes?: number;
   maxCheckpointHeapUsedBytes?: number;
+  forceCheckpointAfterEvents?: number;
   checkpointFailureBackoffEvents?: number;
   onCheckpointPhase?: (sample: {
     phase: SnapshotCheckpointPhase;
@@ -51,6 +52,10 @@ export const createSnapshotCheckpointManager = (
   options: SnapshotCheckpointManagerOptions
 ): SnapshotCheckpointManager => {
   const checkpointEveryEvents = Math.max(1, options.checkpointEveryEvents ?? 5000);
+  const forceCheckpointAfterEvents = Math.max(
+    checkpointEveryEvents,
+    options.forceCheckpointAfterEvents ?? Number.POSITIVE_INFINITY
+  );
   const checkpointFailureBackoffEvents = Math.max(1, options.checkpointFailureBackoffEvents ?? checkpointEveryEvents);
   const now = options.now ?? (() => Date.now());
   const getMemoryUsage =
@@ -101,8 +106,11 @@ export const createSnapshotCheckpointManager = (
     ignoreMemoryGuard?: boolean;
   } = {}): Promise<SnapshotCheckpointResult> => {
     if (snapshotInFlight) return "skipped_in_flight";
-    if (!force && pendingEvents < nextCheckpointPendingEvents) return "skipped_threshold";
-    if (!ignoreMemoryGuard && isCheckpointMemoryHot()) {
+    const forcedByPendingTail = pendingEvents >= forceCheckpointAfterEvents;
+    if (!force && !forcedByPendingTail && pendingEvents < nextCheckpointPendingEvents) {
+      return "skipped_threshold";
+    }
+    if (!ignoreMemoryGuard && !forcedByPendingTail && isCheckpointMemoryHot()) {
       emitPhase("skipped_high_memory");
       if (!force) nextCheckpointPendingEvents = pendingEvents + checkpointEveryEvents;
       return "skipped_high_memory";

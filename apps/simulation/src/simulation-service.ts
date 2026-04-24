@@ -118,6 +118,7 @@ type SimulationServiceOptions = {
   databaseUrl?: string;
   applySchema?: boolean;
   checkpointEveryEvents?: number;
+  checkpointForceAfterEvents?: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
   startupReplayCompactionMinEvents?: number;
@@ -420,6 +421,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       return { players: s.players, activeLocks: s.activeLocks };
     },
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
+    ...(typeof options.checkpointForceAfterEvents === "number"
+      ? { forceCheckpointAfterEvents: options.checkpointForceAfterEvents }
+      : {}),
     ...(typeof options.checkpointMaxRssBytes === "number" ? { maxCheckpointRssBytes: options.checkpointMaxRssBytes } : {}),
     ...(typeof options.checkpointMaxHeapUsedBytes === "number"
       ? { maxCheckpointHeapUsedBytes: options.checkpointMaxHeapUsedBytes }
@@ -443,7 +447,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   });
   if (startupRecovery.recoveredEventCount >= startupReplayCompactionMinEvents) {
     try {
-      const checkpointResult = await snapshotCheckpointManager.checkpointNow();
+      const checkpointResult = await snapshotCheckpointManager.checkpointNow({ ignoreMemoryGuard: true });
       log.info(
         {
           recoveredEventCount: startupRecovery.recoveredEventCount,
