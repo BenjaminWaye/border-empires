@@ -19,10 +19,78 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.20.2",
+  version: "2026.04.24.13",
   title: "What's New",
-  summary: "Recent updates include a rewrite observability pass with live backend accept-latency p95 in the debug badge, attack-preview fallback math now sourced from the same shared combat module the server uses to resolve fights, rewrite recovery that restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding from seed defaults on restart, stricter simulation durability handling so the server stops instead of drifting when Postgres persistence fails, live tile yield that now survives gateway sync so collect and production views stay coherent, and building actions that now keep the correct queueability and blocker messaging when development slots are full.",
+  summary: "Recent updates include a true WebGL `?renderer=3d` terrain mode using real 3D meshes with an orthographic 3D camera and raycast tile picking, plus full-map terrain reveal in 3D mode for easier landscape review, biome-aware 3D terrain materials for coasts, sand, forest canopy overlays, and deterministic reveal-mode population clustering so synthetic towns/resources appear in coherent map-scale patches. A rewrite observability pass adds live backend accept-latency p95 in the debug badge, attack-preview fallback math now comes from the same shared combat module the server uses to resolve fights, rewrite recovery restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding from seed defaults on restart, stricter simulation durability handling stops the server instead of drifting when Postgres persistence fails, live tile yield now survives gateway sync so collect and production views stay coherent, and building actions keep correct queueability and blocker messaging when development slots are full.",
   entries: [
+    {
+      introducedIn: "2026.04.24.13",
+      title: "3D renderer now uses real WebGL mesh terrain",
+      why: "The previous `?renderer=3d` pass still rendered on the 2D canvas with perspective-style shading, so the landscape could look elevated but was not true 3D geometry with a camera and spatial picking.",
+      changes: [
+        "Client now mounts a Three.js WebGL terrain underlay in `?renderer=3d` mode with orthographic 3D camera framing, real mesh-based terrain blocks, and mountain peak meshes.",
+        "Tile picking in 3D mode now uses raycasting to map pointer hits back to world grid coordinates, so click/selection flow stays aligned with existing square-grid gameplay logic.",
+        "The existing 2D game/UI layer remains in place for HUD and overlays, while terrain rendering is delegated to the WebGL scene in true 3D mode.",
+        "When WebGL terrain initialization fails, the client now automatically falls back to normal 2D terrain rendering instead of leaving a transparent terrain layer.",
+        "In `?renderer=3d` mode the client now reveals and renders full-map terrain by default so the 3D landscape can be evaluated without fog-of-war clipping; add `&reveal=0` to disable.",
+        "3D terrain rendering now mirrors core biome cues from the 2D map by distinguishing deep sea from coastal water, applying sand materials to `SAND` and `COASTAL_SAND` land biomes, and drawing low-poly forest canopy/trunk overlays on forest grass tiles.",
+        "Forest art now uses taller clustered conifers with dedicated trunk material and flatter faceted shading.",
+        "Mountain tiles now use a dark-grey mountain skin with white snow-cap tips, and mountain base terrain now switches between grass-base and sand-base variants so mountain clusters blend better into nearby biome context.",
+        "Snow-cap rendering now uses a raised solid white tip cone with polygon-offset rendering so the white peak remains clearly visible above the dark mountain body.",
+        "Snow-cap material now uses lit flat-shaded rendering so the white tip shows directional shading/facets instead of a single flat unlit color.",
+        "Mountain peaks now use square-based pyramid geometry aligned to the tile footprint so each mountain fills its square tile instead of leaving circular cone margins.",
+        "Mountain peak width now intentionally exceeds a single tile so upper cone slopes can overflow into neighboring tiles for a chunkier range silhouette.",
+        "Per-tile peak rotation variation has been removed so mountains keep a consistent fixed orientation.",
+        "Raised mountain base framing has been removed; mountain peaks now sit directly on ground terrain to avoid a dark border around each mountain tile.",
+        "Mountain peak width has been reduced again so mountain geometry stays within tile bounds and no longer overflows into adjacent tiles.",
+        "Mountain peak height variation has been removed so mountain size is visually consistent, and peak footprint sizing has been tuned to reduce visible green seams between adjacent mountain tiles without adding a dedicated mountain underlay layer.",
+        "Grass and sand terrain now render with deterministic multi-shade tile variants in 3D mode so large biomes read with more texture and less flat single-color blob appearance.",
+        "Forest tiles now use a denser 5-tree layout with larger canopy coverage per tile and taller visible brown trunks under each canopy.",
+        "Forest trunk visibility has been increased by raising canopy anchors, extending trunk height, and brightening trunk material so brown trunks read clearly at gameplay camera angle.",
+        "Forest trunks have been extended further with additional canopy lift so a longer brown trunk segment remains visible below each tree crown.",
+        "Forest trunks are now thicker/brighter and shifted slightly toward camera while canopy radius is reduced, making brown trunks explicit even in dense 5-tree tiles.",
+        "Forest trunk styling is now rebalanced to a subtler look with reduced trunk thickness/height and slightly lower canopy anchors so only a small brown segment is visible beneath each canopy.",
+        "Forest trunk placement now uses a stronger forward camera-facing offset with moderate trunk size to keep a small but reliably visible brown section under each canopy.",
+        "Forest trunks are now tuned to stay below canopy tops by reducing forward bias and lowering/slimming trunk placement so brown remains visible underneath without piercing green canopy faces.",
+        "Town tiles in `?renderer=3d` now render as mesh-based low-poly town clusters (main hall, side buildings, and tier-scaled keep for higher tiers) instead of relying on flat 2D town sprites.",
+        "When `?renderer=3d` is active, the 2D town overlay sprite draw pass is skipped so the 3D town mesh remains the only town visual and stays locked to world zoom/camera.",
+        "In reveal mode, true 3D terrain now adds deterministic synthetic town population and resource props for not-yet-streamed tiles so the full map reads populated instead of empty outside chunk-loaded areas.",
+        "Synthetic reveal-mode population preserves real gameplay data priority: whenever live tile data includes a town or resource, the renderer uses authoritative state instead of fallback decoration.",
+        "Town rendering in `?renderer=3d` now reuses the existing SVG town overlays again (settlement/town/city/great-city/metropolis) instead of drawing experimental 3D town meshes.",
+        "Resource rendering in `?renderer=3d` now also reuses existing SVG/resource overlays instead of synthetic 3D resource props, so town/resource styling matches the current 2D overlay art direction.",
+        "3D grass and sand tile tone selection now uses smooth value-noise blending instead of per-tile hash randomness, creating larger coherent color patches instead of checkerboard speckling.",
+        "Grass and sand 3D palettes now use value-only variation on a fixed hue per biome, removing warm/cool hue shifts for a cleaner and more coherent read.",
+        "Terrain cluster scale in 3D mode is now tuned down again so color patches are much smaller (around micro-cluster size) instead of large blotchy regions.",
+        "Reveal-mode synthetic towns/resources now use deterministic clustered placement (instead of sparse tile-hash scatter), so full-map previews read like real populated regions with coherent belts and settlement hubs.",
+        "Single-color grass/sand terrain presets have been rebalanced to more vivid base hexes with stronger light response, so flat biomes feel less lifeless while still keeping one fixed color per biome.",
+        "Grass and sand texture pass has been cleaned up to a smoother low-frequency pattern with lighter relief, removing speckled 'dirty' noise while preserving subtle material detail and one base hue per biome.",
+        "Sand tiles now use a brighter sunlit base tone with lower roughness so they read as more sun-hit and luminous.",
+        "The 3D terrain material now reuses the pre-3D terrain texture recipe (same base palettes and grain/wave math), so tile color/texture reads like the original 2D map while keeping 3D geometry.",
+        "Biome classes now remain visually distinct in 3D using legacy-style texture profiles for grass, sand, coastal water, and deep water.",
+        "3D terrain brightness has been lifted with stronger ambient/sun/sky lighting and neutral (untinted) terrain material color so legacy textures no longer render overly dark.",
+        "Rewrite (`backend=gateway`) sessions now default to the 3D terrain renderer when no explicit `renderer` query override is set, so rewrite uses the new map presentation by default."
+      ]
+    },
+    {
+      introducedIn: "2026.04.22.2",
+      title: "3D renderer mountain art now uses a stylized diorama pass",
+      why: "The first mountain upgrade added faceted volume, but the result still read as a geometric peak and did not match the carved, toy-diorama slope style expected for the 3D landscape direction.",
+      changes: [
+        "Mountain tiles in `?renderer=3d` now render with sculpted left and right slope masses, directional slope gradients, carved ridge strokes, and a stronger mountain-foot shadow.",
+        "Mountain terrain now includes chunk-like cliff walls and top-surface tinting so tiles read more like raised terrain blocks rather than lifted flat sprites.",
+        "The new look remains deterministic per tile and preserves all existing gameplay overlays and square-grid interactions."
+      ]
+    },
+    {
+      introducedIn: "2026.04.22.1",
+      title: "3D renderer mountains now render as faceted peaks",
+      why: "The experimental `?renderer=3d` mode originally raised terrain tiles but mountains still read like flat lifted plates, which broke the intended landscape depth and silhouette at gameplay zoom.",
+      changes: [
+        "Mountain tiles in `?renderer=3d` now render as shaded multi-face peaks with deterministic per-tile peak offsets, producing visible mountain volume instead of only elevation.",
+        "Mountain surfaces now include directional ridge shading and a snow-cap highlight so elevation and slope direction stay readable while panning the map.",
+        "This change keeps all existing tile ownership, action overlays, and square-grid gameplay interactions unchanged; only 3D terrain presentation is updated."
+      ]
+    },
     {
       introducedIn: "2026.04.20.2",
       title: "Rewrite debug badge now shows live accept-latency p95",
