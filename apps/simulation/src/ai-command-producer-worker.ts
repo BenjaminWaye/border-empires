@@ -32,6 +32,7 @@ type WorkerAiCommandProducerOptions = {
   workerScriptPath?: string;
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
+  onTick?: (sample: { durationMs: number }) => void;
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -127,6 +128,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     if (humanBacklogNonEmpty) return;
 
     tickInFlight = true;
+    const tickStartedAt = now();
     try {
       if (options.aiPlayerIds.length === 0) return;
 
@@ -162,11 +164,14 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         return; // one player per tick
       }
     } finally {
+      options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt) });
       tickInFlight = false;
     }
   };
 
-  const intervalHandle = setInterval(() => { void tick(); }, tickIntervalMs);
+  const intervalHandle = setInterval(() => {
+    void tick();
+  }, tickIntervalMs);
 
   return {
     tick,
