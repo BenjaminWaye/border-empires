@@ -35,7 +35,7 @@ export type PlannerPlayerView = {
 // ─── World view ───────────────────────────────────────────────────────────────
 
 export type PlannerWorldView = {
-  /** All tiles — used to rebuild the Map<tileKey, PlannerTileView> in the worker. */
+  /** Tile slice scoped around players currently being planned. */
   tiles: PlannerTileView[];
   /** One entry per player that needs planning in this tick. */
   players: PlannerPlayerView[];

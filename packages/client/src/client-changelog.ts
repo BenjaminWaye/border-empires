@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.5",
+  version: "2026.04.24.1",
   title: "What's New",
-  summary: "Recent updates include replay-cache/memory stability hardening for rewrite simulation command history, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include AI planner payload scoping to prevent multi-second rewrite simulation event-loop stalls under AI load, replay-cache/memory stability hardening for rewrite simulation command history, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.24.1",
+      title: "AI planner workers now receive local tile slices instead of full-world snapshots each tick",
+      why: "Worker AI/system planning still cloned and transferred full world tile arrays on the simulation main thread every tick, which could trigger multi-second event-loop stalls and delay frontier result delivery.",
+      changes: [
+        "Simulation runtime now builds planner tile payloads from a local radius around each planned player's owned territory instead of exporting all tiles.",
+        "Worker planning keeps frontier/settlement scoring inputs needed for nearby decisions while cutting main-thread snapshot cloning and postMessage payload size.",
+        "Added regression coverage for planner slice scoping and multi-player slice union so this path cannot regress back to full-world tick payloads."
+      ]
+    },
     {
       introducedIn: "2026.04.23.5",
       title: "Rewrite command replay history now stays bounded during long AI runs and restart recovery",
