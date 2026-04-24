@@ -186,6 +186,7 @@ describe("simulation service startup recovery", () => {
       eventStore,
       snapshotStore: snapshotStore as unknown as InMemorySimulationSnapshotStore,
       startupReplayCompactionMinEvents: 1,
+      checkpointMaxRssBytes: 1,
       log: {
         info: () => undefined,
         error: () => undefined

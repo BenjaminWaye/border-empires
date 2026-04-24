@@ -41,6 +41,7 @@ const playerTileCacheById = new Map<string, {
   tileCollectionVersion: number;
   ownedTiles: PlannerTileView[];
   frontierTiles: PlannerTileView[];
+  pendingSettlementTileKeys: Set<string>;
 }>();
 
 type SimulationTileDelta = {
@@ -104,10 +105,18 @@ const applyTileDelta = (delta: SimulationTileDelta): void => {
 
 const resolvePlayerTiles = (
   player: PlannerPlayerView
-): { ownedTiles: PlannerTileView[]; frontierTiles: PlannerTileView[] } => {
+): {
+  ownedTiles: PlannerTileView[];
+  frontierTiles: PlannerTileView[];
+  pendingSettlementTileKeys: Set<string>;
+} => {
   const cached = playerTileCacheById.get(player.id);
   if (cached && cached.tileCollectionVersion === player.tileCollectionVersion) {
-    return { ownedTiles: cached.ownedTiles, frontierTiles: cached.frontierTiles };
+    return {
+      ownedTiles: cached.ownedTiles,
+      frontierTiles: cached.frontierTiles,
+      pendingSettlementTileKeys: cached.pendingSettlementTileKeys
+    };
   }
 
   const ownedTiles = player.territoryTileKeys
@@ -116,13 +125,15 @@ const resolvePlayerTiles = (
   const frontierTiles = player.frontierTileKeys
     .map((k) => tilesByKey.get(k))
     .filter((t): t is PlannerTileView => t !== undefined);
+  const pendingSettlementTileKeys = new Set(player.pendingSettlementTileKeys);
 
   playerTileCacheById.set(player.id, {
     tileCollectionVersion: player.tileCollectionVersion,
     ownedTiles,
-    frontierTiles
+    frontierTiles,
+    pendingSettlementTileKeys
   });
-  return { ownedTiles, frontierTiles };
+  return { ownedTiles, frontierTiles, pendingSettlementTileKeys };
 };
 
 // ─── Planning logic ───────────────────────────────────────────────────────────
@@ -149,8 +160,7 @@ const choosePlannerCommand = (
     player.points >= SETTLE_COST;
 
   if (canSettle) {
-    const pendingSettlementTileKeys = new Set(player.pendingSettlementTileKeys);
-    const { frontierTiles } = resolvePlayerTiles(player);
+    const { frontierTiles, pendingSettlementTileKeys } = resolvePlayerTiles(player);
     const best = chooseBestStrategicSettlementTile(
       playerId,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
