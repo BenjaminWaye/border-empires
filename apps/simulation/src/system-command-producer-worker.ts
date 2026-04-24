@@ -10,18 +10,18 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
-import type { PlannerWorldView } from "./planner-world-view.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
 type WorkerSystemCommandProducerOptions = {
-  runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView">;
+  runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews">;
   systemPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
   startingClientSeqByPlayer?: Record<string, number>;
   now?: () => number;
   tickIntervalMs?: number;
+  playerSyncIntervalMs?: number;
   workerScriptPath?: string;
 };
 
@@ -36,7 +36,10 @@ const hasAnyBacklog = (queueDepths: QueueDepths): boolean =>
 export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
   const tickIntervalMs = Math.max(25, options.tickIntervalMs ?? 500);
+  const playerSyncIntervalMs = Math.max(tickIntervalMs, options.playerSyncIntervalMs ?? 5_000);
+  const playerSyncDebounceMs = 500;
   const shouldRun = options.shouldRun ?? (() => true);
+  const systemPlayerIdSet = new Set(options.systemPlayerIds);
 
   const nextClientSeqByPlayer = new Map<string, number>(
     options.systemPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
@@ -66,12 +69,63 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     pendingRequests.clear();
   });
 
+  worker.postMessage({
+    type: "init",
+    worldView: options.runtime.exportPlannerWorldView(options.systemPlayerIds)
+  });
+
+  const pendingPlayerSyncIds = new Set<string>();
+  let playerSyncTimeout: ReturnType<typeof setTimeout> | undefined;
+
+  const syncPlayers = (playerIds: string[]): void => {
+    if (playerIds.length === 0) return;
+    worker.postMessage({
+      type: "sync_players",
+      players: options.runtime.exportPlannerPlayerViews(playerIds)
+    });
+  };
+
+  const flushPendingPlayerSync = (): void => {
+    playerSyncTimeout = undefined;
+    if (pendingPlayerSyncIds.size === 0) return;
+    const playerIds = [...pendingPlayerSyncIds];
+    pendingPlayerSyncIds.clear();
+    syncPlayers(playerIds);
+  };
+
+  const queuePlayerSync = (playerIds: Iterable<string>): void => {
+    for (const playerId of playerIds) {
+      if (!systemPlayerIdSet.has(playerId)) continue;
+      pendingPlayerSyncIds.add(playerId);
+    }
+    if (pendingPlayerSyncIds.size === 0 || playerSyncTimeout) return;
+    playerSyncTimeout = setTimeout(flushPendingPlayerSync, playerSyncDebounceMs);
+  };
+
   const stopListening = options.runtime.onEvent((event) => {
+    if (event.eventType === "TILE_DELTA_BATCH") {
+      const tileDeltas = Array.isArray(event.tileDeltas) ? event.tileDeltas : [];
+      worker.postMessage({ type: "tile_deltas", tileDeltas });
+      const changedPlayers = new Set<string>();
+      if (systemPlayerIdSet.has(event.playerId)) changedPlayers.add(event.playerId);
+      for (const delta of tileDeltas) {
+        if (typeof delta.ownerId === "string" && systemPlayerIdSet.has(delta.ownerId)) {
+          changedPlayers.add(delta.ownerId);
+        }
+      }
+      queuePlayerSync(changedPlayers);
+    } else if (systemPlayerIdSet.has(event.playerId)) {
+      queuePlayerSync([event.playerId]);
+    }
     if (!pendingPlayers.has(event.playerId)) return;
     if (event.eventType === "COMMAND_REJECTED" || event.eventType === "COMBAT_RESOLVED") {
       pendingPlayers.delete(event.playerId);
     }
   });
+
+  const playerSyncInterval = setInterval(() => {
+    queuePlayerSync(options.systemPlayerIds);
+  }, playerSyncIntervalMs);
 
   const requestPlan = (
     playerId: string,
@@ -79,9 +133,8 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     issuedAt: number
   ): Promise<CommandEnvelope | null> => {
     return new Promise((resolve) => {
-      const worldView: PlannerWorldView = options.runtime.exportPlannerWorldView([playerId]);
       pendingRequests.set(playerId, resolve);
-      worker.postMessage({ type: "plan", playerId, clientSeq, issuedAt, sessionPrefix: "system-runtime", worldView });
+      worker.postMessage({ type: "plan", playerId, clientSeq, issuedAt, sessionPrefix: "system-runtime" });
     });
   };
 
@@ -127,6 +180,8 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     tick,
     close(): void {
       clearInterval(intervalHandle);
+      clearInterval(playerSyncInterval);
+      if (playerSyncTimeout) clearTimeout(playerSyncTimeout);
       stopListening();
       worker.postMessage({ type: "shutdown" });
       void worker.terminate();

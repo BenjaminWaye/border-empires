@@ -23,6 +23,8 @@ export type PlannerPlayerView = {
   id: string;
   points: number;
   manpower: number;
+  /** Bumped whenever territory/frontier/pending-settlement key sets change. */
+  tileCollectionVersion: number;
   /** Whether this player currently holds any combat lock (origin or target). */
   hasActiveLock: boolean;
   territoryTileKeys: string[];
