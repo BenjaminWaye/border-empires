@@ -66,7 +66,7 @@ describe("frontier queue regressions", () => {
     expect(state.tiles.get("12,18")?.ownershipState).toBeUndefined();
   });
 
-  it("does not stall the frontier queue when only an optimistic origin is available", () => {
+  it("waits for confirmed ownership when only an optimistic origin is available", () => {
     const state = createInitialState();
     state.authSessionReady = true;
     state.me = "me";
@@ -93,14 +93,44 @@ describe("frontier queue regressions", () => {
       renderHud: vi.fn()
     });
 
-    expect(started).toBe(true);
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(send.mock.calls[0]![0] as string)).toMatchObject({
-      type: "EXPAND",
-      fromX: 11,
-      fromY: 18,
-      toX: 12,
-      toY: 18
+    expect(started).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+    expect(state.actionQueue).toEqual([{ x: 12, y: 18, retries: 0 }]);
+    expect(state.queuedTargetKeys.has("12,18")).toBe(true);
+    expect(state.frontierSyncWaitUntilByTarget.get("12,18")).toBeGreaterThan(Date.now());
+  });
+
+  it("waits for confirmed ownership before launching attacks from a freshly optimistic frontier origin", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+    state.actionQueue = [{ x: 12, y: 18, mode: "normal", retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["12,18"]);
+
+    const optimisticOrigin = makeTile({ x: 11, y: 18, ownerId: "me", ownershipState: "FRONTIER", optimisticPending: "expand" });
+    const enemyTarget = makeTile({ x: 12, y: 18, ownerId: "enemy", ownershipState: "FRONTIER" });
+    state.tiles.set("11,18", optimisticOrigin);
+    state.tiles.set("12,18", enemyTarget);
+
+    const send = vi.fn();
+
+    const started = processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => true,
+      pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn()
     });
+
+    expect(started).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+    expect(state.actionQueue).toEqual([{ x: 12, y: 18, mode: "normal", retries: 0 }]);
+    expect(state.queuedTargetKeys.has("12,18")).toBe(true);
+    expect(state.frontierSyncWaitUntilByTarget.get("12,18")).toBeGreaterThan(Date.now());
   });
 });

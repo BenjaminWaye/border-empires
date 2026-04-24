@@ -22,7 +22,7 @@ class MockWorker extends EventEmitter {
 
   postMessage(msg: WorkerMessage): void {
     this.posted.push(msg);
-    if (msg.type === "plan" && this.replyWithCommand !== null) {
+    if (msg.type === "plan") {
       const reply = {
         type: "command",
         playerId: msg.playerId,
@@ -48,28 +48,36 @@ const makeRuntime = (depths: {
   human_noninteractive?: number;
   system?: number;
   ai?: number;
-} = {}) => ({
-  queueDepths: () => ({
-    human_interactive: depths.human_interactive ?? 0,
-    human_noninteractive: depths.human_noninteractive ?? 0,
-    system: depths.system ?? 0,
-    ai: depths.ai ?? 0
-  }),
-  exportState: () => ({
-    tiles: [],
-    players: [
-      {
-        id: "barbarian-1",
-        points: 500,
-        manpower: 100,
-        territoryTileKeys: [] as string[],
-        frontierTileKeys: [] as string[]
-      }
-    ],
-    activeLocks: [],
-    pendingSettlements: []
-  })
-});
+} = {}) => {
+  const eventEmitter = new EventEmitter();
+  return {
+    queueDepths: () => ({
+      human_interactive: depths.human_interactive ?? 0,
+      human_noninteractive: depths.human_noninteractive ?? 0,
+      system: depths.system ?? 0,
+      ai: depths.ai ?? 0
+    }),
+    exportPlannerWorldView: () => ({
+      tiles: [],
+      players: [
+        {
+          id: "barbarian-1",
+          points: 500,
+          manpower: 100,
+          hasActiveLock: false,
+          territoryTileKeys: [] as string[],
+          frontierTileKeys: [] as string[],
+          pendingSettlementTileKeys: [] as string[],
+          activeDevelopmentProcessCount: 0
+        }
+      ]
+    }),
+    onEvent: (listener: (event: { playerId: string; eventType: string }) => void) => {
+      eventEmitter.on("event", listener);
+      return () => eventEmitter.off("event", listener);
+    }
+  };
+};
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

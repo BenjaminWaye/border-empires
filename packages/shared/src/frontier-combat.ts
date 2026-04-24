@@ -20,8 +20,9 @@ export type FrontierCombatPreview = {
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
 
 const defenseMultiplierForTile = (target: FrontierCombatPreviewTile): number => {
+  // Legacy parity: frontier tiles provide no defensive effective power.
+  if (target.ownershipState === "FRONTIER") return 0;
   let defMult = 1;
-  if (target.ownershipState === "FRONTIER") defMult *= 1.1;
   if (target.ownershipState === "SETTLED") defMult *= 1.35;
   if (target.townType) defMult *= 1.2;
   if (target.dockId) defMult *= 1.1;

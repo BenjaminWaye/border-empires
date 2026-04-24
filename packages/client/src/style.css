@@ -583,6 +583,15 @@ body {
   color: #ff9f9f;
 }
 
+#auth-debug-route {
+  min-height: 18px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6b7280;
+  word-break: break-word;
+}
+
 .auth-hint {
   margin: 0;
   text-align: center;

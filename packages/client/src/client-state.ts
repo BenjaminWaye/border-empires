@@ -53,6 +53,7 @@ export const createInitialState = () => ({
   authSessionReady: false,
   hasEverInitialized: false,
   authBusy: false,
+  authBusyStartedAt: 0,
   authRetrying: false,
   authConfigured: false,
   authUserLabel: "",

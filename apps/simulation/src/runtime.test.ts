@@ -6,6 +6,83 @@ import { SimulationRuntime } from "./runtime.js";
 type SimulationRuntimeEventShape = SimulationEvent;
 
 describe("simulation runtime", () => {
+  it("spawns a settled tile for unknown subscribed players", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const changed = runtime.ensurePlayerHasSpawnTerritory("firebase-user-1");
+    expect(changed).toBe(true);
+
+    const state = runtime.exportState();
+    expect(state.players.some((player) => player.id === "firebase-user-1")).toBe(true);
+    expect(
+      state.tiles.some(
+        (tile) => tile.x === 10 && tile.y === 11 && tile.ownerId === "firebase-user-1" && tile.ownershipState === "SETTLED"
+      )
+    ).toBe(true);
+  });
+
+  it("does not respawn players that already have territory", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 11, terrain: "LAND" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const changed = runtime.ensurePlayerHasSpawnTerritory("player-1");
+    expect(changed).toBe(false);
+
+    const state = runtime.exportState();
+    expect(state.tiles.filter((tile) => tile.ownerId === "player-1")).toHaveLength(1);
+  });
+
   it("regenerates manpower from elapsed time before exporting player state", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
@@ -490,6 +567,69 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("recovers stale frontier origin payloads by selecting a valid owned adjacent origin server-side", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 11, y: 10, terrain: "LAND" },
+            { x: 9, y: 9, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationRuntimeEventShape[] = [];
+      runtime.onEvent((event) => {
+        seen.push(event);
+      });
+
+      runtime.submitCommand({
+        commandId: "expand-stale-origin-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 9, fromY: 9, toX: 11, toY: 10 })
+      });
+
+      await Promise.resolve();
+
+      const accepted = seen.find(
+        (event): event is Extract<SimulationRuntimeEventShape, { eventType: "COMMAND_ACCEPTED" }> => event.eventType === "COMMAND_ACCEPTED"
+      );
+      const rejected = seen.find((event) => event.eventType === "COMMAND_REJECTED");
+      expect(rejected).toBeUndefined();
+      expect(accepted).toEqual(
+        expect.objectContaining({
+          commandId: "expand-stale-origin-1",
+          actionType: "EXPAND",
+          originX: 10,
+          originY: 10,
+          targetX: 11,
+          targetY: 10
+        })
+      );
+
+      vi.advanceTimersByTime(3_100);
+      expect(runtime.exportState().tiles).toContainEqual(
+        expect.objectContaining({
+          x: 11,
+          y: 10,
+          ownerId: "player-1",
+          ownershipState: "FRONTIER"
+        })
+      );
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("can resolve an attack as a loss and leave the defender tile owned by the defender", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
@@ -559,11 +699,14 @@ describe("simulation runtime", () => {
       expect(combatResult).toEqual(
         expect.objectContaining({
           commandId: "lose-attack-1",
-          attackerWon: false
+          attackerWon: false,
+          manpowerDelta: expect.any(Number)
         })
       );
+      expect((combatResult?.manpowerDelta ?? 0) < -0.01).toBe(true);
 
       const exported = runtime.exportState();
+      expect((exported.players.find((entry) => entry.id === "player-1")?.manpower ?? 0) < 150).toBe(true);
       expect(exported.tiles.find((tile) => tile.x === 10 && tile.y === 11)).toEqual(
         expect.objectContaining({
           ownerId: "player-2",
@@ -622,6 +765,62 @@ describe("simulation runtime", () => {
 
       expect(runtime.exportState().players.find((entry) => entry.id === "player-1")?.points).toBe(99);
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("always resolves neutral EXPAND as a successful frontier capture", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            {
+              id: "player-1",
+              isAi: false,
+              points: 100,
+              manpower: 150,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 11, y: 10, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "expand-always-success",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+      });
+
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      expect(runtime.exportState().tiles.find((tile) => tile.x === 11 && tile.y === 10)).toEqual(
+        expect.objectContaining({
+          ownerId: "player-1",
+          ownershipState: "FRONTIER"
+        })
+      );
+    } finally {
+      randomSpy.mockRestore();
       vi.useRealTimers();
     }
   });
@@ -1094,6 +1293,10 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => {
+      events.push(event as unknown as Record<string, unknown>);
+    });
 
     runtime.submitCommand({
       commandId: "uncapture-cmd-1",
@@ -1112,6 +1315,16 @@ describe("simulation runtime", () => {
     expect(exportedTile?.ownerId).toBeUndefined();
     expect(exportedTile?.ownershipState).toBeUndefined();
     expect(exportedTile?.economicStructureJson).toBeUndefined();
+
+    const uncaptureDeltaEvent = events.find(
+      (event) => event.commandId === "uncapture-cmd-1" && event.eventType === "TILE_DELTA_BATCH"
+    ) as { tileDeltas?: Array<Record<string, unknown>> } | undefined;
+    const uncaptureTileDelta = uncaptureDeltaEvent?.tileDeltas?.[0];
+    expect(uncaptureTileDelta).toBeDefined();
+    expect(Object.prototype.hasOwnProperty.call(uncaptureTileDelta ?? {}, "ownerId")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(uncaptureTileDelta ?? {}, "ownershipState")).toBe(true);
+    expect(uncaptureTileDelta?.ownerId).toBeUndefined();
+    expect(uncaptureTileDelta?.ownershipState).toBeUndefined();
   });
 
   it("overloads a ready synthesizer through the rewrite simulation path", async () => {
@@ -1476,6 +1689,50 @@ describe("simulation runtime", () => {
 
     await Promise.resolve();
     expect(seen).toEqual(["ATTACK_COOLDOWN"]);
+  });
+
+  it("returns LOCKED when origin tile lock is owned by another player", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 10, y: 11, ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 10, y: 9, ownerId: "player-3", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: [
+          {
+            commandId: "enemy-lock",
+            playerId: "player-3",
+            actionType: "ATTACK",
+            originX: 10,
+            originY: 9,
+            targetX: 10,
+            targetY: 10,
+            originKey: "10,9",
+            targetKey: "10,10",
+            resolvesAt: 4_000
+          }
+        ]
+      }
+    });
+    const seen: string[] = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "COMMAND_REJECTED") seen.push(event.code);
+    });
+
+    runtime.submitCommand({
+      commandId: "cmd-origin-locked-by-enemy",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 3,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+    });
+
+    await Promise.resolve();
+    expect(seen).toEqual(["LOCKED"]);
   });
 
   it("resolves recovered combat locks after restart", () => {

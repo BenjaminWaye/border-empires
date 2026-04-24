@@ -18,7 +18,13 @@ COPY packages/client-protocol packages/client-protocol
 COPY packages/sim-protocol packages/sim-protocol
 COPY apps/simulation apps/simulation
 
-RUN pnpm --filter @border-empires/shared build \
+RUN rm -rf \
+    packages/shared/dist \
+    packages/game-domain/dist \
+    packages/client-protocol/dist \
+    packages/sim-protocol/dist \
+    apps/simulation/dist \
+  && pnpm --filter @border-empires/shared build \
   && pnpm --filter @border-empires/game-domain build \
   && pnpm --filter @border-empires/client-protocol build \
   && pnpm --filter @border-empires/sim-protocol build \
@@ -65,4 +71,4 @@ EXPOSE 50051
 
 USER borderempires
 
-CMD ["sh", "-c", "if [ -f apps/simulation/dist/simulation/src/main.js ]; then exec node apps/simulation/dist/simulation/src/main.js; elif [ -f apps/simulation/dist/apps/simulation/src/main.js ]; then exec node apps/simulation/dist/apps/simulation/src/main.js; elif [ -f apps/simulation/dist/src/main.js ]; then exec node apps/simulation/dist/src/main.js; elif [ -f apps/simulation/dist/main.js ]; then exec node apps/simulation/dist/main.js; else echo 'simulation dist entrypoint not found' >&2; find apps/simulation/dist -maxdepth 4 -type f >&2 || true; exit 1; fi"]
+CMD ["sh", "-c", "if [ -f apps/simulation/dist/main.js ]; then exec node apps/simulation/dist/main.js; elif [ -f apps/simulation/dist/simulation/src/main.js ]; then exec node apps/simulation/dist/simulation/src/main.js; elif [ -f apps/simulation/dist/apps/simulation/src/main.js ]; then exec node apps/simulation/dist/apps/simulation/src/main.js; elif [ -f apps/simulation/dist/src/main.js ]; then exec node apps/simulation/dist/src/main.js; else echo 'simulation dist entrypoint not found' >&2; find apps/simulation/dist -maxdepth 5 -type f >&2 || true; exit 1; fi"]

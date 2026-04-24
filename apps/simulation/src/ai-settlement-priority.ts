@@ -58,3 +58,36 @@ export const rankSettlementTile = (
   score -= Math.abs(tile.x) * 0.0001 + Math.abs(tile.y) * 0.0001;
   return score;
 };
+
+const isBetterSettlementCandidate = (
+  candidate: DomainTileState,
+  candidateScore: number,
+  current: DomainTileState | undefined,
+  currentScore: number
+): boolean => {
+  if (!current) return true;
+  if (candidateScore !== currentScore) return candidateScore > currentScore;
+  if (candidate.x !== current.x) return candidate.x < current.x;
+  return candidate.y < current.y;
+};
+
+export const chooseBestStrategicSettlementTile = (
+  playerId: string,
+  candidates: Iterable<DomainTileState>,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  isPending?: (tile: DomainTileState) => boolean
+): DomainTileState | undefined => {
+  let bestTile: DomainTileState | undefined;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (const tile of candidates) {
+    if (tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
+    if (isPending?.(tile)) continue;
+    if (!hasStrategicSettlementValue(playerId, tile, tiles)) continue;
+    const score = rankSettlementTile(playerId, tile, tiles);
+    if (isBetterSettlementCandidate(tile, score, bestTile, bestScore)) {
+      bestTile = tile;
+      bestScore = score;
+    }
+  }
+  return bestTile;
+};

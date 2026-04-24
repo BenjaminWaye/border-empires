@@ -6,6 +6,8 @@ import { buildFrontierCombatPreview } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
+import type { GatewayAuthBindingStore } from "./auth-binding-store.js";
+import { createGatewayAuthBindingStore } from "./auth-binding-store-factory.js";
 import type { GatewayCommandStore } from "./command-store.js";
 import { createGatewayCommandStore } from "./command-store-factory.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "./frontier-submit.js";
@@ -13,6 +15,8 @@ import { registerGatewayHttpRoutes } from "./http-routes.js";
 import { createGatewayMetrics } from "./metrics.js";
 import { createPlayerSubscriptions } from "./player-subscriptions.js";
 import { createPlayerProfileOverrides } from "./player-profile-overrides.js";
+import type { GatewayPlayerProfileStore } from "./player-profile-store.js";
+import { createGatewayPlayerProfileStore } from "./player-profile-store-factory.js";
 import { withTimeout } from "./promise-timeout.js";
 import { resolveInitialState } from "./initial-state.js";
 import { buildInitMessage } from "./reconnect-recovery.js";
@@ -40,17 +44,26 @@ type RealtimeGatewayAppOptions = {
   port?: number;
   logger?: boolean;
   simulationAddress?: string;
+  simulationWakeAddress?: string;
   simulationClient?: SimulationClient;
   commandStore?: GatewayCommandStore;
+  profileStore?: GatewayPlayerProfileStore;
+  authBindingStore?: GatewayAuthBindingStore;
   databaseUrl?: string;
   applySchema?: boolean;
   defaultHumanPlayerId?: string;
   simulationSeedProfile?: SimulationSeedProfile;
+  allowNonAuthoritativeInitialState?: boolean;
   snapshotDir?: string;
   createCommandId?: () => string;
   now?: () => number;
   simulationSubscribeTimeoutMs?: number;
 };
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(payload));
@@ -61,6 +74,8 @@ const jsonSafeTileDeltaBatch = (
 ): Array<Record<string, unknown>> =>
   tileDeltas.map((tileDelta) => ({
     ...tileDelta,
+    ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
+    ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
     ...("fortJson" in tileDelta && tileDelta.fortJson === undefined ? { fortJson: "" } : {}),
     ...("observatoryJson" in tileDelta && tileDelta.observatoryJson === undefined ? { observatoryJson: "" } : {}),
     ...("siegeOutpostJson" in tileDelta && tileDelta.siegeOutpostJson === undefined ? { siegeOutpostJson: "" } : {}),
@@ -135,9 +150,23 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const app = Fastify({ logger: options.logger ?? true });
   await app.register(websocket);
   const startupStartedAt = Date.now();
-  const allowSeedFallback = process.env.GATEWAY_ALLOW_SEED_FALLBACK !== "0";
+  const allowNonAuthoritativeInitialState =
+    options.allowNonAuthoritativeInitialState ??
+    process.env.GATEWAY_ALLOW_SEED_FALLBACK !== "0";
   const simulationSeedProfile = options.simulationSeedProfile ?? "default";
-  const legacySnapshotBootstrap = options.snapshotDir ? loadLegacySnapshotBootstrap(options.snapshotDir) : undefined;
+  let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
+  if (options.snapshotDir) {
+    try {
+      legacySnapshotBootstrap = loadLegacySnapshotBootstrap(options.snapshotDir);
+    } catch (error) {
+      const isMissingSnapshotFile = typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+      if (!isMissingSnapshotFile) throw error;
+      app.log.warn(
+        { snapshotDir: options.snapshotDir, err: error },
+        "legacy snapshot bootstrap files not found; continuing without legacy bootstrap"
+      );
+    }
+  }
   const recentGatewayEvents: Array<{ at: number; level: "info" | "warn" | "error"; event: string; payload: Record<string, unknown> }> = [];
   const recordGatewayEvent = (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown> = {}): void => {
     recentGatewayEvents.push({ at: Date.now(), level, event, payload });
@@ -146,12 +175,33 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   const simulationClient =
     options.simulationClient ?? createSimulationClient(options.simulationAddress ?? "127.0.0.1:50051");
-  const simulationSubscribeTimeoutMs = options.simulationSubscribeTimeoutMs ?? 3_000;
+  const simulationWakeClient =
+    !options.simulationClient && options.simulationWakeAddress && options.simulationWakeAddress !== options.simulationAddress
+      ? createSimulationClient(options.simulationWakeAddress)
+      : undefined;
+  const simulationSubscribeTimeoutMs = Math.max(
+    1_000,
+    options.simulationSubscribeTimeoutMs ?? Number(process.env.GATEWAY_SIMULATION_SUBSCRIBE_TIMEOUT_MS ?? 8_000)
+  );
+  const simulationPingTimeoutMs = Math.max(1_500, Number(process.env.GATEWAY_SIMULATION_PING_TIMEOUT_MS ?? 20_000));
+  const simulationWakeMaxAttempts = Math.max(1, Number(process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS ?? 12));
+  const simulationWakeBaseDelayMs = Math.max(100, Number(process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS ?? 500));
+  const simulationWakeMaxDelayMs = Math.max(simulationWakeBaseDelayMs, Number(process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS ?? 5_000));
+  const simulationWakeTotalTimeoutMs = Math.max(
+    simulationPingTimeoutMs,
+    Number(process.env.GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS ?? 90_000)
+  );
+  const simulationHealthFailureThreshold = Math.max(
+    1,
+    Number(process.env.GATEWAY_SIMULATION_HEALTH_FAILURE_THRESHOLD ?? 3)
+  );
   const simulationHealth = {
     connected: false,
     lastReadyAt: undefined as number | undefined,
     lastError: undefined as string | undefined
   };
+  let simulationConsecutiveHealthFailures = 0;
+  let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
   let gatewayMetricsTimer: ReturnType<typeof setInterval> | undefined;
   let gatewayEventLoopTimer: ReturnType<typeof setInterval> | undefined;
@@ -162,26 +212,69 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     simulationHealth.connected = true;
     simulationHealth.lastReadyAt = Date.now();
     simulationHealth.lastError = undefined;
+    simulationConsecutiveHealthFailures = 0;
   };
   const markSimulationUnavailable = (error: unknown): void => {
     simulationHealth.connected = false;
     simulationHealth.lastError = error instanceof Error ? error.message : String(error);
   };
   const refreshSimulationHealth = async (): Promise<void> => {
+    if (simulationHealthRefreshInFlight) return;
+    simulationHealthRefreshInFlight = true;
     // Test doubles and lightweight local adapters may omit ping; treat them as ready.
-    if (typeof simulationClient.ping !== "function") {
-      markSimulationReady();
-      return;
-    }
     try {
-      await withTimeout(simulationClient.ping(), 1_500, "simulation ping");
+      if (typeof simulationClient.ping !== "function") {
+        markSimulationReady();
+        return;
+      }
+      await withTimeout(simulationClient.ping(), simulationPingTimeoutMs, "simulation ping");
       markSimulationReady();
     } catch (error) {
-      markSimulationUnavailable(error);
+      simulationConsecutiveHealthFailures += 1;
+      if (
+        simulationConsecutiveHealthFailures >= simulationHealthFailureThreshold ||
+        typeof simulationHealth.lastReadyAt !== "number"
+      ) {
+        markSimulationUnavailable(error);
+      } else {
+        simulationHealth.lastError = error instanceof Error ? error.message : String(error);
+      }
       recordGatewayEvent("warn", "simulation_ping_failed", {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        consecutiveFailures: simulationConsecutiveHealthFailures,
+        failureThreshold: simulationHealthFailureThreshold
       });
+    } finally {
+      simulationHealthRefreshInFlight = false;
     }
+  };
+  const ensureSimulationReadyForAuth = async (): Promise<void> => {
+    await refreshSimulationHealth();
+    if (simulationHealth.connected) return;
+    const deadlineAt = Date.now() + simulationWakeTotalTimeoutMs;
+
+    for (let attempt = 1; attempt <= simulationWakeMaxAttempts && Date.now() < deadlineAt; attempt += 1) {
+      if (simulationWakeClient) {
+        try {
+          await withTimeout(simulationWakeClient.ping(), simulationPingTimeoutMs, "simulation wake ping");
+        } catch {
+          // Wake ping can fail while the machine is still cold-starting.
+        }
+      }
+      await refreshSimulationHealth();
+      if (simulationHealth.connected) return;
+      const remainingMs = deadlineAt - Date.now();
+      if (remainingMs <= 0) break;
+      const backoffMs = Math.min(simulationWakeMaxDelayMs, simulationWakeBaseDelayMs * attempt);
+      await sleep(Math.min(backoffMs, remainingMs));
+    }
+
+    recordGatewayEvent("warn", "simulation_wake_exhausted", {
+      attempts: simulationWakeMaxAttempts,
+      wakeTimeoutMs: simulationWakeTotalTimeoutMs,
+      simulationConnected: simulationHealth.connected,
+      simulationLastError: simulationHealth.lastError ?? ""
+    });
   };
   const commandStoreFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
@@ -190,6 +283,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const commandStore =
     options.commandStore ??
     (await createGatewayCommandStore(commandStoreFactoryOptions));
+  const profileStore =
+    options.profileStore ??
+    (await createGatewayPlayerProfileStore(commandStoreFactoryOptions));
+  const authBindingStore =
+    options.authBindingStore ??
+    (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
   const playerSubscriptions = createPlayerSubscriptions<import("ws").WebSocket, Awaited<ReturnType<typeof simulationClient.subscribePlayer>>>({
     subscribePlayer: (playerId) => simulationClient.subscribePlayer(playerId),
     unsubscribePlayer: (playerId) => simulationClient.unsubscribePlayer(playerId)
@@ -282,6 +381,28 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     return controlSockets.length > 0 ? controlSockets : bulkSockets;
   };
 
+  const socketsForTileDeltaBatchByPlayer = (
+    sockets: ReadonlySet<import("ws").WebSocket>
+  ): import("ws").WebSocket[] => {
+    const socketsByPlayerId = new Map<
+      string,
+      { control: import("ws").WebSocket[]; bulk: import("ws").WebSocket[] }
+    >();
+    for (const socket of sockets) {
+      const session = sessionsBySocket.get(socket);
+      if (!session?.playerId) continue;
+      const grouped = socketsByPlayerId.get(session.playerId) ?? { control: [], bulk: [] };
+      if (session.channel === "bulk") grouped.bulk.push(socket);
+      else grouped.control.push(socket);
+      socketsByPlayerId.set(session.playerId, grouped);
+    }
+    const selected: import("ws").WebSocket[] = [];
+    for (const grouped of socketsByPlayerId.values()) {
+      selected.push(...(grouped.bulk.length > 0 ? grouped.bulk : grouped.control));
+    }
+    return selected;
+  };
+
   const queueOrSendSessionPayload = (socket: import("ws").WebSocket, payload: unknown): void => {
     const session = sessionsBySocket.get(socket);
     if (!session || session.initSent) {
@@ -341,7 +462,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           commandId: event.commandId,
           tiles: jsonSafeTileDeltaBatch(tileDeltas)
         };
-        for (const targetSocket of socketsForEvent(sockets, "TILE_DELTA_BATCH")) {
+        for (const targetSocket of socketsForTileDeltaBatchByPlayer(sockets)) {
           queueOrSendSessionPayload(targetSocket, tileDeltaPayload);
         }
         return;
@@ -435,18 +556,22 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           queueOrSendSessionPayload(socket, event.payload);
           continue;
         }
-        fallbackTileDeltasByCommandId.set(event.commandId, [
-          {
-            x: event.targetX,
-            y: event.targetY,
-            ownerId: event.playerId,
-            ownershipState: "FRONTIER"
-          }
-        ]);
+        if (event.attackerWon) {
+          fallbackTileDeltasByCommandId.set(event.commandId, [
+            {
+              x: event.targetX,
+              y: event.targetY,
+              ownerId: event.playerId,
+              ownershipState: "FRONTIER"
+            }
+          ]);
+        } else {
+          fallbackTileDeltasByCommandId.delete(event.commandId);
+        }
         void commandStore
           .markResolved(event.commandId, Date.now())
           .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist resolved command"));
-        if (event.actionType === "EXPAND") {
+        if (event.actionType === "EXPAND" && event.attackerWon) {
           queueOrSendSessionPayload(socket, {
             type: "FRONTIER_RESULT",
             commandId: event.commandId,
@@ -463,6 +588,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           attackerWon: event.attackerWon,
           origin: { x: event.originX, y: event.originY },
           target: { x: event.targetX, y: event.targetY },
+          ...(typeof event.manpowerDelta === "number" ? { manpowerDelta: event.manpowerDelta } : {}),
           ...(typeof event.pillagedGold === "number" ? { pillagedGold: event.pillagedGold } : {}),
           ...(event.pillagedStrategic ? { pillagedStrategic: event.pillagedStrategic } : {}),
           changes: event.attackerWon
@@ -548,14 +674,66 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (message.type === "AUTH") {
             recordGatewayEvent("info", "gateway_auth", { channel });
             if (!simulationHealth.connected) {
-              await refreshSimulationHealth();
+              await ensureSimulationReadyForAuth();
+              if (!simulationHealth.connected) {
+                sendJson(socket, {
+                  type: "ERROR",
+                  code: "SERVER_STARTING",
+                  message: "Realtime simulation is temporarily unavailable. Retry shortly."
+                });
+                return;
+              }
             }
-            const playerIdentity = resolveGatewayAuthIdentity(message.token, {
+            const resolvedPlayerIdentity = resolveGatewayAuthIdentity(message.token, {
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
               ...(legacySnapshotBootstrap ? { authIdentities: legacySnapshotBootstrap.authIdentities } : {})
             });
+            const playerIdentity = { ...resolvedPlayerIdentity };
+            if (resolvedPlayerIdentity.authUid) {
+              try {
+                const binding = await authBindingStore.bindIdentity({
+                  uid: resolvedPlayerIdentity.authUid,
+                  playerId: resolvedPlayerIdentity.playerId,
+                  ...(resolvedPlayerIdentity.authEmail ? { email: resolvedPlayerIdentity.authEmail } : {})
+                });
+                if (binding.playerId !== resolvedPlayerIdentity.playerId) {
+                  playerIdentity.playerId = binding.playerId;
+                  recordGatewayEvent("warn", "gateway_auth_binding_override", {
+                    channel,
+                    authUid: resolvedPlayerIdentity.authUid,
+                    requestedPlayerId: resolvedPlayerIdentity.playerId,
+                    boundPlayerId: binding.playerId
+                  });
+                } else {
+                  recordGatewayEvent("info", "gateway_auth_binding_confirmed", {
+                    channel,
+                    authUid: resolvedPlayerIdentity.authUid,
+                    playerId: binding.playerId
+                  });
+                }
+              } catch (error) {
+                recordGatewayEvent("error", "gateway_auth_binding_failed", {
+                  channel,
+                  authUid: resolvedPlayerIdentity.authUid,
+                  error: error instanceof Error ? error.message : String(error)
+                });
+              }
+            }
             session.playerId = playerIdentity.playerId;
-            socialState.registerPlayer(playerIdentity.playerId, playerIdentity.playerName);
+            const persistedProfile = await profileStore.get(playerIdentity.playerId);
+            if (persistedProfile) {
+              profileOverrides.upsert(playerIdentity.playerId, {
+                ...(persistedProfile.name ? { name: persistedProfile.name } : {}),
+                ...(persistedProfile.tileColor ? { tileColor: persistedProfile.tileColor } : {}),
+                ...(typeof persistedProfile.profileComplete === "boolean"
+                  ? { profileComplete: persistedProfile.profileComplete }
+                  : {})
+              });
+            }
+            socialState.registerPlayer(
+              playerIdentity.playerId,
+              persistedProfile?.name ?? playerIdentity.playerName
+            );
             let subscribedInitialState;
             try {
               subscribedInitialState = await withTimeout(
@@ -591,7 +769,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authoritativeSnapshot: subscribedInitialState,
               cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
               simulationSeedProfile,
-              allowSeedFallback
+              allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,
+              allowSeedFallback: allowNonAuthoritativeInitialState
             });
             if (session.channel === "control") {
               const initMessage = await buildInitMessage(
@@ -650,7 +829,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "SET_TILE_COLOR") {
-            const override = profileOverrides.setTileColor(session.playerId, message.color);
+            const storedProfile = await profileStore.setTileColor(session.playerId, message.color);
+            const override = profileOverrides.upsert(session.playerId, {
+              ...(storedProfile.name ? { name: storedProfile.name } : {}),
+              ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
+              ...(typeof storedProfile.profileComplete === "boolean"
+                ? { profileComplete: storedProfile.profileComplete }
+                : {})
+            });
             const payload = {
               type: "PLAYER_STYLE",
               playerId: session.playerId,
@@ -668,13 +854,20 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "SET_PROFILE") {
-            const override = profileOverrides.setProfile(session.playerId, message.displayName, message.color);
-            socialState.renamePlayer(session.playerId, message.displayName);
+            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, message.color);
+            const override = profileOverrides.upsert(session.playerId, {
+              ...(storedProfile.name ? { name: storedProfile.name } : {}),
+              ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
+              ...(typeof storedProfile.profileComplete === "boolean"
+                ? { profileComplete: storedProfile.profileComplete }
+                : {})
+            });
+            socialState.renamePlayer(session.playerId, override.name ?? message.displayName);
             const stylePayload = {
               type: "PLAYER_STYLE",
               playerId: session.playerId,
-              name: message.displayName,
-              tileColor: message.color
+              name: override.name ?? message.displayName,
+              tileColor: override.tileColor ?? message.color
             };
             for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);
             for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {

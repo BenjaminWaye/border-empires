@@ -5,3 +5,6 @@ snapshots
 .DS_Store
 .vercel
 .localhost-seasons/
+.env.production
+.env.local
+.env.*.local

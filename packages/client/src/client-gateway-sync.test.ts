@@ -106,4 +106,88 @@ describe("client gateway sync", () => {
       })
     );
   });
+
+  it("keeps previously discovered tiles fogged when reconnecting to the same runtime", () => {
+    const deps = createDeps();
+
+    deps.state.tiles.set("9,9", {
+      x: 9,
+      y: 9,
+      terrain: "SEA",
+      resource: "FISH",
+      fogged: false,
+      detailLevel: "summary"
+    });
+    deps.state.discoveredTiles.add("9,9");
+
+    applyGatewayInitialState(
+      deps,
+      {
+        tiles: [
+          {
+            x: 10,
+            y: 12,
+            terrain: "LAND",
+            ownerId: "me",
+            ownershipState: "SETTLED"
+          }
+        ]
+      },
+      { preserveExistingDiscoveredTiles: true }
+    );
+
+    expect(deps.state.tiles.get("9,9")).toEqual(
+      expect.objectContaining({
+        x: 9,
+        y: 9,
+        terrain: "SEA",
+        resource: "FISH",
+        fogged: true
+      })
+    );
+    expect(deps.state.discoveredTiles.has("9,9")).toBe(true);
+    expect(deps.state.tiles.get("10,12")).toEqual(
+      expect.objectContaining({
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        fogged: false
+      })
+    );
+  });
+
+  it("clears ownership when the gateway sends explicit null owner fields", () => {
+    const deps = createDeps();
+
+    deps.state.tiles.set("10,12", {
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fogged: false
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 10,
+        y: 12,
+        ownerId: null,
+        ownershipState: null
+      }
+    ]);
+
+    expect(deps.state.tiles.get("10,12")).toEqual(
+      expect.objectContaining({
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        fogged: false
+      })
+    );
+    expect(deps.state.tiles.get("10,12")?.ownerId).toBeUndefined();
+    expect(deps.state.tiles.get("10,12")?.ownershipState).toBeUndefined();
+  });
 });
