@@ -12,6 +12,14 @@ type CommandRecoveryOptions = {
   maxTerminalCommandReplayHistory?: number;
 };
 
+type RecoveredCommandHistoryAccumulator = {
+  commands: StoredSimulationCommand[];
+  eventsByCommandId: Map<string, SimulationEvent[]>;
+  terminalCommandIds: Map<string, true>;
+  recoverableCommandIds: Set<string>;
+  maxTerminalHistory: number;
+};
+
 const resolveMaxTerminalHistory = (options?: CommandRecoveryOptions): number =>
   Math.max(0, options?.maxTerminalCommandReplayHistory ?? DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY);
 
@@ -20,26 +28,25 @@ export const recoverCommandHistory = (
   events: SimulationEvent[],
   options?: CommandRecoveryOptions
 ): RecoveredCommandHistory => {
-  return applyEventsToRecoveredCommandHistory(
+  const accumulator = createRecoveredCommandHistoryAccumulator(
     {
       commands: [...commands].sort((left, right) => left.queuedAt - right.queuedAt),
       eventsByCommandId: new Map()
     },
-    events,
     options
   );
+  applyEventsToRecoveredCommandHistoryAccumulator(accumulator, events);
+  return finalizeRecoveredCommandHistoryAccumulator(accumulator);
 };
 
-export const applyEventsToRecoveredCommandHistory = (
+export const createRecoveredCommandHistoryAccumulator = (
   baseHistory: RecoveredCommandHistory,
-  events: SimulationEvent[],
   options?: CommandRecoveryOptions
-): RecoveredCommandHistory => {
+): RecoveredCommandHistoryAccumulator => {
   const eventsByCommandId = new Map<string, SimulationEvent[]>();
   const terminalCommandIds = new Map<string, true>();
-  const maxTerminalHistory = resolveMaxTerminalHistory(options);
-  const recoverableCommandIds = new Set(baseHistory.commands.map((command) => command.commandId));
-
+  const commands = [...baseHistory.commands].sort((left, right) => left.queuedAt - right.queuedAt);
+  const recoverableCommandIds = new Set(commands.map((command) => command.commandId));
   for (const [commandId, existingEvents] of baseHistory.eventsByCommandId.entries()) {
     const clonedEvents = [...existingEvents];
     eventsByCommandId.set(commandId, clonedEvents);
@@ -47,27 +54,56 @@ export const applyEventsToRecoveredCommandHistory = (
       terminalCommandIds.set(commandId, true);
     }
   }
+  return {
+    commands,
+    eventsByCommandId,
+    terminalCommandIds,
+    recoverableCommandIds,
+    maxTerminalHistory: resolveMaxTerminalHistory(options)
+  };
+};
 
+const pruneRecoveredCommandHistoryAccumulator = (
+  accumulator: RecoveredCommandHistoryAccumulator
+): void => {
+  while (accumulator.terminalCommandIds.size > accumulator.maxTerminalHistory) {
+    const oldestTerminalCommandId = accumulator.terminalCommandIds.keys().next().value;
+    if (!oldestTerminalCommandId) break;
+    accumulator.terminalCommandIds.delete(oldestTerminalCommandId);
+    if (accumulator.recoverableCommandIds.has(oldestTerminalCommandId)) continue;
+    accumulator.eventsByCommandId.delete(oldestTerminalCommandId);
+  }
+};
+
+export const applyEventsToRecoveredCommandHistoryAccumulator = (
+  accumulator: RecoveredCommandHistoryAccumulator,
+  events: SimulationEvent[]
+): void => {
   for (const event of events) {
-    const existing = eventsByCommandId.get(event.commandId) ?? [];
+    const existing = accumulator.eventsByCommandId.get(event.commandId) ?? [];
     existing.push(event);
-    eventsByCommandId.set(event.commandId, existing);
+    accumulator.eventsByCommandId.set(event.commandId, existing);
     if (isTerminalCommandEvent(event)) {
-      terminalCommandIds.delete(event.commandId);
-      terminalCommandIds.set(event.commandId, true);
+      accumulator.terminalCommandIds.delete(event.commandId);
+      accumulator.terminalCommandIds.set(event.commandId, true);
     }
   }
+  pruneRecoveredCommandHistoryAccumulator(accumulator);
+};
 
-  while (terminalCommandIds.size > maxTerminalHistory) {
-    const oldestTerminalCommandId = terminalCommandIds.keys().next().value;
-    if (!oldestTerminalCommandId) break;
-    terminalCommandIds.delete(oldestTerminalCommandId);
-    if (recoverableCommandIds.has(oldestTerminalCommandId)) continue;
-    eventsByCommandId.delete(oldestTerminalCommandId);
-  }
+export const finalizeRecoveredCommandHistoryAccumulator = (
+  accumulator: RecoveredCommandHistoryAccumulator
+): RecoveredCommandHistory => ({
+  commands: [...accumulator.commands].sort((left, right) => left.queuedAt - right.queuedAt),
+  eventsByCommandId: accumulator.eventsByCommandId
+});
 
-  return {
-    commands: [...baseHistory.commands].sort((left, right) => left.queuedAt - right.queuedAt),
-    eventsByCommandId
-  };
+export const applyEventsToRecoveredCommandHistory = (
+  baseHistory: RecoveredCommandHistory,
+  events: SimulationEvent[],
+  options?: CommandRecoveryOptions
+): RecoveredCommandHistory => {
+  const accumulator = createRecoveredCommandHistoryAccumulator(baseHistory, options);
+  applyEventsToRecoveredCommandHistoryAccumulator(accumulator, events);
+  return finalizeRecoveredCommandHistoryAccumulator(accumulator);
 };

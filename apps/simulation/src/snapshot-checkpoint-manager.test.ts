@@ -386,4 +386,64 @@ describe("createSnapshotCheckpointManager", () => {
     await expect(manager.onEventPersisted()).rejects.toThrow("snapshot timeout");
     expect(saveSnapshot).toHaveBeenCalledTimes(2);
   });
+
+  it("forces a checkpoint once pending events pass forceCheckpointAfterEvents even under hot memory", async () => {
+    const eventStore = new InMemorySimulationEventStore();
+    const saveSnapshot = vi.fn(async () => undefined);
+    const manager = createSnapshotCheckpointManager({
+      eventStore,
+      snapshotStore: {
+        saveSnapshot,
+        loadLatestSnapshot: vi.fn(async () => undefined)
+      } as unknown as InMemorySimulationSnapshotStore,
+      exportSnapshotSections: () => ({
+        initialState: { tiles: [], activeLocks: [] },
+        commandEvents: []
+      }),
+      checkpointEveryEvents: 2,
+      forceCheckpointAfterEvents: 3,
+      getMemoryUsage: () => ({
+        rssBytes: 600,
+        heapUsedBytes: 300,
+        heapTotalBytes: 400
+      }),
+      maxCheckpointRssBytes: 500
+    });
+
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "invalid"
+      },
+      1_000
+    );
+    await manager.onEventPersisted();
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-2",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "invalid"
+      },
+      1_001
+    );
+    await manager.onEventPersisted();
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-3",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "invalid"
+      },
+      1_002
+    );
+    await manager.onEventPersisted();
+
+    expect(saveSnapshot).toHaveBeenCalledTimes(1);
+  });
 });

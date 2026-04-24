@@ -11,6 +11,7 @@ const service = await createSimulationService({
   ...(runtimeEnv.snapshotDir ? { snapshotDir: runtimeEnv.snapshotDir } : {}),
   applySchema: runtimeEnv.applySchema,
   checkpointEveryEvents: runtimeEnv.checkpointEveryEvents,
+  checkpointForceAfterEvents: runtimeEnv.checkpointForceAfterEvents,
   startupReplayCompactionMinEvents: runtimeEnv.startupReplayCompactionMinEvents,
   ...(typeof runtimeEnv.checkpointMaxRssBytes === "number" ? { checkpointMaxRssBytes: runtimeEnv.checkpointMaxRssBytes } : {}),
   ...(typeof runtimeEnv.checkpointMaxHeapUsedBytes === "number"

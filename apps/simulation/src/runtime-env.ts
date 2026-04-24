@@ -9,6 +9,7 @@ export type SimulationRuntimeEnv = {
   snapshotDir?: string;
   applySchema: boolean;
   checkpointEveryEvents: number;
+  checkpointForceAfterEvents: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
   startupReplayCompactionMinEvents: number;
@@ -72,6 +73,11 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       env.SIMULATION_SNAPSHOT_EVERY_EVENTS,
       5000,
       "simulation snapshot interval"
+    ),
+    checkpointForceAfterEvents: parsePositiveNumber(
+      env.SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS,
+      20_000,
+      "simulation checkpoint force-after-events"
     ),
     startupReplayCompactionMinEvents: parsePositiveNumber(
       env.SIMULATION_STARTUP_REPLAY_COMPACTION_MIN_EVENTS,
