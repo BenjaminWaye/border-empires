@@ -15,10 +15,12 @@
 import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
+type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
+type SimulationTileDelta = TileDeltaBatchEvent["tileDeltas"][number];
 
 type WorkerAiCommandProducerOptions = {
   runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews">;
@@ -32,6 +34,7 @@ type WorkerAiCommandProducerOptions = {
   workerScriptPath?: string;
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
+  onTick?: (sample: { durationMs: number }) => void;
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -47,6 +50,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const tickIntervalMs = Math.max(25, options.tickIntervalMs ?? 250);
   const playerSyncIntervalMs = Math.max(tickIntervalMs, options.playerSyncIntervalMs ?? 5_000);
   const playerSyncDebounceMs = 500;
+  const tileDeltaSyncDebounceMs = Math.max(20, Math.min(150, Math.floor(tickIntervalMs / 2)));
   const shouldRun = options.shouldRun ?? (() => true);
   const plannerBreachThresholdMs = Math.max(1, options.plannerBreachThresholdMs ?? 50);
   const aiPlayerIdSet = new Set(options.aiPlayerIds);
@@ -92,6 +96,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
   const pendingPlayerSyncIds = new Set<string>();
   let playerSyncTimeout: ReturnType<typeof setTimeout> | undefined;
+  const pendingTileDeltasByKey = new Map<string, SimulationTileDelta>();
+  let tileDeltaSyncTimeout: ReturnType<typeof setTimeout> | undefined;
 
   const syncPlayers = (playerIds: string[]): void => {
     if (playerIds.length === 0) return;
@@ -118,10 +124,27 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     playerSyncTimeout = setTimeout(flushPendingPlayerSync, playerSyncDebounceMs);
   };
 
+  const flushPendingTileDeltas = (): void => {
+    tileDeltaSyncTimeout = undefined;
+    if (pendingTileDeltasByKey.size === 0) return;
+    const tileDeltas = [...pendingTileDeltasByKey.values()];
+    pendingTileDeltasByKey.clear();
+    worker.postMessage({ type: "tile_deltas", tileDeltas });
+  };
+
+  const queueTileDeltas = (tileDeltas: readonly SimulationTileDelta[]): void => {
+    for (const tileDelta of tileDeltas) {
+      if (!Number.isFinite(tileDelta.x) || !Number.isFinite(tileDelta.y)) continue;
+      pendingTileDeltasByKey.set(`${tileDelta.x},${tileDelta.y}`, tileDelta);
+    }
+    if (pendingTileDeltasByKey.size === 0 || tileDeltaSyncTimeout) return;
+    tileDeltaSyncTimeout = setTimeout(flushPendingTileDeltas, tileDeltaSyncDebounceMs);
+  };
+
   const stopListening = options.runtime.onEvent((event) => {
     if (event.eventType === "TILE_DELTA_BATCH") {
       const tileDeltas = Array.isArray(event.tileDeltas) ? event.tileDeltas : [];
-      worker.postMessage({ type: "tile_deltas", tileDeltas });
+      queueTileDeltas(tileDeltas);
       const changedPlayers = new Set<string>();
       if (aiPlayerIdSet.has(event.playerId)) changedPlayers.add(event.playerId);
       for (const delta of tileDeltas) {
@@ -180,6 +203,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     if (humanBacklogNonEmpty) return;
 
     tickInFlight = true;
+    const tickStartedAt = now();
     try {
       if (options.aiPlayerIds.length === 0) return;
 
@@ -215,6 +239,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         return; // one player per tick
       }
     } finally {
+      options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt) });
       tickInFlight = false;
     }
   };
@@ -227,6 +252,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       clearInterval(intervalHandle);
       clearInterval(playerSyncInterval);
       if (playerSyncTimeout) clearTimeout(playerSyncTimeout);
+      if (tileDeltaSyncTimeout) clearTimeout(tileDeltaSyncTimeout);
+      flushPendingTileDeltas();
       stopListening();
       worker.postMessage({ type: "shutdown" });
       void worker.terminate();
