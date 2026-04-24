@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { recoverCommandHistory } from "./command-recovery.js";
+import { applyEventsToRecoveredCommandHistory, recoverCommandHistory } from "./command-recovery.js";
 
 describe("recoverCommandHistory", () => {
   it("groups event history by command id and preserves queued order", () => {
@@ -46,5 +46,42 @@ describe("recoverCommandHistory", () => {
     expect(recovered.commands.map((command) => command.commandId)).toEqual(["cmd-1", "cmd-2"]);
     expect(recovered.eventsByCommandId.get("cmd-1")).toHaveLength(1);
     expect(recovered.eventsByCommandId.has("cmd-2")).toBe(false);
+  });
+
+  it("caps retained terminal command histories so replay state cannot grow unbounded", () => {
+    const recovered = applyEventsToRecoveredCommandHistory(
+      {
+        commands: [],
+        eventsByCommandId: new Map()
+      },
+      [
+        {
+          eventType: "COMMAND_REJECTED",
+          commandId: "cmd-1",
+          playerId: "player-1",
+          code: "ERR",
+          message: "rejected"
+        },
+        {
+          eventType: "COMMAND_REJECTED",
+          commandId: "cmd-2",
+          playerId: "player-1",
+          code: "ERR",
+          message: "rejected"
+        },
+        {
+          eventType: "COMMAND_REJECTED",
+          commandId: "cmd-3",
+          playerId: "player-1",
+          code: "ERR",
+          message: "rejected"
+        }
+      ],
+      { maxTerminalCommandReplayHistory: 2 }
+    );
+
+    expect(recovered.eventsByCommandId.has("cmd-1")).toBe(false);
+    expect(recovered.eventsByCommandId.has("cmd-2")).toBe(true);
+    expect(recovered.eventsByCommandId.has("cmd-3")).toBe(true);
   });
 });

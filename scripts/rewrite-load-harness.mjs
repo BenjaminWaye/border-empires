@@ -96,6 +96,7 @@ const soakMinutes = Math.max(1, Number(process.env.LOAD_HARNESS_SOAK_MINUTES ?? 
 const pollIntervalMs = Math.max(250, Number(process.env.LOAD_HARNESS_POLL_MS ?? "1000"));
 const soakBatchIterations = Math.max(10, Number(process.env.LOAD_HARNESS_BATCH_ITERATIONS ?? "120"));
 const soakTimeoutMs = Math.max(3_000, Number(process.env.LOAD_HARNESS_SOAK_TIMEOUT_MS ?? "15000"));
+const interBatchPauseMs = Math.max(0, Number(process.env.LOAD_HARNESS_INTER_BATCH_PAUSE_MS ?? "0"));
 
 const startedAt = Date.now();
 const deadlineAt = startedAt + soakMinutes * 60_000;
@@ -117,27 +118,35 @@ monitorTimer = setInterval(() => {
 
 const soakBatches = [];
 const acceptedLatenciesMs = [];
+const soakErrors = [];
 
 try {
   while (Date.now() < deadlineAt) {
-    const summary = await runSoakBatch({
-      cwd: root,
-      wsUrl,
-      iterations: soakBatchIterations,
-      timeoutMs: soakTimeoutMs
-    });
-    soakBatches.push({
-      at: Date.now(),
-      iterations: summary.iterations,
-      acceptedSamples: summary.acceptedSamples,
-      acceptedP95Ms: summary.acceptedP95Ms,
-      acceptedP99Ms: summary.acceptedP99Ms,
-      acceptedMaxMs: summary.acceptedMaxMs
-    });
-    if (Array.isArray(summary.acceptedLatenciesMs)) {
-      for (const latency of summary.acceptedLatenciesMs) {
-        if (Number.isFinite(latency)) acceptedLatenciesMs.push(latency);
+    try {
+      const summary = await runSoakBatch({
+        cwd: root,
+        wsUrl,
+        iterations: soakBatchIterations,
+        timeoutMs: soakTimeoutMs
+      });
+      soakBatches.push({
+        at: Date.now(),
+        iterations: summary.iterations,
+        acceptedSamples: summary.acceptedSamples,
+        acceptedP95Ms: summary.acceptedP95Ms,
+        acceptedP99Ms: summary.acceptedP99Ms,
+        acceptedMaxMs: summary.acceptedMaxMs
+      });
+      if (Array.isArray(summary.acceptedLatenciesMs)) {
+        for (const latency of summary.acceptedLatenciesMs) {
+          if (Number.isFinite(latency)) acceptedLatenciesMs.push(latency);
+        }
       }
+    } catch (error) {
+      soakErrors.push({ at: Date.now(), message: error instanceof Error ? error.message.slice(0, 400) : String(error).slice(0, 400) });
+    }
+    if (interBatchPauseMs > 0 && Date.now() + interBatchPauseMs < deadlineAt) {
+      await new Promise((r) => setTimeout(r, interBatchPauseMs));
     }
   }
 } finally {
@@ -176,7 +185,8 @@ const payload = {
     acceptedP95Ms,
     acceptedP99Ms,
     acceptedMaxMs,
-    batches: soakBatches
+    batches: soakBatches,
+    batchErrors: soakErrors
   },
   metrics: {
     gatewayMetricsUrl,

@@ -194,6 +194,92 @@ describe("createSnapshotCheckpointManager", () => {
     expect(phases).toContain("skipped_high_memory");
   });
 
+  it("supports forced checkpoint compaction even when pending events are below threshold", async () => {
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+    const manager = createSnapshotCheckpointManager({
+      eventStore,
+      snapshotStore,
+      exportSnapshotSections: () => ({
+        initialState: {
+          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          activeLocks: []
+        },
+        commandEvents: []
+      }),
+      checkpointEveryEvents: 100,
+      now: () => 9_000
+    });
+
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        actionType: "ATTACK",
+        originX: 10,
+        originY: 10,
+        targetX: 10,
+        targetY: 11,
+        resolvesAt: 1_150
+      },
+      1_100
+    );
+
+    const result = await manager.checkpointNow();
+
+    expect(result).toBe("saved");
+    await expect(snapshotStore.loadLatestSnapshot()).resolves.toMatchObject({
+      lastAppliedEventId: 1,
+      createdAt: 9_000
+    });
+  });
+
+  it("allows forced checkpoint compaction to bypass memory watermark when requested", async () => {
+    const eventStore = new InMemorySimulationEventStore();
+    const saveSnapshot = vi.fn(async () => undefined);
+    const manager = createSnapshotCheckpointManager({
+      eventStore,
+      snapshotStore: {
+        saveSnapshot,
+        loadLatestSnapshot: vi.fn(async () => undefined)
+      } as unknown as InMemorySimulationSnapshotStore,
+      exportSnapshotSections: () => ({
+        initialState: { tiles: [], activeLocks: [] },
+        commandEvents: []
+      }),
+      checkpointEveryEvents: 100,
+      getMemoryUsage: () => ({
+        rssBytes: 600,
+        heapUsedBytes: 300,
+        heapTotalBytes: 400
+      }),
+      maxCheckpointRssBytes: 500
+    });
+
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        actionType: "ATTACK",
+        originX: 10,
+        originY: 10,
+        targetX: 10,
+        targetY: 11,
+        resolvesAt: 1_150
+      },
+      1_100
+    );
+
+    const defaultResult = await manager.checkpointNow();
+    const bypassResult = await manager.checkpointNow({ ignoreMemoryGuard: true });
+
+    expect(defaultResult).toBe("skipped_high_memory");
+    expect(bypassResult).toBe("saved");
+    expect(saveSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it("backs off repeated checkpoint attempts while memory remains hot", async () => {
     const loadLatestEventId = vi.fn(async () => 1);
     const eventStore = {
@@ -299,5 +385,65 @@ describe("createSnapshotCheckpointManager", () => {
     );
     await expect(manager.onEventPersisted()).rejects.toThrow("snapshot timeout");
     expect(saveSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it("forces a checkpoint once pending events pass forceCheckpointAfterEvents even under hot memory", async () => {
+    const eventStore = new InMemorySimulationEventStore();
+    const saveSnapshot = vi.fn(async () => undefined);
+    const manager = createSnapshotCheckpointManager({
+      eventStore,
+      snapshotStore: {
+        saveSnapshot,
+        loadLatestSnapshot: vi.fn(async () => undefined)
+      } as unknown as InMemorySimulationSnapshotStore,
+      exportSnapshotSections: () => ({
+        initialState: { tiles: [], activeLocks: [] },
+        commandEvents: []
+      }),
+      checkpointEveryEvents: 2,
+      forceCheckpointAfterEvents: 3,
+      getMemoryUsage: () => ({
+        rssBytes: 600,
+        heapUsedBytes: 300,
+        heapTotalBytes: 400
+      }),
+      maxCheckpointRssBytes: 500
+    });
+
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "invalid"
+      },
+      1_000
+    );
+    await manager.onEventPersisted();
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-2",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "invalid"
+      },
+      1_001
+    );
+    await manager.onEventPersisted();
+    await eventStore.appendEvent(
+      {
+        eventType: "COMMAND_REJECTED",
+        commandId: "cmd-3",
+        playerId: "player-1",
+        code: "BAD_COMMAND",
+        message: "invalid"
+      },
+      1_002
+    );
+    await manager.onEventPersisted();
+
+    expect(saveSnapshot).toHaveBeenCalledTimes(1);
   });
 });
