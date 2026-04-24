@@ -2115,6 +2115,83 @@ describe("simulation runtime", () => {
     expect(recoveredTile?.economicStructure).toBeUndefined();
   });
 
+  it("backfills missing seed coordinates when recovered restart state is sparse", () => {
+    const runtime = new SimulationRuntime({
+      mergeSeedTilesWithInitialState: false,
+      seedTiles: new Map([
+        [
+          "12,18",
+          {
+            x: 12,
+            y: 18,
+            terrain: "LAND",
+            resource: "GEMS"
+          }
+        ],
+        [
+          "12,19",
+          {
+            x: 12,
+            y: 19,
+            terrain: "SEA",
+            resource: "FISH"
+          }
+        ]
+      ]),
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 12,
+            y: 18,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER"
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const recoveredOwnedTile = runtime.exportState().tiles.find((tile) => tile.x === 12 && tile.y === 18);
+    expect(recoveredOwnedTile).toEqual(
+      expect.objectContaining({
+        x: 12,
+        y: 18,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "FRONTIER"
+      })
+    );
+    expect(recoveredOwnedTile?.resource).toBeUndefined();
+
+    expect(runtime.exportState().tiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          x: 12,
+          y: 19,
+          terrain: "SEA",
+          resource: "FISH"
+        })
+      ])
+    );
+  });
+
   it("enforces the development slot cap for settlements and emits live player updates", async () => {
     const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
     const runtime = new SimulationRuntime({

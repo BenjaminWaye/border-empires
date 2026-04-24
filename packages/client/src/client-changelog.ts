@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.24.2",
+  version: "2026.04.24.3",
   title: "What's New",
-  summary: "Recent updates include staging simulation availability hardening for frontier command responsiveness, AI planner payload scoping to prevent multi-second rewrite simulation event-loop stalls under AI load, replay-cache/memory stability hardening for rewrite simulation command history, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include sparse restart-snapshot tile-backfill hardening for rewrite map/visibility fidelity, staging simulation availability hardening for frontier command responsiveness, AI planner payload scoping to prevent multi-second rewrite simulation event-loop stalls under AI load, replay-cache/memory stability hardening for rewrite simulation command history, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.24.3",
+      title: "Restart hydration now backfills missing world coordinates when durable snapshot state is sparse",
+      why: "Some restart paths could hydrate from sparse durable tile state and leave missing coordinates unexplored after reconnect, which showed as dark gaps next to active frontier and could hide nearby resource context.",
+      changes: [
+        "Simulation runtime now detects sparse recovered tile sets and backfills missing coordinates from deterministic seed tiles during startup hydration.",
+        "Recovered explicit tile ownership/details still remain authoritative and are applied on top of the seed backfill, so persisted frontier ownership is preserved.",
+        "Added runtime regression coverage for sparse restart hydration so missing-coordinate dark gaps cannot regress."
+      ]
+    },
     {
       introducedIn: "2026.04.24.2",
       title: "Staging frontier commands now fail fast when simulation is unavailable instead of hanging in queued state",
