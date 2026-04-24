@@ -4152,7 +4152,7 @@ export class SimulationRuntime {
           }
         : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
     const defenderTileCountBeforeCapture = previousOwnerId
-      ? Math.max(1, [...this.tiles.values()].filter((tile) => tile.ownerId === previousOwnerId && tile.ownershipState === "SETTLED").length)
+      ? Math.max(1, this.summaryForPlayer(previousOwnerId).settledTileCount)
       : 0;
     const attacker = this.players.get(lock.playerId);
     const defender = previousOwnerId ? this.players.get(previousOwnerId) : undefined;
@@ -4193,11 +4193,15 @@ export class SimulationRuntime {
         ownershipState: "FRONTIER"
       };
       this.replaceTileState(lock.targetKey, resolvedTarget);
+      const tileDeltas =
+        attacker?.isAi
+          ? [this.tileDeltaFromState(resolvedTarget)]
+          : this.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY);
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: lock.commandId,
         playerId: lock.playerId,
-        tileDeltas: this.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY)
+        tileDeltas
       });
     }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
@@ -4249,8 +4253,7 @@ export class SimulationRuntime {
   private respawnIfEliminated(playerId: string, commandId: string): void {
     const actor = this.players.get(playerId);
     if (!actor) return;
-    const stillOwnsTiles = [...this.tiles.values()].some((tile) => tile.ownerId === playerId);
-    if (stillOwnsTiles) return;
+    if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return;
 
     for (const tile of this.tiles.values()) {
       if (tile.terrain !== "LAND" || tile.ownerId) continue;

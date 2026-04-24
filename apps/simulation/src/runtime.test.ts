@@ -1968,6 +1968,64 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("emits only the captured tile delta for AI captures to keep replay/event pressure low", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "ai-1",
+            {
+              id: "ai-1",
+              isAi: true,
+              points: 100,
+              manpower: 150,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 11, terrain: "LAND" },
+            { x: 9, y: 11, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+      const tileDeltaBatches: Array<{ commandId: string; tileDeltas: Array<{ x: number; y: number; ownerId?: string }> }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "TILE_DELTA_BATCH" && event.commandId === "ai-expand-1") {
+          tileDeltaBatches.push({ commandId: event.commandId, tileDeltas: event.tileDeltas });
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "ai-expand-1",
+        sessionId: "ai-runtime:ai-1",
+        playerId: "ai-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      expect(tileDeltaBatches).toHaveLength(1);
+      expect(tileDeltaBatches[0]?.tileDeltas).toEqual([
+        expect.objectContaining({ x: 10, y: 11, ownerId: "ai-1", ownershipState: "FRONTIER", terrain: "LAND" })
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("settles an owned frontier tile without inventing a town", async () => {
     const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
     const runtime = new SimulationRuntime({

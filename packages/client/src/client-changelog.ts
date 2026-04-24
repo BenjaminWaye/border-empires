@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.24.3",
+  version: "2026.04.24.4",
   title: "What's New",
-  summary: "Recent updates include sparse restart-snapshot tile-backfill hardening for rewrite map/visibility fidelity, staging simulation availability hardening for frontier command responsiveness, AI planner payload scoping to prevent multi-second rewrite simulation event-loop stalls under AI load, replay-cache/memory stability hardening for rewrite simulation command history, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include AI-capture replay/event payload compaction and worker delta-sync coalescing for lower staging CPU under 20-AI load, sparse restart-snapshot tile-backfill hardening for rewrite map/visibility fidelity, staging simulation availability hardening for frontier command responsiveness, AI planner payload scoping to prevent multi-second rewrite simulation event-loop stalls under AI load, replay-cache/memory stability hardening for rewrite simulation command history, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.24.4",
+      title: "AI frontier captures now emit compact tile deltas and planner sync now coalesces rapid tile updates",
+      why: "With 20 AI empires active, each AI capture was emitting full reveal-radius tile batches and both worker bridges were forwarding every tile batch immediately, increasing event-loop pressure and delaying frontier acknowledgements.",
+      changes: [
+        "Simulation now emits single-tile capture deltas for AI-owned captures instead of full reveal-radius batches, while preserving full reveal-radius behavior for human captures.",
+        "AI/system worker bridges now coalesce rapid TILE_DELTA_BATCH updates by tile key before posting to planner workers, reducing cross-thread serialization churn.",
+        "Capture plunder and elimination checks now use player summary counters instead of full-map scans during lock resolution."
+      ]
+    },
     {
       introducedIn: "2026.04.24.3",
       title: "Restart hydration now backfills missing world coordinates when durable snapshot state is sparse",
