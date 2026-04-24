@@ -563,14 +563,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } => {
     const width = Math.max(1, deps.canvas.width);
     const height = Math.max(1, deps.canvas.height);
-    const size = Math.max(1, deps.state.zoom);
-    const halfW = Math.floor(width / size / 2);
-    const halfH = Math.floor(height / size / 2);
-    const dx = Math.floor(offsetX / size) - halfW;
-    const dy = Math.floor(offsetY / size) - halfH;
+    const ndcX = (offsetX / width) * 2 - 1;
+    const ndcY = -((offsetY / height) * 2 - 1);
+    const nearPoint = new Vector3(ndcX, ndcY, -1).unproject(camera);
+    const farPoint = new Vector3(ndcX, ndcY, 1).unproject(camera);
+    const rayDir = farPoint.sub(nearPoint);
+    const rayDirY = rayDir.y;
+    if (Math.abs(rayDirY) < 1e-6) {
+      return { gx: deps.state.camX, gy: deps.state.camY };
+    }
+    const tileTopPlaneY = 0.14;
+    const t = (tileTopPlaneY - nearPoint.y) / rayDirY;
+    const hitX = nearPoint.x + rayDir.x * t;
+    const hitZ = nearPoint.z + rayDir.z * t;
     return {
-      gx: deps.state.camX + dx,
-      gy: deps.state.camY + dy
+      gx: deps.state.camX + Math.floor(hitX),
+      gy: deps.state.camY + Math.floor(hitZ)
     };
   };
 
