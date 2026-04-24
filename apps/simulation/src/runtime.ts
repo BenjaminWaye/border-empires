@@ -61,6 +61,11 @@ import {
   TERRAIN_SHAPING_GOLD_COST
 } from "@border-empires/game-domain";
 import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
+import {
+  DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES,
+  DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY,
+  isTerminalCommandEvent
+} from "./command-event-lifecycle.js";
 import { laneForCommand, type QueueLane } from "./command-lane.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
@@ -83,7 +88,8 @@ import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections }
 import { buildDomainUpdatePayload, buildTechUpdatePayload, chooseDomainForPlayer, chooseTechForPlayer } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
-import type { PlannerWorldView } from "./planner-world-view.js";
+import type { PlannerPlayerView, PlannerWorldView } from "./planner-world-view.js";
+import { buildPlannerTileSlice } from "./planner-world-view-slice.js";
 
 type LockRecord = {
   commandId: string;
@@ -182,6 +188,8 @@ type SimulationRuntimeOptions = {
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
   commandTrace?: (sample: Record<string, unknown>) => void;
+  maxTerminalCommandReplayHistory?: number;
+  maxPlayerSeqReplayEntries?: number;
 };
 
 const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState): Map<string, RuntimePlayer> | undefined => {
@@ -453,6 +461,13 @@ export class SimulationRuntime {
   private readonly players: Map<string, RuntimePlayer>;
   private readonly tiles: Map<string, DomainTileState>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
+  private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
+  private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, {
+    tileCollectionVersion: number;
+    territoryTileKeys: string[];
+    frontierTileKeys: string[];
+    pendingSettlementTileKeys: string[];
+  }>();
   private readonly locksByTile: Map<string, LockRecord>;
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
@@ -469,6 +484,9 @@ export class SimulationRuntime {
   };
   private readonly recordedEventsByCommandId = new Map<string, SimulationEvent[]>();
   private readonly commandIdsByPlayerSeq = new Map<string, string>();
+  private readonly terminalReplayCommandIds = new Map<string, true>();
+  private readonly maxTerminalCommandReplayHistory: number;
+  private readonly maxPlayerSeqReplayEntries: number;
   private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
@@ -481,6 +499,14 @@ export class SimulationRuntime {
     this.now = options.now ?? (() => Date.now());
     this.persistence = options.persistence ?? new InMemorySimulationPersistence();
     this.backgroundBatchSize = Math.max(1, options.backgroundBatchSize ?? 8);
+    this.maxTerminalCommandReplayHistory = Math.max(
+      0,
+      options.maxTerminalCommandReplayHistory ?? DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY
+    );
+    this.maxPlayerSeqReplayEntries = Math.max(
+      0,
+      options.maxPlayerSeqReplayEntries ?? DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES
+    );
     this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
     this.commandTrace = options.commandTrace;
@@ -500,6 +526,7 @@ export class SimulationRuntime {
     }
     for (const playerId of this.players.keys()) {
       this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+      this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     }
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
@@ -537,6 +564,8 @@ export class SimulationRuntime {
       recordedEventsByCommandId: this.recordedEventsByCommandId,
       ...(recoveredCommandHistory ? { recoveredCommandHistory } : {})
     });
+    this.rebuildTerminalReplayIndex();
+    this.pruneReplayCaches();
     for (const lock of uniqueLocksByCommandId(this.locksByTile.values())) {
       this.scheduleLockResolution(lock);
     }
@@ -557,6 +586,7 @@ export class SimulationRuntime {
       player = createHumanRuntimePlayer(playerId);
       this.players.set(playerId, player);
       this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+      this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     }
 
     if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return false;
@@ -621,12 +651,74 @@ export class SimulationRuntime {
     };
   }
 
+  private rebuildTerminalReplayIndex(): void {
+    this.terminalReplayCommandIds.clear();
+    for (const [commandId, events] of this.recordedEventsByCommandId.entries()) {
+      if (events.some(isTerminalCommandEvent)) {
+        this.terminalReplayCommandIds.set(commandId, true);
+      }
+    }
+  }
+
+  private markTerminalReplayCommand(commandId: string): void {
+    this.terminalReplayCommandIds.delete(commandId);
+    this.terminalReplayCommandIds.set(commandId, true);
+  }
+
+  private dropReplayHistoryForCommand(commandId: string): void {
+    this.recordedEventsByCommandId.delete(commandId);
+    this.terminalReplayCommandIds.delete(commandId);
+    for (const [playerSeqKey, mappedCommandId] of this.commandIdsByPlayerSeq.entries()) {
+      if (mappedCommandId === commandId) this.commandIdsByPlayerSeq.delete(playerSeqKey);
+    }
+  }
+
+  private pruneReplayCaches(): void {
+    while (this.terminalReplayCommandIds.size > this.maxTerminalCommandReplayHistory) {
+      const oldestTerminalCommandId = this.terminalReplayCommandIds.keys().next().value;
+      if (!oldestTerminalCommandId) break;
+      this.dropReplayHistoryForCommand(oldestTerminalCommandId);
+    }
+
+    while (this.commandIdsByPlayerSeq.size > this.maxPlayerSeqReplayEntries) {
+      const oldestPlayerSeqKey = this.commandIdsByPlayerSeq.keys().next().value;
+      if (!oldestPlayerSeqKey) break;
+      this.commandIdsByPlayerSeq.delete(oldestPlayerSeqKey);
+    }
+  }
+
   private summaryForPlayer(playerId: string): PlayerRuntimeSummary {
     const existing = this.playerSummaries.get(playerId);
     if (existing) return existing;
     const summary = createEmptyPlayerRuntimeSummary();
     this.playerSummaries.set(playerId, summary);
+    this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     return summary;
+  }
+
+  private markPlannerPlayerTileCollectionDirty(playerId: string): void {
+    const nextVersion = (this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0) + 1;
+    this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, nextVersion);
+    this.plannerPlayerTileKeyCacheByPlayer.delete(playerId);
+  }
+
+  private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
+    tileCollectionVersion: number;
+    territoryTileKeys: string[];
+    frontierTileKeys: string[];
+    pendingSettlementTileKeys: string[];
+  } {
+    const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
+    const cached = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
+    if (cached && cached.tileCollectionVersion === tileCollectionVersion) return cached;
+    const next = {
+      tileCollectionVersion,
+      territoryTileKeys: [...summary.territoryTileKeys],
+      frontierTileKeys: [...summary.frontierTileKeys],
+      pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()]
+    };
+    this.plannerPlayerTileKeyCacheByPlayer.set(playerId, next);
+    return next;
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
@@ -667,11 +759,13 @@ export class SimulationRuntime {
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
     if (!tile.ownerId) return;
     applyTileToPlayerSummary(this.summaryForPlayer(tile.ownerId), tileKey, tile);
+    this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
   private removeTileFromPlayerSummaries(tileKey: string, tile: DomainTileState): void {
     if (!tile.ownerId) return;
     removeTileFromPlayerSummary(this.summaryForPlayer(tile.ownerId), tileKey, tile);
+    this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
   private replaceTileState(tileKey: string, tile: DomainTileState): void {
@@ -684,6 +778,7 @@ export class SimulationRuntime {
   private addPendingSettlement(record: PendingSettlementRecord): void {
     this.pendingSettlementsByTile.set(record.tileKey, record);
     addPendingSettlementToSummary(this.summaryForPlayer(record.ownerId), record);
+    this.markPlannerPlayerTileCollectionDirty(record.ownerId);
   }
 
   private removePendingSettlement(tileKey: string): PendingSettlementRecord | undefined {
@@ -691,6 +786,7 @@ export class SimulationRuntime {
     if (!record) return undefined;
     this.pendingSettlementsByTile.delete(tileKey);
     removePendingSettlementFromSummary(this.summaryForPlayer(record.ownerId), tileKey);
+    this.markPlannerPlayerTileCollectionDirty(record.ownerId);
     return record;
   }
 
@@ -763,6 +859,7 @@ export class SimulationRuntime {
   }
 
   submitCommand(command: CommandEnvelope): void {
+    this.pruneReplayCaches();
     const existingEvents = this.recordedEventsByCommandId.get(command.commandId);
     if (existingEvents) {
       for (const event of existingEvents) this.events.emit("event", event);
@@ -775,8 +872,9 @@ export class SimulationRuntime {
       const replayEvents = this.recordedEventsByCommandId.get(existingCommandId);
       if (replayEvents) {
         for (const event of replayEvents) this.events.emit("event", event);
+        return;
       }
-      return;
+      this.commandIdsByPlayerSeq.delete(playerSeqKey);
     }
 
     this.commandIdsByPlayerSeq.set(playerSeqKey, command.commandId);
@@ -856,50 +954,41 @@ export class SimulationRuntime {
   }
 
   exportPlannerWorldView(playerIds: string[]): PlannerWorldView {
+    const players = this.exportPlannerPlayerViews(playerIds);
+    const tiles = buildPlannerTileSlice({
+      playerIds,
+      tiles: this.tiles,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
+    });
+
+    return { tiles, players };
+  }
+
+  exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
     const lockPlayerIds = new Set<string>();
     for (const lock of this.locksByTile.values()) {
       lockPlayerIds.add(lock.playerId);
     }
-
-    const tiles: PlannerWorldView["tiles"] = [];
-    for (const tile of this.tiles.values()) {
-      const plannerTile: PlannerWorldView["tiles"][number] = {
-        x: tile.x,
-        y: tile.y,
-        terrain: tile.terrain
-      };
-      if (tile.resource) plannerTile.resource = tile.resource;
-      if (tile.dockId) plannerTile.dockId = tile.dockId;
-      if (tile.ownerId) plannerTile.ownerId = tile.ownerId;
-      if (tile.ownershipState) plannerTile.ownershipState = tile.ownershipState;
-      if (tile.town) {
-        plannerTile.town = {
-          ...(typeof tile.town.supportMax === "number" ? { supportMax: tile.town.supportMax } : {}),
-          ...(typeof tile.town.supportCurrent === "number" ? { supportCurrent: tile.town.supportCurrent } : {})
-        };
-      }
-      tiles.push(plannerTile);
-    }
-
-    const players: PlannerWorldView["players"] = [];
+    const players: PlannerPlayerView[] = [];
     for (const playerId of playerIds) {
       const player = this.players.get(playerId);
       if (!player) continue;
       this.applyManpowerRegen(player);
       const summary = this.summaryForPlayer(playerId);
+      const tileKeys = this.plannerPlayerTileKeys(playerId, summary);
       players.push({
         id: player.id,
         points: player.points,
         manpower: player.manpower,
+        tileCollectionVersion: tileKeys.tileCollectionVersion,
         hasActiveLock: lockPlayerIds.has(player.id),
-        territoryTileKeys: [...summary.territoryTileKeys],
-        frontierTileKeys: [...summary.frontierTileKeys],
-        pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()],
+        territoryTileKeys: tileKeys.territoryTileKeys,
+        frontierTileKeys: tileKeys.frontierTileKeys,
+        pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
       });
     }
-
-    return { tiles, players };
+    return players;
   }
 
   exportState(): {
@@ -2890,6 +2979,8 @@ export class SimulationRuntime {
     const existingEvents = this.recordedEventsByCommandId.get(event.commandId) ?? [];
     existingEvents.push(event);
     this.recordedEventsByCommandId.set(event.commandId, existingEvents);
+    if (isTerminalCommandEvent(event)) this.markTerminalReplayCommand(event.commandId);
+    this.pruneReplayCaches();
     this.events.emit("event", event);
   }
 
@@ -2906,8 +2997,8 @@ export class SimulationRuntime {
     resource?: string;
     dockId?: string;
     shardSiteJson?: string;
-    ownerId?: string;
-    ownershipState?: string;
+    ownerId?: string | undefined;
+    ownershipState?: string | undefined;
       townJson?: string;
       townType?: "MARKET" | "FARMING";
       townName?: string;
@@ -4061,7 +4152,7 @@ export class SimulationRuntime {
           }
         : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
     const defenderTileCountBeforeCapture = previousOwnerId
-      ? Math.max(1, [...this.tiles.values()].filter((tile) => tile.ownerId === previousOwnerId && tile.ownershipState === "SETTLED").length)
+      ? Math.max(1, this.summaryForPlayer(previousOwnerId).settledTileCount)
       : 0;
     const attacker = this.players.get(lock.playerId);
     const defender = previousOwnerId ? this.players.get(previousOwnerId) : undefined;
@@ -4102,11 +4193,15 @@ export class SimulationRuntime {
         ownershipState: "FRONTIER"
       };
       this.replaceTileState(lock.targetKey, resolvedTarget);
+      const tileDeltas =
+        attacker?.isAi
+          ? [this.tileDeltaFromState(resolvedTarget)]
+          : this.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY);
       this.emitEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: lock.commandId,
         playerId: lock.playerId,
-        tileDeltas: this.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY)
+        tileDeltas
       });
     }
     if (attacker) this.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: attacker.id });
@@ -4158,8 +4253,7 @@ export class SimulationRuntime {
   private respawnIfEliminated(playerId: string, commandId: string): void {
     const actor = this.players.get(playerId);
     if (!actor) return;
-    const stillOwnsTiles = [...this.tiles.values()].some((tile) => tile.ownerId === playerId);
-    if (stillOwnsTiles) return;
+    if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return;
 
     for (const tile of this.tiles.values()) {
       if (tile.terrain !== "LAND" || tile.ownerId) continue;
@@ -4382,7 +4476,16 @@ const createTilesFromInitialState = (
   mergeSeedTilesWithInitialState: boolean
 ): Map<string, DomainTileState> => {
   if (!initialState) return new Map(seedTiles);
-  const mergedTiles = mergeSeedTilesWithInitialState ? new Map(seedTiles) : new Map<string, DomainTileState>();
+  const recoveredTileKeys = new Set<string>();
+  for (const tile of initialState.tiles) {
+    recoveredTileKeys.add(simulationTileKey(tile.x, tile.y));
+  }
+  // Some older durable snapshots can contain only changed tiles. In that case we
+  // still need to backfill untouched coordinates from the deterministic seed.
+  const shouldBackfillMissingSeedTiles = !mergeSeedTilesWithInitialState && recoveredTileKeys.size < seedTiles.size;
+  const mergedTiles = mergeSeedTilesWithInitialState || shouldBackfillMissingSeedTiles
+    ? new Map(seedTiles)
+    : new Map<string, DomainTileState>();
 
   for (const tile of initialState.tiles) {
     const tileKey = simulationTileKey(tile.x, tile.y);

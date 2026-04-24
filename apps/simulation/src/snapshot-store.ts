@@ -1,11 +1,9 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 
 import type { StoredSimulationCommand } from "./command-store.js";
+import { isTerminalCommandEvent } from "./command-event-lifecycle.js";
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { ProjectionExportState } from "./postgres-projection-writer.js";
-
-const isTerminalCommandEvent = (event: SimulationEvent): boolean =>
-  event.eventType === "COMMAND_REJECTED" || event.eventType === "COMBAT_RESOLVED";
 
 export type StoredSnapshotCommandEvents = {
   commandId: string;
