@@ -914,19 +914,43 @@ export const processActionQueue = (
     }
 
     const allowOptimisticOrigin = Boolean(to.ownerId);
-    let from = to.ownerId ? deps.pickOriginForTarget(to.x, to.y) : deps.pickOriginForTarget(to.x, to.y, false, false);
-    const optimisticFrom = to.ownerId ? from : deps.pickOriginForTarget(to.x, to.y, false, true);
+    let from = to.ownerId ? deps.pickOriginForTarget(to.x, to.y, true, false) : deps.pickOriginForTarget(to.x, to.y, false, false);
+    const optimisticFrom = to.ownerId ? deps.pickOriginForTarget(to.x, to.y, true, true) : deps.pickOriginForTarget(to.x, to.y, false, true);
     const selectedFrom = state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined;
     if (
       !from &&
       selectedFrom &&
       selectedFrom.ownerId === state.me &&
       deps.isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y) &&
-      (allowOptimisticOrigin || selectedFrom.optimisticPending !== "expand")
+      selectedFrom.optimisticPending !== "expand"
     ) {
       from = selectedFrom;
     }
-    if (!from && !allowOptimisticOrigin && optimisticFrom) from = optimisticFrom;
+    if (!from && optimisticFrom) {
+      const existingWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
+      const waitUntil = Math.max(existingWaitUntil, Date.now() + 900);
+      state.frontierSyncWaitUntilByTarget.set(targetKey, waitUntil);
+      logActionQueue("action-queue-wait-confirmed-origin", {
+        targetKey,
+        waitMs: Math.max(0, waitUntil - Date.now()),
+        queueLength: state.actionQueue.length,
+        optimisticFrom: { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId }
+      });
+      logFrontierQueue("frontier-queue-wait-confirmed-origin", {
+        before: to,
+        after: to,
+        extra: {
+          waitMs: Math.max(0, waitUntil - Date.now()),
+          optimisticFrom: { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId }
+        }
+      });
+      const blocked = state.actionQueue.shift();
+      if (!blocked) return false;
+      state.actionQueue.push(blocked);
+      deferredFrontierSyncTargets += 1;
+      if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
+      continue;
+    }
     if (!from && to.ownerId && to.dockId) from = to;
     if (!from) {
       logActionQueue("action-queue-drop-no-origin", {
@@ -947,6 +971,30 @@ export const processActionQueue = (
       });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
+      continue;
+    }
+    const fromKey = deps.keyFor(from.x, from.y);
+    const originSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(fromKey) ?? 0;
+    if (originSyncWaitUntil > Date.now()) {
+      logActionQueue("action-queue-wait-origin-sync", {
+        targetKey,
+        originKey: fromKey,
+        waitMs: Math.max(0, originSyncWaitUntil - Date.now()),
+        queueLength: state.actionQueue.length
+      });
+      logFrontierQueue("frontier-queue-wait-origin-sync", {
+        before: to,
+        after: to,
+        extra: {
+          originKey: fromKey,
+          waitMs: Math.max(0, originSyncWaitUntil - Date.now())
+        }
+      });
+      const blocked = state.actionQueue.shift();
+      if (!blocked) return false;
+      state.actionQueue.push(blocked);
+      deferredFrontierSyncTargets += 1;
+      if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
       continue;
     }
     logActionQueue("action-queue-origin", {

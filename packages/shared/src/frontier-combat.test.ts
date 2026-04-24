@@ -31,6 +31,18 @@ describe("frontier combat", () => {
     expect(result.attackerWon).toBe(false);
   });
 
+  it("treats frontier targets as zero-defense captures", () => {
+    const preview = buildFrontierCombatPreview({
+      terrain: "LAND",
+      ownershipState: "FRONTIER"
+    });
+
+    expect(preview.defMult).toBeCloseTo(0, 6);
+    expect(preview.defEff).toBeCloseTo(0, 6);
+    expect(preview.winChance).toBeCloseTo(1, 6);
+    expect(preview.breakthroughWinChance).toBeCloseTo(1, 6);
+  });
+
   it("keeps preview and resolution tagged to the same combat module", () => {
     expect(buildFrontierCombatPreview.__combatModule).toBe(rollFrontierCombat.__combatModule);
   });

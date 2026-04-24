@@ -27,8 +27,8 @@ export type GatewayTileUpdate = {
   terrain?: "LAND" | "SEA" | "MOUNTAIN";
   resource?: string;
   dockId?: string;
-  ownerId?: string;
-  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+  ownerId?: string | null;
+  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
@@ -284,8 +284,13 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("sabotageJson" in update) normalized.sabotage = parseGatewayStructureJson<Tile["sabotage"]>(update.sabotageJson);
   if ("shardSiteJson" in update) normalized.shardSite = parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(update.shardSiteJson);
-  if ("ownerId" in update) normalized.ownerId = update.ownerId;
-  if ("ownershipState" in update) normalized.ownershipState = update.ownershipState;
+  if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
+  if ("ownershipState" in update) {
+    normalized.ownershipState =
+      update.ownershipState === "FRONTIER" || update.ownershipState === "SETTLED" || update.ownershipState === "BARBARIAN"
+        ? update.ownershipState
+        : undefined;
+  }
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("yieldCap" in update) normalized.yieldCap = update.yieldCap;
@@ -308,6 +313,8 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
         detailLevel: "summary",
         fogged: false
       };
+  // Gateway tile updates are the current visible set for this player.
+  merged.fogged = false;
 
   const normalizedGateway = normalizeGatewayTileUpdate(update, {
     existing,
@@ -381,14 +388,27 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
 
 export const applyGatewayInitialState = (
   deps: GatewayTileSyncDeps,
-  initialState?: { tiles?: GatewayTileUpdate[] }
+  initialState?: { tiles?: GatewayTileUpdate[] },
+  options?: { preserveExistingDiscoveredTiles?: boolean }
 ): number => {
   const tiles = initialState?.tiles;
   if (!Array.isArray(tiles) || tiles.length === 0) return 0;
-  deps.state.tiles.clear();
-  deps.state.incomingAttacksByTile.clear();
-  deps.state.pendingCollectVisibleKeys.clear();
-  deps.state.discoveredTiles.clear();
+  const preserveExistingDiscoveredTiles = options?.preserveExistingDiscoveredTiles === true;
+  if (preserveExistingDiscoveredTiles) {
+    for (const [tileKey, tile] of deps.state.tiles) {
+      deps.state.tiles.set(tileKey, {
+        ...tile,
+        fogged: true
+      });
+    }
+    deps.state.incomingAttacksByTile.clear();
+    deps.state.pendingCollectVisibleKeys.clear();
+  } else {
+    deps.state.tiles.clear();
+    deps.state.incomingAttacksByTile.clear();
+    deps.state.pendingCollectVisibleKeys.clear();
+    deps.state.discoveredTiles.clear();
+  }
   for (const tile of tiles) applyGatewayTileUpdate(deps, tile);
   return tiles.length;
 };

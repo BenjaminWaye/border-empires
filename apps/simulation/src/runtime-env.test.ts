@@ -17,15 +17,15 @@ describe("simulation runtime env", () => {
       enableSystemAutopilot: false,
       systemTickMs: 500,
       globalStatusBroadcastDebounceMs: 15000,
-      startupRecoveryTimeoutMs: 15000,
+      startupRecoveryTimeoutMs: 120000,
       allowSeedRecoveryFallback: false,
       useAiWorker: false
     });
   });
 
-  it("requires durable database configuration in production", () => {
+  it("requires durable database configuration in managed runtime", () => {
     expect(() => parseSimulationRuntimeEnv({ NODE_ENV: "production" })).toThrow(
-      "simulation requires SIMULATION_DATABASE_URL or DATABASE_URL in production"
+      "simulation requires SIMULATION_DATABASE_URL or DATABASE_URL in managed runtime"
     );
   });
 
@@ -75,6 +75,16 @@ describe("simulation runtime env", () => {
     });
   });
 
+  it("requires explicit seed profile in managed runtime", () => {
+    expect(
+      () =>
+        parseSimulationRuntimeEnv({
+          NODE_ENV: "staging",
+          DATABASE_URL: "postgres://simulation"
+        })
+    ).toThrow("simulation requires SIMULATION_SEED_PROFILE in managed runtime");
+  });
+
   it("enables AI worker when SIMULATION_AI_WORKER=1", () => {
     expect(
       parseSimulationRuntimeEnv({ SIMULATION_AI_WORKER: "1" })
@@ -90,6 +100,19 @@ describe("simulation runtime env", () => {
     ).toMatchObject({
       seedProfile: "season-20ai",
       allowSeedRecoveryFallback: true
+    });
+  });
+
+  it("disables seed fallback in managed runtime even when explicitly requested", () => {
+    expect(
+      parseSimulationRuntimeEnv({
+        NODE_ENV: "staging",
+        DATABASE_URL: "postgres://simulation",
+        SIMULATION_SEED_PROFILE: "season-20ai",
+        SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1"
+      })
+    ).toMatchObject({
+      allowSeedRecoveryFallback: false
     });
   });
 });

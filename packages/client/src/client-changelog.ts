@@ -19,76 +19,244 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.24.13",
+  version: "2026.04.24.2",
   title: "What's New",
-  summary: "Recent updates include a true WebGL `?renderer=3d` terrain mode using real 3D meshes with an orthographic 3D camera and raycast tile picking, plus full-map terrain reveal in 3D mode for easier landscape review, biome-aware 3D terrain materials for coasts, sand, forest canopy overlays, and deterministic reveal-mode population clustering so synthetic towns/resources appear in coherent map-scale patches. A rewrite observability pass adds live backend accept-latency p95 in the debug badge, attack-preview fallback math now comes from the same shared combat module the server uses to resolve fights, rewrite recovery restores player balances, pending settlement work, and collected-yield buffers from durable snapshots instead of rebuilding from seed defaults on restart, stricter simulation durability handling stops the server instead of drifting when Postgres persistence fails, live tile yield now survives gateway sync so collect and production views stay coherent, and building actions keep correct queueability and blocker messaging when development slots are full.",
+  summary: "Recent updates include rewrite default 3D map rollout with legacy-style tile coloring/texturing on the new 3D terrain renderer, plus rewrite territory-abandon ownership-clear propagation fixes, staging hostname hardening, auth fail-fast routing/timeout hardening, durable auth-identity player binding, reconnect map-fidelity protection, and stricter startup source-policy guardrails.",
   entries: [
     {
-      introducedIn: "2026.04.24.13",
-      title: "3D renderer now uses real WebGL mesh terrain",
-      why: "The previous `?renderer=3d` pass still rendered on the 2D canvas with perspective-style shading, so the landscape could look elevated but was not true 3D geometry with a camera and spatial picking.",
+      introducedIn: "2026.04.24.2",
+      title: "Rewrite now defaults to the new 3D map with legacy tile look",
+      why: "Rewrite sessions needed to switch from the old map presentation to the new 3D terrain while preserving familiar pre-3D color and texture readability.",
       changes: [
-        "Client now mounts a Three.js WebGL terrain underlay in `?renderer=3d` mode with orthographic 3D camera framing, real mesh-based terrain blocks, and mountain peak meshes.",
-        "Tile picking in 3D mode now uses raycasting to map pointer hits back to world grid coordinates, so click/selection flow stays aligned with existing square-grid gameplay logic.",
-        "The existing 2D game/UI layer remains in place for HUD and overlays, while terrain rendering is delegated to the WebGL scene in true 3D mode.",
-        "When WebGL terrain initialization fails, the client now automatically falls back to normal 2D terrain rendering instead of leaving a transparent terrain layer.",
-        "In `?renderer=3d` mode the client now reveals and renders full-map terrain by default so the 3D landscape can be evaluated without fog-of-war clipping; add `&reveal=0` to disable.",
-        "3D terrain rendering now mirrors core biome cues from the 2D map by distinguishing deep sea from coastal water, applying sand materials to `SAND` and `COASTAL_SAND` land biomes, and drawing low-poly forest canopy/trunk overlays on forest grass tiles.",
-        "Forest art now uses taller clustered conifers with dedicated trunk material and flatter faceted shading.",
-        "Mountain tiles now use a dark-grey mountain skin with white snow-cap tips, and mountain base terrain now switches between grass-base and sand-base variants so mountain clusters blend better into nearby biome context.",
-        "Snow-cap rendering now uses a raised solid white tip cone with polygon-offset rendering so the white peak remains clearly visible above the dark mountain body.",
-        "Snow-cap material now uses lit flat-shaded rendering so the white tip shows directional shading/facets instead of a single flat unlit color.",
-        "Mountain peaks now use square-based pyramid geometry aligned to the tile footprint so each mountain fills its square tile instead of leaving circular cone margins.",
-        "Mountain peak width now intentionally exceeds a single tile so upper cone slopes can overflow into neighboring tiles for a chunkier range silhouette.",
-        "Per-tile peak rotation variation has been removed so mountains keep a consistent fixed orientation.",
-        "Raised mountain base framing has been removed; mountain peaks now sit directly on ground terrain to avoid a dark border around each mountain tile.",
-        "Mountain peak width has been reduced again so mountain geometry stays within tile bounds and no longer overflows into adjacent tiles.",
-        "Mountain peak height variation has been removed so mountain size is visually consistent, and peak footprint sizing has been tuned to reduce visible green seams between adjacent mountain tiles without adding a dedicated mountain underlay layer.",
-        "Grass and sand terrain now render with deterministic multi-shade tile variants in 3D mode so large biomes read with more texture and less flat single-color blob appearance.",
-        "Forest tiles now use a denser 5-tree layout with larger canopy coverage per tile and taller visible brown trunks under each canopy.",
-        "Forest trunk visibility has been increased by raising canopy anchors, extending trunk height, and brightening trunk material so brown trunks read clearly at gameplay camera angle.",
-        "Forest trunks have been extended further with additional canopy lift so a longer brown trunk segment remains visible below each tree crown.",
-        "Forest trunks are now thicker/brighter and shifted slightly toward camera while canopy radius is reduced, making brown trunks explicit even in dense 5-tree tiles.",
-        "Forest trunk styling is now rebalanced to a subtler look with reduced trunk thickness/height and slightly lower canopy anchors so only a small brown segment is visible beneath each canopy.",
-        "Forest trunk placement now uses a stronger forward camera-facing offset with moderate trunk size to keep a small but reliably visible brown section under each canopy.",
-        "Forest trunks are now tuned to stay below canopy tops by reducing forward bias and lowering/slimming trunk placement so brown remains visible underneath without piercing green canopy faces.",
-        "Town tiles in `?renderer=3d` now render as mesh-based low-poly town clusters (main hall, side buildings, and tier-scaled keep for higher tiers) instead of relying on flat 2D town sprites.",
-        "When `?renderer=3d` is active, the 2D town overlay sprite draw pass is skipped so the 3D town mesh remains the only town visual and stays locked to world zoom/camera.",
-        "In reveal mode, true 3D terrain now adds deterministic synthetic town population and resource props for not-yet-streamed tiles so the full map reads populated instead of empty outside chunk-loaded areas.",
-        "Synthetic reveal-mode population preserves real gameplay data priority: whenever live tile data includes a town or resource, the renderer uses authoritative state instead of fallback decoration.",
-        "Town rendering in `?renderer=3d` now reuses the existing SVG town overlays again (settlement/town/city/great-city/metropolis) instead of drawing experimental 3D town meshes.",
-        "Resource rendering in `?renderer=3d` now also reuses existing SVG/resource overlays instead of synthetic 3D resource props, so town/resource styling matches the current 2D overlay art direction.",
-        "3D grass and sand tile tone selection now uses smooth value-noise blending instead of per-tile hash randomness, creating larger coherent color patches instead of checkerboard speckling.",
-        "Grass and sand 3D palettes now use value-only variation on a fixed hue per biome, removing warm/cool hue shifts for a cleaner and more coherent read.",
-        "Terrain cluster scale in 3D mode is now tuned down again so color patches are much smaller (around micro-cluster size) instead of large blotchy regions.",
-        "Reveal-mode synthetic towns/resources now use deterministic clustered placement (instead of sparse tile-hash scatter), so full-map previews read like real populated regions with coherent belts and settlement hubs.",
-        "Single-color grass/sand terrain presets have been rebalanced to more vivid base hexes with stronger light response, so flat biomes feel less lifeless while still keeping one fixed color per biome.",
-        "Grass and sand texture pass has been cleaned up to a smoother low-frequency pattern with lighter relief, removing speckled 'dirty' noise while preserving subtle material detail and one base hue per biome.",
-        "Sand tiles now use a brighter sunlit base tone with lower roughness so they read as more sun-hit and luminous.",
-        "The 3D terrain material now reuses the pre-3D terrain texture recipe (same base palettes and grain/wave math), so tile color/texture reads like the original 2D map while keeping 3D geometry.",
-        "Biome classes now remain visually distinct in 3D using legacy-style texture profiles for grass, sand, coastal water, and deep water.",
-        "3D terrain brightness has been lifted with stronger ambient/sun/sky lighting and neutral (untinted) terrain material color so legacy textures no longer render overly dark.",
-        "Rewrite (`backend=gateway`) sessions now default to the 3D terrain renderer when no explicit `renderer` query override is set, so rewrite uses the new map presentation by default."
+        "Rewrite (`backend=gateway`) now defaults to the true 3D terrain renderer when no explicit `renderer` query override is set.",
+        "3D terrain now uses legacy-style tile color/texture profiles so grass, sand, coastal water, and deep water read like the pre-3D map while keeping 3D geometry.",
+        "3D terrain lighting has been rebalanced brighter to avoid the darker look from earlier map iterations."
+      ]
+    },
+    {
+      introducedIn: "2026.04.24.1",
+      title: "Abandoned tiles now clear settled ownership visuals immediately in rewrite",
+      why: "UNCAPTURE_TILE could clear ownership in simulation state but still arrive without explicit owner-state clears, which let stale settled visuals persist on the client.",
+      changes: [
+        "Rewrite simulation/gateway tile-delta serialization now emits explicit owner/ownership-state clear fields when territory is abandoned.",
+        "Client gateway tile sync now treats null owner fields as authoritative ownership clears instead of preserving stale settled state.",
+        "Added simulation and client regressions to lock owner/ownership-state clear propagation for uncapture updates."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.4",
+      title: "Staging custom domain now follows gateway-default routing and ignores stale legacy cookie state",
+      why: "The dedicated staging domain was not included in staging-host detection, so saved be-backend=legacy cookies could still force the legacy server path there.",
+      changes: [
+        "Backend staging-host detection now explicitly includes staging.borderempires.com.",
+        "staging.borderempires.com now follows the same cookie-bypass behavior as staging Vercel aliases, so stale be-backend=legacy values can no longer override gateway default routing."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.3",
+      title: "Staging auth now fails fast when simulation connectivity is unhealthy",
+      why: "Staging sign-in could appear stuck for long stretches when the gateway was up but still disconnected from simulation gRPC, even though retries were the only viable path.",
+      changes: [
+        "Gateway AUTH now returns SERVER_STARTING immediately after readiness checks if simulation is still disconnected, instead of piling onto a long subscribe wait.",
+        "Staging gateway wake/ping/subscribe timeout budgets are now tightened and routed over flycast so simulation connectivity failures surface quickly to clients."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.2",
+      title: "Gateway auth now keeps each Firebase UID pinned to one player id across restart/retry churn",
+      why: "During simulation warmup or process restarts, repeated AUTH retries could resolve to different player ids in edge cases, making a refresh look like a switch to a different empire.",
+      changes: [
+        "Gateway now persists auth UID to player-id bindings and reuses that binding on every subsequent AUTH handshake.",
+        "When resolver fallback disagrees with an existing UID binding, gateway now keeps the persisted player id and logs an explicit binding override event for debugging.",
+        "Added rewrite-gateway integration coverage to ensure persisted UID bindings win even when fallback identity resolution would select a different player id."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.3",
+      title: "Rewrite startup now fails closed on durable-state drift risks",
+      why: "Managed rewrite runs could still drift between restarts when startup paths quietly fell back to non-authoritative bootstrap sources or mixed inconsistent runtime identity metadata.",
+      changes: [
+        "Managed simulation startup now requires explicit seed-profile identity and durable startup state; db-backed boot no longer silently reseeds when snapshots/events are missing.",
+        "Managed gateway auth bootstrap now disables cached/seed initial-state fallback by default and uses authoritative simulation subscription data only.",
+        "Gateway init now enforces runtime-identity and season-config consistency, and db-backed simulation recovery no longer overlays seed tiles on top of recovered snapshot state."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.1",
+      title: "Reconnect no longer collapses discovered map areas on stable-runtime INIT refreshes",
+      why: "After gateway/simulation restarts, INIT could clear client discovered-tile caches and replace the whole tile map from the current visible snapshot, causing previously explored coast/resource zones (including fish tiles) to appear as unexplored again.",
+      changes: [
+        "Gateway INIT hydration now preserves previously discovered tiles when reconnecting as the same player within the same season, including process restarts with a new runtime fingerprint.",
+        "Preserved tiles are marked fogged during INIT replay, while newly received gateway tiles are explicitly marked visible.",
+        "Added client regression coverage for same-season reconnect INIT (including runtime changes) plus cross-player safety so map memory never leaks between empires."
+      ]
+    },
+    {
+      introducedIn: "2026.04.22.7",
+      title: "Server workers now boot correctly in local source-mode runs",
+      why: "Local parity/record test flows were failing early with module-not-found worker crashes because worker threads were hardwired to compiled .js paths even when only TypeScript sources existed in the active runtime path.",
+      changes: [
+        "Server worker entry resolution now prefers compiled .js entries and falls back to .ts entries when running directly from source.",
+        "Applied the same runtime worker-entry behavior across planner, simulation command bus, chunk read, combat, and chunk serializer workers to prevent startup-time worker crash noise."
+      ]
+    },
+    {
+      introducedIn: "2026.04.22.6",
+      title: "Parity harness can now authenticate through gateway with an explicit bypass flag",
+      why: "Automated parity replay/record tooling needed a controlled way to authenticate without normal Firebase token verification in staging harness scenarios.",
+      changes: [
+        "Gateway auth path now supports a parity-harness bypass mode gated by server configuration.",
+        "This is intended for controlled parity test workflows and not as a production-default auth path."
+      ]
+    },
+    {
+      introducedIn: "2026.04.22.5",
+      title: "Capture and login overlays now expose long-wait diagnostics instead of going silent",
+      why: "During staging instability, frontier actions could remain unresolved for several seconds and login could stall in session-secure phases without enough in-client timing feedback to diagnose what was waiting.",
+      changes: [
+        "Capture progress popup now stays visible while waiting for frontier/combat resolution instead of auto-hiding after timer expiry.",
+        "When capture resolution waits too long, the popup now exposes the existing Download log action so debugging data is one click away.",
+        "Auth busy overlay now appends elapsed time and emits periodic auth-progress debug logs while session setup is still in progress."
+      ]
+    },
+    {
+      introducedIn: "2026.04.22.4",
+      title: "Frontier expansion now bypasses origin attack cooldown and simulation emits command-trace diagnostics",
+      why: "Players could hit ATTACK_COOLDOWN while expanding from a recently used owned origin tile, and staging investigations lacked command-lifecycle visibility to isolate timing and lock-state failures quickly.",
+      changes: [
+        "Shared frontier validation now allows EXPAND from an origin lock owned by the same player while keeping ATTACK/BREAKTHROUGH cooldown behavior unchanged.",
+        "Simulation now emits structured command trace logs (queued, validation context, reject code, accepted, resolved) when SIMULATION_COMMAND_TRACE is enabled.",
+        "Added game-domain regression coverage for EXPAND behavior on same-owner origin locks."
+      ]
+    },
+    {
+      introducedIn: "2026.04.22.3",
+      title: "AI planner hot path no longer re-sorts whole frontier lists each tick",
+      why: "Large-season rewrite simulations were spending too much CPU on repeated per-tick sorting and score recomputation for AI settlement/frontier planning, which could stall action responsiveness under load.",
+      changes: [
+        "Simulation AI settlement selection now uses a single-pass best-candidate scan instead of sorting all frontier tiles every tick.",
+        "Runtime and planner workers no longer sort owned-territory tile lists before frontier command scoring, removing unnecessary per-tick work.",
+        "Added simulation regression tests for strategic settlement candidate selection and pending-settlement skipping."
       ]
     },
     {
       introducedIn: "2026.04.22.2",
-      title: "3D renderer mountain art now uses a stylized diorama pass",
-      why: "The first mountain upgrade added faceted volume, but the result still read as a geometric peak and did not match the carved, toy-diorama slope style expected for the 3D landscape direction.",
+      title: "Simulation-outage errors now stop fake progress immediately and show explicit failure feedback",
+      why: "When command queueing failed during rewrite simulation outages, frontier/settlement UI could look like it was still progressing even though the server had rejected the command.",
       changes: [
-        "Mountain tiles in `?renderer=3d` now render with sculpted left and right slope masses, directional slope gradients, carved ridge strokes, and a stronger mountain-foot shadow.",
-        "Mountain terrain now includes chunk-like cliff walls and top-surface tinting so tiles read more like raised terrain blocks rather than lifted flat sprites.",
-        "The new look remains deterministic per tile and preserves all existing gameplay overlays and square-grid interactions."
+        "SERVER_STARTING and SIMULATION_UNAVAILABLE now force rollback of optimistic frontier/settlement action state so queued/progress UI does not keep running on rejected commands.",
+        "Outage rejections now trigger a high-visibility in-game error popup explaining that local action progress was rolled back and the command must be retried.",
+        "Added client regression coverage for SIMULATION_UNAVAILABLE settlement rollback and alert behavior."
       ]
     },
     {
       introducedIn: "2026.04.22.1",
-      title: "3D renderer mountains now render as faceted peaks",
-      why: "The experimental `?renderer=3d` mode originally raised terrain tiles but mountains still read like flat lifted plates, which broke the intended landscape depth and silhouette at gameplay zoom.",
+      title: "Attack feedback, manpower losses, and frontier defense are now consistent with server outcomes",
+      why: "Players could receive silent NOT_OWNER rejects in active combat flow, rewrite combat results were missing manpower losses, and frontier defense math diverged from legacy expectations.",
       changes: [
-        "Mountain tiles in `?renderer=3d` now render as shaded multi-face peaks with deterministic per-tile peak offsets, producing visible mountain volume instead of only elevation.",
-        "Mountain surfaces now include directional ridge shading and a snow-cap highlight so elevation and slope direction stay readable while panning the map.",
-        "This change keeps all existing tile ownership, action overlays, and square-grid gameplay interactions unchanged; only 3D terrain presentation is updated."
+        "NOT_OWNER action rejects now raise an in-game warning popup instead of only appearing in debug console output.",
+        "Rewrite simulation now settles attack manpower loss on combat resolution and forwards manpowerDelta through gateway COMBAT_RESULT payloads.",
+        "Shared frontier combat math now treats FRONTIER-owned targets as zero-defense captures (legacy parity), so frontier attacks resolve at 100% expected win chance."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.12",
+      title: "Frontier lock errors and frontier-vs-frontier odds are now clearer",
+      why: "Frontier attacks from tiles locked by another player could be misreported as your own attack cooldown, and plain frontier-vs-frontier previews were applying an extra defense multiplier that understated baseline odds.",
+      changes: [
+        "Simulation/domain validation now returns LOCKED when the origin lock belongs to another player instead of returning ATTACK_COOLDOWN.",
+        "Shared frontier combat math now treats plain FRONTIER ownership as neutral defense baseline, so matching frontier tiles preview at 50% instead of 48%."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.11",
+      title: "Profile name/color setup now survives gateway restarts",
+      why: "Profile completion and tile-color overrides were held only in gateway process memory, so restart cycles could force returning players back through setup despite valid identity.",
+      changes: [
+        "Gateway now persists player profile name/color/completion state in Postgres and hydrates it during AUTH before INIT is built.",
+        "SET_PROFILE and SET_TILE_COLOR now write through the durable profile store so restart cycles keep your banner identity stable."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.10",
+      title: "Neutral frontier expansion is now deterministic server-side",
+      why: "Neutral EXPAND actions were being resolved through combat odds, which let clearly valid frontier claims sometimes fail and remain neutral despite player intent.",
+      changes: [
+        "Simulation now resolves neutral EXPAND captures as guaranteed success instead of rolling combat odds.",
+        "Added simulation regression coverage to lock deterministic EXPAND behavior regardless combat RNG."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.9",
+      title: "First-time authenticated players now get a runtime spawn instead of empty-map stall",
+      why: "When a valid authenticated player id had no matching runtime player/territory, subscribe could return an empty nearby map and the client would stay in map-sync-stalled state.",
+      changes: [
+        "Simulation subscribe now provisions a runtime player and a settled spawn tile for unknown player ids when neutral land is available.",
+        "Added simulation runtime regression coverage to lock this behavior so first-time auth no longer boots into zero-territory map sync stalls."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.8",
+      title: "Client tile state is now server-authoritative only",
+      why: "Optimistic tile ownership/building overlays could mask server ordering issues and make desync diagnosis harder when realtime updates were delayed or out of order.",
+      changes: [
+        "Disabled optimistic tile-state application and optimistic merge preservation, so map ownership and structure state now render only from authoritative server deltas/results.",
+        "Queued action progress UI still remains, but tile ownership/structure visuals no longer pre-apply before server confirmation."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.7",
+      title: "Simulation now recovers stale frontier origin payloads server-side",
+      why: "Fast chained actions could send an outdated from-tile while the player still had a valid adjacent owned origin, causing avoidable NOT_OWNER rejects despite a legal move existing.",
+      changes: [
+        "Rewrite simulation now re-selects a valid owned adjacent origin for frontier commands when the submitted origin is stale, instead of failing immediately with NOT_OWNER.",
+        "Added runtime regression coverage to assert stale-origin expand payloads are accepted and resolved via the server-selected authoritative origin."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.6",
+      title: "Frontier queue now waits for confirmed origin ownership before sending follow-up expands or attacks",
+      why: "Fast chained actions could select an optimistic frontier tile as the next origin before the server had confirmed ownership, leading to intermittent NOT_OWNER errors even though the tile looked owned client-side.",
+      changes: [
+        "Queue dispatch now requires a confirmed origin tile and defers the action briefly when only optimistic ownership is available.",
+        "Added regression coverage for both expand and attack queue paths so optimistic-only origins are held instead of being sent and rejected."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.5",
+      title: "Successful expands no longer stay stuck as queued when tile deltas arrive out of order",
+      why: "A race where TILE_DELTA arrived before ACTION_ACCEPTED/FRONTIER_RESULT could leave the queued marker and purple border stuck even though the server had already confirmed a successful expand.",
+      changes: [
+        "Client frontier state now resolves successful EXPAND actions directly on FRONTIER_RESULT for the active command instead of waiting exclusively for a later tile-delta ownership update.",
+        "Added regression coverage for the missing-follow-up-delta path so successful expands still clear actionInFlight/actionTarget/queuedTargetKeys and resume queued work."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.4",
+      title: "Login screen now shows live backend and Fly route diagnostics",
+      why: "Staging and preview URLs can route to different server stacks, and it was hard to tell whether a client session was about to hit legacy or rewrite before sign-in finished.",
+      changes: [
+        "Added a login-screen debug line that displays active backend mode, resolved websocket URL, and parsed Fly app hostname target.",
+        "Diagnostics refresh with auth overlay state updates so you can verify routing on reconnect and bootstrap retries."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.3",
+      title: "Staging client hostname now defaults to rewrite gateway",
+      why: "The staging Vercel alias could still boot into the legacy backend by default, which made staging validation inconsistent unless you manually appended query params or set a backend cookie first.",
+      changes: [
+        "Backend env-default selection now treats staging Vercel hostnames as gateway-default instead of legacy-default.",
+        "Staging hostname routing now ignores stale be-backend cookies, so old legacy-cookie state can no longer force staging back onto the legacy server.",
+        "Added selector regression coverage so staging alias hosts keep routing to the rewrite gateway unless explicitly overridden by URL param."
+      ]
+    },
+    {
+      introducedIn: "2026.04.21.1",
+      title: "Frontier queue diagnostics for stuck queued expands",
+      why: "A new regression could leave a queued frontier badge and border highlight visible after an expand had already resolved, but the client did not expose enough state-transition detail to quickly identify which message or clear path failed.",
+      changes: [
+        "Added explicit frontier queue debug logs for COMMAND_QUEUED, ACTION_ACCEPTED, COMBAT_START, FRONTIER_RESULT, COMBAT_RESULT, TILE_DELTA_BATCH, TILE_DELTA, and ERROR handling.",
+        "Added logs around queue-clear and resolve decisions so you can see when a tile-delta path should clear actionTarget, queuedTargetKeys, and optimistic expand state."
       ]
     },
     {

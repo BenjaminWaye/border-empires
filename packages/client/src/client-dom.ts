@@ -167,6 +167,7 @@ const hudMarkup = `
         </div>
         <div class="auth-legal">By continuing, you agree to our <a href="/terms.html" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a></div>
         <div id="auth-status"></div>
+        <div id="auth-debug-route"></div>
         <p class="auth-hint">No password needed. We'll send you a secure link.</p>
         <div class="auth-legacy-controls" hidden>
           <input id="auth-display-name" type="text" placeholder="Display name" autocomplete="nickname" />
@@ -375,6 +376,7 @@ export const initClientDom = () => {
   const authEmailLinkBtn = requireElement<HTMLButtonElement>("#auth-email-link");
   const authGoogleBtn = requireElement<HTMLButtonElement>("#auth-google");
   const authStatusEl = requireElement<HTMLDivElement>("#auth-status");
+  const authDebugRouteEl = requireElement<HTMLDivElement>("#auth-debug-route");
   const authPanelEl = requireElement<HTMLElement>(".auth-panel");
   const authBusyModalEl = requireElement<HTMLDivElement>("#auth-busy-modal");
   const authBusyTitleEl = requireElement<HTMLElement>("#auth-busy-title");
@@ -496,6 +498,7 @@ export const initClientDom = () => {
     authProfileSaveBtn,
     authRegisterBtn,
     authStatusEl,
+    authDebugRouteEl,
     canvas,
     captureBarEl,
     captureCancelBtn,

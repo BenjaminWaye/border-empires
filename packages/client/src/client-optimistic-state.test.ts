@@ -75,7 +75,7 @@ describe("client optimistic state", () => {
     expect(merged.optimisticPending).toBeUndefined();
   });
 
-  it("ignores stale same-owner frontier downgrades after a tile is already settled", () => {
+  it("keeps server-authoritative ownership state when a same-owner frontier downgrade arrives", () => {
     const existing = baseTile({
       ownerId: "me",
       ownershipState: "SETTLED",
@@ -124,9 +124,8 @@ describe("client optimistic state", () => {
       })
     );
 
-    expect(merged).toBe(existing);
-    expect(merged.ownershipState).toBe("SETTLED");
-    expect(merged.town?.populationTier).toBe("SETTLEMENT");
+    expect(merged).not.toBe(existing);
+    expect(merged.ownershipState).toBe("FRONTIER");
   });
 
   it("preserves tile upkeep entries when a summary delta arrives after full detail", () => {
@@ -161,7 +160,7 @@ describe("client optimistic state", () => {
     expect(merged.upkeepEntries).toEqual(existing.upkeepEntries);
   });
 
-  it("keeps optimistic frontier ownership during the late-ack wait window", () => {
+  it("does not preserve optimistic frontier ownership during late-ack wait windows", () => {
     const state = {
       me: "me",
       selected: undefined,
@@ -186,9 +185,9 @@ describe("client optimistic state", () => {
     delete incoming.ownershipState;
     const merged = mergeServerTileWithOptimisticState(incoming);
 
-    expect(merged.ownerId).toBe("me");
-    expect(merged.ownershipState).toBe("FRONTIER");
-    expect(merged.optimisticPending).toBe("expand");
+    expect(merged.ownerId).toBeUndefined();
+    expect(merged.ownershipState).toBeUndefined();
+    expect(merged.optimisticPending).toBeUndefined();
   });
 
   it("does not preserve a neutral in-flight frontier target before the server accepts it", () => {

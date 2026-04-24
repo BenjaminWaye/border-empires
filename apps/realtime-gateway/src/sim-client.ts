@@ -74,6 +74,8 @@ type ProtoSimulationEvent = {
   code: string;
   message: string;
   attacker_won: boolean;
+  manpower_delta?: number;
+  manpowerDelta?: number;
   pillaged_gold?: number;
   pillaged_strategic_json?: string;
   collect_mode?: string;
@@ -162,6 +164,7 @@ export type SimulationClientEvent =
       targetX: number;
       targetY: number;
       attackerWon: boolean;
+      manpowerDelta?: number;
       pillagedGold?: number;
       pillagedStrategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
     }
@@ -309,6 +312,11 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent => {
       targetX: event.target_x,
       targetY: event.target_y,
       attackerWon: event.attacker_won,
+      ...(typeof event.manpower_delta === "number"
+        ? { manpowerDelta: event.manpower_delta }
+        : typeof event.manpowerDelta === "number"
+          ? { manpowerDelta: event.manpowerDelta }
+          : {}),
       ...(typeof event.pillaged_gold === "number" && event.pillaged_gold > 0 ? { pillagedGold: event.pillaged_gold } : {}),
       ...(typeof event.pillaged_strategic_json === "string" && event.pillaged_strategic_json.length > 0
         ? {

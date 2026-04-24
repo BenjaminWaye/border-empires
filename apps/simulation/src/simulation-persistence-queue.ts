@@ -24,6 +24,46 @@ const noopLogger: Pick<Console, "error"> = {
   error: () => undefined
 };
 
+const PERSISTENCE_RETRY_BACKOFF_MS = [25, 75, 150] as const;
+const DEFAULT_PERSISTENCE_RETRY_BACKOFF_MS = 150;
+
+const isTransientPersistenceError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("econnreset") ||
+    message.includes("connection terminated") ||
+    message.includes("connection reset")
+  );
+};
+
+const delay = async (ms: number): Promise<void> =>
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const withPersistenceRetry = async (operation: () => Promise<void>): Promise<void> => {
+  let attempt = 0;
+  let lastError: unknown;
+  const maxAttempts = PERSISTENCE_RETRY_BACKOFF_MS.length + 1;
+  while (attempt < maxAttempts) {
+    try {
+      await operation();
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientPersistenceError(error) || attempt >= maxAttempts - 1) {
+        throw error;
+      }
+      const retryDelayMs = PERSISTENCE_RETRY_BACKOFF_MS[attempt] ?? DEFAULT_PERSISTENCE_RETRY_BACKOFF_MS;
+      await delay(retryDelayMs);
+      attempt += 1;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+};
+
 const persistCommandStatus = async (
   commandStore: SimulationCommandStore,
   event: SimulationEvent,
@@ -76,7 +116,9 @@ export const createSimulationPersistenceQueue = (
     const persistTask = async () => {
       try {
         try {
-          await persistCommandStatus(dependencies.commandStore, event, createdAt);
+          await withPersistenceRetry(async () => {
+            await persistCommandStatus(dependencies.commandStore, event, createdAt);
+          });
         } catch (error) {
           markFailure();
           reportFailure(error);
@@ -98,7 +140,9 @@ export const createSimulationPersistenceQueue = (
         if (shouldPersistEvent(event)) {
           const eventStoreWriteStartedAt = Date.now();
           try {
-            await dependencies.eventStore.appendEvent(event, createdAt);
+            await withPersistenceRetry(async () => {
+              await dependencies.eventStore.appendEvent(event, createdAt);
+            });
             dependencies.onEventPersisted?.();
           } catch (error) {
             markFailure();

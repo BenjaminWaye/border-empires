@@ -12,6 +12,8 @@ if (!connectionString) {
 
 const MIGRATIONS = [
   "apps/realtime-gateway/sql/0001_command_store.sql",
+  "apps/realtime-gateway/sql/0002_player_profiles.sql",
+  "apps/realtime-gateway/sql/0003_auth_identity_bindings.sql",
   "apps/simulation/sql/0001_world_events.sql",
   "apps/simulation/sql/0002_command_store.sql",
   "apps/simulation/sql/0003_world_snapshots.sql",

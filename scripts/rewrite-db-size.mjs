@@ -13,7 +13,7 @@ const EMERGENCY_MB = Number(process.env.REWRITE_DB_SIZE_EMERGENCY_MB ?? 450);
 const pool = new pg.Pool({ connectionString });
 
 try {
-  const result = await pool.query<{ bytes: string }>(
+  const result = await pool.query(
     "SELECT pg_database_size(current_database())::text AS bytes"
   );
   const bytes = Number(result.rows[0]?.bytes ?? 0);

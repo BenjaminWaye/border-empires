@@ -70,6 +70,7 @@ describe("simulation event stream supervisor", () => {
         code: "",
         message: "",
         attacker_won: true,
+        manpower_delta: -32,
         tile_delta_json: "",
         tile_deltas: []
       });
@@ -112,7 +113,8 @@ describe("simulation event stream supervisor", () => {
           originY: 10,
           targetX: 10,
           targetY: 11,
-          attackerWon: true
+          attackerWon: true,
+          manpowerDelta: -32
         },
         {
           eventType: "TILE_DELTA_BATCH",

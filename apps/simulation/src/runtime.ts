@@ -60,7 +60,7 @@ import {
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
 } from "@border-empires/game-domain";
-import { hasStrategicSettlementValue, rankSettlementTile } from "./ai-settlement-priority.js";
+import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import { laneForCommand, type QueueLane } from "./command-lane.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
@@ -82,11 +82,14 @@ import type { RecoveredCommandHistory } from "./command-recovery.js";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
 import { buildDomainUpdatePayload, buildTechUpdatePayload, chooseDomainForPlayer, chooseTechForPlayer } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
+import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
+import type { PlannerWorldView } from "./planner-world-view.js";
 
 type LockRecord = {
   commandId: string;
   playerId: string;
   actionType: FrontierCommandType;
+  manpowerCost: number;
   originX: number;
   originY: number;
   targetX: number;
@@ -177,6 +180,8 @@ type SimulationRuntimeOptions = {
   seedProfile?: SimulationSeedProfile;
   seedTiles?: Map<string, DomainTileState>;
   initialPlayers?: Map<string, RuntimePlayer>;
+  mergeSeedTilesWithInitialState?: boolean;
+  commandTrace?: (sample: Record<string, unknown>) => void;
 };
 
 const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState): Map<string, RuntimePlayer> | undefined => {
@@ -219,6 +224,21 @@ const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 const SETTLE_DURATION_MS = 60_000;
 const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
+
+const createHumanRuntimePlayer = (playerId: string): RuntimePlayer => ({
+  id: playerId,
+  isAi: false,
+  name: playerId,
+  points: 100,
+  manpower: MANPOWER_BASE_CAP,
+  techIds: new Set<string>(),
+  domainIds: new Set<string>(),
+  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+  techRootId: "rewrite-runtime",
+  allies: new Set<string>(),
+  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+});
 
 const strategicResourceForTile = (resource: DomainTileState["resource"] | undefined): StrategicResourceKey | undefined => {
   switch (resource) {
@@ -452,6 +472,7 @@ export class SimulationRuntime {
   private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
+  private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private drainScheduled = false;
   private draining = false;
 
@@ -462,9 +483,14 @@ export class SimulationRuntime {
     this.backgroundBatchSize = Math.max(1, options.backgroundBatchSize ?? 8);
     this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
+    this.commandTrace = options.commandTrace;
     this.players = createPlayersFromRecoveredState(options.initialState) ?? (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
     for (const player of this.players.values()) this.applyManpowerRegen(player);
-    this.tiles = createTilesFromInitialState(options.initialState, options.seedTiles ?? seedWorld!.tiles);
+    this.tiles = createTilesFromInitialState(
+      options.initialState,
+      options.seedTiles ?? seedWorld!.tiles,
+      options.mergeSeedTilesWithInitialState ?? true
+    );
     this.locksByTile = createLocksFromInitialState(options.initialState);
     for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
@@ -523,6 +549,49 @@ export class SimulationRuntime {
   onEvent(listener: (event: SimulationEvent) => void): () => void {
     this.events.on("event", listener);
     return () => this.events.off("event", listener);
+  }
+
+  ensurePlayerHasSpawnTerritory(playerId: string): boolean {
+    let player = this.players.get(playerId);
+    if (!player) {
+      player = createHumanRuntimePlayer(playerId);
+      this.players.set(playerId, player);
+      this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+    }
+
+    if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return false;
+
+    const blockedTileKeys = new Set<string>([...this.pendingSettlementsByTile.keys(), ...this.locksByTile.keys()]);
+    const spawn = chooseLegacySpawnPlacement({
+      playerId,
+      tiles: this.tiles.values(),
+      blockedTileKeys
+    });
+    if (!spawn) return false;
+    const tileKey = simulationTileKey(spawn.x, spawn.y);
+    const tile = this.tiles.get(tileKey);
+    if (!tile || tile.terrain !== "LAND" || tile.ownerId) return false;
+    const spawnedTile: DomainTileState = {
+      ...tile,
+      ownerId: playerId,
+      ownershipState: "SETTLED",
+      town: tile.town ?? {
+        name: `Settlement ${tile.x},${tile.y}`,
+        type: "FARMING",
+        populationTier: "SETTLEMENT"
+      }
+    };
+    const commandId = `bootstrap-spawn:${playerId}:${this.now()}`;
+    this.tileYieldCollectedAtByTile.set(tileKey, this.now());
+    this.replaceTileState(tileKey, spawnedTile);
+    this.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId,
+      playerId,
+      tileDeltas: [this.tileDeltaFromState(spawnedTile)]
+    });
+    this.emitPlayerStateUpdate({ commandId, playerId });
+    return true;
   }
 
   enqueueBackgroundJob(job: () => void): void {
@@ -648,8 +717,7 @@ export class SimulationRuntime {
     }
     const ownedTiles = [...this.summaryForPlayer(playerId).territoryTileKeys]
       .map((tileKey) => this.tiles.get(tileKey))
-      .filter((tile): tile is DomainTileState => Boolean(tile))
-      .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+      .filter((tile): tile is DomainTileState => Boolean(tile));
     const player = this.players.get(playerId);
     return chooseNextOwnedFrontierCommandFromLookup(this.tiles, ownedTiles, playerId, clientSeq, issuedAt, sessionPrefix, {
       canAttack: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= ATTACK_MANPOWER_MIN,
@@ -671,18 +739,14 @@ export class SimulationRuntime {
       summary.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
       player.points >= SETTLE_COST
     ) {
-      const rankedFrontierTiles = [...summary.frontierTileKeys]
-        .map((tileKey) => this.tiles.get(tileKey))
-        .filter((tile): tile is DomainTileState => tile !== undefined)
-        .filter((tile) => tile.terrain === "LAND" && tile.ownerId === playerId)
-        .filter((tile) => !summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y)))
-        .sort(
-          (left, right) =>
-            rankSettlementTile(playerId, right, this.tiles) - rankSettlementTile(playerId, left, this.tiles) ||
-            (left.x - right.x) ||
-            (left.y - right.y)
-        );
-      const nextFrontierTile = rankedFrontierTiles.find((tile) => hasStrategicSettlementValue(playerId, tile, this.tiles));
+      const nextFrontierTile = chooseBestStrategicSettlementTile(
+        playerId,
+        [...summary.frontierTileKeys]
+          .map((tileKey) => this.tiles.get(tileKey))
+          .filter((tile): tile is DomainTileState => tile !== undefined),
+        this.tiles,
+        (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y))
+      );
       if (nextFrontierTile) {
         return {
           commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
@@ -789,6 +853,53 @@ export class SimulationRuntime {
       },
       commandEvents: buildSimulationSnapshotCommandEvents(this.recordedEventsByCommandId)
     };
+  }
+
+  exportPlannerWorldView(playerIds: string[]): PlannerWorldView {
+    const lockPlayerIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      lockPlayerIds.add(lock.playerId);
+    }
+
+    const tiles: PlannerWorldView["tiles"] = [];
+    for (const tile of this.tiles.values()) {
+      const plannerTile: PlannerWorldView["tiles"][number] = {
+        x: tile.x,
+        y: tile.y,
+        terrain: tile.terrain
+      };
+      if (tile.resource) plannerTile.resource = tile.resource;
+      if (tile.dockId) plannerTile.dockId = tile.dockId;
+      if (tile.ownerId) plannerTile.ownerId = tile.ownerId;
+      if (tile.ownershipState) plannerTile.ownershipState = tile.ownershipState;
+      if (tile.town) {
+        plannerTile.town = {
+          ...(typeof tile.town.supportMax === "number" ? { supportMax: tile.town.supportMax } : {}),
+          ...(typeof tile.town.supportCurrent === "number" ? { supportCurrent: tile.town.supportCurrent } : {})
+        };
+      }
+      tiles.push(plannerTile);
+    }
+
+    const players: PlannerWorldView["players"] = [];
+    for (const playerId of playerIds) {
+      const player = this.players.get(playerId);
+      if (!player) continue;
+      this.applyManpowerRegen(player);
+      const summary = this.summaryForPlayer(playerId);
+      players.push({
+        id: player.id,
+        points: player.points,
+        manpower: player.manpower,
+        hasActiveLock: lockPlayerIds.has(player.id),
+        territoryTileKeys: [...summary.territoryTileKeys],
+        frontierTileKeys: [...summary.frontierTileKeys],
+        pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()],
+        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+      });
+    }
+
+    return { tiles, players };
   }
 
   exportState(): {
@@ -1046,9 +1157,9 @@ export class SimulationRuntime {
     }
     this.applyManpowerRegen(actor);
 
-    const from = this.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
+    const submittedFrom = this.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
     const to = this.tiles.get(simulationTileKey(payload.toX, payload.toY));
-    if (!from || !to) {
+    if (!submittedFrom || !to) {
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -1059,8 +1170,28 @@ export class SimulationRuntime {
       return;
     }
 
+    // Recover from stale client origin selection by re-picking a valid owned adjacent origin.
+    const from =
+      submittedFrom.ownerId === actor.id
+        ? submittedFrom
+        : this.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND") ??
+          submittedFrom;
+
     const originLock = this.locksByTile.get(simulationTileKey(from.x, from.y));
     const targetLock = this.locksByTile.get(simulationTileKey(to.x, to.y));
+    this.commandTrace?.({
+      phase: "frontier_validate",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      actionType,
+      submittedOrigin: { x: payload.fromX, y: payload.fromY },
+      resolvedOrigin: { x: from.x, y: from.y },
+      target: { x: to.x, y: to.y },
+      originLockOwnerId: originLock?.playerId,
+      originLockResolvesAt: originLock?.resolvesAt,
+      targetLockOwnerId: targetLock?.playerId,
+      targetLockResolvesAt: targetLock?.resolvesAt
+    });
     const validation = validateFrontierCommand({
       now: this.now(),
       actor,
@@ -1068,7 +1199,9 @@ export class SimulationRuntime {
       from,
       to,
       originLockedUntil: originLock?.resolvesAt,
+      originLockOwnerId: originLock?.playerId,
       targetLockedUntil: targetLock?.resolvesAt,
+      targetLockOwnerId: targetLock?.playerId,
       actionGoldCost: FRONTIER_CLAIM_COST,
       breakthroughGoldCost: BREAKTHROUGH_GOLD_COST,
       breakthroughRequiredTechId: BREAKTHROUGH_REQUIRED_TECH_ID,
@@ -1080,6 +1213,19 @@ export class SimulationRuntime {
     });
 
     if (!validation.ok) {
+      this.commandTrace?.({
+        phase: "frontier_reject",
+        commandId: command.commandId,
+        playerId: command.playerId,
+        actionType,
+        code: validation.code,
+        message: validation.message,
+        cooldownRemainingMs: "cooldownRemainingMs" in validation ? validation.cooldownRemainingMs : undefined,
+        originLockOwnerId: originLock?.playerId,
+        originLockResolvesAt: originLock?.resolvesAt,
+        targetLockOwnerId: targetLock?.playerId,
+        targetLockResolvesAt: targetLock?.resolvesAt
+      });
       this.emitEvent({
         eventType: "COMMAND_REJECTED",
         commandId: command.commandId,
@@ -1111,6 +1257,7 @@ export class SimulationRuntime {
       commandId: command.commandId,
       playerId: command.playerId,
       actionType,
+      manpowerCost: validation.manpowerCost,
       originX: validation.origin.x,
       originY: validation.origin.y,
       targetX: validation.target.x,
@@ -1121,6 +1268,15 @@ export class SimulationRuntime {
     };
     this.locksByTile.set(lock.originKey, lock);
     this.locksByTile.set(lock.targetKey, lock);
+    this.commandTrace?.({
+      phase: "frontier_accept",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      actionType,
+      origin: { x: lock.originX, y: lock.originY },
+      target: { x: lock.targetX, y: lock.targetY },
+      resolvesAt: lock.resolvesAt
+    });
     this.emitEvent({
       eventType: "COMMAND_ACCEPTED",
       commandId: command.commandId,
@@ -2773,8 +2929,8 @@ export class SimulationRuntime {
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
-      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-      ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+      ownerId: tile.ownerId ?? undefined,
+      ownershipState: tile.ownershipState ?? undefined,
       ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
       ...(tile.town?.type ? { townType: tile.town.type } : {}),
       ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -3897,12 +4053,22 @@ export class SimulationRuntime {
     const previousTarget = this.tiles.get(lock.targetKey);
     const previousOwnerId = previousTarget?.ownerId;
     const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
-    const combat = rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
+    const combat =
+      lock.actionType === "EXPAND"
+        ? {
+            ...rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType),
+            attackerWon: true
+          }
+        : rollFrontierCombat(previousTarget ?? { terrain: "LAND" }, lock.actionType);
     const defenderTileCountBeforeCapture = previousOwnerId
       ? Math.max(1, [...this.tiles.values()].filter((tile) => tile.ownerId === previousOwnerId && tile.ownershipState === "SETTLED").length)
       : 0;
     const attacker = this.players.get(lock.playerId);
     const defender = previousOwnerId ? this.players.get(previousOwnerId) : undefined;
+    const manpowerDelta =
+      attacker && (lock.actionType === "ATTACK" || lock.actionType === "BREAKTHROUGH_ATTACK")
+        ? -this.settleAttackManpower(attacker, lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff)
+        : 0;
     const pillage =
       combat.attackerWon && attacker && defender && targetWasSettled
         ? this.computeSettledCapturePlunder({ attacker, defender, defenderTileCountBeforeCapture, target: previousTarget })
@@ -3920,6 +4086,7 @@ export class SimulationRuntime {
       targetX: lock.targetX,
       targetY: lock.targetY,
       attackerWon: combat.attackerWon,
+      ...(manpowerDelta < -0.01 ? { manpowerDelta } : {}),
       ...(typeof pillage?.gold === "number" && pillage.gold > 0.01 ? { pillagedGold: pillage.gold } : {}),
       ...(pillage?.strategic && Object.keys(pillage.strategic).length > 0 ? { pillagedStrategic: pillage.strategic } : {})
     });
@@ -3967,6 +4134,25 @@ export class SimulationRuntime {
       strategic[strategicResource] = 1;
     }
     return { gold, strategic };
+  }
+
+  private settleAttackManpower(
+    player: DomainPlayer,
+    committedManpower: number,
+    attackerWon: boolean,
+    atkEff: number,
+    defEff: number
+  ): number {
+    if (committedManpower <= 0) return 0;
+    if (attackerWon) {
+      const loss = Math.max(10, committedManpower * 0.16);
+      player.manpower = Math.max(0, player.manpower - loss);
+      return loss;
+    }
+    const combatRatio = defEff / Math.max(1, atkEff);
+    const loss = committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
+    player.manpower = Math.max(0, player.manpower - loss);
+    return loss;
   }
 
   private respawnIfEliminated(playerId: string, commandId: string): void {
@@ -4192,10 +4378,11 @@ export class SimulationRuntime {
 
 const createTilesFromInitialState = (
   initialState: RecoveredSimulationState | undefined,
-  seedTiles: Map<string, DomainTileState>
+  seedTiles: Map<string, DomainTileState>,
+  mergeSeedTilesWithInitialState: boolean
 ): Map<string, DomainTileState> => {
-  const mergedTiles = new Map(seedTiles);
-  if (!initialState) return mergedTiles;
+  if (!initialState) return new Map(seedTiles);
+  const mergedTiles = mergeSeedTilesWithInitialState ? new Map(seedTiles) : new Map<string, DomainTileState>();
 
   for (const tile of initialState.tiles) {
     const tileKey = simulationTileKey(tile.x, tile.y);
@@ -4233,6 +4420,7 @@ const createLocksFromInitialState = (initialState?: RecoveredSimulationState): M
       commandId: lock.commandId,
       playerId: lock.playerId,
       actionType: lock.actionType,
+      manpowerCost: 0,
       originX: lock.originX,
       originY: lock.originY,
       targetX: lock.targetX,

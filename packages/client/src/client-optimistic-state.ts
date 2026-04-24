@@ -4,6 +4,8 @@ import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "./client-types.js";
 import { debugTileTimeline } from "./client-debug.js";
 
+const OPTIMISTIC_CLIENT_STATE_ENABLED = false;
+
 type OptimisticStateDeps = {
   state: ClientState;
   keyFor: (x: number, y: number) => string;
@@ -45,6 +47,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     y: number,
     mutate: (tile: Tile) => void
   ): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     const tileKey = keyFor(x, y);
     if (!state.optimisticTileSnapshots.has(tileKey)) {
       const existing = state.tiles.get(tileKey);
@@ -76,6 +79,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const clearOptimisticTileState = (tileKey: string, revert = false): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     if (!state.optimisticTileSnapshots.has(tileKey)) return;
     const previous = state.optimisticTileSnapshots.get(tileKey);
     const current = state.tiles.get(tileKey);
@@ -141,6 +145,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     const completesAt = Date.now() + structureBuildDurationMs(kind);
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
@@ -163,6 +168,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const applyOptimisticStructureRemoval = (x: number, y: number): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_remove";
       if (tile.fort) {
@@ -188,6 +194,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const applyOptimisticStructureCancel = (x: number, y: number): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_cancel";
       delete tile.fort;
@@ -198,6 +205,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const shouldPreserveOptimisticExpandByKey = (tileKey: string): boolean => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return false;
     const tile = tileKey ? state.tiles.get(tileKey) : undefined;
     if (shouldPreserveOptimisticExpand(tile, state.me)) return true;
     if (!tileKey) return false;
@@ -206,6 +214,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return incoming;
     const tileKey = keyFor(incoming.x, incoming.y);
     const existing = state.tiles.get(tileKey);
     const settlementProgress = state.settleProgressByTile.get(tileKey);

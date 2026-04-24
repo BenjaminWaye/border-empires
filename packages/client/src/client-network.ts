@@ -81,6 +81,40 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
   };
+  const frontierQueueDebug = (event: string, payload: Record<string, unknown> = {}): void => {
+    const activeFrontierContext =
+      state.actionInFlight || state.actionQueue.length > 0 || state.queuedTargetKeys.size > 0 || Boolean(state.actionTargetKey);
+    if (!activeFrontierContext && payload.force !== true) return;
+    const currentAction = state.actionCurrent
+      ? {
+          x: state.actionCurrent.x,
+          y: state.actionCurrent.y,
+          actionType: state.actionCurrent.actionType,
+          commandId: state.actionCurrent.commandId,
+          clientSeq: state.actionCurrent.clientSeq,
+          retries: state.actionCurrent.retries
+        }
+      : undefined;
+    const captureTarget = state.capture ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt } : undefined;
+    const queuedActions = state.actionQueue.map((entry) => ({
+      x: entry.x,
+      y: entry.y,
+      mode: entry.mode ?? "normal",
+      retries: entry.retries ?? 0
+    }));
+    console.info("[frontier-queue-debug]", event, {
+      actionInFlight: state.actionInFlight,
+      actionTargetKey: state.actionTargetKey,
+      actionAcceptedAck: state.actionAcceptedAck,
+      combatStartAck: state.combatStartAck,
+      actionStartedAt: state.actionStartedAt,
+      currentAction,
+      queuedTargetKeys: [...state.queuedTargetKeys],
+      queuedActions,
+      captureTarget,
+      ...payload
+    });
+  };
   const logIncomingTechPayload = (
     source: "INIT" | "PLAYER_UPDATE" | "TECH_UPDATE",
     payload: {
@@ -237,6 +271,30 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
+  const authProgressIntervalMs = 5000;
+  const authProgressIntervalId =
+    typeof globalThis.setInterval === "function"
+      ? globalThis.setInterval(() => {
+          if (!state.authBusy || state.authSessionReady || state.authBusyStartedAt <= 0) return;
+          const elapsedMs = Date.now() - state.authBusyStartedAt;
+          const elapsedSec = Math.max(0, Math.floor(elapsedMs / 1000));
+          const payload = {
+            elapsedSec,
+            connection: state.connection,
+            title: state.authBusyTitle,
+            detail: state.authBusyDetail,
+            wsReadyState: ws.readyState
+          };
+          recordClientDebugEvent("info", "auth-progress", "waiting", payload);
+          console.info("[auth-progress] waiting", payload);
+        }, authProgressIntervalMs)
+      : undefined;
+
+  const setAuthBusy = (busy: boolean): void => {
+    state.authBusy = busy;
+    state.authBusyStartedAt = busy ? (state.authBusyStartedAt || Date.now()) : 0;
+  };
+  let lastBackendUnavailableAlertAt = 0;
 
   const clearSettlementProgressSafely = (tileKey: string): void => {
     if (!tileKey) return;
@@ -284,6 +342,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const requestViewRefreshSafely = (radius?: number, force?: boolean): void => {
     if (typeof requestViewRefresh !== "function") return;
     requestViewRefresh(radius, force);
+  };
+
+  const shouldShowBackendUnavailableAlert = (): boolean => {
+    const now = Date.now();
+    if (now - lastBackendUnavailableAlertAt < 2_000) return false;
+    lastBackendUnavailableAlertAt = now;
+    return true;
   };
 
   const lateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
@@ -344,6 +409,41 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   const processActionQueueSafely = (): void => {
     if (typeof processActionQueue !== "function") return;
     processActionQueue();
+  };
+
+  const resolveFrontierCapture = (source: "FRONTIER_RESULT" | "TILE_DELTA" | "TILE_DELTA_BATCH"): void => {
+    const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    const resolvedTargetKey = state.actionTargetKey;
+    state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
+    state.actionInFlight = false;
+    state.actionAcceptedAck = false;
+    state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
+    state.actionStartedAt = 0;
+    if (resolvedTargetKey) {
+      dropQueuedTargetKeyIfAbsent(resolvedTargetKey);
+      state.queuedTargetKeys.delete(resolvedTargetKey);
+      state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== resolvedTargetKey);
+    }
+    if (resolvedTargetKey) clearOptimisticTileState(resolvedTargetKey);
+    if (resolvedCurrentKey) {
+      dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+      state.queuedTargetKeys.delete(resolvedCurrentKey);
+      state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== resolvedCurrentKey);
+    }
+    if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    frontierQueueDebug(
+      source === "FRONTIER_RESULT"
+        ? "frontier_result_resolved_frontier_capture"
+        : source === "TILE_DELTA_BATCH"
+          ? "tile_delta_batch_resolved_frontier_capture"
+          : "tile_delta_resolved_frontier_capture",
+      { resolvedCurrentKey, source }
+    );
+    processActionQueueSafely();
   };
 
   const resumeQueuedFrontierActionsAfter = (delayMs: number): void => {
@@ -420,9 +520,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
   };
 
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function" && authProgressIntervalId !== undefined) {
+    window.addEventListener(
+      "beforeunload",
+      () => {
+        globalThis.clearInterval(authProgressIntervalId);
+      },
+      { once: true }
+    );
+  }
+
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => {
     clearAuthReconnectTimer();
-    state.authBusy = true;
+    setAuthBusy(true);
     state.authRetrying = true;
     setAuthStatus(message);
     syncAuthOverlay();
@@ -431,7 +541,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       authReconnectTimer = undefined;
       if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN || state.authSessionReady) return;
       void authenticateSocket(forceRefresh).catch((error: unknown) => {
-        state.authBusy = false;
+        setAuthBusy(false);
         state.authRetrying = false;
         setAuthStatus(error instanceof Error ? error.message : "Could not reconnect to the game server.", "error");
         syncAuthOverlay();
@@ -451,9 +561,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   const applyLoginPhase = (title: string, detail: string): void => {
-    state.authBusy = true;
+    setAuthBusy(true);
     state.authBusyTitle = title;
     state.authBusyDetail = detail;
+    recordClientDebugEvent("info", "auth-progress", "phase", { title, detail, wsReadyState: ws.readyState, connection: state.connection });
+    console.info("[auth-progress] phase", { title, detail, wsReadyState: ws.readyState, connection: state.connection });
     setAuthStatus(detail);
     syncAuthOverlay();
   };
@@ -762,6 +874,35 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
+    if (
+      msgType === "COMMAND_QUEUED" ||
+      msgType === "ACTION_ACCEPTED" ||
+      msgType === "COMBAT_START" ||
+      msgType === "FRONTIER_RESULT" ||
+      msgType === "COMBAT_RESULT" ||
+      msgType === "TILE_DELTA_BATCH" ||
+      msgType === "TILE_DELTA" ||
+      msgType === "ERROR"
+    ) {
+      const msgTarget =
+        typeof msg.target === "object" &&
+        msg.target !== null &&
+        typeof (msg.target as { x?: unknown }).x === "number" &&
+        typeof (msg.target as { y?: unknown }).y === "number"
+          ? {
+              x: (msg.target as { x: number }).x,
+              y: (msg.target as { y: number }).y
+            }
+          : undefined;
+      frontierQueueDebug("incoming", {
+        type: msgType,
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined,
+        code: typeof msg.code === "string" ? msg.code : undefined,
+        msgTarget
+      });
+    }
     const shouldApplyChunkGeneration = (generation: unknown): boolean => {
       if (typeof generation !== "number" || !Number.isFinite(generation)) return true;
       if (generation < state.lastChunkSnapshotGeneration) {
@@ -818,7 +959,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.connection = "initialized";
       state.authSessionReady = true;
       state.hasEverInitialized = true;
-      state.authBusy = false;
+      setAuthBusy(false);
       state.authRetrying = false;
       state.authBusyTitle = "";
       state.authBusyDetail = "";
@@ -832,7 +973,25 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.lastSubCy = Number.NaN;
       state.lastSubRadius = -1;
       state.lastChunkSnapshotGeneration = 0;
-      state.fogDisabled = Boolean(((msg.config as { fogDisabled?: boolean } | undefined) ?? {}).fogDisabled);
+      const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
+      const incomingSeason = incomingConfig.season;
+      const incomingRuntimeIdentity =
+        (msg.runtimeIdentity as
+          | {
+              fingerprint?: string;
+              snapshotLabel?: string;
+            }
+          | undefined) ?? undefined;
+      const incomingPlayer = (msg.player as Record<string, unknown>) ?? {};
+      const incomingPlayerId = typeof incomingPlayer.id === "string" ? incomingPlayer.id : "";
+      const preserveDiscoveredTilesOnReconnect =
+        Boolean(incomingSeason?.seasonId) &&
+        state.bridgeDebugSeasonId === incomingSeason?.seasonId &&
+        incomingPlayerId.length > 0 &&
+        state.me === incomingPlayerId &&
+        state.tiles.size > 0 &&
+        state.discoveredTiles.size > 0;
+      state.fogDisabled = Boolean(incomingConfig.fogDisabled);
       state.serverSupportedMessageTypes = new Set(
         Array.isArray((msg as { supportedMessageTypes?: unknown }).supportedMessageTypes)
           ? ((msg as { supportedMessageTypes: unknown[] }).supportedMessageTypes.filter((type): type is string => typeof type === "string"))
@@ -841,7 +1000,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.bridgeDebugSupportedMessageCount = state.serverSupportedMessageTypes.size;
       const gatewayRecovery = (msg.recovery as { nextClientSeq?: unknown; pendingCommands?: unknown } | undefined) ?? undefined;
       applyGatewayRecoveryNextClientSeq(state, gatewayRecovery?.nextClientSeq);
-      const player = msg.player as Record<string, unknown>;
+      const player = incomingPlayer;
       state.me = player.id as string;
       state.meName = player.name as string;
       state.playerNames.set(state.me, state.meName);
@@ -896,8 +1055,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
       state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
       state.revealedEmpireStatsByPlayer.clear();
-      state.discoveredTiles.clear();
-      state.discoveredDockTiles.clear();
+      if (!preserveDiscoveredTilesOnReconnect) {
+        state.discoveredTiles.clear();
+        state.discoveredDockTiles.clear();
+      }
       state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
       applyPendingSettlementsFromServer(
         (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
@@ -939,7 +1100,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           mergeIncomingTileDetail,
           mergeServerTileWithOptimisticState
         },
-        msg.initialState as { tiles?: Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> } | undefined
+        msg.initialState as { tiles?: Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> } | undefined,
+        { preserveExistingDiscoveredTiles: preserveDiscoveredTilesOnReconnect }
       );
       state.bridgeDebugInitialTileCount = appliedInitialTileCount;
       if (appliedInitialTileCount > 0) {
@@ -979,21 +1141,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
       state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
       resetStrategicReplayState();
-      const config = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
-      const season = config.season;
-      state.bridgeDebugSeasonId = season?.seasonId ?? "";
-      const runtimeIdentity =
-        (msg.runtimeIdentity as
-          | {
-              fingerprint?: string;
-              snapshotLabel?: string;
-            }
-          | undefined) ?? undefined;
-      state.bridgeDebugRuntimeFingerprint = runtimeIdentity?.fingerprint ?? "";
-      state.bridgeDebugSnapshotLabel = runtimeIdentity?.snapshotLabel ?? "";
-      state.fogDisabled = Boolean(config.fogDisabled);
-      if (typeof season?.worldSeed === "number") {
-        setWorldSeed(season.worldSeed);
+      state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
+      state.bridgeDebugRuntimeFingerprint = incomingRuntimeIdentity?.fingerprint ?? "";
+      state.bridgeDebugSnapshotLabel = incomingRuntimeIdentity?.snapshotLabel ?? "";
+      state.fogDisabled = Boolean(incomingConfig.fogDisabled);
+      if (typeof incomingSeason?.worldSeed === "number") {
+        setWorldSeed(incomingSeason.worldSeed);
         clearRenderCaches();
         buildMiniMapBase();
       }
@@ -1008,8 +1161,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           | undefined) ?? [];
       state.dockPairs = mapMeta.dockPairs ?? [];
       state.dockRouteCache.clear();
-      pushFeed(`Spawned. ${season?.seasonId ? `Season ${season.seasonId}.` : ""} Your tile is centered.`, "info", "success");
-      if (config.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
+      pushFeed(`Spawned. ${incomingSeason?.seasonId ? `Season ${incomingSeason.seasonId}.` : ""} Your tile is centered.`, "info", "success");
+      if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
       if (typeof mapMeta.dockCount === "number") {
         pushFeed(
           `Map features: ${mapMeta.dockCount} docks (${mapMeta.dockPairCount ?? Math.floor(mapMeta.dockCount / 2)} pairs), ${mapMeta.clusterCount ?? 0} clusters.`,
@@ -1224,6 +1377,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         commandId: msg.commandId,
         clientSeq: msg.clientSeq
       });
+      frontierQueueDebug("command_queued_bound", {
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined
+      });
       renderHud();
       return;
     }
@@ -1259,6 +1416,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       };
       state.actionTargetKey = targetKey;
       if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
+      frontierQueueDebug("action_accepted_applied", {
+        actionType: msg.actionType,
+        target,
+        targetKey
+      });
       renderHud();
       return;
     }
@@ -1299,6 +1461,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       });
       showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
       state.capture = undefined;
+      frontierQueueDebug("frontier_result_received", {
+        actionType: msg.actionType,
+        target: msg.target,
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined
+      });
+      if (msg.actionType === "EXPAND" && target && currentActionCanResolveFromFrontierOwnership(keyFor(target.x, target.y))) {
+        resolveFrontierCapture("FRONTIER_RESULT");
+      }
       renderHud();
       return;
     }
@@ -1402,6 +1572,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionInFlight = true;
       if (!state.actionStartedAt) state.actionStartedAt = startAt;
       state.actionTargetKey = keyFor(target.x, target.y);
+      frontierQueueDebug("combat_start_applied", {
+        target,
+        resolvesAt
+      });
       renderHud();
       return;
     }
@@ -1458,6 +1632,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "TILE_DELTA_BATCH") {
       const tileUpdates =
         msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
+      const batchTouchesFrontierQueue =
+        Array.isArray(tileUpdates) &&
+        tileUpdates.some((update) => {
+          const updateKey = keyFor(update.x, update.y);
+          if (updateKey === state.actionTargetKey) return true;
+          if (state.queuedTargetKeys.has(updateKey)) return true;
+          return state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === updateKey);
+        });
+      if (batchTouchesFrontierQueue) {
+        frontierQueueDebug("tile_delta_batch_matches_frontier_target", {
+          updates: tileUpdates?.map((update) => ({
+            key: keyFor(update.x, update.y),
+            ownerId: update.ownerId,
+            ownershipState: update.ownershipState
+          }))
+        });
+      }
       applyGatewayTileDeltaBatch(
         {
           state,
@@ -1495,21 +1686,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
       }
       if (resolvedQueuedFrontierCapture) {
-        const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-        state.capture = undefined;
-        if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
-        state.actionInFlight = false;
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = 0;
-        if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
-        if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey);
-        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-        if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-        processActionQueue();
+        resolveFrontierCapture("TILE_DELTA_BATCH");
       }
       renderHud();
       return;
@@ -1517,6 +1694,21 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "TILE_DELTA") {
       const updates = (msg.updates as any[]) ?? [];
+      const deltaTouchesFrontierQueue = updates.some((update) => {
+        const updateKey = keyFor(update.x, update.y);
+        if (updateKey === state.actionTargetKey) return true;
+        if (state.queuedTargetKeys.has(updateKey)) return true;
+        return state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === updateKey);
+      });
+      if (deltaTouchesFrontierQueue) {
+        frontierQueueDebug("tile_delta_matches_frontier_target", {
+          updates: updates.map((update) => ({
+            key: keyFor(update.x, update.y),
+            ownerId: update.ownerId,
+            ownershipState: update.ownershipState
+          }))
+        });
+      }
       let resolvedQueuedFrontierCapture = false;
       let detailRequests = 0;
       for (const update of updates) {
@@ -1729,21 +1921,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
       }
       if (resolvedQueuedFrontierCapture) {
-        const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-        state.capture = undefined;
-        if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
-        state.actionInFlight = false;
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.actionStartedAt = 0;
-        if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
-        if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey);
-        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-        if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-        processActionQueue();
+        resolveFrontierCapture("TILE_DELTA");
         renderHud();
       }
       return;
@@ -1957,6 +2135,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.pendingDomainUnlockId = "";
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
+      const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
       const serverErrorContext = {
         code: msg.code,
         message: msg.message,
@@ -1976,6 +2155,36 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         queuedActions: state.actionQueue.length,
         selected: state.selected,
         hover: state.hover
+      };
+      const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+      const rollbackBackendUnavailableOptimisticState = (): Set<string> => {
+        const targetKeys = new Set<string>();
+        if (errorTileKey) targetKeys.add(errorTileKey);
+        if (failedTargetKey) targetKeys.add(failedTargetKey);
+        if (failedCurrentKey) targetKeys.add(failedCurrentKey);
+        if (state.latestSettleTargetKey) targetKeys.add(state.latestSettleTargetKey);
+        if (state.lastDevelopmentAttempt?.tileKey) targetKeys.add(state.lastDevelopmentAttempt.tileKey);
+        for (const tileKey of targetKeys) {
+          clearOptimisticTileStateSafely(tileKey, true);
+          clearSettlementProgressSafely(tileKey);
+          state.queuedTargetKeys.delete(tileKey);
+          dropQueuedTargetKeyIfAbsent(tileKey);
+          state.autoSettleTargets.delete(tileKey);
+        }
+        if (backendUnavailableError) {
+          state.capture = undefined;
+          state.actionInFlight = false;
+          state.actionAcceptedAck = false;
+          state.combatStartAck = false;
+          state.actionAcceptTimeoutHandledAt = 0;
+          state.actionStartedAt = 0;
+          state.actionTargetKey = "";
+          state.actionCurrent = undefined;
+          state.queuedDevelopmentDispatchPending = false;
+          if (state.lastDevelopmentAttempt && targetKeys.has(state.lastDevelopmentAttempt.tileKey)) state.lastDevelopmentAttempt = undefined;
+          state.actionQueue = state.actionQueue.filter((entry) => !targetKeys.has(keyFor(entry.x, entry.y)));
+        }
+        return targetKeys;
       };
       const duplicateAcceptedFrontierCooldown =
         errorCode === "ATTACK_COOLDOWN" &&
@@ -2027,8 +2236,29 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         });
       }
       if (maybeRecoverBusyDevelopmentAttempt(errorCode, errorMessage, errorTileKey)) return;
+      const failureExplanationOptions = {
+        ...(typeof msg.cooldownRemainingMs === "number" ? { cooldownRemainingMs: msg.cooldownRemainingMs } : {}),
+        formatCooldownShort
+      };
+      const actionFailureExplanation = explainActionFailureSafely(errorCode, errorMessage, failureExplanationOptions);
       recordClientDebugEvent("error", "server-error", "message", serverErrorContext);
       console.error("[server-error]", serverErrorContext);
+      let backendUnavailableRollbackKeys = new Set<string>();
+      if (backendUnavailableError) {
+        backendUnavailableRollbackKeys = rollbackBackendUnavailableOptimisticState();
+        frontierQueueDebug("backend_unavailable_roll_back", {
+          code: errorCode,
+          message: errorMessage,
+          rolledBackKeys: [...backendUnavailableRollbackKeys]
+        });
+        if (backendUnavailableRollbackKeys.size > 0 && shouldShowBackendUnavailableAlert()) {
+          showCaptureAlertSafely(
+            "Simulation unavailable",
+            `${actionFailureExplanation}. Local action progress was rolled back. Please retry in a few seconds.`,
+            "error"
+          );
+        }
+      }
       if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
@@ -2049,7 +2279,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           return;
         }
         if (errorCode === "AUTH_FAIL" && firebaseAuth?.currentUser && !state.authRetrying) {
-          state.authBusy = true;
+          setAuthBusy(true);
           state.authRetrying = true;
           state.authBusyTitle = "Securing session";
           state.authBusyDetail = "Refreshing your Firebase session after a server auth failure.";
@@ -2057,7 +2287,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           syncAuthOverlay();
           void authenticateSocket(true)
             .catch(() => {
-              state.authBusy = false;
+              setAuthBusy(false);
               state.authRetrying = false;
               state.authBusyTitle = "";
               state.authBusyDetail = "";
@@ -2067,7 +2297,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           renderHud();
           return;
         }
-        state.authBusy = false;
+        setAuthBusy(false);
         state.authRetrying = false;
         state.authBusyTitle = "";
         state.authBusyDetail = "";
@@ -2081,11 +2311,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
-      const failureExplanationOptions = {
-        ...(typeof msg.cooldownRemainingMs === "number" ? { cooldownRemainingMs: msg.cooldownRemainingMs } : {}),
-        formatCooldownShort
-      };
-      const actionFailureExplanation = explainActionFailureSafely(errorCode, errorMessage, failureExplanationOptions);
       if (maybeRecoverTransientSettlementAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
@@ -2108,6 +2333,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           "Server says that tile is already owned. Download the debug log from this popup and refresh nearby tiles to resync.",
           "warn"
         );
+      } else if (errorCode === "NOT_OWNER") {
+        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       } else if (errorCode === "DOCK_COOLDOWN" || errorCode === "INSUFFICIENT_MANPOWER") {
         showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       }
@@ -2136,7 +2363,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "INSUFFICIENT_MANPOWER" ||
         errorCode === "EXPAND_TARGET_OWNED" ||
         errorCode === "LOCKED";
-      const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       const shouldResetFrontierAction = shouldResetFrontierActionStateForError(errorCode);
       if (shouldResetFrontierAction) {
         if (failedTargetKey) {

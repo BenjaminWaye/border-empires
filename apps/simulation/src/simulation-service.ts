@@ -53,6 +53,7 @@ type ProtoSimulationEvent = {
   code: string;
   message: string;
   attacker_won: boolean;
+  manpower_delta?: number;
   pillaged_gold?: number;
   pillaged_strategic_json?: string;
   collect_mode?: string;
@@ -120,6 +121,7 @@ type SimulationServiceOptions = {
   systemPlayerIds?: string[];
   startupRecoveryTimeoutMs?: number;
   allowSeedRecoveryFallback?: boolean;
+  requireDurableStartupState?: boolean;
   useAiWorker?: boolean;
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
@@ -217,6 +219,7 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   code: "code" in value ? value.code : "",
   message: "message" in value ? value.message : "",
   attacker_won: "attackerWon" in value ? value.attackerWon : false,
+  ...("manpowerDelta" in value && typeof value.manpowerDelta === "number" ? { manpower_delta: value.manpowerDelta } : {}),
   ...("pillagedGold" in value && typeof value.pillagedGold === "number" ? { pillaged_gold: value.pillagedGold } : {}),
   ...("pillagedStrategic" in value && value.pillagedStrategic ? { pillaged_strategic_json: JSON.stringify(value.pillagedStrategic) } : {}),
   ...(value.eventType === "COLLECT_RESULT"
@@ -240,8 +243,8 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
           ...(tile.resource ? { resource: tile.resource } : {}),
           ...(tile.dockId ? { dock_id: tile.dockId } : {}),
-          ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
+          ...("ownerId" in tile ? { owner_id: tile.ownerId ?? "" } : {}),
+          ...("ownershipState" in tile ? { ownership_state: tile.ownershipState ?? "" } : {}),
           ...(tile.townJson ? { town_json: tile.townJson } : {}),
           ...(tile.townType ? { town_type: tile.townType } : {}),
           ...(tile.townName ? { town_name: tile.townName } : {}),
@@ -263,8 +266,8 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.terrain ? { terrain: tile.terrain } : {}),
           ...(tile.resource ? { resource: tile.resource } : {}),
           ...(tile.dockId ? { dockId: tile.dockId } : {}),
-          ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-          ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+          ...("ownerId" in tile ? { ownerId: tile.ownerId ?? null } : {}),
+          ...("ownershipState" in tile ? { ownershipState: tile.ownershipState ?? null } : {}),
           ...(tile.townJson ? { townJson: tile.townJson } : {}),
           ...(tile.townType ? { townType: tile.townType } : {}),
           ...(tile.townName ? { townName: tile.townName } : {}),
@@ -285,7 +288,13 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
 
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
+  const commandTraceEnabled = process.env.SIMULATION_COMMAND_TRACE === "1";
+  const commandTraceSample = (sample: Record<string, unknown>): void => {
+    if (!commandTraceEnabled) return;
+    log.info({ ...sample }, "simulation command trace");
+  };
   const isDbBackedStartup = typeof options.databaseUrl === "string" && options.databaseUrl.length > 0;
+  const requireDurableStartupState = options.requireDurableStartupState ?? isDbBackedStartup;
   const seedPlayers = createSeedPlayers(options.seedProfile);
   const storeFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
@@ -300,23 +309,47 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const snapshotStore =
     options.snapshotStore ??
     (await createSimulationSnapshotStore(storeFactoryOptions));
-  const legacySnapshotBootstrap = options.snapshotDir ? loadLegacySnapshotBootstrap(options.snapshotDir) : undefined;
+  let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
+  if (options.snapshotDir) {
+    try {
+      legacySnapshotBootstrap = loadLegacySnapshotBootstrap(options.snapshotDir);
+    } catch (error) {
+      const isMissingSnapshotFile = typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+      if (!isMissingSnapshotFile) throw error;
+      log.info(
+        { snapshotDir: options.snapshotDir, err: error },
+        "legacy snapshot bootstrap files not found; continuing without legacy bootstrap"
+      );
+    }
+  }
   const startupRecovery = await (async () => {
+    const startupRecoveryStartedAt = Date.now();
+    const timeoutMs = options.startupRecoveryTimeoutMs ?? 120_000;
     try {
       const recoveryPromise = loadSimulationStartupRecovery({
         commandStore,
         eventStore,
         snapshotStore,
         ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
-        ...(legacySnapshotBootstrap ? { bootstrapState: legacySnapshotBootstrap.initialState } : {})
+        ...(legacySnapshotBootstrap ? { bootstrapState: legacySnapshotBootstrap.initialState } : {}),
+        requireDurableState: requireDurableStartupState
       });
-      const timeoutMs = options.startupRecoveryTimeoutMs ?? 15_000;
-      return await Promise.race([
+      const recovery = await Promise.race([
         recoveryPromise,
         new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error(`simulation startup recovery timed out after ${timeoutMs}ms`)), timeoutMs);
         })
       ]);
+      log.info(
+        {
+          durationMs: Date.now() - startupRecoveryStartedAt,
+          timeoutMs,
+          recoveredCommandCount: recovery.recoveredCommandCount,
+          recoveredEventCount: recovery.recoveredEventCount
+        },
+        "simulation startup recovery completed"
+      );
+      return recovery;
     } catch (error) {
       if (
         !options.allowSeedRecoveryFallback ||
@@ -324,10 +357,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         !options.seedProfile ||
         isDbBackedStartup
       ) {
+        log.error(
+          { err: error, durationMs: Date.now() - startupRecoveryStartedAt, timeoutMs },
+          "simulation startup recovery failed"
+        );
         throw error;
       }
       log.error(
-        { err: error, seedProfile: options.seedProfile },
+        { err: error, seedProfile: options.seedProfile, durationMs: Date.now() - startupRecoveryStartedAt, timeoutMs },
         "simulation startup recovery failed; falling back to seed world"
       );
       const seedWorld = createSeedWorld(options.seedProfile);
@@ -345,6 +382,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
     initialState: startupRecovery.initialState,
     initialCommandHistory: startupRecovery.initialCommandHistory,
+    mergeSeedTilesWithInitialState: !isDbBackedStartup,
+    ...(commandTraceEnabled
+      ? {
+          commandTrace: (sample: Record<string, unknown>) =>
+            commandTraceSample({
+              source: "runtime",
+              ...sample
+            })
+        }
+      : {}),
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: activePlayers
   });
@@ -469,6 +516,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (fatalPersistenceError || persistenceQueue.isDegraded()) {
       throw fatalPersistenceError ?? new Error("simulation persistence degraded");
     }
+    commandTraceSample({
+      source: "service",
+      phase: "queued",
+      commandId: command.commandId,
+      playerId: command.playerId,
+      clientSeq: command.clientSeq,
+      type: command.type
+    });
     runtime.submitCommand(command);
   };
   const aiPlayerIds = [...activePlayers.values()].filter((player) => player.isAi).map((player) => player.id);
@@ -528,6 +583,27 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     : undefined;
 
   runtime.onEvent((event) => {
+    if (
+      commandTraceEnabled &&
+      (event.eventType === "COMMAND_ACCEPTED" ||
+        event.eventType === "COMMAND_REJECTED" ||
+        event.eventType === "COMBAT_RESOLVED" ||
+        event.eventType === "TILE_DELTA_BATCH")
+    ) {
+      commandTraceSample({
+        source: "event",
+        phase: event.eventType,
+        commandId: event.commandId,
+        playerId: event.playerId,
+        actionType: "actionType" in event ? event.actionType : undefined,
+        code: "code" in event ? event.code : undefined,
+        message: "message" in event ? event.message : undefined,
+        attackerWon: "attackerWon" in event ? event.attackerWon : undefined,
+        manpowerDelta: "manpowerDelta" in event ? event.manpowerDelta : undefined,
+        targetX: "targetX" in event ? event.targetX : undefined,
+        targetY: "targetY" in event ? event.targetY : undefined
+      });
+    }
     const shouldBroadcastGlobalStatus =
       event.eventType === "TILE_DELTA_BATCH" || event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE";
     persistenceQueue.enqueueEvent(event);
@@ -607,6 +683,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           tiles: []
         });
         return;
+      }
+      const spawnedOnSubscribe = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
+      if (spawnedOnSubscribe) {
+        snapshotCacheByPlayerId.delete(call.request.player_id);
+        log.info({ playerId: call.request.player_id }, "spawned runtime territory for unknown subscribed player");
       }
       subscriptionRegistry.subscribe(call.request.player_id);
       const snapshotPayload = snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
