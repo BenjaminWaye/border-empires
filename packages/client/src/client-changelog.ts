@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.23.4",
+  version: "2026.04.24.1",
   title: "What's New",
-  summary: "Recent updates include staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include rewrite territory-abandon ownership-clear propagation fixes, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.24.1",
+      title: "Abandoned tiles now clear settled ownership visuals immediately in rewrite",
+      why: "UNCAPTURE_TILE could clear ownership in simulation state but still arrive without explicit owner-state clears, which let stale settled visuals persist on the client.",
+      changes: [
+        "Rewrite simulation/gateway tile-delta serialization now emits explicit owner/ownership-state clear fields when territory is abandoned.",
+        "Client gateway tile sync now treats null owner fields as authoritative ownership clears instead of preserving stale settled state.",
+        "Added simulation and client regressions to lock owner/ownership-state clear propagation for uncapture updates."
+      ]
+    },
     {
       introducedIn: "2026.04.23.4",
       title: "Staging custom domain now follows gateway-default routing and ignores stale legacy cookie state",
