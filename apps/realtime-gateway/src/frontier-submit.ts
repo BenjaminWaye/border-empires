@@ -26,6 +26,8 @@ type SubmitFrontierCommandDeps = {
   createCommandId?: () => string;
   now?: () => number;
   commandStore: GatewayCommandStore;
+  onCommandSubmitted?: (command: CommandEnvelope) => void;
+  onCommandSubmitFailed?: (commandId: string) => void;
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   sendJson: (payload: unknown) => void;
 };
@@ -95,8 +97,10 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
   }
 
   try {
+    deps.onCommandSubmitted?.(durableCommand);
     await deps.submitCommand(durableCommand);
   } catch {
+    deps.onCommandSubmitFailed?.(envelope.commandId);
     await deps.commandStore.markRejected(
       envelope.commandId,
       now(),

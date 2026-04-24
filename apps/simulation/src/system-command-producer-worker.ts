@@ -23,6 +23,7 @@ type WorkerSystemCommandProducerOptions = {
   now?: () => number;
   tickIntervalMs?: number;
   workerScriptPath?: string;
+  onTick?: (sample: { durationMs: number }) => void;
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -99,6 +100,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     if (hasBacklog) return;
 
     tickInFlight = true;
+    const tickStartedAt = now();
     try {
       for (const playerId of options.systemPlayerIds) {
         if (pendingPlayers.has(playerId)) continue;
@@ -117,11 +119,14 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
         return;
       }
     } finally {
+      options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt) });
       tickInFlight = false;
     }
   };
 
-  const intervalHandle = setInterval(() => { void tick(); }, tickIntervalMs);
+  const intervalHandle = setInterval(() => {
+    void tick();
+  }, tickIntervalMs);
 
   return {
     tick,
