@@ -2,9 +2,10 @@
  * AI planner worker thread.
  *
  * Runs inside a Node.js Worker so that planning computation never blocks the
- * main simulation event loop.  The worker is stateless across ticks: each
- * "plan" message carries a full PlannerWorldView and the worker responds with
- * the chosen CommandEnvelope (or null if no command is needed).
+ * main simulation event loop. The worker is stateless across ticks: each
+ * "plan" message carries a scoped PlannerWorldView tile slice for the player
+ * being planned and the worker responds with the chosen CommandEnvelope (or
+ * null if no command is needed).
  *
  * Message protocol (main → worker):
  *   { type: "plan"; playerId: string; clientSeq: number; issuedAt: number;

@@ -89,6 +89,7 @@ import { buildDomainUpdatePayload, buildTechUpdatePayload, chooseDomainForPlayer
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
 import type { PlannerWorldView } from "./planner-world-view.js";
+import { buildPlannerTileSlice } from "./planner-world-view-slice.js";
 
 type LockRecord = {
   commandId: string;
@@ -919,25 +920,11 @@ export class SimulationRuntime {
       lockPlayerIds.add(lock.playerId);
     }
 
-    const tiles: PlannerWorldView["tiles"] = [];
-    for (const tile of this.tiles.values()) {
-      const plannerTile: PlannerWorldView["tiles"][number] = {
-        x: tile.x,
-        y: tile.y,
-        terrain: tile.terrain
-      };
-      if (tile.resource) plannerTile.resource = tile.resource;
-      if (tile.dockId) plannerTile.dockId = tile.dockId;
-      if (tile.ownerId) plannerTile.ownerId = tile.ownerId;
-      if (tile.ownershipState) plannerTile.ownershipState = tile.ownershipState;
-      if (tile.town) {
-        plannerTile.town = {
-          ...(typeof tile.town.supportMax === "number" ? { supportMax: tile.town.supportMax } : {}),
-          ...(typeof tile.town.supportCurrent === "number" ? { supportCurrent: tile.town.supportCurrent } : {})
-        };
-      }
-      tiles.push(plannerTile);
-    }
+    const tiles = buildPlannerTileSlice({
+      playerIds,
+      tiles: this.tiles,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
+    });
 
     const players: PlannerWorldView["players"] = [];
     for (const playerId of playerIds) {
