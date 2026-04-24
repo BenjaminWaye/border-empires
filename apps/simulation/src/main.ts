@@ -11,6 +11,7 @@ const service = await createSimulationService({
   ...(runtimeEnv.snapshotDir ? { snapshotDir: runtimeEnv.snapshotDir } : {}),
   applySchema: runtimeEnv.applySchema,
   checkpointEveryEvents: runtimeEnv.checkpointEveryEvents,
+  startupReplayCompactionMinEvents: runtimeEnv.startupReplayCompactionMinEvents,
   ...(typeof runtimeEnv.checkpointMaxRssBytes === "number" ? { checkpointMaxRssBytes: runtimeEnv.checkpointMaxRssBytes } : {}),
   ...(typeof runtimeEnv.checkpointMaxHeapUsedBytes === "number"
     ? { checkpointMaxHeapUsedBytes: runtimeEnv.checkpointMaxHeapUsedBytes }
@@ -18,6 +19,7 @@ const service = await createSimulationService({
   seedProfile: runtimeEnv.seedProfile,
   enableAiAutopilot: runtimeEnv.enableAiAutopilot,
   aiTickMs: runtimeEnv.aiTickMs,
+  aiMaxEventLoopLagMs: runtimeEnv.aiMaxEventLoopLagMs,
   enableSystemAutopilot: runtimeEnv.enableSystemAutopilot,
   systemTickMs: runtimeEnv.systemTickMs,
   globalStatusBroadcastDebounceMs: runtimeEnv.globalStatusBroadcastDebounceMs,

@@ -6,8 +6,11 @@
  * Runs in a Worker so these jobs never block human command acceptance.
  *
  * Message protocol (main → worker):
+ *   { type: "init"; worldView: PlannerWorldView }
+ *   { type: "sync_players"; players: PlannerPlayerView[] }
+ *   { type: "tile_deltas"; tileDeltas: SimulationTileDelta[] }
  *   { type: "plan"; playerId: string; clientSeq: number; issuedAt: number;
- *     sessionPrefix: "system-runtime"; worldView: PlannerWorldView }
+ *     sessionPrefix: "system-runtime" }
  *   { type: "pause" }
  *   { type: "resume" }
  *   { type: "shutdown" }
@@ -23,32 +26,105 @@ import {
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import type { PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
+import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 if (!parentPort) throw new Error("system-job-worker must run inside a Worker thread");
 
 let paused = false;
+const tilesByKey = new Map<string, PlannerTileView>();
+const playersById = new Map<string, PlannerPlayerView>();
+const playerTileCacheById = new Map<string, {
+  tileCollectionVersion: number;
+  ownedTiles: PlannerTileView[];
+}>();
+
+type SimulationTileDelta = {
+  x: number;
+  y: number;
+  terrain?: "LAND" | "SEA" | "MOUNTAIN" | undefined;
+  resource?: string | undefined;
+  dockId?: string | undefined;
+  ownerId?: string | undefined;
+  ownershipState?: string | undefined;
+  townJson?: string | undefined;
+};
+
+const parseTownSupport = (
+  townJson: string | undefined
+): PlannerTileView["town"] | undefined => {
+  if (typeof townJson !== "string") return undefined;
+  try {
+    const parsed = JSON.parse(townJson) as { supportMax?: unknown; supportCurrent?: unknown };
+    return {
+      ...(typeof parsed.supportMax === "number" ? { supportMax: parsed.supportMax } : {}),
+      ...(typeof parsed.supportCurrent === "number" ? { supportCurrent: parsed.supportCurrent } : {})
+    };
+  } catch {
+    return undefined;
+  }
+};
+
+const applyTileDelta = (delta: SimulationTileDelta): void => {
+  const key = `${delta.x},${delta.y}`;
+  const existing = tilesByKey.get(key);
+  const terrain = delta.terrain ?? existing?.terrain;
+  if (!terrain) return;
+  const next: PlannerTileView = existing ?? { x: delta.x, y: delta.y, terrain };
+
+  if (delta.terrain) next.terrain = delta.terrain;
+  if ("resource" in delta) {
+    if (delta.resource) next.resource = delta.resource;
+    else delete next.resource;
+  }
+  if ("dockId" in delta) {
+    if (delta.dockId) next.dockId = delta.dockId;
+    else delete next.dockId;
+  }
+  if ("ownerId" in delta) {
+    if (delta.ownerId) next.ownerId = delta.ownerId;
+    else delete next.ownerId;
+  }
+  if ("ownershipState" in delta) {
+    if (delta.ownershipState) next.ownershipState = delta.ownershipState;
+    else delete next.ownershipState;
+  }
+  if ("townJson" in delta) {
+    const town = parseTownSupport(delta.townJson);
+    if (town) next.town = town;
+    else delete next.town;
+  }
+
+  tilesByKey.set(key, next);
+};
+
+const resolveOwnedTiles = (player: PlannerPlayerView): PlannerTileView[] => {
+  const cached = playerTileCacheById.get(player.id);
+  if (cached && cached.tileCollectionVersion === player.tileCollectionVersion) {
+    return cached.ownedTiles;
+  }
+  const ownedTiles = player.territoryTileKeys
+    .map((k) => tilesByKey.get(k))
+    .filter((t): t is PlannerTileView => t !== undefined);
+  playerTileCacheById.set(player.id, {
+    tileCollectionVersion: player.tileCollectionVersion,
+    ownedTiles
+  });
+  return ownedTiles;
+};
 
 // ─── Planning logic ───────────────────────────────────────────────────────────
 
 const chooseSystemCommand = (
   playerId: string,
   clientSeq: number,
-  issuedAt: number,
-  worldView: PlannerWorldView
+  issuedAt: number
 ): CommandEnvelope | null => {
-  const player = worldView.players.find((p) => p.id === playerId);
+  const player = playersById.get(playerId);
   if (!player) return null;
   if (player.hasActiveLock) return null;
 
-  const tilesByKey = new Map<string, PlannerTileView>(
-    worldView.tiles.map((t) => [`${t.x},${t.y}`, t])
-  );
-
-  const ownedTiles = player.territoryTileKeys
-    .map((k) => tilesByKey.get(k))
-    .filter((t): t is PlannerTileView => t !== undefined);
+  const ownedTiles = resolveOwnedTiles(player);
 
   const canAttack = player.points >= FRONTIER_CLAIM_COST && player.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = player.points >= FRONTIER_CLAIM_COST;
@@ -96,8 +172,7 @@ parentPort.on("message", (msg: unknown) => {
         const command = chooseSystemCommand(
           message.playerId as string,
           message.clientSeq as number,
-          message.issuedAt as number,
-          message.worldView as PlannerWorldView
+          message.issuedAt as number
         );
         parentPort!.postMessage({ type: "command", playerId: message.playerId, command });
       } catch (err) {
@@ -106,6 +181,40 @@ parentPort.on("message", (msg: unknown) => {
           playerId: message.playerId,
           message: err instanceof Error ? err.message : String(err)
         });
+      }
+      break;
+    }
+
+    case "init": {
+      const worldView = message.worldView as PlannerWorldView;
+      tilesByKey.clear();
+      playersById.clear();
+      playerTileCacheById.clear();
+      for (const tile of worldView.tiles) {
+        tilesByKey.set(`${tile.x},${tile.y}`, tile);
+      }
+      for (const player of worldView.players) {
+        playersById.set(player.id, player);
+      }
+      break;
+    }
+
+    case "sync_players": {
+      const players = (message.players as PlannerPlayerView[]) ?? [];
+      for (const player of players) {
+        const cached = playerTileCacheById.get(player.id);
+        if (cached && cached.tileCollectionVersion !== player.tileCollectionVersion) {
+          playerTileCacheById.delete(player.id);
+        }
+        playersById.set(player.id, player);
+      }
+      break;
+    }
+
+    case "tile_deltas": {
+      const tileDeltas = (message.tileDeltas as SimulationTileDelta[]) ?? [];
+      for (const tileDelta of tileDeltas) {
+        applyTileDelta(tileDelta);
       }
       break;
     }

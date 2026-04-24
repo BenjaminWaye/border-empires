@@ -88,7 +88,7 @@ import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections }
 import { buildDomainUpdatePayload, buildTechUpdatePayload, chooseDomainForPlayer, chooseTechForPlayer } from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
-import type { PlannerWorldView } from "./planner-world-view.js";
+import type { PlannerPlayerView, PlannerWorldView } from "./planner-world-view.js";
 import { buildPlannerTileSlice } from "./planner-world-view-slice.js";
 
 type LockRecord = {
@@ -461,6 +461,13 @@ export class SimulationRuntime {
   private readonly players: Map<string, RuntimePlayer>;
   private readonly tiles: Map<string, DomainTileState>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
+  private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
+  private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, {
+    tileCollectionVersion: number;
+    territoryTileKeys: string[];
+    frontierTileKeys: string[];
+    pendingSettlementTileKeys: string[];
+  }>();
   private readonly locksByTile: Map<string, LockRecord>;
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   private readonly tileYieldCollectedAtByTile = new Map<string, number>();
@@ -519,6 +526,7 @@ export class SimulationRuntime {
     }
     for (const playerId of this.players.keys()) {
       this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+      this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     }
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
@@ -578,6 +586,7 @@ export class SimulationRuntime {
       player = createHumanRuntimePlayer(playerId);
       this.players.set(playerId, player);
       this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+      this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     }
 
     if (this.summaryForPlayer(playerId).territoryTileKeys.size > 0) return false;
@@ -683,7 +692,33 @@ export class SimulationRuntime {
     if (existing) return existing;
     const summary = createEmptyPlayerRuntimeSummary();
     this.playerSummaries.set(playerId, summary);
+    this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
     return summary;
+  }
+
+  private markPlannerPlayerTileCollectionDirty(playerId: string): void {
+    const nextVersion = (this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0) + 1;
+    this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, nextVersion);
+    this.plannerPlayerTileKeyCacheByPlayer.delete(playerId);
+  }
+
+  private plannerPlayerTileKeys(playerId: string, summary: PlayerRuntimeSummary): {
+    tileCollectionVersion: number;
+    territoryTileKeys: string[];
+    frontierTileKeys: string[];
+    pendingSettlementTileKeys: string[];
+  } {
+    const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
+    const cached = this.plannerPlayerTileKeyCacheByPlayer.get(playerId);
+    if (cached && cached.tileCollectionVersion === tileCollectionVersion) return cached;
+    const next = {
+      tileCollectionVersion,
+      territoryTileKeys: [...summary.territoryTileKeys],
+      frontierTileKeys: [...summary.frontierTileKeys],
+      pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()]
+    };
+    this.plannerPlayerTileKeyCacheByPlayer.set(playerId, next);
+    return next;
   }
 
   private playerManpowerCap(player: RuntimePlayer): number {
@@ -724,11 +759,13 @@ export class SimulationRuntime {
   private applyTileToPlayerSummaries(tileKey: string, tile: DomainTileState): void {
     if (!tile.ownerId) return;
     applyTileToPlayerSummary(this.summaryForPlayer(tile.ownerId), tileKey, tile);
+    this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
   private removeTileFromPlayerSummaries(tileKey: string, tile: DomainTileState): void {
     if (!tile.ownerId) return;
     removeTileFromPlayerSummary(this.summaryForPlayer(tile.ownerId), tileKey, tile);
+    this.markPlannerPlayerTileCollectionDirty(tile.ownerId);
   }
 
   private replaceTileState(tileKey: string, tile: DomainTileState): void {
@@ -741,6 +778,7 @@ export class SimulationRuntime {
   private addPendingSettlement(record: PendingSettlementRecord): void {
     this.pendingSettlementsByTile.set(record.tileKey, record);
     addPendingSettlementToSummary(this.summaryForPlayer(record.ownerId), record);
+    this.markPlannerPlayerTileCollectionDirty(record.ownerId);
   }
 
   private removePendingSettlement(tileKey: string): PendingSettlementRecord | undefined {
@@ -748,6 +786,7 @@ export class SimulationRuntime {
     if (!record) return undefined;
     this.pendingSettlementsByTile.delete(tileKey);
     removePendingSettlementFromSummary(this.summaryForPlayer(record.ownerId), tileKey);
+    this.markPlannerPlayerTileCollectionDirty(record.ownerId);
     return record;
   }
 
@@ -915,36 +954,41 @@ export class SimulationRuntime {
   }
 
   exportPlannerWorldView(playerIds: string[]): PlannerWorldView {
-    const lockPlayerIds = new Set<string>();
-    for (const lock of this.locksByTile.values()) {
-      lockPlayerIds.add(lock.playerId);
-    }
-
+    const players = this.exportPlannerPlayerViews(playerIds);
     const tiles = buildPlannerTileSlice({
       playerIds,
       tiles: this.tiles,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
     });
 
-    const players: PlannerWorldView["players"] = [];
+    return { tiles, players };
+  }
+
+  exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
+    const lockPlayerIds = new Set<string>();
+    for (const lock of this.locksByTile.values()) {
+      lockPlayerIds.add(lock.playerId);
+    }
+    const players: PlannerPlayerView[] = [];
     for (const playerId of playerIds) {
       const player = this.players.get(playerId);
       if (!player) continue;
       this.applyManpowerRegen(player);
       const summary = this.summaryForPlayer(playerId);
+      const tileKeys = this.plannerPlayerTileKeys(playerId, summary);
       players.push({
         id: player.id,
         points: player.points,
         manpower: player.manpower,
+        tileCollectionVersion: tileKeys.tileCollectionVersion,
         hasActiveLock: lockPlayerIds.has(player.id),
-        territoryTileKeys: [...summary.territoryTileKeys],
-        frontierTileKeys: [...summary.frontierTileKeys],
-        pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()],
+        territoryTileKeys: tileKeys.territoryTileKeys,
+        frontierTileKeys: tileKeys.frontierTileKeys,
+        pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
       });
     }
-
-    return { tiles, players };
+    return players;
   }
 
   exportState(): {
@@ -2953,8 +2997,8 @@ export class SimulationRuntime {
     resource?: string;
     dockId?: string;
     shardSiteJson?: string;
-    ownerId?: string;
-    ownershipState?: string;
+    ownerId?: string | undefined;
+    ownershipState?: string | undefined;
       townJson?: string;
       townType?: "MARKET" | "FARMING";
       townName?: string;
