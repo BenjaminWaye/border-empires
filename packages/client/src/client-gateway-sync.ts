@@ -27,8 +27,8 @@ export type GatewayTileUpdate = {
   terrain?: "LAND" | "SEA" | "MOUNTAIN";
   resource?: string;
   dockId?: string;
-  ownerId?: string;
-  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+  ownerId?: string | null;
+  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null;
   townJson?: string;
   townType?: "MARKET" | "FARMING";
   townName?: string;
@@ -284,8 +284,13 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("sabotageJson" in update) normalized.sabotage = parseGatewayStructureJson<Tile["sabotage"]>(update.sabotageJson);
   if ("shardSiteJson" in update) normalized.shardSite = parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(update.shardSiteJson);
-  if ("ownerId" in update) normalized.ownerId = update.ownerId;
-  if ("ownershipState" in update) normalized.ownershipState = update.ownershipState;
+  if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
+  if ("ownershipState" in update) {
+    normalized.ownershipState =
+      update.ownershipState === "FRONTIER" || update.ownershipState === "SETTLED" || update.ownershipState === "BARBARIAN"
+        ? update.ownershipState
+        : undefined;
+  }
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
   if ("yieldCap" in update) normalized.yieldCap = update.yieldCap;
