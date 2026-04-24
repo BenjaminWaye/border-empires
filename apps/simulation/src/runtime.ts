@@ -4429,7 +4429,16 @@ const createTilesFromInitialState = (
   mergeSeedTilesWithInitialState: boolean
 ): Map<string, DomainTileState> => {
   if (!initialState) return new Map(seedTiles);
-  const mergedTiles = mergeSeedTilesWithInitialState ? new Map(seedTiles) : new Map<string, DomainTileState>();
+  const recoveredTileKeys = new Set<string>();
+  for (const tile of initialState.tiles) {
+    recoveredTileKeys.add(simulationTileKey(tile.x, tile.y));
+  }
+  // Some older durable snapshots can contain only changed tiles. In that case we
+  // still need to backfill untouched coordinates from the deterministic seed.
+  const shouldBackfillMissingSeedTiles = !mergeSeedTilesWithInitialState && recoveredTileKeys.size < seedTiles.size;
+  const mergedTiles = mergeSeedTilesWithInitialState || shouldBackfillMissingSeedTiles
+    ? new Map(seedTiles)
+    : new Map<string, DomainTileState>();
 
   for (const tile of initialState.tiles) {
     const tileKey = simulationTileKey(tile.x, tile.y);
