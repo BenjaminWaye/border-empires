@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { InMemorySimulationCommandStore } from "./command-store.js";
 import { InMemorySimulationEventStore } from "./event-store.js";
@@ -97,7 +97,7 @@ describe("simulation service startup recovery", () => {
     );
   });
 
-  it("does not overlay seed tiles onto db-backed recovered snapshot tiles", async () => {
+  it("backfills seed tiles for sparse db-backed snapshots while preserving recovered ownership", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
     const snapshotStore = new InMemorySimulationSnapshotStore();
@@ -127,8 +127,79 @@ describe("simulation service startup recovery", () => {
     });
 
     const tiles = service.runtime.exportState().tiles;
-    expect(tiles).toHaveLength(1);
-    expect(tiles[0]).toEqual(expect.objectContaining({ x: 99, y: 99, ownerId: "player-1" }));
+    expect(tiles.length).toBeGreaterThan(1);
+    expect(tiles).toEqual(
+      expect.arrayContaining([expect.objectContaining({ x: 99, y: 99, ownerId: "player-1" })])
+    );
+    await service.close();
+  });
+
+  it("compacts replayed startup events into a fresh checkpoint when recovery tail is large", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore: SimulationEventStore = {
+      appendEvent: async () => undefined,
+      loadAllEvents: async () => [],
+      loadEventsAfter: async (eventId) => {
+        if (eventId > 0) return [];
+        return [
+          {
+            eventId: 1,
+            commandId: "cmd-1",
+            playerId: "player-1",
+            eventType: "COMMAND_REJECTED",
+            eventPayload: {
+              eventType: "COMMAND_REJECTED",
+              commandId: "cmd-1",
+              playerId: "player-1",
+              code: "NOT_ADJACENT",
+              message: "not adjacent"
+            },
+            createdAt: 1_000
+          },
+          {
+            eventId: 2,
+            commandId: "cmd-2",
+            playerId: "player-1",
+            eventType: "COMMAND_REJECTED",
+            eventPayload: {
+              eventType: "COMMAND_REJECTED",
+              commandId: "cmd-2",
+              playerId: "player-1",
+              code: "NOT_ADJACENT",
+              message: "not adjacent"
+            },
+            createdAt: 1_001
+          }
+        ];
+      },
+      loadEventsForCommand: async () => [],
+      loadLatestEventId: async () => 2
+    };
+    const saveSnapshot = vi.fn(async () => undefined);
+    const snapshotStore = {
+      saveSnapshot,
+      loadLatestSnapshot: async () => undefined
+    };
+
+    const service = await createSimulationService({
+      commandStore,
+      eventStore,
+      snapshotStore: snapshotStore as unknown as InMemorySimulationSnapshotStore,
+      startupReplayCompactionMinEvents: 1,
+      log: {
+        info: () => undefined,
+        error: () => undefined
+      }
+    });
+
+    expect(service.startupRecovery.recoveredEventCount).toBe(2);
+    expect(saveSnapshot).toHaveBeenCalledTimes(1);
+    expect(saveSnapshot.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        lastAppliedEventId: 2
+      })
+    );
+
     await service.close();
   });
 });

@@ -758,7 +758,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 });
               }
             } catch (error) {
-              markSimulationUnavailable(error);
+              // A single slow subscribe can time out even when simulation is otherwise
+              // reachable; avoid globally flipping health based on one auth path failure.
               recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
                 playerId: playerIdentity.playerId,
                 error: error instanceof Error ? error.message : String(error)

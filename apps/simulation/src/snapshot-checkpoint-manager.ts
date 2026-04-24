@@ -37,7 +37,15 @@ type SnapshotCheckpointManagerOptions = {
 
 export type SnapshotCheckpointManager = {
   onEventPersisted: () => Promise<void>;
+  checkpointNow: (options?: { ignoreMemoryGuard?: boolean }) => Promise<SnapshotCheckpointResult>;
 };
+
+export type SnapshotCheckpointResult =
+  | "saved"
+  | "skipped_in_flight"
+  | "skipped_threshold"
+  | "skipped_high_memory"
+  | "skipped_no_events";
 
 export const createSnapshotCheckpointManager = (
   options: SnapshotCheckpointManagerOptions
@@ -85,12 +93,19 @@ export const createSnapshotCheckpointManager = (
   let snapshotInFlight = false;
   let nextCheckpointPendingEvents = checkpointEveryEvents;
 
-  const flushSnapshot = async (): Promise<void> => {
-    if (snapshotInFlight || pendingEvents < nextCheckpointPendingEvents) return;
-    if (isCheckpointMemoryHot()) {
+  const flushSnapshot = async ({
+    force = false,
+    ignoreMemoryGuard = false
+  }: {
+    force?: boolean;
+    ignoreMemoryGuard?: boolean;
+  } = {}): Promise<SnapshotCheckpointResult> => {
+    if (snapshotInFlight) return "skipped_in_flight";
+    if (!force && pendingEvents < nextCheckpointPendingEvents) return "skipped_threshold";
+    if (!ignoreMemoryGuard && isCheckpointMemoryHot()) {
       emitPhase("skipped_high_memory");
-      nextCheckpointPendingEvents = pendingEvents + checkpointEveryEvents;
-      return;
+      if (!force) nextCheckpointPendingEvents = pendingEvents + checkpointEveryEvents;
+      return "skipped_high_memory";
     }
 
     emitPhase("before_load");
@@ -101,7 +116,7 @@ export const createSnapshotCheckpointManager = (
       if (lastAppliedEventId === 0) {
         pendingEvents = 0;
         nextCheckpointPendingEvents = checkpointEveryEvents;
-        return;
+        return "skipped_no_events";
       }
 
       emitPhase("before_save", lastAppliedEventId);
@@ -116,6 +131,7 @@ export const createSnapshotCheckpointManager = (
       emitPhase("after_save", lastAppliedEventId);
       pendingEvents = 0;
       nextCheckpointPendingEvents = checkpointEveryEvents;
+      return "saved";
     } catch (error) {
       nextCheckpointPendingEvents = pendingEvents + checkpointFailureBackoffEvents;
       throw error;
@@ -128,6 +144,9 @@ export const createSnapshotCheckpointManager = (
     async onEventPersisted(): Promise<void> {
       pendingEvents += 1;
       await flushSnapshot();
+    },
+    checkpointNow(options = {}): Promise<SnapshotCheckpointResult> {
+      return flushSnapshot({ force: true, ignoreMemoryGuard: options.ignoreMemoryGuard ?? false });
     }
   };
 };
