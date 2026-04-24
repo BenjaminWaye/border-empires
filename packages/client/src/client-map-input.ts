@@ -345,12 +345,8 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   );
 
   deps.canvas.addEventListener("mousemove", (ev) => {
-    const size = state.zoom;
-    const halfW = Math.floor(deps.canvas.width / size / 2);
-    const halfH = Math.floor(deps.canvas.height / size / 2);
-    const gx = Math.floor(ev.offsetX / size) - halfW + state.camX;
-    const gy = Math.floor(ev.offsetY / size) - halfH + state.camY;
-    state.hover = { x: deps.wrapX(gx), y: deps.wrapY(gy) };
+    const { wx, wy } = worldTileFromPointer(ev.offsetX, ev.offsetY);
+    state.hover = { x: wx, y: wy };
     deps.requestAttackPreviewForHover();
   });
 };
