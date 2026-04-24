@@ -85,6 +85,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
     },
     {
       introducedIn: "2026.04.24.3",
+      title: "Unexplored tiles now render as solid black and selection outlines align to tile edges",
+      why: "Unexplored regions were leaving terrain-colored seam lines visible, and selection/town-support outlines were inset from the tile border after recent renderer updates.",
+      changes: [
+        "Unexplored and fog fallback fill now paints the full tile footprint so no colored seam remains in blacked-out map regions.",
+        "Selection, hover, and town-support rectangle outlines now draw on the actual tile edge instead of an inset rectangle.",
+        "True 3D marker edge geometry now matches full tile dimensions for consistent highlight framing."
+      ]
+    },
+    {
+      introducedIn: "2026.04.24.2",
       title: "Rewrite now defaults to the new 3D map with legacy tile look",
       why: "Rewrite sessions needed to switch from the old map presentation to the new 3D terrain while preserving familiar pre-3D color and texture readability.",
       changes: [
