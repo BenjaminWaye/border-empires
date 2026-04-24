@@ -223,7 +223,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
         keyFor,
         wrapX,
         wrapY,
-        terrainAt
+        terrainAt,
+        tileVisibilityStateAt
       });
       setTrue3DRendererActive(true);
     } catch (error) {

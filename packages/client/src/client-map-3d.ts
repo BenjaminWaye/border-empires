@@ -1,7 +1,7 @@
 import { AmbientLight, BoxGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, DirectionalLight, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshStandardMaterial, OrthographicCamera, RepeatWrapping, SRGBColorSpace, Scene, Vector3, WebGLRenderer } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
-import type { Tile } from "./client-types.js";
+import type { Tile, TileVisibilityState } from "./client-types.js";
 import { isForestTile } from "./client-constants.js";
 import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
 
@@ -12,6 +12,7 @@ type ClientThreeTerrainRendererDeps = {
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
   terrainAt: (x: number, y: number) => Tile["terrain"];
+  tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
 };
 
 const MAX_VISIBLE_TILES = 14000;
@@ -232,7 +233,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const mountainSnowCapMesh = new InstancedMesh(mountainSnowCapGeometry, mountainSnowCapMaterial, MAX_VISIBLE_TILES);
   const forestMesh = new InstancedMesh(forestGeometry, forestCanopyMaterial, MAX_FOREST_INSTANCES);
   const forestTrunkMesh = new InstancedMesh(forestTrunkGeometry, forestTrunkMaterial, MAX_FOREST_INSTANCES);
-  const markerEdgesGeometry = new EdgesGeometry(new BoxGeometry(0.96, 0.04, 0.96));
+  const markerEdgesGeometry = new EdgesGeometry(new BoxGeometry(1, 0.04, 1));
   const selectedMarker = new LineSegments(
     markerEdgesGeometry,
     new LineBasicMaterial({ color: "#f6f0d5", transparent: true, opacity: 0.88 })
@@ -394,6 +395,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       for (let dx = -halfW - 1; dx <= halfW + 1; dx += 1) {
         const wx = deps.wrapX(deps.state.camX + dx);
         const wy = deps.wrapY(deps.state.camY + dy);
+        const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+        const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
+        if (visibility === "unexplored") continue;
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
@@ -549,8 +553,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const renderLoop = (): void => {
     const nowMs = performance.now();
     maybeRebuild(nowMs);
-    syncHighlightMarker(selectedMarker, deps.state.selected, 0.56);
-    syncHighlightMarker(hoverMarker, deps.state.hover, 0.54);
+    // Keep marker nearly coplanar with tile tops so tilt does not introduce screen-space offset.
+    syncHighlightMarker(selectedMarker, deps.state.selected, 0.39);
+    syncHighlightMarker(hoverMarker, deps.state.hover, 0.385);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };

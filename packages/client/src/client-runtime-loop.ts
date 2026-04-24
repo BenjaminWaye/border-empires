@@ -647,7 +647,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         } else {
           deps.ctx.strokeStyle = "#ffd166";
           deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
+          deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
           deps.ctx.lineWidth = 1;
         }
       } else if (state.selected) {
@@ -663,14 +663,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.fillRect(px, py, size, size);
           } else {
             deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+            deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
             deps.ctx.lineWidth = 1;
           }
         }
       }
       if (!isTrue3DRendererActive() && state.hover && state.hover.x === wx && state.hover.y === wy) {
         deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
-        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+        deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
       }
       const incomingAttack = state.incomingAttacksByTile.get(wk);
       if (incomingAttack) {
@@ -782,18 +782,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (vis === "unexplored") {
           deps.ctx.fillStyle = "#06090f";
-          deps.ctx.fillRect(px, py, size - 1, size - 1);
+          deps.ctx.fillRect(px, py, size, size);
         } else if (!t) {
           if (state.firstChunkAt === 0 || state.fogDisabled || revealWholeMapInTrue3DMode) {
             deps.drawTerrainTile(wx, wy, terrainAt(wx, wy), px, py, size);
           } else {
             deps.ctx.fillStyle = "#06090f";
-            deps.ctx.fillRect(px, py, size - 1, size - 1);
+            deps.ctx.fillRect(px, py, size, size);
           }
         } else if (vis === "fogged") {
           deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
           deps.ctx.fillStyle = "rgba(2, 5, 10, 0.72)";
-          deps.ctx.fillRect(px, py, size - 1, size - 1);
+          deps.ctx.fillRect(px, py, size, size);
         } else if (t.terrain === "SEA" || t.terrain === "MOUNTAIN") {
           deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
         } else {
@@ -1121,7 +1121,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           } else {
             deps.ctx.strokeStyle = "#ffd166";
             deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
+            deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
             deps.ctx.lineWidth = 1;
           }
         } else if (state.selected) {
@@ -1137,14 +1137,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
               deps.ctx.fillRect(px, py, size, size);
             } else {
               deps.ctx.lineWidth = 2;
-              deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+              deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
               deps.ctx.lineWidth = 1;
             }
           }
         }
         if (!isTrue3DRendererActive() && state.hover && state.hover.x === wx && state.hover.y === wy) {
           deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+          deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
         }
         const incomingAttack = state.incomingAttacksByTile.get(wk);
         if (incomingAttack) {
