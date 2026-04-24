@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
@@ -207,6 +208,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let gatewayEventLoopTimer: ReturnType<typeof setInterval> | undefined;
   let gatewayEventLoopWindowMaxMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
+  let lastCpuSampleAt = Date.now();
+  let lastCpuUsage = process.cpuUsage();
+  const pendingGcDurationsMs: number[] = [];
+  const pendingInputToStateByCommandId = new Map<string, number>();
+  let gcObserver: PerformanceObserver | undefined;
+  try {
+    gcObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (Number.isFinite(entry.duration) && entry.duration >= 0) pendingGcDurationsMs.push(entry.duration);
+      }
+    });
+    gcObserver.observe({ entryTypes: ["gc"] });
+  } catch {
+    gcObserver = undefined;
+  }
+  const sampleCpuPercent = (): number => {
+    const at = Date.now();
+    const elapsedMicros = Math.max(1, at - lastCpuSampleAt) * 1_000;
+    const cpuUsage = process.cpuUsage(lastCpuUsage);
+    lastCpuUsage = process.cpuUsage();
+    lastCpuSampleAt = at;
+    return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
+  };
   let simulationHealthTimer: ReturnType<typeof setInterval> | undefined;
   const markSimulationReady = (): void => {
     simulationHealth.connected = true;
@@ -425,6 +449,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const stopSimulationStream = simulationClient.streamEvents(
     (event: SimulationClientEvent) => {
       markSimulationReady();
+      const submittedAt = pendingInputToStateByCommandId.get(event.commandId);
+      if (typeof submittedAt === "number") {
+        gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(Date.now() - submittedAt);
+        pendingInputToStateByCommandId.delete(event.commandId);
+      }
       const sockets =
         event.eventType === "TILE_DELTA_BATCH" && !event.commandId.startsWith("bootstrap:")
           ? playerSubscriptions.allSockets()
@@ -615,6 +644,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     const now = Date.now();
     const lagMs = Math.max(0, now - expectedEventLoopTickAt);
     gatewayEventLoopWindowMaxMs = Math.max(gatewayEventLoopWindowMaxMs, lagMs);
+    gatewayMetrics.observeGatewayEventLoopDelayMs(lagMs);
     expectedEventLoopTickAt = now + 100;
   }, 100);
   gatewayMetricsTimer = setInterval(() => {
@@ -622,12 +652,35 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     gatewayEventLoopWindowMaxMs = 0;
     gatewayMetrics.setGatewayWsSessions(playerSubscriptions.allSockets().size);
     gatewayMetrics.setGatewayBackendConnected(simulationHealth.connected);
+    gatewayMetrics.setGatewayCpuPercent(sampleCpuPercent());
+    const memory = process.memoryUsage();
+    gatewayMetrics.setGatewayMemoryUsageMb({
+      rssMb: memory.rss / (1024 * 1024),
+      heapUsedMb: memory.heapUsed / (1024 * 1024),
+      heapTotalMb: memory.heapTotal / (1024 * 1024)
+    });
+    if (pendingGcDurationsMs.length > 0) {
+      for (const durationMs of pendingGcDurationsMs.splice(0)) {
+        gatewayMetrics.observeGatewayGcPauseMs(durationMs);
+      }
+    }
+    const staleBeforeMs = Date.now() - 120_000;
+    for (const [commandId, submittedAt] of pendingInputToStateByCommandId.entries()) {
+      if (submittedAt < staleBeforeMs) pendingInputToStateByCommandId.delete(commandId);
+    }
     const sample = gatewayMetrics.snapshot();
     app.log.info(
       {
         gateway_event_loop_max_ms: sample.gatewayEventLoopMaxMs,
+        gateway_event_loop_delay_ms: sample.gatewayEventLoopDelayMs,
         gateway_ws_sessions: sample.gatewayWsSessions,
         gateway_backend_connected: sample.gatewayBackendConnected,
+        gateway_cpu_percent: sample.gatewayCpuPercent,
+        gateway_rss_mb: sample.gatewayRssMb,
+        gateway_heap_used_mb: sample.gatewayHeapUsedMb,
+        gateway_heap_total_mb: sample.gatewayHeapTotalMb,
+        gateway_gc_pause_ms: sample.gatewayGcPauseMs,
+        gateway_input_to_state_update_latency_ms: sample.gatewayInputToStateUpdateLatencyMs,
         gateway_command_submit_latency_ms: sample.gatewayCommandSubmitLatencyMs,
         gateway_sim_rpc_latency_ms: sample.gatewaySimRpcLatencyMs
       },
@@ -639,6 +692,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
+    gcObserver?.disconnect();
     stopSimulationStream();
   });
 
@@ -1038,6 +1092,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             createCommandId: options.createCommandId ?? (() => crypto.randomUUID()),
             now: options.now ?? (() => Date.now()),
             commandStore,
+            onCommandSubmitted: (command: { commandId: string }) => {
+              pendingInputToStateByCommandId.set(command.commandId, Date.now());
+            },
+            onCommandSubmitFailed: (commandId: string) => {
+              pendingInputToStateByCommandId.delete(commandId);
+            },
             submitCommand: async (command: Parameters<typeof simulationClient.submitCommand>[0]) => {
               const rpcStartedAt = Date.now();
               try {

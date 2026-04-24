@@ -11,6 +11,7 @@ type SystemCommandProducerOptions = {
   startingClientSeqByPlayer?: Record<string, number>;
   now?: () => number;
   tickIntervalMs?: number;
+  onTick?: (sample: { durationMs: number }) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
   clearIntervalFn?: (handle: ReturnType<typeof setInterval>) => void;
 };
@@ -42,6 +43,7 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
     if (!shouldRun()) return;
     if (hasHumanOrSystemBacklog(options.runtime.queueDepths())) return;
     tickInFlight = true;
+    const tickStartedAt = now();
     try {
       for (const playerId of options.systemPlayerIds) {
         if (pendingPlayers.has(playerId)) continue;
@@ -58,6 +60,7 @@ export const createSystemCommandProducer = (options: SystemCommandProducerOption
         return;
       }
     } finally {
+      options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt) });
       tickInFlight = false;
     }
   };
