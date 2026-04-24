@@ -88,8 +88,8 @@ type ProtoSimulationEvent = {
     terrain?: string | undefined;
     resource?: string | undefined;
     dockId?: string | undefined;
-    ownerId?: string | undefined;
-    ownershipState?: string | undefined;
+    ownerId?: string | null | undefined;
+    ownershipState?: string | null | undefined;
     townJson?: string | undefined;
     townType?: string | undefined;
     townName?: string | undefined;
@@ -100,6 +100,15 @@ type ProtoSimulationEvent = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    yield?: {
+      gold?: number;
+      strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    } | undefined;
+    yieldRate?: {
+      goldPerMinute?: number;
+      strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    } | undefined;
+    yieldCap?: { gold: number; strategicEach: number } | undefined;
   }>;
 };
 
@@ -109,12 +118,15 @@ type SimulationServiceOptions = {
   databaseUrl?: string;
   applySchema?: boolean;
   checkpointEveryEvents?: number;
+  checkpointForceAfterEvents?: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
+  startupReplayCompactionMinEvents?: number;
   seedProfile?: SimulationSeedProfile;
   snapshotDir?: string;
   enableAiAutopilot?: boolean;
   aiTickMs?: number;
+  aiMaxEventLoopLagMs?: number;
   enableSystemAutopilot?: boolean;
   systemTickMs?: number;
   globalStatusBroadcastDebounceMs?: number;
@@ -396,6 +408,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     initialPlayers: activePlayers
   });
   const simulationMetrics = createSimulationMetrics();
+  const startupReplayCompactionMinEvents = Math.max(
+    1,
+    options.startupReplayCompactionMinEvents ?? 10_000
+  );
   const snapshotCheckpointManager = createSnapshotCheckpointManager({
     eventStore,
     snapshotStore,
@@ -405,6 +421,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       return { players: s.players, activeLocks: s.activeLocks };
     },
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
+    ...(typeof options.checkpointForceAfterEvents === "number"
+      ? { forceCheckpointAfterEvents: options.checkpointForceAfterEvents }
+      : {}),
     ...(typeof options.checkpointMaxRssBytes === "number" ? { maxCheckpointRssBytes: options.checkpointMaxRssBytes } : {}),
     ...(typeof options.checkpointMaxHeapUsedBytes === "number"
       ? { maxCheckpointHeapUsedBytes: options.checkpointMaxHeapUsedBytes }
@@ -426,6 +445,28 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   });
+  if (startupRecovery.recoveredEventCount >= startupReplayCompactionMinEvents) {
+    try {
+      const checkpointResult = await snapshotCheckpointManager.checkpointNow({ ignoreMemoryGuard: true });
+      log.info(
+        {
+          recoveredEventCount: startupRecovery.recoveredEventCount,
+          startupReplayCompactionMinEvents,
+          checkpointResult
+        },
+        "simulation startup replay compaction checkpoint attempt completed"
+      );
+    } catch (error) {
+      log.error(
+        {
+          err: error,
+          recoveredEventCount: startupRecovery.recoveredEventCount,
+          startupReplayCompactionMinEvents
+        },
+        "simulation startup replay compaction checkpoint failed"
+      );
+    }
+  }
   let fatalPersistenceError: Error | undefined;
   const persistenceQueue = createSimulationPersistenceQueue({
     commandStore,
@@ -457,6 +498,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
+  let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
   const buildAndCachePlayerSnapshot = (playerId: string): PlayerSubscriptionSnapshot => {
     const runtimeState = runtime.exportState();
@@ -533,8 +575,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
     buildNextClientSeqByPlayer(recoveredCommands, playerIds);
   const useAiWorker = options.useAiWorker ?? false;
+  const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
   const aiShouldRun = () =>
-    !persistenceQueue.isDegraded() && persistenceQueue.pendingCount() < autopilotMaxPersistencePending;
+    !persistenceQueue.isDegraded() &&
+    persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
+    latestEventLoopLagMs <= aiMaxEventLoopLagMs;
   const aiCommandProducer = options.enableAiAutopilot
     ? useAiWorker
       ? createWorkerAiCommandProducer({
@@ -561,7 +606,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         })
     : undefined;
   const systemShouldRun = () =>
-    !persistenceQueue.isDegraded() && persistenceQueue.pendingCount() < autopilotMaxPersistencePending;
+    !persistenceQueue.isDegraded() &&
+    persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
+    latestEventLoopLagMs <= aiMaxEventLoopLagMs;
   const systemCommandProducer = options.enableSystemAutopilot
     ? useAiWorker
       ? createWorkerSystemCommandProducer({
@@ -788,6 +835,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
         const lagMs = Math.max(0, now - expectedEventLoopTickAt);
+        latestEventLoopLagMs = lagMs;
         eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
         expectedEventLoopTickAt = now + 100;
       }, 100);

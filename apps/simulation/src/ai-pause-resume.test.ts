@@ -46,6 +46,18 @@ const { createWorkerAiCommandProducer } = await import("./ai-command-producer-wo
 
 const makeRuntime = (humanInteractive = 0) => {
   const eventEmitter = new EventEmitter();
+  const plannerPlayers = [
+    {
+      id: "ai-1",
+      points: 500,
+      manpower: 10,
+      hasActiveLock: false,
+      territoryTileKeys: [] as string[],
+      frontierTileKeys: [] as string[],
+      pendingSettlementTileKeys: [] as string[],
+      activeDevelopmentProcessCount: 0
+    }
+  ];
   return {
     runtime: {
       queueDepths: () => ({
@@ -56,19 +68,9 @@ const makeRuntime = (humanInteractive = 0) => {
       }),
       exportPlannerWorldView: () => ({
         tiles: [],
-        players: [
-          {
-            id: "ai-1",
-            points: 500,
-            manpower: 10,
-            hasActiveLock: false,
-            territoryTileKeys: [] as string[],
-            frontierTileKeys: [] as string[],
-            pendingSettlementTileKeys: [] as string[],
-            activeDevelopmentProcessCount: 0
-          }
-        ]
+        players: plannerPlayers
       }),
+      exportPlannerPlayerViews: () => plannerPlayers,
       onEvent: (listener: (event: { playerId: string; commandId: string; eventType: string }) => void) => {
         eventEmitter.on("event", listener);
         return () => eventEmitter.off("event", listener);

@@ -1491,6 +1491,45 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("does not swallow commands when recovered player-seq history has no replay events", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialCommandHistory: {
+        commands: [
+          {
+            commandId: "recovered-cmd",
+            sessionId: "session-1",
+            playerId: "player-1",
+            clientSeq: 1,
+            type: "ATTACK",
+            payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 }),
+            queuedAt: 900,
+            status: "RESOLVED",
+            resolvedAt: 950
+          }
+        ],
+        eventsByCommandId: new Map()
+      }
+    });
+    const seen: string[] = [];
+    runtime.onEvent((event) => {
+      seen.push(`${event.eventType}:${event.commandId}`);
+    });
+
+    runtime.submitCommand({
+      commandId: "new-cmd",
+      sessionId: "session-2",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+    });
+    await Promise.resolve();
+
+    expect(seen[0]).toBe("COMMAND_ACCEPTED:new-cmd");
+  });
+
   it("yields background lanes so a later human command is accepted before the rest of AI work", async () => {
     vi.useFakeTimers();
     try {
@@ -1929,6 +1968,64 @@ describe("simulation runtime", () => {
     }
   });
 
+  it("emits only the captured tile delta for AI captures to keep replay/event pressure low", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "ai-1",
+            {
+              id: "ai-1",
+              isAi: true,
+              points: 100,
+              manpower: 150,
+              techIds: new Set<string>(),
+              domainIds: new Set<string>(),
+              mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+              techRootId: "rewrite-local",
+              allies: new Set<string>()
+            }
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 11, terrain: "LAND" },
+            { x: 9, y: 11, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+      const tileDeltaBatches: Array<{ commandId: string; tileDeltas: Array<{ x: number; y: number; ownerId?: string }> }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "TILE_DELTA_BATCH" && event.commandId === "ai-expand-1") {
+          tileDeltaBatches.push({ commandId: event.commandId, tileDeltas: event.tileDeltas });
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "ai-expand-1",
+        sessionId: "ai-runtime:ai-1",
+        playerId: "ai-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_100);
+
+      expect(tileDeltaBatches).toHaveLength(1);
+      expect(tileDeltaBatches[0]?.tileDeltas).toEqual([
+        expect.objectContaining({ x: 10, y: 11, ownerId: "ai-1", ownershipState: "FRONTIER", terrain: "LAND" })
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("settles an owned frontier tile without inventing a town", async () => {
     const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
     const runtime = new SimulationRuntime({
@@ -2088,6 +2185,83 @@ describe("simulation runtime", () => {
     expect(recoveredTile?.observatory).toBeUndefined();
     expect(recoveredTile?.siegeOutpost).toBeUndefined();
     expect(recoveredTile?.economicStructure).toBeUndefined();
+  });
+
+  it("backfills missing seed coordinates when recovered restart state is sparse", () => {
+    const runtime = new SimulationRuntime({
+      mergeSeedTilesWithInitialState: false,
+      seedTiles: new Map([
+        [
+          "12,18",
+          {
+            x: 12,
+            y: 18,
+            terrain: "LAND",
+            resource: "GEMS"
+          }
+        ],
+        [
+          "12,19",
+          {
+            x: 12,
+            y: 19,
+            terrain: "SEA",
+            resource: "FISH"
+          }
+        ]
+      ]),
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 12,
+            y: 18,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER"
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const recoveredOwnedTile = runtime.exportState().tiles.find((tile) => tile.x === 12 && tile.y === 18);
+    expect(recoveredOwnedTile).toEqual(
+      expect.objectContaining({
+        x: 12,
+        y: 18,
+        terrain: "LAND",
+        ownerId: "player-1",
+        ownershipState: "FRONTIER"
+      })
+    );
+    expect(recoveredOwnedTile?.resource).toBeUndefined();
+
+    expect(runtime.exportState().tiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          x: 12,
+          y: 19,
+          terrain: "SEA",
+          resource: "FISH"
+        })
+      ])
+    );
   });
 
   it("enforces the development slot cap for settlements and emits live player updates", async () => {
