@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.24.1",
+  version: "2026.04.24.2",
   title: "What's New",
-  summary: "Recent updates include AI planner payload scoping to prevent multi-second rewrite simulation event-loop stalls under AI load, replay-cache/memory stability hardening for rewrite simulation command history, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
+  summary: "Recent updates include staging simulation availability hardening for frontier command responsiveness, AI planner payload scoping to prevent multi-second rewrite simulation event-loop stalls under AI load, replay-cache/memory stability hardening for rewrite simulation command history, staging hostname hardening for the rewrite gateway default path, staging auth fail-fast routing/timeout hardening for simulation outages, durable auth-identity player binding across gateway restarts, reconnect map-fidelity protection for unchanged runtime identity, strict rewrite startup source-policy guardrails, authoritative-only managed gateway bootstrap state, runtime-identity consistency checks, and db-backed tile recovery overlay fixes.",
   entries: [
+    {
+      introducedIn: "2026.04.24.2",
+      title: "Staging frontier commands now fail fast when simulation is unavailable instead of hanging in queued state",
+      why: "During staging cold-start/unhealthy simulation windows, players could see COMMAND_QUEUED without timely ACTION_ACCEPTED/FRONTIER_RESULT, which looked like severe frontier lag and created sync confusion.",
+      changes: [
+        "Gateway now blocks command submission when simulation health is already marked unavailable and returns SERVER_STARTING immediately for retry clarity.",
+        "Gateway simulation submit calls now use an explicit timeout and return SIMULATION_UNAVAILABLE on hung gRPC submits instead of waiting indefinitely.",
+        "Staging simulation Fly config now keeps the simulation machine always-on (no suspend auto-stop) to remove cold-start induced command latency during active frontier testing."
+      ]
+    },
     {
       introducedIn: "2026.04.24.1",
       title: "AI planner workers now receive local tile slices instead of full-world snapshots each tick",
