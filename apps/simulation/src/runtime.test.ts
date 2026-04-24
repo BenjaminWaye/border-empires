@@ -1293,6 +1293,10 @@ describe("simulation runtime", () => {
         activeLocks: []
       }
     });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => {
+      events.push(event as unknown as Record<string, unknown>);
+    });
 
     runtime.submitCommand({
       commandId: "uncapture-cmd-1",
@@ -1311,6 +1315,16 @@ describe("simulation runtime", () => {
     expect(exportedTile?.ownerId).toBeUndefined();
     expect(exportedTile?.ownershipState).toBeUndefined();
     expect(exportedTile?.economicStructureJson).toBeUndefined();
+
+    const uncaptureDeltaEvent = events.find(
+      (event) => event.commandId === "uncapture-cmd-1" && event.eventType === "TILE_DELTA_BATCH"
+    ) as { tileDeltas?: Array<Record<string, unknown>> } | undefined;
+    const uncaptureTileDelta = uncaptureDeltaEvent?.tileDeltas?.[0];
+    expect(uncaptureTileDelta).toBeDefined();
+    expect(Object.prototype.hasOwnProperty.call(uncaptureTileDelta ?? {}, "ownerId")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(uncaptureTileDelta ?? {}, "ownershipState")).toBe(true);
+    expect(uncaptureTileDelta?.ownerId).toBeUndefined();
+    expect(uncaptureTileDelta?.ownershipState).toBeUndefined();
   });
 
   it("overloads a ready synthesizer through the rewrite simulation path", async () => {

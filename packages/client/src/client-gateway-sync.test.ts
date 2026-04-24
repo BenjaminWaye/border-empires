@@ -157,4 +157,37 @@ describe("client gateway sync", () => {
       })
     );
   });
+
+  it("clears ownership when the gateway sends explicit null owner fields", () => {
+    const deps = createDeps();
+
+    deps.state.tiles.set("10,12", {
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      fogged: false
+    });
+
+    applyGatewayTileDeltaBatch(deps, [
+      {
+        x: 10,
+        y: 12,
+        ownerId: null,
+        ownershipState: null
+      }
+    ]);
+
+    expect(deps.state.tiles.get("10,12")).toEqual(
+      expect.objectContaining({
+        x: 10,
+        y: 12,
+        terrain: "LAND",
+        fogged: false
+      })
+    );
+    expect(deps.state.tiles.get("10,12")?.ownerId).toBeUndefined();
+    expect(deps.state.tiles.get("10,12")?.ownershipState).toBeUndefined();
+  });
 });
