@@ -442,6 +442,32 @@ describe("client network regression guards", () => {
     expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
   });
 
+  it("shows a warning popup for not-owner rejects on an in-flight attack", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const deps = bindWithDeps(state, ws, {
+      shouldResetFrontierActionStateForError: vi.fn(() => true),
+      explainActionFailure: vi.fn(explainActionFailureFromServer),
+      showCaptureAlert
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({ type: "ERROR", code: "NOT_OWNER", message: "origin not owned" })
+    });
+
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Action blocked",
+      "Action blocked: you need to launch from one of your own tiles.",
+      "warn",
+      undefined
+    );
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionTargetKey).toBe("");
+    expect(state.actionCurrent).toBeUndefined();
+    expect(deps.requestViewRefresh).toHaveBeenCalledWith(2, true);
+  });
+
   it("shows a frontier resync popup when the server says an expand target is already owned", () => {
     const state = createState();
     const ws = new FakeWebSocket();
@@ -1067,5 +1093,43 @@ describe("client network regression guards", () => {
     expect(syncAuthOverlay).toHaveBeenCalled();
     expect(renderHud).toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+
+  it("rolls back optimistic settlement progress and shows an outage alert on SIMULATION_UNAVAILABLE", () => {
+    const state = createState();
+    state.actionInFlight = false;
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    state.capture = undefined;
+    state.lastDevelopmentAttempt = { kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" };
+    state.tiles.set("12,18", {
+      x: 12,
+      y: 18,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      optimisticPending: "settle"
+    });
+    const ws = new FakeWebSocket();
+    const showCaptureAlert = vi.fn();
+    const deps = bindWithDeps(state, ws, { showCaptureAlert, clearSettlementProgressByKey: undefined });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "ERROR",
+        code: "SIMULATION_UNAVAILABLE",
+        message: "command could not be queued in simulation"
+      })
+    });
+
+    expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("12,18", true);
+    expect(state.settleProgressByTile.has("12,18")).toBe(false);
+    expect(state.lastDevelopmentAttempt).toBeUndefined();
+    expect(showCaptureAlert).toHaveBeenCalledWith(
+      "Simulation unavailable",
+      expect.stringContaining("Local action progress was rolled back"),
+      "error",
+      undefined
+    );
   });
 });

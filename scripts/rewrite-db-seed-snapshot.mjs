@@ -18,6 +18,8 @@ const sqlFile = async (relativePath) =>
 
 const applySchemas = async () => {
   await pool.query(await sqlFile("apps/realtime-gateway/sql/0001_command_store.sql"));
+  await pool.query(await sqlFile("apps/realtime-gateway/sql/0002_player_profiles.sql"));
+  await pool.query(await sqlFile("apps/realtime-gateway/sql/0003_auth_identity_bindings.sql"));
   await pool.query(await sqlFile("apps/simulation/sql/0001_world_events.sql"));
   await pool.query(await sqlFile("apps/simulation/sql/0002_command_store.sql"));
   await pool.query(await sqlFile("apps/simulation/sql/0003_world_snapshots.sql"));

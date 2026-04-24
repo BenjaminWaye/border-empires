@@ -82,6 +82,29 @@ Install the local git hook for this checkout with:
 
 That configures `pre-push` to run `pnpm ci:local`.
 
+## Staging Login SLO Probe
+
+To measure end-to-end staging login latency (AUTH -> INIT) and enforce the 5s target:
+
+```bash
+pnpm ops:staging:login-probe
+```
+
+This runs multiple real websocket auth attempts against:
+
+- `wss://border-empires-gateway-staging.fly.dev/ws?channel=control`
+
+The probe prints per-attempt outcomes plus summary p50/p95/p99.  
+It exits non-zero when:
+
+- success rate is below 100%, or
+- p95 login latency exceeds 5000ms.
+
+Useful read points:
+
+- Immediate SLO result: terminal output of `pnpm ops:staging:login-probe`
+- Gateway health/latency context: `https://border-empires-gateway-staging.fly.dev/metrics`
+
 For rewrite localhost stress testing with a durable DB-backed 20-AI world on `http://localhost:5173`, run:
 
 ```bash
@@ -216,11 +239,46 @@ In Vercel project settings:
 - Build Command: `pnpm --filter @border-empires/client build`
 - Output Directory: `dist`
 
-Set environment variable:
+Set environment variables:
 
 - `VITE_WS_URL=wss://border-empires-api.fly.dev/ws`
+- `VITE_GATEWAY_WS_URL=wss://border-empires-gateway.fly.dev/ws`
 
-Then deploy.
+Release cadence (required):
+
+1. Deploy **preview/staging** first (staging validation):
+
+```bash
+pnpm deploy:client:staging
+```
+
+2. Validate staging behavior on the preview URL:
+- login/session init
+- frontier expand resolution
+- launch attack resolution
+- reconnect/reload behavior
+
+3. Promote only after preview passes:
+
+```bash
+pnpm deploy:client:prod
+```
+
+Vercel env scopes:
+
+- Preview/staging deploy uses explicit build-time env from deploy script:
+  - `VITE_GATEWAY_WS_URL=wss://border-empires-gateway-staging.fly.dev/ws`
+  - `VITE_WS_URL=wss://border-empires-gateway-staging.fly.dev/ws`
+- Production environment: production backend URLs (`*.fly.dev`)
+
+Stable URLs:
+
+- Production: `https://play.borderempires.com` (aliased to latest production deploy)
+- Staging: `https://staging.borderempires.com` (aliased by `deploy:client:staging`)
+
+DNS requirement for stable staging alias:
+
+- Add `A staging.borderempires.com 76.76.21.21` at your DNS provider.
 
 ## Rewrite Memory Safety
 

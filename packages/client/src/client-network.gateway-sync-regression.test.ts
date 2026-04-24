@@ -145,6 +145,123 @@ describe("client gateway sync regression", () => {
     expect(requestViewRefresh).toHaveBeenCalledWith(1, true);
   });
 
+  it("preserves discovered fogged tiles across reconnect INIT for the same season and player", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 10, y: 10 } },
+        config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
+        runtimeIdentity: { fingerprint: "runtime-fp-1", snapshotLabel: "snap-a" },
+        initialState: {
+          playerId: "player-1",
+          tiles: [
+            {
+              x: 10,
+              y: 11,
+              terrain: "SEA",
+              resource: "FISH"
+            }
+          ]
+        }
+      })
+    });
+
+    expect(state.discoveredTiles.has("10,11")).toBe(true);
+    expect(state.tiles.get("10,11")).toMatchObject({
+      x: 10,
+      y: 11,
+      terrain: "SEA",
+      resource: "FISH",
+      fogged: false
+    });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 10, y: 10 } },
+        config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
+        runtimeIdentity: { fingerprint: "runtime-fp-2", snapshotLabel: "snap-b" },
+        initialState: {
+          playerId: "player-1",
+          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]
+        }
+      })
+    });
+
+    expect(state.discoveredTiles.has("10,11")).toBe(true);
+    expect(state.tiles.get("10,11")).toMatchObject({
+      x: 10,
+      y: 11,
+      terrain: "SEA",
+      resource: "FISH",
+      fogged: true
+    });
+    expect(state.tiles.get("10,10")).toMatchObject({
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: "player-1",
+      ownershipState: "SETTLED",
+      fogged: false
+    });
+  });
+
+  it("clears discovered cache when reconnect INIT belongs to a different player", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-1", name: "Player 1", points: 5, level: 1, stamina: 0, homeTile: { x: 10, y: 10 } },
+        config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
+        runtimeIdentity: { fingerprint: "runtime-fp-1", snapshotLabel: "snap-a" },
+        initialState: {
+          playerId: "player-1",
+          tiles: [
+            {
+              x: 10,
+              y: 11,
+              terrain: "SEA",
+              resource: "FISH"
+            }
+          ]
+        }
+      })
+    });
+
+    expect(state.discoveredTiles.has("10,11")).toBe(true);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "INIT",
+        player: { id: "player-2", name: "Player 2", points: 5, level: 1, stamina: 0, homeTile: { x: 20, y: 20 } },
+        config: { season: { seasonId: "rewrite-stress-10ai", worldSeed: 1010 } },
+        runtimeIdentity: { fingerprint: "runtime-fp-2", snapshotLabel: "snap-b" },
+        initialState: {
+          playerId: "player-2",
+          tiles: [{ x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }]
+        }
+      })
+    });
+
+    expect(state.discoveredTiles.has("10,11")).toBe(false);
+    expect(state.tiles.get("10,11")).toBeUndefined();
+    expect(state.tiles.get("20,20")).toMatchObject({
+      x: 20,
+      y: 20,
+      terrain: "LAND",
+      ownerId: "player-2",
+      ownershipState: "SETTLED",
+      fogged: false
+    });
+  });
+
   it("keeps existing numeric HUD state when rewrite init omits legacy player stats", () => {
     const state = createState();
     state.gold = 0;
@@ -219,7 +336,7 @@ describe("client gateway sync regression", () => {
     );
   });
 
-  it("resolves expand via frontier result and resumes queued frontier work on the following tile batch", () => {
+  it("resolves expand immediately on frontier result even before a follow-up tile delta", () => {
     const state = createState();
     state.me = "player-1";
     state.actionCurrent = { x: 10, y: 11, retries: 0, clientSeq: 7, commandId: "cmd-7", actionType: "EXPAND" };
@@ -249,8 +366,11 @@ describe("client gateway sync regression", () => {
         tone: "success"
       })
     );
-    expect(state.actionInFlight).toBe(true);
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionCurrent).toBeUndefined();
+    expect(state.actionTargetKey).toBe("");
     expect(state.capture).toBeUndefined();
+    expect(processActionQueue).toHaveBeenCalledTimes(1);
 
     ws.emit("message", {
       data: JSON.stringify({
@@ -261,9 +381,38 @@ describe("client gateway sync regression", () => {
     });
 
     expect(state.tiles.get("10,11")).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "FRONTIER" }));
+    expect(processActionQueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not leave queued frontier state stuck when frontier result arrives without any trailing tile delta", () => {
+    const state = createState();
+    state.me = "player-1";
+    state.actionCurrent = { x: 361, y: 179, retries: 0, clientSeq: 5, commandId: "cmd-5", actionType: "EXPAND" };
+    state.actionTargetKey = "361,179";
+    state.actionInFlight = true;
+    state.actionAcceptedAck = true;
+    state.capture = { startAt: 1_000, resolvesAt: 2_000, target: { x: 361, y: 179 } };
+    state.queuedTargetKeys.add("361,179");
+    state.tiles.set("361,179", { x: 361, y: 179, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", fogged: false } as any);
+    const ws = new FakeWebSocket();
+    const { processActionQueue } = bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "FRONTIER_RESULT",
+        commandId: "cmd-5",
+        actionType: "EXPAND",
+        origin: { x: 361, y: 178 },
+        target: { x: 361, y: 179 }
+      })
+    });
+
+    expect(state.actionInFlight).toBe(false);
+    expect(state.actionAcceptedAck).toBe(false);
     expect(state.actionCurrent).toBeUndefined();
     expect(state.actionTargetKey).toBe("");
-    expect(processActionQueue).toHaveBeenCalled();
+    expect(state.queuedTargetKeys.has("361,179")).toBe(false);
+    expect(processActionQueue).toHaveBeenCalledTimes(1);
   });
 
   it("preserves manpower loss on combat result alerts", () => {

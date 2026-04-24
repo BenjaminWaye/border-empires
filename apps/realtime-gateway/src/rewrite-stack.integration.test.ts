@@ -2,12 +2,20 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { InMemoryGatewayCommandStore } from "./command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
+import { InMemoryGatewayAuthBindingStore } from "./auth-binding-store.js";
+import { InMemoryGatewayPlayerProfileStore } from "./player-profile-store.js";
 import { InMemorySimulationCommandStore } from "../../simulation/src/command-store.js";
 import { createSimulationService } from "../../simulation/src/simulation-service.js";
 
 const silentLog = {
   info: () => undefined,
   error: () => undefined
+};
+
+const firebaseJwtFor = (payload: Record<string, unknown>): string => {
+  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${header}.${body}.sig`;
 };
 
 type TestWebSocket = {
@@ -278,7 +286,8 @@ describe("rewrite stack integration", () => {
         expect.objectContaining({
           type: "COMBAT_RESULT",
           commandId: "cmd-1",
-          attackerWon: true
+          attackerWon: true,
+          manpowerDelta: expect.any(Number)
         }),
         expect.objectContaining({
           type: "TILE_DELTA_BATCH",
@@ -293,6 +302,114 @@ describe("rewrite stack integration", () => {
           ])
         })
       ])
+    );
+    const combatResultMessage = resolutionMessages.find((message) => message.type === "COMBAT_RESULT");
+    expect(typeof combatResultMessage?.manpowerDelta).toBe("number");
+    expect((combatResultMessage?.manpowerDelta as number) < -0.01).toBe(true);
+  });
+
+  it("persists profile setup state across gateway restarts", async () => {
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gatewayCommandStore = new InMemoryGatewayCommandStore();
+    const gatewayProfileStore = new InMemoryGatewayPlayerProfileStore();
+    const createGateway = async () =>
+      await createRealtimeGatewayApp({
+        host: "127.0.0.1",
+        port: 0,
+        logger: false,
+        simulationAddress: simulationAddress.address,
+        commandStore: gatewayCommandStore,
+        profileStore: gatewayProfileStore
+      });
+
+    const gatewayOne = await createGateway();
+    const gatewayOneAddress = await gatewayOne.start();
+    const socketOne = await openSocket(gatewayOneAddress.wsUrl);
+    socketOne.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect(await nextTypedMessage(socketOne, "first init", "INIT")).toEqual(
+      expect.objectContaining({
+        player: expect.objectContaining({ profileNeedsSetup: true })
+      })
+    );
+    socketOne.socket.send(JSON.stringify({ type: "SET_PROFILE", displayName: "Nauticus Prime", color: "#123456" }));
+    expect(await nextTypedMessage(socketOne, "profile update", "PLAYER_STYLE")).toEqual(
+      expect.objectContaining({ playerId: "player-1", name: "Nauticus Prime", tileColor: "#123456" })
+    );
+    await closeSocket(socketOne.socket);
+    await gatewayOne.close();
+
+    const gatewayTwo = await createGateway();
+    cleanup.push(() => gatewayTwo.close());
+    const gatewayTwoAddress = await gatewayTwo.start();
+    const socketTwo = await openSocket(gatewayTwoAddress.wsUrl);
+    cleanup.push(() => closeSocket(socketTwo.socket));
+    socketTwo.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect(await nextTypedMessage(socketTwo, "second init", "INIT")).toEqual(
+      expect.objectContaining({
+        player: expect.objectContaining({
+          name: "Nauticus Prime",
+          tileColor: "#123456",
+          profileNeedsSetup: false
+        })
+      })
+    );
+  });
+
+  it("reuses persisted auth uid bindings even when resolver fallback would choose a different player id", async () => {
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({
+      uid: "firebase-user-1",
+      playerId: "bound-player-1",
+      email: "nauticus@example.com"
+    });
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      authBindingStore,
+      defaultHumanPlayerId: "default-player-id"
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const socket = await openSocket(gatewayAddress.wsUrl);
+    cleanup.push(() => closeSocket(socket.socket));
+    socket.socket.send(
+      JSON.stringify({
+        type: "AUTH",
+        token: firebaseJwtFor({
+          sub: "firebase-user-1",
+          user_id: "firebase-user-1",
+          email: "nauticus@example.com",
+          name: "Nauticus"
+        })
+      })
+    );
+
+    expect(await nextTypedMessage(socket, "bound init", "INIT")).toEqual(
+      expect.objectContaining({
+        player: expect.objectContaining({
+          id: "bound-player-1"
+        })
+      })
     );
   });
 
@@ -343,6 +460,77 @@ describe("rewrite stack integration", () => {
         valid: true,
         from: expect.objectContaining({ x: 10, y: 10 }),
         to: expect.objectContaining({ x: 10, y: 11 })
+      })
+    );
+  });
+
+  it("delivers TILE_DELTA_BATCH to control-only players even when other players have bulk sockets", async () => {
+    const scheduledResolutions: Array<{ delayMs: number; task: () => void }> = [];
+    const simulation = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog,
+      runtimeOptions: {
+        now: () => 1_000,
+        scheduleAfter: (delayMs, task) => {
+          scheduledResolutions.push({ delayMs, task });
+        }
+      }
+    });
+    cleanup.push(() => simulation.close());
+    const simulationAddress = await simulation.start();
+
+    const gateway = await createRealtimeGatewayApp({
+      host: "127.0.0.1",
+      port: 0,
+      logger: false,
+      simulationAddress: simulationAddress.address,
+      commandStore: new InMemoryGatewayCommandStore(),
+      now: () => 1_000
+    });
+    cleanup.push(() => gateway.close());
+    const gatewayAddress = await gateway.start();
+
+    const playerOneControl = await openSocket(`${gatewayAddress.wsUrl}?channel=control`);
+    cleanup.push(() => closeSocket(playerOneControl.socket));
+    playerOneControl.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    expect((await nextNonBootstrapMessage(playerOneControl, "player-1 init")).type).toBe("INIT");
+    playerOneControl.socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 0, cy: 0, radius: 2 }));
+
+    const playerTwoBulk = await openSocket(`${gatewayAddress.wsUrl}?channel=bulk`);
+    cleanup.push(() => closeSocket(playerTwoBulk.socket));
+    playerTwoBulk.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
+
+    playerOneControl.socket.send(
+      JSON.stringify({
+        type: "SETTLE",
+        x: 10,
+        y: 10,
+        commandId: "cmd-control-delta",
+        clientSeq: 1
+      })
+    );
+
+    expect(await nextNonBootstrapMessage(playerOneControl, "queued")).toEqual({
+      type: "COMMAND_QUEUED",
+      commandId: "cmd-control-delta",
+      clientSeq: 1
+    });
+    await waitUntil(() => scheduledResolutions.length === 1);
+    scheduledResolutions[0]?.task();
+    const settledDelta = await nextCommandMessage(playerOneControl, "settled delta", "cmd-control-delta", "TILE_DELTA_BATCH");
+    expect(settledDelta).toEqual(
+      expect.objectContaining({
+        type: "TILE_DELTA_BATCH",
+        commandId: "cmd-control-delta",
+        tiles: expect.arrayContaining([
+          expect.objectContaining({
+            x: 10,
+            y: 10,
+            ownerId: "player-1",
+            ownershipState: "SETTLED"
+          })
+        ])
       })
     );
   });

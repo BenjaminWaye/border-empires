@@ -1,0 +1,69 @@
+{
+  "description": "Parity trace recorded 2026-04-22",
+  "recordedAt": "2026-04-22T20:26:31.594Z",
+  "playerId": "f92e1f95-18d7-45a0-9fe2-c3d059e07111",
+  "worldSeed": 663267738,
+  "seasonId": "s-1776888339248",
+  "snapshotLabel": null,
+  "recordWsUrl": "ws://localhost:3001/ws",
+  "durationMinutes": null,
+  "typesHit": [
+    "COLLECT_VISIBLE"
+  ],
+  "coverageByType": {
+    "COLLECT_VISIBLE": 5
+  },
+  "commandCount": 5,
+  "commands": [
+    {
+      "description": "COLLECT_VISIBLE (initial)",
+      "commandId": "parity-collect-visible-001",
+      "waitForEvent": "COLLECT_RESULT",
+      "recordedTerminalEvent": "COLLECT_RESULT",
+      "recordedOutcome": "ok",
+      "message": {
+        "type": "COLLECT_VISIBLE"
+      }
+    },
+    {
+      "description": "COLLECT_VISIBLE (2)",
+      "commandId": "parity-collect-visible-002",
+      "waitForEvent": "ERROR",
+      "recordedTerminalEvent": "ERROR",
+      "recordedOutcome": "COLLECT_COOLDOWN",
+      "message": {
+        "type": "COLLECT_VISIBLE"
+      }
+    },
+    {
+      "description": "COLLECT_VISIBLE (3)",
+      "commandId": "parity-collect-visible-003",
+      "waitForEvent": "ERROR",
+      "recordedTerminalEvent": "ERROR",
+      "recordedOutcome": "COLLECT_COOLDOWN",
+      "message": {
+        "type": "COLLECT_VISIBLE"
+      }
+    },
+    {
+      "description": "COLLECT_VISIBLE (4)",
+      "commandId": "parity-collect-visible-004",
+      "waitForEvent": "ERROR",
+      "recordedTerminalEvent": "ERROR",
+      "recordedOutcome": "COLLECT_COOLDOWN",
+      "message": {
+        "type": "COLLECT_VISIBLE"
+      }
+    },
+    {
+      "description": "COLLECT_VISIBLE (5)",
+      "commandId": "parity-collect-visible-005",
+      "waitForEvent": "ERROR",
+      "recordedTerminalEvent": "ERROR",
+      "recordedOutcome": "COLLECT_COOLDOWN",
+      "message": {
+        "type": "COLLECT_VISIBLE"
+      }
+    }
+  ]
+}

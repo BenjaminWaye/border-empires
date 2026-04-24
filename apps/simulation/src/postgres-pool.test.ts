@@ -37,9 +37,9 @@ describe("createResilientPostgresPool", () => {
     expect(constructedOptions[0]).toEqual(
       expect.objectContaining({
         connectionString: "postgres://localhost/test",
-        connectionTimeoutMillis: 3_000,
+        connectionTimeoutMillis: 30_000,
         idleTimeoutMillis: 10_000,
-        query_timeout: 5_000,
+        query_timeout: 45_000,
         keepAlive: true,
         max: 4,
         maxUses: 5_000

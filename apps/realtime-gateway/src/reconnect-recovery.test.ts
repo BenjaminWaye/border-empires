@@ -445,6 +445,88 @@ describe("buildInitMessage", () => {
     ]);
   });
 
+  it("fails init when runtime identity season metadata is inconsistent", async () => {
+    const store = new InMemoryGatewayCommandStore();
+    const snapshotBootstrap: LegacySnapshotBootstrap = {
+      runtimeIdentity: {
+        sourceType: "legacy-snapshot",
+        seasonId: "season-runtime",
+        worldSeed: 7,
+        snapshotLabel: ".snapshot",
+        fingerprint: "snap-fingerprint",
+        playerCount: 1,
+        seededTileCount: 1
+      },
+      season: { seasonId: "season-config", worldSeed: 99 },
+      players: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            name: "Nauticus",
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      playerProfiles: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            name: "Nauticus",
+            points: 100,
+            manpower: 100,
+            incomePerMinute: 0,
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepLastTick: { foodCoverage: 1 },
+            economyBreakdown: {
+              GOLD: { sources: [], sinks: [] },
+              FOOD: { sources: [], sinks: [] },
+              IRON: { sources: [], sinks: [] },
+              CRYSTAL: { sources: [], sinks: [] },
+              SUPPLY: { sources: [], sinks: [] },
+              SHARD: { sources: [], sinks: [] }
+            },
+            techIds: [],
+            domainIds: [],
+            isAi: false,
+            capitalTile: { x: 0, y: 0 }
+          }
+        ]
+      ]),
+      authIdentities: [],
+      docks: [],
+      clusters: [],
+      seedTiles: new Map([["0,0", { x: 0, y: 0, terrain: "LAND" }]]),
+      initialState: {
+        tiles: [{ x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        activeLocks: []
+      }
+    };
+
+    await expect(
+      buildInitMessage(
+        { playerId: "player-1", playerName: "Nauticus" },
+        store,
+        {
+          playerId: "player-1",
+          tiles: [{ x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }]
+        },
+        "season-20ai",
+        snapshotBootstrap
+      )
+    ).rejects.toThrow("gateway bootstrap runtime identity does not match config season metadata");
+  });
+
   it("applies runtime profile overrides to init player and leaderboard payloads", async () => {
     const store = new InMemoryGatewayCommandStore();
     const overrides = createPlayerProfileOverrides();

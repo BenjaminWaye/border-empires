@@ -6,6 +6,7 @@ export type PlayerProfileOverride = {
 
 export type PlayerProfileOverrides = {
   get: (playerId: string) => PlayerProfileOverride | undefined;
+  upsert: (playerId: string, override: PlayerProfileOverride) => PlayerProfileOverride;
   setTileColor: (playerId: string, tileColor: string) => PlayerProfileOverride;
   setProfile: (playerId: string, name: string, tileColor: string) => PlayerProfileOverride;
 };
@@ -24,6 +25,13 @@ export const createPlayerProfileOverrides = (): PlayerProfileOverrides => {
   return {
     get(playerId) {
       return overridesByPlayerId.get(playerId);
+    },
+    upsert(playerId, override) {
+      const existing = getOrCreate(playerId);
+      if (typeof override.name === "string") existing.name = override.name;
+      if (typeof override.tileColor === "string") existing.tileColor = override.tileColor;
+      if (typeof override.profileComplete === "boolean") existing.profileComplete = override.profileComplete;
+      return existing;
     },
     setTileColor(playerId, tileColor) {
       const override = getOrCreate(playerId);

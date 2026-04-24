@@ -141,7 +141,9 @@ export type ValidateFrontierCommandInput = {
   from: DomainTileState;
   to: DomainTileState;
   originLockedUntil?: number | undefined;
+  originLockOwnerId?: string | undefined;
   targetLockedUntil?: number | undefined;
+  targetLockOwnerId?: string | undefined;
   actionGoldCost: number;
   breakthroughGoldCost: number;
   breakthroughRequiredTechId: string;
@@ -213,14 +215,25 @@ export const validateFrontierCommand = (
     return { ok: false, code: "BARRIER", message: "target is barrier" };
   }
   if (typeof input.originLockedUntil === "number" && input.originLockedUntil > input.now) {
-    return {
-      ok: false,
-      code: "ATTACK_COOLDOWN",
-      message: "origin tile is still on attack cooldown",
-      cooldownRemainingMs: input.originLockedUntil - input.now
-    };
+    if (input.originLockOwnerId && input.originLockOwnerId !== input.actor.id) {
+      return { ok: false, code: "LOCKED", message: "tile locked in combat" };
+    }
+    if (input.actionType === "EXPAND") {
+      // Frontier expansion from your own recently used origin tile is allowed.
+      // Cooldown remains enforced for ATTACK/BREAKTHROUGH attack actions.
+    } else {
+      return {
+        ok: false,
+        code: "ATTACK_COOLDOWN",
+        message: "origin tile is still on attack cooldown",
+        cooldownRemainingMs: input.originLockedUntil - input.now
+      };
+    }
   }
   if (typeof input.targetLockedUntil === "number" && input.targetLockedUntil > input.now) {
+    if (input.targetLockOwnerId && input.targetLockOwnerId !== input.actor.id) {
+      return { ok: false, code: "LOCKED", message: "tile locked in combat" };
+    }
     return { ok: false, code: "LOCKED", message: "tile locked in combat" };
   }
   if ((input.actionType === "ATTACK" || input.actionType === "EXPAND") && input.actor.points < input.actionGoldCost) {

@@ -20,6 +20,20 @@ const localhostCtx = (overrides: Partial<BrowserCtx> = {}): BrowserCtx => ({
   ...overrides
 });
 
+const stagingCtx = (overrides: Partial<BrowserCtx> = {}): BrowserCtx => ({
+  hostname: "border-empires-client-staging-benjaminwayes-projects.vercel.app",
+  search: "",
+  cookieStr: "",
+  ...overrides
+});
+
+const stagingCustomDomainCtx = (overrides: Partial<BrowserCtx> = {}): BrowserCtx => ({
+  hostname: "staging.borderempires.com",
+  search: "",
+  cookieStr: "",
+  ...overrides
+});
+
 describe("selectBackend — URL param", () => {
   it("?backend=gateway selects gateway and uses gatewayWsUrl", () => {
     const result = selectBackend({
@@ -146,6 +160,50 @@ describe("selectBackend — env default", () => {
       ctx: { hostname: "0.0.0.0", search: "", cookieStr: "" }
     });
     expect(result.backend).toBe("gateway");
+    expect(result.source).toBe("env-default");
+  });
+
+  it("staging Vercel hostname defaults to gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY_URL,
+      gatewayWsUrl: GATEWAY_URL,
+      ctx: stagingCtx()
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY_URL);
+    expect(result.source).toBe("env-default");
+  });
+
+  it("staging Vercel hostname ignores legacy cookie and stays on gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY_URL,
+      gatewayWsUrl: GATEWAY_URL,
+      ctx: stagingCtx({ cookieStr: "be-backend=legacy" })
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY_URL);
+    expect(result.source).toBe("env-default");
+  });
+
+  it("staging custom domain defaults to gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY_URL,
+      gatewayWsUrl: GATEWAY_URL,
+      ctx: stagingCustomDomainCtx()
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY_URL);
+    expect(result.source).toBe("env-default");
+  });
+
+  it("staging custom domain ignores legacy cookie and stays on gateway", () => {
+    const result = selectBackend({
+      legacyWsUrl: LEGACY_URL,
+      gatewayWsUrl: GATEWAY_URL,
+      ctx: stagingCustomDomainCtx({ cookieStr: "be-backend=legacy" })
+    });
+    expect(result.backend).toBe("gateway");
+    expect(result.wsUrl).toBe(GATEWAY_URL);
     expect(result.source).toBe("env-default");
   });
 });

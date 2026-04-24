@@ -13,17 +13,140 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Preflight — verify required secrets are set
+        shell: bash
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          TIGRIS_ACCESS_KEY_ID: ${{ secrets.TIGRIS_ACCESS_KEY_ID }}
+          TIGRIS_SECRET_ACCESS_KEY: ${{ secrets.TIGRIS_SECRET_ACCESS_KEY }}
+        run: |
+          set -eu
+          MISSING=""
+          for var in PROD_DATABASE_URL TIGRIS_ACCESS_KEY_ID TIGRIS_SECRET_ACCESS_KEY; do
+            value="${!var:-}"
+            if [ -z "${value}" ]; then
+              MISSING="${MISSING} ${var}"
+            fi
+          done
+          if [ -n "${MISSING}" ]; then
+            echo "::error::Missing required GitHub Actions secret(s):${MISSING}"
+            echo "::error::Set them under Settings → Secrets and variables → Actions."
+            echo "::error::Required: PROD_DATABASE_URL (Supabase pooler URL with sslmode=require),"
+            echo "::error::TIGRIS_ACCESS_KEY_ID, TIGRIS_SECRET_ACCESS_KEY (from \`fly storage show border-empires-backups\`)."
+            exit 1
+          fi
+          echo "All required secrets present."
+
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo sh -c 'echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+
+      - name: Validate DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -eu
+          # Must include sslmode=require for Supabase
+          if [[ "${DATABASE_URL}" != *"sslmode=require"* ]]; then
+            echo "::error::PROD_DATABASE_URL must include sslmode=require for Supabase."
+            echo "::error::Append ?sslmode=require (or &sslmode=require) to the URL."
+            exit 1
+          fi
+          # Must NOT use pooler port 6543 (transaction-mode pooler breaks pg_dump)
+          if [[ "${DATABASE_URL}" == *":6543"* ]]; then
+            echo "::error::PROD_DATABASE_URL uses port 6543 (transaction-mode pooler) which breaks pg_dump."
+            echo "::error::Switch to port 5432 (direct or session-mode pooler)."
+            exit 1
+          fi
+          # Must NOT use the direct Supabase host (IPv6-only on free tier, unreachable from GitHub Actions)
+          if [[ "${DATABASE_URL}" == *"db."*".supabase.co"* ]]; then
+            echo "::error::PROD_DATABASE_URL uses the direct Supabase host (db.*.supabase.co)."
+            echo "::error::This host is IPv6-only on Supabase free tier — GitHub Actions cannot reach it."
+            echo "::error::Switch to the Session Pooler: host=aws-1-eu-west-2.pooler.supabase.com port=5432"
+            echo "::error::User must be postgres.YOUR_PROJECT_REF (e.g. postgres.iwzgkjxmlhaywiznuczz)"
+            exit 1
+          fi
+          # Print host (without password) for diagnostics
+          HOST=$(echo "${DATABASE_URL}" | sed 's|.*@||' | sed 's|/.*||' | sed 's|:.*||')
+          echo "DATABASE_URL validation passed — host: ${HOST} (sslmode=require, port≠6543, not direct host)."
+
+      - name: Test database connectivity
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -eu
+          echo "Testing psql connectivity..."
+          if ! psql "${DATABASE_URL}" -c "SELECT 1 AS connection_ok;" --no-psqlrc -t 2>&1; then
+            echo "::error::psql connection test failed. Check PROD_DATABASE_URL credentials and host."
+            echo "::error::Expected format: postgresql://postgres.PROJECT_REF:PASSWORD@aws-1-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
+            exit 1
+          fi
+          echo "psql connection test passed."
+
+      - name: Verify Tigris bucket reachable
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TIGRIS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TIGRIS_SECRET_ACCESS_KEY }}
+        run: |
+          set -eu
+          echo "aws version: $(aws --version)"
+          echo "Checking s3 ls on border-empires-backups bucket..."
+          if ! aws --endpoint-url "https://fly.storage.tigris.dev" s3 ls "s3://border-empires-backups" 2>&1; then
+            echo "::error::Cannot list s3://border-empires-backups — bucket may not exist or Tigris credentials are wrong."
+            echo "::error::Run: fly storage create border-empires-backups"
+            echo "::error::Then: fly storage show border-empires-backups  (copy keys to GitHub secrets)"
+            exit 1
+          fi
+          echo "Tigris bucket reachable."
+
+      - name: Test pg_dump directly
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -eu
+          echo "Running pg_dump --schema-only to test connectivity..."
+          PGDUMP_OUT=$(pg_dump --no-owner --no-acl --schema-only "${DATABASE_URL}" 2>&1 | head -20) && EXIT=0 || EXIT=$?
+          echo "pg_dump exit code: ${EXIT}"
+          echo "pg_dump output (first 20 lines):"
+          echo "${PGDUMP_OUT}"
+          if [ "${EXIT}" -ne 0 ]; then
+            echo "::error::pg_dump schema-only test failed (exit ${EXIT}). Output: ${PGDUMP_OUT}"
+            exit "${EXIT}"
+          fi
+          echo "pg_dump schema-only test passed."
+
       - name: Run backup script
-        run: bash scripts/pg-backup.sh
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           AWS_ACCESS_KEY_ID: ${{ secrets.TIGRIS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TIGRIS_SECRET_ACCESS_KEY }}
           TIGRIS_ENDPOINT_URL: "https://fly.storage.tigris.dev"
           TIGRIS_BUCKET: "border-empires-backups"
+        run: |
+          # && EXIT=0 || EXIT=$? avoids set -e killing the shell before EXIT is captured
+          bash -x scripts/pg-backup.sh > /tmp/backup.log 2>&1 && EXIT=0 || EXIT=$?
+          # Write tail of log to the Job Summary (visible in Actions UI without auth)
+          {
+            echo "## Backup script log (exit ${EXIT})"
+            echo '```'
+            tail -40 /tmp/backup.log
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          # Also emit last lines as ::error:: annotations (visible via Checks API without auth)
+          if [ "${EXIT}" -ne 0 ]; then
+            while IFS= read -r line; do
+              echo "::error::${line}"
+            done < <(tail -20 /tmp/backup.log)
+          fi
+          # Re-exit with the original code
+          exit "${EXIT}"
 
       - name: Notify on failure
         if: failure()

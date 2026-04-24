@@ -1,6 +1,5 @@
 import { isForestTile } from "./client-constants.js";
 import { shardRainAlertDetail, type ClientShardRainAlert } from "./client-shard-alert.js";
-import { shouldHideCaptureOverlayAfterTimer } from "./client-frontier-overlay.js";
 import { shouldFinalizePredictedCombat } from "./client-predicted-combat.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile } from "./client-types.js";
@@ -24,6 +23,7 @@ export const renderCaptureProgress = (
     captureTargetEl: HTMLElement;
   }
 ): void => {
+  const RESULT_WAIT_DEBUG_THRESHOLD_MS = 4000;
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
     if (state.captureAlert.title === "Collect Visible Cooldown") {
       const remaining = state.collectVisibleCooldownUntil - Date.now();
@@ -57,7 +57,8 @@ export const renderCaptureProgress = (
     const pct = Math.max(0, Math.min(1, elapsed / total));
     const remaining = Math.max(0, Math.ceil((state.capture.resolvesAt - Date.now()) / 100) / 10);
     const awaitingResult = Date.now() > state.capture.resolvesAt;
-    const awaitingNeutralExpand = shouldHideCaptureOverlayAfterTimer(state.tiles.get(captureTargetKey), state.me, awaitingResult);
+    const resolveWaitMs = Math.max(0, Date.now() - state.capture.resolvesAt);
+    const showDebugDownload = awaitingResult && resolveWaitMs >= RESULT_WAIT_DEBUG_THRESHOLD_MS;
     if (
       shouldFinalizePredictedCombat({
         now: Date.now(),
@@ -88,30 +89,18 @@ export const renderCaptureProgress = (
       state.pendingCombatReveal.revealed = true;
       return;
     }
-    if (awaitingNeutralExpand) {
-      deps.captureCardEl.style.display = "none";
-      deps.captureWrapEl.style.display = "none";
-      deps.captureCancelBtn.style.display = "none";
-      deps.captureCloseBtn.style.display = "none";
-      deps.captureDownloadDebugBtn.style.display = "none";
-      deps.captureBarEl.style.width = "0%";
-      deps.captureTitleEl.textContent = "";
-      deps.captureTimeEl.textContent = "";
-      deps.captureTargetEl.textContent = "";
-      return;
-    }
     deps.captureCardEl.style.display = "grid";
     deps.captureWrapEl.style.display = "block";
     deps.captureCancelBtn.style.display = "inline-flex";
     deps.captureCloseBtn.style.display = "none";
-    deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureDownloadDebugBtn.style.display = showDebugDownload ? "inline-flex" : "none";
     deps.captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
     deps.captureTitleEl.textContent = awaitingResult
-      ? "Resolving battle..."
+      ? "Resolving action..."
       : isForestTile(state.capture.target.x, state.capture.target.y)
         ? "Capturing Forest..."
         : "Capturing Territory...";
-    deps.captureTimeEl.textContent = awaitingResult ? "" : `${remaining.toFixed(1)}s`;
+    deps.captureTimeEl.textContent = awaitingResult ? `${(resolveWaitMs / 1000).toFixed(1)}s` : `${remaining.toFixed(1)}s`;
     deps.captureTargetEl.textContent = awaitingResult
       ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
       : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
