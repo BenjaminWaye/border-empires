@@ -7,6 +7,7 @@ import {
 } from "./client-dock-routes.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap.js";
 import { resolveOwnerColor } from "./client-owner-colors.js";
+import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import {
   borderColorForOwner as borderColorForOwnerFromModule,
   borderLineWidthForOwner as borderLineWidthForOwnerFromModule,
@@ -91,6 +92,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   };
 
   const tileVisibilityStateAt = (x: number, y: number, tile?: Tile): TileVisibilityState => {
+    if (revealWholeMapInTrue3DMode) return "visible";
     if (state.fogDisabled) return "visible";
     const tileKey = keyFor(x, y);
     if (!state.discoveredTiles.has(tileKey)) return "unexplored";

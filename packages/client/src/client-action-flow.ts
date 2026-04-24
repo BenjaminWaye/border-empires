@@ -110,6 +110,7 @@ import {
 } from "./client-tile-menu-view.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
+import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type { ActiveTruceView, CrystalTargetingAbility, OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuView, TileOverviewLine, TileTimedProgress } from "./client-types.js";
@@ -1456,6 +1457,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state.selected = { x: wx, y: wy };
       state.attackPreview = undefined;
       state.attackPreviewPendingKey = "";
+      if (revealWholeMapInTrue3DMode) {
+        const placeholder: Tile = { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: false };
+        openSingleTileActionMenu(placeholder, clientX, clientY);
+        requestViewRefresh(2, true);
+      }
       renderHud();
       return;
     }

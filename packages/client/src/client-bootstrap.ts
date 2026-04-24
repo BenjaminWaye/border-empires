@@ -11,6 +11,12 @@ import { bindClientNetwork } from "./client-network.js";
 import { renderClientHud, resizeClientViewport } from "./client-hud.js";
 import { bindClientUiControls } from "./client-ui-controls.js";
 import { downloadClientDebugBundle } from "./client-debug-bundle.js";
+import { createClientThreeTerrainRenderer } from "./client-map-3d.js";
+import {
+  prefersTrue3DRendererMode,
+  rendererModeExplicitlySet,
+  setTrue3DRendererActive
+} from "./client-renderer-mode.js";
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
 
 type BootstrapDeps = Record<string, any>;
@@ -201,8 +207,36 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   };
   requireAuthedSessionImpl = requireAuthedSession;
 
+  let threeTerrainRenderer:
+    | ReturnType<typeof createClientThreeTerrainRenderer>
+    | undefined;
+  const prefersRewrite3DDefault = state.activeBackend === "gateway" && !rendererModeExplicitlySet;
+  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || prefersRewrite3DDefault;
+  const ensureThreeTerrainRenderer = (): void => {
+    if (!shouldUseThreeTerrainRenderer) return;
+    if (!state.authSessionReady) return;
+    if (threeTerrainRenderer) return;
+    try {
+      threeTerrainRenderer = createClientThreeTerrainRenderer({
+        state,
+        canvas,
+        keyFor,
+        wrapX,
+        wrapY,
+        terrainAt
+      });
+      setTrue3DRendererActive(true);
+    } catch (error) {
+      console.error("[renderer-3d-init-failed]", error);
+      setTrue3DRendererActive(false);
+    }
+  };
+  if (!shouldUseThreeTerrainRenderer) {
+    setTrue3DRendererActive(false);
+  }
+
   const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } =>
-    deps.worldTileRawFromPointerFromModule(state, canvas, offsetX, offsetY);
+    threeTerrainRenderer?.worldTileRawFromPointer(offsetX, offsetY) ?? deps.worldTileRawFromPointerFromModule(state, canvas, offsetX, offsetY);
 
   const computeDragPreview = (): void =>
     deps.computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor, hasCollectableYield });
@@ -301,6 +335,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   const renderHud = (): void => {
     try {
+      ensureThreeTerrainRenderer();
       renderClientHud({
         state,
         dom,
@@ -385,7 +420,11 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   };
   renderHudImpl = renderHud;
 
-  const resize = (): void => resizeClientViewport({ dom: { canvas }, viewportSize });
+  const resize = (): void => {
+    ensureThreeTerrainRenderer();
+    resizeClientViewport({ dom: { canvas }, viewportSize });
+    threeTerrainRenderer?.resize();
+  };
   window.addEventListener("resize", resize);
   window.visualViewport?.addEventListener("resize", resize);
   resize();
