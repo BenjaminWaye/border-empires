@@ -58,6 +58,7 @@ type RealtimeGatewayAppOptions = {
   createCommandId?: () => string;
   now?: () => number;
   simulationSubscribeTimeoutMs?: number;
+  simulationSubmitTimeoutMs?: number;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -182,6 +183,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     options.simulationSubscribeTimeoutMs ?? Number(process.env.GATEWAY_SIMULATION_SUBSCRIBE_TIMEOUT_MS ?? 8_000)
   );
   const simulationPingTimeoutMs = Math.max(1_500, Number(process.env.GATEWAY_SIMULATION_PING_TIMEOUT_MS ?? 20_000));
+  const simulationSubmitTimeoutMs = Math.max(
+    500,
+    options.simulationSubmitTimeoutMs ??
+      Number(process.env.GATEWAY_SIMULATION_SUBMIT_TIMEOUT_MS ?? Math.min(simulationPingTimeoutMs, 2_500))
+  );
   const simulationWakeMaxAttempts = Math.max(1, Number(process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS ?? 12));
   const simulationWakeBaseDelayMs = Math.max(100, Number(process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS ?? 500));
   const simulationWakeMaxDelayMs = Math.max(simulationWakeBaseDelayMs, Number(process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS ?? 5_000));
@@ -1026,6 +1032,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
+          if (!simulationHealth.connected) {
+            recordGatewayEvent("warn", "simulation_command_rejected_unavailable", {
+              messageType: message.type,
+              simulationLastError: simulationHealth.lastError ?? ""
+            });
+            sendJson(socket, {
+              type: "ERROR",
+              code: "SERVER_STARTING",
+              message: "Realtime simulation is temporarily unavailable. Retry shortly."
+            });
+            return;
+          }
+
           const authedSession = {
             sessionId: session.sessionId,
             playerId: session.playerId,
@@ -1038,7 +1057,20 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             submitCommand: async (command: Parameters<typeof simulationClient.submitCommand>[0]) => {
               const rpcStartedAt = Date.now();
               try {
-                await simulationClient.submitCommand(command);
+                await withTimeout(
+                  simulationClient.submitCommand(command),
+                  simulationSubmitTimeoutMs,
+                  "gateway submit command"
+                );
+                markSimulationReady();
+              } catch (error) {
+                markSimulationUnavailable(error);
+                recordGatewayEvent("warn", "simulation_submit_failed", {
+                  commandId: command.commandId,
+                  playerId: command.playerId,
+                  error: error instanceof Error ? error.message : String(error)
+                });
+                throw error;
               } finally {
                 gatewayMetrics.observeGatewaySimRpcLatencyMs(Date.now() - rpcStartedAt);
               }
