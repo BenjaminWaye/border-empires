@@ -1,0 +1,59 @@
+{
+  "at": "2026-04-22T14:21:23.851Z",
+  "soak": {
+    "wsUrl": "ws://127.0.0.1:3101/ws",
+    "startedAt": "2026-04-22T14:21:23.851Z",
+    "endedAt": "2026-04-22T14:25:29.884Z",
+    "soakMinutes": 4,
+    "acceptedSamples": 0,
+    "acceptedP95Ms": null,
+    "acceptedP99Ms": null,
+    "acceptedMaxMs": null,
+    "batches": [],
+    "batchErrors": [
+      {
+        "at": 1776867703681,
+        "message": "rewrite-local-soak exited 1: file:///sessions/amazing-keen-clarke/mnt/border-empires-container/border-empires/scripts/rewrite-local-soak.mjs:301\n          reject(new Error(`iteration ${iteration} resource exhausted: ${message.code}`));\n                 ^\n\nError: iteration 5 resource exhausted: INSUFFICIENT_MANPOWER\n    at WebSocket.onMessage (file:///sessions/amazing-keen-clarke/mnt/border-empires"
+      },
+      {
+        "at": 1776867756524,
+        "message": "rewrite-local-soak exited 1: file:///sessions/amazing-keen-clarke/mnt/border-empires-container/border-empires/scripts/rewrite-local-soak.mjs:301\n          reject(new Error(`iteration ${iteration} resource exhausted: ${message.code}`));\n                 ^\n\nError: iteration 1 resource exhausted: INSUFFICIENT_MANPOWER\n    at WebSocket.onMessage (file:///sessions/amazing-keen-clarke/mnt/border-empires"
+      },
+      {
+        "at": 1776867809175,
+        "message": "rewrite-local-soak exited 1: file:///sessions/amazing-keen-clarke/mnt/border-empires-container/border-empires/scripts/rewrite-local-soak.mjs:301\n          reject(new Error(`iteration ${iteration} resource exhausted: ${message.code}`));\n                 ^\n\nError: iteration 1 resource exhausted: INSUFFICIENT_MANPOWER\n    at WebSocket.onMessage (file:///sessions/amazing-keen-clarke/mnt/border-empires"
+      },
+      {
+        "at": 1776867861913,
+        "message": "rewrite-local-soak exited 1: file:///sessions/amazing-keen-clarke/mnt/border-empires-container/border-empires/scripts/rewrite-local-soak.mjs:301\n          reject(new Error(`iteration ${iteration} resource exhausted: ${message.code}`));\n                 ^\n\nError: iteration 1 resource exhausted: INSUFFICIENT_MANPOWER\n    at WebSocket.onMessage (file:///sessions/amazing-keen-clarke/mnt/border-empires"
+      },
+      {
+        "at": 1776867914599,
+        "message": "rewrite-local-soak exited 1: file:///sessions/amazing-keen-clarke/mnt/border-empires-container/border-empires/scripts/rewrite-local-soak.mjs:301\n          reject(new Error(`iteration ${iteration} resource exhausted: ${message.code}`));\n                 ^\n\nError: iteration 1 resource exhausted: INSUFFICIENT_MANPOWER\n    at WebSocket.onMessage (file:///sessions/amazing-keen-clarke/mnt/border-empires"
+      },
+      {
+        "at": 1776867922223,
+        "message": "rewrite-local-soak exited 1: file:///sessions/amazing-keen-clarke/mnt/border-empires-container/border-empires/scripts/rewrite-local-soak.mjs:301\n          reject(new Error(`iteration ${iteration} resource exhausted: ${message.code}`));\n                 ^\n\nError: iteration 1 resource exhausted: INSUFFICIENT_MANPOWER\n    at WebSocket.onMessage (file:///sessions/amazing-keen-clarke/mnt/border-empires"
+      },
+      {
+        "at": 1776867929880,
+        "message": "rewrite-local-soak exited 1: file:///sessions/amazing-keen-clarke/mnt/border-empires-container/border-empires/scripts/rewrite-local-soak.mjs:301\n          reject(new Error(`iteration ${iteration} resource exhausted: ${message.code}`));\n                 ^\n\nError: iteration 1 resource exhausted: INSUFFICIENT_MANPOWER\n    at WebSocket.onMessage (file:///sessions/amazing-keen-clarke/mnt/border-empires"
+      }
+    ]
+  },
+  "metrics": {
+    "gatewayMetricsUrl": "http://127.0.0.1:3101/metrics",
+    "simulationMetricsUrl": "http://127.0.0.1:50052/metrics",
+    "sampleCount": 247,
+    "gatewayEventLoopMaxMs": 20,
+    "simEventLoopMaxMs": 40
+  },
+  "gates": {
+    "actionAcceptedP95Under100": false,
+    "actionAcceptedP99Under250": false,
+    "actionAcceptedMaxUnder500": false,
+    "gatewayEventLoopMaxUnder50": true,
+    "simEventLoopMaxUnder100": true
+  },
+  "allGatesGreen": false
+}
