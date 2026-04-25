@@ -67,7 +67,13 @@ import {
 } from "./command-event-lifecycle.js";
 import { laneForCommand, type QueueLane } from "./command-lane.js";
 import { isFrontierAdjacent } from "./frontier-adjacency.js";
+import {
+  buildDockLinksByDockTileKey,
+  isValidDockCrossingTarget,
+  type DockRouteDefinition
+} from "./dock-network.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
+import { frontierNeighborCoords } from "./frontier-topology.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import {
   addPendingSettlementToSummary,
@@ -189,6 +195,7 @@ type SimulationRuntimeOptions = {
   initialCommandHistory?: RecoveredCommandHistory;
   seedProfile?: SimulationSeedProfile;
   seedTiles?: Map<string, DomainTileState>;
+  seedDocks?: DockRouteDefinition[];
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
   commandTrace?: (sample: Record<string, unknown>) => void;
@@ -464,6 +471,8 @@ export class SimulationRuntime {
   private readonly now: () => number;
   private readonly players: Map<string, RuntimePlayer>;
   private readonly tiles: Map<string, DomainTileState>;
+  private readonly docks: DockRouteDefinition[];
+  private readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, {
@@ -521,6 +530,8 @@ export class SimulationRuntime {
       options.seedTiles ?? seedWorld!.tiles,
       options.mergeSeedTilesWithInitialState ?? true
     );
+    this.docks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
+    this.dockLinksByDockTileKey = buildDockLinksByDockTileKey(this.docks);
     this.locksByTile = createLocksFromInitialState(options.initialState);
     for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
       this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
@@ -821,7 +832,8 @@ export class SimulationRuntime {
     const player = this.players.get(playerId);
     return chooseNextOwnedFrontierCommandFromLookup(this.tiles, ownedTiles, playerId, clientSeq, issuedAt, sessionPrefix, {
       canAttack: (player?.points ?? 0) >= FRONTIER_CLAIM_COST && (player?.manpower ?? 0) >= ATTACK_MANPOWER_MIN,
-      canExpand: (player?.points ?? 0) >= FRONTIER_CLAIM_COST
+      canExpand: (player?.points ?? 0) >= FRONTIER_CLAIM_COST,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey
     });
   }
 
@@ -851,6 +863,7 @@ export class SimulationRuntime {
         .map((tileKey) => this.tiles.get(tileKey))
         .filter((tile): tile is DomainTileState => tile !== undefined),
       tilesByKey: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey,
       isPendingSettlement: (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y)),
       clientSeq,
       issuedAt,
@@ -957,6 +970,17 @@ export class SimulationRuntime {
         collectVisibleCooldownByPlayer: [...this.collectVisibleCooldownByPlayer.entries()]
           .map(([playerId, cooldownUntil]) => ({ playerId, cooldownUntil }))
           .sort((left, right) => left.playerId.localeCompare(right.playerId))
+        ,
+        ...(this.docks.length
+          ? {
+              docks: this.docks.map((dock) => ({
+                dockId: dock.dockId,
+                tileKey: dock.tileKey,
+                pairedDockId: dock.pairedDockId,
+                ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+              }))
+            }
+          : {})
       },
       commandEvents: buildSimulationSnapshotCommandEvents(this.recordedEventsByCommandId)
     };
@@ -967,10 +991,11 @@ export class SimulationRuntime {
     const tiles = buildPlannerTileSlice({
       playerIds,
       tiles: this.tiles,
+      docks: this.docks,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
     });
 
-    return { tiles, players };
+    return { tiles, players, docks: this.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) };
   }
 
   exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
@@ -1273,6 +1298,7 @@ export class SimulationRuntime {
       submittedFrom.ownerId === actor.id
         ? submittedFrom
         : this.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND") ??
+          this.findOwnedDockOriginForCrossing(actor.id, to.x, to.y) ??
           submittedFrom;
 
     const originLock = this.locksByTile.get(simulationTileKey(from.x, from.y));
@@ -1290,6 +1316,7 @@ export class SimulationRuntime {
       targetLockOwnerId: targetLock?.playerId,
       targetLockResolvesAt: targetLock?.resolvesAt
     });
+    const isDockCrossing = this.isDockCrossingTarget(from, to.x, to.y);
     const validation = validateFrontierCommand({
       now: this.now(),
       actor,
@@ -1304,9 +1331,9 @@ export class SimulationRuntime {
       breakthroughGoldCost: BREAKTHROUGH_GOLD_COST,
       breakthroughRequiredTechId: BREAKTHROUGH_REQUIRED_TECH_ID,
       isAdjacent: isFrontierAdjacent(from.x, from.y, to.x, to.y),
-      isDockCrossing: false,
+      isDockCrossing,
       isBridgeCrossing: false,
-      targetShielded: this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
+      targetShielded: isDockCrossing ? false : this.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
       defenderIsAlliedOrTruced: Boolean(to.ownerId && actor.allies.has(to.ownerId))
     });
 
@@ -3101,15 +3128,22 @@ export class SimulationRuntime {
   }
 
   private adjacentTileStates(x: number, y: number): DomainTileState[] {
-    const tiles: DomainTileState[] = [];
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const tile = this.tiles.get(simulationTileKey(x + dx, y + dy));
-        if (tile) tiles.push(tile);
-      }
+    return frontierNeighborCoords(x, y)
+      .map((coords) => this.tiles.get(simulationTileKey(coords.x, coords.y)))
+      .filter((tile): tile is DomainTileState => tile !== undefined);
+  }
+
+  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
+    if (!from.dockId) return false;
+    return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey);
+  }
+
+  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
+    for (const tile of this.tiles.values()) {
+      if (tile.ownerId !== playerId || tile.terrain !== "LAND" || !tile.dockId) continue;
+      if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
     }
-    return tiles;
+    return undefined;
   }
 
   private supportedTownKeysForTile(playerId: string, x: number, y: number): string[] {
@@ -4522,6 +4556,17 @@ const createTilesFromInitialState = (
   }
   return mergedTiles;
 };
+
+const createDocksFromInitialState = (
+  initialState: RecoveredSimulationState | undefined,
+  seedDocks: DockRouteDefinition[]
+): DockRouteDefinition[] =>
+  (initialState?.docks ?? seedDocks).map((dock) => ({
+    dockId: dock.dockId,
+    tileKey: dock.tileKey,
+    pairedDockId: dock.pairedDockId,
+    ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+  }));
 
 const createLocksFromInitialState = (initialState?: RecoveredSimulationState): Map<string, LockRecord> => {
   const locksByTile = new Map<string, LockRecord>();

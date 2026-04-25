@@ -27,6 +27,7 @@ import {
   planAutomationCommand
 } from "./automation-command-planner.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
+import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
 import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
@@ -34,6 +35,7 @@ if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thr
 
 let paused = false;
 const tilesByKey = new Map<string, PlannerTileView>();
+let dockLinksByDockTileKey = new Map<string, readonly string[]>();
 const playersById = new Map<string, PlannerPlayerView>();
 const playerTileCacheById = new Map<string, {
   tileCollectionVersion: number;
@@ -158,6 +160,7 @@ const choosePlannerCommand = (
     frontierTiles,
     ownedTiles,
     tilesByKey,
+    dockLinksByDockTileKey,
     isPendingSettlement: (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`),
     clientSeq,
     issuedAt,
@@ -218,6 +221,7 @@ parentPort.on("message", (msg: unknown) => {
       for (const tile of worldView.tiles) {
         tilesByKey.set(`${tile.x},${tile.y}`, tile);
       }
+      dockLinksByDockTileKey = buildDockLinksByDockTileKey((worldView.docks ?? []) as DockRouteDefinition[]);
       for (const player of worldView.players) {
         playersById.set(player.id, player);
       }

@@ -7,8 +7,10 @@ import {
   SETTLE_COST
 } from "@border-empires/shared";
 
+import { dockCrossingCandidateTileKeys } from "./dock-network.js";
 import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
+import { frontierNeighborKeys } from "./frontier-topology.js";
 
 export const AUTOMATION_NOOP_REASONS = [
   "player_missing",
@@ -54,6 +56,7 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   frontierTiles: readonly TTile[];
   ownedTiles: readonly TTile[];
   tilesByKey: ReadonlyMap<string, TTile>;
+  dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
   isPendingSettlement?: (tile: TTile) => boolean;
   clientSeq: number;
   issuedAt: number;
@@ -64,13 +67,6 @@ export type AutomationPlannerResult = {
   command?: CommandEnvelope;
   diagnostic: AutomationPlannerDiagnostic;
 };
-
-const frontierDirections = [
-  { dx: -1, dy: 0 },
-  { dx: 1, dy: 0 },
-  { dx: 0, dy: -1 },
-  { dx: 0, dy: 1 }
-] as const;
 
 const createCommand = (
   sessionPrefix: AutomationSessionPrefix,
@@ -108,13 +104,20 @@ export const createAutomationNoopDiagnostic = (
 const summarizeFrontierTargets = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
   tilesByKey: ReadonlyMap<string, TTile>,
-  playerId: string
+  playerId: string,
+  dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>
 ): { frontierEnemyTargetCount: number; frontierNeutralTargetCount: number } => {
   const enemyTargets = new Set<string>();
   const neutralTargets = new Set<string>();
   for (const from of ownedTiles) {
-    for (const direction of frontierDirections) {
-      const target = tilesByKey.get(`${from.x + direction.dx},${from.y + direction.dy}`);
+    const candidateKeys = new Set(frontierNeighborKeys(from.x, from.y));
+    if (from.dockId && dockLinksByDockTileKey) {
+      for (const tileKey of dockCrossingCandidateTileKeys(`${from.x},${from.y}`, dockLinksByDockTileKey)) {
+        candidateKeys.add(tileKey);
+      }
+    }
+    for (const candidateKey of candidateKeys) {
+      const target = tilesByKey.get(candidateKey);
       if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
       if (target.ownerId) enemyTargets.add(`${target.x},${target.y}`);
       else neutralTargets.add(`${target.x},${target.y}`);
@@ -184,11 +187,15 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           input.clientSeq,
           input.issuedAt,
           input.sessionPrefix,
-          { canAttack, canExpand }
+          {
+            canAttack,
+            canExpand,
+            ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
+          }
         )
       : undefined;
   if (frontierCommand) {
-    const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId);
+    const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId, input.dockLinksByDockTileKey);
     return {
       command: frontierCommand,
       diagnostic: {
@@ -203,7 +210,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     };
   }
 
-  const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId);
+  const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId, input.dockLinksByDockTileKey);
   let noCommandReason: AutomationNoopReason;
   if (input.activeDevelopmentProcessCount >= DEVELOPMENT_PROCESS_LIMIT && frontierSummary.frontierEnemyTargetCount === 0 && frontierSummary.frontierNeutralTargetCount === 0) {
     noCommandReason = "development_process_limit";
