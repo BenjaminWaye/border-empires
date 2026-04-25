@@ -1,5 +1,8 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 
+import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
+import { frontierNeighborKeys } from "./frontier-topology.js";
 import type { PlannerTileView } from "./planner-world-view.js";
 
 export const DEFAULT_PLANNER_TILE_RADIUS = 2;
@@ -11,6 +14,7 @@ type PlannerSummarySlice = {
 type PlannerTileSliceOptions = {
   playerIds: readonly string[];
   tiles: ReadonlyMap<string, DomainTileState>;
+  docks: readonly DockRouteDefinition[];
   summaryForPlayer: (playerId: string) => PlannerSummarySlice;
   radius?: number;
 };
@@ -44,11 +48,13 @@ const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
 export const buildPlannerTileSlice = ({
   playerIds,
   tiles,
+  docks,
   summaryForPlayer,
   radius = DEFAULT_PLANNER_TILE_RADIUS
 }: PlannerTileSliceOptions): PlannerTileView[] => {
   const safeRadius = Math.max(0, Math.floor(radius));
   const tileKeysInScope = new Set<string>();
+  const dockLinksByDockTileKey = buildDockLinksByDockTileKey(docks);
 
   for (const playerId of playerIds) {
     const summary = summaryForPlayer(playerId);
@@ -58,7 +64,17 @@ export const buildPlannerTileSlice = ({
       if (!coords) continue;
       for (let dy = -safeRadius; dy <= safeRadius; dy += 1) {
         for (let dx = -safeRadius; dx <= safeRadius; dx += 1) {
-          tileKeysInScope.add(`${coords.x + dx},${coords.y + dy}`);
+          tileKeysInScope.add(`${wrapX(coords.x + dx, WORLD_WIDTH)},${wrapY(coords.y + dy, WORLD_HEIGHT)}`);
+        }
+      }
+      const tile = tiles.get(tileKey);
+      if (!tile?.dockId) continue;
+      for (const linkedDockTileKey of dockLinksByDockTileKey.get(tileKey) ?? []) {
+        tileKeysInScope.add(linkedDockTileKey);
+        const linkedDockCoords = parseTileKey(linkedDockTileKey);
+        if (!linkedDockCoords) continue;
+        for (const neighborKey of frontierNeighborKeys(linkedDockCoords.x, linkedDockCoords.y)) {
+          tileKeysInScope.add(neighborKey);
         }
       }
     }

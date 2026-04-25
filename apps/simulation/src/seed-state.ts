@@ -1,6 +1,7 @@
 import { MANPOWER_BASE_CAP } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { createSeason20AiSeedWorld } from "./season-seed-world.js";
+import type { DockRouteDefinition } from "./dock-network.js";
 
 export const simulationTileKey = (x: number, y: number): string => `${x},${y}`;
 
@@ -24,6 +25,7 @@ export type SimulationSeedSummary = {
 export type SimulationSeedWorld = {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
+  docks: DockRouteDefinition[];
   summary: SimulationSeedSummary;
 };
 
@@ -105,6 +107,7 @@ const createDefaultSeedWorld = (): SimulationSeedWorld => {
   return {
     players,
     tiles,
+    docks: [],
     summary: {
       profile: "default",
       humanPlayers: 1,
@@ -225,6 +228,7 @@ const createStressSeedWorld = (
   return {
     players,
     tiles,
+    docks: [],
     summary: {
       profile,
       humanPlayers: 1,
@@ -246,6 +250,7 @@ export const createSeedWorld = (profile: SimulationSeedProfile = "default"): Sim
     return {
       players: generated.players,
       tiles: generated.tiles,
+      docks: generated.docks,
       summary: {
         profile: "season-20ai",
         humanPlayers: generated.humanPlayers,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { DEVELOPMENT_PROCESS_LIMIT } from "@border-empires/shared";
 
+import { buildDockLinksByDockTileKey } from "./dock-network.js";
 import { planAutomationCommand } from "./automation-command-planner.js";
 
 const makeTile = (
@@ -110,5 +112,38 @@ describe("automation command planner", () => {
 
     expect(result.command).toBeUndefined();
     expect(result.diagnostic.noCommandReason).toBe("no_frontier_targets");
+  });
+
+  it("uses dock-linked frontier expansion when strategic settlement has no target", () => {
+    const ownedDock = makeTile(10, 10, { ownerId: "ai-1", dockId: "dock-a" });
+    const linkedDock = makeTile(50, 50, { dockId: "dock-b" });
+    const target = makeTile(51, 50, { resource: "FARM" });
+    const dockLinksByDockTileKey = buildDockLinksByDockTileKey([
+      { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+      { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+    ]);
+    const result = planAutomationCommand({
+      playerId: "ai-1",
+      points: 500,
+      manpower: 10,
+      hasActiveLock: false,
+      activeDevelopmentProcessCount: DEVELOPMENT_PROCESS_LIMIT,
+      frontierTiles: [],
+      ownedTiles: [ownedDock],
+      tilesByKey: new Map([
+        ["10,10", ownedDock],
+        ["50,50", linkedDock],
+        ["51,50", target]
+      ]),
+      dockLinksByDockTileKey,
+      clientSeq: 2,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime"
+    });
+
+    expect(result.command).toMatchObject({
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 50, toY: 50 })
+    });
   });
 });

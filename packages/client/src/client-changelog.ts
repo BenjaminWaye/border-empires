@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.25.1",
+  version: "2026.04.26.1",
   title: "What's New",
-  summary: "Recent updates include tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include AI frontier planning and validation fixes for diagonal, world-wrap, and dock-linked cross-island expansion, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.1",
+      title: "AI empires can now keep expanding across diagonals, world edges, and dock routes",
+      why: "Island-start AIs were idling even with legal frontier moves because planner scans were narrower than runtime validation and ignored dock-linked cross-island targets entirely.",
+      changes: [
+        "Simulation frontier planning now evaluates diagonal and world-wrap frontier targets using the same neighborhood rules that runtime validation already accepts.",
+        "Dock-route metadata now survives seed generation, snapshot recovery, planner worker sync, and runtime validation so frontier commands can cross between linked docks.",
+        "Added simulation regressions for diagonal frontier attacks, wrapped edge expansion, dock-linked AI frontier expansion, and worker planner scope for linked dock destinations."
+      ]
+    },
     {
       introducedIn: "2026.04.25.1",
       title: "Planner workers now ignore irrelevant tile churn outside their current territory scope",

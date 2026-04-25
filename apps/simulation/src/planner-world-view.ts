@@ -17,6 +17,13 @@ export type PlannerTileView = {
   town?: { supportMax?: number; supportCurrent?: number } | null;
 };
 
+export type PlannerDockView = {
+  dockId: string;
+  tileKey: string;
+  pairedDockId: string;
+  connectedDockIds?: readonly string[];
+};
+
 // ─── Per-player view ──────────────────────────────────────────────────────────
 
 export type PlannerPlayerView = {
@@ -39,6 +46,8 @@ export type PlannerPlayerView = {
 export type PlannerWorldView = {
   /** Tile slice scoped around players currently being planned. */
   tiles: PlannerTileView[];
+  /** Dock-route metadata needed for cross-island frontier planning. */
+  docks?: PlannerDockView[];
   /** One entry per player that needs planning in this tick. */
   players: PlannerPlayerView[];
 };
