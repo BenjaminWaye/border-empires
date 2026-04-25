@@ -76,30 +76,36 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     return health.body;
   });
 
-  app.get("/admin/runtime/debug-bundle", async () => ({
-    ok: true,
-    at: Date.now(),
-    health: {
-      ...deps.health(),
-      startupElapsedMs: Date.now() - deps.startupStartedAt
-    },
-    recentServerEvents: deps.recentEvents(),
-    attackDebug: {
-      controlPath: [],
-      hotPath: [],
-      slowOrWarn: []
-    },
-    attackTraces: [],
-    runtime: {
-      gateway: {
-        simulationAddress: deps.simulationAddress,
-        simulationSeedProfile: deps.simulationSeedProfile,
-        snapshotBridgeEnabled: Boolean(deps.snapshotDir),
-        runtimeIdentity: deps.runtimeIdentity,
-        supportedMessageTypes: deps.supportedMessageTypes
+  app.get("/admin/runtime/debug-bundle", async () => {
+    const recentServerEvents = deps.recentEvents();
+    const slowOrWarn = recentServerEvents.filter(
+      (event) => event.level !== "info" || event.event.includes("slow") || event.event.includes("failed")
+    );
+    return {
+      ok: true,
+      at: Date.now(),
+      health: {
+        ...deps.health(),
+        startupElapsedMs: Date.now() - deps.startupStartedAt
+      },
+      recentServerEvents,
+      attackDebug: {
+        controlPath: [],
+        hotPath: slowOrWarn,
+        slowOrWarn
+      },
+      attackTraces: slowOrWarn,
+      runtime: {
+        gateway: {
+          simulationAddress: deps.simulationAddress,
+          simulationSeedProfile: deps.simulationSeedProfile,
+          snapshotBridgeEnabled: Boolean(deps.snapshotDir),
+          runtimeIdentity: deps.runtimeIdentity,
+          supportedMessageTypes: deps.supportedMessageTypes
+        }
       }
-    }
-  }));
+    };
+  });
 
   app.get("/metrics", async (_request, reply) => {
     reply.header("Content-Type", "text/plain; version=0.0.4");

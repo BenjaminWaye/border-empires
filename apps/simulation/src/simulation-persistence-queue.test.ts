@@ -181,6 +181,51 @@ describe("createSimulationPersistenceQueue", () => {
     expect(onPersistenceFailure).toHaveBeenCalledWith(failure);
   });
 
+  it("emits diagnostics for command status and event store phases", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const onDiagnostic = vi.fn();
+    const queue = createSimulationPersistenceQueue({
+      commandStore,
+      eventStore,
+      onDiagnostic
+    });
+
+    queue.enqueueEvent(
+      {
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "cmd-1",
+        playerId: "player-1",
+        actionType: "EXPAND",
+        originX: 1,
+        originY: 1,
+        targetX: 2,
+        targetY: 1,
+        resolvesAt: 123
+      },
+      100
+    );
+
+    await queue.whenIdle();
+
+    expect(onDiagnostic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "command_status",
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "cmd-1",
+        failed: false
+      })
+    );
+    expect(onDiagnostic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "event_store",
+        eventType: "COMMAND_ACCEPTED",
+        commandId: "cmd-1",
+        failed: false
+      })
+    );
+  });
+
   it("retries a transient event-store timeout and does not report a fatal failure when recovery succeeds", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();

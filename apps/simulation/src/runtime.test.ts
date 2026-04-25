@@ -1757,6 +1757,67 @@ describe("simulation runtime", () => {
     expect(seen[0]).toBe("COMMAND_ACCEPTED:human-cmd");
   });
 
+  it("reports queue drain diagnostics with lane attribution", async () => {
+    const scheduled: Array<() => void> = [];
+    const onQueueDrain = vi.fn();
+    const runtime = new SimulationRuntime({
+      seedProfile: "stress-10ai",
+      scheduleSoon: (task) => {
+        scheduled.push(task);
+      },
+      onQueueDrain,
+      now: (() => {
+        let current = 1_000;
+        return () => {
+          current += 25;
+          return current;
+        };
+      })()
+    });
+
+    runtime.submitCommand({
+      commandId: "ai-cmd",
+      sessionId: "ai-runtime:ai-1",
+      playerId: "ai-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 5, fromY: 0, toX: 4, toY: 0 })
+    });
+    runtime.submitCommand({
+      commandId: "human-cmd",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 4, fromY: 4, toX: 5, toY: 4 })
+    });
+
+    for (const task of scheduled) task();
+    await Promise.resolve();
+
+    expect(onQueueDrain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        processedJobs: 2,
+        processedByLane: expect.objectContaining({
+          human_interactive: 1,
+          ai: 1
+        }),
+        queueDepthsBefore: expect.objectContaining({
+          human_interactive: 1,
+          ai: 1
+        }),
+        queueDepthsAfter: {
+          human_interactive: 0,
+          human_noninteractive: 0,
+          system: 0,
+          ai: 0
+        }
+      })
+    );
+  });
+
   it("hydrates recovered tile ownership into authoritative startup state", () => {
     const runtime = new SimulationRuntime({
       initialState: {
