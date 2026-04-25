@@ -18,6 +18,8 @@ describe("simulation metrics", () => {
     metrics.observeSimGcPauseMs(3);
     metrics.observeSimGcPauseMs(12);
     metrics.incrementSimAiPlannerBreaches();
+    metrics.observeSimAiNoop("no_frontier_targets", "ai-4");
+    metrics.observeSimAiNoop("insufficient_manpower_for_attack", "ai-2");
 
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 8);
     metrics.observeSimCommandAcceptLatencyMs("human_interactive", 12);
@@ -35,6 +37,9 @@ describe("simulation metrics", () => {
     expect(sample.simTickDurationMs.system.p95).toBe(11);
     expect(sample.simHumanInteractiveBacklogMs).toBe(240);
     expect(sample.simAiPlannerBreaches).toBe(1);
+    expect(sample.simAiNoopTotalByReason.no_frontier_targets).toBe(1);
+    expect(sample.simAiNoopTotalByReason.insufficient_manpower_for_attack).toBe(1);
+    expect(sample.simAiNoopRecent).toContain("ai-4:no_frontier_targets");
     expect(sample.simCheckpointRssMb).toBe(321.5);
     expect(sample.simCpuPercent).toBe(37.2);
     expect(sample.simHeapUsedMb).toBe(82);
@@ -51,5 +56,6 @@ describe("simulation metrics", () => {
     expect(exposition).toContain("sim_cpu_percent 37.200");
     expect(exposition).toContain('sim_gc_pause_ms{quantile="p95"}');
     expect(exposition).toContain('sim_command_accept_latency_ms{lane="human_interactive",quantile="p95"}');
+    expect(exposition).toContain('sim_ai_noop_total{reason="no_frontier_targets"} 1');
   });
 });
