@@ -211,7 +211,11 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     | ReturnType<typeof createClientThreeTerrainRenderer>
     | undefined;
   const prefersRewrite3DDefault = state.activeBackend === "gateway" && !rendererModeExplicitlySet;
-  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || prefersRewrite3DDefault;
+  const localhost3DDefault =
+    typeof window !== "undefined" &&
+    window.location.hostname === "localhost" &&
+    !rendererModeExplicitlySet;
+  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || prefersRewrite3DDefault || localhost3DDefault;
   const ensureThreeTerrainRenderer = (): void => {
     if (!shouldUseThreeTerrainRenderer) return;
     if (!state.authSessionReady) return;
@@ -224,6 +228,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
         wrapX,
         wrapY,
         terrainAt,
+        effectiveOverlayColor,
         tileVisibilityStateAt
       });
       setTrue3DRendererActive(true);
@@ -238,6 +243,8 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } =>
     threeTerrainRenderer?.worldTileRawFromPointer(offsetX, offsetY) ?? deps.worldTileRawFromPointerFromModule(state, canvas, offsetX, offsetY);
+  const projectedWorldToScreen = (wx: number, wy: number, size: number, halfW: number, halfH: number): { sx: number; sy: number } =>
+    threeTerrainRenderer?.worldToScreen(wx, wy) ?? worldToScreen(wx, wy, size, halfW, halfH);
 
   const computeDragPreview = (): void =>
     deps.computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor, hasCollectableYield });
@@ -591,7 +598,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     isTownSupportHighlightableTile: originSelection.isTownSupportHighlightableTile,
     drawIncomingAttackOverlay: deps.drawIncomingAttackOverlay,
     settlePixelWanderPoint: settlePixelWanderPointFromModule,
-    worldToScreen,
+    worldToScreen: projectedWorldToScreen,
     isDockRouteVisibleForPlayer,
     computeDockSeaRoute,
     toroidDelta,

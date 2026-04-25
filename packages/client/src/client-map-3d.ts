@@ -1,9 +1,10 @@
-import { AmbientLight, BoxGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, DirectionalLight, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshStandardMaterial, OrthographicCamera, RepeatWrapping, SRGBColorSpace, Scene, Vector3, WebGLRenderer } from "three";
+import { AmbientLight, BoxGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, EdgesGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Matrix4, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PlaneGeometry, RepeatWrapping, SRGBColorSpace, Scene, Vector3, WebGLRenderer } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import type { Tile, TileVisibilityState } from "./client-types.js";
 import { isForestTile } from "./client-constants.js";
 import { terrainShadeVariantAt } from "./client-map-3d-terrain-variation.js";
+import { normalizeColorForThree } from "./client-three-color.js";
 
 type ClientThreeTerrainRendererDeps = {
   state: ClientState;
@@ -12,6 +13,7 @@ type ClientThreeTerrainRendererDeps = {
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
   terrainAt: (x: number, y: number) => Tile["terrain"];
+  effectiveOverlayColor: (ownerId: string) => string;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
 };
 
@@ -22,6 +24,9 @@ const TILE_CENTER_OFFSET = 0.5;
 const CAMERA_HEIGHT = 100;
 const CAMERA_TILT_DEGREES_FROM_VERTICAL = 14;
 const MOUNTAIN_SQUARE_PEAK_ROTATION_RADIANS = Math.PI / 4;
+const LAND_TILE_TOP_Y = 0.37;
+const OWNERSHIP_SURFACE_Y = LAND_TILE_TOP_Y + 0.004;
+const MARKER_SURFACE_Y = LAND_TILE_TOP_Y + 0.02;
 
 const LEGACY_TEXTURE_SIZE = 64;
 const clamp255 = (value: number): number => Math.max(0, Math.min(255, Math.round(value)));
@@ -211,6 +216,21 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   });
   const forestCanopyMaterial = new MeshStandardMaterial({ color: "#6a8574", roughness: 0.88, metalness: 0, flatShading: true });
   const forestTrunkMaterial = new MeshStandardMaterial({ color: "#a56b58", roughness: 0.8, metalness: 0, flatShading: true });
+  const ownershipSettledMaterial = new MeshBasicMaterial({
+    color: "#ffffff",
+    transparent: false,
+    depthWrite: false,
+    depthTest: false,
+    side: DoubleSide
+  });
+  const ownershipFrontierMaterial = new MeshBasicMaterial({
+    color: "#ffffff",
+    transparent: true,
+    opacity: 0.68,
+    depthWrite: false,
+    depthTest: false,
+    side: DoubleSide
+  });
 
   const seaGeometry = new BoxGeometry(1, 0.2, 1);
   const coastSeaGeometry = new BoxGeometry(1, 0.2, 1);
@@ -220,6 +240,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const mountainSnowCapGeometry = new ConeGeometry(0.19, 0.34, 4, 1, false);
   const forestGeometry = new ConeGeometry(0.22, 0.92, 5, 1, false);
   const forestTrunkGeometry = new CylinderGeometry(0.075, 0.085, 0.7, 6);
+  const ownershipGeometry = new PlaneGeometry(1, 1);
 
   const seaMesh = new InstancedMesh(seaGeometry, seaMaterial, MAX_VISIBLE_TILES);
   const coastSeaMesh = new InstancedMesh(coastSeaGeometry, coastSeaMaterial, MAX_VISIBLE_TILES);
@@ -233,17 +254,73 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const mountainSnowCapMesh = new InstancedMesh(mountainSnowCapGeometry, mountainSnowCapMaterial, MAX_VISIBLE_TILES);
   const forestMesh = new InstancedMesh(forestGeometry, forestCanopyMaterial, MAX_FOREST_INSTANCES);
   const forestTrunkMesh = new InstancedMesh(forestTrunkGeometry, forestTrunkMaterial, MAX_FOREST_INSTANCES);
+  const ownershipSettledMesh = new InstancedMesh(ownershipGeometry, ownershipSettledMaterial, MAX_VISIBLE_TILES);
+  const ownershipFrontierMesh = new InstancedMesh(ownershipGeometry, ownershipFrontierMaterial, MAX_VISIBLE_TILES);
   const markerEdgesGeometry = new EdgesGeometry(new BoxGeometry(1, 0.04, 1));
   const selectedMarker = new LineSegments(
     markerEdgesGeometry,
-    new LineBasicMaterial({ color: "#f6f0d5", transparent: true, opacity: 0.88 })
+    new LineBasicMaterial({ color: "#f6f0d5", transparent: true, opacity: 0.88, depthTest: false, depthWrite: false })
   );
   const hoverMarker = new LineSegments(
     markerEdgesGeometry,
-    new LineBasicMaterial({ color: "#d5ecff", transparent: true, opacity: 0.65 })
+    new LineBasicMaterial({ color: "#d5ecff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false })
   );
+  const townSupportMarkers = Array.from({ length: 8 }, () => {
+    const material = new LineBasicMaterial({ color: "#f0f4ff", transparent: true, opacity: 0.56, depthTest: false, depthWrite: false });
+    const marker = new LineSegments(markerEdgesGeometry, material);
+    marker.visible = false;
+    return { marker, material };
+  });
+  const queuedActionMarkers = Array.from({ length: 64 }, () => {
+    const material = new LineBasicMaterial({ color: "#a78bfa", transparent: true, opacity: 0.93, depthTest: false, depthWrite: false });
+    const marker = new LineSegments(markerEdgesGeometry, material);
+    marker.visible = false;
+    return { marker, material };
+  });
+  const queuedSettlementMarkers = Array.from({ length: 64 }, () => {
+    const material = new LineBasicMaterial({ color: "#fbbf24", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+    const marker = new LineSegments(markerEdgesGeometry, material);
+    marker.visible = false;
+    return { marker, material };
+  });
+  const queuedBuildMarkers = Array.from({ length: 64 }, () => {
+    const material = new LineBasicMaterial({ color: "#7dd3fc", transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+    const marker = new LineSegments(markerEdgesGeometry, material);
+    marker.visible = false;
+    return { marker, material };
+  });
   selectedMarker.visible = false;
   hoverMarker.visible = false;
+  selectedMarker.renderOrder = 30;
+  hoverMarker.renderOrder = 31;
+  for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
+  for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
+  for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
+  for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
+  for (const mesh of [
+    seaMesh,
+    coastSeaMesh,
+    landMeshA,
+    landMeshB,
+    landMeshC,
+    sandMeshA,
+    sandMeshB,
+    sandMeshC,
+    mountainPeakMesh,
+    mountainSnowCapMesh,
+    forestMesh,
+    forestTrunkMesh,
+    ownershipSettledMesh,
+    ownershipFrontierMesh
+  ]) {
+    mesh.frustumCulled = false;
+  }
+  selectedMarker.frustumCulled = false;
+  hoverMarker.frustumCulled = false;
+  for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
+  for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
+  for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
+  for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
 
   seaMesh.count = 0;
   coastSeaMesh.count = 0;
@@ -257,6 +334,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   mountainSnowCapMesh.count = 0;
   forestMesh.count = 0;
   forestTrunkMesh.count = 0;
+  ownershipSettledMesh.count = 0;
+  ownershipFrontierMesh.count = 0;
   scene.add(
     seaMesh,
     coastSeaMesh,
@@ -270,8 +349,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainSnowCapMesh,
     forestMesh,
     forestTrunkMesh,
+    ownershipSettledMesh,
+    ownershipFrontierMesh,
     selectedMarker,
-    hoverMarker
+    hoverMarker,
+    ...townSupportMarkers.map(({ marker }) => marker),
+    ...queuedActionMarkers.map(({ marker }) => marker),
+    ...queuedSettlementMarkers.map(({ marker }) => marker),
+    ...queuedBuildMarkers.map(({ marker }) => marker)
   );
 
   const tempMatrix = new Matrix4();
@@ -280,6 +365,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const forestTrunkScaleMatrix = new Matrix4();
   const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0 };
   let rafId: number | undefined;
+  let lastOwnershipDebugSignature = "";
+  const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
+    typeof window !== "undefined" ? (window as Window & { __be3dOwnershipDebug?: unknown }) : undefined;
+  const shouldDebugOwnership = (): boolean =>
+    typeof window !== "undefined" && window.location.hostname === "localhost";
 
   const mountainJitter = (_wx: number, _wy: number): { x: number; z: number; y: number } => {
     return {
@@ -292,6 +382,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const terrainForWorldTile = (wx: number, wy: number): Tile["terrain"] => {
     const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
     return tile?.terrain ?? deps.terrainAt(wx, wy);
+  };
+  const emitOwnershipDebug = (payload: Record<string, unknown>): void => {
+    if (!shouldDebugOwnership()) return;
+    const signature = JSON.stringify(payload);
+    if (signature === lastOwnershipDebugSignature) return;
+    lastOwnershipDebugSignature = signature;
+    const debugTarget = ownershipDebugWindow();
+    if (debugTarget) debugTarget.__be3dOwnershipDebug = payload;
+    console.info("[3d-ownership-debug]", payload);
   };
   const isCoastalSea = (wx: number, wy: number): boolean => {
     if (terrainForWorldTile(wx, wy) !== "SEA") return false;
@@ -339,6 +438,98 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
     marker.position.set(dx + TILE_CENTER_OFFSET, height, dy + TILE_CENTER_OFFSET);
     marker.visible = true;
+  };
+  const isTownSupportHighlightableAt = (wx: number, wy: number): boolean => {
+    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+    const terrain = tile?.terrain ?? deps.terrainAt(wx, wy);
+    if (terrain !== "LAND") return false;
+    if (tile?.dockId) return false;
+    return true;
+  };
+  const syncTownSupportMarkers = (): void => {
+    for (const { marker } of townSupportMarkers) marker.visible = false;
+    const selectedCoord = deps.state.selected;
+    if (!selectedCoord) return;
+    const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
+    if (!selected?.town) return;
+    let markerIndex = 0;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        if (markerIndex >= townSupportMarkers.length) return;
+        const wx = deps.wrapX(selected.x + dx);
+        const wy = deps.wrapY(selected.y + dy);
+        if (!isTownSupportHighlightableAt(wx, wy)) continue;
+        const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+        const { marker, material } = townSupportMarkers[markerIndex]!;
+        if (!tile?.ownerId) {
+          material.color.set("#f4f7ff");
+          material.opacity = 0.45;
+        } else if (tile.ownerId !== deps.state.me) {
+          material.color.set("#ff6262");
+          material.opacity = 0.66;
+        } else if (tile.ownershipState === "SETTLED") {
+          material.color.set("#9bf274");
+          material.opacity = 0.9;
+        } else {
+          material.color.set("#ffcd5c");
+          material.opacity = 0.84;
+        }
+        const sx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH);
+        const sy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT);
+        marker.position.set(sx + TILE_CENTER_OFFSET, MARKER_SURFACE_Y, sy + TILE_CENTER_OFFSET);
+        marker.visible = true;
+        markerIndex += 1;
+      }
+    }
+  };
+  const hideLineMarkerPool = (pool: Array<{ marker: LineSegments }>): void => {
+    for (const { marker } of pool) marker.visible = false;
+  };
+  const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => {
+    const [xRaw, yRaw] = tileKey.split(",");
+    const x = Number(xRaw);
+    const y = Number(yRaw);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+    return { x, y };
+  };
+  const placeLineMarkers = (
+    pool: Array<{ marker: LineSegments }>,
+    tiles: Array<{ x: number; y: number }>,
+    yOffset: number
+  ): void => {
+    hideLineMarkerPool(pool);
+    let index = 0;
+    for (const tile of tiles) {
+      if (index >= pool.length) break;
+      const { marker } = pool[index]!;
+      const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
+      const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
+      marker.position.set(dx + TILE_CENTER_OFFSET, yOffset, dy + TILE_CENTER_OFFSET);
+      marker.visible = true;
+      index += 1;
+    }
+  };
+  const syncQueueMarkers = (): void => {
+    const actionTiles: Array<{ x: number; y: number }> = [];
+    const inFlight = deps.state.actionInFlight ? parseTileKey(deps.state.actionTargetKey) : undefined;
+    if (inFlight) actionTiles.push(inFlight);
+    for (const action of deps.state.actionQueue) {
+      if (!action) continue;
+      if (!Number.isFinite(action.x) || !Number.isFinite(action.y)) continue;
+      actionTiles.push({ x: action.x, y: action.y });
+    }
+    placeLineMarkers(queuedActionMarkers, actionTiles, MARKER_SURFACE_Y);
+    const settlementTiles: Array<{ x: number; y: number }> = [];
+    const buildTiles: Array<{ x: number; y: number }> = [];
+    for (const entry of deps.state.developmentQueue) {
+      if (!entry) continue;
+      if (!Number.isFinite(entry.x) || !Number.isFinite(entry.y)) continue;
+      if (entry.kind === "SETTLE") settlementTiles.push({ x: entry.x, y: entry.y });
+      if (entry.kind === "BUILD") buildTiles.push({ x: entry.x, y: entry.y });
+    }
+    placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_SURFACE_Y);
+    placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_SURFACE_Y);
   };
 
   const applyCamera = (): void => {
@@ -390,6 +581,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     let mountainSnowCapCount = 0;
     let forestCount = 0;
     let forestTrunkCount = 0;
+    let ownershipSettledCount = 0;
+    let ownershipFrontierCount = 0;
+    const selectedCoord = deps.state.selected;
+    let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
       for (let dx = -halfW - 1; dx <= halfW + 1; dx += 1) {
@@ -402,6 +597,25 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
         const forestTile = isForestTile(wx, wy);
+        const ownerId = tile?.ownerId;
+        const ownershipState = tile?.ownershipState;
+        const isOwnedLand = terrain === "LAND" && Boolean(ownerId) && visibility === "visible";
+        if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y) {
+          const playerColor = ownerId ? deps.state.playerColors.get(ownerId) : undefined;
+          const effectiveColor = ownerId ? deps.effectiveOverlayColor(ownerId) : undefined;
+          const normalizedColor = effectiveColor ? normalizeColorForThree(effectiveColor) : undefined;
+          selectedOwnershipDebug = {
+            selected: { x: wx, y: wy },
+            terrain,
+            visibility,
+            ownerId: ownerId ?? null,
+            ownershipState: ownershipState ?? null,
+            playerColor: playerColor ?? null,
+            effectiveColor: effectiveColor ?? null,
+            normalizedColor: normalizedColor ?? null,
+            isOwnedLand
+          };
+        }
         if (terrain === "SEA") {
           tempMatrix.makeTranslation(x, -0.1, z);
           if (isCoastalSea(wx, wy)) {
@@ -476,7 +690,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             landCountC += 1;
           }
         }
-        if (forestTile) {
+          if (forestTile) {
           const trunkOzBias = 0.04;
           const forestTreeLayout = [
             { ox: -0.26, oz: -0.24, canopyScale: 0.84, trunkScale: 0.9, trunkY: 0.56, canopyY: 1.1 },
@@ -499,8 +713,32 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             forestCount += 1;
           }
         }
+        if (isOwnedLand && ownerId) {
+          tempMatrix.makeRotationX(-Math.PI / 2);
+          tempMatrix.setPosition(x, OWNERSHIP_SURFACE_Y, z);
+          const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
+          const ownerColor = new Color(normalizedColor);
+          if (ownershipState === "FRONTIER") {
+            ownershipFrontierMesh.setMatrixAt(ownershipFrontierCount, tempMatrix);
+            ownershipFrontierMesh.setColorAt(ownershipFrontierCount, ownerColor);
+            ownershipFrontierCount += 1;
+          } else {
+            ownershipSettledMesh.setMatrixAt(ownershipSettledCount, tempMatrix);
+            ownershipSettledMesh.setColorAt(ownershipSettledCount, ownerColor);
+            ownershipSettledCount += 1;
+          }
+          if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
+            selectedOwnershipDebug = {
+              ...selectedOwnershipDebug,
+              renderedOwnershipLayer: true,
+              renderedOwnershipColor: `#${ownerColor.getHexString()}`
+            };
+          }
+        }
       }
     }
+
+    if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
     seaMesh.count = seaCount;
     coastSeaMesh.count = coastSeaCount;
@@ -514,6 +752,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainSnowCapMesh.count = mountainSnowCapCount;
     forestMesh.count = forestCount;
     forestTrunkMesh.count = forestTrunkCount;
+    ownershipSettledMesh.count = ownershipSettledCount;
+    ownershipFrontierMesh.count = ownershipFrontierCount;
     seaMesh.instanceMatrix.needsUpdate = true;
     coastSeaMesh.instanceMatrix.needsUpdate = true;
     landMeshA.instanceMatrix.needsUpdate = true;
@@ -526,6 +766,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainSnowCapMesh.instanceMatrix.needsUpdate = true;
     forestMesh.instanceMatrix.needsUpdate = true;
     forestTrunkMesh.instanceMatrix.needsUpdate = true;
+    ownershipSettledMesh.instanceMatrix.needsUpdate = true;
+    ownershipFrontierMesh.instanceMatrix.needsUpdate = true;
+    if (ownershipSettledMesh.instanceColor) ownershipSettledMesh.instanceColor.needsUpdate = true;
+    if (ownershipFrontierMesh.instanceColor) ownershipFrontierMesh.instanceColor.needsUpdate = true;
   };
 
   const maybeRebuild = (nowMs: number): void => {
@@ -554,8 +798,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const nowMs = performance.now();
     maybeRebuild(nowMs);
     // Keep marker nearly coplanar with tile tops so tilt does not introduce screen-space offset.
-    syncHighlightMarker(selectedMarker, deps.state.selected, 0.39);
-    syncHighlightMarker(hoverMarker, deps.state.hover, 0.385);
+    syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_SURFACE_Y);
+    syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_SURFACE_Y);
+    syncTownSupportMarkers();
+    syncQueueMarkers();
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -582,6 +828,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     };
   };
 
+  const worldToScreen = (wx: number, wy: number): { sx: number; sy: number } => {
+    const dx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+    const dy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+    const projected = new Vector3(dx, LAND_TILE_TOP_Y, dy).project(camera);
+    return {
+      sx: (projected.x * 0.5 + 0.5) * deps.canvas.width,
+      sy: (-projected.y * 0.5 + 0.5) * deps.canvas.height
+    };
+  };
+
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     renderer.dispose();
@@ -593,6 +849,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainSnowCapGeometry.dispose();
     forestGeometry.dispose();
     forestTrunkGeometry.dispose();
+    ownershipGeometry.dispose();
     seaMaterial.dispose();
     coastSeaMaterial.dispose();
     landMaterialA.dispose();
@@ -610,7 +867,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainSnowCapMaterial.dispose();
     forestCanopyMaterial.dispose();
     forestTrunkMaterial.dispose();
+    ownershipSettledMaterial.dispose();
+    ownershipFrontierMaterial.dispose();
     markerEdgesGeometry.dispose();
+    for (const { material } of townSupportMarkers) material.dispose();
+    for (const { material } of queuedActionMarkers) material.dispose();
+    for (const { material } of queuedSettlementMarkers) material.dispose();
+    for (const { material } of queuedBuildMarkers) material.dispose();
     glCanvas.remove();
     delete deps.canvas.dataset.renderer;
   };
@@ -621,6 +884,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   return {
     resize,
     stop,
-    worldTileRawFromPointer
+    worldTileRawFromPointer,
+    worldToScreen
   };
 };

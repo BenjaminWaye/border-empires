@@ -360,7 +360,6 @@ export const createServerPlayerRuntimeSupport = (
 
   const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefined => {
     let player = deps.players.get(identity.playerId);
-    if (!player) player = [...deps.players.values()].find((entry) => entry.name === identity.name);
     if (!player) {
       player = {
         id: crypto.randomUUID(),
