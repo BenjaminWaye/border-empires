@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
+import { buildPlannerRelevantTileKeys } from "./planner-sync-scope.js";
+import type { PlannerPlayerView } from "./planner-world-view.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -44,6 +46,8 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const tileDeltaSyncDebounceMs = Math.max(20, Math.min(150, Math.floor(tickIntervalMs / 2)));
   const shouldRun = options.shouldRun ?? (() => true);
   const systemPlayerIdSet = new Set(options.systemPlayerIds);
+  const plannerPlayersById = new Map<string, PlannerPlayerView>();
+  let relevantTileKeys = new Set<string>();
 
   const nextClientSeqByPlayer = new Map<string, number>(
     options.systemPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
@@ -73,9 +77,12 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     pendingRequests.clear();
   });
 
+  const initialWorldView = options.runtime.exportPlannerWorldView(options.systemPlayerIds);
+  for (const player of initialWorldView.players) plannerPlayersById.set(player.id, player);
+  relevantTileKeys = buildPlannerRelevantTileKeys(initialWorldView.players);
   worker.postMessage({
     type: "init",
-    worldView: options.runtime.exportPlannerWorldView(options.systemPlayerIds)
+    worldView: initialWorldView
   });
 
   const pendingPlayerSyncIds = new Set<string>();
@@ -85,9 +92,12 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
 
   const syncPlayers = (playerIds: string[]): void => {
     if (playerIds.length === 0) return;
+    const players = options.runtime.exportPlannerPlayerViews(playerIds);
+    for (const player of players) plannerPlayersById.set(player.id, player);
+    relevantTileKeys = buildPlannerRelevantTileKeys([...plannerPlayersById.values()]);
     worker.postMessage({
       type: "sync_players",
-      players: options.runtime.exportPlannerPlayerViews(playerIds)
+      players
     });
   };
 
@@ -119,7 +129,11 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const queueTileDeltas = (tileDeltas: readonly SimulationTileDelta[]): void => {
     for (const tileDelta of tileDeltas) {
       if (!Number.isFinite(tileDelta.x) || !Number.isFinite(tileDelta.y)) continue;
-      pendingTileDeltasByKey.set(`${tileDelta.x},${tileDelta.y}`, tileDelta);
+      const tileKey = `${tileDelta.x},${tileDelta.y}`;
+      if (!relevantTileKeys.has(tileKey) && !(typeof tileDelta.ownerId === "string" && systemPlayerIdSet.has(tileDelta.ownerId))) {
+        continue;
+      }
+      pendingTileDeltasByKey.set(tileKey, tileDelta);
     }
     if (pendingTileDeltasByKey.size === 0 || tileDeltaSyncTimeout) return;
     tileDeltaSyncTimeout = setTimeout(flushPendingTileDeltas, tileDeltaSyncDebounceMs);
