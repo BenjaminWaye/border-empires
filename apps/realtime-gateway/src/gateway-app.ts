@@ -218,6 +218,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let lastCpuUsage = process.cpuUsage();
   const pendingGcDurationsMs: number[] = [];
   const pendingInputToStateByCommandId = new Map<string, number>();
+  const controlPathEventNames = new Set([
+    "gateway_auth",
+    "gateway_auth_binding_override",
+    "gateway_auth_binding_confirmed",
+    "gateway_auth_binding_failed",
+    "gateway_auth_subscribe_ready",
+    "gateway_auth_subscribe_failed",
+    "simulation_command_rejected_unavailable",
+    "simulation_submit_failed",
+    "simulation_event_stream_disconnected",
+    "gateway_websocket_message_failed"
+  ]);
   let gcObserver: PerformanceObserver | undefined;
   try {
     gcObserver = new PerformanceObserver((list) => {
@@ -236,6 +248,62 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     lastCpuUsage = process.cpuUsage();
     lastCpuSampleAt = at;
     return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
+  };
+  const buildPendingInputToStateEvents = (): Array<{
+    at: number;
+    level: "info" | "warn" | "error";
+    event: string;
+    payload: Record<string, unknown>;
+  }> =>
+    [...pendingInputToStateByCommandId.entries()]
+      .map(([commandId, submittedAt]) => {
+        const ageMs = Date.now() - submittedAt;
+        return {
+          at: submittedAt,
+          level: (ageMs >= 5_000 ? "warn" : "info") as const,
+          event: "pending_input_to_state",
+          payload: {
+            commandId,
+            ageMs,
+            simulationConnected: simulationHealth.connected,
+            simulationLastError: simulationHealth.lastError ?? ""
+          }
+        };
+      })
+      .sort((left, right) => left.at - right.at);
+  const buildAttackDebug = () => {
+    const recentEvents = [...recentGatewayEvents];
+    const pendingEvents = buildPendingInputToStateEvents();
+    return {
+      controlPath: recentEvents.filter((event) => controlPathEventNames.has(event.event)),
+      hotPath: [...recentEvents.filter((event) => typeof event.payload.commandId === "string"), ...pendingEvents].sort(
+        (left, right) => left.at - right.at
+      ),
+      slowOrWarn: [...recentEvents.filter((event) => event.level !== "info"), ...pendingEvents.filter((event) => event.level !== "info")].sort(
+        (left, right) => left.at - right.at
+      )
+    };
+  };
+  const buildAttackTraces = () => {
+    const grouped = new Map<string, Array<{ at: number; level: "info" | "warn" | "error"; event: string; payload: Record<string, unknown> }>>();
+    for (const event of [...recentGatewayEvents, ...buildPendingInputToStateEvents()]) {
+      const commandId = typeof event.payload.commandId === "string" ? event.payload.commandId : undefined;
+      if (!commandId) continue;
+      const existing = grouped.get(commandId);
+      if (existing) existing.push(event);
+      else grouped.set(commandId, [event]);
+    }
+    return [...grouped.entries()]
+      .map(([traceId, events]) => {
+        const sortedEvents = [...events].sort((left, right) => left.at - right.at);
+        return {
+          traceId,
+          firstAt: sortedEvents[0]?.at ?? 0,
+          lastAt: sortedEvents[sortedEvents.length - 1]?.at ?? 0,
+          events: sortedEvents
+        };
+      })
+      .sort((left, right) => right.lastAt - left.lastAt);
   };
   let simulationHealthTimer: ReturnType<typeof setInterval> | undefined;
   const markSimulationReady = (): void => {
@@ -392,6 +460,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     ...(legacySnapshotBootstrap ? { runtimeIdentity: legacySnapshotBootstrap.runtimeIdentity } : {}),
     supportedMessageTypes: [...supportedClientMessageTypes],
     recentEvents: () => [...recentGatewayEvents],
+    attackDebug: buildAttackDebug,
+    attackTraces: buildAttackTraces,
     metrics: () => gatewayMetrics.renderPrometheus()
   });
 
