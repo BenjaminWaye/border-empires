@@ -10,7 +10,8 @@ import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 export const buildPlayerSubscriptionSnapshot = (
   playerId: string,
   runtimeState: ReturnType<SimulationRuntime["exportState"]>,
-  fallbackTiles?: Iterable<DomainTileState>
+  fallbackTiles?: Iterable<DomainTileState>,
+  options?: { disableFog?: boolean }
 ): PlayerSubscriptionSnapshot => {
   const sourceTiles =
     runtimeState.tiles.length > 0
@@ -93,8 +94,7 @@ export const buildPlayerSubscriptionSnapshot = (
     if (target) visibleKeys.add(keyFor(target.x, target.y));
   }
 
-  const tiles = sourceTiles
-    .filter((tile) => visibleKeys.has(keyFor(tile.x, tile.y)))
+  const tiles = (options?.disableFog ? sourceTiles : sourceTiles.filter((tile) => visibleKeys.has(keyFor(tile.x, tile.y))))
     .sort((left, right) => (left.x - right.x) || (left.y - right.y));
   const pendingSettlements = runtimeState.pendingSettlements
     .filter((settlement) => settlement.ownerId === playerId)

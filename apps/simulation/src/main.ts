@@ -27,6 +27,7 @@ const service = await createSimulationService({
   startupRecoveryTimeoutMs: runtimeEnv.startupRecoveryTimeoutMs,
   allowSeedRecoveryFallback: runtimeEnv.allowSeedRecoveryFallback,
   useAiWorker: runtimeEnv.useAiWorker,
+  disableFog: runtimeEnv.disableFog,
   ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {})
 });
 
