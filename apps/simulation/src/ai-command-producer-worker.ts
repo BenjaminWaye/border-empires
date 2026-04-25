@@ -244,7 +244,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     }
   };
 
-  const intervalHandle = setInterval(() => { void tick(); }, tickIntervalMs);
+  const intervalHandle = setInterval(() => {
+    void tick();
+  }, tickIntervalMs);
 
   return {
     tick,

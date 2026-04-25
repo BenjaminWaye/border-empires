@@ -14,6 +14,7 @@ type AiCommandProducerOptions = {
   pendingCommandTimeoutMs?: number;
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
+  onTick?: (sample: { durationMs: number }) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
   clearIntervalFn?: (handle: ReturnType<typeof setInterval>) => void;
 };
@@ -64,6 +65,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     if (!shouldRun()) return;
     if (hasHumanInteractiveBacklog(options.runtime.queueDepths())) return;
     tickInFlight = true;
+    const tickStartedAt = now();
     try {
       if (options.aiPlayerIds.length === 0) return;
       clearExpiredPendingCommands();
@@ -90,6 +92,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         return;
       }
     } finally {
+      options.onTick?.({ durationMs: Math.max(0, now() - tickStartedAt) });
       tickInFlight = false;
     }
   };
