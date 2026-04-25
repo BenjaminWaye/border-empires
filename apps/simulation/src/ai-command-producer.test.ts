@@ -144,6 +144,41 @@ describe("ai command producer", () => {
     expect(submitCommand).not.toHaveBeenCalled();
   });
 
+  it("reports diagnostics when planning returns no command", async () => {
+    const onNoCommand = vi.fn();
+    const producer = createAiCommandProducer({
+      runtime: {
+        chooseNextAutomationCommand: vi.fn(() => undefined),
+        explainNextAutomationCommand: vi.fn(() => ({
+          diagnostic: {
+            playerId: "ai-1",
+            sessionPrefix: "ai-runtime",
+            settlementEligible: false,
+            settlementCandidateFound: false,
+            frontierEnemyTargetCount: 0,
+            frontierNeutralTargetCount: 0,
+            canAttack: false,
+            canExpand: false,
+            noCommandReason: "no_frontier_targets" as const
+          }
+        })),
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        onEvent: () => () => undefined
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onNoCommand,
+      tickIntervalMs: 10_000
+    });
+
+    await producer.tick();
+    producer.close();
+
+    expect(onNoCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ playerId: "ai-1", noCommandReason: "no_frontier_targets" })
+    );
+  });
+
   it("releases stale pending AI commands so one stuck player does not freeze forever", async () => {
     let nowMs = 1_000;
     const submittedPlayers: string[] = [];

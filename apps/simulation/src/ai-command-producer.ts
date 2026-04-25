@@ -1,10 +1,18 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
+import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 
 type AiCommandProducerOptions = {
-  runtime: Pick<SimulationRuntime, "chooseNextAutomationCommand" | "queueDepths" | "onEvent">;
+  runtime: Pick<SimulationRuntime, "chooseNextAutomationCommand" | "queueDepths" | "onEvent"> & {
+    explainNextAutomationCommand?: (
+      playerId: string,
+      clientSeq: number,
+      issuedAt: number,
+      sessionPrefix: "ai-runtime" | "system-runtime"
+    ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
+  };
   aiPlayerIds: string[];
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   shouldRun?: () => boolean;
@@ -15,6 +23,7 @@ type AiCommandProducerOptions = {
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
+  onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   setIntervalFn?: (task: () => void, intervalMs: number) => ReturnType<typeof setInterval>;
   clearIntervalFn?: (handle: ReturnType<typeof setInterval>) => void;
 };
@@ -76,16 +85,21 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
         const nextClientSeq = nextClientSeqByPlayer.get(playerId) ?? 1;
         const issuedAt = now();
         const plannerStartedAt = now();
-        const command = options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime");
+        const plan = options.runtime.explainNextAutomationCommand
+          ? options.runtime.explainNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime")
+          : { command: options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime") };
         const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
         const breached = plannerDurationMs > plannerBreachThresholdMs;
         options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
-        if (!command) continue;
-        pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
+        if (!plan.command && "diagnostic" in plan && plan.diagnostic) {
+          options.onNoCommand?.(plan.diagnostic);
+        }
+        if (!plan.command) continue;
+        pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, startedAt: issuedAt });
         nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
         nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
         try {
-          await options.submitCommand(command);
+          await options.submitCommand(plan.command);
         } catch {
           pendingCommandByPlayer.delete(playerId);
         }

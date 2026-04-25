@@ -60,7 +60,6 @@ import {
   TERRAIN_SHAPING_CRYSTAL_COST,
   TERRAIN_SHAPING_GOLD_COST
 } from "@border-empires/game-domain";
-import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
 import {
   DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES,
   DEFAULT_MAX_TERMINAL_COMMAND_REPLAY_HISTORY,
@@ -90,6 +89,11 @@ import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
 import type { PlannerPlayerView, PlannerWorldView } from "./planner-world-view.js";
 import { buildPlannerTileSlice } from "./planner-world-view-slice.js";
+import {
+  createAutomationNoopDiagnostic,
+  planAutomationCommand,
+  type AutomationPlannerDiagnostic
+} from "./automation-command-planner.js";
 
 type LockRecord = {
   commandId: string;
@@ -821,41 +825,46 @@ export class SimulationRuntime {
     });
   }
 
+  explainNextAutomationCommand(
+    playerId: string,
+    clientSeq: number,
+    issuedAt: number,
+    sessionPrefix: "ai-runtime" | "system-runtime"
+  ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
+    const player = this.players.get(playerId);
+    if (!player) {
+      return {
+        diagnostic: createAutomationNoopDiagnostic(playerId, sessionPrefix, "player_missing")
+      };
+    }
+    const summary = this.summaryForPlayer(playerId);
+    return planAutomationCommand({
+      playerId,
+      points: player.points,
+      manpower: player.manpower,
+      hasActiveLock: [...this.locksByTile.values()].some((lock) => lock.playerId === playerId),
+      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+      frontierTiles: [...summary.frontierTileKeys]
+        .map((tileKey) => this.tiles.get(tileKey))
+        .filter((tile): tile is DomainTileState => tile !== undefined),
+      ownedTiles: [...summary.territoryTileKeys]
+        .map((tileKey) => this.tiles.get(tileKey))
+        .filter((tile): tile is DomainTileState => tile !== undefined),
+      tilesByKey: this.tiles,
+      isPendingSettlement: (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y)),
+      clientSeq,
+      issuedAt,
+      sessionPrefix
+    });
+  }
+
   chooseNextAutomationCommand(
     playerId: string,
     clientSeq: number,
     issuedAt: number,
     sessionPrefix: "ai-runtime" | "system-runtime"
   ): CommandEnvelope | undefined {
-    const player = this.players.get(playerId);
-    if (!player) return undefined;
-    const summary = this.summaryForPlayer(playerId);
-    if (
-      sessionPrefix === "ai-runtime" &&
-      summary.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
-      player.points >= SETTLE_COST
-    ) {
-      const nextFrontierTile = chooseBestStrategicSettlementTile(
-        playerId,
-        [...summary.frontierTileKeys]
-          .map((tileKey) => this.tiles.get(tileKey))
-          .filter((tile): tile is DomainTileState => tile !== undefined),
-        this.tiles,
-        (tile) => summary.pendingSettlementsByTile.has(simulationTileKey(tile.x, tile.y))
-      );
-      if (nextFrontierTile) {
-        return {
-          commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
-          sessionId: `${sessionPrefix}:${playerId}`,
-          playerId,
-          clientSeq,
-          issuedAt,
-          type: "SETTLE",
-          payloadJson: JSON.stringify({ x: nextFrontierTile.x, y: nextFrontierTile.y })
-        };
-      }
-    }
-    return this.chooseNextOwnedFrontierCommand(playerId, clientSeq, issuedAt, sessionPrefix);
+    return this.explainNextAutomationCommand(playerId, clientSeq, issuedAt, sessionPrefix).command;
   }
 
   submitCommand(command: CommandEnvelope): void {
