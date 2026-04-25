@@ -38,6 +38,7 @@ import {
   createServerWorldgenTowns,
   assignMissingTownNames
 } from "@border-empires/game-domain";
+import type { DockRouteDefinition } from "./dock-network.js";
 
 export type GeneratedSeedPlayerSummary = {
   playerId: string;
@@ -49,6 +50,7 @@ export type GeneratedSeedPlayerSummary = {
 export type GeneratedSeasonSeedWorld = {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
+  docks: DockRouteDefinition[];
   humanPlayers: number;
   aiPlayers: number;
   totalTiles: number;
@@ -59,6 +61,7 @@ export type GeneratedSeasonSeedWorld = {
 
 const tileKey = (x: number, y: number): TileKey => `${x},${y}`;
 const noOp = (): void => {};
+type GeneratedDockState = DockRouteDefinition & { tileKey: TileKey };
 const emptyResourceCounts = (): Record<ResourceType, number> => ({
   FARM: 0,
   FISH: 0,
@@ -271,8 +274,8 @@ export const createSeason20AiSeedWorld = (
   const clusterByTile = new Map<TileKey, string>();
   const clustersById = new Map<string, ClusterDefinition>();
   const townsByTile = new Map<TileKey, TownDefinition>();
-  const docksByTile = new Map<TileKey, { dockId: string; tileKey: TileKey }>();
-  const dockById = new Map<string, { dockId: string; tileKey: TileKey }>();
+  const docksByTile = new Map<TileKey, GeneratedDockState>();
+  const dockById = new Map<string, GeneratedDockState>();
   const shardSitesByTile = new Map<TileKey, ShardSiteState>();
   const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
   const ownership = new Map<TileKey, string>();
@@ -529,6 +532,12 @@ export const createSeason20AiSeedWorld = (
   return {
     players,
     tiles,
+    docks: [...dockById.values()].map((dock) => ({
+      dockId: dock.dockId,
+      tileKey: dock.tileKey,
+      pairedDockId: dock.pairedDockId,
+      ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+    })),
     humanPlayers: 1,
     aiPlayers: 20,
     totalTiles: tiles.size,

@@ -2,6 +2,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
+import type { DockRouteDefinition } from "./dock-network.js";
 import type { PendingSettlementRecord } from "./player-runtime-summary.js";
 
 type RecoveredTileState = {
@@ -36,6 +37,7 @@ export type RecoveredLock = {
 
 export type RecoveredSimulationState = {
   tiles: RecoveredTileState[];
+  docks?: DockRouteDefinition[];
   activeLocks: RecoveredLock[];
   players?: Array<{
     id: string;
@@ -59,6 +61,7 @@ export type RecoveredSimulationState = {
 
 type RecoveredSimulationAccumulator = {
   tiles: Map<string, RecoveredTileState>;
+  docks: DockRouteDefinition[];
   activeLocks: Map<string, RecoveredLock>;
   players: NonNullable<RecoveredSimulationState["players"]>;
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
@@ -96,6 +99,7 @@ export const createRecoveredSimulationAccumulator = (
   }
   return {
     tiles,
+    docks: baseState.docks ? baseState.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) : [],
     activeLocks,
     players: baseState.players ? [...baseState.players] : [],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
@@ -148,6 +152,7 @@ export const finalizeRecoveredSimulationAccumulator = (
   tiles: [...accumulator.tiles.values()]
     .map((tile) => cloneRecoveredTile(tile))
     .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+  ...(accumulator.docks.length ? { docks: accumulator.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) } : {}),
   activeLocks: [...accumulator.activeLocks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId)),
   players: [...accumulator.players],
   pendingSettlements: [...accumulator.pendingSettlements],
@@ -158,12 +163,14 @@ export const finalizeRecoveredSimulationAccumulator = (
 export const recoverSimulationStateFromEvents = (
   events: SimulationEvent[],
   seedProfile: SimulationSeedProfile = "default"
-): RecoveredSimulationState =>
-  applySimulationEventsToRecoveredState(
+): RecoveredSimulationState => {
+  const seedWorld = createSeedWorld(seedProfile);
+  return applySimulationEventsToRecoveredState(
     {
-      tiles: [...createSeedWorld(seedProfile).tiles.values()]
+      tiles: [...seedWorld.tiles.values()]
         .map((tile) => cloneRecoveredTile(tile))
         .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+      docks: seedWorld.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })),
       activeLocks: [],
       players: [],
       pendingSettlements: [],
@@ -172,6 +179,7 @@ export const recoverSimulationStateFromEvents = (
     },
     events
   );
+};
 
 export const applySimulationEventsToRecoveredState = (
   baseState: RecoveredSimulationState,
