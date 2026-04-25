@@ -302,4 +302,60 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
     expect(snapshot.player?.upkeepPerMinute?.food).toBeGreaterThan(0.1);
   });
+
+  it("keeps settlement food upkeep at zero in rewrite economy snapshots", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            type: "FARMING",
+            populationTier: "SETTLEMENT",
+            name: "Nauticus",
+            population: 900,
+            maxPopulation: 2_500,
+            connectedTownCount: 0,
+            connectedTownBonus: 0
+          }),
+          townType: "FARMING",
+          townName: "Nauticus",
+          townPopulationTier: "SETTLEMENT"
+        }
+      ],
+      players: [
+        {
+          id: "player-1",
+          name: "Nauticus",
+          points: 12,
+          manpower: 120,
+          incomeMultiplier: 1,
+          techIds: [],
+          domainIds: [],
+          strategicResources: { FOOD: 3 },
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+
+    const townTile = snapshot.tiles.find((tile) => tile.x === 10 && tile.y === 10);
+    const town = townTile?.townJson ? JSON.parse(townTile.townJson) : undefined;
+
+    expect(town).toEqual(
+      expect.objectContaining({
+        populationTier: "SETTLEMENT",
+        foodUpkeepPerMinute: 0
+      })
+    );
+    expect(snapshot.player?.upkeepPerMinute?.food).toBe(0);
+    expect(snapshot.player?.economyBreakdown?.FOOD.sinks).toEqual([]);
+  });
 });
