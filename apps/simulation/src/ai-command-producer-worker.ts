@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
+import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { buildPlannerRelevantTileKeys } from "./planner-sync-scope.js";
 import type { PlannerPlayerView } from "./planner-world-view.js";
 
@@ -37,6 +38,7 @@ type WorkerAiCommandProducerOptions = {
   plannerBreachThresholdMs?: number;
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
+  onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -78,6 +80,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     const message = msg as Record<string, unknown>;
     if (message.type === "command") {
       const key = message.playerId as string;
+      if (!message.command && message.diagnostic) {
+        options.onNoCommand?.(message.diagnostic as AutomationPlannerDiagnostic);
+      }
       const resolve = pendingRequests.get(key);
       if (resolve) {
         pendingRequests.delete(key);

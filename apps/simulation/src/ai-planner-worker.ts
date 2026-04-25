@@ -16,19 +16,17 @@
  *   { type: "shutdown" }
  *
  * Message protocol (worker → main):
- *   { type: "command"; playerId: string; command: CommandEnvelope | null }
+ *   { type: "command"; playerId: string; command: CommandEnvelope | null;
+ *     diagnostic?: AutomationPlannerDiagnostic }
  *   { type: "ready" }
  */
 
 import { parentPort } from "node:worker_threads";
 import {
-  ATTACK_MANPOWER_MIN,
-  DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST,
-  SETTLE_COST
-} from "@border-empires/shared";
-import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
+  createAutomationNoopDiagnostic,
+  planAutomationCommand
+} from "./automation-command-planner.js";
+import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
@@ -142,65 +140,33 @@ const choosePlannerCommand = (
   playerId: string,
   clientSeq: number,
   issuedAt: number
-): CommandEnvelope | null => {
+): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
   const player = playersById.get(playerId);
-  if (!player) return null;
-  if (player.hasActiveLock) return null;
-
-  // Cast to the shape expected by existing pure functions.
-  // PlannerTileView is structurally compatible with what frontier-command-planner
-  // and ai-settlement-priority read (they only access: x, y, terrain, ownerId,
-  // ownershipState, resource, dockId, town.supportMax/Current).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tilesAsGame = tilesByKey as unknown as any;
-
-  // Settlement check (mirror of SimulationRuntime.chooseNextAutomationCommand)
-  const canSettle =
-    player.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
-    player.points >= SETTLE_COST;
-
-  if (canSettle) {
-    const { frontierTiles, pendingSettlementTileKeys } = resolvePlayerTiles(player);
-    const best = chooseBestStrategicSettlementTile(
-      playerId,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      frontierTiles as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tilesAsGame as any,
-      (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`)
-    );
-    if (best) {
-      return {
-        commandId: `ai-runtime-${playerId}-${clientSeq}-${issuedAt}`,
-        sessionId: `ai-runtime:${playerId}`,
-        playerId,
-        clientSeq,
-        issuedAt,
-        type: "SETTLE",
-        payloadJson: JSON.stringify({ x: best.x, y: best.y })
-      };
-    }
+  if (!player) {
+    return {
+      command: null,
+      diagnostic: createAutomationNoopDiagnostic(playerId, "ai-runtime", "player_missing")
+    };
   }
-
-  // Frontier command (attack / expand)
-  const { ownedTiles } = resolvePlayerTiles(player);
-
-  const canAttack = player.points >= FRONTIER_CLAIM_COST && player.manpower >= ATTACK_MANPOWER_MIN;
-  const canExpand = player.points >= FRONTIER_CLAIM_COST;
-
-  if (!canAttack && !canExpand) return null;
-
-  return chooseNextOwnedFrontierCommandFromLookup(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tilesByKey as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ownedTiles as any,
+  const { frontierTiles, ownedTiles, pendingSettlementTileKeys } = resolvePlayerTiles(player);
+  const plan = planAutomationCommand({
     playerId,
+    points: player.points,
+    manpower: player.manpower,
+    hasActiveLock: player.hasActiveLock,
+    activeDevelopmentProcessCount: player.activeDevelopmentProcessCount,
+    frontierTiles,
+    ownedTiles,
+    tilesByKey,
+    isPendingSettlement: (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`),
     clientSeq,
     issuedAt,
-    "ai-runtime",
-    { canAttack, canExpand }
-  ) ?? null;
+    sessionPrefix: "ai-runtime"
+  });
+  return {
+    command: plan.command ?? null,
+    diagnostic: plan.diagnostic
+  };
 };
 
 // ─── Message handler ──────────────────────────────────────────────────────────
@@ -228,12 +194,12 @@ parentPort.on("message", (msg: unknown) => {
         break;
       }
       try {
-        const command = choosePlannerCommand(
+        const plan = choosePlannerCommand(
           message.playerId as string,
           message.clientSeq as number,
           message.issuedAt as number
         );
-        parentPort!.postMessage({ type: "command", playerId: message.playerId, command });
+        parentPort!.postMessage({ type: "command", playerId: message.playerId, command: plan.command, diagnostic: plan.diagnostic });
       } catch (err) {
         parentPort!.postMessage({
           type: "error",
