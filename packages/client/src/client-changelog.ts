@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.25.1",
+  version: "2026.04.26.1",
   title: "What's New",
-  summary: "Recent updates include tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include settlement upkeep staying at zero until a tile becomes a real town, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.1",
+      title: "Settlements no longer pay town food upkeep before they become real towns",
+      why: "Settlement tiles were meant to match ordinary settled land for food upkeep, but some settlement records could still surface the base town upkeep line even though upkeep should only begin at the town stage.",
+      changes: [
+        "Settlement-flagged towns now stay at 0 food upkeep per minute instead of inheriting the base town upkeep path.",
+        "Tile economy summaries continue to show food upkeep starting at towns, cities, and larger population tiers only.",
+        "Added a regression guard so settlement identity keeps the zero-upkeep rule even if other town-tier logic changes later."
+      ]
+    },
     {
       introducedIn: "2026.04.25.1",
       title: "Planner workers now ignore irrelevant tile churn outside their current territory scope",
