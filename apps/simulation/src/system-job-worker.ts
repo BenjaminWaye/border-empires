@@ -25,6 +25,7 @@ import {
   ATTACK_MANPOWER_MIN,
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
+import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
 import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
@@ -33,6 +34,7 @@ if (!parentPort) throw new Error("system-job-worker must run inside a Worker thr
 
 let paused = false;
 const tilesByKey = new Map<string, PlannerTileView>();
+let dockLinksByDockTileKey = new Map<string, readonly string[]>();
 const playersById = new Map<string, PlannerPlayerView>();
 const playerTileCacheById = new Map<string, {
   tileCollectionVersion: number;
@@ -132,15 +134,13 @@ const chooseSystemCommand = (
   if (!canAttack && !canExpand) return null;
 
   return chooseNextOwnedFrontierCommandFromLookup(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tilesByKey as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ownedTiles as any,
+    tilesByKey,
+    ownedTiles,
     playerId,
     clientSeq,
     issuedAt,
     "system-runtime",
-    { canAttack, canExpand }
+    { canAttack, canExpand, dockLinksByDockTileKey }
   ) ?? null;
 };
 
@@ -193,6 +193,7 @@ parentPort.on("message", (msg: unknown) => {
       for (const tile of worldView.tiles) {
         tilesByKey.set(`${tile.x},${tile.y}`, tile);
       }
+      dockLinksByDockTileKey = buildDockLinksByDockTileKey((worldView.docks ?? []) as DockRouteDefinition[]);
       for (const player of worldView.players) {
         playersById.set(player.id, player);
       }

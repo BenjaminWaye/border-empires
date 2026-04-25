@@ -19,11 +19,38 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { SimulationRuntime } from "./runtime.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { buildPlannerRelevantTileKeys } from "./planner-sync-scope.js";
-import type { PlannerPlayerView } from "./planner-world-view.js";
+import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
 type SimulationTileDelta = TileDeltaBatchEvent["tileDeltas"][number];
+
+const mergePlannerTileDelta = (
+  existing: PlannerTileView | undefined,
+  tileDelta: SimulationTileDelta
+): PlannerTileView | undefined => {
+  const terrain = tileDelta.terrain ?? existing?.terrain;
+  if (!terrain) return undefined;
+  const next: PlannerTileView = existing ? { ...existing } : { x: tileDelta.x, y: tileDelta.y, terrain };
+  if (tileDelta.terrain) next.terrain = tileDelta.terrain;
+  if ("resource" in tileDelta) {
+    if (tileDelta.resource) next.resource = tileDelta.resource;
+    else delete next.resource;
+  }
+  if ("dockId" in tileDelta) {
+    if (tileDelta.dockId) next.dockId = tileDelta.dockId;
+    else delete next.dockId;
+  }
+  if ("ownerId" in tileDelta) {
+    if (tileDelta.ownerId) next.ownerId = tileDelta.ownerId;
+    else delete next.ownerId;
+  }
+  if ("ownershipState" in tileDelta) {
+    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState;
+    else delete next.ownershipState;
+  }
+  return next;
+};
 
 type WorkerAiCommandProducerOptions = {
   runtime: Pick<SimulationRuntime, "queueDepths" | "onEvent" | "exportPlannerWorldView" | "exportPlannerPlayerViews">;
@@ -59,6 +86,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const plannerBreachThresholdMs = Math.max(1, options.plannerBreachThresholdMs ?? 50);
   const aiPlayerIdSet = new Set(options.aiPlayerIds);
   const plannerPlayersById = new Map<string, PlannerPlayerView>();
+  const plannerTilesByKey = new Map<string, PlannerTileView>();
   let relevantTileKeys = new Set<string>();
 
   const nextClientSeqByPlayer = new Map<string, number>(
@@ -100,7 +128,10 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
   const initialWorldView = options.runtime.exportPlannerWorldView(options.aiPlayerIds);
   for (const player of initialWorldView.players) plannerPlayersById.set(player.id, player);
-  relevantTileKeys = buildPlannerRelevantTileKeys(initialWorldView.players);
+  for (const tile of initialWorldView.tiles) {
+    plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
+  }
+  relevantTileKeys = buildPlannerRelevantTileKeys(initialWorldView);
   worker.postMessage({
     type: "init",
     worldView: initialWorldView
@@ -115,7 +146,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     if (playerIds.length === 0) return;
     const players = options.runtime.exportPlannerPlayerViews(playerIds);
     for (const player of players) plannerPlayersById.set(player.id, player);
-    relevantTileKeys = buildPlannerRelevantTileKeys([...plannerPlayersById.values()]);
+    relevantTileKeys = buildPlannerRelevantTileKeys({
+      players: [...plannerPlayersById.values()],
+      tiles: [...plannerTilesByKey.values()],
+      ...(initialWorldView.docks ? { docks: initialWorldView.docks } : {})
+    });
     worker.postMessage({
       type: "sync_players",
       players
@@ -155,6 +190,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         continue;
       }
       pendingTileDeltasByKey.set(tileKey, tileDelta);
+      const nextTile = mergePlannerTileDelta(plannerTilesByKey.get(tileKey), tileDelta);
+      if (nextTile) plannerTilesByKey.set(tileKey, nextTile);
     }
     if (pendingTileDeltasByKey.size === 0 || tileDeltaSyncTimeout) return;
     tileDeltaSyncTimeout = setTimeout(flushPendingTileDeltas, tileDeltaSyncDebounceMs);
