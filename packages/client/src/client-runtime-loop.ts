@@ -169,6 +169,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
+    const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
+    const debugSelected = state.selected;
+    const canvasOverlayDebug: Array<Record<string, unknown>> = [];
     const queueIndex = new Map<string, number>();
     const queuedBuildIndex = new Map<string, number>();
     const settleQueueIndex = new Map<string, number>();
@@ -559,7 +562,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
 
-      if (t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
+      if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
         deps.ctx.strokeStyle = "rgba(20, 26, 36, 0.58)";
         deps.ctx.lineWidth = 1;
         deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
@@ -652,7 +655,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       } else if (state.selected) {
         const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
-        if (selected?.town && deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) && deps.isTownSupportHighlightableTile(t)) {
+        if (
+          !isTrue3DRendererActive() &&
+          selected?.town &&
+          deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) &&
+          deps.isTownSupportHighlightableTile(t)
+        ) {
           if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
           else if (!t?.ownerId) deps.ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
           else if (t.ownerId !== state.me) deps.ctx.strokeStyle = "rgba(255, 98, 98, 0.65)";
@@ -719,7 +727,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       const queuedN = queueIndex.get(wk);
-      if (queuedN !== undefined) {
+      if (!isTrue3DRendererActive() && queuedN !== undefined) {
         deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
         deps.ctx.lineWidth = 2;
         deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
@@ -734,7 +742,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
       const queuedSettlementN = settleQueueIndex.get(wk);
-      if (queuedSettlementN !== undefined && !settlementProgress) {
+      if (!isTrue3DRendererActive() && queuedSettlementN !== undefined && !settlementProgress) {
         deps.ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
         deps.ctx.lineWidth = 2;
         deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
@@ -751,7 +759,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
       const queuedBuildN = queuedBuildIndex.get(wk);
-      if (queuedBuildN !== undefined && !settlementProgress) {
+      if (!isTrue3DRendererActive() && queuedBuildN !== undefined && !settlementProgress) {
         deps.ctx.strokeStyle = "rgba(122, 214, 255, 0.95)";
         deps.ctx.lineWidth = 2;
         deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
@@ -776,8 +784,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const t = state.tiles.get(wk);
         const settlementProgress = t ? deps.settlementProgressForTile(wx, wy) : undefined;
         const vis = deps.tileVisibilityStateAt(wx, wy, t);
-        const px = (x + halfW) * size;
-        const py = (y + halfH) * size;
+        const screenCenter = isTrue3DRendererActive() ? deps.worldToScreen(wx, wy, size, halfW, halfH) : undefined;
+        const px = screenCenter ? screenCenter.sx - size / 2 : (x + halfW) * size;
+        const py = screenCenter ? screenCenter.sy - size / 2 : (y + halfH) * size;
         let ownerAlpha = 1;
 
         if (vis === "unexplored") {
@@ -802,9 +811,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (t && vis === "visible" && t.terrain === "LAND") deps.drawForestOverlay(wx, wy, px, py, size);
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
           deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
-          ownerAlpha = t.ownershipState === "FRONTIER" ? 0.2 : 0.92;
+          ownerAlpha =
+            t.ownershipState === "FRONTIER" ? (isTrue3DRendererActive() ? 0.08 : 0.2)
+            : isTrue3DRendererActive() ? 0.24
+            : 0.92;
           if (typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now()) {
             ownerAlpha = Math.min(ownerAlpha, 0.62);
           }
@@ -815,6 +827,34 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         overlayTiles.push({ wx, wy, wk, px, py, vis, t, settlementProgress });
+        if (
+          isTrue3DRendererActive() &&
+          debugSelected &&
+          Math.abs(wx - debugSelected.x) <= 1 &&
+          Math.abs(wy - debugSelected.y) <= 1
+        ) {
+          const selected = state.tiles.get(deps.keyFor(debugSelected.x, debugSelected.y));
+          canvasOverlayDebug.push({
+            x: wx,
+            y: wy,
+            terrain: t?.terrain ?? terrainAt(wx, wy),
+            visibility: vis,
+            ownerId: t?.ownerId ?? null,
+            ownershipState: t?.ownershipState ?? null,
+            selectedTile: debugSelected.x === wx && debugSelected.y === wy,
+            supportNeighbor: Boolean(
+              selected?.town &&
+              deps.isTownSupportNeighbor(wx, wy, debugSelected.x, debugSelected.y) &&
+              deps.isTownSupportHighlightableTile(t)
+            ),
+            queue: queueIndex.get(wk) ?? null,
+            queueSettlement: settleQueueIndex.get(wk) ?? null,
+            queueBuild: queuedBuildIndex.get(wk) ?? null,
+            hasSettlementProgress: Boolean(settlementProgress),
+            hover: Boolean(state.hover && state.hover.x === wx && state.hover.y === wy),
+            dragPreview: state.dragPreviewKeys.has(wk)
+          });
+        }
         if (roadNetworkBuiltAt >= 0) continue;
 
         const isDockEndpoint = dockEndpointKeys.has(wk);
@@ -1033,7 +1073,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
 
-        if (t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
           deps.ctx.strokeStyle = "rgba(20, 26, 36, 0.58)";
           deps.ctx.lineWidth = 1;
           deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
@@ -1126,7 +1166,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         } else if (state.selected) {
           const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
-          if (selected?.town && deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) && deps.isTownSupportHighlightableTile(t)) {
+          if (
+            !isTrue3DRendererActive() &&
+            selected?.town &&
+            deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) &&
+            deps.isTownSupportHighlightableTile(t)
+          ) {
             if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
             else if (!t?.ownerId) deps.ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
             else if (t.ownerId !== state.me) deps.ctx.strokeStyle = "rgba(255, 98, 98, 0.65)";
@@ -1193,7 +1238,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         const queuedN = queueIndex.get(wk);
-        if (queuedN !== undefined) {
+        if (!isTrue3DRendererActive() && queuedN !== undefined) {
           deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
           deps.ctx.lineWidth = 2;
           deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
@@ -1208,7 +1253,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
         const queuedSettlementN = settleQueueIndex.get(wk);
-        if (queuedSettlementN !== undefined && !settlementProgress) {
+        if (!isTrue3DRendererActive() && queuedSettlementN !== undefined && !settlementProgress) {
           deps.ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
           deps.ctx.lineWidth = 2;
           deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
@@ -1225,7 +1270,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
         const queuedBuildN = queuedBuildIndex.get(wk);
-        if (queuedBuildN !== undefined && !settlementProgress) {
+        if (!isTrue3DRendererActive() && queuedBuildN !== undefined && !settlementProgress) {
           deps.ctx.strokeStyle = "rgba(122, 214, 255, 0.95)";
           deps.ctx.lineWidth = 2;
           deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
@@ -1252,6 +1297,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile);
+
+    if (debugWindow && isTrue3DRendererActive() && debugSelected) {
+      debugWindow.__be3dCanvasOverlayDebug = {
+        selected: debugSelected,
+        tiles: canvasOverlayDebug
+      };
+    }
 
     const selectedWorld = deps.selectedTile();
     if (selectedWorld && selectedWorld.observatory) {
