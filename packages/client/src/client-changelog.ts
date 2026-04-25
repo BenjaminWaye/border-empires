@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.1",
+  version: "2026.04.26.2",
   title: "What's New",
-  summary: "Recent updates include settlement upkeep staying at zero until a tile becomes a real town, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include a rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.2",
+      title: "Rewrite settlements now stay at zero food upkeep until town stage",
+      why: "The earlier settlement upkeep fix landed in the legacy server path, but rewrite economy snapshots were still charging settlement tiles the base 0.1 food upkeep instead of starting upkeep at the town stage.",
+      changes: [
+        "Rewrite simulation economy now treats settlement-tier towns as 0 food upkeep per minute, so ordinary settled land and settlements no longer diverge.",
+        "Rewrite player snapshots and gateway tile detail keep settlement upkeep rows out of the food sink breakdown until a tile reaches town tier.",
+        "Added rewrite regression coverage so settlement food upkeep stays at zero across the simulation snapshot and gateway detail paths."
+      ]
+    },
     {
       introducedIn: "2026.04.26.1",
       title: "Settlements no longer pay town food upkeep before they become real towns",
