@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
@@ -58,6 +59,7 @@ type RealtimeGatewayAppOptions = {
   createCommandId?: () => string;
   now?: () => number;
   simulationSubscribeTimeoutMs?: number;
+  simulationSubmitTimeoutMs?: number;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -184,6 +186,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     options.simulationSubscribeTimeoutMs ?? Number(process.env.GATEWAY_SIMULATION_SUBSCRIBE_TIMEOUT_MS ?? 8_000)
   );
   const simulationPingTimeoutMs = Math.max(1_500, Number(process.env.GATEWAY_SIMULATION_PING_TIMEOUT_MS ?? 20_000));
+  const simulationSubmitTimeoutMs = Math.max(
+    500,
+    options.simulationSubmitTimeoutMs ??
+      Number(process.env.GATEWAY_SIMULATION_SUBMIT_TIMEOUT_MS ?? Math.min(simulationPingTimeoutMs, 2_500))
+  );
   const simulationWakeMaxAttempts = Math.max(1, Number(process.env.GATEWAY_SIMULATION_WAKE_MAX_ATTEMPTS ?? 12));
   const simulationWakeBaseDelayMs = Math.max(100, Number(process.env.GATEWAY_SIMULATION_WAKE_BASE_DELAY_MS ?? 500));
   const simulationWakeMaxDelayMs = Math.max(simulationWakeBaseDelayMs, Number(process.env.GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS ?? 5_000));
@@ -207,6 +214,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let gatewayEventLoopTimer: ReturnType<typeof setInterval> | undefined;
   let gatewayEventLoopWindowMaxMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
+  let lastCpuSampleAt = Date.now();
+  let lastCpuUsage = process.cpuUsage();
+  const pendingGcDurationsMs: number[] = [];
+  const pendingInputToStateByCommandId = new Map<string, number>();
+  let gcObserver: PerformanceObserver | undefined;
+  try {
+    gcObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (Number.isFinite(entry.duration) && entry.duration >= 0) pendingGcDurationsMs.push(entry.duration);
+      }
+    });
+    gcObserver.observe({ entryTypes: ["gc"] });
+  } catch {
+    gcObserver = undefined;
+  }
+  const sampleCpuPercent = (): number => {
+    const at = Date.now();
+    const elapsedMicros = Math.max(1, at - lastCpuSampleAt) * 1_000;
+    const cpuUsage = process.cpuUsage(lastCpuUsage);
+    lastCpuUsage = process.cpuUsage();
+    lastCpuSampleAt = at;
+    return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
+  };
   let simulationHealthTimer: ReturnType<typeof setInterval> | undefined;
   const markSimulationReady = (): void => {
     simulationHealth.connected = true;
@@ -425,6 +455,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const stopSimulationStream = simulationClient.streamEvents(
     (event: SimulationClientEvent) => {
       markSimulationReady();
+      const submittedAt = pendingInputToStateByCommandId.get(event.commandId);
+      if (typeof submittedAt === "number") {
+        gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(Date.now() - submittedAt);
+        pendingInputToStateByCommandId.delete(event.commandId);
+      }
       const sockets =
         event.eventType === "TILE_DELTA_BATCH" && !event.commandId.startsWith("bootstrap:")
           ? playerSubscriptions.allSockets()
@@ -615,6 +650,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     const now = Date.now();
     const lagMs = Math.max(0, now - expectedEventLoopTickAt);
     gatewayEventLoopWindowMaxMs = Math.max(gatewayEventLoopWindowMaxMs, lagMs);
+    gatewayMetrics.observeGatewayEventLoopDelayMs(lagMs);
     expectedEventLoopTickAt = now + 100;
   }, 100);
   gatewayMetricsTimer = setInterval(() => {
@@ -622,12 +658,35 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     gatewayEventLoopWindowMaxMs = 0;
     gatewayMetrics.setGatewayWsSessions(playerSubscriptions.allSockets().size);
     gatewayMetrics.setGatewayBackendConnected(simulationHealth.connected);
+    gatewayMetrics.setGatewayCpuPercent(sampleCpuPercent());
+    const memory = process.memoryUsage();
+    gatewayMetrics.setGatewayMemoryUsageMb({
+      rssMb: memory.rss / (1024 * 1024),
+      heapUsedMb: memory.heapUsed / (1024 * 1024),
+      heapTotalMb: memory.heapTotal / (1024 * 1024)
+    });
+    if (pendingGcDurationsMs.length > 0) {
+      for (const durationMs of pendingGcDurationsMs.splice(0)) {
+        gatewayMetrics.observeGatewayGcPauseMs(durationMs);
+      }
+    }
+    const staleBeforeMs = Date.now() - 120_000;
+    for (const [commandId, submittedAt] of pendingInputToStateByCommandId.entries()) {
+      if (submittedAt < staleBeforeMs) pendingInputToStateByCommandId.delete(commandId);
+    }
     const sample = gatewayMetrics.snapshot();
     app.log.info(
       {
         gateway_event_loop_max_ms: sample.gatewayEventLoopMaxMs,
+        gateway_event_loop_delay_ms: sample.gatewayEventLoopDelayMs,
         gateway_ws_sessions: sample.gatewayWsSessions,
         gateway_backend_connected: sample.gatewayBackendConnected,
+        gateway_cpu_percent: sample.gatewayCpuPercent,
+        gateway_rss_mb: sample.gatewayRssMb,
+        gateway_heap_used_mb: sample.gatewayHeapUsedMb,
+        gateway_heap_total_mb: sample.gatewayHeapTotalMb,
+        gateway_gc_pause_ms: sample.gatewayGcPauseMs,
+        gateway_input_to_state_update_latency_ms: sample.gatewayInputToStateUpdateLatencyMs,
         gateway_command_submit_latency_ms: sample.gatewayCommandSubmitLatencyMs,
         gateway_sim_rpc_latency_ms: sample.gatewaySimRpcLatencyMs
       },
@@ -639,6 +698,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
+    gcObserver?.disconnect();
     stopSimulationStream();
   });
 
@@ -752,7 +812,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 });
               }
             } catch (error) {
-              markSimulationUnavailable(error);
+              // A single slow subscribe can time out even when simulation is otherwise
+              // reachable; avoid globally flipping health based on one auth path failure.
               recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
                 playerId: playerIdentity.playerId,
                 error: error instanceof Error ? error.message : String(error)
@@ -1028,6 +1089,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
+          if (!simulationHealth.connected) {
+            recordGatewayEvent("warn", "simulation_command_rejected_unavailable", {
+              messageType: message.type,
+              simulationLastError: simulationHealth.lastError ?? ""
+            });
+            sendJson(socket, {
+              type: "ERROR",
+              code: "SERVER_STARTING",
+              message: "Realtime simulation is temporarily unavailable. Retry shortly."
+            });
+            return;
+          }
+
           const authedSession = {
             sessionId: session.sessionId,
             playerId: session.playerId,
@@ -1037,10 +1111,29 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             createCommandId: options.createCommandId ?? (() => crypto.randomUUID()),
             now: options.now ?? (() => Date.now()),
             commandStore,
+            onCommandSubmitted: (command: { commandId: string }) => {
+              pendingInputToStateByCommandId.set(command.commandId, Date.now());
+            },
+            onCommandSubmitFailed: (commandId: string) => {
+              pendingInputToStateByCommandId.delete(commandId);
+            },
             submitCommand: async (command: Parameters<typeof simulationClient.submitCommand>[0]) => {
               const rpcStartedAt = Date.now();
               try {
-                await simulationClient.submitCommand(command);
+                await withTimeout(
+                  simulationClient.submitCommand(command),
+                  simulationSubmitTimeoutMs,
+                  "gateway submit command"
+                );
+                markSimulationReady();
+              } catch (error) {
+                markSimulationUnavailable(error);
+                recordGatewayEvent("warn", "simulation_submit_failed", {
+                  commandId: command.commandId,
+                  playerId: command.playerId,
+                  error: error instanceof Error ? error.message : String(error)
+                });
+                throw error;
               } finally {
                 gatewayMetrics.observeGatewaySimRpcLatencyMs(Date.now() - rpcStartedAt);
               }

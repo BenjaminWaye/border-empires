@@ -273,7 +273,8 @@ const runIteration = (session, iteration) =>
           message.code === "NOT_ADJACENT" ||
           message.code === "LOCKED" ||
           message.code === "EXPAND_TARGET_OWNED" ||
-          message.code === "BARRIER"
+          message.code === "BARRIER" ||
+          message.code === "EXPAND_COOLDOWN"
         ) {
           if (activePayload) {
             const originKey = tileKey(activePayload.fromX, activePayload.fromY);
@@ -289,6 +290,15 @@ const runIteration = (session, iteration) =>
             }
           }
           sendNextCandidate();
+          return;
+        }
+        if (
+          message.code === "INSUFFICIENT_MANPOWER" ||
+          message.code === "INSUFFICIENT_RESOURCES"
+        ) {
+          // Player-wide resource exhaustion — bail up to outer loop for regen pause.
+          cleanup();
+          reject(new Error(`iteration ${iteration} resource exhausted: ${message.code}`));
           return;
         }
         cleanup();
@@ -324,12 +334,19 @@ const results = [];
 for (let iteration = 1; iteration <= iterations + warmupIterations; iteration += 1) {
   let result;
   let refreshedForIteration = false;
+  let resourcePausesForIteration = 0;
   for (;;) {
     try {
       result = await runIteration(session, iteration);
       break;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("resource exhausted") && resourcePausesForIteration < 3) {
+        // Manpower/resources globally exhausted — pause briefly to let regen catch up.
+        resourcePausesForIteration += 1;
+        await new Promise((resolvePause) => setTimeout(resolvePause, 2500));
+        continue;
+      }
       if (!refreshOnEmptyFrontier || refreshedForIteration || !message.includes("found no frontier action candidate")) {
         throw error;
       }

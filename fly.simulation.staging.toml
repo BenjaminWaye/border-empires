@@ -12,8 +12,10 @@ primary_region = "arn"
   SIMULATION_METRICS_HOST = "0.0.0.0"
   SIMULATION_METRICS_PORT = "50052"
   SIMULATION_SNAPSHOT_EVERY_EVENTS = "5000"
-  SIMULATION_CHECKPOINT_MAX_RSS_MB = "900"
-  SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB = "640"
+  SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS = "12000"
+  SIMULATION_CHECKPOINT_MAX_RSS_MB = "700"
+  SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB = "480"
+  SIMULATION_STARTUP_REPLAY_COMPACTION_MIN_EVENTS = "2000"
   SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS = "15000"
   SIMULATION_STARTUP_RECOVERY_TIMEOUT_MS = "300000"
   SIMULATION_DB_APPLY_SCHEMA = "1"
@@ -21,14 +23,15 @@ primary_region = "arn"
   SIMULATION_ENABLE_AI_AUTOPILOT = "1"
   SIMULATION_ENABLE_SYSTEM_AUTOPILOT = "1"
   SIMULATION_AI_WORKER = "1"
+  SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS = "250"
   SIMULATION_SEED_PROFILE = "season-20ai"
 
 [[services]]
   protocol = "tcp"
   internal_port = 50051
   auto_start_machines = true
-  auto_stop_machines = "suspend"
-  min_machines_running = 0
+  auto_stop_machines = "off"
+  min_machines_running = 1
 
   [[services.ports]]
     handlers = []
@@ -38,8 +41,8 @@ primary_region = "arn"
   protocol = "tcp"
   internal_port = 50052
   auto_start_machines = true
-  auto_stop_machines = "suspend"
-  min_machines_running = 0
+  auto_stop_machines = "off"
+  min_machines_running = 1
 
   [[services.ports]]
     handlers = []

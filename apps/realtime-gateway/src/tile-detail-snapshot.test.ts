@@ -104,6 +104,53 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
+  it("does not add a town food upkeep entry for settlements", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          townJson: JSON.stringify({
+            type: "FARMING",
+            populationTier: "SETTLEMENT",
+            supportCurrent: 0,
+            supportMax: 0,
+            goldPerMinute: 1,
+            cap: 480,
+            isFed: true,
+            population: 900,
+            maxPopulation: 2_500,
+            connectedTownCount: 0,
+            connectedTownBonus: 0,
+            hasMarket: false,
+            marketActive: false,
+            hasGranary: false,
+            granaryActive: false,
+            hasBank: false,
+            bankActive: false,
+            foodUpkeepPerMinute: 0,
+            baseGoldPerMinute: 1
+          }),
+          townType: "FARMING",
+          townPopulationTier: "SETTLEMENT"
+        }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 10, 10);
+
+    expect(detail).toEqual(
+      expect.objectContaining({
+        detailLevel: "full",
+        upkeepEntries: [{ label: "Settled land", perMinute: { GOLD: 0.04 } }]
+      })
+    );
+  });
+
   it("recomputes town support and fed state from surrounding settled tiles for thin town detail", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",

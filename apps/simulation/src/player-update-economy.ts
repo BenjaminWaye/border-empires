@@ -196,6 +196,7 @@ const townPopulationMultiplier = (populationTier: string | undefined): number =>
 };
 
 const townFoodUpkeepPerMinute = (populationTier: string | undefined): number => {
+  if (populationTier === "SETTLEMENT" || !populationTier) return 0;
   switch (populationTier) {
     case "CITY":
       return 0.3;
