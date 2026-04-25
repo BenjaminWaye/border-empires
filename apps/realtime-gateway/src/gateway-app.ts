@@ -55,6 +55,7 @@ type RealtimeGatewayAppOptions = {
   defaultHumanPlayerId?: string;
   simulationSeedProfile?: SimulationSeedProfile;
   allowNonAuthoritativeInitialState?: boolean;
+  disableFog?: boolean;
   snapshotDir?: string;
   createCommandId?: () => string;
   now?: () => number;
@@ -156,6 +157,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     options.allowNonAuthoritativeInitialState ??
     process.env.GATEWAY_ALLOW_SEED_FALLBACK !== "0";
   const simulationSeedProfile = options.simulationSeedProfile ?? "default";
+  const disableFog = options.disableFog ?? process.env.GATEWAY_DISABLE_FOG === "1";
   let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
   if (options.snapshotDir) {
     try {
@@ -841,7 +843,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState
+                socialState,
+                { fogDisabled: disableFog }
               );
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
               session.initSent = true;

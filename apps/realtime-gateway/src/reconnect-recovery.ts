@@ -33,7 +33,8 @@ export const buildInitMessage = (
   seedProfile: SimulationSeedProfile = "default",
   snapshotBootstrap?: LegacySnapshotBootstrap,
   profileOverrides?: PlayerProfileOverrides,
-  socialState?: SocialState
+  socialState?: SocialState,
+  options?: { fogDisabled?: boolean }
 ): Promise<{
   type: "INIT";
   runtimeIdentity: {
@@ -47,7 +48,7 @@ export const buildInitMessage = (
     seededTileCount: number;
   };
   player: Record<string, unknown>;
-  config: { width: number; height: number; season: { seasonId: string; worldSeed: number } };
+  config: { width: number; height: number; season: { seasonId: string; worldSeed: number }; fogDisabled?: boolean };
   recovery: { nextClientSeq: number; pendingCommands: PendingGatewayCommand[] };
   supportedMessageTypes: string[];
   techChoices: string[];
@@ -79,7 +80,7 @@ export const buildInitMessage = (
   ]).then(
     ([nextClientSeqResult, unresolvedCommandsResult]) => {
       const nextClientSeq = nextClientSeqResult.status === "fulfilled" ? nextClientSeqResult.value : 1;
-      const bootstrap = buildGatewayInitPayload(playerIdentity, initialState, seedProfile, snapshotBootstrap);
+      const bootstrap = buildGatewayInitPayload(playerIdentity, initialState, seedProfile, snapshotBootstrap, options);
       if (
         bootstrap.runtimeIdentity.seasonId !== bootstrap.config.season.seasonId ||
         bootstrap.runtimeIdentity.worldSeed !== bootstrap.config.season.worldSeed

@@ -84,7 +84,7 @@ type GatewayInitPayload = {
     homeTile?: { x: number; y: number };
     tileColor?: string;
   };
-  config: { width: number; height: number; season: { seasonId: string; worldSeed: number } };
+  config: { width: number; height: number; season: { seasonId: string; worldSeed: number }; fogDisabled?: boolean };
   techChoices: string[];
   techCatalog: Array<{
     id: string;
@@ -580,7 +580,8 @@ export const buildGatewayInitPayload = (
   playerIdentity: { playerId: string; playerName: string },
   initialState: PlayerSubscriptionSnapshot | undefined,
   seedProfile: SimulationSeedProfile,
-  snapshotBootstrap?: LegacySnapshotBootstrap
+  snapshotBootstrap?: LegacySnapshotBootstrap,
+  options?: { fogDisabled?: boolean }
 ): GatewayInitPayload => {
   const seedWorld = createSeedWorld(seedProfile);
   const bootstrapProfile = snapshotBootstrap?.playerProfiles.get(playerIdentity.playerId);
@@ -719,7 +720,8 @@ export const buildGatewayInitPayload = (
       season: {
         seasonId: snapshotBootstrap?.season?.seasonId ?? `rewrite-${seedProfile}`,
         worldSeed: snapshotBootstrap?.season?.worldSeed ?? simulationWorldSeedForProfile(seedProfile)
-      }
+      },
+      ...(options?.fogDisabled ? { fogDisabled: true } : {})
     },
     techChoices,
     techCatalog: techTree.techs.map((tech) => ({

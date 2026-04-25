@@ -180,6 +180,27 @@ describe("buildInitMessage", () => {
     );
   });
 
+  it("includes fog-disabled config when the gateway enables whole-map inspection", async () => {
+    const store = new InMemoryGatewayCommandStore();
+
+    const init = await buildInitMessage(
+      { playerId: "player-1", playerName: "Nauticus" },
+      store,
+      undefined,
+      "default",
+      undefined,
+      undefined,
+      undefined,
+      { fogDisabled: true }
+    );
+
+    expect(init.config).toEqual(
+      expect.objectContaining({
+        fogDisabled: true
+      })
+    );
+  });
+
   it("falls back to empty recovery state when command-store reads stall", async () => {
     const hangingStore = {
       nextClientSeqForPlayer: async () => await new Promise<number>(() => undefined),

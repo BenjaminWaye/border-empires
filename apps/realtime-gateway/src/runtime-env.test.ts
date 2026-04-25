@@ -11,7 +11,8 @@ describe("realtime gateway runtime env", () => {
       applySchema: false,
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "default",
-      allowNonAuthoritativeInitialState: true
+      allowNonAuthoritativeInitialState: true,
+      disableFog: false
     });
   });
 
@@ -53,7 +54,8 @@ describe("realtime gateway runtime env", () => {
       databaseUrl: "postgres://gateway",
       applySchema: true,
       simulationSeedProfile: "season-20ai",
-      allowNonAuthoritativeInitialState: false
+      allowNonAuthoritativeInitialState: false,
+      disableFog: false
     });
   });
 
@@ -69,7 +71,8 @@ describe("realtime gateway runtime env", () => {
       applySchema: false,
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "season-20ai",
-      allowNonAuthoritativeInitialState: true
+      allowNonAuthoritativeInitialState: true,
+      disableFog: false
     });
   });
 
@@ -90,7 +93,25 @@ describe("realtime gateway runtime env", () => {
       databaseUrl: "postgres://gateway",
       applySchema: false,
       simulationSeedProfile: "season-20ai",
-      allowNonAuthoritativeInitialState: true
+      allowNonAuthoritativeInitialState: true,
+      disableFog: false
+    });
+  });
+
+  it("parses a staging fog-disable override", () => {
+    expect(
+      parseRealtimeGatewayRuntimeEnv({
+        GATEWAY_DISABLE_FOG: "1"
+      })
+    ).toEqual({
+      host: "127.0.0.1",
+      port: 3101,
+      simulationAddress: "127.0.0.1:50051",
+      applySchema: false,
+      defaultHumanPlayerId: "player-1",
+      simulationSeedProfile: "default",
+      allowNonAuthoritativeInitialState: true,
+      disableFog: true
     });
   });
 });

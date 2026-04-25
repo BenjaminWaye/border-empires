@@ -21,6 +21,7 @@ primary_region = "arn"
   GATEWAY_SIMULATION_WAKE_MAX_DELAY_MS = "800"
   GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS = "20000"
   GATEWAY_DB_APPLY_SCHEMA = "1"
+  GATEWAY_DISABLE_FOG = "1"
 
 [http_service]
   internal_port = 8080
