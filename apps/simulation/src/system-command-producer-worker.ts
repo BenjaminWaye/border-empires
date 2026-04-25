@@ -199,7 +199,9 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     }
   };
 
-  const intervalHandle = setInterval(() => { void tick(); }, tickIntervalMs);
+  const intervalHandle = setInterval(() => {
+    void tick();
+  }, tickIntervalMs);
 
   return {
     tick,
