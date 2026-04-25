@@ -97,6 +97,26 @@ const optionalCommandMetadata = (message: unknown): { commandId?: string; client
   };
 };
 
+const readPayloadType = (payload: unknown): string | undefined => {
+  if (!payload || typeof payload !== "object") return undefined;
+  const candidate = payload as { type?: unknown };
+  return typeof candidate.type === "string" ? candidate.type : undefined;
+};
+
+const readPayloadCommandId = (payload: unknown): string | undefined => {
+  if (!payload || typeof payload !== "object") return undefined;
+  const candidate = payload as { commandId?: unknown };
+  return typeof candidate.commandId === "string" ? candidate.commandId : undefined;
+};
+
+const readPayloadTarget = (payload: unknown): { x: number; y: number } | undefined => {
+  if (!payload || typeof payload !== "object") return undefined;
+  const candidate = payload as { target?: unknown };
+  if (!candidate.target || typeof candidate.target !== "object") return undefined;
+  const target = candidate.target as { x?: unknown; y?: unknown };
+  return typeof target.x === "number" && typeof target.y === "number" ? { x: target.x, y: target.y } : undefined;
+};
+
 type PreviewTile = {
   x: number;
   y: number;
@@ -411,6 +431,24 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }>
   >();
   const sessionsBySocket = new WeakMap<import("ws").WebSocket, SocketSession>();
+  const recordCommandSocketDelivery = (
+    event: "gateway_command_payload_sent" | "gateway_command_payload_queued",
+    socket: import("ws").WebSocket,
+    payload: unknown
+  ): void => {
+    const commandId = readPayloadCommandId(payload);
+    if (!commandId) return;
+    const payloadType = readPayloadType(payload);
+    const session = sessionsBySocket.get(socket);
+    const target = readPayloadTarget(payload);
+    recordGatewayEvent("info", event, {
+      commandId,
+      ...(payloadType ? { payloadType } : {}),
+      ...(session?.playerId ? { playerId: session.playerId } : {}),
+      ...(session ? { channel: session.channel, initSent: session.initSent } : {}),
+      ...(target ? { targetX: target.x, targetY: target.y } : {})
+    });
+  };
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter(
       (messageType) =>
@@ -510,9 +548,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     const session = sessionsBySocket.get(socket);
     if (!session || session.initSent) {
       sendJson(socket, payload);
+      recordCommandSocketDelivery("gateway_command_payload_sent", socket, payload);
       return;
     }
     session.pendingPayloads.push(payload);
+    recordCommandSocketDelivery("gateway_command_payload_queued", socket, payload);
   };
 
   const fanoutPlayerPayloads = (payloadsByPlayerId: Map<string, unknown[]>): void => {
@@ -528,6 +568,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const stopSimulationStream = simulationClient.streamEvents(
     (event: SimulationClientEvent) => {
       markSimulationReady();
+      if (!event.commandId.startsWith("bootstrap:")) {
+        recordGatewayEvent("info", "gateway_simulation_event_received", {
+          commandId: event.commandId,
+          playerId: event.playerId,
+          eventType: event.eventType,
+          ...("actionType" in event && typeof event.actionType === "string" ? { actionType: event.actionType } : {}),
+          ...("targetX" in event && typeof event.targetX === "number" ? { targetX: event.targetX } : {}),
+          ...("targetY" in event && typeof event.targetY === "number" ? { targetY: event.targetY } : {}),
+          ...("attackerWon" in event && typeof event.attackerWon === "boolean" ? { attackerWon: event.attackerWon } : {}),
+          ...("tileDeltas" in event && Array.isArray(event.tileDeltas) ? { tileDeltaCount: event.tileDeltas.length } : {})
+        });
+      }
       const submittedAt = pendingInputToStateByCommandId.get(event.commandId);
       if (typeof submittedAt === "number") {
         gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(Date.now() - submittedAt);
@@ -537,7 +589,16 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         event.eventType === "TILE_DELTA_BATCH" && !event.commandId.startsWith("bootstrap:")
           ? playerSubscriptions.allSockets()
           : playerSubscriptions.socketsForPlayer(event.playerId);
-      if (sockets.size === 0) return;
+      if (sockets.size === 0) {
+        if (!event.commandId.startsWith("bootstrap:")) {
+          recordGatewayEvent("warn", "gateway_simulation_event_no_subscribers", {
+            commandId: event.commandId,
+            playerId: event.playerId,
+            eventType: event.eventType
+          });
+        }
+        return;
+      }
       if (event.eventType === "PLAYER_MESSAGE") {
         for (const targetSocket of sockets) {
           const session = sessionsBySocket.get(targetSocket);
@@ -934,7 +995,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 }
               );
               sendJson(socket, initMessage);
-              for (const payload of session.pendingPayloads) sendJson(socket, payload);
+              for (const payload of session.pendingPayloads) {
+                sendJson(socket, payload);
+                recordCommandSocketDelivery("gateway_command_payload_sent", socket, payload);
+              }
               session.pendingPayloads = [];
             }
             return;
