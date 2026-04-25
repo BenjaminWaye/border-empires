@@ -136,6 +136,7 @@ type SimulationServiceOptions = {
   allowSeedRecoveryFallback?: boolean;
   requireDurableStartupState?: boolean;
   useAiWorker?: boolean;
+  disableFog?: boolean;
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
   snapshotStore?: SimulationSnapshotStore;
@@ -525,7 +526,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const buildAndCachePlayerSnapshot = (playerId: string): PlayerSubscriptionSnapshot => {
     const runtimeState = runtime.exportState();
-    const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState);
+    const snapshot = buildPlayerSubscriptionSnapshot(
+      playerId,
+      runtimeState,
+      undefined,
+      typeof options.disableFog === "boolean" ? { disableFog: options.disableFog } : undefined
+    );
     snapshotCacheByPlayerId.set(playerId, snapshot);
     return snapshot;
   };

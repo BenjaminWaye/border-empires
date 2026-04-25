@@ -22,7 +22,8 @@ describe("simulation runtime env", () => {
       globalStatusBroadcastDebounceMs: 15000,
       startupRecoveryTimeoutMs: 120000,
       allowSeedRecoveryFallback: false,
-      useAiWorker: false
+      useAiWorker: false,
+      disableFog: false
     });
   });
 
@@ -78,7 +79,8 @@ describe("simulation runtime env", () => {
       startupRecoveryTimeoutMs: 20000,
       allowSeedRecoveryFallback: false,
       systemPlayerIds: ["barbarian-1", "barbarian-2"],
-      useAiWorker: false
+      useAiWorker: false,
+      disableFog: false
     });
   });
 
@@ -120,6 +122,16 @@ describe("simulation runtime env", () => {
       })
     ).toMatchObject({
       allowSeedRecoveryFallback: false
+    });
+  });
+
+  it("enables full-map subscriptions when SIMULATION_DISABLE_FOG=1", () => {
+    expect(
+      parseSimulationRuntimeEnv({
+        SIMULATION_DISABLE_FOG: "1"
+      })
+    ).toMatchObject({
+      disableFog: true
     });
   });
 });

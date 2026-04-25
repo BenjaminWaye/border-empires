@@ -108,6 +108,45 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
   });
 
+  it("returns the full live map when fog is disabled for inspection", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot(
+      "player-1",
+      {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 14, y: 10, terrain: "LAND" },
+          { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        players: [
+          {
+            id: "player-1",
+            allies: [],
+            vision: 1,
+            visionRadiusBonus: 0,
+            territoryTileKeys: ["10,10"]
+          },
+          {
+            id: "player-2",
+            allies: [],
+            vision: 1,
+            visionRadiusBonus: 0,
+            territoryTileKeys: ["30,30"]
+          }
+        ],
+        pendingSettlements: [],
+        activeLocks: []
+      },
+      undefined,
+      { disableFog: true }
+    );
+
+    expect(snapshot.tiles).toEqual([
+      expect.objectContaining({ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }),
+      expect.objectContaining({ x: 14, y: 10, terrain: "LAND" }),
+      expect.objectContaining({ x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" })
+    ]);
+  });
+
   it("includes live player economy and development state when exported by the simulation runtime", () => {
     expect(
       buildPlayerSubscriptionSnapshot("player-1", {

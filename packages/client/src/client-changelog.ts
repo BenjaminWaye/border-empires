@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.4",
+  version: "2026.04.26.5",
   title: "What's New",
-  summary: "Recent updates include staging whole-map reveal support for rewrite gateway inspection sessions, AI frontier planning and validation fixes for diagonal, world-wrap, and dock-linked cross-island expansion, rewrite settlement upkeep corrections so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include staging whole-map inspection support across both rewrite gateway and simulation snapshots, AI frontier planning and validation fixes for diagonal, world-wrap, and dock-linked cross-island expansion, rewrite settlement upkeep corrections so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.5",
+      title: "Staging full-map inspection now includes live simulation territory outside local vision",
+      why: "The gateway reveal flag disabled fog in the client, but rewrite simulation subscriptions were still visibility-filtered, so unrevealed parts of the world had no live tile data to render.",
+      changes: [
+        "Rewrite simulation subscriptions can now return full live tile state when the server session is configured with fog disabled.",
+        "Staging simulation config now enables that full-map subscription mode alongside the gateway reveal flag.",
+        "Added simulation regression coverage so inspection sessions keep off-vision AI territory in the bootstrap snapshot."
+      ]
+    },
     {
       introducedIn: "2026.04.26.4",
       title: "Staging inspection sessions can now reveal the whole map",
