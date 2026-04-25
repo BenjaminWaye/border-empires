@@ -7,6 +7,19 @@ type GatewayDebugEvent = {
   payload: Record<string, unknown>;
 };
 
+type GatewayAttackDebug = {
+  controlPath: GatewayDebugEvent[];
+  hotPath: GatewayDebugEvent[];
+  slowOrWarn: GatewayDebugEvent[];
+};
+
+type GatewayAttackTrace = {
+  traceId: string;
+  firstAt: number;
+  lastAt: number;
+  events: GatewayDebugEvent[];
+};
+
 type RegisterGatewayHttpRoutesDeps = {
   startupStartedAt: number;
   simulationAddress: string;
@@ -32,6 +45,8 @@ type RegisterGatewayHttpRoutesDeps = {
   };
   supportedMessageTypes: string[];
   recentEvents: () => GatewayDebugEvent[];
+  attackDebug: () => GatewayAttackDebug;
+  attackTraces: () => GatewayAttackTrace[];
   metrics: () => string;
 };
 
@@ -84,12 +99,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       startupElapsedMs: Date.now() - deps.startupStartedAt
     },
     recentServerEvents: deps.recentEvents(),
-    attackDebug: {
-      controlPath: [],
-      hotPath: [],
-      slowOrWarn: []
-    },
-    attackTraces: [],
+    attackDebug: deps.attackDebug(),
+    attackTraces: deps.attackTraces(),
     runtime: {
       gateway: {
         simulationAddress: deps.simulationAddress,
