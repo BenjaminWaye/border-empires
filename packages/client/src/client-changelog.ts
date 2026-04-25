@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.24.5",
+  version: "2026.04.25.1",
   title: "What's New",
-  summary: "Recent updates include AI-capture replay/event payload compaction and worker delta-sync coalescing for lower staging CPU under 20-AI load, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.25.1",
+      title: "Planner workers now ignore irrelevant tile churn outside their current territory scope",
+      why: "Human and unrelated world updates were still being serialized into AI/system planner workers even when those tiles were nowhere near the empires being planned, which kept unnecessary worker-sync traffic alive during autoplay load.",
+      changes: [
+        "AI and system worker bridges now forward TILE_DELTA_BATCH updates only when the changed tile is within the current planner scope or directly changes ownership for one of the tracked players.",
+        "Added shared planner-scope coverage so nearby frontier, owned, and pending-settlement neighborhoods stay synchronized while distant map churn is dropped.",
+        "Added regression tests to ensure irrelevant human-world updates no longer cross into planner workers while in-scope updates still do."
+      ]
+    },
     {
       introducedIn: "2026.04.24.5",
       title: "AI frontier captures now emit compact tile deltas and planner sync now coalesces rapid tile updates",
