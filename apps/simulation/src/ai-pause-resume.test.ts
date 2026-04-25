@@ -197,6 +197,54 @@ describe("worker AI command producer pause/resume", () => {
     expect(submitCommand).not.toHaveBeenCalled();
   });
 
+  it("forwards worker no-command diagnostics to the callback", async () => {
+    const runtime = makeRuntime(0);
+    const onNoCommand = vi.fn();
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: null,
+            diagnostic: {
+              playerId: msg.playerId,
+              sessionPrefix: "ai-runtime",
+              settlementEligible: false,
+              settlementCandidateFound: false,
+              frontierEnemyTargetCount: 0,
+              frontierNeutralTargetCount: 0,
+              canAttack: false,
+              canExpand: false,
+              noCommandReason: "no_frontier_targets"
+            }
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onNoCommand,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(onNoCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ playerId: "ai-1", noCommandReason: "no_frontier_targets" })
+    );
+  });
+
   it("waits for command resolution before issuing another command for the same AI", async () => {
     const command = makeCommand("ai-1");
     const runtime = makeRuntime(0);

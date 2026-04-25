@@ -605,7 +605,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     latestEventLoopLagMs <= aiMaxEventLoopLagMs;
   const aiCommandProducer = options.enableAiAutopilot
     ? useAiWorker
-      ? createWorkerAiCommandProducer({
+        ? createWorkerAiCommandProducer({
           runtime,
           aiPlayerIds,
           submitCommand: submitDurableCommand,
@@ -617,6 +617,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           },
           onTick: ({ durationMs }) => {
             simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+          },
+          onNoCommand: (diagnostic) => {
+            if (diagnostic.noCommandReason) {
+              simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
+            }
           }
         })
       : createAiCommandProducer({
@@ -631,6 +636,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           },
           onTick: ({ durationMs }) => {
             simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+          },
+          onNoCommand: (diagnostic) => {
+            if (diagnostic.noCommandReason) {
+              simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
+            }
           }
         })
     : undefined;
@@ -898,6 +908,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_tick_duration_ms: sample.simTickDurationMs,
             sim_human_interactive_backlog_ms: sample.simHumanInteractiveBacklogMs,
             sim_ai_planner_breaches: sample.simAiPlannerBreaches,
+            sim_ai_noop_total: sample.simAiNoopTotalByReason,
+            sim_ai_noop_recent: sample.simAiNoopRecent,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
             sim_cpu_percent: sample.simCpuPercent,
             sim_heap_used_mb: sample.simHeapUsedMb,
