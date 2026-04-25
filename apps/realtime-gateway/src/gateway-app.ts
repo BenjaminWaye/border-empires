@@ -260,9 +260,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     [...pendingInputToStateByCommandId.entries()]
       .map(([commandId, submittedAt]) => {
         const ageMs = Date.now() - submittedAt;
+        const level: "info" | "warn" = ageMs >= 5_000 ? "warn" : "info";
         return {
           at: submittedAt,
-          level: (ageMs >= 5_000 ? "warn" : "info") as const,
+          level,
           event: "pending_input_to_state",
           payload: {
             commandId,
