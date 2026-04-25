@@ -9,11 +9,14 @@ export type SimulationRuntimeEnv = {
   snapshotDir?: string;
   applySchema: boolean;
   checkpointEveryEvents: number;
+  checkpointForceAfterEvents: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
+  startupReplayCompactionMinEvents: number;
   seedProfile: SimulationSeedProfile;
   enableAiAutopilot: boolean;
   aiTickMs: number;
+  aiMaxEventLoopLagMs: number;
   enableSystemAutopilot: boolean;
   systemTickMs: number;
   globalStatusBroadcastDebounceMs: number;
@@ -71,6 +74,16 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       5000,
       "simulation snapshot interval"
     ),
+    checkpointForceAfterEvents: parsePositiveNumber(
+      env.SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS,
+      20_000,
+      "simulation checkpoint force-after-events"
+    ),
+    startupReplayCompactionMinEvents: parsePositiveNumber(
+      env.SIMULATION_STARTUP_REPLAY_COMPACTION_MIN_EVENTS,
+      10_000,
+      "simulation startup replay compaction threshold"
+    ),
     ...(checkpointMaxRssMb
       ? { checkpointMaxRssBytes: parsePositiveNumber(checkpointMaxRssMb, 0, "simulation checkpoint rss limit") * 1024 * 1024 }
       : {}),
@@ -83,6 +96,11 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE),
     enableAiAutopilot: env.SIMULATION_ENABLE_AI_AUTOPILOT === "1",
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
+    aiMaxEventLoopLagMs: parsePositiveNumber(
+      env.SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS,
+      250,
+      "simulation ai max event-loop lag"
+    ),
     enableSystemAutopilot: env.SIMULATION_ENABLE_SYSTEM_AUTOPILOT === "1",
     systemTickMs: parsePositiveNumber(env.SIMULATION_SYSTEM_TICK_MS, 500, "simulation system tick"),
     globalStatusBroadcastDebounceMs: parsePositiveNumber(

@@ -46,6 +46,18 @@ const { createWorkerAiCommandProducer } = await import("./ai-command-producer-wo
 
 const makeRuntime = (humanInteractive = 0) => {
   const eventEmitter = new EventEmitter();
+  const plannerPlayers = [
+    {
+      id: "ai-1",
+      points: 500,
+      manpower: 10,
+      hasActiveLock: false,
+      territoryTileKeys: [] as string[],
+      frontierTileKeys: [] as string[],
+      pendingSettlementTileKeys: [] as string[],
+      activeDevelopmentProcessCount: 0
+    }
+  ];
   return {
     runtime: {
       queueDepths: () => ({
@@ -56,19 +68,9 @@ const makeRuntime = (humanInteractive = 0) => {
       }),
       exportPlannerWorldView: () => ({
         tiles: [],
-        players: [
-          {
-            id: "ai-1",
-            points: 500,
-            manpower: 10,
-            hasActiveLock: false,
-            territoryTileKeys: [] as string[],
-            frontierTileKeys: [] as string[],
-            pendingSettlementTileKeys: [] as string[],
-            activeDevelopmentProcessCount: 0
-          }
-        ]
+        players: plannerPlayers
       }),
+      exportPlannerPlayerViews: () => plannerPlayers,
       onEvent: (listener: (event: { playerId: string; commandId: string; eventType: string }) => void) => {
         eventEmitter.on("event", listener);
         return () => eventEmitter.off("event", listener);
@@ -195,6 +197,54 @@ describe("worker AI command producer pause/resume", () => {
     expect(submitCommand).not.toHaveBeenCalled();
   });
 
+  it("forwards worker no-command diagnostics to the callback", async () => {
+    const runtime = makeRuntime(0);
+    const onNoCommand = vi.fn();
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: null,
+            diagnostic: {
+              playerId: msg.playerId,
+              sessionPrefix: "ai-runtime",
+              settlementEligible: false,
+              settlementCandidateFound: false,
+              frontierEnemyTargetCount: 0,
+              frontierNeutralTargetCount: 0,
+              canAttack: false,
+              canExpand: false,
+              noCommandReason: "no_frontier_targets"
+            }
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onNoCommand,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(onNoCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ playerId: "ai-1", noCommandReason: "no_frontier_targets" })
+    );
+  });
+
   it("waits for command resolution before issuing another command for the same AI", async () => {
     const command = makeCommand("ai-1");
     const runtime = makeRuntime(0);
@@ -242,5 +292,114 @@ describe("worker AI command producer pause/resume", () => {
 
     producer.close();
     MockWorker.prototype.postMessage = originalPostMessage;
+  });
+
+  it("does not forward irrelevant tile deltas to the AI worker", async () => {
+    const postedMessages: WorkerMessage[] = [];
+    const origPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      postedMessages.push(msg);
+      origPostMessage.call(this, msg);
+    };
+
+    const eventEmitter = new EventEmitter();
+    const plannerPlayers = [
+      {
+        id: "ai-1",
+        points: 500,
+        manpower: 10,
+        hasActiveLock: false,
+        territoryTileKeys: ["10,10"],
+        frontierTileKeys: ["10,10"],
+        pendingSettlementTileKeys: [] as string[],
+        activeDevelopmentProcessCount: 0,
+        tileCollectionVersion: 1
+      }
+    ];
+    const producer = createWorkerAiCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        exportPlannerWorldView: () => ({ tiles: [], players: plannerPlayers }),
+        exportPlannerPlayerViews: () => plannerPlayers,
+        onEvent: (listener: (event: { playerId: string; commandId: string; eventType: string }) => void) => {
+          eventEmitter.on("event", listener);
+          return () => eventEmitter.off("event", listener);
+        }
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      tickIntervalMs: 50,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    eventEmitter.emit("event", {
+      eventType: "TILE_DELTA_BATCH",
+      playerId: "player-1",
+      commandId: "human-cmd",
+      tileDeltas: [{ x: 100, y: 100, terrain: "LAND", ownerId: "player-1" }]
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 40));
+
+    producer.close();
+    MockWorker.prototype.postMessage = origPostMessage;
+
+    expect(postedMessages.some((msg) => msg.type === "tile_deltas")).toBe(false);
+  });
+
+  it("forwards tile deltas that fall inside the AI planning scope", async () => {
+    const postedMessages: WorkerMessage[] = [];
+    const origPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      postedMessages.push(msg);
+      origPostMessage.call(this, msg);
+    };
+
+    const eventEmitter = new EventEmitter();
+    const plannerPlayers = [
+      {
+        id: "ai-1",
+        points: 500,
+        manpower: 10,
+        hasActiveLock: false,
+        territoryTileKeys: ["10,10"],
+        frontierTileKeys: ["10,10"],
+        pendingSettlementTileKeys: [] as string[],
+        activeDevelopmentProcessCount: 0,
+        tileCollectionVersion: 1
+      }
+    ];
+    const producer = createWorkerAiCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        exportPlannerWorldView: () => ({ tiles: [], players: plannerPlayers }),
+        exportPlannerPlayerViews: () => plannerPlayers,
+        onEvent: (listener: (event: { playerId: string; commandId: string; eventType: string }) => void) => {
+          eventEmitter.on("event", listener);
+          return () => eventEmitter.off("event", listener);
+        }
+      },
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      tickIntervalMs: 50,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    eventEmitter.emit("event", {
+      eventType: "TILE_DELTA_BATCH",
+      playerId: "player-1",
+      commandId: "human-cmd",
+      tileDeltas: [{ x: 11, y: 11, terrain: "LAND", ownerId: "player-1" }]
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 40));
+
+    producer.close();
+    MockWorker.prototype.postMessage = origPostMessage;
+
+    const tileDeltaMessage = postedMessages.find((msg) => msg.type === "tile_deltas");
+    expect(tileDeltaMessage).toBeDefined();
+    expect(tileDeltaMessage).toMatchObject({
+      type: "tile_deltas",
+      tileDeltas: [{ x: 11, y: 11, terrain: "LAND", ownerId: "player-1" }]
+    });
   });
 });

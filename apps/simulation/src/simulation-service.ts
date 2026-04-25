@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { PerformanceObserver } from "node:perf_hooks";
 
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
@@ -88,8 +89,8 @@ type ProtoSimulationEvent = {
     terrain?: string | undefined;
     resource?: string | undefined;
     dockId?: string | undefined;
-    ownerId?: string | undefined;
-    ownershipState?: string | undefined;
+    ownerId?: string | null | undefined;
+    ownershipState?: string | null | undefined;
     townJson?: string | undefined;
     townType?: string | undefined;
     townName?: string | undefined;
@@ -100,6 +101,15 @@ type ProtoSimulationEvent = {
     economicStructureJson?: string | undefined;
     sabotageJson?: string | undefined;
     shardSiteJson?: string | undefined;
+    yield?: {
+      gold?: number;
+      strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    } | undefined;
+    yieldRate?: {
+      goldPerMinute?: number;
+      strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>>;
+    } | undefined;
+    yieldCap?: { gold: number; strategicEach: number } | undefined;
   }>;
 };
 
@@ -109,12 +119,15 @@ type SimulationServiceOptions = {
   databaseUrl?: string;
   applySchema?: boolean;
   checkpointEveryEvents?: number;
+  checkpointForceAfterEvents?: number;
   checkpointMaxRssBytes?: number;
   checkpointMaxHeapUsedBytes?: number;
+  startupReplayCompactionMinEvents?: number;
   seedProfile?: SimulationSeedProfile;
   snapshotDir?: string;
   enableAiAutopilot?: boolean;
   aiTickMs?: number;
+  aiMaxEventLoopLagMs?: number;
   enableSystemAutopilot?: boolean;
   systemTickMs?: number;
   globalStatusBroadcastDebounceMs?: number;
@@ -396,6 +409,24 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     initialPlayers: activePlayers
   });
   const simulationMetrics = createSimulationMetrics();
+  const startupReplayCompactionMinEvents = Math.max(
+    1,
+    options.startupReplayCompactionMinEvents ?? 10_000
+  );
+  let lastCpuSampleAt = Date.now();
+  let lastCpuUsage = process.cpuUsage();
+  const pendingGcDurationsMs: number[] = [];
+  let gcObserver: PerformanceObserver | undefined;
+  try {
+    gcObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (Number.isFinite(entry.duration) && entry.duration >= 0) pendingGcDurationsMs.push(entry.duration);
+      }
+    });
+    gcObserver.observe({ entryTypes: ["gc"] });
+  } catch {
+    gcObserver = undefined;
+  }
   const snapshotCheckpointManager = createSnapshotCheckpointManager({
     eventStore,
     snapshotStore,
@@ -405,6 +436,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       return { players: s.players, activeLocks: s.activeLocks };
     },
     checkpointEveryEvents: options.checkpointEveryEvents ?? 5000,
+    ...(typeof options.checkpointForceAfterEvents === "number"
+      ? { forceCheckpointAfterEvents: options.checkpointForceAfterEvents }
+      : {}),
     ...(typeof options.checkpointMaxRssBytes === "number" ? { maxCheckpointRssBytes: options.checkpointMaxRssBytes } : {}),
     ...(typeof options.checkpointMaxHeapUsedBytes === "number"
       ? { maxCheckpointHeapUsedBytes: options.checkpointMaxHeapUsedBytes }
@@ -426,6 +460,28 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   });
+  if (startupRecovery.recoveredEventCount >= startupReplayCompactionMinEvents) {
+    try {
+      const checkpointResult = await snapshotCheckpointManager.checkpointNow({ ignoreMemoryGuard: true });
+      log.info(
+        {
+          recoveredEventCount: startupRecovery.recoveredEventCount,
+          startupReplayCompactionMinEvents,
+          checkpointResult
+        },
+        "simulation startup replay compaction checkpoint attempt completed"
+      );
+    } catch (error) {
+      log.error(
+        {
+          err: error,
+          recoveredEventCount: startupRecovery.recoveredEventCount,
+          startupReplayCompactionMinEvents
+        },
+        "simulation startup replay compaction checkpoint failed"
+      );
+    }
+  }
   let fatalPersistenceError: Error | undefined;
   const persistenceQueue = createSimulationPersistenceQueue({
     commandStore,
@@ -457,7 +513,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
+  let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
+  const sampleCpuPercent = (): number => {
+    const at = Date.now();
+    const elapsedMicros = Math.max(1, at - lastCpuSampleAt) * 1_000;
+    const cpuUsage = process.cpuUsage(lastCpuUsage);
+    lastCpuUsage = process.cpuUsage();
+    lastCpuSampleAt = at;
+    return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
+  };
   const buildAndCachePlayerSnapshot = (playerId: string): PlayerSubscriptionSnapshot => {
     const runtimeState = runtime.exportState();
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState);
@@ -533,11 +598,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
     buildNextClientSeqByPlayer(recoveredCommands, playerIds);
   const useAiWorker = options.useAiWorker ?? false;
+  const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
   const aiShouldRun = () =>
-    !persistenceQueue.isDegraded() && persistenceQueue.pendingCount() < autopilotMaxPersistencePending;
+    !persistenceQueue.isDegraded() &&
+    persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
+    latestEventLoopLagMs <= aiMaxEventLoopLagMs;
   const aiCommandProducer = options.enableAiAutopilot
     ? useAiWorker
-      ? createWorkerAiCommandProducer({
+        ? createWorkerAiCommandProducer({
           runtime,
           aiPlayerIds,
           submitCommand: submitDurableCommand,
@@ -546,6 +614,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           tickIntervalMs: options.aiTickMs ?? 250,
           onPlannerTick: ({ breached }) => {
             if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
+          },
+          onTick: ({ durationMs }) => {
+            simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+          },
+          onNoCommand: (diagnostic) => {
+            if (diagnostic.noCommandReason) {
+              simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
+            }
           }
         })
       : createAiCommandProducer({
@@ -557,11 +633,21 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           tickIntervalMs: options.aiTickMs ?? 250,
           onPlannerTick: ({ breached }) => {
             if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
+          },
+          onTick: ({ durationMs }) => {
+            simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+          },
+          onNoCommand: (diagnostic) => {
+            if (diagnostic.noCommandReason) {
+              simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
+            }
           }
         })
     : undefined;
   const systemShouldRun = () =>
-    !persistenceQueue.isDegraded() && persistenceQueue.pendingCount() < autopilotMaxPersistencePending;
+    !persistenceQueue.isDegraded() &&
+    persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
+    latestEventLoopLagMs <= aiMaxEventLoopLagMs;
   const systemCommandProducer = options.enableSystemAutopilot
     ? useAiWorker
       ? createWorkerSystemCommandProducer({
@@ -570,7 +656,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           submitCommand: submitDurableCommand,
           shouldRun: systemShouldRun,
           startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
-          tickIntervalMs: options.systemTickMs ?? 500
+          tickIntervalMs: options.systemTickMs ?? 500,
+          onTick: ({ durationMs }) => {
+            simulationMetrics.observeSimTickDurationMs("system", durationMs);
+          }
         })
       : createSystemCommandProducer({
           runtime,
@@ -578,7 +667,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           submitCommand: submitDurableCommand,
           shouldRun: systemShouldRun,
           startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
-          tickIntervalMs: options.systemTickMs ?? 500
+          tickIntervalMs: options.systemTickMs ?? 500,
+          onTick: ({ durationMs }) => {
+            simulationMetrics.observeSimTickDurationMs("system", durationMs);
+          }
         })
     : undefined;
 
@@ -788,20 +880,41 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       eventLoopSampler = setInterval(() => {
         const now = Date.now();
         const lagMs = Math.max(0, now - expectedEventLoopTickAt);
+        latestEventLoopLagMs = lagMs;
         eventLoopWindowMaxMs = Math.max(eventLoopWindowMaxMs, lagMs);
+        simulationMetrics.observeSimEventLoopDelayMs(lagMs);
         expectedEventLoopTickAt = now + 100;
       }, 100);
       metricsTicker = setInterval(() => {
         simulationMetrics.setSimEventLoopMaxMs(eventLoopWindowMaxMs);
         eventLoopWindowMaxMs = 0;
         simulationMetrics.setSimHumanInteractiveBacklogMs(runtime.queueBacklogMs().human_interactive);
+        simulationMetrics.setSimCpuPercent(sampleCpuPercent());
+        const memory = process.memoryUsage();
+        simulationMetrics.setSimHeapUsageMb({
+          heapUsedMb: memory.heapUsed / (1024 * 1024),
+          heapTotalMb: memory.heapTotal / (1024 * 1024)
+        });
+        if (pendingGcDurationsMs.length > 0) {
+          for (const durationMs of pendingGcDurationsMs.splice(0)) {
+            simulationMetrics.observeSimGcPauseMs(durationMs);
+          }
+        }
         const sample = simulationMetrics.snapshot();
         log.info(
           {
             sim_event_loop_max_ms: sample.simEventLoopMaxMs,
+            sim_event_loop_delay_ms: sample.simEventLoopDelayMs,
+            sim_tick_duration_ms: sample.simTickDurationMs,
             sim_human_interactive_backlog_ms: sample.simHumanInteractiveBacklogMs,
             sim_ai_planner_breaches: sample.simAiPlannerBreaches,
+            sim_ai_noop_total: sample.simAiNoopTotalByReason,
+            sim_ai_noop_recent: sample.simAiNoopRecent,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,
+            sim_cpu_percent: sample.simCpuPercent,
+            sim_heap_used_mb: sample.simHeapUsedMb,
+            sim_heap_total_mb: sample.simHeapTotalMb,
+            sim_gc_pause_ms: sample.simGcPauseMs,
             sim_command_accept_latency_ms: sample.simCommandAcceptLatencyMsByLane,
             sim_event_store_write_ms: sample.simEventStoreWriteMs
           },
@@ -829,6 +942,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       systemCommandProducer?.close();
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
+      gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
         globalStatusBroadcastTimeout = undefined;

@@ -40,13 +40,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL 17 client
+      - name: Install tools (psql + Supabase CLI)
         run: |
+          set -eu
+          # postgresql-client-17 for psql (connectivity tests only — NOT for pg_dump)
           sudo sh -c 'echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+          psql --version
+          # Supabase CLI — bundles a pg_dump compiled against Supabase's exact PostgreSQL build,
+          # avoiding the server-version mismatch that defeats the standard PGDG pg_dump client.
+          curl -sSL "https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin
+          supabase --version
 
       - name: Validate DATABASE_URL
         env:
@@ -106,21 +113,11 @@ jobs:
           fi
           echo "Tigris bucket reachable."
 
-      - name: Test pg_dump directly
-        env:
-          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      - name: Verify supabase CLI installed
         run: |
           set -eu
-          echo "Running pg_dump --schema-only to test connectivity..."
-          PGDUMP_OUT=$(pg_dump --no-owner --no-acl --schema-only "${DATABASE_URL}" 2>&1 | head -20) && EXIT=0 || EXIT=$?
-          echo "pg_dump exit code: ${EXIT}"
-          echo "pg_dump output (first 20 lines):"
-          echo "${PGDUMP_OUT}"
-          if [ "${EXIT}" -ne 0 ]; then
-            echo "::error::pg_dump schema-only test failed (exit ${EXIT}). Output: ${PGDUMP_OUT}"
-            exit "${EXIT}"
-          fi
-          echo "pg_dump schema-only test passed."
+          supabase --version
+          echo "Supabase CLI ready — dump will happen in the backup script step."
 
       - name: Run backup script
         env:

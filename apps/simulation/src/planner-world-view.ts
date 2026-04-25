@@ -23,6 +23,8 @@ export type PlannerPlayerView = {
   id: string;
   points: number;
   manpower: number;
+  /** Bumped whenever territory/frontier/pending-settlement key sets change. */
+  tileCollectionVersion: number;
   /** Whether this player currently holds any combat lock (origin or target). */
   hasActiveLock: boolean;
   territoryTileKeys: string[];
@@ -35,7 +37,7 @@ export type PlannerPlayerView = {
 // ─── World view ───────────────────────────────────────────────────────────────
 
 export type PlannerWorldView = {
-  /** All tiles — used to rebuild the Map<tileKey, PlannerTileView> in the worker. */
+  /** Tile slice scoped around players currently being planned. */
   tiles: PlannerTileView[];
   /** One entry per player that needs planning in this tick. */
   players: PlannerPlayerView[];

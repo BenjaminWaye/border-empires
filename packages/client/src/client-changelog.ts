@@ -19,28 +19,108 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.24.3",
+  version: "2026.04.26.3",
   title: "What's New",
-  summary: "Recent updates include cleanup for unexplored-map rendering and tile-selection outline alignment on the rewrite 3D map, plus rewrite default 3D map rollout with legacy-style tile coloring/texturing, rewrite territory-abandon ownership-clear propagation fixes, staging hostname hardening, auth fail-fast routing/timeout hardening, durable auth-identity player binding, reconnect map-fidelity protection, and stricter startup source-policy guardrails.",
+  summary: "Recent updates include final rewrite 3D map polish for ownership tinting, highlight alignment, unexplored blackout rendering, and alternate-account profile setup correctness, plus a rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
     {
-      introducedIn: "2026.04.24.3",
-      title: "Unexplored tiles now render as solid black and selection outlines align to tile edges",
-      why: "Unexplored regions were leaving terrain-colored seam lines visible, and selection/town-support outlines were inset from the tile border after recent renderer updates.",
+      introducedIn: "2026.04.26.3",
+      title: "Rewrite 3D ownership overlays now render with the correct player color and tile-aligned highlights",
+      why: "The 3D map still had mismatched selection/support outlines, colored seams in unexplored space, and ownership fills that could render black instead of the active empire color despite correct state data.",
       changes: [
-        "Unexplored and fog fallback fill now paints the full tile footprint so no colored seam remains in blacked-out map regions.",
-        "Selection, hover, and town-support rectangle outlines now draw on the actual tile edge instead of an inset rectangle.",
-        "True 3D marker edge geometry now matches full tile dimensions for consistent highlight framing."
+        "True 3D ownership overlays now render on the terrain surface with the intended player color instead of dark fallback panels.",
+        "Selection, hover, queue, and town-support markers now use full-tile geometry and projected 3D placement so their borders stay aligned with the actual tile footprint.",
+        "Unexplored and fogged map regions now render as solid black without leftover terrain-colored seams."
       ]
     },
     {
-      introducedIn: "2026.04.24.2",
+      introducedIn: "2026.04.26.3",
+      title: "Signing in with a different account now creates a fresh profile setup instead of inheriting by name",
+      why: "Auth identity binding could still fall back to matching an existing player only by display name, which let a different email silently attach to an old completed profile and skip the setup flow.",
+      changes: [
+        "Server auth identity reuse now binds returning players only through the durable identity-to-player mapping instead of display-name fallback.",
+        "Different authenticated accounts now get their own new player record and profile setup flow even when they choose the same display name.",
+        "Added server regression coverage so alternate-account sign-in cannot silently inherit another account's completed profile."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.2",
+      title: "Rewrite settlements now stay at zero food upkeep until town stage",
+      why: "The earlier settlement upkeep fix landed in the legacy server path, but rewrite economy snapshots were still charging settlement tiles the base 0.1 food upkeep instead of starting upkeep at the town stage.",
+      changes: [
+        "Rewrite simulation economy now treats settlement-tier towns as 0 food upkeep per minute, so ordinary settled land and settlements no longer diverge.",
+        "Rewrite player snapshots and gateway tile detail keep settlement upkeep rows out of the food sink breakdown until a tile reaches town tier.",
+        "Added rewrite regression coverage so settlement food upkeep stays at zero across the simulation snapshot and gateway detail paths."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.1",
+      title: "Settlements no longer pay town food upkeep before they become real towns",
+      why: "Settlement tiles were meant to match ordinary settled land for food upkeep, but some settlement records could still surface the base town upkeep line even though upkeep should only begin at the town stage.",
+      changes: [
+        "Settlement-flagged towns now stay at 0 food upkeep per minute instead of inheriting the base town upkeep path.",
+        "Tile economy summaries continue to show food upkeep starting at towns, cities, and larger population tiers only.",
+        "Added a regression guard so settlement identity keeps the zero-upkeep rule even if other town-tier logic changes later."
+      ]
+    },
+    {
+      introducedIn: "2026.04.25.1",
+      title: "Planner workers now ignore irrelevant tile churn outside their current territory scope",
+      why: "Human and unrelated world updates were still being serialized into AI/system planner workers even when those tiles were nowhere near the empires being planned, which kept unnecessary worker-sync traffic alive during autoplay load.",
+      changes: [
+        "AI and system worker bridges now forward TILE_DELTA_BATCH updates only when the changed tile is within the current planner scope or directly changes ownership for one of the tracked players.",
+        "Added shared planner-scope coverage so nearby frontier, owned, and pending-settlement neighborhoods stay synchronized while distant map churn is dropped.",
+        "Added regression tests to ensure irrelevant human-world updates no longer cross into planner workers while in-scope updates still do."
+      ]
+    },
+    {
+      introducedIn: "2026.04.24.5",
+      title: "AI frontier captures now emit compact tile deltas and planner sync now coalesces rapid tile updates",
+      why: "With 20 AI empires active, each AI capture was emitting full reveal-radius tile batches and both worker bridges were forwarding every tile batch immediately, increasing event-loop pressure and delaying frontier acknowledgements.",
+      changes: [
+        "Simulation now emits single-tile capture deltas for AI-owned captures instead of full reveal-radius batches, while preserving full reveal-radius behavior for human captures.",
+        "AI/system worker bridges now coalesce rapid TILE_DELTA_BATCH updates by tile key before posting to planner workers, reducing cross-thread serialization churn.",
+        "Capture plunder and elimination checks now use player summary counters instead of full-map scans during lock resolution."
+      ]
+    },
+    {
+      introducedIn: "2026.04.24.4",
+      title: "Replay/checkpoint pressure is now bounded for lower-memory staging runs",
+      why: "Long sessions could grow replay pressure and startup recovery cost, which pushed CPU/memory spikes on smaller staging machines and delayed action responsiveness after restarts.",
+      changes: [
+        "Simulation now keeps command replay history bounded and replays persisted events in batches during startup recovery.",
+        "Staging simulation config now includes forced checkpoint thresholds and startup replay compaction controls for faster tail recovery.",
+        "Planner payload generation is scoped and cached to reduce main-thread snapshot/export overhead."
+      ]
+    },
+    {
+      introducedIn: "2026.04.24.3",
       title: "Rewrite now defaults to the new 3D map with legacy tile look",
       why: "Rewrite sessions needed to switch from the old map presentation to the new 3D terrain while preserving familiar pre-3D color and texture readability.",
       changes: [
         "Rewrite (`backend=gateway`) now defaults to the true 3D terrain renderer when no explicit `renderer` query override is set.",
         "3D terrain now uses legacy-style tile color/texture profiles so grass, sand, coastal water, and deep water read like the pre-3D map while keeping 3D geometry.",
         "3D terrain lighting has been rebalanced brighter to avoid the darker look from earlier map iterations."
+      ]
+    },
+    {
+      introducedIn: "2026.04.24.2",
+      title: "Restart hydration now backfills missing world coordinates when durable snapshot state is sparse",
+      why: "Some restart paths could hydrate from sparse durable tile state and leave missing coordinates unexplored after reconnect, which showed as dark gaps next to active frontier and could hide nearby resource context.",
+      changes: [
+        "Simulation runtime now detects sparse recovered tile sets and backfills missing coordinates from deterministic seed tiles during startup hydration.",
+        "Recovered explicit tile ownership/details still remain authoritative and are applied on top of the seed backfill, so persisted frontier ownership is preserved.",
+        "Added runtime regression coverage for sparse restart hydration so missing-coordinate dark gaps cannot regress."
+      ]
+    },
+    {
+      introducedIn: "2026.04.24.2",
+      title: "Staging frontier commands now fail fast when simulation is unavailable instead of hanging in queued state",
+      why: "During staging cold-start/unhealthy simulation windows, players could see COMMAND_QUEUED without timely ACTION_ACCEPTED/FRONTIER_RESULT, which looked like severe frontier lag and created sync confusion.",
+      changes: [
+        "Gateway now blocks command submission when simulation health is already marked unavailable and returns SERVER_STARTING immediately for retry clarity.",
+        "Gateway simulation submit calls now use an explicit timeout and return SIMULATION_UNAVAILABLE on hung gRPC submits instead of waiting indefinitely.",
+        "Staging simulation Fly config now keeps the simulation machine always-on (no suspend auto-stop) to remove cold-start induced command latency during active frontier testing."
       ]
     },
     {
@@ -51,6 +131,26 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Rewrite simulation/gateway tile-delta serialization now emits explicit owner/ownership-state clear fields when territory is abandoned.",
         "Client gateway tile sync now treats null owner fields as authoritative ownership clears instead of preserving stale settled state.",
         "Added simulation and client regressions to lock owner/ownership-state clear propagation for uncapture updates."
+      ]
+    },
+    {
+      introducedIn: "2026.04.24.1",
+      title: "AI planner workers now receive local tile slices instead of full-world snapshots each tick",
+      why: "Worker AI/system planning still cloned and transferred full world tile arrays on the simulation main thread every tick, which could trigger multi-second event-loop stalls and delay frontier result delivery.",
+      changes: [
+        "Simulation runtime now builds planner tile payloads from a local radius around each planned player's owned territory instead of exporting all tiles.",
+        "Worker planning keeps frontier/settlement scoring inputs needed for nearby decisions while cutting main-thread snapshot cloning and postMessage payload size.",
+        "Added regression coverage for planner slice scoping and multi-player slice union so this path cannot regress back to full-world tick payloads."
+      ]
+    },
+    {
+      introducedIn: "2026.04.23.5",
+      title: "Rewrite command replay history now stays bounded during long AI runs and restart recovery",
+      why: "Long staging sessions with active AI could accumulate unbounded replay history in simulation memory and spike startup memory during event recovery, which raised OOM risk and caused stale command-sequence edge cases.",
+      changes: [
+        "Simulation runtime now caps retained terminal command replay history and stale player-sequence replay mappings so replay cache growth stays bounded over time.",
+        "Startup recovery now replays persisted events in batches (with bounded terminal replay retention) instead of materializing the full event log in memory.",
+        "Recovered player-sequence mappings with no replay payload now auto-clear so new commands are processed instead of getting silently swallowed."
       ]
     },
     {

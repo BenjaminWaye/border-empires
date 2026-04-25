@@ -1,4 +1,5 @@
 import type { QueueLane } from "./command-lane.js";
+import { AUTOMATION_NOOP_REASONS, type AutomationNoopReason } from "./automation-command-planner.js";
 
 const LANES: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 
@@ -18,23 +19,46 @@ type QuantileSample = {
   p99: number;
 };
 
+type TickSource = "ai" | "system";
+
 type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
+  simEventLoopDelayMs: QuantileSample;
+  simTickDurationMs: Record<TickSource, QuantileSample>;
   simHumanInteractiveBacklogMs: number;
   simAiPlannerBreaches: number;
+  simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
+  simAiNoopRecent: string[];
   simCheckpointRssMb: number;
+  simCpuPercent: number;
+  simHeapUsedMb: number;
+  simHeapTotalMb: number;
+  simGcPauseMs: QuantileSample;
   simCommandAcceptLatencyMsByLane: Record<QueueLane, QuantileSample>;
   simEventStoreWriteMs: QuantileSample;
 };
 
 export const createSimulationMetrics = (sampleLimit = 512) => {
   const limit = Math.max(8, sampleLimit);
+  const simEventLoopDelayMs: number[] = [];
+  const simTickDurationMs = new Map<TickSource, number[]>([
+    ["ai", []],
+    ["system", []]
+  ]);
   const simCommandAcceptLatencyMsByLane = new Map<QueueLane, number[]>(LANES.map((lane) => [lane, []]));
   const simEventStoreWriteMs: number[] = [];
+  const simGcPauseMs: number[] = [];
+  const simAiNoopTotalByReason = new Map<AutomationNoopReason, number>(
+    AUTOMATION_NOOP_REASONS.map((reason) => [reason, 0])
+  );
+  const simAiNoopRecent: string[] = [];
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
   let simAiPlannerBreaches = 0;
   let simCheckpointRssMb = 0;
+  let simCpuPercent = 0;
+  let simHeapUsedMb = 0;
+  let simHeapTotalMb = 0;
 
   const appendSample = (target: number[], value: number): void => {
     target.push(clampMetric(value));
@@ -49,9 +73,20 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
 
   const snapshot = (): SimulationMetricsSnapshot => ({
     simEventLoopMaxMs,
+    simEventLoopDelayMs: quantileSample(simEventLoopDelayMs),
+    simTickDurationMs: {
+      ai: quantileSample(simTickDurationMs.get("ai") ?? []),
+      system: quantileSample(simTickDurationMs.get("system") ?? [])
+    },
     simHumanInteractiveBacklogMs,
     simAiPlannerBreaches,
+    simAiNoopTotalByReason: Object.fromEntries(AUTOMATION_NOOP_REASONS.map((reason) => [reason, simAiNoopTotalByReason.get(reason) ?? 0])) as Record<AutomationNoopReason, number>,
+    simAiNoopRecent: [...simAiNoopRecent],
     simCheckpointRssMb,
+    simCpuPercent,
+    simHeapUsedMb,
+    simHeapTotalMb,
+    simGcPauseMs: quantileSample(simGcPauseMs),
     simCommandAcceptLatencyMsByLane: {
       human_interactive: quantileSample(simCommandAcceptLatencyMsByLane.get("human_interactive") ?? []),
       human_noninteractive: quantileSample(simCommandAcceptLatencyMsByLane.get("human_noninteractive") ?? []),
@@ -65,14 +100,37 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     setSimEventLoopMaxMs(value: number): void {
       simEventLoopMaxMs = clampMetric(value);
     },
+    observeSimEventLoopDelayMs(value: number): void {
+      appendSample(simEventLoopDelayMs, value);
+    },
+    observeSimTickDurationMs(source: TickSource, value: number): void {
+      const target = simTickDurationMs.get(source);
+      if (!target) return;
+      appendSample(target, value);
+    },
     setSimHumanInteractiveBacklogMs(value: number): void {
       simHumanInteractiveBacklogMs = clampMetric(value);
     },
     incrementSimAiPlannerBreaches(): void {
       simAiPlannerBreaches += 1;
     },
+    observeSimAiNoop(reason: AutomationNoopReason, playerId: string): void {
+      simAiNoopTotalByReason.set(reason, (simAiNoopTotalByReason.get(reason) ?? 0) + 1);
+      simAiNoopRecent.push(`${playerId}:${reason}`);
+      if (simAiNoopRecent.length > 12) simAiNoopRecent.splice(0, simAiNoopRecent.length - 12);
+    },
     setSimCheckpointRssMb(value: number): void {
       simCheckpointRssMb = clampMetric(value);
+    },
+    setSimCpuPercent(value: number): void {
+      simCpuPercent = clampMetric(value);
+    },
+    setSimHeapUsageMb(values: { heapUsedMb: number; heapTotalMb: number }): void {
+      simHeapUsedMb = clampMetric(values.heapUsedMb);
+      simHeapTotalMb = clampMetric(values.heapTotalMb);
+    },
+    observeSimGcPauseMs(value: number): void {
+      appendSample(simGcPauseMs, value);
     },
     observeSimCommandAcceptLatencyMs(lane: QueueLane, value: number): void {
       const target = simCommandAcceptLatencyMsByLane.get(lane);
@@ -92,12 +150,34 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       const lines = [
         "# TYPE sim_event_loop_max_ms gauge",
         `sim_event_loop_max_ms ${formatMetricValue(sample.simEventLoopMaxMs)}`,
+        "# TYPE sim_event_loop_delay_ms gauge",
+        `sim_event_loop_delay_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventLoopDelayMs.p50)}`,
+        `sim_event_loop_delay_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventLoopDelayMs.p95)}`,
+        `sim_event_loop_delay_ms{quantile=\"p99\"} ${formatMetricValue(sample.simEventLoopDelayMs.p99)}`,
+        "# TYPE sim_tick_duration_ms gauge",
+        `sim_tick_duration_ms{source=\"ai\",quantile=\"p50\"} ${formatMetricValue(sample.simTickDurationMs.ai.p50)}`,
+        `sim_tick_duration_ms{source=\"ai\",quantile=\"p95\"} ${formatMetricValue(sample.simTickDurationMs.ai.p95)}`,
+        `sim_tick_duration_ms{source=\"ai\",quantile=\"p99\"} ${formatMetricValue(sample.simTickDurationMs.ai.p99)}`,
+        `sim_tick_duration_ms{source=\"system\",quantile=\"p50\"} ${formatMetricValue(sample.simTickDurationMs.system.p50)}`,
+        `sim_tick_duration_ms{source=\"system\",quantile=\"p95\"} ${formatMetricValue(sample.simTickDurationMs.system.p95)}`,
+        `sim_tick_duration_ms{source=\"system\",quantile=\"p99\"} ${formatMetricValue(sample.simTickDurationMs.system.p99)}`,
         "# TYPE sim_human_interactive_backlog_ms gauge",
         `sim_human_interactive_backlog_ms ${formatMetricValue(sample.simHumanInteractiveBacklogMs)}`,
         "# TYPE sim_ai_planner_breaches counter",
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
+        "# TYPE sim_ai_noop_total counter",
         "# TYPE sim_checkpoint_rss_mb gauge",
         `sim_checkpoint_rss_mb ${formatMetricValue(sample.simCheckpointRssMb)}`,
+        "# TYPE sim_cpu_percent gauge",
+        `sim_cpu_percent ${formatMetricValue(sample.simCpuPercent)}`,
+        "# TYPE sim_heap_used_mb gauge",
+        `sim_heap_used_mb ${formatMetricValue(sample.simHeapUsedMb)}`,
+        "# TYPE sim_heap_total_mb gauge",
+        `sim_heap_total_mb ${formatMetricValue(sample.simHeapTotalMb)}`,
+        "# TYPE sim_gc_pause_ms gauge",
+        `sim_gc_pause_ms{quantile=\"p50\"} ${formatMetricValue(sample.simGcPauseMs.p50)}`,
+        `sim_gc_pause_ms{quantile=\"p95\"} ${formatMetricValue(sample.simGcPauseMs.p95)}`,
+        `sim_gc_pause_ms{quantile=\"p99\"} ${formatMetricValue(sample.simGcPauseMs.p99)}`,
         "# TYPE sim_event_store_write_ms gauge",
         `sim_event_store_write_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventStoreWriteMs.p50)}`,
         `sim_event_store_write_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventStoreWriteMs.p95)}`,
@@ -110,6 +190,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p50\"} ${formatMetricValue(laneSample.p50)}`);
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p95\"} ${formatMetricValue(laneSample.p95)}`);
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p99\"} ${formatMetricValue(laneSample.p99)}`);
+      }
+      for (const reason of AUTOMATION_NOOP_REASONS) {
+        lines.push(`sim_ai_noop_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiNoopTotalByReason[reason])}`);
       }
 
       return lines.join("\n");
