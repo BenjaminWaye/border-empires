@@ -18,13 +18,17 @@ const makePlayer = (overrides: Partial<PlannerPlayerView> = {}): PlannerPlayerVi
 
 describe("buildPlannerRelevantTileKeys", () => {
   it("includes radius around territory, frontier, and pending-settlement tiles", () => {
-    const keys = buildPlannerRelevantTileKeys([
-      makePlayer({
-        territoryTileKeys: ["10,10"],
-        frontierTileKeys: ["20,20"],
-        pendingSettlementTileKeys: ["30,30"]
-      })
-    ]);
+    const keys = buildPlannerRelevantTileKeys({
+      players: [
+        makePlayer({
+          territoryTileKeys: ["10,10"],
+          frontierTileKeys: ["20,20"],
+          pendingSettlementTileKeys: ["30,30"]
+        })
+      ],
+      tiles: [],
+      docks: []
+    });
 
     expect(keys.has("10,10")).toBe(true);
     expect(keys.has("12,12")).toBe(true);
@@ -34,11 +38,26 @@ describe("buildPlannerRelevantTileKeys", () => {
   });
 
   it("unions scoped keys across players", () => {
-    const keys = buildPlannerRelevantTileKeys([
-      makePlayer({ id: "p1", territoryTileKeys: ["0,0"] }),
-      makePlayer({ id: "p2", territoryTileKeys: ["50,50"] })
-    ], 0);
+    const keys = buildPlannerRelevantTileKeys({
+      players: [
+        makePlayer({ id: "p1", territoryTileKeys: ["0,0"] }),
+        makePlayer({ id: "p2", territoryTileKeys: ["50,50"] })
+      ],
+      tiles: [],
+      docks: []
+    }, 0);
 
     expect(keys).toEqual(new Set(["0,0", "50,50"]));
+  });
+
+  it("includes linked dock neighborhoods for owned dock territory", () => {
+    const keys = buildPlannerRelevantTileKeys({
+      players: [makePlayer({ territoryTileKeys: ["10,10"] })],
+      tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "p1", dockId: "dock-a" }],
+      docks: [{ dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] }, { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }]
+    }, 0);
+
+    expect(keys.has("50,50")).toBe(true);
+    expect(keys.has("49,49")).toBe(true);
   });
 });

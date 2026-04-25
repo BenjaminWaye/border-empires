@@ -1,5 +1,8 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
+import { dockCrossingCandidateTileKeys } from "./dock-network.js";
+import { frontierNeighborKeys } from "./frontier-topology.js";
+
 type PlannerTile = {
   x: number;
   y: number;
@@ -14,14 +17,8 @@ type PlannerTileLookup = ReadonlyMap<string, PlannerTile>;
 type FrontierAffordability = {
   canAttack?: boolean;
   canExpand?: boolean;
+  dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
 };
-
-const frontierDirections = [
-  { dx: -1, dy: 0 },
-  { dx: 1, dy: 0 },
-  { dx: 0, dy: -1 },
-  { dx: 0, dy: 1 }
-];
 
 const sortTiles = (
   left: { x: number; y: number },
@@ -46,10 +43,7 @@ const resourceScore = (resource: string | undefined): number => {
 };
 
 const adjacentLandCount = (tilesByKey: PlannerTileLookup, tile: PlannerTile): number =>
-  frontierDirections.reduce((count, direction) => {
-    const neighbor = tilesByKey.get(`${tile.x + direction.dx},${tile.y + direction.dy}`);
-    return count + (neighbor?.terrain === "LAND" ? 1 : 0);
-  }, 0);
+  frontierNeighborKeys(tile.x, tile.y).reduce((count, neighborKey) => count + (tilesByKey.get(neighborKey)?.terrain === "LAND" ? 1 : 0), 0);
 
 const frontierTargetScore = (tilesByKey: PlannerTileLookup, tile: PlannerTile): number => {
   let score = 0;
@@ -94,6 +88,16 @@ export const chooseNextOwnedFrontierCommandFromLookup = (
 ): CommandEnvelope | undefined => {
   const canAttack = affordability.canAttack ?? true;
   const canExpand = affordability.canExpand ?? true;
+  const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
+  const candidateKeysForOrigin = (from: PlannerTile): string[] => {
+    const candidateKeys = new Set(frontierNeighborKeys(from.x, from.y));
+    if (from.dockId && dockLinksByDockTileKey) {
+      for (const tileKey of dockCrossingCandidateTileKeys(`${from.x},${from.y}`, dockLinksByDockTileKey)) {
+        candidateKeys.add(tileKey);
+      }
+    }
+    return [...candidateKeys];
+  };
   let bestAttack:
     | {
         from: PlannerTile;
@@ -102,8 +106,8 @@ export const chooseNextOwnedFrontierCommandFromLookup = (
       }
     | undefined;
   for (const from of ownedTiles) {
-    for (const direction of frontierDirections) {
-      const target = tilesByKey.get(`${from.x + direction.dx},${from.y + direction.dy}`);
+    for (const targetKey of candidateKeysForOrigin(from)) {
+      const target = tilesByKey.get(targetKey);
       if (!target) continue;
       if (target.terrain !== "LAND") continue;
       if (!target.ownerId || target.ownerId === playerId) continue;
@@ -145,8 +149,8 @@ export const chooseNextOwnedFrontierCommandFromLookup = (
       }
     | undefined;
   for (const from of ownedTiles) {
-    for (const direction of frontierDirections) {
-      const target = tilesByKey.get(`${from.x + direction.dx},${from.y + direction.dy}`);
+    for (const targetKey of candidateKeysForOrigin(from)) {
+      const target = tilesByKey.get(targetKey);
       if (!target || target.ownerId) continue;
       if (target.terrain !== "LAND") continue;
       if (!canExpand) continue;

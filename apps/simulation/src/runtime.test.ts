@@ -200,6 +200,58 @@ describe("simulation runtime", () => {
     expect(seen[0]).toBe("COMMAND_ACCEPTED");
   });
 
+  it("accepts dock-crossing frontier expansion to linked islands", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      seedTiles: new Map(),
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 10_000,
+            manpower: 10_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
+          { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
+          { x: 51, y: 50, terrain: "LAND" }
+        ],
+        docks: [
+          { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+          { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: string[] = [];
+    runtime.onEvent((event) => {
+      seen.push(event.eventType);
+    });
+
+    runtime.submitCommand({
+      commandId: "cmd-dock-expand",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 51, toY: 50 })
+    });
+
+    await Promise.resolve();
+    expect(seen[0]).toBe("COMMAND_ACCEPTED");
+  });
+
   it("emits a fresh player update after collecting buffered tile yield", async () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
@@ -478,6 +530,50 @@ describe("simulation runtime", () => {
       expect.objectContaining({
         type: "EXPAND",
         payloadJson: JSON.stringify({ fromX: 11, fromY: 10, toX: 12, toY: 10 })
+      })
+    );
+  });
+
+  it("uses dock crossings for AI automation when island starts have no local frontier target", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      seedTiles: new Map(),
+      initialPlayers: new Map([
+        [
+          "ai-1",
+          {
+            id: "ai-1",
+            isAi: true,
+            points: 100,
+            manpower: 10_000,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a", town: { name: "Spawn", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
+          { x: 51, y: 50, terrain: "LAND", resource: "FARM" }
+        ],
+        docks: [
+          { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+          { dockId: "dock-b", tileKey: "50,50", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+        ],
+        activeLocks: []
+      }
+    });
+
+    expect(runtime.chooseNextAutomationCommand("ai-1", 1, 1_000, "ai-runtime")).toEqual(
+      expect.objectContaining({
+        type: "EXPAND",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 50, toY: 50 })
       })
     );
   });

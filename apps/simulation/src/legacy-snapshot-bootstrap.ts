@@ -585,6 +585,12 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     seedTiles,
     initialState: {
       tiles: [...tiles.values()].sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+      docks: (territory.docks ?? []).map((dock) => ({
+        dockId: dock.dockId,
+        tileKey: dock.tileKey,
+        pairedDockId: dock.pairedDockId,
+        ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+      })),
       activeLocks: []
     }
   };
