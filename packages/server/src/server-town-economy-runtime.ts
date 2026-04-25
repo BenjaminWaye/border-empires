@@ -208,6 +208,7 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
   };
 
   const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
+    if (town.isSettlement) return 0;
     const tier = townPopulationTierForTown(town);
     if (tier === "SETTLEMENT") return 0;
     if (tier === "CITY") return 0.2;
