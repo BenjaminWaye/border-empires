@@ -1,4 +1,5 @@
 import type { QueueLane } from "./command-lane.js";
+import { AUTOMATION_NOOP_REASONS, type AutomationNoopReason } from "./automation-command-planner.js";
 
 const LANES: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
 
@@ -26,6 +27,8 @@ type SimulationMetricsSnapshot = {
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simHumanInteractiveBacklogMs: number;
   simAiPlannerBreaches: number;
+  simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
+  simAiNoopRecent: string[];
   simCheckpointRssMb: number;
   simCpuPercent: number;
   simHeapUsedMb: number;
@@ -45,6 +48,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simCommandAcceptLatencyMsByLane = new Map<QueueLane, number[]>(LANES.map((lane) => [lane, []]));
   const simEventStoreWriteMs: number[] = [];
   const simGcPauseMs: number[] = [];
+  const simAiNoopTotalByReason = new Map<AutomationNoopReason, number>(
+    AUTOMATION_NOOP_REASONS.map((reason) => [reason, 0])
+  );
+  const simAiNoopRecent: string[] = [];
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
   let simAiPlannerBreaches = 0;
@@ -73,6 +80,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     simHumanInteractiveBacklogMs,
     simAiPlannerBreaches,
+    simAiNoopTotalByReason: Object.fromEntries(AUTOMATION_NOOP_REASONS.map((reason) => [reason, simAiNoopTotalByReason.get(reason) ?? 0])) as Record<AutomationNoopReason, number>,
+    simAiNoopRecent: [...simAiNoopRecent],
     simCheckpointRssMb,
     simCpuPercent,
     simHeapUsedMb,
@@ -104,6 +113,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     incrementSimAiPlannerBreaches(): void {
       simAiPlannerBreaches += 1;
+    },
+    observeSimAiNoop(reason: AutomationNoopReason, playerId: string): void {
+      simAiNoopTotalByReason.set(reason, (simAiNoopTotalByReason.get(reason) ?? 0) + 1);
+      simAiNoopRecent.push(`${playerId}:${reason}`);
+      if (simAiNoopRecent.length > 12) simAiNoopRecent.splice(0, simAiNoopRecent.length - 12);
     },
     setSimCheckpointRssMb(value: number): void {
       simCheckpointRssMb = clampMetric(value);
@@ -151,6 +165,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_human_interactive_backlog_ms ${formatMetricValue(sample.simHumanInteractiveBacklogMs)}`,
         "# TYPE sim_ai_planner_breaches counter",
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
+        "# TYPE sim_ai_noop_total counter",
         "# TYPE sim_checkpoint_rss_mb gauge",
         `sim_checkpoint_rss_mb ${formatMetricValue(sample.simCheckpointRssMb)}`,
         "# TYPE sim_cpu_percent gauge",
@@ -175,6 +190,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p50\"} ${formatMetricValue(laneSample.p50)}`);
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p95\"} ${formatMetricValue(laneSample.p95)}`);
         lines.push(`sim_command_accept_latency_ms{lane=\"${lane}\",quantile=\"p99\"} ${formatMetricValue(laneSample.p99)}`);
+      }
+      for (const reason of AUTOMATION_NOOP_REASONS) {
+        lines.push(`sim_ai_noop_total{reason=\"${reason}\"} ${formatMetricValue(sample.simAiNoopTotalByReason[reason])}`);
       }
 
       return lines.join("\n");
