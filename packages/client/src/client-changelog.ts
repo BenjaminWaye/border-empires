@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.3",
+  version: "2026.04.26.4",
   title: "What's New",
-  summary: "Recent updates include AI frontier planning and validation fixes for diagonal, world-wrap, and dock-linked cross-island expansion, rewrite settlement upkeep corrections so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include final rewrite 3D map polish for ownership tinting, highlight alignment, unexplored blackout rendering, and alternate-account profile setup correctness, plus a rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.4",
+      title: "Rewrite 3D ownership overlays now render with the correct player color and tile-aligned highlights",
+      why: "The 3D map still had mismatched selection/support outlines, colored seams in unexplored space, and ownership fills that could render black instead of the active empire color despite correct state data.",
+      changes: [
+        "True 3D ownership overlays now render on the terrain surface with the intended player color instead of dark fallback panels.",
+        "Selection, hover, queue, and town-support markers now use full-tile geometry and projected 3D placement so their borders stay aligned with the actual tile footprint.",
+        "Unexplored and fogged map regions now render as solid black without leftover terrain-colored seams."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.4",
+      title: "Signing in with a different account now creates a fresh profile setup instead of inheriting by name",
+      why: "Auth identity binding could still fall back to matching an existing player only by display name, which let a different email silently attach to an old completed profile and skip the setup flow.",
+      changes: [
+        "Server auth identity reuse now binds returning players only through the durable identity-to-player mapping instead of display-name fallback.",
+        "Different authenticated accounts now get their own new player record and profile setup flow even when they choose the same display name.",
+        "Added server regression coverage so alternate-account sign-in cannot silently inherit another account's completed profile."
+      ]
+    },
     {
       introducedIn: "2026.04.26.3",
       title: "AI empires can now keep expanding across diagonals, world edges, and dock routes",
