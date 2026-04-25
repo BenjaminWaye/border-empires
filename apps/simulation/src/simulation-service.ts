@@ -302,6 +302,28 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
   const commandTraceEnabled = process.env.SIMULATION_COMMAND_TRACE === "1";
+  const slowSubmitWarnMs = Math.max(50, Number(process.env.SIMULATION_SLOW_SUBMIT_WARN_MS ?? 250));
+  const slowRuntimeSubmitWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_RUNTIME_SUBMIT_WARN_MS ?? 50));
+  const slowQueueDrainWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_QUEUE_DRAIN_WARN_MS ?? 100));
+  const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
+  const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
+  const logWriters = log as Partial<Record<"info" | "warn" | "error", (...args: unknown[]) => void>>;
+  const emitLog = (level: "info" | "warn" | "error", message: string, payload: Record<string, unknown>): void => {
+    const writer = logWriters[level];
+    if (typeof writer === "function") {
+      writer.call(log, payload, message);
+      return;
+    }
+    console[level](message, payload);
+  };
+  const recordLagDiagnostic = (
+    level: "info" | "warn" | "error",
+    event: string,
+    payload: Record<string, unknown>
+  ): void => {
+    if (level === "info") return;
+    emitLog(level, `simulation lag diagnostic: ${event}`, payload);
+  };
   const commandTraceSample = (sample: Record<string, unknown>): void => {
     if (!commandTraceEnabled) return;
     log.info({ ...sample }, "simulation command trace");
@@ -405,6 +427,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             })
         }
       : {}),
+    onQueueDrain: (sample) => {
+      if (sample.durationMs < slowQueueDrainWarnMs) return;
+      recordLagDiagnostic("warn", "runtime_queue_drain_slow", sample);
+    },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: activePlayers
   });
@@ -487,6 +513,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     commandStore,
     eventStore,
     onEventStoreWrite: (durationMs) => simulationMetrics.observeSimEventStoreWriteMs(durationMs),
+    onDiagnostic: (sample) => {
+      if (!sample.failed && sample.durationMs < slowPersistenceWarnMs) return;
+      recordLagDiagnostic(sample.failed ? "error" : "warn", "simulation_persistence_slow", sample);
+    },
     onEventPersisted: () => {
       void snapshotCheckpointManager.onEventPersisted().catch((error) => {
         log.error({ err: error }, "simulation snapshot checkpoint failed");
@@ -495,6 +525,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     onPersistenceFailure: (error) => {
       if (fatalPersistenceError) return;
       fatalPersistenceError = error;
+      recordLagDiagnostic("error", "simulation_persistence_failed", {
+        error: error.message
+      });
       log.error({ err: error }, "simulation entering fatal persistence failure mode");
       setTimeout(() => {
         process.exitCode = 1;
@@ -589,7 +622,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       clientSeq: command.clientSeq,
       type: command.type
     });
+    const runtimeSubmitStartedAt = Date.now();
     runtime.submitCommand(command);
+    const runtimeSubmitDurationMs = Date.now() - runtimeSubmitStartedAt;
+    if (runtimeSubmitDurationMs >= slowRuntimeSubmitWarnMs) {
+      recordLagDiagnostic("warn", "runtime_submit_command_slow", {
+        commandId: command.commandId,
+        playerId: command.playerId,
+        type: command.type,
+        durationMs: runtimeSubmitDurationMs,
+        queueDepths: runtime.queueDepths()
+      });
+    }
   };
   const aiPlayerIds = [...activePlayers.values()].filter((player) => player.isAi).map((player) => player.id);
   const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
@@ -614,6 +658,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           tickIntervalMs: options.aiTickMs ?? 250,
           onPlannerTick: ({ breached }) => {
             if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
+          },
+          onDiagnostic: (sample) => {
+            if (sample.durationMs < slowAiSyncWarnMs) return;
+            recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
           },
           onTick: ({ durationMs }) => {
             simulationMetrics.observeSimTickDurationMs("ai", durationMs);
@@ -729,14 +777,38 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const command = toCommandEnvelope(call.request);
       void (async () => {
         const acceptStartedAt = Date.now();
+        const lane = laneForCommand(command);
         try {
           if (fatalPersistenceError) {
             throw fatalPersistenceError;
           }
           await submitDurableCommand(command);
-          simulationMetrics.observeSimCommandAcceptLatencyMs(laneForCommand(command), Date.now() - acceptStartedAt);
+          const acceptDurationMs = Date.now() - acceptStartedAt;
+          simulationMetrics.observeSimCommandAcceptLatencyMs(lane, acceptDurationMs);
+          if (acceptDurationMs >= slowSubmitWarnMs) {
+            recordLagDiagnostic("warn", "simulation_submit_command_slow", {
+              commandId: command.commandId,
+              playerId: command.playerId,
+              type: command.type,
+              lane,
+              durationMs: acceptDurationMs,
+              queueDepths: runtime.queueDepths(),
+              persistencePendingCount: persistenceQueue.pendingCount(),
+              latestEventLoopLagMs
+            });
+          }
           callback(null, { ok: true });
         } catch (error) {
+          recordLagDiagnostic("error", "simulation_submit_command_failed", {
+            commandId: command.commandId,
+            playerId: command.playerId,
+            type: command.type,
+            lane,
+            durationMs: Date.now() - acceptStartedAt,
+            error: error instanceof Error ? error.message : String(error),
+            persistencePendingCount: persistenceQueue.pendingCount(),
+            latestEventLoopLagMs
+          });
           callback(error instanceof Error ? error : new Error("failed to persist simulation command"), { ok: false });
         }
       })();

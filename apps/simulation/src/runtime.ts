@@ -199,6 +199,15 @@ type SimulationRuntimeOptions = {
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
   commandTrace?: (sample: Record<string, unknown>) => void;
+  onQueueDrain?: (sample: {
+    durationMs: number;
+    processedJobs: number;
+    backgroundJobsProcessed: number;
+    yieldedForBackground: boolean;
+    processedByLane: Record<QueueLane, number>;
+    queueDepthsBefore: Record<QueueLane, number>;
+    queueDepthsAfter: Record<QueueLane, number>;
+  }) => void;
   maxTerminalCommandReplayHistory?: number;
   maxPlayerSeqReplayEntries?: number;
 };
@@ -504,6 +513,17 @@ export class SimulationRuntime {
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
+  private readonly onQueueDrain:
+    | ((sample: {
+        durationMs: number;
+        processedJobs: number;
+        backgroundJobsProcessed: number;
+        yieldedForBackground: boolean;
+        processedByLane: Record<QueueLane, number>;
+        queueDepthsBefore: Record<QueueLane, number>;
+        queueDepthsAfter: Record<QueueLane, number>;
+      }) => void)
+    | undefined;
   private drainScheduled = false;
   private draining = false;
 
@@ -523,6 +543,7 @@ export class SimulationRuntime {
     this.scheduleSoon = options.scheduleSoon ?? ((task) => queueMicrotask(task));
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
     this.commandTrace = options.commandTrace;
+    this.onQueueDrain = options.onQueueDrain;
     this.players = createPlayersFromRecoveredState(options.initialState) ?? (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
     for (const player of this.players.values()) this.applyManpowerRegen(player);
     this.tiles = createTilesFromInitialState(
@@ -1225,10 +1246,19 @@ export class SimulationRuntime {
   private drainQueues(): void {
     if (this.draining) return;
     this.draining = true;
+    const drainStartedAt = this.now();
+    const queueDepthsBefore = this.queueDepths();
+    const processedByLane: Record<QueueLane, number> = {
+      human_interactive: 0,
+      human_noninteractive: 0,
+      system: 0,
+      ai: 0
+    };
+    let processedJobs = 0;
     let shouldYieldForBackground = false;
+    let backgroundJobsProcessed = 0;
     try {
       let next = this.shiftNextJob();
-      let backgroundJobsProcessed = 0;
       while (next) {
         if ((next.lane === "system" || next.lane === "ai") && backgroundJobsProcessed >= this.backgroundBatchSize) {
           this.jobsByLane[next.lane].unshift(next);
@@ -1236,6 +1266,8 @@ export class SimulationRuntime {
           break;
         }
         next.run();
+        processedJobs += 1;
+        processedByLane[next.lane] += 1;
         if (next.lane === "system" || next.lane === "ai") {
           backgroundJobsProcessed += 1;
         }
@@ -1243,6 +1275,17 @@ export class SimulationRuntime {
       }
     } finally {
       this.draining = false;
+      if (processedJobs > 0) {
+        this.onQueueDrain?.({
+          durationMs: Math.max(0, this.now() - drainStartedAt),
+          processedJobs,
+          backgroundJobsProcessed,
+          yieldedForBackground: shouldYieldForBackground,
+          processedByLane,
+          queueDepthsBefore,
+          queueDepthsAfter: this.queueDepths()
+        });
+      }
       if (this.hasQueuedJobs()) {
         if (shouldYieldForBackground) {
           this.scheduleAfter(0, () => this.drainQueues());
