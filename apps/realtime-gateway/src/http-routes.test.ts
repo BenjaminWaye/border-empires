@@ -20,6 +20,22 @@ describe("gateway http routes", () => {
       snapshotDir: "/tmp/snapshot",
       supportedMessageTypes: ["ATTACK", "COLLECT_VISIBLE"],
       recentEvents: () => [{ at: 1_200, level: "info", event: "gateway_started", payload: {} }],
+      attackDebug: () => ({
+        controlPath: [{ at: 1_210, level: "info", event: "gateway_auth", payload: { channel: "control" } }],
+        hotPath: [{ at: 1_220, level: "warn", event: "pending_input_to_state", payload: { commandId: "cmd-1", ageMs: 8_000 } }],
+        slowOrWarn: [{ at: 1_220, level: "warn", event: "pending_input_to_state", payload: { commandId: "cmd-1", ageMs: 8_000 } }]
+      }),
+      attackTraces: () => [
+        {
+          traceId: "cmd-1",
+          firstAt: 1_220,
+          lastAt: 1_230,
+          events: [
+            { at: 1_220, level: "warn", event: "pending_input_to_state", payload: { commandId: "cmd-1", ageMs: 8_000 } },
+            { at: 1_230, level: "warn", event: "simulation_submit_failed", payload: { commandId: "cmd-1" } }
+          ]
+        }
+      ],
       metrics: () => "gateway_event_loop_max_ms 4\n"
     });
 
@@ -51,11 +67,11 @@ describe("gateway http routes", () => {
         ok: true,
         recentServerEvents: [expect.objectContaining({ event: "gateway_started" })],
         attackDebug: {
-          controlPath: [],
-          hotPath: [],
-          slowOrWarn: []
+          controlPath: [expect.objectContaining({ event: "gateway_auth" })],
+          hotPath: [expect.objectContaining({ event: "pending_input_to_state" })],
+          slowOrWarn: [expect.objectContaining({ event: "pending_input_to_state" })]
         },
-        attackTraces: [],
+        attackTraces: [expect.objectContaining({ traceId: "cmd-1" })],
         runtime: {
           gateway: expect.objectContaining({
             simulationAddress: "127.0.0.1:50051",
@@ -82,6 +98,8 @@ describe("gateway http routes", () => {
       }),
       supportedMessageTypes: ["ATTACK"],
       recentEvents: () => [],
+      attackDebug: () => ({ controlPath: [], hotPath: [], slowOrWarn: [] }),
+      attackTraces: () => [],
       metrics: () => ""
     });
 
