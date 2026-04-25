@@ -133,6 +133,19 @@ describe("gateway http routes", () => {
         { at: 1_200, level: "info", event: "gateway_started", payload: {} },
         { at: 1_250, level: "warn", event: "gateway_command_submit_slow", payload: { durationMs: 1400 } }
       ],
+      attackDebug: () => ({
+        controlPath: [],
+        hotPath: [{ at: 1_250, level: "warn", event: "gateway_command_submit_slow", payload: { durationMs: 1400 } }],
+        slowOrWarn: [{ at: 1_250, level: "warn", event: "gateway_command_submit_slow", payload: { durationMs: 1400 } }]
+      }),
+      attackTraces: () => [
+        {
+          traceId: "cmd-slow",
+          firstAt: 1_250,
+          lastAt: 1_250,
+          events: [{ at: 1_250, level: "warn", event: "gateway_command_submit_slow", payload: { durationMs: 1400 } }]
+        }
+      ],
       metrics: () => ""
     });
 
@@ -144,7 +157,7 @@ describe("gateway http routes", () => {
           hotPath: [expect.objectContaining({ event: "gateway_command_submit_slow" })],
           slowOrWarn: [expect.objectContaining({ event: "gateway_command_submit_slow" })]
         }),
-        attackTraces: [expect.objectContaining({ event: "gateway_command_submit_slow" })]
+        attackTraces: [expect.objectContaining({ traceId: "cmd-slow", events: [expect.objectContaining({ event: "gateway_command_submit_slow" })] })]
       })
     );
 
