@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.3",
+  version: "2026.04.26.4",
   title: "What's New",
-  summary: "Recent updates include AI frontier planning and validation fixes for diagonal, world-wrap, and dock-linked cross-island expansion, rewrite settlement upkeep corrections so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include staging whole-map reveal support for rewrite gateway inspection sessions, AI frontier planning and validation fixes for diagonal, world-wrap, and dock-linked cross-island expansion, rewrite settlement upkeep corrections so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.4",
+      title: "Staging inspection sessions can now reveal the whole map",
+      why: "The rewrite gateway was not forwarding any fog-disable state, so staging users could not visually inspect the global AI situation even though the client already supported full-map reveal mode.",
+      changes: [
+        "Rewrite gateway init payloads now include a fog-disable flag when the server session is configured for map inspection.",
+        "Staging gateway config now enables that flag so reconnecting clients request full-map coverage immediately.",
+        "Added gateway regression coverage for runtime env parsing and fog-disabled init bootstrap payloads."
+      ]
+    },
     {
       introducedIn: "2026.04.26.3",
       title: "AI empires can now keep expanding across diagonals, world edges, and dock routes",

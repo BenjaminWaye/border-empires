@@ -11,6 +11,7 @@ export type RealtimeGatewayRuntimeEnv = {
   defaultHumanPlayerId?: string;
   simulationSeedProfile: SimulationSeedProfile;
   allowNonAuthoritativeInitialState: boolean;
+  disableFog: boolean;
 };
 
 const parsePort = (value: string | undefined, fallback: number): number => {
@@ -71,6 +72,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
         ? { defaultHumanPlayerId: "player-1" }
         : {}),
     simulationSeedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE),
-    allowNonAuthoritativeInitialState
+    allowNonAuthoritativeInitialState,
+    disableFog: parseBinaryFlag(env.GATEWAY_DISABLE_FOG) === true
   };
 };
