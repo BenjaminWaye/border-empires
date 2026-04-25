@@ -253,4 +253,113 @@ describe("worker system command producer backpressure", () => {
       sessionId: "system-runtime:barbarian-1"
     });
   });
+
+  it("does not forward irrelevant tile deltas to the system worker", async () => {
+    const postedMessages: WorkerMessage[] = [];
+    const origPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      postedMessages.push(msg);
+      origPostMessage.call(this, msg);
+    };
+
+    const eventEmitter = new EventEmitter();
+    const plannerPlayers = [
+      {
+        id: "barbarian-1",
+        points: 500,
+        manpower: 100,
+        hasActiveLock: false,
+        territoryTileKeys: ["25,0"],
+        frontierTileKeys: ["25,0"],
+        pendingSettlementTileKeys: [] as string[],
+        activeDevelopmentProcessCount: 0,
+        tileCollectionVersion: 1
+      }
+    ];
+    const producer = createWorkerSystemCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        exportPlannerWorldView: () => ({ tiles: [], players: plannerPlayers }),
+        exportPlannerPlayerViews: () => plannerPlayers,
+        onEvent: (listener: (event: { playerId: string; eventType: string }) => void) => {
+          eventEmitter.on("event", listener);
+          return () => eventEmitter.off("event", listener);
+        }
+      },
+      systemPlayerIds: ["barbarian-1"],
+      submitCommand: async () => undefined,
+      tickIntervalMs: 50,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    eventEmitter.emit("event", {
+      eventType: "TILE_DELTA_BATCH",
+      playerId: "player-1",
+      commandId: "human-cmd",
+      tileDeltas: [{ x: 100, y: 100, terrain: "LAND", ownerId: "player-1" }]
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 40));
+
+    producer.close();
+    MockWorker.prototype.postMessage = origPostMessage;
+
+    expect(postedMessages.some((msg) => msg.type === "tile_deltas")).toBe(false);
+  });
+
+  it("forwards tile deltas that fall inside the system planning scope", async () => {
+    const postedMessages: WorkerMessage[] = [];
+    const origPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      postedMessages.push(msg);
+      origPostMessage.call(this, msg);
+    };
+
+    const eventEmitter = new EventEmitter();
+    const plannerPlayers = [
+      {
+        id: "barbarian-1",
+        points: 500,
+        manpower: 100,
+        hasActiveLock: false,
+        territoryTileKeys: ["25,0"],
+        frontierTileKeys: ["25,0"],
+        pendingSettlementTileKeys: [] as string[],
+        activeDevelopmentProcessCount: 0,
+        tileCollectionVersion: 1
+      }
+    ];
+    const producer = createWorkerSystemCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        exportPlannerWorldView: () => ({ tiles: [], players: plannerPlayers }),
+        exportPlannerPlayerViews: () => plannerPlayers,
+        onEvent: (listener: (event: { playerId: string; eventType: string }) => void) => {
+          eventEmitter.on("event", listener);
+          return () => eventEmitter.off("event", listener);
+        }
+      },
+      systemPlayerIds: ["barbarian-1"],
+      submitCommand: async () => undefined,
+      tickIntervalMs: 50,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    eventEmitter.emit("event", {
+      eventType: "TILE_DELTA_BATCH",
+      playerId: "player-1",
+      commandId: "human-cmd",
+      tileDeltas: [{ x: 24, y: 0, terrain: "LAND", ownerId: "player-1" }]
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 40));
+
+    producer.close();
+    MockWorker.prototype.postMessage = origPostMessage;
+
+    const tileDeltaMessage = postedMessages.find((msg) => msg.type === "tile_deltas");
+    expect(tileDeltaMessage).toBeDefined();
+    expect(tileDeltaMessage).toMatchObject({
+      type: "tile_deltas",
+      tileDeltas: [{ x: 24, y: 0, terrain: "LAND", ownerId: "player-1" }]
+    });
+  });
 });
