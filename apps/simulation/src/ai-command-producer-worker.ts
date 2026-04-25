@@ -66,6 +66,13 @@ type WorkerAiCommandProducerOptions = {
   onPlannerTick?: (sample: { durationMs: number; breached: boolean }) => void;
   onTick?: (sample: { durationMs: number }) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
+  onDiagnostic?: (sample: {
+    phase: "sync_players" | "tile_delta_sync" | "request_plan" | "submit_command";
+    durationMs: number;
+    playerId?: string;
+    playerCount?: number;
+    tileDeltaCount?: number;
+  }) => void;
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -144,6 +151,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
   const syncPlayers = (playerIds: string[]): void => {
     if (playerIds.length === 0) return;
+    const startedAt = now();
     const players = options.runtime.exportPlannerPlayerViews(playerIds);
     for (const player of players) plannerPlayersById.set(player.id, player);
     relevantTileKeys = buildPlannerRelevantTileKeys({
@@ -154,6 +162,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     worker.postMessage({
       type: "sync_players",
       players
+    });
+    options.onDiagnostic?.({
+      phase: "sync_players",
+      durationMs: Math.max(0, now() - startedAt),
+      playerCount: players.length
     });
   };
 
@@ -177,9 +190,15 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const flushPendingTileDeltas = (): void => {
     tileDeltaSyncTimeout = undefined;
     if (pendingTileDeltasByKey.size === 0) return;
+    const startedAt = now();
     const tileDeltas = [...pendingTileDeltasByKey.values()];
     pendingTileDeltasByKey.clear();
     worker.postMessage({ type: "tile_deltas", tileDeltas });
+    options.onDiagnostic?.({
+      phase: "tile_delta_sync",
+      durationMs: Math.max(0, now() - startedAt),
+      tileDeltaCount: tileDeltas.length
+    });
   };
 
   const queueTileDeltas = (tileDeltas: readonly SimulationTileDelta[]): void => {
@@ -281,13 +300,24 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           const plannerStartedAt = now();
           const command = await requestPlan(playerId, clientSeq, issuedAt);
           const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
+          options.onDiagnostic?.({
+            phase: "request_plan",
+            durationMs: plannerDurationMs,
+            playerId
+          });
           const breached = plannerDurationMs > plannerBreachThresholdMs;
           options.onPlannerTick?.({ durationMs: plannerDurationMs, breached });
           if (!command) continue;
           pendingCommandByPlayer.set(playerId, { commandId: command.commandId, startedAt: issuedAt });
           nextClientSeqByPlayer.set(playerId, clientSeq + 1);
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
+          const submitStartedAt = now();
           await options.submitCommand(command);
+          options.onDiagnostic?.({
+            phase: "submit_command",
+            durationMs: Math.max(0, now() - submitStartedAt),
+            playerId
+          });
         } catch {
           pendingCommandByPlayer.delete(playerId);
           // swallow — will retry on next tick

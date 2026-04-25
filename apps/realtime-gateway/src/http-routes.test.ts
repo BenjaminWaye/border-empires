@@ -97,4 +97,39 @@ describe("gateway http routes", () => {
 
     await app.close();
   });
+
+  it("surfaces slow and failed gateway events in the debug bundle traces", async () => {
+    const app = Fastify();
+    registerGatewayHttpRoutes(app, {
+      startupStartedAt: 1_000,
+      simulationAddress: "127.0.0.1:50051",
+      simulationSeedProfile: "default",
+      health: () => ({
+        ok: true,
+        simulation: {
+          connected: true
+        }
+      }),
+      supportedMessageTypes: ["ATTACK"],
+      recentEvents: () => [
+        { at: 1_200, level: "info", event: "gateway_started", payload: {} },
+        { at: 1_250, level: "warn", event: "gateway_command_submit_slow", payload: { durationMs: 1400 } }
+      ],
+      metrics: () => ""
+    });
+
+    const debugResponse = await app.inject({ method: "GET", url: "/admin/runtime/debug-bundle" });
+    expect(debugResponse.statusCode).toBe(200);
+    expect(debugResponse.json()).toEqual(
+      expect.objectContaining({
+        attackDebug: expect.objectContaining({
+          hotPath: [expect.objectContaining({ event: "gateway_command_submit_slow" })],
+          slowOrWarn: [expect.objectContaining({ event: "gateway_command_submit_slow" })]
+        }),
+        attackTraces: [expect.objectContaining({ event: "gateway_command_submit_slow" })]
+      })
+    );
+
+    await app.close();
+  });
 });

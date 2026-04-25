@@ -8,6 +8,14 @@ type SimulationPersistenceQueueDependencies = {
   eventStore: SimulationEventStore;
   onEventPersisted?: () => void;
   onEventStoreWrite?: (durationMs: number) => void;
+  onDiagnostic?: (sample: {
+    phase: "command_status" | "event_store";
+    eventType: SimulationEvent["eventType"];
+    commandId: string;
+    durationMs: number;
+    pendingCount: number;
+    failed: boolean;
+  }) => void;
   onPersistenceFailure?: (error: Error) => void;
   log?: Pick<Console, "error">;
 };
@@ -115,11 +123,14 @@ export const createSimulationPersistenceQueue = (
     pendingCount += 1;
     const persistTask = async () => {
       try {
+        const commandStatusStartedAt = Date.now();
+        let commandStatusFailed = false;
         try {
           await withPersistenceRetry(async () => {
             await persistCommandStatus(dependencies.commandStore, event, createdAt);
           });
         } catch (error) {
+          commandStatusFailed = true;
           markFailure();
           reportFailure(error);
           switch (event.eventType) {
@@ -135,21 +146,41 @@ export const createSimulationPersistenceQueue = (
             default:
               break;
           }
+        } finally {
+          dependencies.onDiagnostic?.({
+            phase: "command_status",
+            eventType: event.eventType,
+            commandId: event.commandId,
+            durationMs: Math.max(0, Date.now() - commandStatusStartedAt),
+            pendingCount,
+            failed: commandStatusFailed
+          });
         }
 
         if (shouldPersistEvent(event)) {
           const eventStoreWriteStartedAt = Date.now();
+          let eventStoreWriteFailed = false;
           try {
             await withPersistenceRetry(async () => {
               await dependencies.eventStore.appendEvent(event, createdAt);
             });
             dependencies.onEventPersisted?.();
           } catch (error) {
+            eventStoreWriteFailed = true;
             markFailure();
             reportFailure(error);
             log.error("failed to persist simulation event", error);
           } finally {
-            dependencies.onEventStoreWrite?.(Math.max(0, Date.now() - eventStoreWriteStartedAt));
+            const durationMs = Math.max(0, Date.now() - eventStoreWriteStartedAt);
+            dependencies.onEventStoreWrite?.(durationMs);
+            dependencies.onDiagnostic?.({
+              phase: "event_store",
+              eventType: event.eventType,
+              commandId: event.commandId,
+              durationMs,
+              pendingCount,
+              failed: eventStoreWriteFailed
+            });
           }
         }
       } finally {

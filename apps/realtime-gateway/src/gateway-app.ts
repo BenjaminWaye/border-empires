@@ -210,6 +210,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   let simulationConsecutiveHealthFailures = 0;
   let simulationHealthRefreshInFlight = false;
   const gatewayMetrics = createGatewayMetrics();
+  const slowGatewaySubmitWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_SUBMIT_WARN_MS ?? 1_000));
+  const slowGatewayRpcWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_RPC_WARN_MS ?? 1_000));
   let gatewayMetricsTimer: ReturnType<typeof setInterval> | undefined;
   let gatewayEventLoopTimer: ReturnType<typeof setInterval> | undefined;
   let gatewayEventLoopWindowMaxMs = 0;
@@ -1135,7 +1137,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 });
                 throw error;
               } finally {
-                gatewayMetrics.observeGatewaySimRpcLatencyMs(Date.now() - rpcStartedAt);
+                const rpcDurationMs = Date.now() - rpcStartedAt;
+                gatewayMetrics.observeGatewaySimRpcLatencyMs(rpcDurationMs);
+                if (rpcDurationMs >= slowGatewayRpcWarnMs) {
+                  recordGatewayEvent("warn", "simulation_submit_rpc_slow", {
+                    commandId: command.commandId,
+                    playerId: command.playerId,
+                    durationMs: rpcDurationMs,
+                    timeoutMs: simulationSubmitTimeoutMs,
+                    simulationConnected: simulationHealth.connected,
+                    simulationLastError: simulationHealth.lastError ?? ""
+                  });
+                }
               }
             },
             sendJson: (payload: unknown) => sendJson(socket, payload)
@@ -1145,7 +1158,18 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             try {
               await submit();
             } finally {
-              gatewayMetrics.observeGatewayCommandSubmitLatencyMs(Date.now() - submitStartedAt);
+              const submitDurationMs = Date.now() - submitStartedAt;
+              gatewayMetrics.observeGatewayCommandSubmitLatencyMs(submitDurationMs);
+              if (submitDurationMs >= slowGatewaySubmitWarnMs) {
+                recordGatewayEvent("warn", "gateway_command_submit_slow", {
+                  messageType: message.type,
+                  playerId: session.playerId,
+                  durationMs: submitDurationMs,
+                  timeoutMs: simulationSubmitTimeoutMs,
+                  simulationConnected: simulationHealth.connected,
+                  simulationLastError: simulationHealth.lastError ?? ""
+                });
+              }
             }
           };
           if (message.type === "SETTLE") {
