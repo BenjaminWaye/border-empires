@@ -59,6 +59,7 @@ type RealtimeGatewayAppOptions = {
   snapshotDir?: string;
   createCommandId?: () => string;
   now?: () => number;
+  simulationPrepareTimeoutMs?: number;
   simulationSubscribeTimeoutMs?: number;
   simulationSubmitTimeoutMs?: number;
 };
@@ -205,6 +206,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const simulationSubscribeTimeoutMs = Math.max(
     1_000,
     options.simulationSubscribeTimeoutMs ?? Number(process.env.GATEWAY_SIMULATION_SUBSCRIBE_TIMEOUT_MS ?? 8_000)
+  );
+  const simulationPrepareTimeoutMs = Math.max(
+    1_000,
+    options.simulationPrepareTimeoutMs ??
+      Number(process.env.GATEWAY_SIMULATION_PREPARE_TIMEOUT_MS ?? simulationSubscribeTimeoutMs)
   );
   const simulationPingTimeoutMs = Math.max(1_500, Number(process.env.GATEWAY_SIMULATION_PING_TIMEOUT_MS ?? 20_000));
   const simulationSubmitTimeoutMs = Math.max(
@@ -930,6 +936,43 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               playerIdentity.playerId,
               persistedProfile?.name ?? playerIdentity.playerName
             );
+            const prepareStartedAt = Date.now();
+            try {
+              recordGatewayEvent("info", "gateway_auth_prepare_started", {
+                playerId: playerIdentity.playerId,
+                channel
+              });
+              const prepareResult = await withTimeout(
+                simulationClient.preparePlayer(playerIdentity.playerId),
+                simulationPrepareTimeoutMs,
+                "gateway prepare player"
+              );
+              const prepareDurationMs = Date.now() - prepareStartedAt;
+              recordGatewayEvent(
+                prepareResult.spawned || prepareDurationMs >= 250 ? "warn" : "info",
+                "gateway_auth_prepare_ready",
+                {
+                  playerId: playerIdentity.playerId,
+                  channel,
+                  prepareDurationMs,
+                  spawned: prepareResult.spawned
+                }
+              );
+              markSimulationReady();
+            } catch (error) {
+              recordGatewayEvent("error", "gateway_auth_prepare_failed", {
+                playerId: playerIdentity.playerId,
+                channel,
+                prepareDurationMs: Date.now() - prepareStartedAt,
+                error: error instanceof Error ? error.message : String(error)
+              });
+              sendJson(socket, {
+                type: "ERROR",
+                code: "SERVER_STARTING",
+                message: "Realtime simulation is temporarily unavailable. Retry shortly."
+              });
+              return;
+            }
             let subscribedInitialState;
             try {
               subscribedInitialState = await withTimeout(

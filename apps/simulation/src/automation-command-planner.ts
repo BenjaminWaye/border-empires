@@ -7,10 +7,8 @@ import {
   SETTLE_COST
 } from "@border-empires/shared";
 
-import { dockCrossingCandidateTileKeys } from "./dock-network.js";
 import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
-import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { analyzeOwnedFrontierTargetsFromLookup } from "./frontier-command-planner.js";
 
 export const AUTOMATION_NOOP_REASONS = [
   "player_missing",
@@ -110,34 +108,6 @@ export const createAutomationNoopDiagnostic = (
   noCommandReason
 });
 
-const summarizeFrontierTargets = <TTile extends AutomationPlannerTile>(
-  ownedTiles: readonly TTile[],
-  tilesByKey: ReadonlyMap<string, TTile>,
-  playerId: string,
-  dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>
-): { frontierEnemyTargetCount: number; frontierNeutralTargetCount: number } => {
-  const enemyTargets = new Set<string>();
-  const neutralTargets = new Set<string>();
-  for (const from of ownedTiles) {
-    const candidateKeys = new Set(frontierNeighborKeys(from.x, from.y));
-    if (from.dockId && dockLinksByDockTileKey) {
-      for (const tileKey of dockCrossingCandidateTileKeys(`${from.x},${from.y}`, dockLinksByDockTileKey)) {
-        candidateKeys.add(tileKey);
-      }
-    }
-    for (const candidateKey of candidateKeys) {
-      const target = tilesByKey.get(candidateKey);
-      if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
-      if (target.ownerId) enemyTargets.add(`${target.x},${target.y}`);
-      else neutralTargets.add(`${target.x},${target.y}`);
-    }
-  }
-  return {
-    frontierEnemyTargetCount: enemyTargets.size,
-    frontierNeutralTargetCount: neutralTargets.size
-  };
-};
-
 export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   input: AutomationPlannerInput<TTile>
 ): AutomationPlannerResult => {
@@ -195,27 +165,57 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
 
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = input.points >= FRONTIER_CLAIM_COST;
+  const frontierOrigins = input.frontierTiles.length > 0 ? input.frontierTiles : input.ownedTiles;
   const frontierStartedAt = Date.now();
-  const frontierCommand =
+  const frontierAnalysis =
     canAttack || canExpand
-      ? chooseNextOwnedFrontierCommandFromLookup(
-          input.tilesByKey,
-          input.ownedTiles,
-          input.playerId,
-          input.clientSeq,
-          input.issuedAt,
-          input.sessionPrefix,
-          {
-            canAttack,
-            canExpand,
-            ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
-          }
-        )
-      : undefined;
+      ? analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, frontierOrigins, input.playerId, {
+          canAttack,
+          canExpand,
+          ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
+        })
+      : {
+          frontierEnemyTargetCount: 0,
+          frontierNeutralTargetCount: 0
+        };
   recordPhaseTiming("choose_frontier", frontierStartedAt);
+  const frontierCommand = frontierAnalysis.attack
+    ? {
+        commandId: `${input.sessionPrefix}-${input.playerId}-${input.clientSeq}-${input.issuedAt}`,
+        sessionId: `${input.sessionPrefix}:${input.playerId}`,
+        playerId: input.playerId,
+        clientSeq: input.clientSeq,
+        issuedAt: input.issuedAt,
+        type: "ATTACK" as const,
+        payloadJson: JSON.stringify({
+          fromX: frontierAnalysis.attack.from.x,
+          fromY: frontierAnalysis.attack.from.y,
+          toX: frontierAnalysis.attack.target.x,
+          toY: frontierAnalysis.attack.target.y
+        })
+      }
+    : frontierAnalysis.expand
+      ? {
+          commandId: `${input.sessionPrefix}-${input.playerId}-${input.clientSeq}-${input.issuedAt}`,
+          sessionId: `${input.sessionPrefix}:${input.playerId}`,
+          playerId: input.playerId,
+          clientSeq: input.clientSeq,
+          issuedAt: input.issuedAt,
+          type: "EXPAND" as const,
+          payloadJson: JSON.stringify({
+            fromX: frontierAnalysis.expand.from.x,
+            fromY: frontierAnalysis.expand.from.y,
+            toX: frontierAnalysis.expand.target.x,
+            toY: frontierAnalysis.expand.target.y
+          })
+        }
+      : undefined;
   if (frontierCommand) {
     const summarizeStartedAt = Date.now();
-    const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId, input.dockLinksByDockTileKey);
+    const frontierSummary = {
+      frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
+      frontierNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount
+    };
     recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return {
       command: frontierCommand,
@@ -232,7 +232,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   }
 
   const summarizeStartedAt = Date.now();
-  const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId, input.dockLinksByDockTileKey);
+  const frontierSummary = {
+    frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
+    frontierNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount
+  };
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   let noCommandReason: AutomationNoopReason;
   if (input.activeDevelopmentProcessCount >= DEVELOPMENT_PROCESS_LIMIT && frontierSummary.frontierEnemyTargetCount === 0 && frontierSummary.frontierNeutralTargetCount === 0) {

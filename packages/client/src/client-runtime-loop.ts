@@ -12,6 +12,7 @@ import { structureAreaPreviewForTile } from "./client-structure-effects.js";
 import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
+import { queuedCornerBadgeLayout } from "./client-queue-badges.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
@@ -741,40 +742,71 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
         deps.ctx.lineWidth = 1;
       }
-      const queuedSettlementN = settleQueueIndex.get(wk);
-      if (!isTrue3DRendererActive() && queuedSettlementN !== undefined && !settlementProgress) {
-        deps.ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
+      const queuedSettlementBadge = queuedCornerBadgeLayout({
+        kind: "SETTLEMENT",
+        ordinal: settleQueueIndex.get(wk),
+        px,
+        py,
+        size,
+        isTrue3D: isTrue3DRendererActive(),
+        blocked: Boolean(settlementProgress)
+      });
+      if (queuedSettlementBadge?.border) {
+        deps.ctx.strokeStyle = queuedSettlementBadge.border.strokeStyle;
         deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        if (size >= 14) {
-          const badgeWidth = Math.min(size - 6, queuedSettlementN >= 10 ? 18 : 14);
-          deps.ctx.fillStyle = "rgba(49, 31, 4, 0.92)";
-          deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-          deps.ctx.fillStyle = "#fbbf24";
-          deps.ctx.font = "10px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.textAlign = "left";
-          deps.ctx.fillText(String(queuedSettlementN), px + size - badgeWidth - 1, py + 4);
-        }
-        deps.ctx.lineWidth = 1;
+        deps.ctx.strokeRect(
+          queuedSettlementBadge.border.x,
+          queuedSettlementBadge.border.y,
+          queuedSettlementBadge.border.width,
+          queuedSettlementBadge.border.height
+        );
       }
-      const queuedBuildN = queuedBuildIndex.get(wk);
-      if (!isTrue3DRendererActive() && queuedBuildN !== undefined && !settlementProgress) {
-        deps.ctx.strokeStyle = "rgba(122, 214, 255, 0.95)";
+      if (queuedSettlementBadge?.badge) {
+        deps.ctx.fillStyle = queuedSettlementBadge.badge.background;
+        deps.ctx.fillRect(
+          queuedSettlementBadge.badge.x,
+          queuedSettlementBadge.badge.y,
+          queuedSettlementBadge.badge.width,
+          queuedSettlementBadge.badge.height
+        );
+        deps.ctx.fillStyle = queuedSettlementBadge.badge.foreground;
+        deps.ctx.font = "10px monospace";
+        deps.ctx.textBaseline = "top";
+        deps.ctx.textAlign = "left";
+        deps.ctx.fillText(queuedSettlementBadge.badge.text, queuedSettlementBadge.badge.textX, queuedSettlementBadge.badge.textY);
+        deps.ctx.textAlign = "start";
+      }
+      if (queuedSettlementBadge?.border) deps.ctx.lineWidth = 1;
+      const queuedBuildBadge = queuedCornerBadgeLayout({
+        kind: "BUILD",
+        ordinal: queuedBuildIndex.get(wk),
+        px,
+        py,
+        size,
+        isTrue3D: isTrue3DRendererActive(),
+        blocked: Boolean(settlementProgress)
+      });
+      if (queuedBuildBadge?.border) {
+        deps.ctx.strokeStyle = queuedBuildBadge.border.strokeStyle;
         deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        if (size >= 14) {
-          const badgeWidth = Math.min(size - 6, queuedBuildN >= 10 ? 18 : 14);
-          deps.ctx.fillStyle = "rgba(7, 26, 39, 0.92)";
-          deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-          deps.ctx.fillStyle = "#7dd3fc";
-          deps.ctx.font = "10px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.textAlign = "left";
-          deps.ctx.fillText(String(queuedBuildN), px + size - badgeWidth - 1, py + 4);
-        }
-        deps.ctx.lineWidth = 1;
+        deps.ctx.strokeRect(
+          queuedBuildBadge.border.x,
+          queuedBuildBadge.border.y,
+          queuedBuildBadge.border.width,
+          queuedBuildBadge.border.height
+        );
       }
+      if (queuedBuildBadge?.badge) {
+        deps.ctx.fillStyle = queuedBuildBadge.badge.background;
+        deps.ctx.fillRect(queuedBuildBadge.badge.x, queuedBuildBadge.badge.y, queuedBuildBadge.badge.width, queuedBuildBadge.badge.height);
+        deps.ctx.fillStyle = queuedBuildBadge.badge.foreground;
+        deps.ctx.font = "10px monospace";
+        deps.ctx.textBaseline = "top";
+        deps.ctx.textAlign = "left";
+        deps.ctx.fillText(queuedBuildBadge.badge.text, queuedBuildBadge.badge.textX, queuedBuildBadge.badge.textY);
+        deps.ctx.textAlign = "start";
+      }
+      if (queuedBuildBadge?.border) deps.ctx.lineWidth = 1;
     };
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
@@ -1252,40 +1284,71 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
           deps.ctx.lineWidth = 1;
         }
-        const queuedSettlementN = settleQueueIndex.get(wk);
-        if (!isTrue3DRendererActive() && queuedSettlementN !== undefined && !settlementProgress) {
-          deps.ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
+        const queuedSettlementBadge = queuedCornerBadgeLayout({
+          kind: "SETTLEMENT",
+          ordinal: settleQueueIndex.get(wk),
+          px,
+          py,
+          size,
+          isTrue3D: isTrue3DRendererActive(),
+          blocked: Boolean(settlementProgress)
+        });
+        if (queuedSettlementBadge?.border) {
+          deps.ctx.strokeStyle = queuedSettlementBadge.border.strokeStyle;
           deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          if (size >= 14) {
-            const badgeWidth = Math.min(size - 6, queuedSettlementN >= 10 ? 18 : 14);
-            deps.ctx.fillStyle = "rgba(49, 31, 4, 0.92)";
-            deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-            deps.ctx.fillStyle = "#fbbf24";
-            deps.ctx.font = "10px monospace";
-            deps.ctx.textBaseline = "top";
-            deps.ctx.textAlign = "left";
-            deps.ctx.fillText(String(queuedSettlementN), px + size - badgeWidth - 1, py + 4);
-          }
-          deps.ctx.lineWidth = 1;
+          deps.ctx.strokeRect(
+            queuedSettlementBadge.border.x,
+            queuedSettlementBadge.border.y,
+            queuedSettlementBadge.border.width,
+            queuedSettlementBadge.border.height
+          );
         }
-        const queuedBuildN = queuedBuildIndex.get(wk);
-        if (!isTrue3DRendererActive() && queuedBuildN !== undefined && !settlementProgress) {
-          deps.ctx.strokeStyle = "rgba(122, 214, 255, 0.95)";
+        if (queuedSettlementBadge?.badge) {
+          deps.ctx.fillStyle = queuedSettlementBadge.badge.background;
+          deps.ctx.fillRect(
+            queuedSettlementBadge.badge.x,
+            queuedSettlementBadge.badge.y,
+            queuedSettlementBadge.badge.width,
+            queuedSettlementBadge.badge.height
+          );
+          deps.ctx.fillStyle = queuedSettlementBadge.badge.foreground;
+          deps.ctx.font = "10px monospace";
+          deps.ctx.textBaseline = "top";
+          deps.ctx.textAlign = "left";
+          deps.ctx.fillText(queuedSettlementBadge.badge.text, queuedSettlementBadge.badge.textX, queuedSettlementBadge.badge.textY);
+          deps.ctx.textAlign = "start";
+        }
+        if (queuedSettlementBadge?.border) deps.ctx.lineWidth = 1;
+        const queuedBuildBadge = queuedCornerBadgeLayout({
+          kind: "BUILD",
+          ordinal: queuedBuildIndex.get(wk),
+          px,
+          py,
+          size,
+          isTrue3D: isTrue3DRendererActive(),
+          blocked: Boolean(settlementProgress)
+        });
+        if (queuedBuildBadge?.border) {
+          deps.ctx.strokeStyle = queuedBuildBadge.border.strokeStyle;
           deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          if (size >= 14) {
-            const badgeWidth = Math.min(size - 6, queuedBuildN >= 10 ? 18 : 14);
-            deps.ctx.fillStyle = "rgba(7, 26, 39, 0.92)";
-            deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-            deps.ctx.fillStyle = "#7dd3fc";
-            deps.ctx.font = "10px monospace";
-            deps.ctx.textBaseline = "top";
-            deps.ctx.textAlign = "left";
-            deps.ctx.fillText(String(queuedBuildN), px + size - badgeWidth - 1, py + 4);
-          }
-          deps.ctx.lineWidth = 1;
+          deps.ctx.strokeRect(
+            queuedBuildBadge.border.x,
+            queuedBuildBadge.border.y,
+            queuedBuildBadge.border.width,
+            queuedBuildBadge.border.height
+          );
         }
+        if (queuedBuildBadge?.badge) {
+          deps.ctx.fillStyle = queuedBuildBadge.badge.background;
+          deps.ctx.fillRect(queuedBuildBadge.badge.x, queuedBuildBadge.badge.y, queuedBuildBadge.badge.width, queuedBuildBadge.badge.height);
+          deps.ctx.fillStyle = queuedBuildBadge.badge.foreground;
+          deps.ctx.font = "10px monospace";
+          deps.ctx.textBaseline = "top";
+          deps.ctx.textAlign = "left";
+          deps.ctx.fillText(queuedBuildBadge.badge.text, queuedBuildBadge.badge.textX, queuedBuildBadge.badge.textY);
+          deps.ctx.textAlign = "start";
+        }
+        if (queuedBuildBadge?.border) deps.ctx.lineWidth = 1;
       }
     }
 

@@ -20,6 +20,19 @@ type FrontierAffordability = {
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
 };
 
+type FrontierSelection = {
+  from: PlannerTile;
+  target: PlannerTile;
+  score: number;
+};
+
+export type FrontierAnalysis = {
+  attack?: FrontierSelection;
+  expand?: FrontierSelection;
+  frontierEnemyTargetCount: number;
+  frontierNeutralTargetCount: number;
+};
+
 const sortTiles = (
   left: { x: number; y: number },
   right: { x: number; y: number }
@@ -55,6 +68,96 @@ const frontierTargetScore = (tilesByKey: PlannerTileLookup, tile: PlannerTile): 
   return score;
 };
 
+const isBetterSelection = (
+  next: FrontierSelection,
+  current: FrontierSelection | undefined
+): boolean =>
+  !current ||
+  next.score > current.score ||
+  (next.score === current.score &&
+    (sortTiles(next.from, current.from) < 0 ||
+      (sortTiles(next.from, current.from) === 0 && sortTiles(next.target, current.target) < 0)));
+
+const createFrontierCommand = (
+  selection: FrontierSelection,
+  playerId: string,
+  clientSeq: number,
+  issuedAt: number,
+  sessionPrefix: "ai-runtime" | "system-runtime",
+  type: "ATTACK" | "EXPAND"
+): CommandEnvelope => ({
+  commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
+  sessionId: `${sessionPrefix}:${playerId}`,
+  playerId,
+  clientSeq,
+  issuedAt,
+  type,
+  payloadJson: JSON.stringify({
+    fromX: selection.from.x,
+    fromY: selection.from.y,
+    toX: selection.target.x,
+    toY: selection.target.y
+  })
+});
+
+export const analyzeOwnedFrontierTargetsFromLookup = (
+  tilesByKey: PlannerTileLookup,
+  ownedTiles: Iterable<PlannerTile>,
+  playerId: string,
+  affordability: FrontierAffordability = {}
+): FrontierAnalysis => {
+  const canAttack = affordability.canAttack ?? true;
+  const canExpand = affordability.canExpand ?? true;
+  const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
+  const scoreByTargetKey = new Map<string, number>();
+  const enemyTargets = new Set<string>();
+  const neutralTargets = new Set<string>();
+  let bestAttack: FrontierSelection | undefined;
+  let bestExpand: FrontierSelection | undefined;
+
+  const candidateKeysForOrigin = (from: PlannerTile): readonly string[] => {
+    if (!from.dockId || !dockLinksByDockTileKey) return frontierNeighborKeys(from.x, from.y);
+    const candidateKeys = new Set(frontierNeighborKeys(from.x, from.y));
+    for (const tileKey of dockCrossingCandidateTileKeys(`${from.x},${from.y}`, dockLinksByDockTileKey)) {
+      candidateKeys.add(tileKey);
+    }
+    return [...candidateKeys];
+  };
+
+  const targetScore = (targetKey: string, target: PlannerTile): number => {
+    const cachedScore = scoreByTargetKey.get(targetKey);
+    if (cachedScore !== undefined) return cachedScore;
+    const score = frontierTargetScore(tilesByKey, target);
+    scoreByTargetKey.set(targetKey, score);
+    return score;
+  };
+
+  for (const from of ownedTiles) {
+    for (const targetKey of candidateKeysForOrigin(from)) {
+      const target = tilesByKey.get(targetKey);
+      if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
+      if (target.ownerId) {
+        enemyTargets.add(targetKey);
+        if (!canAttack) continue;
+        const candidate = { from, target, score: targetScore(targetKey, target) };
+        if (isBetterSelection(candidate, bestAttack)) bestAttack = candidate;
+        continue;
+      }
+      neutralTargets.add(targetKey);
+      if (!canExpand) continue;
+      const candidate = { from, target, score: targetScore(targetKey, target) };
+      if (isBetterSelection(candidate, bestExpand)) bestExpand = candidate;
+    }
+  }
+
+  return {
+    ...(bestAttack ? { attack: bestAttack } : {}),
+    ...(bestExpand ? { expand: bestExpand } : {}),
+    frontierEnemyTargetCount: enemyTargets.size,
+    frontierNeutralTargetCount: neutralTargets.size
+  };
+};
+
 export const chooseNextOwnedFrontierCommandFromTiles = (
   tiles: Iterable<PlannerTile>,
   playerId: string,
@@ -86,102 +189,12 @@ export const chooseNextOwnedFrontierCommandFromLookup = (
   sessionPrefix: "ai-runtime" | "system-runtime",
   affordability: FrontierAffordability = {}
 ): CommandEnvelope | undefined => {
-  const canAttack = affordability.canAttack ?? true;
-  const canExpand = affordability.canExpand ?? true;
-  const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
-  const candidateKeysForOrigin = (from: PlannerTile): string[] => {
-    const candidateKeys = new Set(frontierNeighborKeys(from.x, from.y));
-    if (from.dockId && dockLinksByDockTileKey) {
-      for (const tileKey of dockCrossingCandidateTileKeys(`${from.x},${from.y}`, dockLinksByDockTileKey)) {
-        candidateKeys.add(tileKey);
-      }
-    }
-    return [...candidateKeys];
-  };
-  let bestAttack:
-    | {
-        from: PlannerTile;
-        target: PlannerTile;
-        score: number;
-      }
-    | undefined;
-  for (const from of ownedTiles) {
-    for (const targetKey of candidateKeysForOrigin(from)) {
-      const target = tilesByKey.get(targetKey);
-      if (!target) continue;
-      if (target.terrain !== "LAND") continue;
-      if (!target.ownerId || target.ownerId === playerId) continue;
-      if (!canAttack) continue;
-      const score = frontierTargetScore(tilesByKey, target);
-      if (
-        !bestAttack ||
-        score > bestAttack.score ||
-        (score === bestAttack.score &&
-          (sortTiles(from, bestAttack.from) < 0 ||
-            (sortTiles(from, bestAttack.from) === 0 && sortTiles(target, bestAttack.target) < 0)))
-      ) {
-        bestAttack = { from, target, score };
-      }
-    }
+  const analysis = analyzeOwnedFrontierTargetsFromLookup(tilesByKey, ownedTiles, playerId, affordability);
+  if (analysis.attack) {
+    return createFrontierCommand(analysis.attack, playerId, clientSeq, issuedAt, sessionPrefix, "ATTACK");
   }
-  if (bestAttack) {
-    return {
-      commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
-      sessionId: `${sessionPrefix}:${playerId}`,
-      playerId,
-      clientSeq,
-      issuedAt,
-      type: "ATTACK",
-      payloadJson: JSON.stringify({
-        fromX: bestAttack.from.x,
-        fromY: bestAttack.from.y,
-        toX: bestAttack.target.x,
-        toY: bestAttack.target.y
-      })
-    };
+  if (analysis.expand) {
+    return createFrontierCommand(analysis.expand, playerId, clientSeq, issuedAt, sessionPrefix, "EXPAND");
   }
-
-  let bestExpand:
-    | {
-        from: PlannerTile;
-        target: PlannerTile;
-        score: number;
-      }
-    | undefined;
-  for (const from of ownedTiles) {
-    for (const targetKey of candidateKeysForOrigin(from)) {
-      const target = tilesByKey.get(targetKey);
-      if (!target || target.ownerId) continue;
-      if (target.terrain !== "LAND") continue;
-      if (!canExpand) continue;
-      const score = frontierTargetScore(tilesByKey, target);
-      if (
-        !bestExpand ||
-        score > bestExpand.score ||
-        (score === bestExpand.score &&
-          (sortTiles(from, bestExpand.from) < 0 ||
-            (sortTiles(from, bestExpand.from) === 0 && sortTiles(target, bestExpand.target) < 0)))
-      ) {
-        bestExpand = { from, target, score };
-      }
-    }
-  }
-  if (bestExpand) {
-    return {
-      commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
-      sessionId: `${sessionPrefix}:${playerId}`,
-      playerId,
-      clientSeq,
-      issuedAt,
-      type: "EXPAND",
-      payloadJson: JSON.stringify({
-        fromX: bestExpand.from.x,
-        fromY: bestExpand.from.y,
-        toX: bestExpand.target.x,
-        toY: bestExpand.target.y
-      })
-    };
-  }
-
   return undefined;
 };
