@@ -1,16 +1,22 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 import {
   ATTACK_MANPOWER_MIN,
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST,
-  SETTLE_COST
+  SETTLE_COST,
+  type EconomicStructureType
 } from "@border-empires/shared";
 
-import { dockCrossingCandidateTileKeys } from "./dock-network.js";
-import { chooseBestStrategicSettlementTile } from "./ai-settlement-priority.js";
-import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-planner.js";
-import { frontierNeighborKeys } from "./frontier-topology.js";
+import { chooseBestStrategicSettlementTile, evaluateSettlementCandidate } from "./ai-settlement-priority.js";
+import { analyzeOwnedFrontierTargetsFromLookup } from "./frontier-command-planner.js";
+import {
+  chooseBestEconomicBuild,
+  chooseBestFortBuild,
+  chooseBestSiegeOutpostBuild
+} from "./structure-command-planner.js";
+
+type StrategicResourceKey = DomainStrategicResourceKey;
 
 export const AUTOMATION_NOOP_REASONS = [
   "player_missing",
@@ -30,9 +36,20 @@ export type AutomationPlannerTile = {
   y: number;
   terrain: "LAND" | "SEA" | "MOUNTAIN";
   ownerId?: string | undefined;
-  resource?: string | undefined;
+  ownershipState?: DomainTileState["ownershipState"] | undefined;
+  resource?: DomainTileState["resource"] | undefined;
   dockId?: string | undefined;
-  town?: { supportMax?: number | undefined; supportCurrent?: number | undefined } | null | undefined;
+  town?: {
+    supportMax?: number | undefined;
+    supportCurrent?: number | undefined;
+    type?: "MARKET" | "FARMING";
+    name?: string;
+    populationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+  } | null | undefined;
+  fort?: { ownerId?: string; status?: string } | null | undefined;
+  observatory?: { ownerId?: string; status?: string } | null | undefined;
+  siegeOutpost?: { ownerId?: string; status?: string } | null | undefined;
+  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string } | null | undefined;
 };
 
 export type AutomationPlannerDiagnostic = {
@@ -51,9 +68,17 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   playerId: string;
   points: number;
   manpower: number;
+  techIds?: readonly string[];
+  strategicResources?: Partial<Record<StrategicResourceKey, number>>;
+  settledTileCount?: number;
+  townCount?: number;
+  incomePerMinute?: number;
   hasActiveLock: boolean;
   activeDevelopmentProcessCount: number;
   frontierTiles: readonly TTile[];
+  hotFrontierTiles?: readonly TTile[];
+  strategicFrontierTiles?: readonly TTile[];
+  buildCandidateTiles?: readonly TTile[];
   ownedTiles: readonly TTile[];
   tilesByKey: ReadonlyMap<string, TTile>;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
@@ -74,7 +99,7 @@ const createCommand = (
   clientSeq: number,
   issuedAt: number,
   type: CommandEnvelope["type"],
-  payload: Record<string, number>
+  payload: Record<string, number | string>
 ): CommandEnvelope => ({
   commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
   sessionId: `${sessionPrefix}:${playerId}`,
@@ -101,33 +126,13 @@ export const createAutomationNoopDiagnostic = (
   noCommandReason
 });
 
-const summarizeFrontierTargets = <TTile extends AutomationPlannerTile>(
-  ownedTiles: readonly TTile[],
-  tilesByKey: ReadonlyMap<string, TTile>,
-  playerId: string,
-  dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>
-): { frontierEnemyTargetCount: number; frontierNeutralTargetCount: number } => {
-  const enemyTargets = new Set<string>();
-  const neutralTargets = new Set<string>();
-  for (const from of ownedTiles) {
-    const candidateKeys = new Set(frontierNeighborKeys(from.x, from.y));
-    if (from.dockId && dockLinksByDockTileKey) {
-      for (const tileKey of dockCrossingCandidateTileKeys(`${from.x},${from.y}`, dockLinksByDockTileKey)) {
-        candidateKeys.add(tileKey);
-      }
-    }
-    for (const candidateKey of candidateKeys) {
-      const target = tilesByKey.get(candidateKey);
-      if (!target || target.terrain !== "LAND" || target.ownerId === playerId) continue;
-      if (target.ownerId) enemyTargets.add(`${target.x},${target.y}`);
-      else neutralTargets.add(`${target.x},${target.y}`);
-    }
-  }
-  return {
-    frontierEnemyTargetCount: enemyTargets.size,
-    frontierNeutralTargetCount: neutralTargets.size
-  };
-};
+const foodCoverageLow = (
+  strategicResources: Partial<Record<StrategicResourceKey, number>> | undefined,
+  townCount: number
+): boolean => Math.max(0, strategicResources?.FOOD ?? 0) <= Math.max(24, townCount * 12);
+
+const economyWeak = (incomePerMinute: number, settledTileCount: number): boolean =>
+  incomePerMinute < Math.max(3, settledTileCount * 0.45);
 
 export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   input: AutomationPlannerInput<TTile>
@@ -145,7 +150,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const settlementCandidate = settlementEligible
     ? chooseBestStrategicSettlementTile(
         input.playerId,
-        input.frontierTiles as unknown as Iterable<DomainTileState>,
+        (input.strategicFrontierTiles?.length ? input.strategicFrontierTiles : input.frontierTiles) as unknown as Iterable<DomainTileState>,
         input.tilesByKey as ReadonlyMap<string, DomainTileState>,
         input.isPendingSettlement
           ? (tile) => input.isPendingSettlement?.(tile as unknown as TTile) ?? false
@@ -153,74 +158,177 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       )
     : undefined;
 
-  if (settlementCandidate) {
-    return {
-      command: createCommand(
-        input.sessionPrefix,
-        input.playerId,
-        input.clientSeq,
-        input.issuedAt,
-        "SETTLE",
-        { x: settlementCandidate.x, y: settlementCandidate.y }
-      ),
-      diagnostic: {
-        playerId: input.playerId,
-        sessionPrefix: input.sessionPrefix,
-        settlementEligible,
-        settlementCandidateFound: true,
-        frontierEnemyTargetCount: 0,
-        frontierNeutralTargetCount: 0,
-        canAttack: input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN,
-        canExpand: input.points >= FRONTIER_CLAIM_COST
-      }
-    };
-  }
-
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = input.points >= FRONTIER_CLAIM_COST;
-  const frontierCommand =
+  const frontierOrigins =
+    input.hotFrontierTiles?.length
+      ? input.hotFrontierTiles
+      : input.strategicFrontierTiles?.length
+        ? input.strategicFrontierTiles
+        : input.frontierTiles.length > 0
+          ? input.frontierTiles
+          : input.ownedTiles;
+  const frontierAnalysis =
     canAttack || canExpand
-      ? chooseNextOwnedFrontierCommandFromLookup(
-          input.tilesByKey,
-          input.ownedTiles,
+      ? analyzeOwnedFrontierTargetsFromLookup(input.tilesByKey, frontierOrigins, input.playerId, {
+          canAttack,
+          canExpand,
+          ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
+        })
+      : {
+          frontierEnemyTargetCount: 0,
+          frontierNeutralTargetCount: 0,
+          frontierOpportunityEconomic: 0,
+          frontierOpportunityScout: 0,
+          frontierOpportunityScaffold: 0,
+          frontierOpportunityWaste: 0
+        };
+
+  const diagnosticBase: AutomationPlannerDiagnostic = {
+    playerId: input.playerId,
+    sessionPrefix: input.sessionPrefix,
+    settlementEligible,
+    settlementCandidateFound: Boolean(settlementCandidate),
+    frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount,
+    frontierNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount,
+    canAttack,
+    canExpand
+  };
+
+  const settledTileCount = input.settledTileCount ?? input.ownedTiles.filter((tile) => tile.ownershipState === "SETTLED").length;
+  const townCount = input.townCount ?? input.ownedTiles.filter((tile) => tile.town && tile.ownershipState === "SETTLED").length;
+  const incomePerMinute = input.incomePerMinute ?? 0;
+  const needsFood = foodCoverageLow(input.strategicResources, townCount);
+  const needsEconomy = economyWeak(incomePerMinute, settledTileCount);
+
+  if (settlementCandidate) {
+    const evaluation = evaluateSettlementCandidate(
+      input.playerId,
+      settlementCandidate as DomainTileState,
+      input.tilesByKey as ReadonlyMap<string, DomainTileState>
+    );
+    const shouldSettleNow =
+      evaluation.townSupportNeed > 0 ||
+      evaluation.economicallyInteresting ||
+      !needsEconomy ||
+      (frontierAnalysis.frontierOpportunityScaffold <= 0 && frontierAnalysis.frontierOpportunityEconomic <= 0);
+    if (shouldSettleNow) {
+      return {
+        command: createCommand(input.sessionPrefix, input.playerId, input.clientSeq, input.issuedAt, "SETTLE", {
+          x: settlementCandidate.x,
+          y: settlementCandidate.y
+        }),
+        diagnostic: diagnosticBase
+      };
+    }
+  }
+
+  if (input.sessionPrefix === "ai-runtime" && input.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
+    const structurePlayer = {
+      id: input.playerId,
+      points: input.points,
+      ...(input.techIds ? { techIds: input.techIds } : {}),
+      ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
+      settledTileCount,
+      townCount,
+      incomePerMinute
+    };
+
+    const buildTiles = input.buildCandidateTiles?.length ? input.buildCandidateTiles : input.ownedTiles;
+    const economicBuild = chooseBestEconomicBuild(structurePlayer, buildTiles, input.tilesByKey);
+    if (
+      economicBuild &&
+      (needsFood ||
+        needsEconomy ||
+        (!settlementCandidate && frontierAnalysis.frontierOpportunityEconomic <= 0 && frontierAnalysis.frontierOpportunityScaffold <= 0))
+    ) {
+      return {
+        command: createCommand(
+          input.sessionPrefix,
           input.playerId,
           input.clientSeq,
           input.issuedAt,
-          input.sessionPrefix,
+          "BUILD_ECONOMIC_STRUCTURE",
           {
-            canAttack,
-            canExpand,
-            ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {})
+            x: economicBuild.tile.x,
+            y: economicBuild.tile.y,
+            structureType: economicBuild.structureType
           }
-        )
-      : undefined;
-  if (frontierCommand) {
-    const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId, input.dockLinksByDockTileKey);
+        ),
+        diagnostic: diagnosticBase
+      };
+    }
+
+    const fortBuild = chooseBestFortBuild(structurePlayer, buildTiles, input.tilesByKey);
+    if (
+      fortBuild &&
+      frontierAnalysis.frontierEnemyTargetCount > 0 &&
+      frontierAnalysis.frontierNeutralTargetCount === 0 &&
+      !settlementCandidate
+    ) {
+      return {
+        command: createCommand(input.sessionPrefix, input.playerId, input.clientSeq, input.issuedAt, "BUILD_FORT", {
+          x: fortBuild.x,
+          y: fortBuild.y
+        }),
+        diagnostic: diagnosticBase
+      };
+    }
+
+    const siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, buildTiles, input.tilesByKey);
+    if (
+      siegeOutpostBuild &&
+      frontierAnalysis.attack &&
+      frontierAnalysis.frontierEnemyTargetCount > 1 &&
+      !settlementCandidate
+    ) {
+      return {
+        command: createCommand(
+          input.sessionPrefix,
+          input.playerId,
+          input.clientSeq,
+          input.issuedAt,
+          "BUILD_SIEGE_OUTPOST",
+          {
+            x: siegeOutpostBuild.x,
+            y: siegeOutpostBuild.y
+          }
+        ),
+        diagnostic: diagnosticBase
+      };
+    }
+  }
+
+  if (frontierAnalysis.attack) {
     return {
-      command: frontierCommand,
-      diagnostic: {
-        playerId: input.playerId,
-        sessionPrefix: input.sessionPrefix,
-        settlementEligible,
-        settlementCandidateFound: false,
-        ...frontierSummary,
-        canAttack,
-        canExpand
-      }
+      command: createCommand(input.sessionPrefix, input.playerId, input.clientSeq, input.issuedAt, "ATTACK", {
+        fromX: frontierAnalysis.attack.from.x,
+        fromY: frontierAnalysis.attack.from.y,
+        toX: frontierAnalysis.attack.target.x,
+        toY: frontierAnalysis.attack.target.y
+      }),
+      diagnostic: diagnosticBase
     };
   }
 
-  const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId, input.dockLinksByDockTileKey);
+  if (frontierAnalysis.expand) {
+    return {
+      command: createCommand(input.sessionPrefix, input.playerId, input.clientSeq, input.issuedAt, "EXPAND", {
+        fromX: frontierAnalysis.expand.from.x,
+        fromY: frontierAnalysis.expand.from.y,
+        toX: frontierAnalysis.expand.target.x,
+        toY: frontierAnalysis.expand.target.y
+      }),
+      diagnostic: diagnosticBase
+    };
+  }
+
   let noCommandReason: AutomationNoopReason;
-  if (input.activeDevelopmentProcessCount >= DEVELOPMENT_PROCESS_LIMIT && frontierSummary.frontierEnemyTargetCount === 0 && frontierSummary.frontierNeutralTargetCount === 0) {
+  if (input.activeDevelopmentProcessCount >= DEVELOPMENT_PROCESS_LIMIT && frontierAnalysis.frontierEnemyTargetCount === 0 && frontierAnalysis.frontierNeutralTargetCount === 0) {
     noCommandReason = "development_process_limit";
   } else if (!canExpand) {
     noCommandReason = "insufficient_points";
-  } else if (
-    !canAttack &&
-    frontierSummary.frontierEnemyTargetCount > 0 &&
-    frontierSummary.frontierNeutralTargetCount === 0
-  ) {
+  } else if (!canAttack && frontierAnalysis.frontierEnemyTargetCount > 0 && frontierAnalysis.frontierNeutralTargetCount === 0) {
     noCommandReason = "insufficient_manpower_for_attack";
   } else if (settlementEligible) {
     noCommandReason = "no_settlement_target";
@@ -230,13 +338,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
 
   return {
     diagnostic: {
-      playerId: input.playerId,
-      sessionPrefix: input.sessionPrefix,
-      settlementEligible,
-      settlementCandidateFound: false,
-      ...frontierSummary,
-      canAttack,
-      canExpand,
+      ...diagnosticBase,
       noCommandReason
     }
   };

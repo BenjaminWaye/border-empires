@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.5",
+  version: "2026.04.26.7",
   title: "What's New",
-  summary: "Recent updates include staging whole-map inspection support across both rewrite gateway and simulation snapshots, AI frontier planning and validation fixes for diagonal, world-wrap, and dock-linked cross-island expansion, rewrite settlement upkeep corrections so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include active-frontier AI targeting in both rewrite and legacy server paths so expansion/scout/settlement planning stays focused on enemy pressure and strategic edges instead of dead interior frontier, rewrite AI frontier/scout/scaffold/build planning ported closer to the legacy production behavior, staging whole-map inspection support across both rewrite gateway and simulation snapshots, AI frontier planning and validation fixes for diagonal, world-wrap, and dock-linked cross-island expansion, rewrite settlement upkeep corrections so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.7",
+      title: "AI frontier planning now focuses on active enemy and strategic edges instead of rescanning dead interior frontier",
+      why: "Large empires were still wasting CPU and frontier choices on broad low-value interior border scans, which encouraged blobby row expansion and made both rewrite and legacy AI do more work than the live decision actually needed.",
+      changes: [
+        "Rewrite simulation now maintains hot frontier, strategic frontier, and build-candidate indexes so worker planning prefers frontier near enemies, settlement-worthy edges, and tiles whose buildability just changed.",
+        "Legacy production server territory caches now keep focused strategic-frontier and active-expand candidate subsets, and frontier settlement/scout/expand planning consumes those subsets before falling back to the full candidate pool.",
+        "Frontier exploration heuristics now stay biased toward enemy pressure, coastlines, scaffold paths, and settlement reach instead of flat interior row-filling when a more active edge exists."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.6",
+      title: "Rewrite AI now uses legacy-style scaffold, scout, and build priorities instead of only settle-or-blob frontier moves",
+      why: "Rewrite AI frontier fallback was too primitive compared with production legacy, so island-start empires tended to idle or grow fat low-information slabs instead of pushing toward settlement scaffolds, scout reveals, and core build actions.",
+      changes: [
+        "Rewrite simulation frontier analysis now classifies neutral expansion into economic, scaffold, scout, and waste opportunities, with scout scoring biased toward novel reach and coastline discovery instead of broad rectangular fill.",
+        "Rewrite settlement scoring now includes compactness, nearby town support, and immediate-plan scaffolds so frontier expansion can aim at the next real settlement instead of only raw land coverage.",
+        "Rewrite AI automation can now choose economic structures, forts, and siege outposts when those are the better legacy-style next step, and planner world views/workers now sync the extra tile and player state needed for those decisions."
+      ]
+    },
     {
       introducedIn: "2026.04.26.5",
       title: "Staging full-map inspection now includes live simulation territory outside local vision",

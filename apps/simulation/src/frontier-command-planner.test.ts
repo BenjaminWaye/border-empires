@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { WORLD_WIDTH } from "@border-empires/shared";
 
 import { buildDockLinksByDockTileKey } from "./dock-network.js";
-import { chooseNextOwnedFrontierCommandFromTiles } from "./frontier-command-planner.js";
+import {
+  analyzeOwnedFrontierTargetsFromLookup,
+  chooseNextOwnedFrontierCommandFromTiles
+} from "./frontier-command-planner.js";
 
 describe("frontier command planner", () => {
   it("skips barrier tiles when choosing the next expand target", () => {
@@ -139,5 +142,38 @@ describe("frontier command planner", () => {
       clientSeq: 12,
       payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 50, toY: 50 })
     });
+  });
+
+  it("classifies compact settlement scaffolds separately from scout frontier", () => {
+    const tiles = new Map([
+      ["10,10", { x: 10, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      ["11,10", { x: 11, y: 10, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "SETTLED" }],
+      [
+        "10,11",
+        {
+          x: 10,
+          y: 11,
+          terrain: "LAND" as const,
+          ownerId: "ai-1",
+          ownershipState: "SETTLED",
+          town: { supportMax: 2, supportCurrent: 0 }
+        }
+      ],
+      ["11,11", { x: 11, y: 11, terrain: "LAND" as const }],
+      ["20,20", { x: 20, y: 20, terrain: "LAND" as const, ownerId: "ai-1", ownershipState: "FRONTIER" }],
+      ["21,20", { x: 21, y: 20, terrain: "LAND" as const }],
+      ["22,20", { x: 22, y: 20, terrain: "LAND" as const }],
+      ["21,19", { x: 21, y: 19, terrain: "SEA" as const }]
+    ]);
+
+    const analysis = analyzeOwnedFrontierTargetsFromLookup(
+      tiles,
+      [tiles.get("10,10")!, tiles.get("11,10")!, tiles.get("10,11")!, tiles.get("20,20")!],
+      "ai-1"
+    );
+
+    expect(analysis.frontierOpportunityScaffold).toBeGreaterThan(0);
+    expect(analysis.frontierOpportunityScout).toBeGreaterThan(0);
+    expect(analysis.scaffoldExpand?.target).toMatchObject({ x: 11, y: 11 });
   });
 });

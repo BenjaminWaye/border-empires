@@ -151,7 +151,12 @@ export const createServerAiFrontierPlanningRuntime = (
     };
 
     let best: { score: number; from: Tile; to: Tile } | undefined;
-    const frontierCandidates = kind === "ATTACK" ? territorySummary.attackCandidates : territorySummary.expandCandidates;
+    const frontierCandidates =
+      kind === "ATTACK"
+        ? territorySummary.attackCandidates
+        : territorySummary.activeExpandCandidates.length > 0
+          ? territorySummary.activeExpandCandidates
+          : territorySummary.expandCandidates;
     for (const { from, to } of frontierCandidates) {
       if (to.terrain !== "LAND" || !filter(to)) continue;
       const toVisible = visibleToActor(to.x, to.y);
@@ -270,7 +275,9 @@ export const createServerAiFrontierPlanningRuntime = (
     let bestIslandExpand: { score: number; from: Tile; to: Tile } | undefined;
     let bestAnyNeutralExpand: { score: number; from: Tile; to: Tile } | undefined;
 
-    for (const { from, to } of territorySummary.expandCandidates) {
+    const neutralExpandCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { from, to } of neutralExpandCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       neutralExpandAvailable = true;
       const tileKey = deps.key(to.x, to.y);
@@ -383,7 +390,9 @@ export const createServerAiFrontierPlanningRuntime = (
   ): boolean => {
     if (undercoveredIslandCount <= 0) return false;
     const { islandIdByTile } = deps.islandMap();
-    for (const { to } of territorySummary.expandCandidates) {
+    const neutralExpandCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { to } of neutralExpandCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const islandId = islandIdByTile.get(deps.key(to.x, to.y));
       if (focusIslandId === undefined ? islandId !== undefined : islandId === focusIslandId) return true;
@@ -394,7 +403,9 @@ export const createServerAiFrontierPlanningRuntime = (
   const estimateAiFrontierAvailabilityProfile = (actor: Player, territorySummary: AiTerritorySummary): AiFrontierAvailabilityProfile => {
     let frontierOpportunityScaffold = 0;
     let frontierOpportunityScout = 0;
-    for (const { to } of territorySummary.expandCandidates) {
+    const neutralExpandCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { to } of neutralExpandCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const tileKey = deps.key(to.x, to.y);
       if (deps.townsByTile.has(tileKey) || deps.docksByTile.has(tileKey) || Boolean(to.resource)) continue;
