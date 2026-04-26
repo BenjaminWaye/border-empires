@@ -6,11 +6,14 @@ type PlayerSubscriptionsOptions<TSocket extends SocketLike, TSnapshot> = {
 };
 
 export type PlayerSubscriptions<TSocket extends SocketLike, TSnapshot> = {
+  attachSocket: (playerId: string, socket: TSocket) => void;
   addSocket: (playerId: string, socket: TSocket) => Promise<TSnapshot | undefined>;
   removeSocket: (playerId: string, socket: TSocket) => Promise<void>;
   socketsForPlayer: (playerId: string) => ReadonlySet<TSocket>;
   allSockets: () => ReadonlySet<TSocket>;
   snapshotForPlayer: (playerId: string) => TSnapshot | undefined;
+  seedSnapshot: (playerId: string, snapshot: TSnapshot) => void;
+  ensureSubscribed: (playerId: string) => Promise<TSnapshot>;
   refreshSnapshot: (playerId: string) => Promise<TSnapshot>;
   updateSnapshot: (playerId: string, updater: (snapshot: TSnapshot) => TSnapshot | void) => void;
 };
@@ -21,17 +24,20 @@ export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>
   const socketsByPlayer = new Map<string, Set<TSocket>>();
   const snapshotByPlayer = new Map<string, TSnapshot>();
   const subscribeInFlightByPlayer = new Map<string, Promise<TSnapshot>>();
+  const subscribedPlayers = new Set<string>();
 
   const subscribeOnce = async (playerId: string): Promise<TSnapshot> => {
-    const cachedSnapshot = snapshotByPlayer.get(playerId);
-    if (cachedSnapshot) return cachedSnapshot;
-
+    if (subscribedPlayers.has(playerId)) {
+      const cachedSnapshot = snapshotByPlayer.get(playerId);
+      if (cachedSnapshot) return cachedSnapshot;
+    }
     const existingPromise = subscribeInFlightByPlayer.get(playerId);
     if (existingPromise) return existingPromise;
 
     const subscribePromise = options
       .subscribePlayer(playerId)
       .then((snapshot) => {
+        subscribedPlayers.add(playerId);
         snapshotByPlayer.set(playerId, snapshot);
         return snapshot;
       })
@@ -42,16 +48,19 @@ export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>
     return subscribePromise;
   };
 
+  const attachSocket = (playerId: string, socket: TSocket): void => {
+    let sockets = socketsByPlayer.get(playerId);
+    if (!sockets) {
+      sockets = new Set();
+      socketsByPlayer.set(playerId, sockets);
+    }
+    sockets.add(socket);
+  };
+
   return {
+    attachSocket,
     async addSocket(playerId, socket) {
-      let sockets = socketsByPlayer.get(playerId);
-      const isFirstSocket = !sockets;
-      if (!sockets) {
-        sockets = new Set();
-        socketsByPlayer.set(playerId, sockets);
-      }
-      sockets.add(socket);
-      if (!isFirstSocket) return subscribeOnce(playerId);
+      attachSocket(playerId, socket);
       return subscribeOnce(playerId);
     },
     async removeSocket(playerId, socket) {
@@ -62,6 +71,7 @@ export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>
       socketsByPlayer.delete(playerId);
       snapshotByPlayer.delete(playerId);
       subscribeInFlightByPlayer.delete(playerId);
+      subscribedPlayers.delete(playerId);
       await options.unsubscribePlayer(playerId);
     },
     socketsForPlayer(playerId) {
@@ -77,8 +87,14 @@ export const createPlayerSubscriptions = <TSocket extends SocketLike, TSnapshot>
     snapshotForPlayer(playerId) {
       return snapshotByPlayer.get(playerId);
     },
+    seedSnapshot(playerId, snapshot) {
+      snapshotByPlayer.set(playerId, snapshot);
+    },
+    ensureSubscribed(playerId) {
+      return subscribeOnce(playerId);
+    },
     async refreshSnapshot(playerId) {
-      snapshotByPlayer.delete(playerId);
+      subscribedPlayers.delete(playerId);
       subscribeInFlightByPlayer.delete(playerId);
       return subscribeOnce(playerId);
     },

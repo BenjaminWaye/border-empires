@@ -112,6 +112,59 @@ describe("simulation runtime", () => {
     expect(player?.manpower).toBe(10);
   });
 
+  it("exports only the player's visible tiles for bootstrap snapshots", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 14, y: 10, terrain: "LAND" },
+          { x: 30, y: 30, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const visibleState = runtime.exportVisibleStateForPlayer("player-1");
+
+    expect(visibleState.tiles).toEqual([
+      expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
+      expect.objectContaining({ x: 14, y: 10, terrain: "LAND" })
+    ]);
+    expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
+  });
+
   it("accepts a human frontier command before queued AI work drains", async () => {
     const runtime = new SimulationRuntime({ now: () => 1_000 });
     const seen: string[] = [];

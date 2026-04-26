@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.04.26.8",
   title: "What's New",
-  summary: "Recent updates include copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
     {
       introducedIn: "2026.04.26.8",
@@ -44,6 +44,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
+      introducedIn: "2026.04.26.8",
+      title: "Rewrite login bootstrap now uses a cheap visible-only subscribe path",
+      why: "The split simulation was still building each player's auth subscribe/bootstrap snapshot from a full-world runtime export and then sending a redundant bootstrap tile batch after INIT, so already-running staging machines could stall auth for far too long and occasionally duplicate the first visible world refresh.",
+      changes: [
+        "Rewrite simulation now builds auth subscribe/bootstrap snapshots from a player-visible runtime export instead of serializing the entire world state on every login.",
+        "Gateway auth now requests that cheap bootstrap snapshot directly for INIT while suppressing the redundant follow-up bootstrap tile batch, so the client gets authoritative home and visible tiles without an extra duplicate refresh.",
+        "Added regression coverage for visible-only bootstrap exports, bootstrap-only subscribe mode, and gateway auth ordering so fast INIT does not drop pending-command or combat-result delivery."
+      ]
+    },
+    {
       introducedIn: "2026.04.26.7",
       title: "Queued settlement tiles in rewrite 3D mode show their queue number again",
       why: "The 3D renderer moved queue borders onto terrain-aligned marker geometry, but the ordinal badge stayed behind a 2D-only guard, so queued settle/build tiles lost the number that tells you where they sit in the development queue.",
@@ -54,7 +64,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.7",
+      introducedIn: "2026.04.26.6",
       title: "Rewrite restarts now preserve tech-expanded frontier vision on login",
       why: "The rewrite simulation was exporting login/bootstrap visibility with only the base radius, so after a staging restart players with cartography-style vision bonuses could log back in and see unexplored gaps hugging their frontier even though legacy kept those bonus rings visible.",
       changes: [

@@ -74,12 +74,13 @@ const preparePlayer = async (client: RawSimulationClient, playerId: string): Pro
 
 const subscribePlayer = async (
   client: RawSimulationClient,
-  playerId: string
+  playerId: string,
+  subscriptionJson = "{}"
 ): Promise<{ playerId: string; tiles: Array<{ x: number; y: number; ownerId?: string; ownershipState?: string }> }> => {
   const rpc = client.SubscribePlayer ?? client.subscribePlayer;
   if (!rpc) throw new Error("SubscribePlayer RPC unavailable in integration test");
   return await new Promise((resolve, reject) => {
-    rpc.call(client, { player_id: playerId, subscription_json: "{}" }, (error, response) => {
+    rpc.call(client, { player_id: playerId, subscription_json: subscriptionJson }, (error, response) => {
       if (error) {
         reject(error);
         return;
@@ -165,6 +166,24 @@ describe("prepare player integration", () => {
 
     await preparePlayer(client, playerId);
     const snapshot = await subscribePlayer(client, playerId);
+
+    expect(snapshot.playerId).toBe(playerId);
+    expect(snapshot.tiles.some((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED")).toBe(true);
+  });
+
+  it("supports bootstrap-only subscribe snapshots for auth-path initialization", async () => {
+    const service = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog
+    });
+    cleanup.push(() => service.close());
+    const started = await service.start();
+    const client = createRawSimulationClient(started.address);
+    const playerId = "firebase-user-4";
+
+    await preparePlayer(client, playerId);
+    const snapshot = await subscribePlayer(client, playerId, JSON.stringify({ mode: "bootstrap-only" }));
 
     expect(snapshot.playerId).toBe(playerId);
     expect(snapshot.tiles.some((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED")).toBe(true);

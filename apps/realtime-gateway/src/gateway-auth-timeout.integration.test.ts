@@ -225,7 +225,7 @@ describe("gateway auth timeout", () => {
 
   it("prepares a player before subscribing during auth, and repeat auth stays safe", async () => {
     const prepareCalls: string[] = [];
-    const subscribeCalls: string[] = [];
+    const bootstrapCalls: string[] = [];
     const callOrder: string[] = [];
     const app = await createRealtimeGatewayApp({
       logger: false,
@@ -238,9 +238,12 @@ describe("gateway auth timeout", () => {
           return { playerId, spawned: prepareCalls.length === 1 };
         },
         submitCommand: async () => undefined,
-        subscribePlayer: async (playerId) => {
-          callOrder.push(`subscribe:${playerId}`);
-          subscribeCalls.push(playerId);
+        subscribePlayer: async (playerId, subscriptionJson = "{}") => {
+          const parsed = JSON.parse(subscriptionJson) as { mode?: string };
+          if (parsed.mode === "bootstrap-only") {
+            callOrder.push(`bootstrap:${playerId}`);
+            bootstrapCalls.push(playerId);
+          }
           return {
             playerId,
             tiles: [{ x: 10, y: 10, ownerId: playerId, ownershipState: "SETTLED" }]
@@ -285,11 +288,67 @@ describe("gateway auth timeout", () => {
     secondSocket.close();
 
     expect(prepareCalls).toEqual(["player-1", "player-1"]);
-    expect(subscribeCalls).toEqual(["player-1"]);
-    expect(callOrder).toEqual([
-      "prepare:player-1",
-      "subscribe:player-1",
-      "prepare:player-1"
-    ]);
+    expect(bootstrapCalls).toEqual(["player-1", "player-1"]);
+    expect(callOrder).toEqual(["prepare:player-1", "bootstrap:player-1", "prepare:player-1", "bootstrap:player-1"]);
+  });
+
+  it("sends INIT from the bootstrap snapshot and suppresses duplicate bootstrap tile batches", async () => {
+    let subscribeCallCount = 0;
+    const app = await createRealtimeGatewayApp({
+      logger: false,
+      port: 0,
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationSubscribeTimeoutMs: 1_000,
+      simulationClient: {
+        preparePlayer: async (playerId) => ({ playerId, spawned: false }),
+        submitCommand: async () => undefined,
+        subscribePlayer: async (playerId, subscriptionJson = "{}") => {
+          subscribeCallCount += 1;
+          const parsed = JSON.parse(subscriptionJson) as { mode?: string };
+          expect(parsed.mode).toBe("bootstrap-only");
+          return {
+            playerId,
+            tiles: [{ x: 10, y: 10, ownerId: playerId, ownershipState: "SETTLED" }]
+          };
+        },
+        unsubscribePlayer: async () => undefined,
+        ping: async () => undefined,
+        streamEvents: () => () => undefined
+      }
+    });
+    const started = await app.start();
+    openApps.push(app);
+
+    const socket = await openSocket(started.wsUrl);
+    socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+
+    await expect(
+      withTimeout(
+        "bootstrap init",
+        new Promise<Record<string, unknown>>((resolve) => {
+          socket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), { once: true });
+        }),
+        1_500
+      )
+    ).resolves.toMatchObject({
+      type: "INIT",
+      player: expect.objectContaining({ id: "player-1" }),
+      initialState: expect.objectContaining({
+        tiles: [expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" })]
+      })
+    });
+    expect(subscribeCallCount).toBe(1);
+
+    await expect(
+      withTimeout(
+        "unexpected bootstrap tile batch",
+        new Promise<Record<string, unknown>>((resolve) => {
+          socket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), { once: true });
+        }),
+        150
+      )
+    ).rejects.toThrow(/timed out/);
+
+    socket.close();
   });
 });
