@@ -11,6 +11,9 @@ const makePlayer = (overrides: Partial<PlannerPlayerView> = {}): PlannerPlayerVi
   hasActiveLock: false,
   territoryTileKeys: [],
   frontierTileKeys: [],
+  hotFrontierTileKeys: [],
+  strategicFrontierTileKeys: [],
+  buildCandidateTileKeys: [],
   pendingSettlementTileKeys: [],
   activeDevelopmentProcessCount: 0,
   ...overrides

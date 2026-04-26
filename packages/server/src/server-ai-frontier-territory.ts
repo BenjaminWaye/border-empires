@@ -39,6 +39,48 @@ export interface ServerAiFrontierTerritoryRuntime {
 export const createServerAiFrontierTerritoryRuntime = (
   deps: CreateServerAiFrontierTerritoryDeps
 ): ServerAiFrontierTerritoryRuntime => {
+  const isHostileLandNeighbor = (actor: Player, neighbor: RuntimeTileCore): boolean => {
+    const ownerId = neighbor.ownerId;
+    if (neighbor.terrain !== "LAND" || !ownerId || ownerId === actor.id) return false;
+    return !actor.allies.has(ownerId);
+  };
+
+  const isStrategicFrontierTile = (actor: Player, tile: Tile): boolean => {
+    const tileKey = deps.key(tile.x, tile.y);
+    if (deps.townsByTile.has(tileKey) || deps.docksByTile.has(tileKey) || Boolean(tile.resource)) return true;
+    for (const neighbor of deps.adjacentNeighborCores(tile.x, tile.y)) {
+      const neighborKey = deps.key(neighbor.x, neighbor.y);
+      if (isHostileLandNeighbor(actor, neighbor)) return true;
+      if (
+        neighbor.ownerId === actor.id &&
+        neighbor.ownershipState === "SETTLED" &&
+        (deps.townsByTile.has(neighborKey) || deps.docksByTile.has(neighborKey))
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const isActiveExpandCandidate = (actor: Player, to: Tile): boolean => {
+    const tileKey = deps.key(to.x, to.y);
+    if (deps.townsByTile.has(tileKey) || deps.docksByTile.has(tileKey) || Boolean(to.resource)) return true;
+
+    let ownedNeighbors = 0;
+    let exposedSides = 0;
+    for (const neighbor of deps.adjacentNeighborCores(to.x, to.y)) {
+      if (isHostileLandNeighbor(actor, neighbor)) return true;
+      if (neighbor.terrain === "SEA") return true;
+      if (neighbor.terrain !== "LAND" || neighbor.ownerId !== actor.id) {
+        exposedSides += 1;
+        continue;
+      }
+      ownedNeighbors += 1;
+    }
+    if (ownedNeighbors <= 2) return true;
+    return ownedNeighbors >= 3 && exposedSides <= 1;
+  };
+
   const preferAiFrontierCandidate = (
     current: AiFrontierCandidatePair | undefined,
     next: AiFrontierCandidatePair
@@ -55,6 +97,7 @@ export const createServerAiFrontierTerritoryRuntime = (
   const buildAiTerritoryStructureCache = (actor: Player): AiTerritoryStructureCache => {
     const settledTiles: Tile[] = [];
     const frontierTiles: Tile[] = [];
+    const strategicFrontierTiles: Tile[] = [];
     const expandCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();
     const attackCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();
     const borderSettledTileKeys = new Set<TileKey>();
@@ -72,7 +115,10 @@ export const createServerAiFrontierTerritoryRuntime = (
       const from = deps.aiTileLiteAt(x, y);
       const ownershipState = deps.ownershipStateByTile.get(tileKey);
       if (ownershipState === "SETTLED") settledTiles.push(from);
-      else if (ownershipState === "FRONTIER") frontierTiles.push(from);
+      else if (ownershipState === "FRONTIER") {
+        frontierTiles.push(from);
+        if (isStrategicFrontierTile(actor, from)) strategicFrontierTiles.push(from);
+      }
       if (!underThreat && (ownershipState === "SETTLED" || ownershipState === "FRONTIER")) {
         underThreat = deps.adjacentNeighborCores(x, y).some((neighbor) => {
           if (neighbor.terrain !== "LAND") return false;
@@ -110,6 +156,8 @@ export const createServerAiFrontierTerritoryRuntime = (
       }
     }
 
+    const expandCandidates = [...expandCandidateByTarget.values()];
+    const activeExpandCandidates = expandCandidates.filter(({ to }) => to.terrain === "LAND" && !to.ownerId && isActiveExpandCandidate(actor, to));
     const structureCandidateTiles = settledTiles.filter((tile) => {
       const tileKey = deps.key(tile.x, tile.y);
       return borderSettledTileKeys.has(tileKey) || deps.docksByTile.has(tileKey) || deps.townsByTile.has(tileKey) || Boolean(tile.resource);
@@ -121,7 +169,9 @@ export const createServerAiFrontierTerritoryRuntime = (
       frontierTileCount: frontierTiles.length,
       settledTiles,
       frontierTiles,
-      expandCandidates: [...expandCandidateByTarget.values()],
+      strategicFrontierTiles,
+      expandCandidates,
+      activeExpandCandidates,
       attackCandidates: [...attackCandidateByTarget.values()],
       borderSettledTileKeys,
       structureCandidateTiles,
@@ -158,7 +208,9 @@ export const createServerAiFrontierTerritoryRuntime = (
       frontierTileCount: cached.frontierTileCount,
       settledTiles: cached.settledTiles,
       frontierTiles: cached.frontierTiles,
+      strategicFrontierTiles: cached.strategicFrontierTiles,
       expandCandidates: cached.expandCandidates,
+      activeExpandCandidates: cached.activeExpandCandidates,
       attackCandidates: cached.attackCandidates,
       borderSettledTileKeys: cached.borderSettledTileKeys,
       structureCandidateTiles: cached.structureCandidateTiles,

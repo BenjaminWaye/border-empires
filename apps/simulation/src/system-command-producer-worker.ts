@@ -26,7 +26,7 @@ const mergePlannerTileDelta = (
   const next: PlannerTileView = existing ? { ...existing } : { x: tileDelta.x, y: tileDelta.y, terrain };
   if (tileDelta.terrain) next.terrain = tileDelta.terrain;
   if ("resource" in tileDelta) {
-    if (tileDelta.resource) next.resource = tileDelta.resource;
+    if (tileDelta.resource) next.resource = tileDelta.resource as PlannerTileView["resource"];
     else delete next.resource;
   }
   if ("dockId" in tileDelta) {
@@ -38,7 +38,7 @@ const mergePlannerTileDelta = (
     else delete next.ownerId;
   }
   if ("ownershipState" in tileDelta) {
-    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState;
+    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState as PlannerTileView["ownershipState"];
     else delete next.ownershipState;
   }
   return next;
