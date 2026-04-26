@@ -134,7 +134,7 @@ describe("simulation service startup recovery", () => {
     await service.close();
   });
 
-  it("compacts replayed startup events into a fresh checkpoint when recovery tail is large", async () => {
+  it("runs startup replay compaction after the service starts listening", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore: SimulationEventStore = {
       appendEvent: async () => undefined,
@@ -175,7 +175,16 @@ describe("simulation service startup recovery", () => {
       loadEventsForCommand: async () => [],
       loadLatestEventId: async () => 2
     };
-    const saveSnapshot = vi.fn(async () => undefined);
+    let releaseSaveSnapshot: (() => void) | undefined;
+    const saveSnapshotStarted = new Promise<void>((resolve) => {
+      releaseSaveSnapshot = resolve;
+    });
+    const saveSnapshot = vi.fn(
+      async () =>
+        await new Promise<void>((resolve) => {
+          void saveSnapshotStarted.then(resolve);
+        })
+    );
     const snapshotStore = {
       saveSnapshot,
       loadLatestSnapshot: async () => undefined
@@ -185,6 +194,7 @@ describe("simulation service startup recovery", () => {
       commandStore,
       eventStore,
       snapshotStore: snapshotStore as unknown as InMemorySimulationSnapshotStore,
+      port: 0,
       startupReplayCompactionMinEvents: 1,
       checkpointMaxRssBytes: 1,
       log: {
@@ -194,13 +204,23 @@ describe("simulation service startup recovery", () => {
     });
 
     expect(service.startupRecovery.recoveredEventCount).toBe(2);
-    expect(saveSnapshot).toHaveBeenCalledTimes(1);
+    expect(saveSnapshot).toHaveBeenCalledTimes(0);
+
+    await expect(service.start()).resolves.toMatchObject({
+      host: "127.0.0.1",
+      port: expect.any(Number)
+    });
+
+    await vi.waitFor(() => {
+      expect(saveSnapshot).toHaveBeenCalledTimes(1);
+    });
     expect(saveSnapshot.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         lastAppliedEventId: 2
       })
     );
 
+    releaseSaveSnapshot?.();
     await service.close();
   });
 });
