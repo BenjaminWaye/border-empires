@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildPlayerSubscriptionSnapshot } from "./player-snapshot.js";
+import { SimulationRuntime } from "./runtime.js";
 
 describe("buildPlayerSubscriptionSnapshot", () => {
   it("falls back to seed tiles when the runtime export is unexpectedly empty", () => {
@@ -357,5 +358,59 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
     expect(snapshot.player?.upkeepPerMinute?.food).toBe(0);
     expect(snapshot.player?.economyBreakdown?.FOOD.sinks).toEqual([]);
+  });
+
+  it("preserves tech-driven vision radius across snapshot export and restart bootstrap", () => {
+    const initialPlayers = new Map([
+      [
+        "player-1",
+        {
+          id: "player-1",
+          isAi: false,
+          name: "Player 1",
+          points: 100,
+          manpower: 120,
+          techIds: new Set<string>(["cartography"]),
+          domainIds: new Set<string>(),
+          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+          techRootId: "rewrite-local",
+          allies: new Set<string>(),
+          strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+        }
+      ]
+    ]);
+    const initialState = {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
+        { x: 15, y: 10, terrain: "LAND" as const },
+        { x: 16, y: 10, terrain: "LAND" as const }
+      ],
+      activeLocks: []
+    };
+
+    const runtimeBeforeRestart = new SimulationRuntime({
+      initialPlayers,
+      initialState
+    });
+    const beforeRestartSnapshot = buildPlayerSubscriptionSnapshot("player-1", runtimeBeforeRestart.exportState());
+    expect(beforeRestartSnapshot.tiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
+        expect.objectContaining({ x: 15, y: 10 })
+      ])
+    );
+    expect(beforeRestartSnapshot.tiles.some((tile) => tile.x === 16 && tile.y === 10)).toBe(false);
+
+    const runtimeAfterRestart = new SimulationRuntime({
+      initialState: runtimeBeforeRestart.exportSnapshotSections().initialState
+    });
+    const afterRestartSnapshot = buildPlayerSubscriptionSnapshot("player-1", runtimeAfterRestart.exportState());
+    expect(afterRestartSnapshot.tiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" }),
+        expect.objectContaining({ x: 15, y: 10 })
+      ])
+    );
+    expect(afterRestartSnapshot.tiles.some((tile) => tile.x === 16 && tile.y === 10)).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { VISION_RADIUS } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "./player-runtime-summary.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
@@ -116,10 +117,13 @@ const reachableDomainChoices = (ownedTechIds: string[], ownedDomainIds: string[]
 const hasResources = (required: StrategicCounts, available: StrategicCounts): boolean =>
   Object.entries(required).every(([resource, amount]) => (available[resource as keyof StrategicCounts] ?? 0) >= (amount ?? 0));
 
+const techEntryById = new Map(techTree.techs.map((tech) => [tech.id, tech] as const));
+const domainEntryById = new Map(domainTree.domains.map((domain) => [domain.id, domain] as const));
+
 const recomputeMods = (player: DomainPlayer): StatMods => {
   const next: StatMods = { attack: 1, defense: 1, income: 1, vision: 1 };
   for (const techId of player.techIds) {
-    const tech = techTree.techs.find((entry) => entry.id === techId);
+    const tech = techEntryById.get(techId);
     if (!tech?.mods) continue;
     next.attack *= tech.mods.attack ?? 1;
     next.defense *= tech.mods.defense ?? 1;
@@ -127,7 +131,7 @@ const recomputeMods = (player: DomainPlayer): StatMods => {
     next.vision *= tech.mods.vision ?? 1;
   }
   for (const domainId of player.domainIds ?? []) {
-    const domain = domainTree.domains.find((entry) => entry.id === domainId);
+    const domain = domainEntryById.get(domainId);
     if (!domain?.mods) continue;
     next.attack *= domain.mods.attack ?? 1;
     next.defense *= domain.mods.defense ?? 1;
@@ -136,6 +140,25 @@ const recomputeMods = (player: DomainPlayer): StatMods => {
   }
   return next;
 };
+
+export const visionRadiusBonusForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => {
+  let bonus = 0;
+  for (const techId of player.techIds) {
+    const techBonus = techEntryById.get(techId)?.effects?.visionRadiusBonus;
+    if (typeof techBonus === "number" && Number.isFinite(techBonus)) bonus += techBonus;
+  }
+  for (const domainId of player.domainIds ?? []) {
+    const domainBonus = domainEntryById.get(domainId)?.effects?.visionRadiusBonus;
+    if (typeof domainBonus === "number" && Number.isFinite(domainBonus)) bonus += domainBonus;
+  }
+  return bonus;
+};
+
+export const effectiveVisionRadiusForPlayer = (
+  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds">
+): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player));
 
 const settledTileCount = (playerId: string, tiles: Iterable<DomainTileState>): number => {
   let count = 0;
