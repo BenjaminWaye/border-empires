@@ -95,6 +95,7 @@ describe("rewrite gateway world-status stream", () => {
   it("pushes GLOBAL_STATUS_UPDATE live and keeps the cached rewrite snapshot in sync for later sockets", async () => {
     let listener: ((event: SimulationClientEvent) => void) | undefined;
     const simulationClient = {
+      preparePlayer: async () => ({ playerId: "player-1", spawned: false }),
       submitCommand: async () => undefined,
       subscribePlayer: async () => ({
         playerId: "player-1",
