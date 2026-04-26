@@ -67,6 +67,9 @@ const makeRuntime = (depths: {
           hasActiveLock: false,
           territoryTileKeys: [] as string[],
           frontierTileKeys: [] as string[],
+          hotFrontierTileKeys: [] as string[],
+          strategicFrontierTileKeys: [] as string[],
+          buildCandidateTileKeys: [] as string[],
           pendingSettlementTileKeys: [] as string[],
           activeDevelopmentProcessCount: 0
         }
@@ -271,6 +274,9 @@ describe("worker system command producer backpressure", () => {
         hasActiveLock: false,
         territoryTileKeys: ["25,0"],
         frontierTileKeys: ["25,0"],
+        hotFrontierTileKeys: ["25,0"],
+        strategicFrontierTileKeys: ["25,0"],
+        buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1
@@ -323,6 +329,9 @@ describe("worker system command producer backpressure", () => {
         hasActiveLock: false,
         territoryTileKeys: ["25,0"],
         frontierTileKeys: ["25,0"],
+        hotFrontierTileKeys: ["25,0"],
+        strategicFrontierTileKeys: ["25,0"],
+        buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1

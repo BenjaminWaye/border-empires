@@ -196,7 +196,9 @@ export const createServerAiFrontierScoutRuntime = (
   ): { from: Tile; to: Tile } | undefined => {
     if (territorySummary.settledTileCount > 2) return undefined;
     let best: { score: number; from: Tile; to: Tile } | undefined;
-    for (const { from, to } of territorySummary.expandCandidates) {
+    const frontierCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { from, to } of frontierCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const unseenNeighbors = countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary);
       const revealValue = scoreAiScoutRevealValue(actor, to, territorySummary.visibility, territorySummary);
@@ -274,14 +276,16 @@ export const createServerAiFrontierScoutRuntime = (
     const startedAt = deps.now();
     let scannedCandidates = 0;
     let best: { score: number; from: Tile; to: Tile } | undefined;
-    for (const { from, to } of territorySummary.expandCandidates) {
+    const frontierCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { from, to } of frontierCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       scannedCandidates += 1;
       const scoutRevealCount = countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary);
       const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);
       if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0) {
         if ((scannedCandidates & 3) === 0 && deps.now() - startedAt >= deps.AI_FRONTIER_SELECTOR_BUDGET_MS) {
-          deps.appLogWarn({ playerId: actor.id, scannedCandidates, frontierCandidates: territorySummary.expandCandidates.length, elapsedMs: deps.now() - startedAt, budgetMs: deps.AI_FRONTIER_SELECTOR_BUDGET_MS }, "ai frontier selector budget hit");
+          deps.appLogWarn({ playerId: actor.id, scannedCandidates, frontierCandidates: frontierCandidates.length, elapsedMs: deps.now() - startedAt, budgetMs: deps.AI_FRONTIER_SELECTOR_BUDGET_MS }, "ai frontier selector budget hit");
           break;
         }
         continue;
@@ -298,7 +302,7 @@ export const createServerAiFrontierScoutRuntime = (
         Math.max(0, adjacency.frontierNeighbors - 1) * 12;
       if (!best || score > best.score) best = { score, from, to };
       if ((scannedCandidates & 31) === 0 && deps.now() - startedAt >= deps.AI_FRONTIER_SELECTOR_BUDGET_MS) {
-        deps.appLogWarn({ playerId: actor.id, scannedCandidates, frontierCandidates: territorySummary.expandCandidates.length, elapsedMs: deps.now() - startedAt, budgetMs: deps.AI_FRONTIER_SELECTOR_BUDGET_MS }, "ai frontier selector budget hit");
+        deps.appLogWarn({ playerId: actor.id, scannedCandidates, frontierCandidates: frontierCandidates.length, elapsedMs: deps.now() - startedAt, budgetMs: deps.AI_FRONTIER_SELECTOR_BUDGET_MS }, "ai frontier selector budget hit");
         break;
       }
     }
