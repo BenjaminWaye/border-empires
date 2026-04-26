@@ -19,12 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.9",
+  version: "2026.04.26.10",
   title: "What's New",
-  summary: "Recent updates include startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
     {
-      introducedIn: "2026.04.26.9",
+      introducedIn: "2026.04.26.10",
+      title: "Fresh frontier captures no longer make shard caches disappear in staging",
+      why: "Chunk-shell refreshes could overwrite a just-expanded frontier tile with a lower-detail owned summary that omitted shard metadata, making visible shard caches seem to vanish right after you claimed the tile.",
+      changes: [
+        "Client tile-detail merging now preserves shard-site data when a lower-detail chunk or shell refresh omits shard metadata instead of explicitly clearing it.",
+        "Fresh frontier captures keep their shard cache visible and collectable until the server sends an authoritative removal or you collect it.",
+        "Added a client regression test covering summary frontier updates that downgrade detail without dropping shard sites."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.10",
       title: "Simulation restarts no longer hold login behind startup replay compaction",
       why: "Staging restarts were blocking the simulation gRPC listener behind a replay-compaction checkpoint, and the checkpoint path itself was not using one dedicated Postgres transaction client, which could leave the gateway seeing long ECONNREFUSED windows and projection write failures before login even reached subscribe.",
       changes: [
@@ -34,7 +44,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.8",
+      introducedIn: "2026.04.26.9",
       title: "Settings now expose copyable auth-debug details for cross-device staging checks",
       why: "When a staging login seemed to land on a different empire, there was no fast in-client way to compare the Firebase identity, resolved player id, backend route, and runtime metadata between desktop and mobile.",
       changes: [
@@ -44,7 +54,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.8",
+      introducedIn: "2026.04.26.9",
       title: "Staging auth now reuses the same empire across device-specific Firebase UIDs",
       why: "The rewrite gateway only reused durable auth bindings by UID, so the same player email could land on a different player id when desktop and mobile surfaced different Firebase identities for staging auth.",
       changes: [
@@ -54,7 +64,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.8",
+      introducedIn: "2026.04.26.9",
       title: "Rewrite login bootstrap now uses a cheap visible-only subscribe path",
       why: "The split simulation was still building each player's auth subscribe/bootstrap snapshot from a full-world runtime export and then sending a redundant bootstrap tile batch after INIT, so already-running staging machines could stall auth for far too long and occasionally duplicate the first visible world refresh.",
       changes: [
