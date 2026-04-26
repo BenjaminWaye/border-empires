@@ -1029,12 +1029,26 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  const authLogoutButtons = dom.hud.querySelectorAll("[data-auth-logout]") as NodeListOf<HTMLButtonElement>;
-  authLogoutButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = async () => {
-      if (!firebaseAuth) return;
+  let authLogoutInFlight = false;
+  const triggerAuthLogout = async (): Promise<void> => {
+    if (!firebaseAuth || authLogoutInFlight) return;
+    authLogoutInFlight = true;
+    try {
       await signOut(firebaseAuth);
       window.location.reload();
+    } finally {
+      authLogoutInFlight = false;
+    }
+  };
+  const authLogoutButtons = dom.hud.querySelectorAll("[data-auth-logout]") as NodeListOf<HTMLButtonElement>;
+  authLogoutButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      void triggerAuthLogout();
+    };
+    btn.onpointerup = (event: PointerEvent) => {
+      if (event.pointerType === "mouse") return;
+      event.preventDefault();
+      void triggerAuthLogout();
     };
   });
   const economyFocusButtons = dom.hud.querySelectorAll("[data-economy-focus]") as NodeListOf<HTMLButtonElement>;
