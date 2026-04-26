@@ -223,6 +223,39 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     );
   });
 
+  it("can skip world status generation when subscribe only needs the visible bootstrap payload", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot(
+      "player-1",
+      {
+        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        players: [
+          {
+            id: "player-1",
+            name: "Nauticus",
+            points: 64,
+            manpower: 120,
+            techIds: [],
+            domainIds: [],
+            strategicResources: {},
+            allies: [],
+            vision: 1,
+            visionRadiusBonus: 0,
+            territoryTileKeys: ["10,10"]
+          }
+        ],
+        pendingSettlements: [],
+        activeLocks: []
+      },
+      undefined,
+      { includeWorldStatus: false }
+    );
+
+    expect(snapshot.worldStatus).toBeUndefined();
+    expect(snapshot.tiles).toEqual([
+      expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" })
+    ]);
+  });
+
   it("enriches rewrite town snapshots with support structures and live economy breakdown", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [

@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.6",
+  version: "2026.04.26.7",
   title: "What's New",
-  summary: "Recent updates include a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts, a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, final rewrite 3D map polish for ownership tinting and unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction, tighter AI/system planner worker delta filtering, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include a rewrite login-bootstrap latency reduction so player subscribe snapshots no longer serialize the whole world before sending visible tiles, a visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts, a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, final rewrite 3D map polish for ownership tinting and unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction, tighter AI/system planner worker delta filtering, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.7",
+      title: "Rewrite login bootstrap now uses a cheap visible-only subscribe path",
+      why: "The split simulation was still building each player's auth subscribe/bootstrap snapshot from a full-world runtime export and then sending a redundant bootstrap tile batch after INIT, so already-running staging machines could stall auth for far too long and occasionally duplicate the first visible world refresh.",
+      changes: [
+        "Rewrite simulation now builds auth subscribe/bootstrap snapshots from a player-visible runtime export instead of serializing the entire world state on every login.",
+        "Gateway auth now requests that cheap bootstrap snapshot directly for INIT while suppressing the redundant follow-up bootstrap tile batch, so the client gets authoritative home and visible tiles without an extra duplicate refresh.",
+        "Added regression coverage for visible-only bootstrap exports, bootstrap-only subscribe mode, and gateway auth ordering so fast INIT does not drop pending-command or combat-result delivery."
+      ]
+    },
     {
       introducedIn: "2026.04.26.6",
       title: "Rewrite restarts now preserve tech-expanded frontier vision on login",

@@ -558,10 +558,26 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
   };
   const buildAndCachePlayerSnapshot = (playerId: string): PlayerSubscriptionSnapshot => {
-    const runtimeState = runtime.exportState();
-    const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState);
+    const runtimeState = runtime.exportVisibleStateForPlayer(playerId);
+    const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
+      includeWorldStatus: false
+    });
     snapshotCacheByPlayerId.set(playerId, snapshot);
     return snapshot;
+  };
+  const parseSubscribeOptions = (
+    subscriptionJson: string | undefined
+  ): { mode: "bootstrap-only" | "live"; emitBootstrapEvent: boolean } => {
+    if (!subscriptionJson) return { mode: "live", emitBootstrapEvent: true };
+    try {
+      const parsed = JSON.parse(subscriptionJson) as { mode?: unknown; emitBootstrapEvent?: unknown };
+      return {
+        mode: parsed.mode === "bootstrap-only" ? "bootstrap-only" : "live",
+        emitBootstrapEvent: parsed.emitBootstrapEvent === false ? false : parsed.mode === "bootstrap-only" ? false : true
+      };
+    } catch {
+      return { mode: "live", emitBootstrapEvent: true };
+    }
   };
   const flushGlobalStatusBroadcast = () => {
     globalStatusBroadcastTimeout = undefined;
@@ -863,7 +879,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
     },
     SubscribePlayer(
-      call: { request: { player_id: string } },
+      call: { request: { player_id: string; subscription_json: string } },
       callback: (
         error: Error | null,
         response: {
@@ -897,6 +913,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         });
         return;
       }
+      const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
       subscriptionRegistry.subscribe(call.request.player_id);
       const snapshotPayload = snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
       if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
@@ -933,6 +950,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           ...("yieldCap" in tile ? { yieldCap: tile.yieldCap } : {})
         }))
       });
+      if (!subscribeOptions.emitBootstrapEvent) return;
       const bootstrapEvent = toProtoEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: `bootstrap:${call.request.player_id}:${Date.now()}`,
