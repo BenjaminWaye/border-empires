@@ -27,4 +27,15 @@ describe("domain panel detail layout regression guard", () => {
     expect(hudSource).toContain("Client build ${CLIENT_BUILD_VERSION}");
     expect(styleSource).toContain(".client-build-version");
   });
+
+  it("keeps auth investigation details and copy support in the settings card", () => {
+    const hudSource = sourceFor("./client-hud.ts");
+
+    expect(hudSource).toContain("const authDebugHtml = (): string => {");
+    expect(hudSource).toContain("data-copy-auth-debug");
+    expect(hudSource).toContain("Copy Auth Debug");
+    expect(hudSource).toContain("Auth uid ${authUid}");
+    expect(hudSource).toContain("Game playerId ${playerId}");
+    expect(hudSource).toContain("const authDebugCopyButtons = dom.hud.querySelectorAll(\"[data-copy-auth-debug]\")");
+  });
 });

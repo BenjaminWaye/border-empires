@@ -52,6 +52,20 @@ export class PostgresGatewayAuthBindingStore implements GatewayAuthBindingStore 
     return result.rows[0] ? toStoredAuthIdentityBinding(result.rows[0]) : undefined;
   }
 
+  async getByEmail(email: string): Promise<StoredAuthIdentityBinding | undefined> {
+    const result = await this.db.query<AuthIdentityBindingRow>(
+      `
+      SELECT auth_uid, player_id, auth_email, updated_at
+      FROM auth_identity_bindings
+      WHERE LOWER(auth_email) = LOWER($1)
+      ORDER BY updated_at DESC
+      LIMIT 1
+      `,
+      [email]
+    );
+    return result.rows[0] ? toStoredAuthIdentityBinding(result.rows[0]) : undefined;
+  }
+
   async bindIdentity(binding: { uid: string; playerId: string; email?: string }): Promise<StoredAuthIdentityBinding> {
     const now = this.now();
     const result = await this.db.query<AuthIdentityBindingRow>(
