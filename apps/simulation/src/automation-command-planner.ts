@@ -47,6 +47,11 @@ export type AutomationPlannerDiagnostic = {
   noCommandReason?: AutomationNoopReason;
 };
 
+export type AutomationPlannerPhase =
+  | "choose_settlement"
+  | "choose_frontier"
+  | "summarize_frontier";
+
 type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   playerId: string;
   points: number;
@@ -61,6 +66,10 @@ type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   clientSeq: number;
   issuedAt: number;
   sessionPrefix: AutomationSessionPrefix;
+  onPhaseTiming?: (sample: {
+    phase: AutomationPlannerPhase;
+    durationMs: number;
+  }) => void;
 };
 
 export type AutomationPlannerResult = {
@@ -132,6 +141,12 @@ const summarizeFrontierTargets = <TTile extends AutomationPlannerTile>(
 export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   input: AutomationPlannerInput<TTile>
 ): AutomationPlannerResult => {
+  const recordPhaseTiming = (phase: AutomationPlannerPhase, startedAt: number): void => {
+    input.onPhaseTiming?.({
+      phase,
+      durationMs: Math.max(0, Date.now() - startedAt)
+    });
+  };
   if (input.hasActiveLock) {
     return {
       diagnostic: createAutomationNoopDiagnostic(input.playerId, input.sessionPrefix, "active_lock")
@@ -142,6 +157,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     input.sessionPrefix === "ai-runtime" &&
     input.activeDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT &&
     input.points >= SETTLE_COST;
+  const settlementStartedAt = Date.now();
   const settlementCandidate = settlementEligible
     ? chooseBestStrategicSettlementTile(
         input.playerId,
@@ -152,6 +168,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           : undefined
       )
     : undefined;
+  recordPhaseTiming("choose_settlement", settlementStartedAt);
 
   if (settlementCandidate) {
     return {
@@ -178,6 +195,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
 
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   const canExpand = input.points >= FRONTIER_CLAIM_COST;
+  const frontierStartedAt = Date.now();
   const frontierCommand =
     canAttack || canExpand
       ? chooseNextOwnedFrontierCommandFromLookup(
@@ -194,8 +212,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           }
         )
       : undefined;
+  recordPhaseTiming("choose_frontier", frontierStartedAt);
   if (frontierCommand) {
+    const summarizeStartedAt = Date.now();
     const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId, input.dockLinksByDockTileKey);
+    recordPhaseTiming("summarize_frontier", summarizeStartedAt);
     return {
       command: frontierCommand,
       diagnostic: {
@@ -210,7 +231,9 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     };
   }
 
+  const summarizeStartedAt = Date.now();
   const frontierSummary = summarizeFrontierTargets(input.ownedTiles, input.tilesByKey, input.playerId, input.dockLinksByDockTileKey);
+  recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   let noCommandReason: AutomationNoopReason;
   if (input.activeDevelopmentProcessCount >= DEVELOPMENT_PROCESS_LIMIT && frontierSummary.frontierEnemyTargetCount === 0 && frontierSummary.frontierNeutralTargetCount === 0) {
     noCommandReason = "development_process_limit";

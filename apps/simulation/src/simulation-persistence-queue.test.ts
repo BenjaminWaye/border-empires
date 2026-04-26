@@ -213,7 +213,9 @@ describe("createSimulationPersistenceQueue", () => {
         phase: "command_status",
         eventType: "COMMAND_ACCEPTED",
         commandId: "cmd-1",
-        failed: false
+        failed: false,
+        operation: "markAccepted",
+        retryCount: 0
       })
     );
     expect(onDiagnostic).toHaveBeenCalledWith(
@@ -221,7 +223,9 @@ describe("createSimulationPersistenceQueue", () => {
         phase: "event_store",
         eventType: "COMMAND_ACCEPTED",
         commandId: "cmd-1",
-        failed: false
+        failed: false,
+        operation: "appendEvent",
+        retryCount: 0
       })
     );
   });

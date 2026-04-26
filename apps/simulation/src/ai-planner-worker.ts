@@ -24,7 +24,8 @@
 import { parentPort } from "node:worker_threads";
 import {
   createAutomationNoopDiagnostic,
-  planAutomationCommand
+  planAutomationCommand,
+  type AutomationPlannerPhase
 } from "./automation-command-planner.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
@@ -136,6 +137,24 @@ const resolvePlayerTiles = (
   return { ownedTiles, frontierTiles, pendingSettlementTileKeys };
 };
 
+const emitDiagnostic = (sample: {
+  phase:
+    | "resolve_player_tiles"
+    | "planner_choose_settlement"
+    | "planner_choose_frontier"
+    | "planner_summarize_frontier"
+    | "planner_total";
+  durationMs: number;
+  playerId: string;
+  ownedTileCount?: number;
+  frontierTileCount?: number;
+}): void => {
+  parentPort!.postMessage({
+    type: "diagnostic",
+    diagnostic: sample
+  });
+};
+
 // ─── Planning logic ───────────────────────────────────────────────────────────
 
 const choosePlannerCommand = (
@@ -143,6 +162,7 @@ const choosePlannerCommand = (
   clientSeq: number,
   issuedAt: number
 ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
+  const plannerStartedAt = Date.now();
   const player = playersById.get(playerId);
   if (!player) {
     return {
@@ -150,7 +170,15 @@ const choosePlannerCommand = (
       diagnostic: createAutomationNoopDiagnostic(playerId, "ai-runtime", "player_missing")
     };
   }
+  const resolveTilesStartedAt = Date.now();
   const { frontierTiles, ownedTiles, pendingSettlementTileKeys } = resolvePlayerTiles(player);
+  emitDiagnostic({
+    phase: "resolve_player_tiles",
+    durationMs: Math.max(0, Date.now() - resolveTilesStartedAt),
+    playerId,
+    ownedTileCount: ownedTiles.length,
+    frontierTileCount: frontierTiles.length
+  });
   const plan = planAutomationCommand({
     playerId,
     points: player.points,
@@ -164,7 +192,31 @@ const choosePlannerCommand = (
     isPendingSettlement: (tile) => pendingSettlementTileKeys.has(`${tile.x},${tile.y}`),
     clientSeq,
     issuedAt,
-    sessionPrefix: "ai-runtime"
+    sessionPrefix: "ai-runtime",
+    onPhaseTiming: (sample) => {
+      const phaseByPlannerPhase: Record<
+        AutomationPlannerPhase,
+        "planner_choose_settlement" | "planner_choose_frontier" | "planner_summarize_frontier"
+      > = {
+        choose_settlement: "planner_choose_settlement",
+        choose_frontier: "planner_choose_frontier",
+        summarize_frontier: "planner_summarize_frontier"
+      };
+      emitDiagnostic({
+        phase: phaseByPlannerPhase[sample.phase],
+        durationMs: sample.durationMs,
+        playerId,
+        ownedTileCount: ownedTiles.length,
+        frontierTileCount: frontierTiles.length
+      });
+    }
+  });
+  emitDiagnostic({
+    phase: "planner_total",
+    durationMs: Math.max(0, Date.now() - plannerStartedAt),
+    playerId,
+    ownedTileCount: ownedTiles.length,
+    frontierTileCount: frontierTiles.length
   });
   return {
     command: plan.command ?? null,

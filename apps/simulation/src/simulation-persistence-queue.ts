@@ -15,6 +15,8 @@ type SimulationPersistenceQueueDependencies = {
     durationMs: number;
     pendingCount: number;
     failed: boolean;
+    operation: "markAccepted" | "markRejected" | "markResolved" | "appendEvent" | "noop";
+    retryCount: number;
   }) => void;
   onPersistenceFailure?: (error: Error) => void;
   log?: Pick<Console, "error">;
@@ -51,14 +53,14 @@ const delay = async (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-const withPersistenceRetry = async (operation: () => Promise<void>): Promise<void> => {
+const withPersistenceRetry = async (operation: () => Promise<void>): Promise<{ retryCount: number }> => {
   let attempt = 0;
   let lastError: unknown;
   const maxAttempts = PERSISTENCE_RETRY_BACKOFF_MS.length + 1;
   while (attempt < maxAttempts) {
     try {
       await operation();
-      return;
+      return { retryCount: attempt };
     } catch (error) {
       lastError = error;
       if (!isTransientPersistenceError(error) || attempt >= maxAttempts - 1) {
@@ -76,19 +78,19 @@ const persistCommandStatus = async (
   commandStore: SimulationCommandStore,
   event: SimulationEvent,
   createdAt: number
-): Promise<void> => {
+): Promise<"markAccepted" | "markRejected" | "markResolved" | "noop"> => {
   switch (event.eventType) {
     case "COMMAND_ACCEPTED":
       await commandStore.markAccepted(event.commandId, createdAt);
-      break;
+      return "markAccepted";
     case "COMMAND_REJECTED":
       await commandStore.markRejected(event.commandId, createdAt, event.code, event.message);
-      break;
+      return "markRejected";
     case "COMBAT_RESOLVED":
       await commandStore.markResolved(event.commandId, createdAt);
-      break;
+      return "markResolved";
     default:
-      break;
+      return "noop";
   }
 };
 
@@ -125,10 +127,13 @@ export const createSimulationPersistenceQueue = (
       try {
         const commandStatusStartedAt = Date.now();
         let commandStatusFailed = false;
+        let commandStatusRetryCount = 0;
+        let commandStatusOperation: "markAccepted" | "markRejected" | "markResolved" | "noop" = "noop";
         try {
-          await withPersistenceRetry(async () => {
-            await persistCommandStatus(dependencies.commandStore, event, createdAt);
+          const result = await withPersistenceRetry(async () => {
+            commandStatusOperation = await persistCommandStatus(dependencies.commandStore, event, createdAt);
           });
+          commandStatusRetryCount = result.retryCount;
         } catch (error) {
           commandStatusFailed = true;
           markFailure();
@@ -153,17 +158,21 @@ export const createSimulationPersistenceQueue = (
             commandId: event.commandId,
             durationMs: Math.max(0, Date.now() - commandStatusStartedAt),
             pendingCount,
-            failed: commandStatusFailed
+            failed: commandStatusFailed,
+            operation: commandStatusOperation,
+            retryCount: commandStatusRetryCount
           });
         }
 
         if (shouldPersistEvent(event)) {
           const eventStoreWriteStartedAt = Date.now();
           let eventStoreWriteFailed = false;
+          let eventStoreRetryCount = 0;
           try {
-            await withPersistenceRetry(async () => {
+            const result = await withPersistenceRetry(async () => {
               await dependencies.eventStore.appendEvent(event, createdAt);
             });
+            eventStoreRetryCount = result.retryCount;
             dependencies.onEventPersisted?.();
           } catch (error) {
             eventStoreWriteFailed = true;
@@ -179,7 +188,9 @@ export const createSimulationPersistenceQueue = (
               commandId: event.commandId,
               durationMs,
               pendingCount,
-              failed: eventStoreWriteFailed
+              failed: eventStoreWriteFailed,
+              operation: "appendEvent",
+              retryCount: eventStoreRetryCount
             });
           }
         }
