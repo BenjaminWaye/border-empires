@@ -215,8 +215,10 @@ export const createServerAiFrontierSelectionRuntime = (
     let bestSettlement: (AiSettlementCandidateEvaluation & { tileKey: TileKey; priorityScore: number }) | undefined;
     let bestTownSupport: (AiSettlementCandidateEvaluation & { tileKey: TileKey; totalScore: number }) | undefined;
     let bestIsland: (AiSettlementCandidateEvaluation & { tileKey: TileKey; totalScore: number }) | undefined;
+    const settlementFrontierTiles =
+      territorySummary.strategicFrontierTiles.length > 0 ? territorySummary.strategicFrontierTiles : territorySummary.frontierTiles;
 
-    for (const tile of territorySummary.frontierTiles) {
+    for (const tile of settlementFrontierTiles) {
       const tileKey = deps.key(tile.x, tile.y);
       if (deps.tileHasPendingSettlement(tileKey)) continue;
       const evaluation = deps.evaluateAiSettlementCandidate(actor, tile, victoryPath, undefined, territorySummary);
@@ -491,7 +493,9 @@ export const createServerAiFrontierSelectionRuntime = (
     territorySummary = deps.collectAiTerritorySummary(actor)
   ): { from: Tile; to: Tile } | undefined => {
     let best: { score: number; from: Tile; to: Tile } | undefined;
-    for (const { from, to } of territorySummary.expandCandidates) {
+    const frontierCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { from, to } of frontierCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const frontierClass = deps.classifyAiNeutralFrontierOpportunity(actor, from, to, victoryPath, territorySummary);
       const economicSignal = deps.aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary);
@@ -519,7 +523,9 @@ export const createServerAiFrontierSelectionRuntime = (
     territorySummary = deps.collectAiTerritorySummary(actor)
   ): AiFrontierOpportunityCounts => {
     const counts: AiFrontierOpportunityCounts = { economic: 0, scout: 0, scaffold: 0, waste: 0 };
-    for (const { from, to } of territorySummary.expandCandidates) {
+    const frontierCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { from, to } of frontierCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       counts[deps.classifyAiNeutralFrontierOpportunity(actor, from, to, victoryPath, territorySummary)] += 1;
     }

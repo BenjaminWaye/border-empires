@@ -50,7 +50,9 @@ export type AiTerritorySummary = {
   frontierTileCount: number;
   settledTiles: Tile[];
   frontierTiles: Tile[];
+  strategicFrontierTiles: Tile[];
   expandCandidates: AiFrontierCandidatePair[];
+  activeExpandCandidates: AiFrontierCandidatePair[];
   attackCandidates: AiFrontierCandidatePair[];
   borderSettledTileKeys: Set<TileKey>;
   structureCandidateTiles: Tile[];
@@ -95,7 +97,9 @@ export type AiTerritoryStructureCache = {
   frontierTileCount: number;
   settledTiles: Tile[];
   frontierTiles: Tile[];
+  strategicFrontierTiles: Tile[];
   expandCandidates: AiFrontierCandidatePair[];
+  activeExpandCandidates: AiFrontierCandidatePair[];
   attackCandidates: AiFrontierCandidatePair[];
   borderSettledTileKeys: Set<TileKey>;
   structureCandidateTiles: Tile[];
