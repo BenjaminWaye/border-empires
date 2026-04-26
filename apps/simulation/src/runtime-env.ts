@@ -57,9 +57,8 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   const checkpointMaxRssMb = env.SIMULATION_CHECKPOINT_MAX_RSS_MB;
   const checkpointMaxHeapUsedMb = env.SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB;
   const allowSeedRecoveryFallback =
-    !isManagedRuntime &&
     env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK === "1" &&
-    !databaseUrl;
+    Boolean(env.SIMULATION_SEED_PROFILE);
 
   return {
     host: env.SIMULATION_HOST ?? "127.0.0.1",
