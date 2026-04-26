@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.13",
+  version: "2026.04.26.14",
   title: "What's New",
   summary: "Recent updates include explicit staging reseed recovery when managed startup finds an empty durable store; active-edge AI parity landing across both rewrite and legacy server planners so frontier expansion, settlement selection, and build choices stay focused on enemy pressure and strategic edges instead of dead interior borders; active-frontier AI targeting in both rewrite and legacy server paths so expansion, scouting, and settlement planning stay focused on enemy pressure and strategic edges instead of dead interior frontier; incremental AI/system planner relevance sync so large-empires no longer rebuild every tracked player's scope on each refresh; a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; and a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch.",
   entries: [
     {
-      introducedIn: "2026.04.26.13",
+      introducedIn: "2026.04.26.14",
       title: "Staging can explicitly reseed after an empty durable-startup failure",
       why: "The rewrite simulation now protects login by listening earlier during restart, but staging still cannot recover if its durable store is already empty unless there is an explicit reseed path for managed runtime.",
       changes: [
