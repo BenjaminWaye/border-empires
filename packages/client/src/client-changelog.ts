@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.8",
+  version: "2026.04.26.9",
   title: "What's New",
-  summary: "Recent updates include copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include a logout-button fix so the settings panel works in both desktop and mobile layouts; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.9",
+      title: "Log Out now works from every settings panel layout",
+      why: "The client renders the settings card in both desktop and mobile panel containers, but the logout handler only attached to the first matching button id, so the other visible Log Out control could do nothing.",
+      changes: [
+        "The settings card now renders logout controls with a shared data hook instead of a duplicated global id.",
+        "HUD binding now attaches the sign-out handler to every rendered Log Out button, so both desktop and mobile panel copies trigger Firebase sign-out and reload.",
+        "Added a client regression guard so future panel cloning changes cannot silently leave one logout button inert."
+      ]
+    },
     {
       introducedIn: "2026.04.26.8",
       title: "Settings now expose copyable auth-debug details for cross-device staging checks",
