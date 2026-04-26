@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.12",
+  version: "2026.04.26.13",
   title: "What's New",
-  summary: "Recent updates include active-frontier AI targeting in both rewrite and legacy server paths so expansion, scouting, and settlement planning stay focused on enemy pressure and strategic edges instead of dead interior frontier; incremental AI/system planner relevance sync so large-empires no longer rebuild every tracked player's scope on each refresh; a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; and a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch.",
+  summary: "Recent updates include explicit staging reseed recovery when managed startup finds an empty durable store; active-frontier AI targeting in both rewrite and legacy server paths so expansion, scouting, and settlement planning stay focused on enemy pressure and strategic edges instead of dead interior frontier; incremental AI/system planner relevance sync so large-empires no longer rebuild every tracked player's scope on each refresh; a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; and a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch.",
   entries: [
+    {
+      introducedIn: "2026.04.26.13",
+      title: "Staging can explicitly reseed after an empty durable-startup failure",
+      why: "The rewrite simulation now protects login by listening earlier during restart, but staging still cannot recover if its durable store is already empty unless there is an explicit reseed path for managed runtime.",
+      changes: [
+        "Simulation startup now only uses seed fallback in managed runtime when `SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK=1` is explicitly set.",
+        "That fallback is limited to the exact empty-durable-state startup error and does not mask ordinary database or replay failures.",
+        "Staging simulation config now enables that controlled fallback so an empty durable store does not leave the entire environment permanently down after restart."
+      ]
+    },
     {
       introducedIn: "2026.04.26.12",
       title: "AI frontier planning now focuses on active enemy and strategic edges instead of rescanning dead interior frontier",
@@ -31,16 +41,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Rewrite simulation now maintains hot frontier, strategic frontier, and build-candidate indexes so worker planning prefers frontier near enemies, settlement-worthy edges, and tiles whose buildability just changed.",
         "Legacy production server territory caches now keep focused strategic-frontier and active-expand candidate subsets, and frontier settlement, scout, and expand planning consumes those subsets before falling back to the full candidate pool.",
         "Frontier exploration heuristics now stay biased toward enemy pressure, coastlines, scaffold paths, and settlement reach instead of flat interior row-filling when a more active edge exists."
-      ]
-    },
-    {
-      introducedIn: "2026.04.26.11",
-      title: "Large AI empires now refresh planner scope incrementally instead of rebuilding every player's relevance window",
-      why: "Late staging sessions were still hitting multi-second simulation stalls because periodic planner sync rebuilt the full relevant-tile scope for all tracked AI and system players at once, even when only one player needed a refresh.",
-      changes: [
-        "AI and system worker bridges now maintain per-player relevant-tile indexes and update only the changed players' scope when planner player views refresh.",
-        "Periodic planner refresh now rolls through a small configurable subset of tracked players each interval instead of collapsing back into one giant debounced all-player sync.",
-        "Added regression coverage for incremental planner-scope replacement and staggered periodic sync so large-empires do not regress back to full-scope rebuild stalls."
       ]
     },
     {

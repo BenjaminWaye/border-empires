@@ -97,6 +97,29 @@ describe("simulation service startup recovery", () => {
     );
   });
 
+  it("can explicitly reseed db-backed startup when durable stores are empty", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+
+    const service = await createSimulationService({
+      seedProfile: "season-20ai",
+      databaseUrl: "postgres://simulation",
+      commandStore,
+      eventStore,
+      snapshotStore,
+      allowSeedRecoveryFallback: true,
+      log: {
+        info: () => undefined,
+        error: () => undefined
+      }
+    });
+
+    expect(service.startupRecovery.recoveredEventCount).toBe(0);
+    expect(service.runtime.exportState().tiles.length).toBeGreaterThan(0);
+    await service.close();
+  });
+
   it("backfills seed tiles for sparse db-backed snapshots while preserving recovered ownership", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();

@@ -300,6 +300,10 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
     : {})
 });
 
+const isEmptyDurableStateRecoveryError = (error: unknown): boolean =>
+  error instanceof Error &&
+  error.message === "simulation startup recovery requires durable state but no snapshot, events, or bootstrap state were found";
+
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
   const commandTraceEnabled = process.env.SIMULATION_COMMAND_TRACE === "1";
@@ -391,7 +395,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         !options.allowSeedRecoveryFallback ||
         legacySnapshotBootstrap ||
         !options.seedProfile ||
-        isDbBackedStartup
+        (isDbBackedStartup && !isEmptyDurableStateRecoveryError(error))
       ) {
         log.error(
           { err: error, durationMs: Date.now() - startupRecoveryStartedAt, timeoutMs },
