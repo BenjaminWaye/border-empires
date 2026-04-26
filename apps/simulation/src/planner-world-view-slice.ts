@@ -39,7 +39,22 @@ const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
     ? {
         town: {
           ...(typeof tile.town.supportMax === "number" ? { supportMax: tile.town.supportMax } : {}),
-          ...(typeof tile.town.supportCurrent === "number" ? { supportCurrent: tile.town.supportCurrent } : {})
+          ...(typeof tile.town.supportCurrent === "number" ? { supportCurrent: tile.town.supportCurrent } : {}),
+          ...(tile.town.type ? { type: tile.town.type } : {}),
+          ...(tile.town.name ? { name: tile.town.name } : {}),
+          ...(tile.town.populationTier ? { populationTier: tile.town.populationTier } : {})
+        }
+      }
+    : {}),
+  ...(tile.fort ? { fort: { ownerId: tile.fort.ownerId, status: tile.fort.status } } : {}),
+  ...(tile.observatory ? { observatory: { ownerId: tile.observatory.ownerId, status: tile.observatory.status } } : {}),
+  ...(tile.siegeOutpost ? { siegeOutpost: { ownerId: tile.siegeOutpost.ownerId, status: tile.siegeOutpost.status } } : {}),
+  ...(tile.economicStructure
+    ? {
+        economicStructure: {
+          ownerId: tile.economicStructure.ownerId,
+          type: tile.economicStructure.type,
+          status: tile.economicStructure.status
         }
       }
     : {})

@@ -54,6 +54,9 @@ const makeRuntime = (humanInteractive = 0) => {
       hasActiveLock: false,
       territoryTileKeys: [] as string[],
       frontierTileKeys: [] as string[],
+      hotFrontierTileKeys: [] as string[],
+      strategicFrontierTileKeys: [] as string[],
+      buildCandidateTileKeys: [] as string[],
       pendingSettlementTileKeys: [] as string[],
       activeDevelopmentProcessCount: 0
     }
@@ -311,6 +314,9 @@ describe("worker AI command producer pause/resume", () => {
         hasActiveLock: false,
         territoryTileKeys: ["10,10"],
         frontierTileKeys: ["10,10"],
+        hotFrontierTileKeys: ["10,10"],
+        strategicFrontierTileKeys: ["10,10"],
+        buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1
@@ -363,6 +369,9 @@ describe("worker AI command producer pause/resume", () => {
         hasActiveLock: false,
         territoryTileKeys: ["10,10"],
         frontierTileKeys: ["10,10"],
+        hotFrontierTileKeys: ["10,10"],
+        strategicFrontierTileKeys: ["10,10"],
+        buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1

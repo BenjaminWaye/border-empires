@@ -24,6 +24,7 @@ describe("buildPlannerTileSlice", () => {
     const slice = buildPlannerTileSlice({
       playerIds: ["p1"],
       tiles,
+      docks: [],
       summaryForPlayer: () => ({ territoryTileKeys: new Set(["0,0"]) }),
       radius: 2
     });
@@ -44,6 +45,7 @@ describe("buildPlannerTileSlice", () => {
     const slice = buildPlannerTileSlice({
       playerIds: ["p1", "p2"],
       tiles,
+      docks: [],
       summaryForPlayer: (playerId) =>
         playerId === "p1"
           ? { territoryTileKeys: new Set(["0,0"]) }

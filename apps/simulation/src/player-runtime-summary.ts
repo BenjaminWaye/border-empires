@@ -24,6 +24,9 @@ export type PendingSettlementRecord = {
 export type PlayerRuntimeSummary = {
   territoryTileKeys: Set<string>;
   frontierTileKeys: Set<string>;
+  hotFrontierTileKeys: Set<string>;
+  strategicFrontierTileKeys: Set<string>;
+  buildCandidateTileKeys: Set<string>;
   settledTileCount: number;
   townCount: number;
   goldIncomePerMinute: number;
@@ -130,6 +133,9 @@ const activeStructureProcessCount = (tile: DomainTileState, ownerId: string): nu
 export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   territoryTileKeys: new Set<string>(),
   frontierTileKeys: new Set<string>(),
+  hotFrontierTileKeys: new Set<string>(),
+  strategicFrontierTileKeys: new Set<string>(),
+  buildCandidateTileKeys: new Set<string>(),
   settledTileCount: 0,
   townCount: 0,
   goldIncomePerMinute: 0,
