@@ -67,11 +67,27 @@ type WorkerAiCommandProducerOptions = {
   onTick?: (sample: { durationMs: number }) => void;
   onNoCommand?: (diagnostic: AutomationPlannerDiagnostic) => void;
   onDiagnostic?: (sample: {
-    phase: "sync_players" | "tile_delta_sync" | "request_plan" | "submit_command";
+    phase:
+      | "sync_players_export"
+      | "sync_players_relevance"
+      | "sync_players_post"
+      | "sync_players_total"
+      | "tile_delta_merge"
+      | "tile_delta_post"
+      | "tile_delta_sync"
+      | "request_plan_round_trip"
+      | "resolve_player_tiles"
+      | "planner_choose_settlement"
+      | "planner_choose_frontier"
+      | "planner_summarize_frontier"
+      | "planner_total"
+      | "submit_command";
     durationMs: number;
     playerId?: string;
     playerCount?: number;
     tileDeltaCount?: number;
+    ownedTileCount?: number;
+    frontierTileCount?: number;
   }) => void;
 };
 
@@ -123,6 +139,20 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         pendingRequests.delete(key);
         resolve(message.command as CommandEnvelope | null);
       }
+    } else if (message.type === "diagnostic") {
+      const diagnostic = message.diagnostic as {
+        phase:
+          | "resolve_player_tiles"
+          | "planner_choose_settlement"
+          | "planner_choose_frontier"
+          | "planner_summarize_frontier"
+          | "planner_total";
+        durationMs: number;
+        playerId: string;
+        ownedTileCount?: number;
+        frontierTileCount?: number;
+      };
+      options.onDiagnostic?.(diagnostic);
     }
   });
 
@@ -152,19 +182,37 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const syncPlayers = (playerIds: string[]): void => {
     if (playerIds.length === 0) return;
     const startedAt = now();
+    const exportStartedAt = now();
     const players = options.runtime.exportPlannerPlayerViews(playerIds);
+    options.onDiagnostic?.({
+      phase: "sync_players_export",
+      durationMs: Math.max(0, now() - exportStartedAt),
+      playerCount: players.length
+    });
     for (const player of players) plannerPlayersById.set(player.id, player);
+    const relevanceStartedAt = now();
     relevantTileKeys = buildPlannerRelevantTileKeys({
       players: [...plannerPlayersById.values()],
       tiles: [...plannerTilesByKey.values()],
       ...(initialWorldView.docks ? { docks: initialWorldView.docks } : {})
     });
+    options.onDiagnostic?.({
+      phase: "sync_players_relevance",
+      durationMs: Math.max(0, now() - relevanceStartedAt),
+      playerCount: players.length
+    });
+    const postStartedAt = now();
     worker.postMessage({
       type: "sync_players",
       players
     });
     options.onDiagnostic?.({
-      phase: "sync_players",
+      phase: "sync_players_post",
+      durationMs: Math.max(0, now() - postStartedAt),
+      playerCount: players.length
+    });
+    options.onDiagnostic?.({
+      phase: "sync_players_total",
       durationMs: Math.max(0, now() - startedAt),
       playerCount: players.length
     });
@@ -193,7 +241,13 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     const startedAt = now();
     const tileDeltas = [...pendingTileDeltasByKey.values()];
     pendingTileDeltasByKey.clear();
+    const postStartedAt = now();
     worker.postMessage({ type: "tile_deltas", tileDeltas });
+    options.onDiagnostic?.({
+      phase: "tile_delta_post",
+      durationMs: Math.max(0, now() - postStartedAt),
+      tileDeltaCount: tileDeltas.length
+    });
     options.onDiagnostic?.({
       phase: "tile_delta_sync",
       durationMs: Math.max(0, now() - startedAt),
@@ -202,6 +256,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   };
 
   const queueTileDeltas = (tileDeltas: readonly SimulationTileDelta[]): void => {
+    const mergeStartedAt = now();
     for (const tileDelta of tileDeltas) {
       if (!Number.isFinite(tileDelta.x) || !Number.isFinite(tileDelta.y)) continue;
       const tileKey = `${tileDelta.x},${tileDelta.y}`;
@@ -212,6 +267,11 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       const nextTile = mergePlannerTileDelta(plannerTilesByKey.get(tileKey), tileDelta);
       if (nextTile) plannerTilesByKey.set(tileKey, nextTile);
     }
+    options.onDiagnostic?.({
+      phase: "tile_delta_merge",
+      durationMs: Math.max(0, now() - mergeStartedAt),
+      tileDeltaCount: tileDeltas.length
+    });
     if (pendingTileDeltasByKey.size === 0 || tileDeltaSyncTimeout) return;
     tileDeltaSyncTimeout = setTimeout(flushPendingTileDeltas, tileDeltaSyncDebounceMs);
   };
@@ -301,7 +361,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
           const command = await requestPlan(playerId, clientSeq, issuedAt);
           const plannerDurationMs = Math.max(0, now() - plannerStartedAt);
           options.onDiagnostic?.({
-            phase: "request_plan",
+            phase: "request_plan_round_trip",
             durationMs: plannerDurationMs,
             playerId
           });
