@@ -7,6 +7,7 @@ import { buildFrontierCombatPreview } from "@border-empires/shared";
 import { ClientMessageSchema } from "@border-empires/shared";
 
 import { resolveGatewayAuthIdentity } from "./auth-identity.js";
+import { reconcileGatewayAuthBinding } from "./gateway-auth-binding-resolution.js";
 import type { GatewayAuthBindingStore } from "./auth-binding-store.js";
 import { createGatewayAuthBindingStore } from "./auth-binding-store-factory.js";
 import type { GatewayCommandStore } from "./command-store.js";
@@ -882,27 +883,28 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               ...(options.defaultHumanPlayerId ? { defaultHumanPlayerId: options.defaultHumanPlayerId } : {}),
               ...(legacySnapshotBootstrap ? { authIdentities: legacySnapshotBootstrap.authIdentities } : {})
             });
-            const playerIdentity = { ...resolvedPlayerIdentity };
+            let playerIdentity = { ...resolvedPlayerIdentity };
             if (resolvedPlayerIdentity.authUid) {
               try {
-                const binding = await authBindingStore.bindIdentity({
-                  uid: resolvedPlayerIdentity.authUid,
-                  playerId: resolvedPlayerIdentity.playerId,
-                  ...(resolvedPlayerIdentity.authEmail ? { email: resolvedPlayerIdentity.authEmail } : {})
-                });
-                if (binding.playerId !== resolvedPlayerIdentity.playerId) {
-                  playerIdentity.playerId = binding.playerId;
+                const reconciledIdentity = await reconcileGatewayAuthBinding(
+                  resolvedPlayerIdentity,
+                  authBindingStore
+                );
+                playerIdentity = { ...reconciledIdentity };
+                if (reconciledIdentity.playerId !== resolvedPlayerIdentity.playerId) {
                   recordGatewayEvent("warn", "gateway_auth_binding_override", {
                     channel,
                     authUid: resolvedPlayerIdentity.authUid,
                     requestedPlayerId: resolvedPlayerIdentity.playerId,
-                    boundPlayerId: binding.playerId
+                    boundPlayerId: reconciledIdentity.playerId,
+                    bindingSource: reconciledIdentity.bindingSource
                   });
                 } else {
                   recordGatewayEvent("info", "gateway_auth_binding_confirmed", {
                     channel,
                     authUid: resolvedPlayerIdentity.authUid,
-                    playerId: binding.playerId
+                    playerId: reconciledIdentity.playerId,
+                    bindingSource: reconciledIdentity.bindingSource
                   });
                 }
               } catch (error) {
