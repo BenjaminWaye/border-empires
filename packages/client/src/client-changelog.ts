@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.5",
+  version: "2026.04.26.6",
   title: "What's New",
-  summary: "Recent updates include a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, plus final rewrite 3D map polish for ownership tinting, highlight alignment, unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts, a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, final rewrite 3D map polish for ownership tinting and unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction, tighter AI/system planner worker delta filtering, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.6",
+      title: "Rewrite restarts now preserve tech-expanded frontier vision on login",
+      why: "The rewrite simulation was exporting login/bootstrap visibility with only the base radius, so after a staging restart players with cartography-style vision bonuses could log back in and see unexplored gaps hugging their frontier even though legacy kept those bonus rings visible.",
+      changes: [
+        "Rewrite simulation visibility export now derives additive vision-radius bonuses from owned techs and domains instead of dropping them during snapshot/bootstrap serialization.",
+        "Human frontier reveal tile batches now use the same effective vision-radius calculation as login bootstrap, keeping live captures and fresh reconnects in sync.",
+        "Added a restart regression test so tech-expanded rewrite vision still survives snapshot export and cold restart bootstrap."
+      ]
+    },
     {
       introducedIn: "2026.04.26.5",
       title: "Territory abandonment now survives older rewrite command-store schemas",
