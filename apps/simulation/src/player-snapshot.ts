@@ -10,7 +10,8 @@ import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 export const buildPlayerSubscriptionSnapshot = (
   playerId: string,
   runtimeState: ReturnType<SimulationRuntime["exportState"]>,
-  fallbackTiles?: Iterable<DomainTileState>
+  fallbackTiles?: Iterable<DomainTileState>,
+  options?: { includeWorldStatus?: boolean }
 ): PlayerSubscriptionSnapshot => {
   const sourceTiles =
     runtimeState.tiles.length > 0
@@ -169,7 +170,7 @@ export const buildPlayerSubscriptionSnapshot = (
           }
         }
       : {}),
-    worldStatus: buildWorldStatusSnapshot(playerId, runtimeState, fallbackTiles),
+    ...(options?.includeWorldStatus === false ? {} : { worldStatus: buildWorldStatusSnapshot(playerId, runtimeState, fallbackTiles) }),
     tiles: enrichedTiles
   };
 };
