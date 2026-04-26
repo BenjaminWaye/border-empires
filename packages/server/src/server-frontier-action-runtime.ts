@@ -236,19 +236,31 @@ export const createServerFrontierActionRuntime = (
     const manpowerCost = deps.manpowerCostForAction(actionType);
     if (!deps.hasEnoughManpower(actor, manpowerMin)) return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${manpowerMin.toFixed(0)} manpower to launch attack` };
     const defenderIsBarbarian = to.ownerId === deps.BARBARIAN_OWNER_ID;
-    const defender = to.ownerId && !defenderIsBarbarian ? deps.players.get(to.ownerId) : undefined;
+    const defenderOwnerId = to.ownerId && !defenderIsBarbarian ? to.ownerId : undefined;
+    const defender = defenderOwnerId ? deps.players.get(defenderOwnerId) : undefined;
     if (defender && actor.allies.has(defender.id)) return { ok: false, code: "ALLY_TARGET", message: "cannot attack allied tile" };
     if (defender && defender.spawnShieldUntil > deps.now()) return { ok: false, code: "SHIELDED", message: "target shielded" };
     if (!actor.isAi && defender?.isAi) deps.markAiDefensePriority(defender.id);
 
     let precomputedCombat: PrecomputedFrontierCombat | undefined;
-    if (defender || defenderIsBarbarian) {
+    if (defenderOwnerId || defenderIsBarbarian) {
       const atkEff = 10 * actor.mods.attack * deps.activeAttackBuffMult(actor.id) * deps.attackMultiplierForTarget(actor.id, to, fk) * deps.outpostAttackMultAt(actor.id, fk) * randomFactor();
       const shock = deps.breachShockByTile.get(tk);
-      const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > deps.now() ? deps.BREACH_SHOCK_DEF_MULT : 1;
+      const shockMult = defenderOwnerId && shock && shock.ownerId === defenderOwnerId && shock.expiresAt > deps.now() ? deps.BREACH_SHOCK_DEF_MULT : 1;
       const defEff = defenderIsBarbarian
         ? 10 * BARBARIAN_DEFENSE_POWER * DOCK_DEFENSE_MULT * randomFactor()
-        : (10 * (defender?.mods.defense ?? 1) * deps.playerDefensiveness(defender!) * shockMult * deps.fortDefenseMultAt(defender!.id, tk) * (deps.docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1) * deps.settledDefenseMultiplierForTarget(defender!.id, to) * deps.settlementDefenseMultAt(defender!.id, tk) * deps.ownershipDefenseMultiplierForTarget(defender?.id, to) + deps.frontierDefenseAddForTarget(defender!.id, to)) * randomFactor();
+        : (
+            10 *
+            (defender?.mods.defense ?? 1) *
+            (defender ? deps.playerDefensiveness(defender) : 1) *
+            shockMult *
+            deps.fortDefenseMultAt(defenderOwnerId!, tk) *
+            (deps.docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1) *
+            deps.settledDefenseMultiplierForTarget(defenderOwnerId!, to) *
+            deps.settlementDefenseMultAt(defenderOwnerId!, tk) *
+            deps.ownershipDefenseMultiplierForTarget(defenderOwnerId, to) +
+            deps.frontierDefenseAddForTarget(defenderOwnerId!, to)
+          ) * randomFactor();
       const winChance = combatWinChance(atkEff, defEff);
       const win = Math.random() < winChance;
       const fortHeldOrigin = deps.originTileHeldByActiveFort(actor.id, fk);
@@ -256,10 +268,10 @@ export const createServerFrontierActionRuntime = (
         ? [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" as const }]
         : defenderIsBarbarian
           ? deps.resolveFailedBarbarianDefenseOutcome({ fortHeldOrigin, origin: { x: from.x, y: from.y }, target: { x: to.x, y: to.y } }).resultChanges
-          : defender
-            ? fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" as const }]
+          : defenderOwnerId
+            ? fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defenderOwnerId, ownershipState: "FRONTIER" as const }]
             : [];
-      const previewWinnerId = win ? actor.id : defenderIsBarbarian ? deps.BARBARIAN_OWNER_ID : defender?.id;
+      const previewWinnerId = win ? actor.id : defenderIsBarbarian ? deps.BARBARIAN_OWNER_ID : defenderOwnerId;
       precomputedCombat = {
         atkEff,
         defEff,
@@ -267,7 +279,7 @@ export const createServerFrontierActionRuntime = (
         win,
         previewChanges,
         previewManpowerDelta: -(win ? Math.max(10, manpowerCost * 0.16) : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEff)) * 0.35)),
-        ...(defenderIsBarbarian ? { defenderOwnerId: deps.BARBARIAN_OWNER_ID } : defender?.id ? { defenderOwnerId: defender.id } : {}),
+        ...(defenderIsBarbarian ? { defenderOwnerId: deps.BARBARIAN_OWNER_ID } : defenderOwnerId ? { defenderOwnerId } : {}),
         ...(previewWinnerId !== undefined ? { previewWinnerId } : {})
       };
     }
@@ -290,7 +302,7 @@ export const createServerFrontierActionRuntime = (
       deps.combatLocks.delete(fk);
       deps.combatLocks.delete(tk);
       if (dockCrossing && fromDock) fromDock.cooldownUntil = deps.now() + DOCK_CROSSING_COOLDOWN_MS;
-      if (!defender && !defenderIsBarbarian) {
+      if (!defenderOwnerId && !defenderIsBarbarian) {
         actor.points -= deps.FRONTIER_ACTION_GOLD_COST;
         deps.recalcPlayerDerived(actor);
         actor.stamina -= pending.staminaCost;
@@ -366,19 +378,24 @@ export const createServerFrontierActionRuntime = (
           barbarianAgent.nextActionAt = deps.now() + BARBARIAN_ACTION_INTERVAL_MS;
           deps.upsertBarbarianAgent(barbarianAgent);
         }
-      } else if (defender) {
-        resultChanges = deps.applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk).resultChanges;
-        defender.missionStats.enemyCaptures += 1;
-        defender.missionStats.combatWins += 1;
-        deps.incrementVendettaCount(defender.id, actor.id);
-        deps.maybeIssueVendettaMission(defender, actor.id);
-        deps.maybeIssueResourceMission(defender, from.resource);
-        defender.points +=
-          pvpPointsReward(
-            deps.baseTileValue(from.resource),
-            ratingFromPointsLevel(defender.points, defender.level),
-            ratingFromPointsLevel(actor.points, actor.level)
-          ) * deps.PVP_REWARD_MULT;
+      } else if (defenderOwnerId) {
+        const failedOutcome = deps.applyFailedAttackTerritoryOutcome(actor.id, defenderOwnerId, false, from, to, fk, tk);
+        resultChanges = failedOutcome.resultChanges;
+        if (defender) {
+          if (failedOutcome.originLost) {
+            defender.missionStats.enemyCaptures += 1;
+            deps.maybeIssueResourceMission(defender, from.resource);
+          }
+          defender.missionStats.combatWins += 1;
+          deps.incrementVendettaCount(defender.id, actor.id);
+          deps.maybeIssueVendettaMission(defender, actor.id);
+          defender.points +=
+            pvpPointsReward(
+              deps.baseTileValue(from.resource),
+              ratingFromPointsLevel(defender.points, defender.level),
+              ratingFromPointsLevel(actor.points, actor.level)
+            ) * deps.PVP_REWARD_MULT;
+        }
       }
       deps.recalcPlayerDerived(actor);
       if (defender) deps.recalcPlayerDerived(defender);
@@ -390,8 +407,8 @@ export const createServerFrontierActionRuntime = (
         type: "COMBAT_RESULT",
         attackType: actionType,
         attackerWon: win,
-        ...(win ? { winnerId: actor.id } : defenderIsBarbarian ? { winnerId: deps.BARBARIAN_OWNER_ID } : defender?.id ? { winnerId: defender.id } : {}),
-        ...(defenderIsBarbarian ? { defenderOwnerId: deps.BARBARIAN_OWNER_ID } : defender?.id ? { defenderOwnerId: defender.id } : {}),
+        ...(win ? { winnerId: actor.id } : defenderIsBarbarian ? { winnerId: deps.BARBARIAN_OWNER_ID } : defenderOwnerId ? { winnerId: defenderOwnerId } : {}),
+        ...(defenderIsBarbarian ? { defenderOwnerId: deps.BARBARIAN_OWNER_ID } : defenderOwnerId ? { defenderOwnerId } : {}),
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         atkEff,
