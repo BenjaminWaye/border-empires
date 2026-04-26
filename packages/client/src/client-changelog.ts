@@ -71,20 +71,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Rewrite simulation now builds auth subscribe/bootstrap snapshots from a player-visible runtime export instead of serializing the entire world state on every login.",
         "Gateway auth now requests that cheap bootstrap snapshot directly for INIT while suppressing the redundant follow-up bootstrap tile batch, so the client gets authoritative home and visible tiles without an extra duplicate refresh.",
         "Added regression coverage for visible-only bootstrap exports, bootstrap-only subscribe mode, and gateway auth ordering so fast INIT does not drop pending-command or combat-result delivery."
-=======
-  version: "2026.04.26.8",
-  title: "What's New",
-  summary: "Recent updates include a rewrite staging combat fix so beaten-back attacks now still transfer the origin tile when the defender player record is missing from runtime state; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
-  entries: [
-    {
-      introducedIn: "2026.04.26.8",
-      title: "Rewrite failed attacks now drop the origin tile even when the defender runtime record is missing",
-      why: "Staging rewrite combat could fall back to a generic failed attack when the target tile still had an enemy owner id but that defender's player object was missing from runtime state, which left the attacker holding the origin tile despite an Attack Beaten Back result.",
-      changes: [
-        "Rewrite frontier combat now falls back to the target tile's owner id for defense resolution and failed-attack territory transfer when the defender player record is unavailable.",
-        "Combat previews and results keep the defending owner id in that fallback path so the origin-loss change is preserved instead of being dropped.",
-        "Added a server regression test that locks the missing-defender rewrite case to the expected origin-tile loss."
->>>>>>> codex/attack-origin-loss-fix
       ]
     },
     {
