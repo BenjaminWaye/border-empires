@@ -970,7 +970,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
         ${bridgeStatusHtml()}
-        <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
+        <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
         ${authDebugHtml()}
       </div>
     </div>
@@ -1029,14 +1029,14 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  const authLogoutBtn = document.querySelector("#auth-logout") as HTMLButtonElement | null;
-  if (authLogoutBtn) {
-    authLogoutBtn.onclick = async () => {
+  const authLogoutButtons = dom.hud.querySelectorAll("[data-auth-logout]") as NodeListOf<HTMLButtonElement>;
+  authLogoutButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = async () => {
       if (!firebaseAuth) return;
       await signOut(firebaseAuth);
       window.location.reload();
     };
-  }
+  });
   const economyFocusButtons = dom.hud.querySelectorAll("[data-economy-focus]") as NodeListOf<HTMLButtonElement>;
   economyFocusButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
