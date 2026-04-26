@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.04.26.13",
   title: "What's New",
-  summary: "Recent updates include explicit staging reseed recovery when managed startup finds an empty durable store; active-frontier AI targeting in both rewrite and legacy server paths so expansion, scouting, and settlement planning stay focused on enemy pressure and strategic edges instead of dead interior frontier; incremental AI/system planner relevance sync so large-empires no longer rebuild every tracked player's scope on each refresh; a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; and a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch.",
+  summary: "Recent updates include explicit staging reseed recovery when managed startup finds an empty durable store; active-edge AI parity landing across both rewrite and legacy server planners so frontier expansion, settlement selection, and build choices stay focused on enemy pressure and strategic edges instead of dead interior borders; active-frontier AI targeting in both rewrite and legacy server paths so expansion, scouting, and settlement planning stay focused on enemy pressure and strategic edges instead of dead interior frontier; incremental AI/system planner relevance sync so large-empires no longer rebuild every tracked player's scope on each refresh; a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; and a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch.",
   entries: [
     {
       introducedIn: "2026.04.26.13",
@@ -31,6 +31,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Simulation startup now only uses seed fallback in managed runtime when `SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK=1` is explicitly set.",
         "That fallback is limited to the exact empty-durable-state startup error and does not mask ordinary database or replay failures.",
         "Staging simulation config now enables that controlled fallback so an empty durable store does not leave the entire environment permanently down after restart."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.13",
+      title: "AI frontier, settlement, and build planning now stay on active strategic edges across both planners",
+      why: "The live server still lacked the full active-edge and legacy-parity frontier logic, so large empires could keep rescanning dead interior borders and miss the better economic, scaffold, and pressure moves that the newer planner work was designed to unlock.",
+      changes: [
+        "Rewrite simulation now carries the hot-frontier, strategic-frontier, and build-candidate planner indexes all the way through worker planning so settlement, structure, and expansion selection stay focused on recently relevant edge tiles.",
+        "Legacy production server frontier caches now surface active-expand and strategic-frontier subsets first, letting settlement, scout, and pressure logic spend less time on dead interior frontier and more time on enemy borders and strategic reach.",
+        "Settlement and frontier scoring now use the richer parity logic for economic, scaffold, scout, and waste opportunities so AIs push toward real settlement and pressure value instead of broad row-filling."
       ]
     },
     {
