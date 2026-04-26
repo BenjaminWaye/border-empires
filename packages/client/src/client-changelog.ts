@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.6",
+  version: "2026.04.26.7",
   title: "What's New",
-  summary: "Recent updates include a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts, a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, final rewrite 3D map polish for ownership tinting and unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction, tighter AI/system planner worker delta filtering, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.7",
+      title: "Queued settlement tiles in rewrite 3D mode show their queue number again",
+      why: "The 3D renderer moved queue borders onto terrain-aligned marker geometry, but the ordinal badge stayed behind a 2D-only guard, so queued settle/build tiles lost the number that tells you where they sit in the development queue.",
+      changes: [
+        "Queued settlement tiles now keep their gold ordinal badge visible in rewrite 3D mode at the projected tile position.",
+        "Queued build tiles use the same badge path so both development queue types stay readable under the 3D renderer.",
+        "Added client regression coverage for the queue-badge layout so future 3D marker refactors do not silently drop queue numbers again."
+      ]
+    },
     {
       introducedIn: "2026.04.26.6",
       title: "Rewrite restarts now preserve tech-expanded frontier vision on login",
