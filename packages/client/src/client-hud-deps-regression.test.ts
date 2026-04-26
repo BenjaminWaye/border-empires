@@ -39,4 +39,12 @@ describe("client HUD dependency wiring", () => {
     expect(hudSource).toContain('openEconomyPanel(focus ?? "ALL");');
     expect(hudSource).toContain("renderClientHud(deps);");
   });
+
+  it("binds logout on every rendered domains panel copy instead of one global id lookup", () => {
+    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+
+    expect(hudSource).toContain('data-auth-logout');
+    expect(hudSource).toContain('dom.hud.querySelectorAll("[data-auth-logout]")');
+    expect(hudSource).not.toContain('document.querySelector("#auth-logout")');
+  });
 });
