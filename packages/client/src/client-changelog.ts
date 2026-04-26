@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.4",
+  version: "2026.04.26.5",
   title: "What's New",
-  summary: "Recent updates include final rewrite 3D map polish for ownership tinting, highlight alignment, unexplored blackout rendering, and alternate-account profile setup correctness, plus a rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, plus final rewrite 3D map polish for ownership tinting, highlight alignment, unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.5",
+      title: "Territory abandonment now survives older rewrite command-store schemas",
+      why: "Production rewrite persistence could still be running against an older `commands.command_type` shape, which let frontier actions keep working but caused newer durable actions like `UNCAPTURE_TILE` to fail at the gateway with `QUEUE_PERSIST_FAILED` before simulation ever saw them.",
+      changes: [
+        "Gateway and simulation command-store migrations now upgrade existing `commands` tables in place by normalizing `command_type` to text, backfilling missing `client_seq` values, and restoring the durable result columns the queue path expects.",
+        "Production Fly gateway and simulation configs now enable rewrite schema application on startup so durable-command migrations run there the same way they already do in staging.",
+        "Added migration regression coverage so legacy command-store upgrade steps stay aligned across the gateway and simulation services."
+      ]
+    },
     {
       introducedIn: "2026.04.26.4",
       title: "Rewrite 3D ownership overlays now render with the correct player color and tile-aligned highlights",
