@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.7",
+  version: "2026.04.26.8",
   title: "What's New",
-  summary: "Recent updates include a client auth-debug panel near logout so staging account investigations can compare Firebase identity and resolved empire binding across devices, rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID on another device, a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, final rewrite 3D map polish for ownership tinting/highlight alignment/unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
     {
-      introducedIn: "2026.04.26.7",
+      introducedIn: "2026.04.26.8",
       title: "Settings now expose copyable auth-debug details for cross-device staging checks",
       why: "When a staging login seemed to land on a different empire, there was no fast in-client way to compare the Firebase identity, resolved player id, backend route, and runtime metadata between desktop and mobile.",
       changes: [
@@ -34,13 +34,33 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.6",
+      introducedIn: "2026.04.26.8",
       title: "Staging auth now reuses the same empire across device-specific Firebase UIDs",
       why: "The rewrite gateway only reused durable auth bindings by UID, so the same player email could land on a different player id when desktop and mobile surfaced different Firebase identities for staging auth.",
       changes: [
         "Gateway AUTH now falls back to existing auth bindings by email before creating a new UID binding, then persists the new UID onto that same player id for future logins.",
         "Desktop and mobile staging logins that resolve to the same player email now converge on one empire instead of silently splitting across two map spawns.",
         "Added realtime-gateway regression coverage for email-based binding reuse and the new binding lookup path."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.7",
+      title: "Queued settlement tiles in rewrite 3D mode show their queue number again",
+      why: "The 3D renderer moved queue borders onto terrain-aligned marker geometry, but the ordinal badge stayed behind a 2D-only guard, so queued settle/build tiles lost the number that tells you where they sit in the development queue.",
+      changes: [
+        "Queued settlement tiles now keep their gold ordinal badge visible in rewrite 3D mode at the projected tile position.",
+        "Queued build tiles use the same badge path so both development queue types stay readable under the 3D renderer.",
+        "Added client regression coverage for the queue-badge layout so future 3D marker refactors do not silently drop queue numbers again."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.7",
+      title: "Rewrite restarts now preserve tech-expanded frontier vision on login",
+      why: "The rewrite simulation was exporting login/bootstrap visibility with only the base radius, so after a staging restart players with cartography-style vision bonuses could log back in and see unexplored gaps hugging their frontier even though legacy kept those bonus rings visible.",
+      changes: [
+        "Rewrite simulation visibility export now derives additive vision-radius bonuses from owned techs and domains instead of dropping them during snapshot/bootstrap serialization.",
+        "Human frontier reveal tile batches now use the same effective vision-radius calculation as login bootstrap, keeping live captures and fresh reconnects in sync.",
+        "Added a restart regression test so tech-expanded rewrite vision still survives snapshot export and cold restart bootstrap."
       ]
     },
     {

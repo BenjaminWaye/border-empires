@@ -6,6 +6,7 @@ import { loadSync } from "@grpc/proto-loader";
 import { SIMULATION_PROTO_PATH, type CommandEnvelope, type PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 type ProtoAck = { ok: boolean };
+type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean };
 type ProtoTileDelta = {
   x: number;
   y: number;
@@ -94,6 +95,10 @@ type ProtoSimulationEvent = {
 
 type SimulationClientLike = {
   SubmitCommand: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoAck) => void) => void;
+  PreparePlayer: (
+    request: { player_id: string },
+    callback: (error: Error | null, response: ProtoPreparePlayerAck) => void
+  ) => void;
   SubscribePlayer: (
     request: ProtoSubscribePlayerRequest,
     callback: (error: Error | null, response: ProtoSubscribePlayerAck) => void
@@ -543,6 +548,7 @@ export const startSimulationEventStream = (
 
 export const createSimulationClientFromRpcClient = (client: SimulationClientLike): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
+  preparePlayer: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   unsubscribePlayer: (playerId: string) => Promise<void>;
   ping: () => Promise<void>;
@@ -559,6 +565,36 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
           return;
         }
         resolve();
+      });
+    });
+  },
+  preparePlayer(playerId) {
+    return new Promise<{ playerId: string; spawned: boolean }>((resolve, reject) => {
+      const preparePlayerRpc =
+        (typeof client.PreparePlayer === "function" ? client.PreparePlayer.bind(client) : undefined) ??
+        (
+          client as SimulationClientLike & {
+            preparePlayer?: SimulationClientLike["PreparePlayer"];
+          }
+        ).preparePlayer?.bind(client);
+      if (!preparePlayerRpc) {
+        reject(new Error("simulation client preparePlayer RPC is unavailable"));
+        return;
+      }
+      preparePlayerRpc({ player_id: playerId }, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve({
+          playerId:
+            typeof response.player_id === "string"
+              ? response.player_id
+              : typeof response.playerId === "string"
+                ? response.playerId
+                : playerId,
+          spawned: response.spawned === true
+        });
       });
     });
   },
@@ -602,6 +638,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
 
 export const createSimulationClient = (address: string): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
+  preparePlayer: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   unsubscribePlayer: (playerId: string) => Promise<void>;
   ping: () => Promise<void>;
