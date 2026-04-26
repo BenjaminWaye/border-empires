@@ -40,11 +40,13 @@ describe("client HUD dependency wiring", () => {
     expect(hudSource).toContain("renderClientHud(deps);");
   });
 
-  it("binds logout on every rendered domains panel copy instead of one global id lookup", () => {
+  it("binds logout on every rendered domains panel copy and handles mobile pointer taps", () => {
     const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
 
     expect(hudSource).toContain('data-auth-logout');
     expect(hudSource).toContain('dom.hud.querySelectorAll("[data-auth-logout]")');
+    expect(hudSource).toContain("btn.onpointerup = (event: PointerEvent) => {");
+    expect(hudSource).toContain('if (event.pointerType === "mouse") return;');
     expect(hudSource).not.toContain('document.querySelector("#auth-logout")');
   });
 });
