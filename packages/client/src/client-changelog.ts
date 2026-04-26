@@ -19,10 +19,30 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.5",
+  version: "2026.04.26.7",
   title: "What's New",
-  summary: "Recent updates include a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, plus final rewrite 3D map polish for ownership tinting, highlight alignment, unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include a client auth-debug panel near logout so staging account investigations can compare Firebase identity and resolved empire binding across devices, rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID on another device, a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas, final rewrite 3D map polish for ownership tinting/highlight alignment/unexplored blackout rendering, alternate-account profile setup correctness, rewrite settlement upkeep correction so settlements stay at zero food upkeep until they become towns, tighter AI/system planner worker delta filtering to cut irrelevant cross-thread sync churn under autoplay load, AI-capture replay/event payload compaction, startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets, rewrite default 3D map rollout with legacy-style tile coloring/texturing, sparse restart-snapshot tile-backfill hardening, simulation-availability fail-fast command handling, and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.7",
+      title: "Settings now expose copyable auth-debug details for cross-device staging checks",
+      why: "When a staging login seemed to land on a different empire, there was no fast in-client way to compare the Firebase identity, resolved player id, backend route, and runtime metadata between desktop and mobile.",
+      changes: [
+        "The settings card beside Log Out now shows Firebase project, auth UID, email, providers, resolved in-game player id/name, backend, season, runtime fingerprint, and websocket target.",
+        "A new Copy Auth Debug action copies the full investigation payload so desktop and mobile sessions can be compared side by side without opening devtools.",
+        "Added a client regression guard so the auth-debug block and copy wiring stay present in the HUD."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.6",
+      title: "Staging auth now reuses the same empire across device-specific Firebase UIDs",
+      why: "The rewrite gateway only reused durable auth bindings by UID, so the same player email could land on a different player id when desktop and mobile surfaced different Firebase identities for staging auth.",
+      changes: [
+        "Gateway AUTH now falls back to existing auth bindings by email before creating a new UID binding, then persists the new UID onto that same player id for future logins.",
+        "Desktop and mobile staging logins that resolve to the same player email now converge on one empire instead of silently splitting across two map spawns.",
+        "Added realtime-gateway regression coverage for email-based binding reuse and the new binding lookup path."
+      ]
+    },
     {
       introducedIn: "2026.04.26.5",
       title: "Territory abandonment now survives older rewrite command-store schemas",

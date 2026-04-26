@@ -43,4 +43,32 @@ describe("PostgresGatewayAuthBindingStore", () => {
 
     await expect(store.getByUid("missing")).resolves.toBeUndefined();
   });
+
+  it("looks up auth bindings by email case-insensitively", async () => {
+    const calls: Array<{ sql: string; params: readonly unknown[] | undefined }> = [];
+    const store = new PostgresGatewayAuthBindingStore({
+      async query(sql, params) {
+        calls.push({ sql: sql.trim(), params });
+        return {
+          rows: [
+            {
+              auth_uid: "firebase-user-2",
+              player_id: "player-9",
+              auth_email: "Nauticus@example.com",
+              updated_at: 2_000
+            }
+          ],
+          rowCount: 1
+        };
+      }
+    });
+
+    await expect(store.getByEmail("nauticus@example.com")).resolves.toEqual({
+      uid: "firebase-user-2",
+      playerId: "player-9",
+      email: "Nauticus@example.com",
+      updatedAt: 2_000
+    });
+    expect(calls[0]?.sql).toContain("WHERE LOWER(auth_email) = LOWER($1)");
+  });
 });

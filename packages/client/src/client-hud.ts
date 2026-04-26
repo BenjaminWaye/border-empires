@@ -238,6 +238,67 @@ export const renderClientHud = (deps: HudDeps): void => {
     `;
   };
 
+  const authDebugHtml = (): string => {
+    const currentUser = firebaseAuth?.currentUser;
+    const firebaseProjectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
+    const firebaseAuthDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? "border-empires.firebaseapp.com";
+    const authUid = currentUser?.uid ?? "none";
+    const authEmail = currentUser?.email?.trim() || "none";
+    const authProviders = currentUser?.providerData
+      ?.map((entry) => entry.providerId)
+      .filter((entry): entry is string => Boolean(entry)) ?? [];
+    const providerLabel = authProviders.length > 0 ? authProviders.join(", ") : "none";
+    const playerId = state.me || "pending";
+    const playerName = state.meName || "pending";
+    const runtimeFingerprint = state.bridgeDebugRuntimeFingerprint || "pending";
+    const seasonId = state.bridgeDebugSeasonId || "pending";
+    const bootstrapLabel =
+      state.bridgeDebugBootstrap === "rewrite-init"
+        ? "rewrite-init"
+        : state.bridgeDebugBootstrap === "legacy-init"
+          ? "legacy-init"
+          : "pending";
+    const wsLabel = state.bridgeDebugWsUrl || wsUrl;
+    const copyPayload = encodeURIComponent(
+      [
+        `Client build ${CLIENT_BUILD_VERSION}`,
+        `Host ${window.location.host}`,
+        `Path ${window.location.pathname}${window.location.search}`,
+        `Firebase project ${firebaseProjectId}`,
+        `Firebase auth domain ${firebaseAuthDomain}`,
+        `Auth uid ${authUid}`,
+        `Auth email ${authEmail}`,
+        `Providers ${providerLabel}`,
+        `Game playerId ${playerId}`,
+        `Game playerName ${playerName}`,
+        `Auth ready ${state.authReady}`,
+        `Auth session ready ${state.authSessionReady}`,
+        `Profile setup required ${state.profileSetupRequired}`,
+        `Backend ${state.activeBackend}`,
+        `Bridge ${state.bridgeDebugMode || "unknown"}`,
+        `Bootstrap ${bootstrapLabel}`,
+        `Season ${seasonId}`,
+        `Runtime ${runtimeFingerprint}`,
+        `WS ${wsLabel}`,
+        `UA ${navigator.userAgent}`
+      ].join("\n")
+    );
+    return `
+      <div class="bridge-debug-status auth-debug-status" title="${authUid}">
+        <button type="button" class="bridge-debug-copy-btn" data-copy-auth-debug="${copyPayload}">Copy Auth Debug</button>
+        <div><strong>Firebase</strong> ${firebaseProjectId}</div>
+        <div><strong>UID</strong> ${authUid}</div>
+        <div><strong>Email</strong> ${authEmail}</div>
+        <div><strong>Providers</strong> ${providerLabel}</div>
+        <div><strong>Player</strong> ${playerId} · ${playerName}</div>
+        <div><strong>Backend</strong> ${state.activeBackend} · <strong>Bootstrap</strong> ${bootstrapLabel}</div>
+        <div><strong>Season</strong> ${seasonId}</div>
+        <div><strong>Runtime</strong> ${runtimeFingerprint}</div>
+        <div class="bridge-debug-ws">${wsLabel}</div>
+      </div>
+    `;
+  };
+
   const replayToolbarHtml = (): string => {
     return `<div class="mini-map-toolbar">
       <span>Minimap (${state.camX}, ${state.camY})</span>
@@ -744,6 +805,20 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
+  const authDebugCopyButtons = dom.hud.querySelectorAll("[data-copy-auth-debug]") as NodeListOf<HTMLButtonElement>;
+  authDebugCopyButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = async () => {
+      const encoded = btn.dataset.copyAuthDebug;
+      if (!encoded) return;
+      try {
+        await navigator.clipboard.writeText(decodeURIComponent(encoded));
+        pushFeed("Auth debug copied.", "info", "success");
+      } catch {
+        pushFeed("Could not copy auth debug.", "error", "warn");
+      }
+      renderClientHud(deps);
+    };
+  });
   const socialInspectCardHtml = safeValue("renderSocialInspectCardHtml", "", () =>
     renderSocialInspectCardHtml({
       socialInspectPlayerId: state.socialInspectPlayerId,
@@ -896,6 +971,7 @@ export const renderClientHud = (deps: HudDeps): void => {
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
         ${bridgeStatusHtml()}
         <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
+        ${authDebugHtml()}
       </div>
     </div>
     <div id="domains-detail-content">
