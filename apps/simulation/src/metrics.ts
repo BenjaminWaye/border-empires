@@ -20,11 +20,13 @@ type QuantileSample = {
 };
 
 type TickSource = "ai" | "system";
+type PrepareMetricSource = "prepare" | "spawn";
 
 type SimulationMetricsSnapshot = {
   simEventLoopMaxMs: number;
   simEventLoopDelayMs: QuantileSample;
   simTickDurationMs: Record<TickSource, QuantileSample>;
+  simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;
   simHumanInteractiveBacklogMs: number;
   simAiPlannerBreaches: number;
   simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
@@ -44,6 +46,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simTickDurationMs = new Map<TickSource, number[]>([
     ["ai", []],
     ["system", []]
+  ]);
+  const simPreparePlayerLatencyMs = new Map<PrepareMetricSource, number[]>([
+    ["prepare", []],
+    ["spawn", []]
   ]);
   const simCommandAcceptLatencyMsByLane = new Map<QueueLane, number[]>(LANES.map((lane) => [lane, []]));
   const simEventStoreWriteMs: number[] = [];
@@ -78,6 +84,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       ai: quantileSample(simTickDurationMs.get("ai") ?? []),
       system: quantileSample(simTickDurationMs.get("system") ?? [])
     },
+    simPreparePlayerLatencyMs: {
+      prepare: quantileSample(simPreparePlayerLatencyMs.get("prepare") ?? []),
+      spawn: quantileSample(simPreparePlayerLatencyMs.get("spawn") ?? [])
+    },
     simHumanInteractiveBacklogMs,
     simAiPlannerBreaches,
     simAiNoopTotalByReason: Object.fromEntries(AUTOMATION_NOOP_REASONS.map((reason) => [reason, simAiNoopTotalByReason.get(reason) ?? 0])) as Record<AutomationNoopReason, number>,
@@ -105,6 +115,11 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     observeSimTickDurationMs(source: TickSource, value: number): void {
       const target = simTickDurationMs.get(source);
+      if (!target) return;
+      appendSample(target, value);
+    },
+    observeSimPreparePlayerLatencyMs(source: PrepareMetricSource, value: number): void {
+      const target = simPreparePlayerLatencyMs.get(source);
       if (!target) return;
       appendSample(target, value);
     },
@@ -161,6 +176,13 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_tick_duration_ms{source=\"system\",quantile=\"p50\"} ${formatMetricValue(sample.simTickDurationMs.system.p50)}`,
         `sim_tick_duration_ms{source=\"system\",quantile=\"p95\"} ${formatMetricValue(sample.simTickDurationMs.system.p95)}`,
         `sim_tick_duration_ms{source=\"system\",quantile=\"p99\"} ${formatMetricValue(sample.simTickDurationMs.system.p99)}`,
+        "# TYPE sim_prepare_player_latency_ms gauge",
+        `sim_prepare_player_latency_ms{source=\"prepare\",quantile=\"p50\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.prepare.p50)}`,
+        `sim_prepare_player_latency_ms{source=\"prepare\",quantile=\"p95\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.prepare.p95)}`,
+        `sim_prepare_player_latency_ms{source=\"prepare\",quantile=\"p99\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.prepare.p99)}`,
+        `sim_prepare_player_latency_ms{source=\"spawn\",quantile=\"p50\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.spawn.p50)}`,
+        `sim_prepare_player_latency_ms{source=\"spawn\",quantile=\"p95\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.spawn.p95)}`,
+        `sim_prepare_player_latency_ms{source=\"spawn\",quantile=\"p99\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.spawn.p99)}`,
         "# TYPE sim_human_interactive_backlog_ms gauge",
         `sim_human_interactive_backlog_ms ${formatMetricValue(sample.simHumanInteractiveBacklogMs)}`,
         "# TYPE sim_ai_planner_breaches counter",

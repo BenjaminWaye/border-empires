@@ -76,6 +76,7 @@ describe("gateway command submit timeout handling", () => {
       commandStore: new InMemoryGatewayCommandStore(),
       simulationSubmitTimeoutMs: 75,
       simulationClient: {
+        preparePlayer: async () => ({ playerId: "player-1", spawned: false }),
         submitCommand: async () =>
           await new Promise<void>(() => {
             // Intentionally unresolved to simulate a hung submit RPC.
