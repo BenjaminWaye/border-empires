@@ -15,6 +15,9 @@ import {
   MANPOWER_BASE_REGEN_PER_MINUTE,
   MANPOWER_BASE_CAP,
   SETTLE_COST,
+  VISION_RADIUS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
   rollFrontierCombat,
   structureBuildDurationMs,
   structureBuildGoldCost,
@@ -1100,6 +1103,115 @@ export class SimulationRuntime {
   } {
     return {
       tiles: [...this.tiles.values()]
+        .map((tile) => ({
+          x: tile.x,
+          y: tile.y,
+          terrain: tile.terrain,
+          ...(tile.resource ? { resource: tile.resource } : {}),
+          ...(tile.dockId ? { dockId: tile.dockId } : {}),
+          ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
+          ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+          ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+          ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
+          ...(tile.town?.type ? { townType: tile.town.type } : {}),
+          ...(tile.town?.name ? { townName: tile.town.name } : {}),
+          ...(tile.town?.populationTier ? { townPopulationTier: tile.town.populationTier } : {}),
+          ...(tile.fort ? { fortJson: JSON.stringify(tile.fort) } : {}),
+          ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
+          ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
+          ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
+          ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
+        }))
+        .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
+      players: [...this.players.values()]
+        .map((player) => {
+          this.applyManpowerRegen(player);
+          const summary = this.summaryForPlayer(player.id);
+          return {
+            id: player.id,
+            ...(player.name ? { name: player.name } : {}),
+            points: player.points,
+            manpower: player.manpower,
+            ...(typeof player.manpowerCapSnapshot === "number" ? { manpowerCapSnapshot: player.manpowerCapSnapshot } : {}),
+            techIds: [...player.techIds].sort(),
+            domainIds: [...(player.domainIds ?? [])].sort(),
+            strategicResources: { ...(player.strategicResources ?? {}) },
+            allies: [...player.allies].sort(),
+            vision: player.mods?.vision ?? 1,
+            visionRadiusBonus: visionRadiusBonusForPlayer(player),
+            incomeMultiplier: player.mods?.income ?? 1,
+            territoryTileKeys: [...summary.territoryTileKeys].sort(),
+            settledTileCount: summary.settledTileCount,
+            townCount: summary.townCount,
+            incomePerMinute: Math.round(summary.goldIncomePerMinute * (player.mods?.income ?? 1) * 100) / 100,
+            strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
+            activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+          };
+        })
+        .sort((left, right) => left.id.localeCompare(right.id)),
+      pendingSettlements: [...this.pendingSettlementsByTile.values()]
+        .map((settlement) => ({ ...settlement }))
+        .sort((left, right) => left.tileKey.localeCompare(right.tileKey)),
+      activeLocks: [...new Map([...this.locksByTile.entries()].map(([, lock]) => [lock.commandId, lock])).values()]
+        .map((lock) => ({
+          commandId: lock.commandId,
+          playerId: lock.playerId,
+          originKey: lock.originKey,
+          targetKey: lock.targetKey,
+          resolvesAt: lock.resolvesAt
+        }))
+        .sort((left, right) => left.commandId.localeCompare(right.commandId)),
+      tileYieldCollectedAtByTile: [...this.tileYieldCollectedAtByTile.entries()]
+        .map(([tileKey, collectedAt]) => ({ tileKey, collectedAt }))
+        .sort((left, right) => left.tileKey.localeCompare(right.tileKey))
+    };
+  }
+
+  exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
+    const keyFor = (x: number, y: number): string => simulationTileKey(((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH, ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT);
+    const parseKey = (tileKey: string): { x: number; y: number } | undefined => {
+      const [rawX, rawY] = tileKey.split(",");
+      const x = Number(rawX);
+      const y = Number(rawY);
+      if (!Number.isInteger(x) || !Number.isInteger(y)) return undefined;
+      return { x, y };
+    };
+    const visibleKeys = new Set<string>();
+    const addVision = (territoryTileKeys: Iterable<string>, vision: number, visionRadiusBonus: number): void => {
+      const radius = Math.max(1, Math.floor(VISION_RADIUS * vision) + visionRadiusBonus);
+      for (const tileKey of territoryTileKeys) {
+        const coords = parseKey(tileKey);
+        if (!coords) continue;
+        for (let dy = -radius; dy <= radius; dy += 1) {
+          for (let dx = -radius; dx <= radius; dx += 1) {
+            visibleKeys.add(keyFor(coords.x + dx, coords.y + dy));
+          }
+        }
+      }
+    };
+
+    const primaryPlayer = this.players.get(playerId);
+    if (primaryPlayer) {
+      this.applyManpowerRegen(primaryPlayer);
+      const primarySummary = this.summaryForPlayer(playerId);
+      addVision(primarySummary.territoryTileKeys, primaryPlayer.mods?.vision ?? 1, visionRadiusBonusForPlayer(primaryPlayer));
+      for (const allyId of primaryPlayer.allies) {
+        const ally = this.players.get(allyId);
+        if (!ally) continue;
+        this.applyManpowerRegen(ally);
+        addVision(this.summaryForPlayer(allyId).territoryTileKeys, ally.mods?.vision ?? 1, visionRadiusBonusForPlayer(ally));
+      }
+    }
+    for (const lock of this.locksByTile.values()) {
+      if (lock.playerId !== playerId) continue;
+      visibleKeys.add(lock.originKey);
+      visibleKeys.add(lock.targetKey);
+    }
+
+    return {
+      tiles: [...visibleKeys]
+        .map((tileKey) => this.tiles.get(tileKey))
+        .filter((tile): tile is DomainTileState => Boolean(tile))
         .map((tile) => ({
           x: tile.x,
           y: tile.y,

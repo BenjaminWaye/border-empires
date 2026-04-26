@@ -251,6 +251,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     "gateway_auth_binding_override",
     "gateway_auth_binding_confirmed",
     "gateway_auth_binding_failed",
+    "gateway_auth_bootstrap_ready",
+    "gateway_auth_bootstrap_failed",
     "gateway_auth_subscribe_ready",
     "gateway_auth_subscribe_failed",
     "simulation_command_rejected_unavailable",
@@ -971,28 +973,30 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               return;
             }
-            let subscribedInitialState;
+            let bootstrapInitialState;
             try {
-              subscribedInitialState = await withTimeout(
-                playerSubscriptions.addSocket(playerIdentity.playerId, socket),
+              bootstrapInitialState = await withTimeout(
+                simulationClient.subscribePlayer(
+                  playerIdentity.playerId,
+                  JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false })
+                ),
                 simulationSubscribeTimeoutMs,
-                "gateway subscribe player"
+                "gateway bootstrap player"
               );
               markSimulationReady();
-              if (subscribedInitialState) {
-                recordGatewayEvent("info", "gateway_auth_subscribe_ready", {
+              if (bootstrapInitialState) {
+                recordGatewayEvent("info", "gateway_auth_bootstrap_ready", {
                   playerId: playerIdentity.playerId,
                   channel,
-                  authoritativeTileCount: subscribedInitialState.tiles.length,
-                  hasPlayerPayload: Boolean(subscribedInitialState.player),
-                  worldStatusPresent: Boolean(subscribedInitialState.worldStatus)
+                  authoritativeTileCount: bootstrapInitialState.tiles.length,
+                  hasPlayerPayload: Boolean(bootstrapInitialState.player),
+                  worldStatusPresent: Boolean(bootstrapInitialState.worldStatus)
                 });
               }
             } catch (error) {
-              // A single slow subscribe can time out even when simulation is otherwise
-              // reachable; avoid globally flipping health based on one auth path failure.
-              recordGatewayEvent("error", "gateway_auth_subscribe_failed", {
+              recordGatewayEvent("error", "gateway_auth_bootstrap_failed", {
                 playerId: playerIdentity.playerId,
+                channel,
                 error: error instanceof Error ? error.message : String(error)
               });
               sendJson(socket, {
@@ -1002,9 +1006,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               return;
             }
+            playerSubscriptions.attachSocket(playerIdentity.playerId, socket);
+            if (bootstrapInitialState) playerSubscriptions.seedSnapshot(playerIdentity.playerId, bootstrapInitialState);
             const initialState = resolveInitialState({
               playerId: playerIdentity.playerId,
-              authoritativeSnapshot: subscribedInitialState,
+              authoritativeSnapshot: bootstrapInitialState,
               cachedSnapshot: playerSubscriptions.snapshotForPlayer(playerIdentity.playerId),
               simulationSeedProfile,
               allowCachedSnapshotFallback: allowNonAuthoritativeInitialState,

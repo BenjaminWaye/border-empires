@@ -132,4 +132,34 @@ describe("createPlayerSubscriptions", () => {
       tiles: [{ x: 10, y: 12, ownerId: "player-1" }]
     });
   });
+
+  it("can seed a bootstrap snapshot before the live subscribe completes", async () => {
+    let callCount = 0;
+    const subscriptions = createPlayerSubscriptions<
+      { readyState: number },
+      { playerId: string; tiles: Array<{ x: number; y: number; ownerId?: string }> }
+    >({
+      subscribePlayer: async (playerId) => {
+        callCount += 1;
+        return { playerId, tiles: [{ x: 10, y: 10 + callCount, ownerId: playerId }] };
+      },
+      unsubscribePlayer: async () => undefined
+    });
+
+    const socket = { readyState: 1 };
+    subscriptions.attachSocket("player-1", socket);
+    subscriptions.seedSnapshot("player-1", { playerId: "player-1", tiles: [{ x: 10, y: 10, ownerId: "player-1" }] });
+
+    expect(subscriptions.snapshotForPlayer("player-1")).toEqual({
+      playerId: "player-1",
+      tiles: [{ x: 10, y: 10, ownerId: "player-1" }]
+    });
+
+    await expect(subscriptions.ensureSubscribed("player-1")).resolves.toEqual({
+      playerId: "player-1",
+      tiles: [{ x: 10, y: 11, ownerId: "player-1" }]
+    });
+    expect(callCount).toBe(1);
+    expect([...subscriptions.socketsForPlayer("player-1")]).toEqual([socket]);
+  });
 });
