@@ -4,7 +4,7 @@
  * human_interactive command is queued, and resumes once it drains.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
@@ -96,6 +96,10 @@ const makeCommand = (playerId: string): CommandEnvelope => ({
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("worker AI command producer pause/resume", () => {
   it("skips tick and sends pause message when human_interactive backlog is non-empty", async () => {
@@ -296,6 +300,46 @@ describe("worker AI command producer pause/resume", () => {
         frontierTileCount: 5
       })
     );
+  });
+
+  it("stagger-syncs a subset of AI players on each periodic sync interval", async () => {
+    vi.useFakeTimers();
+    const plannerPlayers = ["ai-1", "ai-2", "ai-3"].map((id) => ({
+      id,
+      points: 500,
+      manpower: 10,
+      hasActiveLock: false,
+      territoryTileKeys: [] as string[],
+      frontierTileKeys: [] as string[],
+      pendingSettlementTileKeys: [] as string[],
+      activeDevelopmentProcessCount: 0,
+      tileCollectionVersion: 1
+    }));
+    const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
+      plannerPlayers.filter((player) => playerIds.includes(player.id))
+    );
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        exportPlannerWorldView: () => ({ tiles: [], players: plannerPlayers }),
+        exportPlannerPlayerViews,
+        onEvent: () => () => undefined
+      },
+      aiPlayerIds: plannerPlayers.map((player) => player.id),
+      submitCommand: async () => undefined,
+      tickIntervalMs: 10_000,
+      playerSyncIntervalMs: 50,
+      periodicPlayerSyncBatchSize: 1,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(600);
+    producer.close();
+
+    expect(exportPlannerPlayerViews).toHaveBeenNthCalledWith(1, ["ai-1"]);
+    expect(exportPlannerPlayerViews).toHaveBeenNthCalledWith(2, ["ai-2"]);
   });
 
   it("waits for command resolution before issuing another command for the same AI", async () => {
