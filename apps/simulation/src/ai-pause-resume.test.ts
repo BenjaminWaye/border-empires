@@ -245,6 +245,59 @@ describe("worker AI command producer pause/resume", () => {
     );
   });
 
+  it("forwards granular worker phase diagnostics to the callback", async () => {
+    const runtime = makeRuntime(0);
+    const onDiagnostic = vi.fn();
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "diagnostic",
+            diagnostic: {
+              phase: "planner_choose_frontier",
+              durationMs: 321,
+              playerId: msg.playerId,
+              ownedTileCount: 17,
+              frontierTileCount: 5
+            }
+          });
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: null
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onDiagnostic,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(onDiagnostic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "planner_choose_frontier",
+        durationMs: 321,
+        playerId: "ai-1",
+        ownedTileCount: 17,
+        frontierTileCount: 5
+      })
+    );
+  });
+
   it("waits for command resolution before issuing another command for the same AI", async () => {
     const command = makeCommand("ai-1");
     const runtime = makeRuntime(0);
