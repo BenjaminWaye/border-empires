@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.8",
+  version: "2026.04.26.9",
   title: "What's New",
-  summary: "Recent updates include copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.26.9",
+      title: "Simulation restarts no longer hold login behind startup replay compaction",
+      why: "Staging restarts were blocking the simulation gRPC listener behind a replay-compaction checkpoint, and the checkpoint path itself was not using one dedicated Postgres transaction client, which could leave the gateway seeing long ECONNREFUSED windows and projection write failures before login even reached subscribe.",
+      changes: [
+        "Simulation now starts listening for gateway auth traffic before replay-compaction checkpoint work runs, so restarts stop presenting a long pre-listen outage window to staging logins.",
+        "Postgres snapshot, projection, checkpoint-metadata, and event-prune writes now run on one dedicated transaction client instead of issuing BEGIN/COMMIT through a pool-wide query path.",
+        "Added regression coverage for post-start replay compaction scheduling and transactional snapshot writes so future checkpoint changes do not silently reintroduce startup login outages."
+      ]
+    },
     {
       introducedIn: "2026.04.26.8",
       title: "Settings now expose copyable auth-debug details for cross-device staging checks",
