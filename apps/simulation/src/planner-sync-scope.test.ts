@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPlannerRelevantTileKeys } from "./planner-sync-scope.js";
+import { buildPlannerRelevantTileKeys, createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView } from "./planner-world-view.js";
 
 const makePlayer = (overrides: Partial<PlannerPlayerView> = {}): PlannerPlayerView => ({
@@ -59,5 +59,24 @@ describe("buildPlannerRelevantTileKeys", () => {
 
     expect(keys.has("50,50")).toBe(true);
     expect(keys.has("49,49")).toBe(true);
+  });
+
+  it("updates only the changed player's scoped keys when replacing players incrementally", () => {
+    const playerOne = makePlayer({ id: "p1", territoryTileKeys: ["10,10"] });
+    const playerTwo = makePlayer({ id: "p2", territoryTileKeys: ["50,50"] });
+    const index = createPlannerRelevantTileKeyIndex({
+      players: [playerOne, playerTwo],
+      tiles: [],
+      docks: []
+    }, 0);
+
+    expect(index.keys()).toEqual(new Set(["10,10", "50,50"]));
+
+    index.replacePlayers(
+      [makePlayer({ id: "p1", territoryTileKeys: ["12,12"] })],
+      new Map()
+    );
+
+    expect(index.keys()).toEqual(new Set(["12,12", "50,50"]));
   });
 });

@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.10",
+  version: "2026.04.26.11",
   title: "What's New",
-  summary: "Recent updates include a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include incremental AI/system planner relevance sync so large-empires no longer rebuild every tracked player's scope on each refresh; a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; and a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch.",
   entries: [
+    {
+      introducedIn: "2026.04.26.11",
+      title: "Large AI empires now refresh planner scope incrementally instead of rebuilding every player's relevance window",
+      why: "Late staging sessions were still hitting multi-second simulation stalls because periodic planner sync rebuilt the full relevant-tile scope for all tracked AI and system players at once, even when only one player needed a refresh.",
+      changes: [
+        "AI and system worker bridges now maintain per-player relevant-tile indexes and update only the changed players' scope when planner player views refresh.",
+        "Periodic planner refresh now rolls through a small configurable subset of tracked players each interval instead of collapsing back into one giant debounced all-player sync.",
+        "Added regression coverage for incremental planner-scope replacement and staggered periodic sync so large-empires do not regress back to full-scope rebuild stalls."
+      ]
+    },
     {
       introducedIn: "2026.04.26.10",
       title: "Fresh frontier captures no longer make shard caches disappear in staging",
