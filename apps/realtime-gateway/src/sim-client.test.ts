@@ -131,6 +131,9 @@ describe("simulation event stream supervisor", () => {
   it("sends subscribe and unsubscribe requests through the rpc client", async () => {
     const rpcClient = {
       SubmitCommand: vi.fn(),
+      PreparePlayer: vi.fn((_request, callback: (error: Error | null, response: { ok: boolean; player_id: string; spawned: boolean }) => void) =>
+        callback(null, { ok: true, player_id: "player-1", spawned: true })
+      ),
       SubscribePlayer: vi.fn((_request, callback: (error: Error | null, response: { ok: boolean; player_id: string; tiles: Array<{ x: number; y: number }> }) => void) =>
         callback(null, { ok: true, player_id: "player-1", tiles: [{ x: 10, y: 10 }] })
       ),
@@ -144,12 +147,20 @@ describe("simulation event stream supervisor", () => {
     };
     const client = createSimulationClientFromRpcClient(rpcClient);
 
+    await expect(client.preparePlayer("player-1")).resolves.toEqual({
+      playerId: "player-1",
+      spawned: true
+    });
     await expect(client.subscribePlayer("player-1", "{\"radius\":2}")).resolves.toEqual({
       playerId: "player-1",
       tiles: [{ x: 10, y: 10 }]
     });
     await client.unsubscribePlayer("player-1");
 
+    expect(rpcClient.PreparePlayer).toHaveBeenCalledWith(
+      { player_id: "player-1" },
+      expect.any(Function)
+    );
     expect(rpcClient.SubscribePlayer).toHaveBeenCalledWith(
       { player_id: "player-1", subscription_json: "{\"radius\":2}" },
       expect.any(Function)
@@ -168,6 +179,7 @@ describe("simulation event stream supervisor", () => {
   it("accepts player snapshots even if the grpc layer surfaces camelCase snapshotJson", async () => {
     const rpcClient = {
       SubmitCommand: vi.fn(),
+      PreparePlayer: vi.fn(),
       SubscribePlayer: vi.fn((_request, callback: (error: Error | null, response: { ok: boolean; snapshot?: string; snapshotJson?: string }) => void) =>
         callback(null, {
           ok: true,
@@ -190,6 +202,7 @@ describe("simulation event stream supervisor", () => {
   it("accepts player snapshots from unknown unary response key casing", async () => {
     const rpcClient = {
       SubmitCommand: vi.fn(),
+      PreparePlayer: vi.fn(),
       SubscribePlayer: vi.fn((_request, callback: (error: Error | null, response: Record<string, unknown>) => void) =>
         callback(null, {
           ok: true,
@@ -211,6 +224,7 @@ describe("simulation event stream supervisor", () => {
   it("accepts typed player snapshots from the grpc layer", async () => {
     const rpcClient = {
       SubmitCommand: vi.fn(),
+      PreparePlayer: vi.fn(),
       SubscribePlayer: vi.fn((_request, callback: (error: Error | null, response: Record<string, unknown>) => void) =>
         callback(null, {
           ok: true,

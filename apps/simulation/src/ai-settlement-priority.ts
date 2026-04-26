@@ -36,28 +36,36 @@ const adjacentTownSupportNeed = (
   return need;
 };
 
+const settlementTileScore = (
+  playerId: string,
+  tile: DomainTileState,
+  tiles: ReadonlyMap<string, DomainTileState>
+): { score: number; strategic: boolean } => {
+  const supportNeed = adjacentTownSupportNeed(playerId, tile, tiles);
+  const strategic = Boolean(tile.town || tile.dockId || tile.resource || supportNeed > 0);
+  let score = 0;
+  if (tile.town) score += 1000;
+  if (tile.dockId) score += 450;
+  score += resourceScore(tile.resource);
+  score += supportNeed * 80;
+  if (!tile.resource && !tile.town && !tile.dockId) score -= 40;
+  score -= Math.abs(tile.x) * 0.0001 + Math.abs(tile.y) * 0.0001;
+  return { score, strategic };
+};
+
 export const settlementSupportNeedForTile = adjacentTownSupportNeed;
 
 export const hasStrategicSettlementValue = (
   playerId: string,
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>
-): boolean => Boolean(tile.town || tile.dockId || tile.resource || adjacentTownSupportNeed(playerId, tile, tiles) > 0);
+): boolean => settlementTileScore(playerId, tile, tiles).strategic;
 
 export const rankSettlementTile = (
   playerId: string,
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>
-): number => {
-  let score = 0;
-  if (tile.town) score += 1000;
-  if (tile.dockId) score += 450;
-  score += resourceScore(tile.resource);
-  score += adjacentTownSupportNeed(playerId, tile, tiles) * 80;
-  if (!tile.resource && !tile.town && !tile.dockId) score -= 40;
-  score -= Math.abs(tile.x) * 0.0001 + Math.abs(tile.y) * 0.0001;
-  return score;
-};
+): number => settlementTileScore(playerId, tile, tiles).score;
 
 const isBetterSettlementCandidate = (
   candidate: DomainTileState,
@@ -82,8 +90,8 @@ export const chooseBestStrategicSettlementTile = (
   for (const tile of candidates) {
     if (tile.terrain !== "LAND" || tile.ownerId !== playerId) continue;
     if (isPending?.(tile)) continue;
-    if (!hasStrategicSettlementValue(playerId, tile, tiles)) continue;
-    const score = rankSettlementTile(playerId, tile, tiles);
+    const { score, strategic } = settlementTileScore(playerId, tile, tiles);
+    if (!strategic) continue;
     if (isBetterSettlementCandidate(tile, score, bestTile, bestScore)) {
       bestTile = tile;
       bestScore = score;

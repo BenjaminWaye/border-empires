@@ -76,6 +76,7 @@ describe("gateway command delivery debug bundle", () => {
       commandStore: new InMemoryGatewayCommandStore(),
       simulationClient: {
         submitCommand: async () => undefined,
+        preparePlayer: async (playerId) => ({ playerId, spawned: false }),
         subscribePlayer: async () => ({
           playerId: "player-1",
           tiles: []

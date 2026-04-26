@@ -2,12 +2,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { InMemoryGatewayCommandStore } from "./command-store.js";
-import { createSimulationService } from "../../simulation/src/simulation-service.js";
-
-const silentLog = {
-  info: () => undefined,
-  error: () => undefined
-};
 
 type TestWebSocket = {
   readonly readyState: number;
@@ -101,6 +95,19 @@ const nextMatchingMessage = async (
   }
 };
 
+const authenticateUntilInit = async (
+  socket: Awaited<ReturnType<typeof openSocket>>,
+  token: string
+): Promise<Record<string, unknown>> => {
+  socket.socket.send(JSON.stringify({ type: "AUTH", token }));
+  for (;;) {
+    const message = await socket.nextJsonMessage(`auth ${token}`);
+    if (message.type === "LOGIN_PHASE") continue;
+    if (message.type === "INIT") return message;
+    throw new Error(`unexpected auth response for ${token}: ${JSON.stringify(message)}`);
+  }
+};
+
 describe("rewrite social integration", () => {
   const cleanup: Array<() => Promise<void>> = [];
 
@@ -112,16 +119,77 @@ describe("rewrite social integration", () => {
   });
 
   it("bootstraps and updates alliance/truce state over the rewrite gateway", async () => {
-    const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog });
-    cleanup.push(() => simulation.close());
-    const simulationAddress = await simulation.start();
-
     const gateway = await createRealtimeGatewayApp({
       host: "127.0.0.1",
       port: 0,
       logger: false,
-      simulationAddress: simulationAddress.address,
-      commandStore: new InMemoryGatewayCommandStore()
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationClient: {
+        submitCommand: async () => undefined,
+        preparePlayer: async (playerId) => ({ playerId, spawned: false }),
+        subscribePlayer: async (playerId) => ({
+          playerId,
+          tiles: [],
+          player: {
+            id: playerId,
+            name: playerId,
+            gold: 0,
+            points: 0,
+            level: 0,
+            tileColor: "#38b000",
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            modBreakdown: {
+              attack: [{ label: "Base", mult: 1 }],
+              defense: [{ label: "Base", mult: 1 }],
+              income: [{ label: "Base", mult: 1 }],
+              vision: [{ label: "Base", mult: 1 }]
+            },
+            incomePerMinute: 0,
+            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, oil: 0, gold: 0 },
+            upkeepLastTick: {
+              food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+              iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+              supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+              crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+              oil: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+              gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+              foodCoverage: 1
+            },
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            stamina: 0,
+            manpower: 0,
+            manpowerCap: 0,
+            manpowerRegenPerMinute: 0,
+            manpowerBreakdown: { cap: [], regen: [] },
+            T: 0,
+            E: 0,
+            Ts: 0,
+            Es: 0,
+            allies: [],
+            profileNeedsSetup: false,
+            availableTechPicks: 0,
+            developmentProcessLimit: 0,
+            activeDevelopmentProcessCount: 0,
+            revealCapacity: 1,
+            activeRevealTargets: [],
+            abilityCooldowns: {},
+            activeTruces: []
+          },
+          worldStatus: {
+            seasonId: "social-test",
+            worldSeed: 1,
+            runtimeFingerprint: "social-test",
+            mapWidth: 1,
+            mapHeight: 1,
+            playerCount: 2,
+            authoritativeTileCount: 0
+          }
+        }),
+        unsubscribePlayer: async () => undefined,
+        ping: async () => undefined,
+        streamEvents: () => () => undefined
+      }
     });
     cleanup.push(() => gateway.close());
     const gatewayAddress = await gateway.start();
@@ -131,13 +199,11 @@ describe("rewrite social integration", () => {
     const second = await openSocket(gatewayAddress.wsUrl);
     cleanup.push(() => closeSocket(second.socket));
 
-    first.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
-    const firstInit = await first.nextJsonMessage("first init");
+    const firstInit = await authenticateUntilInit(first, "player-1");
     expect(firstInit).toEqual(expect.objectContaining({ type: "INIT" }));
     expect((firstInit.player as { allies?: string[] }).allies).toEqual([]);
 
-    second.socket.send(JSON.stringify({ type: "AUTH", token: "player-2" }));
-    const secondInit = await second.nextJsonMessage("second init");
+    const secondInit = await authenticateUntilInit(second, "player-2");
     expect(secondInit).toEqual(expect.objectContaining({ type: "INIT" }));
 
     first.socket.send(JSON.stringify({ type: "ALLIANCE_REQUEST", targetPlayerName: "player-2" }));

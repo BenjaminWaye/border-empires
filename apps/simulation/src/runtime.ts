@@ -90,7 +90,14 @@ import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "
 import type { RecoveredSimulationState } from "./event-recovery.js";
 import type { RecoveredCommandHistory } from "./command-recovery.js";
 import { buildSimulationSnapshotCommandEvents, type SimulationSnapshotSections } from "./snapshot-store.js";
-import { buildDomainUpdatePayload, buildTechUpdatePayload, chooseDomainForPlayer, chooseTechForPlayer } from "./tech-domain-bridge.js";
+import {
+  buildDomainUpdatePayload,
+  buildTechUpdatePayload,
+  chooseDomainForPlayer,
+  chooseTechForPlayer,
+  effectiveVisionRadiusForPlayer,
+  visionRadiusBonusForPlayer
+} from "./tech-domain-bridge.js";
 import { buildTileYieldView } from "./tile-yield-view.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
 import type { PlannerPlayerView, PlannerWorldView } from "./planner-world-view.js";
@@ -979,6 +986,7 @@ export class SimulationRuntime {
             strategicResources: { ...(player.strategicResources ?? {}) },
             allies: [...player.allies].sort(),
             vision: player.mods?.vision ?? 1,
+            visionRadiusBonus: visionRadiusBonusForPlayer(player),
             incomeMultiplier: player.mods?.income ?? 1
           }))
           .sort((left, right) => left.id.localeCompare(right.id)),
@@ -1127,7 +1135,7 @@ export class SimulationRuntime {
             strategicResources: { ...(player.strategicResources ?? {}) },
             allies: [...player.allies].sort(),
             vision: player.mods?.vision ?? 1,
-            visionRadiusBonus: 0,
+            visionRadiusBonus: visionRadiusBonusForPlayer(player),
             incomeMultiplier: player.mods?.income ?? 1,
             territoryTileKeys: [...summary.territoryTileKeys].sort(),
             settledTileCount: summary.settledTileCount,
@@ -4204,7 +4212,7 @@ export class SimulationRuntime {
 
   private visibleRadiusForPlayer(playerId: string): number {
     const player = this.players.get(playerId);
-    return Math.max(1, Math.floor(4 * (player?.mods?.vision ?? 1)));
+    return player ? effectiveVisionRadiusForPlayer(player) : 1;
   }
 
   private buildCaptureRevealTileDeltas(playerId: string, centerX: number, centerY: number): Array<ReturnType<SimulationRuntime["tileDeltaFromState"]>> {
