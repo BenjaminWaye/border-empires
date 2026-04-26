@@ -406,12 +406,15 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const mergeIncomingTileDetail = (existing: Tile | undefined, incoming: Tile): Tile => {
-    if (!existing || existing.detailLevel !== "full" || incoming.detailLevel === "full") return incoming;
+    if (!existing || incoming.detailLevel === "full") return incoming;
+    const preservePriorDetail = existing.detailLevel === "full";
     const merged: Tile = {
       ...existing,
       ...incoming,
-      detailLevel: "full"
+      ...(preservePriorDetail ? { detailLevel: "full" as const } : {})
     };
+    if (!("shardSite" in incoming) && existing.shardSite) merged.shardSite = existing.shardSite;
+    if (!preservePriorDetail) return merged;
     if (!("town" in incoming) && existing.town) merged.town = existing.town;
     if (!("dock" in incoming) && existing.dock) merged.dock = existing.dock;
     if (!("yield" in incoming) && existing.yield) merged.yield = existing.yield;
