@@ -26,6 +26,7 @@ import { createSimulationPersistenceQueue } from "./simulation-persistence-queue
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-cache.js";
 import { SimulationRuntime } from "./runtime.js";
 import { loadSimulationStartupRecovery } from "./startup-recovery.js";
+import { createStartupReplayCompactionRunner } from "./startup-replay-compaction.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { laneForCommand } from "./command-lane.js";
 import { createSimulationMetrics } from "./metrics.js";
@@ -486,28 +487,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   });
-  if (startupRecovery.recoveredEventCount >= startupReplayCompactionMinEvents) {
-    try {
-      const checkpointResult = await snapshotCheckpointManager.checkpointNow({ ignoreMemoryGuard: true });
-      log.info(
-        {
-          recoveredEventCount: startupRecovery.recoveredEventCount,
-          startupReplayCompactionMinEvents,
-          checkpointResult
-        },
-        "simulation startup replay compaction checkpoint attempt completed"
-      );
-    } catch (error) {
-      log.error(
-        {
-          err: error,
-          recoveredEventCount: startupRecovery.recoveredEventCount,
-          startupReplayCompactionMinEvents
-        },
-        "simulation startup replay compaction checkpoint failed"
-      );
-    }
-  }
+  const runStartupReplayCompaction = createStartupReplayCompactionRunner({
+    checkpointNow: snapshotCheckpointManager.checkpointNow,
+    recoveredEventCount: startupRecovery.recoveredEventCount,
+    startupReplayCompactionMinEvents,
+    log
+  });
+  let startupReplayCompactionPromise: Promise<void> | undefined;
   let fatalPersistenceError: Error | undefined;
   const persistenceQueue = createSimulationPersistenceQueue({
     commandStore,
@@ -1070,6 +1056,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         );
       }
       log.info(`simulation service listening on ${boundPort}`);
+      if (runStartupReplayCompaction && !startupReplayCompactionPromise) {
+        startupReplayCompactionPromise = Promise.resolve().then(runStartupReplayCompaction);
+      }
       return { host, port: boundPort, address: `${host}:${boundPort}` };
     },
     async close(): Promise<void> {
@@ -1081,6 +1070,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
         globalStatusBroadcastTimeout = undefined;
+      }
+      if (startupReplayCompactionPromise) {
+        await startupReplayCompactionPromise;
       }
       await new Promise<void>((resolve, reject) => {
         server.tryShutdown((error) => {
