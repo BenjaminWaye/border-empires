@@ -507,6 +507,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCacheByPlayerId = new Map<string, PlayerSubscriptionSnapshot>();
+  const preparePlayerSlowLogMs = 250;
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 1000;
   let globalStatusBroadcastTimeout: ReturnType<typeof setTimeout> | undefined;
   let pendingGlobalStatusCommandId: string | undefined;
@@ -731,6 +732,54 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         }
       })();
     },
+    PreparePlayer(
+      call: { request: { player_id: string } },
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean }) => void
+    ) {
+      const prepareStartedAt = Date.now();
+      let spawned = false;
+      try {
+        const spawnStartedAt = Date.now();
+        spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
+        simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
+        if (spawned) {
+          snapshotCacheByPlayerId.delete(call.request.player_id);
+          log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
+        }
+        const prepareDurationMs = Date.now() - prepareStartedAt;
+        simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
+        if (spawned || prepareDurationMs >= preparePlayerSlowLogMs) {
+          log.info({
+            playerId: call.request.player_id,
+            prepareDurationMs,
+            spawned
+          }, "prepare player completed");
+        }
+        callback(null, {
+          ok: true,
+          player_id: call.request.player_id,
+          playerId: call.request.player_id,
+          spawned
+        });
+      } catch (error) {
+        const prepareDurationMs = Date.now() - prepareStartedAt;
+        simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
+        log.error(
+          {
+            playerId: call.request.player_id,
+            prepareDurationMs,
+            error: error instanceof Error ? error.message : String(error)
+          },
+          "prepare player failed"
+        );
+        callback(error instanceof Error ? error : new Error("failed to prepare simulation player"), {
+          ok: false,
+          player_id: call.request.player_id,
+          playerId: call.request.player_id,
+          spawned
+        });
+      }
+    },
     SubscribePlayer(
       call: { request: { player_id: string } },
       callback: (
@@ -765,11 +814,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           tiles: []
         });
         return;
-      }
-      const spawnedOnSubscribe = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
-      if (spawnedOnSubscribe) {
-        snapshotCacheByPlayerId.delete(call.request.player_id);
-        log.info({ playerId: call.request.player_id }, "spawned runtime territory for unknown subscribed player");
       }
       subscriptionRegistry.subscribe(call.request.player_id);
       const snapshotPayload = snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
@@ -896,6 +940,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_event_loop_max_ms: sample.simEventLoopMaxMs,
             sim_event_loop_delay_ms: sample.simEventLoopDelayMs,
             sim_tick_duration_ms: sample.simTickDurationMs,
+            sim_prepare_player_latency_ms: sample.simPreparePlayerLatencyMs,
             sim_human_interactive_backlog_ms: sample.simHumanInteractiveBacklogMs,
             sim_ai_planner_breaches: sample.simAiPlannerBreaches,
             sim_checkpoint_rss_mb: sample.simCheckpointRssMb,

@@ -76,6 +76,7 @@ describe("gateway auth timeout", () => {
       commandStore: new InMemoryGatewayCommandStore(),
       simulationSubscribeTimeoutMs: 1_000,
       simulationClient: {
+        preparePlayer: async () => ({ playerId: "player-1", spawned: false }),
         submitCommand: async () => undefined,
         subscribePlayer: () => {
           subscribeCalled = true;
@@ -119,6 +120,60 @@ describe("gateway auth timeout", () => {
     socket.close();
   });
 
+  it("fails AUTH quickly when simulation prepare hangs", async () => {
+    let subscribeCalled = false;
+    const app = await createRealtimeGatewayApp({
+      logger: false,
+      port: 0,
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationPrepareTimeoutMs: 1_000,
+      simulationClient: {
+        preparePlayer: () =>
+          new Promise(() => {
+            // Intentionally unresolved to simulate a dead prepare RPC.
+          }),
+        submitCommand: async () => undefined,
+        subscribePlayer: async () => {
+          subscribeCalled = true;
+          return {
+            playerId: "player-1",
+            tiles: []
+          };
+        },
+        unsubscribePlayer: async () => undefined,
+        ping: async () => undefined,
+        streamEvents: () => () => undefined
+      }
+    });
+    const started = await app.start();
+    openApps.push(app);
+    const socket = await openSocket(started.wsUrl);
+    const errorMessage = withTimeout(
+      "prepare timeout error",
+      new Promise<Record<string, unknown>>((resolve) => {
+        socket.addEventListener(
+          "message",
+          (event) => {
+            resolve(JSON.parse(event.data) as Record<string, unknown>);
+          },
+          { once: true }
+        );
+      }),
+      2_000
+    );
+
+    socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+
+    await expect(errorMessage).resolves.toEqual({
+      type: "ERROR",
+      code: "SERVER_STARTING",
+      message: "Realtime simulation is temporarily unavailable. Retry shortly."
+    });
+    expect(subscribeCalled).toBe(false);
+
+    socket.close();
+  });
+
   it("keeps retrying health during auth until simulation becomes ready", async () => {
     let pingAttempts = 0;
     const app = await createRealtimeGatewayApp({
@@ -127,6 +182,7 @@ describe("gateway auth timeout", () => {
       commandStore: new InMemoryGatewayCommandStore(),
       simulationSubscribeTimeoutMs: 1_500,
       simulationClient: {
+        preparePlayer: async () => ({ playerId: "player-1", spawned: false }),
         submitCommand: async () => undefined,
         subscribePlayer: async () => ({
           playerId: "player-1",
@@ -165,5 +221,75 @@ describe("gateway auth timeout", () => {
     expect(pingAttempts).toBeGreaterThanOrEqual(2);
 
     socket.close();
+  });
+
+  it("prepares a player before subscribing during auth, and repeat auth stays safe", async () => {
+    const prepareCalls: string[] = [];
+    const subscribeCalls: string[] = [];
+    const callOrder: string[] = [];
+    const app = await createRealtimeGatewayApp({
+      logger: false,
+      port: 0,
+      commandStore: new InMemoryGatewayCommandStore(),
+      simulationClient: {
+        preparePlayer: async (playerId) => {
+          callOrder.push(`prepare:${playerId}`);
+          prepareCalls.push(playerId);
+          return { playerId, spawned: prepareCalls.length === 1 };
+        },
+        submitCommand: async () => undefined,
+        subscribePlayer: async (playerId) => {
+          callOrder.push(`subscribe:${playerId}`);
+          subscribeCalls.push(playerId);
+          return {
+            playerId,
+            tiles: [{ x: 10, y: 10, ownerId: playerId, ownershipState: "SETTLED" }]
+          };
+        },
+        unsubscribePlayer: async () => undefined,
+        ping: async () => undefined,
+        streamEvents: () => () => undefined
+      }
+    });
+    const started = await app.start();
+    openApps.push(app);
+
+    const firstSocket = await openSocket(started.wsUrl);
+    firstSocket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    await expect(
+      withTimeout(
+        "first init",
+        new Promise<Record<string, unknown>>((resolve) => {
+          firstSocket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), {
+            once: true
+          });
+        }),
+        2_000
+      )
+    ).resolves.toMatchObject({ type: "INIT" });
+
+    const secondSocket = await openSocket(started.wsUrl);
+    secondSocket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
+    await expect(
+      withTimeout(
+        "second init",
+        new Promise<Record<string, unknown>>((resolve) => {
+          secondSocket.addEventListener("message", (event) => resolve(JSON.parse(event.data) as Record<string, unknown>), {
+            once: true
+          });
+        }),
+        2_000
+      )
+    ).resolves.toMatchObject({ type: "INIT" });
+    firstSocket.close();
+    secondSocket.close();
+
+    expect(prepareCalls).toEqual(["player-1", "player-1"]);
+    expect(subscribeCalls).toEqual(["player-1"]);
+    expect(callOrder).toEqual([
+      "prepare:player-1",
+      "subscribe:player-1",
+      "prepare:player-1"
+    ]);
   });
 });
