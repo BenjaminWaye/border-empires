@@ -76,7 +76,7 @@ describe("simulation runtime env", () => {
       systemTickMs: 250,
       globalStatusBroadcastDebounceMs: 20000,
       startupRecoveryTimeoutMs: 20000,
-      allowSeedRecoveryFallback: false,
+      allowSeedRecoveryFallback: true,
       systemPlayerIds: ["barbarian-1", "barbarian-2"],
       useAiWorker: false
     });
@@ -89,7 +89,7 @@ describe("simulation runtime env", () => {
           NODE_ENV: "staging",
           DATABASE_URL: "postgres://simulation"
         })
-    ).toThrow("simulation requires SIMULATION_SEED_PROFILE in managed runtime");
+    ).toThrow("simulation requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   });
 
   it("enables AI worker when SIMULATION_AI_WORKER=1", () => {
@@ -98,7 +98,7 @@ describe("simulation runtime env", () => {
     ).toMatchObject({ useAiWorker: true });
   });
 
-  it("allows seed fallback for non-db local startup only", () => {
+  it("allows seed fallback for local startup when explicitly requested", () => {
     expect(
       parseSimulationRuntimeEnv({
         SIMULATION_SEED_PROFILE: "season-20ai",
@@ -110,7 +110,7 @@ describe("simulation runtime env", () => {
     });
   });
 
-  it("disables seed fallback in managed runtime even when explicitly requested", () => {
+  it("allows seed fallback in managed runtime only when explicitly requested", () => {
     expect(
       parseSimulationRuntimeEnv({
         NODE_ENV: "staging",
@@ -119,7 +119,21 @@ describe("simulation runtime env", () => {
         SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1"
       })
     ).toMatchObject({
-      allowSeedRecoveryFallback: false
+      allowSeedRecoveryFallback: true
+    });
+  });
+
+  it("allows explicitly disabling durable startup for local seeded db runs", () => {
+    expect(
+      parseSimulationRuntimeEnv({
+        DATABASE_URL: "postgres://simulation",
+        SIMULATION_SEED_PROFILE: "season-20ai",
+        SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1",
+        SIMULATION_REQUIRE_DURABLE_STARTUP_STATE: "0"
+      })
+    ).toMatchObject({
+      allowSeedRecoveryFallback: true,
+      requireDurableStartupState: false
     });
   });
 });

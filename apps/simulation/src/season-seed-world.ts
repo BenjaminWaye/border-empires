@@ -51,6 +51,7 @@ export type GeneratedSeasonSeedWorld = {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
   docks: DockRouteDefinition[];
+  worldSeed: number;
   humanPlayers: number;
   aiPlayers: number;
   totalTiles: number;
@@ -268,8 +269,14 @@ const worldLooksBland = (seed: number, clusterByTile: Map<TileKey, string>, town
 
 export const createSeason20AiSeedWorld = (
   seed: number,
-  createPlayer: (id: string, isAi: boolean) => DomainPlayer
+  createPlayer: (id: string, isAi: boolean) => DomainPlayer,
+  options: {
+    humanPlayerCount?: number;
+    aiPlayerCount?: number;
+  } = {}
 ): GeneratedSeasonSeedWorld => {
+  const humanPlayerCount = Math.max(0, options.humanPlayerCount ?? 1);
+  const aiPlayerCount = Math.max(0, options.aiPlayerCount ?? 20);
   const activeSeason = { worldSeed: seed };
   const clusterByTile = new Map<TileKey, string>();
   const clustersById = new Map<string, ClusterDefinition>();
@@ -405,10 +412,13 @@ export const createSeason20AiSeedWorld = (
   setWorldSeed(worldSeed);
 
   const players = new Map<string, DomainPlayer>([
-    ["player-1", createPlayer("player-1", false)],
     ["barbarian-1", createPlayer("barbarian-1", false)]
   ]);
-  for (let index = 0; index < 20; index += 1) {
+  for (let index = 0; index < humanPlayerCount; index += 1) {
+    const playerId = `player-${index + 1}`;
+    players.set(playerId, createPlayer(playerId, false));
+  }
+  for (let index = 0; index < aiPlayerCount; index += 1) {
     const playerId = `ai-${index + 1}`;
     players.set(playerId, createPlayer(playerId, true));
   }
@@ -495,9 +505,11 @@ export const createSeason20AiSeedWorld = (
     spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });
   };
 
-  spawnPlayerAt("player-1", false, 0);
-  for (let index = 0; index < 20; index += 1) {
-    spawnPlayerAt(`ai-${index + 1}`, true, index + 1);
+  for (let index = 0; index < humanPlayerCount; index += 1) {
+    spawnPlayerAt(`player-${index + 1}`, false, index);
+  }
+  for (let index = 0; index < aiPlayerCount; index += 1) {
+    spawnPlayerAt(`ai-${index + 1}`, true, humanPlayerCount + index);
   }
   assignMissingTownNames(townsByTile.values(), buildIslandMap(terrainRuntime.terrainAtRuntime).islandIdByTile, worldSeed);
 
@@ -525,8 +537,18 @@ export const createSeason20AiSeedWorld = (
   }
 
   const perPlayer = [
-    { playerId: "player-1", isAi: false, settledTiles: 1, towns: 1 },
-    ...Array.from({ length: 20 }, (_, index) => ({ playerId: `ai-${index + 1}`, isAi: true, settledTiles: 1, towns: 1 }))
+    ...Array.from({ length: humanPlayerCount }, (_, index) => ({
+      playerId: `player-${index + 1}`,
+      isAi: false,
+      settledTiles: 1,
+      towns: 1
+    })),
+    ...Array.from({ length: aiPlayerCount }, (_, index) => ({
+      playerId: `ai-${index + 1}`,
+      isAi: true,
+      settledTiles: 1,
+      towns: 1
+    }))
   ];
 
   return {
@@ -538,8 +560,9 @@ export const createSeason20AiSeedWorld = (
       pairedDockId: dock.pairedDockId,
       ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
     })),
-    humanPlayers: 1,
-    aiPlayers: 20,
+    worldSeed,
+    humanPlayers: humanPlayerCount,
+    aiPlayers: aiPlayerCount,
     totalTiles: tiles.size,
     totalSettledTiles: spawnPositions.length,
     totalTownTiles: spawnPositions.length,

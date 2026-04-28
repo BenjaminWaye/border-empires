@@ -18,6 +18,7 @@ const service = await createSimulationService({
     ? { checkpointMaxHeapUsedBytes: runtimeEnv.checkpointMaxHeapUsedBytes }
     : {}),
   seedProfile: runtimeEnv.seedProfile,
+  ...(runtimeEnv.rulesetId ? { rulesetId: runtimeEnv.rulesetId } : {}),
   enableAiAutopilot: runtimeEnv.enableAiAutopilot,
   aiTickMs: runtimeEnv.aiTickMs,
   aiMaxEventLoopLagMs: runtimeEnv.aiMaxEventLoopLagMs,
@@ -26,6 +27,9 @@ const service = await createSimulationService({
   globalStatusBroadcastDebounceMs: runtimeEnv.globalStatusBroadcastDebounceMs,
   startupRecoveryTimeoutMs: runtimeEnv.startupRecoveryTimeoutMs,
   allowSeedRecoveryFallback: runtimeEnv.allowSeedRecoveryFallback,
+  ...(typeof runtimeEnv.requireDurableStartupState === "boolean"
+    ? { requireDurableStartupState: runtimeEnv.requireDurableStartupState }
+    : {}),
   useAiWorker: runtimeEnv.useAiWorker,
   ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {})
 });

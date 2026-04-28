@@ -62,6 +62,7 @@ type RealtimeGatewayAppOptions = {
   simulationPrepareTimeoutMs?: number;
   simulationSubscribeTimeoutMs?: number;
   simulationSubmitTimeoutMs?: number;
+  adminApiToken?: string;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -512,7 +513,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     recentEvents: () => [...recentGatewayEvents],
     attackDebug: buildAttackDebug,
     attackTraces: buildAttackTraces,
-    metrics: () => gatewayMetrics.renderPrometheus()
+    metrics: () => gatewayMetrics.renderPrometheus(),
+    getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
+    listSeasonArchives: () => simulationClient.listSeasonArchives(),
+    startNextSeason: (force?: boolean) => simulationClient.startNextSeason(force),
+    ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {})
   });
 
   const socketsForEvent = (

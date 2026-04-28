@@ -6,12 +6,11 @@
  */
 
 import { Worker } from "node:worker_threads";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
-import { buildPlannerRelevantTileKeys } from "./planner-sync-scope.js";
+import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
+import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -26,7 +25,7 @@ const mergePlannerTileDelta = (
   const next: PlannerTileView = existing ? { ...existing } : { x: tileDelta.x, y: tileDelta.y, terrain };
   if (tileDelta.terrain) next.terrain = tileDelta.terrain;
   if ("resource" in tileDelta) {
-    if (tileDelta.resource) next.resource = tileDelta.resource;
+    if (tileDelta.resource) next.resource = tileDelta.resource as PlannerTileView["resource"];
     else delete next.resource;
   }
   if ("dockId" in tileDelta) {
@@ -38,7 +37,7 @@ const mergePlannerTileDelta = (
     else delete next.ownerId;
   }
   if ("ownershipState" in tileDelta) {
-    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState;
+    if (tileDelta.ownershipState) next.ownershipState = tileDelta.ownershipState as PlannerTileView["ownershipState"];
     else delete next.ownershipState;
   }
   return next;
@@ -53,14 +52,13 @@ type WorkerSystemCommandProducerOptions = {
   now?: () => number;
   tickIntervalMs?: number;
   playerSyncIntervalMs?: number;
+  periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
   onTick?: (sample: { durationMs: number }) => void;
 };
 
-const here = dirname(fileURLToPath(import.meta.url));
-
-const resolveWorkerScript = (given?: string): string =>
-  given ?? resolve(here, "system-job-worker.js");
+const resolveWorkerScript = (given?: string): string | URL =>
+  given ?? resolveWorkerEntryUrl("./system-job-worker.js", import.meta.url);
 
 const hasAnyBacklog = (queueDepths: QueueDepths): boolean =>
   queueDepths.human_interactive > 0 || queueDepths.human_noninteractive > 0 || queueDepths.system > 0;
@@ -68,7 +66,8 @@ const hasAnyBacklog = (queueDepths: QueueDepths): boolean =>
 export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
   const tickIntervalMs = Math.max(25, options.tickIntervalMs ?? 500);
-  const playerSyncIntervalMs = Math.max(tickIntervalMs, options.playerSyncIntervalMs ?? 5_000);
+  const playerSyncIntervalMs = Math.max(25, options.playerSyncIntervalMs ?? 5_000);
+  const periodicPlayerSyncBatchSize = Math.max(1, options.periodicPlayerSyncBatchSize ?? 1);
   const playerSyncDebounceMs = 500;
   const tileDeltaSyncDebounceMs = Math.max(20, Math.min(150, Math.floor(tickIntervalMs / 2)));
   const shouldRun = options.shouldRun ?? (() => true);
@@ -76,6 +75,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   const plannerPlayersById = new Map<string, PlannerPlayerView>();
   const plannerTilesByKey = new Map<string, PlannerTileView>();
   let relevantTileKeys = new Set<string>();
+  let nextPeriodicPlayerSyncIndex = 0;
 
   const nextClientSeqByPlayer = new Map<string, number>(
     options.systemPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
@@ -96,6 +96,14 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
         pendingRequests.delete(message.playerId as string);
         resolve(message.command as CommandEnvelope | null);
       }
+    } else if (message.type === "error") {
+      const playerId = message.playerId as string;
+      console.error("[system-job-worker] planner error:", message.message);
+      const resolve = pendingRequests.get(playerId);
+      if (resolve) {
+        pendingRequests.delete(playerId);
+        resolve(null);
+      }
     }
   });
 
@@ -110,7 +118,8 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   for (const tile of initialWorldView.tiles) {
     plannerTilesByKey.set(`${tile.x},${tile.y}`, tile);
   }
-  relevantTileKeys = buildPlannerRelevantTileKeys(initialWorldView);
+  const relevantTileKeyIndex = createPlannerRelevantTileKeyIndex(initialWorldView);
+  relevantTileKeys = new Set(relevantTileKeyIndex.keys());
   worker.postMessage({
     type: "init",
     worldView: initialWorldView
@@ -125,11 +134,8 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     if (playerIds.length === 0) return;
     const players = options.runtime.exportPlannerPlayerViews(playerIds);
     for (const player of players) plannerPlayersById.set(player.id, player);
-    relevantTileKeys = buildPlannerRelevantTileKeys({
-      players: [...plannerPlayersById.values()],
-      tiles: [...plannerTilesByKey.values()],
-      ...(initialWorldView.docks ? { docks: initialWorldView.docks } : {})
-    });
+    relevantTileKeyIndex.replacePlayers(players, plannerTilesByKey);
+    relevantTileKeys = new Set(relevantTileKeyIndex.keys());
     worker.postMessage({
       type: "sync_players",
       players
@@ -151,6 +157,16 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
     }
     if (pendingPlayerSyncIds.size === 0 || playerSyncTimeout) return;
     playerSyncTimeout = setTimeout(flushPendingPlayerSync, playerSyncDebounceMs);
+  };
+
+  const syncPlayersImmediately = (playerIds: Iterable<string>): void => {
+    const nextPlayerIds: string[] = [];
+    for (const playerId of playerIds) {
+      if (!systemPlayerIdSet.has(playerId)) continue;
+      nextPlayerIds.push(playerId);
+    }
+    if (nextPlayerIds.length === 0) return;
+    syncPlayers(nextPlayerIds);
   };
 
   const flushPendingTileDeltas = (): void => {
@@ -198,7 +214,14 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
   });
 
   const playerSyncInterval = setInterval(() => {
-    queuePlayerSync(options.systemPlayerIds);
+    const playerIds: string[] = [];
+    const batchSize = Math.min(periodicPlayerSyncBatchSize, options.systemPlayerIds.length);
+    for (let offset = 0; offset < batchSize; offset += 1) {
+      const playerId = options.systemPlayerIds[(nextPeriodicPlayerSyncIndex + offset) % options.systemPlayerIds.length];
+      if (playerId) playerIds.push(playerId);
+    }
+    nextPeriodicPlayerSyncIndex = (nextPeriodicPlayerSyncIndex + batchSize) % Math.max(1, options.systemPlayerIds.length);
+    syncPlayersImmediately(playerIds);
   }, playerSyncIntervalMs);
 
   const requestPlan = (

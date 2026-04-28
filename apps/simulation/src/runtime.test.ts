@@ -2641,6 +2641,51 @@ describe("simulation runtime", () => {
     expect(settledEvents.some((entry) => entry.delayMs === 60_000)).toBe(true);
   });
 
+  it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
+    const runtime = new SimulationRuntime({
+      initialPlayers: new Map([
+        [
+          "ai-1",
+          {
+            id: "ai-1",
+            isAi: true,
+            name: "ai-1",
+            points: 100,
+            manpower: 150,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>(),
+            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+          }
+        ]
+      ]),
+      initialState: {
+        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }],
+        activeLocks: [],
+        players: [
+          {
+            id: "ai-1",
+            name: "ai-1",
+            points: 77,
+            manpower: 123
+          }
+        ]
+      }
+    });
+
+    expect(runtime.exportSnapshotSections().initialState.players).toContainEqual(
+      expect.objectContaining({
+        id: "ai-1",
+        isAi: true,
+        points: 77,
+        manpower: 123
+      })
+    );
+  });
+
   it("emits reveal updates and revealed empire stats through player messages", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

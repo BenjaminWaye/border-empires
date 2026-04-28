@@ -1,9 +1,18 @@
 import { fileURLToPath } from "node:url";
 import { PerformanceObserver } from "node:perf_hooks";
+import crypto from "node:crypto";
 
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
-import { SIMULATION_PROTO_PATH, type CommandEnvelope, type PlayerSubscriptionSnapshot, type SimulationEvent } from "@border-empires/sim-protocol";
+import {
+  SIMULATION_PROTO_PATH,
+  type CommandEnvelope,
+  type CurrentSeasonSummary,
+  type PlayerSubscriptionSnapshot,
+  type SeasonArchiveRow,
+  type SimulationEvent,
+  type SimulationSeasonState
+} from "@border-empires/sim-protocol";
 
 import { createSimulationCommandStore } from "./command-store-factory.js";
 import type { SimulationCommandStore } from "./command-store.js";
@@ -26,9 +35,16 @@ import { createSimulationPersistenceQueue } from "./simulation-persistence-queue
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-cache.js";
 import { SimulationRuntime } from "./runtime.js";
 import { loadSimulationStartupRecovery } from "./startup-recovery.js";
+import { createStartupReplayCompactionRunner } from "./startup-replay-compaction.js";
 import { buildWorldStatusSnapshot } from "./world-status-snapshot.js";
 import { laneForCommand } from "./command-lane.js";
 import { createSimulationMetrics } from "./metrics.js";
+import type { RecoveredSimulationState } from "./event-recovery.js";
+import { createSeasonSummaryStore } from "./season-summary-store-factory.js";
+import type { SeasonSummaryStore } from "./season-summary-store.js";
+import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "./season-summary.js";
+import { createInitialSeasonState, updateSeasonVictoryTrackers } from "./season-lifecycle.js";
+import { generateSeasonWorld, type SimulationRulesetId } from "./season-worldgen.js";
 
 type ProtoCommandEnvelope = {
   command_id: string;
@@ -38,6 +54,23 @@ type ProtoCommandEnvelope = {
   issued_at: number;
   type: string;
   payload_json: string;
+};
+
+type ProtoSeasonSummaryRequest = Record<string, never>;
+type ProtoSeasonSummaryResponse = {
+  ok: boolean;
+  summary_json?: string;
+};
+type ProtoSeasonArchivesResponse = {
+  ok: boolean;
+  archives_json?: string;
+};
+type ProtoStartNextSeasonRequest = {
+  force?: boolean;
+};
+type ProtoStartNextSeasonResponse = {
+  ok: boolean;
+  season_id: string;
 };
 
 type ProtoSimulationEvent = {
@@ -124,6 +157,7 @@ type SimulationServiceOptions = {
   checkpointMaxHeapUsedBytes?: number;
   startupReplayCompactionMinEvents?: number;
   seedProfile?: SimulationSeedProfile;
+  rulesetId?: SimulationRulesetId;
   snapshotDir?: string;
   enableAiAutopilot?: boolean;
   aiTickMs?: number;
@@ -139,6 +173,7 @@ type SimulationServiceOptions = {
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
   snapshotStore?: SimulationSnapshotStore;
+  seasonSummaryStore?: SeasonSummaryStore;
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info">;
 };
@@ -163,7 +198,7 @@ type SimulationTileDelta = {
   shardSiteJson?: string | undefined;
 };
 
-const recoveredStateFromSeedWorld = (seedWorld: ReturnType<typeof createSeedWorld>) => ({
+const recoveredStateFromSeedWorld = (seedWorld: ReturnType<typeof createSeedWorld>): RecoveredSimulationState => ({
   tiles: [...seedWorld.tiles.values()]
     .map((tile) => ({
       x: tile.x,
@@ -299,8 +334,48 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
     : {})
 });
 
+const randomSeasonWorldSeed = (): number => crypto.randomInt(1, 1_000_000_000);
+
+const buildBootstrapSeason = ({
+  seasonSequence,
+  rulesetId,
+  now
+}: {
+  seasonSequence: number;
+  rulesetId: SimulationRulesetId;
+  now: number;
+}): {
+  seasonState: SimulationSeasonState;
+  initialState: ReturnType<typeof generateSeasonWorld>["initialState"];
+  initialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"];
+} => {
+  const requestedWorldSeed = randomSeasonWorldSeed();
+  const generatedWorld = generateSeasonWorld(rulesetId, requestedWorldSeed);
+  const seasonState = createInitialSeasonState({
+    seasonSequence,
+    rulesetId,
+    worldSeed: generatedWorld.worldSeed,
+    startedAt: now
+  });
+  return {
+    seasonState,
+    initialState: {
+      ...generatedWorld.initialState,
+      season: seasonState
+    },
+    initialPlayers: generatedWorld.initialPlayers
+  };
+};
+
+const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
+  value === true || value === 1 || value === "1" || value === "true";
+
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
+  const aiAutopilotEnabled = normalizeAutopilotEnabled(options.enableAiAutopilot as boolean | string | number | undefined);
+  const systemAutopilotEnabled = normalizeAutopilotEnabled(
+    options.enableSystemAutopilot as boolean | string | number | undefined
+  );
   const commandTraceEnabled = process.env.SIMULATION_COMMAND_TRACE === "1";
   const slowSubmitWarnMs = Math.max(50, Number(process.env.SIMULATION_SLOW_SUBMIT_WARN_MS ?? 250));
   const slowRuntimeSubmitWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_RUNTIME_SUBMIT_WARN_MS ?? 50));
@@ -330,6 +405,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const isDbBackedStartup = typeof options.databaseUrl === "string" && options.databaseUrl.length > 0;
   const requireDurableStartupState = options.requireDurableStartupState ?? isDbBackedStartup;
+  const rulesetId = options.rulesetId;
   const seedPlayers = createSeedPlayers(options.seedProfile);
   const storeFactoryOptions = {
     ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
@@ -344,7 +420,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const snapshotStore =
     options.snapshotStore ??
     (await createSimulationSnapshotStore(storeFactoryOptions));
+  const seasonSummaryStore =
+    options.seasonSummaryStore ??
+    (await createSeasonSummaryStore(storeFactoryOptions));
   let legacySnapshotBootstrap: ReturnType<typeof loadLegacySnapshotBootstrap> | undefined;
+  let bootstrappedInitialPlayers: ReturnType<typeof generateSeasonWorld>["initialPlayers"] | undefined;
+  let bootstrappedCurrentSummary: CurrentSeasonSummary | undefined;
+  let bootstrappedSeasonState: SimulationSeasonState | undefined;
   if (options.snapshotDir) {
     try {
       legacySnapshotBootstrap = loadLegacySnapshotBootstrap(options.snapshotDir);
@@ -386,11 +468,61 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
       return recovery;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (
+        rulesetId &&
+        errorMessage.includes("requires durable state") &&
+        !legacySnapshotBootstrap
+      ) {
+        const bootstrap = buildBootstrapSeason({
+          seasonSequence: 1,
+          rulesetId,
+          now: Date.now()
+        });
+        const bootstrapRuntime = new SimulationRuntime({
+          ...(options.runtimeOptions ?? {}),
+          initialState: bootstrap.initialState,
+          initialCommandHistory: recoverCommandHistory([], []),
+          mergeSeedTilesWithInitialState: false,
+          initialPlayers: bootstrap.initialPlayers
+        });
+        const currentSummary = buildCurrentSeasonSummary({
+          seasonState: bootstrap.seasonState,
+          runtimeState: bootstrapRuntime.exportState(),
+          onlinePlayers: 0,
+          updatedAt: bootstrap.seasonState.startedAt
+        });
+        await seasonSummaryStore.bootstrapSeason({
+          snapshotSections: {
+            initialState: bootstrap.initialState,
+            commandEvents: []
+          },
+          currentSummary,
+          createdAt: bootstrap.seasonState.startedAt
+        });
+        bootstrappedInitialPlayers = bootstrap.initialPlayers;
+        bootstrappedCurrentSummary = currentSummary;
+        bootstrappedSeasonState = bootstrap.seasonState;
+        log.info(
+          {
+            rulesetId,
+            seasonId: bootstrap.seasonState.seasonId,
+            worldSeed: bootstrap.seasonState.worldSeed
+          },
+          "simulation bootstrapped initial managed season"
+        );
+        return {
+          initialState: bootstrap.initialState,
+          initialCommandHistory: recoverCommandHistory([], []),
+          recoveredCommandCount: 0,
+          recoveredEventCount: 0
+        };
+      }
       if (
         !options.allowSeedRecoveryFallback ||
         legacySnapshotBootstrap ||
         !options.seedProfile ||
-        isDbBackedStartup
+        requireDurableStartupState
       ) {
         log.error(
           { err: error, durationMs: Date.now() - startupRecoveryStartedAt, timeoutMs },
@@ -411,8 +543,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       };
     }
   })();
-  const activePlayers = legacySnapshotBootstrap?.players ?? seedPlayers;
-  const runtime = new SimulationRuntime({
+  let currentSeasonState =
+    startupRecovery.initialState.season ??
+    bootstrappedSeasonState ??
+    createInitialSeasonState({
+      seasonSequence: 1,
+      rulesetId: rulesetId ?? `seed:${options.seedProfile ?? "default"}`,
+      worldSeed: 0,
+      startedAt: Date.now()
+    });
+  let activePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
+  let runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
     initialState: startupRecovery.initialState,
@@ -456,7 +597,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const snapshotCheckpointManager = createSnapshotCheckpointManager({
     eventStore,
     snapshotStore,
-    exportSnapshotSections: () => runtime.exportSnapshotSections(),
+    exportSnapshotSections: () => {
+      const snapshotSections = runtime.exportSnapshotSections();
+      return {
+        ...snapshotSections,
+        initialState: {
+          ...snapshotSections.initialState,
+          season: currentSeasonState
+        }
+      };
+    },
     exportProjectionState: () => {
       const s = runtime.exportState();
       return { players: s.players, activeLocks: s.activeLocks };
@@ -486,28 +636,13 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   });
-  if (startupRecovery.recoveredEventCount >= startupReplayCompactionMinEvents) {
-    try {
-      const checkpointResult = await snapshotCheckpointManager.checkpointNow({ ignoreMemoryGuard: true });
-      log.info(
-        {
-          recoveredEventCount: startupRecovery.recoveredEventCount,
-          startupReplayCompactionMinEvents,
-          checkpointResult
-        },
-        "simulation startup replay compaction checkpoint attempt completed"
-      );
-    } catch (error) {
-      log.error(
-        {
-          err: error,
-          recoveredEventCount: startupRecovery.recoveredEventCount,
-          startupReplayCompactionMinEvents
-        },
-        "simulation startup replay compaction checkpoint failed"
-      );
-    }
-  }
+  const runStartupReplayCompaction = createStartupReplayCompactionRunner({
+    checkpointNow: snapshotCheckpointManager.checkpointNow,
+    recoveredEventCount: startupRecovery.recoveredEventCount,
+    startupReplayCompactionMinEvents,
+    log
+  });
+  let startupReplayCompactionPromise: Promise<void> | undefined;
   let fatalPersistenceError: Error | undefined;
   const persistenceQueue = createSimulationPersistenceQueue({
     commandStore,
@@ -549,6 +684,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
   let expectedEventLoopTickAt = Date.now() + 100;
+  let currentSummary = bootstrappedCurrentSummary;
+  let currentSummarySignature = currentSummary ? leaderboardSignature(currentSummary) : "";
+  let lastCurrentSummaryPersistedAt = currentSummary?.updatedAt ?? 0;
+  let seasonVictoryTimer: ReturnType<typeof setTimeout> | undefined;
+  let seasonRolloverInFlight = false;
   const sampleCpuPercent = (): number => {
     const at = Date.now();
     const elapsedMicros = Math.max(1, at - lastCpuSampleAt) * 1_000;
@@ -557,13 +697,81 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     lastCpuSampleAt = at;
     return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
   };
-  const buildAndCachePlayerSnapshot = (playerId: string): PlayerSubscriptionSnapshot => {
-    const runtimeState = runtime.exportVisibleStateForPlayer(playerId);
+  const buildAndCachePlayerSnapshot = (
+    playerId: string,
+    options?: { includeWorldStatus?: boolean }
+  ): PlayerSubscriptionSnapshot => {
+    const runtimeState =
+      currentSeasonState.status === "ended" ? runtime.exportState() : runtime.exportVisibleStateForPlayer(playerId);
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
-      includeWorldStatus: false
+      includeWorldStatus: options?.includeWorldStatus === true
     });
     snapshotCacheByPlayerId.set(playerId, snapshot);
     return snapshot;
+  };
+  const clearSeasonVictoryTimer = (): void => {
+    if (!seasonVictoryTimer) return;
+    clearTimeout(seasonVictoryTimer);
+    seasonVictoryTimer = undefined;
+  };
+  const scheduleSeasonVictoryRecheck = (at: number | undefined): void => {
+    clearSeasonVictoryTimer();
+    if (typeof at !== "number" || currentSeasonState.status === "ended") return;
+    const delayMs = Math.max(0, at - Date.now());
+    seasonVictoryTimer = setTimeout(() => {
+      void recomputeAndPersistCurrentSummary({ forcePersist: true, commandId: `season-victory:${Date.now()}` });
+    }, delayMs);
+  };
+  const persistCurrentSummary = async (summary: CurrentSeasonSummary, force = false): Promise<void> => {
+    const signature = leaderboardSignature(summary);
+    const enoughTimePassed = summary.updatedAt - lastCurrentSummaryPersistedAt >= 15_000;
+    if (!force && signature === currentSummarySignature && !enoughTimePassed) return;
+    await seasonSummaryStore.saveCurrentSummary(summary);
+    currentSummary = summary;
+    currentSummarySignature = signature;
+    lastCurrentSummaryPersistedAt = summary.updatedAt;
+  };
+  const recomputeAndPersistCurrentSummary = async ({
+    forcePersist = false,
+    commandId
+  }: {
+    forcePersist?: boolean;
+    commandId?: string;
+  } = {}): Promise<CurrentSeasonSummary> => {
+    const runtimeState = runtime.exportState();
+    const baseSummary = buildCurrentSeasonSummary({
+      seasonState: currentSeasonState,
+      runtimeState,
+      onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
+      updatedAt: Date.now(),
+      acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+    });
+    const trackerResult = updateSeasonVictoryTrackers({
+      seasonState: currentSeasonState,
+      objectives: baseSummary.seasonVictory,
+      now: baseSummary.updatedAt
+    });
+    currentSeasonState = trackerResult.seasonState;
+    scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
+    const finalSummary =
+      trackerResult.changed || trackerResult.crownedWinner
+        ? buildCurrentSeasonSummary({
+            seasonState: currentSeasonState,
+            runtimeState,
+            onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
+            updatedAt: baseSummary.updatedAt,
+            acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+          })
+        : {
+            ...baseSummary,
+            seasonVictory: trackerResult.objectives
+          };
+    await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
+    if (trackerResult.crownedWinner) {
+      snapshotCacheByPlayerId.clear();
+      if (commandId) scheduleGlobalStatusBroadcast(commandId);
+    }
+    return finalSummary;
   };
   const parseSubscribeOptions = (
     subscriptionJson: string | undefined
@@ -589,38 +797,54 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       pendingGlobalStatusCommandId = undefined;
       return;
     }
-    const runtimeState = runtime.exportState();
-    for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
-      const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
-        acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+    void (async () => {
+      const runtimeState = runtime.exportState();
+      const summary = await recomputeAndPersistCurrentSummary({
+        ...(pendingGlobalStatusCommandId ? { commandId: pendingGlobalStatusCommandId } : {})
       });
-      const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-      if (cachedSnapshot) {
-        snapshotCacheByPlayerId.set(
-          subscribedPlayerId,
-          applyPlayerMessageToSnapshot(cachedSnapshot, {
+      for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
+        const worldStatus = buildWorldStatusSnapshot(subscribedPlayerId, runtimeState, undefined, {
+          acceptLatencyP95Ms: simulationMetrics.currentAcceptLatencyP95Ms()
+        });
+        const playerWorldStatus = {
+          ...worldStatus,
+          seasonVictory: summary.seasonVictory
+        };
+        const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
+        if (cachedSnapshot) {
+          snapshotCacheByPlayerId.set(
+            subscribedPlayerId,
+            applyPlayerMessageToSnapshot(cachedSnapshot, {
+              type: "GLOBAL_STATUS_UPDATE",
+              leaderboard: playerWorldStatus.leaderboard,
+              seasonVictory: playerWorldStatus.seasonVictory,
+              ...(typeof playerWorldStatus.acceptLatencyP95Ms === "number"
+                ? { acceptLatencyP95Ms: playerWorldStatus.acceptLatencyP95Ms }
+                : {})
+            })
+          );
+        }
+        const globalStatusEvent = toProtoEvent({
+          eventType: "PLAYER_MESSAGE",
+          commandId: pendingGlobalStatusCommandId ?? `global-status:${Date.now()}`,
+          playerId: subscribedPlayerId,
+          messageType: "GLOBAL_STATUS_UPDATE",
+          payloadJson: JSON.stringify({
             type: "GLOBAL_STATUS_UPDATE",
-            leaderboard: worldStatus.leaderboard,
-            seasonVictory: worldStatus.seasonVictory,
-            ...(typeof worldStatus.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: worldStatus.acceptLatencyP95Ms } : {})
+            leaderboard: playerWorldStatus.leaderboard,
+            seasonVictory: playerWorldStatus.seasonVictory,
+            ...(typeof playerWorldStatus.acceptLatencyP95Ms === "number"
+              ? { acceptLatencyP95Ms: playerWorldStatus.acceptLatencyP95Ms }
+              : {})
           })
-        );
+        });
+        for (const stream of eventStreams) stream.write(globalStatusEvent);
       }
-      const globalStatusEvent = toProtoEvent({
-        eventType: "PLAYER_MESSAGE",
-        commandId: pendingGlobalStatusCommandId ?? `global-status:${Date.now()}`,
-        playerId: subscribedPlayerId,
-        messageType: "GLOBAL_STATUS_UPDATE",
-        payloadJson: JSON.stringify({
-          type: "GLOBAL_STATUS_UPDATE",
-          leaderboard: worldStatus.leaderboard,
-          seasonVictory: worldStatus.seasonVictory,
-          ...(typeof worldStatus.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: worldStatus.acceptLatencyP95Ms } : {})
-        })
-      });
-      for (const stream of eventStreams) stream.write(globalStatusEvent);
-    }
-    pendingGlobalStatusCommandId = undefined;
+      pendingGlobalStatusCommandId = undefined;
+    })().catch((error) => {
+      pendingGlobalStatusCommandId = undefined;
+      log.error({ err: error }, "failed to refresh current season summary");
+    });
   };
   const scheduleGlobalStatusBroadcast = (commandId: string) => {
     pendingGlobalStatusCommandId = commandId;
@@ -652,8 +876,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
     }
   };
-  const aiPlayerIds = [...activePlayers.values()].filter((player) => player.isAi).map((player) => player.id);
-  const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
   const autopilotMaxPersistencePending = 256;
   const recoveredCommands = startupRecovery.initialCommandHistory.commands;
   const nextClientSeqByPlayers = (playerIds: string[]): Record<string, number> =>
@@ -664,127 +886,282 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     !persistenceQueue.isDegraded() &&
     persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
     latestEventLoopLagMs <= aiMaxEventLoopLagMs;
-  const aiCommandProducer = options.enableAiAutopilot
-    ? useAiWorker
-        ? createWorkerAiCommandProducer({
-          runtime,
-          aiPlayerIds,
-          submitCommand: submitDurableCommand,
-          shouldRun: aiShouldRun,
-          startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
-          tickIntervalMs: options.aiTickMs ?? 250,
-          onPlannerTick: ({ breached }) => {
-            if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
-          },
-          onDiagnostic: (sample) => {
-            if (sample.durationMs < slowAiSyncWarnMs) return;
-            recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
-          },
-          onTick: ({ durationMs }) => {
-            simulationMetrics.observeSimTickDurationMs("ai", durationMs);
-          },
-          onNoCommand: (diagnostic) => {
-            if (diagnostic.noCommandReason) {
-              simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
-            }
-          }
-        })
-      : createAiCommandProducer({
-          runtime,
-          aiPlayerIds,
-          submitCommand: submitDurableCommand,
-          shouldRun: aiShouldRun,
-          startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
-          tickIntervalMs: options.aiTickMs ?? 250,
-          onPlannerTick: ({ breached }) => {
-            if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
-          },
-          onTick: ({ durationMs }) => {
-            simulationMetrics.observeSimTickDurationMs("ai", durationMs);
-          },
-          onNoCommand: (diagnostic) => {
-            if (diagnostic.noCommandReason) {
-              simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
-            }
-          }
-        })
-    : undefined;
   const systemShouldRun = () =>
     !persistenceQueue.isDegraded() &&
     persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
     latestEventLoopLagMs <= aiMaxEventLoopLagMs;
-  const systemCommandProducer = options.enableSystemAutopilot
-    ? useAiWorker
-      ? createWorkerSystemCommandProducer({
-          runtime,
-          systemPlayerIds,
-          submitCommand: submitDurableCommand,
-          shouldRun: systemShouldRun,
-          startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
-          tickIntervalMs: options.systemTickMs ?? 500,
-          onTick: ({ durationMs }) => {
-            simulationMetrics.observeSimTickDurationMs("system", durationMs);
-          }
-        })
-      : createSystemCommandProducer({
-          runtime,
-          systemPlayerIds,
-          submitCommand: submitDurableCommand,
-          shouldRun: systemShouldRun,
-          startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
-          tickIntervalMs: options.systemTickMs ?? 500,
-          onTick: ({ durationMs }) => {
-            simulationMetrics.observeSimTickDurationMs("system", durationMs);
-          }
-        })
-    : undefined;
-
-  runtime.onEvent((event) => {
-    if (
-      commandTraceEnabled &&
-      (event.eventType === "COMMAND_ACCEPTED" ||
-        event.eventType === "COMMAND_REJECTED" ||
-        event.eventType === "COMBAT_RESOLVED" ||
-        event.eventType === "TILE_DELTA_BATCH")
-    ) {
-      commandTraceSample({
-        source: "event",
-        phase: event.eventType,
-        commandId: event.commandId,
-        playerId: event.playerId,
-        actionType: "actionType" in event ? event.actionType : undefined,
-        code: "code" in event ? event.code : undefined,
-        message: "message" in event ? event.message : undefined,
-        attackerWon: "attackerWon" in event ? event.attackerWon : undefined,
-        manpowerDelta: "manpowerDelta" in event ? event.manpowerDelta : undefined,
-        targetX: "targetX" in event ? event.targetX : undefined,
-        targetY: "targetY" in event ? event.targetY : undefined
+  let aiCommandProducer:
+    | ReturnType<typeof createAiCommandProducer>
+    | ReturnType<typeof createWorkerAiCommandProducer>
+    | undefined;
+  let systemCommandProducer:
+    | ReturnType<typeof createSystemCommandProducer>
+    | ReturnType<typeof createWorkerSystemCommandProducer>
+    | undefined;
+  let unsubscribeRuntimeEvents: (() => void) | undefined;
+  const closeAutopilots = (): void => {
+    aiCommandProducer?.close();
+    systemCommandProducer?.close();
+    aiCommandProducer = undefined;
+    systemCommandProducer = undefined;
+  };
+  const resolveAutopilotAiPlayerIds = (): string[] => {
+    const activeAiPlayerIds = [...activePlayers.values()].filter((player) => player.isAi).map((player) => player.id);
+    if (activeAiPlayerIds.length > 0) return activeAiPlayerIds;
+    const seedAiPlayerIds = [...seedPlayers.values()].filter((player) => player.isAi).map((player) => player.id);
+    if (seedAiPlayerIds.length > 0) {
+      emitLog("warn", "simulation ai autopilot recovered zero AI players; falling back to seed AI identities", {
+        activePlayerCount: activePlayers.size,
+        fallbackAiPlayerCount: seedAiPlayerIds.length,
+        fallbackAiPlayerIds: seedAiPlayerIds.slice(0, 6)
       });
+      return seedAiPlayerIds;
     }
-    const shouldBroadcastGlobalStatus =
-      event.eventType === "TILE_DELTA_BATCH" || event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE";
-    persistenceQueue.enqueueEvent(event);
-    if (shouldBroadcastGlobalStatus) scheduleGlobalStatusBroadcast(event.commandId);
-    if (event.eventType === "PLAYER_MESSAGE") {
-      const payload = event.payloadJson ? (JSON.parse(event.payloadJson) as Record<string, unknown>) : undefined;
-      if (payload) {
-        const cachedSnapshot = snapshotCacheByPlayerId.get(event.playerId);
-        if (cachedSnapshot) {
-          snapshotCacheByPlayerId.set(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
+    return [];
+  };
+  const startAutopilots = (): void => {
+    closeAutopilots();
+    const aiPlayerIds = resolveAutopilotAiPlayerIds();
+    const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
+    emitLog("info", "simulation autopilot startup", {
+      enableAiAutopilot: aiAutopilotEnabled,
+      enableSystemAutopilot: systemAutopilotEnabled,
+      useAiWorker,
+      aiPlayerCount: aiPlayerIds.length,
+      aiPlayerIdsSample: aiPlayerIds.slice(0, 6),
+      systemPlayerCount: systemPlayerIds.length,
+      systemPlayerIds
+    });
+    simulationMetrics.setSimAiAutopilotState({
+      enabled: aiAutopilotEnabled,
+      playerCount: aiPlayerIds.length
+    });
+    if (aiAutopilotEnabled) {
+      if (aiPlayerIds.length === 0) {
+        emitLog("warn", "simulation ai autopilot enabled with zero AI players", {
+          activePlayerCount: activePlayers.size,
+          recoveredPlayerCount: startupRecovery.initialState.players?.length ?? 0,
+          seedPlayerCount: seedPlayers.size
+        });
+      }
+      aiCommandProducer = useAiWorker
+        ? createWorkerAiCommandProducer({
+            runtime,
+            aiPlayerIds,
+            submitCommand: submitDurableCommand,
+            shouldRun: aiShouldRun,
+            startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
+            tickIntervalMs: options.aiTickMs ?? 250,
+            onPlannerTick: ({ breached }) => {
+              if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
+            },
+            onDiagnostic: (sample) => {
+              if (sample.durationMs < slowAiSyncWarnMs) return;
+              recordLagDiagnostic("warn", "simulation_ai_worker_slow", sample);
+            },
+            onTick: ({ durationMs }) => {
+              simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+            },
+            onNoCommand: (diagnostic) => {
+              if (diagnostic.noCommandReason) {
+                simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
+              }
+            }
+          })
+        : createAiCommandProducer({
+            runtime,
+            aiPlayerIds,
+            submitCommand: submitDurableCommand,
+            shouldRun: aiShouldRun,
+            startingClientSeqByPlayer: nextClientSeqByPlayers(aiPlayerIds),
+            tickIntervalMs: options.aiTickMs ?? 250,
+            onPlannerTick: ({ breached }) => {
+              if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
+            },
+            onTick: ({ durationMs }) => {
+              simulationMetrics.observeSimTickDurationMs("ai", durationMs);
+            },
+            onNoCommand: (diagnostic) => {
+              if (diagnostic.noCommandReason) {
+                simulationMetrics.observeSimAiNoop(diagnostic.noCommandReason, diagnostic.playerId);
+              }
+            }
+          });
+    }
+    if (systemAutopilotEnabled) {
+      systemCommandProducer = useAiWorker
+        ? createWorkerSystemCommandProducer({
+            runtime,
+            systemPlayerIds,
+            submitCommand: submitDurableCommand,
+            shouldRun: systemShouldRun,
+            startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
+            tickIntervalMs: options.systemTickMs ?? 500,
+            onTick: ({ durationMs }) => {
+              simulationMetrics.observeSimTickDurationMs("system", durationMs);
+            }
+          })
+        : createSystemCommandProducer({
+            runtime,
+            systemPlayerIds,
+            submitCommand: submitDurableCommand,
+            shouldRun: systemShouldRun,
+            startingClientSeqByPlayer: nextClientSeqByPlayers(systemPlayerIds),
+            tickIntervalMs: options.systemTickMs ?? 500,
+            onTick: ({ durationMs }) => {
+              simulationMetrics.observeSimTickDurationMs("system", durationMs);
+            }
+          });
+    }
+  };
+  const attachRuntimeEventHandlers = (): void => {
+    unsubscribeRuntimeEvents?.();
+    unsubscribeRuntimeEvents = runtime.onEvent((event) => {
+      if (
+        commandTraceEnabled &&
+        (event.eventType === "COMMAND_ACCEPTED" ||
+          event.eventType === "COMMAND_REJECTED" ||
+          event.eventType === "COMBAT_RESOLVED" ||
+          event.eventType === "TILE_DELTA_BATCH")
+      ) {
+        commandTraceSample({
+          source: "event",
+          phase: event.eventType,
+          commandId: event.commandId,
+          playerId: event.playerId,
+          actionType: "actionType" in event ? event.actionType : undefined,
+          code: "code" in event ? event.code : undefined,
+          message: "message" in event ? event.message : undefined,
+          attackerWon: "attackerWon" in event ? event.attackerWon : undefined,
+          manpowerDelta: "manpowerDelta" in event ? event.manpowerDelta : undefined,
+          targetX: "targetX" in event ? event.targetX : undefined,
+          targetY: "targetY" in event ? event.targetY : undefined
+        });
+      }
+      const shouldBroadcastGlobalStatus =
+        event.eventType === "TILE_DELTA_BATCH" || event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE";
+      persistenceQueue.enqueueEvent(event);
+      if (shouldBroadcastGlobalStatus) scheduleGlobalStatusBroadcast(event.commandId);
+      if (event.eventType === "PLAYER_MESSAGE") {
+        const payload = event.payloadJson ? (JSON.parse(event.payloadJson) as Record<string, unknown>) : undefined;
+        if (payload) {
+          const cachedSnapshot = snapshotCacheByPlayerId.get(event.playerId);
+          if (cachedSnapshot) {
+            snapshotCacheByPlayerId.set(event.playerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
+          }
         }
       }
-    }
-    if (event.eventType === "TILE_DELTA_BATCH") {
-      for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
-        const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
-        if (!cachedSnapshot) continue;
-        snapshotCacheByPlayerId.set(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, event.tileDeltas));
+      if (event.eventType === "TILE_DELTA_BATCH") {
+        for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
+          const cachedSnapshot = snapshotCacheByPlayerId.get(subscribedPlayerId);
+          if (!cachedSnapshot) continue;
+          snapshotCacheByPlayerId.set(subscribedPlayerId, applyTileDeltasToSnapshot(cachedSnapshot, event.tileDeltas));
+        }
       }
+      if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
+      const protoEvent = toProtoEvent(event);
+      for (const stream of eventStreams) stream.write(protoEvent);
+    });
+  };
+  attachRuntimeEventHandlers();
+  startAutopilots();
+  const replaceRuntime = ({
+    nextRuntime,
+    nextPlayers,
+    nextSeasonState
+  }: {
+    nextRuntime: SimulationRuntime;
+    nextPlayers: typeof activePlayers;
+    nextSeasonState: SimulationSeasonState;
+  }): void => {
+    runtime = nextRuntime;
+    activePlayers = nextPlayers;
+    currentSeasonState = nextSeasonState;
+    snapshotCacheByPlayerId.clear();
+    attachRuntimeEventHandlers();
+    startAutopilots();
+  };
+  const readCurrentSummary = async (): Promise<CurrentSeasonSummary> => {
+    if (currentSummary) return currentSummary;
+    const persisted = await seasonSummaryStore.loadCurrentSummary();
+    if (persisted) {
+      currentSummary = persisted;
+      currentSummarySignature = leaderboardSignature(persisted);
+      lastCurrentSummaryPersistedAt = persisted.updatedAt;
+      return persisted;
     }
-    if (!subscriptionRegistry.isSubscribed(event.playerId)) return;
-    const protoEvent = toProtoEvent(event);
-    for (const stream of eventStreams) stream.write(protoEvent);
-  });
+    return recomputeAndPersistCurrentSummary({ forcePersist: true });
+  };
+  const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives();
+  await recomputeAndPersistCurrentSummary({ forcePersist: true });
+  const startNextSeason = async (force = false): Promise<{ seasonId: string }> => {
+    if (seasonRolloverInFlight) throw new Error("season rollover already in progress");
+    if (currentSeasonState.status !== "ended" && !force) {
+      throw new Error("cannot start next season before current season has ended");
+    }
+    if (!rulesetId) {
+      throw new Error("start-next requires SIMULATION_RULESET_ID");
+    }
+    seasonRolloverInFlight = true;
+    try {
+      const endedSummary = await readCurrentSummary();
+      const archiveSummary = buildArchiveRow({
+        ...endedSummary,
+        status: "ended",
+        ...(currentSeasonState.endedAt ? { endedAt: currentSeasonState.endedAt } : {})
+      });
+      const bootstrap = buildBootstrapSeason({
+        seasonSequence: currentSeasonState.seasonSequence + 1,
+        rulesetId,
+        now: Date.now()
+      });
+      const nextRuntime = new SimulationRuntime({
+        ...(options.runtimeOptions ?? {}),
+        initialState: bootstrap.initialState,
+        initialCommandHistory: recoverCommandHistory([], []),
+        mergeSeedTilesWithInitialState: false,
+        initialPlayers: bootstrap.initialPlayers
+      });
+      const nextSummary = buildCurrentSeasonSummary({
+        seasonState: bootstrap.seasonState,
+        runtimeState: nextRuntime.exportState(),
+        onlinePlayers: 0,
+        updatedAt: bootstrap.seasonState.startedAt
+      });
+      await seasonSummaryStore.startNextSeason({
+        archiveSummary,
+        snapshotSections: {
+          initialState: bootstrap.initialState,
+          commandEvents: []
+        },
+        currentSummary: nextSummary,
+        createdAt: bootstrap.seasonState.startedAt
+      });
+      replaceRuntime({
+        nextRuntime,
+        nextPlayers: bootstrap.initialPlayers,
+        nextSeasonState: bootstrap.seasonState
+      });
+      currentSummary = nextSummary;
+      currentSummarySignature = leaderboardSignature(nextSummary);
+      lastCurrentSummaryPersistedAt = nextSummary.updatedAt;
+      clearSeasonVictoryTimer();
+      for (const stream of eventStreams) {
+        stream.write(
+          toProtoEvent({
+            eventType: "PLAYER_MESSAGE",
+            commandId: `season-rollover:${Date.now()}`,
+            playerId: "",
+            messageType: "SYSTEM",
+            payloadJson: JSON.stringify({ type: "SEASON_ROLLOVER", seasonId: bootstrap.seasonState.seasonId })
+          })
+        );
+      }
+      return { seasonId: bootstrap.seasonState.seasonId };
+    } finally {
+      seasonRolloverInFlight = false;
+    }
+  };
 
   const serviceImplementation: UntypedServiceImplementation = {
     SubmitCommand(
@@ -798,6 +1175,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         try {
           if (fatalPersistenceError) {
             throw fatalPersistenceError;
+          }
+          if (currentSeasonState.status === "ended") {
+            callback(new Error("season ended"), { ok: false });
+            return;
           }
           await submitDurableCommand(command);
           const acceptDurationMs = Date.now() - acceptStartedAt;
@@ -837,12 +1218,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const prepareStartedAt = Date.now();
       let spawned = false;
       try {
-        const spawnStartedAt = Date.now();
-        spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
-        simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
-        if (spawned) {
-          snapshotCacheByPlayerId.delete(call.request.player_id);
-          log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
+        if (currentSeasonState.status !== "ended") {
+          const spawnStartedAt = Date.now();
+          spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id);
+          simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
+          if (spawned) {
+            snapshotCacheByPlayerId.delete(call.request.player_id);
+            log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
+          }
         }
         const prepareDurationMs = Date.now() - prepareStartedAt;
         simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
@@ -915,7 +1298,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
       subscriptionRegistry.subscribe(call.request.player_id);
-      const snapshotPayload = snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
+      const snapshotPayload =
+        subscribeOptions.mode === "bootstrap-only"
+          ? buildAndCachePlayerSnapshot(call.request.player_id, { includeWorldStatus: true })
+          : snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
       if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
         log.info(
           JSON.stringify({
@@ -975,6 +1361,35 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ) {
       callback(null, { ok: true });
     },
+    GetCurrentSeasonSummary(
+      _call: { request: ProtoSeasonSummaryRequest },
+      callback: (error: Error | null, response: ProtoSeasonSummaryResponse) => void
+    ) {
+      void readCurrentSummary()
+        .then((summary) => callback(null, { ok: true, summary_json: JSON.stringify(summary) }))
+        .catch((error) => callback(error instanceof Error ? error : new Error("failed to load current season summary"), { ok: false }));
+    },
+    ListSeasonArchives(
+      _call: { request: ProtoSeasonSummaryRequest },
+      callback: (error: Error | null, response: ProtoSeasonArchivesResponse) => void
+    ) {
+      void readSeasonArchives()
+        .then((archives) => callback(null, { ok: true, archives_json: JSON.stringify(archives) }))
+        .catch((error) => callback(error instanceof Error ? error : new Error("failed to load season archives"), { ok: false }));
+    },
+    StartNextSeason(
+      call: { request: ProtoStartNextSeasonRequest },
+      callback: (error: Error | null, response: ProtoStartNextSeasonResponse) => void
+    ) {
+      void startNextSeason(call.request.force === true)
+        .then((result) => callback(null, { ok: true, season_id: result.seasonId }))
+        .catch((error) =>
+          callback(error instanceof Error ? error : new Error("failed to start next season"), {
+            ok: false,
+            season_id: ""
+          })
+        );
+    },
     StreamEvents(call: { write: (event: ProtoSimulationEvent) => void; on: (event: string, listener: () => void) => void }) {
       eventStreams.add(call);
       call.on("close", () => {
@@ -992,7 +1407,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const host = options.host ?? "127.0.0.1";
 
   return {
-    runtime,
+    get runtime() {
+      return runtime;
+    },
     startupRecovery,
     async start(): Promise<{ host: string; port: number; address: string }> {
       const requestedPort = options.port ?? 50051;
@@ -1042,6 +1459,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_tick_duration_ms: sample.simTickDurationMs,
             sim_prepare_player_latency_ms: sample.simPreparePlayerLatencyMs,
             sim_human_interactive_backlog_ms: sample.simHumanInteractiveBacklogMs,
+            sim_ai_autopilot_enabled: sample.simAiAutopilotEnabled,
+            sim_ai_autopilot_player_count: sample.simAiAutopilotPlayerCount,
             sim_ai_planner_breaches: sample.simAiPlannerBreaches,
             sim_ai_noop_total: sample.simAiNoopTotalByReason,
             sim_ai_noop_recent: sample.simAiNoopRecent,
@@ -1070,17 +1489,24 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         );
       }
       log.info(`simulation service listening on ${boundPort}`);
+      if (runStartupReplayCompaction && !startupReplayCompactionPromise) {
+        startupReplayCompactionPromise = Promise.resolve().then(runStartupReplayCompaction);
+      }
       return { host, port: boundPort, address: `${host}:${boundPort}` };
     },
     async close(): Promise<void> {
-      aiCommandProducer?.close();
-      systemCommandProducer?.close();
+      closeAutopilots();
+      unsubscribeRuntimeEvents?.();
+      clearSeasonVictoryTimer();
       if (metricsTicker) clearInterval(metricsTicker);
       if (eventLoopSampler) clearInterval(eventLoopSampler);
       gcObserver?.disconnect();
       if (globalStatusBroadcastTimeout) {
         clearTimeout(globalStatusBroadcastTimeout);
         globalStatusBroadcastTimeout = undefined;
+      }
+      if (startupReplayCompactionPromise) {
+        await startupReplayCompactionPromise;
       }
       await new Promise<void>((resolve, reject) => {
         server.tryShutdown((error) => {

@@ -67,6 +67,9 @@ const makeRuntime = (depths: {
           hasActiveLock: false,
           territoryTileKeys: [] as string[],
           frontierTileKeys: [] as string[],
+          hotFrontierTileKeys: [] as string[],
+          strategicFrontierTileKeys: [] as string[],
+          buildCandidateTileKeys: [] as string[],
           pendingSettlementTileKeys: [] as string[],
           activeDevelopmentProcessCount: 0
         }
@@ -78,6 +81,16 @@ const makeRuntime = (depths: {
     }
   };
 };
+
+const makeCommand = (playerId: string): CommandEnvelope => ({
+  commandId: `system-runtime-${playerId}-1-1000`,
+  sessionId: `system-runtime:${playerId}`,
+  playerId,
+  clientSeq: 1,
+  issuedAt: 1000,
+  type: "EXPAND",
+  payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 1, toY: 0 })
+});
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -254,6 +267,54 @@ describe("worker system command producer backpressure", () => {
     });
   });
 
+  it("does not hang the system loop when the worker returns an error message", async () => {
+    const submitted: CommandEnvelope[] = [];
+    const origPostMessage = MockWorker.prototype.postMessage;
+    let planCount = 0;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        planCount += 1;
+        queueMicrotask(() => {
+          if (planCount === 1) {
+            this.emit("message", {
+              type: "error",
+              playerId: msg.playerId,
+              message: "system planner exploded"
+            });
+            return;
+          }
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: makeCommand(msg.playerId as string)
+          });
+        });
+        return;
+      }
+      origPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerSystemCommandProducer({
+      runtime: makeRuntime(),
+      systemPlayerIds: ["barbarian-1"],
+      submitCommand: async (command) => {
+        submitted.push(command);
+      },
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    producer.close();
+    MockWorker.prototype.postMessage = origPostMessage;
+
+    expect(submitted).toEqual([expect.objectContaining({ playerId: "barbarian-1", type: "EXPAND" })]);
+  });
+
   it("does not forward irrelevant tile deltas to the system worker", async () => {
     const postedMessages: WorkerMessage[] = [];
     const origPostMessage = MockWorker.prototype.postMessage;
@@ -271,6 +332,9 @@ describe("worker system command producer backpressure", () => {
         hasActiveLock: false,
         territoryTileKeys: ["25,0"],
         frontierTileKeys: ["25,0"],
+        hotFrontierTileKeys: ["25,0"],
+        strategicFrontierTileKeys: ["25,0"],
+        buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1
@@ -323,6 +387,9 @@ describe("worker system command producer backpressure", () => {
         hasActiveLock: false,
         territoryTileKeys: ["25,0"],
         frontierTileKeys: ["25,0"],
+        hotFrontierTileKeys: ["25,0"],
+        strategicFrontierTileKeys: ["25,0"],
+        buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1

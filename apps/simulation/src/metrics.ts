@@ -28,6 +28,8 @@ type SimulationMetricsSnapshot = {
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;
   simHumanInteractiveBacklogMs: number;
+  simAiAutopilotEnabled: number;
+  simAiAutopilotPlayerCount: number;
   simAiPlannerBreaches: number;
   simAiNoopTotalByReason: Record<AutomationNoopReason, number>;
   simAiNoopRecent: string[];
@@ -60,6 +62,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const simAiNoopRecent: string[] = [];
   let simEventLoopMaxMs = 0;
   let simHumanInteractiveBacklogMs = 0;
+  let simAiAutopilotEnabled = 0;
+  let simAiAutopilotPlayerCount = 0;
   let simAiPlannerBreaches = 0;
   let simCheckpointRssMb = 0;
   let simCpuPercent = 0;
@@ -89,6 +93,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
       spawn: quantileSample(simPreparePlayerLatencyMs.get("spawn") ?? [])
     },
     simHumanInteractiveBacklogMs,
+    simAiAutopilotEnabled,
+    simAiAutopilotPlayerCount,
     simAiPlannerBreaches,
     simAiNoopTotalByReason: Object.fromEntries(AUTOMATION_NOOP_REASONS.map((reason) => [reason, simAiNoopTotalByReason.get(reason) ?? 0])) as Record<AutomationNoopReason, number>,
     simAiNoopRecent: [...simAiNoopRecent],
@@ -125,6 +131,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     setSimHumanInteractiveBacklogMs(value: number): void {
       simHumanInteractiveBacklogMs = clampMetric(value);
+    },
+    setSimAiAutopilotState(values: { enabled: boolean; playerCount: number }): void {
+      simAiAutopilotEnabled = values.enabled ? 1 : 0;
+      simAiAutopilotPlayerCount = clampMetric(values.playerCount);
     },
     incrementSimAiPlannerBreaches(): void {
       simAiPlannerBreaches += 1;
@@ -185,6 +195,10 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
         `sim_prepare_player_latency_ms{source=\"spawn\",quantile=\"p99\"} ${formatMetricValue(sample.simPreparePlayerLatencyMs.spawn.p99)}`,
         "# TYPE sim_human_interactive_backlog_ms gauge",
         `sim_human_interactive_backlog_ms ${formatMetricValue(sample.simHumanInteractiveBacklogMs)}`,
+        "# TYPE sim_ai_autopilot_enabled gauge",
+        `sim_ai_autopilot_enabled ${formatMetricValue(sample.simAiAutopilotEnabled)}`,
+        "# TYPE sim_ai_autopilot_player_count gauge",
+        `sim_ai_autopilot_player_count ${formatMetricValue(sample.simAiAutopilotPlayerCount)}`,
         "# TYPE sim_ai_planner_breaches counter",
         `sim_ai_planner_breaches ${formatMetricValue(sample.simAiPlannerBreaches)}`,
         "# TYPE sim_ai_noop_total counter",

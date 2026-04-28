@@ -79,6 +79,13 @@ import { chooseNextOwnedFrontierCommandFromLookup } from "./frontier-command-pla
 import { frontierNeighborCoords } from "./frontier-topology.js";
 import { buildPlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import {
+  candidateIndexKeysAroundTileKey,
+  isBuildCandidateTile,
+  isHotFrontierTile,
+  isStrategicFrontierTile,
+  playerIdsAffectedByTileChange
+} from "./planner-candidate-index.js";
+import {
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   cloneStrategicProduction,
@@ -222,14 +229,17 @@ type SimulationRuntimeOptions = {
   maxPlayerSeqReplayEntries?: number;
 };
 
-const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState): Map<string, RuntimePlayer> | undefined => {
+const createPlayersFromRecoveredState = (
+  initialState?: RecoveredSimulationState,
+  fallbackPlayers?: ReadonlyMap<string, RuntimePlayer>
+): Map<string, RuntimePlayer> | undefined => {
   if (!initialState?.players || initialState.players.length === 0) return undefined;
   return new Map(
     initialState.players.map((player) => [
       player.id,
       {
         id: player.id,
-        isAi: player.isAi ?? false,
+        isAi: player.isAi ?? fallbackPlayers?.get(player.id)?.isAi ?? false,
         name: player.name ?? player.id,
         points: player.points ?? 0,
         manpower: player.manpower ?? MANPOWER_BASE_CAP,
@@ -498,6 +508,9 @@ export class SimulationRuntime {
     tileCollectionVersion: number;
     territoryTileKeys: string[];
     frontierTileKeys: string[];
+    hotFrontierTileKeys: string[];
+    strategicFrontierTileKeys: string[];
+    buildCandidateTileKeys: string[];
     pendingSettlementTileKeys: string[];
   }>();
   private readonly locksByTile: Map<string, LockRecord>;
@@ -554,7 +567,9 @@ export class SimulationRuntime {
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
-    this.players = createPlayersFromRecoveredState(options.initialState) ?? (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
+    this.players =
+      createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
+      (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
     for (const player of this.players.values()) this.applyManpowerRegen(player);
     this.tiles = createTilesFromInitialState(
       options.initialState,
@@ -576,6 +591,9 @@ export class SimulationRuntime {
     }
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
+    }
+    for (const playerId of this.players.keys()) {
+      this.rebuildPlannerCandidateIndexesForPlayer(playerId);
     }
     for (const pendingSettlement of options.initialState?.pendingSettlements ?? []) {
       this.addPendingSettlement({ ...pendingSettlement });
@@ -752,6 +770,9 @@ export class SimulationRuntime {
     tileCollectionVersion: number;
     territoryTileKeys: string[];
     frontierTileKeys: string[];
+    hotFrontierTileKeys: string[];
+    strategicFrontierTileKeys: string[];
+    buildCandidateTileKeys: string[];
     pendingSettlementTileKeys: string[];
   } {
     const tileCollectionVersion = this.plannerPlayerTileCollectionVersionByPlayer.get(playerId) ?? 0;
@@ -761,6 +782,9 @@ export class SimulationRuntime {
       tileCollectionVersion,
       territoryTileKeys: [...summary.territoryTileKeys],
       frontierTileKeys: [...summary.frontierTileKeys],
+      hotFrontierTileKeys: [...summary.hotFrontierTileKeys],
+      strategicFrontierTileKeys: [...summary.strategicFrontierTileKeys],
+      buildCandidateTileKeys: [...summary.buildCandidateTileKeys],
       pendingSettlementTileKeys: [...summary.pendingSettlementsByTile.keys()]
     };
     this.plannerPlayerTileKeyCacheByPlayer.set(playerId, next);
@@ -819,6 +843,45 @@ export class SimulationRuntime {
     if (previous) this.removeTileFromPlayerSummaries(tileKey, previous);
     this.tiles.set(tileKey, tile);
     this.applyTileToPlayerSummaries(tileKey, tile);
+    this.refreshPlannerCandidateIndexesAroundTileChange(tileKey, previous, tile);
+  }
+
+  private rebuildPlannerCandidateIndexesForPlayer(playerId: string): void {
+    const summary = this.summaryForPlayer(playerId);
+    summary.hotFrontierTileKeys.clear();
+    summary.strategicFrontierTileKeys.clear();
+    summary.buildCandidateTileKeys.clear();
+    for (const tileKey of summary.territoryTileKeys) {
+      const tile = this.tiles.get(tileKey);
+      if (!tile || tile.ownerId !== playerId) continue;
+      if (isHotFrontierTile(playerId, tile, this.tiles)) summary.hotFrontierTileKeys.add(tileKey);
+      if (isStrategicFrontierTile(playerId, tile, this.tiles)) summary.strategicFrontierTileKeys.add(tileKey);
+      if (isBuildCandidateTile(playerId, tile, this.tiles)) summary.buildCandidateTileKeys.add(tileKey);
+    }
+    this.markPlannerPlayerTileCollectionDirty(playerId);
+  }
+
+  private refreshPlannerCandidateIndexesAroundTileChange(
+    tileKey: string,
+    previous?: DomainTileState,
+    next?: DomainTileState
+  ): void {
+    const affectedKeys = candidateIndexKeysAroundTileKey(tileKey);
+    const affectedPlayerIds = playerIdsAffectedByTileChange(tileKey, this.tiles, previous, next);
+    for (const playerId of affectedPlayerIds) {
+      const summary = this.summaryForPlayer(playerId);
+      for (const candidateKey of affectedKeys) {
+        summary.hotFrontierTileKeys.delete(candidateKey);
+        summary.strategicFrontierTileKeys.delete(candidateKey);
+        summary.buildCandidateTileKeys.delete(candidateKey);
+        const candidateTile = this.tiles.get(candidateKey);
+        if (!candidateTile || candidateTile.ownerId !== playerId) continue;
+        if (isHotFrontierTile(playerId, candidateTile, this.tiles)) summary.hotFrontierTileKeys.add(candidateKey);
+        if (isStrategicFrontierTile(playerId, candidateTile, this.tiles)) summary.strategicFrontierTileKeys.add(candidateKey);
+        if (isBuildCandidateTile(playerId, candidateTile, this.tiles)) summary.buildCandidateTileKeys.add(candidateKey);
+      }
+      this.markPlannerPlayerTileCollectionDirty(playerId);
+    }
   }
 
   private addPendingSettlement(record: PendingSettlementRecord): void {
@@ -885,9 +948,23 @@ export class SimulationRuntime {
       playerId,
       points: player.points,
       manpower: player.manpower,
+      ...([...player.techIds].length ? { techIds: [...player.techIds] } : {}),
+      ...(Object.keys(player.strategicResources ?? {}).length ? { strategicResources: { ...(player.strategicResources ?? {}) } } : {}),
+      settledTileCount: summary.settledTileCount,
+      townCount: summary.townCount,
+      incomePerMinute: summary.goldIncomePerMinute,
       hasActiveLock: [...this.locksByTile.values()].some((lock) => lock.playerId === playerId),
       activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
       frontierTiles: [...summary.frontierTileKeys]
+        .map((tileKey) => this.tiles.get(tileKey))
+        .filter((tile): tile is DomainTileState => tile !== undefined),
+      hotFrontierTiles: [...summary.hotFrontierTileKeys]
+        .map((tileKey) => this.tiles.get(tileKey))
+        .filter((tile): tile is DomainTileState => tile !== undefined),
+      strategicFrontierTiles: [...summary.strategicFrontierTileKeys]
+        .map((tileKey) => this.tiles.get(tileKey))
+        .filter((tile): tile is DomainTileState => tile !== undefined),
+      buildCandidateTiles: [...summary.buildCandidateTileKeys]
         .map((tileKey) => this.tiles.get(tileKey))
         .filter((tile): tile is DomainTileState => tile !== undefined),
       ownedTiles: [...summary.territoryTileKeys]
@@ -1046,10 +1123,18 @@ export class SimulationRuntime {
         id: player.id,
         points: player.points,
         manpower: player.manpower,
+        techIds: [...player.techIds].sort(),
+        strategicResources: { ...(player.strategicResources ?? {}) },
+        settledTileCount: summary.settledTileCount,
+        townCount: summary.townCount,
+        incomePerMinute: summary.goldIncomePerMinute,
         tileCollectionVersion: tileKeys.tileCollectionVersion,
         hasActiveLock: lockPlayerIds.has(player.id),
         territoryTileKeys: tileKeys.territoryTileKeys,
         frontierTileKeys: tileKeys.frontierTileKeys,
+        hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
+        strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
+        buildCandidateTileKeys: tileKeys.buildCandidateTileKeys,
         pendingSettlementTileKeys: tileKeys.pendingSettlementTileKeys,
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
       });

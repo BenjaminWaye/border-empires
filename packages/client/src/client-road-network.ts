@@ -50,7 +50,7 @@ const isSettledLand = (tile: Tile | undefined): tile is Tile =>
   Boolean(tile && tile.terrain === "LAND" && tile.ownerId && tile.ownershipState === "SETTLED");
 
 const isRoadTown = (tile: Tile | undefined): tile is Tile & { town: NonNullable<Tile["town"]> } =>
-  Boolean(isSettledLand(tile) && tile.town);
+  Boolean(isSettledLand(tile) && tile.town && tile.town.populationTier !== "SETTLEMENT");
 
 const sortTowns = (a: RoadNode, b: RoadNode): number =>
   TOWN_TIER_WEIGHT[b.tile.town!.populationTier] - TOWN_TIER_WEIGHT[a.tile.town!.populationTier] ||
