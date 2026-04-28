@@ -121,6 +121,8 @@ DATABASE_URL="postgres://USER@127.0.0.1:5432/border_empires_local?sslmode=disabl
 
 `rewrite:restart:20ai:seed` is the explicit localhost-only bootstrap path for an empty DB. It enables seed recovery fallback and disables strict durable-startup requirements for that run only.
 
+When `DATABASE_URL` points at `127.0.0.1` or `localhost`, the seed helper also clears the local simulation tables first so it really starts from a fresh seeded world instead of recovering old local events.
+
 ## Rewrite DB Operations (Supabase)
 
 The rewrite stack now treats Postgres as an external database (Supabase) and keeps operational storage bounded.
