@@ -149,6 +149,7 @@ export const createInitialState = () => ({
       | "aether_bridge"
       | "aether_wall"
       | "aether_lance"
+      | "retort_recasting"
       | "siphon"
       | "reveal_empire"
       | "reveal_empire_stats"

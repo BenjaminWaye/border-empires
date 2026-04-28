@@ -124,6 +124,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("SIPHON_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("PURGE_SIPHON"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({
+    type: z.literal("RETORT_RECAST"),
+    x: z.number().int(),
+    y: z.number().int(),
+    targetResource: z.enum(["FARM", "WOOD", "IRON", "GEMS"]),
+    ...FrontierCommandMetadataSchema
+  }),
   z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REMOVE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({
