@@ -1,0 +1,126 @@
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { MANPOWER_BASE_CAP } from "@border-empires/shared";
+
+import { createSeason20AiSeedWorld } from "./season-seed-world.js";
+import type { RecoveredSimulationState } from "./event-recovery.js";
+
+export type SimulationRulesetId = "seasonal-default";
+
+export type GeneratedSeasonWorld = {
+  initialPlayers: Map<string, DomainPlayer>;
+  initialState: RecoveredSimulationState;
+  worldSeed: number;
+};
+
+const SEASONAL_AI_NAMES = [
+  "Alden Vale",
+  "Sigrid Storm",
+  "Milo Ash",
+  "Freja Sund",
+  "Edvin Frost",
+  "Clara North",
+  "Hugo Bjork",
+  "Linnea Skald",
+  "Rowan Hale",
+  "Tove Falk"
+] as const;
+
+const seasonalAiNameForId = (id: string): string | undefined => {
+  const match = /^ai-(\d+)$/.exec(id);
+  if (!match) return undefined;
+  const index = Number(match[1]) - 1;
+  return SEASONAL_AI_NAMES[index];
+};
+
+const createRuntimePlayer = (id: string): DomainPlayer => ({
+  id,
+  isAi: false,
+  name: id === "barbarian-1" ? "Barbarians" : seasonalAiNameForId(id) ?? id,
+  points: 100,
+  manpower: MANPOWER_BASE_CAP,
+  techIds: new Set<string>(),
+  domainIds: new Set<string>(),
+  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+  techRootId: "rewrite-seasonal",
+  allies: new Set<string>(),
+  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
+  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }
+});
+
+const toRecoveredTile = (tile: DomainTileState): RecoveredSimulationState["tiles"][number] => ({
+  x: tile.x,
+  y: tile.y,
+  terrain: tile.terrain,
+  ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.dockId ? { dockId: tile.dockId } : {}),
+  ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+  ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+  ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+  ...(tile.town ? { town: tile.town } : {}),
+  ...(tile.fort ? { fort: tile.fort } : {}),
+  ...(tile.observatory ? { observatory: tile.observatory } : {}),
+  ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
+  ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
+  ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
+});
+
+const toRecoveredPlayer = (player: DomainPlayer): NonNullable<RecoveredSimulationState["players"]>[number] => ({
+  id: player.id,
+  ...(player.name ? { name: player.name } : {}),
+  ...(typeof player.isAi === "boolean" ? { isAi: player.isAi } : {}),
+  ...(typeof player.points === "number" ? { points: player.points } : {}),
+  ...(typeof player.manpower === "number" ? { manpower: player.manpower } : {}),
+  ...(player.techIds ? { techIds: [...player.techIds] } : {}),
+  ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
+  ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),
+  ...(player.allies ? { allies: [...player.allies] } : {}),
+  ...(player.mods ? { vision: player.mods.vision, incomeMultiplier: player.mods.income } : {})
+});
+
+export const generateSeasonWorld = (
+  rulesetId: SimulationRulesetId,
+  requestedWorldSeed: number
+): GeneratedSeasonWorld => {
+  if (rulesetId !== "seasonal-default") {
+    throw new Error(`unsupported simulation ruleset: ${rulesetId}`);
+  }
+
+  const generated = createSeason20AiSeedWorld(
+    requestedWorldSeed,
+    (id, isAi) => ({
+      ...createRuntimePlayer(id),
+      isAi
+    }),
+    {
+      humanPlayerCount: 0,
+      aiPlayerCount: 10
+    }
+  );
+
+  const strippedTiles = [...generated.tiles.values()]
+    .map((tile) => toRecoveredTile(tile))
+    .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+
+  const initialPlayers = new Map<string, DomainPlayer>(
+    [...generated.players.entries()].filter(([playerId]) => playerId === "barbarian-1" || playerId.startsWith("ai-"))
+  );
+
+  return {
+    initialPlayers,
+    initialState: {
+      tiles: strippedTiles,
+      docks: generated.docks.map((dock) => ({
+        dockId: dock.dockId,
+        tileKey: dock.tileKey,
+        pairedDockId: dock.pairedDockId,
+        ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+      })),
+      activeLocks: [],
+      players: [...initialPlayers.values()].map((player) => toRecoveredPlayer(player)),
+      pendingSettlements: [],
+      tileYieldCollectedAtByTile: [],
+      collectVisibleCooldownByPlayer: []
+    },
+    worldSeed: generated.worldSeed ?? requestedWorldSeed
+  };
+};

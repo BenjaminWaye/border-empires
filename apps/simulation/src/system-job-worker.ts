@@ -76,7 +76,7 @@ const applyTileDelta = (delta: SimulationTileDelta): void => {
 
   if (delta.terrain) next.terrain = delta.terrain;
   if ("resource" in delta) {
-    if (delta.resource) next.resource = delta.resource;
+    if (delta.resource) next.resource = delta.resource as PlannerTileView["resource"];
     else delete next.resource;
   }
   if ("dockId" in delta) {
@@ -88,7 +88,7 @@ const applyTileDelta = (delta: SimulationTileDelta): void => {
     else delete next.ownerId;
   }
   if ("ownershipState" in delta) {
-    if (delta.ownershipState) next.ownershipState = delta.ownershipState;
+    if (delta.ownershipState) next.ownershipState = delta.ownershipState as PlannerTileView["ownershipState"];
     else delete next.ownershipState;
   }
   if ("townJson" in delta) {

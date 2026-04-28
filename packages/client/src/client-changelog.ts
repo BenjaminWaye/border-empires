@@ -19,22 +19,22 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.28.2",
+  version: "2026.04.28.9",
   title: "What's New",
-  summary: "Recent updates include a chunked rewrite 3D terrain foundation with square ground meshes, coastline cliffs, and water surfaces under the existing props/overlays; Carcassonne-style dirt roads for the rewrite map while keeping the same road network rules; visible queue ordinals returning for frontier expansion tiles in rewrite 3D mode; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include chunked rewrite 3D terrain with cliffed coastlines and terrain-aware picking/markers; layered Carcassonne-style dirt roads for the rewrite map while keeping the existing road rules; rewrite 3D frontier queue ordinals; frontier expansion responsiveness improvements so chained human captures stop kicking off full subscribed chunk refreshes while frontier priority is active and staging now logs when those refreshes defer and flush; rewrite leaderboard/bootstrap fixes so auth bootstraps keep the authoritative AI-filled world-status snapshot even when visible tiles are still empty and opaque auth ids no longer leak raw Firebase-looking strings into public names; season-rollover profile reset and auth-cleanup hardening so human empires now pick a fresh name and color each season while auth-only probe accounts and unfinished profiles no longer linger as one-tile rivals; a restored logout fix so both desktop and mobile settings cards sign out again after the duplicated-panel regression resurfaced; settlement UI cleanup so settlements no longer advertise town-only support areas or road links before they grow up; first-class rewrite season lifecycle support with managed empty-DB bootstrap from ruleset worldgen, ended-season freeze handling, current and archive HQ endpoints, and a protected manual start-next season path in the gateway; corrected seasonal bootstraps so the production ruleset now starts with 10 named AI empires and no pre-seeded human empire instead of an almost-empty malformed world; HQ current-season totals now count seeded AI empires correctly instead of reporting zero players on AI-only seasons; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
     {
-      introducedIn: "2026.04.28.2",
+      introducedIn: "2026.04.28.9",
       title: "Rewrite 3D mode now builds chunked square terrain instead of flat tile boxes",
       why: "The earlier rewrite 3D terrain used one box-like ground instance per tile, which limited coastline shaping, elevation changes, and the overall terrain read needed for a more atmospheric strategy-map look.",
       changes: [
-        "Visible terrain now builds from chunked square meshes with per-tile surface heights, lower coastal/water surfaces, and steeper mountain elevation under the existing 3D props.",
+        "Visible terrain now builds from chunked square meshes with per-tile surface heights, lower coastal and water surfaces, and steeper mountain elevation under the existing 3D props.",
         "Chunk meshes now generate cliff faces where neighboring terrain heights step sharply, giving coasts and mountain edges a more terrain-like silhouette without changing the gameplay grid.",
         "Tile picking, hover, selection, ownership fills, and queue markers now anchor against the new terrain height model instead of fixed box tops."
       ]
     },
     {
-      introducedIn: "2026.04.28.1",
+      introducedIn: "2026.04.28.9",
       title: "Rewrite map roads now render as layered dirt paths instead of flat brown lines",
       why: "The rewrite road network was still drawing as a single thin line between towns, which made roads easy to miss against the new terrain and disconnected visually from the rest of the map style.",
       changes: [
@@ -44,13 +44,83 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.9",
+      introducedIn: "2026.04.28.9",
       title: "Frontier queue tiles in rewrite 3D mode show their queue number again",
       why: "The earlier 3D queue badge fix restored development ordinals, but frontier expansion tiles were still using a separate 2D-only badge path, so queued attack and expand tiles kept their border without the numeric order in 3D.",
       changes: [
         "Queued frontier tiles now render their purple ordinal badge in rewrite 3D mode at the projected tile position.",
         "Frontier, settlement, and build queues now share the same badge-layout helper so the 3D and 2D paths stay aligned.",
         "Added client regression coverage so future queue-marker refactors do not silently drop frontier ordinals in the 3D renderer."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.8",
+      title: "Queued frontier captures no longer stall behind full chunk refreshes",
+      why: "Each ownership change was still allowed to trigger a subscribed chunk refresh even while a human frontier chain was active, which added avoidable visibility-mask and snapshot work directly onto rapid expansion sequences.",
+      changes: [
+        "Subscribed chunk refreshes now defer while human frontier priority is active instead of starting immediately on each ownership change.",
+        "Live frontier ownership still reaches the client through the existing local vision delta path, so expansion chains stay responsive without dropping correctness.",
+        "Added server-side defer/flush debug events plus regression coverage so future sync changes do not reintroduce chunk-refresh pressure during chained captures."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.7",
+      title: "Rewrite leaderboards now keep live AI standings and hide raw auth ids",
+      why: "Fresh rewrite auth bootstraps could still drop the authoritative world-status snapshot when the first visible tile payload was empty, which made the leaderboard fall back to a fake two-player view, while unprofiled human auth ids could still surface as raw opaque strings in public standings.",
+      changes: [
+        "Bootstrap-only rewrite subscribe snapshots now carry the authoritative leaderboard and season-victory payload instead of reusing a cache entry with world status stripped out.",
+        "Gateway bootstrap resolution now preserves authoritative world-status snapshots even when a player has no visible tiles yet, so the client no longer falls back to a fake `player-2` leaderboard during login.",
+        "Opaque auth ids now render as stable generic empire labels instead of leaking raw Firebase-looking strings into leaderboard and HQ displays."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.6",
+      title: "New seasons now ask human empires to confirm a fresh name and color",
+      why: "Season rollover was respawning the same human player record with profile setup still marked complete, so players could skip the fresh-season name and banner choice while auth-only probe accounts also stuck around as half-created empires after disconnect.",
+      changes: [
+        "Season rollover now marks human empires as needing profile setup again and immediately prompts connected players to choose their season name and color.",
+        "Unfinished human profiles can no longer issue gameplay actions until profile setup is completed.",
+        "Auth-only probe sessions and abandoned unfinished logins are now discarded on disconnect instead of lingering as durable one-tile empires."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.5",
+      title: "Log Out works again in both duplicated settings panels",
+      why: "The settings card still renders in desktop and mobile panel containers, and the logout wiring had regressed back to a single global id lookup, so the visible Log Out control could stop responding again depending on layout.",
+      changes: [
+        "The settings card now tags Log Out controls with a shared data attribute instead of a duplicated global id.",
+        "HUD binding now attaches the sign-out handler to every rendered Log Out button in the HUD, so both settings panel copies trigger Firebase sign-out and reload.",
+        "Added a regression guard so future settings-panel cloning changes do not silently return to first-match-only logout binding."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.4",
+      title: "HQ current-season totals now count seeded AI empires",
+      why: "The new seasonal ruleset can start with AI-only competitive empires, but the HQ current-season summary was still counting only non-AI players, which made AI seasons look empty even while the leaderboard was full.",
+      changes: [
+        "Current-season summary totals now count all competitive empires that appear on the leaderboard instead of excluding seeded AI players.",
+        "Barbarian/system actors still stay out of the total so HQ counts match the actual competitive field.",
+        "Added regression coverage around the summary builder so future season-summary changes cannot silently report zero players for AI-start seasons."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.3",
+      title: "Settlements no longer show town-only support-area and road UI",
+      why: "Settlement tiles can grow into towns later, but they do not use the same support-area or connected-town road rules before that stage, so the client was showing misleading town infrastructure hints too early.",
+      changes: [
+        "Settlement-tier tiles no longer qualify as road endpoints for the client road overlay, so early settlements stop drawing connected-town links.",
+        "Settlement overviews now continue to show their own gold production without surfacing town-only support counts or connected-town bonus modifiers from stale snapshot fields.",
+        "Added client regressions so future support-anchor, road-network, and overview-copy changes keep settlement behavior separate from real towns."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.2",
+      title: "Seasonal rewrites now start with 10 named AI empires and no pre-seeded human slot",
+      why: "The first managed seasonal bootstrap was still deriving its world from a seed fixture in the wrong shape, which left staging with malformed current-season data and no useful AI field to pressure-test the new lifecycle.",
+      changes: [
+        "The production seasonal ruleset now bootstraps with 10 AI-controlled empires already on the map, while humans still start fresh with no pre-seeded empire.",
+        "AI season empires now get mixed English and Swedish human-style names so HQ and leaderboard reads no longer leak raw ai-ids.",
+        "The admin season-start route now accepts a protected force mode so operators can roll staging into a fresh season even before a winner has been crowned."
       ]
     },
     {

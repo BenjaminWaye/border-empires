@@ -11,6 +11,14 @@ type Queryable = {
   ) => Promise<{ rows: TRow[]; rowCount: number | null }>;
 };
 
+type TransactionClient = Queryable & {
+  release?: () => void;
+};
+
+type TransactionCapableQueryable = Queryable & {
+  connect?: () => Promise<TransactionClient>;
+};
+
 type SnapshotRow = {
   snapshot_id: number;
   last_applied_event_id: number;
@@ -28,7 +36,7 @@ const toStoredSimulationSnapshot = (row: SnapshotRow): StoredSimulationSnapshot 
 const ACTIVE_SEASON_ID = "active";
 
 export class PostgresSimulationSnapshotStore implements SimulationSnapshotStore {
-  constructor(private readonly db: Queryable) {}
+  constructor(private readonly db: TransactionCapableQueryable) {}
 
   async applySchema(sql: string): Promise<void> {
     await this.db.query(sql);
@@ -41,11 +49,13 @@ export class PostgresSimulationSnapshotStore implements SimulationSnapshotStore 
     /** When provided, projection tables are written alongside world_snapshots. */
     projectionState?: ProjectionExportState;
   }): Promise<void> {
-    await this.db.query("BEGIN");
+    const client = typeof this.db.connect === "function" ? await this.db.connect() : undefined;
+    const db = client ?? this.db;
+    await db.query("BEGIN");
     try {
       const initialStateJson = JSON.stringify(snapshot.snapshotSections.initialState);
       const commandEventsJson = JSON.stringify(snapshot.snapshotSections.commandEvents);
-      const result = await this.db.query<{ snapshot_id: number }>(
+      const result = await db.query<{ snapshot_id: number }>(
         `
         INSERT INTO world_snapshots (
           last_applied_event_id,
@@ -69,14 +79,14 @@ export class PostgresSimulationSnapshotStore implements SimulationSnapshotStore 
 
       if (snapshot.projectionState) {
         await writeCurrentProjections(
-          this.db,
+          db,
           snapshot.snapshotSections.initialState,
           snapshot.projectionState,
           snapshot.createdAt
         );
       }
 
-      await this.db.query(
+      await db.query(
         `
         INSERT INTO checkpoint_metadata (
           season_id,
@@ -97,24 +107,26 @@ export class PostgresSimulationSnapshotStore implements SimulationSnapshotStore 
         [ACTIVE_SEASON_ID, snapshotId, snapshot.lastAppliedEventId, snapshot.createdAt]
       );
 
-      await this.db.query(
+      await db.query(
         `
         DELETE FROM world_snapshots
         WHERE snapshot_id <> $1
         `,
         [snapshotId]
       );
-      await this.db.query(
+      await db.query(
         `
         DELETE FROM world_events
         WHERE event_id <= $1
         `,
         [snapshot.lastAppliedEventId]
       );
-      await this.db.query("COMMIT");
+      await db.query("COMMIT");
     } catch (error) {
-      await this.db.query("ROLLBACK");
+      await db.query("ROLLBACK");
       throw error;
+    } finally {
+      client?.release?.();
     }
   }
 

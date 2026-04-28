@@ -4,7 +4,7 @@
  * human_interactive command is queued, and resumes once it drains.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
@@ -54,6 +54,9 @@ const makeRuntime = (humanInteractive = 0) => {
       hasActiveLock: false,
       territoryTileKeys: [] as string[],
       frontierTileKeys: [] as string[],
+      hotFrontierTileKeys: [] as string[],
+      strategicFrontierTileKeys: [] as string[],
+      buildCandidateTileKeys: [] as string[],
       pendingSettlementTileKeys: [] as string[],
       activeDevelopmentProcessCount: 0
     }
@@ -96,6 +99,10 @@ const makeCommand = (playerId: string): CommandEnvelope => ({
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("worker AI command producer pause/resume", () => {
   it("skips tick and sends pause message when human_interactive backlog is non-empty", async () => {
@@ -245,6 +252,43 @@ describe("worker AI command producer pause/resume", () => {
     );
   });
 
+  it("records worker planner errors as planner_error no-ops", async () => {
+    const runtime = makeRuntime(0);
+    const onNoCommand = vi.fn();
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "error",
+            playerId: msg.playerId,
+            message: "planner exploded"
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onNoCommand,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(onNoCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ playerId: "ai-1", noCommandReason: "planner_error" })
+    );
+  });
+
   it("forwards granular worker phase diagnostics to the callback", async () => {
     const runtime = makeRuntime(0);
     const onDiagnostic = vi.fn();
@@ -296,6 +340,95 @@ describe("worker AI command producer pause/resume", () => {
         frontierTileCount: 5
       })
     );
+  });
+
+  it("does not hang the AI loop when the worker returns an error message", async () => {
+    const runtime = makeRuntime(0);
+    const submitted: CommandEnvelope[] = [];
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    let planCount = 0;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        planCount += 1;
+        queueMicrotask(() => {
+          if (planCount === 1) {
+            this.emit("message", {
+              type: "error",
+              playerId: msg.playerId,
+              message: "planner exploded"
+            });
+            return;
+          }
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: makeCommand(msg.playerId as string)
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submitted.push(command);
+      },
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(submitted).toEqual([expect.objectContaining({ playerId: "ai-1", type: "ATTACK" })]);
+  });
+
+  it("stagger-syncs a subset of AI players on each periodic sync interval", async () => {
+    vi.useFakeTimers();
+    const plannerPlayers = ["ai-1", "ai-2", "ai-3"].map((id) => ({
+      id,
+      points: 500,
+      manpower: 10,
+      hasActiveLock: false,
+      territoryTileKeys: [] as string[],
+      frontierTileKeys: [] as string[],
+      pendingSettlementTileKeys: [] as string[],
+      activeDevelopmentProcessCount: 0,
+      tileCollectionVersion: 1
+    }));
+    const exportPlannerPlayerViews = vi.fn((playerIds: string[]) =>
+      plannerPlayers.filter((player) => playerIds.includes(player.id))
+    );
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: {
+        queueDepths: () => ({ human_interactive: 0, human_noninteractive: 0, system: 0, ai: 0 }),
+        exportPlannerWorldView: () => ({ tiles: [], players: plannerPlayers }),
+        exportPlannerPlayerViews,
+        onEvent: () => () => undefined
+      },
+      aiPlayerIds: plannerPlayers.map((player) => player.id),
+      submitCommand: async () => undefined,
+      tickIntervalMs: 10_000,
+      playerSyncIntervalMs: 50,
+      periodicPlayerSyncBatchSize: 1,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(600);
+    producer.close();
+
+    expect(exportPlannerPlayerViews).toHaveBeenNthCalledWith(1, ["ai-1"]);
+    expect(exportPlannerPlayerViews).toHaveBeenNthCalledWith(2, ["ai-2"]);
   });
 
   it("waits for command resolution before issuing another command for the same AI", async () => {
@@ -364,6 +497,9 @@ describe("worker AI command producer pause/resume", () => {
         hasActiveLock: false,
         territoryTileKeys: ["10,10"],
         frontierTileKeys: ["10,10"],
+        hotFrontierTileKeys: ["10,10"],
+        strategicFrontierTileKeys: ["10,10"],
+        buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1
@@ -416,6 +552,9 @@ describe("worker AI command producer pause/resume", () => {
         hasActiveLock: false,
         territoryTileKeys: ["10,10"],
         frontierTileKeys: ["10,10"],
+        hotFrontierTileKeys: ["10,10"],
+        strategicFrontierTileKeys: ["10,10"],
+        buildCandidateTileKeys: [],
         pendingSettlementTileKeys: [] as string[],
         activeDevelopmentProcessCount: 0,
         tileCollectionVersion: 1

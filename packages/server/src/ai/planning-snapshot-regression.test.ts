@@ -312,7 +312,11 @@ describe("buildAiPlanningSnapshot regression guard", () => {
     expect(body).toContain("const expandCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();");
     expect(body).toContain("const attackCandidateByTarget = new Map<TileKey, AiFrontierCandidatePair>();");
     expect(body).toContain("preferAiFrontierCandidate(");
-    expect(body).toContain("expandCandidates: [...expandCandidateByTarget.values()]");
+    expect(body).toContain("const expandCandidates = [...expandCandidateByTarget.values()];");
+    expect(body).toContain("const activeExpandCandidates = expandCandidates.filter(");
+    expect(body).toContain("strategicFrontierTiles,");
+    expect(body).toContain("expandCandidates,");
+    expect(body).toContain("activeExpandCandidates,");
     expect(body).toContain("attackCandidates: [...attackCandidateByTarget.values()]");
   });
 });
