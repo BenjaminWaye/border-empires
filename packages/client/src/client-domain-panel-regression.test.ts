@@ -38,4 +38,14 @@ describe("domain panel detail layout regression guard", () => {
     expect(hudSource).toContain("Game playerId ${playerId}");
     expect(hudSource).toContain("const authDebugCopyButtons = dom.hud.querySelectorAll(\"[data-copy-auth-debug]\")");
   });
+
+  it("binds every rendered logout button instead of only the first duplicated settings card control", () => {
+    const hudSource = sourceFor("./client-hud.ts");
+
+    expect(hudSource).toContain("data-auth-logout");
+    expect(hudSource).toContain("const authLogoutButtons = dom.hud.querySelectorAll(\"[data-auth-logout]\")");
+    expect(hudSource).toContain("authLogoutButtons.forEach((authLogoutBtn: HTMLButtonElement) => {");
+    expect(hudSource).not.toContain("document.querySelector(\"#auth-logout\")");
+    expect(hudSource).not.toContain("id=\"auth-logout\"");
+  });
 });
