@@ -13,6 +13,7 @@
     "rewrite:restart:20ai:seed": "./scripts/restart-rewrite-stack-20ai-seed.sh",
     "rewrite:db:migrate": "node ./scripts/rewrite-db-migrate.mjs",
     "rewrite:db:size": "node ./scripts/rewrite-db-size.mjs",
+    "ai:labeling:batch": "node ./scripts/build-ai-labeling-batch.mjs",
     "deploy:rewrite:gateway": "fly deploy --config fly.gateway.toml",
     "deploy:rewrite:simulation": "fly deploy --config fly.simulation.toml",
     "ops:staging:login-probe": "node ./scripts/staging-login-latency-probe.mjs --attempts 12 --timeout-ms 8000 --max-p95-ms 5000 --min-success-rate 1",
