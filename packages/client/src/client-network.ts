@@ -85,6 +85,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     const activeFrontierContext =
       state.actionInFlight || state.actionQueue.length > 0 || state.queuedTargetKeys.size > 0 || Boolean(state.actionTargetKey);
     if (!activeFrontierContext && payload.force !== true) return;
+    const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
     const currentAction = state.actionCurrent
       ? {
           x: state.actionCurrent.x,
@@ -108,6 +109,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       actionAcceptedAck: state.actionAcceptedAck,
       combatStartAck: state.combatStartAck,
       actionStartedAt: state.actionStartedAt,
+      currentActionKey,
+      currentFrontierSyncWaitUntil: currentActionKey ? state.frontierSyncWaitUntilByTarget.get(currentActionKey) ?? 0 : 0,
+      currentFrontierLateAckUntil: currentActionKey ? state.frontierLateAckUntilByTarget.get(currentActionKey) ?? 0 : 0,
       currentAction,
       queuedTargetKeys: [...state.queuedTargetKeys],
       queuedActions,
@@ -1388,8 +1392,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "ACTION_ACCEPTED") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("action-accepted-ignored-command-mismatch", {
+          actionType: msg.actionType,
           commandId: msg.commandId,
-          currentCommandId: state.actionCurrent?.commandId
+          clientSeq: msg.clientSeq,
+          currentCommandId: state.actionCurrent?.commandId,
+          currentClientSeq: state.actionCurrent?.clientSeq,
+          currentAction: state.actionCurrent,
+          actionTargetKey: state.actionTargetKey,
+          target: msg.target,
+          origin: msg.origin
         });
         return;
       }
@@ -1398,6 +1409,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const targetKey = keyFor(target.x, target.y);
       attackSyncLog("action-accepted", {
         actionType: msg.actionType,
+        commandId: msg.commandId,
+        clientSeq: msg.clientSeq,
         target,
         origin: msg.origin,
         resolvesAt: msg.resolvesAt,
@@ -1418,6 +1431,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
       frontierQueueDebug("action_accepted_applied", {
         actionType: msg.actionType,
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined,
         target,
         targetKey
       });
@@ -1428,14 +1443,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "FRONTIER_RESULT") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("frontier-result-ignored-command-mismatch", {
+          actionType: msg.actionType,
           commandId: msg.commandId,
-          currentCommandId: state.actionCurrent?.commandId
+          clientSeq: msg.clientSeq,
+          currentCommandId: state.actionCurrent?.commandId,
+          currentClientSeq: state.actionCurrent?.clientSeq,
+          currentAction: state.actionCurrent,
+          actionTargetKey: state.actionTargetKey,
+          target: msg.target,
+          origin: msg.origin
         });
         return;
       }
       clearFrontierStatusAlert(state);
       attackSyncLog("frontier-result", {
         actionType: msg.actionType,
+        commandId: msg.commandId,
+        clientSeq: msg.clientSeq,
         target: msg.target,
         origin: msg.origin,
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
@@ -1464,7 +1488,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       frontierQueueDebug("frontier_result_received", {
         actionType: msg.actionType,
         target: msg.target,
-        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined
       });
       if (msg.actionType === "EXPAND" && target && currentActionCanResolveFromFrontierOwnership(keyFor(target.x, target.y))) {
         resolveFrontierCapture("FRONTIER_RESULT");
@@ -1476,8 +1501,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "COMBAT_RESULT") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-result-ignored-command-mismatch", {
+          attackType: msg.attackType,
           commandId: msg.commandId,
-          currentCommandId: state.actionCurrent?.commandId
+          clientSeq: msg.clientSeq,
+          currentCommandId: state.actionCurrent?.commandId,
+          currentClientSeq: state.actionCurrent?.clientSeq,
+          currentAction: state.actionCurrent,
+          actionTargetKey: state.actionTargetKey,
+          target: msg.target,
+          origin: msg.origin
         });
         return;
       }
@@ -1503,6 +1535,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       attackSyncLog("combat-result", {
         attackType: msg.attackType,
+        commandId: msg.commandId,
+        clientSeq: msg.clientSeq,
         target: msg.target,
         origin: msg.origin,
         attackerWon: msg.attackerWon,
@@ -1517,8 +1551,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "COMBAT_START") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
+          attackType: (msg.predictedResult as { attackType?: string } | undefined)?.attackType,
           commandId: msg.commandId,
-          currentCommandId: state.actionCurrent?.commandId
+          clientSeq: msg.clientSeq,
+          currentCommandId: state.actionCurrent?.commandId,
+          currentClientSeq: state.actionCurrent?.clientSeq,
+          currentAction: state.actionCurrent,
+          actionTargetKey: state.actionTargetKey,
+          target: msg.target,
+          origin: msg.origin
         });
         return;
       }
@@ -1526,6 +1567,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const target = msg.target as { x: number; y: number };
       const resolvesAt = msg.resolvesAt as number;
       attackSyncLog("combat-start", {
+        commandId: msg.commandId,
+        clientSeq: msg.clientSeq,
         target,
         origin: msg.origin,
         resolvesAt,
@@ -1573,6 +1616,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (!state.actionStartedAt) state.actionStartedAt = startAt;
       state.actionTargetKey = keyFor(target.x, target.y);
       frontierQueueDebug("combat_start_applied", {
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined,
         target,
         resolvesAt
       });

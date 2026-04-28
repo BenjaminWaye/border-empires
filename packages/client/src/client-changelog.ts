@@ -19,12 +19,12 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.28.10",
+  version: "2026.04.28.11",
   title: "What's New",
-  summary: "Recent updates include chunked rewrite 3D terrain with cliffed coastlines and terrain-aware picking/markers; layered Carcassonne-style dirt roads for the rewrite map while keeping the existing road rules; rewrite 3D frontier queue ordinals; frontier expansion responsiveness improvements so chained human captures stop kicking off full subscribed chunk refreshes while frontier priority is active and staging now logs when those refreshes defer and flush; rewrite leaderboard/bootstrap fixes so auth bootstraps keep the authoritative AI-filled world-status snapshot even when visible tiles are still empty and opaque auth ids no longer leak raw Firebase-looking strings into public names; season-rollover profile reset and auth-cleanup hardening so human empires now pick a fresh name and color each season while auth-only probe accounts and unfinished profiles no longer linger as one-tile rivals; a restored logout fix so both desktop and mobile settings cards sign out again after the duplicated-panel regression resurfaced; settlement UI cleanup so settlements no longer advertise town-only support areas or road links before they grow up; first-class rewrite season lifecycle support with managed empty-DB bootstrap from ruleset worldgen, ended-season freeze handling, current and archive HQ endpoints, and a protected manual start-next season path in the gateway; corrected seasonal bootstraps so the production ruleset now starts with 10 named AI empires and no pre-seeded human empire instead of an almost-empty malformed world; HQ current-season totals now count seeded AI empires correctly instead of reporting zero players on AI-only seasons; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include chunked rewrite 3D terrain with cliffed coastlines and terrain-aware picking/markers; layered Carcassonne-style dirt roads for the rewrite map while keeping the existing road rules; rewrite 3D frontier queue ordinals; frontier action diagnostics that now keep command ids and client sequence numbers attached to acceptance, combat-start, and combat-result messages so stalled expansion attempts can be correlated cleanly between client and server logs; rewrite AI autopilot recovery fixes so restarted or recovered seasons keep the correct live AI roster instead of planning against stale seed-only ids; frontier expansion responsiveness improvements so chained human captures stop kicking off full subscribed chunk refreshes while frontier priority is active and staging now logs when those refreshes defer and flush; rewrite leaderboard/bootstrap fixes so auth bootstraps keep the authoritative AI-filled world-status snapshot even when visible tiles are still empty and opaque auth ids no longer leak raw Firebase-looking strings into public names; season-rollover profile reset and auth-cleanup hardening so human empires now pick a fresh name and color each season while auth-only probe accounts and unfinished profiles no longer linger as one-tile rivals; a restored logout fix so both desktop and mobile settings cards sign out again after the duplicated-panel regression resurfaced; settlement UI cleanup so settlements no longer advertise town-only support areas or road links before they grow up; first-class rewrite season lifecycle support with managed empty-DB bootstrap from ruleset worldgen, ended-season freeze handling, current and archive HQ endpoints, and a protected manual start-next season path in the gateway; corrected seasonal bootstraps so the production ruleset now starts with 10 named AI empires and no pre-seeded human empire instead of an almost-empty malformed world; HQ current-season totals now count seeded AI empires correctly instead of reporting zero players on AI-only seasons; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
     {
-      introducedIn: "2026.04.28.10",
+      introducedIn: "2026.04.28.11",
       title: "Rewrite 3D mode now builds chunked square terrain instead of flat tile boxes",
       why: "The earlier rewrite 3D terrain used one box-like ground instance per tile, which limited coastline shaping, elevation changes, and the overall terrain read needed for a more atmospheric strategy-map look.",
       changes: [
@@ -34,7 +34,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.28.10",
+      introducedIn: "2026.04.28.11",
       title: "Rewrite map roads now render as layered dirt paths instead of flat brown lines",
       why: "The rewrite road network was still drawing as a single thin line between towns, which made roads easy to miss against the new terrain and disconnected visually from the rest of the map style.",
       changes: [
@@ -44,13 +44,33 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.28.10",
+      introducedIn: "2026.04.28.11",
       title: "Frontier queue tiles in rewrite 3D mode show their queue number again",
       why: "The earlier 3D queue badge fix restored development ordinals, but frontier expansion tiles were still using a separate 2D-only badge path, so queued attack and expand tiles kept their border without the numeric order in 3D.",
       changes: [
         "Queued frontier tiles now render their purple ordinal badge in rewrite 3D mode at the projected tile position.",
         "Frontier, settlement, and build queues now share the same badge-layout helper so the 3D and 2D paths stay aligned.",
         "Added client regression coverage so future queue-marker refactors do not silently drop frontier ordinals in the 3D renderer."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.10",
+      title: "Frontier expansion acks now expose command correlation in diagnostics",
+      why: "Some queued frontier expands were clearly touching tile updates without ever flipping the client ack flags, which made it hard to tell whether the server never accepted the action or the client dropped the corresponding control message.",
+      changes: [
+        "Server frontier ACTION_ACCEPTED, COMBAT_START, and COMBAT_RESULT messages now preserve the originating frontier command id and client sequence when they are available.",
+        "Client frontier queue diagnostics now log the active action key, late-ack wait windows, and both sides of any command-id mismatch instead of only printing a partial current state.",
+        "This does not change frontier gameplay rules, but it makes stuck-expand investigations much faster because server and client logs can now be matched directly."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.9",
+      title: "Recovered rewrite seasons now restart AI autopilot with the actual live AI roster",
+      why: "Recovered staging worlds could re-enable AI autopilot against fallback seed identities instead of the recovered player set, which left the worker trying to plan moves for AI ids that did not exist in the live runtime.",
+      changes: [
+        "Rewrite simulation now derives AI autopilot identities from recovered player state first and only falls back to seed identities when recovery truly has no players.",
+        "Boolean-style simulation env flags now tolerate values like `true`, `on`, and surrounding whitespace instead of requiring only exact `1`.",
+        "Added startup regressions so recovered managed-season worlds cannot silently start the AI loop with stale seed-only player ids again."
       ]
     },
     {
@@ -121,6 +141,36 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The production seasonal ruleset now bootstraps with 10 AI-controlled empires already on the map, while humans still start fresh with no pre-seeded empire.",
         "AI season empires now get mixed English and Swedish human-style names so HQ and leaderboard reads no longer leak raw ai-ids.",
         "The admin season-start route now accepts a protected force mode so operators can roll staging into a fresh season even before a winner has been crowned."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.1",
+      title: "Rewrite seasons can now end, stay viewable, and manually roll into a fresh ruleset-generated world",
+      why: "The rewrite stack could recover an existing world, but it did not have a first-class seasonal lifecycle for managed DB-backed runtime, which made staging season resets fragile and left the HQ site without authoritative current/archive season reads.",
+      changes: [
+        "Managed rewrite startup can now bootstrap the first season from a ruleset-generated world when durable state is empty instead of crashing or depending on a seeded AI profile.",
+        "Season victory tracking now freezes the world into an ended read-only state, keeps that ended season as current until replacement, and persists the current season summary for HQ reads.",
+        "Gateway now exposes current and archive HQ endpoints plus a protected manual start-next-season route backed by simulation-side archival, operational-state wipe, and fresh-world bootstrap."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.10",
+      title: "Log Out now works from every settings panel layout",
+      why: "The client renders the settings card in both desktop and mobile panel containers, but the logout handler only attached to the first matching button id, so the other visible Log Out control could do nothing.",
+      changes: [
+        "The settings card now renders logout controls with a shared data hook instead of a duplicated global id.",
+        "HUD binding now attaches the sign-out handler to every rendered Log Out button, so both desktop and mobile panel copies trigger Firebase sign-out and reload.",
+        "Added a client regression guard so future panel cloning changes cannot silently leave one logout button inert."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.9",
+      title: "Simulation restarts no longer hold login behind startup replay compaction",
+      why: "Staging restarts were blocking the simulation gRPC listener behind a replay-compaction checkpoint, and the checkpoint path itself was not using one dedicated Postgres transaction client, which could leave the gateway seeing long ECONNREFUSED windows and projection write failures before login even reached subscribe.",
+      changes: [
+        "Simulation now starts listening for gateway auth traffic before replay-compaction checkpoint work runs, so restarts stop presenting a long pre-listen outage window to staging logins.",
+        "Postgres snapshot, projection, checkpoint-metadata, and event-prune writes now run on one dedicated transaction client instead of issuing BEGIN/COMMIT through a pool-wide query path.",
+        "Added regression coverage for post-start replay compaction scheduling and transactional snapshot writes so future checkpoint changes do not silently reintroduce startup login outages."
       ]
     },
     {
