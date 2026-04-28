@@ -42,6 +42,7 @@ export interface CreateServerRealtimeSyncRuntimeDeps {
   visibleInSnapshot: (snapshot: VisibilitySnapshot, x: number, y: number) => boolean;
   visible: (player: Player, x: number, y: number) => boolean;
   effectiveVisionRadiusForPlayer: (player: Player) => number;
+  humanFrontierActionPriorityActive?: () => boolean;
   isValidCapitalTile: (player: Player, tileKey: TileKey | undefined) => tileKey is TileKey;
   chooseCapitalTileKey: (player: Player) => TileKey | undefined;
   resolveControlSocketForPlayer: (controlSockets: Map<string, Ws>, playerId: string) => Ws | undefined;
@@ -88,6 +89,10 @@ export interface ServerRealtimeSyncRuntime {
 export const createServerRealtimeSyncRuntime = (
   deps: CreateServerRealtimeSyncRuntimeDeps
 ): ServerRealtimeSyncRuntime => {
+  const DEFERRED_SUBSCRIBED_VIEW_REFRESH_MS = 50;
+  const deferredSubscribedViewRefreshByPlayer = new Map<string, ReturnType<typeof setTimeout>>();
+  const deferredSubscribedViewRefreshStartedAtByPlayer = new Map<string, number>();
+
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     const playerId = typeof payload.playerId === "string" ? payload.playerId : undefined;
     const playerEmail = playerId
@@ -305,10 +310,44 @@ export const createServerRealtimeSyncRuntime = (
     const player = deps.players.get(playerId);
     const sub = deps.chunkSubscriptionByPlayer.get(playerId);
     if (!socket || socket.readyState !== socket.OPEN || !player || !sub) return;
+    if (deps.humanFrontierActionPriorityActive?.()) {
+      deps.pendingChunkRefreshByPlayer.add(playerId);
+      if (!deferredSubscribedViewRefreshByPlayer.has(playerId)) {
+        const deferredAt = deps.now();
+        deferredSubscribedViewRefreshStartedAtByPlayer.set(playerId, deferredAt);
+        deps.recordServerDebugEvent("info", "subscribed_view_refresh_deferred_for_frontier_priority", {
+          playerId,
+          deferredDelayMs: DEFERRED_SUBSCRIBED_VIEW_REFRESH_MS,
+          pendingChunkRefreshPlayers: deps.pendingChunkRefreshByPlayer.size,
+          chunkSnapshotInFlight: deps.chunkSnapshotInFlightByPlayer.has(playerId)
+        });
+        deferredSubscribedViewRefreshByPlayer.set(
+          playerId,
+          setTimeout(() => {
+            deferredSubscribedViewRefreshByPlayer.delete(playerId);
+            if (!deps.pendingChunkRefreshByPlayer.has(playerId)) return;
+            const deferredStartedAt = deferredSubscribedViewRefreshStartedAtByPlayer.get(playerId);
+            if (deferredStartedAt !== undefined && !deps.humanFrontierActionPriorityActive?.()) {
+              deps.recordServerDebugEvent("info", "subscribed_view_refresh_flushed_after_frontier_priority", {
+                playerId,
+                deferredMs: deps.now() - deferredStartedAt,
+                pendingChunkRefreshPlayers: deps.pendingChunkRefreshByPlayer.size,
+                chunkSnapshotInFlight: deps.chunkSnapshotInFlightByPlayer.has(playerId)
+              });
+            }
+            deferredSubscribedViewRefreshStartedAtByPlayer.delete(playerId);
+            refreshSubscribedViewForPlayer(playerId);
+          }, DEFERRED_SUBSCRIBED_VIEW_REFRESH_MS)
+        );
+      }
+      return;
+    }
     if (deps.chunkSnapshotInFlightByPlayer.has(playerId)) {
       deps.pendingChunkRefreshByPlayer.add(playerId);
       return;
     }
+    deferredSubscribedViewRefreshStartedAtByPlayer.delete(playerId);
+    deps.pendingChunkRefreshByPlayer.delete(playerId);
     deps.sendChunkSnapshot(socket, player, sub);
   };
 
