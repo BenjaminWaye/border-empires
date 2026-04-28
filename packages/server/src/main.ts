@@ -2951,7 +2951,9 @@ const executeUnifiedGameplayMessage = async (
           actionType: msg.type,
           origin: result.origin,
           target: result.target,
-          resolvesAt: result.resolvesAt
+          resolvesAt: result.resolvesAt,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {})
         })
       );
       sendHighPrioritySocketMessage(
@@ -2961,6 +2963,8 @@ const executeUnifiedGameplayMessage = async (
           origin: result.origin,
           target: result.target,
           resolvesAt: result.resolvesAt,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
           ...(result.predictedResult ? { predictedResult: result.predictedResult } : {})
         })
       );
@@ -9805,6 +9809,8 @@ registerServerHttpRoutes(app, {
       target: { x: to.x, y: to.y },
       resolvesAt,
       elapsedMs: now() - nowMs,
+      ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+      ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
       ...(pending.traceId ? { traceId: pending.traceId } : {})
     });
     sendControlToSocket(
@@ -9814,7 +9820,9 @@ registerServerHttpRoutes(app, {
         actionType: msg.type,
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
-        resolvesAt
+        resolvesAt,
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {})
       },
       { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
     );
@@ -9826,12 +9834,16 @@ registerServerHttpRoutes(app, {
         from: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         resolvesAt,
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
         traceId: pending.traceId
       },
       now() - nowMs,
       50
     );
     logAttackTrace("accepted_ack_sent", pending, {
+      commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+      clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
       socketReadyState: socket.readyState
     });
     if (precomputedCombatPromise) {
@@ -9859,6 +9871,8 @@ registerServerHttpRoutes(app, {
       target: { x: to.x, y: to.y },
       resolvesAt,
       predictedResult: Boolean(predictedResult),
+      ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+      ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
       ...(pending.traceId ? { traceId: pending.traceId } : {})
     });
     sendControlToSocket(
@@ -9868,6 +9882,8 @@ registerServerHttpRoutes(app, {
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         resolvesAt,
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
         ...(predictedResult ? { predictedResult } : {})
       },
       { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
@@ -9881,13 +9897,20 @@ registerServerHttpRoutes(app, {
         target: { x: to.x, y: to.y },
         resolvesAt,
         predictedResult: Boolean(predictedResult),
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
         traceId: pending.traceId
       },
       now() - nowMs,
       50
     );
-    logExpandTrace("combat_start_sent", pending);
+    logExpandTrace("combat_start_sent", pending, {
+      commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+      clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined
+    });
     logAttackTrace("combat_start_sent", pending, {
+      commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+      clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
       predictedResult: Boolean(predictedResult),
       socketReadyState: socket.readyState
     });
@@ -9948,6 +9971,8 @@ registerServerHttpRoutes(app, {
             changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }],
             pointsDelta: siteBonusGold,
             levelDelta: 0,
+            ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+            ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
             ...(neutralExpandTiming ? { timing: neutralExpandTiming } : {})
           },
           { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
@@ -9961,6 +9986,8 @@ registerServerHttpRoutes(app, {
             target: { x: to.x, y: to.y },
             attackerWon: true,
             neutralTarget: true,
+            ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+            ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
             traceId: pending.traceId
           },
           now() - nowMs,
@@ -10140,7 +10167,9 @@ registerServerHttpRoutes(app, {
           pillagedGold,
           pillagedShare,
           pillagedStrategic,
-          levelDelta: 0
+          levelDelta: 0,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {})
         },
         { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
       );
@@ -10156,13 +10185,22 @@ registerServerHttpRoutes(app, {
           defenderId: defender?.id,
           defenderIsBarbarian,
           changes: resultChanges.length,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
           traceId: pending.traceId
         },
         now() - nowMs,
         50
       );
-      logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
+      logExpandTrace("combat_result_sent", pending, {
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
+        neutralTarget: false,
+        changes: resultChanges.length
+      });
       logAttackTrace("combat_result_sent", pending, {
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
         neutralTarget: false,
         changes: resultChanges.length,
         socketReadyState: socket.readyState
