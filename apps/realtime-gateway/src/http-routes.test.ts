@@ -228,6 +228,7 @@ describe("gateway http routes", () => {
   });
 
   it("serves current summary, archives, and protects start-next", async () => {
+    const startNextSeasonCalls: boolean[] = [];
     const app = Fastify();
     registerGatewayHttpRoutes(app, {
       startupStartedAt: 1_000,
@@ -284,7 +285,10 @@ describe("gateway http routes", () => {
           replayEvents: []
         }
       ],
-      startNextSeason: async () => ({ seasonId: "season-10" })
+      startNextSeason: async (force) => {
+        startNextSeasonCalls.push(force === true);
+        return { seasonId: force ? "season-11" : "season-10" };
+      }
     });
 
     const summaryResponse = await app.inject({ method: "GET", url: "/hq/summary" });
@@ -305,6 +309,15 @@ describe("gateway http routes", () => {
     });
     expect(authorizedResponse.statusCode).toBe(200);
     expect(authorizedResponse.json()).toEqual({ ok: true, seasonId: "season-10" });
+
+    const forcedResponse = await app.inject({
+      method: "POST",
+      url: "/admin/season/start-next?force=1",
+      headers: { authorization: "Bearer secret" }
+    });
+    expect(forcedResponse.statusCode).toBe(200);
+    expect(forcedResponse.json()).toEqual({ ok: true, seasonId: "season-11" });
+    expect(startNextSeasonCalls).toEqual([false, true]);
 
     await app.close();
   });

@@ -164,7 +164,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
 
     try {
-      const result = await deps.startNextSeason(false);
+      const query = request.query as { force?: string | boolean | number } | undefined;
+      const result = await deps.startNextSeason(forceRequested(query?.force));
       return {
         ok: true,
         seasonId: result.seasonId
@@ -178,3 +179,5 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
   });
 };
+  const forceRequested = (value: unknown): boolean =>
+    value === true || value === "true" || value === "1" || value === 1;
