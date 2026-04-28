@@ -43,6 +43,12 @@ const isManagedRuntimeEnv = (env: NodeJS.ProcessEnv): boolean => {
   return nodeEnv === "production" || nodeEnv === "staging" || typeof env.FLY_APP_NAME === "string";
 };
 
+const parseBooleanishEnvFlag = (value: string | undefined): boolean => {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+};
+
 export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRuntimeEnv => {
   const databaseUrl = env.SIMULATION_DATABASE_URL ?? env.DATABASE_URL;
   const isManagedRuntime = isManagedRuntimeEnv(env);
@@ -60,12 +66,12 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   const checkpointMaxRssMb = env.SIMULATION_CHECKPOINT_MAX_RSS_MB;
   const checkpointMaxHeapUsedMb = env.SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB;
   const allowSeedRecoveryFallback =
-    env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK === "1" &&
+    parseBooleanishEnvFlag(env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK) &&
     Boolean(env.SIMULATION_SEED_PROFILE);
   const requireDurableStartupState =
     env.SIMULATION_REQUIRE_DURABLE_STARTUP_STATE === undefined
       ? undefined
-      : env.SIMULATION_REQUIRE_DURABLE_STARTUP_STATE !== "0";
+      : !["0", "false", "no", "off"].includes(env.SIMULATION_REQUIRE_DURABLE_STARTUP_STATE.trim().toLowerCase());
 
   return {
     host: env.SIMULATION_HOST ?? "127.0.0.1",
@@ -101,14 +107,14 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       : {}),
     seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     ...(env.SIMULATION_RULESET_ID ? { rulesetId: env.SIMULATION_RULESET_ID as SimulationRulesetId } : {}),
-    enableAiAutopilot: env.SIMULATION_ENABLE_AI_AUTOPILOT === "1",
+    enableAiAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_AI_AUTOPILOT),
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
     aiMaxEventLoopLagMs: parsePositiveNumber(
       env.SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS,
       250,
       "simulation ai max event-loop lag"
     ),
-    enableSystemAutopilot: env.SIMULATION_ENABLE_SYSTEM_AUTOPILOT === "1",
+    enableSystemAutopilot: parseBooleanishEnvFlag(env.SIMULATION_ENABLE_SYSTEM_AUTOPILOT),
     systemTickMs: parsePositiveNumber(env.SIMULATION_SYSTEM_TICK_MS, 500, "simulation system tick"),
     globalStatusBroadcastDebounceMs: parsePositiveNumber(
       env.SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS,
@@ -122,7 +128,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
     ),
     allowSeedRecoveryFallback,
     ...(typeof requireDurableStartupState === "boolean" ? { requireDurableStartupState } : {}),
-    useAiWorker: env.SIMULATION_AI_WORKER === "1",
+    useAiWorker: parseBooleanishEnvFlag(env.SIMULATION_AI_WORKER),
     ...(systemPlayerIds && systemPlayerIds.length > 0 ? { systemPlayerIds } : {})
   };
 };
