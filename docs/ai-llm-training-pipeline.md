@@ -126,6 +126,8 @@ This is exactly what the new batch-builder script generates prompts for:
 
 - `scripts/build-ai-labeling-batch.mjs`
 - `pnpm ai:labeling:batch`
+- `scripts/run-ai-labeling-local.mjs`
+- `pnpm ai:labeling:local`
 
 Input:
 
@@ -136,6 +138,34 @@ Output:
 - `tmp/ai-training/labeling-batch.jsonl`
 
 That output is intentionally shaped for OpenAI batch-style offline labeling. It can also be adapted for any other LLM provider.
+
+For local teacher runs, the worktree now also supports:
+
+```bash
+AI_LABELING_PROVIDER=ollama \
+AI_LABELING_MODEL=qwen2.5:7b-instruct \
+pnpm ai:labeling:local
+```
+
+or an OpenAI-compatible local server such as `vllm`:
+
+```bash
+AI_LABELING_PROVIDER=vllm \
+AI_LABELING_BASE_URL=http://127.0.0.1:8000/v1 \
+AI_LABELING_MODEL=Qwen/Qwen2.5-7B-Instruct \
+pnpm ai:labeling:local
+```
+
+This writes:
+
+- `tmp/ai-training/labeled-records.local.jsonl`
+
+Useful knobs:
+
+- `AI_LABELING_CONCURRENCY=1..N`
+- `AI_LABELING_MAX_RECORDS=N`
+
+For low-cost local labeling, start with `Qwen2.5-7B-Instruct` and a small `AI_LABELING_MAX_RECORDS` cap, then only escalate ambiguous or low-quality labels to a stronger model.
 
 ### 3. Distill the labels into production-friendly targets
 
