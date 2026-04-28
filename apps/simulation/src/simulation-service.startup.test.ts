@@ -133,6 +133,30 @@ describe("simulation service startup recovery", () => {
     await service.close();
   });
 
+  it("normalizes truthy autopilot flags when callers pass string values at runtime", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+
+    const service = await createSimulationService({
+      seedProfile: "season-20ai",
+      commandStore,
+      eventStore,
+      snapshotStore,
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
+      enableAiAutopilot: "1" as unknown as boolean,
+      log: {
+        info: () => undefined,
+        error: () => undefined,
+        warn: () => undefined
+      }
+    });
+
+    expect(service.renderMetrics()).toContain("sim_ai_autopilot_enabled 1");
+    expect(service.renderMetrics()).toContain("sim_ai_autopilot_player_count 20");
+    await service.close();
+  });
+
   it("bootstraps the first managed season from ruleset worldgen when durable stores are empty", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
