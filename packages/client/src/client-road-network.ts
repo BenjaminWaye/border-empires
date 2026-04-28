@@ -2,9 +2,13 @@ import type { Tile } from "./client-types.js";
 
 export type RoadDirections = {
   north?: boolean;
+  northeast?: boolean;
   east?: boolean;
+  southeast?: boolean;
   south?: boolean;
+  southwest?: boolean;
   west?: boolean;
+  northwest?: boolean;
   terminal?: boolean;
 };
 
@@ -21,13 +25,17 @@ type RoadNode = {
   tile: Tile;
 };
 
-type StepDir = "north" | "east" | "south" | "west";
+type StepDir = keyof Omit<RoadDirections, "terminal">;
 
-const CARDINAL_STEPS: Array<{ dx: number; dy: number; dir: StepDir; opposite: StepDir }> = [
+const ROAD_STEPS: Array<{ dx: number; dy: number; dir: StepDir; opposite: StepDir }> = [
   { dx: 0, dy: -1, dir: "north", opposite: "south" },
+  { dx: 1, dy: -1, dir: "northeast", opposite: "southwest" },
   { dx: 1, dy: 0, dir: "east", opposite: "west" },
+  { dx: 1, dy: 1, dir: "southeast", opposite: "northwest" },
   { dx: 0, dy: 1, dir: "south", opposite: "north" },
-  { dx: -1, dy: 0, dir: "west", opposite: "east" }
+  { dx: -1, dy: 1, dir: "southwest", opposite: "northeast" },
+  { dx: -1, dy: 0, dir: "west", opposite: "east" },
+  { dx: -1, dy: -1, dir: "northwest", opposite: "southeast" }
 ];
 
 const TOWN_TIER_WEIGHT: Record<NonNullable<NonNullable<Tile["town"]>["populationTier"]>, number> = {
@@ -73,7 +81,7 @@ const connectedComponentForOwner = (
     if (!isSettledLand(tile) || tile.ownerId !== ownerId) continue;
     seen.add(key);
     component.set(key, { x: current.x, y: current.y, tile });
-    for (const step of CARDINAL_STEPS) {
+    for (const step of ROAD_STEPS) {
       queue.push({
         x: deps.wrapX(current.x + step.dx),
         y: deps.wrapY(current.y + step.dy)
@@ -111,7 +119,7 @@ const findShortestPathToNetwork = (
       path.reverse();
       return path;
     }
-    for (const step of CARDINAL_STEPS) {
+    for (const step of ROAD_STEPS) {
       const nx = deps.wrapX(current.x + step.dx);
       const ny = deps.wrapY(current.y + step.dy);
       const nextKey = deps.keyFor(nx, ny);

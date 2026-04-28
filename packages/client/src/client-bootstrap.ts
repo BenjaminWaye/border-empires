@@ -10,6 +10,13 @@ import { bindClientMapInput } from "./client-map-input.js";
 import { bindClientNetwork } from "./client-network.js";
 import { renderClientHud, resizeClientViewport } from "./client-hud.js";
 import { bindClientUiControls } from "./client-ui-controls.js";
+import { downloadClientDebugBundle } from "./client-debug-bundle.js";
+import { createClientThreeTerrainRenderer } from "./client-map-3d.js";
+import {
+  prefersTrue3DRendererMode,
+  rendererModeExplicitlySet,
+  setTrue3DRendererActive
+} from "./client-renderer-mode.js";
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
 
 type BootstrapDeps = Record<string, any>;
@@ -200,8 +207,44 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   };
   requireAuthedSessionImpl = requireAuthedSession;
 
+  let threeTerrainRenderer:
+    | ReturnType<typeof createClientThreeTerrainRenderer>
+    | undefined;
+  const prefersRewrite3DDefault = state.activeBackend === "gateway" && !rendererModeExplicitlySet;
+  const localhost3DDefault =
+    typeof window !== "undefined" &&
+    window.location.hostname === "localhost" &&
+    !rendererModeExplicitlySet;
+  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode || prefersRewrite3DDefault || localhost3DDefault;
+  const ensureThreeTerrainRenderer = (): void => {
+    if (!shouldUseThreeTerrainRenderer) return;
+    if (!state.authSessionReady) return;
+    if (threeTerrainRenderer) return;
+    try {
+      threeTerrainRenderer = createClientThreeTerrainRenderer({
+        state,
+        canvas,
+        keyFor,
+        wrapX,
+        wrapY,
+        terrainAt,
+        effectiveOverlayColor,
+        tileVisibilityStateAt
+      });
+      setTrue3DRendererActive(true);
+    } catch (error) {
+      console.error("[renderer-3d-init-failed]", error);
+      setTrue3DRendererActive(false);
+    }
+  };
+  if (!shouldUseThreeTerrainRenderer) {
+    setTrue3DRendererActive(false);
+  }
+
   const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } =>
-    deps.worldTileRawFromPointerFromModule(state, canvas, offsetX, offsetY);
+    threeTerrainRenderer?.worldTileRawFromPointer(offsetX, offsetY) ?? deps.worldTileRawFromPointerFromModule(state, canvas, offsetX, offsetY);
+  const projectedWorldToScreen = (wx: number, wy: number, size: number, halfW: number, halfH: number): { sx: number; sy: number } =>
+    threeTerrainRenderer?.worldToScreen(wx, wy) ?? worldToScreen(wx, wy, size, halfW, halfH);
 
   const computeDragPreview = (): void =>
     deps.computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor, hasCollectableYield });
@@ -275,10 +318,17 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       captureWrapEl: dom.captureWrapEl,
       captureCancelBtn: dom.captureCancelBtn,
       captureCloseBtn: dom.captureCloseBtn,
+      captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
       captureBarEl: dom.captureBarEl,
       captureTitleEl: dom.captureTitleEl,
       captureTimeEl: dom.captureTimeEl,
       captureTargetEl: dom.captureTargetEl
+    });
+
+  const downloadDebugBundle = (): Promise<void> =>
+    downloadClientDebugBundle({
+      state,
+      wsUrl
     });
 
   const renderShardAlert = (): void =>
@@ -293,81 +343,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
 
   const renderHud = (): void => {
     try {
+      ensureThreeTerrainRenderer();
       renderClientHud({
         state,
-        dom: {
-        alliancePlayerInspectEl: dom.alliancePlayerInspectEl,
-        allianceRequestsEl: dom.allianceRequestsEl,
-        alliesListEl: dom.alliesListEl,
-        authOverlayEl: dom.authOverlayEl,
-        canvas: dom.canvas,
-        collectVisibleDesktopBtn: dom.collectVisibleDesktopBtn,
-        collectVisibleDesktopMetaEl: dom.collectVisibleDesktopMetaEl,
-        collectVisibleMobileBtn: dom.collectVisibleMobileBtn,
-        collectVisibleMobileMetaEl: dom.collectVisibleMobileMetaEl,
-        feedEl: dom.feedEl,
-        guideOverlayEl: dom.guideOverlayEl,
-        hoverEl: dom.hoverEl,
-        hud: dom.hud,
-        leaderboardEl: dom.leaderboardEl,
-        mapLoadingMetaEl: dom.mapLoadingMetaEl,
-        mapLoadingOverlayEl: dom.mapLoadingOverlayEl,
-        mapLoadingTitleEl: dom.mapLoadingTitleEl,
-        miniMapLabelEl: dom.miniMapLabelEl,
-        missionsEl: dom.missionsEl,
-        mobileAlliancePlayerInspectEl: dom.mobileAlliancePlayerInspectEl,
-        mobileAllianceRequestsEl: dom.mobileAllianceRequestsEl,
-        mobileAlliesListEl: dom.mobileAlliesListEl,
-        mobileCoreHelpEl: dom.mobileCoreHelpEl,
-        mobilePanelDefensibilityEl: dom.mobilePanelDefensibilityEl,
-        mobilePanelFeedEl: dom.mobilePanelFeedEl,
-        mobileFeedEl: dom.mobileFeedEl,
-        mobileLeaderboardEl: dom.mobileLeaderboardEl,
-        mobilePanelDomainsEl: dom.mobilePanelDomainsEl,
-        mobilePanelEconomyEl: dom.mobilePanelEconomyEl,
-        mobilePanelLeaderboardEl: dom.mobilePanelLeaderboardEl,
-        mobilePanelManpowerEl: dom.mobilePanelManpowerEl,
-        mobilePanelMissionsEl: dom.mobilePanelMissionsEl,
-        mobilePanelTechEl: dom.mobilePanelTechEl,
-        mobileTechChoiceDetailsEl: dom.mobileTechChoiceDetailsEl,
-        mobileTechChoicesGridEl: dom.mobileTechChoicesGridEl,
-        mobileTechChooseBtn: dom.mobileTechChooseBtn,
-        mobileTechCurrentModsEl: dom.mobileTechCurrentModsEl,
-        mobileTechDetailCardEl: dom.mobileTechDetailCardEl,
-        mobileTechOwnedEl: dom.mobileTechOwnedEl,
-        mobileTechPickEl: dom.mobileTechPickEl,
-        mobileTechPointsEl: dom.mobileTechPointsEl,
-        mobileTechTreeExpandToggleEl: dom.mobileTechTreeExpandToggleEl,
-        panelActionButtons: dom.panelActionButtons,
-        panelDefensibilityEl: dom.panelDefensibilityEl,
-        panelDomainsEl: dom.panelDomainsEl,
-        panelDomainsContentEl: dom.panelDomainsContentEl,
-        panelEconomyEl: dom.panelEconomyEl,
-        panelManpowerEl: dom.panelManpowerEl,
-        panelTechEl: dom.panelTechEl,
-        selectedEl: dom.selectedEl,
-        statsChipsEl: dom.statsChipsEl,
-        structureInfoOverlayEl: dom.structureInfoOverlayEl,
-        techDetailOverlayEl: dom.techDetailOverlayEl,
-        targetingOverlayEl: dom.targetingOverlayEl,
-        techChoiceDetailsEl: dom.techChoiceDetailsEl,
-        techChoicesGridEl: dom.techChoicesGridEl,
-        techChooseBtn: dom.techChooseBtn,
-        techCurrentModsEl: dom.techCurrentModsEl,
-        techDetailCardEl: dom.techDetailCardEl,
-        techOwnedEl: dom.techOwnedEl,
-        techPickEl: dom.techPickEl,
-        techPointsEl: dom.techPointsEl,
-        techTreeExpandToggleEl: dom.techTreeExpandToggleEl,
-        tileActionMenuEl: dom.tileActionMenuEl,
-        mapLoadingRowEl: dom.mapLoadingRowEl,
-        mapLoadingSpinnerEl: dom.mapLoadingSpinnerEl,
-        shardAlertCardEl: dom.shardAlertCardEl,
-        shardAlertCloseBtn: dom.shardAlertCloseBtn,
-        shardAlertDetailEl: dom.shardAlertDetailEl,
-        shardAlertOverlayEl: dom.shardAlertOverlayEl,
-        shardAlertTitleEl: dom.shardAlertTitleEl
-      },
+        dom,
       miniMapReplayEl,
       wsUrl,
       firebaseAuth,
@@ -436,7 +415,10 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       feedHtml,
       renderMobilePanels,
         effectiveTechChoices: techFlow.effectiveTechChoices,
-        renderManpowerPanelHtml
+        renderManpowerPanelHtml,
+        retryBootstrapNow: () => {
+          void authenticateSocket(true).catch(() => {});
+        }
       });
     } catch (error) {
       console.error("[hud-render-fatal]", error);
@@ -446,7 +428,11 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   };
   renderHudImpl = renderHud;
 
-  const resize = (): void => resizeClientViewport({ dom: { canvas }, viewportSize });
+  const resize = (): void => {
+    ensureThreeTerrainRenderer();
+    resizeClientViewport({ dom: { canvas }, viewportSize });
+    threeTerrainRenderer?.resize();
+  };
   window.addEventListener("resize", resize);
   window.visualViewport?.addEventListener("resize", resize);
   resize();
@@ -473,6 +459,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     collectVisibleMobileBtn,
     captureCancelBtn,
     captureCloseBtn,
+    captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
     captureTimeEl,
     shardAlertCloseBtn,
     panelCloseBtn,
@@ -495,6 +482,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     hideShardAlert: deps.hideShardAlert,
     renderShardAlert,
     renderCaptureProgress,
+    downloadDebugBundle,
     setActivePanel,
     syncAuthPanelState
   });
@@ -512,6 +500,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     pushFeed,
     pushFeedEntry,
     clearOptimisticTileState,
+    applyOptimisticTileState,
     requestViewRefresh,
     applyPendingSettlementsFromServer: actionFlow.applyPendingSettlementsFromServer,
     mergeIncomingTileDetail,
@@ -570,6 +559,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     wrapY,
     parseKey,
     selectedTile,
+    aetherWallDirectionTargetTiles: actionFlow.aetherWallDirectionTargetTiles,
     settlementProgressForTile: actionFlow.settlementProgressForTile,
     tileVisibilityStateAt,
     crystalTargetingTone: actionFlow.crystalTargetingTone,
@@ -608,13 +598,15 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     isTownSupportHighlightableTile: originSelection.isTownSupportHighlightableTile,
     drawIncomingAttackOverlay: deps.drawIncomingAttackOverlay,
     settlePixelWanderPoint: settlePixelWanderPointFromModule,
-    worldToScreen,
+    worldToScreen: projectedWorldToScreen,
     isDockRouteVisibleForPlayer,
     computeDockSeaRoute,
     toroidDelta,
     drawAetherBridgeLane,
+    drawAetherWallSegment: deps.drawAetherWallSegment,
     drawMiniMap,
     maybeRefreshForCamera,
+    requestTileDetailIfNeeded: actionFlow.requestTileDetailIfNeeded,
     renderHud,
     renderCaptureProgress,
     renderShardAlert,

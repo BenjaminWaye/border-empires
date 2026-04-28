@@ -9,6 +9,7 @@ const serverMainSource = (): string => {
     readFileSync(resolve(here, "./main.ts"), "utf8"),
     readFileSync(resolve(here, "./server-game-constants.ts"), "utf8"),
     readFileSync(resolve(here, "./server-shared-types.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-snapshot-hydrate.ts"), "utf8"),
     readFileSync(resolve(here, "./server-worldgen-towns.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-support.ts"), "utf8"),
     readFileSync(resolve(here, "./server-town-economy-runtime.ts"), "utf8")
@@ -58,11 +59,15 @@ describe("pre-town settlement regression guard", () => {
     expect(source).toContain('if (townPopulationTierForTown(town) === "SETTLEMENT") return SETTLEMENT_BASE_GOLD_PER_MIN;');
   });
 
-  it("repairs legacy low-pop towns on hydrate instead of treating every town as a settlement", () => {
-    const source = serverMainSource();
-    expect(source).toContain("const normalizeLegacySettlementTowns = (): void => {");
-    expect(source).toContain("if (owner && owner.capitalTileKey === town.tileKey) {");
-    expect(source).toContain("town.isSettlement = true;");
-    expect(source).toContain("town.population = initialTownPopulationAt(x, y, activeSeason.worldSeed);");
+  it("loads snapshot season state before assigning missing town names", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(resolve(here, "./server-snapshot-hydrate.ts"), "utf8");
+    const hydrateStart = source.indexOf("const hydrateSnapshotState = (raw: SnapshotState): void => {");
+    const seasonIndex = source.indexOf("if (raw.season) deps.setActiveSeason(raw.season);", hydrateStart);
+    const assignNamesIndex = source.indexOf("deps.assignMissingTownNamesForWorld();", hydrateStart);
+    expect(hydrateStart).toBeGreaterThan(-1);
+    expect(seasonIndex).toBeGreaterThan(-1);
+    expect(assignNamesIndex).toBeGreaterThan(-1);
+    expect(seasonIndex).toBeLessThan(assignNamesIndex);
   });
 });

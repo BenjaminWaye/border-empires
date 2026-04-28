@@ -2,6 +2,9 @@ import { structureBuildDurationMs } from "@border-empires/shared";
 import { shouldPreserveOptimisticExpand } from "./client-frontier-overlay.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "./client-types.js";
+import { debugTileTimeline } from "./client-debug.js";
+
+const OPTIMISTIC_CLIENT_STATE_ENABLED = false;
 
 type OptimisticStateDeps = {
   state: ClientState;
@@ -12,6 +15,7 @@ type OptimisticStateDeps = {
 
 export const createClientOptimisticStateController = (deps: OptimisticStateDeps) => {
   const { state, keyFor, terrainAt, tileVisibilityStateAt } = deps;
+  const hasLateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
   const tileSyncDebugEnabled = (): boolean =>
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" ||
@@ -43,6 +47,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     y: number,
     mutate: (tile: Tile) => void
   ): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     const tileKey = keyFor(x, y);
     if (!state.optimisticTileSnapshots.has(tileKey)) {
       const existing = state.tiles.get(tileKey);
@@ -60,18 +65,39 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     mutate(next);
     state.tiles.set(tileKey, next);
     if (!next.fogged) state.discoveredTiles.add(tileKey);
+    debugTileTimeline("frontier-optimistic-applied", {
+      x,
+      y,
+      before: current,
+      after: next,
+      state,
+      keyFor,
+      extra: {
+        snapshotStored: state.optimisticTileSnapshots.has(tileKey)
+      }
+    });
   };
 
   const clearOptimisticTileState = (tileKey: string, revert = false): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     if (!state.optimisticTileSnapshots.has(tileKey)) return;
     const previous = state.optimisticTileSnapshots.get(tileKey);
+    const current = state.tiles.get(tileKey);
     state.optimisticTileSnapshots.delete(tileKey);
     if (!revert) {
-      const current = state.tiles.get(tileKey);
       if (current?.optimisticPending) {
         const next = { ...current };
         delete next.optimisticPending;
         state.tiles.set(tileKey, next);
+        debugTileTimeline("frontier-optimistic-cleared", {
+          x: next.x,
+          y: next.y,
+          before: current,
+          after: next,
+          state,
+          keyFor,
+          extra: { revert }
+        });
       }
       return;
     }
@@ -79,7 +105,26 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       state.tiles.set(tileKey, previous);
       if (!previous.fogged) state.discoveredTiles.add(tileKey);
       else state.discoveredTiles.delete(tileKey);
+      debugTileTimeline("frontier-optimistic-reverted", {
+        x: previous.x,
+        y: previous.y,
+        before: current,
+        after: previous,
+        state,
+        keyFor,
+        extra: { revert }
+      });
     } else {
+      if (current) {
+        debugTileTimeline("frontier-optimistic-reverted", {
+          x: current.x,
+          y: current.y,
+          before: current,
+          state,
+          keyFor,
+          extra: { revert, deletedTile: true }
+        });
+      }
       state.tiles.delete(tileKey);
       state.discoveredTiles.delete(tileKey);
     }
@@ -100,6 +145,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const applyOptimisticStructureBuild = (x: number, y: number, kind: OptimisticStructureKind): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     const completesAt = Date.now() + structureBuildDurationMs(kind);
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_build";
@@ -150,6 +196,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const applyOptimisticStructureRemoval = (x: number, y: number): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_remove";
       if (tile.fort) {
@@ -175,6 +222,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const applyOptimisticStructureCancel = (x: number, y: number): void => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return;
     applyOptimisticTileState(x, y, (tile) => {
       tile.optimisticPending = "structure_cancel";
       delete tile.fort;
@@ -184,28 +232,79 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     });
   };
 
-  const shouldPreserveOptimisticExpandByKey = (tileKey: string): boolean =>
-    shouldPreserveOptimisticExpand(tileKey ? state.tiles.get(tileKey) : undefined, state.me);
+  const shouldPreserveOptimisticExpandByKey = (tileKey: string): boolean => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return false;
+    const tile = tileKey ? state.tiles.get(tileKey) : undefined;
+    if (shouldPreserveOptimisticExpand(tile, state.me)) return true;
+    if (!tileKey) return false;
+    if (hasLateFrontierAckPending(tileKey)) return true;
+    return false;
+  };
 
   const mergeServerTileWithOptimisticState = (incoming: Tile): Tile => {
+    if (!OPTIMISTIC_CLIENT_STATE_ENABLED) return incoming;
     const tileKey = keyFor(incoming.x, incoming.y);
     const existing = state.tiles.get(tileKey);
     const settlementProgress = state.settleProgressByTile.get(tileKey);
+    if (
+      existing?.ownerId &&
+      incoming.ownerId === existing.ownerId &&
+      existing.ownershipState === "SETTLED" &&
+      incoming.ownershipState === "FRONTIER"
+    ) {
+      debugTileTimeline("frontier-merge-ignore-downgrade", {
+        x: incoming.x,
+        y: incoming.y,
+        before: existing,
+        incoming,
+        after: existing,
+        state,
+        keyFor
+      });
+      logTileSync("ignore_same_owner_frontier_downgrade", {
+        tileKey,
+        ownerId: existing.ownerId,
+        existingOwnershipState: existing.ownershipState,
+        incomingOwnershipState: incoming.ownershipState
+      });
+      return existing;
+    }
     if (settlementProgress && (existing?.ownerId === state.me || incoming.ownerId === state.me)) {
       if (incoming.ownerId === state.me && incoming.ownershipState === "SETTLED") return incoming;
-      return {
+      const merged: Tile = {
         ...incoming,
         ownerId: state.me,
         ownershipState: settlementProgress.awaitingServerConfirm ? "SETTLED" : existing?.ownershipState === "SETTLED" ? "SETTLED" : "FRONTIER",
         fogged: false,
         optimisticPending: "settle"
       };
+      debugTileTimeline("frontier-merge-settlement-progress", {
+        x: incoming.x,
+        y: incoming.y,
+        before: existing,
+        incoming,
+        after: merged,
+        state,
+        keyFor,
+        extra: { awaitingServerConfirm: settlementProgress.awaitingServerConfirm }
+      });
+      return merged;
     }
     if (!existing?.optimisticPending || existing.ownerId !== state.me) return incoming;
     if (existing.optimisticPending === "expand") {
       if (incoming.ownerId === state.me && incoming.ownershipState === "FRONTIER") return incoming;
       const awaitingActiveExpand = state.actionInFlight && state.actionTargetKey === tileKey;
-      if (!awaitingActiveExpand) {
+      const awaitingLateAck = hasLateFrontierAckPending(tileKey);
+      if (!awaitingActiveExpand && !awaitingLateAck) {
+        debugTileTimeline("frontier-merge-authority-restored", {
+          x: incoming.x,
+          y: incoming.y,
+          before: existing,
+          incoming,
+          after: incoming,
+          state,
+          keyFor
+        });
         logTileSync("expand_authority_restored", {
           tileKey,
           existingOwnerId: existing.ownerId,
@@ -222,12 +321,23 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
         optimisticPending: existing.optimisticPending
       };
       if (existing.ownershipState) merged.ownershipState = existing.ownershipState;
+        debugTileTimeline("frontier-merge-preserve-inflight", {
+          x: incoming.x,
+          y: incoming.y,
+          before: existing,
+          incoming,
+          after: merged,
+          state,
+          keyFor,
+          extra: { awaitingActiveExpand, awaitingLateAck }
+        });
       logTileSync("expand_preserved_while_inflight", {
         tileKey,
         existingOwnerId: existing.ownerId,
         existingOwnershipState: existing.ownershipState,
         incomingOwnerId: incoming.ownerId,
-        incomingOwnershipState: incoming.ownershipState
+        incomingOwnershipState: incoming.ownershipState,
+        awaitingLateAck
       });
       return merged;
     }
@@ -324,18 +434,31 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
   };
 
   const mergeIncomingTileDetail = (existing: Tile | undefined, incoming: Tile): Tile => {
-    if (!existing || existing.detailLevel !== "full" || incoming.detailLevel === "full") return incoming;
+    if (!existing || incoming.detailLevel === "full") return incoming;
+    const preservePriorDetail = existing.detailLevel === "full";
     const merged: Tile = {
       ...existing,
       ...incoming,
-      detailLevel: "full"
+      ...(preservePriorDetail ? { detailLevel: "full" as const } : {})
     };
+    if (!("shardSite" in incoming) && existing.shardSite) merged.shardSite = existing.shardSite;
+    if (!preservePriorDetail) return merged;
     if (!("town" in incoming) && existing.town) merged.town = existing.town;
     if (!("dock" in incoming) && existing.dock) merged.dock = existing.dock;
     if (!("yield" in incoming) && existing.yield) merged.yield = existing.yield;
     if (!("yieldRate" in incoming) && existing.yieldRate) merged.yieldRate = existing.yieldRate;
     if (!("yieldCap" in incoming) && existing.yieldCap) merged.yieldCap = existing.yieldCap;
+    if (!("upkeepEntries" in incoming) && existing.upkeepEntries) merged.upkeepEntries = existing.upkeepEntries;
     if (!("history" in incoming) && existing.history) merged.history = existing.history;
+    debugTileTimeline("frontier-detail-merged", {
+      x: incoming.x,
+      y: incoming.y,
+      before: existing,
+      incoming,
+      after: merged,
+      state,
+      keyFor
+    });
     return merged;
   };
 

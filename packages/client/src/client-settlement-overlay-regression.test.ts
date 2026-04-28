@@ -25,7 +25,8 @@ describe("settlement overlay regression guard", () => {
     const tileActionLogicSource = clientSource("./client-tile-action-logic.ts");
     const tileMenuSource = clientSource("./client-tile-menu-view.ts");
     expect(originSelectionSource).toContain('if (candidate.town.populationTier === "SETTLEMENT") continue;');
-    expect(tileMenuSource).toContain('if (tile.town.populationTier !== "SETTLEMENT") pushLine(`Support ${tile.town.supportCurrent}/${tile.town.supportMax}`);');
+    expect(tileMenuSource).toContain('if (tile.town.populationTier !== "SETTLEMENT") {');
+    expect(tileMenuSource).toContain('pushLine(`Support ${supportCurrent}/${supportMax}`)');
     expect(tileActionLogicSource).toContain('tile.town?.populationTier !== "SETTLEMENT"');
   });
 });

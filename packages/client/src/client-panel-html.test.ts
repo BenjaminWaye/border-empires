@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { feedHtml } from "./client-panel-html.js";
+import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedHtml, truceRequestsHtml } from "./client-panel-html.js";
 
 describe("feedHtml", () => {
   it("renders a focus button for feed entries with tile coordinates", () => {
@@ -34,5 +34,121 @@ describe("feedHtml", () => {
     expect(html).toContain("Target: 78,322");
     expect(html).toContain('data-debug-tile-toggle="1"');
     expect(html).toContain("Debug Selected Tile");
+  });
+
+  it("renders incoming alliance cards with accept and reject actions", () => {
+    const html = allianceRequestsHtml(
+      [
+        {
+          id: "request-1",
+          fromPlayerId: "player-201",
+          toPlayerId: "me",
+          createdAt: Date.UTC(2026, 3, 13, 10, 0, 0),
+          expiresAt: Date.UTC(2026, 3, 13, 11, 0, 0),
+          fromName: "BrassKnight"
+        }
+      ],
+      () => undefined,
+      "incoming",
+      Date.UTC(2026, 3, 13, 11, 0, 0)
+    );
+
+    expect(html).toContain("BrassKnight");
+    expect(html).toContain("1h ago");
+    expect(html).toContain("Sent by:");
+    expect(html).toContain("Waiting on:");
+    expect(html).toContain("Reject");
+    expect(html).toContain('data-request-id="request-1"');
+  });
+
+  it("renders outgoing alliance cards with a cancel action", () => {
+    const html = allianceRequestsHtml(
+      [
+        {
+          id: "request-2",
+          fromPlayerId: "me",
+          toPlayerId: "player-305",
+          createdAt: Date.UTC(2026, 3, 13, 8, 0, 0),
+          expiresAt: Date.UTC(2026, 3, 13, 9, 0, 0),
+          toName: "SteelForge"
+        }
+      ],
+      () => undefined,
+      "outgoing",
+      Date.UTC(2026, 3, 13, 11, 0, 0)
+    );
+
+    expect(html).toContain("SteelForge");
+    expect(html).toContain("Cancel Request");
+    expect(html).toContain("Waiting on:");
+  });
+
+  it("renders active allies and truces in the new status-card format", () => {
+    const alliesMarkup = alliesHtml(["player-42"], (id) => (id === "player-42" ? "SteamLord" : undefined));
+    const trucesMarkup = activeTrucesHtml(
+      [
+        {
+          otherPlayerId: "player-89",
+          otherPlayerName: "IronFist",
+          startedAt: Date.UTC(2026, 3, 13, 6, 0, 0),
+          endsAt: Date.UTC(2026, 3, 14, 6, 0, 0),
+          createdByPlayerId: "player-89"
+        }
+      ],
+      () => undefined,
+      Date.UTC(2026, 3, 13, 12, 0, 0)
+    );
+
+    expect(alliesMarkup).toContain("SteamLord");
+    expect(alliesMarkup).toContain("Active");
+    expect(trucesMarkup).toContain("IronFist");
+    expect(trucesMarkup).toContain("18h");
+    expect(trucesMarkup).toContain("remaining");
+  });
+
+  it("renders incoming truce requests with accept and reject actions", () => {
+    const html = truceRequestsHtml(
+      [
+        {
+          id: "truce-1",
+          fromPlayerId: "player-156",
+          toPlayerId: "me",
+          createdAt: Date.UTC(2026, 3, 13, 10, 0, 0),
+          expiresAt: Date.UTC(2026, 3, 13, 11, 0, 0),
+          durationHours: 24
+        }
+      ],
+      (id) => (id === "player-156" ? "GearHeart" : undefined),
+      "incoming",
+      Date.UTC(2026, 3, 13, 11, 0, 0)
+    );
+
+    expect(html).toContain("GearHeart");
+    expect(html).toContain("24h");
+    expect(html).toContain("Reject");
+    expect(html).toContain('data-truce-request-id="truce-1"');
+  });
+
+  it("renders outgoing truce requests with a cancel action", () => {
+    const html = truceRequestsHtml(
+      [
+        {
+          id: "truce-2",
+          fromPlayerId: "me",
+          toPlayerId: "player-421",
+          createdAt: Date.UTC(2026, 3, 13, 10, 0, 0),
+          expiresAt: Date.UTC(2026, 3, 13, 11, 0, 0),
+          durationHours: 12,
+          toName: "CopperWing"
+        }
+      ],
+      () => undefined,
+      "outgoing",
+      Date.UTC(2026, 3, 13, 11, 0, 0)
+    );
+
+    expect(html).toContain("CopperWing");
+    expect(html).toContain("12h");
+    expect(html).toContain("Cancel Request");
   });
 });

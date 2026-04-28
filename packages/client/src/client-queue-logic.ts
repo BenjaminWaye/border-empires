@@ -1,7 +1,9 @@
-import { FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
+import { FRONTIER_CLAIM_COST, SETTLE_COST, buildFrontierCombatPreview } from "@border-empires/shared";
 import { canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "./client-constants.js";
-import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
-import { queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, tileMatchesDebugKey } from "./client-debug.js";
+import { persistDevelopmentQueueForPlayer, queuedSettlementOrderForTile } from "./client-development-queue.js";
+import { createNextFrontierCommandIdentity } from "./client-frontier-command.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "./client-types.js";
 
@@ -43,7 +45,7 @@ const requestAttackPreview = (
     toX: number;
     toY: number;
   },
-  deps: { ws: WebSocket }
+  deps: { ws: RealtimeSocket }
 ): void => {
   const previewKey = attackPreviewKey(args.fromKey, args.toKey);
   const cached = freshCachedAttackPreview(state, previewKey);
@@ -58,6 +60,58 @@ const requestAttackPreview = (
   state.lastAttackPreviewAt = nowMs;
   state.attackPreviewPendingKey = previewKey;
   deps.ws.send(JSON.stringify({ type: "ATTACK_PREVIEW", fromX: args.fromX, fromY: args.fromY, toX: args.toX, toY: args.toY }));
+};
+
+const localAttackPreview = (
+  state: ClientState,
+  args: {
+    fromKey: string;
+    toKey: string;
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+  }
+): AttackPreview | undefined => {
+  const origin = state.tiles.get(args.fromKey);
+  const target = state.tiles.get(args.toKey);
+  if (!target) return undefined;
+  const preview: AttackPreview = {
+    fromKey: args.fromKey,
+    toKey: args.toKey,
+    valid: false,
+    receivedAt: Date.now()
+  };
+  if (origin && origin.ownerId && origin.ownerId !== state.me) {
+    preview.reason = "origin not owned";
+    return preview;
+  }
+  if (!target.ownerId) {
+    preview.reason = "target not hostile";
+    return preview;
+  }
+  if (target.ownerId === state.me) {
+    preview.reason = "target not hostile";
+    return preview;
+  }
+  if (target.fogged) {
+    preview.reason = "target not visible";
+    return preview;
+  }
+  const sharedPreview = buildFrontierCombatPreview({
+    terrain: target.terrain,
+    ownershipState: target.ownershipState,
+    dockId: target.dockId,
+    townType: target.town?.type
+  });
+  preview.valid = true;
+  preview.winChance = sharedPreview.winChance;
+  preview.breakthroughWinChance = sharedPreview.breakthroughWinChance;
+  preview.atkEff = sharedPreview.atkEff;
+  preview.defEff = sharedPreview.defEff;
+  preview.defenseEffPct = Math.max(0, Math.min(100, sharedPreview.defMult * 100));
+  delete preview.reason;
+  return preview;
 };
 
 const resolvedAttackPreviewForTarget = (
@@ -135,6 +189,15 @@ export const queuedDevelopmentActionExists = (
   kind?: QueuedDevelopmentAction["kind"]
 ): boolean => state.developmentQueue.some((entry) => entry.tileKey === tileKey && (!kind || entry.kind === kind));
 
+const queuedSettlementShouldWait = (state: ClientState, tileKey: string): boolean => {
+  if (!tileKey) return false;
+  if (state.settleProgressByTile.has(tileKey)) return true;
+  if (state.actionInFlight && state.actionTargetKey === tileKey) return true;
+  if (state.capture && `${state.capture.target.x},${state.capture.target.y}` === tileKey) return true;
+  const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(tileKey) ?? 0;
+  return frontierSyncWaitUntil > Date.now();
+};
+
 export const queueDevelopmentAction = (
   state: ClientState,
   entry: QueuedDevelopmentAction,
@@ -149,6 +212,7 @@ export const queueDevelopmentAction = (
     return false;
   }
   state.developmentQueue.push(entry);
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -224,6 +288,7 @@ export const cancelQueuedSettlement = (
   const nextQueue = state.developmentQueue.filter((entry) => !(entry.kind === "SETTLE" && entry.tileKey === tileKey));
   if (nextQueue.length === state.developmentQueue.length) return false;
   state.developmentQueue = nextQueue;
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.pushFeed(`Queued settlement at ${tileKey} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -241,6 +306,7 @@ export const cancelQueuedBuild = (
   if (!entry) return false;
   const nextQueue = state.developmentQueue.filter((queued) => queued !== entry);
   state.developmentQueue = nextQueue;
+  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   deps.pushFeed(`${entry.label} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -322,7 +388,8 @@ export const requestSettlement = (
     opts?: { allowQueueWhenBusy?: boolean; fromQueue?: boolean; suppressWarnings?: boolean };
   }
 ): boolean => {
-  const tile = state.tiles.get(deps.keyFor(x, y));
+  const tileKey = deps.keyFor(x, y);
+  const tile = state.tiles.get(tileKey);
   if (!tile || tile.ownerId !== state.me || tile.ownershipState !== "FRONTIER") {
     if (!deps.opts?.suppressWarnings) deps.pushFeed("Cannot settle: tile is not one of your frontier tiles.", "combat", "warn");
     deps.renderHud();
@@ -333,16 +400,24 @@ export const requestSettlement = (
     deps.renderHud();
     return false;
   }
+  if (queuedSettlementShouldWait(state, tileKey)) {
+    if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
+      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
+    }
+    if (!deps.opts?.suppressWarnings) deps.pushFeed("Settlement queued: waiting for combat and tile sync to finish.", "combat", "info");
+    deps.renderHud();
+    return false;
+  }
   const slots = deps.developmentSlotSummary();
   if (slots.available <= 0) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
-      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey: deps.keyFor(x, y), label: `Settlement at (${x}, ${y})` });
+      return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
     }
     if (!deps.opts?.suppressWarnings) deps.pushFeed(deps.developmentSlotReason(slots), "combat", "warn");
     deps.renderHud();
     return false;
   }
-  state.lastDevelopmentAttempt = { kind: "SETTLE", x, y, tileKey: deps.keyFor(x, y), label: `Settlement at (${x}, ${y})` };
+  state.lastDevelopmentAttempt = { kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` };
   if (!deps.sendGameMessage({ type: "SETTLE", x, y })) {
     state.lastDevelopmentAttempt = undefined;
     return false;
@@ -350,7 +425,6 @@ export const requestSettlement = (
   if (deps.opts?.fromQueue) state.queuedDevelopmentDispatchPending = true;
   const startAt = Date.now();
   const progress = { startAt, resolvesAt: startAt + settleDurationMsForTile(x, y), target: { x, y }, awaitingServerConfirm: false };
-  const tileKey = deps.keyFor(x, y);
   state.gold = Math.max(0, state.gold - SETTLE_COST);
   state.settleProgressByTile.set(tileKey, progress);
   state.latestSettleTargetKey = tileKey;
@@ -426,7 +500,7 @@ export const sendDevelopmentBuild = (
 export const processDevelopmentQueue = (
   state: ClientState,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     authSessionReady: boolean;
     developmentSlotSummary: () => DevelopmentSlotSummary;
     requestSettlement: (x: number, y: number, opts: { allowQueueWhenBusy: false; fromQueue: true; suppressWarnings: true }) => boolean;
@@ -450,11 +524,36 @@ export const processDevelopmentQueue = (
   }
 ): boolean => {
   if (state.developmentQueue.length === 0 || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
-  if (state.queuedDevelopmentDispatchPending) return false;
+  if (state.queuedDevelopmentDispatchPending) {
+    const nextQueued = state.developmentQueue[0];
+    if (nextQueued && tileMatchesDebugKey(nextQueued.x, nextQueued.y, 1, { fallbackTile: state.selected })) {
+      debugTileLog("development-queue-blocked", {
+        tileKey: nextQueued.tileKey,
+        developmentQueueLength: state.developmentQueue.length,
+        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+        developmentProcessLimit: state.developmentProcessLimit,
+        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+        lastDevelopmentAttempt: state.lastDevelopmentAttempt ?? null
+      });
+    }
+    return false;
+  }
   let started = false;
   while (state.developmentQueue.length > 0 && deps.developmentSlotSummary().available > 0) {
     const next = state.developmentQueue[0];
     if (!next) return started;
+    if (next.kind === "SETTLE" && queuedSettlementShouldWait(state, next.tileKey)) return false;
+    if (tileMatchesDebugKey(next.x, next.y, 1, { fallbackTile: state.selected })) {
+      debugTileLog("development-queue-dispatch", {
+        tileKey: next.tileKey,
+        kind: next.kind,
+        developmentQueueLength: state.developmentQueue.length,
+        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+        developmentProcessLimit: state.developmentProcessLimit,
+        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+        queuedSettlementWait: next.kind === "SETTLE" ? queuedSettlementShouldWait(state, next.tileKey) : false
+      });
+    }
     const ok =
       next.kind === "SETTLE"
         ? deps.requestSettlement(next.x, next.y, { allowQueueWhenBusy: false, fromQueue: true, suppressWarnings: true })
@@ -472,10 +571,12 @@ export const processDevelopmentQueue = (
           });
     if (ok) {
       state.developmentQueue.shift();
+      persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
       deps.pushFeed(`${next.label} started.`, "combat", "info");
       started = true;
     } else {
       state.developmentQueue.shift();
+      persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
       deps.pushFeed(`${next.label} could not start and was removed from queue.`, "combat", "warn");
     }
     break;
@@ -713,7 +814,7 @@ export const reconcileActionQueue = (
 export const processActionQueue = (
   state: ClientState,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     authSessionReady: boolean;
     keyFor: (x: number, y: number) => string;
     isAdjacent: (ax: number, ay: number, bx: number, by: number) => boolean;
@@ -735,12 +836,41 @@ export const processActionQueue = (
       if (!tileMatchesDebugKey(next.x, next.y, 1, { fallbackTile: state.selected })) return;
       debugTileLog(scope, payload);
     };
+    const logFrontierQueue = (
+      scope: string,
+      args?: {
+        before?: Tile | undefined;
+        incoming?: Tile | undefined;
+        after?: Tile | undefined;
+        extra?: Record<string, unknown>;
+      }
+    ): void => {
+      const timelineArgs = {
+        x: next.x,
+        y: next.y,
+        ...(args?.before ? { before: args.before } : {}),
+        ...(args?.incoming ? { incoming: args.incoming } : {}),
+        ...(args?.after ? { after: args.after } : {}),
+        state,
+        keyFor: deps.keyFor,
+        ...(args?.extra ? { extra: args.extra } : {})
+      };
+      debugTileTimeline(scope, timelineArgs);
+    };
     const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
     if (frontierSyncWaitUntil > Date.now()) {
       logActionQueue("action-queue-wait", {
         targetKey,
         waitMs: Math.max(0, frontierSyncWaitUntil - Date.now()),
         queueLength: state.actionQueue.length
+      });
+      logFrontierQueue("frontier-queue-wait", {
+        before: state.tiles.get(targetKey),
+        after: state.tiles.get(targetKey),
+        extra: {
+          waitMs: Math.max(0, frontierSyncWaitUntil - Date.now()),
+          queueLength: state.actionQueue.length
+        }
       });
       const blocked = state.actionQueue.shift();
       if (!blocked) return false;
@@ -755,6 +885,11 @@ export const processActionQueue = (
         targetKey,
         queueLength: state.actionQueue.length
       });
+      logFrontierQueue("frontier-queue-drop-missing", {
+        extra: {
+          queueLength: state.actionQueue.length
+        }
+      });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
       continue;
@@ -765,25 +900,57 @@ export const processActionQueue = (
         ownerId: to.ownerId,
         ownershipState: to.ownershipState
       });
+      logFrontierQueue("frontier-queue-drop-owned", {
+        before: to,
+        after: to,
+        extra: {
+          ownerId: to.ownerId,
+          ownershipState: to.ownershipState
+        }
+      });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
       continue;
     }
 
     const allowOptimisticOrigin = Boolean(to.ownerId);
-    let from = to.ownerId ? deps.pickOriginForTarget(to.x, to.y) : deps.pickOriginForTarget(to.x, to.y, false, false);
-    const optimisticFrom = to.ownerId ? from : deps.pickOriginForTarget(to.x, to.y, false, true);
+    let from = to.ownerId ? deps.pickOriginForTarget(to.x, to.y, true, false) : deps.pickOriginForTarget(to.x, to.y, false, false);
+    const optimisticFrom = to.ownerId ? deps.pickOriginForTarget(to.x, to.y, true, true) : deps.pickOriginForTarget(to.x, to.y, false, true);
     const selectedFrom = state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined;
     if (
       !from &&
       selectedFrom &&
       selectedFrom.ownerId === state.me &&
       deps.isAdjacent(selectedFrom.x, selectedFrom.y, to.x, to.y) &&
-      (allowOptimisticOrigin || selectedFrom.optimisticPending !== "expand")
+      selectedFrom.optimisticPending !== "expand"
     ) {
       from = selectedFrom;
     }
-    if (!from && !allowOptimisticOrigin && optimisticFrom) return false;
+    if (!from && optimisticFrom) {
+      const existingWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
+      const waitUntil = Math.max(existingWaitUntil, Date.now() + 900);
+      state.frontierSyncWaitUntilByTarget.set(targetKey, waitUntil);
+      logActionQueue("action-queue-wait-confirmed-origin", {
+        targetKey,
+        waitMs: Math.max(0, waitUntil - Date.now()),
+        queueLength: state.actionQueue.length,
+        optimisticFrom: { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId }
+      });
+      logFrontierQueue("frontier-queue-wait-confirmed-origin", {
+        before: to,
+        after: to,
+        extra: {
+          waitMs: Math.max(0, waitUntil - Date.now()),
+          optimisticFrom: { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId }
+        }
+      });
+      const blocked = state.actionQueue.shift();
+      if (!blocked) return false;
+      state.actionQueue.push(blocked);
+      deferredFrontierSyncTargets += 1;
+      if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
+      continue;
+    }
     if (!from && to.ownerId && to.dockId) from = to;
     if (!from) {
       logActionQueue("action-queue-drop-no-origin", {
@@ -794,8 +961,40 @@ export const processActionQueue = (
         selectedFromOwnerId: selectedFrom?.ownerId,
         optimisticFrom: optimisticFrom ? { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId } : undefined
       });
+      logFrontierQueue("frontier-queue-drop-no-origin", {
+        before: to,
+        after: to,
+        extra: {
+          selected: state.selected,
+          selectedFromOwnerId: selectedFrom?.ownerId
+        }
+      });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
+      continue;
+    }
+    const fromKey = deps.keyFor(from.x, from.y);
+    const originSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(fromKey) ?? 0;
+    if (originSyncWaitUntil > Date.now()) {
+      logActionQueue("action-queue-wait-origin-sync", {
+        targetKey,
+        originKey: fromKey,
+        waitMs: Math.max(0, originSyncWaitUntil - Date.now()),
+        queueLength: state.actionQueue.length
+      });
+      logFrontierQueue("frontier-queue-wait-origin-sync", {
+        before: to,
+        after: to,
+        extra: {
+          originKey: fromKey,
+          waitMs: Math.max(0, originSyncWaitUntil - Date.now())
+        }
+      });
+      const blocked = state.actionQueue.shift();
+      if (!blocked) return false;
+      state.actionQueue.push(blocked);
+      deferredFrontierSyncTargets += 1;
+      if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
       continue;
     }
     logActionQueue("action-queue-origin", {
@@ -815,21 +1014,56 @@ export const processActionQueue = (
       x: to.x,
       y: to.y,
       retries: next.retries ?? 0,
+      actionType: !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK",
       ...(next.mode ? { mode: next.mode } : {})
     };
+    const { commandId, clientSeq } = createNextFrontierCommandIdentity(state);
+    state.actionCurrent.commandId = commandId;
+    state.actionCurrent.clientSeq = clientSeq;
     state.actionInFlight = true;
+    state.actionAcceptedAck = false;
     state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
     state.actionStartedAt = Date.now();
     state.actionTargetKey = targetKey;
     state.captureAlert = undefined;
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
-    state.capture = { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    const existingCapture =
+      state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y ? state.capture : undefined;
+    state.capture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    const actionType = !to.ownerId ? "EXPAND" : next.mode === "breakthrough" ? "BREAKTHROUGH_ATTACK" : "ATTACK";
+    attackSyncLog("queue-dispatch", {
+      actionType,
+      target: { x: to.x, y: to.y },
+      origin: { x: from.x, y: from.y },
+      targetKey,
+      toOwnerId: to.ownerId,
+      toOwnershipState: to.ownershipState,
+      retries: next.retries ?? 0,
+      queueLengthAfterShift: state.actionQueue.length,
+      wsReadyState: deps.ws.readyState,
+      authSessionReady: deps.authSessionReady,
+      optimisticMs
+    });
     if (!to.ownerId) {
-      deps.applyOptimisticTileState(to.x, to.y, (tile) => {
-        tile.ownerId = state.me;
-        tile.ownershipState = "FRONTIER";
-        tile.fogged = false;
-        tile.optimisticPending = "expand";
+      logFrontierQueue("frontier-queue-started", {
+        before: to,
+        after: to,
+        extra: {
+          optimisticMs,
+          mode: next.mode ?? "normal",
+          from: { x: from.x, y: from.y }
+        }
+      });
+    } else {
+      logFrontierQueue("frontier-queue-started", {
+        before: to,
+        after: to,
+        extra: {
+          optimisticMs,
+          mode: next.mode ?? "normal",
+          from: { x: from.x, y: from.y }
+        }
       });
     }
     state.attackPreview = undefined;
@@ -841,12 +1075,22 @@ export const processActionQueue = (
         state.actionInFlight = false;
         state.actionCurrent = undefined;
         state.actionTargetKey = "";
+        state.actionAcceptedAck = false;
         state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
         state.queuedTargetKeys.delete(targetKey);
         deps.renderHud();
         continue;
       }
-      deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+      deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
+      attackSyncLog("send", {
+        actionType: "EXPAND",
+        target: { x: to.x, y: to.y },
+        origin: { x: from.x, y: from.y },
+        targetKey,
+        startedAt: state.actionStartedAt,
+        wsReadyState: deps.ws.readyState
+      });
       logActionQueue("action-send", {
         type: "EXPAND",
         from: { x: from.x, y: from.y },
@@ -862,13 +1106,25 @@ export const processActionQueue = (
         state.actionInFlight = false;
         state.actionCurrent = undefined;
         state.actionTargetKey = "";
+        state.actionAcceptedAck = false;
         state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
         state.queuedTargetKeys.delete(targetKey);
         deps.renderHud();
         continue;
       }
       if (next.mode === "breakthrough") {
-        deps.ws.send(JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        deps.ws.send(
+          JSON.stringify({ type: "BREAKTHROUGH_ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq })
+        );
+        attackSyncLog("send", {
+          actionType: "BREAKTHROUGH_ATTACK",
+          target: { x: to.x, y: to.y },
+          origin: { x: from.x, y: from.y },
+          targetKey,
+          startedAt: state.actionStartedAt,
+          wsReadyState: deps.ws.readyState
+        });
         logActionQueue("action-send", {
           type: "BREAKTHROUGH_ATTACK",
           from: { x: from.x, y: from.y },
@@ -878,7 +1134,15 @@ export const processActionQueue = (
         });
         deps.pushFeed(`Queued breakthrough (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "warn");
       } else {
-        deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y }));
+        deps.ws.send(JSON.stringify({ type: "ATTACK", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
+        attackSyncLog("send", {
+          actionType: "ATTACK",
+          target: { x: to.x, y: to.y },
+          origin: { x: from.x, y: from.y },
+          targetKey,
+          startedAt: state.actionStartedAt,
+          wsReadyState: deps.ws.readyState
+        });
         logActionQueue("action-send", {
           type: "ATTACK",
           from: { x: from.x, y: from.y },
@@ -899,7 +1163,7 @@ export const processActionQueue = (
 export const requestAttackPreviewForHover = (
   state: ClientState,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     authSessionReady: boolean;
     keyFor: (x: number, y: number) => string;
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
@@ -947,13 +1211,26 @@ export const requestAttackPreviewForHover = (
     },
     deps
   );
+  const fallbackPreview = localAttackPreview(state, {
+    fromKey: deps.keyFor(from?.x ?? hoveredTile.x, from?.y ?? hoveredTile.y),
+    toKey: deps.keyFor(hoveredTile.x, hoveredTile.y),
+    fromX: from?.x ?? hoveredTile.x,
+    fromY: from?.y ?? hoveredTile.y,
+    toX: hoveredTile.x,
+    toY: hoveredTile.y
+  });
+  if (fallbackPreview) {
+    state.attackPreview = fallbackPreview;
+    state.attackPreviewCacheByKey.set(`${fallbackPreview.fromKey}->${fallbackPreview.toKey}`, fallbackPreview);
+    state.attackPreviewPendingKey = "";
+  }
 };
 
 export const requestAttackPreviewForTarget = (
   state: ClientState,
   to: Tile,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     authSessionReady: boolean;
     keyFor: (x: number, y: number) => string;
     pickOriginForTarget: (x: number, y: number) => Tile | undefined;
@@ -980,6 +1257,19 @@ export const requestAttackPreviewForTarget = (
     },
     deps
   );
+  const fallbackPreview = localAttackPreview(state, {
+    fromKey,
+    toKey,
+    fromX: from?.x ?? to.x,
+    fromY: from?.y ?? to.y,
+    toX: to.x,
+    toY: to.y
+  });
+  if (fallbackPreview) {
+    state.attackPreview = fallbackPreview;
+    state.attackPreviewCacheByKey.set(`${fallbackPreview.fromKey}->${fallbackPreview.toKey}`, fallbackPreview);
+    state.attackPreviewPendingKey = "";
+  }
 };
 
 export const attackPreviewDetailForTarget = (
@@ -993,12 +1283,21 @@ export const attackPreviewDetailForTarget = (
 ): string | undefined => {
   const from = deps.pickOriginForTarget(to.x, to.y);
   const toKey = deps.keyFor(to.x, to.y);
-  const preview = resolvedAttackPreviewForTarget(
-    state,
-    from
-      ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
-      : { toKey, dockFallback: Boolean(to.dockId) }
-  );
+  const preview =
+    resolvedAttackPreviewForTarget(
+      state,
+      from
+        ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
+        : { toKey, dockFallback: Boolean(to.dockId) }
+    ) ??
+    localAttackPreview(state, {
+      fromKey: deps.keyFor(from?.x ?? to.x, from?.y ?? to.y),
+      toKey,
+      fromX: from?.x ?? to.x,
+      fromY: from?.y ?? to.y,
+      toX: to.x,
+      toY: to.y
+    });
   if (!preview) return undefined;
   if (!preview.valid) return preview.reason ? `Attack ${preview.reason}` : undefined;
   if (mode === "breakthrough" && typeof preview.breakthroughWinChance === "number") {
@@ -1025,6 +1324,15 @@ export const attackPreviewPendingForTarget = (
       : { toKey, dockFallback: Boolean(to.dockId) }
   );
   if (preview) return false;
+  const fallbackPreview = localAttackPreview(state, {
+    fromKey: deps.keyFor(from?.x ?? to.x, from?.y ?? to.y),
+    toKey,
+    fromX: from?.x ?? to.x,
+    fromY: from?.y ?? to.y,
+    toX: to.x,
+    toY: to.y
+  });
+  if (fallbackPreview) return false;
   if (from) return state.attackPreviewPendingKey === attackPreviewKey(deps.keyFor(from.x, from.y), toKey);
   if (!to.dockId) return false;
   return state.attackPreviewPendingKey === attackPreviewKey(toKey, toKey);

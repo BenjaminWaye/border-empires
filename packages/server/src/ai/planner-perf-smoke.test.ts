@@ -44,6 +44,7 @@ const lateGameSnapshot = (): AiPlanningSnapshot => ({
   fortProtectsCore: true,
   fortIsDockChokePoint: false,
   economicBuildAvailable: true,
+  siegeOutpostAvailable: true,
   frontierOpportunityEconomic: 180,
   frontierOpportunityScout: 65,
   frontierOpportunityScaffold: 14,
@@ -53,7 +54,9 @@ const lateGameSnapshot = (): AiPlanningSnapshot => ({
   canAffordSettlement: true,
   canBuildFort: true,
   canBuildEconomy: true,
-  goldHealthy: true
+  canBuildSiegeOutpost: true,
+  goldHealthy: true,
+  victoryPathContender: true
 });
 
 describe("planAiDecision perf smoke", () => {

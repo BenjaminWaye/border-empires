@@ -1,21 +1,107 @@
-import { signOut } from "firebase/auth";
+import { signOut, type Auth } from "firebase/auth";
 import { CLIENT_BUILD_VERSION } from "./client-build-version.js";
+import { renderClientChangelogOverlay } from "./client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "./client-crystal-ability-info.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, guideSteps } from "./client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, setDebugTileKey, setDebugTileLoggingEnabled } from "./client-debug.js";
 import { exposedSidesForTile, renderDefensibilityPanelHtml } from "./client-defensibility-html.js";
+import type { initClientDom } from "./client-dom.js";
 import { renderEconomyPanelHtml } from "./client-economy-html.js";
 import type { EconomyFocusKey } from "./client-economy-model.js";
+import { buildMapLoadingView } from "./client-map-loading-view.js";
+import { allianceTargetSuggestionOptionsHtml, allianceTargetSuggestions } from "./client-social-suggestions.js";
 import type { ClientState, storageSet } from "./client-state.js";
 import type { StructureInfoKey } from "./client-map-display.js";
+import type { DevelopmentSlotSummary } from "./client-queue-logic.js";
+import type { DomainInfo, TechInfo, Tile, TileMenuView } from "./client-types.js";
 
-type HudDeps = Record<string, any> & {
+type ClientDom = ReturnType<typeof initClientDom>;
+type VisibleCollectSummary = {
+  tileCount: number;
+  totalGold: number;
+  totalShards: number;
+  totalResources: Record<string, number>;
+};
+
+type HudDeps = {
   state: ClientState;
-  dom: any;
+  dom: ClientDom;
   miniMapReplayEl: HTMLDivElement;
   wsUrl: string;
-  firebaseAuth?: any;
+  firebaseAuth?: Auth;
   syncAuthOverlay: () => void;
+  storageSet: typeof storageSet;
+  visibleCollectSummary: () => VisibleCollectSummary;
+  developmentSlotSummary: () => DevelopmentSlotSummary;
+  isMobile: () => boolean;
+  rateToneClass: (value: number) => string;
+  formatGoldAmount: (value: number) => string;
+  formatManpowerAmount: (value: number) => string;
+  strategicRibbonHtml: (
+    strategicResources: ClientState["strategicResources"],
+    strategicProductionPerMinute: ClientState["strategicProductionPerMinute"],
+    upkeepPerMinute: ClientState["upkeepPerMinute"],
+    strategicAnim: ClientState["strategicAnim"],
+    rateToneClass: (value: number) => string
+  ) => string;
+  formatCooldownShort: (ms: number) => string;
+  openEconomyPanel: (focus?: EconomyFocusKey) => void;
+  setActivePanel: (panel: ClientState["activePanel"]) => void;
+  affordableTechChoicesCount: () => number;
+  mobileNavLabelHtml: (panel: ClientState["mobilePanel"], opts?: { techReady?: boolean; attackAlertUnread?: boolean }) => string;
+  crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => string;
+  crystalTargetingTitle: (ability: ClientState["crystalTargeting"]["ability"]) => string;
+  clearCrystalTargeting: () => void;
+  keyFor: (x: number, y: number) => string;
+  parseKey: (key: string) => { x: number; y: number };
+  selectedTile: () => Tile | undefined;
+  requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
+  renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void;
+  tileMenuViewForTile: (tile: Tile) => TileMenuView;
+  renderCaptureProgress: () => void;
+  renderShardAlert: () => void;
+  renderTechChoiceGrid: () => string;
+  techDetailsUseOverlay: () => boolean;
+  renderTechDetailPrompt: () => string;
+  renderTechDetailCard: () => string;
+  renderStructureInfoOverlay: () => string;
+  renderTechDetailOverlay: () => string;
+  renderDomainDetailOverlay: () => string;
+  techOwnedHtml: (catalog: TechInfo[], ownedIds: string[], isPendingTechUnlock?: (techId: string) => boolean) => string;
+  effectiveOwnedTechIds: () => string[];
+  isPendingTechUnlock: (techId: string) => boolean;
+  renderTechChoiceDetails: () => string;
+  techCurrentModsHtml: (mods: ClientState["mods"], expandedKey: ClientState["expandedModKey"], breakdown: ClientState["modBreakdown"]) => string;
+  bindTechTreeDragScroll: () => void;
+  chooseTech: (techIdRaw?: string) => void;
+  chooseDomain: (domainIdRaw?: string) => void;
+  renderDomainProgressCard: () => string;
+  renderDomainChoiceGrid: () => string;
+  domainOwnedHtml: (catalog: DomainInfo[], ownedIds: string[]) => string;
+  renderDomainDetailCard: () => string;
+  sendGameMessage: (payload: unknown, message?: string) => boolean;
+  alliesHtml: typeof import("./client-panel-html.js").alliesHtml;
+  activeTrucesHtml: typeof import("./client-panel-html.js").activeTrucesHtml;
+  allianceRequestsHtml: typeof import("./client-panel-html.js").allianceRequestsHtml;
+  truceRequestsHtml: typeof import("./client-panel-html.js").truceRequestsHtml;
+  renderSocialInspectCardHtml: typeof import("./client-side-panel-html.js").renderSocialInspectCardHtml;
+  missionCardsHtml: typeof import("./client-panel-html.js").missionCardsHtml;
+  playerNameForOwner: (ownerId?: string | null) => string;
+  wrapX: (x: number) => number;
+  wrapY: (y: number) => number;
+  terrainAt: (x: number, y: number) => Tile["terrain"];
+  pushFeed: (message: string, type: import("./client-types.js").FeedType, severity?: import("./client-types.js").FeedSeverity) => void;
+  requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
+  prettyToken: (token: string) => string;
+  resourceIconForKey: (key: string) => string;
+  resourceLabel: (resource: string) => string;
+  economicStructureName: (structureType: string) => string;
+  leaderboardHtml: typeof import("./client-panel-html.js").leaderboardHtml;
+  feedHtml: typeof import("./client-panel-html.js").feedHtml;
+  renderMobilePanels: () => void;
+  effectiveTechChoices: () => string[];
+  renderManpowerPanelHtml: typeof import("./client-side-panel-html.js").renderManpowerPanelHtml;
+  retryBootstrapNow: () => void;
 };
 
 export const renderClientHud = (deps: HudDeps): void => {
@@ -86,7 +172,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     resourceLabel,
     economicStructureName,
     leaderboardHtml,
-    feedHtml
+    feedHtml,
+    retryBootstrapNow
   } = deps;
 
   const safeValue = <T>(label: string, fallback: T, render: () => T): T => {
@@ -100,6 +187,117 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const fallbackCard = (label: string): string =>
     `<article class="card"><p>${label} is temporarily unavailable.</p></article>`;
+
+  const bridgeStatusHtml = (): string => {
+    const modeLabel =
+      state.bridgeDebugMode === "rewrite-gateway"
+        ? "rewrite-gateway"
+        : state.bridgeDebugMode === "legacy-server"
+          ? "legacy-server"
+          : "unknown";
+    const bootstrapLabel =
+      state.bridgeDebugBootstrap === "rewrite-init"
+        ? "rewrite-init"
+        : state.bridgeDebugBootstrap === "legacy-init"
+          ? "legacy-init"
+          : "pending";
+    const wsLabel = state.bridgeDebugWsUrl || wsUrl;
+    const seasonLabel = state.bridgeDebugSeasonId || "unknown";
+    const runtimeFingerprint = state.bridgeDebugRuntimeFingerprint || "unknown";
+    const snapshotLabel = state.bridgeDebugSnapshotLabel || "n/a";
+    const backendLabel = state.activeBackend;
+    const acceptLatencyLabel =
+      state.bridgeDebugAcceptLatencyP95Ms > 0 ? `${Math.round(state.bridgeDebugAcceptLatencyP95Ms)}ms` : "n/a";
+    const copyPayload = encodeURIComponent(
+      [
+        `Backend ${backendLabel}`,
+        `Bridge ${modeLabel}`,
+        `Bootstrap ${bootstrapLabel}`,
+        `Accept p95 ${acceptLatencyLabel}`,
+        `Season ${seasonLabel}`,
+        `Runtime ${runtimeFingerprint}`,
+        `Snapshot ${snapshotLabel}`,
+        `Tiles ${state.bridgeDebugInitialTileCount}`,
+        `Msgs ${state.bridgeDebugSupportedMessageCount}`,
+        wsLabel
+      ].join("\n")
+    );
+    return `
+      <div class="bridge-debug-status" title="${wsLabel}">
+        <button type="button" class="bridge-debug-copy-btn" data-copy-bridge-debug="${copyPayload}">Copy</button>
+        <div><strong>Backend</strong> ${backendLabel}</div>
+        <div><strong>Bridge</strong> ${modeLabel}</div>
+        <div><strong>Bootstrap</strong> ${bootstrapLabel}</div>
+        <div><strong>Accept p95</strong> ${acceptLatencyLabel}</div>
+        <div><strong>Season</strong> ${seasonLabel}</div>
+        <div><strong>Runtime</strong> ${runtimeFingerprint}</div>
+        <div><strong>Snapshot</strong> ${snapshotLabel}</div>
+        <div><strong>Tiles</strong> ${state.bridgeDebugInitialTileCount} · <strong>Msgs</strong> ${state.bridgeDebugSupportedMessageCount}</div>
+        <div class="bridge-debug-ws">${wsLabel}</div>
+      </div>
+    `;
+  };
+
+  const authDebugHtml = (): string => {
+    const currentUser = firebaseAuth?.currentUser;
+    const firebaseProjectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
+    const firebaseAuthDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? "border-empires.firebaseapp.com";
+    const authUid = currentUser?.uid ?? "none";
+    const authEmail = currentUser?.email?.trim() || "none";
+    const authProviders = currentUser?.providerData
+      ?.map((entry) => entry.providerId)
+      .filter((entry): entry is string => Boolean(entry)) ?? [];
+    const providerLabel = authProviders.length > 0 ? authProviders.join(", ") : "none";
+    const playerId = state.me || "pending";
+    const playerName = state.meName || "pending";
+    const runtimeFingerprint = state.bridgeDebugRuntimeFingerprint || "pending";
+    const seasonId = state.bridgeDebugSeasonId || "pending";
+    const bootstrapLabel =
+      state.bridgeDebugBootstrap === "rewrite-init"
+        ? "rewrite-init"
+        : state.bridgeDebugBootstrap === "legacy-init"
+          ? "legacy-init"
+          : "pending";
+    const wsLabel = state.bridgeDebugWsUrl || wsUrl;
+    const copyPayload = encodeURIComponent(
+      [
+        `Client build ${CLIENT_BUILD_VERSION}`,
+        `Host ${window.location.host}`,
+        `Path ${window.location.pathname}${window.location.search}`,
+        `Firebase project ${firebaseProjectId}`,
+        `Firebase auth domain ${firebaseAuthDomain}`,
+        `Auth uid ${authUid}`,
+        `Auth email ${authEmail}`,
+        `Providers ${providerLabel}`,
+        `Game playerId ${playerId}`,
+        `Game playerName ${playerName}`,
+        `Auth ready ${state.authReady}`,
+        `Auth session ready ${state.authSessionReady}`,
+        `Profile setup required ${state.profileSetupRequired}`,
+        `Backend ${state.activeBackend}`,
+        `Bridge ${state.bridgeDebugMode || "unknown"}`,
+        `Bootstrap ${bootstrapLabel}`,
+        `Season ${seasonId}`,
+        `Runtime ${runtimeFingerprint}`,
+        `WS ${wsLabel}`,
+        `UA ${navigator.userAgent}`
+      ].join("\n")
+    );
+    return `
+      <div class="bridge-debug-status auth-debug-status" title="${authUid}">
+        <button type="button" class="bridge-debug-copy-btn" data-copy-auth-debug="${copyPayload}">Copy Auth Debug</button>
+        <div><strong>Firebase</strong> ${firebaseProjectId}</div>
+        <div><strong>UID</strong> ${authUid}</div>
+        <div><strong>Email</strong> ${authEmail}</div>
+        <div><strong>Providers</strong> ${providerLabel}</div>
+        <div><strong>Player</strong> ${playerId} · ${playerName}</div>
+        <div><strong>Backend</strong> ${state.activeBackend} · <strong>Bootstrap</strong> ${bootstrapLabel}</div>
+        <div><strong>Season</strong> ${seasonId}</div>
+        <div><strong>Runtime</strong> ${runtimeFingerprint}</div>
+        <div class="bridge-debug-ws">${wsLabel}</div>
+      </div>
+    `;
+  };
 
   const replayToolbarHtml = (): string => {
     return `<div class="mini-map-toolbar">
@@ -224,7 +422,26 @@ export const renderClientHud = (deps: HudDeps): void => {
   const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
   if (feedMobileBtn) feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread });
 
-  if (state.crystalTargeting.active) {
+  if (state.aetherWallTargeting.active) {
+    const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
+    dom.targetingOverlayEl.innerHTML = `
+      <div class="targeting-card tone-amber">
+        <div class="targeting-kicker">Crystal Action Armed</div>
+        <div class="targeting-title">Aether Wall</div>
+        <div class="targeting-detail">Select one of your settled border tiles, then cast. If more than one facing is valid, tap one of the glowing map arrows.</div>
+        <div class="targeting-status">${status}</div>
+        <button id="targeting-cancel" class="targeting-cancel-btn" type="button">Cancel</button>
+      </div>
+    `;
+    dom.targetingOverlayEl.style.display = "block";
+    const cancelBtn = dom.targetingOverlayEl.querySelector("#targeting-cancel") as HTMLButtonElement | null;
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        clearCrystalTargeting();
+        renderClientHud(deps);
+      };
+    }
+  } else if (state.crystalTargeting.active) {
     const ability = state.crystalTargeting.ability;
     const selectedKey = state.selected ? keyFor(state.selected.x, state.selected.y) : "";
     const selectedOriginKey = selectedKey ? state.crystalTargeting.originByTarget.get(selectedKey) : undefined;
@@ -282,30 +499,26 @@ export const renderClientHud = (deps: HudDeps): void => {
   deps.miniMapReplayEl.innerHTML = replayPanelHtml();
   const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (loadingActive) {
+    const loadingView = buildMapLoadingView(state, wsUrl);
     dom.mapLoadingOverlayEl.style.display = "grid";
-    if (state.connection === "disconnected") {
-      dom.mapLoadingTitleEl.textContent = "Disconnected from server";
-      dom.mapLoadingMetaEl.textContent = "Retrying connection...";
-    } else if (state.connection === "connecting") {
-      dom.mapLoadingTitleEl.textContent = "Connecting to server...";
-      dom.mapLoadingMetaEl.textContent = "Retrying connection...";
-    } else if (state.connection === "connected" || (state.connection === "initialized" && state.firstChunkAt === 0)) {
-      const startAt = state.mapLoadStartedAt || Date.now();
-      const elapsed = ((Date.now() - startAt) / 1000).toFixed(1);
-      dom.mapLoadingTitleEl.textContent = state.authSessionReady ? "Loading nearby land..." : "Syncing empire...";
-      dom.mapLoadingMetaEl.textContent = state.authSessionReady ? `Elapsed ${elapsed}s · chunks ${state.chunkFullCount}` : `Connected to ${wsUrl}`;
-    } else {
-      dom.mapLoadingTitleEl.textContent = "Loading world...";
-      dom.mapLoadingMetaEl.textContent = "Finalizing map render...";
-    }
+    dom.mapLoadingOverlayEl.dataset.tone = loadingView.tone;
+    dom.mapLoadingTitleEl.textContent = loadingView.title;
+    dom.mapLoadingMetaEl.textContent = loadingView.meta;
+    dom.mapLoadingActionsEl.dataset.visible = loadingView.showRetry || loadingView.showReload ? "true" : "false";
+    dom.mapLoadingRetryBtn.style.display = loadingView.showRetry ? "" : "none";
+    dom.mapLoadingReloadBtn.style.display = loadingView.showReload ? "" : "none";
+    dom.mapLoadingRetryBtn.onclick = () => retryBootstrapNow();
+    dom.mapLoadingReloadBtn.onclick = () => window.location.reload();
   } else {
     dom.mapLoadingOverlayEl.style.display = "none";
+    dom.mapLoadingOverlayEl.dataset.tone = "normal";
+    dom.mapLoadingActionsEl.dataset.visible = "false";
   }
 
   const visibleTechChoices = deps.effectiveTechChoices();
   const choicesSig = `${state.availableTechPicks}|${visibleTechChoices.join("|")}|${state.techCatalog.length}|${state.pendingTechUnlockId}`;
   const focused = document.activeElement === dom.techPickEl || document.activeElement === dom.mobileTechPickEl;
-  const catalogById = new Map(state.techCatalog.map((t: any) => [t.id, t]));
+  const catalogById = new Map(state.techCatalog.map((tech) => [tech.id, tech] as const));
   if (choicesSig !== state.techChoicesSig && !focused) {
     const previous = state.techUiSelectedId?.trim() || dom.techPickEl.value || dom.mobileTechPickEl.value;
     dom.techPickEl.innerHTML = "";
@@ -385,6 +598,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const mobileTechResearchSectionEl = document.querySelector("#mobile-tech-research-section") as HTMLDivElement | null;
   if (techResearchSectionEl) techResearchSectionEl.style.display = "grid";
   if (mobileTechResearchSectionEl) mobileTechResearchSectionEl.style.display = "grid";
+  dom.allianceTargetOptionsEl.innerHTML = allianceTargetSuggestionOptionsHtml(allianceTargetSuggestions(state));
   dom.panelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelTechEl.classList.toggle("tech-detail-open", state.techDetailOpen && !deps.techDetailsUseOverlay() && !state.techTreeExpanded);
   dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
@@ -455,7 +669,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
-  const selectedTech = state.techCatalog.find((t: any) => t.id === state.techUiSelectedId);
+  const selectedTech = state.techCatalog.find((tech) => tech.id === state.techUiSelectedId);
   const canPick = Boolean(selectedTech && selectedTech.requirements.canResearch && !state.pendingTechUnlockId);
   dom.techChooseBtn.disabled = !canPick;
   dom.mobileTechChooseBtn.disabled = !canPick;
@@ -549,16 +763,75 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.alliesListEl.innerHTML = safeValue(
     "alliesHtml",
     fallbackCard("Alliances"),
-    () => `<h4>Current Allies</h4>${alliesHtml(state.allies, playerNameForOwner)}<h4>Active Truces</h4>${activeTrucesHtml(state.activeTruces, playerNameForOwner)}`
+    () => {
+      const nowMs = Date.now();
+      return `<section class="alliance-section-block">
+        <h4 class="alliance-section-title">Current Allies</h4>
+        <div class="alliance-card-stack">${alliesHtml(state.allies, playerNameForOwner)}</div>
+      </section>
+      <section class="alliance-section-block">
+        <h4 class="alliance-section-title">Active Truces</h4>
+        <div class="alliance-card-stack">${activeTrucesHtml(state.activeTruces, playerNameForOwner, nowMs)}</div>
+      </section>`;
+    }
   );
   dom.mobileAlliesListEl.innerHTML = dom.alliesListEl.innerHTML;
   dom.allianceRequestsEl.innerHTML = safeValue(
     "allianceRequestsHtml",
     fallbackCard("Alliance requests"),
-    () =>
-      `<h4>Incoming Alliance Requests</h4>${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner)}<h4>Incoming Truces</h4>${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner)}`
+    () => {
+      const nowMs = Date.now();
+      const pendingAllianceHtml = `${allianceRequestsHtml(state.incomingAllianceRequests, playerNameForOwner, "incoming", nowMs)}${allianceRequestsHtml(
+        state.outgoingAllianceRequests,
+        playerNameForOwner,
+        "outgoing",
+        nowMs
+      )}`;
+      const pendingTruceHtml = `${truceRequestsHtml(state.incomingTruceRequests, playerNameForOwner, "incoming", nowMs)}${truceRequestsHtml(
+        state.outgoingTruceRequests,
+        playerNameForOwner,
+        "outgoing",
+        nowMs
+      )}`;
+      return `<section class="alliance-section-block">
+        <h4 class="alliance-section-title">Pending Alliance Requests</h4>
+        <div class="alliance-card-stack">${pendingAllianceHtml || '<article class="card alliance-empty-card"><p>No pending requests.</p></article>'}</div>
+      </section>
+      <section class="alliance-section-block">
+        <h4 class="alliance-section-title">Pending Truce Requests</h4>
+        <div class="alliance-card-stack">${pendingTruceHtml || '<article class="card alliance-empty-card"><p>No pending truces.</p></article>'}</div>
+      </section>`;
+    }
   );
   dom.mobileAllianceRequestsEl.innerHTML = dom.allianceRequestsEl.innerHTML;
+  const bridgeDebugCopyButtons = dom.hud.querySelectorAll("[data-copy-bridge-debug]") as NodeListOf<HTMLButtonElement>;
+  bridgeDebugCopyButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = async () => {
+      const encoded = btn.dataset.copyBridgeDebug;
+      if (!encoded) return;
+      try {
+        await navigator.clipboard.writeText(decodeURIComponent(encoded));
+        pushFeed("Bridge debug copied.", "info", "success");
+      } catch {
+        pushFeed("Could not copy bridge debug.", "error", "warn");
+      }
+      renderClientHud(deps);
+    };
+  });
+  const authDebugCopyButtons = dom.hud.querySelectorAll("[data-copy-auth-debug]") as NodeListOf<HTMLButtonElement>;
+  authDebugCopyButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = async () => {
+      const encoded = btn.dataset.copyAuthDebug;
+      if (!encoded) return;
+      try {
+        await navigator.clipboard.writeText(decodeURIComponent(encoded));
+        pushFeed("Auth debug copied.", "info", "success");
+      } catch {
+        pushFeed("Could not copy auth debug.", "error", "warn");
+      }
+      renderClientHud(deps);
+    };
+  });
   const socialInspectCardHtml = safeValue("renderSocialInspectCardHtml", "", () =>
     renderSocialInspectCardHtml({
       socialInspectPlayerId: state.socialInspectPlayerId,
@@ -590,7 +863,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   weakDefButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
       state.showWeakDefensibility = !state.showWeakDefensibility;
-      const weakTileCount = [...state.tiles.values()].filter((tile: any) => {
+      const weakTileCount = [...state.tiles.values()].filter((tile) => {
         if (tile.ownerId !== state.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED" || tile.fogged) return false;
         return exposedSidesForTile(tile, {
           tiles: state.tiles,
@@ -709,7 +982,9 @@ export const renderClientHud = (deps: HudDeps): void => {
       <div class="card auth-settings-card">
         <p>Signed in as ${state.authUserLabel || "Guest"}.</p>
         <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
+        ${bridgeStatusHtml()}
         <button id="auth-logout" class="panel-btn" ${state.authReady ? "" : "disabled"}>Log Out</button>
+        ${authDebugHtml()}
       </div>
     </div>
     <div id="domains-detail-content">
@@ -726,12 +1001,20 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "ALLIANCE_ACCEPT", requestId: id }, "Finish sign-in before responding to alliance requests.");
     };
   });
-  const breakButtons = dom.hud.querySelectorAll(".break-ally") as NodeListOf<HTMLButtonElement>;
-  breakButtons.forEach((btn: HTMLButtonElement) => {
+  const rejectButtons = dom.hud.querySelectorAll(".reject-request") as NodeListOf<HTMLButtonElement>;
+  rejectButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
-      const id = btn.dataset.allyId;
+      const id = btn.dataset.requestId;
       if (!id) return;
-      sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing alliances.");
+      sendGameMessage({ type: "ALLIANCE_REJECT", requestId: id }, "Finish sign-in before responding to alliance requests.");
+    };
+  });
+  const cancelButtons = dom.hud.querySelectorAll(".cancel-request") as NodeListOf<HTMLButtonElement>;
+  cancelButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      const id = btn.dataset.requestId;
+      if (!id) return;
+      sendGameMessage({ type: "ALLIANCE_CANCEL", requestId: id }, "Finish sign-in before changing alliance requests.");
     };
   });
   const acceptTruceButtons = dom.hud.querySelectorAll(".accept-truce") as NodeListOf<HTMLButtonElement>;
@@ -742,12 +1025,20 @@ export const renderClientHud = (deps: HudDeps): void => {
       sendGameMessage({ type: "TRUCE_ACCEPT", requestId: id }, "Finish sign-in before responding to truces.");
     };
   });
-  const breakTruceButtons = dom.hud.querySelectorAll(".break-truce") as NodeListOf<HTMLButtonElement>;
-  breakTruceButtons.forEach((btn: HTMLButtonElement) => {
+  const rejectTruceButtons = dom.hud.querySelectorAll(".reject-truce") as NodeListOf<HTMLButtonElement>;
+  rejectTruceButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
-      const id = btn.dataset.trucePlayerId;
+      const id = btn.dataset.truceRequestId;
       if (!id) return;
-      sendGameMessage({ type: "TRUCE_BREAK", targetPlayerId: id }, "Finish sign-in before changing truces.");
+      sendGameMessage({ type: "TRUCE_REJECT", requestId: id }, "Finish sign-in before responding to truces.");
+    };
+  });
+  const cancelTruceButtons = dom.hud.querySelectorAll(".cancel-truce") as NodeListOf<HTMLButtonElement>;
+  cancelTruceButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      const id = btn.dataset.truceRequestId;
+      if (!id) return;
+      sendGameMessage({ type: "TRUCE_CANCEL", requestId: id }, "Finish sign-in before changing truce requests.");
     };
   });
 
@@ -769,7 +1060,15 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
 
-  const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired;
+  renderClientChangelogOverlay({
+    state,
+    changelogOverlayEl: dom.changelogOverlayEl,
+    buildVersion: CLIENT_BUILD_VERSION,
+    persistSeenVersion: storageSet,
+    renderHud: () => renderClientHud(deps)
+  });
+
+  const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired && !state.changelog.open;
   dom.guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
   if (canShowGuide) {
     const step = guideSteps[Math.min(state.guide.stepIndex, guideSteps.length - 1)]!;
@@ -834,7 +1133,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   deps.renderMobilePanels();
 };
 
-export const resizeClientViewport = (deps: { dom: any; viewportSize: () => { width: number; height: number } }): void => {
+export const resizeClientViewport = (deps: { dom: Pick<ClientDom, "canvas">; viewportSize: () => { width: number; height: number } }): void => {
   const { width, height } = deps.viewportSize();
   deps.dom.canvas.width = width;
   deps.dom.canvas.height = height;

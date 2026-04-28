@@ -57,6 +57,7 @@ type ChunkSnapshotCacheEntry = {
   visibility: VisibilitySnapshot;
   visibilityVersion: number;
   payloadByChunkKey: Map<string, string>;
+  summaryVersionByPayloadKey: Map<string, number>;
   visibilityMaskByChunkKey: Map<string, Uint8Array>;
   visibilityVersionByChunkKey: Map<string, number>;
 };
@@ -98,8 +99,10 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   fogChunkTilesByChunkKey: Map<string, readonly Tile[]>;
   chunkSnapshotGenerationByPlayer: Map<string, number>;
   chunkSnapshotInFlightByPlayer: Map<string, number>;
+  pendingChunkRefreshByPlayer: Set<string>;
   chunkSnapshotSentAtByPlayer: Map<string, { cx: number; cy: number; radius: number; sentAt: number }>;
   chunkSubscriptionByPlayer: Map<string, { cx: number; cy: number; radius: number }>;
+  bulkSocketForPlayer: (playerId: string) => SocketLike | undefined;
   authSyncTimingByPlayer: Map<
     string,
     {
@@ -111,6 +114,7 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   >;
   fogChunkTiles: (worldCx: number, worldCy: number) => readonly Tile[];
   summaryChunkTiles: (worldCx: number, worldCy: number, mode: ChunkSummaryMode) => readonly Tile[];
+  summaryChunkVersion: (worldCx: number, worldCy: number) => number;
   loadSummaryChunkTilesBatch: (requests: ChunkReadRequest[]) => Promise<readonly Tile[][]>;
   visibleInSnapshot: (snapshot: VisibilitySnapshot, x: number, y: number) => boolean;
   wrapX: (value: number, mod: number) => number;
@@ -119,8 +123,10 @@ type CreateChunkSnapshotControllerDeps<TPlayer extends Player> = {
   worldHeight: number;
   serializeChunkBatchViaWorker: (inputs: ChunkBuildInput[]) => Promise<string[]>;
   serializeChunkBatchDirect: (inputs: ChunkBuildInput[]) => string[];
-  serializeChunkBatchBodies: (chunkBodies: string[]) => string;
+  serializeChunkBatchBodies: (generation: number, chunkBodies: string[]) => string;
+  sendChunkBatchPayload: (socket: SocketLike, payload: string) => void;
   runtimeLoadShedLevel: () => "normal" | "soft" | "hard";
+  humanFrontierActionPriorityActive?: () => boolean;
 };
 
 const chunkDist = (a: number, b: number, mod: number): number => {
@@ -188,18 +194,20 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
   const chunkSnapshotCacheForPlayer = (
     playerId: string,
     visibility: VisibilitySnapshot
-  ): {
-    visibilityVersion: number;
-    payloadByChunkKey: Map<string, string>;
-    visibilityMaskByChunkKey: Map<string, Uint8Array>;
-    visibilityVersionByChunkKey: Map<string, number>;
-  } => {
+    ): {
+      visibilityVersion: number;
+      payloadByChunkKey: Map<string, string>;
+      summaryVersionByPayloadKey: Map<string, number>;
+      visibilityMaskByChunkKey: Map<string, Uint8Array>;
+      visibilityVersionByChunkKey: Map<string, number>;
+    } => {
     let cached = deps.cachedChunkSnapshotByPlayer.get(playerId);
     if (!cached) {
       cached = {
         visibility,
         visibilityVersion: 0,
         payloadByChunkKey: new Map<string, string>(),
+        summaryVersionByPayloadKey: new Map<string, number>(),
         visibilityMaskByChunkKey: new Map<string, Uint8Array>(),
         visibilityVersionByChunkKey: new Map<string, number>()
       };
@@ -211,6 +219,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     return {
       visibilityVersion: cached.visibilityVersion,
       payloadByChunkKey: cached.payloadByChunkKey,
+      summaryVersionByPayloadKey: cached.summaryVersionByPayloadKey,
       visibilityMaskByChunkKey: cached.visibilityMaskByChunkKey,
       visibilityVersionByChunkKey: cached.visibilityVersionByChunkKey
     };
@@ -218,10 +227,12 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 
   const clearChunkPayloads = (
     payloadByChunkKey: Map<string, string>,
+    summaryVersionByPayloadKey: Map<string, number>,
     chunkKey: string
   ): void => {
     for (const mode of CHUNK_PAYLOAD_MODES) {
       payloadByChunkKey.delete(`${mode}:${chunkKey}`);
+      summaryVersionByPayloadKey.delete(`${mode}:${chunkKey}`);
     }
   };
 
@@ -260,7 +271,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         }
       }
       if (changed) {
-        clearChunkPayloads(cache.payloadByChunkKey, chunkKey);
+        clearChunkPayloads(cache.payloadByChunkKey, cache.summaryVersionByPayloadKey, chunkKey);
       }
     }
     phases.visibilityMaskMs += deps.now() - visibilityStartedAt;
@@ -281,8 +292,10 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
     const chunkKey = `${worldCx},${worldCy}`;
     const payloadCacheKey = `${mode}:${chunkKey}`;
     const visibleMask = chunkVisibilityMask(actor.id, snapshot, worldCx, worldCy, phases);
+    const summaryVersion = deps.summaryChunkVersion(worldCx, worldCy);
     const cachedPayload = cache.payloadByChunkKey.get(payloadCacheKey);
-    if (cachedPayload) {
+    const cachedSummaryVersion = cache.summaryVersionByPayloadKey.get(payloadCacheKey);
+    if (cachedPayload && cachedSummaryVersion === summaryVersion) {
       phases.cachedPayloadChunks += 1;
       return {
         payload: cachedPayload,
@@ -290,6 +303,8 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         chunkKey: payloadCacheKey
       };
     }
+    cache.payloadByChunkKey.delete(payloadCacheKey);
+    cache.summaryVersionByPayloadKey.delete(payloadCacheKey);
 
     phases.rebuiltChunks += 1;
     return {
@@ -384,6 +399,12 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         clearInFlight();
         return;
       }
+      if (deps.humanFrontierActionPriorityActive?.()) {
+        setTimeout(() => {
+          void streamNext();
+        }, deps.chunkSnapshotOverloadYieldMs);
+        return;
+      }
 
       const chunkBatchBodies: string[] = [];
       const pendingBuilds: Array<{ chunkKey: string; buildInput: Omit<ChunkBuildInput, "visibleTiles">; cx: number; cy: number }> = [];
@@ -407,6 +428,8 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
 
       if (pendingBuilds.length > 0) {
         const summaryReadStartedAt = deps.now();
+        // Snapshot rebuilds already have direct access to the warmed summary cache.
+        // Re-reading hot-path chunks through a worker turns cached tiles into a costly structured-clone round trip.
         const visibleTileBatches = pendingBuilds.map((chunk) => deps.summaryChunkTiles(chunk.cx, chunk.cy, summaryMode));
         phases.summaryReadMs += deps.now() - summaryReadStartedAt;
         const chunkInputs = pendingBuilds.map((chunk, payloadIndex) => ({
@@ -424,13 +447,17 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
           const pending = pendingBuilds[payloadIndex]!;
           const payload = payloads[payloadIndex]!;
           payloadCache.set(pending.chunkKey, payload);
+          chunkSnapshotCacheForPlayer(actor.id, snapshot).summaryVersionByPayloadKey.set(
+            pending.chunkKey,
+            deps.summaryChunkVersion(pending.cx, pending.cy)
+          );
           chunkBatchBodies.push(payload);
         }
       }
 
       if (chunkBatchBodies.length > 0) {
         const sendStartedAt = deps.now();
-        socket.send(deps.serializeChunkBatchBodies(chunkBatchBodies));
+        deps.sendChunkBatchPayload(socket, deps.serializeChunkBatchBodies(generation, chunkBatchBodies));
         phases.sendMs += deps.now() - sendStartedAt;
         phases.batches += 1;
       }
@@ -486,6 +513,16 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
         });
       }
       clearInFlight();
+      if (deps.pendingChunkRefreshByPlayer.delete(actor.id)) {
+        const latestSocket = deps.bulkSocketForPlayer(actor.id);
+        const latestSub = deps.chunkSubscriptionByPlayer.get(actor.id);
+        if (latestSocket && latestSocket.readyState === latestSocket.OPEN && latestSub) {
+          setTimeout(() => {
+            if (latestSocket.readyState !== latestSocket.OPEN) return;
+            sendChunkSnapshot(latestSocket, actor, latestSub);
+          }, 0);
+        }
+      }
       if (
         followUpStage &&
         socket.readyState === socket.OPEN &&
@@ -534,6 +571,7 @@ export const createChunkSnapshotController = <TPlayer extends Player>(
   const clearPlayer = (playerId: string): void => {
     deps.chunkSnapshotGenerationByPlayer.delete(playerId);
     deps.chunkSnapshotInFlightByPlayer.delete(playerId);
+    deps.pendingChunkRefreshByPlayer.delete(playerId);
     deps.chunkSnapshotSentAtByPlayer.delete(playerId);
   };
 

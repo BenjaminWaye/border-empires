@@ -28,6 +28,17 @@ const functionBody = (source: string, functionName: string): string => {
 };
 
 describe("server world mobility regression guard", () => {
+  it("requires maintenance spawns to come from a substantial fog buffer", () => {
+    const source = serverWorldMobilitySource();
+    expect(source).toContain("const isValidMaintenanceBarbarianSpawnTile = (x: number, y: number): boolean =>");
+    expect(source).toContain("hasBarbarianMaintenanceFogBuffer({ x, y, tileAt: playerTile, isOutOfSight: isOutOfSightOfAllPlayers })");
+  });
+
+  it("keeps maintenance spawns separated from nearby barbarian agents", () => {
+    const source = serverWorldMobilitySource();
+    expect(source).toContain("!hasNearbyBarbarianAgent(x, y, BARBARIAN_MAINTENANCE_MIN_AGENT_SEPARATION)");
+  });
+
   it("filters missing adjacent barbarian target tiles before scoring defense", () => {
     const body = functionBody(serverWorldMobilitySource(), "chooseBarbarianTarget");
     expect(body).toContain(".filter((tile): tile is Tile => Boolean(tile))");
@@ -41,5 +52,18 @@ describe("server world mobility regression guard", () => {
   it("passes both defender id and tile into barbarian ownership defense scoring", () => {
     const body = functionBody(serverWorldMobilitySource(), "barbarianDefenseScore");
     expect(body).toContain("ownershipDefenseMultiplierForTarget(defender.id, tile)");
+  });
+
+  it("uses cached dock-linked tile keys when validating dock crossings", () => {
+    const source = serverWorldMobilitySource();
+    expect(source).toContain("const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): boolean =>");
+    expect(source).toContain("dockLinkedTileKeys(fromDock).some");
+    expect(source).not.toContain("const validDockCrossingTarget = (fromDock: Dock, toX: number, toY: number, allowAdjacentToDock = true): boolean =>\n    dockLinkedDestinations(fromDock)");
+  });
+
+  it("searches dock origins across dock tiles instead of scanning all player territory", () => {
+    const body = functionBody(serverWorldMobilitySource(), "findOwnedDockOriginForCrossing");
+    expect(body).toContain("for (const [tileKey, dock] of docksByTile)");
+    expect(body).not.toContain("for (const tk of actor.territoryTiles)");
   });
 });

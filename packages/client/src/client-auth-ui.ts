@@ -31,7 +31,20 @@ export const syncAuthPanelState = (
 };
 
 export const syncAuthOverlay = (
-  state: Pick<ClientState, "authSessionReady" | "profileSetupRequired" | "authBusy" | "authConfigured" | "authError" | "authReady" | "authBusyTitle" | "authBusyDetail">,
+  state: Pick<
+    ClientState,
+    | "authSessionReady"
+    | "profileSetupRequired"
+    | "authBusy"
+    | "authBusyStartedAt"
+    | "authConfigured"
+    | "authError"
+    | "authReady"
+    | "authBusyTitle"
+    | "authBusyDetail"
+    | "activeBackend"
+    | "bridgeDebugWsUrl"
+  >,
   deps: {
     authOverlayEl: HTMLElement;
     authBusyModalEl: HTMLElement;
@@ -49,10 +62,28 @@ export const syncAuthOverlay = (
     authBusyTitleEl: HTMLElement;
     authBusyCopyEl: HTMLElement;
     authStatusEl: HTMLElement;
+    authDebugRouteEl: HTMLElement;
+    wsUrl: string;
     syncAuthPanelState: () => void;
     setAuthStatus: (message: string, tone?: "normal" | "error") => void;
   }
 ): void => {
+  const authBusyElapsedSec =
+    state.authBusy && state.authBusyStartedAt > 0 ? Math.max(0, Math.floor((Date.now() - state.authBusyStartedAt) / 1000)) : 0;
+  const resolvedWsUrl = state.bridgeDebugWsUrl || deps.wsUrl;
+  let resolvedFlyApp = "non-fly";
+  try {
+    const host = new URL(resolvedWsUrl).hostname.toLowerCase();
+    if (host.endsWith(".fly.dev") || host.endsWith(".flycast")) {
+      resolvedFlyApp = host.split(".")[0] ?? host;
+    } else {
+      resolvedFlyApp = host;
+    }
+  } catch {
+    resolvedFlyApp = "unknown";
+  }
+  deps.authDebugRouteEl.textContent = `Backend ${state.activeBackend} • WS ${resolvedWsUrl} • Fly app ${resolvedFlyApp}`;
+
   deps.authOverlayEl.style.display = state.authSessionReady && !state.profileSetupRequired ? "none" : "grid";
   deps.authOverlayEl.dataset.busy = state.authBusy ? "true" : "false";
   deps.authBusyModalEl.setAttribute("aria-hidden", state.authBusy ? "false" : "true");
@@ -68,9 +99,11 @@ export const syncAuthOverlay = (
   deps.authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   deps.authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authBusyTitleEl.textContent = state.authBusyTitle || (state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...");
-  deps.authBusyCopyEl.textContent = state.authError
+  const busyCopy = state.authError
     ? state.authError
     : state.authBusyDetail || deps.authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
+  deps.authBusyCopyEl.textContent =
+    authBusyElapsedSec > 0 && !state.authError ? `${busyCopy} (${authBusyElapsedSec}s elapsed)` : busyCopy;
   deps.syncAuthPanelState();
   if (!state.authConfigured) {
     deps.setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");
