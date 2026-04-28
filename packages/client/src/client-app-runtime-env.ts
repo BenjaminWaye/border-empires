@@ -1,6 +1,6 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { GoogleAuthProvider, getAuth } from "firebase/auth";
-import { selectBackend } from "./client-backend-selector.js";
+import { isStagingHostname, selectBackend } from "./client-backend-selector.js";
 import { createMultiplexWebSocket } from "./client-multiplex-websocket.js";
 import type { ClientState } from "./client-state.js";
 
@@ -38,25 +38,26 @@ export const createClientSocketSetup = (
   ws: ReturnType<typeof createMultiplexWebSocket>;
   wsUrl: string;
 } => {
-  const isLocalHost =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "0.0.0.0";
+  const { hostname, protocol } = window.location;
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
+  const isStagingHost = isStagingHostname(hostname);
 
   // Legacy monolith URL — prod default stays wss://border-empires.fly.dev/ws until Phase 6.
   const legacyDefault = isLocalHost
-    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://127.0.0.1:3001/ws`
+    ? `${protocol === "https:" ? "wss" : "ws"}://127.0.0.1:3001/ws`
     : "wss://border-empires.fly.dev/ws";
   const legacyWsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? legacyDefault;
 
-  // Rewrite gateway URL — VITE_GATEWAY_WS_URL is undefined in prod until Phase 6.
+  // Rewrite gateway URL — staging must never fall back to the production legacy socket.
   const gatewayDefault = isLocalHost
-    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://127.0.0.1:3101/ws`
+    ? `${protocol === "https:" ? "wss" : "ws"}://127.0.0.1:3101/ws`
+    : isStagingHost
+      ? "wss://border-empires-gateway-staging.fly.dev/ws"
     : undefined;
   const gatewayWsUrl =
     (import.meta.env.VITE_GATEWAY_WS_URL as string | undefined) ?? gatewayDefault ?? legacyWsUrl;
 
-  // Priority: ?backend= URL param > be-backend cookie > env default.
+  // Staging hosts are forced onto gateway even if a stale override survives in the URL or cookie.
   const selection = selectBackend({ legacyWsUrl, gatewayWsUrl });
   const { wsUrl, backend } = selection;
 
