@@ -12,3 +12,4 @@ export * from "./structure-costs.js";
 export * from "./structure-placement.js";
 export * from "./worldgen.js";
 export * from "./frontier-combat.js";
+export * from "./player-display-name.js";
