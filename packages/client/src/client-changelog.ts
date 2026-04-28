@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.14",
+  version: "2026.04.28.1",
   title: "What's New",
-  summary: "Recent updates include explicit staging reseed recovery when managed startup finds an empty durable store; active-edge AI parity landing across both rewrite and legacy server planners so frontier expansion, settlement selection, and build choices stay focused on enemy pressure and strategic edges instead of dead interior borders; active-frontier AI targeting in both rewrite and legacy server paths so expansion, scouting, and settlement planning stay focused on enemy pressure and strategic edges instead of dead interior frontier; incremental AI/system planner relevance sync so large-empires no longer rebuild every tracked player's scope on each refresh; a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; and a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch.",
+  summary: "Recent updates include the new Retort Transmutation crystal ability on Grand Synthesis, which lets late-game alchemy retune exposed resource tiles into food, supply, iron, or crystal; plus the earlier staging reseed recovery, active-edge AI parity, shard-refresh fixes, and rewrite startup/auth bootstrap hardening.",
   entries: [
+    {
+      introducedIn: "2026.04.28.1",
+      title: "Grand Synthesis now unlocks Retort Transmutation",
+      why: "The synthesis branch still lacked a real late-game map verb, so advanced alchemy felt like upgrade bookkeeping instead of a dramatic steampunk power spike.",
+      changes: [
+        "Grand Synthesis now unlocks Retort Transmutation, a crystal ability that rewrites an exposed resource tile into a different economic class.",
+        "Retort Transmutation can retune a qualifying tile into food, supply, iron, or crystal ground, giving the alchemy branch a real map-shaping economy tool instead of just better converter numbers.",
+        "Resource recasts are persisted in server snapshot state and flow through live tile views, economy counts, and status calculations instead of acting like a client-only overlay."
+      ]
+    },
     {
       introducedIn: "2026.04.26.14",
       title: "Staging can explicitly reseed after an empty durable-startup failure",

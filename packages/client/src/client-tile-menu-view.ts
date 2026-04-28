@@ -98,6 +98,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "imperial_exchange_levy_crystal") return "Seize every rival empire's stored CRYSTAL at once.";
   if (actionId === "imperial_exchange_levy_supply") return "Seize every rival empire's stored SUPPLY at once.";
   if (actionId === "world_engine_strike") return "Arm the Worldbreaker Cannon and choose an enemy land tile to shatter into mountain.";
+  if (actionId === "retort_recast_food") return "Recast this exposed resource tile into a food vein.";
+  if (actionId === "retort_recast_supply") return "Recast this exposed resource tile into a supply vein.";
+  if (actionId === "retort_recast_iron") return "Recast this exposed resource tile into an iron vein.";
+  if (actionId === "retort_recast_crystal") return "Recast this exposed resource tile into a crystal vein.";
   if (actionId === "aether_emp") return "Fire an Aether EMP to disable one hostile powered structure for 20 minutes.";
   if (actionId === "city_overclock") return "Overclock this city for 15 minutes to boost local growth, income, and manpower output.";
   if (actionId === "astral_dock_launch") return "Launch one satellite for 24 hours of full-map vision.";

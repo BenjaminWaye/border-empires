@@ -1443,6 +1443,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "survey_sweep") sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y });
     if (actionId === "aether_lance") sendGameMessage({ type: "AETHER_LANCE", x: selected.x, y: selected.y });
+    if (actionId === "retort_recast_food") sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: "FARM" });
+    if (actionId === "retort_recast_supply") sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: "WOOD" });
+    if (actionId === "retort_recast_iron") sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: "IRON" });
+    if (actionId === "retort_recast_crystal") sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: "GEMS" });
     if (actionId === "reveal_empire_stats" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
       sendGameMessage({ type: "REVEAL_EMPIRE_STATS", targetPlayerId: selected.ownerId });
     }

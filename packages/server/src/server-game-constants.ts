@@ -224,6 +224,9 @@ export const SIPHON_COOLDOWN_MS = 15 * 60_000;
 export const SIPHON_DURATION_MS = 30 * 60_000;
 export const SIPHON_SHARE = 0.5;
 export const SIPHON_PURGE_CRYSTAL_COST = 10;
+export const RETORT_RECAST_GOLD_COST = 6000;
+export const RETORT_RECAST_CRYSTAL_COST = 120;
+export const RETORT_RECAST_COOLDOWN_MS = 20 * 60_000;
 export const SURVEY_SWEEP_CRYSTAL_COST = 30;
 export const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
 export const SURVEY_SWEEP_DURATION_MS = 2 * 60_000;
@@ -349,6 +352,13 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     crystalCost: SIPHON_CRYSTAL_COST,
     cooldownMs: SIPHON_COOLDOWN_MS,
     durationMs: SIPHON_DURATION_MS
+  },
+  retort_recasting: {
+    id: "retort_recasting",
+    name: "Retort Transmutation",
+    requiredTechIds: ["advanced-synthetication"],
+    crystalCost: RETORT_RECAST_CRYSTAL_COST,
+    cooldownMs: RETORT_RECAST_COOLDOWN_MS
   },
   create_mountain: {
     id: "create_mountain",

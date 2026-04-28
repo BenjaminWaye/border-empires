@@ -6,6 +6,7 @@ export type CrystalAbilityInfoKey =
   | "aether_wall"
   | "survey_sweep"
   | "aether_lance"
+  | "retort_recasting"
   | "aether_bridge"
   | "siphon"
   | "aether_emp"
@@ -34,6 +35,7 @@ const AETHER_WALL_DURATION_MS = 20 * 60_000;
 const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 const SIPHON_COOLDOWN_MS = 15 * 60_000;
 const SIPHON_DURATION_MS = 30 * 60_000;
+const RETORT_RECAST_COOLDOWN_MS = 20 * 60_000;
 const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
 const SURVEY_SWEEP_DURATION_MS = 2 * 60_000;
 const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
@@ -55,6 +57,7 @@ export const crystalAbilityNameForKey = (key: CrystalAbilityInfoKey): string => 
   if (key === "aether_wall") return "Aether Wall";
   if (key === "survey_sweep") return "Survey Sweep";
   if (key === "aether_lance") return "Aether Lance";
+  if (key === "retort_recasting") return "Retort Transmutation";
   if (key === "aether_bridge") return "Aether Bridge";
   if (key === "siphon") return "Siphon";
   if (key === "aether_emp") return "Aether EMP";
@@ -74,6 +77,7 @@ export const relatedCrystalAbilitiesForTech = (tech: Pick<TechInfo, "effects">):
   if (effects.unlockAetherWall === true) out.add("aether_wall");
   if (effects.unlockSurveySweep === true) out.add("survey_sweep");
   if (effects.unlockAetherLance === true) out.add("aether_lance");
+  if (effects.unlockRetortRecasting === true) out.add("retort_recasting");
   if (effects.unlockSabotage === true) out.add("siphon");
   if (effects.unlockAetherEmp === true) out.add("aether_emp");
   if (effects.unlockCityOverclock === true) out.add("city_overclock");
@@ -135,6 +139,16 @@ export const crystalAbilityInfoForKey = (
       costBits: ["30 CRYSTAL"],
       cooldownLabel: deps.formatCooldownShort(AETHER_BRIDGE_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(AETHER_BRIDGE_DURATION_MS)
+    };
+  }
+  if (key === "retort_recasting") {
+    return {
+      title: "Retort Transmutation",
+      detail: "Rewrites one exposed resource vein into a different industrial class, turning food, supply, iron, or crystal ground into whatever your empire needs next.",
+      glyph: "⚗",
+      target: "Any land resource tile within observatory range that has no town, dock, fort, observatory, siege line, or economic structure on it.",
+      costBits: ["6,000 gold", "120 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(RETORT_RECAST_COOLDOWN_MS)
     };
   }
   if (key === "reveal_empire_stats") {
