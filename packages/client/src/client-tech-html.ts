@@ -139,6 +139,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "revealUpkeepMult" && typeof value === "number") return `Reveal upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
+  if (key === "observatoryRangeBonus" && typeof value === "number") return `Observatory range +${value}`;
   if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Observatory protection radius +${value}`;
   if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Observatory cast radius +${value}`;
   if (key === "frontierDefenseAdd" && typeof value === "number") return `Frontier defense +${value}`;
@@ -150,6 +151,8 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
 
 const observatoryRangeSummaryLabel = (effects: TechInfo["effects"] | DomainInfo["effects"] | undefined): string | null => {
   if (!effects) return null;
+  const unified = effects.observatoryRangeBonus;
+  if (typeof unified === "number") return `Observatory range +${unified}`;
   const protection = effects.observatoryProtectionRadiusBonus;
   const cast = effects.observatoryCastRadiusBonus;
   if (typeof protection === "number" && typeof cast === "number" && protection === cast) {
@@ -164,7 +167,7 @@ const formatEffectSummaryLines = (effects: TechInfo["effects"] | DomainInfo["eff
   const combinedObservatoryRange = observatoryRangeSummaryLabel(effects);
   let observatoryRangeInserted = false;
   for (const [key, value] of Object.entries(effects)) {
-    if (combinedObservatoryRange && key === "observatoryProtectionRadiusBonus" && !observatoryRangeInserted) {
+    if (combinedObservatoryRange && (key === "observatoryRangeBonus" || key === "observatoryProtectionRadiusBonus") && !observatoryRangeInserted) {
       lines.push(combinedObservatoryRange);
       observatoryRangeInserted = true;
       continue;

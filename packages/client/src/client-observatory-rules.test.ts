@@ -14,8 +14,7 @@ describe("observatory client rules", () => {
           description: "",
           mods: {},
           effects: {
-            observatoryCastRadiusBonus: 10,
-            observatoryProtectionRadiusBonus: 10
+            observatoryRangeBonus: 10
           },
           requirements: { gold: 0, resources: {}, canResearch: true, checklist: [] }
         }
@@ -30,8 +29,7 @@ describe("observatory client rules", () => {
           requiresTechId: "beacon-towers",
           mods: {},
           effects: {
-            observatoryCastRadiusBonus: 6,
-            observatoryProtectionRadiusBonus: 6
+            observatoryRangeBonus: 6
           },
           requirements: { gold: 0, resources: {}, canResearch: true, checklist: [] }
         }
