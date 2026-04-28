@@ -99,19 +99,24 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
   try {
     deps.onCommandSubmitted?.(durableCommand);
     await deps.submitCommand(durableCommand);
-  } catch {
+  } catch (error) {
+    const simulationEnded = error instanceof Error && error.message.toLowerCase().includes("season ended");
+    const rejectionCode = simulationEnded ? "SEASON_ENDED" : "SIMULATION_UNAVAILABLE";
+    const rejectionMessage = simulationEnded
+      ? "season has ended; wait for the next world to begin"
+      : "command could not be queued in simulation";
     deps.onCommandSubmitFailed?.(envelope.commandId);
     await deps.commandStore.markRejected(
       envelope.commandId,
       now(),
-      "SIMULATION_UNAVAILABLE",
-      "command could not be queued in simulation"
+      rejectionCode,
+      rejectionMessage
     );
     deps.sendJson({
       type: "ERROR",
       commandId: envelope.commandId,
-      code: "SIMULATION_UNAVAILABLE",
-      message: "command could not be queued in simulation"
+      code: rejectionCode,
+      message: rejectionMessage
     });
   }
 };

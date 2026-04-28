@@ -9289,19 +9289,8 @@ registerServerHttpRoutes(app, {
       }
       applyManpowerRegen(actor);
       const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
-      const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
-      if (!defender && !defenderIsBarbarian) {
-        socket.send(
-          JSON.stringify({
-            type: "ATTACK_PREVIEW_RESULT",
-            from: { x: from.x, y: from.y },
-            to: { x: to.x, y: to.y },
-            valid: true,
-            winChance: 1
-          })
-        );
-        return;
-      }
+      const defenderOwnerId = to.ownerId && !defenderIsBarbarian ? to.ownerId : undefined;
+      const defender = defenderOwnerId ? players.get(defenderOwnerId) : undefined;
       if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
         sendInvalid("cannot attack allied tile");
         return;
@@ -9321,16 +9310,16 @@ registerServerHttpRoutes(app, {
         !actor.allies.has(to.ownerId ?? "") &&
         hasEnoughManpower(actor, BREAKTHROUGH_ATTACK_MANPOWER_MIN);
       const shock = breachShockByTile.get(tk);
-      const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
-      const defMult = defender ? playerDefensiveness(defender) * shockMult : 1;
-      const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
+      const shockMult = defenderOwnerId && shock && shock.ownerId === defenderOwnerId && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
+      const defMult = defender ? playerDefensiveness(defender) * shockMult : shockMult;
+      const fortMult = defenderOwnerId ? fortDefenseMultAt(defenderOwnerId, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
       const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
       const atkEff = 10 * actor.mods.attack * siegeAtkMult * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to, fk);
-      const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
-      const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
-      const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
+      const settledDefenseMult = defenderOwnerId ? settledDefenseMultiplierForTarget(defenderOwnerId, to) : 1;
+      const newSettlementDefenseMult = defenderOwnerId ? settlementDefenseMultAt(defenderOwnerId, tk) : 1;
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defenderOwnerId, to);
+      const frontierDefenseAdd = defenderOwnerId ? frontierDefenseAddForTarget(defenderOwnerId, to) : 0;
       const defEff = defenderIsBarbarian
         ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
         : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
@@ -9654,7 +9643,8 @@ registerServerHttpRoutes(app, {
     }
 
     const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
-    const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
+    const defenderOwnerId = to.ownerId && !defenderIsBarbarian ? to.ownerId : undefined;
+    const defender = defenderOwnerId ? players.get(defenderOwnerId) : undefined;
     if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
       logTileSync("action_validation_rejected_ally_target", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, defenderId: defender.id }, "action rejected: allied target");
@@ -9679,18 +9669,18 @@ registerServerHttpRoutes(app, {
     }
     if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
     let precomputedCombatPromise: Promise<PrecomputedFrontierCombat> | undefined;
-    if (defender || defenderIsBarbarian) {
+    if (defenderOwnerId || defenderIsBarbarian) {
       const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
       const shock = breachShockByTile.get(tk);
-      const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
-      const defMultRaw = defender ? playerDefensiveness(defender) * shockMult : 1;
+      const shockMult = defenderOwnerId && shock && shock.ownerId === defenderOwnerId && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
+      const defMultRaw = defender ? playerDefensiveness(defender) * shockMult : shockMult;
       const defMult = isBreakthroughAttack ? defMultRaw * BREAKTHROUGH_DEF_MULT_FACTOR : defMultRaw;
-      const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
+      const fortMult = defenderOwnerId ? fortDefenseMultAt(defenderOwnerId, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
-      const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
-      const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
-      const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
+      const settledDefenseMult = defenderOwnerId ? settledDefenseMultiplierForTarget(defenderOwnerId, to) : 1;
+      const newSettlementDefenseMult = defenderOwnerId ? settlementDefenseMultAt(defenderOwnerId, tk) : 1;
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defenderOwnerId, to);
+      const frontierDefenseAdd = defenderOwnerId ? frontierDefenseAddForTarget(defenderOwnerId, to) : 0;
       precomputedCombatPromise = resolveCombatViaWorker({
         attackBase:
           10 *
@@ -9718,12 +9708,12 @@ registerServerHttpRoutes(app, {
                   { x: to.x, y: to.y }
                 ];
           }
-          if (defender) {
-            return fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" as const }];
+          if (defenderOwnerId) {
+            return fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defenderOwnerId, ownershipState: "FRONTIER" as const }];
           }
           return [];
         })();
-        const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id;
+        const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId;
         return {
           atkEff: atkEffWithSiege,
           defEff,
@@ -9735,7 +9725,7 @@ registerServerHttpRoutes(app, {
               ? Math.max(10, manpowerCost * 0.16)
               : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEffWithSiege)) * 0.35)
           ),
-          ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defender?.id ? { defenderOwnerId: defender.id } : {}),
+          ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defenderOwnerId ? { defenderOwnerId } : {}),
           ...(previewWinnerId ? { previewWinnerId } : {})
         };
       });
@@ -9883,7 +9873,7 @@ registerServerHttpRoutes(app, {
       combatLocks.delete(tk);
       if (dockCrossing && fromDock) fromDock.cooldownUntil = now() + DOCK_CROSSING_COOLDOWN_MS;
 
-      if (!defender && !defenderIsBarbarian) {
+      if (!defenderOwnerId && !defenderIsBarbarian) {
         if (msg.type === "EXPAND") {
           actor.points -= FRONTIER_ACTION_GOLD_COST;
           recalcPlayerDerived(actor);
@@ -10059,20 +10049,22 @@ registerServerHttpRoutes(app, {
             resultChanges = failedOutcome.resultChanges;
           }
           pointsDelta = 0;
-        } else if (defender) {
-          const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk);
+        } else if (defenderOwnerId) {
+          const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defenderOwnerId, false, from, to, fk, tk);
           resultChanges = failedOutcome.resultChanges;
-          if (failedOutcome.originLost) {
+          if (failedOutcome.originLost && defender) {
             defender.missionStats.enemyCaptures += 1;
             maybeIssueResourceMission(defender, from.resource);
           }
-          defender.missionStats.combatWins += 1;
-          incrementVendettaCount(defender.id, actor.id);
-          maybeIssueVendettaMission(defender, actor.id);
-          const attackerRating = ratingFromPointsLevel(defender.points, defender.level);
-          const defenderRating = ratingFromPointsLevel(actor.points, actor.level);
-          pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(from.resource), attackerRating, defenderRating) * PVP_REWARD_MULT;
-          defender.points += pointsDelta;
+          if (defender) {
+            defender.missionStats.combatWins += 1;
+            incrementVendettaCount(defender.id, actor.id);
+            maybeIssueVendettaMission(defender, actor.id);
+            const attackerRating = ratingFromPointsLevel(defender.points, defender.level);
+            const defenderRating = ratingFromPointsLevel(actor.points, actor.level);
+            pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(from.resource), attackerRating, defenderRating) * PVP_REWARD_MULT;
+            defender.points += pointsDelta;
+          }
         }
       }
 
@@ -10099,8 +10091,8 @@ registerServerHttpRoutes(app, {
           type: "COMBAT_RESULT",
           attackType: msg.type,
           attackerWon: win,
-          winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
-          defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+          winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId,
+          defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId,
           origin: { x: from.x, y: from.y },
           target: { x: to.x, y: to.y },
           atkEff: atkEffWithSiege,
