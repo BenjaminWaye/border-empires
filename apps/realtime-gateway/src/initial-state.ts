@@ -7,6 +7,9 @@ const emptyInitialState = (playerId: string): PlayerSubscriptionSnapshot => ({
   tiles: []
 });
 
+const hasAuthoritativeBootstrapData = (snapshot: PlayerSubscriptionSnapshot | undefined): snapshot is PlayerSubscriptionSnapshot =>
+  Boolean(snapshot && (snapshot.tiles.length > 0 || snapshot.player || snapshot.worldStatus));
+
 export const resolveInitialState = ({
   playerId,
   authoritativeSnapshot,
@@ -22,8 +25,8 @@ export const resolveInitialState = ({
   allowCachedSnapshotFallback: boolean;
   allowSeedFallback: boolean;
 }): PlayerSubscriptionSnapshot => {
-  if (authoritativeSnapshot && authoritativeSnapshot.tiles.length > 0) return authoritativeSnapshot;
-  if (allowCachedSnapshotFallback && cachedSnapshot && cachedSnapshot.tiles.length > 0) return cachedSnapshot;
+  if (hasAuthoritativeBootstrapData(authoritativeSnapshot)) return authoritativeSnapshot;
+  if (allowCachedSnapshotFallback && hasAuthoritativeBootstrapData(cachedSnapshot)) return cachedSnapshot;
   if (allowSeedFallback) return fallbackInitialStateFromSeed(playerId, simulationSeedProfile);
   return emptyInitialState(playerId);
 };

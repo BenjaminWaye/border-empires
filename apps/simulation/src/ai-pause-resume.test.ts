@@ -252,6 +252,43 @@ describe("worker AI command producer pause/resume", () => {
     );
   });
 
+  it("records worker planner errors as planner_error no-ops", async () => {
+    const runtime = makeRuntime(0);
+    const onNoCommand = vi.fn();
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "error",
+            playerId: msg.playerId,
+            message: "planner exploded"
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onNoCommand,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(onNoCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ playerId: "ai-1", noCommandReason: "planner_error" })
+    );
+  });
+
   it("forwards granular worker phase diagnostics to the callback", async () => {
     const runtime = makeRuntime(0);
     const onDiagnostic = vi.fn();
@@ -303,6 +340,55 @@ describe("worker AI command producer pause/resume", () => {
         frontierTileCount: 5
       })
     );
+  });
+
+  it("does not hang the AI loop when the worker returns an error message", async () => {
+    const runtime = makeRuntime(0);
+    const submitted: CommandEnvelope[] = [];
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    let planCount = 0;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        planCount += 1;
+        queueMicrotask(() => {
+          if (planCount === 1) {
+            this.emit("message", {
+              type: "error",
+              playerId: msg.playerId,
+              message: "planner exploded"
+            });
+            return;
+          }
+          this.emit("message", {
+            type: "command",
+            playerId: msg.playerId,
+            command: makeCommand(msg.playerId as string)
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async (command) => {
+        submitted.push(command);
+      },
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(submitted).toEqual([expect.objectContaining({ playerId: "ai-1", type: "ATTACK" })]);
   });
 
   it("stagger-syncs a subset of AI players on each periodic sync interval", async () => {

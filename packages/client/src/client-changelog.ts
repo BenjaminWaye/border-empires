@@ -19,62 +19,132 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.28.1",
+  version: "2026.04.28.11",
   title: "What's New",
-  summary: "Recent updates include the new Retort Transmutation crystal ability on Grand Synthesis, which lets late-game alchemy retune exposed resource tiles into food, supply, iron, or crystal; plus the earlier staging reseed recovery, active-edge AI parity, shard-refresh fixes, and rewrite startup/auth bootstrap hardening.",
+  summary: "Recent updates include the steampunk tech-tree restructure with monument projects, stricter fort and siege upgrade ladders, bank and observatory-range cleanup, and the new Retort Transmutation crystal ability on Grand Synthesis; plus frontier action diagnostics, rewrite AI/autoboot fixes, seasonal lifecycle rollout, and the broader rewrite bootstrap and sync hardening already landed on main.",
   entries: [
     {
+      introducedIn: "2026.04.28.11",
+      title: "Steampunk tech tree restructure adds monument projects and Retort Transmutation",
+      why: "The old tree had drifted away from the game’s steampunk direction, several techs felt like filler, fort and siege progression was too implicit, and late-game alchemy still lacked a real map-changing verb.",
+      changes: [
+        "The pre-space tech tree now uses the steampunk restructure branch with renamed ages, new structure unlocks, stricter Fort -> Iron Bastion -> Thunder Bastion and Siege Outpost -> Siege Tower -> Dread Tower upgrade ladders, and monument project progression for Imperial Exchange, Worldbreaker Cannon, Aegis Dome, and Astral Dock.",
+        "Grand Synthesis now unlocks Retort Transmutation, a crystal ability that rewrites an exposed land resource tile into food, supply, iron, or crystal if it is within owned observatory range and not blocked by hostile crystal protection or structures.",
+        "Bank is restored to a gold-only structure cost, and observatory progression now uses one unified observatory range bonus source instead of separate cast/protection tech data that could drift apart."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.10",
+      title: "Frontier expansion acks now expose command correlation in diagnostics",
+      why: "Some queued frontier expands were clearly touching tile updates without ever flipping the client ack flags, which made it hard to tell whether the server never accepted the action or the client dropped the corresponding control message.",
+      changes: [
+        "Server frontier ACTION_ACCEPTED, COMBAT_START, and COMBAT_RESULT messages now preserve the originating frontier command id and client sequence when they are available.",
+        "Client frontier queue diagnostics now log the active action key, late-ack wait windows, and both sides of any command-id mismatch instead of only printing a partial current state.",
+        "This does not change frontier gameplay rules, but it makes stuck-expand investigations much faster because server and client logs can now be matched directly."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.9",
+      title: "Recovered rewrite seasons now restart AI autopilot with the actual live AI roster",
+      why: "Recovered staging worlds could re-enable AI autopilot against fallback seed identities instead of the recovered player set, which left the worker trying to plan moves for AI ids that did not exist in the live runtime.",
+      changes: [
+        "Rewrite simulation now derives AI autopilot identities from recovered player state first and only falls back to seed identities when recovery truly has no players.",
+        "Boolean-style simulation env flags now tolerate values like `true`, `on`, and surrounding whitespace instead of requiring only exact `1`.",
+        "Added startup regressions so recovered managed-season worlds cannot silently start the AI loop with stale seed-only player ids again."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.8",
+      title: "Queued frontier captures no longer stall behind full chunk refreshes",
+      why: "Each ownership change was still allowed to trigger a subscribed chunk refresh even while a human frontier chain was active, which added avoidable visibility-mask and snapshot work directly onto rapid expansion sequences.",
+      changes: [
+        "Subscribed chunk refreshes now defer while human frontier priority is active instead of starting immediately on each ownership change.",
+        "Live frontier ownership still reaches the client through the existing local vision delta path, so expansion chains stay responsive without dropping correctness.",
+        "Added server-side defer/flush debug events plus regression coverage so future sync changes do not reintroduce chunk-refresh pressure during chained captures."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.7",
+      title: "Rewrite leaderboards now keep live AI standings and hide raw auth ids",
+      why: "Fresh rewrite auth bootstraps could still drop the authoritative world-status snapshot when the first visible tile payload was empty, which made the leaderboard fall back to a fake two-player view, while unprofiled human auth ids could still surface as raw opaque strings in public standings.",
+      changes: [
+        "Bootstrap-only rewrite subscribe snapshots now carry the authoritative leaderboard and season-victory payload instead of reusing a cache entry with world status stripped out.",
+        "Gateway bootstrap resolution now preserves authoritative world-status snapshots even when a player has no visible tiles yet, so the client no longer falls back to a fake `player-2` leaderboard during login.",
+        "Opaque auth ids now render as stable generic empire labels instead of leaking raw Firebase-looking strings into leaderboard and HQ displays."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.6",
+      title: "New seasons now ask human empires to confirm a fresh name and color",
+      why: "Season rollover was respawning the same human player record with profile setup still marked complete, so players could skip the fresh-season name and banner choice while auth-only probe accounts also stuck around as half-created empires after disconnect.",
+      changes: [
+        "Season rollover now marks human empires as needing profile setup again and immediately prompts connected players to choose their season name and color.",
+        "Unfinished human profiles can no longer issue gameplay actions until profile setup is completed.",
+        "Auth-only probe sessions and abandoned unfinished logins are now discarded on disconnect instead of lingering as durable one-tile empires."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.5",
+      title: "Log Out works again in both duplicated settings panels",
+      why: "The settings card still renders in desktop and mobile panel containers, and the logout wiring had regressed back to a single global id lookup, so the visible Log Out control could stop responding again depending on layout.",
+      changes: [
+        "The settings card now tags Log Out controls with a shared data attribute instead of a duplicated global id.",
+        "HUD binding now attaches the sign-out handler to every rendered Log Out button in the HUD, so both settings panel copies trigger Firebase sign-out and reload.",
+        "Added a regression guard so future settings-panel cloning changes do not silently return to first-match-only logout binding."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.4",
+      title: "HQ current-season totals now count seeded AI empires",
+      why: "The new seasonal ruleset can start with AI-only competitive empires, but the HQ current-season summary was still counting only non-AI players, which made AI seasons look empty even while the leaderboard was full.",
+      changes: [
+        "Current-season summary totals now count all competitive empires that appear on the leaderboard instead of excluding seeded AI players.",
+        "Barbarian/system actors still stay out of the total so HQ counts match the actual competitive field.",
+        "Added regression coverage around the summary builder so future season-summary changes cannot silently report zero players for AI-start seasons."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.3",
+      title: "Settlements no longer show town-only support-area and road UI",
+      why: "Settlement tiles can grow into towns later, but they do not use the same support-area or connected-town road rules before that stage, so the client was showing misleading town infrastructure hints too early.",
+      changes: [
+        "Settlement-tier tiles no longer qualify as road endpoints for the client road overlay, so early settlements stop drawing connected-town links.",
+        "Settlement overviews now continue to show their own gold production without surfacing town-only support counts or connected-town bonus modifiers from stale snapshot fields.",
+        "Added client regressions so future support-anchor, road-network, and overview-copy changes keep settlement behavior separate from real towns."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.2",
+      title: "Seasonal rewrites now start with 10 named AI empires and no pre-seeded human slot",
+      why: "The first managed seasonal bootstrap was still deriving its world from a seed fixture in the wrong shape, which left staging with malformed current-season data and no useful AI field to pressure-test the new lifecycle.",
+      changes: [
+        "The production seasonal ruleset now bootstraps with 10 AI-controlled empires already on the map, while humans still start fresh with no pre-seeded empire.",
+        "AI season empires now get mixed English and Swedish human-style names so HQ and leaderboard reads no longer leak raw ai-ids.",
+        "The admin season-start route now accepts a protected force mode so operators can roll staging into a fresh season even before a winner has been crowned."
+      ]
+    },
+    {
       introducedIn: "2026.04.28.1",
-      title: "Grand Synthesis now unlocks Retort Transmutation",
-      why: "The synthesis branch still lacked a real late-game map verb, so advanced alchemy felt like upgrade bookkeeping instead of a dramatic steampunk power spike.",
+      title: "Rewrite seasons can now end, stay viewable, and manually roll into a fresh ruleset-generated world",
+      why: "The rewrite stack could recover an existing world, but it did not have a first-class seasonal lifecycle for managed DB-backed runtime, which made staging season resets fragile and left the HQ site without authoritative current/archive season reads.",
       changes: [
-        "Grand Synthesis now unlocks Retort Transmutation, a crystal ability that rewrites an exposed resource tile into a different economic class.",
-        "Retort Transmutation can retune a qualifying tile into food, supply, iron, or crystal ground, giving the alchemy branch a real map-shaping economy tool instead of just better converter numbers.",
-        "Resource recasts are persisted in server snapshot state and flow through live tile views, economy counts, and status calculations instead of acting like a client-only overlay."
-      ]
-    },
-    {
-      introducedIn: "2026.04.26.14",
-      title: "Staging can explicitly reseed after an empty durable-startup failure",
-      why: "The rewrite simulation now protects login by listening earlier during restart, but staging still cannot recover if its durable store is already empty unless there is an explicit reseed path for managed runtime.",
-      changes: [
-        "Simulation startup now only uses seed fallback in managed runtime when `SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK=1` is explicitly set.",
-        "That fallback is limited to the exact empty-durable-state startup error and does not mask ordinary database or replay failures.",
-        "Staging simulation config now enables that controlled fallback so an empty durable store does not leave the entire environment permanently down after restart."
-      ]
-    },
-    {
-      introducedIn: "2026.04.26.13",
-      title: "AI frontier, settlement, and build planning now stay on active strategic edges across both planners",
-      why: "The live server still lacked the full active-edge and legacy-parity frontier logic, so large empires could keep rescanning dead interior borders and miss the better economic, scaffold, and pressure moves that the newer planner work was designed to unlock.",
-      changes: [
-        "Rewrite simulation now carries the hot-frontier, strategic-frontier, and build-candidate planner indexes all the way through worker planning so settlement, structure, and expansion selection stay focused on recently relevant edge tiles.",
-        "Legacy production server frontier caches now surface active-expand and strategic-frontier subsets first, letting settlement, scout, and pressure logic spend less time on dead interior frontier and more time on enemy borders and strategic reach.",
-        "Settlement and frontier scoring now use the richer parity logic for economic, scaffold, scout, and waste opportunities so AIs push toward real settlement and pressure value instead of broad row-filling."
-      ]
-    },
-    {
-      introducedIn: "2026.04.26.12",
-      title: "AI frontier planning now focuses on active enemy and strategic edges instead of rescanning dead interior frontier",
-      why: "Large empires were still wasting CPU and frontier choices on broad low-value interior border scans, which encouraged blobby row expansion and made both rewrite and legacy AI do more work than the live decision actually needed.",
-      changes: [
-        "Rewrite simulation now maintains hot frontier, strategic frontier, and build-candidate indexes so worker planning prefers frontier near enemies, settlement-worthy edges, and tiles whose buildability just changed.",
-        "Legacy production server territory caches now keep focused strategic-frontier and active-expand candidate subsets, and frontier settlement, scout, and expand planning consumes those subsets before falling back to the full candidate pool.",
-        "Frontier exploration heuristics now stay biased toward enemy pressure, coastlines, scaffold paths, and settlement reach instead of flat interior row-filling when a more active edge exists."
+        "Managed rewrite startup can now bootstrap the first season from a ruleset-generated world when durable state is empty instead of crashing or depending on a seeded AI profile.",
+        "Season victory tracking now freezes the world into an ended read-only state, keeps that ended season as current until replacement, and persists the current season summary for HQ reads.",
+        "Gateway now exposes current and archive HQ endpoints plus a protected manual start-next-season route backed by simulation-side archival, operational-state wipe, and fresh-world bootstrap."
       ]
     },
     {
       introducedIn: "2026.04.26.10",
-      title: "Fresh frontier captures no longer make shard caches disappear in staging",
-      why: "Chunk-shell refreshes could overwrite a just-expanded frontier tile with a lower-detail owned summary that omitted shard metadata, making visible shard caches seem to vanish right after you claimed the tile.",
+      title: "Log Out now works from every settings panel layout",
+      why: "The client renders the settings card in both desktop and mobile panel containers, but the logout handler only attached to the first matching button id, so the other visible Log Out control could do nothing.",
       changes: [
-        "Client tile-detail merging now preserves shard-site data when a lower-detail chunk or shell refresh omits shard metadata instead of explicitly clearing it.",
-        "Fresh frontier captures keep their shard cache visible and collectable until the server sends an authoritative removal or you collect it.",
-        "Added a client regression test covering summary frontier updates that downgrade detail without dropping shard sites."
+        "The settings card now renders logout controls with a shared data hook instead of a duplicated global id.",
+        "HUD binding now attaches the sign-out handler to every rendered Log Out button, so both desktop and mobile panel copies trigger Firebase sign-out and reload.",
+        "Added a client regression guard so future panel cloning changes cannot silently leave one logout button inert."
       ]
     },
     {
-      introducedIn: "2026.04.26.10",
+      introducedIn: "2026.04.26.9",
       title: "Simulation restarts no longer hold login behind startup replay compaction",
       why: "Staging restarts were blocking the simulation gRPC listener behind a replay-compaction checkpoint, and the checkpoint path itself was not using one dedicated Postgres transaction client, which could leave the gateway seeing long ECONNREFUSED windows and projection write failures before login even reached subscribe.",
       changes: [
@@ -84,7 +154,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.9",
+      introducedIn: "2026.04.26.8",
       title: "Settings now expose copyable auth-debug details for cross-device staging checks",
       why: "When a staging login seemed to land on a different empire, there was no fast in-client way to compare the Firebase identity, resolved player id, backend route, and runtime metadata between desktop and mobile.",
       changes: [
@@ -94,7 +164,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.9",
+      introducedIn: "2026.04.26.8",
       title: "Staging auth now reuses the same empire across device-specific Firebase UIDs",
       why: "The rewrite gateway only reused durable auth bindings by UID, so the same player email could land on a different player id when desktop and mobile surfaced different Firebase identities for staging auth.",
       changes: [
@@ -104,7 +174,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.9",
+      introducedIn: "2026.04.26.8",
       title: "Rewrite login bootstrap now uses a cheap visible-only subscribe path",
       why: "The split simulation was still building each player's auth subscribe/bootstrap snapshot from a full-world runtime export and then sending a redundant bootstrap tile batch after INIT, so already-running staging machines could stall auth for far too long and occasionally duplicate the first visible world refresh.",
       changes: [

@@ -29,6 +29,27 @@ message PingRequest {
   uint64 at = 1;
 }
 
+message SeasonSummaryRequest {}
+
+message SeasonSummaryResponse {
+  bool ok = 1;
+  string summary_json = 2;
+}
+
+message SeasonArchivesResponse {
+  bool ok = 1;
+  string archives_json = 2;
+}
+
+message StartNextSeasonRequest {
+  bool force = 1;
+}
+
+message StartNextSeasonResponse {
+  bool ok = 1;
+  string season_id = 2;
+}
+
 message Ack {
   bool ok = 1;
 }
@@ -101,5 +122,8 @@ service SimulationService {
   rpc SubscribePlayer(SubscribePlayerRequest) returns (SubscribePlayerAck);
   rpc UnsubscribePlayer(UnsubscribePlayerRequest) returns (Ack);
   rpc Ping(PingRequest) returns (Ack);
+  rpc GetCurrentSeasonSummary(SeasonSummaryRequest) returns (SeasonSummaryResponse);
+  rpc ListSeasonArchives(SeasonSummaryRequest) returns (SeasonArchivesResponse);
+  rpc StartNextSeason(StartNextSeasonRequest) returns (StartNextSeasonResponse);
   rpc StreamEvents(PingRequest) returns (stream SimulationEvent);
 }
