@@ -38,7 +38,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   MARKET: { baseGoldCost: 2_200 },
   GRANARY: { baseGoldCost: 700, resourceCost: { resource: "FOOD", amount: 40 } },
   CENSUS_HALL: { baseGoldCost: 900, resourceCost: { resource: "FOOD", amount: 30 } },
-  BANK: { baseGoldCost: 1_600, resourceCost: { resource: "CRYSTAL", amount: 60 } },
+  BANK: { baseGoldCost: 3_200 },
   CLEARING_HOUSE: { baseGoldCost: 3_000, resourceCost: { resource: "CRYSTAL", amount: 80 } },
   AIRPORT: {
     baseGoldCost: 3_000,

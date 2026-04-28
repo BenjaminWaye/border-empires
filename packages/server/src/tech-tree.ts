@@ -95,6 +95,7 @@ export interface TechEffects {
   revealUpkeepMult?: number;
   revealCapacityBonus?: number;
   visionRadiusBonus?: number;
+  observatoryRangeBonus?: number;
   observatoryProtectionRadiusBonus?: number;
   observatoryCastRadiusBonus?: number;
   buildCapacityAdd?: number;
@@ -234,6 +235,7 @@ const TechEffectsSchema = z
     revealUpkeepMult: z.number().positive().optional(),
     revealCapacityBonus: z.number().int().min(0).optional(),
     visionRadiusBonus: z.number().int().min(0).optional(),
+    observatoryRangeBonus: z.number().int().min(0).optional(),
     observatoryProtectionRadiusBonus: z.number().int().min(0).optional(),
     observatoryCastRadiusBonus: z.number().int().min(0).optional(),
     buildCapacityAdd: z.number().int().min(0).optional(),

@@ -1,6 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
 import { hostileObservatoryProtectingTileAt } from "./client-observatory-cooldown.js";
+import { ownObservatoryCastRadius } from "./client-observatory-rules.js";
 import type { Tile, TileActionDef, TileMenuView } from "./client-types.js";
 
 export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
@@ -249,3 +250,16 @@ export const hostileObservatoryProtectingTile = (
   state: Pick<ClientState, "tiles" | "me" | "allies">,
   tile: Tile
 ): Tile | undefined => hostileObservatoryProtectingTileAt(state.tiles.values(), state.me, state.allies, tile, Date.now());
+
+export const ownedActiveObservatoryWithinRange = (
+  state: Pick<ClientState, "tiles" | "me" | "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
+  tile: Tile
+): boolean => {
+  const range = ownObservatoryCastRadius(state);
+  for (const candidate of state.tiles.values()) {
+    if (candidate.fogged || candidate.ownerId !== state.me || candidate.terrain !== "LAND") continue;
+    if (candidate.observatory?.ownerId !== state.me || candidate.observatory.status !== "active") continue;
+    if (chebyshevDistanceClient(candidate.x, candidate.y, tile.x, tile.y) <= range) return true;
+  }
+  return false;
+};

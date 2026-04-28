@@ -33,6 +33,7 @@ import type {
   Tile,
   TileActionDef
 } from "./client-types.js";
+import { ownedActiveObservatoryWithinRange } from "./client-tile-action-support.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -715,11 +716,13 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const retortRecastActions = (): TileActionDef[] => {
     const currentClass = resourceClassForTile(tile.resource);
     if (!currentClass) return [];
+    const inObservatoryRange = ownedActiveObservatoryWithinRange(state, tile);
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
     const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
     const cooldown = deps.abilityCooldownRemainingMs("retort_recasting");
     const canCast =
       hasRetortRecastingCapability(state) &&
+      inObservatoryRange &&
       !observatoryProtection &&
       !blockedBySite &&
       cooldown <= 0 &&
@@ -727,6 +730,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       (state.strategicResources.CRYSTAL ?? 0) >= 120;
     const reason = !hasRetortRecastingCapability(state)
       ? "Requires Grand Synthesis"
+      : !inObservatoryRange
+        ? "Must be within observatory range"
       : observatoryProtection
         ? "Blocked by observatory field"
         : blockedBySite
@@ -1650,17 +1655,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           label: "Build Bank",
           detail: deps.buildDetailTextForAction("build_bank", tile, townBuildSource),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            !supportPlacementBlocked && !townHasBank && state.techIds.includes("coinage") && state.gold >= 1600 && (state.strategicResources.CRYSTAL ?? 0) >= 60,
+            !supportPlacementBlocked && !townHasBank && state.techIds.includes("coinage") && state.gold >= 3200,
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasBank
                 ? "Nearby town already has Bank"
                 : !state.techIds.includes("coinage")
                   ? "Requires Coinage"
-                  : state.gold < 1600
-                    ? "Need 1600 gold"
-                    : "Need 60 CRYSTAL",
-            `1600 gold + 60 CRYSTAL • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m`,
+                  : "Need 3200 gold",
+            `3200 gold • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m`,
             slots,
             deps
           )
