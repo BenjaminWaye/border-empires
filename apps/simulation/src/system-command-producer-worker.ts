@@ -6,12 +6,11 @@
  */
 
 import { Worker } from "node:worker_threads";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
+import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -58,10 +57,8 @@ type WorkerSystemCommandProducerOptions = {
   onTick?: (sample: { durationMs: number }) => void;
 };
 
-const here = dirname(fileURLToPath(import.meta.url));
-
-const resolveWorkerScript = (given?: string): string =>
-  given ?? resolve(here, "system-job-worker.js");
+const resolveWorkerScript = (given?: string): string | URL =>
+  given ?? resolveWorkerEntryUrl("./system-job-worker.js", import.meta.url);
 
 const hasAnyBacklog = (queueDepths: QueueDepths): boolean =>
   queueDepths.human_interactive > 0 || queueDepths.human_noninteractive > 0 || queueDepths.system > 0;
@@ -98,6 +95,14 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
       if (resolve) {
         pendingRequests.delete(message.playerId as string);
         resolve(message.command as CommandEnvelope | null);
+      }
+    } else if (message.type === "error") {
+      const playerId = message.playerId as string;
+      console.error("[system-job-worker] planner error:", message.message);
+      const resolve = pendingRequests.get(playerId);
+      if (resolve) {
+        pendingRequests.delete(playerId);
+        resolve(null);
       }
     }
   });
