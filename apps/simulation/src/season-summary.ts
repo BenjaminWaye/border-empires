@@ -5,8 +5,6 @@ import type { SimulationRuntime } from "./runtime.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 
-const isAiOrSystemPlayer = (playerId: string): boolean => playerId === "barbarian-1" || playerId.startsWith("ai-");
-
 const topEntries = (
   entries: Array<{ id: string; name: string; value: number }>,
   limit = 5
@@ -46,7 +44,7 @@ export const buildCurrentSeasonSummary = ({
     ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
   });
   const townCount = runtimeState.tiles.filter((tile) => typeof tile.townJson === "string" || typeof tile.townType === "string").length;
-  const totalPlayers = runtimeState.players.filter((player) => !isAiOrSystemPlayer(player.id)).length;
+  const totalPlayers = worldStatus.leaderboard.overall.length;
 
   return {
     season: seasonState.seasonId,

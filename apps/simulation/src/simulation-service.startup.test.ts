@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { InMemorySimulationCommandStore } from "./command-store.js";
 import { InMemorySimulationEventStore } from "./event-store.js";
 import { InMemorySimulationSnapshotStore, buildSimulationSnapshotSections } from "./snapshot-store.js";
+import { generateSeasonWorld } from "./season-worldgen.js";
 import { createSimulationService } from "./simulation-service.js";
 import type { SimulationEventStore } from "./event-store.js";
 import { InMemorySeasonSummaryStore } from "./season-summary-store.js";
@@ -172,6 +173,64 @@ describe("simulation service startup recovery", () => {
     expect(tiles.length).toBeGreaterThan(1);
     expect(tiles).toEqual(
       expect.arrayContaining([expect.objectContaining({ x: 99, y: 99, ownerId: "player-1" })])
+    );
+    await service.close();
+  });
+
+  it("refreshes the persisted current summary from recovered runtime state on startup", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+    const seasonSummaryStore = new InMemorySeasonSummaryStore();
+    const generated = generateSeasonWorld("seasonal-default", 12345);
+    await snapshotStore.saveSnapshot({
+      lastAppliedEventId: 0,
+      snapshotSections: buildSimulationSnapshotSections({
+        initialState: generated.initialState,
+        commands: [],
+        eventsByCommandId: new Map()
+      }),
+      createdAt: 1_000
+    });
+    await seasonSummaryStore.saveCurrentSummary({
+      season: "season-1",
+      seasonId: "season-1",
+      seasonSequence: 1,
+      status: "active",
+      startedAt: 1_000,
+      worldSeed: generated.worldSeed,
+      rulesetId: "seasonal-default",
+      leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] },
+      overall: [],
+      byTiles: [],
+      byIncome: [],
+      byTechs: [],
+      seasonVictory: [],
+      onlinePlayers: 0,
+      totalPlayers: 0,
+      townCount: 0,
+      updatedAt: 1_000
+    });
+
+    const service = await createSimulationService({
+      databaseUrl: "postgres://simulation",
+      commandStore,
+      eventStore,
+      snapshotStore,
+      seasonSummaryStore,
+      rulesetId: "seasonal-default",
+      log: {
+        info: () => undefined,
+        error: () => undefined
+      }
+    });
+
+    await expect(seasonSummaryStore.loadCurrentSummary()).resolves.toEqual(
+      expect.objectContaining({
+        seasonId: "season-1",
+        totalPlayers: 10,
+        townCount: expect.any(Number)
+      })
     );
     await service.close();
   });

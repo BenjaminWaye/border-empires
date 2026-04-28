@@ -1049,7 +1049,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     return recomputeAndPersistCurrentSummary({ forcePersist: true });
   };
   const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives();
-  await readCurrentSummary();
+  await recomputeAndPersistCurrentSummary({ forcePersist: true });
   const startNextSeason = async (force = false): Promise<{ seasonId: string }> => {
     if (seasonRolloverInFlight) throw new Error("season rollover already in progress");
     if (currentSeasonState.status !== "ended" && !force) {
