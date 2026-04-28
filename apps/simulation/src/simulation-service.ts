@@ -367,6 +367,40 @@ const buildBootstrapSeason = ({
   };
 };
 
+type ActivePlayerIdentity = {
+  id: string;
+  isAi: boolean;
+};
+
+const createActivePlayerIdentityMap = (
+  players: Iterable<{ id: string; isAi: boolean }>
+): Map<string, ActivePlayerIdentity> =>
+  new Map(
+    [...players].map((player) => [
+      player.id,
+      {
+        id: player.id,
+        isAi: player.isAi
+      }
+    ])
+  );
+
+const createRecoveredActivePlayerIdentityMap = (
+  initialState: RecoveredSimulationState | undefined,
+  fallbackPlayers: ReadonlyMap<string, ActivePlayerIdentity>
+): Map<string, ActivePlayerIdentity> | undefined => {
+  if (!initialState?.players || initialState.players.length === 0) return undefined;
+  return new Map(
+    initialState.players.map((player) => [
+      player.id,
+      {
+        id: player.id,
+        isAi: player.isAi ?? fallbackPlayers.get(player.id)?.isAi ?? false
+      }
+    ])
+  );
+};
+
 const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
   value === true || value === 1 || value === "1" || value === "true";
 
@@ -552,7 +586,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       worldSeed: 0,
       startedAt: Date.now()
     });
-  let activePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
+  const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
+  const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
+  let activePlayers =
+    createRecoveredActivePlayerIdentityMap(startupRecovery.initialState, fallbackActivePlayers) ?? fallbackActivePlayers;
   let runtime = new SimulationRuntime({
     ...(options.runtimeOptions ?? {}),
     ...(options.seedProfile ? { seedProfile: options.seedProfile } : {}),
@@ -573,7 +610,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       recordLagDiagnostic("warn", "runtime_queue_drain_slow", sample);
     },
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
-    initialPlayers: activePlayers
+    initialPlayers: runtimePlayers
   });
   const simulationMetrics = createSimulationMetrics();
   const startupReplayCompactionMinEvents = Math.max(
@@ -1139,7 +1176,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       });
       replaceRuntime({
         nextRuntime,
-        nextPlayers: bootstrap.initialPlayers,
+        nextPlayers: createActivePlayerIdentityMap(bootstrap.initialPlayers.values()),
         nextSeasonState: bootstrap.seasonState
       });
       currentSummary = nextSummary;
