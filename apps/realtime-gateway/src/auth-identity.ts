@@ -1,3 +1,5 @@
+import { anonymizedEmpireNameForId, isOpaquePlayerId } from "@border-empires/shared";
+
 const decodeJwtPayload = (token: string): Record<string, unknown> | undefined => {
   const parts = token.split(".");
   if (parts.length < 2) return undefined;
@@ -30,6 +32,7 @@ const normalizeDisplayName = (value: string | undefined): string | undefined => 
 
 const fallbackDisplayNameForToken = (token: string): string => {
   const trimmed = token.trim();
+  if (isOpaquePlayerId(trimmed)) return anonymizedEmpireNameForId(trimmed);
   if (trimmed.length <= 24) return trimmed;
   return `${trimmed.slice(0, 12)}...${trimmed.slice(-8)}`;
 };

@@ -123,6 +123,7 @@ import { createServerOwnershipRuntime } from "./server-ownership-runtime.js";
 import { createServerSnapshotIoRuntime } from "./server-snapshot-io.js";
 import { createServerSnapshotHydrateRuntime } from "./server-snapshot-hydrate.js";
 import { createServerPlayerIdentityRuntime } from "./server-player-identity-runtime.js";
+import { playerNeedsProfileSetup, resetHumanProfileForSeason } from "./server-player-profile-lifecycle.js";
 import { createServerAiFrontierSignalsRuntime } from "./server-ai-frontier-signals.js";
 import { createServerAiFrontierTerritoryRuntime } from "./server-ai-frontier-territory.js";
 import { createServerAiFrontierScoutRuntime } from "./server-ai-frontier-scout.js";
@@ -1017,6 +1018,59 @@ const playerBaseMods = new Map<string, { attack: number; defense: number; income
 const playerEffectsByPlayer = new Map<string, PlayerEffects>();
 const seasonArchives: SeasonArchiveEntry[] = [];
 const strategicReplayEvents: StrategicReplayEvent[] = [];
+
+const clearAuthIdentityBindingForPlayer = (playerId: string): void => {
+  for (const identity of authIdentityByUid.values()) {
+    if (identity.playerId !== playerId) continue;
+    identity.playerId = "";
+  }
+};
+
+const removePlayerRuntimeState = (playerId: string): void => {
+  playerBaseMods.delete(playerId);
+  strategicResourceStockByPlayer.delete(playerId);
+  strategicResourceBufferByPlayer.delete(playerId);
+  economyIndexByPlayer.delete(playerId);
+  dynamicMissionsByPlayer.delete(playerId);
+  forcedRevealTilesByPlayer.delete(playerId);
+  revealedEmpireTargetsByPlayer.delete(playerId);
+  playerEffectsByPlayer.delete(playerId);
+  clusterControlledTilesByPlayer.delete(playerId);
+  resourceCountsByPlayer.delete(playerId);
+  frontierSettlementsByPlayer.delete(playerId);
+  temporaryAttackBuffUntilByPlayer.delete(playerId);
+  temporaryIncomeBuffUntilByPlayer.delete(playerId);
+  abilityCooldownsByPlayer.delete(playerId);
+  growthPausedUntilByPlayer.delete(playerId);
+  townFeedingStateByPlayer.delete(playerId);
+  observatoryTileKeysByPlayer.delete(playerId);
+  economicStructureTileKeysByPlayer.delete(playerId);
+  socketsByPlayer.delete(playerId);
+  bulkSocketsByPlayer.delete(playerId);
+  chunkSubscriptionByPlayer.delete(playerId);
+  chunkSnapshotSentAtByPlayer.delete(playerId);
+  chunkSnapshotGenerationByPlayer.delete(playerId);
+  chunkSnapshotInFlightByPlayer.delete(playerId);
+  pendingChunkRefreshByPlayer.delete(playerId);
+  cachedVisibilitySnapshotByPlayer.delete(playerId);
+  cachedChunkSnapshotByPlayer.delete(playerId);
+  actionTimestampsByPlayer.delete(playerId);
+  fogDisabledByPlayer.delete(playerId);
+  authSyncTimingByPlayer.delete(playerId);
+};
+
+const discardIncompleteHumanPlayer = (player: Player): void => {
+  if (!playerNeedsProfileSetup(player)) return;
+  for (const tileKey of [...player.territoryTiles]) {
+    if (ownership.get(tileKey) !== player.id) continue;
+    const [x, y] = parseKey(tileKey);
+    updateOwnership(x, y, undefined);
+  }
+  players.delete(player.id);
+  removePlayerRuntimeState(player.id);
+  clearAuthIdentityBindingForPlayer(player.id);
+};
+
 let seasonWinner: SeasonWinnerView | undefined;
 const telemetryCounters: TelemetryCounters = {
   frontierClaims: 0,
@@ -1956,6 +2010,7 @@ const clearWorldProgressForSeason = (): void => {
   for (const d of dockById.values()) d.cooldownUntil = 0;
   vendettaCaptureCountsByPlayer.clear();
   for (const p of players.values()) {
+    resetHumanProfileForSeason(p);
     p.points = STARTING_GOLD;
     p.level = 0;
     delete p.techRootId;
@@ -2046,6 +2101,7 @@ const startNewSeason = (): void => {
         seasonTechTreeId: activeSeason.techTreeConfigId
       })
     );
+    sendPlayerUpdate(p, 0);
   }
 };
 
@@ -2971,7 +3027,9 @@ const executeUnifiedGameplayMessage = async (
           actionType: msg.type,
           origin: result.origin,
           target: result.target,
-          resolvesAt: result.resolvesAt
+          resolvesAt: result.resolvesAt,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {})
         })
       );
       sendHighPrioritySocketMessage(
@@ -2981,6 +3039,8 @@ const executeUnifiedGameplayMessage = async (
           origin: result.origin,
           target: result.target,
           resolvesAt: result.resolvesAt,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
           ...(result.predictedResult ? { predictedResult: result.predictedResult } : {})
         })
       );
@@ -5634,6 +5694,7 @@ const {
   visibleInSnapshot,
   visible,
   effectiveVisionRadiusForPlayer: (player: Player) => effectiveVisionRadiusForPlayer(player),
+  humanFrontierActionPriorityActive,
   isValidCapitalTile,
   chooseCapitalTileKey,
   resolveControlSocketForPlayer: (controlSockets, playerId) =>
@@ -5723,32 +5784,7 @@ const {
     clusterControlledTilesByPlayer.set(player.id, new Map());
   },
   cleanupRemovedAiPlayer: (playerId: string) => {
-    playerBaseMods.delete(playerId);
-    strategicResourceStockByPlayer.delete(playerId);
-    strategicResourceBufferByPlayer.delete(playerId);
-    economyIndexByPlayer.delete(playerId);
-    dynamicMissionsByPlayer.delete(playerId);
-    forcedRevealTilesByPlayer.delete(playerId);
-    revealedEmpireTargetsByPlayer.delete(playerId);
-    playerEffectsByPlayer.delete(playerId);
-    clusterControlledTilesByPlayer.delete(playerId);
-    resourceCountsByPlayer.delete(playerId);
-    frontierSettlementsByPlayer.delete(playerId);
-    temporaryAttackBuffUntilByPlayer.delete(playerId);
-    temporaryIncomeBuffUntilByPlayer.delete(playerId);
-    abilityCooldownsByPlayer.delete(playerId);
-    growthPausedUntilByPlayer.delete(playerId);
-    townFeedingStateByPlayer.delete(playerId);
-    observatoryTileKeysByPlayer.delete(playerId);
-    economicStructureTileKeysByPlayer.delete(playerId);
-    socketsByPlayer.delete(playerId);
-    bulkSocketsByPlayer.delete(playerId);
-    chunkSubscriptionByPlayer.delete(playerId);
-    chunkSnapshotSentAtByPlayer.delete(playerId);
-    chunkSnapshotGenerationByPlayer.delete(playerId);
-    pendingChunkRefreshByPlayer.delete(playerId);
-    cachedVisibilitySnapshotByPlayer.delete(playerId);
-    cachedChunkSnapshotByPlayer.delete(playerId);
+    removePlayerRuntimeState(playerId);
   }
 });
 
@@ -8606,6 +8642,10 @@ registerServerHttpRoutes(app, {
       return;
     }
     const actor = authedPlayer;
+    if (playerNeedsProfileSetup(actor) && msg.type !== "PING" && msg.type !== "SET_PROFILE") {
+      socket.send(JSON.stringify({ type: "ERROR", code: "PROFILE_REQUIRED", message: "finish profile setup first" }));
+      return;
+    }
     if (!actor.isAi && humanFrontierActionMessage(msg)) noteHumanFrontierActionPriority();
     if (await simulationService.handleGatewayMessage(actor, msg, socket)) return;
 
@@ -9445,19 +9485,8 @@ registerServerHttpRoutes(app, {
       }
       applyManpowerRegen(actor);
       const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
-      const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
-      if (!defender && !defenderIsBarbarian) {
-        socket.send(
-          JSON.stringify({
-            type: "ATTACK_PREVIEW_RESULT",
-            from: { x: from.x, y: from.y },
-            to: { x: to.x, y: to.y },
-            valid: true,
-            winChance: 1
-          })
-        );
-        return;
-      }
+      const defenderOwnerId = to.ownerId && !defenderIsBarbarian ? to.ownerId : undefined;
+      const defender = defenderOwnerId ? players.get(defenderOwnerId) : undefined;
       if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
         sendInvalid("cannot attack allied tile");
         return;
@@ -9477,16 +9506,16 @@ registerServerHttpRoutes(app, {
         !actor.allies.has(to.ownerId ?? "") &&
         hasEnoughManpower(actor, BREAKTHROUGH_ATTACK_MANPOWER_MIN);
       const shock = breachShockByTile.get(tk);
-      const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
-      const defMult = defender ? playerDefensiveness(defender) * shockMult : 1;
-      const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
+      const shockMult = defenderOwnerId && shock && shock.ownerId === defenderOwnerId && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
+      const defMult = defender ? playerDefensiveness(defender) * shockMult : shockMult;
+      const fortMult = defenderOwnerId ? fortDefenseMultAt(defenderOwnerId, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
       const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
       const atkEff = 10 * actor.mods.attack * siegeAtkMult * activeAttackBuffMult(actor.id) * attackMultiplierForTarget(actor.id, to, fk);
-      const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
-      const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
-      const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
+      const settledDefenseMult = defenderOwnerId ? settledDefenseMultiplierForTarget(defenderOwnerId, to) : 1;
+      const newSettlementDefenseMult = defenderOwnerId ? settlementDefenseMultAt(defenderOwnerId, tk) : 1;
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defenderOwnerId, to);
+      const frontierDefenseAdd = defenderOwnerId ? frontierDefenseAddForTarget(defenderOwnerId, to) : 0;
       const defEff = defenderIsBarbarian
         ? 10 * BARBARIAN_DEFENSE_POWER * dockMult
         : 10 * (defender?.mods.defense ?? 1) * defMult * fortMult * dockMult * settledDefenseMult * newSettlementDefenseMult * ownershipDefenseMult +
@@ -9810,7 +9839,8 @@ registerServerHttpRoutes(app, {
     }
 
     const defenderIsBarbarian = to.ownerId === BARBARIAN_OWNER_ID;
-    const defender = to.ownerId && !defenderIsBarbarian ? players.get(to.ownerId) : undefined;
+    const defenderOwnerId = to.ownerId && !defenderIsBarbarian ? to.ownerId : undefined;
+    const defender = defenderOwnerId ? players.get(defenderOwnerId) : undefined;
     if (defender && (actor.allies.has(defender.id) || truceBlocksHostility(actor.id, defender.id))) {
       logTileSync("action_validation_rejected_ally_target", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, defenderId: defender.id }, "action rejected: allied target");
@@ -9835,18 +9865,18 @@ registerServerHttpRoutes(app, {
     }
     if (!actor.isAi && defender?.isAi) markAiDefensePriority(defender.id);
     let precomputedCombatPromise: Promise<PrecomputedFrontierCombat> | undefined;
-    if (defender || defenderIsBarbarian) {
+    if (defenderOwnerId || defenderIsBarbarian) {
       const siegeAtkMult = outpostAttackMultAt(actor.id, fk);
       const shock = breachShockByTile.get(tk);
-      const shockMult = defender && shock && shock.ownerId === defender.id && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
-      const defMultRaw = defender ? playerDefensiveness(defender) * shockMult : 1;
+      const shockMult = defenderOwnerId && shock && shock.ownerId === defenderOwnerId && shock.expiresAt > now() ? BREACH_SHOCK_DEF_MULT : 1;
+      const defMultRaw = defender ? playerDefensiveness(defender) * shockMult : shockMult;
       const defMult = isBreakthroughAttack ? defMultRaw * BREAKTHROUGH_DEF_MULT_FACTOR : defMultRaw;
-      const fortMult = defender ? fortDefenseMultAt(defender.id, tk) : 1;
+      const fortMult = defenderOwnerId ? fortDefenseMultAt(defenderOwnerId, tk) : 1;
       const dockMult = docksByTile.has(tk) ? DOCK_DEFENSE_MULT : 1;
-      const settledDefenseMult = defender ? settledDefenseMultiplierForTarget(defender.id, to) : 1;
-      const newSettlementDefenseMult = defender ? settlementDefenseMultAt(defender.id, tk) : 1;
-      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defender?.id, to);
-      const frontierDefenseAdd = defender ? frontierDefenseAddForTarget(defender.id, to) : 0;
+      const settledDefenseMult = defenderOwnerId ? settledDefenseMultiplierForTarget(defenderOwnerId, to) : 1;
+      const newSettlementDefenseMult = defenderOwnerId ? settlementDefenseMultAt(defenderOwnerId, tk) : 1;
+      const ownershipDefenseMult = ownershipDefenseMultiplierForTarget(defenderOwnerId, to);
+      const frontierDefenseAdd = defenderOwnerId ? frontierDefenseAddForTarget(defenderOwnerId, to) : 0;
       precomputedCombatPromise = resolveCombatViaWorker({
         attackBase:
           10 *
@@ -9874,12 +9904,12 @@ registerServerHttpRoutes(app, {
                   { x: to.x, y: to.y }
                 ];
           }
-          if (defender) {
-            return fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defender.id, ownershipState: "FRONTIER" as const }];
+          if (defenderOwnerId) {
+            return fortHeldOrigin ? [] : [{ x: from.x, y: from.y, ownerId: defenderOwnerId, ownershipState: "FRONTIER" as const }];
           }
           return [];
         })();
-        const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id;
+        const previewWinnerId = win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId;
         return {
           atkEff: atkEffWithSiege,
           defEff,
@@ -9891,7 +9921,7 @@ registerServerHttpRoutes(app, {
               ? Math.max(10, manpowerCost * 0.16)
               : manpowerCost * Math.min(1.25, 0.6 + (defEff / Math.max(1, atkEffWithSiege)) * 0.35)
           ),
-          ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defender?.id ? { defenderOwnerId: defender.id } : {}),
+          ...(defenderIsBarbarian ? { defenderOwnerId: BARBARIAN_OWNER_ID } : defenderOwnerId ? { defenderOwnerId } : {}),
           ...(previewWinnerId ? { previewWinnerId } : {})
         };
       });
@@ -9935,6 +9965,8 @@ registerServerHttpRoutes(app, {
       target: { x: to.x, y: to.y },
       resolvesAt,
       elapsedMs: now() - nowMs,
+      ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+      ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
       ...(pending.traceId ? { traceId: pending.traceId } : {})
     });
     sendControlToSocket(
@@ -9944,7 +9976,9 @@ registerServerHttpRoutes(app, {
         actionType: msg.type,
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
-        resolvesAt
+        resolvesAt,
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {})
       },
       { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
     );
@@ -9956,12 +9990,16 @@ registerServerHttpRoutes(app, {
         from: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         resolvesAt,
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
         traceId: pending.traceId
       },
       now() - nowMs,
       50
     );
     logAttackTrace("accepted_ack_sent", pending, {
+      commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+      clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
       socketReadyState: socket.readyState
     });
     if (precomputedCombatPromise) {
@@ -9989,6 +10027,8 @@ registerServerHttpRoutes(app, {
       target: { x: to.x, y: to.y },
       resolvesAt,
       predictedResult: Boolean(predictedResult),
+      ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+      ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
       ...(pending.traceId ? { traceId: pending.traceId } : {})
     });
     sendControlToSocket(
@@ -9998,6 +10038,8 @@ registerServerHttpRoutes(app, {
         origin: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         resolvesAt,
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
         ...(predictedResult ? { predictedResult } : {})
       },
       { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
@@ -10011,13 +10053,20 @@ registerServerHttpRoutes(app, {
         target: { x: to.x, y: to.y },
         resolvesAt,
         predictedResult: Boolean(predictedResult),
+        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
         traceId: pending.traceId
       },
       now() - nowMs,
       50
     );
-    logExpandTrace("combat_start_sent", pending);
+    logExpandTrace("combat_start_sent", pending, {
+      commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+      clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined
+    });
     logAttackTrace("combat_start_sent", pending, {
+      commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+      clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
       predictedResult: Boolean(predictedResult),
       socketReadyState: socket.readyState
     });
@@ -10039,7 +10088,7 @@ registerServerHttpRoutes(app, {
       combatLocks.delete(tk);
       if (dockCrossing && fromDock) fromDock.cooldownUntil = now() + DOCK_CROSSING_COOLDOWN_MS;
 
-      if (!defender && !defenderIsBarbarian) {
+      if (!defenderOwnerId && !defenderIsBarbarian) {
         if (msg.type === "EXPAND") {
           actor.points -= FRONTIER_ACTION_GOLD_COST;
           recalcPlayerDerived(actor);
@@ -10078,6 +10127,8 @@ registerServerHttpRoutes(app, {
             changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }],
             pointsDelta: siteBonusGold,
             levelDelta: 0,
+            ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+            ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
             ...(neutralExpandTiming ? { timing: neutralExpandTiming } : {})
           },
           { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
@@ -10091,6 +10142,8 @@ registerServerHttpRoutes(app, {
             target: { x: to.x, y: to.y },
             attackerWon: true,
             neutralTarget: true,
+            ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+            ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
             traceId: pending.traceId
           },
           now() - nowMs,
@@ -10215,20 +10268,22 @@ registerServerHttpRoutes(app, {
             resultChanges = failedOutcome.resultChanges;
           }
           pointsDelta = 0;
-        } else if (defender) {
-          const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defender.id, false, from, to, fk, tk);
+        } else if (defenderOwnerId) {
+          const failedOutcome = applyFailedAttackTerritoryOutcome(actor.id, defenderOwnerId, false, from, to, fk, tk);
           resultChanges = failedOutcome.resultChanges;
-          if (failedOutcome.originLost) {
+          if (failedOutcome.originLost && defender) {
             defender.missionStats.enemyCaptures += 1;
             maybeIssueResourceMission(defender, from.resource);
           }
-          defender.missionStats.combatWins += 1;
-          incrementVendettaCount(defender.id, actor.id);
-          maybeIssueVendettaMission(defender, actor.id);
-          const attackerRating = ratingFromPointsLevel(defender.points, defender.level);
-          const defenderRating = ratingFromPointsLevel(actor.points, actor.level);
-          pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(from.resource), attackerRating, defenderRating) * PVP_REWARD_MULT;
-          defender.points += pointsDelta;
+          if (defender) {
+            defender.missionStats.combatWins += 1;
+            incrementVendettaCount(defender.id, actor.id);
+            maybeIssueVendettaMission(defender, actor.id);
+            const attackerRating = ratingFromPointsLevel(defender.points, defender.level);
+            const defenderRating = ratingFromPointsLevel(actor.points, actor.level);
+            pointsDelta = actor.allies.has(defender.id) ? 0 : pvpPointsReward(baseTileValue(from.resource), attackerRating, defenderRating) * PVP_REWARD_MULT;
+            defender.points += pointsDelta;
+          }
         }
       }
 
@@ -10255,8 +10310,8 @@ registerServerHttpRoutes(app, {
           type: "COMBAT_RESULT",
           attackType: msg.type,
           attackerWon: win,
-          winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
-          defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defender?.id,
+          winnerId: win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId,
+          defenderOwnerId: defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId,
           origin: { x: from.x, y: from.y },
           target: { x: to.x, y: to.y },
           atkEff: atkEffWithSiege,
@@ -10268,7 +10323,9 @@ registerServerHttpRoutes(app, {
           pillagedGold,
           pillagedShare,
           pillagedStrategic,
-          levelDelta: 0
+          levelDelta: 0,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {})
         },
         { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
       );
@@ -10284,13 +10341,22 @@ registerServerHttpRoutes(app, {
           defenderId: defender?.id,
           defenderIsBarbarian,
           changes: resultChanges.length,
+          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
+          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
           traceId: pending.traceId
         },
         now() - nowMs,
         50
       );
-      logExpandTrace("combat_result_sent", pending, { neutralTarget: false, changes: resultChanges.length });
+      logExpandTrace("combat_result_sent", pending, {
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
+        neutralTarget: false,
+        changes: resultChanges.length
+      });
       logAttackTrace("combat_result_sent", pending, {
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
         neutralTarget: false,
         changes: resultChanges.length,
         socketReadyState: socket.readyState
@@ -10325,6 +10391,7 @@ registerServerHttpRoutes(app, {
       chunkSnapshotInFlightByPlayer.delete(authedPlayer.id);
       actionTimestampsByPlayer.delete(authedPlayer.id);
       fogDisabledByPlayer.delete(authedPlayer.id);
+      if (playerNeedsProfileSetup(authedPlayer)) discardIncompleteHumanPlayer(authedPlayer);
       if (!hasOnlinePlayers()) {
         cancelAllBarbarianPendingCaptures();
         pauseVictoryPressureTimers();

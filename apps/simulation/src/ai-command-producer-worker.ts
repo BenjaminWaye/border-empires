@@ -13,13 +13,13 @@
  */
 
 import { Worker } from "node:worker_threads";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
+import { createAutomationNoopDiagnostic } from "./automation-command-planner.js";
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
+import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -92,10 +92,8 @@ type WorkerAiCommandProducerOptions = {
   }) => void;
 };
 
-const here = dirname(fileURLToPath(import.meta.url));
-
-const resolveWorkerScript = (given?: string): string =>
-  given ?? resolve(here, "ai-planner-worker.js");
+const resolveWorkerScript = (given?: string): string | URL =>
+  given ?? resolveWorkerEntryUrl("./ai-planner-worker.js", import.meta.url);
 
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean =>
   queueDepths.human_interactive > 0;
@@ -156,6 +154,17 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         frontierTileCount?: number;
       };
       options.onDiagnostic?.(diagnostic);
+    } else if (message.type === "error") {
+      const key = message.playerId as string;
+      console.error("[ai-planner-worker] planner error:", message.message);
+      if (typeof key === "string" && key.length > 0) {
+        options.onNoCommand?.(createAutomationNoopDiagnostic(key, "ai-runtime", "planner_error"));
+      }
+      const resolve = pendingRequests.get(key);
+      if (resolve) {
+        pendingRequests.delete(key);
+        resolve(null);
+      }
     }
   });
 

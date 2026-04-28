@@ -68,6 +68,37 @@ describe("submitFrontierCommand", () => {
     expect(session.nextClientSeq).toBe(2);
   });
 
+  it("returns SEASON_ENDED when simulation rejects commands after a season freeze", async () => {
+    const payloads: unknown[] = [];
+    const session = { sessionId: "session-1", playerId: "player-1", nextClientSeq: 1 };
+
+    await submitFrontierCommand(
+      session,
+      { type: "ATTACK", fromX: 10, fromY: 10, toX: 10, toY: 11 },
+      {
+        createCommandId: () => "cmd-1",
+        now: () => 1234,
+        commandStore: new InMemoryGatewayCommandStore(),
+        submitCommand: async () => {
+          throw new Error("season ended");
+        },
+        sendJson: (payload) => {
+          payloads.push(payload);
+        }
+      }
+    );
+
+    expect(payloads).toEqual([
+      { type: "COMMAND_QUEUED", commandId: "cmd-1", clientSeq: 1 },
+      {
+        type: "ERROR",
+        commandId: "cmd-1",
+        code: "SEASON_ENDED",
+        message: "season has ended; wait for the next world to begin"
+      }
+    ]);
+  });
+
   it("does not claim a command was queued if gateway persistence fails first", async () => {
     const payloads: unknown[] = [];
     const session = { sessionId: "session-1", playerId: "player-1", nextClientSeq: 1 };

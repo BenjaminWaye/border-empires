@@ -33,6 +33,42 @@ describe("resolveInitialState", () => {
     });
   });
 
+  it("preserves authoritative world status even when the bootstrap snapshot has no visible tiles", () => {
+    expect(
+      resolveInitialState({
+        playerId: "player-1",
+        authoritativeSnapshot: {
+          playerId: "player-1",
+          worldStatus: {
+            leaderboard: {
+              overall: [{ id: "ai-1", name: "Alden Vale", tiles: 1, incomePerMinute: 1, techs: 0, score: 4, rank: 1 }],
+              byTiles: [{ id: "ai-1", name: "Alden Vale", value: 1, rank: 1 }],
+              byIncome: [{ id: "ai-1", name: "Alden Vale", value: 1, rank: 1 }],
+              byTechs: [{ id: "ai-1", name: "Alden Vale", value: 0, rank: 1 }]
+            },
+            seasonVictory: []
+          },
+          tiles: []
+        },
+        simulationSeedProfile: "season-20ai",
+        allowCachedSnapshotFallback: false,
+        allowSeedFallback: false
+      })
+    ).toEqual({
+      playerId: "player-1",
+      worldStatus: {
+        leaderboard: {
+          overall: [{ id: "ai-1", name: "Alden Vale", tiles: 1, incomePerMinute: 1, techs: 0, score: 4, rank: 1 }],
+          byTiles: [{ id: "ai-1", name: "Alden Vale", value: 1, rank: 1 }],
+          byIncome: [{ id: "ai-1", name: "Alden Vale", value: 1, rank: 1 }],
+          byTechs: [{ id: "ai-1", name: "Alden Vale", value: 0, rank: 1 }]
+        },
+        seasonVictory: []
+      },
+      tiles: []
+    });
+  });
+
   it("uses cached snapshot only when non-authoritative fallback is enabled", () => {
     expect(
       resolveInitialState({

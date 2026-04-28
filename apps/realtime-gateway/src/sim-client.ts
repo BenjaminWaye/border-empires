@@ -3,9 +3,18 @@ import { fileURLToPath } from "node:url";
 import { credentials, loadPackageDefinition, type ClientReadableStream } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
 
-import { SIMULATION_PROTO_PATH, type CommandEnvelope, type PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import {
+  SIMULATION_PROTO_PATH,
+  type CommandEnvelope,
+  type CurrentSeasonSummary,
+  type PlayerSubscriptionSnapshot,
+  type SeasonArchiveRow
+} from "@border-empires/sim-protocol";
 
 type ProtoAck = { ok: boolean };
+type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
+type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
+type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
 type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean };
 type ProtoTileDelta = {
   x: number;
@@ -108,6 +117,18 @@ type SimulationClientLike = {
     callback: (error: Error | null, response: ProtoAck) => void
   ) => void;
   Ping: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoAck) => void) => void;
+  GetCurrentSeasonSummary?: (
+    request: Record<string, unknown>,
+    callback: (error: Error | null, response: ProtoSeasonSummaryAck) => void
+  ) => void;
+  ListSeasonArchives?: (
+    request: Record<string, unknown>,
+    callback: (error: Error | null, response: ProtoSeasonArchivesAck) => void
+  ) => void;
+  StartNextSeason?: (
+    request: { force?: boolean },
+    callback: (error: Error | null, response: ProtoStartNextSeasonAck) => void
+  ) => void;
   StreamEvents: (request: Record<string, unknown>) => ClientReadableStream<ProtoSimulationEvent>;
 };
 
@@ -552,6 +573,9 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   unsubscribePlayer: (playerId: string) => Promise<void>;
   ping: () => Promise<void>;
+  getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
+  listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
     options?: { onDisconnect?: (error: Error | null) => void }
@@ -631,6 +655,63 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
+  getCurrentSeasonSummary() {
+    return new Promise<CurrentSeasonSummary>((resolve, reject) => {
+      if (typeof client.GetCurrentSeasonSummary !== "function") {
+        reject(new Error("simulation client GetCurrentSeasonSummary RPC is unavailable"));
+        return;
+      }
+      client.GetCurrentSeasonSummary({}, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const payload = response.summary_json ?? response.summaryJson;
+        if (!payload) {
+          reject(new Error("simulation current season summary payload missing"));
+          return;
+        }
+        resolve(JSON.parse(payload) as CurrentSeasonSummary);
+      });
+    });
+  },
+  listSeasonArchives() {
+    return new Promise<SeasonArchiveRow[]>((resolve, reject) => {
+      if (typeof client.ListSeasonArchives !== "function") {
+        reject(new Error("simulation client ListSeasonArchives RPC is unavailable"));
+        return;
+      }
+      client.ListSeasonArchives({}, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const payload = response.archives_json ?? response.archivesJson;
+        if (!payload) {
+          resolve([]);
+          return;
+        }
+        resolve(JSON.parse(payload) as SeasonArchiveRow[]);
+      });
+    });
+  },
+  startNextSeason(force = false) {
+    return new Promise<{ seasonId: string }>((resolve, reject) => {
+      if (typeof client.StartNextSeason !== "function") {
+        reject(new Error("simulation client StartNextSeason RPC is unavailable"));
+        return;
+      }
+      client.StartNextSeason({ force }, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve({
+          seasonId: response.season_id ?? response.seasonId ?? ""
+        });
+      });
+    });
+  },
   streamEvents(listener, options) {
     return startSimulationEventStream(() => client.StreamEvents({ at: Date.now() }), listener, options);
   }
@@ -642,6 +723,9 @@ export const createSimulationClient = (address: string): {
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   unsubscribePlayer: (playerId: string) => Promise<void>;
   ping: () => Promise<void>;
+  getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
+  listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
     options?: { onDisconnect?: (error: Error | null) => void }
