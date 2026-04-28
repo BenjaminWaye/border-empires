@@ -10,6 +10,14 @@ type ObservatoryProgressionState = {
   domainCatalog: DomainInfo[];
 };
 
+const numericEffect = (
+  effects: Record<string, unknown> | undefined,
+  key: "observatoryRangeBonus" | "observatoryCastRadiusBonus" | "observatoryProtectionRadiusBonus"
+): number => {
+  const raw = effects?.[key];
+  return typeof raw === "number" ? raw : 0;
+};
+
 const ownObservatoryBonus = (
   state: ObservatoryProgressionState,
   effectKey: "observatoryCastRadiusBonus" | "observatoryProtectionRadiusBonus"
@@ -17,13 +25,13 @@ const ownObservatoryBonus = (
   let bonus = 0;
   for (const techId of state.techIds) {
     const tech = state.techCatalog.find((entry) => entry.id === techId);
-    const raw = tech?.effects?.[effectKey];
-    if (typeof raw === "number") bonus += raw;
+    bonus += numericEffect(tech?.effects, "observatoryRangeBonus");
+    bonus += numericEffect(tech?.effects, effectKey);
   }
   for (const domainId of state.domainIds) {
     const domain = state.domainCatalog.find((entry) => entry.id === domainId);
-    const raw = domain?.effects?.[effectKey];
-    if (typeof raw === "number") bonus += raw;
+    bonus += numericEffect(domain?.effects, "observatoryRangeBonus");
+    bonus += numericEffect(domain?.effects, effectKey);
   }
   return bonus;
 };
