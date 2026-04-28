@@ -6,6 +6,7 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
   const {
     clusterByTile,
     clustersById,
+    resourceOverridesByTile,
     clusterTypeDefs,
     seeded01,
     WORLD_WIDTH,
@@ -93,6 +94,8 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
   };
 
   const applyClusterResources = (x: number, y: number, base: ResourceType | undefined): ResourceType | undefined => {
+    const overridden = resourceOverridesByTile.get(key(x, y))?.resource;
+    if (overridden) return overridden;
     const clusterId = clusterByTile.get(key(x, y));
     if (!clusterId) return base;
     const cluster = clustersById.get(clusterId);

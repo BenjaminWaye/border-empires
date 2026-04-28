@@ -327,6 +327,7 @@ import {
   type PlayerCompetitionMetrics,
   type PlayerEconomyIndex,
   type RuntimeTileCore,
+  type ResourceOverrideState,
   type SeasonArchiveEntry,
   type SeasonalTechConfig,
   type ShardSiteState,
@@ -516,6 +517,8 @@ import {
   REVEAL_EMPIRE_ACTIVATION_COST,
   REVEAL_EMPIRE_STATS_CRYSTAL_COST,
   REVEAL_EMPIRE_UPKEEP_PER_MIN,
+  RETORT_RECAST_CRYSTAL_COST,
+  RETORT_RECAST_GOLD_COST,
   SABOTAGE_COOLDOWN_MS,
   SABOTAGE_CRYSTAL_COST,
   SABOTAGE_DURATION_MS,
@@ -908,6 +911,7 @@ const tileYieldByTile = new Map<TileKey, TileYieldBuffer>();
 const tileHistoryByTile = new Map<TileKey, TileHistoryState>();
 const settledSinceByTile = new Map<TileKey, number>();
 const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
+const resourceOverridesByTile = new Map<TileKey, ResourceOverrideState>();
 const lastUpkeepByPlayer = new Map<string, UpkeepDiagnostics>();
 const dynamicMissionsByPlayer = new Map<string, DynamicMissionDef[]>();
 const temporaryAttackBuffUntilByPlayer = new Map<string, number>();
@@ -1158,6 +1162,7 @@ const {
 const { generateClusters, applyClusterResources }: ServerWorldgenClustersRuntime = createServerWorldgenClusters({
   clusterByTile,
   clustersById,
+  resourceOverridesByTile,
   clusterTypeDefs,
   seeded01,
   WORLD_WIDTH,
@@ -1895,6 +1900,7 @@ const clearWorldProgressForSeason = (): void => {
   tileHistoryByTile.clear();
   settledSinceByTile.clear();
   terrainShapesByTile.clear();
+  resourceOverridesByTile.clear();
   victoryPressureById.clear();
   frontierSettlementsByPlayer.clear();
   seasonWinner = undefined;
@@ -6964,6 +6970,72 @@ const terrainShapeWouldSealAdjacentOwnedLand = (x: number, y: number): boolean =
   return false;
 };
 
+const retortRecastTargetLabel = (resource: ResourceType): string => {
+  if (resource === "FARM") return "food";
+  if (resource === "WOOD") return "supply";
+  if (resource === "IRON") return "iron";
+  if (resource === "GEMS") return "crystal";
+  return resource.toLowerCase();
+};
+
+const tryRetortRecast = (
+  actor: Player,
+  x: number,
+  y: number,
+  targetResource: ResourceType
+): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.retort_recasting.requiredTechIds)) {
+    return { ok: false, reason: "requires Grand Synthesis" };
+  }
+  if (abilityOnCooldown(actor.id, "retort_recasting")) {
+    return { ok: false, reason: "retort recasting is cooling down" };
+  }
+  if (targetResource !== "FARM" && targetResource !== "WOOD" && targetResource !== "IRON" && targetResource !== "GEMS") {
+    return { ok: false, reason: "invalid target resource" };
+  }
+  const t = playerTile(x, y);
+  const tk = key(t.x, t.y);
+  const currentResource = t.resource;
+  if (t.terrain !== "LAND") return { ok: false, reason: "target must be land" };
+  if (!currentResource || currentResource === "OIL") return { ok: false, reason: "target must be a resource tile" };
+  if (currentResource === targetResource) return { ok: false, reason: `tile is already ${retortRecastTargetLabel(targetResource)}` };
+  if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
+  if (hostileObservatoryProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (combatLocks.has(tk)) return { ok: false, reason: "tile locked in combat" };
+  if (townsByTile.has(tk)) return { ok: false, reason: "cannot recast a town tile" };
+  if (docksByTile.has(tk)) return { ok: false, reason: "cannot recast a dock tile" };
+  if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) {
+    return { ok: false, reason: "remove the structure first" };
+  }
+  if (actor.points < RETORT_RECAST_GOLD_COST) return { ok: false, reason: "insufficient gold for retort recasting" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", RETORT_RECAST_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for retort recasting" };
+  }
+
+  actor.points -= RETORT_RECAST_GOLD_COST;
+  startAbilityCooldown(actor.id, "retort_recasting");
+  resourceOverridesByTile.set(tk, { resource: targetResource });
+  tileYieldByTile.delete(tk);
+  const ownerId = ownership.get(tk);
+  if (ownerId && currentResource !== targetResource) {
+    const counts = getOrInitResourceCounts(ownerId);
+    counts[currentResource] = Math.max(0, (counts[currentResource] ?? 0) - 1);
+    counts[targetResource] = (counts[targetResource] ?? 0) + 1;
+    rebuildEconomyIndexForPlayer(ownerId);
+  }
+  markSummaryChunkDirtyAtTile(t.x, t.y);
+  recalcPlayerDerived(actor);
+  if (ownerId && ownerId !== actor.id) {
+    const owner = players.get(ownerId);
+    if (owner) {
+      recalcPlayerDerived(owner);
+      sendPlayerUpdate(owner, 0);
+    }
+  }
+  sendVisibleTileDeltaAt(t.x, t.y);
+  return { ok: true };
+};
+
 const tryCreateMountain = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
   if (!playerHasTechIds(actor, ABILITY_DEFS.create_mountain.requiredTechIds)) return { ok: false, reason: "requires Terrain Engineering" };
   if (abilityOnCooldown(actor.id, "create_mountain")) return { ok: false, reason: "create mountain is cooling down" };
@@ -7444,6 +7516,7 @@ const {
   tileYieldByTile,
   tileHistoryByTile,
   terrainShapesByTile,
+  resourceOverridesByTile,
   victoryPressureById,
   frontierSettlementsByPlayer,
   dynamicMissionsByPlayer,
@@ -7552,6 +7625,7 @@ const {
   strategicResourceBufferByPlayer,
   tileHistoryByTile,
   terrainShapesByTile,
+  resourceOverridesByTile,
   victoryPressureById,
   frontierSettlementsByPlayer,
   tileYieldByTile,
@@ -8682,6 +8756,16 @@ registerServerHttpRoutes(app, {
       }
       sendPlayerUpdate(actor, 0);
       sendVisibleTileDeltaAt(msg.x, msg.y);
+      return;
+    }
+
+    if (msg.type === "RETORT_RECAST") {
+      const out = tryRetortRecast(actor, msg.x, msg.y, msg.targetResource);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "RETORT_RECAST_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
       return;
     }
 

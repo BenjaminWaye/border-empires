@@ -53,6 +53,7 @@ export interface TechEffects {
   unlockSabotage?: boolean;
   unlockSurveySweep?: boolean;
   unlockAetherLance?: boolean;
+  unlockRetortRecasting?: boolean;
   unlockTerrainShaping?: boolean;
   unlockBreachAttack?: boolean;
   unlockIronBastion?: boolean;
@@ -191,6 +192,7 @@ const TechEffectsSchema = z
     unlockSabotage: z.boolean().optional(),
     unlockSurveySweep: z.boolean().optional(),
     unlockAetherLance: z.boolean().optional(),
+    unlockRetortRecasting: z.boolean().optional(),
     unlockTerrainShaping: z.boolean().optional(),
     unlockBreachAttack: z.boolean().optional(),
     unlockIronBastion: z.boolean().optional(),

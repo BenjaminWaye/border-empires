@@ -158,6 +158,7 @@ export interface SnapshotState {
   tileYield?: [TileKey, TileYieldBuffer][];
   tileHistory?: [TileKey, TileHistoryState][];
   terrainShapes?: [TileKey, TerrainShapeState][];
+  resourceOverrides?: [TileKey, ResourceOverrideState][];
   seasonVictory?: [SeasonVictoryPathId, VictoryPressureTracker][];
   frontierSettlements?: [string, number[]][];
   dynamicMissions?: [string, DynamicMissionDef[]][];
@@ -209,6 +210,7 @@ export interface SnapshotTerritorySection {
   barbarianAgents?: BarbarianAgent[];
   tileHistory?: [TileKey, TileHistoryState][];
   terrainShapes?: [TileKey, TerrainShapeState][];
+  resourceOverrides?: [TileKey, ResourceOverrideState][];
   docks?: Dock[];
   towns?: TownDefinition[];
   shardSites?: ShardSiteState[];
@@ -371,6 +373,10 @@ export interface RuntimeTileCore {
   resource: ResourceType | undefined;
 }
 
+export interface ResourceOverrideState {
+  resource: ResourceType;
+}
+
 export interface PlayerEconomyIndex {
   settledResourceTileKeys: Set<TileKey>;
   settledDockTileKeys: Set<TileKey>;
@@ -386,6 +392,7 @@ export interface AbilityDefinition {
     | "aether_bridge"
     | "aether_wall"
     | "siphon"
+    | "retort_recasting"
     | "aether_emp"
     | "city_overclock"
     | "create_mountain"

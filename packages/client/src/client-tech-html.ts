@@ -40,6 +40,7 @@ const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockRevealEmpireStats" && value === true) return "Unlocks Reveal Empire Stats";
   if (key === "unlockAetherWall" && value === true) return "Unlocks Aether Wall";
   if (key === "unlockAetherLance" && value === true) return "Unlocks Aether Lance";
+  if (key === "unlockRetortRecasting" && value === true) return "Unlocks Retort Transmutation";
   if (key === "unlockSurveySweep" && value === true) return "Unlocks Survey Sweep";
   if (key === "unlockAetherEmp" && value === true) return "Unlocks Aether EMP";
   if (key === "unlockCityOverclock" && value === true) return "Unlocks City Overclock";

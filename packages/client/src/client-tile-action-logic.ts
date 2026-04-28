@@ -110,6 +110,7 @@ export const hasLocalDevAetherWallOverride = (state: ClientState): boolean => st
 export const hasAetherWallCapability = (state: ClientState): boolean =>
   state.techIds.includes("harborcraft") || hasLocalDevAetherWallOverride(state);
 export const hasSiphonCapability = (state: ClientState): boolean => state.techIds.includes("logistics");
+export const hasRetortRecastingCapability = (state: ClientState): boolean => state.techIds.includes("advanced-synthetication");
 
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
 
@@ -634,6 +635,15 @@ const isConverterStructureType = (type: NonNullable<Tile["economicStructure"]>["
   type === "CRYSTAL_SYNTHESIZER" ||
   type === "ADVANCED_CRYSTAL_SYNTHESIZER" ||
   type === "FUEL_PLANT";
+
+const resourceClassForTile = (resource: Tile["resource"]): "food" | "supply" | "iron" | "crystal" | undefined => {
+  if (resource === "FARM" || resource === "FISH") return "food";
+  if (resource === "WOOD" || resource === "FUR") return "supply";
+  if (resource === "IRON") return "iron";
+  if (resource === "GEMS") return "crystal";
+  return undefined;
+};
+
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.fogged) return [];
   if (tile.terrain === "SEA") return [];
@@ -702,6 +712,44 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       )
     };
   };
+  const retortRecastActions = (): TileActionDef[] => {
+    const currentClass = resourceClassForTile(tile.resource);
+    if (!currentClass) return [];
+    const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
+    const blockedBySite = Boolean(tile.town || tile.dockId || tile.fort || tile.siegeOutpost || tile.observatory || tile.economicStructure);
+    const cooldown = deps.abilityCooldownRemainingMs("retort_recasting");
+    const canCast =
+      hasRetortRecastingCapability(state) &&
+      !observatoryProtection &&
+      !blockedBySite &&
+      cooldown <= 0 &&
+      state.gold >= 6000 &&
+      (state.strategicResources.CRYSTAL ?? 0) >= 120;
+    const reason = !hasRetortRecastingCapability(state)
+      ? "Requires Grand Synthesis"
+      : observatoryProtection
+        ? "Blocked by observatory field"
+        : blockedBySite
+          ? "Town, dock, or structure blocks recasting"
+          : cooldown > 0
+            ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
+            : state.gold < 6000
+              ? "Need 6000 gold"
+              : "Need 120 CRYSTAL";
+    const targets: Array<{ id: TileActionDef["id"]; label: string; className: "food" | "supply" | "iron" | "crystal"; summary: string }> = [
+      { id: "retort_recast_food", label: "Recast to Food", className: "food", summary: "6000 gold + 120 CRYSTAL • retune this tile into food" },
+      { id: "retort_recast_supply", label: "Recast to Supply", className: "supply", summary: "6000 gold + 120 CRYSTAL • retune this tile into supply" },
+      { id: "retort_recast_iron", label: "Recast to Iron", className: "iron", summary: "6000 gold + 120 CRYSTAL • retune this tile into iron" },
+      { id: "retort_recast_crystal", label: "Recast to Crystal", className: "crystal", summary: "6000 gold + 120 CRYSTAL • retune this tile into crystal" }
+    ];
+    return targets
+      .filter((target) => target.className !== currentClass)
+      .map((target) => ({
+        id: target.id,
+        label: target.label,
+        ...tileActionAvailability(canCast, reason, target.summary)
+      }));
+  };
   if (tile.shardSite) {
     return [
       {
@@ -712,6 +760,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             ? `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} from active shard rain`
             : `${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} recovered from this cache`
       },
+      ...retortRecastActions(),
       createMountainAction()
     ];
   }
@@ -748,6 +797,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         deps
       )
     });
+    out.push(...retortRecastActions());
     out.push(createMountainAction());
     return out;
   }
@@ -1912,6 +1962,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         }
       }
     }
+    out.push(...retortRecastActions());
     out.push({
       id: "aether_wall",
       label: "Aether Wall",
@@ -1949,6 +2000,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       }
     ];
+    actions.push(...retortRecastActions());
     actions.push(createMountainAction());
     return actions;
   }
@@ -2183,6 +2235,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       )
     });
   }
+  out.push(...retortRecastActions());
   out.push(createMountainAction());
   return out;
 };

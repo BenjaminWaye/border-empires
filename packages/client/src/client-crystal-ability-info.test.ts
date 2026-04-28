@@ -73,4 +73,14 @@ describe("crystal ability tech previews", () => {
 
     expect(relatedCrystalAbilitiesForTech(tech)).toEqual(["siphon", "stormfront", "aegis_lock"]);
   });
+
+  it("maps Grand Synthesis to the Retort Transmutation preview", () => {
+    const tech: Pick<TechInfo, "effects"> = {
+      effects: {
+        unlockRetortRecasting: true
+      }
+    };
+
+    expect(relatedCrystalAbilitiesForTech(tech)).toEqual(["retort_recasting"]);
+  });
 });

@@ -33,6 +33,7 @@ export type ClusterTypeDefinition = {
 export interface ServerWorldgenClustersDeps {
   clusterByTile: Map<TileKey, string>;
   clustersById: Map<string, ClusterDefinition>;
+  resourceOverridesByTile: Map<TileKey, { resource: ResourceType }>;
   clusterTypeDefs: ClusterTypeDefinition[];
   seeded01: (x: number, y: number, seed: number) => number;
   WORLD_WIDTH: number;
