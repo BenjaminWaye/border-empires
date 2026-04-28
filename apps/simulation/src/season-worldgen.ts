@@ -12,10 +12,30 @@ export type GeneratedSeasonWorld = {
   worldSeed: number;
 };
 
+const SEASONAL_AI_NAMES = [
+  "Alden Vale",
+  "Sigrid Storm",
+  "Milo Ash",
+  "Freja Sund",
+  "Edvin Frost",
+  "Clara North",
+  "Hugo Bjork",
+  "Linnea Skald",
+  "Rowan Hale",
+  "Tove Falk"
+] as const;
+
+const seasonalAiNameForId = (id: string): string | undefined => {
+  const match = /^ai-(\d+)$/.exec(id);
+  if (!match) return undefined;
+  const index = Number(match[1]) - 1;
+  return SEASONAL_AI_NAMES[index];
+};
+
 const createRuntimePlayer = (id: string): DomainPlayer => ({
   id,
   isAi: false,
-  name: id,
+  name: id === "barbarian-1" ? "Barbarians" : seasonalAiNameForId(id) ?? id,
   points: 100,
   manpower: MANPOWER_BASE_CAP,
   techIds: new Set<string>(),
@@ -34,12 +54,27 @@ const toRecoveredTile = (tile: DomainTileState): RecoveredSimulationState["tiles
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
+  ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
+  ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   ...(tile.fort ? { fort: tile.fort } : {}),
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
   ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
   ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
   ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
+});
+
+const toRecoveredPlayer = (player: DomainPlayer): NonNullable<RecoveredSimulationState["players"]>[number] => ({
+  id: player.id,
+  ...(player.name ? { name: player.name } : {}),
+  ...(typeof player.isAi === "boolean" ? { isAi: player.isAi } : {}),
+  ...(typeof player.points === "number" ? { points: player.points } : {}),
+  ...(typeof player.manpower === "number" ? { manpower: player.manpower } : {}),
+  ...(player.techIds ? { techIds: [...player.techIds] } : {}),
+  ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
+  ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),
+  ...(player.allies ? { allies: [...player.allies] } : {}),
+  ...(player.mods ? { vision: player.mods.vision, incomeMultiplier: player.mods.income } : {})
 });
 
 export const generateSeasonWorld = (
@@ -50,33 +85,28 @@ export const generateSeasonWorld = (
     throw new Error(`unsupported simulation ruleset: ${rulesetId}`);
   }
 
-  const generated = createSeason20AiSeedWorld(requestedWorldSeed, (id, isAi) => ({
-    ...createRuntimePlayer(id),
-    isAi
-  }));
+  const generated = createSeason20AiSeedWorld(
+    requestedWorldSeed,
+    (id, isAi) => ({
+      ...createRuntimePlayer(id),
+      isAi
+    }),
+    {
+      humanPlayerCount: 0,
+      aiPlayerCount: 10
+    }
+  );
 
   const strippedTiles = [...generated.tiles.values()]
-    .map((tile) => {
-      const neutralTile: DomainTileState = {
-        x: tile.x,
-        y: tile.y,
-        terrain: tile.terrain,
-        ...(tile.resource ? { resource: tile.resource } : {}),
-        ...(tile.dockId ? { dockId: tile.dockId } : {}),
-        ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
-        ...(tile.town ? { town: tile.town } : {}),
-        ...(tile.fort ? { fort: tile.fort } : {}),
-        ...(tile.observatory ? { observatory: tile.observatory } : {}),
-        ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
-        ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-        ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
-      };
-      return toRecoveredTile(neutralTile);
-    })
+    .map((tile) => toRecoveredTile(tile))
     .sort((left, right) => (left.x - right.x) || (left.y - right.y));
 
+  const initialPlayers = new Map<string, DomainPlayer>(
+    [...generated.players.entries()].filter(([playerId]) => playerId === "barbarian-1" || playerId.startsWith("ai-"))
+  );
+
   return {
-    initialPlayers: new Map<string, DomainPlayer>([["barbarian-1", createRuntimePlayer("barbarian-1")]]),
+    initialPlayers,
     initialState: {
       tiles: strippedTiles,
       docks: generated.docks.map((dock) => ({
@@ -86,21 +116,7 @@ export const generateSeasonWorld = (
         ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
       })),
       activeLocks: [],
-      players: [
-        {
-          id: "barbarian-1",
-          name: "Barbarians",
-          isAi: false,
-          points: 100,
-          manpower: MANPOWER_BASE_CAP,
-          techIds: [],
-          domainIds: [],
-          strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 },
-          allies: [],
-          vision: 1,
-          incomeMultiplier: 1
-        }
-      ],
+      players: [...initialPlayers.values()].map((player) => toRecoveredPlayer(player)),
       pendingSettlements: [],
       tileYieldCollectedAtByTile: [],
       collectVisibleCooldownByPlayer: []
