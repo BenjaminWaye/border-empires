@@ -945,8 +945,8 @@ export const resourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined
 export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | undefined => {
   if (!tile.resource || !tile.economicStructure) return undefined;
   const key =
-    tile.resource === "FARM" && tile.economicStructure.type === "FARMSTEAD" ? "FARM_FARMSTEAD"
-    : tile.resource === "FISH" && tile.economicStructure.type === "FARMSTEAD" ? "FISH_FARMSTEAD"
+    tile.resource === "FARM" && (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS") ? "FARM_FARMSTEAD"
+    : tile.resource === "FISH" && (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS") ? "FISH_FARMSTEAD"
     : tile.resource === "FUR" && tile.economicStructure.type === "CAMP" ? "FUR_CAMP"
     : tile.resource === "IRON" && tile.economicStructure.type === "MINE" ? "IRON_MINE"
     : tile.resource === "GEMS" && tile.economicStructure.type === "MINE" ? "GEMS_MINE"

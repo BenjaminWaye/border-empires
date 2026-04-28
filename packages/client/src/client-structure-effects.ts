@@ -106,7 +106,7 @@ export const tileAreaEffectModifiersForTile = (tile: Tile, tiles: Iterable<Tile>
     isActiveOwnedStructureWithinRange(tiles, tile.ownerId, tile, "GOVERNORS_OFFICE", GOVERNORS_OFFICE_RADIUS)
   ) {
     modifiers.push({
-      reason: "Governor's Office",
+      reason: "Ministry Hall",
       effect: "-20% upkeep",
       tone: "positive"
     });

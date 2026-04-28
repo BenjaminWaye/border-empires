@@ -21,6 +21,12 @@ type TechUpdateMessage = {
   activeRevealTargets?: string[] | undefined;
 };
 
+const normalizeTechCatalog = (catalog: ClientState["techCatalog"] | undefined): ClientState["techCatalog"] | undefined =>
+  catalog?.map((tech) => ({
+    ...tech,
+    tier: typeof tech.tier === "number" && Number.isFinite(tech.tier) ? Math.max(1, Math.min(7, Math.round(tech.tier))) : tech.tier
+  }));
+
 export const applyTechUpdateToState = (
   state: ClientState,
   msg: TechUpdateMessage,
@@ -41,7 +47,7 @@ export const applyTechUpdateToState = (
   state.modBreakdown = msg.modBreakdown ?? state.modBreakdown;
   state.incomePerMinute = msg.incomePerMinute ?? state.incomePerMinute;
   state.missions = msg.missions ?? state.missions;
-  state.techCatalog = msg.techCatalog ?? state.techCatalog;
+  state.techCatalog = normalizeTechCatalog(msg.techCatalog) ?? state.techCatalog;
   state.domainIds = msg.domainIds ?? state.domainIds;
   state.domainChoices = msg.domainChoices ?? state.domainChoices;
   state.domainCatalog = msg.domainCatalog ?? state.domainCatalog;

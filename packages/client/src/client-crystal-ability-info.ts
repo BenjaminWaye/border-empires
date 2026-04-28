@@ -1,6 +1,18 @@
 import type { TechInfo } from "./client-types.js";
 
-export type CrystalAbilityInfoKey = "reveal_empire" | "aether_bridge" | "siphon" | "create_mountain" | "remove_mountain";
+export type CrystalAbilityInfoKey =
+  | "reveal_empire"
+  | "survey_sweep"
+  | "aether_lance"
+  | "aether_bridge"
+  | "siphon"
+  | "aether_emp"
+  | "city_overclock"
+  | "stormfront"
+  | "aegis_lock"
+  | "astral_dock_launch"
+  | "create_mountain"
+  | "remove_mountain";
 
 export type CrystalAbilityInfoView = {
   title: string;
@@ -17,12 +29,32 @@ const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
 const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
 const SIPHON_COOLDOWN_MS = 15 * 60_000;
 const SIPHON_DURATION_MS = 30 * 60_000;
+const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
+const SURVEY_SWEEP_DURATION_MS = 2 * 60_000;
+const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
+const AETHER_EMP_COOLDOWN_MS = 45 * 60_000;
+const AETHER_EMP_DURATION_MS = 15 * 60_000;
+const CITY_OVERCLOCK_COOLDOWN_MS = 45 * 60_000;
+const CITY_OVERCLOCK_DURATION_MS = 15 * 60_000;
 const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
+const STORMFRONT_COOLDOWN_MS = 45 * 60_000;
+const STORMFRONT_DURATION_MS = 15 * 60_000;
+const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
+const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
+const ASTRAL_DOCK_COOLDOWN_MS = 90 * 60_000;
+const ASTRAL_DOCK_DURATION_MS = 24 * 60 * 60_000;
 
 export const crystalAbilityNameForKey = (key: CrystalAbilityInfoKey): string => {
   if (key === "reveal_empire") return "Reveal Empire";
+  if (key === "survey_sweep") return "Survey Sweep";
+  if (key === "aether_lance") return "Aether Lance";
   if (key === "aether_bridge") return "Aether Bridge";
   if (key === "siphon") return "Siphon";
+  if (key === "aether_emp") return "Aether EMP";
+  if (key === "city_overclock") return "City Overclock";
+  if (key === "stormfront") return "Stormfront";
+  if (key === "aegis_lock") return "Aegis Lock";
+  if (key === "astral_dock_launch") return "Launch Satellite";
   if (key === "create_mountain") return "Create Mountain";
   return "Remove Mountain";
 };
@@ -31,8 +63,15 @@ export const relatedCrystalAbilitiesForTech = (tech: Pick<TechInfo, "effects">):
   const effects = tech.effects ?? {};
   const out = new Set<CrystalAbilityInfoKey>();
   if (effects.unlockRevealEmpire === true) out.add("reveal_empire");
+  if (effects.unlockSurveySweep === true) out.add("survey_sweep");
+  if (effects.unlockAetherLance === true) out.add("aether_lance");
   if (effects.unlockSabotage === true) out.add("siphon");
+  if (effects.unlockAetherEmp === true) out.add("aether_emp");
+  if (effects.unlockCityOverclock === true) out.add("city_overclock");
   if (effects.unlockNavalInfiltration === true) out.add("aether_bridge");
+  if (effects.unlockStormfront === true) out.add("stormfront");
+  if (effects.unlockAegisLock === true) out.add("aegis_lock");
+  if (effects.unlockAstralDockLaunch === true) out.add("astral_dock_launch");
   if (effects.unlockTerrainShaping === true) {
     out.add("create_mountain");
     out.add("remove_mountain");
@@ -57,6 +96,27 @@ export const crystalAbilityInfoForKey = (
       upkeepLabel: "0.15 CRYSTAL / 10m"
     };
   }
+  if (key === "survey_sweep") {
+    return {
+      title: "Survey Sweep",
+      detail: "Pulses one of your active observatories to temporarily reveal a huge surrounding area, then lets it fade back into fog.",
+      glyph: "⌖",
+      target: "Owned active observatory. Reveals up to 50 tiles in each direction around that observatory.",
+      costBits: ["30 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(SURVEY_SWEEP_COOLDOWN_MS),
+      durationLabel: deps.formatCooldownShort(SURVEY_SWEEP_DURATION_MS)
+    };
+  }
+  if (key === "aether_lance") {
+    return {
+      title: "Aether Lance",
+      detail: "Fires a focused observatory strike that destroys one hostile structure without flattening the whole tile.",
+      glyph: "✦",
+      target: "Enemy fort, observatory, siege tower, or economic structure within observatory range. Cannot target towns, docks, or monuments.",
+      costBits: ["3,000 gold", "100 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(AETHER_LANCE_COOLDOWN_MS)
+    };
+  }
   if (key === "aether_bridge") {
     return {
       title: "Aether Bridge",
@@ -77,6 +137,61 @@ export const crystalAbilityInfoForKey = (
       costBits: ["20 CRYSTAL"],
       cooldownLabel: deps.formatCooldownShort(SIPHON_COOLDOWN_MS),
       durationLabel: deps.formatCooldownShort(SIPHON_DURATION_MS)
+    };
+  }
+  if (key === "aether_emp") {
+    return {
+      title: "Aether EMP",
+      detail: "Blasts an enemy powered structure with a crystal surge, forcing it offline long enough to collapse the local power network.",
+      glyph: "⚡",
+      target: "Enemy powered Aether Tower, Sky Dock, Resonance Grid, or monument within observatory range.",
+      costBits: ["180 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(AETHER_EMP_COOLDOWN_MS),
+      durationLabel: deps.formatCooldownShort(AETHER_EMP_DURATION_MS)
+    };
+  }
+  if (key === "city_overclock") {
+    return {
+      title: "City Overclock",
+      detail: "Drives one of your major cities into a short industrial frenzy, boosting its linked urban network for 15 minutes.",
+      glyph: "⌘",
+      target: "Owned City, Great City, or Metropolis. The target city and its directly connected towns run overclocked.",
+      costBits: ["160 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(CITY_OVERCLOCK_COOLDOWN_MS),
+      durationLabel: deps.formatCooldownShort(CITY_OVERCLOCK_DURATION_MS)
+    };
+  }
+  if (key === "stormfront") {
+    return {
+      title: "Stormfront",
+      detail: "Drops an aether storm over a region, blinding vision and shutting down hostile bombardment and observatory pressure inside it.",
+      glyph: "☈",
+      target: "Cast from an active Resonance Grid to cover a 30-tile region around the target grid.",
+      costBits: ["180 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(STORMFRONT_COOLDOWN_MS),
+      durationLabel: deps.formatCooldownShort(STORMFRONT_DURATION_MS)
+    };
+  }
+  if (key === "aegis_lock") {
+    return {
+      title: "Aegis Lock",
+      detail: "Hardens the Aegis Dome into a temporary untouchable core. During the lock, hostile attacks cannot change ownership and hostile structure-breaking abilities fail in the dome's radius.",
+      glyph: "⬡",
+      target: "Activate from your powered Aegis Dome to lock the surrounding 25-tile region.",
+      costBits: ["220 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(AEGIS_LOCK_COOLDOWN_MS),
+      durationLabel: deps.formatCooldownShort(AEGIS_LOCK_DURATION_MS)
+    };
+  }
+  if (key === "astral_dock_launch") {
+    return {
+      title: "Launch Satellite",
+      detail: "Launches an aether satellite into orbit from a powered Astral Dock. While it stays aloft, your empire sees the entire map.",
+      glyph: "🜨",
+      target: "Activate from your powered Astral Dock monument.",
+      costBits: ["300 CRYSTAL"],
+      cooldownLabel: deps.formatCooldownShort(ASTRAL_DOCK_COOLDOWN_MS),
+      durationLabel: deps.formatCooldownShort(ASTRAL_DOCK_DURATION_MS)
     };
   }
   if (key === "create_mountain") {
@@ -123,7 +238,7 @@ export const renderCrystalAbilityInfoOverlay = (
         <div class="structure-info-hero">
           <div class="structure-info-art"><div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div></div>
           <div class="structure-info-head">
-            <div class="structure-info-kicker">Crystal Ability</div>
+            <div class="structure-info-kicker">Ability</div>
             <h3 id="crystal-ability-info-title">${info.title}</h3>
             <p>${info.detail}</p>
           </div>

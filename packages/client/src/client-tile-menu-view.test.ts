@@ -369,7 +369,7 @@ describe("menuOverviewForTile", () => {
           connectedDockCount: 1,
           modifiers: [
             { label: "Connected dock route", percent: 50, deltaGoldPerMinute: 0.275 },
-            { label: "Customs House", percent: 50, deltaGoldPerMinute: 0.275 }
+            { label: "Harbor Exchange", percent: 50, deltaGoldPerMinute: 0.275 }
           ]
         },
         yieldRate: {
@@ -385,7 +385,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("+90% gold production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Connected dock route:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Customs House:"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Harbor Exchange:"))).toBe(true);
   });
 
   it("shows dock guidance instead of a raw connected-dock count when isolated", () => {
