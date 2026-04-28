@@ -124,13 +124,17 @@ describe("simulation service startup recovery", () => {
         seasonId: "season-1",
         seasonSequence: 1,
         rulesetId: "seasonal-default",
-        status: "active"
+        status: "active",
+        worldSeed: expect.any(Number)
       })
     );
     expect(service.startupRecovery.initialState.tiles.length).toBeGreaterThan(1000);
+    expect(service.startupRecovery.initialState.tiles.filter((tile) => tile.town).length).toBeGreaterThan(50);
+    expect(service.startupRecovery.initialState.tiles.some((tile) => tile.ownerId?.startsWith("player-"))).toBe(false);
+    expect(service.startupRecovery.initialState.tiles.some((tile) => tile.ownerId?.startsWith("ai-"))).toBe(true);
     expect(
-      service.startupRecovery.initialState.tiles.every((tile) => tile.ownerId === undefined && tile.ownershipState === undefined)
-    ).toBe(true);
+      service.startupRecovery.initialState.players?.filter((player) => player.id.startsWith("ai-")).length
+    ).toBe(10);
     await service.close();
   });
 
