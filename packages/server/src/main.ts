@@ -5614,6 +5614,7 @@ const {
   visibleInSnapshot,
   visible,
   effectiveVisionRadiusForPlayer: (player: Player) => effectiveVisionRadiusForPlayer(player),
+  humanFrontierActionPriorityActive,
   isValidCapitalTile,
   chooseCapitalTileKey,
   resolveControlSocketForPlayer: (controlSockets, playerId) =>
