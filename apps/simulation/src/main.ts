@@ -27,6 +27,9 @@ const service = await createSimulationService({
   globalStatusBroadcastDebounceMs: runtimeEnv.globalStatusBroadcastDebounceMs,
   startupRecoveryTimeoutMs: runtimeEnv.startupRecoveryTimeoutMs,
   allowSeedRecoveryFallback: runtimeEnv.allowSeedRecoveryFallback,
+  ...(typeof runtimeEnv.requireDurableStartupState === "boolean"
+    ? { requireDurableStartupState: runtimeEnv.requireDurableStartupState }
+    : {}),
   useAiWorker: runtimeEnv.useAiWorker,
   ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {})
 });
