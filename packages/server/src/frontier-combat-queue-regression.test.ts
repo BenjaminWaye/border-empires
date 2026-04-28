@@ -64,6 +64,8 @@ describe("frontier combat queue regression guard", () => {
     expect(body).toContain('type: "ACTION_ACCEPTED"');
     expect(body).toContain("origin: result.origin");
     expect(body).toContain("target: result.target");
+    expect(body).toContain('{ commandId: msg.commandId }');
+    expect(body).toContain('{ clientSeq: msg.clientSeq }');
     expect(body).toContain("result.attackAlert");
     expect(body).toContain('type: "ATTACK_ALERT"');
   });
@@ -76,6 +78,8 @@ describe("frontier combat queue regression guard", () => {
     expect(livePathEnd).toBeGreaterThan(livePathStart);
     const livePath = source.slice(livePathStart, livePathEnd);
     expect(livePath).toContain('type: "ACTION_ACCEPTED"');
+    expect(livePath).toContain('{ commandId: msg.commandId }');
+    expect(livePath).toContain('{ clientSeq: msg.clientSeq }');
     expect(livePath).toContain("precomputedCombatPromise = resolveCombatViaWorker");
     expect(livePath).not.toContain("await resolveCombatViaWorker");
   });
@@ -93,12 +97,11 @@ describe("frontier combat queue regression guard", () => {
     const queuedBody = functionBody(source, "tryQueueBasicFrontierAction");
     expect(queuedBody).toContain("deps.sendPostCombatFollowUps(actor.id, [{ x: from.x, y: from.y }, { x: to.x, y: to.y }]");
 
-    const livePathStart = source.indexOf("logExpandTrace(\"combat_result_sent\", pending, { neutralTarget: false, changes: resultChanges.length });");
-    const livePathEnd = source.indexOf("}, resolvesAt - now());", livePathStart);
+    const livePathStart = source.indexOf('logExpandTrace("result_applied", pending, { neutralTarget: false');
+    const livePathEnd = source.indexOf("sendPostCombatFollowUps(actor.id, changedCenters", livePathStart);
     expect(livePathStart).toBeGreaterThan(-1);
     expect(livePathEnd).toBeGreaterThan(livePathStart);
     const liveResultPath = source.slice(livePathStart, livePathEnd);
-    expect(liveResultPath).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
     expect(liveResultPath).not.toContain("sendPlayerUpdate(actor, 0);");
   });
 
