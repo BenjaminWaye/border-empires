@@ -122,4 +122,18 @@ describe("simulation runtime env", () => {
       allowSeedRecoveryFallback: true
     });
   });
+
+  it("allows explicitly disabling durable startup for local seeded db runs", () => {
+    expect(
+      parseSimulationRuntimeEnv({
+        DATABASE_URL: "postgres://simulation",
+        SIMULATION_SEED_PROFILE: "season-20ai",
+        SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1",
+        SIMULATION_REQUIRE_DURABLE_STARTUP_STATE: "0"
+      })
+    ).toMatchObject({
+      allowSeedRecoveryFallback: true,
+      requireDurableStartupState: false
+    });
+  });
 });

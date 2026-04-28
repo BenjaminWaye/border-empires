@@ -41,6 +41,9 @@ kill_match "border-empires/apps/simulation/src/main.ts"
 kill_match "border-empires/apps/realtime-gateway/src/main.ts"
 kill_match "border-empires/apps/simulation/dist/apps/simulation/src/main.js"
 kill_match "border-empires/apps/realtime-gateway/dist/apps/realtime-gateway/src/main.js"
+kill_match "pnpm --parallel --filter @border-empires/simulation --filter @border-empires/realtime-gateway --filter @border-empires/client dev"
+kill_match "apps/simulation/node_modules/.bin/../tsx/dist/cli.mjs watch src/main.ts"
+kill_match "apps/realtime-gateway/node_modules/.bin/../tsx/dist/cli.mjs watch src/main.ts"
 kill_match "vite --host 0.0.0.0 --port 5173 --strictPort"
 kill_match "border-empires/packages/client"
 
@@ -52,6 +55,8 @@ wait_port_free 3101
 wait_port_free 5173
 
 cd "${ROOT_DIR}"
+SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK=1 \
+SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0 \
 SIMULATION_SEED_PROFILE=season-20ai \
 SIMULATION_ENABLE_AI_AUTOPILOT=1 \
 SIMULATION_AI_TICK_MS=25 \
