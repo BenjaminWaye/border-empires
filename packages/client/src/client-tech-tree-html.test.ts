@@ -72,4 +72,38 @@ describe("expanded tech tree rendering", () => {
     expect(html).toContain(">Toolmaking<");
     expect(html).toContain("height:");
   });
+
+  it("renders explicit tier 7 data instead of recomputing deeper dependency tiers", () => {
+    const techCatalog: TechInfo[] = [
+      baseTech({ id: "root", name: "Root", tier: 1 }),
+      baseTech({ id: "mid", name: "Mid", tier: 6, requires: "root" }),
+      baseTech({ id: "late", name: "Late Monument", tier: 7, requires: "mid" })
+    ];
+    const byId = new Map(techCatalog.map((tech) => [tech.id, tech]));
+    const explicitTechTier = (id: string): number => byId.get(id)?.tier ?? 1;
+
+    const html = renderExpandedTechChoiceTreeHtml({
+      techCatalog,
+      techUiSelectedId: "late",
+      techRootId: undefined,
+      currentResearch: null,
+      effectiveOwnedTechIds: [],
+      effectiveTechChoices: [],
+      orderedTechIdsByTier: (catalog) => catalog.map((tech) => tech.id),
+      techTier: (id) => explicitTechTier(id),
+      techPrereqIds: (tech) => (tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : []),
+      techNameList: (ids) => ids.map((id) => byId.get(id)?.name ?? id).join(", "),
+      formatTechCost: () => "0 gold",
+      isPendingTechUnlock: () => false,
+      formatCooldownShort: () => "0s",
+      titleCaseFromId: (id) => id,
+      viewportHeight: 700,
+      isMobile: false
+    });
+
+    expect(html).toContain("Monument Age");
+    expect(html).toContain("Tier 7");
+    expect(html).not.toContain("Tier 8");
+    expect(html).not.toContain("Tier 9");
+  });
 });

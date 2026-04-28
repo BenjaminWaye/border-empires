@@ -170,15 +170,51 @@ export const renderMobilePanels = (
 };
 
 export const bindTechTreeDragScroll = (
-  state: Pick<ClientState, "techTreeScrollLeft" | "techTreeScrollTop">,
+  state: Pick<ClientState, "techTreeScrollLeft" | "techTreeScrollTop" | "techTreeZoom">,
   hud: HTMLElement
 ): void => {
+  const clampZoom = (value: number): number => Math.max(0.7, Math.min(1.6, Number(value.toFixed(2))));
+  const applyZoom = (region: HTMLElement, zoom: number): void => {
+    const stage = region.querySelector<HTMLElement>("[data-tech-tree-stage]");
+    const canvas = stage?.querySelector<HTMLElement>(".tech-tree-graph-canvas");
+    if (!stage || !canvas) return;
+    const intrinsicWidth = Number(canvas.dataset.stageWidth ?? canvas.style.width.replace("px", ""));
+    const intrinsicHeight = Number(canvas.dataset.stageHeight ?? canvas.style.height.replace("px", ""));
+    const viewportHeight = Math.max(region.clientHeight, intrinsicHeight * zoom);
+    stage.style.width = `${Math.round(intrinsicWidth * zoom)}px`;
+    stage.style.height = `${Math.round(intrinsicHeight * zoom)}px`;
+    stage.style.minHeight = `${Math.round(viewportHeight)}px`;
+    canvas.style.transform = `scale(${zoom})`;
+    const shell = region.closest<HTMLElement>("[data-tech-tree-shell]");
+    const readout = shell?.querySelector<HTMLElement>("[data-tech-tree-zoom='reset']");
+    if (readout) readout.textContent = `${Math.round(zoom * 100)}%`;
+  };
+  const syncZoomAcrossRegions = (): void => {
+    const regions = hud.querySelectorAll<HTMLElement>("[data-tech-tree-scroll]");
+    regions.forEach((region) => applyZoom(region, state.techTreeZoom));
+  };
+  const zoomRegion = (region: HTMLElement, direction: "in" | "out" | "reset"): void => {
+    const previous = state.techTreeZoom;
+    const next =
+      direction === "reset" ? 1 : direction === "in" ? clampZoom(previous + 0.1) : clampZoom(previous - 0.1);
+    if (Math.abs(next - previous) < 0.001) return;
+    const centerX = region.scrollLeft + region.clientWidth / 2;
+    const centerY = region.scrollTop + region.clientHeight / 2;
+    state.techTreeZoom = next;
+    syncZoomAcrossRegions();
+    const ratio = next / previous;
+    region.scrollLeft = Math.max(0, centerX * ratio - region.clientWidth / 2);
+    region.scrollTop = Math.max(0, centerY * ratio - region.clientHeight / 2);
+    state.techTreeScrollLeft = region.scrollLeft;
+    state.techTreeScrollTop = region.scrollTop;
+  };
   const scrollRegions = hud.querySelectorAll<HTMLElement>("[data-tech-tree-scroll]");
   scrollRegions.forEach((region) => {
     if (region.dataset.dragBound === "1") return;
     region.dataset.dragBound = "1";
     region.scrollLeft = state.techTreeScrollLeft;
     region.scrollTop = state.techTreeScrollTop;
+    applyZoom(region, state.techTreeZoom);
     let pointerId = -1;
     let startX = 0;
     let startY = 0;
@@ -198,7 +234,7 @@ export const bindTechTreeDragScroll = (
     region.onpointerdown = (event) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       const target = event.target;
-      if (event.pointerType === "mouse" && target instanceof Element && target.closest("[data-tech-card]")) return;
+      if (target instanceof Element && target.closest("[data-tech-card], [data-tech-tree-zoom]")) return;
       pointerId = event.pointerId;
       startX = event.clientX;
       startY = event.clientY;
@@ -206,7 +242,7 @@ export const bindTechTreeDragScroll = (
       startTop = region.scrollTop;
       region.classList.add("dragging");
       region.setPointerCapture(event.pointerId);
-      if (event.pointerType !== "mouse") event.preventDefault();
+      event.preventDefault();
     };
     region.onpointermove = (event) => {
       if (event.pointerId !== pointerId) return;
@@ -216,14 +252,40 @@ export const bindTechTreeDragScroll = (
       region.scrollTop = startTop - dy;
       state.techTreeScrollLeft = region.scrollLeft;
       state.techTreeScrollTop = region.scrollTop;
-      if (event.pointerType !== "mouse") event.preventDefault();
+      event.preventDefault();
     };
     region.onscroll = () => {
       state.techTreeScrollLeft = region.scrollLeft;
       state.techTreeScrollTop = region.scrollTop;
     };
+    region.onwheel = (event) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      zoomRegion(region, event.deltaY < 0 ? "in" : "out");
+    };
     region.onpointerup = release;
     region.onpointercancel = release;
     region.onlostpointercapture = release;
+    region.onselectstart = (event) => {
+      if (pointerId === -1) return;
+      event.preventDefault();
+    };
+    region.ondragstart = (event) => {
+      if (pointerId === -1) return;
+      event.preventDefault();
+    };
   });
+  const zoomButtons = hud.querySelectorAll<HTMLButtonElement>("[data-tech-tree-zoom]");
+  zoomButtons.forEach((button) => {
+    if (button.dataset.zoomBound === "1") return;
+    button.dataset.zoomBound = "1";
+    button.onclick = () => {
+      const direction = button.dataset.techTreeZoom;
+      if (direction !== "in" && direction !== "out" && direction !== "reset") return;
+      const region = button.closest<HTMLElement>("[data-tech-tree-shell]")?.querySelector<HTMLElement>("[data-tech-tree-scroll]");
+      if (!region) return;
+      zoomRegion(region, direction);
+    };
+  });
+  syncZoomAcrossRegions();
 };

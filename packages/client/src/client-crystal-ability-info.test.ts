@@ -20,10 +20,48 @@ describe("crystal ability tech previews", () => {
       formatCooldownShort: (ms) => `${Math.round(ms / 60_000)}m`
     });
 
-    expect(html).toContain("Crystal Ability");
+    expect(html).toContain("Ability");
     expect(html).toContain("Aether Bridge");
     expect(html).toContain("30 CRYSTAL");
     expect(html).toContain("8m");
     expect(html).toContain("Target coastal land");
+  });
+
+  it("maps Signal Fires to the Aether Lance preview", () => {
+    const tech: Pick<TechInfo, "effects"> = {
+      effects: {
+        unlockAetherLance: true
+      }
+    };
+
+    expect(relatedCrystalAbilitiesForTech(tech)).toEqual(["aether_lance"]);
+  });
+
+  it("maps Surveying to Survey Sweep and Beacon Towers to Reveal Empire", () => {
+    const surveying: Pick<TechInfo, "effects"> = {
+      effects: {
+        unlockSurveySweep: true
+      }
+    };
+    const beaconTowers: Pick<TechInfo, "effects"> = {
+      effects: {
+        unlockRevealEmpire: true
+      }
+    };
+
+    expect(relatedCrystalAbilitiesForTech(surveying)).toEqual(["survey_sweep"]);
+    expect(relatedCrystalAbilitiesForTech(beaconTowers)).toEqual(["reveal_empire"]);
+  });
+
+  it("maps late combat and monument techs to their ability previews", () => {
+    const tech: Pick<TechInfo, "effects"> = {
+      effects: {
+        unlockSabotage: true,
+        unlockStormfront: true,
+        unlockAegisLock: true
+      }
+    };
+
+    expect(relatedCrystalAbilitiesForTech(tech)).toEqual(["siphon", "stormfront", "aegis_lock"]);
   });
 });

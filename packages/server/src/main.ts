@@ -285,21 +285,43 @@ import {
 } from "./server-effects.js";
 import {
   ABILITY_DEFS,
+  AETHER_LANCE_COOLDOWN_MS,
+  AETHER_LANCE_CRYSTAL_COST,
+  AETHER_LANCE_GOLD_COST,
   AETHER_BRIDGE_COOLDOWN_MS,
   AETHER_BRIDGE_CRYSTAL_COST,
   AETHER_BRIDGE_DURATION_MS,
   AETHER_BRIDGE_MAX_SEA_TILES,
+  AETHER_EMP_COOLDOWN_MS,
+  AETHER_EMP_CRYSTAL_COST,
+  AETHER_EMP_DISABLE_MS,
+  AEGIS_DOME_GOLD_UPKEEP,
+  AEGIS_DOME_PART_BUILD_CRYSTAL_COST,
+  AEGIS_DOME_PART_GOLD_UPKEEP,
+  ASTRAL_DOCK_COOLDOWN_MS,
+  ASTRAL_DOCK_CRYSTAL_COST,
+  ASTRAL_DOCK_DURATION_MS,
+  ASTRAL_DOCK_GOLD_UPKEEP,
+  ASTRAL_DOCK_PART_BUILD_CRYSTAL_COST,
+  ASTRAL_DOCK_PART_GOLD_UPKEEP,
+  AEGIS_DOME_RADIUS,
+  AEGIS_LOCK_CRYSTAL_COST,
+  AEGIS_LOCK_DURATION_MS,
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
   ADVANCED_IRONWORKS_IRON_PER_DAY,
   AIRPORT_BOMBARD_ATTACK_MULT,
+  AIRPORT_BOMBARD_CRYSTAL_COST,
   AIRPORT_BOMBARD_MAX_FIELD_TILES,
   AIRPORT_BOMBARD_MIN_FIELD_TILES,
-  AIRPORT_BOMBARD_OIL_COST,
   AIRPORT_BOMBARD_RANGE,
   AIRPORT_BUILD_CRYSTAL_COST,
   AIRPORT_BUILD_GOLD_COST,
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
+  AETHER_TOWER_BUILD_CRYSTAL_COST,
+  AETHER_TOWER_BUILD_GOLD_COST,
+  AETHER_TOWER_GOLD_UPKEEP,
+  AETHER_TOWER_RADIUS,
   ALLIANCE_REQUEST_TTL_MS,
   BARBARIAN_MAINTENANCE_INTERVAL_MS,
   BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS,
@@ -321,15 +343,31 @@ import {
   CARAVANARY_BUILD_CRYSTAL_COST,
   CARAVANARY_BUILD_GOLD_COST,
   CARAVANARY_GOLD_UPKEEP,
+  CENSUS_HALL_BUILD_FOOD_COST,
+  CENSUS_HALL_GOLD_UPKEEP,
   COLLECT_VISIBLE_COOLDOWN_MS,
   colorFromId,
   CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST,
   CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
   CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL,
+  CHARTERED_PORT_BUILD_CRYSTAL_COST,
+  CHARTERED_PORT_BUILD_GOLD_COST,
+  CHARTERED_PORT_GOLD_UPKEEP,
+  CITY_OVERCLOCK_COOLDOWN_MS,
+  CITY_OVERCLOCK_CRYSTAL_COST,
+  CITY_OVERCLOCK_DURATION_MS,
+  RAIL_DEPOT_BUILD_CRYSTAL_COST,
+  RAIL_DEPOT_BUILD_GOLD_COST,
+  RAIL_DEPOT_GOLD_UPKEEP,
   CUSTOMS_HOUSE_BUILD_CRYSTAL_COST,
   CUSTOMS_HOUSE_BUILD_GOLD_COST,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
+  CLEARING_HOUSE_BUILD_CRYSTAL_COST,
+  CLEARING_HOUSE_GOLD_UPKEEP,
+  LOCKWORKS_PORT_BUILD_CRYSTAL_COST,
+  LOCKWORKS_PORT_BUILD_GOLD_COST,
+  LOCKWORKS_PORT_GOLD_UPKEEP,
   DEEP_STRIKE_ATTACK_MULT,
   DEEP_STRIKE_COOLDOWN_MS,
   DEEP_STRIKE_CRYSTAL_COST,
@@ -340,6 +378,8 @@ import {
   FARMSTEAD_BUILD_FOOD_COST,
   FARMSTEAD_BUILD_GOLD_COST,
   FARMSTEAD_GOLD_UPKEEP,
+  WATERWORKS_BUILD_FOOD_COST,
+  WATERWORKS_GOLD_UPKEEP,
   FIRST_SPECIAL_SITE_CAPTURE_GOLD,
   FORT_BUILD_IRON_COST,
   FOUNDRY_BUILD_GOLD_COST,
@@ -354,6 +394,9 @@ import {
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   FUR_SYNTHESIZER_OVERLOAD_SUPPLY,
   FUR_SYNTHESIZER_SUPPLY_PER_DAY,
+  EXCHANGE_HOUSE_BUILD_CRYSTAL_COST,
+  EXCHANGE_HOUSE_BUILD_GOLD_COST,
+  EXCHANGE_HOUSE_GOLD_UPKEEP,
   GARRISON_HALL_BUILD_CRYSTAL_COST,
   GARRISON_HALL_BUILD_GOLD_COST,
   GARRISON_HALL_GOLD_UPKEEP,
@@ -375,6 +418,12 @@ import {
   IRONWORKS_GOLD_UPKEEP,
   IRONWORKS_IRON_PER_DAY,
   IRONWORKS_OVERLOAD_IRON,
+  IMPERIAL_EXCHANGE_BUILD_GOLD_COST,
+  IMPERIAL_EXCHANGE_COOLDOWN_MS,
+  IMPERIAL_EXCHANGE_CRYSTAL_COST,
+  IMPERIAL_EXCHANGE_GOLD_UPKEEP,
+  IMPERIAL_EXCHANGE_PART_BUILD_CRYSTAL_COST,
+  IMPERIAL_EXCHANGE_PART_GOLD_UPKEEP,
   key,
   LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
   LIGHT_OUTPOST_GOLD_UPKEEP,
@@ -440,6 +489,10 @@ import {
   SIPHON_DURATION_MS,
   SIPHON_PURGE_CRYSTAL_COST,
   SIPHON_SHARE,
+  SURVEY_SWEEP_COOLDOWN_MS,
+  SURVEY_SWEEP_CRYSTAL_COST,
+  SURVEY_SWEEP_DURATION_MS,
+  SURVEY_SWEEP_RADIUS,
   STARTING_GOLD,
   STRUCTURE_OUTPUT_MULT,
   SYNTH_OVERLOAD_DISABLE_MS,
@@ -462,6 +515,12 @@ import {
   VICTORY_PRESSURE_FRONTIER_REACH_WINDOW_MS,
   WORLD_TOWN_POPULATION_MIN,
   WORLD_TOWN_POPULATION_START_SPREAD,
+  WORLD_ENGINE_BUILD_GOLD_COST,
+  WORLD_ENGINE_COOLDOWN_MS,
+  WORLD_ENGINE_CRYSTAL_COST,
+  WORLD_ENGINE_GOLD_UPKEEP,
+  WORLD_ENGINE_PART_BUILD_CRYSTAL_COST,
+  WORLD_ENGINE_PART_GOLD_UPKEEP,
   WOODEN_FORT_GOLD_UPKEEP
 } from "./server-game-constants.js";
 import { createServerWorldgenClusters } from "./server-worldgen-clusters.js";
@@ -1135,6 +1194,9 @@ const siphonByTile = new Map<TileKey, ActiveSiphon>();
 const siphonCacheByPlayer = new Map<string, SiphonCache[]>();
 const activeAetherBridgesById = new Map<string, ActiveAetherBridge>();
 const abilityCooldownsByPlayer = new Map<string, Map<AbilityDefinition["id"], number>>();
+const aegisLocksByPlayer = new Map<string, { tileKey: TileKey; endsAt: number }>();
+const satelliteVisionUntilByPlayer = new Map<string, number>();
+const cityOverclocksByPlayer = new Map<string, { tileKey: TileKey; endsAt: number }>();
 const victoryPressureById = new Map<SeasonVictoryPathId, VictoryPressureTracker>();
 const cachedChunkPayloadDiagnostics = (): { payloads: number; approxPayloadMb: number } => {
   let payloads = 0;
@@ -1780,6 +1842,7 @@ const {
   OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_CAST_RADIUS,
   RADAR_SYSTEM_RADIUS,
+  AETHER_TOWER_RADIUS,
   GOVERNORS_OFFICE_RADIUS,
   GOVERNORS_OFFICE_UPKEEP_MULT,
   FOUNDRY_RADIUS,
@@ -1795,6 +1858,63 @@ const {
   FUEL_PLANT_OIL_PER_DAY,
   randomUUID: () => crypto.randomUUID()
 });
+
+const economicStructureRequiresAetherPower = (type: EconomicStructureType): boolean =>
+  type === "AIRPORT" ||
+  type === "RADAR_SYSTEM" ||
+  type === "IMPERIAL_EXCHANGE" ||
+  type === "WORLD_ENGINE" ||
+  type === "AEGIS_DOME" ||
+  type === "ASTRAL_DOCK";
+
+const isEconomicStructurePowered = (structure: EconomicStructure): boolean => {
+  if (structure.status !== "active") return false;
+  if (structure.disabledUntil && structure.disabledUntil > now()) return false;
+  if (!economicStructureRequiresAetherPower(structure.type)) return true;
+  const [sx, sy] = parseKey(structure.tileKey);
+  return Boolean(activeOwnedEconomicStructureWithinRange(structure.ownerId, "AETHER_TOWER", sx, sy, AETHER_TOWER_RADIUS));
+};
+
+const activePoweredEconomicStructureAt = (ownerId: string, tileKey: TileKey, type: EconomicStructureType): EconomicStructure | undefined => {
+  const structure = economicStructuresByTile.get(tileKey);
+  if (!structure || structure.ownerId !== ownerId || structure.type !== type || structure.status !== "active") return undefined;
+  return isEconomicStructurePowered(structure) ? structure : undefined;
+};
+
+const hostilePoweredEconomicStructureWithinRange = (
+  actor: Player,
+  structureType: EconomicStructureType,
+  x: number,
+  y: number,
+  radius: number
+): EconomicStructure | undefined => {
+  for (const structure of economicStructuresByTile.values()) {
+    if (structure.type !== structureType || structure.status !== "active") continue;
+    if (structure.ownerId === actor.id || actor.allies.has(structure.ownerId) || truceBlocksHostility(actor.id, structure.ownerId)) continue;
+    if (!isEconomicStructurePowered(structure)) continue;
+    const [sx, sy] = parseKey(structure.tileKey);
+    if (chebyshevDistance(sx, sy, x, y) > radius) continue;
+    return structure;
+  }
+  return undefined;
+};
+
+const hostileAegisDomeProtectingTile = (actor: Player, x: number, y: number): EconomicStructure | undefined =>
+  hostilePoweredEconomicStructureWithinRange(actor, "AEGIS_DOME", x, y, AEGIS_DOME_RADIUS);
+
+const hostileAegisLockProtectingTile = (actor: Player, x: number, y: number): EconomicStructure | undefined => {
+  for (const [ownerId, lock] of aegisLocksByPlayer) {
+    if (ownerId === actor.id || actor.allies.has(ownerId) || truceBlocksHostility(actor.id, ownerId)) continue;
+    if (lock.endsAt <= now()) continue;
+    const dome = economicStructuresByTile.get(lock.tileKey);
+    if (!dome || dome.ownerId !== ownerId || dome.type !== "AEGIS_DOME" || dome.status !== "active") continue;
+    if (!isEconomicStructurePowered(dome)) continue;
+    const [sx, sy] = parseKey(lock.tileKey);
+    if (chebyshevDistance(sx, sy, x, y) > AEGIS_DOME_RADIUS) continue;
+    return dome;
+  }
+  return undefined;
+};
 
 const {
   computeTownFeedingState,
@@ -1831,6 +1951,7 @@ const {
   foodUpkeepCoverageByPlayer,
   townFeedingStateByPlayer,
   growthPausedUntilByPlayer,
+  cityOverclocksByPlayer,
   getPlayerEffectsForPlayer: (playerId: string) => getPlayerEffectsForPlayer(playerId),
   emptyPlayerEffects,
   getOrInitStrategicStocks: (playerId: string) => getOrInitStrategicStocks(playerId),
@@ -1841,6 +1962,7 @@ const {
   townSupport,
   townGoldIncomeEnabledForPlayer,
   ownedTownKeysForPlayer,
+  directlyConnectedTownKeysForTown,
   firstThreeTownKeySetForPlayer,
   structureForSupportedTown,
   structureForSupportedDock,
@@ -1920,11 +2042,13 @@ const {
   PASSIVE_INCOME_MULT,
   OBSERVATORY_UPKEEP_PER_MIN,
   REVEAL_EMPIRE_UPKEEP_PER_MIN,
-  AIRPORT_OIL_UPKEEP_PER_MIN,
+  AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
   FARMSTEAD_GOLD_UPKEEP,
+  WATERWORKS_GOLD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   MINE_GOLD_UPKEEP,
   GRANARY_GOLD_UPKEEP,
+  CENSUS_HALL_GOLD_UPKEEP,
   CARAVANARY_GOLD_UPKEEP,
   FUR_SYNTHESIZER_GOLD_UPKEEP,
   WOODEN_FORT_GOLD_UPKEEP,
@@ -1932,11 +2056,25 @@ const {
   IRONWORKS_GOLD_UPKEEP,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP,
   FUEL_PLANT_GOLD_UPKEEP,
+  AETHER_TOWER_GOLD_UPKEEP,
+  EXCHANGE_HOUSE_GOLD_UPKEEP,
   FOUNDRY_GOLD_UPKEEP,
   GARRISON_HALL_GOLD_UPKEEP,
   CUSTOMS_HOUSE_GOLD_UPKEEP,
+  LOCKWORKS_PORT_GOLD_UPKEEP,
+  CHARTERED_PORT_GOLD_UPKEEP,
+  RAIL_DEPOT_GOLD_UPKEEP,
+  CLEARING_HOUSE_GOLD_UPKEEP,
   GOVERNORS_OFFICE_GOLD_UPKEEP,
   RADAR_SYSTEM_GOLD_UPKEEP,
+  IMPERIAL_EXCHANGE_PART_GOLD_UPKEEP,
+  WORLD_ENGINE_PART_GOLD_UPKEEP,
+  AEGIS_DOME_PART_GOLD_UPKEEP,
+  ASTRAL_DOCK_PART_GOLD_UPKEEP,
+  IMPERIAL_EXCHANGE_GOLD_UPKEEP,
+  WORLD_ENGINE_GOLD_UPKEEP,
+  AEGIS_DOME_GOLD_UPKEEP,
+  ASTRAL_DOCK_GOLD_UPKEEP,
   MARKET_CRYSTAL_UPKEEP,
   BANK_CRYSTAL_UPKEEP
 });
@@ -2027,6 +2165,7 @@ const {
   converterStructureOutputFor,
   activeAirportAt,
   hostileRadarProtectingTile,
+  tileHasPendingSettlement: (tileKey: TileKey) => tileHasPendingSettlement(tileKey),
   economicStructureGoldUpkeepPerInterval,
   economicStructureUpkeepDue,
   prettyEconomicStructureLabel: (structureType: EconomicStructureType) => prettyEconomicStructureLabel(structureType),
@@ -2034,7 +2173,12 @@ const {
   structureBuildDurationMsForRuntime: (structureType: "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | EconomicStructureType) =>
     structureType === "FORT" ? FORT_BUILD_MS : structureType === "OBSERVATORY" ? OBSERVATORY_BUILD_MS : structureType === "SIEGE_OUTPOST" ? SIEGE_OUTPOST_BUILD_MS : (structureType === "WOODEN_FORT" ? WOODEN_FORT_BUILD_MS : structureType === "LIGHT_OUTPOST" ? LIGHT_OUTPOST_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS),
   baseSynthTypeForAdvanced: (structureType: EconomicStructureType) =>
-    structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER" : structureType === "ADVANCED_IRONWORKS" ? "IRONWORKS" : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? "CRYSTAL_SYNTHESIZER" : undefined,
+    structureType === "WATERWORKS" ? "FARMSTEAD"
+      : structureType === "ADVANCED_FUR_SYNTHESIZER" ? "FUR_SYNTHESIZER"
+      : structureType === "ADVANCED_IRONWORKS" ? "IRONWORKS"
+      : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? "CRYSTAL_SYNTHESIZER"
+      : structureType === "LOCKWORKS_PORT" ? "CUSTOMS_HOUSE"
+      : undefined,
   economicStructureCrystalUpkeepPerInterval,
   playerEconomySnapshot,
   dockIncomeForOwner,
@@ -2048,16 +2192,28 @@ const {
   HARVEST_RESOURCE_RATE_MULT,
   SIPHON_SHARE,
   FARMSTEAD_BUILD_FOOD_COST,
+  WATERWORKS_BUILD_FOOD_COST,
   CAMP_BUILD_SUPPLY_COST,
   MINE_BUILD_RESOURCE_COST,
   MARKET_BUILD_CRYSTAL_COST,
   GRANARY_BUILD_FOOD_COST,
+  CENSUS_HALL_BUILD_FOOD_COST,
   BANK_BUILD_CRYSTAL_COST,
+  CLEARING_HOUSE_BUILD_CRYSTAL_COST,
   CARAVANARY_BUILD_CRYSTAL_COST,
   GARRISON_HALL_BUILD_CRYSTAL_COST,
   CUSTOMS_HOUSE_BUILD_CRYSTAL_COST,
+  LOCKWORKS_PORT_BUILD_CRYSTAL_COST,
+  CHARTERED_PORT_BUILD_CRYSTAL_COST,
+  RAIL_DEPOT_BUILD_CRYSTAL_COST,
   RADAR_SYSTEM_BUILD_CRYSTAL_COST,
   AIRPORT_BUILD_CRYSTAL_COST,
+  AETHER_TOWER_BUILD_CRYSTAL_COST,
+  EXCHANGE_HOUSE_BUILD_CRYSTAL_COST,
+  IMPERIAL_EXCHANGE_PART_BUILD_CRYSTAL_COST,
+  WORLD_ENGINE_PART_BUILD_CRYSTAL_COST,
+  AEGIS_DOME_PART_BUILD_CRYSTAL_COST,
+  ASTRAL_DOCK_PART_BUILD_CRYSTAL_COST,
   MARKET_CRYSTAL_UPKEEP,
   BANK_CRYSTAL_UPKEEP,
   randomUUID: () => crypto.randomUUID()
@@ -2132,27 +2288,43 @@ const {
 
 const prettyEconomicStructureLabel = (type: EconomicStructureType): string => {
   if (type === "FARMSTEAD") return "Farmstead";
+  if (type === "WATERWORKS") return "Waterworks";
   if (type === "CAMP") return "Camp";
   if (type === "MINE") return "Mine";
   if (type === "MARKET") return "Market";
   if (type === "GRANARY") return "Granary";
+  if (type === "CENSUS_HALL") return "Census Hall";
   if (type === "BANK") return "Bank";
-  if (type === "AIRPORT") return "Airport";
+  if (type === "CLEARING_HOUSE") return "Clearing House";
+  if (type === "AIRPORT") return "Sky Dock";
+  if (type === "AETHER_TOWER") return "Aether Tower";
   if (type === "WOODEN_FORT") return "Wooden Fort";
   if (type === "LIGHT_OUTPOST") return "Light Outpost";
   if (type === "FUR_SYNTHESIZER") return "Fur Synthesizer";
   if (type === "ADVANCED_FUR_SYNTHESIZER") return "Advanced Fur Synthesizer";
   if (type === "IRONWORKS") return "Ironworks";
   if (type === "ADVANCED_IRONWORKS") return "Advanced Ironworks";
-  if (type === "CRYSTAL_SYNTHESIZER") return "Crystal Synthesizer";
-  if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Crystal Synthesizer";
+  if (type === "CRYSTAL_SYNTHESIZER") return "Aether Condenser";
+  if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Aether Condenser";
   if (type === "FUEL_PLANT") return "Fuel Plant";
   if (type === "CARAVANARY") return "Caravanary";
   if (type === "FOUNDRY") return "Foundry";
-  if (type === "CUSTOMS_HOUSE") return "Customs House";
+  if (type === "EXCHANGE_HOUSE") return "Exchange House";
+  if (type === "CUSTOMS_HOUSE") return "Harbor Exchange";
+  if (type === "LOCKWORKS_PORT") return "Lockworks Port";
+  if (type === "CHARTERED_PORT") return "Chartered Port";
+  if (type === "RAIL_DEPOT") return "Rail Depot";
   if (type === "GARRISON_HALL") return "Garrison Hall";
-  if (type === "GOVERNORS_OFFICE") return "Governor's Office";
-  return "Radar System";
+  if (type === "GOVERNORS_OFFICE") return "Ministry Hall";
+  if (type === "RADAR_SYSTEM") return "Resonance Grid";
+  if (type === "IMPERIAL_EXCHANGE_PART") return "Imperial Exchange Part";
+  if (type === "WORLD_ENGINE_PART") return "Worldbreaker Cannon Part";
+  if (type === "AEGIS_DOME_PART") return "Aegis Dome Part";
+  if (type === "ASTRAL_DOCK_PART") return "Astral Dock Part";
+  if (type === "IMPERIAL_EXCHANGE") return "Imperial Exchange";
+  if (type === "AEGIS_DOME") return "Aegis Dome";
+  if (type === "ASTRAL_DOCK") return "Astral Dock";
+  return "Worldbreaker Cannon";
 };
 
 const manpowerCostForAction = (actionType: PendingCapture["actionType"] | ClientMessage["type"]): number => {
@@ -2418,6 +2590,7 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
     tile.fort = {
       ownerId: fort.ownerId,
       status: fort.status,
+      variant: fort.variant,
       ...(fort.completesAt !== undefined ? { completesAt: fort.completesAt } : {}),
       ...(fort.disabledUntil !== undefined ? { disabledUntil: fort.disabledUntil } : {})
     };
@@ -2432,13 +2605,20 @@ const aiTileLiteAt = (x: number, y: number): Tile => {
     };
   }
   const siegeOutpost = siegeOutpostsByTile.get(tk);
-  if (siegeOutpost) tile.siegeOutpost = { ownerId: siegeOutpost.ownerId, status: siegeOutpost.status, ...(siegeOutpost.completesAt !== undefined ? { completesAt: siegeOutpost.completesAt } : {}) };
+  if (siegeOutpost)
+    tile.siegeOutpost = {
+      ownerId: siegeOutpost.ownerId,
+      status: siegeOutpost.status,
+      variant: siegeOutpost.variant,
+      ...(siegeOutpost.completesAt !== undefined ? { completesAt: siegeOutpost.completesAt } : {})
+    };
   const economic = economicStructuresByTile.get(tk);
   if (economic) {
     tile.economicStructure = {
       ownerId: economic.ownerId,
       type: economic.type,
       status: economic.status,
+      ...(economic.status === "active" ? { powered: isEconomicStructurePowered(economic) } : {}),
       ...(economic.inactiveReason !== undefined ? { inactiveReason: economic.inactiveReason } : {}),
       ...(economic.disabledUntil !== undefined ? { disabledUntil: economic.disabledUntil } : {}),
       ...(economic.completesAt !== undefined ? { completesAt: economic.completesAt } : {})
@@ -2699,9 +2879,10 @@ const playerTile = (x: number, y: number): Tile => {
     };
   }
   if (fort) {
-    const fortView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number; disabledUntil?: number } = {
+    const fortView: { ownerId: string; status: "under_construction" | "active" | "removing"; variant?: import("@border-empires/shared").FortVariant; completesAt?: number; disabledUntil?: number } = {
       ownerId: fort.ownerId,
-      status: fort.status
+      status: fort.status,
+      variant: fort.variant
     };
     if ((fort.status === "under_construction" || fort.status === "removing") && fort.completesAt !== undefined) fortView.completesAt = fort.completesAt;
     if (fort.disabledUntil !== undefined) fortView.disabledUntil = fort.disabledUntil;
@@ -2717,9 +2898,10 @@ const playerTile = (x: number, y: number): Tile => {
     if ((status === "under_construction" || status === "removing") && observatory.completesAt !== undefined) tile.observatory.completesAt = observatory.completesAt;
   }
   if (siegeOutpost) {
-    const siegeView: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number } = {
+    const siegeView: { ownerId: string; status: "under_construction" | "active" | "removing"; variant?: import("@border-empires/shared").SiegeOutpostVariant; completesAt?: number } = {
       ownerId: siegeOutpost.ownerId,
-      status: siegeOutpost.status
+      status: siegeOutpost.status,
+      variant: siegeOutpost.variant
     };
     if ((siegeOutpost.status === "under_construction" || siegeOutpost.status === "removing") && siegeOutpost.completesAt !== undefined) {
       siegeView.completesAt = siegeOutpost.completesAt;
@@ -2738,7 +2920,8 @@ const playerTile = (x: number, y: number): Tile => {
     const economicStructureView: NonNullable<Tile["economicStructure"]> = {
       ownerId: economicStructure.ownerId,
       type: economicStructure.type,
-      status: economicStructure.status
+      status: economicStructure.status,
+      ...(economicStructure.status === "active" ? { powered: isEconomicStructurePowered(economicStructure) } : {})
     };
     if (economicStructure.inactiveReason !== undefined) economicStructureView.inactiveReason = economicStructure.inactiveReason;
     if (economicStructure.disabledUntil !== undefined) economicStructureView.disabledUntil = economicStructure.disabledUntil;
@@ -3191,7 +3374,20 @@ const recomputePlayerEffectsForPlayer = (player: Player): void => {
     if (effects.unlockRevealEmpire) next.unlockRevealEmpire = true;
     if (effects.unlockDeepStrike) next.unlockDeepStrike = true;
     if ((effects as { unlockAetherBridge?: boolean }).unlockAetherBridge) next.unlockAetherBridge = true;
-    if (effects.unlockMountainPass) next.unlockMountainPass = true;
+    if (effects.unlockCensusHall) next.unlockCensusHall = true;
+    if (effects.unlockClearingHouse) next.unlockClearingHouse = true;
+    if (effects.unlockSurveySweep) next.unlockSurveySweep = true;
+    if (effects.unlockAetherLance) next.unlockAetherLance = true;
+    if (effects.unlockAetherWall) next.unlockAetherWall = true;
+    if (effects.unlockIronBastion) next.unlockIronBastion = true;
+    if (effects.unlockSiegeTower) next.unlockSiegeTower = true;
+    if ((effects as { unlockThunderBastion?: boolean }).unlockThunderBastion) next.unlockThunderBastion = true;
+    if ((effects as { unlockDreadTower?: boolean }).unlockDreadTower) next.unlockDreadTower = true;
+    if ((effects as { unlockAstralDock?: boolean }).unlockAstralDock) next.unlockAstralDock = true;
+    if ((effects as { unlockAstralDockLaunch?: boolean }).unlockAstralDockLaunch) next.unlockAstralDockLaunch = true;
+    if ((effects as { unlockAetherEmp?: boolean }).unlockAetherEmp) next.unlockAetherEmp = true;
+    if ((effects as { unlockCityOverclock?: boolean }).unlockCityOverclock) next.unlockCityOverclock = true;
+    if (effects.unlockWaterworksUpgrade) next.unlockWaterworksUpgrade = true;
     if (effects.unlockTerrainShaping) next.unlockTerrainShaping = true;
     if (effects.unlockBreachAttack) next.unlockBreachAttack = true;
     if (typeof effects.settlementSpeedMult === "number") next.settlementSpeedMult *= effects.settlementSpeedMult;
@@ -3506,6 +3702,27 @@ const activeResourceIncomeMult = (playerId: string, resource: ResourceType): num
 
 const fortRecoveryReadyAt = (fort: Pick<Fort, "disabledUntil">): number => fort.disabledUntil ?? 0;
 
+const fortVariantAt = (tileKey: TileKey): import("@border-empires/shared").FortVariant => fortsByTile.get(tileKey)?.variant ?? "FORT";
+const siegeVariantAt = (tileKey: TileKey): import("@border-empires/shared").SiegeOutpostVariant => siegeOutpostsByTile.get(tileKey)?.variant ?? "SIEGE_OUTPOST";
+
+const fortDefenseMultForVariant = (variant: import("@border-empires/shared").FortVariant): number => {
+  if (variant === "THUNDER_BASTION") return 8;
+  if (variant === "IRON_BASTION") return 4;
+  return 2.5;
+};
+
+const siegeAttackMultForVariant = (variant: import("@border-empires/shared").SiegeOutpostVariant): number => {
+  if (variant === "DREAD_TOWER") return 3;
+  if (variant === "SIEGE_TOWER") return 2;
+  return SIEGE_OUTPOST_ATTACK_MULT;
+};
+
+const fortVariantName = (variant: import("@border-empires/shared").FortVariant): string =>
+  variant === "THUNDER_BASTION" ? "Thunder Bastion" : variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
+
+const siegeVariantName = (variant: import("@border-empires/shared").SiegeOutpostVariant): string =>
+  variant === "DREAD_TOWER" ? "Dread Tower" : variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
+
 const fortOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => {
   const fort = fortsByTile.get(tileKey);
   if (!fort || fort.ownerId !== ownerId || fort.status !== "active") return false;
@@ -3516,7 +3733,7 @@ const fortOperationalForOwner = (ownerId: string, tileKey: TileKey): boolean => 
 
 const fortDefenseMultAt = (defenderId: string, tileKey: TileKey): number => {
   if (fortOperationalForOwner(defenderId, tileKey)) {
-    return FORT_DEFENSE_MULT * getPlayerEffectsForPlayer(defenderId).fortDefenseMult;
+    return fortDefenseMultForVariant(fortVariantAt(tileKey));
   }
   const structure = economicStructuresByTile.get(tileKey);
   if (structure?.status !== "active" || structure.ownerId !== defenderId || structure.type !== "WOODEN_FORT") return 1;
@@ -3543,7 +3760,7 @@ const frontierDefenseAddForTarget = (defenderId: string, target: Tile): number =
 const outpostAttackMultAt = (attackerId: string, tileKey: TileKey): number => {
   const siegeOnOrigin = siegeOutpostsByTile.get(tileKey);
   if (siegeOnOrigin?.status === "active" && siegeOnOrigin.ownerId === attackerId) {
-    return SIEGE_OUTPOST_ATTACK_MULT * getPlayerEffectsForPlayer(attackerId).outpostAttackMult;
+    return siegeAttackMultForVariant(siegeVariantAt(tileKey));
   }
   const structure = economicStructuresByTile.get(tileKey);
   if (structure?.status !== "active" || structure.ownerId !== attackerId || structure.type !== "LIGHT_OUTPOST") return 1;
@@ -4303,7 +4520,6 @@ const chooseAiTech = (actor: Player): string | undefined => {
       if (tech.id === "masonry" && flags.has("active_dock")) score += 25;
       if (tech.id === "leatherworking" && ((counts.WOOD ?? 0) > 0 || (counts.FUR ?? 0) > 0)) score += 35;
       if (tech.id === "harborcraft" && flags.has("active_dock")) score += 65;
-      if (tech.id === "maritime-trade" && flags.has("active_dock")) score += 55;
       if (tech.id === "port-infrastructure" && flags.has("active_dock")) score += 45;
       if (tech.id === "coinage" && flags.has("active_town")) score += 55;
       if (tech.id === "banking" && flags.has("active_town")) score += 45;
@@ -8881,7 +9097,7 @@ const CHUNK_SNAPSHOT_OVERLOAD_YIELD_MS = 16;
 const INITIAL_CHUNK_BOOTSTRAP_RADIUS = 0;
 
 const buildVisibilitySnapshot = (p: Player): VisibilitySnapshot => {
-  if (DISABLE_FOG || fogDisabledByPlayer.get(p.id) === true) {
+  if (DISABLE_FOG || fogDisabledByPlayer.get(p.id) === true || (satelliteVisionUntilByPlayer.get(p.id) ?? 0) > now()) {
     return { allVisible: true, visibleMask: new Uint8Array(0) };
   }
 
@@ -10106,6 +10322,7 @@ const activeTechCatalog = (player?: Player): Array<{
   grantsPowerup?: { id: string; charges: number };
 }> => {
   return TECHS.filter((t) => activeSeasonTechConfig.activeNodeIds.has(t.id)).map((t) => {
+    const normalizedTier = Math.max(1, Math.min(7, t.tier ?? 1));
     const out: {
       id: string;
       tier: number;
@@ -10126,7 +10343,7 @@ const activeTechCatalog = (player?: Player): Array<{
       grantsPowerup?: { id: string; charges: number };
     } = {
       id: t.id,
-      tier: t.tier ?? 0,
+      tier: normalizedTier,
       name: t.name,
       description: t.description,
       mods: t.mods ?? {},
@@ -10151,8 +10368,8 @@ const SUPPLY_DOMAIN_IDS = new Set(["expansion"]);
 const FOOD_DOMAIN_IDS = new Set(["urbanization"]);
 const CRYSTAL_DOMAIN_IDS = new Set<string>();
 
-const IRON_TECH_IDS = new Set(["masonry", "mining", "bronze-working", "fortified-walls", "siegecraft", "industrial-extraction", "breach-doctrine", "steelworking"]);
-const SUPPLY_TECH_IDS = new Set(["toolmaking", "leatherworking", "harborcraft", "logistics", "navigation", "organized-supply", "deep-operations", "terrain-engineering", "imperial-roads", "workshops"]);
+const IRON_TECH_IDS = new Set(["masonry", "mining", "bronze-working", "fortified-walls", "siegecraft", "industrial-extraction", "steelworking"]);
+const SUPPLY_TECH_IDS = new Set(["toolmaking", "leatherworking", "harborcraft", "logistics", "navigation", "organized-supply", "terrain-engineering", "imperial-roads", "workshops"]);
 const FOOD_TECH_IDS = new Set(["agriculture", "irrigation", "pottery", "banking", "civil-service", "workshops"]);
 const CRYSTAL_TECH_IDS = new Set([
   "cartography",
@@ -10165,7 +10382,6 @@ const CRYSTAL_TECH_IDS = new Set([
   "trade",
   "ledger-keeping",
   "coinage",
-  "maritime-trade",
   "port-infrastructure",
   "global-trade-networks",
   "urban-markets",
@@ -10886,6 +11102,108 @@ const tryActivateRevealEmpire = (actor: Player, targetPlayerId: string): { ok: b
   return { ok: true };
 };
 
+const trySurveySweep = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.survey_sweep.requiredTechIds)) return { ok: false, reason: "requires Surveying" };
+  if (abilityOnCooldown(actor.id, "survey_sweep")) return { ok: false, reason: "survey sweep is cooling down" };
+  const tileKey = key(wrapX(x, WORLD_WIDTH), wrapY(y, WORLD_HEIGHT));
+  const observatory = observatoriesByTile.get(tileKey);
+  if (!observatory || observatory.ownerId !== actor.id || observatory.status !== "active") {
+    return { ok: false, reason: "target one of your active observatories" };
+  }
+  if (!consumeStrategicResource(actor, "CRYSTAL", SURVEY_SWEEP_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for survey sweep" };
+  startAbilityCooldown(actor.id, "survey_sweep");
+  const forced = getOrInitForcedReveal(actor.id);
+  const addedTileKeys: TileKey[] = [];
+  for (let dy = -SURVEY_SWEEP_RADIUS; dy <= SURVEY_SWEEP_RADIUS; dy += 1) {
+    for (let dx = -SURVEY_SWEEP_RADIUS; dx <= SURVEY_SWEEP_RADIUS; dx += 1) {
+      const revealKey = key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT));
+      if (forced.has(revealKey)) continue;
+      forced.add(revealKey);
+      addedTileKeys.push(revealKey);
+    }
+  }
+  markVisibilityDirty(actor.id);
+  setTimeout(() => {
+    const revealSet = getOrInitForcedReveal(actor.id);
+    let changed = false;
+    for (const revealKey of addedTileKeys) {
+      changed = revealSet.delete(revealKey) || changed;
+    }
+    if (changed) {
+      markVisibilityDirty(actor.id);
+      refreshSubscribedViewForPlayer(actor.id);
+    }
+  }, SURVEY_SWEEP_DURATION_MS);
+  return { ok: true };
+};
+
+const tryAetherLance = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.aether_lance.requiredTechIds)) return { ok: false, reason: "requires Signal Fires" };
+  if (abilityOnCooldown(actor.id, "aether_lance")) return { ok: false, reason: "aether lance is cooling down" };
+  const t = playerTile(x, y);
+  const tk = key(t.x, t.y);
+  if (t.terrain !== "LAND") return { ok: false, reason: "target must be land" };
+  if (!t.ownerId || t.ownerId === actor.id || actor.allies.has(t.ownerId) || truceBlocksHostility(actor.id, t.ownerId)) {
+    return { ok: false, reason: "target an enemy structure" };
+  }
+  if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within observatory range" };
+  if (hostileObservatoryProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (hostileAegisDomeProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy Aegis Dome coverage" };
+  if (hostileAegisLockProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is sealed by enemy Aegis Lock" };
+  if (t.town || t.dockId) return { ok: false, reason: "aether lance cannot target towns or docks" };
+
+  const fort = fortsByTile.get(tk);
+  const observatory = observatoriesByTile.get(tk);
+  const siege = siegeOutpostsByTile.get(tk);
+  const structure = economicStructuresByTile.get(tk);
+  if (
+    structure?.type === "IMPERIAL_EXCHANGE" ||
+    structure?.type === "WORLD_ENGINE" ||
+    structure?.type === "IMPERIAL_EXCHANGE_PART" ||
+    structure?.type === "WORLD_ENGINE_PART" ||
+    structure?.type === "AEGIS_DOME" ||
+    structure?.type === "AEGIS_DOME_PART" ||
+    structure?.type === "ASTRAL_DOCK" ||
+    structure?.type === "ASTRAL_DOCK_PART"
+  ) {
+    return { ok: false, reason: "aether lance cannot target monuments" };
+  }
+  if (
+    (!fort || fort.ownerId === actor.id) &&
+    (!observatory || observatory.ownerId === actor.id) &&
+    (!siege || siege.ownerId === actor.id) &&
+    (!structure || structure.ownerId === actor.id)
+  ) {
+    return { ok: false, reason: "target tile needs one enemy structure" };
+  }
+  if (actor.points < AETHER_LANCE_GOLD_COST) return { ok: false, reason: "insufficient gold for aether lance" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", AETHER_LANCE_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for aether lance" };
+
+  actor.points -= AETHER_LANCE_GOLD_COST;
+  startAbilityCooldown(actor.id, "aether_lance");
+
+  const defender = players.get(t.ownerId);
+  if (fort && fort.ownerId === t.ownerId) {
+    fortsByTile.delete(tk);
+  } else if (observatory && observatory.ownerId === t.ownerId) {
+    untrackOwnedTileKey(observatoryTileKeysByPlayer, observatory.ownerId, tk);
+    observatoriesByTile.delete(tk);
+    markVisibilityDirty(observatory.ownerId);
+  } else if (siege && siege.ownerId === t.ownerId) {
+    siegeOutpostsByTile.delete(tk);
+  } else if (structure && structure.ownerId === t.ownerId) {
+    untrackOwnedTileKey(economicStructureTileKeysByPlayer, structure.ownerId, tk);
+    economicStructuresByTile.delete(tk);
+  }
+  markSummaryChunkDirtyAtTile(t.x, t.y);
+  recalcPlayerDerived(actor);
+  if (defender) {
+    recalcPlayerDerived(defender);
+    sendPlayerUpdate(defender, 0);
+  }
+  return { ok: true };
+};
+
 const coastalSettledOriginsForPlayer = (playerId: string): TileKey[] => {
   const out: TileKey[] = [];
   for (const tk of players.get(playerId)?.territoryTiles ?? []) {
@@ -10932,6 +11250,12 @@ const tryCastAetherBridge = (actor: Player, x: number, y: number): { ok: boolean
   if (target.ownerId && target.ownerId !== actor.id && !actor.allies.has(target.ownerId) && hostileObservatoryProtectingTile(actor, target.x, target.y)) {
     return { ok: false, reason: "landing blocked by enemy observatory" };
   }
+  if (target.ownerId && target.ownerId !== actor.id && !actor.allies.has(target.ownerId) && hostileAegisDomeProtectingTile(actor, target.x, target.y)) {
+    return { ok: false, reason: "landing blocked by enemy Aegis Dome" };
+  }
+  if (target.ownerId && target.ownerId !== actor.id && !actor.allies.has(target.ownerId) && hostileAegisLockProtectingTile(actor, target.x, target.y)) {
+    return { ok: false, reason: "landing blocked by enemy Aegis Lock" };
+  }
   const origin = closestAetherBridgeOrigin(actor, target.x, target.y);
   if (!origin) return { ok: false, reason: "no settled coastal tile can reach this target" };
   if (!consumeStrategicResource(actor, "CRYSTAL", AETHER_BRIDGE_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for aether bridge" };
@@ -10970,7 +11294,7 @@ const activeAetherBridgeForTarget = (ownerId: string, targetTileKey: TileKey): A
 };
 
 const trySiphonTile = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
-  if (!playerHasTechIds(actor, ABILITY_DEFS.siphon.requiredTechIds)) return { ok: false, reason: "requires Cryptography" };
+  if (!playerHasTechIds(actor, ABILITY_DEFS.siphon.requiredTechIds)) return { ok: false, reason: "requires Logistics" };
   if (abilityOnCooldown(actor.id, "siphon")) return { ok: false, reason: "siphon is cooling down" };
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "siphon requires land tile" };
@@ -10979,6 +11303,8 @@ const trySiphonTile = (actor: Player, x: number, y: number): { ok: boolean; reas
   if (!t.town && !t.resource) return { ok: false, reason: "target must be a town or resource tile" };
   if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
   if (hostileObservatoryProtectingTile(actor, x, y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (hostileAegisDomeProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy Aegis Dome coverage" };
+  if (hostileAegisLockProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is sealed by enemy Aegis Lock" };
   const tk = key(t.x, t.y);
   if (activeSiphonAt(tk)) return { ok: false, reason: "tile already siphoned" };
   if (!consumeStrategicResource(actor, "CRYSTAL", SIPHON_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for siphon" };
@@ -11118,6 +11444,8 @@ const tryCreateMountain = (actor: Player, x: number, y: number): { ok: boolean; 
   if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile locked in combat" };
   if (hostileObservatoryProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (hostileAegisDomeProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy Aegis Dome coverage" };
+  if (hostileAegisLockProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is sealed by enemy Aegis Lock" };
   if (townsByTile.has(tk)) return { ok: false, reason: "cannot create mountain on town tile" };
   if (docksByTile.has(tk)) return { ok: false, reason: "cannot create mountain on dock tile" };
   if (fortsByTile.has(tk) || siegeOutpostsByTile.has(tk) || observatoriesByTile.has(tk) || economicStructuresByTile.has(tk)) {
@@ -11160,6 +11488,8 @@ const tryRemoveMountain = (actor: Player, x: number, y: number): { ok: boolean; 
   if (!ownedActiveObservatoryWithinRange(actor.id, wx, wy)) return { ok: false, reason: "target must be within 30 tiles of your observatory" };
   if (combatLocks.has(tk)) return { ok: false, reason: "tile locked in combat" };
   if (hostileObservatoryProtectingTile(actor, wx, wy)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (hostileAegisDomeProtectingTile(actor, wx, wy)) return { ok: false, reason: "target is inside enemy Aegis Dome coverage" };
+  if (hostileAegisLockProtectingTile(actor, wx, wy)) return { ok: false, reason: "target is sealed by enemy Aegis Lock" };
   if (actor.points < TERRAIN_SHAPING_GOLD_COST) return { ok: false, reason: "insufficient gold for remove mountain" };
   if (!consumeStrategicResource(actor, "CRYSTAL", TERRAIN_SHAPING_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for remove mountain" };
 
@@ -11194,7 +11524,13 @@ const tryAirportBombard = (
   if (hostileRadarProtectingTile(actor, targetX, targetY)) {
     return { ok: false, reason: "target is inside enemy radar coverage" };
   }
-  if (!consumeStrategicResource(actor, "OIL", AIRPORT_BOMBARD_OIL_COST)) return { ok: false, reason: "insufficient OIL for bombardment" };
+  if (hostileAegisDomeProtectingTile(actor, targetX, targetY)) {
+    return { ok: false, reason: "target is inside enemy Aegis Dome coverage" };
+  }
+  if (hostileAegisLockProtectingTile(actor, targetX, targetY)) {
+    return { ok: false, reason: "target is sealed by enemy Aegis Lock" };
+  }
+  if (!consumeStrategicResource(actor, "CRYSTAL", AIRPORT_BOMBARD_CRYSTAL_COST)) return { ok: false, reason: "insufficient CRYSTAL for bombardment" };
   const changedTileKeys: TileKey[] = [];
   let destroyed = 0;
   for (let dy = -1; dy <= 1; dy += 1) {
@@ -11238,20 +11574,234 @@ const tryAirportBombard = (
   return { ok: true, changedTileKeys, destroyed };
 };
 
+const tryImperialExchangeLevy = (
+  actor: Player,
+  fromX: number,
+  fromY: number,
+  resource: Extract<StrategicResource, "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY">
+): { ok: boolean; reason?: string; stolen?: number } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.imperial_exchange_levy.requiredTechIds)) return { ok: false, reason: "requires Imperial Exchange" };
+  if (abilityOnCooldown(actor.id, "imperial_exchange_levy")) return { ok: false, reason: "imperial exchange is cooling down" };
+  const monumentKey = key(wrapX(fromX, WORLD_WIDTH), wrapY(fromY, WORLD_HEIGHT));
+  if (!activePoweredEconomicStructureAt(actor.id, monumentKey, "IMPERIAL_EXCHANGE")) {
+    return { ok: false, reason: "select an active powered Imperial Exchange first" };
+  }
+  if (!consumeStrategicResource(actor, "CRYSTAL", IMPERIAL_EXCHANGE_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for imperial levy" };
+  }
+  let stolen = 0;
+  for (const player of players.values()) {
+    if (player.id === actor.id) continue;
+    const stock = getOrInitStrategicStocks(player.id);
+    const amount = Math.max(0, stock[resource] ?? 0);
+    if (amount <= 0) continue;
+    stock[resource] = 0;
+    stolen += amount;
+    recalcPlayerDerived(player);
+    sendPlayerUpdate(player, 0);
+  }
+  if (stolen > 0) {
+    const stock = getOrInitStrategicStocks(actor.id);
+    stock[resource] = (stock[resource] ?? 0) + stolen;
+  }
+  startAbilityCooldown(actor.id, "imperial_exchange_levy");
+  recalcPlayerDerived(actor);
+  const [mx, my] = parseKey(monumentKey);
+  pushStrategicReplayEvent({
+    at: now(),
+    type: "STRUCTURE",
+    label: `${actor.name} fired an Imperial Exchange levy for ${resource}`,
+    playerId: actor.id,
+    playerName: actor.name,
+    x: mx,
+    y: my,
+    isBookmark: true
+  });
+  return { ok: true, stolen };
+};
+
+const tryWorldEngineStrike = (
+  actor: Player,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number
+): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.world_engine_strike.requiredTechIds)) return { ok: false, reason: "requires Worldbreaker Cannon" };
+  if (abilityOnCooldown(actor.id, "world_engine_strike")) return { ok: false, reason: "worldbreaker cannon is cooling down" };
+  const monumentKey = key(wrapX(fromX, WORLD_WIDTH), wrapY(fromY, WORLD_HEIGHT));
+  if (!activePoweredEconomicStructureAt(actor.id, monumentKey, "WORLD_ENGINE")) {
+    return { ok: false, reason: "select an active powered Worldbreaker Cannon first" };
+  }
+  const targetX = wrapX(toX, WORLD_WIDTH);
+  const targetY = wrapY(toY, WORLD_HEIGHT);
+  const target = playerTile(targetX, targetY);
+  if (target.terrain !== "LAND") return { ok: false, reason: "worldbreaker shot requires land tile" };
+  if (target.dockId) return { ok: false, reason: "worldbreaker cannon cannot target docks" };
+  if (!target.ownerId || target.ownerId === actor.id || target.ownerId === BARBARIAN_OWNER_ID || actor.allies.has(target.ownerId) || truceBlocksHostility(actor.id, target.ownerId)) {
+    return { ok: false, reason: "target hostile owned land" };
+  }
+  if (!(target.ownershipState === "SETTLED" || target.town || target.resource || target.economicStructure || target.fort || target.observatory || target.siegeOutpost)) {
+    return { ok: false, reason: "target must matter: settled land, town, resource, or structure" };
+  }
+  if (!consumeStrategicResource(actor, "CRYSTAL", WORLD_ENGINE_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for Worldbreaker shot" };
+  }
+  const tk = key(targetX, targetY);
+  updateOwnership(targetX, targetY, undefined);
+  terrainShapesByTile.set(tk, { terrain: "MOUNTAIN", createdByPlayer: true });
+  tileYieldByTile.delete(tk);
+  recordMountainShapeHistory(tk, "created");
+  startAbilityCooldown(actor.id, "world_engine_strike");
+  recalcPlayerDerived(actor);
+  broadcastLocalVisionDelta([{ x: targetX, y: targetY }]);
+  pushStrategicReplayEvent({
+    at: now(),
+    type: "STRUCTURE",
+    label: `${actor.name} shattered land with the Worldbreaker Cannon`,
+    playerId: actor.id,
+    playerName: actor.name,
+    x: targetX,
+    y: targetY,
+    isBookmark: true
+  });
+  return { ok: true };
+};
+
+const tryAegisLock = (
+  actor: Player,
+  fromX: number,
+  fromY: number
+): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.aegis_lock.requiredTechIds)) return { ok: false, reason: "requires Aegis Dome" };
+  if (abilityOnCooldown(actor.id, "aegis_lock")) return { ok: false, reason: "aegis lock is cooling down" };
+  const domeKey = key(wrapX(fromX, WORLD_WIDTH), wrapY(fromY, WORLD_HEIGHT));
+  if (!activePoweredEconomicStructureAt(actor.id, domeKey, "AEGIS_DOME")) {
+    return { ok: false, reason: "select an active powered Aegis Dome first" };
+  }
+  if (!consumeStrategicResource(actor, "CRYSTAL", AEGIS_LOCK_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for aegis lock" };
+  }
+  aegisLocksByPlayer.set(actor.id, { tileKey: domeKey, endsAt: now() + AEGIS_LOCK_DURATION_MS });
+  startAbilityCooldown(actor.id, "aegis_lock");
+  const [dx, dy] = parseKey(domeKey);
+  pushStrategicReplayEvent({
+    at: now(),
+    type: "STRUCTURE",
+    label: `${actor.name} hardened the Aegis Dome`,
+    playerId: actor.id,
+    playerName: actor.name,
+    x: dx,
+    y: dy,
+    isBookmark: true
+  });
+  return { ok: true };
+};
+
+const tryAetherEmp = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.aether_emp.requiredTechIds)) return { ok: false, reason: "requires Cipher Bureaus" };
+  if (abilityOnCooldown(actor.id, "aether_emp")) return { ok: false, reason: "aether emp is cooling down" };
+  const t = playerTile(x, y);
+  const tk = key(t.x, t.y);
+  if (t.terrain !== "LAND") return { ok: false, reason: "target must be land" };
+  if (!t.ownerId || t.ownerId === actor.id || actor.allies.has(t.ownerId) || truceBlocksHostility(actor.id, t.ownerId)) {
+    return { ok: false, reason: "target an enemy powered structure" };
+  }
+  if (!ownedActiveObservatoryWithinRange(actor.id, t.x, t.y)) return { ok: false, reason: "target must be within observatory range" };
+  if (hostileObservatoryProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy observatory protection field" };
+  if (hostileAegisDomeProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is inside enemy Aegis Dome coverage" };
+  if (hostileAegisLockProtectingTile(actor, t.x, t.y)) return { ok: false, reason: "target is sealed by enemy Aegis Lock" };
+  const structure = economicStructuresByTile.get(tk);
+  if (!structure || structure.ownerId !== t.ownerId) return { ok: false, reason: "target tile needs one enemy powered structure" };
+  const empTargetable =
+    structure.type === "AETHER_TOWER" ||
+    structure.type === "AIRPORT" ||
+    structure.type === "RADAR_SYSTEM" ||
+    structure.type === "IMPERIAL_EXCHANGE" ||
+    structure.type === "WORLD_ENGINE" ||
+    structure.type === "AEGIS_DOME" ||
+    structure.type === "ASTRAL_DOCK";
+  if (!empTargetable) return { ok: false, reason: "target must be a powered sky or monument structure" };
+  if (!consumeStrategicResource(actor, "CRYSTAL", AETHER_EMP_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for aether emp" };
+  }
+  structure.disabledUntil = now() + AETHER_EMP_DISABLE_MS;
+  structure.status = "inactive";
+  startAbilityCooldown(actor.id, "aether_emp");
+  markSummaryChunkDirtyAtTile(t.x, t.y);
+  const defender = players.get(t.ownerId);
+  recalcPlayerDerived(actor);
+  if (defender) {
+    recalcPlayerDerived(defender);
+    sendPlayerUpdate(defender, 0);
+  }
+  return { ok: true };
+};
+
+const tryCityOverclock = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.city_overclock.requiredTechIds)) return { ok: false, reason: "requires Monument Cities" };
+  if (abilityOnCooldown(actor.id, "city_overclock")) return { ok: false, reason: "city overclock is cooling down" };
+  const t = playerTile(x, y);
+  if (t.ownerId !== actor.id || t.ownershipState !== "SETTLED" || !t.town) return { ok: false, reason: "target one of your settled cities" };
+  if (t.town.populationTier !== "CITY" && t.town.populationTier !== "GREAT_CITY" && t.town.populationTier !== "METROPOLIS") {
+    return { ok: false, reason: "target must be a City, Great City, or Metropolis" };
+  }
+  if (!consumeStrategicResource(actor, "CRYSTAL", CITY_OVERCLOCK_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for city overclock" };
+  }
+  cityOverclocksByPlayer.set(actor.id, { tileKey: key(t.x, t.y), endsAt: now() + CITY_OVERCLOCK_DURATION_MS });
+  startAbilityCooldown(actor.id, "city_overclock");
+  recalcPlayerDerived(actor);
+  return { ok: true };
+};
+
+const tryAstralDockLaunch = (actor: Player, fromX: number, fromY: number): { ok: boolean; reason?: string } => {
+  if (!playerHasTechIds(actor, ABILITY_DEFS.astral_dock_launch.requiredTechIds)) return { ok: false, reason: "requires Astral Dock" };
+  if (abilityOnCooldown(actor.id, "astral_dock_launch")) return { ok: false, reason: "astral dock is cooling down" };
+  const dockKey = key(wrapX(fromX, WORLD_WIDTH), wrapY(fromY, WORLD_HEIGHT));
+  if (!activePoweredEconomicStructureAt(actor.id, dockKey, "ASTRAL_DOCK")) {
+    return { ok: false, reason: "select an active powered Astral Dock first" };
+  }
+  if (!consumeStrategicResource(actor, "CRYSTAL", ASTRAL_DOCK_CRYSTAL_COST)) {
+    return { ok: false, reason: "insufficient CRYSTAL for launch" };
+  }
+  satelliteVisionUntilByPlayer.set(actor.id, now() + ASTRAL_DOCK_DURATION_MS);
+  startAbilityCooldown(actor.id, "astral_dock_launch");
+  recalcPlayerDerived(actor);
+  const [dx, dy] = parseKey(dockKey);
+  pushStrategicReplayEvent({
+    at: now(),
+    type: "STRUCTURE",
+    label: `${actor.name} launched an astral satellite`,
+    playerId: actor.id,
+    playerName: actor.name,
+    x: dx,
+    y: dy,
+    isBookmark: true
+  });
+  markVisibilityDirty(actor.id);
+  refreshSubscribedViewForPlayer(actor.id);
+  return { ok: true };
+};
+
 const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reason?: string } => {
   const effects = getPlayerEffectsForPlayer(actor.id);
-  if (!effects.unlockForts) return { ok: false, reason: "unlock forts via Masonry first" };
+  if (!effects.unlockForts) return { ok: false, reason: "unlock forts via Stoneworks first" };
   const t = playerTile(x, y);
   if (t.terrain !== "LAND") return { ok: false, reason: "fort requires land tile" };
   if (t.ownerId !== actor.id) return { ok: false, reason: "fort tile must be owned" };
   const tk = key(t.x, t.y);
   const existingEconomic = economicStructuresByTile.get(tk);
+  const existingFort = fortsByTile.get(tk);
   const upgradingWoodenFort =
     existingEconomic?.ownerId === actor.id &&
     existingEconomic.type === "WOODEN_FORT" &&
     (existingEconomic.status === "active" || existingEconomic.status === "inactive");
+  const upgradingFort =
+    existingFort?.ownerId === actor.id &&
+    existingFort.status === "active";
   if (isRelocatableSettlementTown(townsByTile.get(tk))) return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
-  if (fortsByTile.has(tk)) return { ok: false, reason: "tile already fortified" };
+  if (fortsByTile.has(tk) && !upgradingFort) return { ok: false, reason: "tile already fortified" };
   if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
   if (observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradingWoodenFort)) return { ok: false, reason: "tile already has structure" };
   if (
@@ -11267,20 +11817,53 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
     return { ok: false, reason: "fort cannot be built on this tile" };
   }
   if (existingEconomic?.type === "WOODEN_FORT" && !upgradingWoodenFort) return { ok: false, reason: "wooden fort is still being modified" };
+  const targetFortVariant =
+    upgradingFort
+      ? existingFort.variant === "FORT"
+        ? effects.unlockIronBastion
+          ? "IRON_BASTION"
+          : undefined
+        : existingFort.variant === "IRON_BASTION"
+          ? effects.unlockThunderBastion
+            ? "THUNDER_BASTION"
+            : undefined
+          : undefined
+      : effects.unlockThunderBastion
+        ? "THUNDER_BASTION"
+        : effects.unlockIronBastion
+          ? "IRON_BASTION"
+          : "FORT";
+  if (!targetFortVariant) {
+    return { ok: false, reason: "no further fort upgrade available" };
+  }
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
-  const goldCost = Math.ceil(structureBuildGoldCost("FORT", ownedStructureCountForPlayer(actor.id, "FORT")) * effects.fortBuildGoldCostMult);
-  if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for fort" };
-  if (!consumeStrategicResource(actor, "IRON", FORT_BUILD_IRON_COST)) return { ok: false, reason: "insufficient IRON for fort" };
+  const fortCount = ownedStructureCountForPlayer(actor.id, "FORT");
+  const fortVariantNameLabel = fortVariantName(targetFortVariant);
+  const fortBaseGoldCost = targetFortVariant === "THUNDER_BASTION" ? 4200 : targetFortVariant === "IRON_BASTION" ? 1800 : structureBaseGoldCost("FORT");
+  const goldCost = Math.ceil(fortBaseGoldCost * (1 + 0.1) ** fortCount * effects.fortBuildGoldCostMult);
+  const ironCost = targetFortVariant === "THUNDER_BASTION" ? 180 : targetFortVariant === "IRON_BASTION" ? 90 : FORT_BUILD_IRON_COST;
+  if (actor.points < goldCost) return { ok: false, reason: `insufficient gold for ${fortVariantNameLabel.toLowerCase()}` };
+  if (!consumeStrategicResource(actor, "IRON", ironCost)) return { ok: false, reason: `insufficient IRON for ${fortVariantNameLabel.toLowerCase()}` };
   actor.points -= goldCost;
   recalcPlayerDerived(actor);
-  const fort: Fort = {
-    fortId: crypto.randomUUID(),
-    ownerId: actor.id,
-    tileKey: tk,
-    status: "under_construction",
-    startedAt: now(),
-    completesAt: now() + FORT_BUILD_MS
-  };
+  const fort: Fort =
+    existingFort && upgradingFort
+      ? {
+          ...existingFort,
+          variant: targetFortVariant,
+          status: "under_construction",
+          startedAt: now(),
+          completesAt: now() + FORT_BUILD_MS
+        }
+      : {
+          fortId: crypto.randomUUID(),
+          ownerId: actor.id,
+          tileKey: tk,
+          variant: targetFortVariant,
+          status: "under_construction",
+          startedAt: now(),
+          completesAt: now() + FORT_BUILD_MS
+        };
   if (upgradingWoodenFort) economicStructuresByTile.delete(tk);
   fortsByTile.set(tk, fort);
   markSummaryChunkDirtyAtTile(t.x, t.y);
@@ -11288,7 +11871,7 @@ const tryBuildFort = (actor: Player, x: number, y: number): { ok: boolean; reaso
   pushStrategicReplayEvent({
     at: now(),
     type: "STRUCTURE",
-    label: `${actor.name} started a Fort at (${t.x}, ${t.y})`,
+    label: `${actor.name} started a ${fortVariantNameLabel} at (${t.x}, ${t.y})`,
     playerId: actor.id,
     playerName: actor.name,
     x: t.x,
@@ -11323,12 +11906,16 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   if (t.ownerId !== actor.id) return { ok: false, reason: "siege outpost tile must be owned" };
   const tk = key(t.x, t.y);
   const existingEconomic = economicStructuresByTile.get(tk);
+  const existingSiege = siegeOutpostsByTile.get(tk);
   const upgradingLightOutpost =
     existingEconomic?.ownerId === actor.id &&
     existingEconomic.type === "LIGHT_OUTPOST" &&
     (existingEconomic.status === "active" || existingEconomic.status === "inactive");
+  const upgradingSiege =
+    existingSiege?.ownerId === actor.id &&
+    existingSiege.status === "active";
   if (isRelocatableSettlementTown(townsByTile.get(tk))) return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
-  if (siegeOutpostsByTile.has(tk)) return { ok: false, reason: "tile already has siege outpost" };
+  if (siegeOutpostsByTile.has(tk) && !upgradingSiege) return { ok: false, reason: "tile already has siege outpost" };
   if (fortsByTile.has(tk)) return { ok: false, reason: "tile already has fort" };
   if (observatoriesByTile.has(tk) || (economicStructuresByTile.has(tk) && !upgradingLightOutpost)) return { ok: false, reason: "tile already has structure" };
   if (
@@ -11344,21 +11931,57 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
     return { ok: false, reason: "siege outpost cannot be built on this tile" };
   }
   if (existingEconomic?.type === "LIGHT_OUTPOST" && !upgradingLightOutpost) return { ok: false, reason: "light outpost is still being modified" };
+  const targetSiegeVariant =
+    upgradingSiege
+      ? existingSiege.variant === "SIEGE_OUTPOST"
+        ? effects.unlockSiegeTower
+          ? "SIEGE_TOWER"
+          : undefined
+        : existingSiege.variant === "SIEGE_TOWER"
+          ? effects.unlockDreadTower
+            ? "DREAD_TOWER"
+            : undefined
+          : undefined
+      : effects.unlockDreadTower
+        ? "DREAD_TOWER"
+        : effects.unlockSiegeTower
+          ? "SIEGE_TOWER"
+          : "SIEGE_OUTPOST";
+  if (!targetSiegeVariant) {
+    return { ok: false, reason: "no further siege upgrade available" };
+  }
   if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
-  const goldCost = structureBuildGoldCost("SIEGE_OUTPOST", ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST"));
-  if (actor.points < goldCost) return { ok: false, reason: "insufficient gold for siege outpost" };
-  if (!consumeStrategicResource(actor, "SUPPLY", SIEGE_OUTPOST_BUILD_SUPPLY_COST))
-    return { ok: false, reason: "insufficient SUPPLY for siege outpost" };
+  const outpostCount = ownedStructureCountForPlayer(actor.id, "SIEGE_OUTPOST");
+  const siegeVariantNameLabel = siegeVariantName(targetSiegeVariant);
+  const siegeBaseGoldCost = targetSiegeVariant === "DREAD_TOWER" ? 4200 : targetSiegeVariant === "SIEGE_TOWER" ? 1800 : structureBaseGoldCost("SIEGE_OUTPOST");
+  const goldCost = Math.ceil(siegeBaseGoldCost * (1 + 0.1) ** outpostCount);
+  const supplyCost = targetSiegeVariant === "DREAD_TOWER" ? 140 : targetSiegeVariant === "SIEGE_TOWER" ? 90 : SIEGE_OUTPOST_BUILD_SUPPLY_COST;
+  const ironCost = targetSiegeVariant === "DREAD_TOWER" ? 120 : targetSiegeVariant === "SIEGE_TOWER" ? 60 : 0;
+  if (actor.points < goldCost) return { ok: false, reason: `insufficient gold for ${siegeVariantNameLabel.toLowerCase()}` };
+  if (!consumeStrategicResource(actor, "SUPPLY", supplyCost))
+    return { ok: false, reason: `insufficient SUPPLY for ${siegeVariantNameLabel.toLowerCase()}` };
+  if (ironCost > 0 && !consumeStrategicResource(actor, "IRON", ironCost))
+    return { ok: false, reason: `insufficient IRON for ${siegeVariantNameLabel.toLowerCase()}` };
   actor.points -= goldCost;
   recalcPlayerDerived(actor);
-  const siegeOutpost: SiegeOutpost = {
-    siegeOutpostId: crypto.randomUUID(),
-    ownerId: actor.id,
-    tileKey: tk,
-    status: "under_construction",
-    startedAt: now(),
-    completesAt: now() + SIEGE_OUTPOST_BUILD_MS
-  };
+  const siegeOutpost: SiegeOutpost =
+    existingSiege && upgradingSiege
+      ? {
+          ...existingSiege,
+          variant: targetSiegeVariant,
+          status: "under_construction",
+          startedAt: now(),
+          completesAt: now() + SIEGE_OUTPOST_BUILD_MS
+        }
+      : {
+          siegeOutpostId: crypto.randomUUID(),
+          ownerId: actor.id,
+          tileKey: tk,
+          variant: targetSiegeVariant,
+          status: "under_construction",
+          startedAt: now(),
+          completesAt: now() + SIEGE_OUTPOST_BUILD_MS
+        };
   if (upgradingLightOutpost) economicStructuresByTile.delete(tk);
   siegeOutpostsByTile.set(tk, siegeOutpost);
   markSummaryChunkDirtyAtTile(t.x, t.y);
@@ -11366,7 +11989,7 @@ const tryBuildSiegeOutpost = (actor: Player, x: number, y: number): { ok: boolea
   pushStrategicReplayEvent({
     at: now(),
     type: "STRUCTURE",
-    label: `${actor.name} started a Siege Outpost at (${t.x}, ${t.y})`,
+    label: `${actor.name} started a ${siegeVariantNameLabel} at (${t.x}, ${t.y})`,
     playerId: actor.id,
     playerName: actor.name,
     x: t.x,
@@ -12958,6 +13581,15 @@ registerInterval(() => {
     }
     if (cooldowns.size === 0) abilityCooldownsByPlayer.delete(pid);
   }
+  for (const [pid, until] of satelliteVisionUntilByPlayer) {
+    if (until > now()) continue;
+    satelliteVisionUntilByPlayer.delete(pid);
+    markVisibilityDirty(pid);
+  }
+  for (const [pid, overclock] of cityOverclocksByPlayer) {
+    if (overclock.endsAt > now()) continue;
+    cityOverclocksByPlayer.delete(pid);
+  }
   for (const [pid, missions] of dynamicMissionsByPlayer) {
     dynamicMissionsByPlayer.set(
       pid,
@@ -14012,6 +14644,39 @@ app.post("/admin/world/regenerate", async () => {
       return;
     }
 
+    if (msg.type === "SURVEY_SWEEP") {
+      const out = trySurveySweep(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "SURVEY_SWEEP_INVALID", message: out.reason, x: msg.x, y: msg.y }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      refreshSubscribedViewForPlayer(actor.id);
+      return;
+    }
+
+    if (msg.type === "AETHER_LANCE") {
+      const out = tryAetherLance(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "AETHER_LANCE_INVALID", message: out.reason, x: msg.x, y: msg.y }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      sendVisibleTileDeltaAt(msg.x, msg.y);
+      return;
+    }
+
+    if (msg.type === "AETHER_EMP") {
+      const out = tryAetherEmp(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "AETHER_EMP_INVALID", message: out.reason, x: msg.x, y: msg.y }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      sendVisibleTileDeltaAt(msg.x, msg.y);
+      return;
+    }
+
     if (msg.type === "CAST_AETHER_BRIDGE") {
       const out = tryCastAetherBridge(actor, msg.x, msg.y);
       if (!out.ok) {
@@ -14174,6 +14839,56 @@ app.post("/admin/world/regenerate", async () => {
         toY: wrapY(msg.toY, WORLD_HEIGHT),
         destroyed: out.destroyed ?? 0
       }));
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "IMPERIAL_EXCHANGE_LEVY") {
+      const out = tryImperialExchangeLevy(actor, msg.fromX, msg.fromY, msg.resource);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "IMPERIAL_EXCHANGE_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "WORLD_ENGINE_STRIKE") {
+      const out = tryWorldEngineStrike(actor, msg.fromX, msg.fromY, msg.toX, msg.toY);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "WORLD_ENGINE_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "AEGIS_LOCK") {
+      const out = tryAegisLock(actor, msg.fromX, msg.fromY);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "AEGIS_LOCK_INVALID", message: out.reason }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "CITY_OVERCLOCK") {
+      const out = tryCityOverclock(actor, msg.x, msg.y);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "CITY_OVERCLOCK_INVALID", message: out.reason, x: msg.x, y: msg.y }));
+        return;
+      }
+      sendPlayerUpdate(actor, 0);
+      return;
+    }
+
+    if (msg.type === "ASTRAL_DOCK_LAUNCH") {
+      const out = tryAstralDockLaunch(actor, msg.fromX, msg.fromY);
+      if (!out.ok) {
+        socket.send(JSON.stringify({ type: "ERROR", code: "ASTRAL_DOCK_INVALID", message: out.reason }));
+        return;
+      }
       sendPlayerUpdate(actor, 0);
       return;
     }
@@ -14687,6 +15402,10 @@ app.post("/admin/world/regenerate", async () => {
         sendInvalid("cannot attack allied tile");
         return;
       }
+      if (hostileAegisLockProtectingTile(actor, to.x, to.y)) {
+        sendInvalid("target is sealed by enemy Aegis Lock");
+        return;
+      }
       if (defender && !defenderIsBarbarian && defender.spawnShieldUntil > now()) {
         sendInvalid("target shielded");
         return;
@@ -14934,6 +15653,10 @@ app.post("/admin/world/regenerate", async () => {
       logTileSync("action_validation_rejected_ally_target", actionValidationPayload(actor.id, msg.type, from, to));
       app.log.info({ playerId: actor.id, defenderId: defender.id }, "action rejected: allied target");
       socket.send(JSON.stringify({ type: "ERROR", code: "ALLY_TARGET", message: "cannot attack allied or truced tile" }));
+      return;
+    }
+    if (hostileAegisLockProtectingTile(actor, to.x, to.y)) {
+      socket.send(JSON.stringify({ type: "ERROR", code: "LOCKED", message: "target is sealed by enemy Aegis Lock" }));
       return;
     }
     if (isBreakthroughAttack) {

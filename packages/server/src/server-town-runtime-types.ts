@@ -72,6 +72,7 @@ export interface ServerTownEconomyRuntimeDeps {
   foodUpkeepCoverageByPlayer: Map<string, number>;
   townFeedingStateByPlayer: Map<string, TownFeedingState>;
   growthPausedUntilByPlayer: Map<string, number>;
+  cityOverclocksByPlayer: Map<string, { tileKey: TileKey; endsAt: number }>;
   getPlayerEffectsForPlayer: (playerId: string) => PlayerEffects;
   emptyPlayerEffects: () => PlayerEffects;
   getOrInitStrategicStocks: (playerId: string) => Partial<Record<StrategicResource, number>>;
@@ -82,6 +83,7 @@ export interface ServerTownEconomyRuntimeDeps {
   townSupport: (townKey: TileKey, ownerId: string) => { supportCurrent: number; supportMax: number };
   townGoldIncomeEnabledForPlayer: (player: Player, nowMs?: number) => boolean;
   ownedTownKeysForPlayer: (playerId: string) => TileKey[];
+  directlyConnectedTownKeysForTown: (playerId: string, originTownKey: TileKey, settledLand?: Set<TileKey>) => TileKey[];
   firstThreeTownKeySetForPlayer: (playerId: string) => Set<TileKey>;
   structureForSupportedTown: (tileKey: TileKey, ownerId: string | undefined, structureType: EconomicStructureType) => EconomicStructure | undefined;
   structureForSupportedDock: (tileKey: TileKey, ownerId: string | undefined, structureType: EconomicStructureType) => EconomicStructure | undefined;

@@ -456,6 +456,7 @@ const {
 });
 const economicStructureIcon = (type: Tile["economicStructure"] extends infer T ? T extends { type: infer U } ? U : never : never): string => {
   if (type === "FARMSTEAD") return "▥";
+  if (type === "WATERWORKS") return "▦";
   if (type === "CAMP") return "⛺";
   if (type === "MINE") return "⛏";
   if (type === "GRANARY") return "◫";
@@ -673,7 +674,7 @@ const defaultWsUrl = (() => {
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1" ||
     window.location.hostname === "0.0.0.0";
-  if (isLocalHost) return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:3001/ws`;
+  if (isLocalHost) return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:3003/ws`;
   return "wss://border-empires.fly.dev/ws";
 })();
 const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? defaultWsUrl;

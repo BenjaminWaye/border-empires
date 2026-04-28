@@ -2,13 +2,19 @@ export type OptimisticStructureKind =
   | "FORT"
   | "OBSERVATORY"
   | "SIEGE_OUTPOST"
+  | "ASTRAL_DOCK_PART"
+  | "ASTRAL_DOCK"
   | "FARMSTEAD"
+  | "WATERWORKS"
   | "CAMP"
   | "MINE"
   | "MARKET"
   | "GRANARY"
+  | "CENSUS_HALL"
   | "BANK"
+  | "CLEARING_HOUSE"
   | "AIRPORT"
+  | "AETHER_TOWER"
   | "WOODEN_FORT"
   | "LIGHT_OUTPOST"
   | "FUR_SYNTHESIZER"
@@ -20,10 +26,20 @@ export type OptimisticStructureKind =
   | "FUEL_PLANT"
   | "CARAVANARY"
   | "FOUNDRY"
+  | "EXCHANGE_HOUSE"
   | "GARRISON_HALL"
   | "CUSTOMS_HOUSE"
+  | "LOCKWORKS_PORT"
+  | "CHARTERED_PORT"
+  | "RAIL_DEPOT"
   | "GOVERNORS_OFFICE"
-  | "RADAR_SYSTEM";
+  | "RADAR_SYSTEM"
+  | "IMPERIAL_EXCHANGE_PART"
+  | "WORLD_ENGINE_PART"
+  | "AEGIS_DOME_PART"
+  | "IMPERIAL_EXCHANGE"
+  | "WORLD_ENGINE"
+  | "AEGIS_DOME";
 
 export type TileUpkeepEntry = {
   label: string;
@@ -88,19 +104,34 @@ export type Tile = {
     foodUpkeepPerMinute?: number;
     growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
   };
-  fort?: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number; disabledUntil?: number };
+  fort?: {
+    ownerId: string;
+    status: "under_construction" | "active" | "removing";
+    variant?: "FORT" | "IRON_BASTION" | "THUNDER_BASTION";
+    completesAt?: number;
+    disabledUntil?: number;
+  };
   observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number };
-  siegeOutpost?: { ownerId: string; status: "under_construction" | "active" | "removing"; completesAt?: number };
+  siegeOutpost?: {
+    ownerId: string;
+    status: "under_construction" | "active" | "removing";
+    variant?: "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
+    completesAt?: number;
+  };
   economicStructure?: {
     ownerId: string;
     type:
       | "FARMSTEAD"
+      | "WATERWORKS"
       | "CAMP"
       | "MINE"
       | "MARKET"
       | "GRANARY"
+      | "CENSUS_HALL"
       | "BANK"
+      | "CLEARING_HOUSE"
       | "AIRPORT"
+      | "AETHER_TOWER"
       | "WOODEN_FORT"
       | "LIGHT_OUTPOST"
       | "FUR_SYNTHESIZER"
@@ -112,14 +143,27 @@ export type Tile = {
       | "FUEL_PLANT"
       | "CARAVANARY"
       | "FOUNDRY"
+      | "EXCHANGE_HOUSE"
       | "GARRISON_HALL"
       | "CUSTOMS_HOUSE"
+      | "LOCKWORKS_PORT"
+      | "CHARTERED_PORT"
+      | "RAIL_DEPOT"
       | "GOVERNORS_OFFICE"
-      | "RADAR_SYSTEM";
+      | "RADAR_SYSTEM"
+      | "ASTRAL_DOCK_PART"
+      | "ASTRAL_DOCK"
+      | "IMPERIAL_EXCHANGE_PART"
+      | "WORLD_ENGINE_PART"
+      | "AEGIS_DOME_PART"
+      | "IMPERIAL_EXCHANGE"
+      | "WORLD_ENGINE"
+      | "AEGIS_DOME";
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
     disabledUntil?: number;
     inactiveReason?: "manual" | "upkeep";
+    powered?: boolean;
   };
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
@@ -133,11 +177,14 @@ export type Tile = {
       | "SIEGE_OUTPOST"
       | "OBSERVATORY"
       | "FARMSTEAD"
+      | "WATERWORKS"
       | "CAMP"
       | "MINE"
       | "MARKET"
       | "GRANARY"
+      | "CENSUS_HALL"
       | "BANK"
+      | "CLEARING_HOUSE"
       | "AIRPORT"
       | "WOODEN_FORT"
       | "LIGHT_OUTPOST"
@@ -152,19 +199,27 @@ export type Tile = {
       | "FOUNDRY"
       | "GARRISON_HALL"
       | "CUSTOMS_HOUSE"
+      | "LOCKWORKS_PORT"
+      | "CHARTERED_PORT"
+      | "RAIL_DEPOT"
       | "GOVERNORS_OFFICE"
       | "RADAR_SYSTEM"
+      | "ASTRAL_DOCK_PART"
+      | "ASTRAL_DOCK"
       | null;
     structureHistory: Array<
       | "FORT"
       | "SIEGE_OUTPOST"
       | "OBSERVATORY"
       | "FARMSTEAD"
+      | "WATERWORKS"
       | "CAMP"
       | "MINE"
       | "MARKET"
       | "GRANARY"
+      | "CENSUS_HALL"
       | "BANK"
+      | "CLEARING_HOUSE"
       | "AIRPORT"
       | "WOODEN_FORT"
       | "LIGHT_OUTPOST"
@@ -179,8 +234,13 @@ export type Tile = {
       | "FOUNDRY"
       | "GARRISON_HALL"
       | "CUSTOMS_HOUSE"
+      | "LOCKWORKS_PORT"
+      | "CHARTERED_PORT"
+      | "RAIL_DEPOT"
       | "GOVERNORS_OFFICE"
       | "RADAR_SYSTEM"
+      | "ASTRAL_DOCK_PART"
+      | "ASTRAL_DOCK"
     >;
     wasMountainCreatedByPlayer?: boolean;
     wasMountainRemovedByPlayer?: boolean;
@@ -391,7 +451,7 @@ export type FeedEntry = {
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number };
-export type CrystalTargetingAbility = "aether_bridge" | "siphon";
+export type CrystalTargetingAbility = "aether_bridge" | "siphon" | "world_engine_strike" | "aether_emp";
 
 export type GuideStep = {
   title: string;
@@ -413,20 +473,24 @@ export type TileActionDef = {
     | "settle_land"
     | "launch_attack"
     | "attack_connected_region"
-    | "launch_breach_attack"
     | "reveal_empire"
+    | "survey_sweep"
     | "collect_yield"
     | "collect_shard"
     | "build_fortification"
     | "build_wooden_fort"
     | "build_observatory"
     | "build_farmstead"
+    | "build_waterworks"
     | "build_camp"
     | "build_mine"
     | "build_market"
     | "build_granary"
+    | "build_census_hall"
     | "build_bank"
+    | "build_clearing_house"
     | "build_airport"
+    | "build_aether_tower"
     | "build_fur_synthesizer"
     | "upgrade_fur_synthesizer"
     | "build_ironworks"
@@ -438,6 +502,17 @@ export type TileActionDef = {
     | "build_foundry"
     | "build_garrison_hall"
     | "build_customs_house"
+    | "build_lockworks_port"
+    | "build_rail_depot"
+    | "build_exchange_house"
+    | "build_imperial_exchange_part"
+    | "build_world_engine_part"
+    | "build_aegis_dome_part"
+    | "build_astral_dock_part"
+    | "build_imperial_exchange"
+    | "build_world_engine"
+    | "build_aegis_dome"
+    | "build_astral_dock"
     | "build_governors_office"
     | "build_radar_system"
     | "remove_structure"
@@ -452,8 +527,18 @@ export type TileActionDef = {
     | "offer_truce_12h"
     | "offer_truce_24h"
     | "break_truce"
+    | "aether_lance"
     | "aether_bridge"
+    | "imperial_exchange_levy_food"
+    | "imperial_exchange_levy_iron"
+    | "imperial_exchange_levy_crystal"
+    | "imperial_exchange_levy_supply"
     | "siphon_tile"
+    | "aether_emp"
+    | "world_engine_strike"
+    | "aegis_lock"
+    | "city_overclock"
+    | "astral_dock_launch"
     | "purge_siphon"
     | "create_mountain"
     | "remove_mountain";

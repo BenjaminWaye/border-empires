@@ -547,7 +547,21 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   const abilityCooldownRemainingMs = (
-    abilityId: "aether_bridge" | "siphon" | "reveal_empire" | "create_mountain" | "remove_mountain"
+    abilityId:
+      | "aether_bridge"
+      | "aether_lance"
+      | "siphon"
+      | "reveal_empire"
+      | "survey_sweep"
+      | "create_mountain"
+      | "remove_mountain"
+      | "imperial_exchange_levy"
+      | "world_engine_strike"
+      | "stormfront"
+      | "aegis_lock"
+      | "aether_emp"
+      | "city_overclock"
+      | "astral_dock_launch"
   ): number => {
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
@@ -898,12 +912,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
-    if (actionId === "launch_attack" || actionId === "launch_breach_attack") {
+    if (actionId === "launch_attack") {
       const enemyTargets = targets.filter((k) => {
         const t = state.tiles.get(k);
         return t && t.terrain === "LAND" && t.ownerId && t.ownerId !== state.me && !isTileOwnedByAlly(t);
       });
-      const mode = actionId === "launch_breach_attack" ? "breakthrough" : "normal";
+      const mode = "normal";
       const out = queueSpecificTargets(enemyTargets, mode);
       if (out.queued > 0) processActionQueue();
       if (out.queued > 0) {
@@ -912,8 +926,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         const singleTile = !fromBulk && selected ? selected : undefined;
         const failureMessage = singleTile
           ? attackQueueFailureReason(singleTile, mode)
-          : `Cannot launch ${mode === "breakthrough" ? "breakthrough " : ""}attack for one or more selected tiles.`;
-        showCaptureAlert(`${mode === "breakthrough" ? "Breach attack" : "Attack"} failed`, failureMessage, "warn");
+          : "Cannot launch attack for one or more selected tiles.";
+        showCaptureAlert("Attack failed", failureMessage, "warn");
         pushFeed(failureMessage, "combat", "error");
       }
       hideTileActionMenu();
@@ -960,13 +974,45 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
+    const fortVariantLabel =
+      selected.fort?.variant === "FORT"
+        ? state.techIds.includes("fortified-walls")
+          ? "Iron Bastion"
+          : "Fort"
+        : selected.fort?.variant === "IRON_BASTION"
+        ? state.techIds.includes("steelworking")
+          ? "Thunder Bastion"
+          : "Iron Bastion"
+        : selected.fort?.variant === "THUNDER_BASTION"
+          ? "Thunder Bastion"
+          : state.techIds.includes("steelworking")
+            ? "Thunder Bastion"
+            : state.techIds.includes("fortified-walls")
+              ? "Iron Bastion"
+              : "Fort";
+    const siegeVariantLabel =
+      selected.siegeOutpost?.variant === "SIEGE_OUTPOST"
+        ? state.techIds.includes("siegecraft")
+          ? "Siege Tower"
+          : "Siege Outpost"
+        : selected.siegeOutpost?.variant === "SIEGE_TOWER"
+        ? state.techIds.includes("standing-army")
+          ? "Dread Tower"
+          : "Siege Tower"
+        : selected.siegeOutpost?.variant === "DREAD_TOWER"
+          ? "Dread Tower"
+          : state.techIds.includes("standing-army")
+            ? "Dread Tower"
+            : state.techIds.includes("siegecraft")
+              ? "Siege Tower"
+              : "Siege Outpost";
     if (actionId === "collect_yield") collectSelectedYield();
     if (actionId === "collect_shard") collectSelectedShard();
     if (actionId === "build_fortification")
       sendDevelopmentBuild({ type: "BUILD_FORT", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "FORT"), {
         x: selected.x,
         y: selected.y,
-        label: `Fortification at (${selected.x}, ${selected.y})`,
+        label: `${fortVariantLabel} at (${selected.x}, ${selected.y})`,
         optimisticKind: "FORT"
       });
     if (actionId === "build_wooden_fort")
@@ -987,6 +1033,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FARMSTEAD" },
         () => applyOptimisticStructureBuild(selected.x, selected.y, "FARMSTEAD"),
         { x: selected.x, y: selected.y, label: `Farmstead at (${selected.x}, ${selected.y})`, optimisticKind: "FARMSTEAD" }
+      );
+    if (actionId === "build_waterworks")
+      sendDevelopmentBuild(
+        { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "WATERWORKS" },
+        () => applyOptimisticStructureBuild(selected.x, selected.y, "WATERWORKS"),
+        { x: selected.x, y: selected.y, label: `Waterworks at (${selected.x}, ${selected.y})`, optimisticKind: "WATERWORKS" }
       );
     if (actionId === "build_camp")
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CAMP" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CAMP"), {
@@ -1016,6 +1068,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         label: `Granary at (${selected.x}, ${selected.y})`,
         optimisticKind: "GRANARY"
       });
+    if (actionId === "build_census_hall")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CENSUS_HALL" }, optimisticStructureBuildForAction(actionId, selected, "CENSUS_HALL"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Census Hall at (${selected.x}, ${selected.y})`,
+        optimisticKind: "CENSUS_HALL"
+      });
     if (actionId === "build_bank")
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "BANK" }, optimisticStructureBuildForAction(actionId, selected, "BANK"), {
         x: selected.x,
@@ -1023,12 +1082,26 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         label: `Bank at (${selected.x}, ${selected.y})`,
         optimisticKind: "BANK"
       });
+    if (actionId === "build_clearing_house")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CLEARING_HOUSE" }, optimisticStructureBuildForAction(actionId, selected, "CLEARING_HOUSE"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Clearing House at (${selected.x}, ${selected.y})`,
+        optimisticKind: "CLEARING_HOUSE"
+      });
     if (actionId === "build_airport")
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AIRPORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AIRPORT"), {
         x: selected.x,
         y: selected.y,
         label: `Airport at (${selected.x}, ${selected.y})`,
         optimisticKind: "AIRPORT"
+      });
+    if (actionId === "build_aether_tower")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AETHER_TOWER" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AETHER_TOWER"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Aether Tower at (${selected.x}, ${selected.y})`,
+        optimisticKind: "AETHER_TOWER"
       });
     if (actionId === "build_caravanary")
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CARAVANARY" }, optimisticStructureBuildForAction(actionId, selected, "CARAVANARY"), {
@@ -1067,13 +1140,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendDevelopmentBuild(
         { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CRYSTAL_SYNTHESIZER" },
         optimisticStructureBuildForAction(actionId, selected, "CRYSTAL_SYNTHESIZER"),
-        { x: selected.x, y: selected.y, label: `Crystal Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "CRYSTAL_SYNTHESIZER" }
+        { x: selected.x, y: selected.y, label: `Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "CRYSTAL_SYNTHESIZER" }
       );
     if (actionId === "upgrade_crystal_synthesizer")
       sendDevelopmentBuild(
         { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ADVANCED_CRYSTAL_SYNTHESIZER" },
         optimisticStructureBuildForAction(actionId, selected, "ADVANCED_CRYSTAL_SYNTHESIZER"),
-        { x: selected.x, y: selected.y, label: `Advanced Crystal Synthesizer at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
+        { x: selected.x, y: selected.y, label: `Advanced Aether Condenser at (${selected.x}, ${selected.y})`, optimisticKind: "ADVANCED_CRYSTAL_SYNTHESIZER" }
       );
     if (actionId === "build_fuel_plant")
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "FUEL_PLANT" }, optimisticStructureBuildForAction(actionId, selected, "FUEL_PLANT"), {
@@ -1100,14 +1173,91 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "CUSTOMS_HOUSE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "CUSTOMS_HOUSE"), {
         x: selected.x,
         y: selected.y,
-        label: `Customs House at (${selected.x}, ${selected.y})`,
+        label: `Harbor Exchange at (${selected.x}, ${selected.y})`,
         optimisticKind: "CUSTOMS_HOUSE"
+      });
+    if (actionId === "build_lockworks_port")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "LOCKWORKS_PORT" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "LOCKWORKS_PORT"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Lockworks Port at (${selected.x}, ${selected.y})`,
+        optimisticKind: "LOCKWORKS_PORT"
+      });
+    if (actionId === "build_rail_depot")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "RAIL_DEPOT" }, optimisticStructureBuildForAction(actionId, selected, "RAIL_DEPOT"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Rail Depot at (${selected.x}, ${selected.y})`,
+        optimisticKind: "RAIL_DEPOT"
+      });
+    if (actionId === "build_exchange_house")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "EXCHANGE_HOUSE" }, optimisticStructureBuildForAction(actionId, selected, "EXCHANGE_HOUSE"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Exchange House at (${selected.x}, ${selected.y})`,
+        optimisticKind: "EXCHANGE_HOUSE"
+      });
+    if (actionId === "build_imperial_exchange_part")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IMPERIAL_EXCHANGE_PART" }, optimisticStructureBuildForAction(actionId, selected, "IMPERIAL_EXCHANGE_PART"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Imperial Exchange Part at (${selected.x}, ${selected.y})`,
+        optimisticKind: "IMPERIAL_EXCHANGE_PART"
+      });
+    if (actionId === "build_world_engine_part")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "WORLD_ENGINE_PART" }, optimisticStructureBuildForAction(actionId, selected, "WORLD_ENGINE_PART"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Worldbreaker Cannon Part at (${selected.x}, ${selected.y})`,
+        optimisticKind: "WORLD_ENGINE_PART"
+      });
+    if (actionId === "build_aegis_dome_part")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AEGIS_DOME_PART" }, optimisticStructureBuildForAction(actionId, selected, "AEGIS_DOME_PART"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Aegis Dome Part at (${selected.x}, ${selected.y})`,
+        optimisticKind: "AEGIS_DOME_PART"
+      });
+    if (actionId === "build_astral_dock_part")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ASTRAL_DOCK_PART" }, optimisticStructureBuildForAction(actionId, selected, "ASTRAL_DOCK_PART"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Astral Dock Part at (${selected.x}, ${selected.y})`,
+        optimisticKind: "ASTRAL_DOCK_PART"
+      });
+    if (actionId === "build_imperial_exchange")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "IMPERIAL_EXCHANGE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "IMPERIAL_EXCHANGE"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Imperial Exchange at (${selected.x}, ${selected.y})`,
+        optimisticKind: "IMPERIAL_EXCHANGE"
+      });
+    if (actionId === "build_world_engine")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "WORLD_ENGINE" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "WORLD_ENGINE"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Worldbreaker Cannon at (${selected.x}, ${selected.y})`,
+        optimisticKind: "WORLD_ENGINE"
+      });
+    if (actionId === "build_aegis_dome")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "AEGIS_DOME" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "AEGIS_DOME"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Aegis Dome at (${selected.x}, ${selected.y})`,
+        optimisticKind: "AEGIS_DOME"
+      });
+    if (actionId === "build_astral_dock")
+      sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "ASTRAL_DOCK" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "ASTRAL_DOCK"), {
+        x: selected.x,
+        y: selected.y,
+        label: `Astral Dock at (${selected.x}, ${selected.y})`,
+        optimisticKind: "ASTRAL_DOCK"
       });
     if (actionId === "build_governors_office")
       sendDevelopmentBuild(
         { type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "GOVERNORS_OFFICE" },
         () => applyOptimisticStructureBuild(selected.x, selected.y, "GOVERNORS_OFFICE"),
-        { x: selected.x, y: selected.y, label: `Governor's Office at (${selected.x}, ${selected.y})`, optimisticKind: "GOVERNORS_OFFICE" }
+        { x: selected.x, y: selected.y, label: `Ministry Hall at (${selected.x}, ${selected.y})`, optimisticKind: "GOVERNORS_OFFICE" }
       );
     if (actionId === "build_radar_system")
       sendDevelopmentBuild({ type: "BUILD_ECONOMIC_STRUCTURE", x: selected.x, y: selected.y, structureType: "RADAR_SYSTEM" }, () => applyOptimisticStructureBuild(selected.x, selected.y, "RADAR_SYSTEM"), {
@@ -1120,7 +1270,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       sendDevelopmentBuild({ type: "BUILD_SIEGE_OUTPOST", x: selected.x, y: selected.y }, () => applyOptimisticStructureBuild(selected.x, selected.y, "SIEGE_OUTPOST"), {
         x: selected.x,
         y: selected.y,
-        label: `Siege Camp at (${selected.x}, ${selected.y})`,
+        label: `${siegeVariantLabel} at (${selected.x}, ${selected.y})`,
         optimisticKind: "SIEGE_OUTPOST"
       });
     if (actionId === "build_light_outpost")
@@ -1179,8 +1329,19 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "reveal_empire" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
       sendGameMessage({ type: "REVEAL_EMPIRE", targetPlayerId: selected.ownerId });
     }
+    if (actionId === "survey_sweep") sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y });
+    if (actionId === "aether_lance") sendGameMessage({ type: "AETHER_LANCE", x: selected.x, y: selected.y });
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
+    if (actionId === "aether_emp") beginCrystalTargeting("aether_emp");
+    if (actionId === "imperial_exchange_levy_food") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "FOOD" });
+    if (actionId === "imperial_exchange_levy_iron") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "IRON" });
+    if (actionId === "imperial_exchange_levy_crystal") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "CRYSTAL" });
+    if (actionId === "imperial_exchange_levy_supply") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "SUPPLY" });
+    if (actionId === "aegis_lock") sendGameMessage({ type: "AEGIS_LOCK", fromX: selected.x, fromY: selected.y });
+    if (actionId === "city_overclock") sendGameMessage({ type: "CITY_OVERCLOCK", x: selected.x, y: selected.y });
+    if (actionId === "astral_dock_launch") sendGameMessage({ type: "ASTRAL_DOCK_LAUNCH", fromX: selected.x, fromY: selected.y });
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
+    if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
     if (actionId === "purge_siphon") sendGameMessage({ type: "PURGE_SIPHON", x: selected.x, y: selected.y });
     hideTileActionMenu();
   };

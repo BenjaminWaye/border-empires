@@ -233,7 +233,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     const detail =
       ability === "aether_bridge"
         ? "Pick a coastal land tile. The server links the nearest settled coast and opens a temporary sea lane."
-        : "Pick an enemy town or resource tile to siphon 50% of its output for 30 minutes.";
+        : ability === "siphon"
+          ? "Pick an enemy town or resource tile to siphon 50% of its output for 30 minutes."
+          : "Pick an enemy land tile to shatter into mountain and erase whatever was built there.";
     const status = selectedOrigin
       ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`
       : `Valid targets in view: ${validCount}`;
@@ -388,6 +390,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.mobilePanelTechEl.classList.toggle("tech-tree-expanded", state.techTreeExpanded);
   dom.panelDomainsEl.classList.toggle("domain-detail-open", state.domainDetailOpen && !isMobile());
   dom.hud.classList.toggle("desktop-side-panel-open", !isMobile() && state.activePanel !== null);
+  dom.hud.classList.toggle("tech-tree-overlay-active", !isMobile() && state.activePanel === "tech" && state.techTreeExpanded);
   dom.techTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   dom.mobileTechTreeExpandToggleEl.textContent = state.techTreeExpanded ? "Collapse Tree" : "Expand Tree";
   dom.techTreeExpandToggleEl.classList.toggle("active", state.techTreeExpanded);
@@ -401,6 +404,16 @@ export const renderClientHud = (deps: HudDeps): void => {
     renderClientHud(deps);
   };
   bindTechTreeDragScroll();
+  const techTreeZoomButtons = dom.hud.querySelectorAll("[data-tech-tree-zoom]") as NodeListOf<HTMLButtonElement>;
+  techTreeZoomButtons.forEach((btn: HTMLButtonElement) => {
+    btn.onclick = () => {
+      const action = btn.dataset.techTreeZoom;
+      if (action === "in") state.techTreeZoom = Math.min(1.6, Math.round((state.techTreeZoom + 0.15) * 100) / 100);
+      else if (action === "out") state.techTreeZoom = Math.max(0.7, Math.round((state.techTreeZoom - 0.15) * 100) / 100);
+      else state.techTreeZoom = 1;
+      renderClientHud(deps);
+    };
+  });
   const structureInfoButtons = dom.hud.querySelectorAll("[data-structure-info]") as NodeListOf<HTMLButtonElement>;
   structureInfoButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {

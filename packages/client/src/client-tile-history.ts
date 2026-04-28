@@ -56,15 +56,15 @@ export const tileHistoryLines = (
                                 : history.lastStructureType === "ADVANCED_IRONWORKS"
                                   ? "Former Advanced Ironworks site"
                                   : history.lastStructureType === "CRYSTAL_SYNTHESIZER"
-                                    ? "Former Crystal Synthesizer site"
+                                    ? "Former Aether Condenser site"
                                     : history.lastStructureType === "ADVANCED_CRYSTAL_SYNTHESIZER"
-                                      ? "Former Advanced Crystal Synthesizer site"
+                                      ? "Former Advanced Aether Condenser site"
                                       : history.lastStructureType === "FUEL_PLANT"
                                         ? "Former Fuel Plant site"
                                         : history.lastStructureType === "FOUNDRY"
                                           ? "Former Foundry site"
                                           : history.lastStructureType === "GOVERNORS_OFFICE"
-                                            ? "Former Governor's Office site"
+                                            ? "Former Ministry Hall site"
                                             : "Former Radar System site";
     lines.push(label);
   }

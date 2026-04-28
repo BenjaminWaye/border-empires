@@ -3,7 +3,6 @@ import type { TileActionDef, TileMenuTab, TileMenuView } from "./client-types.js
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "settle_land") return "⌂";
   if (id === "launch_attack") return "⚔";
-  if (id === "launch_breach_attack") return "✦";
   if (id === "reveal_empire") return "◈";
   if (id === "collect_yield") return "⛃";
   if (id === "collect_shard") return "✦";
@@ -19,6 +18,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_granary") return "◫";
   if (id === "build_bank") return "◧";
   if (id === "build_airport") return "✈";
+  if (id === "build_aether_tower") return "⚡";
   if (id === "build_caravanary") return "⇄";
   if (id === "build_fur_synthesizer") return "▤";
   if (id === "upgrade_fur_synthesizer") return "⤴";
@@ -35,6 +35,26 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_foundry") return "⚙";
   if (id === "build_garrison_hall") return "🛡";
   if (id === "build_customs_house") return "⚓";
+  if (id === "build_lockworks_port") return "⚓";
+  if (id === "build_rail_depot") return "🚉";
+  if (id === "build_exchange_house") return "¤";
+  if (id === "build_imperial_exchange_part") return "◈";
+  if (id === "build_world_engine_part") return "⬢";
+  if (id === "build_aegis_dome_part") return "⬡";
+  if (id === "build_astral_dock_part") return "✶";
+  if (id === "build_imperial_exchange") return "✶";
+  if (id === "build_world_engine") return "✸";
+  if (id === "build_aegis_dome") return "⬡";
+  if (id === "build_astral_dock") return "✶";
+  if (id === "aegis_lock") return "⬢";
+  if (id === "imperial_exchange_levy_food") return "¤";
+  if (id === "imperial_exchange_levy_iron") return "¤";
+  if (id === "imperial_exchange_levy_crystal") return "¤";
+  if (id === "imperial_exchange_levy_supply") return "¤";
+  if (id === "world_engine_strike") return "✹";
+  if (id === "aether_emp") return "↯";
+  if (id === "city_overclock") return "⚙";
+  if (id === "astral_dock_launch") return "☄";
   if (id === "build_radar_system") return "◌";
   if (id === "build_governors_office") return "⌘";
   if (id === "remove_structure") return "⌫";

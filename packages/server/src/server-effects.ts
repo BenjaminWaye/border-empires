@@ -18,14 +18,34 @@ export interface PlayerEffects {
   unlockLightOutpost: boolean;
   unlockSynthOverload: boolean;
   unlockAdvancedSynthesizers: boolean;
+  unlockAetherTower: boolean;
+  unlockExchangeHouse: boolean;
   unlockGranary: boolean;
+  unlockCensusHall: boolean;
+  unlockClearingHouse: boolean;
   unlockRevealRegion: boolean;
   unlockRevealEmpire: boolean;
+  unlockSurveySweep: boolean;
+  unlockAetherLance: boolean;
   unlockDeepStrike: boolean;
   unlockAetherBridge: boolean;
-  unlockMountainPass: boolean;
   unlockTerrainShaping: boolean;
   unlockBreachAttack: boolean;
+  unlockAetherWall: boolean;
+  unlockIronBastion: boolean;
+  unlockSiegeTower: boolean;
+  unlockThunderBastion: boolean;
+  unlockDreadTower: boolean;
+  unlockWaterworksUpgrade: boolean;
+  unlockImperialExchange: boolean;
+  unlockWorldEngine: boolean;
+  unlockAegisDome: boolean;
+  unlockAegisLock: boolean;
+  unlockAstralDock: boolean;
+  unlockAstralDockLaunch: boolean;
+  unlockStormfront: boolean;
+  unlockAetherEmp: boolean;
+  unlockCityOverclock: boolean;
   settlementSpeedMult: number;
   operationalTempoMult: number;
   researchTimeMult: number;
@@ -82,14 +102,34 @@ export const emptyPlayerEffects = (): PlayerEffects => ({
   unlockLightOutpost: true,
   unlockSynthOverload: false,
   unlockAdvancedSynthesizers: false,
+  unlockAetherTower: false,
+  unlockExchangeHouse: false,
   unlockGranary: false,
+  unlockCensusHall: false,
+  unlockClearingHouse: false,
   unlockRevealRegion: false,
   unlockRevealEmpire: false,
+  unlockSurveySweep: false,
+  unlockAetherLance: false,
   unlockDeepStrike: false,
   unlockAetherBridge: false,
-  unlockMountainPass: false,
   unlockTerrainShaping: false,
   unlockBreachAttack: false,
+  unlockAetherWall: false,
+  unlockIronBastion: false,
+  unlockSiegeTower: false,
+  unlockThunderBastion: false,
+  unlockDreadTower: false,
+  unlockWaterworksUpgrade: false,
+  unlockImperialExchange: false,
+  unlockWorldEngine: false,
+  unlockAegisDome: false,
+  unlockAegisLock: false,
+  unlockAstralDock: false,
+  unlockAstralDockLaunch: false,
+  unlockStormfront: false,
+  unlockAetherEmp: false,
+  unlockCityOverclock: false,
   settlementSpeedMult: 1,
   operationalTempoMult: 1,
   researchTimeMult: 1,
