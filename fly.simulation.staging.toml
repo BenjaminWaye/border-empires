@@ -25,7 +25,7 @@ primary_region = "arn"
   SIMULATION_ENABLE_SYSTEM_AUTOPILOT = "1"
   SIMULATION_AI_WORKER = "1"
   SIMULATION_AI_MAX_EVENT_LOOP_LAG_MS = "250"
-  SIMULATION_SEED_PROFILE = "season-20ai"
+  SIMULATION_RULESET_ID = "seasonal-default"
 
 [[services]]
   protocol = "tcp"
