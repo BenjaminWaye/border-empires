@@ -1,5 +1,7 @@
 // @ts-nocheck
 
+import { playerNeedsProfileSetup } from "./server-player-profile-lifecycle.js";
+
 export const createServerStatusMetrics = (deps) => {
   const {
     cachedAiTerritoryStructureForPlayer,
@@ -240,6 +242,7 @@ export const createServerStatusMetrics = (deps) => {
   const collectPlayerCompetitionMetrics = (nowMs = now()): PlayerCompetitionMetrics[] => {
     const metrics: PlayerCompetitionMetrics[] = [];
     for (const player of players.values()) {
+      if (playerNeedsProfileSetup(player)) continue;
       const territoryStructure = cachedAiTerritoryStructureForPlayer(player);
       metrics.push({
         playerId: player.id,
