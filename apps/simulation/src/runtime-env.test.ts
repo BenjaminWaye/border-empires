@@ -98,6 +98,20 @@ describe("simulation runtime env", () => {
     ).toMatchObject({ useAiWorker: true });
   });
 
+  it("treats booleanish autopilot env values as enabled", () => {
+    expect(
+      parseSimulationRuntimeEnv({
+        SIMULATION_ENABLE_AI_AUTOPILOT: " true ",
+        SIMULATION_ENABLE_SYSTEM_AUTOPILOT: "on",
+        SIMULATION_AI_WORKER: " yes "
+      })
+    ).toMatchObject({
+      enableAiAutopilot: true,
+      enableSystemAutopilot: true,
+      useAiWorker: true
+    });
+  });
+
   it("allows seed fallback for local startup when explicitly requested", () => {
     expect(
       parseSimulationRuntimeEnv({

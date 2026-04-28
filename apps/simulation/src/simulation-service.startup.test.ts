@@ -157,6 +157,41 @@ describe("simulation service startup recovery", () => {
     await service.close();
   });
 
+  it("uses recovered player identities for AI autopilot instead of seed-profile fallbacks", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+    const generated = generateSeasonWorld("seasonal-default", 12345);
+    await snapshotStore.saveSnapshot({
+      lastAppliedEventId: 0,
+      snapshotSections: buildSimulationSnapshotSections({
+        initialState: generated.initialState,
+        commands: [],
+        eventsByCommandId: new Map()
+      }),
+      createdAt: 1_000
+    });
+
+    const service = await createSimulationService({
+      seedProfile: "season-20ai",
+      databaseUrl: "postgres://simulation",
+      commandStore,
+      eventStore,
+      snapshotStore,
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
+      enableAiAutopilot: true,
+      log: {
+        info: () => undefined,
+        error: () => undefined,
+        warn: () => undefined
+      }
+    });
+
+    expect(service.renderMetrics()).toContain("sim_ai_autopilot_enabled 1");
+    expect(service.renderMetrics()).toContain("sim_ai_autopilot_player_count 10");
+    await service.close();
+  });
+
   it("bootstraps the first managed season from ruleset worldgen when durable stores are empty", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
