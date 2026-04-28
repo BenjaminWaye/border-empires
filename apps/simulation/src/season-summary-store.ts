@@ -282,7 +282,16 @@ export class PostgresSeasonSummaryStore implements SeasonSummaryStore {
   }
 
   private async writeOperationalReset(db: Queryable): Promise<void> {
-    await db.query("TRUNCATE command_results, commands, world_events, world_snapshots, checkpoint_metadata, player_projection_current, tile_projection_current, combat_lock_projection_current, visibility_projection_current, world_status_current");
+    await db.query("DELETE FROM command_results");
+    await db.query("DELETE FROM commands");
+    await db.query("DELETE FROM world_events");
+    await db.query("DELETE FROM checkpoint_metadata");
+    await db.query("DELETE FROM player_projection_current");
+    await db.query("DELETE FROM tile_projection_current");
+    await db.query("DELETE FROM combat_lock_projection_current");
+    await db.query("DELETE FROM visibility_projection_current");
+    await db.query("DELETE FROM world_status_current");
+    await db.query("DELETE FROM world_snapshots");
   }
 
   private async insertSnapshot(
