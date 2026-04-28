@@ -51,6 +51,7 @@ export type GeneratedSeasonSeedWorld = {
   players: Map<string, DomainPlayer>;
   tiles: Map<string, DomainTileState>;
   docks: DockRouteDefinition[];
+  worldSeed: number;
   humanPlayers: number;
   aiPlayers: number;
   totalTiles: number;
@@ -538,6 +539,7 @@ export const createSeason20AiSeedWorld = (
       pairedDockId: dock.pairedDockId,
       ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
     })),
+    worldSeed,
     humanPlayers: 1,
     aiPlayers: 20,
     totalTiles: tiles.size,

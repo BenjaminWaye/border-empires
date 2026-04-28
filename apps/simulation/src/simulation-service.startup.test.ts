@@ -5,6 +5,7 @@ import { InMemorySimulationEventStore } from "./event-store.js";
 import { InMemorySimulationSnapshotStore, buildSimulationSnapshotSections } from "./snapshot-store.js";
 import { createSimulationService } from "./simulation-service.js";
 import type { SimulationEventStore } from "./event-store.js";
+import { InMemorySeasonSummaryStore } from "./season-summary-store.js";
 
 describe("simulation service startup recovery", () => {
   it("falls back to the seed world when seed-profile recovery times out", async () => {
@@ -26,6 +27,7 @@ describe("simulation service startup recovery", () => {
       commandStore,
       eventStore,
       snapshotStore,
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
       startupRecoveryTimeoutMs: 10,
       allowSeedRecoveryFallback: true,
       log: {
@@ -65,6 +67,7 @@ describe("simulation service startup recovery", () => {
         commandStore,
         eventStore,
         snapshotStore,
+        seasonSummaryStore: new InMemorySeasonSummaryStore(),
         startupRecoveryTimeoutMs: 10,
         allowSeedRecoveryFallback: true,
         log: {
@@ -87,6 +90,7 @@ describe("simulation service startup recovery", () => {
         commandStore,
         eventStore,
         snapshotStore,
+        seasonSummaryStore: new InMemorySeasonSummaryStore(),
         log: {
           info: () => undefined,
           error: () => undefined
@@ -97,26 +101,36 @@ describe("simulation service startup recovery", () => {
     );
   });
 
-  it("can explicitly reseed db-backed startup when durable stores are empty", async () => {
+  it("bootstraps the first managed season from ruleset worldgen when durable stores are empty", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();
     const snapshotStore = new InMemorySimulationSnapshotStore();
 
     const service = await createSimulationService({
-      seedProfile: "season-20ai",
       databaseUrl: "postgres://simulation",
       commandStore,
       eventStore,
       snapshotStore,
-      allowSeedRecoveryFallback: true,
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
+      rulesetId: "seasonal-default",
       log: {
         info: () => undefined,
         error: () => undefined
       }
     });
 
-    expect(service.startupRecovery.recoveredEventCount).toBe(0);
-    expect(service.runtime.exportState().tiles.length).toBeGreaterThan(0);
+    expect(service.startupRecovery.initialState.season).toEqual(
+      expect.objectContaining({
+        seasonId: "season-1",
+        seasonSequence: 1,
+        rulesetId: "seasonal-default",
+        status: "active"
+      })
+    );
+    expect(service.startupRecovery.initialState.tiles.length).toBeGreaterThan(1000);
+    expect(
+      service.startupRecovery.initialState.tiles.every((tile) => tile.ownerId === undefined && tile.ownershipState === undefined)
+    ).toBe(true);
     await service.close();
   });
 
@@ -143,6 +157,7 @@ describe("simulation service startup recovery", () => {
       commandStore,
       eventStore,
       snapshotStore,
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
       log: {
         info: () => undefined,
         error: () => undefined
@@ -217,6 +232,7 @@ describe("simulation service startup recovery", () => {
       commandStore,
       eventStore,
       snapshotStore: snapshotStore as unknown as InMemorySimulationSnapshotStore,
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
       port: 0,
       startupReplayCompactionMinEvents: 1,
       checkpointMaxRssBytes: 1,
