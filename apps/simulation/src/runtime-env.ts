@@ -1,4 +1,5 @@
 import { parseSimulationSeedProfile, type SimulationSeedProfile } from "./seed-state.js";
+import type { SimulationRulesetId } from "./season-worldgen.js";
 
 export type SimulationRuntimeEnv = {
   host: string;
@@ -14,6 +15,7 @@ export type SimulationRuntimeEnv = {
   checkpointMaxHeapUsedBytes?: number;
   startupReplayCompactionMinEvents: number;
   seedProfile: SimulationSeedProfile;
+  rulesetId?: SimulationRulesetId;
   enableAiAutopilot: boolean;
   aiTickMs: number;
   aiMaxEventLoopLagMs: number;
@@ -47,8 +49,8 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   if (isManagedRuntime && !databaseUrl) {
     throw new Error("simulation requires SIMULATION_DATABASE_URL or DATABASE_URL in managed runtime");
   }
-  if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE) {
-    throw new Error("simulation requires SIMULATION_SEED_PROFILE in managed runtime");
+  if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE && !env.SIMULATION_RULESET_ID) {
+    throw new Error("simulation requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   }
 
   const systemPlayerIds = env.SIMULATION_SYSTEM_PLAYER_IDS
@@ -93,7 +95,8 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
             parsePositiveNumber(checkpointMaxHeapUsedMb, 0, "simulation checkpoint heap-used limit") * 1024 * 1024
         }
       : {}),
-    seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE),
+    seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
+    ...(env.SIMULATION_RULESET_ID ? { rulesetId: env.SIMULATION_RULESET_ID as SimulationRulesetId } : {}),
     enableAiAutopilot: env.SIMULATION_ENABLE_AI_AUTOPILOT === "1",
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
     aiMaxEventLoopLagMs: parsePositiveNumber(

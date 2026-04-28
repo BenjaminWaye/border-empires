@@ -36,7 +36,28 @@ describe("gateway http routes", () => {
           ]
         }
       ],
-      metrics: () => "gateway_event_loop_max_ms 4\n"
+      metrics: () => "gateway_event_loop_max_ms 4\n",
+      getCurrentSeasonSummary: async () => ({
+        season: "season-1",
+        seasonId: "season-1",
+        seasonSequence: 1,
+        status: "active",
+        startedAt: 1_000,
+        worldSeed: 42,
+        rulesetId: "seasonal-default",
+        leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] },
+        overall: [],
+        byTiles: [],
+        byIncome: [],
+        byTechs: [],
+        seasonVictory: [],
+        onlinePlayers: 0,
+        totalPlayers: 0,
+        townCount: 0,
+        updatedAt: 1_200
+      }),
+      listSeasonArchives: async () => [],
+      startNextSeason: async () => ({ seasonId: "season-2" })
     });
 
     const healthResponse = await app.inject({ method: "GET", url: "/health", headers: { origin: "http://localhost:5173" } });
@@ -100,7 +121,28 @@ describe("gateway http routes", () => {
       recentEvents: () => [],
       attackDebug: () => ({ controlPath: [], hotPath: [], slowOrWarn: [] }),
       attackTraces: () => [],
-      metrics: () => ""
+      metrics: () => "",
+      getCurrentSeasonSummary: async () => ({
+        season: "season-1",
+        seasonId: "season-1",
+        seasonSequence: 1,
+        status: "active",
+        startedAt: 1_000,
+        worldSeed: 42,
+        rulesetId: "seasonal-default",
+        leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] },
+        overall: [],
+        byTiles: [],
+        byIncome: [],
+        byTechs: [],
+        seasonVictory: [],
+        onlinePlayers: 0,
+        totalPlayers: 0,
+        townCount: 0,
+        updatedAt: 1_100
+      }),
+      listSeasonArchives: async () => [],
+      startNextSeason: async () => ({ seasonId: "season-2" })
     });
 
     const healthResponse = await app.inject({ method: "GET", url: "/health" });
@@ -146,7 +188,28 @@ describe("gateway http routes", () => {
           events: [{ at: 1_250, level: "warn", event: "gateway_command_submit_slow", payload: { durationMs: 1400 } }]
         }
       ],
-      metrics: () => ""
+      metrics: () => "",
+      getCurrentSeasonSummary: async () => ({
+        season: "season-1",
+        seasonId: "season-1",
+        seasonSequence: 1,
+        status: "active",
+        startedAt: 1_000,
+        worldSeed: 42,
+        rulesetId: "seasonal-default",
+        leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] },
+        overall: [],
+        byTiles: [],
+        byIncome: [],
+        byTechs: [],
+        seasonVictory: [],
+        onlinePlayers: 0,
+        totalPlayers: 0,
+        townCount: 0,
+        updatedAt: 1_100
+      }),
+      listSeasonArchives: async () => [],
+      startNextSeason: async () => ({ seasonId: "season-2" })
     });
 
     const debugResponse = await app.inject({ method: "GET", url: "/admin/runtime/debug-bundle" });
@@ -160,6 +223,88 @@ describe("gateway http routes", () => {
         attackTraces: [expect.objectContaining({ traceId: "cmd-slow", events: [expect.objectContaining({ event: "gateway_command_submit_slow" })] })]
       })
     );
+
+    await app.close();
+  });
+
+  it("serves current summary, archives, and protects start-next", async () => {
+    const app = Fastify();
+    registerGatewayHttpRoutes(app, {
+      startupStartedAt: 1_000,
+      simulationAddress: "127.0.0.1:50051",
+      simulationSeedProfile: "default",
+      health: () => ({
+        ok: true,
+        simulation: {
+          connected: true
+        }
+      }),
+      supportedMessageTypes: ["ATTACK"],
+      recentEvents: () => [],
+      attackDebug: () => ({ controlPath: [], hotPath: [], slowOrWarn: [] }),
+      attackTraces: () => [],
+      metrics: () => "",
+      adminApiToken: "secret",
+      getCurrentSeasonSummary: async () => ({
+        season: "season-9",
+        seasonId: "season-9",
+        seasonSequence: 9,
+        status: "ended",
+        startedAt: 1_000,
+        endedAt: 2_000,
+        worldSeed: 99,
+        rulesetId: "seasonal-default",
+        seasonWinner: {
+          playerId: "player-1",
+          playerName: "Nauticus",
+          crownedAt: 2_000,
+          objectiveId: "TOWN_CONTROL",
+          objectiveName: "Town Control"
+        },
+        leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] },
+        overall: [],
+        byTiles: [],
+        byIncome: [],
+        byTechs: [],
+        seasonVictory: [],
+        onlinePlayers: 1,
+        totalPlayers: 3,
+        townCount: 12,
+        updatedAt: 2_000
+      }),
+      listSeasonArchives: async () => [
+        {
+          seasonId: "season-8",
+          seasonSequence: 8,
+          endedAt: 900,
+          updatedAt: 900,
+          mostTerritory: [],
+          mostPoints: [],
+          longestSurvivalMs: [],
+          replayEvents: []
+        }
+      ],
+      startNextSeason: async () => ({ seasonId: "season-10" })
+    });
+
+    const summaryResponse = await app.inject({ method: "GET", url: "/hq/summary" });
+    expect(summaryResponse.statusCode).toBe(200);
+    expect(summaryResponse.json()).toEqual(expect.objectContaining({ seasonId: "season-9", status: "ended" }));
+
+    const archivesResponse = await app.inject({ method: "GET", url: "/hq/archives" });
+    expect(archivesResponse.statusCode).toBe(200);
+    expect(archivesResponse.json()).toEqual({ archives: [expect.objectContaining({ seasonId: "season-8" })] });
+
+    const unauthorizedResponse = await app.inject({ method: "POST", url: "/admin/season/start-next" });
+    expect(unauthorizedResponse.statusCode).toBe(401);
+
+    const authorizedResponse = await app.inject({
+      method: "POST",
+      url: "/admin/season/start-next",
+      headers: { authorization: "Bearer secret" }
+    });
+    expect(authorizedResponse.statusCode).toBe(200);
+    expect(authorizedResponse.json()).toEqual({ ok: true, seasonId: "season-10" });
 
     await app.close();
   });
