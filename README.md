@@ -264,6 +264,8 @@ pnpm deploy:client:staging
 pnpm deploy:client:prod
 ```
 
+If an internal workflow or agent instruction says only "deploy" without naming an environment, interpret that as the staging step above, not a production release.
+
 Vercel env scopes:
 
 - Preview/staging deploy uses explicit build-time env from deploy script:
