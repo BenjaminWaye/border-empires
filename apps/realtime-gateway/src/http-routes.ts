@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
 
 type GatewayDebugEvent = {
   at: number;
@@ -48,13 +49,17 @@ type RegisterGatewayHttpRoutesDeps = {
   attackDebug: () => GatewayAttackDebug;
   attackTraces: () => GatewayAttackTrace[];
   metrics: () => string;
+  getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
+  listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
+  adminApiToken?: string;
 };
 
 const addCorsHeaders = (app: FastifyInstance): void => {
   app.addHook("onSend", async (_request, reply, payload) => {
     reply.header("Access-Control-Allow-Origin", "*");
-    reply.header("Access-Control-Allow-Methods", "GET,OPTIONS");
-    reply.header("Access-Control-Allow-Headers", "Content-Type, Accept");
+    reply.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    reply.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
     return payload;
   });
 
@@ -66,6 +71,11 @@ const addCorsHeaders = (app: FastifyInstance): void => {
 
 export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGatewayHttpRoutesDeps): void => {
   addCorsHeaders(app);
+
+  const adminAuthorized = (authorizationHeader: string | undefined): boolean => {
+    if (!deps.adminApiToken) return false;
+    return authorizationHeader === `Bearer ${deps.adminApiToken}`;
+  };
 
   const readHealth = () => {
     const health = deps.health();
@@ -116,4 +126,58 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     reply.header("Content-Type", "text/plain; version=0.0.4");
     return deps.metrics();
   });
+
+  app.get("/hq/summary", async (_request, reply) => {
+    try {
+      return await deps.getCurrentSeasonSummary();
+    } catch (error) {
+      reply.code(503);
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "failed to load current season summary"
+      };
+    }
+  });
+
+  app.get("/hq/archives", async (_request, reply) => {
+    try {
+      return {
+        archives: await deps.listSeasonArchives()
+      };
+    } catch (error) {
+      reply.code(503);
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "failed to load season archives"
+      };
+    }
+  });
+
+  app.post("/admin/season/start-next", async (request, reply) => {
+    const authorization = typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
+    if (!adminAuthorized(authorization)) {
+      reply.code(401);
+      return {
+        ok: false,
+        error: "unauthorized"
+      };
+    }
+
+    try {
+      const query = request.query as { force?: string | boolean | number } | undefined;
+      const result = await deps.startNextSeason(forceRequested(query?.force));
+      return {
+        ok: true,
+        seasonId: result.seasonId
+      };
+    } catch (error) {
+      reply.code(409);
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "failed to start next season"
+      };
+    }
+  });
 };
+  const forceRequested = (value: unknown): boolean =>
+    value === true || value === "true" || value === "1" || value === 1;

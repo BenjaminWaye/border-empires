@@ -22,6 +22,9 @@
  */
 
 import { parentPort } from "node:worker_threads";
+import type { EconomicStructureType } from "@border-empires/shared";
+import { buildAiTrainingRecord } from "./ai-training-records.js";
+import { createAiTrainingRecorder } from "./ai-training-recorder.js";
 import {
   createAutomationNoopDiagnostic,
   planAutomationCommand,
@@ -29,7 +32,7 @@ import {
 } from "./automation-command-planner.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
-import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
+import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thread");
@@ -37,11 +40,16 @@ if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thr
 let paused = false;
 const tilesByKey = new Map<string, PlannerTileView>();
 let dockLinksByDockTileKey = new Map<string, readonly string[]>();
+let plannerDocks: PlannerDockView[] = [];
 const playersById = new Map<string, PlannerPlayerView>();
+const aiTrainingRecorder = createAiTrainingRecorder(process.env.SIMULATION_AI_TRAINING_RECORD_PATH);
 const playerTileCacheById = new Map<string, {
   tileCollectionVersion: number;
   ownedTiles: PlannerTileView[];
   frontierTiles: PlannerTileView[];
+  hotFrontierTiles: PlannerTileView[];
+  strategicFrontierTiles: PlannerTileView[];
+  buildCandidateTiles: PlannerTileView[];
   pendingSettlementTileKeys: Set<string>;
 }>();
 
@@ -54,6 +62,10 @@ type SimulationTileDelta = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   townJson?: string | undefined;
+  fortJson?: string | undefined;
+  observatoryJson?: string | undefined;
+  siegeOutpostJson?: string | undefined;
+  economicStructureJson?: string | undefined;
 };
 
 const parseTownSupport = (
@@ -61,14 +73,57 @@ const parseTownSupport = (
 ): PlannerTileView["town"] | undefined => {
   if (typeof townJson !== "string") return undefined;
   try {
-    const parsed = JSON.parse(townJson) as { supportMax?: unknown; supportCurrent?: unknown };
+    const parsed = JSON.parse(townJson) as {
+      supportMax?: unknown;
+      supportCurrent?: unknown;
+      type?: unknown;
+      name?: unknown;
+      populationTier?: unknown;
+    };
     return {
       ...(typeof parsed.supportMax === "number" ? { supportMax: parsed.supportMax } : {}),
-      ...(typeof parsed.supportCurrent === "number" ? { supportCurrent: parsed.supportCurrent } : {})
+      ...(typeof parsed.supportCurrent === "number" ? { supportCurrent: parsed.supportCurrent } : {}),
+      ...(parsed.type === "MARKET" || parsed.type === "FARMING" ? { type: parsed.type } : {}),
+      ...(typeof parsed.name === "string" ? { name: parsed.name } : {}),
+      ...(parsed.populationTier === "SETTLEMENT" ||
+      parsed.populationTier === "TOWN" ||
+      parsed.populationTier === "CITY" ||
+      parsed.populationTier === "GREAT_CITY" ||
+      parsed.populationTier === "METROPOLIS"
+        ? { populationTier: parsed.populationTier }
+        : {})
     };
   } catch {
     return undefined;
   }
+};
+
+const parseOwnedStructure = (
+  raw: string | undefined
+): { ownerId?: string; status?: string; type?: string } | undefined => {
+  if (typeof raw !== "string") return undefined;
+  try {
+    const parsed = JSON.parse(raw) as { ownerId?: unknown; status?: unknown; type?: unknown };
+    return {
+      ...(typeof parsed.ownerId === "string" ? { ownerId: parsed.ownerId } : {}),
+      ...(typeof parsed.status === "string" ? { status: parsed.status } : {}),
+      ...(typeof parsed.type === "string" ? { type: parsed.type } : {})
+    };
+  } catch {
+    return undefined;
+  }
+};
+
+const parseEconomicStructure = (
+  raw: string | undefined
+): { ownerId?: string; status?: string; type?: EconomicStructureType } | undefined => {
+  const parsed = parseOwnedStructure(raw);
+  if (!parsed) return undefined;
+  return {
+    ...(parsed.ownerId ? { ownerId: parsed.ownerId } : {}),
+    ...(parsed.status ? { status: parsed.status } : {}),
+    ...(parsed.type ? { type: parsed.type as EconomicStructureType } : {})
+  };
 };
 
 const applyTileDelta = (delta: SimulationTileDelta): void => {
@@ -80,7 +135,7 @@ const applyTileDelta = (delta: SimulationTileDelta): void => {
 
   if (delta.terrain) next.terrain = delta.terrain;
   if ("resource" in delta) {
-    if (delta.resource) next.resource = delta.resource;
+    if (delta.resource) next.resource = delta.resource as PlannerTileView["resource"];
     else delete next.resource;
   }
   if ("dockId" in delta) {
@@ -92,13 +147,33 @@ const applyTileDelta = (delta: SimulationTileDelta): void => {
     else delete next.ownerId;
   }
   if ("ownershipState" in delta) {
-    if (delta.ownershipState) next.ownershipState = delta.ownershipState;
+    if (delta.ownershipState) next.ownershipState = delta.ownershipState as PlannerTileView["ownershipState"];
     else delete next.ownershipState;
   }
   if ("townJson" in delta) {
     const town = parseTownSupport(delta.townJson);
     if (town) next.town = town;
     else delete next.town;
+  }
+  if ("fortJson" in delta) {
+    const fort = parseOwnedStructure(delta.fortJson);
+    if (fort) next.fort = fort;
+    else delete next.fort;
+  }
+  if ("observatoryJson" in delta) {
+    const observatory = parseOwnedStructure(delta.observatoryJson);
+    if (observatory) next.observatory = observatory;
+    else delete next.observatory;
+  }
+  if ("siegeOutpostJson" in delta) {
+    const siegeOutpost = parseOwnedStructure(delta.siegeOutpostJson);
+    if (siegeOutpost) next.siegeOutpost = siegeOutpost;
+    else delete next.siegeOutpost;
+  }
+  if ("economicStructureJson" in delta) {
+    const economicStructure = parseEconomicStructure(delta.economicStructureJson);
+    if (economicStructure) next.economicStructure = economicStructure;
+    else delete next.economicStructure;
   }
 
   tilesByKey.set(key, next);
@@ -109,6 +184,9 @@ const resolvePlayerTiles = (
 ): {
   ownedTiles: PlannerTileView[];
   frontierTiles: PlannerTileView[];
+  hotFrontierTiles: PlannerTileView[];
+  strategicFrontierTiles: PlannerTileView[];
+  buildCandidateTiles: PlannerTileView[];
   pendingSettlementTileKeys: Set<string>;
 } => {
   const cached = playerTileCacheById.get(player.id);
@@ -116,6 +194,9 @@ const resolvePlayerTiles = (
     return {
       ownedTiles: cached.ownedTiles,
       frontierTiles: cached.frontierTiles,
+      hotFrontierTiles: cached.hotFrontierTiles,
+      strategicFrontierTiles: cached.strategicFrontierTiles,
+      buildCandidateTiles: cached.buildCandidateTiles,
       pendingSettlementTileKeys: cached.pendingSettlementTileKeys
     };
   }
@@ -126,15 +207,27 @@ const resolvePlayerTiles = (
   const frontierTiles = player.frontierTileKeys
     .map((k) => tilesByKey.get(k))
     .filter((t): t is PlannerTileView => t !== undefined);
+  const hotFrontierTiles = player.hotFrontierTileKeys
+    .map((k) => tilesByKey.get(k))
+    .filter((t): t is PlannerTileView => t !== undefined);
+  const strategicFrontierTiles = player.strategicFrontierTileKeys
+    .map((k) => tilesByKey.get(k))
+    .filter((t): t is PlannerTileView => t !== undefined);
+  const buildCandidateTiles = player.buildCandidateTileKeys
+    .map((k) => tilesByKey.get(k))
+    .filter((t): t is PlannerTileView => t !== undefined);
   const pendingSettlementTileKeys = new Set(player.pendingSettlementTileKeys);
 
   playerTileCacheById.set(player.id, {
     tileCollectionVersion: player.tileCollectionVersion,
     ownedTiles,
     frontierTiles,
+    hotFrontierTiles,
+    strategicFrontierTiles,
+    buildCandidateTiles,
     pendingSettlementTileKeys
   });
-  return { ownedTiles, frontierTiles, pendingSettlementTileKeys };
+  return { ownedTiles, frontierTiles, hotFrontierTiles, strategicFrontierTiles, buildCandidateTiles, pendingSettlementTileKeys };
 };
 
 const emitDiagnostic = (sample: {
@@ -171,7 +264,7 @@ const choosePlannerCommand = (
     };
   }
   const resolveTilesStartedAt = Date.now();
-  const { frontierTiles, ownedTiles, pendingSettlementTileKeys } = resolvePlayerTiles(player);
+  const { frontierTiles, ownedTiles, hotFrontierTiles, strategicFrontierTiles, buildCandidateTiles, pendingSettlementTileKeys } = resolvePlayerTiles(player);
   emitDiagnostic({
     phase: "resolve_player_tiles",
     durationMs: Math.max(0, Date.now() - resolveTilesStartedAt),
@@ -183,9 +276,17 @@ const choosePlannerCommand = (
     playerId,
     points: player.points,
     manpower: player.manpower,
+    ...(player.techIds ? { techIds: player.techIds } : {}),
+    ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),
+    ...(typeof player.settledTileCount === "number" ? { settledTileCount: player.settledTileCount } : {}),
+    ...(typeof player.townCount === "number" ? { townCount: player.townCount } : {}),
+    ...(typeof player.incomePerMinute === "number" ? { incomePerMinute: player.incomePerMinute } : {}),
     hasActiveLock: player.hasActiveLock,
     activeDevelopmentProcessCount: player.activeDevelopmentProcessCount,
     frontierTiles,
+    hotFrontierTiles,
+    strategicFrontierTiles,
+    buildCandidateTiles,
     ownedTiles,
     tilesByKey,
     dockLinksByDockTileKey,
@@ -211,6 +312,22 @@ const choosePlannerCommand = (
       });
     }
   });
+  aiTrainingRecorder.record(
+    buildAiTrainingRecord({
+      player,
+      issuedAt,
+      clientSeq,
+      ownedTiles,
+      frontierTiles,
+      hotFrontierTiles,
+      strategicFrontierTiles,
+      buildCandidateTiles,
+      pendingSettlementTileKeys,
+      ...(plannerDocks.length ? { docks: plannerDocks } : {}),
+      ...(plan.command ? { command: plan.command } : {}),
+      diagnostic: plan.diagnostic
+    })
+  );
   emitDiagnostic({
     phase: "planner_total",
     durationMs: Math.max(0, Date.now() - plannerStartedAt),
@@ -240,7 +357,9 @@ parentPort.on("message", (msg: unknown) => {
       break;
 
     case "shutdown":
-      process.exit(0);
+      void aiTrainingRecorder.flush().finally(() => {
+        process.exit(0);
+      });
       break;
 
     case "plan": {
@@ -270,10 +389,14 @@ parentPort.on("message", (msg: unknown) => {
       tilesByKey.clear();
       playersById.clear();
       playerTileCacheById.clear();
+      plannerDocks = (worldView.docks ?? []).map((dock) => ({
+        ...dock,
+        ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+      }));
       for (const tile of worldView.tiles) {
         tilesByKey.set(`${tile.x},${tile.y}`, tile);
       }
-      dockLinksByDockTileKey = buildDockLinksByDockTileKey((worldView.docks ?? []) as DockRouteDefinition[]);
+      dockLinksByDockTileKey = buildDockLinksByDockTileKey(plannerDocks as DockRouteDefinition[]);
       for (const player of worldView.players) {
         playersById.set(player.id, player);
       }

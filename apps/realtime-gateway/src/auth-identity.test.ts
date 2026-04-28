@@ -50,11 +50,13 @@ describe("resolveGatewayAuthIdentity", () => {
     });
   });
 
-  it("falls back to a shortened safe label for long opaque tokens", () => {
+  it("anonymizes opaque auth tokens instead of leaking the raw id", () => {
     const token = "abcdefghijklmnopqrstuvwxyz0123456789";
-    expect(resolveGatewayAuthIdentity(token)).toEqual({
-      playerId: token,
-      playerName: "abcdefghijkl...23456789"
-    });
+    expect(resolveGatewayAuthIdentity(token)).toEqual(
+      expect.objectContaining({
+        playerId: token,
+        playerName: expect.stringMatching(/^Empire [0-9A-Z]{6}$/)
+      })
+    );
   });
 });

@@ -108,14 +108,20 @@ Useful read points:
 For rewrite localhost stress testing with a durable DB-backed 20-AI world on `http://localhost:5173`, run:
 
 ```bash
-pnpm rewrite:restart:20ai
+DATABASE_URL="postgres://USER@127.0.0.1:5432/border_empires_local?sslmode=disable" pnpm rewrite:restart:20ai
 ```
+
+If `DATABASE_URL` is unset, the helper falls back to the older Fly proxy path and expects a reachable Fly app name in `DB_PROXY_APP`.
 
 For an explicit fresh-world reseed instead of durable recovery, run:
 
 ```bash
-pnpm rewrite:restart:20ai:seed
+DATABASE_URL="postgres://USER@127.0.0.1:5432/border_empires_local?sslmode=disable" pnpm rewrite:restart:20ai:seed
 ```
+
+`rewrite:restart:20ai:seed` is the explicit localhost-only bootstrap path for an empty DB. It enables seed recovery fallback and disables strict durable-startup requirements for that run only.
+
+When `DATABASE_URL` points at `127.0.0.1` or `localhost`, the seed helper also clears the local simulation tables first so it really starts from a fresh seeded world instead of recovering old local events.
 
 ## Rewrite DB Operations (Supabase)
 

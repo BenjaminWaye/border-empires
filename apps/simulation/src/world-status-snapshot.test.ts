@@ -125,4 +125,33 @@ describe("buildWorldStatusSnapshot", () => {
 
     expect(snapshot.leaderboard.overall[0]?.name).toBe("Nauticus");
   });
+
+  it("anonymizes opaque human auth ids in leaderboard output", () => {
+    const runtimeState = {
+      tiles: [],
+      players: [
+        {
+          id: "orz1OiQwxGS5LKwcAwG5wzNCd3P2",
+          name: "orz1OiQwxGS5LKwcAwG5wzNCd3P2",
+          points: 100,
+          incomePerMinute: 1,
+          settledTileCount: 1,
+          techIds: [],
+          domainIds: [],
+          strategicResources: {},
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: []
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    } as ReturnType<SimulationRuntime["exportState"]>;
+
+    const snapshot = buildWorldStatusSnapshot("orz1OiQwxGS5LKwcAwG5wzNCd3P2", runtimeState);
+
+    expect(snapshot.leaderboard.overall[0]?.name).toMatch(/^Empire [0-9A-Z]{6}$/);
+    expect(snapshot.leaderboard.overall[0]?.name).not.toBe("orz1OiQwxGS5LKwcAwG5wzNCd3P2");
+  });
 });

@@ -47,7 +47,10 @@ export interface CreateServerAiFrontierSettlementDeps {
   ) => number;
   bestAiIslandFocusTargetId: (
     actor: Player,
-    territorySummary: Pick<AiTerritorySummary, "expandCandidates" | "frontierTiles" | "islandProgress" | "islandFocusTargetId">
+    territorySummary: Pick<
+      AiTerritorySummary,
+      "expandCandidates" | "activeExpandCandidates" | "frontierTiles" | "strategicFrontierTiles" | "islandProgress" | "islandFocusTargetId"
+    >
   ) => number | undefined;
   aiEconomyPriorityState: (
     actor: Player,
@@ -273,7 +276,9 @@ export const createServerAiFrontierSettlementRuntime = (
   ): { from: Tile; to: Tile } | undefined => {
     const { economyWeak, foodCoverageLow } = deps.aiEconomyPriorityState(actor, territorySummary);
     let best: { score: number; from: Tile; to: Tile } | undefined;
-    for (const { from, to } of territorySummary.expandCandidates) {
+    const frontierCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { from, to } of frontierCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const evaluation = evaluateAiSettlementCandidate(actor, to, victoryPath, new Set<TileKey>([deps.key(to.x, to.y)]), territorySummary);
       if (!evaluation.supportsImmediatePlan || ((economyWeak || foodCoverageLow) && !evaluation.isEconomicallyInteresting)) continue;
@@ -292,7 +297,9 @@ export const createServerAiFrontierSettlementRuntime = (
     territorySummary = deps.collectAiTerritorySummary(actor)
   ): { from: Tile; to: Tile } | undefined => {
     let best: { score: number; from: Tile; to: Tile } | undefined;
-    for (const { from, to } of territorySummary.expandCandidates) {
+    const frontierCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { from, to } of frontierCandidates) {
       if (to.terrain !== "LAND" || to.ownerId || !isAiVisibleEconomicFrontierTile(actor, to, territorySummary)) continue;
       const score = 260 + deps.aiEconomicFrontierSignal(actor, to, territorySummary.visibility, territorySummary.foodPressure, territorySummary) + (from.ownershipState === "SETTLED" ? 6 : 0);
       if (!best || score > best.score) best = { score, from, to };
@@ -307,7 +314,9 @@ export const createServerAiFrontierSettlementRuntime = (
     const focusIslandId = deps.bestAiIslandFocusTargetId(actor, territorySummary);
     const { islandIdByTile } = deps.islandMap();
     let best: { score: number; from: Tile; to: Tile } | undefined;
-    for (const { from, to } of territorySummary.expandCandidates) {
+    const frontierCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { from, to } of frontierCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const islandId = islandIdByTile.get(deps.key(to.x, to.y));
       if (focusIslandId !== undefined && islandId !== focusIslandId) continue;

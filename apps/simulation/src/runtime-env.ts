@@ -1,4 +1,5 @@
 import { parseSimulationSeedProfile, type SimulationSeedProfile } from "./seed-state.js";
+import type { SimulationRulesetId } from "./season-worldgen.js";
 
 export type SimulationRuntimeEnv = {
   host: string;
@@ -14,6 +15,7 @@ export type SimulationRuntimeEnv = {
   checkpointMaxHeapUsedBytes?: number;
   startupReplayCompactionMinEvents: number;
   seedProfile: SimulationSeedProfile;
+  rulesetId?: SimulationRulesetId;
   enableAiAutopilot: boolean;
   aiTickMs: number;
   aiMaxEventLoopLagMs: number;
@@ -23,6 +25,7 @@ export type SimulationRuntimeEnv = {
   systemPlayerIds?: string[];
   startupRecoveryTimeoutMs: number;
   allowSeedRecoveryFallback: boolean;
+  requireDurableStartupState?: boolean;
   /** When true, AI/system planning runs in worker threads off the main event loop. */
   useAiWorker: boolean;
 };
@@ -47,8 +50,8 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   if (isManagedRuntime && !databaseUrl) {
     throw new Error("simulation requires SIMULATION_DATABASE_URL or DATABASE_URL in managed runtime");
   }
-  if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE) {
-    throw new Error("simulation requires SIMULATION_SEED_PROFILE in managed runtime");
+  if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE && !env.SIMULATION_RULESET_ID) {
+    throw new Error("simulation requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   }
 
   const systemPlayerIds = env.SIMULATION_SYSTEM_PLAYER_IDS
@@ -57,9 +60,12 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   const checkpointMaxRssMb = env.SIMULATION_CHECKPOINT_MAX_RSS_MB;
   const checkpointMaxHeapUsedMb = env.SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB;
   const allowSeedRecoveryFallback =
-    !isManagedRuntime &&
     env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK === "1" &&
-    !databaseUrl;
+    Boolean(env.SIMULATION_SEED_PROFILE);
+  const requireDurableStartupState =
+    env.SIMULATION_REQUIRE_DURABLE_STARTUP_STATE === undefined
+      ? undefined
+      : env.SIMULATION_REQUIRE_DURABLE_STARTUP_STATE !== "0";
 
   return {
     host: env.SIMULATION_HOST ?? "127.0.0.1",
@@ -93,7 +99,8 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
             parsePositiveNumber(checkpointMaxHeapUsedMb, 0, "simulation checkpoint heap-used limit") * 1024 * 1024
         }
       : {}),
-    seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE),
+    seedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
+    ...(env.SIMULATION_RULESET_ID ? { rulesetId: env.SIMULATION_RULESET_ID as SimulationRulesetId } : {}),
     enableAiAutopilot: env.SIMULATION_ENABLE_AI_AUTOPILOT === "1",
     aiTickMs: parsePositiveNumber(env.SIMULATION_AI_TICK_MS, 250, "simulation ai tick"),
     aiMaxEventLoopLagMs: parsePositiveNumber(
@@ -114,6 +121,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       "simulation startup recovery timeout"
     ),
     allowSeedRecoveryFallback,
+    ...(typeof requireDurableStartupState === "boolean" ? { requireDurableStartupState } : {}),
     useAiWorker: env.SIMULATION_AI_WORKER === "1",
     ...(systemPlayerIds && systemPlayerIds.length > 0 ? { systemPlayerIds } : {})
   };

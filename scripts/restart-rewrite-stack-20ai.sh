@@ -8,6 +8,7 @@ DB_USER="${DB_USER:-rewrite_proof}"
 DB_PASSWORD="${DB_PASSWORD:-rewrite_proof_pw}"
 DB_NAME="${DB_NAME:-rewrite_local_20ai}"
 DB_APPLY_SCHEMA="${DB_APPLY_SCHEMA:-1}"
+DIRECT_DATABASE_URL="${DATABASE_URL:-${SIMULATION_DATABASE_URL:-${GATEWAY_DATABASE_URL:-}}}"
 
 kill_match() {
   local pattern="$1"
@@ -47,6 +48,9 @@ kill_match "border-empires/apps/simulation/src/main.ts"
 kill_match "border-empires/apps/realtime-gateway/src/main.ts"
 kill_match "border-empires/apps/simulation/dist/apps/simulation/src/main.js"
 kill_match "border-empires/apps/realtime-gateway/dist/apps/realtime-gateway/src/main.js"
+kill_match "pnpm --parallel --filter @border-empires/simulation --filter @border-empires/realtime-gateway --filter @border-empires/client dev"
+kill_match "apps/simulation/node_modules/.bin/../tsx/dist/cli.mjs watch src/main.ts"
+kill_match "apps/realtime-gateway/node_modules/.bin/../tsx/dist/cli.mjs watch src/main.ts"
 kill_match "vite --host 0.0.0.0 --port 5173 --strictPort"
 kill_match "border-empires/packages/client"
 kill_match "fly proxy ${DB_PROXY_PORT}:5432 -a ${DB_PROXY_APP}"
@@ -60,6 +64,8 @@ wait_port_free 3101
 wait_port_free 5173
 wait_port_free "${DB_PROXY_PORT}"
 
+cd "${ROOT_DIR}"
+
 cleanup() {
   if [[ -n "${proxy_pid:-}" ]]; then
     kill "${proxy_pid}" 2>/dev/null || true
@@ -68,33 +74,38 @@ cleanup() {
 
 trap cleanup EXIT
 
-cd "${ROOT_DIR}"
+if [[ -n "${DIRECT_DATABASE_URL}" ]]; then
+  DATABASE_URL="${DIRECT_DATABASE_URL}"
+  echo "Using direct DATABASE_URL for durable rewrite localhost stack"
+else
+  echo "Starting Fly Postgres proxy on localhost:${DB_PROXY_PORT} for ${DB_PROXY_APP}"
+  fly proxy "${DB_PROXY_PORT}:5432" -a "${DB_PROXY_APP}" >/tmp/border-empires-rewrite-db-proxy.log 2>&1 &
+  proxy_pid=$!
 
-echo "Starting Fly Postgres proxy on localhost:${DB_PROXY_PORT} for ${DB_PROXY_APP}"
-fly proxy "${DB_PROXY_PORT}:5432" -a "${DB_PROXY_APP}" >/tmp/border-empires-rewrite-db-proxy.log 2>&1 &
-proxy_pid=$!
+  proxy_attempts=50
+  while (( proxy_attempts > 0 )); do
+    if lsof -ti tcp:"${DB_PROXY_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+      break
+    fi
+    if ! kill -0 "${proxy_pid}" 2>/dev/null; then
+      echo "Fly Postgres proxy exited early."
+      cat /tmp/border-empires-rewrite-db-proxy.log
+      echo ""
+      echo "Set DATABASE_URL to your rewrite Postgres connection string to skip Fly proxy."
+      exit 1
+    fi
+    sleep 0.2
+    proxy_attempts=$((proxy_attempts - 1))
+  done
 
-proxy_attempts=50
-while (( proxy_attempts > 0 )); do
-  if lsof -ti tcp:"${DB_PROXY_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
-    break
-  fi
-  if ! kill -0 "${proxy_pid}" 2>/dev/null; then
-    echo "Fly Postgres proxy exited early."
+  if (( proxy_attempts == 0 )); then
+    echo "Timed out waiting for Fly Postgres proxy on port ${DB_PROXY_PORT}."
     cat /tmp/border-empires-rewrite-db-proxy.log
     exit 1
   fi
-  sleep 0.2
-  proxy_attempts=$((proxy_attempts - 1))
-done
 
-if (( proxy_attempts == 0 )); then
-  echo "Timed out waiting for Fly Postgres proxy on port ${DB_PROXY_PORT}."
-  cat /tmp/border-empires-rewrite-db-proxy.log
-  exit 1
+  DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PROXY_PORT}/${DB_NAME}?sslmode=disable"
 fi
-
-DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PROXY_PORT}/${DB_NAME}?sslmode=disable"
 
 echo "Booting durable rewrite localhost stack against ${DB_NAME}"
 GATEWAY_DATABASE_URL="${DATABASE_URL}" \

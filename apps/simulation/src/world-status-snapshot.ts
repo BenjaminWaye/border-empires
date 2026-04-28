@@ -1,6 +1,8 @@
 import type { SimulationRuntime } from "./runtime.js";
 import { estimateIncomePerMinuteFromTiles } from "./player-runtime-summary.js";
 import {
+  anonymizedEmpireNameForId,
+  isOpaquePlayerId,
   type ResourceType,
   type SeasonVictoryPathId
 } from "@border-empires/shared";
@@ -37,6 +39,7 @@ const displayNameForPlayer = (playerId: string, fallbackName?: string): string =
   if (playerId === "barbarian-1") return "Barbarians";
   if (playerId === "player-1") return "Nauticus";
   if (playerId.startsWith("ai-")) return `AI ${playerId.slice(3)}`;
+  if (isOpaquePlayerId(playerId)) return anonymizedEmpireNameForId(playerId);
   return fallbackName ?? playerId;
 };
 

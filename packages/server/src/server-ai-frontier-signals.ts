@@ -60,7 +60,10 @@ export interface ServerAiFrontierSignalsRuntime {
   ) => number;
   bestAiIslandFocusTargetId: (
     actor: Player,
-    territorySummary: Pick<AiTerritorySummary, "expandCandidates" | "frontierTiles" | "islandProgress" | "islandFocusTargetId">
+    territorySummary: Pick<
+      AiTerritorySummary,
+      "expandCandidates" | "activeExpandCandidates" | "frontierTiles" | "strategicFrontierTiles" | "islandProgress" | "islandFocusTargetId"
+    >
   ) => number | undefined;
   aiDockStrategicSignal: (
     actor: Player,
@@ -198,17 +201,24 @@ export const createServerAiFrontierSignalsRuntime = (
 
   const bestAiIslandFocusTargetId = (
     actor: Player,
-    territorySummary: Pick<AiTerritorySummary, "expandCandidates" | "frontierTiles" | "islandProgress" | "islandFocusTargetId">
+    territorySummary: Pick<
+      AiTerritorySummary,
+      "expandCandidates" | "activeExpandCandidates" | "frontierTiles" | "strategicFrontierTiles" | "islandProgress" | "islandFocusTargetId"
+    >
   ): number | undefined => {
     if (territorySummary.islandFocusTargetId !== undefined) return territorySummary.islandFocusTargetId;
     const progress = cachedAiIslandProgress(actor, territorySummary);
     const { islandIdByTile } = deps.islandMap();
     const candidateIslandIds = new Set<number>();
-    for (const tile of territorySummary.frontierTiles) {
+    const settlementFrontierTiles =
+      territorySummary.strategicFrontierTiles.length > 0 ? territorySummary.strategicFrontierTiles : territorySummary.frontierTiles;
+    for (const tile of settlementFrontierTiles) {
       const islandId = islandIdByTile.get(deps.key(tile.x, tile.y));
       if (islandId !== undefined) candidateIslandIds.add(islandId);
     }
-    for (const { to } of territorySummary.expandCandidates) {
+    const frontierCandidates =
+      territorySummary.activeExpandCandidates.length > 0 ? territorySummary.activeExpandCandidates : territorySummary.expandCandidates;
+    for (const { to } of frontierCandidates) {
       if (to.terrain !== "LAND" || to.ownerId) continue;
       const islandId = islandIdByTile.get(deps.key(to.x, to.y));
       if (islandId !== undefined) candidateIslandIds.add(islandId);
