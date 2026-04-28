@@ -229,14 +229,17 @@ type SimulationRuntimeOptions = {
   maxPlayerSeqReplayEntries?: number;
 };
 
-const createPlayersFromRecoveredState = (initialState?: RecoveredSimulationState): Map<string, RuntimePlayer> | undefined => {
+const createPlayersFromRecoveredState = (
+  initialState?: RecoveredSimulationState,
+  fallbackPlayers?: ReadonlyMap<string, RuntimePlayer>
+): Map<string, RuntimePlayer> | undefined => {
   if (!initialState?.players || initialState.players.length === 0) return undefined;
   return new Map(
     initialState.players.map((player) => [
       player.id,
       {
         id: player.id,
-        isAi: player.isAi ?? false,
+        isAi: player.isAi ?? fallbackPlayers?.get(player.id)?.isAi ?? false,
         name: player.name ?? player.id,
         points: player.points ?? 0,
         manpower: player.manpower ?? MANPOWER_BASE_CAP,
@@ -564,7 +567,9 @@ export class SimulationRuntime {
     this.scheduleAfter = options.scheduleAfter ?? ((delayMs, task) => void setTimeout(task, delayMs));
     this.commandTrace = options.commandTrace;
     this.onQueueDrain = options.onQueueDrain;
-    this.players = createPlayersFromRecoveredState(options.initialState) ?? (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
+    this.players =
+      createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
+      (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
     for (const player of this.players.values()) this.applyManpowerRegen(player);
     this.tiles = createTilesFromInitialState(
       options.initialState,

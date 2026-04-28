@@ -252,6 +252,43 @@ describe("worker AI command producer pause/resume", () => {
     );
   });
 
+  it("records worker planner errors as planner_error no-ops", async () => {
+    const runtime = makeRuntime(0);
+    const onNoCommand = vi.fn();
+    const originalPostMessage = MockWorker.prototype.postMessage;
+    MockWorker.prototype.postMessage = function (msg: WorkerMessage) {
+      if (msg.type === "plan") {
+        queueMicrotask(() => {
+          this.emit("message", {
+            type: "error",
+            playerId: msg.playerId,
+            message: "planner exploded"
+          });
+        });
+        return;
+      }
+      originalPostMessage.call(this, msg);
+    };
+
+    const producer = createWorkerAiCommandProducer({
+      runtime: runtime.runtime,
+      aiPlayerIds: ["ai-1"],
+      submitCommand: async () => undefined,
+      onNoCommand,
+      tickIntervalMs: 10_000,
+      workerScriptPath: "unused-by-mock.js"
+    });
+
+    await producer.tick();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    producer.close();
+    MockWorker.prototype.postMessage = originalPostMessage;
+
+    expect(onNoCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ playerId: "ai-1", noCommandReason: "planner_error" })
+    );
+  });
+
   it("forwards granular worker phase diagnostics to the callback", async () => {
     const runtime = makeRuntime(0);
     const onDiagnostic = vi.fn();
