@@ -135,8 +135,23 @@ const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResou
     accumulateEconomyBucket(sinks, contributor.label, contributor.amountPerMinute);
     if (contributor.note) setEconomyBucketNote(sinks, contributor.label, contributor.note);
   }
+  const sourceBuckets = [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
+  if (sourceBuckets.length === 0) {
+    const gross =
+      resource === "GOLD"
+        ? args.incomePerMinute
+        : args.strategicProductionPerMinute[resource];
+    if (gross > 0.0001) {
+      sourceBuckets.push({
+        label: resource === "GOLD" ? "Live empire income" : `${args.prettyToken(resource)} production`,
+        amountPerMinute: gross,
+        count: 1,
+        note: "Detailed source rows are still catching up on this session."
+      });
+    }
+  }
   return {
-    sources: [...sources.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label)),
+    sources: sourceBuckets,
     sinks: [...sinks.values()].sort((a, b) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label))
   };
 };

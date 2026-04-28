@@ -1,12 +1,22 @@
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { ClientState } from "./client-state.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
+import {
+  applyGatewayRecoveryNextClientSeq,
+  bindQueuedFrontierCommandIdentity,
+  matchesCurrentFrontierCommand
+} from "./client-frontier-command.js";
+import { clearFrontierStatusAlert } from "./client-frontier-status.js";
+import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate } from "./client-gateway-sync.js";
+import { revealEmpireStatsFeedText } from "./client-empire-intel.js";
 import { applyTechUpdateToState } from "./client-tech-update-state.js";
-import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
-import { queueDevelopmentAction } from "./client-queue-logic.js";
+import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug.js";
+import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule } from "./client-queue-logic.js";
+import { restorePersistedDevelopmentQueueForPlayer } from "./client-development-queue.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   wsUrl: string;
   firebaseAuth?: any;
 };
@@ -64,18 +74,103 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     revertOptimisticVisibleCollectDelta,
     revertOptimisticTileCollectDelta,
     clearPendingCollectTileDelta,
-    playerNameForOwner
+    playerNameForOwner,
+    applyOptimisticTileState
   } = deps;
-  const tileSyncDebugEnabled = (): boolean =>
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.hostname === "0.0.0.0" ||
-      window.localStorage.getItem("tile-sync-debug") === "1");
-
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
+  };
+  const frontierQueueDebug = (event: string, payload: Record<string, unknown> = {}): void => {
+    const activeFrontierContext =
+      state.actionInFlight || state.actionQueue.length > 0 || state.queuedTargetKeys.size > 0 || Boolean(state.actionTargetKey);
+    if (!activeFrontierContext && payload.force !== true) return;
+    const currentAction = state.actionCurrent
+      ? {
+          x: state.actionCurrent.x,
+          y: state.actionCurrent.y,
+          actionType: state.actionCurrent.actionType,
+          commandId: state.actionCurrent.commandId,
+          clientSeq: state.actionCurrent.clientSeq,
+          retries: state.actionCurrent.retries
+        }
+      : undefined;
+    const captureTarget = state.capture ? { x: state.capture.target.x, y: state.capture.target.y, resolvesAt: state.capture.resolvesAt } : undefined;
+    const queuedActions = state.actionQueue.map((entry) => ({
+      x: entry.x,
+      y: entry.y,
+      mode: entry.mode ?? "normal",
+      retries: entry.retries ?? 0
+    }));
+    console.info("[frontier-queue-debug]", event, {
+      actionInFlight: state.actionInFlight,
+      actionTargetKey: state.actionTargetKey,
+      actionAcceptedAck: state.actionAcceptedAck,
+      combatStartAck: state.combatStartAck,
+      actionStartedAt: state.actionStartedAt,
+      currentAction,
+      queuedTargetKeys: [...state.queuedTargetKeys],
+      queuedActions,
+      captureTarget,
+      ...payload
+    });
+  };
+  const logIncomingTechPayload = (
+    source: "INIT" | "PLAYER_UPDATE" | "TECH_UPDATE",
+    payload: {
+      techIds?: unknown;
+      techChoices?: unknown;
+      nextChoices?: unknown;
+      techCatalog?: unknown;
+      currentResearch?: unknown;
+      techRootId?: unknown;
+      availableTechPicks?: unknown;
+    }
+  ): void => {
+    const techIds = Array.isArray(payload.techIds) ? [...payload.techIds] : undefined;
+    const techChoicesSource = Array.isArray(payload.techChoices)
+      ? payload.techChoices
+      : Array.isArray(payload.nextChoices)
+        ? payload.nextChoices
+        : undefined;
+    const techChoices = Array.isArray(techChoicesSource) ? [...techChoicesSource] : undefined;
+    const techCatalog = Array.isArray(payload.techCatalog)
+      ? payload.techCatalog.map((entry) => {
+          if (!entry || typeof entry !== "object") return entry;
+          const tech = entry as {
+            id?: unknown;
+            name?: unknown;
+            tier?: unknown;
+            rootId?: unknown;
+            requires?: unknown;
+            prereqIds?: unknown;
+            requirements?: { canResearch?: unknown } | undefined;
+          };
+          return {
+            id: tech.id,
+            name: tech.name,
+            tier: tech.tier,
+            rootId: tech.rootId,
+            requires: tech.requires,
+            prereqIds: Array.isArray(tech.prereqIds) ? [...tech.prereqIds] : tech.prereqIds,
+            canResearch: tech.requirements?.canResearch
+          };
+        })
+      : undefined;
+    console.info(`[tech] ${source} payload`, {
+      hasTechIds: Array.isArray(payload.techIds),
+      hasTechChoices: Array.isArray(payload.techChoices) || Array.isArray(payload.nextChoices),
+      hasTechCatalog: Array.isArray(payload.techCatalog),
+      techIdsCount: techIds?.length ?? 0,
+      techChoicesCount: techChoices?.length ?? 0,
+      techCatalogCount: techCatalog?.length ?? 0,
+      techIds,
+      techChoices,
+      techCatalog,
+      techRootId: payload.techRootId,
+      currentResearch: payload.currentResearch,
+      availableTechPicks: payload.availableTechPicks
+    });
   };
   const shouldResetFrontierActionStateForError =
     typeof deps.shouldResetFrontierActionStateForError === "function"
@@ -95,6 +190,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
               return true;
           }
         };
+  const appendFeedEntry =
+    typeof pushFeedEntry === "function"
+      ? pushFeedEntry
+      : (entry: { text: string; type?: string; severity?: string }) =>
+          pushFeed(entry.text, (entry.type as any) ?? "info", (entry.severity as any) ?? "info");
 
   const maybeRequestTileDetail = (tile: any): void => {
     if (typeof deps.requestTileDetailIfNeeded !== "function") return;
@@ -140,9 +240,220 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
   };
 
+  const logFrontierTimeline = (
+    scope: string,
+    x: number,
+    y: number,
+    args: {
+      before?: any;
+      incoming?: any;
+      after?: any;
+      extra?: Record<string, unknown>;
+      throttleKey?: string;
+      minIntervalMs?: number;
+    }
+  ): void => {
+    const timelineArgs = {
+      x,
+      y,
+      before: args.before,
+      incoming: args.incoming,
+      after: args.after,
+      state,
+      keyFor,
+      ...(args.extra ? { extra: args.extra } : {}),
+      ...(args.throttleKey ? { throttleKey: args.throttleKey } : {}),
+      ...(typeof args.minIntervalMs === "number" ? { minIntervalMs: args.minIntervalMs } : {})
+    };
+    debugTileTimeline(scope, timelineArgs);
+  };
+
   let reconnectReloadTimer: number | undefined;
   let authReconnectTimer: number | undefined;
   let deferredBootstrapRefreshTimer: number | undefined;
+  const authProgressIntervalMs = 5000;
+  const authProgressIntervalId =
+    typeof globalThis.setInterval === "function"
+      ? globalThis.setInterval(() => {
+          if (!state.authBusy || state.authSessionReady || state.authBusyStartedAt <= 0) return;
+          const elapsedMs = Date.now() - state.authBusyStartedAt;
+          const elapsedSec = Math.max(0, Math.floor(elapsedMs / 1000));
+          const payload = {
+            elapsedSec,
+            connection: state.connection,
+            title: state.authBusyTitle,
+            detail: state.authBusyDetail,
+            wsReadyState: ws.readyState
+          };
+          recordClientDebugEvent("info", "auth-progress", "waiting", payload);
+          console.info("[auth-progress] waiting", payload);
+        }, authProgressIntervalMs)
+      : undefined;
+
+  const setAuthBusy = (busy: boolean): void => {
+    state.authBusy = busy;
+    state.authBusyStartedAt = busy ? (state.authBusyStartedAt || Date.now()) : 0;
+  };
+  let lastBackendUnavailableAlertAt = 0;
+
+  const clearSettlementProgressSafely = (tileKey: string): void => {
+    if (!tileKey) return;
+    if (typeof clearSettlementProgressByKey === "function") {
+      clearSettlementProgressByKey(tileKey);
+      return;
+    }
+    clearSettlementProgressByKeyFromModule(state, tileKey, { clearOptimisticTileState: (key) => clearOptimisticTileState(key, true) });
+  };
+
+  const clearOptimisticTileStateSafely = (tileKey: string, revert = false): void => {
+    if (!tileKey || typeof clearOptimisticTileState !== "function") return;
+    clearOptimisticTileState(tileKey, revert);
+  };
+
+  const showCaptureAlertSafely = (
+    title: string,
+    detail: string,
+    tone: "info" | "success" | "warn" | "error",
+    manpowerLoss?: number
+  ): void => {
+    if (typeof showCaptureAlert !== "function") return;
+    showCaptureAlert(title, detail, tone, manpowerLoss);
+  };
+
+  const pushFeedSafely = (
+    message: string,
+    type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech",
+    severity?: "info" | "success" | "warn" | "error"
+  ): void => {
+    if (typeof pushFeed !== "function") return;
+    pushFeed(message, type, severity);
+  };
+
+  const explainActionFailureSafely = (
+    code: string,
+    message: string,
+    opts?: {
+      cooldownRemainingMs?: number;
+      formatCooldownShort?: (ms: number) => string;
+    }
+  ): string =>
+    typeof explainActionFailure === "function" ? explainActionFailure(code, message, opts) : message || "Action failed";
+
+  const requestViewRefreshSafely = (radius?: number, force?: boolean): void => {
+    if (typeof requestViewRefresh !== "function") return;
+    requestViewRefresh(radius, force);
+  };
+
+  const shouldShowBackendUnavailableAlert = (): boolean => {
+    const now = Date.now();
+    if (now - lastBackendUnavailableAlertAt < 2_000) return false;
+    lastBackendUnavailableAlertAt = now;
+    return true;
+  };
+
+  const lateFrontierAckPending = (tileKey: string): boolean => (state.frontierLateAckUntilByTarget.get(tileKey) ?? 0) > Date.now();
+
+  const clearLateFrontierAck = (tileKey: string): void => {
+    if (!tileKey) return;
+    state.frontierLateAckUntilByTarget.delete(tileKey);
+  };
+
+  const currentActionCanResolveFromFrontierOwnership = (targetKey: string): boolean => {
+    if (!state.actionInFlight || !state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) return false;
+    return state.actionCurrent.actionType === "EXPAND";
+  };
+
+  const rebindLateFrontierAck = (
+    target: { x: number; y: number },
+    source: "ACTION_ACCEPTED" | "COMBAT_START",
+    actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK"
+  ): void => {
+    const targetKey = keyFor(target.x, target.y);
+    const lateAckUntil = state.frontierLateAckUntilByTarget.get(targetKey) ?? 0;
+    if (!lateFrontierAckPending(targetKey)) return;
+    state.actionInFlight = true;
+    state.actionTargetKey = targetKey;
+    if (!state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) !== targetKey) {
+      state.actionCurrent = { x: target.x, y: target.y, retries: 0, ...(actionType ? { actionType } : {}) };
+    } else if (actionType) {
+      state.actionCurrent.actionType = actionType;
+    }
+    if (!state.actionStartedAt) state.actionStartedAt = Date.now();
+    clearLateFrontierAck(targetKey);
+    attackSyncLog("late-frontier-ack-rebound", {
+      source,
+      target,
+      targetKey,
+      lateAckWaitRemainingMs: Math.max(0, lateAckUntil - Date.now())
+    });
+  };
+
+  const applyAcceptedExpandOptimisticState = (target: { x: number; y: number }): void => {
+    if (typeof applyOptimisticTileState !== "function") return;
+    const targetKey = keyFor(target.x, target.y);
+    const existing = state.tiles.get(targetKey);
+    if (existing?.ownerId === state.me && (existing.ownershipState === "FRONTIER" || existing.ownershipState === "SETTLED")) return;
+    applyOptimisticTileState(target.x, target.y, (tile: { ownerId?: string; ownershipState?: string; fogged?: boolean; optimisticPending?: string }) => {
+      tile.ownerId = state.me;
+      tile.ownershipState = "FRONTIER";
+      tile.fogged = false;
+      tile.optimisticPending = "expand";
+    });
+  };
+
+  const reconcileActionQueueSafely = (): void => {
+    if (typeof reconcileActionQueue !== "function") return;
+    reconcileActionQueue();
+  };
+
+  const processActionQueueSafely = (): void => {
+    if (typeof processActionQueue !== "function") return;
+    processActionQueue();
+  };
+
+  const resolveFrontierCapture = (source: "FRONTIER_RESULT" | "TILE_DELTA" | "TILE_DELTA_BATCH"): void => {
+    const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    const resolvedTargetKey = state.actionTargetKey;
+    state.capture = undefined;
+    if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
+    state.actionInFlight = false;
+    state.actionAcceptedAck = false;
+    state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
+    state.actionStartedAt = 0;
+    if (resolvedTargetKey) {
+      dropQueuedTargetKeyIfAbsent(resolvedTargetKey);
+      state.queuedTargetKeys.delete(resolvedTargetKey);
+      state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== resolvedTargetKey);
+    }
+    if (resolvedTargetKey) clearOptimisticTileState(resolvedTargetKey);
+    if (resolvedCurrentKey) {
+      dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
+      state.queuedTargetKeys.delete(resolvedCurrentKey);
+      state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== resolvedCurrentKey);
+    }
+    if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
+    state.actionTargetKey = "";
+    state.actionCurrent = undefined;
+    frontierQueueDebug(
+      source === "FRONTIER_RESULT"
+        ? "frontier_result_resolved_frontier_capture"
+        : source === "TILE_DELTA_BATCH"
+          ? "tile_delta_batch_resolved_frontier_capture"
+          : "tile_delta_resolved_frontier_capture",
+      { resolvedCurrentKey, source }
+    );
+    processActionQueueSafely();
+  };
+
+  const resumeQueuedFrontierActionsAfter = (delayMs: number): void => {
+    const boundedDelayMs = Math.max(0, Math.min(delayMs, 15_000));
+    globalThis.setTimeout(() => {
+      if (state.actionInFlight || state.capture) return;
+      processActionQueueSafely();
+      renderHud();
+    }, boundedDelayMs);
+  };
 
   const maybeRecoverBusyDevelopmentAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
     if (!errorMessage.includes("development slots are busy")) return false;
@@ -156,10 +467,32 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         : tile?.optimisticPending === (attempt.payload.type === "REMOVE_STRUCTURE" ? "structure_remove" : "structure_build");
     if (!matchesOptimisticState) return false;
     clearOptimisticTileState(errorTileKey, true);
-    if (attempt.kind === "SETTLE") clearSettlementProgressByKey(errorTileKey);
+    if (attempt.kind === "SETTLE") clearSettlementProgressSafely(errorTileKey);
     state.queuedDevelopmentDispatchPending = false;
     state.lastDevelopmentAttempt = undefined;
-    return queueDevelopmentAction(state, attempt, { pushFeed, renderHud });
+    return queueDevelopmentActionFromModule(state, attempt, {
+      pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
+      renderHud: typeof renderHud === "function" ? renderHud : () => {}
+    });
+  };
+
+  const maybeRecoverTransientSettlementAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
+    if (errorCode !== "SETTLE_INVALID" || !errorTileKey) return false;
+    const attempt = state.lastDevelopmentAttempt;
+    if (!attempt || attempt.kind !== "SETTLE" || attempt.tileKey !== errorTileKey) return false;
+    const transientOwnershipFailure =
+      errorMessage === "tile must be owned" &&
+      ((state.actionInFlight && state.actionTargetKey === errorTileKey) ||
+        (state.capture && keyFor(state.capture.target.x, state.capture.target.y) === errorTileKey));
+    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && errorMessage !== "tile already settling") return false;
+    clearOptimisticTileStateSafely(errorTileKey, true);
+    clearSettlementProgressSafely(errorTileKey);
+    state.queuedDevelopmentDispatchPending = false;
+    state.lastDevelopmentAttempt = undefined;
+    return queueDevelopmentActionFromModule(state, attempt, {
+      pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
+      renderHud: typeof renderHud === "function" ? renderHud : () => {}
+    });
   };
 
   const clearQueuedDevelopmentDispatchPending = (): void => {
@@ -187,9 +520,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
   };
 
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function" && authProgressIntervalId !== undefined) {
+    window.addEventListener(
+      "beforeunload",
+      () => {
+        globalThis.clearInterval(authProgressIntervalId);
+      },
+      { once: true }
+    );
+  }
+
   const scheduleAuthReconnect = (message: string, forceRefresh = false): void => {
     clearAuthReconnectTimer();
-    state.authBusy = true;
+    setAuthBusy(true);
     state.authRetrying = true;
     setAuthStatus(message);
     syncAuthOverlay();
@@ -198,7 +541,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       authReconnectTimer = undefined;
       if (!firebaseAuth?.currentUser || ws.readyState !== ws.OPEN || state.authSessionReady) return;
       void authenticateSocket(forceRefresh).catch((error: unknown) => {
-        state.authBusy = false;
+        setAuthBusy(false);
         state.authRetrying = false;
         setAuthStatus(error instanceof Error ? error.message : "Could not reconnect to the game server.", "error");
         syncAuthOverlay();
@@ -218,9 +561,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   const applyLoginPhase = (title: string, detail: string): void => {
-    state.authBusy = true;
+    setAuthBusy(true);
     state.authBusyTitle = title;
     state.authBusyDetail = detail;
+    recordClientDebugEvent("info", "auth-progress", "phase", { title, detail, wsReadyState: ws.readyState, connection: state.connection });
+    console.info("[auth-progress] phase", { title, detail, wsReadyState: ws.readyState, connection: state.connection });
     setAuthStatus(detail);
     syncAuthOverlay();
   };
@@ -257,6 +602,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.tiles.set(tileKey, merged);
       if (merged.ownerId === state.me && (merged.ownershipState === "FRONTIER" || merged.ownershipState === "SETTLED")) {
         state.frontierSyncWaitUntilByTarget.delete(tileKey);
+        clearLateFrontierAck(tileKey);
         state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
         state.queuedTargetKeys.delete(tileKey);
       }
@@ -275,7 +621,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (resultTargetKey && wasPredictedCombatAlreadyShown(state.revealedPredictedCombatByKey, resultTargetKey, resultAlert.title, resultAlert.detail))
     );
     if (!predictedAlreadyShown) {
-      pushFeedEntry({
+      appendFeedEntry({
         title: resultAlert.title,
         text: resultAlert.detail,
         type: "combat",
@@ -308,11 +654,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.capture = undefined;
     if (!handedOffToSettle) {
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
+      state.actionAcceptTimeoutHandledAt = 0;
       state.actionStartedAt = 0;
       if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
       if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-      const startedNext = processActionQueue();
+      let startedNext = false;
+      if ((msg.attackType === "ATTACK" || msg.attackType === "BREAKTHROUGH_ATTACK") && state.actionQueue.length > 0) {
+        resumeQueuedFrontierActionsAfter(COMBAT_LOCK_MS);
+      } else {
+        startedNext = processActionQueue();
+      }
       if (!startedNext) {
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
@@ -349,6 +702,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             };
       const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, normalizedTile));
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
+      logFrontierTimeline("frontier-chunk-apply", mergedTile.x, mergedTile.y, {
+        before: existing,
+        incoming: normalizedTile,
+        after: mergedTile,
+        extra: {
+          source: "CHUNK",
+          existingEconomicStructure: existing?.economicStructure?.type
+        }
+      });
       logDebugTileState("chunk-merge", mergedTile, {
         source: "CHUNK",
         existingEconomicStructure: existing?.economicStructure?.type
@@ -370,11 +732,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           optimisticPending: mergedTile.optimisticPending
         });
       }
-      state.frontierSyncWaitUntilByTarget.delete(keyFor(mergedTile.x, mergedTile.y));
       if (mergedTile.ownerId === state.me && (mergedTile.ownershipState === "FRONTIER" || mergedTile.ownershipState === "SETTLED")) {
+        state.frontierSyncWaitUntilByTarget.delete(tileKey);
+        clearLateFrontierAck(tileKey);
         state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== tileKey);
         state.queuedTargetKeys.delete(tileKey);
         resolvedQueuedFrontierCapture = true;
+        logFrontierTimeline("frontier-queue-resolved-by-chunk", mergedTile.x, mergedTile.y, {
+          before: existing,
+          after: mergedTile,
+          extra: {
+            source: "CHUNK"
+          }
+        });
       }
       maybeAnnounceShardSite(existing, mergedTile);
       if (!mergedTile.optimisticPending) clearOptimisticTileState(keyFor(mergedTile.x, mergedTile.y));
@@ -414,6 +784,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   ws.addEventListener("open", () => {
+    attackSyncLog("ws-open", {
+      readyState: ws.readyState,
+      authReady: state.authReady,
+      authSessionReady: state.authSessionReady
+    });
     state.connection = "connected";
     if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
@@ -428,12 +803,28 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   ws.addEventListener("close", () => {
     clearDeferredBootstrapRefreshTimer();
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    attackSyncLog("ws-close", {
+      currentActionKey,
+      currentAction: state.actionCurrent,
+      actionStartedAt: state.actionStartedAt,
+      actionAcceptedAck: state.actionAcceptedAck,
+      combatStartAck: state.combatStartAck,
+      capture: state.capture
+        ? {
+            target: state.capture.target,
+            resolvesAt: state.capture.resolvesAt
+          }
+        : undefined
+    });
     state.connection = "disconnected";
     state.actionInFlight = false;
+    state.actionAcceptedAck = false;
     state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
+    state.lastChunkSnapshotGeneration = 0;
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Connection lost. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
@@ -446,12 +837,28 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("error", () => {
     const currentActionKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+    attackSyncLog("ws-error", {
+      currentActionKey,
+      currentAction: state.actionCurrent,
+      actionStartedAt: state.actionStartedAt,
+      actionAcceptedAck: state.actionAcceptedAck,
+      combatStartAck: state.combatStartAck,
+      capture: state.capture
+        ? {
+            target: state.capture.target,
+            resolvesAt: state.capture.resolvesAt
+          }
+        : undefined
+    });
     state.connection = "disconnected";
     state.actionInFlight = false;
+    state.actionAcceptedAck = false;
     state.combatStartAck = false;
+    state.actionAcceptTimeoutHandledAt = 0;
     state.actionStartedAt = 0;
     state.actionTargetKey = "";
     state.actionCurrent = undefined;
+    state.lastChunkSnapshotGeneration = 0;
     if (currentActionKey) clearOptimisticTileState(currentActionKey, true);
     pushFeed("Server unreachable. Retrying...", "error", "warn");
     if (state.authReady && !state.authSessionReady) {
@@ -467,6 +874,76 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   ws.addEventListener("message", (ev) => {
     const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
+    if (
+      msgType === "COMMAND_QUEUED" ||
+      msgType === "ACTION_ACCEPTED" ||
+      msgType === "COMBAT_START" ||
+      msgType === "FRONTIER_RESULT" ||
+      msgType === "COMBAT_RESULT" ||
+      msgType === "TILE_DELTA_BATCH" ||
+      msgType === "TILE_DELTA" ||
+      msgType === "ERROR"
+    ) {
+      const msgTarget =
+        typeof msg.target === "object" &&
+        msg.target !== null &&
+        typeof (msg.target as { x?: unknown }).x === "number" &&
+        typeof (msg.target as { y?: unknown }).y === "number"
+          ? {
+              x: (msg.target as { x: number }).x,
+              y: (msg.target as { y: number }).y
+            }
+          : undefined;
+      frontierQueueDebug("incoming", {
+        type: msgType,
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined,
+        code: typeof msg.code === "string" ? msg.code : undefined,
+        msgTarget
+      });
+    }
+    const shouldApplyChunkGeneration = (generation: unknown): boolean => {
+      if (typeof generation !== "number" || !Number.isFinite(generation)) return true;
+      if (generation < state.lastChunkSnapshotGeneration) {
+        attackSyncLog("chunk-generation-ignored", {
+          incomingGeneration: generation,
+          lastChunkSnapshotGeneration: state.lastChunkSnapshotGeneration
+        });
+        return false;
+      }
+      if (generation > state.lastChunkSnapshotGeneration) {
+        attackSyncLog("chunk-generation-advance", {
+          previousGeneration: state.lastChunkSnapshotGeneration,
+          nextGeneration: generation
+        });
+        state.lastChunkSnapshotGeneration = generation;
+      }
+      return true;
+    };
+    if (
+      msg.type === "ACTION_ACCEPTED" ||
+      msg.type === "COMBAT_START" ||
+      msg.type === "COMBAT_RESULT" ||
+      msg.type === "FRONTIER_RESULT" ||
+      msg.type === "ERROR"
+    ) {
+      const currentTarget = state.actionCurrent ? { x: state.actionCurrent.x, y: state.actionCurrent.y } : undefined;
+      attackSyncLog("message", {
+        type: msg.type,
+        currentTarget,
+        currentActionKey: state.actionTargetKey,
+        actionAcceptedAck: state.actionAcceptedAck,
+        combatStartAck: state.combatStartAck,
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        msgTarget:
+          typeof msg.target === "object" && msg.target !== null && "x" in msg.target && "y" in msg.target
+            ? msg.target
+            : undefined,
+        code: typeof msg.code === "string" ? msg.code : undefined,
+        message: typeof msg.message === "string" ? msg.message : undefined
+      });
+    }
     if (msg.type === "LOGIN_PHASE") {
       if (!state.authSessionReady) {
         applyLoginPhase(
@@ -482,7 +959,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.connection = "initialized";
       state.authSessionReady = true;
       state.hasEverInitialized = true;
-      state.authBusy = false;
+      setAuthBusy(false);
       state.authRetrying = false;
       state.authBusyTitle = "";
       state.authBusyDetail = "";
@@ -495,15 +972,42 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.lastSubCx = Number.NaN;
       state.lastSubCy = Number.NaN;
       state.lastSubRadius = -1;
-      state.fogDisabled = Boolean(((msg.config as { fogDisabled?: boolean } | undefined) ?? {}).fogDisabled);
-      const player = msg.player as Record<string, unknown>;
+      state.lastChunkSnapshotGeneration = 0;
+      const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
+      const incomingSeason = incomingConfig.season;
+      const incomingRuntimeIdentity =
+        (msg.runtimeIdentity as
+          | {
+              fingerprint?: string;
+              snapshotLabel?: string;
+            }
+          | undefined) ?? undefined;
+      const incomingPlayer = (msg.player as Record<string, unknown>) ?? {};
+      const incomingPlayerId = typeof incomingPlayer.id === "string" ? incomingPlayer.id : "";
+      const preserveDiscoveredTilesOnReconnect =
+        Boolean(incomingSeason?.seasonId) &&
+        state.bridgeDebugSeasonId === incomingSeason?.seasonId &&
+        incomingPlayerId.length > 0 &&
+        state.me === incomingPlayerId &&
+        state.tiles.size > 0 &&
+        state.discoveredTiles.size > 0;
+      state.fogDisabled = Boolean(incomingConfig.fogDisabled);
+      state.serverSupportedMessageTypes = new Set(
+        Array.isArray((msg as { supportedMessageTypes?: unknown }).supportedMessageTypes)
+          ? ((msg as { supportedMessageTypes: unknown[] }).supportedMessageTypes.filter((type): type is string => typeof type === "string"))
+          : []
+      );
+      state.bridgeDebugSupportedMessageCount = state.serverSupportedMessageTypes.size;
+      const gatewayRecovery = (msg.recovery as { nextClientSeq?: unknown; pendingCommands?: unknown } | undefined) ?? undefined;
+      applyGatewayRecoveryNextClientSeq(state, gatewayRecovery?.nextClientSeq);
+      const player = incomingPlayer;
       state.me = player.id as string;
       state.meName = player.name as string;
       state.playerNames.set(state.me, state.meName);
       state.profileSetupRequired = Boolean(player.profileNeedsSetup);
       setAuthStatus(`Signed in as ${state.authUserLabel || (player.name as string)}.`);
-      state.gold = (player.gold as number | undefined) ?? (player.points as number);
-      state.level = player.level as number;
+      state.gold = (player.gold as number | undefined) ?? (player.points as number | undefined) ?? state.gold;
+      state.level = (player.level as number | undefined) ?? state.level;
       state.mods = (player.mods as typeof state.mods) ?? state.mods;
       state.modBreakdown = (player.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
       state.incomePerMinute = (player.incomePerMinute as number) ?? state.incomePerMinute;
@@ -514,7 +1018,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.economyBreakdown = (player.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
       state.upkeepPerMinute = (player.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
       state.upkeepLastTick = (player.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
-      state.stamina = player.stamina as number;
+      state.stamina = (player.stamina as number | undefined) ?? state.stamina;
       state.manpower = (player.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (player.manpowerCap as number | undefined) ?? state.manpowerCap;
       state.manpowerRegenPerMinute = (player.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
@@ -534,6 +1038,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof player.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (player.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
+      logTileSync("development_player_update", {
+        activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+        developmentProcessLimit: state.developmentProcessLimit,
+        pendingSettlements: (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? [],
+        developmentQueueLength: state.developmentQueue.length,
+        queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+        settleProgressCount: state.settleProgressByTile.size
+      });
       state.techRootId = player.techRootId as string | undefined;
       state.techIds = (player.techIds as string[]) ?? [];
       state.currentResearch = (player.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
@@ -542,10 +1054,22 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
       state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
       state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
+      state.revealedEmpireStatsByPlayer.clear();
+      if (!preserveDiscoveredTilesOnReconnect) {
+        state.discoveredTiles.clear();
+        state.discoveredDockTiles.clear();
+      }
       state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
       applyPendingSettlementsFromServer(
         (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
       );
+      if (state.developmentQueue.length === 0) {
+        state.developmentQueue = restorePersistedDevelopmentQueueForPlayer(
+          state.me,
+          state.tiles,
+          new Set(state.settleProgressByTile.keys())
+        );
+      }
       state.allies = (player.allies as string[]) ?? [];
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
       const myTileColor = player.tileColor as string | undefined;
@@ -569,9 +1093,36 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.camY = homeTile.y;
         state.selected = homeTile;
       }
+      const appliedInitialTileCount = applyGatewayInitialState(
+        {
+          state,
+          keyFor,
+          mergeIncomingTileDetail,
+          mergeServerTileWithOptimisticState
+        },
+        msg.initialState as { tiles?: Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> } | undefined,
+        { preserveExistingDiscoveredTiles: preserveDiscoveredTilesOnReconnect }
+      );
+      state.bridgeDebugInitialTileCount = appliedInitialTileCount;
+      if (appliedInitialTileCount > 0) {
+        state.firstChunkAt = Date.now();
+        state.chunkFullCount = Math.max(state.chunkFullCount, 1);
+        state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+        state.bridgeDebugBootstrap = "rewrite-init";
+      } else {
+        state.bridgeDebugBootstrap = "legacy-init";
+      }
       requestViewRefresh(1, true);
       state.techChoices = (msg.techChoices as string[]) ?? [];
       state.techCatalog = (msg.techCatalog as any[]) ?? [];
+      logIncomingTechPayload("INIT", {
+        techIds: player.techIds,
+        techChoices: msg.techChoices,
+        techCatalog: msg.techCatalog,
+        currentResearch: player.currentResearch,
+        techRootId: player.techRootId,
+        availableTechPicks: player.availableTechPicks
+      });
       state.domainChoices = (msg.domainChoices as string[]) ?? [];
       state.domainCatalog = (msg.domainCatalog as any[]) ?? [];
       if (!state.domainUiSelectedId && state.domainChoices.length > 0) state.domainUiSelectedId = state.domainChoices[0]!;
@@ -579,18 +1130,23 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
       state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
       state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
+      state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
       state.activeTruces = (msg.activeTruces as any[]) ?? [];
       state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
+      state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? [];
       state.activeAetherBridges = (msg.activeAetherBridges as any[]) ?? [];
+      state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
       state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
       resetStrategicReplayState();
-      const config = (msg.config as { season?: { seasonId: string; worldSeed?: number }; fogDisabled?: boolean } | undefined) ?? {};
-      const season = config.season;
-      state.fogDisabled = Boolean(config.fogDisabled);
-      if (typeof season?.worldSeed === "number") {
-        setWorldSeed(season.worldSeed);
+      state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
+      state.bridgeDebugRuntimeFingerprint = incomingRuntimeIdentity?.fingerprint ?? "";
+      state.bridgeDebugSnapshotLabel = incomingRuntimeIdentity?.snapshotLabel ?? "";
+      state.fogDisabled = Boolean(incomingConfig.fogDisabled);
+      if (typeof incomingSeason?.worldSeed === "number") {
+        setWorldSeed(incomingSeason.worldSeed);
         clearRenderCaches();
         buildMiniMapBase();
       }
@@ -603,12 +1159,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (msg.offlineActivity as
           | Array<{ title?: string; detail?: string; type?: string; severity?: string; at?: number; tileKey?: string; actionLabel?: string }>
           | undefined) ?? [];
-      state.discoveredTiles.clear();
-      state.discoveredDockTiles.clear();
       state.dockPairs = mapMeta.dockPairs ?? [];
       state.dockRouteCache.clear();
-      pushFeed(`Spawned. ${season?.seasonId ? `Season ${season.seasonId}.` : ""} Your tile is centered.`, "info", "success");
-      if (config.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
+      pushFeed(`Spawned. ${incomingSeason?.seasonId ? `Season ${incomingSeason.seasonId}.` : ""} Your tile is centered.`, "info", "success");
+      if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
       if (typeof mapMeta.dockCount === "number") {
         pushFeed(
           `Map features: ${mapMeta.dockCount} docks (${mapMeta.dockPairCount ?? Math.floor(mapMeta.dockCount / 2)} pairs), ${mapMeta.clusterCount ?? 0} clusters.`,
@@ -627,7 +1181,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             const y = Number(yText);
             return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
           })() : undefined;
-          pushFeedEntry({
+          appendFeedEntry({
             title: typeof entry.title === "string" ? entry.title : undefined,
             text: typeof entry.detail === "string" ? entry.detail : "Activity update",
             type: entry.type === "combat" || entry.type === "mission" || entry.type === "error" || entry.type === "info" || entry.type === "alliance" || entry.type === "tech" ? entry.type : "info",
@@ -672,11 +1226,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "CHUNK_FULL") {
+      if (!shouldApplyChunkGeneration(msg.generation)) return;
       applyChunkTiles(msg.tilesMaskedByFog as any[]);
       return;
     }
 
     if (msg.type === "CHUNK_BATCH") {
+      if (!shouldApplyChunkGeneration(msg.generation)) return;
       const chunks = (msg.chunks as Array<{ cx: number; cy: number; tilesMaskedByFog: any[] }>) ?? [];
       for (const chunk of chunks) applyChunkTiles(chunk.tilesMaskedByFog);
       return;
@@ -686,12 +1242,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const prevGold = state.gold;
       const prevDefensibility = state.defensibilityPct;
       const prevStrategic = { ...state.strategicResources };
-      state.gold = (msg.gold as number | undefined) ?? (msg.points as number);
+      state.gold = (msg.gold as number | undefined) ?? (msg.points as number | undefined) ?? state.gold;
       if (typeof msg.name === "string") {
         state.meName = msg.name;
         authProfileNameEl.value = msg.name;
       }
-      state.level = msg.level as number;
+      state.level = (msg.level as number | undefined) ?? state.level;
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
@@ -766,6 +1322,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
       state.activeDevelopmentProcessCount =
         (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
+      logIncomingTechPayload("PLAYER_UPDATE", {
+        techIds: (msg as { techIds?: unknown }).techIds,
+        techChoices: msg.techChoices,
+        techCatalog: msg.techCatalog,
+        currentResearch: msg.currentResearch,
+        techRootId: (msg as { techRootId?: unknown }).techRootId,
+        availableTechPicks: msg.availableTechPicks
+      });
       state.techChoices = (msg.techChoices as string[]) ?? state.techChoices;
       state.techCatalog = (msg.techCatalog as any[]) ?? state.techCatalog;
       state.currentResearch = (msg.currentResearch as typeof state.currentResearch | undefined) ?? undefined;
@@ -786,6 +1350,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
       state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       const myTileColor = msg.tileColor as string | undefined;
       if (myTileColor) {
         state.playerColors.set(state.me, myTileColor);
@@ -802,11 +1367,121 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.leaderboard = (msg.leaderboard as typeof state.leaderboard) ?? state.leaderboard;
       state.seasonVictory = (msg.seasonVictory as any[] | undefined) ?? state.seasonVictory;
       state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
+      if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "COMMAND_QUEUED") {
+      bindQueuedFrontierCommandIdentity(state, {
+        commandId: msg.commandId,
+        clientSeq: msg.clientSeq
+      });
+      frontierQueueDebug("command_queued_bound", {
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
+        clientSeq: typeof msg.clientSeq === "number" ? msg.clientSeq : undefined
+      });
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "ACTION_ACCEPTED") {
+      if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
+        attackSyncLog("action-accepted-ignored-command-mismatch", {
+          commandId: msg.commandId,
+          currentCommandId: state.actionCurrent?.commandId
+        });
+        return;
+      }
+      clearFrontierStatusAlert(state);
+      const target = msg.target as { x: number; y: number };
+      const targetKey = keyFor(target.x, target.y);
+      attackSyncLog("action-accepted", {
+        actionType: msg.actionType,
+        target,
+        origin: msg.origin,
+        resolvesAt: msg.resolvesAt,
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        currentAction: state.actionCurrent
+      });
+      rebindLateFrontierAck(target, "ACTION_ACCEPTED", msg.actionType as "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | undefined);
+      if (msg.actionType === "EXPAND") applyAcceptedExpandOptimisticState(target);
+      state.actionAcceptedAck = true;
+      state.actionAcceptTimeoutHandledAt = 0;
+      state.actionInFlight = true;
+      state.capture = {
+        startAt: state.actionStartedAt || Date.now(),
+        resolvesAt: msg.resolvesAt as number,
+        target
+      };
+      state.actionTargetKey = targetKey;
+      if (state.actionCurrent && typeof msg.commandId === "string" && msg.commandId) state.actionCurrent.commandId = msg.commandId;
+      frontierQueueDebug("action_accepted_applied", {
+        actionType: msg.actionType,
+        target,
+        targetKey
+      });
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "FRONTIER_RESULT") {
+      if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
+        attackSyncLog("frontier-result-ignored-command-mismatch", {
+          commandId: msg.commandId,
+          currentCommandId: state.actionCurrent?.commandId
+        });
+        return;
+      }
+      clearFrontierStatusAlert(state);
+      attackSyncLog("frontier-result", {
+        actionType: msg.actionType,
+        target: msg.target,
+        origin: msg.origin,
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        actionAcceptedAck: state.actionAcceptedAck,
+        hadCombatStartAck: state.combatStartAck
+      });
+      const target = msg.target as { x: number; y: number } | undefined;
+      const resultAlert = {
+        title: "Territory Claimed",
+        detail: target ? `Territory at (${target.x}, ${target.y}) was claimed.` : "Territory was claimed.",
+        tone: "success" as const,
+        ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {})
+      };
+      appendFeedEntry({
+        title: resultAlert.title,
+        text: resultAlert.detail,
+        type: "combat",
+        severity: "success",
+        at: Date.now(),
+        ...(typeof resultAlert.focusX === "number" && typeof resultAlert.focusY === "number"
+          ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
+          : {})
+      });
+      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
+      state.capture = undefined;
+      frontierQueueDebug("frontier_result_received", {
+        actionType: msg.actionType,
+        target: msg.target,
+        commandId: typeof msg.commandId === "string" ? msg.commandId : undefined
+      });
+      if (msg.actionType === "EXPAND" && target && currentActionCanResolveFromFrontierOwnership(keyFor(target.x, target.y))) {
+        resolveFrontierCapture("FRONTIER_RESULT");
+      }
       renderHud();
       return;
     }
 
     if (msg.type === "COMBAT_RESULT") {
+      if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
+        attackSyncLog("combat-result-ignored-command-mismatch", {
+          commandId: msg.commandId,
+          currentCommandId: state.actionCurrent?.commandId
+        });
+        return;
+      }
+      clearFrontierStatusAlert(state);
       const resultReceivedAt = Date.now();
       const timing = msg.timing as { acceptedAt?: number; resolvesAt?: number; resultSentAt?: number } | undefined;
       if (
@@ -826,14 +1501,48 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           totalElapsedMs: resultReceivedAt - timing.acceptedAt
         });
       }
+      attackSyncLog("combat-result", {
+        attackType: msg.attackType,
+        target: msg.target,
+        origin: msg.origin,
+        attackerWon: msg.attackerWon,
+        startedAgoMs: state.actionStartedAt ? resultReceivedAt - state.actionStartedAt : undefined,
+        actionAcceptedAck: state.actionAcceptedAck,
+        hadCombatStartAck: state.combatStartAck
+      });
       applyCombatOutcomeMessage(msg as Record<string, unknown>);
       return;
     }
 
     if (msg.type === "COMBAT_START") {
+      if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
+        attackSyncLog("combat-start-ignored-command-mismatch", {
+          commandId: msg.commandId,
+          currentCommandId: state.actionCurrent?.commandId
+        });
+        return;
+      }
+      clearFrontierStatusAlert(state);
       const target = msg.target as { x: number; y: number };
       const resolvesAt = msg.resolvesAt as number;
+      attackSyncLog("combat-start", {
+        target,
+        origin: msg.origin,
+        resolvesAt,
+        predictedResult: Boolean(msg.predictedResult),
+        startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
+        currentAction: state.actionCurrent
+      });
+      rebindLateFrontierAck(
+        target,
+        "COMBAT_START",
+        ((msg.predictedResult as { attackType?: string } | undefined)?.attackType as "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | undefined) ??
+          state.actionCurrent?.actionType
+      );
+      if ((msg.predictedResult as { attackType?: string } | undefined)?.attackType === "EXPAND") applyAcceptedExpandOptimisticState(target);
+      state.actionAcceptedAck = true;
       state.combatStartAck = true;
+      state.actionAcceptTimeoutHandledAt = 0;
       const existingCapture =
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
       const startAt = existingCapture?.startAt ?? Date.now();
@@ -863,6 +1572,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.actionInFlight = true;
       if (!state.actionStartedAt) state.actionStartedAt = startAt;
       state.actionTargetKey = keyFor(target.x, target.y);
+      frontierQueueDebug("combat_start_applied", {
+        target,
+        resolvesAt
+      });
       renderHud();
       return;
     }
@@ -889,13 +1602,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "COMBAT_CANCELLED") {
       const cancelledCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+      clearFrontierStatusAlert(state);
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === cancelledCurrentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
+      state.actionAcceptTimeoutHandledAt = 0;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
+      clearLateFrontierAck(cancelledCurrentKey);
       if (cancelledCurrentKey) state.queuedTargetKeys.delete(cancelledCurrentKey);
       if (cancelledCurrentKey) clearOptimisticTileState(cancelledCurrentKey, true);
       state.autoSettleTargets.clear();
@@ -912,89 +1629,237 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
+    if (msg.type === "TILE_DELTA_BATCH") {
+      const tileUpdates =
+        msg.tiles as Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> | undefined;
+      const batchTouchesFrontierQueue =
+        Array.isArray(tileUpdates) &&
+        tileUpdates.some((update) => {
+          const updateKey = keyFor(update.x, update.y);
+          if (updateKey === state.actionTargetKey) return true;
+          if (state.queuedTargetKeys.has(updateKey)) return true;
+          return state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === updateKey);
+        });
+      if (batchTouchesFrontierQueue) {
+        frontierQueueDebug("tile_delta_batch_matches_frontier_target", {
+          updates: tileUpdates?.map((update) => ({
+            key: keyFor(update.x, update.y),
+            ownerId: update.ownerId,
+            ownershipState: update.ownershipState
+          }))
+        });
+      }
+      applyGatewayTileDeltaBatch(
+        {
+          state,
+          keyFor,
+          mergeIncomingTileDetail,
+          mergeServerTileWithOptimisticState
+        },
+        tileUpdates
+      );
+      let resolvedQueuedFrontierCapture = false;
+      if (Array.isArray(tileUpdates) && tileUpdates.length > 0) {
+        for (const update of tileUpdates) {
+          const updateKey = keyFor(update.x, update.y);
+          const resolved = state.tiles.get(updateKey);
+          if (resolved?.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
+            state.frontierSyncWaitUntilByTarget.delete(updateKey);
+            clearLateFrontierAck(updateKey);
+            state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
+            state.queuedTargetKeys.delete(updateKey);
+          }
+          if (
+            !resolvedQueuedFrontierCapture &&
+            updateKey === state.actionTargetKey &&
+            currentActionCanResolveFromFrontierOwnership(updateKey) &&
+            resolved?.ownerId === state.me &&
+            resolved.ownershipState === "FRONTIER"
+          ) {
+            resolvedQueuedFrontierCapture = true;
+          }
+        }
+      }
+      if (state.firstChunkAt === 0 && Array.isArray(tileUpdates) && tileUpdates.length > 0) {
+        state.firstChunkAt = Date.now();
+        state.chunkFullCount = Math.max(state.chunkFullCount, 1);
+        state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+      }
+      if (resolvedQueuedFrontierCapture) {
+        resolveFrontierCapture("TILE_DELTA_BATCH");
+      }
+      renderHud();
+      return;
+    }
+
     if (msg.type === "TILE_DELTA") {
       const updates = (msg.updates as any[]) ?? [];
+      const deltaTouchesFrontierQueue = updates.some((update) => {
+        const updateKey = keyFor(update.x, update.y);
+        if (updateKey === state.actionTargetKey) return true;
+        if (state.queuedTargetKeys.has(updateKey)) return true;
+        return state.actionQueue.some((entry) => keyFor(entry.x, entry.y) === updateKey);
+      });
+      if (deltaTouchesFrontierQueue) {
+        frontierQueueDebug("tile_delta_matches_frontier_target", {
+          updates: updates.map((update) => ({
+            key: keyFor(update.x, update.y),
+            ownerId: update.ownerId,
+            ownershipState: update.ownershipState
+          }))
+        });
+      }
       let resolvedQueuedFrontierCapture = false;
       let detailRequests = 0;
       for (const update of updates) {
+        const gatewayNormalizedUpdate =
+          ("townJson" in update ||
+            "townType" in update ||
+            "townName" in update ||
+            "townPopulationTier" in update ||
+            "fortJson" in update ||
+            "observatoryJson" in update ||
+            "siegeOutpostJson" in update ||
+            "economicStructureJson" in update ||
+            "sabotageJson" in update ||
+            "shardSiteJson" in update ||
+            "dockId" in update)
+            ? normalizeGatewayTileUpdate(update, {
+                existing: state.tiles.get(keyFor(update.x, update.y)),
+                tiles: state.tiles,
+                keyFor
+              })
+            : {};
+        const normalizedUpdate =
+          "ownerId" in update
+            ? update
+            : {
+                ...update,
+                ownerId: undefined,
+                ownershipState: undefined,
+                capital: undefined
+              };
+        Object.assign(normalizedUpdate, gatewayNormalizedUpdate);
         const updateKey = keyFor(update.x, update.y);
         state.incomingAttacksByTile.delete(updateKey);
         state.pendingCollectVisibleKeys.delete(keyFor(update.x, update.y));
         const existing = state.tiles.get(keyFor(update.x, update.y));
-        const merged: any = existing ?? { x: update.x, y: update.y, terrain: update.terrain ?? "LAND" };
-        if (update.terrain) merged.terrain = update.terrain;
-        if ("detailLevel" in update) merged.detailLevel = update.detailLevel;
-        if (update.fogged !== undefined) merged.fogged = update.fogged;
-        if (update.resource !== undefined) merged.resource = update.resource;
-        if ("ownerId" in update) {
-          if (update.ownerId) merged.ownerId = update.ownerId;
+        const merged: any = existing ?? { x: normalizedUpdate.x, y: normalizedUpdate.y, terrain: normalizedUpdate.terrain ?? "LAND" };
+        if (normalizedUpdate.terrain) merged.terrain = normalizedUpdate.terrain;
+        if ("detailLevel" in normalizedUpdate) merged.detailLevel = normalizedUpdate.detailLevel;
+        if (normalizedUpdate.fogged !== undefined) merged.fogged = normalizedUpdate.fogged;
+        if (normalizedUpdate.resource !== undefined) merged.resource = normalizedUpdate.resource;
+        if ("ownerId" in normalizedUpdate) {
+          if (normalizedUpdate.ownerId) merged.ownerId = normalizedUpdate.ownerId;
           else delete merged.ownerId;
         }
-        if ("ownershipState" in update) {
-          if (update.ownershipState) merged.ownershipState = update.ownershipState;
+        if ("ownershipState" in normalizedUpdate) {
+          if (normalizedUpdate.ownershipState) merged.ownershipState = normalizedUpdate.ownershipState;
           else delete merged.ownershipState;
         }
-        if ("capital" in update) {
-          if (update.capital) merged.capital = update.capital;
+        if ("capital" in normalizedUpdate) {
+          if (normalizedUpdate.capital) merged.capital = normalizedUpdate.capital;
           else delete merged.capital;
         }
-        if ("breachShockUntil" in update) {
-          if (typeof update.breachShockUntil === "number") merged.breachShockUntil = update.breachShockUntil;
+        if ("breachShockUntil" in normalizedUpdate) {
+          if (typeof normalizedUpdate.breachShockUntil === "number") merged.breachShockUntil = normalizedUpdate.breachShockUntil;
           else delete merged.breachShockUntil;
         }
-        if ("ownerId" in update && !update.ownerId) delete merged.ownershipState;
-        if (update.clusterId !== undefined) merged.clusterId = update.clusterId;
-        if (update.clusterType !== undefined) merged.clusterType = update.clusterType;
-        if (update.regionType !== undefined) merged.regionType = update.regionType;
-        if (update.dockId !== undefined) merged.dockId = update.dockId;
-        if ("dock" in update) {
-          if (update.dock) merged.dock = update.dock;
+        if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
+        if (normalizedUpdate.clusterId !== undefined) merged.clusterId = normalizedUpdate.clusterId;
+        if (normalizedUpdate.clusterType !== undefined) merged.clusterType = normalizedUpdate.clusterType;
+        if (normalizedUpdate.regionType !== undefined) merged.regionType = normalizedUpdate.regionType;
+        if (normalizedUpdate.dockId !== undefined) merged.dockId = normalizedUpdate.dockId;
+        if ("dock" in normalizedUpdate) {
+          if (normalizedUpdate.dock) merged.dock = normalizedUpdate.dock;
           else delete merged.dock;
         }
-        if ("shardSite" in update) {
-          if (update.shardSite) merged.shardSite = update.shardSite;
+        if ("shardSite" in normalizedUpdate) {
+          if (normalizedUpdate.shardSite) merged.shardSite = normalizedUpdate.shardSite;
           else delete merged.shardSite;
         }
-        if (update.town !== undefined) merged.town = update.town;
-        if ("town" in update && !update.town) delete merged.town;
-        if (update.fort !== undefined) merged.fort = update.fort;
-        if (!update.fort) delete merged.fort;
-        if ("observatory" in update) {
-          if (update.observatory) merged.observatory = update.observatory;
+        if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;
+        if ("town" in normalizedUpdate && !normalizedUpdate.town) delete merged.town;
+        if ("fort" in normalizedUpdate) {
+          if (normalizedUpdate.fort) merged.fort = normalizedUpdate.fort;
+          else delete merged.fort;
+        }
+        if ("observatory" in normalizedUpdate) {
+          if (normalizedUpdate.observatory) merged.observatory = normalizedUpdate.observatory;
           else delete merged.observatory;
         }
-        if ("economicStructure" in update) {
-          if (update.economicStructure) merged.economicStructure = update.economicStructure;
+        if ("economicStructure" in normalizedUpdate) {
+          if (normalizedUpdate.economicStructure) merged.economicStructure = normalizedUpdate.economicStructure;
           else delete merged.economicStructure;
         }
-        if (update.siegeOutpost !== undefined) merged.siegeOutpost = update.siegeOutpost;
-        if (!update.siegeOutpost) delete merged.siegeOutpost;
-        if ("sabotage" in update) {
-          if (update.sabotage) merged.sabotage = update.sabotage;
+        if ("siegeOutpost" in normalizedUpdate) {
+          if (normalizedUpdate.siegeOutpost) merged.siegeOutpost = normalizedUpdate.siegeOutpost;
+          else delete merged.siegeOutpost;
+        }
+        if ("sabotage" in normalizedUpdate) {
+          if (normalizedUpdate.sabotage) merged.sabotage = normalizedUpdate.sabotage;
           else delete merged.sabotage;
         }
-        if ("yield" in update) {
-          if (update.yield) merged.yield = update.yield;
+        if ("yield" in normalizedUpdate) {
+          if (normalizedUpdate.yield) merged.yield = normalizedUpdate.yield;
           else delete merged.yield;
         }
-        if ("yieldRate" in update) {
-          if (update.yieldRate) merged.yieldRate = update.yieldRate;
+        if ("yieldRate" in normalizedUpdate) {
+          if (normalizedUpdate.yieldRate) merged.yieldRate = normalizedUpdate.yieldRate;
           else delete merged.yieldRate;
         }
-        if ("yieldCap" in update) {
-          if (update.yieldCap) merged.yieldCap = update.yieldCap;
+        if ("yieldCap" in normalizedUpdate) {
+          if (normalizedUpdate.yieldCap) merged.yieldCap = normalizedUpdate.yieldCap;
           else delete merged.yieldCap;
         }
-        if ("history" in update) {
-          if (update.history) merged.history = update.history;
+        if ("upkeepEntries" in normalizedUpdate) {
+          if (normalizedUpdate.upkeepEntries) merged.upkeepEntries = normalizedUpdate.upkeepEntries;
+          else delete merged.upkeepEntries;
+        }
+        if ("history" in normalizedUpdate) {
+          if (normalizedUpdate.history) merged.history = normalizedUpdate.history;
           else delete merged.history;
+        }
+        if (tileMatchesDebugKey(normalizedUpdate.x, normalizedUpdate.y, 0, { fallbackTile: state.selected }) && verboseTileDebugEnabled()) {
+          debugTileLog("tile-delta-fort-field", {
+            x: normalizedUpdate.x,
+            y: normalizedUpdate.y,
+            detailLevel: normalizedUpdate.detailLevel ?? existing?.detailLevel ?? null,
+            hasFortField: "fort" in normalizedUpdate,
+            incomingFort: "fort" in normalizedUpdate ? normalizedUpdate.fort ?? null : "__omitted__",
+            existingFort: existing?.fort
+              ? {
+                  ownerId: existing.fort.ownerId,
+                  status: existing.fort.status,
+                  disabledUntil: existing.fort.disabledUntil ?? null,
+                  completesAt: existing.fort.completesAt ?? null
+                }
+              : null,
+            mergedFort: merged.fort
+              ? {
+                  ownerId: merged.fort.ownerId,
+                  status: merged.fort.status,
+                  disabledUntil: merged.fort.disabledUntil ?? null,
+                  completesAt: merged.fort.completesAt ?? null
+                }
+              : null
+          });
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved);
+        logFrontierTimeline("frontier-delta-apply", resolved.x, resolved.y, {
+          before: existing,
+          incoming: normalizedUpdate,
+          after: resolved,
+          extra: {
+            source: "TILE_DELTA",
+            updateHasEconomicStructure: "economicStructure" in normalizedUpdate
+          }
+        });
         logDebugTileState("tile-delta", resolved, {
           source: "TILE_DELTA",
-          updateHasEconomicStructure: "economicStructure" in update,
-          updateEconomicStructure: update.economicStructure?.type,
+          updateHasEconomicStructure: "economicStructure" in normalizedUpdate,
+          updateEconomicStructure: normalizedUpdate.economicStructure?.type,
           existingEconomicStructure: existing?.economicStructure?.type
         });
         if (
@@ -1007,8 +1872,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             tileKey: updateKey,
             existingOwnerId: existing?.ownerId,
             existingOwnershipState: existing?.ownershipState,
-            updateOwnerId: "ownerId" in update ? update.ownerId ?? null : "__omitted__",
-            updateOwnershipState: "ownershipState" in update ? update.ownershipState ?? null : "__omitted__",
+            updateOwnerId: "ownerId" in normalizedUpdate ? normalizedUpdate.ownerId ?? null : "__omitted__",
+            updateOwnershipState: "ownershipState" in normalizedUpdate ? normalizedUpdate.ownershipState ?? null : "__omitted__",
             resolvedOwnerId: resolved.ownerId,
             resolvedOwnershipState: resolved.ownershipState,
             optimisticPending: resolved.optimisticPending
@@ -1016,8 +1881,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         if (resolved.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
           state.frontierSyncWaitUntilByTarget.delete(updateKey);
+          clearLateFrontierAck(updateKey);
           state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);
           state.queuedTargetKeys.delete(updateKey);
+          logFrontierTimeline("frontier-queue-resolved-by-delta", resolved.x, resolved.y, {
+            before: existing,
+            after: resolved,
+            extra: {
+              source: "TILE_DELTA"
+            }
+          });
         }
         maybeAnnounceShardSite(existing, resolved);
         if (!resolved.optimisticPending) clearOptimisticTileState(updateKey);
@@ -1040,7 +1913,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         if (
           !resolvedQueuedFrontierCapture &&
           updateKey === state.actionTargetKey &&
-          state.actionInFlight &&
+          currentActionCanResolveFromFrontierOwnership(updateKey) &&
           resolved.ownerId === state.me &&
           resolved.ownershipState === "FRONTIER"
         ) {
@@ -1048,30 +1921,27 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
       }
       if (resolvedQueuedFrontierCapture) {
-        const resolvedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
-        state.capture = undefined;
-        if (state.pendingCombatReveal?.targetKey === state.actionTargetKey) state.pendingCombatReveal = undefined;
-        state.actionInFlight = false;
-        state.combatStartAck = false;
-        state.actionStartedAt = 0;
-        if (state.actionTargetKey) dropQueuedTargetKeyIfAbsent(state.actionTargetKey);
-        if (state.actionTargetKey) clearOptimisticTileState(state.actionTargetKey);
-        if (resolvedCurrentKey) dropQueuedTargetKeyIfAbsent(resolvedCurrentKey);
-        if (resolvedCurrentKey) clearOptimisticTileState(resolvedCurrentKey);
-        state.actionTargetKey = "";
-        state.actionCurrent = undefined;
-        processActionQueue();
+        resolveFrontierCapture("TILE_DELTA");
         renderHud();
       }
       return;
     }
 
     if (msg.type === "TECH_UPDATE") {
+      logIncomingTechPayload("TECH_UPDATE", {
+        techIds: msg.techIds,
+        nextChoices: msg.nextChoices,
+        techCatalog: msg.techCatalog,
+        currentResearch: msg.currentResearch,
+        techRootId: msg.techRootId,
+        availableTechPicks: msg.availableTechPicks
+      });
       console.info("[tech] TECH_UPDATE received", {
         status: msg.status,
         techRootId: msg.techRootId,
         ownedTechs: (msg.techIds as string[])?.length ?? 0,
-        nextChoices: (msg.nextChoices as string[])?.length ?? 0
+        nextChoices: (msg.nextChoices as string[])?.length ?? 0,
+        techCatalogCount: (msg.techCatalog as any[] | undefined)?.length ?? 0
       });
       applyTechUpdateToState(state, {
         status: msg.status as "started" | "completed" | undefined,
@@ -1122,6 +1992,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "REVEAL_EMPIRE_UPDATE") {
       state.activeRevealTargets = (msg.activeTargets as string[]) ?? state.activeRevealTargets;
       state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
+      renderHud();
+      return;
+    }
+
+    if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
+      const stats = (msg.stats as any) ?? undefined;
+      if (stats?.playerId) {
+        state.revealedEmpireStatsByPlayer.set(stats.playerId, stats);
+        pushFeed(revealEmpireStatsFeedText(stats), "combat", "success");
+      }
       renderHud();
       return;
     }
@@ -1196,6 +2076,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
+    if (msg.type === "AETHER_WALL_UPDATE") {
+      state.activeAetherWalls = (msg.walls as any[]) ?? state.activeAetherWalls;
+      renderHud();
+      return;
+    }
+
     if (msg.type === "STRATEGIC_REPLAY_EVENT") {
       const event = (msg.event as any) ?? undefined;
       if (event) {
@@ -1239,7 +2125,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       const failedTargetKey = state.actionTargetKey;
       const failedTargetTile = failedTargetKey ? state.tiles.get(failedTargetKey) : undefined;
-      console.error("[server-error]", {
+      const errorCode = String(msg.code ?? "");
+      const errorMessage = String(msg.message ?? "unknown failure");
+      if (errorCode.startsWith("TECH_") && state.pendingTechUnlockId) {
+        state.pendingTechUnlockId = "";
+        state.currentResearch = undefined;
+      }
+      if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
+        state.pendingDomainUnlockId = "";
+      }
+      const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
+      const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
+      const serverErrorContext = {
         code: msg.code,
         message: msg.message,
         actionInFlight: state.actionInFlight,
@@ -1258,20 +2155,117 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         queuedActions: state.actionQueue.length,
         selected: state.selected,
         hover: state.hover
-      });
-      const errorCode = String(msg.code ?? "");
-      const errorMessage = String(msg.message ?? "unknown failure");
-      if (errorCode.startsWith("TECH_") && state.pendingTechUnlockId) {
-        state.pendingTechUnlockId = "";
-        state.currentResearch = undefined;
+      };
+      const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
+      const rollbackBackendUnavailableOptimisticState = (): Set<string> => {
+        const targetKeys = new Set<string>();
+        if (errorTileKey) targetKeys.add(errorTileKey);
+        if (failedTargetKey) targetKeys.add(failedTargetKey);
+        if (failedCurrentKey) targetKeys.add(failedCurrentKey);
+        if (state.latestSettleTargetKey) targetKeys.add(state.latestSettleTargetKey);
+        if (state.lastDevelopmentAttempt?.tileKey) targetKeys.add(state.lastDevelopmentAttempt.tileKey);
+        for (const tileKey of targetKeys) {
+          clearOptimisticTileStateSafely(tileKey, true);
+          clearSettlementProgressSafely(tileKey);
+          state.queuedTargetKeys.delete(tileKey);
+          dropQueuedTargetKeyIfAbsent(tileKey);
+          state.autoSettleTargets.delete(tileKey);
+        }
+        if (backendUnavailableError) {
+          state.capture = undefined;
+          state.actionInFlight = false;
+          state.actionAcceptedAck = false;
+          state.combatStartAck = false;
+          state.actionAcceptTimeoutHandledAt = 0;
+          state.actionStartedAt = 0;
+          state.actionTargetKey = "";
+          state.actionCurrent = undefined;
+          state.queuedDevelopmentDispatchPending = false;
+          if (state.lastDevelopmentAttempt && targetKeys.has(state.lastDevelopmentAttempt.tileKey)) state.lastDevelopmentAttempt = undefined;
+          state.actionQueue = state.actionQueue.filter((entry) => !targetKeys.has(keyFor(entry.x, entry.y)));
+        }
+        return targetKeys;
+      };
+      const duplicateAcceptedFrontierCooldown =
+        errorCode === "ATTACK_COOLDOWN" &&
+        state.actionAcceptedAck &&
+        Boolean(failedTargetKey) &&
+        (!state.actionCurrent || keyFor(state.actionCurrent.x, state.actionCurrent.y) === failedTargetKey);
+      if (duplicateAcceptedFrontierCooldown) {
+        const cooldownRemainingMs =
+          typeof msg.cooldownRemainingMs === "number" && Number.isFinite(msg.cooldownRemainingMs)
+            ? Math.max(0, msg.cooldownRemainingMs)
+            : COMBAT_LOCK_MS;
+        state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + cooldownRemainingMs);
+        attackSyncLog("duplicate-accepted-cooldown-ignored", {
+          targetKey: failedTargetKey,
+          cooldownRemainingMs,
+          combatStartAck: state.combatStartAck,
+          capture: state.capture
+            ? {
+                target: state.capture.target,
+                resolvesAt: state.capture.resolvesAt
+              }
+            : undefined
+        });
+        requestViewRefreshSafely(1, true);
+        renderHud();
+        return;
       }
-      if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
-        state.pendingDomainUnlockId = "";
+      if (errorMessage.includes("development slots are busy")) {
+        logTileSync("development_slot_busy_error", {
+          code: errorCode,
+          message: errorMessage,
+          errorTileKey,
+          activeDevelopmentProcessCount: state.activeDevelopmentProcessCount,
+          developmentProcessLimit: state.developmentProcessLimit,
+          developmentQueueLength: state.developmentQueue.length,
+          queuedDevelopmentDispatchPending: state.queuedDevelopmentDispatchPending,
+          lastDevelopmentAttempt: state.lastDevelopmentAttempt ?? null,
+          settleProgressKeys: [...state.settleProgressByTile.keys()]
+        });
       }
-      const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
+      if (typeof msg.x === "number" && typeof msg.y === "number") {
+        logFrontierTimeline("frontier-error", Number(msg.x), Number(msg.y), {
+          before: state.tiles.get(errorTileKey),
+          after: state.tiles.get(errorTileKey),
+          extra: {
+            code: errorCode,
+            message: errorMessage
+          }
+        });
+      }
+      if (maybeRecoverBusyDevelopmentAttempt(errorCode, errorMessage, errorTileKey)) return;
+      const failureExplanationOptions = {
+        ...(typeof msg.cooldownRemainingMs === "number" ? { cooldownRemainingMs: msg.cooldownRemainingMs } : {}),
+        formatCooldownShort
+      };
+      const actionFailureExplanation = explainActionFailureSafely(errorCode, errorMessage, failureExplanationOptions);
+      recordClientDebugEvent("error", "server-error", "message", serverErrorContext);
+      console.error("[server-error]", serverErrorContext);
+      let backendUnavailableRollbackKeys = new Set<string>();
+      if (backendUnavailableError) {
+        backendUnavailableRollbackKeys = rollbackBackendUnavailableOptimisticState();
+        frontierQueueDebug("backend_unavailable_roll_back", {
+          code: errorCode,
+          message: errorMessage,
+          rolledBackKeys: [...backendUnavailableRollbackKeys]
+        });
+        if (backendUnavailableRollbackKeys.size > 0 && shouldShowBackendUnavailableAlert()) {
+          showCaptureAlertSafely(
+            "Simulation unavailable",
+            `${actionFailureExplanation}. Local action progress was rolled back. Please retry in a few seconds.`,
+            "error"
+          );
+        }
+      }
       if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING") && firebaseAuth?.currentUser) {
+          state.connection = "disconnected";
+          state.mapLoadStartedAt = Date.now();
+          state.firstChunkAt = 0;
+          state.chunkFullCount = 0;
           state.authBusyTitle = "Securing session";
           state.authBusyDetail =
             errorCode === "SERVER_STARTING"
@@ -1285,7 +2279,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           return;
         }
         if (errorCode === "AUTH_FAIL" && firebaseAuth?.currentUser && !state.authRetrying) {
-          state.authBusy = true;
+          setAuthBusy(true);
           state.authRetrying = true;
           state.authBusyTitle = "Securing session";
           state.authBusyDetail = "Refreshing your Firebase session after a server auth failure.";
@@ -1293,7 +2287,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           syncAuthOverlay();
           void authenticateSocket(true)
             .catch(() => {
-              state.authBusy = false;
+              setAuthBusy(false);
               state.authRetrying = false;
               state.authBusyTitle = "";
               state.authBusyDetail = "";
@@ -1303,7 +2297,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           renderHud();
           return;
         }
-        state.authBusy = false;
+        setAuthBusy(false);
         state.authRetrying = false;
         state.authBusyTitle = "";
         state.authBusyDetail = "";
@@ -1317,80 +2311,119 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ECONOMIC_STRUCTURE_BUILD_INVALID" ||
         errorCode === "STRUCTURE_REMOVE_INVALID" ||
         errorCode === "STRUCTURE_CANCEL_INVALID";
-      if (maybeRecoverBusyDevelopmentAttempt(errorCode, errorMessage, errorTileKey)) return;
+      if (maybeRecoverTransientSettlementAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD" && failedTargetKey) {
         notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
       } else if (errorCode === "SETTLE_INVALID") {
-        clearOptimisticTileState(errorTileKey, true);
-        clearSettlementProgressByKey(errorTileKey);
+        clearOptimisticTileStateSafely(errorTileKey, true);
+        clearSettlementProgressSafely(errorTileKey);
         state.queuedDevelopmentDispatchPending = false;
-        showCaptureAlert("Action failed", errorMessage, "warn");
+        showCaptureAlertSafely("Action failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (isStructureActionError && errorTileKey) {
-        clearOptimisticTileState(errorTileKey, true);
+        clearOptimisticTileStateSafely(errorTileKey, true);
         state.queuedDevelopmentDispatchPending = false;
-        showCaptureAlert(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
+        showCaptureAlertSafely(errorCode === "STRUCTURE_REMOVE_INVALID" ? "Removal failed" : "Construction failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (errorCode === "TOWN_UNFED") {
-        showCaptureAlert("Town unfed", errorMessage, "warn");
+        showCaptureAlertSafely("Town unfed", errorMessage, "warn");
+      } else if (errorCode === "EXPAND_TARGET_OWNED" && failedTargetKey) {
+        showCaptureAlertSafely(
+          "Frontier sync mismatch",
+          "Server says that tile is already owned. Download the debug log from this popup and refresh nearby tiles to resync.",
+          "warn"
+        );
+      } else if (errorCode === "NOT_OWNER") {
+        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
+      } else if (errorCode === "DOCK_COOLDOWN" || errorCode === "INSUFFICIENT_MANPOWER") {
+        showCaptureAlertSafely("Action blocked", actionFailureExplanation, "warn");
       }
       if (errorCode === "COLLECT_EMPTY") {
-        pushFeed(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
+        pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
       } else if (errorCode === "COLLECT_COOLDOWN") {
         if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + deps.COLLECT_VISIBLE_COOLDOWN_MS;
         showCollectVisibleCooldownAlert();
-        pushFeed(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
+        pushFeedSafely(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
       } else if (errorCode === "TOWN_UNFED") {
-        pushFeed(errorMessage, "info", "warn");
+        pushFeedSafely(errorMessage, "info", "warn");
       } else {
-        pushFeed(
-          explainActionFailure(errorCode, errorMessage, {
-            cooldownRemainingMs: typeof msg.cooldownRemainingMs === "number" ? msg.cooldownRemainingMs : undefined,
-            formatCooldownShort
-          }),
+        pushFeedSafely(
+          actionFailureExplanation,
           "error",
           "error"
         );
       }
       const frontierActionError =
         errorCode === "ACTION_INVALID" ||
+        errorCode === "ATTACK_TARGET_INVALID" ||
         errorCode === "NOT_ADJACENT" ||
         errorCode === "NOT_OWNER" ||
         errorCode === "ATTACK_COOLDOWN" ||
+        errorCode === "DOCK_COOLDOWN" ||
+        errorCode === "INSUFFICIENT_MANPOWER" ||
         errorCode === "EXPAND_TARGET_OWNED" ||
         errorCode === "LOCKED";
-      const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       const shouldResetFrontierAction = shouldResetFrontierActionStateForError(errorCode);
       if (shouldResetFrontierAction) {
+        if (failedTargetKey) {
+          const failedTile = state.tiles.get(failedTargetKey);
+          if (failedTile) {
+            logFrontierTimeline("frontier-reset-after-error", failedTile.x, failedTile.y, {
+              before: failedTile,
+              after: failedTile,
+              extra: {
+                code: errorCode,
+                message: errorMessage,
+                failedCurrentKey
+              }
+            });
+          }
+        }
         state.capture = undefined;
         if (state.pendingCombatReveal?.targetKey === failedCurrentKey) state.pendingCombatReveal = undefined;
         state.actionInFlight = false;
+        state.actionAcceptedAck = false;
         state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
         state.actionStartedAt = 0;
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
-        if (errorCode === "ATTACK_COOLDOWN") {
-          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + COMBAT_LOCK_MS);
-          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + COMBAT_LOCK_MS);
+        clearLateFrontierAck(failedCurrentKey);
+        clearLateFrontierAck(failedTargetKey);
+        if (errorCode === "ATTACK_COOLDOWN" || errorCode === "DOCK_COOLDOWN") {
+          const cooldownBackoffMs =
+            typeof msg.cooldownRemainingMs === "number" && Number.isFinite(msg.cooldownRemainingMs)
+              ? Math.max(0, msg.cooldownRemainingMs)
+              : COMBAT_LOCK_MS;
+          if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + cooldownBackoffMs);
+          if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + cooldownBackoffMs);
         }
         if (errorCode === "LOCKED") {
           if (failedCurrentKey) state.frontierSyncWaitUntilByTarget.set(failedCurrentKey, Date.now() + 12_000);
           if (failedTargetKey) state.frontierSyncWaitUntilByTarget.set(failedTargetKey, Date.now() + 12_000);
         }
         if (failedCurrentKey) dropQueuedTargetKeyIfAbsent(failedCurrentKey);
-        if (failedCurrentKey) clearOptimisticTileState(failedCurrentKey, true);
-        if (failedTargetKey) clearOptimisticTileState(failedTargetKey, true);
+        if (failedCurrentKey) clearOptimisticTileStateSafely(failedCurrentKey, true);
+        if (failedTargetKey) clearOptimisticTileStateSafely(failedTargetKey, true);
         if (failedTargetKey) state.autoSettleTargets.delete(failedTargetKey);
       } else if (failedTargetKey) {
-        clearOptimisticTileState(failedTargetKey, true);
+        clearOptimisticTileStateSafely(failedTargetKey, true);
       }
       state.attackPreviewPendingKey = "";
       if (frontierActionError || !shouldResetFrontierAction) {
         state.lastSubAt = 0;
-        requestViewRefresh(2, true);
+        requestViewRefreshSafely(2, true);
       }
-      reconcileActionQueue();
-      processActionQueue();
+      reconcileActionQueueSafely();
+      if (errorCode === "ATTACK_COOLDOWN" || errorCode === "DOCK_COOLDOWN") {
+        const cooldownBackoffMs =
+          typeof msg.cooldownRemainingMs === "number" && Number.isFinite(msg.cooldownRemainingMs)
+            ? Math.max(0, msg.cooldownRemainingMs)
+            : COMBAT_LOCK_MS;
+        resumeQueuedFrontierActionsAfter(cooldownBackoffMs);
+      } else {
+        processActionQueueSafely();
+      }
       renderHud();
       return;
     }
@@ -1442,9 +2475,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "PLAYER_STYLE") {
       const playerId = msg.playerId as string;
+      const name = msg.name as string | undefined;
       const color = msg.tileColor as string | undefined;
       const visualStyle = msg.visualStyle as any;
       const shieldUntil = msg.shieldUntil as number | undefined;
+      if (playerId && name) {
+        state.playerNames.set(playerId, name);
+        if (playerId === state.me) {
+          state.meName = name;
+          authProfileNameEl.value = name;
+        }
+      }
       if (playerId && color) {
         state.playerColors.set(playerId, color);
         if (playerId === state.me) authProfileColorEl.value = color;
@@ -1489,6 +2530,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.mapLoadStartedAt = Date.now();
       state.firstChunkAt = 0;
       state.chunkFullCount = 0;
+      state.lastChunkSnapshotGeneration = 0;
       state.hasOwnedTileInCache = false;
       state.dockRouteCache.clear();
       pushFeed(

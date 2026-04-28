@@ -136,6 +136,9 @@ export interface ServerPlayerEconomyRuntimeDeps {
   GRANARY_GOLD_UPKEEP: number;
   CENSUS_HALL_GOLD_UPKEEP: number;
   CARAVANARY_GOLD_UPKEEP: number;
+  MARKET_FOOD_UPKEEP: number;
+  BANK_FOOD_UPKEEP: number;
+  CARAVANARY_FOOD_UPKEEP: number;
   FUR_SYNTHESIZER_GOLD_UPKEEP: number;
   WOODEN_FORT_GOLD_UPKEEP: number;
   LIGHT_OUTPOST_GOLD_UPKEEP: number;
@@ -161,8 +164,6 @@ export interface ServerPlayerEconomyRuntimeDeps {
   WORLD_ENGINE_GOLD_UPKEEP: number;
   AEGIS_DOME_GOLD_UPKEEP: number;
   ASTRAL_DOCK_GOLD_UPKEEP: number;
-  MARKET_CRYSTAL_UPKEEP: number;
-  BANK_CRYSTAL_UPKEEP: number;
 }
 
 export interface ServerPlayerEconomyRuntime {
@@ -171,6 +172,7 @@ export interface ServerPlayerEconomyRuntime {
   roundedUpkeepPerMinute: (amountPerMinute: number) => number;
   tileUpkeepEntriesForTile: (tileKey: TileKey, ownerId: string | undefined) => NonNullable<Tile["upkeepEntries"]>;
   economicStructureGoldUpkeepPerInterval: (structureType: EconomicStructureType) => number;
+  economicStructureFoodUpkeepPerInterval: (structureType: EconomicStructureType, playerId: string) => number;
   economicStructureCrystalUpkeepPerInterval: (structureType: EconomicStructureType, playerId: string) => number;
   pushUpkeepContributor: (map: Map<string, UpkeepContributor>, label: string, amountPerMinute: number, options?: { count?: number; note?: string }) => void;
   sortedUpkeepContributors: (map: Map<string, UpkeepContributor>) => UpkeepContributor[];
@@ -262,6 +264,7 @@ export interface ServerEconomicOperationsDeps {
   hostileRadarProtectingTile: (actor: Player, x: number, y: number) => TileKey | undefined;
   tileHasPendingSettlement: (tileKey: TileKey) => boolean;
   economicStructureGoldUpkeepPerInterval: (structureType: EconomicStructureType) => number;
+  economicStructureFoodUpkeepPerInterval: (structureType: EconomicStructureType, playerId: string) => number;
   economicStructureUpkeepDue: (structure: EconomicStructure) => boolean;
   prettyEconomicStructureLabel: (structureType: EconomicStructureType) => string;
   economicStructureBuildDurationMs: (structureType: EconomicStructureType) => number;
@@ -283,7 +286,6 @@ export interface ServerEconomicOperationsDeps {
   WATERWORKS_BUILD_FOOD_COST: number;
   CAMP_BUILD_SUPPLY_COST: number;
   MINE_BUILD_RESOURCE_COST: number;
-  MARKET_BUILD_CRYSTAL_COST: number;
   GRANARY_BUILD_FOOD_COST: number;
   CENSUS_HALL_BUILD_FOOD_COST: number;
   BANK_BUILD_CRYSTAL_COST: number;
@@ -302,8 +304,6 @@ export interface ServerEconomicOperationsDeps {
   WORLD_ENGINE_PART_BUILD_CRYSTAL_COST: number;
   AEGIS_DOME_PART_BUILD_CRYSTAL_COST: number;
   ASTRAL_DOCK_PART_BUILD_CRYSTAL_COST: number;
-  MARKET_CRYSTAL_UPKEEP: number;
-  BANK_CRYSTAL_UPKEEP: number;
 }
 
 export interface ServerEconomicOperations {

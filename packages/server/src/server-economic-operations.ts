@@ -81,6 +81,7 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
     hostileRadarProtectingTile,
     tileHasPendingSettlement,
     economicStructureGoldUpkeepPerInterval,
+    economicStructureFoodUpkeepPerInterval,
     economicStructureUpkeepDue,
     prettyEconomicStructureLabel,
     economicStructureBuildDurationMs,
@@ -355,7 +356,6 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
     } else {
       const structuredCosts: Partial<Record<EconomicStructureType, { crystal?: number; food?: number }>> = {
         WATERWORKS: { food: deps.WATERWORKS_BUILD_FOOD_COST },
-        MARKET: { crystal: deps.MARKET_BUILD_CRYSTAL_COST },
         GRANARY: { food: deps.GRANARY_BUILD_FOOD_COST },
         CENSUS_HALL: { food: deps.CENSUS_HALL_BUILD_FOOD_COST },
         BANK: { crystal: deps.BANK_BUILD_CRYSTAL_COST },
@@ -438,14 +438,13 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
         continue;
       }
       if (!economicStructureUpkeepDue(structure)) continue;
-      if (structure.type === "MARKET" || structure.type === "BANK") {
-        const crystalUpkeep = (structure.type === "MARKET" ? deps.MARKET_CRYSTAL_UPKEEP : deps.BANK_CRYSTAL_UPKEEP) * getPlayerEffectsForPlayer(player.id).marketCrystalUpkeepMult;
-        if ((stock.CRYSTAL ?? 0) >= crystalUpkeep) {
-          stock.CRYSTAL = Math.max(0, (stock.CRYSTAL ?? 0) - crystalUpkeep);
-          structure.status = "active";
-        } else {
-          structure.status = "inactive";
-        }
+      const foodUpkeep = economicStructureFoodUpkeepPerInterval(structure.type, player.id);
+      if (foodUpkeep > 0) {
+        const fromYield = consumeYieldStrategicForPlayer(player, "FOOD", foodUpkeep, touched);
+        const remaining = Math.max(0, foodUpkeep - fromYield);
+        const fromStock = Math.min(remaining, Math.max(0, stock.FOOD ?? 0));
+        stock.FOOD = Math.max(0, Math.max(0, stock.FOOD ?? 0) - fromStock);
+        structure.status = remaining - fromStock <= 1e-9 ? "active" : "inactive";
       } else {
         const upkeep = economicStructureGoldUpkeepPerInterval(structure.type);
         if (player.points >= upkeep) {

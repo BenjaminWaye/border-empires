@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { constructionProgressForTile, menuOverviewForTile, tileMenuViewForTile } from "./client-tile-menu-view.js";
 import type { TileOverviewModifier } from "./client-tile-overview-modifiers.js";
@@ -57,6 +57,10 @@ const deps = {
 };
 
 describe("menuOverviewForTile", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("avoids repeating fed town production in prose and shows connection guidance when isolated", () => {
     const lines = menuOverviewForTile(
       {
@@ -104,6 +108,48 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html === "Connected towns 0")).toBe(false);
     expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true);
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
+  });
+
+  it("falls back to zero settlement gold when snapshot detail is missing the numeric rate", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 19,
+        y: 43,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Qadarstrand Mast",
+          type: "MARKET",
+          baseGoldPerMinute: 0,
+          supportCurrent: 0,
+          supportMax: 0,
+          goldPerMinute: 0,
+          cap: 40,
+          isFed: true,
+          population: 1,
+          maxPopulation: 10_000,
+          populationTier: "SETTLEMENT",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 0
+        }
+      },
+      {
+        ...deps,
+        displayTownGoldPerMinute: () => Number.NaN
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Settlement is producing 0.00 gold/m."))).toBe(true);
   });
 
   it("uses the modifier section instead of a raw connected-town count when bonuses are active", () => {
@@ -220,6 +266,29 @@ describe("menuOverviewForTile", () => {
   it("distinguishes overloaded recovery from generic inactivity", () => {
     const lines = menuOverviewForTile(settledSupportTile("inactive", Date.now() + 60_000), deps);
     expect(lines.some((line) => line.html.includes("disabled while recovering from overload"))).toBe(true);
+  });
+
+  it("calls out recent capture shock separately from overload recovery", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-10T10:00:00.000Z"));
+    const now = Date.now();
+    const lines = menuOverviewForTile(
+      {
+        ...settledSupportTile("inactive", now + 119_000),
+        history: {
+          previousOwners: ["enemy-1"],
+          captureCount: 9,
+          lastCapturedAt: now - 30_000,
+          lastOwnerId: "enemy-1",
+          structureHistory: []
+        }
+      },
+      deps
+    );
+
+    expect(lines.some((line) => line.html.includes("Recently captured."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("capture shock"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("recovering from overload"))).toBe(false);
   });
 
   it("calls out synths shut down by missing upkeep until manually enabled", () => {
@@ -486,6 +555,37 @@ describe("menuOverviewForTile", () => {
 
     expect(progress?.title).toBe("Removing Fort");
     expect(progress?.note).toContain("Defense from this fort is disabled");
+  });
+
+  it("adds a recent-capture timer to the tile heading when a structure is in capture shock", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-10T10:00:00.000Z"));
+    const now = Date.now();
+    const menu = tileMenuViewForTile(
+      {
+        ...settledSupportTile("inactive", now + 119_000),
+        history: {
+          previousOwners: ["enemy-1"],
+          captureCount: 9,
+          lastCapturedAt: now - 15_000,
+          lastOwnerId: "enemy-1",
+          structureHistory: []
+        }
+      },
+      {
+        ...deps,
+        menuActionsForSingleTile: () => [],
+        splitTileActionsIntoTabs: () => ({ actions: [], buildings: [], crystal: [] }),
+        settlementProgressForTile: () => undefined,
+        queuedSettlementProgressForTile: () => undefined,
+        queuedBuildProgressForTile: () => undefined,
+        constructionProgressForTile: () => undefined,
+        menuOverviewForTile: () => []
+      }
+    );
+
+    expect(menu.statusText).toBe("Recently captured 01:59");
+    expect(menu.statusTone).toBe("warning");
   });
 
   it("uses the generated town name in the pressed-town title", () => {

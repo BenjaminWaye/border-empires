@@ -1,9 +1,74 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInitialState } from "./client-state.js";
-import { busyDevelopmentProcessCount, hasQueuedSettlementForTile, queuedSettlementOrderForTile } from "./client-development-queue.js";
-import { developmentSlotSummary, processDevelopmentQueue } from "./client-queue-logic.js";
+import {
+  busyDevelopmentProcessCount,
+  hasQueuedSettlementForTile,
+  persistDevelopmentQueueForPlayer,
+  queuedSettlementOrderForTile,
+  restorePersistedDevelopmentQueueForPlayer
+} from "./client-development-queue.js";
+import { developmentSlotSummary, processDevelopmentQueue, requestSettlement } from "./client-queue-logic.js";
+
+const installSessionStorageMock = () => {
+  let values = new Map<string, string>();
+  vi.stubGlobal("sessionStorage", {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
+    clear: () => {
+      values = new Map<string, string>();
+    }
+  });
+};
 
 describe("development queue helpers", () => {
+  it("persists and restores queued settlements for the same player session", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+
+    const restored = restorePersistedDevelopmentQueueForPlayer(
+      "me",
+      new Map([
+        [
+          "2,2",
+          {
+            ownerId: "me",
+            ownershipState: "FRONTIER"
+          }
+        ]
+      ])
+    );
+
+    expect(restored).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+  });
+
+  it("drops persisted settlements that are already pending on the server", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+
+    const restored = restorePersistedDevelopmentQueueForPlayer(
+      "me",
+      new Map([
+        [
+          "2,2",
+          {
+            ownerId: "me",
+            ownershipState: "FRONTIER"
+          }
+        ]
+      ]),
+      new Set(["2,2"])
+    );
+
+    expect(restored).toEqual([]);
+  });
+
   it("finds the ordinal for queued settlements without counting builds separately", () => {
     const queue = [
       { kind: "BUILD" as const, tileKey: "1,1" },
@@ -121,5 +186,69 @@ describe("development queue helpers", () => {
     ).toBe(false);
     expect(requestSettlement).toHaveBeenCalledTimes(1);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 3, y: 3, tileKey: "3,3", label: "Settlement at (3, 3)" }]);
+  });
+
+  it("queues a settlement instead of sending it while the target tile is still in flight", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 999;
+    state.actionInFlight = true;
+    state.actionTargetKey = "2,2";
+    state.tiles.set("2,2", {
+      x: 2,
+      y: 2,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER"
+    } as any);
+    const pushFeed = vi.fn();
+    const renderHud = vi.fn();
+
+    const queued = requestSettlement(state, 2, 2, {
+      keyFor: (x, y) => `${x},${y}`,
+      developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+      developmentSlotReason: () => "busy",
+      queueDevelopmentAction: (entry) => {
+        state.developmentQueue.push(entry);
+        return true;
+      },
+      pushFeed,
+      renderHud,
+      sendGameMessage: vi.fn(() => true),
+      syncOptimisticSettlementTile: vi.fn(),
+      opts: {}
+    });
+
+    expect(queued).toBe(true);
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    expect(state.settleProgressByTile.size).toBe(0);
+  });
+
+  it("keeps a queued settlement waiting while the tile is still syncing from combat", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.developmentProcessLimit = 4;
+    state.activeDevelopmentProcessCount = 0;
+    state.actionInFlight = true;
+    state.actionTargetKey = "2,2";
+    state.developmentQueue = [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }];
+    const requestSettlementSpy = vi.fn(() => true);
+    const ws = { readyState: 1, OPEN: 1 } as WebSocket;
+
+    expect(
+      processDevelopmentQueue(state, {
+        ws,
+        authSessionReady: true,
+        developmentSlotSummary: () => ({ busy: 0, limit: 4, available: 4 }),
+        requestSettlement: requestSettlementSpy,
+        sendDevelopmentBuild: vi.fn(() => true),
+        applyOptimisticStructureBuild: vi.fn(),
+        applyOptimisticStructureRemoval: vi.fn(),
+        pushFeed: vi.fn(),
+        renderHud: vi.fn()
+      })
+    ).toBe(false);
+    expect(requestSettlementSpy).not.toHaveBeenCalled();
+    expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
   });
 });

@@ -15,6 +15,7 @@ export const TILE_SYNC_DEBUG_EMAILS = new Set(
     .map((value) => value.trim().toLowerCase())
     .filter((value) => value.length > 0)
 );
+export const RUNTIME_INCIDENT_WEBHOOK_URL = String(process.env.RUNTIME_INCIDENT_WEBHOOK_URL ?? "").trim();
 export const STARTING_MANPOWER = Math.max(MANPOWER_BASE_CAP, Number(process.env.STARTING_MANPOWER ?? MANPOWER_BASE_CAP));
 export const AI_TICK_MS = Number(process.env.AI_TICK_MS ?? 3_000);
 export const AI_DISPATCH_INTERVAL_MS = Math.max(100, Number(process.env.AI_DISPATCH_INTERVAL_MS ?? 250));
@@ -200,7 +201,7 @@ export const sampleRuntimeVitals = (): {
   };
 };
 
-export type Ws = import("ws").WebSocket;
+export type Ws = import("ws").WebSocket & { _socket?: import("node:net").Socket };
 export const NOOP_WS = { send: () => undefined, readyState: 1, OPEN: 1 } as unknown as Ws;
 
 export const logStartupPhase = (phase: string, startedAt: number, extra?: Record<string, unknown>): void => {

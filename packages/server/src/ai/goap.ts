@@ -146,6 +146,7 @@ export interface AiEmpireGoapState {
   hasScaffoldOpportunity: boolean;
   hasBarbarianTarget: boolean;
   hasWeakEnemyBorder: boolean;
+  hasSiegeOutpostSite: boolean;
   attackReady: boolean;
   needsSettlement: boolean;
   frontierDebtHigh: boolean;
@@ -158,6 +159,7 @@ export interface AiEmpireGoapState {
   canAffordSettlement: boolean;
   canBuildFort: boolean;
   canBuildEconomy: boolean;
+  canBuildSiegeOutpost: boolean;
   goldHealthy: boolean;
   staminaHealthy: boolean;
 }
@@ -338,8 +340,25 @@ export const AI_EMPIRE_ACTIONS: readonly GoapAction<AiEmpireGoapState>[] = [
       needsSettlement: true
     },
     meta: {
-      goalIds: ["remove_core_threat", "season_town_control"],
+      goalIds: ["remove_core_threat", "season_town_control", "season_economic_hegemony"],
       description: "Push a weak neighboring border."
+    }
+  },
+  {
+    key: "build_siege_outpost",
+    cost: 4,
+    preconditions: {
+      hasSiegeOutpostSite: true,
+      canBuildSiegeOutpost: true,
+      underThreat: false
+    },
+    effects: {
+      hasWeakEnemyBorder: false,
+      hasSiegeOutpostSite: false
+    },
+    meta: {
+      goalIds: ["season_town_control", "season_economic_hegemony"],
+      description: "Prepare a siege outpost on a contested border before attacking."
     }
   },
   {
@@ -469,7 +488,7 @@ const SEASON_GOAL_BY_VICTORY_PATH: Record<AiSeasonVictoryPathId, GoapGoal<AiEmpi
   ECONOMIC_HEGEMONY: {
     id: "season_economic_hegemony",
     priority: 13,
-    desired: { economyWeak: false, foodCoverageLow: false }
+    desired: { economyWeak: false, foodCoverageLow: false, hasWeakEnemyBorder: false }
   }
 };
 
@@ -501,6 +520,7 @@ const GOAL_PRIORITY_BONUSES: Partial<Record<AiSeasonVictoryPathId, Partial<Recor
     secure_core_income: 5,
     settle_high_value_frontier: 5,
     secure_high_value_frontier: 4,
+    remove_core_threat: 4,
     clear_barbarian_pressure: 1,
     stabilize_reserves: -2
   }

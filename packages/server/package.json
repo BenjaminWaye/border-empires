@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "pnpm --filter @border-empires/shared build && tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "lint": "tsc --noEmit -p tsconfig.json",
     "simulate:load": "tsx src/simulate.ts"

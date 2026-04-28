@@ -1,4 +1,5 @@
 import { CHUNK_SIZE } from "@border-empires/shared";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 
 export const centerOnOwnedTile = (state: Pick<ClientState, "tiles" | "me" | "homeTile" | "camX" | "camY">): void => {
@@ -20,7 +21,7 @@ export const requestViewRefresh = (
     "authSessionReady" | "fogDisabled" | "camX" | "camY" | "lastSubCx" | "lastSubCy" | "lastSubRadius" | "lastSubAt" | "firstChunkAt"
   >,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     fullMapChunkRadius: number;
     radius?: number;
     force?: boolean;
@@ -57,7 +58,7 @@ export const requestViewRefresh = (
 export const maybeRefreshForCamera = (
   state: Pick<ClientState, "authSessionReady" | "camX" | "camY" | "lastSubCx" | "lastSubCy" | "actionInFlight" | "capture" | "actionQueue">,
   deps: {
-    ws: WebSocket;
+    ws: RealtimeSocket;
     requestViewRefresh: (radius?: number, force?: boolean) => void;
     force?: boolean;
   }

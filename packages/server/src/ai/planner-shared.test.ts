@@ -43,6 +43,7 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   fortProtectsCore: false,
   fortIsDockChokePoint: false,
   economicBuildAvailable: false,
+  siegeOutpostAvailable: false,
   frontierOpportunityEconomic: 0,
   frontierOpportunityScout: 0,
   frontierOpportunityScaffold: 0,
@@ -52,7 +53,9 @@ const baseSnapshot = (): AiPlanningSnapshot => ({
   canAffordSettlement: true,
   canBuildFort: false,
   canBuildEconomy: false,
-  goldHealthy: true
+  canBuildSiegeOutpost: false,
+  goldHealthy: true,
+  victoryPathContender: false
 });
 
 describe("planAiDecision", () => {
@@ -236,7 +239,37 @@ describe("planAiDecision", () => {
     });
 
     expect(decision.actionKey).toBe("build_economic_structure");
-    expect(decision.reason).toBe("executed_economic_priority");
+    expect(decision.reason).toBe("executed_economic_compounding_priority");
+  });
+
+  it("takes opportunistic attacks before generic recovery when an economic or town path finds a soft border", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "ECONOMIC_HEGEMONY",
+      frontPosture: "BREAK",
+      attackReady: true,
+      pressureAttackAvailable: true,
+      pressureAttackScore: 220,
+      settlementAvailable: true,
+      economyWeak: true
+    });
+
+    expect(decision.actionKey).toBe("attack_enemy_border_tile");
+    expect(decision.reason).toBe("executed_opportunistic_pressure_priority");
+  });
+
+  it("prefers compounding economic builds on the economic path before generic settlement churn", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "ECONOMIC_HEGEMONY",
+      economicBuildAvailable: true,
+      canBuildEconomy: true,
+      settlementAvailable: true,
+      aiIncome: 16
+    });
+
+    expect(decision.actionKey).toBe("build_economic_structure");
+    expect(decision.reason).toBe("executed_economic_compounding_priority");
   });
 
   it("does not scout as a fallback when scouting is not worthwhile", () => {
@@ -260,6 +293,21 @@ describe("planAiDecision", () => {
     });
 
     expect(decision.actionKey).not.toBe("attack_enemy_border_tile");
+  });
+
+  it("builds siege pressure when a contender has an uncontested hostile breach site", () => {
+    const decision = planAiDecision({
+      ...baseSnapshot(),
+      primaryVictoryPath: "TOWN_CONTROL",
+      frontPosture: "BREAK",
+      siegeOutpostAvailable: true,
+      canBuildSiegeOutpost: true,
+      victoryPathContender: true,
+      pressureAttackScore: 90
+    });
+
+    expect(decision.actionKey).toBe("build_siege_outpost");
+    expect(decision.reason).toBe("executed_siege_pressure_priority");
   });
 
   it("does not force island expansion before the empire has a growth foundation", () => {

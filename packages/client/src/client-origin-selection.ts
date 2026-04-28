@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { LIGHT_OUTPOST_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { townHasSupportStructureType } from "./client-support-structures.js";
 import type { SupportTownStructureKey } from "./client-support-structures.js";
 import type { ClientState } from "./client-state.js";
@@ -13,6 +13,44 @@ type OriginSelectionDeps = {
 
 export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
   const { state, keyFor, wrapX, wrapY } = deps;
+
+  const currentOutpostAttackMult = (): number => {
+    let mult = 1;
+    for (const tech of state.techCatalog) {
+      if (!state.techIds.includes(tech.id)) continue;
+      const effectMult = tech.effects?.outpostAttackMult;
+      if (typeof effectMult === "number" && effectMult > 0) mult *= effectMult;
+    }
+    for (const domain of state.domainCatalog) {
+      if (!state.domainIds.includes(domain.id)) continue;
+      const effectMult = domain.effects?.outpostAttackMult;
+      if (typeof effectMult === "number" && effectMult > 0) mult *= effectMult;
+    }
+    return mult;
+  };
+
+  const attackOriginMultiplierForTile = (tile: Tile): number => {
+    if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") {
+      return SIEGE_OUTPOST_ATTACK_MULT * currentOutpostAttackMult();
+    }
+    if (tile.economicStructure?.ownerId === state.me && tile.economicStructure.status === "active" && tile.economicStructure.type === "LIGHT_OUTPOST") {
+      return LIGHT_OUTPOST_ATTACK_MULT;
+    }
+    return 1;
+  };
+
+  const pickBestOrigin = (candidates: Tile[]): Tile | undefined => {
+    let best: Tile | undefined;
+    let bestMult = -1;
+    for (const candidate of candidates) {
+      const attackMult = attackOriginMultiplierForTile(candidate);
+      if (attackMult > bestMult) {
+        best = candidate;
+        bestMult = attackMult;
+      }
+    }
+    return best;
+  };
 
   const isTownSupportNeighbor = (tx: number, ty: number, sx: number, sy: number): boolean => {
     const dx = Math.min(Math.abs(tx - sx), WORLD_WIDTH - Math.abs(tx - sx));
@@ -99,6 +137,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     allowAdjacentToDock = true,
     allowOptimisticExpandOrigin = true
   ): Tile | undefined => {
+    const candidates: Tile[] = [];
     for (const t of state.tiles.values()) {
       if (
         t.ownerId !== state.me ||
@@ -109,10 +148,13 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
       ) continue;
       const linked = dockDestinationsFor(t.x, t.y);
       for (const d of linked) {
-        if ((d.x === tx && d.y === ty) || (allowAdjacentToDock && isAdjacent(d.x, d.y, tx, ty))) return t;
+        if ((d.x === tx && d.y === ty) || (allowAdjacentToDock && isAdjacent(d.x, d.y, tx, ty))) {
+          candidates.push(t);
+          break;
+        }
       }
     }
-    return undefined;
+    return pickBestOrigin(candidates);
   };
 
   const pickOriginForTarget = (
@@ -131,7 +173,9 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
       state.tiles.get(keyFor(wrapX(tx + 1), wrapY(ty + 1))),
       state.tiles.get(keyFor(wrapX(tx - 1), wrapY(ty + 1)))
     ].filter((t): t is Tile => Boolean(t));
-    const adjacent = candidates.find((t) => t.ownerId === state.me && (allowOptimisticExpandOrigin || t.optimisticPending !== "expand"));
+    const adjacent = pickBestOrigin(
+      candidates.filter((t) => t.ownerId === state.me && (allowOptimisticExpandOrigin || t.optimisticPending !== "expand"))
+    );
     if (adjacent) return adjacent;
     return pickDockOriginForTarget(tx, ty, allowAdjacentToDock, allowOptimisticExpandOrigin);
   };
