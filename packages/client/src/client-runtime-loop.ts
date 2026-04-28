@@ -727,21 +727,41 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
 
-      const queuedN = queueIndex.get(wk);
-      if (!isTrue3DRendererActive() && queuedN !== undefined) {
-        deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
+      const queuedFrontierBadge = queuedCornerBadgeLayout({
+        kind: "FRONTIER",
+        ordinal: queueIndex.get(wk),
+        px,
+        py,
+        size,
+        isTrue3D: isTrue3DRendererActive(),
+        blocked: false
+      });
+      if (queuedFrontierBadge?.border) {
+        deps.ctx.strokeStyle = queuedFrontierBadge.border.strokeStyle;
         deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
-        if (size >= 16) {
-          deps.ctx.fillStyle = "rgba(20, 16, 35, 0.85)";
-          deps.ctx.fillRect(px + 3, py + 3, Math.min(size - 6, 14), 12);
-          deps.ctx.fillStyle = "#c4b5fd";
-          deps.ctx.font = "10px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.fillText(String(queuedN), px + 5, py + 4);
-        }
-        deps.ctx.lineWidth = 1;
+        deps.ctx.strokeRect(
+          queuedFrontierBadge.border.x,
+          queuedFrontierBadge.border.y,
+          queuedFrontierBadge.border.width,
+          queuedFrontierBadge.border.height
+        );
       }
+      if (queuedFrontierBadge?.badge) {
+        deps.ctx.fillStyle = queuedFrontierBadge.badge.background;
+        deps.ctx.fillRect(
+          queuedFrontierBadge.badge.x,
+          queuedFrontierBadge.badge.y,
+          queuedFrontierBadge.badge.width,
+          queuedFrontierBadge.badge.height
+        );
+        deps.ctx.fillStyle = queuedFrontierBadge.badge.foreground;
+        deps.ctx.font = "10px monospace";
+        deps.ctx.textBaseline = "top";
+        deps.ctx.textAlign = "left";
+        deps.ctx.fillText(queuedFrontierBadge.badge.text, queuedFrontierBadge.badge.textX, queuedFrontierBadge.badge.textY);
+        deps.ctx.textAlign = "start";
+      }
+      if (queuedFrontierBadge?.border) deps.ctx.lineWidth = 1;
       const queuedSettlementBadge = queuedCornerBadgeLayout({
         kind: "SETTLEMENT",
         ordinal: settleQueueIndex.get(wk),
@@ -1269,21 +1289,41 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
 
-        const queuedN = queueIndex.get(wk);
-        if (!isTrue3DRendererActive() && queuedN !== undefined) {
-          deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
+        const queuedFrontierBadge = queuedCornerBadgeLayout({
+          kind: "FRONTIER",
+          ordinal: queueIndex.get(wk),
+          px,
+          py,
+          size,
+          isTrue3D: isTrue3DRendererActive(),
+          blocked: false
+        });
+        if (queuedFrontierBadge?.border) {
+          deps.ctx.strokeStyle = queuedFrontierBadge.border.strokeStyle;
           deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
-          if (size >= 16) {
-            deps.ctx.fillStyle = "rgba(20, 16, 35, 0.85)";
-            deps.ctx.fillRect(px + 3, py + 3, Math.min(size - 6, 14), 12);
-            deps.ctx.fillStyle = "#c4b5fd";
-            deps.ctx.font = "10px monospace";
-            deps.ctx.textBaseline = "top";
-            deps.ctx.fillText(String(queuedN), px + 5, py + 4);
-          }
-          deps.ctx.lineWidth = 1;
+          deps.ctx.strokeRect(
+            queuedFrontierBadge.border.x,
+            queuedFrontierBadge.border.y,
+            queuedFrontierBadge.border.width,
+            queuedFrontierBadge.border.height
+          );
         }
+        if (queuedFrontierBadge?.badge) {
+          deps.ctx.fillStyle = queuedFrontierBadge.badge.background;
+          deps.ctx.fillRect(
+            queuedFrontierBadge.badge.x,
+            queuedFrontierBadge.badge.y,
+            queuedFrontierBadge.badge.width,
+            queuedFrontierBadge.badge.height
+          );
+          deps.ctx.fillStyle = queuedFrontierBadge.badge.foreground;
+          deps.ctx.font = "10px monospace";
+          deps.ctx.textBaseline = "top";
+          deps.ctx.textAlign = "left";
+          deps.ctx.fillText(queuedFrontierBadge.badge.text, queuedFrontierBadge.badge.textX, queuedFrontierBadge.badge.textY);
+          deps.ctx.textAlign = "start";
+        }
+        if (queuedFrontierBadge?.border) deps.ctx.lineWidth = 1;
         const queuedSettlementBadge = queuedCornerBadgeLayout({
           kind: "SETTLEMENT",
           ordinal: settleQueueIndex.get(wk),
