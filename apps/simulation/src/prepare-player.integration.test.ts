@@ -187,5 +187,6 @@ describe("prepare player integration", () => {
 
     expect(snapshot.playerId).toBe(playerId);
     expect(snapshot.tiles.some((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED")).toBe(true);
+    expect(snapshot.worldStatus?.leaderboard.overall.length).toBeGreaterThan(0);
   });
 });

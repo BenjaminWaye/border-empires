@@ -690,11 +690,14 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     lastCpuSampleAt = at;
     return ((cpuUsage.user + cpuUsage.system) / elapsedMicros) * 100;
   };
-  const buildAndCachePlayerSnapshot = (playerId: string): PlayerSubscriptionSnapshot => {
+  const buildAndCachePlayerSnapshot = (
+    playerId: string,
+    options?: { includeWorldStatus?: boolean }
+  ): PlayerSubscriptionSnapshot => {
     const runtimeState =
       currentSeasonState.status === "ended" ? runtime.exportState() : runtime.exportVisibleStateForPlayer(playerId);
     const snapshot = buildPlayerSubscriptionSnapshot(playerId, runtimeState, undefined, {
-      includeWorldStatus: false
+      includeWorldStatus: options?.includeWorldStatus === true
     });
     snapshotCacheByPlayerId.set(playerId, snapshot);
     return snapshot;
@@ -1254,7 +1257,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
       subscriptionRegistry.subscribe(call.request.player_id);
-      const snapshotPayload = snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
+      const snapshotPayload =
+        subscribeOptions.mode === "bootstrap-only"
+          ? buildAndCachePlayerSnapshot(call.request.player_id, { includeWorldStatus: true })
+          : snapshotCacheByPlayerId.get(call.request.player_id) ?? buildAndCachePlayerSnapshot(call.request.player_id);
       if (process.env.DEBUG_SIM_SUBSCRIBE === "1") {
         log.info(
           JSON.stringify({
