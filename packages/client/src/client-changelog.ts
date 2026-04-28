@@ -19,10 +19,40 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.8",
+  version: "2026.04.28.2",
   title: "What's New",
-  summary: "Recent updates include copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
+  summary: "Recent updates include a chunked rewrite 3D terrain foundation with square ground meshes, coastline cliffs, and water surfaces under the existing props/overlays; Carcassonne-style dirt roads for the rewrite map while keeping the same road network rules; visible queue ordinals returning for frontier expansion tiles in rewrite 3D mode; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
+    {
+      introducedIn: "2026.04.28.2",
+      title: "Rewrite 3D mode now builds chunked square terrain instead of flat tile boxes",
+      why: "The earlier rewrite 3D terrain used one box-like ground instance per tile, which limited coastline shaping, elevation changes, and the overall terrain read needed for a more atmospheric strategy-map look.",
+      changes: [
+        "Visible terrain now builds from chunked square meshes with per-tile surface heights, lower coastal/water surfaces, and steeper mountain elevation under the existing 3D props.",
+        "Chunk meshes now generate cliff faces where neighboring terrain heights step sharply, giving coasts and mountain edges a more terrain-like silhouette without changing the gameplay grid.",
+        "Tile picking, hover, selection, ownership fills, and queue markers now anchor against the new terrain height model instead of fixed box tops."
+      ]
+    },
+    {
+      introducedIn: "2026.04.28.1",
+      title: "Rewrite map roads now render as layered dirt paths instead of flat brown lines",
+      why: "The rewrite road network was still drawing as a single thin line between towns, which made roads easy to miss against the new terrain and disconnected visually from the rest of the map style.",
+      changes: [
+        "Roads still follow the same network rules as before, including settlement endpoints, settled-land routing, and diagonal links between connected towns.",
+        "Road rendering now uses a wider layered dirt-path treatment with a darker edge, warm road bed, and center highlight so roads read more like carved paths on the terrain.",
+        "Extracted road rendering into a dedicated client module and added style regression coverage so future map changes do not silently revert roads back to a flat line."
+      ]
+    },
+    {
+      introducedIn: "2026.04.26.9",
+      title: "Frontier queue tiles in rewrite 3D mode show their queue number again",
+      why: "The earlier 3D queue badge fix restored development ordinals, but frontier expansion tiles were still using a separate 2D-only badge path, so queued attack and expand tiles kept their border without the numeric order in 3D.",
+      changes: [
+        "Queued frontier tiles now render their purple ordinal badge in rewrite 3D mode at the projected tile position.",
+        "Frontier, settlement, and build queues now share the same badge-layout helper so the 3D and 2D paths stay aligned.",
+        "Added client regression coverage so future queue-marker refactors do not silently drop frontier ordinals in the 3D renderer."
+      ]
+    },
     {
       introducedIn: "2026.04.26.8",
       title: "Settings now expose copyable auth-debug details for cross-device staging checks",
