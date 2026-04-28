@@ -12,7 +12,8 @@ const gateway = await createRealtimeGatewayApp({
   applySchema: runtimeEnv.applySchema,
   ...(runtimeEnv.defaultHumanPlayerId ? { defaultHumanPlayerId: runtimeEnv.defaultHumanPlayerId } : {}),
   simulationSeedProfile: runtimeEnv.simulationSeedProfile,
-  allowNonAuthoritativeInitialState: runtimeEnv.allowNonAuthoritativeInitialState
+  allowNonAuthoritativeInitialState: runtimeEnv.allowNonAuthoritativeInitialState,
+  ...(runtimeEnv.adminApiToken ? { adminApiToken: runtimeEnv.adminApiToken } : {})
 });
 
 await gateway.start();

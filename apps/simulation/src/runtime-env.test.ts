@@ -89,7 +89,7 @@ describe("simulation runtime env", () => {
           NODE_ENV: "staging",
           DATABASE_URL: "postgres://simulation"
         })
-    ).toThrow("simulation requires SIMULATION_SEED_PROFILE in managed runtime");
+    ).toThrow("simulation requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   });
 
   it("enables AI worker when SIMULATION_AI_WORKER=1", () => {

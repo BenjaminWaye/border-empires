@@ -19,52 +19,32 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.26.14",
+  version: "2026.04.28.1",
   title: "What's New",
-  summary: "Recent updates include explicit staging reseed recovery when managed startup finds an empty durable store; active-edge AI parity landing across both rewrite and legacy server planners so frontier expansion, settlement selection, and build choices stay focused on enemy pressure and strategic edges instead of dead interior borders; active-frontier AI targeting in both rewrite and legacy server paths so expansion, scouting, and settlement planning stay focused on enemy pressure and strategic edges instead of dead interior frontier; incremental AI/system planner relevance sync so large-empires no longer rebuild every tracked player's scope on each refresh; a staging frontier fix so shard caches no longer vanish when a fresh expand lands on them; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; and a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch.",
+  summary: "Recent updates include first-class rewrite season lifecycle support with managed empty-DB bootstrap from ruleset worldgen, ended-season freeze handling, current and archive HQ endpoints, and a protected manual start-next season path in the gateway; along with the earlier logout-button fix so the settings panel works in both desktop and mobile layouts; startup availability hardening so the rewrite simulation listens for auth traffic before heavy replay-compaction checkpoint work and snapshot/projection checkpoint writes use one real Postgres transaction; copyable auth-debug details in the settings card so cross-device staging investigations can compare Firebase identity and resolved empire bindings quickly; rewrite auth-binding reconciliation so staging reuses the same empire when the same email comes back with a different Firebase UID; a cheaper rewrite auth bootstrap subscribe path so login no longer waits on full-world serialization or a duplicate bootstrap tile batch; visible queue ordinals returning for queued settlement/build tiles in rewrite 3D mode; a rewrite visibility-radius parity fix so restart/login bootstrap snapshots keep tech-based frontier vision instead of shrinking after staging restarts; a rewrite durable-command migration fix so territory abandonment and other newly queued actions no longer fail against older production command-store schemas; final rewrite 3D map polish for ownership tinting and unexplored blackout rendering; alternate-account profile setup correctness; rewrite settlement upkeep correction; tighter AI/system planner worker delta filtering; AI-capture replay/event payload compaction; startup replay/checkpoint pressure reductions for 1 CPU and 1024MB staging targets; sparse restart-snapshot tile-backfill hardening; simulation-availability fail-fast command handling; and stricter ownership-clear propagation on uncapture events.",
   entries: [
     {
-      introducedIn: "2026.04.26.14",
-      title: "Staging can explicitly reseed after an empty durable-startup failure",
-      why: "The rewrite simulation now protects login by listening earlier during restart, but staging still cannot recover if its durable store is already empty unless there is an explicit reseed path for managed runtime.",
+      introducedIn: "2026.04.28.1",
+      title: "Rewrite seasons can now end, stay viewable, and manually roll into a fresh ruleset-generated world",
+      why: "The rewrite stack could recover an existing world, but it did not have a first-class seasonal lifecycle for managed DB-backed runtime, which made staging season resets fragile and left the HQ site without authoritative current/archive season reads.",
       changes: [
-        "Simulation startup now only uses seed fallback in managed runtime when `SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK=1` is explicitly set.",
-        "That fallback is limited to the exact empty-durable-state startup error and does not mask ordinary database or replay failures.",
-        "Staging simulation config now enables that controlled fallback so an empty durable store does not leave the entire environment permanently down after restart."
-      ]
-    },
-    {
-      introducedIn: "2026.04.26.13",
-      title: "AI frontier, settlement, and build planning now stay on active strategic edges across both planners",
-      why: "The live server still lacked the full active-edge and legacy-parity frontier logic, so large empires could keep rescanning dead interior borders and miss the better economic, scaffold, and pressure moves that the newer planner work was designed to unlock.",
-      changes: [
-        "Rewrite simulation now carries the hot-frontier, strategic-frontier, and build-candidate planner indexes all the way through worker planning so settlement, structure, and expansion selection stay focused on recently relevant edge tiles.",
-        "Legacy production server frontier caches now surface active-expand and strategic-frontier subsets first, letting settlement, scout, and pressure logic spend less time on dead interior frontier and more time on enemy borders and strategic reach.",
-        "Settlement and frontier scoring now use the richer parity logic for economic, scaffold, scout, and waste opportunities so AIs push toward real settlement and pressure value instead of broad row-filling."
-      ]
-    },
-    {
-      introducedIn: "2026.04.26.12",
-      title: "AI frontier planning now focuses on active enemy and strategic edges instead of rescanning dead interior frontier",
-      why: "Large empires were still wasting CPU and frontier choices on broad low-value interior border scans, which encouraged blobby row expansion and made both rewrite and legacy AI do more work than the live decision actually needed.",
-      changes: [
-        "Rewrite simulation now maintains hot frontier, strategic frontier, and build-candidate indexes so worker planning prefers frontier near enemies, settlement-worthy edges, and tiles whose buildability just changed.",
-        "Legacy production server territory caches now keep focused strategic-frontier and active-expand candidate subsets, and frontier settlement, scout, and expand planning consumes those subsets before falling back to the full candidate pool.",
-        "Frontier exploration heuristics now stay biased toward enemy pressure, coastlines, scaffold paths, and settlement reach instead of flat interior row-filling when a more active edge exists."
+        "Managed rewrite startup can now bootstrap the first season from a ruleset-generated world when durable state is empty instead of crashing or depending on a seeded AI profile.",
+        "Season victory tracking now freezes the world into an ended read-only state, keeps that ended season as current until replacement, and persists the current season summary for HQ reads.",
+        "Gateway now exposes current and archive HQ endpoints plus a protected manual start-next-season route backed by simulation-side archival, operational-state wipe, and fresh-world bootstrap."
       ]
     },
     {
       introducedIn: "2026.04.26.10",
-      title: "Fresh frontier captures no longer make shard caches disappear in staging",
-      why: "Chunk-shell refreshes could overwrite a just-expanded frontier tile with a lower-detail owned summary that omitted shard metadata, making visible shard caches seem to vanish right after you claimed the tile.",
+      title: "Log Out now works from every settings panel layout",
+      why: "The client renders the settings card in both desktop and mobile panel containers, but the logout handler only attached to the first matching button id, so the other visible Log Out control could do nothing.",
       changes: [
-        "Client tile-detail merging now preserves shard-site data when a lower-detail chunk or shell refresh omits shard metadata instead of explicitly clearing it.",
-        "Fresh frontier captures keep their shard cache visible and collectable until the server sends an authoritative removal or you collect it.",
-        "Added a client regression test covering summary frontier updates that downgrade detail without dropping shard sites."
+        "The settings card now renders logout controls with a shared data hook instead of a duplicated global id.",
+        "HUD binding now attaches the sign-out handler to every rendered Log Out button, so both desktop and mobile panel copies trigger Firebase sign-out and reload.",
+        "Added a client regression guard so future panel cloning changes cannot silently leave one logout button inert."
       ]
     },
     {
-      introducedIn: "2026.04.26.10",
+      introducedIn: "2026.04.26.9",
       title: "Simulation restarts no longer hold login behind startup replay compaction",
       why: "Staging restarts were blocking the simulation gRPC listener behind a replay-compaction checkpoint, and the checkpoint path itself was not using one dedicated Postgres transaction client, which could leave the gateway seeing long ECONNREFUSED windows and projection write failures before login even reached subscribe.",
       changes: [
@@ -74,7 +54,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.9",
+      introducedIn: "2026.04.26.8",
       title: "Settings now expose copyable auth-debug details for cross-device staging checks",
       why: "When a staging login seemed to land on a different empire, there was no fast in-client way to compare the Firebase identity, resolved player id, backend route, and runtime metadata between desktop and mobile.",
       changes: [
@@ -84,7 +64,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.9",
+      introducedIn: "2026.04.26.8",
       title: "Staging auth now reuses the same empire across device-specific Firebase UIDs",
       why: "The rewrite gateway only reused durable auth bindings by UID, so the same player email could land on a different player id when desktop and mobile surfaced different Firebase identities for staging auth.",
       changes: [
@@ -94,7 +74,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.26.9",
+      introducedIn: "2026.04.26.8",
       title: "Rewrite login bootstrap now uses a cheap visible-only subscribe path",
       why: "The split simulation was still building each player's auth subscribe/bootstrap snapshot from a full-world runtime export and then sending a redundant bootstrap tile batch after INIT, so already-running staging machines could stall auth for far too long and occasionally duplicate the first visible world refresh.",
       changes: [
