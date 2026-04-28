@@ -4,8 +4,8 @@
  * Determines which backend (legacy monolith vs rewrite gateway) the client
  * should connect to. Priority order:
  *
- *   1. URL param  ?backend=gateway|legacy     — highest, overrides everything
- *   2. Staging host hard-default              — gateway (cookie ignored)
+ *   1. Staging host hard-default              — gateway (URL param and cookie ignored)
+ *   2. URL param  ?backend=gateway|legacy     — highest on non-staging hosts
  *   3. Cookie     be-backend=gateway|legacy   — per-session override (non-staging)
  *   4. Environment default                    — localhost/staging → gateway, prod → legacy
  *
@@ -50,10 +50,11 @@ function isLocalhostHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
 }
 
-function isStagingHostname(hostname: string): boolean {
+export function isStagingHostname(hostname: string): boolean {
   const normalized = hostname.toLowerCase();
   return (
     normalized === "staging.borderempires.com" ||
+    normalized.endsWith(".staging.borderempires.com") ||
     (normalized.endsWith(".vercel.app") && normalized.includes("-staging-"))
   );
 }
@@ -88,20 +89,20 @@ export function selectBackend(opts: {
   const { legacyWsUrl, gatewayWsUrl } = opts;
   const { search, hostname, cookieStr } = opts.ctx ?? readBrowserCtx();
 
+  if (isStagingHostname(hostname)) {
+    return {
+      backend: "gateway",
+      wsUrl: gatewayWsUrl,
+      source: "env-default"
+    };
+  }
+
   const fromParam = readUrlParam(search);
   if (fromParam !== null) {
     return {
       backend: fromParam,
       wsUrl: fromParam === "gateway" ? gatewayWsUrl : legacyWsUrl,
       source: "url-param"
-    };
-  }
-
-  if (isStagingHostname(hostname)) {
-    return {
-      backend: "gateway",
-      wsUrl: gatewayWsUrl,
-      source: "env-default"
     };
   }
 
