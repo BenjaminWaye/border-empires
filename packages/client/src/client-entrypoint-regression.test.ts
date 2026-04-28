@@ -14,4 +14,9 @@ describe("client entrypoint regression guard", () => {
     expect(source).toContain('import "./style.css";');
     expect(source).toContain('import "./client-app.js";');
   });
+
+  it("loads the runtime through a dynamic import boundary", () => {
+    const source = sourceFor("./client-app.ts");
+    expect(source).toContain('import("./client-app-runtime.js")');
+  });
 });

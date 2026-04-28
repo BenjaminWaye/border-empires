@@ -12,6 +12,8 @@ import {
   sendAllianceRequestFromUi,
   sendTruceRequestFromUi
 } from "./client-player-actions.js";
+import { createNextFrontierCommandIdentity } from "./client-frontier-command.js";
+import { blockUnsupportedRewriteMessage } from "./client-send-message-guard.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
@@ -59,13 +61,16 @@ import {
 } from "./client-selected-actions.js";
 import { showClientHoldBuildMenu } from "./client-ui-controls.js";
 import {
+  aetherWallDirectionTargetTiles as aetherWallDirectionTargetTilesFromModule,
   beginCrystalTargeting as beginCrystalTargetingFromModule,
+  canPlaceAetherWallFromOrigin as canPlaceAetherWallFromOriginFromModule,
   clearCrystalTargeting as clearCrystalTargetingFromModule,
   computeCrystalTargets as computeCrystalTargetsFromModule,
   crystalTargetingTitle as crystalTargetingTitleFromModule,
   crystalTargetingTone as crystalTargetingToneFromModule,
   executeCrystalTargeting as executeCrystalTargetingFromModule,
   hasAetherBridgeCapability as hasAetherBridgeCapabilityFromModule,
+  hasAetherWallCapability as hasAetherWallCapabilityFromModule,
   hasBreakthroughCapability as hasBreakthroughCapabilityFromModule,
   hasOwnedLandWithinClientRange as hasOwnedLandWithinClientRangeFromModule,
   hasRevealCapability as hasRevealCapabilityFromModule,
@@ -74,6 +79,7 @@ import {
   isOwnedBorderTile as isOwnedBorderTileFromModule,
   lineStepsBetween as lineStepsBetweenFromModule,
   menuActionsForSingleTile as menuActionsForSingleTileFromModule,
+  validAetherWallDirectionsForTile as validAetherWallDirectionsForTileFromModule,
   tileActionAvailability as tileActionAvailabilityFromModule,
   tileActionAvailabilityWithDevelopmentSlot as tileActionAvailabilityWithDevelopmentSlotFromModule
 } from "./client-tile-action-logic.js";
@@ -88,7 +94,10 @@ import {
   tileActionIsBuilding as tileActionIsBuildingFromModule,
   tileActionIsCrystal as tileActionIsCrystalFromModule
 } from "./client-tile-action-support.js";
-import { tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule } from "./client-structure-effects.js";
+import {
+  settledDefenseNearFortDomainModifiers,
+  tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
+} from "./client-structure-effects.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui.js";
 import {
   buildDetailTextForAction as buildDetailTextForActionFromModule,
@@ -99,14 +108,17 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view.js";
+import { tileWithVisibleShardSite } from "./client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
+import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import type { RealtimeSocket } from "./client-socket-types.js";
 import type { ClientState } from "./client-state.js";
 import type { ActiveTruceView, CrystalTargetingAbility, OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuView, TileOverviewLine, TileTimedProgress } from "./client-types.js";
-import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
+import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
-  ws: WebSocket;
+  ws: RealtimeSocket;
   wsUrl: string;
   canvas: HTMLCanvasElement;
   techPickEl: HTMLSelectElement;
@@ -182,8 +194,54 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     return false;
   };
 
+  const rewriteEnvelopeTypes = new Set([
+    "ATTACK",
+    "EXPAND",
+    "BREAKTHROUGH_ATTACK",
+    "SETTLE",
+    "CANCEL_CAPTURE",
+    "UNCAPTURE_TILE",
+    "COLLECT_TILE",
+    "COLLECT_VISIBLE",
+    "CHOOSE_TECH",
+    "CHOOSE_DOMAIN",
+    "OVERLOAD_SYNTHESIZER",
+    "SET_CONVERTER_STRUCTURE_ENABLED",
+    "REVEAL_EMPIRE",
+    "REVEAL_EMPIRE_STATS",
+    "CAST_AETHER_BRIDGE",
+    "CAST_AETHER_WALL",
+    "SIPHON_TILE",
+    "PURGE_SIPHON",
+    "CREATE_MOUNTAIN",
+    "REMOVE_MOUNTAIN",
+    "AIRPORT_BOMBARD",
+    "COLLECT_SHARD"
+  ]);
+
   const sendGameMessage = (payload: unknown, message?: string): boolean => {
     if (!requireAuthedSession(message)) return false;
+    if (
+      blockUnsupportedRewriteMessage(payload, {
+        state,
+        pushFeed,
+        showCaptureAlert
+      })
+    ) {
+      return false;
+    }
+    const maybeRewritePayload =
+      payload && typeof payload === "object" ? (payload as { type?: unknown; commandId?: unknown; clientSeq?: unknown }) : undefined;
+    if (
+      maybeRewritePayload &&
+      typeof maybeRewritePayload.type === "string" &&
+      rewriteEnvelopeTypes.has(maybeRewritePayload.type) &&
+      (typeof maybeRewritePayload.commandId !== "string" || !maybeRewritePayload.commandId || typeof maybeRewritePayload.clientSeq !== "number")
+    ) {
+      const { commandId, clientSeq } = createNextFrontierCommandIdentity(state);
+      maybeRewritePayload.commandId = commandId;
+      maybeRewritePayload.clientSeq = clientSeq;
+    }
     if (
       typeof window !== "undefined" &&
       (window.location.hostname === "localhost" ||
@@ -191,7 +249,17 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         window.location.hostname === "0.0.0.0" ||
         window.localStorage.getItem("tile-sync-debug") === "1")
     ) {
-      const typedPayload = payload as { type?: string; x?: number; y?: number; fromX?: number; fromY?: number; toX?: number; toY?: number };
+      const typedPayload = payload as {
+        type?: string;
+        x?: number;
+        y?: number;
+        fromX?: number;
+        fromY?: number;
+        toX?: number;
+        toY?: number;
+        commandId?: string;
+        clientSeq?: number;
+      };
       if (
         typedPayload.type === "SETTLE" ||
         typedPayload.type === "EXPAND" ||
@@ -440,6 +508,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     state.capture = undefined;
     if (!handedOffToSettle) {
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
       state.actionStartedAt = 0;
       if (targetKey) dropQueuedTargetKeyIfAbsent(targetKey);
@@ -546,23 +615,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
   };
 
-  const abilityCooldownRemainingMs = (
-    abilityId:
-      | "aether_bridge"
-      | "aether_lance"
-      | "siphon"
-      | "reveal_empire"
-      | "survey_sweep"
-      | "create_mountain"
-      | "remove_mountain"
-      | "imperial_exchange_levy"
-      | "world_engine_strike"
-      | "stormfront"
-      | "aegis_lock"
-      | "aether_emp"
-      | "city_overclock"
-      | "astral_dock_launch"
-  ): number => {
+  const abilityCooldownRemainingMs = (abilityId: keyof ClientState["abilityCooldowns"]): number => {
     const selectedTile = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
     if (selectedTile && (abilityId === "siphon" || abilityId === "create_mountain" || abilityId === "remove_mountain")) {
       return readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, selectedTile, Date.now());
@@ -708,11 +761,37 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       constructionCountdownLineForTile,
       tileHistoryLines,
       isTileOwnedByAlly,
-      areaEffectModifiersForTile: (targetTile: Tile) => tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values())
+      areaEffectModifiersForTile: (targetTile: Tile) => {
+        const settledDefenseModifiers =
+          targetTile.ownerId === state.me ? settledDefenseNearFortDomainModifiers(state.domainCatalog, state.domainIds) : [];
+        if (tileMatchesDebugKey(targetTile.x, targetTile.y, 1, { fallbackTile: state.selected }) && verboseTileDebugEnabled()) {
+          debugTileLog("stone-curtain-domain-state", {
+            target: {
+              x: targetTile.x,
+              y: targetTile.y,
+              ownerId: targetTile.ownerId,
+              ownershipState: targetTile.ownershipState,
+              detailLevel: targetTile.detailLevel
+            },
+            me: state.me,
+            domainIds: [...state.domainIds],
+            matchingDomains: state.domainCatalog
+              .filter((domain) => state.domainIds.includes(domain.id) && typeof domain.effects?.settledDefenseNearFortMult === "number")
+              .map((domain) => ({
+                id: domain.id,
+                name: domain.name,
+                settledDefenseNearFortMult: domain.effects?.settledDefenseNearFortMult ?? null
+              })),
+            settledDefenseModifiers
+          });
+        }
+        return tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values(), settledDefenseModifiers);
+      }
     });
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {
-    const view = tileMenuViewForTileFromModule(tile, {
+    const visibleTile = tileWithVisibleShardSite(tile, state.shardRainPingsByTile);
+    const view = tileMenuViewForTileFromModule(visibleTile ?? tile, {
       menuActionsForSingleTile,
       splitTileActionsIntoTabs,
       settlementProgressForTile: (x, y) => {
@@ -743,19 +822,31 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state
     });
     if (tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) {
-      debugTileLog("tile-menu-view", {
-        x: tile.x,
-        y: tile.y,
-        detailLevel: tile.detailLevel,
-        resource: tile.resource,
-        economicStructure: tile.economicStructure?.type,
-        buildings: view.buildings.map((building) => ({
-          id: building.id,
-          disabled: building.disabled,
-          disabledReason: building.disabledReason
-        })),
-        overviewLineCount: view.overviewLines.length
-      });
+      if (verboseTileDebugEnabled()) {
+        debugTileLog("tile-menu-view", {
+          x: tile.x,
+          y: tile.y,
+          detailLevel: tile.detailLevel,
+          ownerId: tile.ownerId,
+          ownershipState: tile.ownershipState,
+          resource: tile.resource,
+          fort: tile.fort
+            ? {
+                ownerId: tile.fort.ownerId,
+                status: tile.fort.status,
+                disabledUntil: tile.fort.disabledUntil ?? null,
+                completesAt: tile.fort.completesAt ?? null
+              }
+            : null,
+          economicStructure: tile.economicStructure?.type,
+          buildings: view.buildings.map((building) => ({
+            id: building.id,
+            disabled: building.disabled,
+            disabledReason: building.disabledReason
+          })),
+          overviewLineCount: view.overviewLines.length
+        });
+      }
     }
     return view;
   };
@@ -796,6 +887,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const hasRevealCapability = (): boolean => hasRevealCapabilityFromModule(state);
   const hasBreakthroughCapability = (): boolean => hasBreakthroughCapabilityFromModule(state);
   const hasAetherBridgeCapability = (): boolean => hasAetherBridgeCapabilityFromModule(state);
+  const hasAetherWallCapability = (): boolean => hasAetherWallCapabilityFromModule(state);
   const hasSiphonCapability = (): boolean => hasSiphonCapabilityFromModule(state);
   const hasTerrainShapingCapability = (): boolean => hasTerrainShapingCapabilityFromModule(state);
 
@@ -833,6 +925,26 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     tileActionAvailabilityWithDevelopmentSlotFromModule(enabledWithoutSlot, baseReason, cost, summary, tileActionLogicDeps());
 
   const isOwnedBorderTile = (x: number, y: number): boolean => isOwnedBorderTileFromModule(state, x, y, tileActionLogicDeps());
+  const validAetherWallDirectionsForTile = (tile: Tile): Array<ClientState["aetherWallTargeting"]["direction"]> =>
+    validAetherWallDirectionsForTileFromModule(state, tile, tileActionLogicDeps());
+  const aetherWallDirectionTargetTiles = (
+    tile: Tile
+  ): Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }> =>
+    aetherWallDirectionTargetTilesFromModule(state, tile, tileActionLogicDeps());
+
+  type AetherWallLength = ClientState["aetherWallTargeting"]["length"];
+
+  const preferredAetherWallLength = (
+    x: number,
+    y: number,
+    direction: ClientState["aetherWallTargeting"]["direction"]
+  ): AetherWallLength | undefined => {
+    const candidateLengths: readonly AetherWallLength[] = [3, 2, 1];
+    for (const length of candidateLengths) {
+      if (canPlaceAetherWallFromOriginFromModule(state, x, y, direction, length, tileActionLogicDeps())) return length;
+    }
+    return undefined;
+  };
 
   const menuActionsForSingleTile = (tile: Tile): TileActionDef[] =>
     menuActionsForSingleTileFromModule(state, tile, tileActionLogicDeps());
@@ -1331,6 +1443,22 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "survey_sweep") sendGameMessage({ type: "SURVEY_SWEEP", x: selected.x, y: selected.y });
     if (actionId === "aether_lance") sendGameMessage({ type: "AETHER_LANCE", x: selected.x, y: selected.y });
+    if (actionId === "reveal_empire_stats" && selected.ownerId && selected.ownerId !== state.me && selected.ownerId !== "barbarian") {
+      sendGameMessage({ type: "REVEAL_EMPIRE_STATS", targetPlayerId: selected.ownerId });
+    }
+    if (actionId === "aether_wall") {
+      const selectedDirections = validAetherWallDirectionsForTile(selected);
+      if (selectedDirections.length === 1) {
+        const direction = selectedDirections[0]!;
+        const length = preferredAetherWallLength(selected.x, selected.y, direction);
+        if (length !== undefined) sendGameMessage({ type: "CAST_AETHER_WALL", x: selected.x, y: selected.y, direction, length });
+        else pushFeed("Aether Wall cannot extend from that selected tile.", "combat", "warn");
+      } else if (selectedDirections.length > 1) {
+        beginCrystalTargeting("aether_wall");
+      } else {
+        pushFeed("Select one of your settled border tiles before casting Aether Wall.", "combat", "warn");
+      }
+    }
     if (actionId === "aether_bridge") beginCrystalTargeting("aether_bridge");
     if (actionId === "aether_emp") beginCrystalTargeting("aether_emp");
     if (actionId === "imperial_exchange_levy_food") sendGameMessage({ type: "IMPERIAL_EXCHANGE_LEVY", fromX: selected.x, fromY: selected.y, resource: "FOOD" });
@@ -1388,6 +1516,62 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
     const clicked = state.tiles.get(keyFor(wx, wy));
     const vis = deps.tileVisibilityStateAt(wx, wy, clicked);
+    if (state.aetherWallTargeting.active) {
+      const selectedOrigin = state.selected ? state.tiles.get(keyFor(state.selected.x, state.selected.y)) : undefined;
+      if (selectedOrigin) {
+        const clickedDirection = aetherWallDirectionTargetTiles(selectedOrigin).find((target) => target.x === wx && target.y === wy);
+        if (clickedDirection) {
+          const length = preferredAetherWallLength(selectedOrigin.x, selectedOrigin.y, clickedDirection.direction);
+          if (length !== undefined) {
+            state.aetherWallTargeting.direction = clickedDirection.direction;
+            state.aetherWallTargeting.length = length;
+            sendGameMessage({
+              type: "CAST_AETHER_WALL",
+              x: selectedOrigin.x,
+              y: selectedOrigin.y,
+              direction: clickedDirection.direction,
+              length
+            });
+            clearCrystalTargeting();
+          }
+          renderHud();
+          return;
+        }
+      }
+      if (vis === "unexplored") {
+        renderHud();
+        return;
+      }
+      if (clicked) {
+        const clickedKey = keyFor(wx, wy);
+        if (!state.aetherWallTargeting.validOrigins.has(clickedKey)) {
+          if (vis === "visible") pushFeed("Aether Wall origin must be one of your visible settled border tiles.", "combat", "warn");
+          renderHud();
+          return;
+        }
+        state.selected = { x: wx, y: wy };
+        const validDirections = validAetherWallDirectionsForTile(clicked);
+        if (validDirections.length === 1) {
+          const direction = validDirections[0]!;
+          const length = preferredAetherWallLength(clicked.x, clicked.y, direction);
+          if (length !== undefined) {
+            state.aetherWallTargeting.direction = direction;
+            state.aetherWallTargeting.length = length;
+            sendGameMessage({ type: "CAST_AETHER_WALL", x: clicked.x, y: clicked.y, direction, length });
+            clearCrystalTargeting();
+          }
+          renderHud();
+          return;
+        }
+        if (validDirections.length > 0 && !validDirections.includes(state.aetherWallTargeting.direction)) {
+          state.aetherWallTargeting.direction = validDirections[0]!;
+        }
+        const preferredLength = preferredAetherWallLength(clicked.x, clicked.y, state.aetherWallTargeting.direction);
+        if (preferredLength !== undefined) state.aetherWallTargeting.length = preferredLength;
+      }
+      renderHud();
+      return;
+    }
     if (state.crystalTargeting.active) {
       if (vis === "unexplored") {
         renderHud();
@@ -1420,13 +1604,18 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       state.selected = { x: wx, y: wy };
       state.attackPreview = undefined;
       state.attackPreviewPendingKey = "";
+      if (revealWholeMapInTrue3DMode) {
+        const placeholder: Tile = { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: false };
+        openSingleTileActionMenu(placeholder, clientX, clientY);
+        requestViewRefresh(2, true);
+      }
       renderHud();
       return;
     }
 
     const to = clicked;
     state.selected = { x: wx, y: wy };
-    const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
+    const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
@@ -1535,6 +1724,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hasRevealCapability,
     hasBreakthroughCapability,
     hasAetherBridgeCapability,
+    hasAetherWallCapability,
     hasSiphonCapability,
     hasTerrainShapingCapability,
     hasOwnedLandWithinClientRange,
@@ -1548,6 +1738,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     tileActionAvailability,
     tileActionAvailabilityWithDevelopmentSlot,
     isOwnedBorderTile,
+    validAetherWallDirectionsForTile,
+    aetherWallDirectionTargetTiles,
     menuActionsForSingleTile,
     tileActionMenuUiDeps,
     renderTileActionMenu,

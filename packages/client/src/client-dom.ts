@@ -45,6 +45,7 @@ const hudMarkup = `
           <div id="capture-bar"></div>
         </div>
         <div id="capture-target"></div>
+        <button id="capture-download-debug" class="capture-debug-btn" type="button">Download debug log</button>
       </div>
       <button id="capture-cancel" class="capture-cancel-btn" title="Cancel capture">Cancel</button>
     </div>
@@ -67,6 +68,10 @@ const hudMarkup = `
         <div id="map-loading-title">Loading world...</div>
         <div id="map-loading-meta">Preparing map data...</div>
       </div>
+    </div>
+    <div id="map-loading-actions">
+      <button id="map-loading-retry" class="panel-btn map-loading-btn" type="button">Retry now</button>
+      <button id="map-loading-reload" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button">Reload</button>
     </div>
   </div>
 
@@ -162,6 +167,7 @@ const hudMarkup = `
         </div>
         <div class="auth-legal">By continuing, you agree to our <a href="/terms.html" target="_blank" rel="noreferrer">Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a></div>
         <div id="auth-status"></div>
+        <div id="auth-debug-route"></div>
         <p class="auth-hint">No password needed. We'll send you a secure link.</p>
         <div class="auth-legacy-controls" hidden>
           <input id="auth-display-name" type="text" placeholder="Display name" autocomplete="nickname" />
@@ -186,6 +192,7 @@ const hudMarkup = `
   <div id="hold-build-menu" style="display:none;"></div>
   <div id="tile-action-menu" style="display:none;"></div>
   <div id="targeting-overlay" style="display:none;"></div>
+  <div id="changelog-overlay" style="display:none;"></div>
   <div id="guide-overlay" style="display:none;"></div>
   <div id="structure-info-overlay" style="display:none;"></div>
   <div id="tech-detail-overlay" style="display:none;"></div>
@@ -243,18 +250,19 @@ const hudMarkup = `
       <section id="panel-domains" class="panel-body">
         <div id="panel-domains-content"></div>
       </section>
-      <section id="panel-alliance" class="panel-body">
-        <div class="row">
-          <input id="alliance-target" placeholder="ally player name" />
-          <button id="alliance-send" class="panel-btn">Send</button>
+      <section id="panel-alliance" class="panel-body alliance-panel">
+        <div class="alliance-form-section">
+          <input id="alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
+          <button id="alliance-send" class="panel-btn" type="button">Send</button>
         </div>
-        <div class="row">
+        <div class="alliance-form-section">
           <input id="alliance-break-id" placeholder="break by player id" />
-          <button id="alliance-break" class="panel-btn">Break</button>
+          <button id="alliance-break" class="panel-btn" type="button">Break</button>
         </div>
-        <div id="allies-list"></div>
-        <div id="alliance-requests"></div>
-        <div id="alliance-player-inspect"></div>
+        <datalist id="alliance-target-options"></datalist>
+        <div id="allies-list" class="alliance-section-stack"></div>
+        <div id="alliance-requests" class="alliance-section-stack"></div>
+        <div id="alliance-player-inspect" class="alliance-player-inspect-slot"></div>
       </section>
       <section id="panel-defensibility" class="panel-body"></section>
       <section id="panel-economy" class="panel-body"></section>
@@ -291,18 +299,18 @@ const hudMarkup = `
       </div>
     </section>
     <section id="mobile-panel-domains" class="mobile-panel"></section>
-    <section id="mobile-panel-social" class="mobile-panel">
-      <div class="row">
-        <input id="mobile-alliance-target" placeholder="ally player name" />
-        <button id="mobile-alliance-send" class="panel-btn">Send</button>
+    <section id="mobile-panel-social" class="mobile-panel alliance-panel">
+      <div class="alliance-form-section">
+        <input id="mobile-alliance-target" placeholder="ally player name" list="alliance-target-options" autocomplete="off" />
+        <button id="mobile-alliance-send" class="panel-btn" type="button">Send</button>
       </div>
-      <div class="row">
+      <div class="alliance-form-section">
         <input id="mobile-alliance-break-id" placeholder="break by player id" />
-        <button id="mobile-alliance-break" class="panel-btn">Break</button>
+        <button id="mobile-alliance-break" class="panel-btn" type="button">Break</button>
       </div>
-      <div id="mobile-allies-list"></div>
-      <div id="mobile-alliance-requests"></div>
-      <div id="mobile-alliance-player-inspect"></div>
+      <div id="mobile-allies-list" class="alliance-section-stack"></div>
+      <div id="mobile-alliance-requests" class="alliance-section-stack"></div>
+      <div id="mobile-alliance-player-inspect" class="alliance-player-inspect-slot"></div>
     </section>
     <section id="mobile-panel-defensibility" class="mobile-panel"></section>
     <section id="mobile-panel-economy" class="mobile-panel"></section>
@@ -339,6 +347,7 @@ export const initClientDom = () => {
   const miniMapLabelEl = requireElement<HTMLDivElement>("#mini-map-label");
   const captureCancelBtn = requireElement<HTMLButtonElement>("#capture-cancel");
   const captureCloseBtn = requireElement<HTMLButtonElement>("#capture-close");
+  const captureDownloadDebugBtn = requireElement<HTMLButtonElement>("#capture-download-debug");
   const captureCardEl = requireElement<HTMLDivElement>("#capture-card");
   const captureWrapEl = requireElement<HTMLDivElement>("#capture-wrap");
   const captureBarEl = requireElement<HTMLDivElement>("#capture-bar");
@@ -355,6 +364,9 @@ export const initClientDom = () => {
   const mapLoadingSpinnerEl = requireElement<HTMLDivElement>("#map-loading-spinner");
   const mapLoadingTitleEl = requireElement<HTMLDivElement>("#map-loading-title");
   const mapLoadingMetaEl = requireElement<HTMLDivElement>("#map-loading-meta");
+  const mapLoadingActionsEl = requireElement<HTMLDivElement>("#map-loading-actions");
+  const mapLoadingRetryBtn = requireElement<HTMLButtonElement>("#map-loading-retry");
+  const mapLoadingReloadBtn = requireElement<HTMLButtonElement>("#map-loading-reload");
   const authOverlayEl = requireElement<HTMLDivElement>("#auth-overlay");
   const authDisplayNameEl = requireElement<HTMLInputElement>("#auth-display-name");
   const authEmailEl = requireElement<HTMLInputElement>("#auth-email");
@@ -364,6 +376,7 @@ export const initClientDom = () => {
   const authEmailLinkBtn = requireElement<HTMLButtonElement>("#auth-email-link");
   const authGoogleBtn = requireElement<HTMLButtonElement>("#auth-google");
   const authStatusEl = requireElement<HTMLDivElement>("#auth-status");
+  const authDebugRouteEl = requireElement<HTMLDivElement>("#auth-debug-route");
   const authPanelEl = requireElement<HTMLElement>(".auth-panel");
   const authBusyModalEl = requireElement<HTMLDivElement>("#auth-busy-modal");
   const authBusyTitleEl = requireElement<HTMLElement>("#auth-busy-title");
@@ -401,6 +414,7 @@ export const initClientDom = () => {
   const techOwnedEl = requireElement<HTMLDivElement>("#tech-owned");
   const techChoiceDetailsEl = requireElement<HTMLDivElement>("#tech-choice-details");
   const allianceTargetEl = requireElement<HTMLInputElement>("#alliance-target");
+  const allianceTargetOptionsEl = requireElement<HTMLDataListElement>("#alliance-target-options");
   const allianceBreakIdEl = requireElement<HTMLInputElement>("#alliance-break-id");
   const alliesListEl = requireElement<HTMLDivElement>("#allies-list");
   const allianceRequestsEl = requireElement<HTMLDivElement>("#alliance-requests");
@@ -448,6 +462,7 @@ export const initClientDom = () => {
   const collectVisibleDesktopBtn = requireElement<HTMLButtonElement>("#collect-visible-desktop");
   const collectVisibleDesktopMetaEl = requireElement<HTMLSpanElement>("#collect-visible-desktop-meta");
   const collectVisibleMobileMetaEl = requireElement<HTMLSpanElement>("#collect-visible-mobile-meta");
+  const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
   const structureInfoOverlayEl = requireElement<HTMLDivElement>("#structure-info-overlay");
   const techDetailOverlayEl = requireElement<HTMLDivElement>("#tech-detail-overlay");
@@ -462,6 +477,7 @@ export const initClientDom = () => {
     allianceRequestsEl,
     allianceSendBtn,
     allianceTargetEl,
+    allianceTargetOptionsEl,
     alliesListEl,
     authColorPresetButtons,
     authDisplayNameEl,
@@ -482,10 +498,12 @@ export const initClientDom = () => {
     authProfileSaveBtn,
     authRegisterBtn,
     authStatusEl,
+    authDebugRouteEl,
     canvas,
     captureBarEl,
     captureCancelBtn,
     captureCloseBtn,
+    captureDownloadDebugBtn,
     captureCardEl,
     captureTargetEl,
     captureTimeEl,
@@ -493,6 +511,7 @@ export const initClientDom = () => {
     captureWrapEl,
     centerMeBtn,
     centerMeDesktopBtn,
+    changelogOverlayEl,
     collectVisibleDesktopBtn,
     collectVisibleDesktopMetaEl,
     collectVisibleMobileBtn,
@@ -506,7 +525,10 @@ export const initClientDom = () => {
     leaderboardEl,
     mapLoadingMetaEl,
     mapLoadingOverlayEl,
+    mapLoadingActionsEl,
+    mapLoadingReloadBtn,
     mapLoadingRowEl,
+    mapLoadingRetryBtn,
     mapLoadingSpinnerEl,
     mapLoadingTitleEl,
     miniMapBase,

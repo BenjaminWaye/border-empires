@@ -5,7 +5,12 @@ import { describe, expect, it } from "vitest";
 
 const serverMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(resolve(here, "./main.ts"), "utf8");
+  return [
+    readFileSync(resolve(here, "./main.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-realtime-sync-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-frontier-action-runtime.ts"), "utf8"),
+    readFileSync(resolve(here, "./server-player-update-runtime.ts"), "utf8")
+  ].join("\n");
 };
 
 const functionBody = (source: string, functionName: string): string => {
@@ -44,11 +49,90 @@ describe("frontier combat queue regression guard", () => {
     expect(body).toContain('message: "tile locked in combat"');
   });
 
+  it("plunders settled captures in the queued frontier action helper and includes the loot in combat results", () => {
+    const body = functionBody(serverMainSource(), "tryQueueBasicFrontierAction");
+    expect(body).toContain("const targetWasSettled = to.ownershipState === \"SETTLED\";");
+    expect(body).toContain("deps.seizeStoredYieldOnCapture(actor, tk);");
+    expect(body).toContain("const pillage = deps.pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);");
+    expect(body).toContain("pillagedGold,");
+    expect(body).toContain("pillagedShare,");
+    expect(body).toContain("pillagedStrategic");
+  });
+
   it("uses queued frontier action results to send combat start and inbound attack alerts", () => {
     const body = functionBody(serverMainSource(), "executeUnifiedGameplayMessage");
+    expect(body).toContain('type: "ACTION_ACCEPTED"');
     expect(body).toContain("origin: result.origin");
     expect(body).toContain("target: result.target");
     expect(body).toContain("result.attackAlert");
     expect(body).toContain('type: "ATTACK_ALERT"');
+  });
+
+  it("does not await combat worker resolution before sending the live frontier acceptance ack", () => {
+    const source = serverMainSource();
+    const livePathStart = source.indexOf('if ((msg.type === "EXPAND" || msg.type === "ATTACK") && actor.points < FRONTIER_ACTION_GOLD_COST)');
+    const livePathEnd = source.indexOf("pending.timeout = setTimeout(async () => {", livePathStart);
+    expect(livePathStart).toBeGreaterThan(-1);
+    expect(livePathEnd).toBeGreaterThan(livePathStart);
+    const livePath = source.slice(livePathStart, livePathEnd);
+    expect(livePath).toContain('type: "ACTION_ACCEPTED"');
+    expect(livePath).toContain("precomputedCombatPromise = resolveCombatViaWorker");
+    expect(livePath).not.toContain("await resolveCombatViaWorker");
+  });
+
+  it("defers bulky post-combat refresh work instead of doing inline player updates after frontier results", () => {
+    const source = serverMainSource();
+    const helperBody = functionBody(source, "sendPostCombatFollowUps");
+    expect(helperBody).toContain("queuePostCombatFollowUpsForPlayer(attackerId, changedCenters)");
+    expect(helperBody).toContain("if (defenderId) queuePostCombatFollowUpsForPlayer(defenderId, changedCenters);");
+
+    const flushBody = functionBody(source, "flushPostCombatFollowUpsForPlayer");
+    expect(flushBody).toContain('sendPlayerUpdate(player, 0, { detail: "combat" })');
+    expect(flushBody).toContain("sendLocalVisionDeltaForPlayer(playerId, changedCenters)");
+
+    const queuedBody = functionBody(source, "tryQueueBasicFrontierAction");
+    expect(queuedBody).toContain("deps.sendPostCombatFollowUps(actor.id, [{ x: from.x, y: from.y }, { x: to.x, y: to.y }]");
+
+    const livePathStart = source.indexOf("logExpandTrace(\"combat_result_sent\", pending, { neutralTarget: false, changes: resultChanges.length });");
+    const livePathEnd = source.indexOf("}, resolvesAt - now());", livePathStart);
+    expect(livePathStart).toBeGreaterThan(-1);
+    expect(livePathEnd).toBeGreaterThan(livePathStart);
+    const liveResultPath = source.slice(livePathStart, livePathEnd);
+    expect(liveResultPath).toContain("sendPostCombatFollowUps(actor.id, changedCenters");
+    expect(liveResultPath).not.toContain("sendPlayerUpdate(actor, 0);");
+  });
+
+  it("batches visible tile delta fanout instead of sending each ownership tile inline", () => {
+    const source = serverMainSource();
+    const deltaBody = functionBody(source, "sendVisibleTileDeltaAt");
+    expect(deltaBody).toContain("queueVisibleTileDeltaForPlayer(player.id, current)");
+    expect(deltaBody).not.toContain('sendBulkToPlayer(player.id, { type: "TILE_DELTA", updates: [current] });');
+
+    const flushBody = functionBody(source, "flushQueuedVisibleTileDeltas");
+    expect(flushBody).toContain('sendBulkToPlayer(playerId, { type: "TILE_DELTA", updates: [...updatesByTileKey.values()] })');
+  });
+
+  it("uses combat-detail player updates for frontier follow-up batching", () => {
+    const source = serverMainSource();
+    const body = functionBody(source, "sendPlayerUpdate");
+    expect(body).toContain('const detail = options.detail ?? "full";');
+    expect(body).toContain('const includeEconomy = options.includeEconomy ?? detail === "full";');
+    expect(body).toContain('const includeBreakdowns = options.includeBreakdowns ?? detail === "full";');
+    expect(body).toContain('const includeDevelopmentStatus = options.includeDevelopmentStatus ?? detail === "full";');
+  });
+
+  it("routes barbarian combat resolution back through the system queue instead of resolving inline in timer callbacks", () => {
+    const source = serverMainSource();
+    const runBarbarianActionBody = functionBody(source, "runBarbarianAction");
+    expect(runBarbarianActionBody).toContain("enqueueBarbarianCombatResolve(agent.id, currentKey, target.x, target.y);");
+    expect(runBarbarianActionBody).not.toContain("const combat = await resolveCombatViaWorker");
+
+    const resolveBody = functionBody(source, "resolveQueuedBarbarianCombat");
+    expect(resolveBody).toContain("const combat = await resolveCombatViaWorker");
+    expect(resolveBody).toContain('updateOwnership(command.targetX, command.targetY, BARBARIAN_OWNER_ID, "BARBARIAN");');
+
+    const executeSystemBody = functionBody(source, "executeSystemSimulationCommand");
+    expect(executeSystemBody).toContain('if (command.type === "BARBARIAN_COMBAT_RESOLVE")');
+    expect(executeSystemBody).toContain("await resolveQueuedBarbarianCombat(command);");
   });
 });

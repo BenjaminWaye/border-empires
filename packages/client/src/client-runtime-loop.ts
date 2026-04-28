@@ -1,6 +1,8 @@
-import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS } from "./client-constants.js";
+import { OBSERVATORY_PROTECTION_RADIUS, OBSERVATORY_VISION_BONUS, isForestTile } from "./client-constants.js";
 import { exposedSidesForTile } from "./client-defensibility-html.js";
 import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay.js";
+import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { resourceFor3DPopulation, townTierFor3DPopulation } from "./client-map-3d-population.js";
 import {
   fortificationOpeningForTile,
   fortificationOverlayAlphaForTile,
@@ -10,10 +12,14 @@ import { structureAreaPreviewForTile } from "./client-structure-effects.js";
 import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
+import { queuedCornerBadgeLayout } from "./client-queue-badges.js";
+import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
-import { WORLD_HEIGHT, WORLD_WIDTH, terrainAt } from "@border-empires/shared";
-import { debugTileLog, tileMatchesDebugKey } from "./client-debug.js";
+import { createVisibleTileDetailRequester } from "./client-visible-tile-detail.js";
+import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery.js";
+import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
@@ -38,6 +44,9 @@ type StartClientRuntimeLoopDeps = {
   wrapY: (y: number) => number;
   parseKey: (key: string) => { x: number; y: number };
   selectedTile: () => Tile | undefined;
+  aetherWallDirectionTargetTiles: (
+    tile: Tile
+  ) => Array<{ x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number }>;
   settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   crystalTargetingTone: (ability: ClientState["crystalTargeting"]["ability"]) => "amber" | "cyan" | "red";
@@ -98,8 +107,17 @@ type StartClientRuntimeLoopDeps = {
     toY: number,
     nowMs: number
   ) => void;
+  drawAetherWallSegment: (
+    ctx: CanvasRenderingContext2D,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    options?: { preview?: boolean; nowMs?: number }
+  ) => void;
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
+  requestTileDetailIfNeeded: (tile: Tile | undefined) => void;
   renderHud: () => void;
   renderCaptureProgress: () => void;
   renderShardAlert: () => void;
@@ -118,7 +136,14 @@ type StartClientRuntimeLoopDeps = {
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
   let lastDrawAt = 0;
   let roadNetwork = new Map<string, RoadDirections>();
+  const lastRenderedTileStateByKey = new Map<string, string>();
   let roadNetworkBuiltAt = 0;
+  const requestVisibleTileDetails = createVisibleTileDetailRequester({
+    state,
+    keyFor: deps.keyFor,
+    requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded,
+    isMobile: deps.isMobile
+  });
 
   const draw = (): void => {
     const nowMs = performance.now();
@@ -129,8 +154,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     lastDrawAt = nowMs;
 
-    deps.ctx.fillStyle = "#0b1320";
-    deps.ctx.fillRect(0, 0, deps.canvas.width, deps.canvas.height);
+    if (isTrue3DRendererActive()) deps.ctx.clearRect(0, 0, deps.canvas.width, deps.canvas.height);
+    else {
+      deps.ctx.fillStyle = "#0b1320";
+      deps.ctx.fillRect(0, 0, deps.canvas.width, deps.canvas.height);
+    }
 
     const size = state.zoom;
     const halfW = Math.floor(deps.canvas.width / size / 2);
@@ -142,6 +170,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
+    const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
+    const debugSelected = state.selected;
+    const canvasOverlayDebug: Array<Record<string, unknown>> = [];
     const queueIndex = new Map<string, number>();
     const queuedBuildIndex = new Map<string, number>();
     const settleQueueIndex = new Map<string, number>();
@@ -184,6 +215,83 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       roadNetworkBuiltAt = nowMs;
     }
     const overlayTiles: VisibleRenderTile[] = [];
+    const syntheticOverlayTileAt = (wx: number, wy: number, tile: Tile | undefined): Tile | undefined => {
+      if (tile) return undefined;
+      if (!isTrue3DRendererActive() || !revealWholeMapInTrue3DMode) return undefined;
+      const terrain = terrainAt(wx, wy);
+      if (terrain !== "LAND") return undefined;
+      const biome = landBiomeAt(wx, wy);
+      const forestTile = isForestTile(wx, wy);
+      const resource = resourceFor3DPopulation(wx, wy, terrain, undefined, true, biome, forestTile);
+      const populationTier = townTierFor3DPopulation(wx, wy, terrain, undefined, true);
+      if (!resource && !populationTier) return undefined;
+      return {
+        x: wx,
+        y: wy,
+        terrain,
+        ...(resource ? { resource } : {}),
+        ...(populationTier
+          ? {
+              town: {
+                type: ((wx + wy) & 1) === 0 ? "MARKET" : "FARMING",
+                baseGoldPerMinute: 0,
+                supportCurrent: 0,
+                supportMax: 0,
+                goldPerMinute: 0,
+                cap: 0,
+                isFed: true,
+                population:
+                  populationTier === "SETTLEMENT" ? 8_000
+                  : populationTier === "TOWN" ? 45_000
+                  : populationTier === "CITY" ? 220_000
+                  : populationTier === "GREAT_CITY" ? 1_200_000
+                  : 5_200_000,
+                maxPopulation: 10_000_000,
+                populationGrowthPerMinute: 0,
+                populationTier,
+                connectedTownCount: 0,
+                connectedTownBonus: 0,
+                hasMarket: false,
+                marketActive: false,
+                hasGranary: false,
+                granaryActive: false,
+                hasBank: false,
+                bankActive: false
+              }
+            }
+          : {})
+      };
+    };
+    const drawAetherWallEdge = (
+      baseX: number,
+      baseY: number,
+      direction: "N" | "E" | "S" | "W",
+      options?: { preview?: boolean; nowMs?: number }
+    ): void => {
+      const center = deps.worldToScreen(baseX, baseY, size, halfW, halfH);
+      const halfSize = size * 0.5;
+      let fromX = center.sx - halfSize;
+      let fromY = center.sy - halfSize;
+      let toX = center.sx + halfSize;
+      let toY = center.sy - halfSize;
+      if (direction === "E") {
+        fromX = center.sx + halfSize;
+        fromY = center.sy - halfSize;
+        toX = center.sx + halfSize;
+        toY = center.sy + halfSize;
+      } else if (direction === "S") {
+        fromX = center.sx - halfSize;
+        fromY = center.sy + halfSize;
+        toX = center.sx + halfSize;
+        toY = center.sy + halfSize;
+      } else if (direction === "W") {
+        fromX = center.sx - halfSize;
+        fromY = center.sy - halfSize;
+        toX = center.sx - halfSize;
+        toY = center.sy + halfSize;
+      }
+      deps.drawAetherWallSegment(deps.ctx, fromX, fromY, toX, toY, options);
+    };
     const renderOverlayTile = ({ wx, wy, wk, px, py, vis, t, settlementProgress }: VisibleRenderTile): void => {
       const isDockEndpoint = dockEndpointKeys.has(wk);
       const dockVisible = (!t && state.fogDisabled) || vis === "visible";
@@ -207,15 +315,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
 
-      if (t && vis === "visible" && t.resource && t.terrain === "LAND") {
-        const builtOverlay = deps.builtResourceOverlayForTile(t);
-        const overlay = builtOverlay ?? deps.resourceOverlayForTile(t);
+      const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
+      const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
+
+      if (overlayTile && overlayVisible && overlayTile.resource && overlayTile.terrain === "LAND") {
+        const builtOverlay = deps.builtResourceOverlayForTile(overlayTile);
+        const overlay = builtOverlay ?? deps.resourceOverlayForTile(overlayTile);
         if (overlay?.complete && overlay.naturalWidth) {
-          const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(t) : 1;
-          deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(t), alpha);
-          deps.drawResourceCornerMarker(t, px, py, size);
+          const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
+          deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
+          deps.drawResourceCornerMarker(overlayTile, px, py, size);
         } else {
-          const rc = deps.resourceColor(t.resource);
+          const rc = deps.resourceColor(overlayTile.resource);
           if (!rc) return;
           const marker = Math.max(3, Math.floor(size * 0.22));
           const mx = px + Math.floor((size - marker) / 2);
@@ -224,19 +335,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
           deps.ctx.fillStyle = rc;
           deps.ctx.fillRect(mx, my, marker, marker);
-          deps.drawResourceCornerMarker(t, px, py, size);
+          deps.drawResourceCornerMarker(overlayTile, px, py, size);
         }
       }
 
-      if (t && vis === "visible" && t.terrain === "LAND" && t.shardSite) {
-        const overlay = deps.shardOverlayForTile(t);
+      const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
+      if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite) {
+        const tileWithVisibleShard = visibleShardSite === t.shardSite ? t : { ...t, shardSite: visibleShardSite };
+        const overlay = deps.shardOverlayForTile(tileWithVisibleShard);
         const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
         const pulse = 0.82 + 0.18 * pulsePhase;
-        const glowRadius = size * (0.28 + pulsePhase * (t.shardSite.kind === "FALL" ? 0.3 : 0.24));
+        const glowRadius = size * (0.28 + pulsePhase * (visibleShardSite.kind === "FALL" ? 0.3 : 0.24));
         deps.ctx.save();
         deps.ctx.globalCompositeOperation = "screen";
         deps.ctx.fillStyle =
-          t.shardSite.kind === "FALL"
+          visibleShardSite.kind === "FALL"
             ? `rgba(255, 220, 112, ${0.16 + pulsePhase * 0.18})`
             : `rgba(96, 244, 255, ${0.14 + pulsePhase * 0.16})`;
         deps.ctx.beginPath();
@@ -244,7 +357,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.fill();
         deps.ctx.lineWidth = Math.max(2, size * 0.08);
         deps.ctx.strokeStyle =
-          t.shardSite.kind === "FALL"
+          visibleShardSite.kind === "FALL"
             ? `rgba(255, 245, 180, ${0.38 + pulsePhase * 0.34})`
             : `rgba(184, 255, 255, ${0.34 + pulsePhase * 0.3})`;
         deps.ctx.beginPath();
@@ -257,18 +370,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             px,
             py,
             size,
-            (t.shardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
+            (visibleShardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
             0.86 + pulse * 0.18
           );
         } else {
           const prevAlpha = deps.ctx.globalAlpha;
           deps.ctx.globalAlpha = prevAlpha * (0.88 + pulse * 0.16);
-          deps.drawShardFallback(t, px, py, size * (0.99 + pulse * 0.03));
+          deps.drawShardFallback(tileWithVisibleShard, px, py, size * (0.99 + pulse * 0.03));
           deps.ctx.globalAlpha = prevAlpha;
         }
       }
 
-      if (t && vis === "visible" && t.town && t.terrain === "LAND") deps.drawTownOverlay(t, px, py, size);
+      if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
@@ -310,7 +423,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
       if (t && vis === "visible" && t.economicStructure) {
-        if (tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+        if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
           debugTileLog(
             "render",
             {
@@ -367,7 +480,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
           deps.ctx.lineWidth = 1;
         }
-      } else if (t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+      } else if (verboseTileDebugEnabled() && t && vis === "visible" && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
         debugTileLog(
           "render-missing-structure",
           {
@@ -382,6 +495,32 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           },
           { throttleKey: `${wx},${wy}`, minIntervalMs: 2000 }
         );
+      }
+      if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
+        const renderKey = deps.keyFor(wx, wy);
+        const renderSignature = JSON.stringify({
+          ownerId: t?.ownerId ?? null,
+          ownershipState: t?.ownershipState ?? null,
+          optimisticPending: t?.optimisticPending ?? null,
+          detailLevel: t?.detailLevel ?? null,
+          fogged: t?.fogged ?? null,
+          vis
+        });
+        const previousRenderSignature = lastRenderedTileStateByKey.get(renderKey);
+        if (previousRenderSignature !== renderSignature) {
+          debugTileTimeline("frontier-render-transition", {
+            x: wx,
+            y: wy,
+            after: t,
+            state,
+            keyFor: deps.keyFor,
+            extra: {
+              vis,
+              previousRenderSignature
+            }
+          });
+          lastRenderedTileStateByKey.set(renderKey, renderSignature);
+        }
       }
       if (t && vis === "visible" && t.terrain === "LAND") {
         const remainingConstructionMs = deps.constructionRemainingMsForTile(t);
@@ -424,7 +563,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
 
-      if (t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
+      if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
         deps.ctx.strokeStyle = "rgba(20, 26, 36, 0.58)";
         deps.ctx.lineWidth = 1;
         deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
@@ -505,19 +644,24 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
 
-      if (state.selected && state.selected.x === wx && state.selected.y === wy) {
+      if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
         if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
           deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
           deps.ctx.fillRect(px, py, size, size);
         } else {
           deps.ctx.strokeStyle = "#ffd166";
           deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
+          deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
           deps.ctx.lineWidth = 1;
         }
       } else if (state.selected) {
         const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
-        if (selected?.town && deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) && deps.isTownSupportHighlightableTile(t)) {
+        if (
+          !isTrue3DRendererActive() &&
+          selected?.town &&
+          deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) &&
+          deps.isTownSupportHighlightableTile(t)
+        ) {
           if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
           else if (!t?.ownerId) deps.ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
           else if (t.ownerId !== state.me) deps.ctx.strokeStyle = "rgba(255, 98, 98, 0.65)";
@@ -528,14 +672,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.fillRect(px, py, size, size);
           } else {
             deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+            deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
             deps.ctx.lineWidth = 1;
           }
         }
       }
-      if (state.hover && state.hover.x === wx && state.hover.y === wy) {
+      if (!isTrue3DRendererActive() && state.hover && state.hover.x === wx && state.hover.y === wy) {
         deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
-        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+        deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
       }
       const incomingAttack = state.incomingAttacksByTile.get(wk);
       if (incomingAttack) {
@@ -584,7 +728,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       }
 
       const queuedN = queueIndex.get(wk);
-      if (queuedN !== undefined) {
+      if (!isTrue3DRendererActive() && queuedN !== undefined) {
         deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
         deps.ctx.lineWidth = 2;
         deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
@@ -598,40 +742,71 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
         deps.ctx.lineWidth = 1;
       }
-      const queuedSettlementN = settleQueueIndex.get(wk);
-      if (queuedSettlementN !== undefined && !settlementProgress) {
-        deps.ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
+      const queuedSettlementBadge = queuedCornerBadgeLayout({
+        kind: "SETTLEMENT",
+        ordinal: settleQueueIndex.get(wk),
+        px,
+        py,
+        size,
+        isTrue3D: isTrue3DRendererActive(),
+        blocked: Boolean(settlementProgress)
+      });
+      if (queuedSettlementBadge?.border) {
+        deps.ctx.strokeStyle = queuedSettlementBadge.border.strokeStyle;
         deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        if (size >= 14) {
-          const badgeWidth = Math.min(size - 6, queuedSettlementN >= 10 ? 18 : 14);
-          deps.ctx.fillStyle = "rgba(49, 31, 4, 0.92)";
-          deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-          deps.ctx.fillStyle = "#fbbf24";
-          deps.ctx.font = "10px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.textAlign = "left";
-          deps.ctx.fillText(String(queuedSettlementN), px + size - badgeWidth - 1, py + 4);
-        }
-        deps.ctx.lineWidth = 1;
+        deps.ctx.strokeRect(
+          queuedSettlementBadge.border.x,
+          queuedSettlementBadge.border.y,
+          queuedSettlementBadge.border.width,
+          queuedSettlementBadge.border.height
+        );
       }
-      const queuedBuildN = queuedBuildIndex.get(wk);
-      if (queuedBuildN !== undefined && !settlementProgress) {
-        deps.ctx.strokeStyle = "rgba(122, 214, 255, 0.95)";
+      if (queuedSettlementBadge?.badge) {
+        deps.ctx.fillStyle = queuedSettlementBadge.badge.background;
+        deps.ctx.fillRect(
+          queuedSettlementBadge.badge.x,
+          queuedSettlementBadge.badge.y,
+          queuedSettlementBadge.badge.width,
+          queuedSettlementBadge.badge.height
+        );
+        deps.ctx.fillStyle = queuedSettlementBadge.badge.foreground;
+        deps.ctx.font = "10px monospace";
+        deps.ctx.textBaseline = "top";
+        deps.ctx.textAlign = "left";
+        deps.ctx.fillText(queuedSettlementBadge.badge.text, queuedSettlementBadge.badge.textX, queuedSettlementBadge.badge.textY);
+        deps.ctx.textAlign = "start";
+      }
+      if (queuedSettlementBadge?.border) deps.ctx.lineWidth = 1;
+      const queuedBuildBadge = queuedCornerBadgeLayout({
+        kind: "BUILD",
+        ordinal: queuedBuildIndex.get(wk),
+        px,
+        py,
+        size,
+        isTrue3D: isTrue3DRendererActive(),
+        blocked: Boolean(settlementProgress)
+      });
+      if (queuedBuildBadge?.border) {
+        deps.ctx.strokeStyle = queuedBuildBadge.border.strokeStyle;
         deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-        if (size >= 14) {
-          const badgeWidth = Math.min(size - 6, queuedBuildN >= 10 ? 18 : 14);
-          deps.ctx.fillStyle = "rgba(7, 26, 39, 0.92)";
-          deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-          deps.ctx.fillStyle = "#7dd3fc";
-          deps.ctx.font = "10px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.textAlign = "left";
-          deps.ctx.fillText(String(queuedBuildN), px + size - badgeWidth - 1, py + 4);
-        }
-        deps.ctx.lineWidth = 1;
+        deps.ctx.strokeRect(
+          queuedBuildBadge.border.x,
+          queuedBuildBadge.border.y,
+          queuedBuildBadge.border.width,
+          queuedBuildBadge.border.height
+        );
       }
+      if (queuedBuildBadge?.badge) {
+        deps.ctx.fillStyle = queuedBuildBadge.badge.background;
+        deps.ctx.fillRect(queuedBuildBadge.badge.x, queuedBuildBadge.badge.y, queuedBuildBadge.badge.width, queuedBuildBadge.badge.height);
+        deps.ctx.fillStyle = queuedBuildBadge.badge.foreground;
+        deps.ctx.font = "10px monospace";
+        deps.ctx.textBaseline = "top";
+        deps.ctx.textAlign = "left";
+        deps.ctx.fillText(queuedBuildBadge.badge.text, queuedBuildBadge.badge.textX, queuedBuildBadge.badge.textY);
+        deps.ctx.textAlign = "start";
+      }
+      if (queuedBuildBadge?.border) deps.ctx.lineWidth = 1;
     };
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
@@ -641,24 +816,25 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const t = state.tiles.get(wk);
         const settlementProgress = t ? deps.settlementProgressForTile(wx, wy) : undefined;
         const vis = deps.tileVisibilityStateAt(wx, wy, t);
-        const px = (x + halfW) * size;
-        const py = (y + halfH) * size;
+        const screenCenter = isTrue3DRendererActive() ? deps.worldToScreen(wx, wy, size, halfW, halfH) : undefined;
+        const px = screenCenter ? screenCenter.sx - size / 2 : (x + halfW) * size;
+        const py = screenCenter ? screenCenter.sy - size / 2 : (y + halfH) * size;
         let ownerAlpha = 1;
 
         if (vis === "unexplored") {
           deps.ctx.fillStyle = "#06090f";
-          deps.ctx.fillRect(px, py, size - 1, size - 1);
+          deps.ctx.fillRect(px, py, size, size);
         } else if (!t) {
-          if (state.firstChunkAt === 0 || state.fogDisabled) {
+          if (state.firstChunkAt === 0 || state.fogDisabled || revealWholeMapInTrue3DMode) {
             deps.drawTerrainTile(wx, wy, terrainAt(wx, wy), px, py, size);
           } else {
             deps.ctx.fillStyle = "#06090f";
-            deps.ctx.fillRect(px, py, size - 1, size - 1);
+            deps.ctx.fillRect(px, py, size, size);
           }
         } else if (vis === "fogged") {
           deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
           deps.ctx.fillStyle = "rgba(2, 5, 10, 0.72)";
-          deps.ctx.fillRect(px, py, size - 1, size - 1);
+          deps.ctx.fillRect(px, py, size, size);
         } else if (t.terrain === "SEA" || t.terrain === "MOUNTAIN") {
           deps.drawTerrainTile(wx, wy, t.terrain, px, py, size);
         } else {
@@ -667,9 +843,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (t && vis === "visible" && t.terrain === "LAND") deps.drawForestOverlay(wx, wy, px, py, size);
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && t.ownerId) {
           deps.ctx.fillStyle = deps.effectiveOverlayColor(t.ownerId);
-          ownerAlpha = t.ownershipState === "FRONTIER" ? 0.2 : 0.92;
+          ownerAlpha =
+            t.ownershipState === "FRONTIER" ? (isTrue3DRendererActive() ? 0.08 : 0.2)
+            : isTrue3DRendererActive() ? 0.24
+            : 0.92;
           if (typeof t.breachShockUntil === "number" && t.breachShockUntil > Date.now()) {
             ownerAlpha = Math.min(ownerAlpha, 0.62);
           }
@@ -680,6 +859,34 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         overlayTiles.push({ wx, wy, wk, px, py, vis, t, settlementProgress });
+        if (
+          isTrue3DRendererActive() &&
+          debugSelected &&
+          Math.abs(wx - debugSelected.x) <= 1 &&
+          Math.abs(wy - debugSelected.y) <= 1
+        ) {
+          const selected = state.tiles.get(deps.keyFor(debugSelected.x, debugSelected.y));
+          canvasOverlayDebug.push({
+            x: wx,
+            y: wy,
+            terrain: t?.terrain ?? terrainAt(wx, wy),
+            visibility: vis,
+            ownerId: t?.ownerId ?? null,
+            ownershipState: t?.ownershipState ?? null,
+            selectedTile: debugSelected.x === wx && debugSelected.y === wy,
+            supportNeighbor: Boolean(
+              selected?.town &&
+              deps.isTownSupportNeighbor(wx, wy, debugSelected.x, debugSelected.y) &&
+              deps.isTownSupportHighlightableTile(t)
+            ),
+            queue: queueIndex.get(wk) ?? null,
+            queueSettlement: settleQueueIndex.get(wk) ?? null,
+            queueBuild: queuedBuildIndex.get(wk) ?? null,
+            hasSettlementProgress: Boolean(settlementProgress),
+            hover: Boolean(state.hover && state.hover.x === wx && state.hover.y === wy),
+            dragPreview: state.dragPreviewKeys.has(wk)
+          });
+        }
         if (roadNetworkBuiltAt >= 0) continue;
 
         const isDockEndpoint = dockEndpointKeys.has(wk);
@@ -704,20 +911,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
 
+        const overlayTile = t ?? syntheticOverlayTileAt(wx, wy, t);
+        const overlayVisible = vis === "visible" || Boolean(overlayTile && isTrue3DRendererActive() && revealWholeMapInTrue3DMode);
+
         if (t && vis === "visible" && t.terrain === "LAND" && t.ownerId && t.ownershipState === "SETTLED") {
           const roadDirections = roadNetwork.get(wk);
           if (roadDirections) deps.drawRoadOverlay(roadDirections, px, py, size);
         }
 
-        if (t && vis === "visible" && t.resource && t.terrain === "LAND") {
-          const builtOverlay = deps.builtResourceOverlayForTile(t);
-          const overlay = builtOverlay ?? deps.resourceOverlayForTile(t);
+        if (overlayTile && overlayVisible && overlayTile.resource && overlayTile.terrain === "LAND") {
+          const builtOverlay = deps.builtResourceOverlayForTile(overlayTile);
+          const overlay = builtOverlay ?? deps.resourceOverlayForTile(overlayTile);
           if (overlay?.complete && overlay.naturalWidth) {
-            const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(t) : 1;
-            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(t), alpha);
-            deps.drawResourceCornerMarker(t, px, py, size);
+            const alpha = builtOverlay ? deps.economicStructureOverlayAlpha(overlayTile) : 1;
+            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);
+            deps.drawResourceCornerMarker(overlayTile, px, py, size);
           } else {
-            const rc = deps.resourceColor(t.resource);
+            const rc = deps.resourceColor(overlayTile.resource);
             if (!rc) continue;
             const marker = Math.max(3, Math.floor(size * 0.22));
             const mx = px + Math.floor((size - marker) / 2);
@@ -726,19 +936,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.fillRect(mx - 1, my - 1, marker + 2, marker + 2);
             deps.ctx.fillStyle = rc;
             deps.ctx.fillRect(mx, my, marker, marker);
-            deps.drawResourceCornerMarker(t, px, py, size);
+            deps.drawResourceCornerMarker(overlayTile, px, py, size);
           }
         }
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.shardSite) {
-          const overlay = deps.shardOverlayForTile(t);
+        const visibleShardSite = visibleShardSiteForTile(t, state.shardRainPingsByTile, Date.now());
+        if (t && vis === "visible" && t.terrain === "LAND" && visibleShardSite) {
+          const tileWithVisibleShard = visibleShardSite === t.shardSite ? t : { ...t, shardSite: visibleShardSite };
+          const overlay = deps.shardOverlayForTile(tileWithVisibleShard);
           const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 280 + t.x * 0.21 + t.y * 0.17);
           const pulse = 0.82 + 0.18 * pulsePhase;
-          const glowRadius = size * (0.28 + pulsePhase * (t.shardSite.kind === "FALL" ? 0.3 : 0.24));
+          const glowRadius = size * (0.28 + pulsePhase * (visibleShardSite.kind === "FALL" ? 0.3 : 0.24));
           deps.ctx.save();
           deps.ctx.globalCompositeOperation = "screen";
           deps.ctx.fillStyle =
-            t.shardSite.kind === "FALL"
+            visibleShardSite.kind === "FALL"
               ? `rgba(255, 220, 112, ${0.16 + pulsePhase * 0.18})`
               : `rgba(96, 244, 255, ${0.14 + pulsePhase * 0.16})`;
           deps.ctx.beginPath();
@@ -746,7 +958,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fill();
           deps.ctx.lineWidth = Math.max(2, size * 0.08);
           deps.ctx.strokeStyle =
-            t.shardSite.kind === "FALL"
+            visibleShardSite.kind === "FALL"
               ? `rgba(255, 245, 180, ${0.38 + pulsePhase * 0.34})`
               : `rgba(184, 255, 255, ${0.34 + pulsePhase * 0.3})`;
           deps.ctx.beginPath();
@@ -759,18 +971,18 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
               px,
               py,
               size,
-              (t.shardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
+              (visibleShardSite.kind === "FALL" ? 1.1 : 1.02) * (0.98 + pulse * 0.06),
               0.86 + pulse * 0.18
             );
           } else {
             const prevAlpha = deps.ctx.globalAlpha;
             deps.ctx.globalAlpha = prevAlpha * (0.88 + pulse * 0.16);
-            deps.drawShardFallback(t, px, py, size * (0.99 + pulse * 0.03));
+            deps.drawShardFallback(tileWithVisibleShard, px, py, size * (0.99 + pulse * 0.03));
             deps.ctx.globalAlpha = prevAlpha;
           }
         }
 
-        if (t && vis === "visible" && t.town && t.terrain === "LAND") deps.drawTownOverlay(t, px, py, size);
+        if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
           const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
@@ -893,7 +1105,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
 
-        if (t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.terrain === "LAND" && !t.ownerId) {
           deps.ctx.strokeStyle = "rgba(20, 26, 36, 0.58)";
           deps.ctx.lineWidth = 1;
           deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
@@ -974,19 +1186,24 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
 
-        if (state.selected && state.selected.x === wx && state.selected.y === wy) {
+        if (!isTrue3DRendererActive() && state.selected && state.selected.x === wx && state.selected.y === wy) {
           if (t?.ownerId === state.me && t.ownershipState === "SETTLED") {
             deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
             deps.ctx.fillRect(px, py, size, size);
           } else {
             deps.ctx.strokeStyle = "#ffd166";
             deps.ctx.lineWidth = 2;
-            deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
+            deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
             deps.ctx.lineWidth = 1;
           }
         } else if (state.selected) {
           const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
-          if (selected?.town && deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) && deps.isTownSupportHighlightableTile(t)) {
+          if (
+            !isTrue3DRendererActive() &&
+            selected?.town &&
+            deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) &&
+            deps.isTownSupportHighlightableTile(t)
+          ) {
             if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
             else if (!t?.ownerId) deps.ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
             else if (t.ownerId !== state.me) deps.ctx.strokeStyle = "rgba(255, 98, 98, 0.65)";
@@ -997,14 +1214,14 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
               deps.ctx.fillRect(px, py, size, size);
             } else {
               deps.ctx.lineWidth = 2;
-              deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+              deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
               deps.ctx.lineWidth = 1;
             }
           }
         }
-        if (state.hover && state.hover.x === wx && state.hover.y === wy) {
+        if (!isTrue3DRendererActive() && state.hover && state.hover.x === wx && state.hover.y === wy) {
           deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
+          deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
         }
         const incomingAttack = state.incomingAttacksByTile.get(wk);
         if (incomingAttack) {
@@ -1053,7 +1270,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
 
         const queuedN = queueIndex.get(wk);
-        if (queuedN !== undefined) {
+        if (!isTrue3DRendererActive() && queuedN !== undefined) {
           deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
           deps.ctx.lineWidth = 2;
           deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
@@ -1067,40 +1284,71 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
           deps.ctx.lineWidth = 1;
         }
-        const queuedSettlementN = settleQueueIndex.get(wk);
-        if (queuedSettlementN !== undefined && !settlementProgress) {
-          deps.ctx.strokeStyle = "rgba(251, 191, 36, 0.95)";
+        const queuedSettlementBadge = queuedCornerBadgeLayout({
+          kind: "SETTLEMENT",
+          ordinal: settleQueueIndex.get(wk),
+          px,
+          py,
+          size,
+          isTrue3D: isTrue3DRendererActive(),
+          blocked: Boolean(settlementProgress)
+        });
+        if (queuedSettlementBadge?.border) {
+          deps.ctx.strokeStyle = queuedSettlementBadge.border.strokeStyle;
           deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          if (size >= 14) {
-            const badgeWidth = Math.min(size - 6, queuedSettlementN >= 10 ? 18 : 14);
-            deps.ctx.fillStyle = "rgba(49, 31, 4, 0.92)";
-            deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-            deps.ctx.fillStyle = "#fbbf24";
-            deps.ctx.font = "10px monospace";
-            deps.ctx.textBaseline = "top";
-            deps.ctx.textAlign = "left";
-            deps.ctx.fillText(String(queuedSettlementN), px + size - badgeWidth - 1, py + 4);
-          }
-          deps.ctx.lineWidth = 1;
+          deps.ctx.strokeRect(
+            queuedSettlementBadge.border.x,
+            queuedSettlementBadge.border.y,
+            queuedSettlementBadge.border.width,
+            queuedSettlementBadge.border.height
+          );
         }
-        const queuedBuildN = queuedBuildIndex.get(wk);
-        if (queuedBuildN !== undefined && !settlementProgress) {
-          deps.ctx.strokeStyle = "rgba(122, 214, 255, 0.95)";
+        if (queuedSettlementBadge?.badge) {
+          deps.ctx.fillStyle = queuedSettlementBadge.badge.background;
+          deps.ctx.fillRect(
+            queuedSettlementBadge.badge.x,
+            queuedSettlementBadge.badge.y,
+            queuedSettlementBadge.badge.width,
+            queuedSettlementBadge.badge.height
+          );
+          deps.ctx.fillStyle = queuedSettlementBadge.badge.foreground;
+          deps.ctx.font = "10px monospace";
+          deps.ctx.textBaseline = "top";
+          deps.ctx.textAlign = "left";
+          deps.ctx.fillText(queuedSettlementBadge.badge.text, queuedSettlementBadge.badge.textX, queuedSettlementBadge.badge.textY);
+          deps.ctx.textAlign = "start";
+        }
+        if (queuedSettlementBadge?.border) deps.ctx.lineWidth = 1;
+        const queuedBuildBadge = queuedCornerBadgeLayout({
+          kind: "BUILD",
+          ordinal: queuedBuildIndex.get(wk),
+          px,
+          py,
+          size,
+          isTrue3D: isTrue3DRendererActive(),
+          blocked: Boolean(settlementProgress)
+        });
+        if (queuedBuildBadge?.border) {
+          deps.ctx.strokeStyle = queuedBuildBadge.border.strokeStyle;
           deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
-          if (size >= 14) {
-            const badgeWidth = Math.min(size - 6, queuedBuildN >= 10 ? 18 : 14);
-            deps.ctx.fillStyle = "rgba(7, 26, 39, 0.92)";
-            deps.ctx.fillRect(px + size - badgeWidth - 3, py + 3, badgeWidth, 12);
-            deps.ctx.fillStyle = "#7dd3fc";
-            deps.ctx.font = "10px monospace";
-            deps.ctx.textBaseline = "top";
-            deps.ctx.textAlign = "left";
-            deps.ctx.fillText(String(queuedBuildN), px + size - badgeWidth - 1, py + 4);
-          }
-          deps.ctx.lineWidth = 1;
+          deps.ctx.strokeRect(
+            queuedBuildBadge.border.x,
+            queuedBuildBadge.border.y,
+            queuedBuildBadge.border.width,
+            queuedBuildBadge.border.height
+          );
         }
+        if (queuedBuildBadge?.badge) {
+          deps.ctx.fillStyle = queuedBuildBadge.badge.background;
+          deps.ctx.fillRect(queuedBuildBadge.badge.x, queuedBuildBadge.badge.y, queuedBuildBadge.badge.width, queuedBuildBadge.badge.height);
+          deps.ctx.fillStyle = queuedBuildBadge.badge.foreground;
+          deps.ctx.font = "10px monospace";
+          deps.ctx.textBaseline = "top";
+          deps.ctx.textAlign = "left";
+          deps.ctx.fillText(queuedBuildBadge.badge.text, queuedBuildBadge.badge.textX, queuedBuildBadge.badge.textY);
+          deps.ctx.textAlign = "start";
+        }
+        if (queuedBuildBadge?.border) deps.ctx.lineWidth = 1;
       }
     }
 
@@ -1112,6 +1360,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     for (const overlayTile of overlayTiles) renderOverlayTile(overlayTile);
+
+    if (debugWindow && isTrue3DRendererActive() && debugSelected) {
+      debugWindow.__be3dCanvasOverlayDebug = {
+        selected: debugSelected,
+        tiles: canvasOverlayDebug
+      };
+    }
 
     const selectedWorld = deps.selectedTile();
     if (selectedWorld && selectedWorld.observatory) {
@@ -1169,6 +1424,51 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
         deps.ctx.fillRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
         deps.ctx.restore();
+      }
+    }
+
+    if (state.aetherWallTargeting.active) {
+      const selectedKey = state.selected ? deps.keyFor(state.selected.x, state.selected.y) : "";
+      const selectedOrigin = state.selected ? state.tiles.get(selectedKey) : undefined;
+      for (const tile of overlayTiles) {
+        if (tile.vis !== "visible" || !state.aetherWallTargeting.validOrigins.has(tile.wk)) continue;
+        const selectedOriginTile = tile.wk === selectedKey;
+        deps.ctx.save();
+        deps.ctx.fillStyle = selectedOriginTile ? "rgba(44, 184, 255, 0.2)" : "rgba(44, 184, 255, 0.1)";
+        deps.ctx.fillRect(tile.px + 1, tile.py + 1, size - 2, size - 2);
+        deps.ctx.strokeStyle = selectedOriginTile ? "rgba(171, 237, 255, 0.98)" : "rgba(88, 214, 255, 0.88)";
+        deps.ctx.lineWidth = selectedOriginTile ? 3 : 2;
+        deps.ctx.strokeRect(tile.px + 1.5, tile.py + 1.5, size - 3, size - 3);
+        deps.ctx.restore();
+      }
+      if (selectedOrigin) {
+        const directionTargets = deps.aetherWallDirectionTargetTiles(selectedOrigin);
+        for (const target of directionTargets) {
+          const targetScreen = deps.worldToScreen(target.x, target.y, size, halfW, halfH);
+          const hovered = state.hover?.x === target.x && state.hover?.y === target.y;
+          const active = state.aetherWallTargeting.direction === target.direction;
+          deps.ctx.save();
+          deps.ctx.fillStyle = active ? "rgba(99, 228, 255, 0.18)" : hovered ? "rgba(99, 228, 255, 0.12)" : "rgba(99, 228, 255, 0.08)";
+          deps.ctx.fillRect(targetScreen.sx - size / 2 + 1, targetScreen.sy - size / 2 + 1, size - 2, size - 2);
+          deps.ctx.strokeStyle = active ? "rgba(201, 248, 255, 0.96)" : "rgba(102, 223, 255, 0.86)";
+          deps.ctx.lineWidth = active ? 3 : 2;
+          deps.ctx.strokeRect(targetScreen.sx - size / 2 + 1.5, targetScreen.sy - size / 2 + 1.5, size - 3, size - 3);
+          deps.ctx.restore();
+          deps.drawStartingExpansionArrow(targetScreen.sx - size / 2, targetScreen.sy - size / 2, size, target.dx, target.dy);
+        }
+      }
+      if (state.selected) {
+        const previewSegments = buildAetherWallSegments(
+          state.selected.x,
+          state.selected.y,
+          state.aetherWallTargeting.direction,
+          state.aetherWallTargeting.length,
+          deps.wrapX,
+          deps.wrapY
+        );
+        for (const segment of previewSegments) {
+          drawAetherWallEdge(segment.baseX, segment.baseY, state.aetherWallTargeting.direction, { preview: true, nowMs });
+        }
       }
     }
 
@@ -1279,6 +1579,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     deps.ctx.setLineDash([]);
     deps.ctx.lineDashOffset = 0;
 
+    const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
+    for (const wall of visibleAetherWalls) {
+      const segments = buildAetherWallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length, deps.wrapX, deps.wrapY);
+      for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs });
+    }
+
     const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
     for (const bridge of visibleAetherBridges) {
       const from = deps.worldToScreen(bridge.from.x, bridge.from.y, size, halfW, halfH);
@@ -1288,6 +1594,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       deps.drawAetherBridgeLane(deps.ctx, from.sx, from.sy, to.sx, to.sy, nowMs);
     }
 
+    pruneShardRainPings(state);
     if (state.shardRainFxUntil > nowMs) {
       const fxProgress = Math.max(0, (state.shardRainFxUntil - nowMs) / 8_000);
       deps.ctx.save();
@@ -1308,6 +1615,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     deps.drawMiniMap();
+    requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     deps.maybeRefreshForCamera(false);
     requestAnimationFrame(draw);
   };
@@ -1321,48 +1629,103 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (state.collectVisibleCooldownUntil > Date.now()) deps.renderHud();
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
-    if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment) deps.renderHud();
+    const recoveredExpiredFrontier = sweepExpiredFrontierRecovery(state, {
+      clearOptimisticTileState: deps.clearOptimisticTileState,
+      dropQueuedTargetKeyIfAbsent: deps.dropQueuedTargetKeyIfAbsent,
+      pushFeed: deps.pushFeed,
+      requestViewRefresh: deps.requestViewRefresh
+    });
+    if (expiredSettlementProgress || state.settleProgressByTile.size > 0 || startedQueuedDevelopment || recoveredExpiredFrontier) {
+      deps.renderHud();
+    }
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;
-    if (!state.combatStartAck && Date.now() - started > 4_500) {
+    if (!state.actionAcceptedAck && !state.actionAcceptTimeoutHandledAt && Date.now() - started > 2_000) {
       const current = state.actionCurrent;
       const currentKey = current ? deps.keyFor(current.x, current.y) : "";
+      const currentTile = currentKey ? state.tiles.get(currentKey) : undefined;
+      const preservedCapture =
+        current && state.capture && state.capture.target.x === current.x && state.capture.target.y === current.y ? state.capture : undefined;
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(currentKey);
-      state.capture = undefined;
-      if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
-      state.actionInFlight = false;
-      state.combatStartAck = false;
-      state.actionStartedAt = 0;
-      state.actionTargetKey = "";
-      state.actionCurrent = undefined;
-      if (currentKey && !keepOptimisticExpand) deps.clearOptimisticTileState(currentKey, true);
-      if (keepOptimisticExpand) {
+      const waitForFrontierSync =
+        keepOptimisticExpand ||
+        Boolean(current && !state.actionAcceptedAck && !state.combatStartAck && !currentTile?.ownerId);
+      attackSyncLog("action-accept-timeout", {
+        current,
+        currentKey,
+        elapsedMs: Date.now() - started,
+        actionAcceptedAck: state.actionAcceptedAck,
+        keepOptimisticExpand,
+        waitForFrontierSync,
+        queueLength: state.actionQueue.length,
+        queuedKeys: Array.from(state.queuedTargetKeys),
+        pendingCombatReveal: state.pendingCombatReveal
+          ? {
+              targetKey: state.pendingCombatReveal.targetKey,
+              revealed: state.pendingCombatReveal.revealed
+            }
+          : undefined
+      });
+      state.actionAcceptTimeoutHandledAt = Date.now();
+      if (waitForFrontierSync) {
+        state.capture = undefined;
+        if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
+        state.actionInFlight = false;
+        state.actionAcceptedAck = false;
+        state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
+        state.actionStartedAt = 0;
+        state.actionTargetKey = "";
+        state.actionCurrent = undefined;
         state.frontierSyncWaitUntilByTarget.set(currentKey, Date.now() + 12_000);
+        state.frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== currentKey);
         state.queuedTargetKeys.delete(currentKey);
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
-        deps.pushFeed("No combat start from server yet; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
+        deps.pushFeed("No server acceptance arrived within 2s; waiting for frontier sync instead of retrying the same tile.", "combat", "warn");
         deps.requestViewRefresh(1, true);
-      } else if (current && (current.retries ?? 0) < 3) {
-        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles and retrying.", "warn");
+        attackSyncLog("action-accept-timeout-refresh", {
+          strategy: "wait-for-frontier-sync",
+          currentKey,
+          refreshRadius: 1
+        });
+      } else if (current) {
+        state.capture = preservedCapture;
+        if (currentKey) state.frontierLateAckUntilByTarget.set(currentKey, Date.now() + 12_000);
+        deps.showCaptureAlert(
+          "Attack sync delayed",
+          "No server acceptance arrived within 2 seconds. Keeping the current attack active while waiting for the server result.",
+          "warn"
+        );
         deps.requestViewRefresh(1, true);
-        const retryAction: { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } = {
-          x: current.x,
-          y: current.y,
-          retries: (current.retries ?? 0) + 1
-        };
-        if (current.mode) retryAction.mode = current.mode;
-        state.actionQueue.unshift(retryAction);
-        state.queuedTargetKeys.add(deps.keyFor(current.x, current.y));
-        deps.pushFeed(`No combat start from server; retrying action (${retryAction.retries}/3).`, "combat", "warn");
+        deps.pushFeed("No server acceptance within 2s; holding the current attack and waiting for the authoritative result.", "combat", "warn");
+        attackSyncLog("action-accept-timeout-refresh", {
+          strategy: "wait-for-authoritative-result",
+          currentKey,
+          refreshRadius: 1
+        });
       } else {
-        deps.showCaptureAlert("Attack sync delayed", "No combat start arrived from the server. Refreshing nearby tiles to resync.", "warn");
+        state.capture = undefined;
+        if (state.pendingCombatReveal?.targetKey === currentKey) state.pendingCombatReveal = undefined;
+        state.actionInFlight = false;
+        state.actionAcceptedAck = false;
+        state.combatStartAck = false;
+        state.actionAcceptTimeoutHandledAt = 0;
+        state.actionStartedAt = 0;
+        state.actionTargetKey = "";
+        state.actionCurrent = undefined;
+        if (currentKey) deps.clearOptimisticTileState(currentKey, true);
+        deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");
         deps.requestViewRefresh(1, true);
-        deps.pushFeed("No combat start from server; skipping queued action.", "combat", "warn");
+        deps.pushFeed("No server acceptance within 2s; skipping queued action.", "combat", "warn");
         if (currentKey) deps.dropQueuedTargetKeyIfAbsent(currentKey);
+        attackSyncLog("action-accept-timeout-refresh", {
+          strategy: "resync-without-retry",
+          currentKey,
+          refreshRadius: 1
+        });
       }
-      deps.processActionQueue();
       deps.renderHud();
       return;
     }
@@ -1370,10 +1733,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (Date.now() > state.capture.resolvesAt + 5_000) {
       const timedOutCurrentKey = state.actionCurrent ? deps.keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       const keepOptimisticExpand = deps.shouldPreserveOptimisticExpandByKey(timedOutCurrentKey);
+      attackSyncLog("combat-result-timeout", {
+        current: state.actionCurrent,
+        currentKey: timedOutCurrentKey,
+        elapsedMs: Date.now() - started,
+        captureTarget: state.capture.target,
+        captureResolvesAt: state.capture.resolvesAt,
+        keepOptimisticExpand,
+        queueLength: state.actionQueue.length
+      });
       state.capture = undefined;
       if (state.pendingCombatReveal?.targetKey === timedOutCurrentKey) state.pendingCombatReveal = undefined;
       state.actionInFlight = false;
+      state.actionAcceptedAck = false;
       state.combatStartAck = false;
+      state.actionAcceptTimeoutHandledAt = 0;
       state.actionStartedAt = 0;
       state.actionTargetKey = "";
       state.actionCurrent = undefined;
@@ -1388,6 +1762,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       );
       if (keepOptimisticExpand) {
         state.frontierSyncWaitUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);
+        state.frontierLateAckUntilByTarget.set(timedOutCurrentKey, Date.now() + 12_000);
         state.actionQueue = state.actionQueue.filter((entry) => deps.keyFor(entry.x, entry.y) !== timedOutCurrentKey);
         state.queuedTargetKeys.delete(timedOutCurrentKey);
         deps.requestViewRefresh(1, true);
@@ -1412,6 +1787,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (!loadingActive) return;
     deps.renderHud();
     if (state.connection === "initialized" && state.firstChunkAt === 0 && Date.now() - state.lastSubAt > 4_000) {
+      const elapsedMs = Date.now() - (state.mapLoadStartedAt || Date.now());
+      if (elapsedMs >= 8_000) {
+        recordClientDebugEvent("warn", "bootstrap-sync", "map-sync-stalled", {
+          elapsedMs,
+          lastSubAt: state.lastSubAt,
+          lastSubAgeMs: Date.now() - state.lastSubAt,
+          chunkFullCount: state.chunkFullCount,
+          bridgeDebugMode: state.bridgeDebugMode,
+          bridgeDebugBootstrap: state.bridgeDebugBootstrap,
+          bridgeDebugInitialTileCount: state.bridgeDebugInitialTileCount,
+          bridgeDebugRuntimeFingerprint: state.bridgeDebugRuntimeFingerprint,
+          authSessionReady: state.authSessionReady,
+          hasOwnedTileInCache: state.hasOwnedTileInCache
+        });
+      }
       deps.requestViewRefresh(1, true);
     }
   }, 300);

@@ -43,6 +43,19 @@ describe("tile menu render signature", () => {
     expect(signatureA).not.toBe(signatureB);
   });
 
+  it("changes when header status text changes", () => {
+    const signatureA = tileMenuRenderSignature(baseView(), "buildings");
+    const signatureB = tileMenuRenderSignature(
+      {
+        ...baseView(),
+        statusText: "Recently captured 01:59",
+        statusTone: "warning"
+      },
+      "buildings"
+    );
+    expect(signatureA).not.toBe(signatureB);
+  });
+
   it("ignores hidden-tab changes so the buildings tab can keep its scroll position", () => {
     const signatureA = tileMenuRenderSignature(baseView(), "buildings");
     const signatureB = tileMenuRenderSignature(

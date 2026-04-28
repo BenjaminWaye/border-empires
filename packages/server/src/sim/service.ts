@@ -1,4 +1,4 @@
-import type { ClientMessage, EconomicStructureType } from "@border-empires/shared";
+import type { ClientMessage, EconomicStructureType, TileKey } from "@border-empires/shared";
 
 import { createSimulationCommandBus, type SimulationCommandPriority, type SimulationCommandWorkerState } from "./command-bus.js";
 
@@ -7,15 +7,16 @@ export type SimulationCommand =
   | { type: "ATTACK"; fromX: number; fromY: number; toX: number; toY: number }
   | { type: "SETTLE"; x: number; y: number }
   | { type: "BUILD_FORT"; x: number; y: number }
+  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number }
   | { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
 
 export type QueuedSimulationMessage =
   | SimulationCommand
-  | { type: "BUILD_OBSERVATORY"; x: number; y: number }
-  | { type: "BUILD_SIEGE_OUTPOST"; x: number; y: number };
+  | { type: "BUILD_OBSERVATORY"; x: number; y: number };
 
 export type SystemSimulationCommand =
   | { type: "BARBARIAN_ACTION"; agentId: string }
+  | { type: "BARBARIAN_COMBAT_RESOLVE"; agentId: string; originKey: TileKey; targetX: number; targetY: number }
   | { type: "BARBARIAN_MAINTENANCE" };
 
 export type SimulationCommandJob<TActor, TSocket> = {
@@ -58,6 +59,9 @@ type SimulationService<TActor, TSocket> = {
 export const createSimulationService = <TActor, TSocket>(
   deps: CreateSimulationServiceDeps<TActor, TSocket>
 ): SimulationService<TActor, TSocket> => {
+  const shouldExecuteHumanFrontierImmediately = (msg: ClientMessage): msg is Extract<ClientMessage, { type: "ATTACK" | "EXPAND" }> =>
+    msg.type === "ATTACK" || msg.type === "EXPAND";
+
   const isQueuedSimulationMessage = (msg: ClientMessage): msg is QueuedSimulationMessage =>
     msg.type === "SETTLE" ||
     msg.type === "BUILD_FORT" ||
@@ -106,6 +110,9 @@ export const createSimulationService = <TActor, TSocket>(
     hasQueuedSystemCommand: bus.hasQueuedSystemCommand,
     isQueuedSimulationMessage,
     handleGatewayMessage: async (actor, msg, socket) => {
+      if (shouldExecuteHumanFrontierImmediately(msg)) {
+        return Boolean(await deps.executeGatewayMessage(actor, msg, socket));
+      }
       if (isQueuedSimulationMessage(msg)) {
         enqueueJob(actor, msg, socket, "human");
         return true;

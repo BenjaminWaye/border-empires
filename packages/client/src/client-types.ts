@@ -286,7 +286,7 @@ export type AllianceRequest = {
   fromPlayerId: string;
   toPlayerId: string;
   createdAt: number;
-  expiresAt: number;
+  expiresAt?: number;
   fromName?: string;
   toName?: string;
 };
@@ -317,6 +317,32 @@ export type ActiveAetherBridgeView = {
   to: { x: number; y: number };
   startedAt: number;
   endsAt: number;
+};
+
+export type ActiveAetherWallView = {
+  wallId: string;
+  ownerId: string;
+  origin: { x: number; y: number };
+  direction: "N" | "E" | "S" | "W";
+  length: 1 | 2 | 3;
+  startedAt: number;
+  endsAt: number;
+};
+
+export type RevealEmpireStatsView = {
+  playerId: string;
+  playerName: string;
+  revealedAt: number;
+  tiles: number;
+  settledTiles: number;
+  frontierTiles: number;
+  controlledTowns: number;
+  incomePerMinute: number;
+  techCount: number;
+  gold: number;
+  manpower: number;
+  manpowerCap: number;
+  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>;
 };
 
 export type StrategicReplayEventType =
@@ -451,7 +477,7 @@ export type FeedEntry = {
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number };
-export type CrystalTargetingAbility = "aether_bridge" | "siphon" | "world_engine_strike" | "aether_emp";
+export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp";
 
 export type GuideStep = {
   title: string;
@@ -474,6 +500,7 @@ export type TileActionDef = {
     | "launch_attack"
     | "attack_connected_region"
     | "reveal_empire"
+    | "reveal_empire_stats"
     | "survey_sweep"
     | "collect_yield"
     | "collect_shard"
@@ -528,6 +555,7 @@ export type TileActionDef = {
     | "offer_truce_24h"
     | "break_truce"
     | "aether_lance"
+    | "aether_wall"
     | "aether_bridge"
     | "imperial_exchange_levy_food"
     | "imperial_exchange_levy_iron"
@@ -573,6 +601,8 @@ export type TileMenuView = {
   title: string;
   subtitle: string;
   subtitleHtml?: string;
+  statusText?: string;
+  statusTone?: "warning" | "neutral";
   tabs: TileMenuTab[];
   overviewKicker?: string;
   overviewLines: TileOverviewLine[];

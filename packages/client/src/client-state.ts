@@ -1,3 +1,4 @@
+import { CLIENT_CHANGELOG_STORAGE_KEY } from "./client-changelog.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY } from "./client-constants.js";
 import { DEVELOPMENT_PROCESS_LIMIT, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE } from "@border-empires/shared";
 import type { EconomyBreakdown } from "./client-economy-model.js";
@@ -5,6 +6,7 @@ import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
+  ActiveAetherWallView,
   StrategicReplayEvent,
   ActiveTruceView,
   CrystalTargetingAbility,
@@ -16,6 +18,7 @@ import type {
   LeaderboardOverallEntry,
   MissionState,
   PendingResearch,
+  RevealEmpireStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
   TechInfo,
@@ -60,6 +63,7 @@ export const createInitialState = () => ({
   authSessionReady: false,
   hasEverInitialized: false,
   authBusy: false,
+  authBusyStartedAt: 0,
   authRetrying: false,
   authConfigured: false,
   authUserLabel: "",
@@ -124,6 +128,7 @@ export const createInitialState = () => ({
   tileDetailRequestedAt: new Map<string, number>(),
   hover: undefined as { x: number; y: number } | undefined,
   homeTile: undefined as { x: number; y: number } | undefined,
+  localhostDevAetherWall: false,
   tiles: new Map<string, Tile>(),
   camX: 0,
   camY: 0,
@@ -142,9 +147,11 @@ export const createInitialState = () => ({
   abilityCooldowns: {} as Partial<
     Record<
       | "aether_bridge"
+      | "aether_wall"
       | "aether_lance"
       | "siphon"
       | "reveal_empire"
+      | "reveal_empire_stats"
       | "survey_sweep"
       | "create_mountain"
       | "remove_mountain"
@@ -159,17 +166,21 @@ export const createInitialState = () => ({
     >
   >,
   revealTargetId: "" as string,
+  revealedEmpireStatsByPlayer: new Map<string, RevealEmpireStatsView>(),
   allies: [] as string[],
   activeTruces: [] as ActiveTruceView[],
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   playerShieldUntil: new Map<string, number>(),
+  serverSupportedMessageTypes: new Set<string>(),
   incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
   incomingAllianceRequests: [] as AllianceRequest[],
   outgoingAllianceRequests: [] as AllianceRequest[],
   incomingTruceRequests: [] as TruceRequest[],
+  outgoingTruceRequests: [] as TruceRequest[],
   activeAetherBridges: [] as ActiveAetherBridgeView[],
+  activeAetherWalls: [] as ActiveAetherWallView[],
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
   replayPlaying: false,
@@ -227,6 +238,7 @@ export const createInitialState = () => ({
   mobilePanel: "core" as "core" | "missions" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower",
   activePanel: null as "missions" | "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | null,
   showWeakDefensibility: false,
+  shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined,
   dismissedShardAlertKeys: new Set<string>(),
@@ -246,6 +258,7 @@ export const createInitialState = () => ({
   techTreeScrollTop: 0,
   techTreeZoom: 1,
   actionQueue: [] as Array<{ x: number; y: number; mode?: "normal" | "breakthrough"; retries?: number }>,
+  frontierLateAckUntilByTarget: new Map<string, number>(),
   developmentQueue: [] as Array<
     | { kind: "SETTLE"; x: number; y: number; tileKey: string; label: string }
     | {
@@ -272,11 +285,24 @@ export const createInitialState = () => ({
     | undefined,
   queuedDevelopmentDispatchPending: false,
   queuedTargetKeys: new Set<string>(),
+  nextCommandClientSeq: 1,
   actionInFlight: false,
+  actionAcceptedAck: false,
   combatStartAck: false,
+  actionAcceptTimeoutHandledAt: 0,
   actionStartedAt: 0,
   actionTargetKey: "",
-  actionCurrent: undefined as { x: number; y: number; mode?: "normal" | "breakthrough"; retries: number } | undefined,
+  actionCurrent: undefined as
+    | {
+        x: number;
+        y: number;
+        mode?: "normal" | "breakthrough";
+        retries: number;
+        commandId?: string;
+        clientSeq?: number;
+        actionType?: "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK";
+      }
+    | undefined,
   attackPreview: undefined as
     | {
         fromKey: string;
@@ -320,6 +346,7 @@ export const createInitialState = () => ({
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,
   lastSubAt: 0,
+  lastChunkSnapshotGeneration: 0,
   dockPairs: [] as DockPair[],
   dockRouteCache: new Map<string, Array<{ x: number; y: number }>>(),
   discoveredDockTiles: new Set<string>(),
@@ -344,6 +371,12 @@ export const createInitialState = () => ({
     validTargets: new Set<string>(),
     originByTarget: new Map<string, string>()
   },
+  aetherWallTargeting: {
+    active: false,
+    validOrigins: new Set<string>(),
+    direction: "N" as "N" | "E" | "S" | "W",
+    length: 1 as 1 | 2 | 3
+  },
   airportTargeting: {
     active: false,
     originKey: "",
@@ -355,6 +388,21 @@ export const createInitialState = () => ({
     completed: storageGet(GUIDE_STORAGE_KEY) === "1",
     autoOpened: storageGet(GUIDE_AUTO_OPEN_STORAGE_KEY) === "1"
   },
+  changelog: {
+    open: false,
+    seenVersion: storageGet(CLIENT_CHANGELOG_STORAGE_KEY) ?? "",
+    scrollTop: 0
+  },
+  activeBackend: "legacy" as "legacy" | "gateway",
+  bridgeDebugMode: "unknown" as "unknown" | "legacy-server" | "rewrite-gateway",
+  bridgeDebugBootstrap: "pending" as "pending" | "legacy-init" | "rewrite-init",
+  bridgeDebugWsUrl: "",
+  bridgeDebugSeasonId: "",
+  bridgeDebugRuntimeFingerprint: "",
+  bridgeDebugSnapshotLabel: "",
+  bridgeDebugInitialTileCount: 0,
+  bridgeDebugSupportedMessageCount: 0,
+  bridgeDebugAcceptLatencyP95Ms: 0,
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
   chunkFullCount: 0

@@ -1,4 +1,5 @@
 import type {
+  AetherWallDirection,
   BarbarianAgent,
   ClusterType,
   Dock,
@@ -18,6 +19,7 @@ import type {
   SeasonWinnerView,
   SiegeOutpost,
   StrategicReplayEvent,
+  RevealEmpireStatsView,
   Tile,
   TileKey
 } from "@border-empires/shared";
@@ -28,7 +30,7 @@ export interface AllianceRequest {
   fromPlayerId: string;
   toPlayerId: string;
   createdAt: number;
-  expiresAt: number;
+  expiresAt?: number;
   fromName?: string;
   toName?: string;
 }
@@ -170,6 +172,7 @@ export interface SnapshotState {
   economicStructures?: EconomicStructure[];
   sabotage?: ActiveSabotage[];
   abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
+  aetherWalls?: ActiveAetherWall[];
   docks?: Dock[];
   towns?: TownDefinition[];
   shardSites?: ShardSiteState[];
@@ -239,6 +242,7 @@ export interface SnapshotSystemsSection {
   economicStructures?: EconomicStructure[];
   sabotage?: ActiveSabotage[];
   abilityCooldowns?: [string, [AbilityDefinition["id"], number][]][];
+  aetherWalls?: ActiveAetherWall[];
 }
 
 export interface SnapshotSectionIndex {
@@ -342,6 +346,16 @@ export interface ActiveAetherBridge {
   endsAt: number;
 }
 
+export interface ActiveAetherWall {
+  wallId: string;
+  ownerId: string;
+  originTileKey: TileKey;
+  direction: AetherWallDirection;
+  length: 1 | 2 | 3;
+  startedAt: number;
+  endsAt: number;
+}
+
 export interface TileYieldBuffer {
   gold: number;
   strategic: Record<StrategicResource, number>;
@@ -366,9 +380,11 @@ export interface PlayerEconomyIndex {
 export interface AbilityDefinition {
   id:
     | "reveal_empire"
+    | "reveal_empire_stats"
     | "survey_sweep"
     | "aether_lance"
     | "aether_bridge"
+    | "aether_wall"
     | "siphon"
     | "aether_emp"
     | "city_overclock"
@@ -385,6 +401,10 @@ export interface AbilityDefinition {
   cooldownMs: number;
   upkeepCrystalPerMinute?: number;
   durationMs?: number;
+}
+
+export interface RevealEmpireStatsResult {
+  stats: RevealEmpireStatsView;
 }
 
 export interface DynamicMissionDef {

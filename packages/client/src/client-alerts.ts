@@ -1,5 +1,7 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { formatGoldAmount } from "./client-constants.js";
+import { resourceIconForKey } from "./client-map-display.js";
+import { maybeRegisterShardRainPing } from "./client-shard-rain-pings.js";
 import type { ClientState } from "./client-state.js";
 import type { ClientShardRainAlert } from "./client-shard-alert.js";
 import type { FeedEntry, FeedSeverity, FeedType, Tile } from "./client-types.js";
@@ -14,9 +16,12 @@ export const pushFeedEntry = (state: Pick<ClientState, "feed">, entry: FeedEntry
   state.feed = state.feed.slice(0, 18);
 };
 
-export const maybeAnnounceShardSite = (previous: Tile | undefined, next: Tile): void => {
-  if (next.fogged || !next.shardSite) return;
-  if (previous?.shardSite?.kind === next.shardSite.kind && previous.shardSite.amount === next.shardSite.amount) return;
+export const maybeAnnounceShardSite = (
+  state: Pick<ClientState, "shardRainPingsByTile" | "shardAlert">,
+  previous: Tile | undefined,
+  next: Tile
+): void => {
+  maybeRegisterShardRainPing(state, previous, next);
 };
 
 export const shardAlertKeyForPayload = (phase: "upcoming" | "started", startsAt: number): string => `${phase}:${startsAt}`;
@@ -132,6 +137,28 @@ const settledTileLabel = (
   return deps.prettyToken(deps.terrainLabel(target.x, target.y, tile?.terrain ?? deps.terrainAt(target.x, target.y)));
 };
 
+const formatPlunderAmount = (amount: number): string => {
+  const rounded = Math.round(amount);
+  return Math.abs(amount - rounded) < 0.01 ? String(rounded) : amount.toFixed(2);
+};
+
+const plunderSummary = (
+  msg: Record<string, unknown>,
+  deps: { prettyToken: (value: string) => string }
+): string | undefined => {
+  const pillagedGold = typeof msg.pillagedGold === "number" ? msg.pillagedGold : 0;
+  const strategic = (msg.pillagedStrategic as Record<string, number> | undefined) ?? {};
+  const parts: string[] = [];
+  if (pillagedGold > 0.01) parts.push(`${resourceIconForKey("GOLD")} ${formatGoldAmount(pillagedGold)}`);
+  for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"] as const) {
+    const amount = strategic[resource];
+    if (typeof amount !== "number" || amount <= 0.01) continue;
+    parts.push(`${resourceIconForKey(resource)} ${formatPlunderAmount(amount)} ${deps.prettyToken(resource)}`);
+  }
+  if (parts.length === 0) return undefined;
+  return ` Plundered ${parts.join(", ")}.`;
+};
+
 export const combatResolutionAlert = (
   msg: Record<string, unknown>,
   context: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined } | undefined,
@@ -175,9 +202,10 @@ export const combatResolutionAlert = (
     };
   }
   if (attackerWon) {
+    const plunderDetail = plunderSummary(msg, deps);
     return {
       title: "Victory",
-      detail: `${targetLabel} was conquered from ${targetOwnerName}.`,
+      detail: `${targetLabel} was conquered from ${targetOwnerName}.${plunderDetail ?? ""}`,
       tone: "success",
       ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {}),
       ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})

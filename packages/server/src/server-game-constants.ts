@@ -10,7 +10,6 @@ export const BARBARIAN_OWNER_ID = "barbarian";
 export const BARBARIAN_TICK_MS = 5_000;
 export const playerPairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 export const now = (): number => Date.now();
-export const ALLIANCE_REQUEST_TTL_MS = 5 * 60_000;
 export const TRUCE_REQUEST_TTL_MS = 5 * 60_000;
 export const TRUCE_BREAK_LOCKOUT_MS = 12 * 60 * 60_000;
 export const TRUCE_BREAK_ATTACK_MULT = 0.75;
@@ -69,8 +68,6 @@ export const MINE_BUILD_GOLD_COST = structureBaseGoldCost("MINE");
 export const MINE_BUILD_RESOURCE_COST = 30;
 export const MINE_GOLD_UPKEEP = 1.2;
 export const MARKET_BUILD_GOLD_COST = structureBaseGoldCost("MARKET");
-export const MARKET_BUILD_CRYSTAL_COST = 40;
-export const MARKET_CRYSTAL_UPKEEP = 0.05;
 export const GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("GRANARY");
 export const GRANARY_BUILD_FOOD_COST = 40;
 export const GRANARY_GOLD_UPKEEP = 1;
@@ -132,14 +129,17 @@ export const SETTLEMENT_BASE_GOLD_PER_MIN = 1;
 export const FUR_SYNTHESIZER_GOLD_UPKEEP = 60;
 export const IRONWORKS_GOLD_UPKEEP = 60;
 export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP = 80;
+export const MARKET_FOOD_UPKEEP = 0.5;
 export const WOODEN_FORT_GOLD_UPKEEP = 5;
 export const LIGHT_OUTPOST_GOLD_UPKEEP = 5;
+export const BANK_FOOD_UPKEEP = 1;
 export const FUEL_PLANT_GOLD_UPKEEP = 180;
 export const CARAVANARY_GOLD_UPKEEP = 15;
 export const AETHER_TOWER_GOLD_UPKEEP = 30;
 export const CENSUS_HALL_GOLD_UPKEEP_PER_MIN = CENSUS_HALL_GOLD_UPKEEP;
 export const CLEARING_HOUSE_GOLD_UPKEEP = 30;
 export const EXCHANGE_HOUSE_GOLD_UPKEEP = 40;
+export const CARAVANARY_FOOD_UPKEEP = 0.75;
 export const CUSTOMS_HOUSE_GOLD_UPKEEP = 15;
 export const LOCKWORKS_PORT_GOLD_UPKEEP = 22.5;
 export const CHARTERED_PORT_GOLD_UPKEEP = 30;
@@ -198,6 +198,8 @@ export const ASTRAL_DOCK_CRYSTAL_COST = 300;
 export const ASTRAL_DOCK_DURATION_MS = 24 * 60 * 60_000;
 export const REVEAL_EMPIRE_ACTIVATION_COST = 20;
 export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
+export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 15;
+export const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 export const DEEP_STRIKE_CRYSTAL_COST = 25;
 export const DEEP_STRIKE_COOLDOWN_MS = 20 * 60_000;
 export const DEEP_STRIKE_ATTACK_MULT = 0.9;
@@ -214,6 +216,9 @@ export const AETHER_BRIDGE_CRYSTAL_COST = 30;
 export const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
 export const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
 export const AETHER_BRIDGE_MAX_SEA_TILES = 4;
+export const AETHER_WALL_CRYSTAL_COST = 25;
+export const AETHER_WALL_COOLDOWN_MS = 8 * 60_000;
+export const AETHER_WALL_DURATION_MS = 20 * 60_000;
 export const SIPHON_CRYSTAL_COST = 20;
 export const SIPHON_COOLDOWN_MS = 15 * 60_000;
 export const SIPHON_DURATION_MS = 30 * 60_000;
@@ -299,6 +304,13 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     cooldownMs: 0,
     upkeepCrystalPerMinute: REVEAL_EMPIRE_UPKEEP_PER_MIN
   },
+  reveal_empire_stats: {
+    id: "reveal_empire_stats",
+    name: "Reveal Empire Stats",
+    requiredTechIds: ["surveying"],
+    crystalCost: REVEAL_EMPIRE_STATS_CRYSTAL_COST,
+    cooldownMs: REVEAL_EMPIRE_STATS_COOLDOWN_MS
+  },
   survey_sweep: {
     id: "survey_sweep",
     name: "Survey Sweep",
@@ -321,6 +333,14 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     crystalCost: AETHER_BRIDGE_CRYSTAL_COST,
     cooldownMs: AETHER_BRIDGE_COOLDOWN_MS,
     durationMs: AETHER_BRIDGE_DURATION_MS
+  },
+  aether_wall: {
+    id: "aether_wall",
+    name: "Aether Wall",
+    requiredTechIds: ["harborcraft"],
+    crystalCost: AETHER_WALL_CRYSTAL_COST,
+    cooldownMs: AETHER_WALL_COOLDOWN_MS,
+    durationMs: AETHER_WALL_DURATION_MS
   },
   siphon: {
     id: "siphon",

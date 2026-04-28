@@ -65,4 +65,17 @@ describe("buildRoadNetwork", () => {
     expect(roads.get("1,0")).toMatchObject({ west: true, east: true });
     expect(roads.get("2,0")).toMatchObject({ west: true, terminal: true });
   });
+
+  it("connects towns across diagonal settled tiles", () => {
+    const tiles = new Map<string, Tile>([
+      [keyFor(0, 0), makeTile(0, 0, { town: makeTown("TOWN") })],
+      [keyFor(1, 1), makeTile(1, 1)],
+      [keyFor(2, 2), makeTile(2, 2, { town: makeTown("CITY", "FARMING") })]
+    ]);
+
+    const roads = buildRoadNetwork({ tiles, keyFor, wrapX, wrapY });
+    expect(roads.get("0,0")).toMatchObject({ southeast: true, terminal: true });
+    expect(roads.get("1,1")).toMatchObject({ northwest: true, southeast: true });
+    expect(roads.get("2,2")).toMatchObject({ northwest: true, terminal: true });
+  });
 });

@@ -23,25 +23,28 @@ describe("settlement relocation regression guard", () => {
   });
 
   it("seeds a settlement at spawn and recreates one only through the fallback helper", () => {
-    const mainSource = readServerSource("./main.ts");
+    const playerRuntimeSource = readServerSource("./server-player-runtime-support.ts");
     const settlementFlowSource = readServerSource("./server-settlement-flow.ts");
-    expect(mainSource).toContain('if (townsByTile.has(key(x, y))) return false;');
-    expect(mainSource).toContain('if (!townsByTile.has(key(x, y))) createSettlementAtTile(p.id, key(x, y));');
+    expect(playerRuntimeSource).toContain('if (deps.townsByTile.has(deps.key(x, y))) return false;');
+    expect(playerRuntimeSource).toContain('if (!deps.townsByTile.has(deps.key(x, y))) deps.createSettlementAtTile(player.id, deps.key(x, y));');
     expect(settlementFlowSource).toContain("const ensureFallbackSettlementForPlayer = (playerId: string): boolean => {");
   });
 
   it("repairs missing settlements and keeps the active settlement authoritative for the capital marker", () => {
-    const mainSource = readServerSource("./main.ts");
     const settlementFlowSource = readServerSource("./server-settlement-flow.ts");
+    const tileViewSource = readServerSource("./server-tile-view-runtime.ts");
     expect(settlementFlowSource).toContain("const activeSettlementTileKeyForPlayer = (playerId: string): TileKey | undefined =>");
     expect(settlementFlowSource).toContain("const ensureActiveSettlementForPlayer = (playerId: string): boolean => {");
     expect(settlementFlowSource).toContain("for (const candidate of [player.spawnOrigin, player.capitalTileKey, oldestSettledSettlementCandidateForPlayer(playerId)]) {");
-    expect(mainSource).toContain("if (ownerId !== BARBARIAN_OWNER_ID && activeSettlementTileKeyForPlayer(ownerId) === tk) tile.capital = true;");
+    expect(tileViewSource).toContain("if (ownerId !== deps.BARBARIAN_OWNER_ID && deps.activeSettlementTileKeyForPlayer(ownerId) === tileKey) tile.capital = true;");
   });
 
   it("relocates captured settlement-tier towns instead of leaving them on the captured tile", () => {
-    const source = readServerSource("./main.ts");
-    expect(source).toContain('if (oldOwner !== BARBARIAN_OWNER_ID && capturedTown && isRelocatableSettlementTown(capturedTown)) {');
-    expect(source).toContain("relocateCapturedSettlementForPlayer(displacedSettlement.ownerId, displacedSettlement.town);");
+    const ownershipSource = readServerSource("./server-ownership-runtime.ts");
+    const settlementFlowSource = readServerSource("./server-settlement-flow.ts");
+    expect(ownershipSource).toContain('if (oldOwner !== deps.BARBARIAN_OWNER_ID && capturedTown && deps.isRelocatableSettlementTown(capturedTown)) {');
+    expect(ownershipSource).toContain("deps.relocateCapturedSettlementForPlayer(displacedSettlement.ownerId, displacedSettlement.town);");
+    expect(settlementFlowSource).toContain('Boolean(town && townPopulationTierForTown(town) === "SETTLEMENT");');
+    expect(settlementFlowSource).not.toContain("town.isSettlement && townPopulationTierForTown(town) === \"SETTLEMENT\"");
   });
 });

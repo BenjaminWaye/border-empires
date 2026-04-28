@@ -37,6 +37,7 @@ describe("createAiRuntime", () => {
       aiQueueDepth: () => 0,
       simulationQueueDepth: () => 0,
       humanChunkSnapshotPriorityActive: () => false,
+      humanFrontierActionPriorityActive: () => false,
       collectCompetitionMetrics,
       incomeForMetric: (metric) => metric.incomePerMinute,
       playerIdForMetric: (metric) => metric.playerId,

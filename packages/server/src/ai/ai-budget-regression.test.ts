@@ -7,7 +7,13 @@ const serverMainSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
   return [
     readFileSync(resolve(here, "../main.ts"), "utf8"),
-    readFileSync(resolve(here, "../server-runtime-config.ts"), "utf8")
+    readFileSync(resolve(here, "../server-runtime-config.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-runtime-admin-dashboard.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-runtime-dashboard-html.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-types.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-scout.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-signals.ts"), "utf8"),
+    readFileSync(resolve(here, "../server-ai-frontier-planning-runtime.ts"), "utf8")
   ].join("\n");
 };
 
@@ -36,7 +42,7 @@ describe("AI budget regression guard", () => {
     expect(source).toContain("const AI_TICK_BUDGET_MS = Math.max(250, Number(process.env.AI_TICK_BUDGET_MS ?? 1_000));");
     expect(source).toContain("const AI_FRONTIER_SELECTOR_BUDGET_MS = Math.max(");
     expect(source).toContain("const recentAiBudgetBreachPerf = perfRing<");
-    expect(source).toContain('appRef?.log.warn(sample, "ai budget breach");');
+    expect(source).toContain('deps.logger.warn(sample, "ai budget breach");');
   });
 
   it("records budget breaches from runAiTurn slow paths", () => {
@@ -57,8 +63,8 @@ describe("AI budget regression guard", () => {
     const source = serverMainSource();
     const dashboardBody = functionBody(source, "runtimeDashboardPayload");
     expect(dashboardBody).toContain("aiBudget: {");
-    expect(dashboardBody).toContain("budgetMs: AI_TICK_BUDGET_MS");
-    expect(dashboardBody).toContain("const recentAiBudgetBreaches = recentAiBudgetBreachPerf.values();");
+    expect(dashboardBody).toContain("budgetMs: deps.aiTickBudgetMs");
+    expect(dashboardBody).toContain("const recentAiBudgetBreaches = deps.recentAiBudgetBreachPerf.values();");
     expect(dashboardBody).toContain("recent: recentAiBudgetBreaches");
     expect(source).toContain('metricRow("AI budget breaches"');
     expect(source).toContain('renderHotspotBlock("AI budget breaches"');
@@ -66,17 +72,17 @@ describe("AI budget regression guard", () => {
 
   it("hard-caps scout frontier selector scans so one AI execute path cannot monopolize the process", () => {
     const body = functionBody(serverMainSource(), "bestAiScoutExpand");
-    expect(body).toContain("const startedAt = now();");
+    expect(body).toContain("const startedAt = deps.now();");
     expect(body).toContain("let scannedCandidates = 0;");
     expect(body).toContain("if (scoutRevealCount <= 0 && adjacency.coastlineDiscoveryValue <= 0)");
-    expect(body).toContain("if ((scannedCandidates & 3) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
-    expect(body).toContain("if ((scannedCandidates & 31) === 0 && now() - startedAt >= AI_FRONTIER_SELECTOR_BUDGET_MS)");
+    expect(body).toContain("if ((scannedCandidates & 3) === 0 && deps.now() - startedAt >= deps.AI_FRONTIER_SELECTOR_BUDGET_MS)");
+    expect(body).toContain("if ((scannedCandidates & 31) === 0 && deps.now() - startedAt >= deps.AI_FRONTIER_SELECTOR_BUDGET_MS)");
     expect(body).toContain('"ai frontier selector budget hit"');
   });
 
   it("reuses cached scout adjacency in frontier planning availability instead of rescanning neighbors", () => {
     const body = functionBody(serverMainSource(), "estimateAiFrontierAvailabilityProfile");
-    expect(body).toContain("const adjacency = cachedScoutAdjacencyMetrics(actor, to, territorySummary);");
-    expect(body).toContain("countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0");
+    expect(body).toContain("const adjacency = deps.cachedScoutAdjacencyMetrics(actor, to, territorySummary);");
+    expect(body).toContain("deps.countAiScoutRevealTiles(to, territorySummary.visibility, territorySummary) > 0 || adjacency.coastlineDiscoveryValue > 0");
   });
 });

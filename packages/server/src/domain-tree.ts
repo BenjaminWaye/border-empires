@@ -51,7 +51,7 @@ export interface DomainEffects {
   newSettlementDefenseMult?: number;
   dockGoldOutputMult?: number;
   dockGoldCapMult?: number;
-  marketCrystalUpkeepMult?: number;
+  supportEconomicFoodUpkeepMult?: number;
   sabotageCooldownMult?: number;
   resourceOutputMult?: {
     farm?: number;
@@ -121,7 +121,7 @@ const DomainEffectsSchema = z
     newSettlementDefenseMult: z.number().positive().optional(),
     dockGoldOutputMult: z.number().positive().optional(),
     dockGoldCapMult: z.number().positive().optional(),
-    marketCrystalUpkeepMult: z.number().positive().optional(),
+    supportEconomicFoodUpkeepMult: z.number().positive().optional(),
     sabotageCooldownMult: z.number().positive().optional(),
     resourceOutputMult: z
       .object({
@@ -275,8 +275,8 @@ export const loadDomainTree = (cwd: string): LoadedDomainTree => {
       if (typeof d.effects.newSettlementDefenseMult === "number") effects.newSettlementDefenseMult = d.effects.newSettlementDefenseMult;
       if (typeof d.effects.dockGoldOutputMult === "number") effects.dockGoldOutputMult = d.effects.dockGoldOutputMult;
       if (typeof d.effects.dockGoldCapMult === "number") effects.dockGoldCapMult = d.effects.dockGoldCapMult;
-      if (typeof d.effects.marketCrystalUpkeepMult === "number") {
-        effects.marketCrystalUpkeepMult = d.effects.marketCrystalUpkeepMult;
+      if (typeof d.effects.supportEconomicFoodUpkeepMult === "number") {
+        effects.supportEconomicFoodUpkeepMult = d.effects.supportEconomicFoodUpkeepMult;
       }
       if (typeof d.effects.sabotageCooldownMult === "number") effects.sabotageCooldownMult = d.effects.sabotageCooldownMult;
       if (d.effects.resourceOutputMult) {
