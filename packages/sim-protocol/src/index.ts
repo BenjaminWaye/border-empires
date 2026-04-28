@@ -41,6 +41,8 @@ export type LeaderboardMetricEntry = {
   rank: number;
 };
 
+export type SeasonLifecycleStatus = "active" | "ended";
+
 type SeasonVictoryPathId =
   | "TOWN_CONTROL"
   | "SETTLED_TERRITORY"
@@ -63,6 +65,33 @@ export type SeasonVictoryObjectiveSnapshot = {
   conditionMet: boolean;
 };
 
+export type SeasonWinnerSnapshot = {
+  playerId: string;
+  playerName: string;
+  crownedAt: number;
+  objectiveId: SeasonVictoryPathId;
+  objectiveName: string;
+};
+
+export type SeasonVictoryTrackerSnapshot = {
+  objectiveId: SeasonVictoryPathId;
+  leaderPlayerId?: string;
+  leaderName?: string;
+  holdStartedAt?: number;
+};
+
+export type SimulationSeasonState = {
+  seasonId: string;
+  seasonSequence: number;
+  rulesetId: string;
+  worldSeed: number;
+  status: SeasonLifecycleStatus;
+  startedAt: number;
+  endedAt?: number;
+  winner?: SeasonWinnerSnapshot;
+  victoryTrackers: SeasonVictoryTrackerSnapshot[];
+};
+
 export type WorldStatusSnapshot = {
   leaderboard: {
     overall: LeaderboardOverallEntry[];
@@ -76,6 +105,40 @@ export type WorldStatusSnapshot = {
   };
   seasonVictory: SeasonVictoryObjectiveSnapshot[];
   acceptLatencyP95Ms?: number;
+};
+
+export type CurrentSeasonSummary = {
+  season: string;
+  seasonId: string;
+  seasonSequence: number;
+  status: SeasonLifecycleStatus;
+  startedAt: number;
+  endedAt?: number;
+  worldSeed: number;
+  rulesetId: string;
+  seasonWinner?: SeasonWinnerSnapshot;
+  leaderboard: WorldStatusSnapshot["leaderboard"];
+  overall: LeaderboardOverallEntry[];
+  byTiles: LeaderboardMetricEntry[];
+  byIncome: LeaderboardMetricEntry[];
+  byTechs: LeaderboardMetricEntry[];
+  seasonVictory: SeasonVictoryObjectiveSnapshot[];
+  onlinePlayers: number;
+  totalPlayers: number;
+  townCount: number;
+  updatedAt: number;
+};
+
+export type SeasonArchiveRow = {
+  seasonId: string;
+  seasonSequence: number;
+  endedAt: number;
+  updatedAt: number;
+  winner?: SeasonWinnerSnapshot;
+  mostTerritory: Array<{ playerId: string; playerName: string; value: number }>;
+  mostPoints: Array<{ playerId: string; playerName: string; value: number }>;
+  longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;
+  replayEvents: Array<Record<string, unknown>>;
 };
 
 export type SimulationEvent =
@@ -218,6 +281,11 @@ export type PlayerSubscriptionSnapshot = {
     yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD" | "OIL", number>> } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
   }>;
+};
+
+export type StartNextSeasonResponse = {
+  ok: boolean;
+  seasonId: string;
 };
 
 export const SIMULATION_PROTO_PATH = new URL("./simulation.proto", import.meta.url);

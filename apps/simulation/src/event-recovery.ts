@@ -1,4 +1,5 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "./seed-state.js";
@@ -39,6 +40,7 @@ export type RecoveredSimulationState = {
   tiles: RecoveredTileState[];
   docks?: DockRouteDefinition[];
   activeLocks: RecoveredLock[];
+  season?: SimulationSeasonState;
   players?: Array<{
     id: string;
     name?: string;
@@ -63,6 +65,7 @@ type RecoveredSimulationAccumulator = {
   tiles: Map<string, RecoveredTileState>;
   docks: DockRouteDefinition[];
   activeLocks: Map<string, RecoveredLock>;
+  season?: SimulationSeasonState;
   players: NonNullable<RecoveredSimulationState["players"]>;
   pendingSettlements: NonNullable<RecoveredSimulationState["pendingSettlements"]>;
   tileYieldCollectedAtByTile: NonNullable<RecoveredSimulationState["tileYieldCollectedAtByTile"]>;
@@ -101,6 +104,7 @@ export const createRecoveredSimulationAccumulator = (
     tiles,
     docks: baseState.docks ? baseState.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) : [],
     activeLocks,
+    ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker) => ({ ...tracker })) } } : {}),
     players: baseState.players ? [...baseState.players] : [],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     tileYieldCollectedAtByTile: baseState.tileYieldCollectedAtByTile ? [...baseState.tileYieldCollectedAtByTile] : [],
@@ -154,6 +158,7 @@ export const finalizeRecoveredSimulationAccumulator = (
     .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
   ...(accumulator.docks.length ? { docks: accumulator.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) } : {}),
   activeLocks: [...accumulator.activeLocks.values()].sort((left, right) => left.commandId.localeCompare(right.commandId)),
+  ...("season" in accumulator && accumulator.season ? { season: accumulator.season } : {}),
   players: [...accumulator.players],
   pendingSettlements: [...accumulator.pendingSettlements],
   tileYieldCollectedAtByTile: [...accumulator.tileYieldCollectedAtByTile],
