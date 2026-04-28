@@ -515,7 +515,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         !options.allowSeedRecoveryFallback ||
         legacySnapshotBootstrap ||
         !options.seedProfile ||
-        isDbBackedStartup
+        requireDurableStartupState
       ) {
         log.error(
           { err: error, durationMs: Date.now() - startupRecoveryStartedAt, timeoutMs },

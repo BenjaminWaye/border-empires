@@ -102,6 +102,37 @@ describe("simulation service startup recovery", () => {
     );
   });
 
+  it("allows explicit local seeded startup against an empty db-backed store", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+
+    const service = await createSimulationService({
+      seedProfile: "season-20ai",
+      databaseUrl: "postgres://simulation",
+      commandStore,
+      eventStore,
+      snapshotStore,
+      seasonSummaryStore: new InMemorySeasonSummaryStore(),
+      allowSeedRecoveryFallback: true,
+      requireDurableStartupState: false,
+      log: {
+        info: () => undefined,
+        error: () => undefined
+      }
+    });
+
+    expect(service.startupRecovery.recoveredCommandCount).toBe(0);
+    expect(service.startupRecovery.recoveredEventCount).toBe(0);
+    expect(service.startupRecovery.initialState.tiles.length).toBeGreaterThan(0);
+    expect(
+      service.startupRecovery.initialState.tiles.some(
+        (tile) => tile.ownerId === "player-1" && typeof tile.ownershipState === "string"
+      )
+    ).toBe(true);
+    await service.close();
+  });
+
   it("bootstraps the first managed season from ruleset worldgen when durable stores are empty", async () => {
     const commandStore = new InMemorySimulationCommandStore();
     const eventStore = new InMemorySimulationEventStore();

@@ -25,6 +25,7 @@ export type SimulationRuntimeEnv = {
   systemPlayerIds?: string[];
   startupRecoveryTimeoutMs: number;
   allowSeedRecoveryFallback: boolean;
+  requireDurableStartupState?: boolean;
   /** When true, AI/system planning runs in worker threads off the main event loop. */
   useAiWorker: boolean;
 };
@@ -61,6 +62,10 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
   const allowSeedRecoveryFallback =
     env.SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK === "1" &&
     Boolean(env.SIMULATION_SEED_PROFILE);
+  const requireDurableStartupState =
+    env.SIMULATION_REQUIRE_DURABLE_STARTUP_STATE === undefined
+      ? undefined
+      : env.SIMULATION_REQUIRE_DURABLE_STARTUP_STATE !== "0";
 
   return {
     host: env.SIMULATION_HOST ?? "127.0.0.1",
@@ -116,6 +121,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       "simulation startup recovery timeout"
     ),
     allowSeedRecoveryFallback,
+    ...(typeof requireDurableStartupState === "boolean" ? { requireDurableStartupState } : {}),
     useAiWorker: env.SIMULATION_AI_WORKER === "1",
     ...(systemPlayerIds && systemPlayerIds.length > 0 ? { systemPlayerIds } : {})
   };
