@@ -18,6 +18,7 @@ const service = await createSimulationService({
     ? { checkpointMaxHeapUsedBytes: runtimeEnv.checkpointMaxHeapUsedBytes }
     : {}),
   seedProfile: runtimeEnv.seedProfile,
+  ...(runtimeEnv.rulesetId ? { rulesetId: runtimeEnv.rulesetId } : {}),
   enableAiAutopilot: runtimeEnv.enableAiAutopilot,
   aiTickMs: runtimeEnv.aiTickMs,
   aiMaxEventLoopLagMs: runtimeEnv.aiMaxEventLoopLagMs,
