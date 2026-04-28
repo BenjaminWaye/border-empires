@@ -45,7 +45,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   const nowMs = Date.now();
 
   if (tile.town) {
-    if (tile.town.connectedTownCount > 0 && tile.town.connectedTownBonus !== 0) {
+    if (tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0 && tile.town.connectedTownBonus !== 0) {
       modifiers.push({
         reason: connectedLabel(tile.town.connectedTownCount),
         effect: `${percentLabel(tile.town.connectedTownBonus * 100)} gold production`,
