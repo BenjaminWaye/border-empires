@@ -364,7 +364,21 @@ export interface PlayerEconomyIndex {
 }
 
 export interface AbilityDefinition {
-  id: "reveal_empire" | "aether_bridge" | "siphon" | "create_mountain" | "remove_mountain";
+  id:
+    | "reveal_empire"
+    | "survey_sweep"
+    | "aether_lance"
+    | "aether_bridge"
+    | "siphon"
+    | "aether_emp"
+    | "city_overclock"
+    | "create_mountain"
+    | "remove_mountain"
+    | "stormfront"
+    | "imperial_exchange_levy"
+    | "world_engine_strike"
+    | "aegis_lock"
+    | "astral_dock_launch";
   name: string;
   requiredTechIds: string[];
   crystalCost: number;

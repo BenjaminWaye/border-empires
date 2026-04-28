@@ -1,5 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { townHasSupportStructureType } from "./client-support-structures.js";
+import type { SupportTownStructureKey } from "./client-support-structures.js";
 import type { ClientState } from "./client-state.js";
 import type { Tile } from "./client-types.js";
 
@@ -40,7 +41,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
 
   const townHasSupportStructure = (
     town: Tile | undefined,
-    structureType: "MARKET" | "GRANARY" | "BANK" | "CARAVANARY" | "FUR_SYNTHESIZER" | "IRONWORKS" | "CRYSTAL_SYNTHESIZER" | "FUEL_PLANT"
+    structureType: SupportTownStructureKey
   ): boolean => townHasSupportStructureType(state.tiles.values(), town, state.me, structureType);
 
   const supportedOwnedDocksForTile = (tile: Tile): Tile[] => {

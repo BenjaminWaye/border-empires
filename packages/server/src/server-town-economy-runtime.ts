@@ -1,4 +1,4 @@
-import type { Dock, Player, Tile, TileKey } from "@border-empires/shared";
+import type { Dock, Player, ResourceType, Tile, TileKey } from "@border-empires/shared";
 
 import type { StrategicResource, TownDefinition } from "./server-shared-types.js";
 import type { ServerTownEconomyRuntime, ServerTownEconomyRuntimeDeps } from "./server-town-runtime-types.js";
@@ -20,6 +20,7 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     foodUpkeepCoverageByPlayer,
     townFeedingStateByPlayer,
     growthPausedUntilByPlayer,
+    cityOverclocksByPlayer,
     getPlayerEffectsForPlayer,
     emptyPlayerEffects,
     getOrInitStrategicStocks,
@@ -30,6 +31,7 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     townSupport,
     townGoldIncomeEnabledForPlayer,
     ownedTownKeysForPlayer,
+    directlyConnectedTownKeysForTown,
     firstThreeTownKeySetForPlayer,
     structureForSupportedTown,
     structureForSupportedDock,
@@ -60,14 +62,22 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     for (const townKey of ownedTownKeysForPlayer(playerId)) {
       const town = townsByTile.get(townKey);
       if (!town) continue;
-      upkeepNeed += townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult * governorUpkeepMultiplierAtTile(playerId, townKey);
+      upkeepNeed +=
+        townFoodUpkeepPerMinute(town) *
+        effects.townFoodUpkeepMult *
+        granaryFoodUpkeepMultiplierAt(townKey, playerId) *
+        governorUpkeepMultiplierAtTile(playerId, townKey);
     }
     let remainingFood = Math.max(0, availableFood);
     const fedTownKeys = new Set<TileKey>();
     for (const townKey of ownedTownKeysForPlayer(playerId)) {
       const town = townsByTile.get(townKey);
       if (!town) continue;
-      const townNeed = townFoodUpkeepPerMinute(town) * effects.townFoodUpkeepMult * governorUpkeepMultiplierAtTile(playerId, townKey);
+      const townNeed =
+        townFoodUpkeepPerMinute(town) *
+        effects.townFoodUpkeepMult *
+        granaryFoodUpkeepMultiplierAt(townKey, playerId) *
+        governorUpkeepMultiplierAtTile(playerId, townKey);
       if (townNeed <= 0) {
         fedTownKeys.add(townKey);
       } else if (remainingFood + 1e-9 >= townNeed) {
@@ -106,10 +116,16 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     return 1 + (ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects()).marketCapBonusAdd;
   };
 
-  const granaryGrowthMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+  const granaryFoodUpkeepMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
     const structure = structureForSupportedTown(tileKey, ownerId, "GRANARY");
     if (!structure || structure.status !== "active") return 1;
-    return 1 + (ownerId ? getPlayerEffectsForPlayer(ownerId) : emptyPlayerEffects()).granaryCapBonusAdd;
+    return 0.9;
+  };
+
+  const censusHallGrowthMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+    const structure = structureForSupportedTown(tileKey, ownerId, "CENSUS_HALL");
+    if (!structure || structure.status !== "active") return 1;
+    return 1.25;
   };
 
   const bankIncomeMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
@@ -120,6 +136,90 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
   const bankFlatIncomeBonusAt = (tileKey: TileKey, ownerId: string | undefined): number => {
     const structure = structureForSupportedTown(tileKey, ownerId, "BANK");
     return structure && structure.status === "active" ? 1 : 0;
+  };
+
+  const clearingHouseNetworkActiveAt = (tileKey: TileKey, ownerId: string | undefined): boolean => {
+    if (!ownerId) return false;
+    const networkTownKeys = [tileKey, ...directlyConnectedTownKeysForTown(ownerId, tileKey)];
+    for (const townKey of networkTownKeys) {
+      const structure = structureForSupportedTown(townKey, ownerId, "CLEARING_HOUSE");
+      if (structure && structure.status === "active") return true;
+    }
+    return false;
+  };
+
+  const clearingHouseMarketMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number =>
+    clearingHouseNetworkActiveAt(tileKey, ownerId) ? 1.25 : 1;
+
+  const clearingHouseBankMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number =>
+    clearingHouseNetworkActiveAt(tileKey, ownerId) ? 1.2 : 1;
+
+  const clearingHouseBankFlatBonusAt = (tileKey: TileKey, ownerId: string | undefined): number =>
+    clearingHouseNetworkActiveAt(tileKey, ownerId) ? 0.5 : 0;
+
+  const railDepotNetworkActiveAt = (tileKey: TileKey, ownerId: string | undefined): boolean => {
+    if (!ownerId) return false;
+    const networkTownKeys = [tileKey, ...directlyConnectedTownKeysForTown(ownerId, tileKey)];
+    for (const townKey of networkTownKeys) {
+      const structure = structureForSupportedTown(townKey, ownerId, "RAIL_DEPOT");
+      if (structure && structure.status === "active") return true;
+    }
+    return false;
+  };
+
+  const railDepotConnectedTownBonusAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+    if (!ownerId) return 0;
+    const town = townsByTile.get(tileKey);
+    if (!town || town.connectedTownCount <= 0) return 0;
+    return railDepotNetworkActiveAt(tileKey, ownerId) ? 0.1 : 0;
+  };
+
+  const cityOverclockAppliesAt = (tileKey: TileKey, ownerId: string | undefined): boolean => {
+    if (!ownerId) return false;
+    const overclock = cityOverclocksByPlayer.get(ownerId);
+    if (!overclock || overclock.endsAt <= now()) return false;
+    const poweredNetwork = [overclock.tileKey, ...directlyConnectedTownKeysForTown(ownerId, overclock.tileKey)];
+    return poweredNetwork.includes(tileKey);
+  };
+
+  const activeSupportStructureCountForTown = (townKey: TileKey, ownerId: string | undefined): number => {
+    if (!ownerId) return 0;
+    const [tx, ty] = parseKey(townKey);
+    let count = 0;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const neighborKey = key(tx + dx, ty + dy);
+        const structure = economicStructuresByTile.get(neighborKey);
+        if (!structure || structure.ownerId !== ownerId || structure.status !== "active") continue;
+        count += 1;
+      }
+    }
+    return count;
+  };
+
+  const exchangeHouseIncomeMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+    const structure = structureForSupportedTown(tileKey, ownerId, "EXCHANGE_HOUSE");
+    if (!structure || structure.status !== "active") return 1;
+    return 1 + Math.min(0.8, activeSupportStructureCountForTown(tileKey, ownerId) * 0.1);
+  };
+
+  const exchangeHouseGrowthMultiplierAt = (tileKey: TileKey, ownerId: string | undefined): number => {
+    const structure = structureForSupportedTown(tileKey, ownerId, "EXCHANGE_HOUSE");
+    if (!structure || structure.status !== "active") return 1;
+    return 1 + Math.min(0.4, activeSupportStructureCountForTown(tileKey, ownerId) * 0.05);
+  };
+
+  const granaryFoodOutputMultiplierAt = (tileKey: TileKey, ownerId: string | undefined, resource: ResourceType | undefined): number => {
+    if (!ownerId || (resource !== "FARM" && resource !== "FISH")) return 1;
+    const [x, y] = parseKey(tileKey);
+    for (const townKey of ownedTownKeysForPlayer(ownerId)) {
+      const structure = structureForSupportedTown(townKey, ownerId, "GRANARY");
+      if (!structure || structure.status !== "active") continue;
+      const [tx, ty] = parseKey(townKey);
+      if (Math.max(Math.abs(tx - x), Math.abs(ty - y)) <= 10) return 1.5;
+    }
+    return 1;
   };
 
   const dockConnectedOwnedSettledCount = (dock: Dock, ownerId: string | undefined): number => {
@@ -134,9 +234,21 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     return count;
   };
 
+  const dockStructureAt = (dockKey: TileKey, ownerId: string | undefined): "CUSTOMS_HOUSE" | "LOCKWORKS_PORT" | "CHARTERED_PORT" | undefined => {
+    const chartered = structureForSupportedDock(dockKey, ownerId, "CHARTERED_PORT");
+    if (chartered && chartered.status === "active") return "CHARTERED_PORT";
+    const lockworks = structureForSupportedDock(dockKey, ownerId, "LOCKWORKS_PORT");
+    if (lockworks && lockworks.status === "active") return "LOCKWORKS_PORT";
+    const harborExchange = structureForSupportedDock(dockKey, ownerId, "CUSTOMS_HOUSE");
+    if (harborExchange && harborExchange.status === "active") return "CUSTOMS_HOUSE";
+    return undefined;
+  };
+
   const dockCustomsHouseIncomeMultiplierAt = (dockKey: TileKey, ownerId: string | undefined): number => {
-    const structure = structureForSupportedDock(dockKey, ownerId, "CUSTOMS_HOUSE");
-    return structure && structure.status === "active" ? 1.5 : 1;
+    const structureType = dockStructureAt(dockKey, ownerId);
+    if (structureType === "CHARTERED_PORT") return 3;
+    if (structureType === "LOCKWORKS_PORT") return 2.5;
+    return structureType === "CUSTOMS_HOUSE" ? 1.5 : 1;
   };
 
   const dockGoldRateMultiplierForOwner = (ownerId: string | undefined): number =>
@@ -158,7 +270,7 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     };
     pushModifier("Dock income bonus", (outputMult - 1) * 100, DOCK_INCOME_PER_MIN * (outputMult - 1) * rateMult);
     pushModifier(connectedDockCount === 1 ? "Connected dock route" : "Connected dock routes", (connectionMult - 1) * 100, DOCK_INCOME_PER_MIN * outputMult * (connectionMult - 1) * rateMult);
-    pushModifier("Customs House", (customsMult - 1) * 100, DOCK_INCOME_PER_MIN * outputMult * connectionMult * (customsMult - 1) * rateMult);
+    pushModifier("Harbor Exchange", (customsMult - 1) * 100, DOCK_INCOME_PER_MIN * outputMult * connectionMult * (customsMult - 1) * rateMult);
     return {
       baseGoldPerMinute: Number(baseGoldPerMinute.toFixed(4)),
       goldPerMinute: Number((DOCK_INCOME_PER_MIN * outputMult * connectionMult * customsMult * rateMult).toFixed(4)),
@@ -190,13 +302,17 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
       TOWN_BASE_GOLD_PER_MIN *
       supportRatio *
       townPopulationMultiplier(town.population) *
-      (1 + town.connectedTownBonus) *
+      (1 + town.connectedTownBonus + railDepotConnectedTownBonusAt(town.tileKey, ownerId)) *
       marketIncomeMultiplierAt(town.tileKey, ownerId) *
+      clearingHouseMarketMultiplierAt(town.tileKey, ownerId) *
       bankIncomeMultiplierAt(town.tileKey, ownerId) *
+      clearingHouseBankMultiplierAt(town.tileKey, ownerId) *
+      exchangeHouseIncomeMultiplierAt(town.tileKey, ownerId) *
+      (cityOverclockAppliesAt(town.tileKey, ownerId) ? 1.25 : 1) *
       (firstThreeTownKeySetForPlayer(ownerId).has(town.tileKey) ? effects.firstThreeTownsGoldOutputMult : 1) *
       effects.townGoldOutputMult *
       effects.populationIncomeMult
-    ) + bankFlatIncomeBonusAt(town.tileKey, ownerId);
+    ) + bankFlatIncomeBonusAt(town.tileKey, ownerId) + clearingHouseBankFlatBonusAt(town.tileKey, ownerId);
   };
 
   const townIncomeForOwner = (town: TownDefinition, ownerId: string | undefined): number => townPotentialIncomeForOwner(town, ownerId);
@@ -234,7 +350,19 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     if (!ownerId || ownership.get(town.tileKey) !== ownerId || ownershipStateByTile.get(town.tileKey) !== "SETTLED" || !isTownFedForOwner(town.tileKey, ownerId)) return 0;
     const effects = getPlayerEffectsForPlayer(ownerId);
     const populationTier = townPopulationTierForTown(town);
-    const growthMult = effects.populationGrowthMult * (firstThreeTownKeySetForPlayer(ownerId).has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1) * granaryGrowthMultiplierAt(town.tileKey, ownerId) * (populationTier === "SETTLEMENT" ? 4 : 1);
+    const tierGrowthMultiplier =
+      populationTier === "SETTLEMENT" ? 4
+        : populationTier === "CITY" ? 0.9
+          : populationTier === "GREAT_CITY" ? 0.75
+            : populationTier === "METROPOLIS" ? 0.6
+              : 1;
+    const growthMult =
+      effects.populationGrowthMult *
+      (firstThreeTownKeySetForPlayer(ownerId).has(town.tileKey) ? effects.firstThreeTownsPopulationGrowthMult : 1) *
+      censusHallGrowthMultiplierAt(town.tileKey, ownerId) *
+      exchangeHouseGrowthMultiplierAt(town.tileKey, ownerId) *
+      (cityOverclockAppliesAt(town.tileKey, ownerId) ? 1.35 : 1) *
+      tierGrowthMultiplier;
     const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
     return logisticFactor <= 0 ? 0 : town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
   };
@@ -280,7 +408,10 @@ export const createServerTownEconomyRuntime = (deps: ServerTownEconomyRuntimeDep
     const sabotageMult = siphonMultiplierAt(tileKey);
     const goldPerMinute = (((resource ? (resourceRate[resource] ?? 0) * sabotageMult : 0) + (dock ? dockIncomeForOwner(dock, ownerId) : 0) + (town ? townIncomeForOwner(town, ownerId) * sabotageMult : 0)) * (players.get(ownerId)?.mods.income ?? 1) * PASSIVE_INCOME_MULT * HARVEST_GOLD_RATE_MULT);
     const strategicResource = toStrategicResource(resource);
-    const strategicBaseDaily = strategicResource && resource ? strategicDailyFromResource[resource] ?? 0 : 0;
+    const strategicBaseDaily =
+      strategicResource && resource
+        ? (strategicDailyFromResource[resource] ?? 0) * granaryFoodOutputMultiplierAt(tileKey, ownerId, resource)
+        : 0;
     const structure = economicStructuresByTile.get(tileKey);
     const converterDaily = structure && structure.ownerId === ownerId && structure.status === "active" ? converterStructureOutputFor(structure.type, ownerId) : undefined;
     const converterMaxDaily = converterDaily ? Math.max(0, ...(Object.values(converterDaily) as number[])) : 0;

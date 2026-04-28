@@ -56,7 +56,7 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     PASSIVE_INCOME_MULT,
     OBSERVATORY_UPKEEP_PER_MIN,
     REVEAL_EMPIRE_UPKEEP_PER_MIN,
-    AIRPORT_OIL_UPKEEP_PER_MIN
+    AIRPORT_CRYSTAL_UPKEEP_PER_MIN
   } = deps;
 
   const upkeepPerMinuteForPlayer = (player: Player) => {
@@ -94,8 +94,12 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
       food: townFoodUpkeep * effects.townFoodUpkeepMult,
       iron: fortCount * 0.025 * effects.fortIronUpkeepMult,
       supply: outpostCount * 0.025 * effects.outpostSupplyUpkeepMult,
-      crystal: activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult + observatoryCount * OBSERVATORY_UPKEEP_PER_MIN + crystalStructureUpkeep,
-      oil: airportCount * AIRPORT_OIL_UPKEEP_PER_MIN,
+      crystal:
+        activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult +
+        observatoryCount * OBSERVATORY_UPKEEP_PER_MIN +
+        crystalStructureUpkeep +
+        airportCount * AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
+      oil: 0,
       gold:
         fortCount * 1 * effects.fortGoldUpkeepMult +
         outpostCount * 1 * effects.outpostGoldUpkeepMult +
@@ -139,9 +143,16 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     if (structure?.ownerId === ownerId && structure.status === "active") {
       const gold = economicStructureGoldUpkeepPerInterval(structure.type) / 10;
       const crystal = economicStructureCrystalUpkeepPerInterval(structure.type, ownerId) / 10;
-      const oil = structure.type === "AIRPORT" ? AIRPORT_OIL_UPKEEP_PER_MIN : 0;
-      if (gold > 0.0001 || crystal > 0.0001 || oil > 0.0001) {
-        entries.push({ label: prettyEconomicStructureLabel(structure.type), perMinute: { ...(gold > 0.0001 ? { GOLD: roundedUpkeepPerMinute(gold) } : {}), ...(crystal > 0.0001 ? { CRYSTAL: roundedUpkeepPerMinute(crystal) } : {}), ...(oil > 0.0001 ? { OIL: roundedUpkeepPerMinute(oil) } : {}) } });
+      const airportCrystal = structure.type === "AIRPORT" ? AIRPORT_CRYSTAL_UPKEEP_PER_MIN : 0;
+      const totalCrystal = crystal + airportCrystal;
+      if (gold > 0.0001 || totalCrystal > 0.0001) {
+        entries.push({
+          label: prettyEconomicStructureLabel(structure.type),
+          perMinute: {
+            ...(gold > 0.0001 ? { GOLD: roundedUpkeepPerMinute(gold) } : {}),
+            ...(totalCrystal > 0.0001 ? { CRYSTAL: roundedUpkeepPerMinute(totalCrystal) } : {})
+          }
+        });
       }
     }
     return entries;
@@ -149,9 +160,11 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
 
   const economicStructureGoldUpkeepPerInterval = (structureType: EconomicStructureType): number =>
     structureType === "FARMSTEAD" ? deps.FARMSTEAD_GOLD_UPKEEP
+      : structureType === "WATERWORKS" ? deps.WATERWORKS_GOLD_UPKEEP
       : structureType === "CAMP" ? deps.CAMP_GOLD_UPKEEP
       : structureType === "MINE" ? deps.MINE_GOLD_UPKEEP
       : structureType === "GRANARY" ? deps.GRANARY_GOLD_UPKEEP
+      : structureType === "CENSUS_HALL" ? deps.CENSUS_HALL_GOLD_UPKEEP
       : structureType === "CARAVANARY" ? deps.CARAVANARY_GOLD_UPKEEP
       : structureType === "ADVANCED_FUR_SYNTHESIZER" ? deps.FUR_SYNTHESIZER_GOLD_UPKEEP
       : structureType === "WOODEN_FORT" ? deps.WOODEN_FORT_GOLD_UPKEEP
@@ -162,11 +175,21 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
       : structureType === "CRYSTAL_SYNTHESIZER" ? deps.CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
       : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? deps.CRYSTAL_SYNTHESIZER_GOLD_UPKEEP
       : structureType === "FUEL_PLANT" ? deps.FUEL_PLANT_GOLD_UPKEEP
+      : structureType === "AETHER_TOWER" ? deps.AETHER_TOWER_GOLD_UPKEEP
+      : structureType === "EXCHANGE_HOUSE" ? deps.EXCHANGE_HOUSE_GOLD_UPKEEP
       : structureType === "FOUNDRY" ? deps.FOUNDRY_GOLD_UPKEEP
       : structureType === "GARRISON_HALL" ? deps.GARRISON_HALL_GOLD_UPKEEP
       : structureType === "CUSTOMS_HOUSE" ? deps.CUSTOMS_HOUSE_GOLD_UPKEEP
+      : structureType === "LOCKWORKS_PORT" ? deps.LOCKWORKS_PORT_GOLD_UPKEEP
+      : structureType === "CHARTERED_PORT" ? deps.CHARTERED_PORT_GOLD_UPKEEP
+      : structureType === "RAIL_DEPOT" ? deps.RAIL_DEPOT_GOLD_UPKEEP
+      : structureType === "CLEARING_HOUSE" ? deps.CLEARING_HOUSE_GOLD_UPKEEP
       : structureType === "GOVERNORS_OFFICE" ? deps.GOVERNORS_OFFICE_GOLD_UPKEEP
       : structureType === "RADAR_SYSTEM" ? deps.RADAR_SYSTEM_GOLD_UPKEEP
+      : structureType === "IMPERIAL_EXCHANGE_PART" ? deps.IMPERIAL_EXCHANGE_PART_GOLD_UPKEEP
+      : structureType === "WORLD_ENGINE_PART" ? deps.WORLD_ENGINE_PART_GOLD_UPKEEP
+      : structureType === "IMPERIAL_EXCHANGE" ? deps.IMPERIAL_EXCHANGE_GOLD_UPKEEP
+      : structureType === "WORLD_ENGINE" ? deps.WORLD_ENGINE_GOLD_UPKEEP
       : 0;
 
   const economicStructureCrystalUpkeepPerInterval = (structureType: EconomicStructureType, playerId: string): number =>
@@ -251,7 +274,11 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     const activeRevealCount = Math.min(1, getOrInitRevealTargets(player.id).size);
     if (activeRevealCount > 0) pushUpkeepContributor(crystal, "Empire reveal upkeep", activeRevealCount * REVEAL_EMPIRE_UPKEEP_PER_MIN * effects.revealUpkeepMult, { count: activeRevealCount, note: `${activeRevealCount} active reveal` });
     if (observatoryCount > 0) pushUpkeepContributor(crystal, "Observatory upkeep", observatoryCount * OBSERVATORY_UPKEEP_PER_MIN, { count: observatoryCount, note: `${observatoryCount} active observator${observatoryCount === 1 ? "y" : "ies"}` });
-    if (airportCount > 0) pushUpkeepContributor(oil, "Airport upkeep", airportCount * AIRPORT_OIL_UPKEEP_PER_MIN, { count: airportCount, note: `${airportCount} active airport${airportCount === 1 ? "" : "s"}` });
+    if (airportCount > 0)
+      pushUpkeepContributor(crystal, "Sky Dock upkeep", airportCount * AIRPORT_CRYSTAL_UPKEEP_PER_MIN, {
+        count: airportCount,
+        note: `${airportCount} active sky dock${airportCount === 1 ? "" : "s"}`
+      });
     for (const [type, count] of goldStructureCounts) pushUpkeepContributor(gold, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureGoldUpkeepPerInterval(type) / 10) * count, { count, note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}` });
     for (const [type, count] of crystalStructureCounts) pushUpkeepContributor(crystal, `${prettyEconomicStructureLabel(type)} upkeep`, (economicStructureCrystalUpkeepPerInterval(type, player.id) / 10) * count, { count, note: `${count} active ${prettyEconomicStructureLabel(type).toLowerCase()}${count === 1 ? "" : "s"}` });
     return { food: sortedUpkeepContributors(food), iron: sortedUpkeepContributors(iron), supply: sortedUpkeepContributors(supply), crystal: sortedUpkeepContributors(crystal), oil: sortedUpkeepContributors(oil), gold: sortedUpkeepContributors(gold) };
@@ -359,7 +386,7 @@ export const createServerPlayerEconomyRuntime = (deps: ServerPlayerEconomyRuntim
     for (const entry of breakdown.GOLD.sinks) {
       if (entry.label.includes("Fur Synthesizer")) mirrorGoldUpkeep("SUPPLY", entry);
       else if (entry.label.includes("Ironworks")) mirrorGoldUpkeep("IRON", entry);
-      else if (entry.label.includes("Crystal Synthesizer")) mirrorGoldUpkeep("CRYSTAL", entry);
+      else if (entry.label.includes("Aether Condenser") || entry.label.includes("Crystal Synthesizer")) mirrorGoldUpkeep("CRYSTAL", entry);
       else if (entry.label.includes("Fuel Plant")) mirrorGoldUpkeep("OIL", entry);
     }
     breakdown.IRON.sinks.sort((a: EconomyBreakdownBucket, b: EconomyBreakdownBucket) => b.amountPerMinute - a.amountPerMinute || a.label.localeCompare(b.label));
