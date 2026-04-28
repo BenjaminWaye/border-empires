@@ -152,6 +152,50 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Settlement is producing 0.00 gold/m."))).toBe(true);
   });
 
+  it("does not show support or road-bonus UI for settlements even if stale town fields are present", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 19,
+        y: 44,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Nauticus Mast",
+          type: "MARKET",
+          baseGoldPerMinute: 0,
+          supportCurrent: 2,
+          supportMax: 6,
+          goldPerMinute: 0.8,
+          cap: 40,
+          isFed: true,
+          population: 4_000,
+          maxPopulation: 10_000,
+          populationTier: "SETTLEMENT",
+          connectedTownCount: 3,
+          connectedTownBonus: 0.9,
+          hasMarket: false,
+          marketActive: false,
+          hasGranary: false,
+          granaryActive: false,
+          hasBank: false,
+          bankActive: false
+        },
+        yieldRate: {
+          goldPerMinute: 0.8
+        }
+      },
+      {
+        ...deps,
+        displayTownGoldPerMinute: () => 0.8
+      }
+    );
+
+    expect(lines.some((line) => line.html.includes("Support 2/6"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("Connect this town to other towns"))).toBe(false);
+    expect(lines.some((line) => line.html.includes("connected towns:"))).toBe(false);
+  });
+
   it("uses the modifier section instead of a raw connected-town count when bonuses are active", () => {
     const lines = menuOverviewForTile(
       {

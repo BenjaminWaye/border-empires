@@ -20,6 +20,7 @@ type StrategicResourceKey = DomainStrategicResourceKey;
 
 export const AUTOMATION_NOOP_REASONS = [
   "player_missing",
+  "planner_error",
   "active_lock",
   "development_process_limit",
   "insufficient_points",

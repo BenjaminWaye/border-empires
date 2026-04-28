@@ -31,7 +31,7 @@ describe("realtime gateway runtime env", () => {
         DATABASE_URL: "postgres://gateway",
         SIMULATION_ADDRESS: "border-empires-simulation.internal:50051"
       })
-    ).toThrow("realtime gateway requires SIMULATION_SEED_PROFILE in managed runtime");
+    ).toThrow("realtime gateway requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   });
 
   it("parses explicit production configuration", () => {

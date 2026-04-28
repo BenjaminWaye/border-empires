@@ -23,6 +23,8 @@
 
 import { parentPort } from "node:worker_threads";
 import type { EconomicStructureType } from "@border-empires/shared";
+import { buildAiTrainingRecord } from "./ai-training-records.js";
+import { createAiTrainingRecorder } from "./ai-training-recorder.js";
 import {
   createAutomationNoopDiagnostic,
   planAutomationCommand,
@@ -30,7 +32,7 @@ import {
 } from "./automation-command-planner.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import { buildDockLinksByDockTileKey, type DockRouteDefinition } from "./dock-network.js";
-import type { PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
+import type { PlannerDockView, PlannerPlayerView, PlannerWorldView, PlannerTileView } from "./planner-world-view.js";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 
 if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thread");
@@ -38,7 +40,9 @@ if (!parentPort) throw new Error("ai-planner-worker must run inside a Worker thr
 let paused = false;
 const tilesByKey = new Map<string, PlannerTileView>();
 let dockLinksByDockTileKey = new Map<string, readonly string[]>();
+let plannerDocks: PlannerDockView[] = [];
 const playersById = new Map<string, PlannerPlayerView>();
+const aiTrainingRecorder = createAiTrainingRecorder(process.env.SIMULATION_AI_TRAINING_RECORD_PATH);
 const playerTileCacheById = new Map<string, {
   tileCollectionVersion: number;
   ownedTiles: PlannerTileView[];
@@ -308,6 +312,22 @@ const choosePlannerCommand = (
       });
     }
   });
+  aiTrainingRecorder.record(
+    buildAiTrainingRecord({
+      player,
+      issuedAt,
+      clientSeq,
+      ownedTiles,
+      frontierTiles,
+      hotFrontierTiles,
+      strategicFrontierTiles,
+      buildCandidateTiles,
+      pendingSettlementTileKeys,
+      ...(plannerDocks.length ? { docks: plannerDocks } : {}),
+      ...(plan.command ? { command: plan.command } : {}),
+      diagnostic: plan.diagnostic
+    })
+  );
   emitDiagnostic({
     phase: "planner_total",
     durationMs: Math.max(0, Date.now() - plannerStartedAt),
@@ -337,7 +357,9 @@ parentPort.on("message", (msg: unknown) => {
       break;
 
     case "shutdown":
-      process.exit(0);
+      void aiTrainingRecorder.flush().finally(() => {
+        process.exit(0);
+      });
       break;
 
     case "plan": {
@@ -367,10 +389,14 @@ parentPort.on("message", (msg: unknown) => {
       tilesByKey.clear();
       playersById.clear();
       playerTileCacheById.clear();
+      plannerDocks = (worldView.docks ?? []).map((dock) => ({
+        ...dock,
+        ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+      }));
       for (const tile of worldView.tiles) {
         tilesByKey.set(`${tile.x},${tile.y}`, tile);
       }
-      dockLinksByDockTileKey = buildDockLinksByDockTileKey((worldView.docks ?? []) as DockRouteDefinition[]);
+      dockLinksByDockTileKey = buildDockLinksByDockTileKey(plannerDocks as DockRouteDefinition[]);
       for (const player of worldView.players) {
         playersById.set(player.id, player);
       }

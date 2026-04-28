@@ -89,13 +89,27 @@ describe("simulation runtime env", () => {
           NODE_ENV: "staging",
           DATABASE_URL: "postgres://simulation"
         })
-    ).toThrow("simulation requires SIMULATION_SEED_PROFILE in managed runtime");
+    ).toThrow("simulation requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   });
 
   it("enables AI worker when SIMULATION_AI_WORKER=1", () => {
     expect(
       parseSimulationRuntimeEnv({ SIMULATION_AI_WORKER: "1" })
     ).toMatchObject({ useAiWorker: true });
+  });
+
+  it("treats booleanish autopilot env values as enabled", () => {
+    expect(
+      parseSimulationRuntimeEnv({
+        SIMULATION_ENABLE_AI_AUTOPILOT: " true ",
+        SIMULATION_ENABLE_SYSTEM_AUTOPILOT: "on",
+        SIMULATION_AI_WORKER: " yes "
+      })
+    ).toMatchObject({
+      enableAiAutopilot: true,
+      enableSystemAutopilot: true,
+      useAiWorker: true
+    });
   });
 
   it("allows seed fallback for local startup when explicitly requested", () => {
@@ -120,6 +134,20 @@ describe("simulation runtime env", () => {
       })
     ).toMatchObject({
       allowSeedRecoveryFallback: true
+    });
+  });
+
+  it("allows explicitly disabling durable startup for local seeded db runs", () => {
+    expect(
+      parseSimulationRuntimeEnv({
+        DATABASE_URL: "postgres://simulation",
+        SIMULATION_SEED_PROFILE: "season-20ai",
+        SIMULATION_ALLOW_SEED_RECOVERY_FALLBACK: "1",
+        SIMULATION_REQUIRE_DURABLE_STARTUP_STATE: "0"
+      })
+    ).toMatchObject({
+      allowSeedRecoveryFallback: true,
+      requireDurableStartupState: false
     });
   });
 });

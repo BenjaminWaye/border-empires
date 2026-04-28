@@ -11,6 +11,7 @@ export type RealtimeGatewayRuntimeEnv = {
   defaultHumanPlayerId?: string;
   simulationSeedProfile: SimulationSeedProfile;
   allowNonAuthoritativeInitialState: boolean;
+  adminApiToken?: string;
 };
 
 const parsePort = (value: string | undefined, fallback: number): number => {
@@ -53,8 +54,8 @@ export const parseRealtimeGatewayRuntimeEnv = (
   if (isManagedRuntime && !env.SIMULATION_ADDRESS) {
     throw new Error("realtime gateway requires SIMULATION_ADDRESS in managed runtime");
   }
-  if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE) {
-    throw new Error("realtime gateway requires SIMULATION_SEED_PROFILE in managed runtime");
+  if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE && !env.SIMULATION_RULESET_ID) {
+    throw new Error("realtime gateway requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   }
 
   return {
@@ -70,7 +71,8 @@ export const parseRealtimeGatewayRuntimeEnv = (
       : !isManagedRuntime
         ? { defaultHumanPlayerId: "player-1" }
         : {}),
-    simulationSeedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE),
-    allowNonAuthoritativeInitialState
+    simulationSeedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
+    allowNonAuthoritativeInitialState,
+    ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {})
   };
 };
