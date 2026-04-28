@@ -123,6 +123,7 @@ import { createServerOwnershipRuntime } from "./server-ownership-runtime.js";
 import { createServerSnapshotIoRuntime } from "./server-snapshot-io.js";
 import { createServerSnapshotHydrateRuntime } from "./server-snapshot-hydrate.js";
 import { createServerPlayerIdentityRuntime } from "./server-player-identity-runtime.js";
+import { playerNeedsProfileSetup, resetHumanProfileForSeason } from "./server-player-profile-lifecycle.js";
 import { createServerAiFrontierSignalsRuntime } from "./server-ai-frontier-signals.js";
 import { createServerAiFrontierTerritoryRuntime } from "./server-ai-frontier-territory.js";
 import { createServerAiFrontierScoutRuntime } from "./server-ai-frontier-scout.js";
@@ -978,6 +979,59 @@ const playerBaseMods = new Map<string, { attack: number; defense: number; income
 const playerEffectsByPlayer = new Map<string, PlayerEffects>();
 const seasonArchives: SeasonArchiveEntry[] = [];
 const strategicReplayEvents: StrategicReplayEvent[] = [];
+
+const clearAuthIdentityBindingForPlayer = (playerId: string): void => {
+  for (const identity of authIdentityByUid.values()) {
+    if (identity.playerId !== playerId) continue;
+    identity.playerId = "";
+  }
+};
+
+const removePlayerRuntimeState = (playerId: string): void => {
+  playerBaseMods.delete(playerId);
+  strategicResourceStockByPlayer.delete(playerId);
+  strategicResourceBufferByPlayer.delete(playerId);
+  economyIndexByPlayer.delete(playerId);
+  dynamicMissionsByPlayer.delete(playerId);
+  forcedRevealTilesByPlayer.delete(playerId);
+  revealedEmpireTargetsByPlayer.delete(playerId);
+  playerEffectsByPlayer.delete(playerId);
+  clusterControlledTilesByPlayer.delete(playerId);
+  resourceCountsByPlayer.delete(playerId);
+  frontierSettlementsByPlayer.delete(playerId);
+  temporaryAttackBuffUntilByPlayer.delete(playerId);
+  temporaryIncomeBuffUntilByPlayer.delete(playerId);
+  abilityCooldownsByPlayer.delete(playerId);
+  growthPausedUntilByPlayer.delete(playerId);
+  townFeedingStateByPlayer.delete(playerId);
+  observatoryTileKeysByPlayer.delete(playerId);
+  economicStructureTileKeysByPlayer.delete(playerId);
+  socketsByPlayer.delete(playerId);
+  bulkSocketsByPlayer.delete(playerId);
+  chunkSubscriptionByPlayer.delete(playerId);
+  chunkSnapshotSentAtByPlayer.delete(playerId);
+  chunkSnapshotGenerationByPlayer.delete(playerId);
+  chunkSnapshotInFlightByPlayer.delete(playerId);
+  pendingChunkRefreshByPlayer.delete(playerId);
+  cachedVisibilitySnapshotByPlayer.delete(playerId);
+  cachedChunkSnapshotByPlayer.delete(playerId);
+  actionTimestampsByPlayer.delete(playerId);
+  fogDisabledByPlayer.delete(playerId);
+  authSyncTimingByPlayer.delete(playerId);
+};
+
+const discardIncompleteHumanPlayer = (player: Player): void => {
+  if (!playerNeedsProfileSetup(player)) return;
+  for (const tileKey of [...player.territoryTiles]) {
+    if (ownership.get(tileKey) !== player.id) continue;
+    const [x, y] = parseKey(tileKey);
+    updateOwnership(x, y, undefined);
+  }
+  players.delete(player.id);
+  removePlayerRuntimeState(player.id);
+  clearAuthIdentityBindingForPlayer(player.id);
+};
+
 let seasonWinner: SeasonWinnerView | undefined;
 const telemetryCounters: TelemetryCounters = {
   frontierClaims: 0,
@@ -1880,6 +1934,7 @@ const clearWorldProgressForSeason = (): void => {
   for (const d of dockById.values()) d.cooldownUntil = 0;
   vendettaCaptureCountsByPlayer.clear();
   for (const p of players.values()) {
+    resetHumanProfileForSeason(p);
     p.points = STARTING_GOLD;
     p.level = 0;
     delete p.techRootId;
@@ -1970,6 +2025,7 @@ const startNewSeason = (): void => {
         seasonTechTreeId: activeSeason.techTreeConfigId
       })
     );
+    sendPlayerUpdate(p, 0);
   }
 };
 
@@ -5647,32 +5703,7 @@ const {
     clusterControlledTilesByPlayer.set(player.id, new Map());
   },
   cleanupRemovedAiPlayer: (playerId: string) => {
-    playerBaseMods.delete(playerId);
-    strategicResourceStockByPlayer.delete(playerId);
-    strategicResourceBufferByPlayer.delete(playerId);
-    economyIndexByPlayer.delete(playerId);
-    dynamicMissionsByPlayer.delete(playerId);
-    forcedRevealTilesByPlayer.delete(playerId);
-    revealedEmpireTargetsByPlayer.delete(playerId);
-    playerEffectsByPlayer.delete(playerId);
-    clusterControlledTilesByPlayer.delete(playerId);
-    resourceCountsByPlayer.delete(playerId);
-    frontierSettlementsByPlayer.delete(playerId);
-    temporaryAttackBuffUntilByPlayer.delete(playerId);
-    temporaryIncomeBuffUntilByPlayer.delete(playerId);
-    abilityCooldownsByPlayer.delete(playerId);
-    growthPausedUntilByPlayer.delete(playerId);
-    townFeedingStateByPlayer.delete(playerId);
-    observatoryTileKeysByPlayer.delete(playerId);
-    economicStructureTileKeysByPlayer.delete(playerId);
-    socketsByPlayer.delete(playerId);
-    bulkSocketsByPlayer.delete(playerId);
-    chunkSubscriptionByPlayer.delete(playerId);
-    chunkSnapshotSentAtByPlayer.delete(playerId);
-    chunkSnapshotGenerationByPlayer.delete(playerId);
-    pendingChunkRefreshByPlayer.delete(playerId);
-    cachedVisibilitySnapshotByPlayer.delete(playerId);
-    cachedChunkSnapshotByPlayer.delete(playerId);
+    removePlayerRuntimeState(playerId);
   }
 });
 
@@ -8460,6 +8491,10 @@ registerServerHttpRoutes(app, {
       return;
     }
     const actor = authedPlayer;
+    if (playerNeedsProfileSetup(actor) && msg.type !== "PING" && msg.type !== "SET_PROFILE") {
+      socket.send(JSON.stringify({ type: "ERROR", code: "PROFILE_REQUIRED", message: "finish profile setup first" }));
+      return;
+    }
     if (!actor.isAi && humanFrontierActionMessage(msg)) noteHumanFrontierActionPriority();
     if (await simulationService.handleGatewayMessage(actor, msg, socket)) return;
 
@@ -10161,6 +10196,7 @@ registerServerHttpRoutes(app, {
       chunkSnapshotInFlightByPlayer.delete(authedPlayer.id);
       actionTimestampsByPlayer.delete(authedPlayer.id);
       fogDisabledByPlayer.delete(authedPlayer.id);
+      if (playerNeedsProfileSetup(authedPlayer)) discardIncompleteHumanPlayer(authedPlayer);
       if (!hasOnlinePlayers()) {
         cancelAllBarbarianPendingCaptures();
         pauseVictoryPressureTimers();
