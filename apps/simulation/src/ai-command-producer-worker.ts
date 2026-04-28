@@ -16,6 +16,7 @@ import { Worker } from "node:worker_threads";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
+import { createAutomationNoopDiagnostic } from "./automation-command-planner.js";
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
 import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
@@ -156,6 +157,9 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     } else if (message.type === "error") {
       const key = message.playerId as string;
       console.error("[ai-planner-worker] planner error:", message.message);
+      if (typeof key === "string" && key.length > 0) {
+        options.onNoCommand?.(createAutomationNoopDiagnostic(key, "ai-runtime", "planner_error"));
+      }
       const resolve = pendingRequests.get(key);
       if (resolve) {
         pendingRequests.delete(key);

@@ -367,8 +367,15 @@ const buildBootstrapSeason = ({
   };
 };
 
+const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
+  value === true || value === 1 || value === "1" || value === "true";
+
 export const createSimulationService = async (options: SimulationServiceOptions = {}) => {
   const log = options.log ?? console;
+  const aiAutopilotEnabled = normalizeAutopilotEnabled(options.enableAiAutopilot as boolean | string | number | undefined);
+  const systemAutopilotEnabled = normalizeAutopilotEnabled(
+    options.enableSystemAutopilot as boolean | string | number | undefined
+  );
   const commandTraceEnabled = process.env.SIMULATION_COMMAND_TRACE === "1";
   const slowSubmitWarnMs = Math.max(50, Number(process.env.SIMULATION_SLOW_SUBMIT_WARN_MS ?? 250));
   const slowRuntimeSubmitWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_RUNTIME_SUBMIT_WARN_MS ?? 50));
@@ -898,11 +905,45 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     aiCommandProducer = undefined;
     systemCommandProducer = undefined;
   };
+  const resolveAutopilotAiPlayerIds = (): string[] => {
+    const activeAiPlayerIds = [...activePlayers.values()].filter((player) => player.isAi).map((player) => player.id);
+    if (activeAiPlayerIds.length > 0) return activeAiPlayerIds;
+    const seedAiPlayerIds = [...seedPlayers.values()].filter((player) => player.isAi).map((player) => player.id);
+    if (seedAiPlayerIds.length > 0) {
+      emitLog("warn", "simulation ai autopilot recovered zero AI players; falling back to seed AI identities", {
+        activePlayerCount: activePlayers.size,
+        fallbackAiPlayerCount: seedAiPlayerIds.length,
+        fallbackAiPlayerIds: seedAiPlayerIds.slice(0, 6)
+      });
+      return seedAiPlayerIds;
+    }
+    return [];
+  };
   const startAutopilots = (): void => {
     closeAutopilots();
-    const aiPlayerIds = [...activePlayers.values()].filter((player) => player.isAi).map((player) => player.id);
+    const aiPlayerIds = resolveAutopilotAiPlayerIds();
     const systemPlayerIds = options.systemPlayerIds ?? (activePlayers.has("barbarian-1") ? ["barbarian-1"] : []);
-    if (options.enableAiAutopilot) {
+    emitLog("info", "simulation autopilot startup", {
+      enableAiAutopilot: aiAutopilotEnabled,
+      enableSystemAutopilot: systemAutopilotEnabled,
+      useAiWorker,
+      aiPlayerCount: aiPlayerIds.length,
+      aiPlayerIdsSample: aiPlayerIds.slice(0, 6),
+      systemPlayerCount: systemPlayerIds.length,
+      systemPlayerIds
+    });
+    simulationMetrics.setSimAiAutopilotState({
+      enabled: aiAutopilotEnabled,
+      playerCount: aiPlayerIds.length
+    });
+    if (aiAutopilotEnabled) {
+      if (aiPlayerIds.length === 0) {
+        emitLog("warn", "simulation ai autopilot enabled with zero AI players", {
+          activePlayerCount: activePlayers.size,
+          recoveredPlayerCount: startupRecovery.initialState.players?.length ?? 0,
+          seedPlayerCount: seedPlayers.size
+        });
+      }
       aiCommandProducer = useAiWorker
         ? createWorkerAiCommandProducer({
             runtime,
@@ -947,7 +988,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             }
           });
     }
-    if (options.enableSystemAutopilot) {
+    if (systemAutopilotEnabled) {
       systemCommandProducer = useAiWorker
         ? createWorkerSystemCommandProducer({
             runtime,
@@ -1418,6 +1459,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             sim_tick_duration_ms: sample.simTickDurationMs,
             sim_prepare_player_latency_ms: sample.simPreparePlayerLatencyMs,
             sim_human_interactive_backlog_ms: sample.simHumanInteractiveBacklogMs,
+            sim_ai_autopilot_enabled: sample.simAiAutopilotEnabled,
+            sim_ai_autopilot_player_count: sample.simAiAutopilotPlayerCount,
             sim_ai_planner_breaches: sample.simAiPlannerBreaches,
             sim_ai_noop_total: sample.simAiNoopTotalByReason,
             sim_ai_noop_recent: sample.simAiNoopRecent,
