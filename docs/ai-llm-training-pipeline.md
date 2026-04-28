@@ -128,6 +128,8 @@ This is exactly what the new batch-builder script generates prompts for:
 - `pnpm ai:labeling:batch`
 - `scripts/run-ai-labeling-local.mjs`
 - `pnpm ai:labeling:local`
+- `scripts/build-ai-labeling-escalation-set.mjs`
+- `pnpm ai:labeling:triage`
 
 Input:
 
@@ -166,6 +168,37 @@ Useful knobs:
 - `AI_LABELING_MAX_RECORDS=N`
 
 For low-cost local labeling, start with `Qwen2.5-7B-Instruct` and a small `AI_LABELING_MAX_RECORDS` cap, then only escalate ambiguous or low-quality labels to a stronger model.
+
+The worktree now includes an active-learning triage pass:
+
+```bash
+pnpm ai:labeling:triage
+```
+
+This reads:
+
+- `tmp/ai-training/records.jsonl`
+- `tmp/ai-training/labeled-records.local.jsonl`
+
+and writes:
+
+- `tmp/ai-training/records.escalate.jsonl`
+- `tmp/ai-training/triage-report.jsonl`
+
+The current escalation rules are heuristic rather than model-probability based. They escalate records when the cheap label suggests:
+
+- `moveQuality` is `dubious` or `blunder`
+- `betterAction` is non-null
+- frontier classification looks like `waste`
+- scouting labels conflict with the strategic targets
+- hidden mechanics or tactical motifs are empty
+- the explanation is too thin to trust
+
+That gives you a practical low-cost loop:
+
+1. label everything cheaply with `pnpm ai:labeling:local`
+2. extract ambiguous cases with `pnpm ai:labeling:triage`
+3. send only `records.escalate.jsonl` to a stronger local or hosted teacher
 
 ### 3. Distill the labels into production-friendly targets
 
