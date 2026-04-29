@@ -109,6 +109,7 @@ const makeDeps = (): CreateServerPlayerRuntimeSupportDeps => {
       return counts;
     },
     setClusterControlDelta: () => {},
+    recordPlayerLifecycleEvent: () => {},
     now: () => 1_000,
     runtimeLogInfo: () => {},
     runtimeLogError: () => {}
@@ -133,5 +134,34 @@ describe("auth identity player binding regression", () => {
     expect(secondPlayer?.id).not.toBe(firstPlayer.id);
     expect(secondPlayer?.profileComplete).toBe(false);
     expect(secondIdentity.playerId).toBe(secondPlayer?.id);
+  });
+
+  it("records lifecycle incidents when an identity points at a missing player and a fresh player is created", () => {
+    const deps = makeDeps();
+    const lifecycleEvents: Array<{ event: string; payload: Record<string, unknown> }> = [];
+    deps.recordPlayerLifecycleEvent = (event, payload) => {
+      lifecycleEvents.push({ event, payload });
+    };
+    const runtime = createServerPlayerRuntimeSupport(deps);
+
+    const identity: AuthIdentity = {
+      uid: "uid-3",
+      playerId: "missing-player",
+      name: "Recovered",
+      email: "recover@example.com"
+    };
+
+    const player = runtime.getOrCreatePlayerForIdentity(identity);
+
+    expect(player).toBeDefined();
+    expect(lifecycleEvents.map((entry) => entry.event)).toEqual([
+      "auth_identity_missing_player_binding",
+      "auth_identity_created_player",
+      "player_spawned",
+      "auth_identity_triggered_respawn",
+      "player_spawned"
+    ]);
+    expect(lifecycleEvents[0]?.payload.playerId).toBe("missing-player");
+    expect(lifecycleEvents[1]?.payload.playerId).toBe(player?.id);
   });
 });
