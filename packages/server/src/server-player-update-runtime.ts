@@ -67,8 +67,8 @@ export interface CreateServerPlayerUpdateRuntimeDeps {
   truceRequests: Map<string, TruceRequest>;
   activeTruceViewsForPlayer: (playerId: string) => Array<{ otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }>;
   missionPayload: (player: Player) => unknown;
-  leaderboardSnapshotForPlayer: (playerId: string) => LeaderboardSnapshotView;
-  seasonVictoryObjectivesForPlayer: (playerId: string) => SeasonVictoryObjectiveView[];
+  currentLeaderboardSnapshot: () => LeaderboardSnapshotView;
+  currentVictoryPressureObjectives: () => SeasonVictoryObjectiveView[];
   seasonWinner: SeasonWinnerView | undefined;
   recordServerDebugEvent: (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown>) => void;
   appLogWarn: (payload: Record<string, unknown>, message: string) => void;
@@ -172,7 +172,13 @@ export const createServerPlayerUpdateRuntime = (
       payload.outgoingTruceRequests = [...deps.truceRequests.values()].filter((request) => request.fromPlayerId === player.id);
     }
     if (includeMissions) payload.missions = deps.missionPayload(player);
-    if (includeGlobalStatus) Object.assign(payload, { leaderboard: deps.leaderboardSnapshotForPlayer(player.id), seasonVictory: deps.seasonVictoryObjectivesForPlayer(player.id), seasonWinner: deps.seasonWinner });
+    if (includeGlobalStatus) {
+      Object.assign(payload, {
+        leaderboard: deps.currentLeaderboardSnapshot(),
+        seasonVictory: deps.currentVictoryPressureObjectives(),
+        seasonWinner: deps.seasonWinner
+      });
+    }
     const sendStartedAt = deps.now();
     ws.send(JSON.stringify(payload));
     const sendMs = deps.now() - sendStartedAt;
