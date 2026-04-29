@@ -53,10 +53,10 @@ describe("frontier combat queue regression guard", () => {
     const body = functionBody(serverMainSource(), "tryQueueBasicFrontierAction");
     expect(body).toContain("const targetWasSettled = to.ownershipState === \"SETTLED\";");
     expect(body).toContain("deps.seizeStoredYieldOnCapture(actor, tk);");
-    expect(body).toContain("const pillage = deps.pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);");
-    expect(body).toContain("pillagedGold,");
-    expect(body).toContain("pillagedShare,");
-    expect(body).toContain("pillagedStrategic");
+    expect(body).toContain("deps.pillageSettledTile(actor, defender, defenderTileCountBeforeCapture);");
+    expect(body).toContain("const lockedCombat = pending.precomputedCombat;");
+    expect(body).toContain("pillagedGold = lockedCombat?.pillagedGold ?? 0;");
+    expect(body).toContain("let pillagedStrategic: Partial<Record<StrategicResource, number>> = lockedCombat?.pillagedStrategic ?? {};");
   });
 
   it("uses queued frontier action results to send combat start and inbound attack alerts", () => {
@@ -68,6 +68,20 @@ describe("frontier combat queue regression guard", () => {
     expect(body).toContain('{ clientSeq: msg.clientSeq }');
     expect(body).toContain("result.attackAlert");
     expect(body).toContain('type: "ATTACK_ALERT"');
+  });
+
+  it("precomputes live combat outcomes before COMBAT_START so the client can reveal instantly at resolve time", () => {
+    const source = serverMainSource();
+    const livePathStart = source.indexOf('if ((msg.type === "EXPAND" || msg.type === "ATTACK") && actor.points < FRONTIER_ACTION_GOLD_COST)');
+    const liveCombatStart = source.indexOf('type: "COMBAT_START"', livePathStart);
+    expect(livePathStart).toBeGreaterThan(-1);
+    expect(liveCombatStart).toBeGreaterThan(livePathStart);
+    const livePath = source.slice(livePathStart, liveCombatStart);
+    expect(livePath).toContain("await pending.precomputedCombatPromise");
+    expect(livePath).toContain("const predictedResult = buildPredictedFrontierResult({");
+    expect(source).toContain("pointsDelta: input.precomputedCombat.pointsDelta");
+    expect(source).toContain("pillagedGold: input.precomputedCombat.pillagedGold");
+    expect(source).toContain("pillagedStrategic: input.precomputedCombat.pillagedStrategic");
   });
 
   it("does not await combat worker resolution before sending the live frontier acceptance ack", () => {
@@ -82,6 +96,34 @@ describe("frontier combat queue regression guard", () => {
     expect(livePath).toContain('{ clientSeq: msg.clientSeq }');
     expect(livePath).toContain("precomputedCombatPromise = resolveCombatViaWorker");
     expect(livePath).not.toContain("await resolveCombatViaWorker");
+  });
+
+  it("routes delayed live combat resolution payloads through the player id instead of the original request socket", () => {
+    const source = serverMainSource();
+    const liveTimerStart = source.indexOf("pending.timeout = setTimeout(async () => {");
+    const liveTimerEnd = source.indexOf("recordHotPathTimingEvent(", liveTimerStart);
+    expect(liveTimerStart).toBeGreaterThan(-1);
+    expect(liveTimerEnd).toBeGreaterThan(liveTimerStart);
+    const liveTimerBody = source.slice(liveTimerStart, liveTimerEnd);
+    expect(liveTimerBody).toContain('sendToPlayer(actor.id, {');
+    expect(liveTimerBody).toContain('type: "COMBAT_RESULT"');
+    expect(liveTimerBody).not.toContain("sendControlToSocket(\n          socket,");
+    expect(liveTimerBody).not.toContain("sendHighPrioritySocketMessage(\n          socket,");
+
+    const liveAttackResultStart = source.indexOf('logExpandTrace("result_applied", pending, { neutralTarget: false', liveTimerStart);
+    const liveAttackResultEnd = source.indexOf("const changedCenters = resultChanges.map", liveAttackResultStart);
+    expect(liveAttackResultStart).toBeGreaterThan(-1);
+    expect(liveAttackResultEnd).toBeGreaterThan(liveAttackResultStart);
+    const liveAttackResultBody = source.slice(liveAttackResultStart, liveAttackResultEnd);
+    expect(liveAttackResultBody.indexOf('sendToPlayer(actor.id, {')).toBeLessThan(liveAttackResultBody.indexOf("recalcPlayerDerived(actor);"));
+
+    const shieldedSliceStart = source.indexOf("if (defender && defender.spawnShieldUntil > now()) {", liveTimerStart);
+    const shieldedSliceEnd = source.indexOf("if (!pending.precomputedCombat && pending.precomputedCombatPromise)", shieldedSliceStart);
+    expect(shieldedSliceStart).toBeGreaterThan(-1);
+    expect(shieldedSliceEnd).toBeGreaterThan(shieldedSliceStart);
+    const shieldedSlice = source.slice(shieldedSliceStart, shieldedSliceEnd);
+    expect(shieldedSlice).toContain('sendToPlayer(actor.id, { type: "ERROR", code: "SHIELDED", message: "target shielded" });');
+    expect(shieldedSlice).not.toContain("sendHighPrioritySocketMessage(\n          socket,");
   });
 
   it("defers bulky post-combat refresh work instead of doing inline player updates after frontier results", () => {

@@ -122,6 +122,8 @@ describe("server-frontier-action-runtime", () => {
       settleAttackManpower: () => 5,
       applyTownWarShock: vi.fn(),
       settledTileCountForPlayer: () => 1,
+      getOrInitStrategicStocks: () => ({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0, OIL: 0 }),
+      strategicResourceKeys: ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD", "OIL"],
       seizeStoredYieldOnCapture: vi.fn(),
       pillageSettledTile: () => ({ gold: 0, share: 0, strategic: {} }),
       incrementVendettaCount: vi.fn(),
@@ -150,7 +152,11 @@ describe("server-frontier-action-runtime", () => {
       expect.objectContaining({
         attackerWon: false,
         defenderOwnerId: "missing-defender",
-        changes: [{ x: 4, y: 4, ownerId: "missing-defender", ownershipState: "FRONTIER" }]
+        changes: [{ x: 4, y: 4, ownerId: "missing-defender", ownershipState: "FRONTIER" }],
+        pointsDelta: expect.any(Number),
+        manpowerDelta: expect.any(Number),
+        pillagedGold: 0,
+        pillagedStrategic: {}
       })
     );
 

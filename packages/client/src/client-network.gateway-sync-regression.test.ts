@@ -459,6 +459,7 @@ describe("client gateway sync regression", () => {
       wasPredictedCombatAlreadyShown: vi.fn(() => false),
       showCaptureAlert: createRuntimeStyleShowCaptureAlert(state),
       requestSettlement: vi.fn(() => false),
+      settlementProgressForTile: vi.fn(() => false),
       dropQueuedTargetKeyIfAbsent: vi.fn(),
       processActionQueue: vi.fn(() => false),
       clearSettlementProgressForTile: vi.fn(),
@@ -498,6 +499,168 @@ describe("client gateway sync regression", () => {
         manpowerLoss: 60
       })
     );
+  });
+
+  it("stores the full locked combat result from COMBAT_START before the reveal timer ends", () => {
+    const state = createState();
+    state.me = "player-1";
+    state.tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" });
+    state.tiles.set("10,11", { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" });
+    state.actionCurrent = { x: 10, y: 11, origin: { x: 10, y: 10 }, retries: 0, clientSeq: 9, commandId: "cmd-9", actionType: "ATTACK" };
+    state.actionTargetKey = "10,11";
+    const ws = new FakeWebSocket();
+    const combatResolutionAlert = vi.fn(() => ({ title: "Victory", detail: "Won with plunder.", tone: "success", manpowerLoss: 42 }));
+
+    bindClientNetwork({
+      state,
+      ws: ws as unknown as WebSocket,
+      wsUrl: "ws://localhost:3101/ws",
+      keyFor: (x: number, y: number) => `${x},${y}`,
+      renderHud: vi.fn(),
+      setAuthStatus: vi.fn(),
+      syncAuthOverlay: vi.fn(),
+      authenticateSocket: vi.fn(async () => {}),
+      pushFeed: vi.fn(),
+      pushFeedEntry: vi.fn(),
+      clearOptimisticTileState: vi.fn(),
+      requestViewRefresh: vi.fn(),
+      applyPendingSettlementsFromServer: vi.fn(),
+      mergeIncomingTileDetail: vi.fn((_existing, incoming) => incoming),
+      mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
+      maybeAnnounceShardSite: vi.fn(),
+      markDockDiscovered: vi.fn(),
+      centerOnOwnedTile: vi.fn(),
+      authProfileNameEl: { value: "" },
+      authProfileColorEl: { value: "" },
+      defensibilityPctFromTE: vi.fn(() => 0),
+      clearPendingCollectVisibleDelta: vi.fn(),
+      seedProfileSetupFields: vi.fn(),
+      resetStrategicReplayState: vi.fn(),
+      setWorldSeed: vi.fn(),
+      clearRenderCaches: vi.fn(),
+      buildMiniMapBase: vi.fn(),
+      shardAlertKeyForPayload: vi.fn(),
+      showShardAlert: vi.fn(),
+      combatResolutionAlert,
+      wasPredictedCombatAlreadyShown: vi.fn(() => false),
+      showCaptureAlert: createRuntimeStyleShowCaptureAlert(state),
+      requestSettlement: vi.fn(() => false),
+      dropQueuedTargetKeyIfAbsent: vi.fn(),
+      processActionQueue: vi.fn(() => false),
+      clearSettlementProgressForTile: vi.fn(),
+      terrainAt: vi.fn(() => "LAND"),
+      requestAttackPreviewForTarget: vi.fn(),
+      openSingleTileActionMenu: vi.fn(),
+      isTileOwnedByAlly: vi.fn(() => false),
+      hideShardAlert: vi.fn(),
+      explainActionFailure: vi.fn(),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      clearSettlementProgressByKey: vi.fn(),
+      showCollectVisibleCooldownAlert: vi.fn(),
+      formatCooldownShort: vi.fn(() => "1s"),
+      reconcileActionQueue: vi.fn(),
+      revertOptimisticVisibleCollectDelta: vi.fn(),
+      revertOptimisticTileCollectDelta: vi.fn(),
+      clearPendingCollectTileDelta: vi.fn(),
+      playerNameForOwner: vi.fn(),
+      applyOptimisticTileState: vi.fn()
+    } as any);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "COMBAT_START",
+        commandId: "cmd-9",
+        clientSeq: 9,
+        origin: { x: 10, y: 10 },
+        target: { x: 10, y: 11 },
+        resolvesAt: 2_250,
+        predictedResult: {
+          attackType: "ATTACK",
+          attackerWon: true,
+          winnerId: "player-1",
+          defenderOwnerId: "player-2",
+          origin: { x: 10, y: 10 },
+          target: { x: 10, y: 11 },
+          changes: [{ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER" }],
+          pointsDelta: 18,
+          manpowerDelta: -42,
+          pillagedGold: 12.5,
+          pillagedShare: 0.25,
+          pillagedStrategic: { IRON: 3 },
+          atkEff: 17,
+          defEff: 11,
+          winChance: 0.72,
+          levelDelta: 0
+        }
+      })
+    });
+
+    expect(combatResolutionAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pointsDelta: 18,
+        manpowerDelta: -42,
+        pillagedGold: 12.5,
+        pillagedStrategic: { IRON: 3 },
+        atkEff: 17,
+        defEff: 11,
+        winChance: 0.72
+      }),
+      expect.anything()
+    );
+    expect(state.pendingCombatReveal).toEqual(
+      expect.objectContaining({
+        title: "Victory",
+        detail: "Won with plunder.",
+        manpowerLoss: 42,
+        result: expect.objectContaining({
+          pointsDelta: 18,
+          manpowerDelta: -42,
+          pillagedGold: 12.5,
+          pillagedStrategic: { IRON: 3 }
+        })
+      })
+    );
+  });
+
+  it("drops stale town titles when a combat result demotes the tile from settled land", () => {
+    const state = createState();
+    state.me = "player-1";
+    state.tiles.set("10,10", {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: "player-1",
+      ownershipState: "SETTLED",
+      town: { townId: "town-1", name: "Origin Title" }
+    });
+    state.actionCurrent = { x: 10, y: 11, origin: { x: 10, y: 10 }, retries: 0, clientSeq: 9, commandId: "cmd-9", actionType: "ATTACK" };
+    state.actionTargetKey = "10,11";
+    state.actionInFlight = true;
+    state.actionAcceptedAck = true;
+    state.combatStartAck = true;
+    state.capture = { startAt: 1_000, resolvesAt: 2_250, target: { x: 10, y: 11 } };
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "COMBAT_RESULT",
+        commandId: "cmd-9",
+        attackType: "ATTACK",
+        attackerWon: false,
+        origin: { x: 10, y: 10 },
+        target: { x: 10, y: 11 },
+        changes: [{ x: 10, y: 10, ownerId: "player-2", ownershipState: "FRONTIER" }]
+      })
+    });
+
+    expect(state.tiles.get("10,10")).toMatchObject({
+      x: 10,
+      y: 10,
+      ownerId: "player-2",
+      ownershipState: "FRONTIER"
+    });
+    expect(state.tiles.get("10,10")?.town).toBeUndefined();
   });
 
   it("shows queued and recovery alerts correctly with the runtime title-first alert wrapper", () => {
