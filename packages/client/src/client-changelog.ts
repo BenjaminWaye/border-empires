@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.8",
+  version: "2026.04.29.9",
   title: "What's New",
-  summary: "Recent updates include rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include a rewrite staging safety guard that now fails startup instead of silently splitting a real account into a fresh respawn plus an orphaned old empire when probe players or missing auth bindings are present in persisted state, rewrite 3D queue ordinals returning for frontier expansion and attack queues, a rewrite frontier fix so authoritative neutral captures no longer get framed or gated like manpower-consuming attacks when the request arrives with stale attack intent, a server connection fix that resolves the wsReadyState 0 login hang on fresh boots, locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.9",
+      title: "Rewrite staging now hard-fails on probe ghosts or orphaned human empires",
+      why: "A bad persisted state could let staging boot with leftover `staging-probe-*` players or with a completed human empire that still owned land but had lost its durable auth binding, which in turn let the next login spawn a fresh empire beside the stranded original one.",
+      changes: [
+        "Rewrite startup now records a fatal incident breadcrumb and refuses to finish booting if persisted state contains any non-AI `staging-probe-*` players.",
+        "Startup also now fails closed when it finds a completed human empire with territory but no auth identity bound to that player id, instead of silently letting the next login create a duplicate respawned empire.",
+        "Snapshot hydrate now backfills missing ownership entries from persisted player territory before rebuild, with regression coverage around both the recovery path and the new startup guard."
+      ]
+    },
     {
       introducedIn: "2026.04.29.8",
       title: "Rewrite 3D mode now shows queue numbers for frontier expansion and attack tiles",
