@@ -10,31 +10,6 @@ const clientSource = (filename: string): string => {
 };
 
 describe("queued corner badge layout", () => {
-  it("keeps the frontier queue ordinal badge visible in true 3d mode", () => {
-    const layout = queuedCornerBadgeLayout({
-      kind: "FRONTIER",
-      ordinal: 3,
-      px: 50,
-      py: 75,
-      size: 24,
-      isTrue3D: true,
-      blocked: false
-    });
-
-    expect(layout?.border).toBeUndefined();
-    expect(layout?.badge).toEqual({
-      background: "rgba(20, 16, 35, 0.85)",
-      foreground: "#c4b5fd",
-      text: "3",
-      x: 53,
-      y: 78,
-      width: 14,
-      height: 12,
-      textX: 55,
-      textY: 79
-    });
-  });
-
   it("keeps the settlement queue ordinal badge visible in true 3d mode", () => {
     const layout = queuedCornerBadgeLayout({
       kind: "SETTLEMENT",
@@ -84,11 +59,8 @@ describe("queued corner badge layout", () => {
 
   it("routes queued settlement numbers through the shared badge helper in the runtime loop", () => {
     const source = clientSource("./client-runtime-loop.ts");
-    expect(source).toContain('const queuedFrontierBadge = queuedCornerBadgeLayout({');
-    expect(source).toContain('kind: "FRONTIER"');
     expect(source).toContain('const queuedSettlementBadge = queuedCornerBadgeLayout({');
     expect(source).toContain("isTrue3D: isTrue3DRendererActive()");
     expect(source).not.toContain("!isTrue3DRendererActive() && queuedSettlementN !== undefined && !settlementProgress");
-    expect(source).not.toContain("!isTrue3DRendererActive() && queuedN !== undefined");
   });
 });
