@@ -21,7 +21,7 @@ export type ClientChangelogRelease = {
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
   version: "2026.04.29.1",
   title: "What's New",
-  summary: "Recent updates include the steampunk tech-tree restructure with monument projects, stricter fort and siege upgrade ladders, bank and observatory-range cleanup, and the new Retort Transmutation crystal ability on Grand Synthesis; plus chunked rewrite 3D terrain, layered dirt roads, queue badge fixes, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include the steampunk tech-tree restructure with monument projects, stricter fort and siege upgrade ladders, bank and observatory-range cleanup, and the new Retort Transmutation crystal ability on Grand Synthesis; a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts instead of causing existing human empires to respawn at a new location; plus chunked rewrite 3D terrain, layered dirt roads, queue badge fixes, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
     {
       introducedIn: "2026.04.29.1",
@@ -31,6 +31,16 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "The pre-space tech tree now uses the steampunk restructure branch with renamed ages, new structure unlocks, stricter Fort -> Iron Bastion -> Thunder Bastion and Siege Outpost -> Siege Tower -> Dread Tower upgrade ladders, and monument project progression for Imperial Exchange, Worldbreaker Cannon, Aegis Dome, and Astral Dock.",
         "Grand Synthesis now unlocks Retort Transmutation, a crystal ability that rewrites an exposed land resource tile into food, supply, iron, or crystal if it is within owned observatory range and not blocked by hostile crystal protection or structures.",
         "Bank is restored to a gold-only structure cost, and observatory progression now uses one unified observatory range bonus source instead of separate cast/protection tech data that could drift apart."
+      ]
+    },
+    {
+      introducedIn: "2026.04.29.1",
+      title: "Restarted rewrite simulations now keep bootstrap-spawned human territory",
+      why: "Bootstrap spawns were being persisted only as tile-delta events, but startup recovery was not replaying those deltas, so a restart could make an existing human empire look territory-free and trigger a fresh spawn in a new location on the next login.",
+      changes: [
+        "Rewrite startup recovery now reapplies persisted tile-delta batches into recovered world state instead of rebuilding only accepted/resolved frontier commands.",
+        "Bootstrap-spawned human settlements now survive cold restarts, so `preparePlayer()` no longer relocates an existing empire just because the process restarted before a later snapshot absorbed that tile.",
+        "Added startup and cold-restart regressions covering tile-delta replay and bootstrap settlement persistence."
       ]
     },
     {
@@ -54,7 +64,7 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
       ]
     },
     {
-      introducedIn: "2026.04.28.11",
+      introducedIn: "2026.04.28.10",
       title: "Frontier queue tiles in rewrite 3D mode show their queue number again",
       why: "The earlier 3D queue badge fix restored development ordinals, but frontier expansion tiles were still using a separate 2D-only badge path, so queued attack and expand tiles kept their border without the numeric order in 3D.",
       changes: [
@@ -71,16 +81,6 @@ export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
         "Server frontier ACTION_ACCEPTED, COMBAT_START, and COMBAT_RESULT messages now preserve the originating frontier command id and client sequence when they are available.",
         "Client frontier queue diagnostics now log the active action key, late-ack wait windows, and both sides of any command-id mismatch instead of only printing a partial current state.",
         "This does not change frontier gameplay rules, but it makes stuck-expand investigations much faster because server and client logs can now be matched directly."
-      ]
-    },
-    {
-      introducedIn: "2026.04.28.9",
-      title: "Recovered rewrite seasons now restart AI autopilot with the actual live AI roster",
-      why: "Recovered staging worlds could re-enable AI autopilot against fallback seed identities instead of the recovered player set, which left the worker trying to plan moves for AI ids that did not exist in the live runtime.",
-      changes: [
-        "Rewrite simulation now derives AI autopilot identities from recovered player state first and only falls back to seed identities when recovery truly has no players.",
-        "Boolean-style simulation env flags now tolerate values like `true`, `on`, and surrounding whitespace instead of requiring only exact `1`.",
-        "Added startup regressions so recovered managed-season worlds cannot silently start the AI loop with stale seed-only player ids again."
       ]
     },
     {
