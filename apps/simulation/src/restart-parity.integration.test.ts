@@ -127,6 +127,62 @@ describe("restart parity (in-memory stores)", () => {
 
     expect(afterRestartState).toEqual(beforeRestartState);
   });
+
+  it("preserves bootstrap-spawned territory across a cold restart", async () => {
+    const spawnedPlayerId = "firebase-user-restart";
+    const serviceBeforeRestart = await createSimulationService({
+      commandStore,
+      eventStore,
+      snapshotStore,
+      checkpointEveryEvents: 1_000,
+      runtimeOptions: { now: () => FIXED_NOW_MS },
+      seedProfile: "default",
+      enableAiAutopilot: false,
+      enableSystemAutopilot: false,
+      allowSeedRecoveryFallback: true,
+      port: 0
+    });
+
+    expect(serviceBeforeRestart.runtime.ensurePlayerHasSpawnTerritory(spawnedPlayerId)).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const ownedTilesBeforeRestart = serviceBeforeRestart.runtime
+      .exportState()
+      .tiles.filter((tile) => tile.ownerId === spawnedPlayerId);
+
+    await serviceBeforeRestart.close();
+
+    const serviceAfterRestart = await createSimulationService({
+      commandStore,
+      eventStore,
+      snapshotStore,
+      checkpointEveryEvents: 1_000,
+      runtimeOptions: { now: () => FIXED_NOW_MS },
+      seedProfile: "default",
+      enableAiAutopilot: false,
+      enableSystemAutopilot: false,
+      allowSeedRecoveryFallback: true,
+      port: 0
+    });
+    const ownedTilesAfterRestart = serviceAfterRestart.runtime
+      .exportState()
+      .tiles.filter((tile) => tile.ownerId === spawnedPlayerId);
+
+    expect(ownedTilesAfterRestart).toHaveLength(ownedTilesBeforeRestart.length);
+    expect(ownedTilesAfterRestart).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          x: ownedTilesBeforeRestart[0]?.x,
+          y: ownedTilesBeforeRestart[0]?.y,
+          ownerId: spawnedPlayerId,
+          ownershipState: "SETTLED"
+        })
+      ])
+    );
+    expect(serviceAfterRestart.runtime.ensurePlayerHasSpawnTerritory(spawnedPlayerId)).toBe(false);
+
+    await serviceAfterRestart.close();
+  });
 });
 
 describe("command store — idempotency and player-seq uniqueness", () => {
