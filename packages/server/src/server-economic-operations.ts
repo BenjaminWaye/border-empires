@@ -1,4 +1,4 @@
-import type { EconomicStructureType, Player, Tile, TileKey } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, type EconomicStructureType, type Player, type Tile, type TileKey } from "@border-empires/shared";
 import type {
   ServerEconomicOperations,
   ServerEconomicOperationsDeps
@@ -79,6 +79,7 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
     converterStructureOutputFor,
     activeAirportAt,
     hostileRadarProtectingTile,
+    tileHasPendingSettlement,
     economicStructureGoldUpkeepPerInterval,
     economicStructureFoodUpkeepPerInterval,
     economicStructureUpkeepDue,
@@ -116,6 +117,66 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
       if (resource === "FARM" || resource === "FISH") return true;
     }
     return false;
+  };
+
+  const isMonumentPartType = (structureType: EconomicStructureType): boolean =>
+    structureType === "IMPERIAL_EXCHANGE_PART" ||
+    structureType === "WORLD_ENGINE_PART" ||
+    structureType === "AEGIS_DOME_PART" ||
+    structureType === "ASTRAL_DOCK_PART";
+
+  const monumentPartTownKeyForStructure = (structure: { ownerId: string; tileKey: TileKey }): TileKey | undefined => {
+    const supportedTowns = supportedTownKeysForTile(structure.tileKey, structure.ownerId);
+    if (supportedTowns.length !== 1) return undefined;
+    return supportedTowns[0];
+  };
+
+  const activeMonumentPartTownCountForPlayer = (playerId: string, structureType: EconomicStructureType): number => {
+    const supportedTownKeys = new Set<TileKey>();
+    for (const tk of economicStructureTileKeysByPlayer.get(playerId) ?? []) {
+      const structure = economicStructuresByTile.get(tk);
+      if (!structure || structure.type !== structureType || structure.status !== "active") continue;
+      const townKey = monumentPartTownKeyForStructure(structure);
+      if (townKey) supportedTownKeys.add(townKey);
+    }
+    return supportedTownKeys.size;
+  };
+
+  const anyEconomicStructureOfTypeExists = (structureType: EconomicStructureType): boolean => {
+    for (const structure of economicStructuresByTile.values()) {
+      if (structure.type === structureType && structure.status !== "removing") return true;
+    }
+    return false;
+  };
+
+  const chebyshevDistanceWrapped = (fromX: number, fromY: number, toX: number, toY: number): number => {
+    const rawDx = Math.abs(fromX - toX);
+    const rawDy = Math.abs(fromY - toY);
+    const dx = Math.min(rawDx, WORLD_WIDTH - rawDx);
+    const dy = Math.min(rawDy, WORLD_HEIGHT - rawDy);
+    return Math.max(dx, dy);
+  };
+
+  const settleNearestFrontierForRailDepot = (player: Player, structure: { tileKey: TileKey }): boolean => {
+    const [sourceX, sourceY] = parseKey(structure.tileKey);
+    let bestTileKey: TileKey | undefined;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const targetTileKey of player.territoryTiles) {
+      if (ownershipStateByTile.get(targetTileKey) !== "FRONTIER") continue;
+      if (tileHasPendingSettlement(targetTileKey)) continue;
+      const [targetX, targetY] = parseKey(targetTileKey);
+      const distance = chebyshevDistanceWrapped(sourceX, sourceY, targetX, targetY);
+      if (distance > 20) continue;
+      if (distance < bestDistance || (distance === bestDistance && (bestTileKey === undefined || targetTileKey < bestTileKey))) {
+        bestDistance = distance;
+        bestTileKey = targetTileKey;
+      }
+    }
+    if (!bestTileKey) return false;
+    const [x, y] = parseKey(bestTileKey);
+    updateOwnership(x, y, player.id, "SETTLED");
+    markSummaryChunkDirtyAtTile(x, y);
+    return true;
   };
 
   const canPlaceEconomicStructure = (actor: Player, t: Tile, structureType: EconomicStructureType): { ok: boolean; reason?: string } => {
@@ -159,6 +220,18 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
     if (structureType === "MINE" && t.resource !== "IRON" && t.resource !== "GEMS") return { ok: false, reason: "mine requires IRON or CRYSTAL tile" };
     const tileTown = townsByTile.get(tk);
     if (tileTown && townPopulationTier(tileTown.population) === "SETTLEMENT") return { ok: false, reason: "settlements cannot host structures until they grow into towns" };
+    if (structureType === "IMPERIAL_EXCHANGE" && anyEconomicStructureOfTypeExists("IMPERIAL_EXCHANGE")) {
+      return { ok: false, reason: "the Imperial Exchange has already been built" };
+    }
+    if (structureType === "WORLD_ENGINE" && anyEconomicStructureOfTypeExists("WORLD_ENGINE")) {
+      return { ok: false, reason: "the Worldbreaker Cannon has already been built" };
+    }
+    if (structureType === "AEGIS_DOME" && anyEconomicStructureOfTypeExists("AEGIS_DOME")) {
+      return { ok: false, reason: "the Aegis Dome has already been built" };
+    }
+    if (structureType === "ASTRAL_DOCK" && anyEconomicStructureOfTypeExists("ASTRAL_DOCK")) {
+      return { ok: false, reason: "the Astral Dock has already been built" };
+    }
     if (isSupportOnlyStructureType(structureType)) {
       if (townsByTile.has(tk)) {
         const supportTileKey = pickRandomAvailableSupportTileForTown(tk, actor.id, structureType);
@@ -168,6 +241,21 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
         if (supportedTowns.length > 1) return { ok: false, reason: "support tile touches multiple towns" };
         const supportedTownKey = supportedTowns[0];
         if (supportedTownKey && structureForSupportedTown(supportedTownKey, actor.id, structureType)) return { ok: false, reason: `town already has ${structureType.toLowerCase()}` };
+      }
+    }
+    if (isMonumentPartType(structureType)) {
+      const monumentTownKey = townsByTile.has(tk) ? tk : supportedTowns[0];
+      if (!monumentTownKey) return { ok: false, reason: "monument parts require a support tile next to your great city" };
+      const monumentTown = monumentTownKey ? townsByTile.get(monumentTownKey) : undefined;
+      if (!monumentTown) return { ok: false, reason: "monument parts require a support tile next to your great city" };
+      const tier = townPopulationTierForTown(monumentTown);
+      if (tier !== "GREAT_CITY" && tier !== "METROPOLIS") {
+        return { ok: false, reason: "monument parts require a Great City or Metropolis" };
+      }
+      for (const existingType of ["IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART", "AEGIS_DOME_PART", "ASTRAL_DOCK_PART"] as const) {
+        if (structureForSupportedTown(monumentTownKey, actor.id, existingType)) {
+          return { ok: false, reason: "that city is already hosting a monument part" };
+        }
       }
     }
     return { ok: true };
@@ -187,12 +275,16 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
     const tk = key(t.x, t.y);
     const techChecks: Record<EconomicStructureType, [string, string]> = {
       FARMSTEAD: ["agriculture", "unlock farmsteads via Agriculture first"],
+      WATERWORKS: ["irrigation", "unlock waterworks via Irrigation first"],
       CAMP: ["leatherworking", "unlock camps via Leatherworking first"],
       MINE: ["mining", "unlock mines via Mining first"],
       MARKET: ["trade", "unlock markets via Trade first"],
       GRANARY: ["", "unlock granaries via Pottery first"],
+      CENSUS_HALL: ["census-records", "unlock census halls via Census Records first"],
       BANK: ["coinage", "unlock banks via Coinage first"],
-      AIRPORT: ["aeronautics", "unlock airports via Aeronautics first"],
+      CLEARING_HOUSE: ["banking", "unlock clearing houses via Banking first"],
+      AIRPORT: ["aeronautics", "unlock sky docks via Sky Docks first"],
+      AETHER_TOWER: ["plastics", "unlock aether towers via Aether Towers first"],
       WOODEN_FORT: ["", ""],
       LIGHT_OUTPOST: ["", ""],
       FUR_SYNTHESIZER: ["workshops", "unlock fur synthesizers via Workshops first"],
@@ -204,17 +296,45 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
       FUEL_PLANT: ["plastics", "unlock fuel plants via Plastics first"],
       CARAVANARY: ["", ""],
       FOUNDRY: ["industrial-extraction", "unlock foundries via Industrial Extraction first"],
-      CUSTOMS_HOUSE: ["", ""],
-      GARRISON_HALL: ["", ""],
+      EXCHANGE_HOUSE: ["imperial-roads", "unlock exchange houses via Monument Cities first"],
+      CUSTOMS_HOUSE: ["harborcraft", "unlock harbor exchanges via Aether Moorings first"],
+      LOCKWORKS_PORT: ["port-infrastructure", "unlock Lockworks Port via Port Infrastructure first"],
+      CHARTERED_PORT: ["", "Chartered Ports are retired in this tech tree"],
+      RAIL_DEPOT: ["global-trade-networks", "unlock Rail Depots via Rail Networks first"],
+      GARRISON_HALL: ["organized-supply", "unlock garrison halls via Organized Supply first"],
       GOVERNORS_OFFICE: ["civil-service", "unlock governor's offices via Civil Service first"],
-      RADAR_SYSTEM: ["radar", "unlock radar systems via Radar first"]
+      RADAR_SYSTEM: ["radar", "unlock resonance grids via Resonance Grid first"],
+      IMPERIAL_EXCHANGE_PART: ["urban-markets", "unlock imperial exchange parts via Imperial Exchange first"],
+      WORLD_ENGINE_PART: ["world-engine", "unlock Worldbreaker Cannon parts via Worldbreaker Cannon first"],
+      AEGIS_DOME_PART: ["aegis-dome", "unlock aegis dome parts via Aegis Dome first"],
+      ASTRAL_DOCK_PART: ["astral-dock", "unlock Astral Dock parts via Astral Dock first"],
+      IMPERIAL_EXCHANGE: ["urban-markets", "complete three Imperial Exchange parts first"],
+      WORLD_ENGINE: ["world-engine", "complete three Worldbreaker Cannon parts first"],
+      AEGIS_DOME: ["aegis-dome", "complete three Aegis Dome parts first"],
+      ASTRAL_DOCK: ["astral-dock", "complete three Astral Dock parts first"]
     };
+    if (structureType === "CHARTERED_PORT") return { ok: false, reason: "Chartered Ports are retired in this tech tree" };
     const [requiredTech, reason] = techChecks[structureType] ?? ["", ""];
     if (structureType === "GRANARY" && !getPlayerEffectsForPlayer(actor.id).unlockGranary) return { ok: false, reason };
+    if (structureType === "WATERWORKS" && !getPlayerEffectsForPlayer(actor.id).unlockWaterworksUpgrade) return { ok: false, reason };
+    if (structureType === "CENSUS_HALL" && !getPlayerEffectsForPlayer(actor.id).unlockCensusHall) return { ok: false, reason };
+    if (structureType === "CLEARING_HOUSE" && !getPlayerEffectsForPlayer(actor.id).unlockClearingHouse) return { ok: false, reason };
     if ((structureType === "ADVANCED_FUR_SYNTHESIZER" || structureType === "ADVANCED_IRONWORKS" || structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") && !getPlayerEffectsForPlayer(actor.id).unlockAdvancedSynthesizers) {
       return { ok: false, reason: "unlock advanced synthesizers via Advanced Synthetication first" };
     }
     if (requiredTech && !actor.techIds.has(requiredTech)) return { ok: false, reason };
+    if (structureType === "IMPERIAL_EXCHANGE" && activeMonumentPartTownCountForPlayer(actor.id, "IMPERIAL_EXCHANGE_PART") < 3) {
+      return { ok: false, reason: "build Imperial Exchange parts in three different Great Cities first" };
+    }
+    if (structureType === "WORLD_ENGINE" && activeMonumentPartTownCountForPlayer(actor.id, "WORLD_ENGINE_PART") < 3) {
+      return { ok: false, reason: "build Worldbreaker Cannon parts in three different Great Cities first" };
+    }
+    if (structureType === "AEGIS_DOME" && activeMonumentPartTownCountForPlayer(actor.id, "AEGIS_DOME_PART") < 3) {
+      return { ok: false, reason: "build Aegis Dome parts in three different Great Cities first" };
+    }
+    if (structureType === "ASTRAL_DOCK" && activeMonumentPartTownCountForPlayer(actor.id, "ASTRAL_DOCK_PART") < 3) {
+      return { ok: false, reason: "build Astral Dock parts in three different Great Cities first" };
+    }
     if (!canStartDevelopmentProcess(actor.id)) return { ok: false, reason: developmentSlotsBusyReason(actor.id) };
     const goldCost = deps.structureBuildGoldCost(structureType, ownedStructureCountForPlayer(actor.id, structureType));
     const chargeGold = (): boolean => {
@@ -235,13 +355,28 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
       if (!consumeStrategicResource(actor, matching, deps.MINE_BUILD_RESOURCE_COST)) return fail(`insufficient ${matching} for mine`);
     } else {
       const structuredCosts: Partial<Record<EconomicStructureType, { crystal?: number; food?: number }>> = {
+        WATERWORKS: { food: deps.WATERWORKS_BUILD_FOOD_COST },
         GRANARY: { food: deps.GRANARY_BUILD_FOOD_COST },
+        CENSUS_HALL: { food: deps.CENSUS_HALL_BUILD_FOOD_COST },
+        BANK: { crystal: deps.BANK_BUILD_CRYSTAL_COST },
+        CLEARING_HOUSE: { crystal: deps.CLEARING_HOUSE_BUILD_CRYSTAL_COST },
+        CARAVANARY: { crystal: deps.CARAVANARY_BUILD_CRYSTAL_COST },
         GARRISON_HALL: { crystal: deps.GARRISON_HALL_BUILD_CRYSTAL_COST },
         CUSTOMS_HOUSE: { crystal: deps.CUSTOMS_HOUSE_BUILD_CRYSTAL_COST },
+        LOCKWORKS_PORT: { crystal: deps.LOCKWORKS_PORT_BUILD_CRYSTAL_COST },
+        RAIL_DEPOT: { crystal: deps.RAIL_DEPOT_BUILD_CRYSTAL_COST },
         RADAR_SYSTEM: { crystal: deps.RADAR_SYSTEM_BUILD_CRYSTAL_COST },
-        AIRPORT: { crystal: deps.AIRPORT_BUILD_CRYSTAL_COST }
+        AIRPORT: { crystal: deps.AIRPORT_BUILD_CRYSTAL_COST },
+        AETHER_TOWER: { crystal: deps.AETHER_TOWER_BUILD_CRYSTAL_COST },
+        EXCHANGE_HOUSE: { crystal: deps.EXCHANGE_HOUSE_BUILD_CRYSTAL_COST },
+        IMPERIAL_EXCHANGE_PART: { crystal: deps.IMPERIAL_EXCHANGE_PART_BUILD_CRYSTAL_COST },
+        WORLD_ENGINE_PART: { crystal: deps.WORLD_ENGINE_PART_BUILD_CRYSTAL_COST },
+        AEGIS_DOME_PART: { crystal: deps.AEGIS_DOME_PART_BUILD_CRYSTAL_COST },
+        ASTRAL_DOCK_PART: { crystal: deps.ASTRAL_DOCK_PART_BUILD_CRYSTAL_COST }
       };
-      if (!chargeGold()) return fail(`insufficient gold for ${prettyEconomicStructureLabel(structureType).toLowerCase()}`);
+      const freeFinalProject =
+        structureType === "IMPERIAL_EXCHANGE" || structureType === "WORLD_ENGINE" || structureType === "AEGIS_DOME" || structureType === "ASTRAL_DOCK";
+      if (!freeFinalProject && !chargeGold()) return fail(`insufficient gold for ${prettyEconomicStructureLabel(structureType).toLowerCase()}`);
       const cost = structuredCosts[structureType];
       if (cost?.crystal && !consumeStrategicResource(actor, "CRYSTAL", cost.crystal)) return fail(`insufficient CRYSTAL for ${prettyEconomicStructureLabel(structureType).toLowerCase()}`);
       if (cost?.food && !consumeStrategicResource(actor, "FOOD", cost.food)) return fail(`insufficient FOOD for ${prettyEconomicStructureLabel(structureType).toLowerCase()}`);
@@ -271,7 +406,6 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
       delete current.completesAt;
       economicStructureBuildTimers.delete(tk);
       markSummaryChunkDirtyAtTile(t.x, t.y);
-      if (current.type === "AIRPORT") discoverOilFieldNearAirport(actor.id, tk);
       updateOwnership(t.x, t.y, actor.id);
     }, buildMs);
     economicStructureBuildTimers.set(tk, timer);
@@ -318,6 +452,7 @@ export const createServerEconomicOperations = (deps: ServerEconomicOperationsDep
           if (structure.type !== "AIRPORT") {
             structure.status = "active";
             delete structure.inactiveReason;
+            if (structure.type === "RAIL_DEPOT") settleNearestFrontierForRailDepot(player, structure);
           }
         } else if (structure.type !== "AIRPORT") {
           structure.status = "inactive";

@@ -755,9 +755,9 @@ export const attackQueueFailureReason = (
   }
 ): string => {
   if (tile.ownerId && tile.ownerId !== state.me && deps.ownerSpawnShieldActive(tile.ownerId)) return "That empire is still under spawn protection.";
-  if (mode === "breakthrough" && !deps.hasBreakthroughCapability()) return "Requires Breach Doctrine.";
+  if (mode === "breakthrough" && !deps.hasBreakthroughCapability()) return "Breakthrough attacks are unavailable.";
   if (mode === "breakthrough" && (state.strategicResources.IRON ?? 0) < 1) return "Need 1 IRON.";
-  if (state.gold < (mode === "breakthrough" ? 2 : FRONTIER_CLAIM_COST)) return `Need ${mode === "breakthrough" ? 2 : FRONTIER_CLAIM_COST} gold.`;
+  if (state.gold < FRONTIER_CLAIM_COST) return `Need ${FRONTIER_CLAIM_COST} gold.`;
   if (!deps.pickOriginForTarget(tile.x, tile.y)) {
     return tile.dockId ? "No owned linked dock can reach this target." : "Target must border your territory or a linked dock.";
   }

@@ -140,6 +140,7 @@ export const explainActionFailureFromServer = (
   if (code === "REVEAL_EMPIRE_INVALID") return `Cannot reveal empire: ${message}.`;
   if (code === "REVEAL_EMPIRE_STATS_INVALID") return `Cannot reveal empire stats: ${message}.`;
   if (code === "SIPHON_INVALID") return `Cannot siphon tile: ${message}.`;
+  if (code === "RETORT_RECAST_INVALID") return `Cannot recast resource: ${message}.`;
   if (code === "PURGE_SIPHON_INVALID") return `Cannot purge siphon: ${message}.`;
   if (code === "AETHER_WALL_INVALID") return `Cannot cast Aether Wall: ${message}.`;
   if (code === "AETHER_BRIDGE_INVALID") return `Cannot cast Aether Bridge: ${message}.`;

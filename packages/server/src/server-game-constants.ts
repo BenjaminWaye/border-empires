@@ -48,7 +48,7 @@ export const FUR_SYNTHESIZER_OVERLOAD_SUPPLY = 15;
 export const IRONWORKS_OVERLOAD_IRON = 15;
 export const CRYSTAL_SYNTHESIZER_OVERLOAD_CRYSTAL = 10;
 export const BREAKTHROUGH_DEF_MULT_FACTOR = 0.6;
-export const BREAKTHROUGH_REQUIRED_TECH_ID = "breach-doctrine";
+export const BREAKTHROUGH_REQUIRED_TECH_ID = "siegecraft";
 export const OBSERVATORY_BUILD_COST = structureBaseGoldCost("OBSERVATORY");
 export const OBSERVATORY_VISION_BONUS = 5;
 export const OBSERVATORY_BUILD_CRYSTAL_COST = 45;
@@ -58,6 +58,9 @@ export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 export const FARMSTEAD_BUILD_GOLD_COST = structureBaseGoldCost("FARMSTEAD");
 export const FARMSTEAD_BUILD_FOOD_COST = 20;
 export const FARMSTEAD_GOLD_UPKEEP = 1;
+export const WATERWORKS_BUILD_GOLD_COST = structureBaseGoldCost("WATERWORKS");
+export const WATERWORKS_BUILD_FOOD_COST = 20;
+export const WATERWORKS_GOLD_UPKEEP = 1.2;
 export const CAMP_BUILD_GOLD_COST = structureBaseGoldCost("CAMP");
 export const CAMP_BUILD_SUPPLY_COST = 30;
 export const CAMP_GOLD_UPKEEP = 1.2;
@@ -68,21 +71,51 @@ export const MARKET_BUILD_GOLD_COST = structureBaseGoldCost("MARKET");
 export const GRANARY_BUILD_GOLD_COST = structureBaseGoldCost("GRANARY");
 export const GRANARY_BUILD_FOOD_COST = 40;
 export const GRANARY_GOLD_UPKEEP = 1;
+export const CENSUS_HALL_BUILD_GOLD_COST = structureBaseGoldCost("CENSUS_HALL");
+export const CENSUS_HALL_BUILD_FOOD_COST = 30;
+export const CENSUS_HALL_GOLD_UPKEEP = 6;
 export const BANK_BUILD_GOLD_COST = structureBaseGoldCost("BANK");
+export const BANK_BUILD_CRYSTAL_COST = 60;
+export const BANK_CRYSTAL_UPKEEP = 0.05;
+export const CLEARING_HOUSE_BUILD_GOLD_COST = structureBaseGoldCost("CLEARING_HOUSE");
+export const CLEARING_HOUSE_BUILD_CRYSTAL_COST = 80;
 export const AIRPORT_BUILD_GOLD_COST = structureBaseGoldCost("AIRPORT");
 export const AIRPORT_BUILD_CRYSTAL_COST = 80;
+export const AETHER_TOWER_BUILD_GOLD_COST = structureBaseGoldCost("AETHER_TOWER");
+export const AETHER_TOWER_BUILD_CRYSTAL_COST = 160;
 export const FUR_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("FUR_SYNTHESIZER");
 export const IRONWORKS_BUILD_GOLD_COST = structureBaseGoldCost("IRONWORKS");
 export const CRYSTAL_SYNTHESIZER_BUILD_GOLD_COST = structureBaseGoldCost("CRYSTAL_SYNTHESIZER");
 export const FUEL_PLANT_BUILD_GOLD_COST = structureBaseGoldCost("FUEL_PLANT");
 export const CARAVANARY_BUILD_GOLD_COST = structureBaseGoldCost("CARAVANARY");
+export const CARAVANARY_BUILD_CRYSTAL_COST = 60;
+export const EXCHANGE_HOUSE_BUILD_GOLD_COST = structureBaseGoldCost("EXCHANGE_HOUSE");
+export const EXCHANGE_HOUSE_BUILD_CRYSTAL_COST = 120;
 export const CUSTOMS_HOUSE_BUILD_GOLD_COST = structureBaseGoldCost("CUSTOMS_HOUSE");
 export const CUSTOMS_HOUSE_BUILD_CRYSTAL_COST = 60;
+export const LOCKWORKS_PORT_BUILD_GOLD_COST = structureBaseGoldCost("LOCKWORKS_PORT");
+export const LOCKWORKS_PORT_BUILD_CRYSTAL_COST = 30;
+export const CHARTERED_PORT_BUILD_GOLD_COST = structureBaseGoldCost("CHARTERED_PORT");
+export const CHARTERED_PORT_BUILD_CRYSTAL_COST = 40;
+export const RAIL_DEPOT_BUILD_GOLD_COST = structureBaseGoldCost("RAIL_DEPOT");
+export const RAIL_DEPOT_BUILD_CRYSTAL_COST = 100;
 export const GARRISON_HALL_BUILD_GOLD_COST = structureBaseGoldCost("GARRISON_HALL");
 export const GARRISON_HALL_BUILD_CRYSTAL_COST = 80;
 export const GOVERNORS_OFFICE_BUILD_GOLD_COST = structureBaseGoldCost("GOVERNORS_OFFICE");
 export const RADAR_SYSTEM_BUILD_GOLD_COST = structureBaseGoldCost("RADAR_SYSTEM");
 export const RADAR_SYSTEM_BUILD_CRYSTAL_COST = 120;
+export const IMPERIAL_EXCHANGE_PART_BUILD_GOLD_COST = structureBaseGoldCost("IMPERIAL_EXCHANGE_PART");
+export const IMPERIAL_EXCHANGE_PART_BUILD_CRYSTAL_COST = 180;
+export const WORLD_ENGINE_PART_BUILD_GOLD_COST = structureBaseGoldCost("WORLD_ENGINE_PART");
+export const WORLD_ENGINE_PART_BUILD_CRYSTAL_COST = 180;
+export const AEGIS_DOME_PART_BUILD_GOLD_COST = structureBaseGoldCost("AEGIS_DOME_PART");
+export const AEGIS_DOME_PART_BUILD_CRYSTAL_COST = 180;
+export const ASTRAL_DOCK_PART_BUILD_GOLD_COST = structureBaseGoldCost("ASTRAL_DOCK_PART");
+export const ASTRAL_DOCK_PART_BUILD_CRYSTAL_COST = 180;
+export const IMPERIAL_EXCHANGE_BUILD_GOLD_COST = structureBaseGoldCost("IMPERIAL_EXCHANGE");
+export const WORLD_ENGINE_BUILD_GOLD_COST = structureBaseGoldCost("WORLD_ENGINE");
+export const AEGIS_DOME_BUILD_GOLD_COST = structureBaseGoldCost("AEGIS_DOME");
+export const ASTRAL_DOCK_BUILD_GOLD_COST = structureBaseGoldCost("ASTRAL_DOCK");
 export const FOUNDRY_BUILD_GOLD_COST = structureBaseGoldCost("FOUNDRY");
 export const MANPOWER_EPSILON = 1e-6;
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = {
@@ -101,11 +134,27 @@ export const WOODEN_FORT_GOLD_UPKEEP = 5;
 export const LIGHT_OUTPOST_GOLD_UPKEEP = 5;
 export const BANK_FOOD_UPKEEP = 1;
 export const FUEL_PLANT_GOLD_UPKEEP = 180;
+export const CARAVANARY_GOLD_UPKEEP = 15;
+export const AETHER_TOWER_GOLD_UPKEEP = 30;
+export const CENSUS_HALL_GOLD_UPKEEP_PER_MIN = CENSUS_HALL_GOLD_UPKEEP;
+export const CLEARING_HOUSE_GOLD_UPKEEP = 30;
+export const EXCHANGE_HOUSE_GOLD_UPKEEP = 40;
 export const CARAVANARY_FOOD_UPKEEP = 0.75;
 export const CUSTOMS_HOUSE_GOLD_UPKEEP = 15;
+export const LOCKWORKS_PORT_GOLD_UPKEEP = 22.5;
+export const CHARTERED_PORT_GOLD_UPKEEP = 30;
+export const RAIL_DEPOT_GOLD_UPKEEP = 15;
 export const GARRISON_HALL_GOLD_UPKEEP = 25;
 export const GOVERNORS_OFFICE_GOLD_UPKEEP = 30;
 export const RADAR_SYSTEM_GOLD_UPKEEP = 45;
+export const IMPERIAL_EXCHANGE_PART_GOLD_UPKEEP = 25;
+export const WORLD_ENGINE_PART_GOLD_UPKEEP = 25;
+export const AEGIS_DOME_PART_GOLD_UPKEEP = 25;
+export const ASTRAL_DOCK_PART_GOLD_UPKEEP = 25;
+export const IMPERIAL_EXCHANGE_GOLD_UPKEEP = 120;
+export const WORLD_ENGINE_GOLD_UPKEEP = 150;
+export const AEGIS_DOME_GOLD_UPKEEP = 80;
+export const ASTRAL_DOCK_GOLD_UPKEEP = 90;
 export const FOUNDRY_GOLD_UPKEEP = 50;
 export const FUR_SYNTHESIZER_SUPPLY_PER_DAY = 18;
 export const ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY = 21.6;
@@ -114,8 +163,10 @@ export const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
 export const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 export const FUEL_PLANT_OIL_PER_DAY = 10;
-export const AIRPORT_OIL_UPKEEP_PER_MIN = 0.025;
-export const AIRPORT_BOMBARD_OIL_COST = 1;
+export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0.05;
+export const AIRPORT_BOMBARD_CRYSTAL_COST = 20;
+export const AIRPORT_OIL_UPKEEP_PER_MIN = 0;
+export const AIRPORT_BOMBARD_OIL_COST = 0;
 export const AIRPORT_BOMBARD_RANGE = 30;
 export const AIRPORT_BOMBARD_ATTACK_MULT = 0.95;
 export const AIRPORT_BOMBARD_MIN_FIELD_TILES = 2;
@@ -126,6 +177,25 @@ export const FOUNDRY_OUTPUT_MULT = 2;
 export const GOVERNORS_OFFICE_RADIUS = 10;
 export const GOVERNORS_OFFICE_UPKEEP_MULT = 0.8;
 export const RADAR_SYSTEM_RADIUS = 30;
+export const AETHER_TOWER_RADIUS = 30;
+export const EXCHANGE_HOUSE_RADIUS = 10;
+export const AEGIS_DOME_RADIUS = 25;
+export const IMPERIAL_EXCHANGE_COOLDOWN_MS = 60 * 60_000;
+export const IMPERIAL_EXCHANGE_CRYSTAL_COST = 240;
+export const WORLD_ENGINE_COOLDOWN_MS = 90 * 60_000;
+export const WORLD_ENGINE_CRYSTAL_COST = 300;
+export const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
+export const AEGIS_LOCK_CRYSTAL_COST = 220;
+export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
+export const AETHER_EMP_COOLDOWN_MS = 45 * 60_000;
+export const AETHER_EMP_CRYSTAL_COST = 180;
+export const AETHER_EMP_DISABLE_MS = 15 * 60_000;
+export const CITY_OVERCLOCK_COOLDOWN_MS = 45 * 60_000;
+export const CITY_OVERCLOCK_CRYSTAL_COST = 160;
+export const CITY_OVERCLOCK_DURATION_MS = 15 * 60_000;
+export const ASTRAL_DOCK_COOLDOWN_MS = 90 * 60_000;
+export const ASTRAL_DOCK_CRYSTAL_COST = 300;
+export const ASTRAL_DOCK_DURATION_MS = 24 * 60 * 60_000;
 export const REVEAL_EMPIRE_ACTIVATION_COST = 20;
 export const REVEAL_EMPIRE_UPKEEP_PER_MIN = 0.015;
 export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 15;
@@ -154,6 +224,16 @@ export const SIPHON_COOLDOWN_MS = 15 * 60_000;
 export const SIPHON_DURATION_MS = 30 * 60_000;
 export const SIPHON_SHARE = 0.5;
 export const SIPHON_PURGE_CRYSTAL_COST = 10;
+export const RETORT_RECAST_GOLD_COST = 6000;
+export const RETORT_RECAST_CRYSTAL_COST = 120;
+export const RETORT_RECAST_COOLDOWN_MS = 20 * 60_000;
+export const SURVEY_SWEEP_CRYSTAL_COST = 30;
+export const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
+export const SURVEY_SWEEP_DURATION_MS = 2 * 60_000;
+export const SURVEY_SWEEP_RADIUS = 50;
+export const AETHER_LANCE_GOLD_COST = 3_000;
+export const AETHER_LANCE_CRYSTAL_COST = 100;
+export const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
 export const TERRAIN_SHAPING_GOLD_COST = 8000;
 export const TERRAIN_SHAPING_CRYSTAL_COST = 400;
 export const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
@@ -222,7 +302,7 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
   reveal_empire: {
     id: "reveal_empire",
     name: "Reveal Empire",
-    requiredTechIds: ["cryptography"],
+    requiredTechIds: ["beacon-towers"],
     crystalCost: REVEAL_EMPIRE_ACTIVATION_COST,
     cooldownMs: 0,
     upkeepCrystalPerMinute: REVEAL_EMPIRE_UPKEEP_PER_MIN
@@ -233,6 +313,21 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     requiredTechIds: ["surveying"],
     crystalCost: REVEAL_EMPIRE_STATS_CRYSTAL_COST,
     cooldownMs: REVEAL_EMPIRE_STATS_COOLDOWN_MS
+  },
+  survey_sweep: {
+    id: "survey_sweep",
+    name: "Survey Sweep",
+    requiredTechIds: ["surveying"],
+    crystalCost: SURVEY_SWEEP_CRYSTAL_COST,
+    cooldownMs: SURVEY_SWEEP_COOLDOWN_MS,
+    durationMs: SURVEY_SWEEP_DURATION_MS
+  },
+  aether_lance: {
+    id: "aether_lance",
+    name: "Aether Lance",
+    requiredTechIds: ["signal-fires"],
+    crystalCost: AETHER_LANCE_CRYSTAL_COST,
+    cooldownMs: AETHER_LANCE_COOLDOWN_MS
   },
   aether_bridge: {
     id: "aether_bridge",
@@ -258,6 +353,13 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     cooldownMs: SIPHON_COOLDOWN_MS,
     durationMs: SIPHON_DURATION_MS
   },
+  retort_recasting: {
+    id: "retort_recasting",
+    name: "Retort Transmutation",
+    requiredTechIds: ["advanced-synthetication"],
+    crystalCost: RETORT_RECAST_CRYSTAL_COST,
+    cooldownMs: RETORT_RECAST_COOLDOWN_MS
+  },
   create_mountain: {
     id: "create_mountain",
     name: "Create Mountain",
@@ -271,6 +373,60 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     requiredTechIds: ["terrain-engineering"],
     crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
     cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
+  },
+  stormfront: {
+    id: "stormfront",
+    name: "Stormfront",
+    requiredTechIds: ["radar"],
+    crystalCost: 180,
+    cooldownMs: 45 * 60_000,
+    durationMs: 15 * 60_000
+  },
+  imperial_exchange_levy: {
+    id: "imperial_exchange_levy",
+    name: "Imperial Exchange Levy",
+    requiredTechIds: ["urban-markets"],
+    crystalCost: IMPERIAL_EXCHANGE_CRYSTAL_COST,
+    cooldownMs: IMPERIAL_EXCHANGE_COOLDOWN_MS
+  },
+  world_engine_strike: {
+    id: "world_engine_strike",
+    name: "Worldbreaker Shot",
+    requiredTechIds: ["world-engine"],
+    crystalCost: WORLD_ENGINE_CRYSTAL_COST,
+    cooldownMs: WORLD_ENGINE_COOLDOWN_MS
+  },
+  aegis_lock: {
+    id: "aegis_lock",
+    name: "Aegis Lock",
+    requiredTechIds: ["aegis-dome"],
+    crystalCost: AEGIS_LOCK_CRYSTAL_COST,
+    cooldownMs: AEGIS_LOCK_COOLDOWN_MS,
+    durationMs: AEGIS_LOCK_DURATION_MS
+  },
+  aether_emp: {
+    id: "aether_emp",
+    name: "Aether EMP",
+    requiredTechIds: ["cryptography"],
+    crystalCost: AETHER_EMP_CRYSTAL_COST,
+    cooldownMs: AETHER_EMP_COOLDOWN_MS,
+    durationMs: AETHER_EMP_DISABLE_MS
+  },
+  city_overclock: {
+    id: "city_overclock",
+    name: "City Overclock",
+    requiredTechIds: ["imperial-roads"],
+    crystalCost: CITY_OVERCLOCK_CRYSTAL_COST,
+    cooldownMs: CITY_OVERCLOCK_COOLDOWN_MS,
+    durationMs: CITY_OVERCLOCK_DURATION_MS
+  },
+  astral_dock_launch: {
+    id: "astral_dock_launch",
+    name: "Launch Satellite",
+    requiredTechIds: ["astral-dock"],
+    crystalCost: ASTRAL_DOCK_CRYSTAL_COST,
+    cooldownMs: ASTRAL_DOCK_COOLDOWN_MS,
+    durationMs: ASTRAL_DOCK_DURATION_MS
   }
 };
 export const MISSION_DEFS: MissionDef[] = [

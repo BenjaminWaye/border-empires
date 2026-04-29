@@ -16,7 +16,7 @@ describe("fort combat balance", () => {
         hasWoodenFort: false,
         fortDefenseEffectsMult: 1
       })
-    ).toBe(2.25);
+    ).toBe(2.5);
 
     expect(
       fortDefenseMultiplier({
@@ -91,6 +91,6 @@ describe("fort combat balance", () => {
     );
 
     expect(unsupportedWinChance).toBeLessThan(0.15);
-    expect(siegeSupportedWinChance).toBeGreaterThan(0.4);
+    expect(siegeSupportedWinChance).toBeGreaterThan(0.38);
   });
 });

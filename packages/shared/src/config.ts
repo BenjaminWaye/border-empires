@@ -39,7 +39,7 @@ export const LEVEL_CURVE_C = 2.2;
 
 export const FORT_BUILD_MS = 10 * 60_000;
 export const FORT_BUILD_COST = 900;
-export const FORT_DEFENSE_MULT = 2.25;
+export const FORT_DEFENSE_MULT = 2.5;
 export const WOODEN_FORT_BUILD_MS = 10 * 60_000;
 export const WOODEN_FORT_DEFENSE_MULT = 1.35;
 

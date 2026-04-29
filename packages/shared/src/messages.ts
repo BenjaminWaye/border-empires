@@ -52,12 +52,16 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     y: z.number().int(),
     structureType: z.enum([
       "FARMSTEAD",
+      "WATERWORKS",
       "CAMP",
       "MINE",
       "MARKET",
       "GRANARY",
+      "CENSUS_HALL",
       "BANK",
+      "CLEARING_HOUSE",
       "AIRPORT",
+      "AETHER_TOWER",
       "WOODEN_FORT",
       "LIGHT_OUTPOST",
       "FUR_SYNTHESIZER",
@@ -69,10 +73,22 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "FUEL_PLANT",
       "CARAVANARY",
       "FOUNDRY",
+      "EXCHANGE_HOUSE",
       "GARRISON_HALL",
       "CUSTOMS_HOUSE",
+      "LOCKWORKS_PORT",
+      "CHARTERED_PORT",
+      "RAIL_DEPOT",
       "GOVERNORS_OFFICE",
-      "RADAR_SYSTEM"
+      "RADAR_SYSTEM",
+      "IMPERIAL_EXCHANGE_PART",
+      "WORLD_ENGINE_PART",
+      "AEGIS_DOME_PART",
+      "ASTRAL_DOCK_PART",
+      "IMPERIAL_EXCHANGE",
+      "WORLD_ENGINE",
+      "AEGIS_DOME",
+      "ASTRAL_DOCK"
     ])
   }),
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
@@ -95,6 +111,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("BUILD_SIEGE_OUTPOST"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REVEAL_EMPIRE_STATS"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("SURVEY_SWEEP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("AETHER_LANCE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("CAST_AETHER_BRIDGE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({
     type: z.literal("CAST_AETHER_WALL"),
@@ -106,6 +124,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("SIPHON_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("PURGE_SIPHON"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({
+    type: z.literal("RETORT_RECAST"),
+    x: z.number().int(),
+    y: z.number().int(),
+    targetResource: z.enum(["FARM", "WOOD", "IRON", "GEMS"]),
+    ...FrontierCommandMetadataSchema
+  }),
   z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REMOVE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({
@@ -116,6 +141,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     toY: z.number().int(),
     ...FrontierCommandMetadataSchema
   }),
+  z.object({ type: z.literal("IMPERIAL_EXCHANGE_LEVY"), fromX: z.number().int(), fromY: z.number().int(), resource: z.enum(["FOOD", "IRON", "CRYSTAL", "SUPPLY"]), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("WORLD_ENGINE_STRIKE"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("AEGIS_LOCK"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("ASTRAL_DOCK_LAUNCH"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("AETHER_EMP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("CITY_OVERCLOCK"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({
     type: z.literal("BREAKTHROUGH_ATTACK"),
     fromX: z.number().int(),

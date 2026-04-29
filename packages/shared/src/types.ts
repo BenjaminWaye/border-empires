@@ -7,6 +7,8 @@ export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "H
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
 export type FortStatus = "under_construction" | "active" | "removing";
 export type SiegeOutpostStatus = "under_construction" | "active" | "removing";
+export type FortVariant = "FORT" | "IRON_BASTION" | "THUNDER_BASTION";
+export type SiegeOutpostVariant = "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
 export type ObservatoryStatus = "under_construction" | "active" | "inactive" | "removing";
 export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
@@ -16,12 +18,16 @@ export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
 export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
 export type EconomicStructureType =
   | "FARMSTEAD"
+  | "WATERWORKS"
   | "CAMP"
   | "MINE"
   | "MARKET"
   | "GRANARY"
+  | "CENSUS_HALL"
   | "BANK"
+  | "CLEARING_HOUSE"
   | "AIRPORT"
+  | "AETHER_TOWER"
   | "WOODEN_FORT"
   | "LIGHT_OUTPOST"
   | "FUR_SYNTHESIZER"
@@ -33,10 +39,22 @@ export type EconomicStructureType =
   | "FUEL_PLANT"
   | "CARAVANARY"
   | "FOUNDRY"
+  | "EXCHANGE_HOUSE"
   | "GARRISON_HALL"
   | "CUSTOMS_HOUSE"
+  | "LOCKWORKS_PORT"
+  | "CHARTERED_PORT"
+  | "RAIL_DEPOT"
   | "GOVERNORS_OFFICE"
-  | "RADAR_SYSTEM";
+  | "RADAR_SYSTEM"
+  | "IMPERIAL_EXCHANGE_PART"
+  | "WORLD_ENGINE_PART"
+  | "AEGIS_DOME_PART"
+  | "ASTRAL_DOCK_PART"
+  | "IMPERIAL_EXCHANGE"
+  | "WORLD_ENGINE"
+  | "AEGIS_DOME"
+  | "ASTRAL_DOCK";
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type ShardSiteKind = "CACHE" | "FALL";
 export type SeasonVictoryPathId =
@@ -80,6 +98,7 @@ export interface EconomicStructure {
   inactiveReason?: "manual" | "upkeep";
   previousStatus?: "active" | "inactive";
   nextUpkeepAt: number;
+  powered?: boolean;
 }
 
 export interface SeasonVictoryObjectiveView {
@@ -245,8 +264,8 @@ export interface Tile {
     gold: number;
     strategicEach: number;
   };
-  fort?: { ownerId: PlayerId; status: FortStatus; completesAt?: number; disabledUntil?: number };
-  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; completesAt?: number };
+  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; disabledUntil?: number };
+  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number };
   observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; cooldownUntil?: number };
   economicStructure?: {
     ownerId: PlayerId;
@@ -416,6 +435,7 @@ export interface Fort {
   fortId: string;
   ownerId: PlayerId;
   tileKey: TileKey;
+  variant: FortVariant;
   status: FortStatus;
   startedAt: number;
   completesAt?: number;
@@ -427,6 +447,7 @@ export interface SiegeOutpost {
   siegeOutpostId: string;
   ownerId: PlayerId;
   tileKey: TileKey;
+  variant: SiegeOutpostVariant;
   status: SiegeOutpostStatus;
   startedAt: number;
   completesAt?: number;
