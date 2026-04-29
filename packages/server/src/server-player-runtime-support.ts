@@ -73,6 +73,7 @@ export interface CreateServerPlayerRuntimeSupportDeps {
   chebyshevDistance: (ax: number, ay: number, bx: number, by: number) => number;
   getOrInitResourceCounts: (playerId: string) => Record<string, number>;
   setClusterControlDelta: (playerId: string, clusterId: string, delta: number) => void;
+  recordPlayerLifecycleEvent?: (event: string, payload: Record<string, unknown>) => void;
   now: () => number;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
   runtimeLogError: (payload: Record<string, unknown>, message: string) => void;
@@ -289,6 +290,13 @@ export const createServerPlayerRuntimeSupport = (
       player.isEliminated = false;
       player.respawnPending = false;
       deps.broadcastBulk({ type: "PLAYER_STYLE", playerId: player.id, ...deps.playerStylePayload(player) });
+      deps.recordPlayerLifecycleEvent?.("player_spawned", {
+        playerId: player.id,
+        profileComplete: player.profileComplete === true,
+        territoryTiles: player.territoryTiles.size,
+        x,
+        y
+      });
       deps.runtimeLogInfo({ playerId: player.id, x, y }, "spawned player");
       return true;
     };
@@ -360,6 +368,14 @@ export const createServerPlayerRuntimeSupport = (
 
   const getOrCreatePlayerForIdentity = (identity: AuthIdentity): Player | undefined => {
     let player = deps.players.get(identity.playerId);
+    if (identity.playerId && !player) {
+      deps.recordPlayerLifecycleEvent?.("auth_identity_missing_player_binding", {
+        uid: identity.uid,
+        playerId: identity.playerId,
+        email: identity.email,
+        name: identity.name
+      });
+    }
     if (!player) {
       player = {
         id: crypto.randomUUID(),
@@ -402,13 +418,31 @@ export const createServerPlayerRuntimeSupport = (
       deps.forcedRevealTilesByPlayer.set(player.id, new Set<TileKey>());
       deps.setRevealTargetsForPlayer(player.id, []);
       deps.playerEffectsByPlayer.set(player.id, deps.emptyPlayerEffects());
+      deps.recordPlayerLifecycleEvent?.("auth_identity_created_player", {
+        uid: identity.uid,
+        playerId: player.id,
+        email: identity.email,
+        name: identity.name,
+        profileComplete: false
+      });
       spawnPlayer(player);
     }
     if (!player) return undefined;
     if (!Array.isArray(player.activityInbox)) player.activityInbox = [];
     if (!(player.domainIds instanceof Set)) (player as Player & { domainIds: Set<string> }).domainIds = new Set<string>();
     deps.normalizePlayerProgressionState(player);
-    if (player.T <= 0 || player.territoryTiles.size === 0) spawnPlayer(player);
+    if (player.T <= 0 || player.territoryTiles.size === 0) {
+      deps.recordPlayerLifecycleEvent?.("auth_identity_triggered_respawn", {
+        uid: identity.uid,
+        playerId: player.id,
+        email: identity.email,
+        profileComplete: player.profileComplete === true,
+        T: player.T,
+        territoryTiles: player.territoryTiles.size,
+        respawnPending: player.respawnPending
+      });
+      spawnPlayer(player);
+    }
     if (!player.tileColor) player.tileColor = deps.colorFromId(player.id);
     if (player.name !== identity.name) player.name = identity.name;
     deps.recomputePlayerEffectsForPlayer(player);

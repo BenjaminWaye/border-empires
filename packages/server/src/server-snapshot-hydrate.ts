@@ -8,6 +8,7 @@ import type {
   SnapshotState,
   TileHistoryState
 } from "./server-shared-types.js";
+import { isStagingProbePlayerName } from "./server-probe-guard.js";
 
 type SnapshotOwnershipStateEntry = NonNullable<SnapshotState["ownershipState"]>[number];
 type SnapshotAuthIdentity = NonNullable<SnapshotState["authIdentities"]>[number];
@@ -230,10 +231,12 @@ export const createServerSnapshotHydrateRuntime = (
       const activeSeason = deps.activeSeason();
       activeSeason.techTreeConfigId = nextConfig.configId;
     }
+    let probePlayersMarkedIncomplete = 0;
     for (const rawPlayer of raw.players) {
+      const probePlayer = rawPlayer.isAi !== true && isStagingProbePlayerName(rawPlayer.name);
       const hydrated: Player = {
         ...rawPlayer,
-        profileComplete: rawPlayer.profileComplete ?? true,
+        profileComplete: probePlayer ? false : rawPlayer.profileComplete ?? true,
         Ts: rawPlayer.Ts ?? 0,
         Es: rawPlayer.Es ?? 0,
         lastEconomyWakeAt: rawPlayer.lastEconomyWakeAt ?? rawPlayer.lastActiveAt,
@@ -255,6 +258,30 @@ export const createServerSnapshotHydrateRuntime = (
         vision: hydrated.mods.vision
       });
       deps.recomputePlayerEffectsForPlayer(hydrated);
+      if (probePlayer) probePlayersMarkedIncomplete += 1;
+    }
+    let recoveredOwnershipTiles = 0;
+    for (const player of deps.players.values()) {
+      for (const tileKey of player.territoryTiles) {
+        if (deps.ownership.has(tileKey)) continue;
+        const [x, y] = deps.parseKey(tileKey);
+        if (deps.playerTile(x, y).terrain !== "LAND") continue;
+        deps.ownership.set(tileKey, player.id);
+        if (!deps.ownershipStateByTile.has(tileKey)) deps.ownershipStateByTile.set(tileKey, "SETTLED");
+        if (deps.ownershipStateByTile.get(tileKey) === "SETTLED" && !deps.settledSinceByTile.has(tileKey)) {
+          deps.settledSinceByTile.set(tileKey, 0);
+        }
+        recoveredOwnershipTiles += 1;
+      }
+    }
+    if (probePlayersMarkedIncomplete > 0 || recoveredOwnershipTiles > 0) {
+      deps.runtimeLogInfo(
+        {
+          probePlayersMarkedIncomplete,
+          recoveredOwnershipTiles
+        },
+        "snapshot player recovery applied"
+      );
     }
     for (const settlement of raw.pendingSettlements ?? []) {
       deps.pendingSettlementsByTile.set(settlement.tileKey, {

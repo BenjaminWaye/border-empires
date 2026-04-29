@@ -124,6 +124,7 @@ import { createServerSnapshotIoRuntime } from "./server-snapshot-io.js";
 import { createServerSnapshotHydrateRuntime } from "./server-snapshot-hydrate.js";
 import { createServerPlayerIdentityRuntime } from "./server-player-identity-runtime.js";
 import { playerNeedsProfileSetup, resetHumanProfileForSeason } from "./server-player-profile-lifecycle.js";
+import { collectStagingProbePlayerReports, collectUnboundHumanPlayerReports } from "./server-probe-guard.js";
 import { createServerAiFrontierSignalsRuntime } from "./server-ai-frontier-signals.js";
 import { createServerAiFrontierTerritoryRuntime } from "./server-ai-frontier-territory.js";
 import { createServerAiFrontierScoutRuntime } from "./server-ai-frontier-scout.js";
@@ -4991,6 +4992,16 @@ const humanChunkSnapshotPriorityActive = (): boolean => {
 };
 const resolveEliminationIfNeeded = (p: Player, isOnline: boolean): void => {
   if (p.T > 0) return;
+  runtimeIncidentLog.record("player_elimination_resolved", {
+    playerId: p.id,
+    name: p.name,
+    isOnline,
+    profileComplete: p.profileComplete === true,
+    T: p.T,
+    territoryTiles: p.territoryTiles.size,
+    respawnPending: p.respawnPending,
+    isEliminated: p.isEliminated
+  });
   p.isEliminated = true;
   p.points *= 0.7;
   recalcPlayerDerived(p);
@@ -7468,6 +7479,7 @@ const {
   chebyshevDistance,
   getOrInitResourceCounts,
   setClusterControlDelta,
+  recordPlayerLifecycleEvent: (event, payload) => runtimeIncidentLog.record(event, payload),
   now,
   runtimeLogInfo: (payload, message) => {
     if (runtimeState.appRef) runtimeState.appRef.log.info(payload, message);
@@ -7797,6 +7809,21 @@ const {
 const bootstrapRuntimeState = async (): Promise<void> => {
   const loadStartedAt = Date.now();
   const loadedSnapshot = loadSnapshot();
+  const stagingProbePlayers = collectStagingProbePlayerReports(players.values());
+  const unboundHumanPlayers = collectUnboundHumanPlayerReports(players.values(), authIdentityByUid.values());
+  if (stagingProbePlayers.length > 0 || unboundHumanPlayers.length > 0) {
+    runtimeIncidentLog.record("startup_player_guard_failed", {
+      stagingProbePlayers,
+      unboundHumanPlayers
+    });
+    await runtimeIncidentLog.flush();
+    throw new Error(
+      `startup player guard failed: ${JSON.stringify({
+        stagingProbePlayers,
+        unboundHumanPlayers
+      })}`
+    );
+  }
   for (const player of [...players.values()]) {
     if (playerNeedsProfileSetup(player)) discardIncompleteHumanPlayer(player);
   }
@@ -7896,6 +7923,14 @@ const bootstrapRuntimeState = async (): Promise<void> => {
   for (const p of players.values()) recomputeTechModsFromOwnedTechs(p);
   for (const p of players.values()) {
     if (p.T <= 0 || p.territoryTiles.size === 0) {
+      runtimeIncidentLog.record("startup_player_bootstrap_respawn", {
+        playerId: p.id,
+        name: p.name,
+        profileComplete: p.profileComplete === true,
+        T: p.T,
+        territoryTiles: p.territoryTiles.size,
+        respawnPending: p.respawnPending
+      });
       spawnPlayer(p);
     }
   }
