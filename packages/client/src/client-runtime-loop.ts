@@ -12,7 +12,7 @@ import { structureAreaPreviewForTile } from "./client-structure-effects.js";
 import type { initClientDom } from "./client-dom.js";
 import { clampOwnershipBorderWidth } from "./client-ownership-borders.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network.js";
-import { queuedCornerBadgeLayout } from "./client-queue-badges.js";
+import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings.js";
 import type { ClientState } from "./client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
@@ -727,21 +727,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.lineWidth = 1;
       }
 
-      const queuedN = queueIndex.get(wk);
-      if (!isTrue3DRendererActive() && queuedN !== undefined) {
-        deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
-        deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
-        if (size >= 16) {
-          deps.ctx.fillStyle = "rgba(20, 16, 35, 0.85)";
-          deps.ctx.fillRect(px + 3, py + 3, Math.min(size - 6, 14), 12);
-          deps.ctx.fillStyle = "#c4b5fd";
-          deps.ctx.font = "10px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.fillText(String(queuedN), px + 5, py + 4);
-        }
-        deps.ctx.lineWidth = 1;
-      }
+      const queuedFrontierBadge = queuedCornerBadgeLayout({
+        kind: "FRONTIER",
+        ordinal: queueIndex.get(wk),
+        px,
+        py,
+        size,
+        isTrue3D: isTrue3DRendererActive(),
+        blocked: false
+      });
+      drawQueuedCornerBadge(deps.ctx, queuedFrontierBadge);
       const queuedSettlementBadge = queuedCornerBadgeLayout({
         kind: "SETTLEMENT",
         ordinal: settleQueueIndex.get(wk),
@@ -751,32 +746,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         isTrue3D: isTrue3DRendererActive(),
         blocked: Boolean(settlementProgress)
       });
-      if (queuedSettlementBadge?.border) {
-        deps.ctx.strokeStyle = queuedSettlementBadge.border.strokeStyle;
-        deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(
-          queuedSettlementBadge.border.x,
-          queuedSettlementBadge.border.y,
-          queuedSettlementBadge.border.width,
-          queuedSettlementBadge.border.height
-        );
-      }
-      if (queuedSettlementBadge?.badge) {
-        deps.ctx.fillStyle = queuedSettlementBadge.badge.background;
-        deps.ctx.fillRect(
-          queuedSettlementBadge.badge.x,
-          queuedSettlementBadge.badge.y,
-          queuedSettlementBadge.badge.width,
-          queuedSettlementBadge.badge.height
-        );
-        deps.ctx.fillStyle = queuedSettlementBadge.badge.foreground;
-        deps.ctx.font = "10px monospace";
-        deps.ctx.textBaseline = "top";
-        deps.ctx.textAlign = "left";
-        deps.ctx.fillText(queuedSettlementBadge.badge.text, queuedSettlementBadge.badge.textX, queuedSettlementBadge.badge.textY);
-        deps.ctx.textAlign = "start";
-      }
-      if (queuedSettlementBadge?.border) deps.ctx.lineWidth = 1;
+      drawQueuedCornerBadge(deps.ctx, queuedSettlementBadge);
       const queuedBuildBadge = queuedCornerBadgeLayout({
         kind: "BUILD",
         ordinal: queuedBuildIndex.get(wk),
@@ -786,27 +756,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         isTrue3D: isTrue3DRendererActive(),
         blocked: Boolean(settlementProgress)
       });
-      if (queuedBuildBadge?.border) {
-        deps.ctx.strokeStyle = queuedBuildBadge.border.strokeStyle;
-        deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(
-          queuedBuildBadge.border.x,
-          queuedBuildBadge.border.y,
-          queuedBuildBadge.border.width,
-          queuedBuildBadge.border.height
-        );
-      }
-      if (queuedBuildBadge?.badge) {
-        deps.ctx.fillStyle = queuedBuildBadge.badge.background;
-        deps.ctx.fillRect(queuedBuildBadge.badge.x, queuedBuildBadge.badge.y, queuedBuildBadge.badge.width, queuedBuildBadge.badge.height);
-        deps.ctx.fillStyle = queuedBuildBadge.badge.foreground;
-        deps.ctx.font = "10px monospace";
-        deps.ctx.textBaseline = "top";
-        deps.ctx.textAlign = "left";
-        deps.ctx.fillText(queuedBuildBadge.badge.text, queuedBuildBadge.badge.textX, queuedBuildBadge.badge.textY);
-        deps.ctx.textAlign = "start";
-      }
-      if (queuedBuildBadge?.border) deps.ctx.lineWidth = 1;
+      drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
     };
     for (let y = -halfH; y <= halfH; y += 1) {
       for (let x = -halfW; x <= halfW; x += 1) {
@@ -1269,21 +1219,16 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.lineWidth = 1;
         }
 
-        const queuedN = queueIndex.get(wk);
-        if (!isTrue3DRendererActive() && queuedN !== undefined) {
-          deps.ctx.strokeStyle = "rgba(168, 139, 250, 0.95)";
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 1, py + 1, size - 3, size - 3);
-          if (size >= 16) {
-            deps.ctx.fillStyle = "rgba(20, 16, 35, 0.85)";
-            deps.ctx.fillRect(px + 3, py + 3, Math.min(size - 6, 14), 12);
-            deps.ctx.fillStyle = "#c4b5fd";
-            deps.ctx.font = "10px monospace";
-            deps.ctx.textBaseline = "top";
-            deps.ctx.fillText(String(queuedN), px + 5, py + 4);
-          }
-          deps.ctx.lineWidth = 1;
-        }
+        const queuedFrontierBadge = queuedCornerBadgeLayout({
+          kind: "FRONTIER",
+          ordinal: queueIndex.get(wk),
+          px,
+          py,
+          size,
+          isTrue3D: isTrue3DRendererActive(),
+          blocked: false
+        });
+        drawQueuedCornerBadge(deps.ctx, queuedFrontierBadge);
         const queuedSettlementBadge = queuedCornerBadgeLayout({
           kind: "SETTLEMENT",
           ordinal: settleQueueIndex.get(wk),
@@ -1293,32 +1238,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           isTrue3D: isTrue3DRendererActive(),
           blocked: Boolean(settlementProgress)
         });
-        if (queuedSettlementBadge?.border) {
-          deps.ctx.strokeStyle = queuedSettlementBadge.border.strokeStyle;
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(
-            queuedSettlementBadge.border.x,
-            queuedSettlementBadge.border.y,
-            queuedSettlementBadge.border.width,
-            queuedSettlementBadge.border.height
-          );
-        }
-        if (queuedSettlementBadge?.badge) {
-          deps.ctx.fillStyle = queuedSettlementBadge.badge.background;
-          deps.ctx.fillRect(
-            queuedSettlementBadge.badge.x,
-            queuedSettlementBadge.badge.y,
-            queuedSettlementBadge.badge.width,
-            queuedSettlementBadge.badge.height
-          );
-          deps.ctx.fillStyle = queuedSettlementBadge.badge.foreground;
-          deps.ctx.font = "10px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.textAlign = "left";
-          deps.ctx.fillText(queuedSettlementBadge.badge.text, queuedSettlementBadge.badge.textX, queuedSettlementBadge.badge.textY);
-          deps.ctx.textAlign = "start";
-        }
-        if (queuedSettlementBadge?.border) deps.ctx.lineWidth = 1;
+        drawQueuedCornerBadge(deps.ctx, queuedSettlementBadge);
         const queuedBuildBadge = queuedCornerBadgeLayout({
           kind: "BUILD",
           ordinal: queuedBuildIndex.get(wk),
@@ -1328,27 +1248,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           isTrue3D: isTrue3DRendererActive(),
           blocked: Boolean(settlementProgress)
         });
-        if (queuedBuildBadge?.border) {
-          deps.ctx.strokeStyle = queuedBuildBadge.border.strokeStyle;
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(
-            queuedBuildBadge.border.x,
-            queuedBuildBadge.border.y,
-            queuedBuildBadge.border.width,
-            queuedBuildBadge.border.height
-          );
-        }
-        if (queuedBuildBadge?.badge) {
-          deps.ctx.fillStyle = queuedBuildBadge.badge.background;
-          deps.ctx.fillRect(queuedBuildBadge.badge.x, queuedBuildBadge.badge.y, queuedBuildBadge.badge.width, queuedBuildBadge.badge.height);
-          deps.ctx.fillStyle = queuedBuildBadge.badge.foreground;
-          deps.ctx.font = "10px monospace";
-          deps.ctx.textBaseline = "top";
-          deps.ctx.textAlign = "left";
-          deps.ctx.fillText(queuedBuildBadge.badge.text, queuedBuildBadge.badge.textX, queuedBuildBadge.badge.textY);
-          deps.ctx.textAlign = "start";
-        }
-        if (queuedBuildBadge?.border) deps.ctx.lineWidth = 1;
+        drawQueuedCornerBadge(deps.ctx, queuedBuildBadge);
       }
     }
 
