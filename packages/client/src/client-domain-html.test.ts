@@ -168,7 +168,8 @@ describe("domain card previews", () => {
     });
 
     expect(html).toContain('data-domain-card="frontier-doctrine"');
-    expect(html).not.toContain('data-domain-card="farmers-compact"');
+    expect(html).toContain('data-domain-card="farmers-compact"');
+    expect(html).toContain("Tier 1 already committed to Frontier Doctrine");
     expect(html).toContain('data-domain-card="iron-bastions"');
   });
 
