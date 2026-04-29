@@ -3096,7 +3096,7 @@ const executeUnifiedGameplayMessage = async (
           resolvesAt: result.resolvesAt,
           ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
           ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
-          ...(result.predictedResult ? { predictedResult: result.predictedResult } : {})
+          ...(result.result ? { result: result.result } : {})
         })
       );
       if (result.attackAlert) {
@@ -10153,7 +10153,7 @@ registerServerHttpRoutes(app, {
       (pending.precomputedCombatPromise
         ? await pending.precomputedCombatPromise
         : undefined);
-    const predictedResult = buildPredictedFrontierResult({
+    const result = buildPredictedFrontierResult({
       actionType: msg.type,
       actorId: actor.id,
       origin: { x: from.x, y: from.y },
@@ -10166,7 +10166,7 @@ registerServerHttpRoutes(app, {
       from: { x: from.x, y: from.y },
       target: { x: to.x, y: to.y },
       resolvesAt,
-      predictedResult: Boolean(predictedResult),
+      result: Boolean(result),
       ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
       ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
       ...(pending.traceId ? { traceId: pending.traceId } : {})
@@ -10180,7 +10180,7 @@ registerServerHttpRoutes(app, {
         resolvesAt,
         ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
         ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
-        ...(predictedResult ? { predictedResult } : {})
+        ...(result ? { result } : {})
       },
       { playerId: actor.id, ...(pending.traceId ? { traceId: pending.traceId } : {}) }
     );
@@ -10192,7 +10192,7 @@ registerServerHttpRoutes(app, {
         from: { x: from.x, y: from.y },
         target: { x: to.x, y: to.y },
         resolvesAt,
-        predictedResult: Boolean(predictedResult),
+        result: Boolean(result),
         ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
         ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
         traceId: pending.traceId
@@ -10207,7 +10207,7 @@ registerServerHttpRoutes(app, {
     logAttackTrace("combat_start_sent", pending, {
       commandId: typeof msg.commandId === "string" ? msg.commandId : undefined,
       clientSeq: typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? msg.clientSeq : undefined,
-      predictedResult: Boolean(predictedResult),
+      result: Boolean(result),
       socketReadyState: socket.readyState
     });
     if (isBreakthroughAttack || bridgeCrossing) sendPlayerUpdate(actor, 0);
@@ -10255,20 +10255,6 @@ registerServerHttpRoutes(app, {
             "neutral expand timing"
           );
         }
-        sendToPlayer(actor.id, {
-          type: "COMBAT_RESULT",
-          attackType: msg.type,
-          attackerWon: true,
-          origin: { x: from.x, y: from.y },
-          target: { x: to.x, y: to.y },
-          winnerId: actor.id,
-          changes: [{ x: to.x, y: to.y, ownerId: actor.id, ownershipState: "FRONTIER" }],
-          pointsDelta: siteBonusGold,
-          levelDelta: 0,
-          ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
-          ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
-          ...(neutralExpandTiming ? { timing: neutralExpandTiming } : {})
-        });
         recordHotPathTimingEvent(
           "frontier_combat_result_timing",
           {
@@ -10415,28 +10401,6 @@ registerServerHttpRoutes(app, {
 
       const resultSentAt = now();
       const frontierResultTiming = buildFrontierResultTiming(pending, resultSentAt);
-      sendToPlayer(actor.id, {
-        type: "COMBAT_RESULT",
-        attackType: msg.type,
-        attackerWon: win,
-        winnerId: lockedCombat?.winnerId ?? (win ? actor.id : defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId),
-        defenderOwnerId: lockedCombat?.defenderOwnerId ?? (defenderIsBarbarian ? BARBARIAN_OWNER_ID : defenderOwnerId),
-        origin: { x: from.x, y: from.y },
-        target: { x: to.x, y: to.y },
-        atkEff: atkEffWithSiege,
-        defEff,
-        winChance: p,
-        changes: resultChanges,
-        pointsDelta,
-        manpowerDelta,
-        pillagedGold,
-        pillagedShare,
-        pillagedStrategic,
-        levelDelta: 0,
-        ...(typeof msg.commandId === "string" && msg.commandId ? { commandId: msg.commandId } : {}),
-        ...(typeof msg.clientSeq === "number" && Number.isFinite(msg.clientSeq) ? { clientSeq: msg.clientSeq } : {}),
-        ...(frontierResultTiming ? { timing: frontierResultTiming } : {})
-      });
       if (frontierResultTiming) {
         app.log.info(
           {

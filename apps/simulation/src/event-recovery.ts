@@ -34,6 +34,7 @@ export type RecoveredLock = {
   originKey: string;
   targetKey: string;
   resolvesAt: number;
+  combatResolutionJson?: string;
 };
 
 export type RecoveredSimulationState = {
@@ -215,7 +216,8 @@ export const applySimulationEventsToRecoveredAccumulator = (
         targetY: event.targetY,
         originKey: simulationTileKey(event.originX, event.originY),
         targetKey: simulationTileKey(event.targetX, event.targetY),
-        resolvesAt: event.resolvesAt
+        resolvesAt: event.resolvesAt,
+        ...(event.combatResult ? { combatResolutionJson: JSON.stringify({ result: event.combatResult, defenderGoldLoss: 0 }) } : {})
       });
       continue;
     }
