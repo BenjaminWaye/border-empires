@@ -174,4 +174,117 @@ describe("server-frontier-action-runtime", () => {
       })
     );
   });
+
+  it("treats an attack request against authoritative neutral land as a manpower-free expand", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(2_000);
+
+    const actor = buildPlayer("attacker");
+    actor.manpower = 0;
+    const origin: Tile = { x: 4, y: 4, terrain: "LAND", ownerId: "attacker", ownershipState: "FRONTIER", lastChangedAt: 0 };
+    const target: Tile = { x: 5, y: 4, terrain: "LAND", ownershipState: "FRONTIER", lastChangedAt: 0 };
+    const tiles = new Map<string, Tile>([
+      ["4,4", origin],
+      ["5,4", target]
+    ]);
+    const updateOwnership = vi.fn((x: number, y: number, ownerId?: string, ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN") => {
+      const tile = tiles.get(`${x},${y}`);
+      if (!tile) return;
+      if (ownerId === undefined) delete tile.ownerId;
+      else tile.ownerId = ownerId;
+      if (ownershipState === undefined) delete tile.ownershipState;
+      else tile.ownershipState = ownershipState;
+    });
+    const hasEnoughManpower = vi.fn((_player: Player, amount: number) => amount === 0);
+
+    const runtime = createServerFrontierActionRuntime({
+      FRONTIER_ACTION_GOLD_COST: 10,
+      BREACH_SHOCK_DEF_MULT: 1,
+      PVP_REWARD_MULT: 1,
+      BARBARIAN_OWNER_ID: "barbarian",
+      players: new Map([[actor.id, actor]]),
+      docksByTile: new Map(),
+      breachShockByTile: new Map(),
+      pendingSettlementsByTile: new Map(),
+      combatLocks: new Map(),
+      barbarianAgents: new Map(),
+      barbarianAgentByTileKey: new Map(),
+      repeatFights: new Map(),
+      telemetryCounters: { frontierClaims: 0 },
+      socketsByPlayer: new Map(),
+      now: () => Date.now(),
+      key: (x: number, y: number) => `${x},${y}`,
+      parseKey: (tileKey: TileKey) => {
+        const [xText, yText] = tileKey.split(",");
+        const x = Number(xText);
+        const y = Number(yText);
+        return [x, y];
+      },
+      playerTile: (x: number, y: number) => {
+        const tile = tiles.get(`${x},${y}`);
+        if (!tile) throw new Error(`Missing tile ${x},${y}`);
+        return tile;
+      },
+      recalcPlayerDerived: vi.fn(),
+      updateOwnership,
+      applyStaminaRegen: vi.fn(),
+      applyManpowerRegen: vi.fn(),
+      hasEnoughManpower,
+      manpowerMinForAction: (actionType) => (actionType === "ATTACK" ? 60 : 0),
+      manpowerCostForAction: (actionType) => (actionType === "ATTACK" ? 25 : 0),
+      isAdjacentTile: () => true,
+      validDockCrossingTarget: () => false,
+      findOwnedDockOriginForCrossing: () => undefined,
+      crossingBlockedByAetherWall: () => false,
+      markAiDefensePriority: vi.fn(),
+      frontierClaimDurationMsAt: () => 1_000,
+      outpostAttackMultAt: () => 1,
+      activeAttackBuffMult: () => 1,
+      attackMultiplierForTarget: () => 1,
+      playerDefensiveness: () => 1,
+      fortDefenseMultAt: () => 1,
+      settledDefenseMultiplierForTarget: () => 1,
+      settlementDefenseMultAt: () => 1,
+      ownershipDefenseMultiplierForTarget: () => 1,
+      frontierDefenseAddForTarget: () => 0,
+      originTileHeldByActiveFort: () => false,
+      resolveFailedBarbarianDefenseOutcome: () => ({ resultChanges: [], defenderTile: { x: 4, y: 4 } }),
+      applyFailedAttackTerritoryOutcome: () => ({ originLost: false, resultChanges: [] }),
+      settleAttackManpower: vi.fn(),
+      applyTownWarShock: vi.fn(),
+      settledTileCountForPlayer: () => 1,
+      seizeStoredYieldOnCapture: vi.fn(),
+      pillageSettledTile: () => ({ gold: 0, share: 0, strategic: {} }),
+      incrementVendettaCount: vi.fn(),
+      maybeIssueVendettaMission: vi.fn(),
+      maybeIssueResourceMission: vi.fn(),
+      updateMissionState: vi.fn(),
+      resolveEliminationIfNeeded: vi.fn(),
+      sendPlayerUpdate: vi.fn(),
+      sendLocalVisionDeltaForPlayer: vi.fn(),
+      sendToPlayer: vi.fn(),
+      sendPostCombatFollowUps: vi.fn(),
+      claimFirstSpecialSiteCaptureBonus: () => 0,
+      pairKeyFor: (a, b) => `${a}:${b}`,
+      pruneRepeatFightEntries: () => [],
+      getBarbarianProgressGain: () => 0,
+      upsertBarbarianAgent: vi.fn(),
+      logBarbarianEvent: vi.fn(),
+      baseTileValue: () => 1
+    });
+
+    const result = runtime.tryQueueBasicFrontierAction(actor, "ATTACK", 4, 4, 5, 4);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: true,
+        actionType: "EXPAND"
+      })
+    );
+    expect(hasEnoughManpower).toHaveBeenCalledWith(actor, 0);
+
+    vi.advanceTimersByTime(1_000);
+
+    expect(updateOwnership).toHaveBeenCalledWith(5, 4, "attacker", "FRONTIER");
+  });
 });
