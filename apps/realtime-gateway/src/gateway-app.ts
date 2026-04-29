@@ -688,7 +688,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               commandId: event.commandId,
               origin: { x: event.originX, y: event.originY },
               target: { x: event.targetX, y: event.targetY },
-              resolvesAt: event.resolvesAt
+              resolvesAt: event.resolvesAt,
+              ...(event.combatResult ? { result: event.combatResult } : {})
             });
           }
           continue;
@@ -783,20 +784,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           });
           continue;
         }
-        queueOrSendSessionPayload(socket, {
-          type: "COMBAT_RESULT",
-          commandId: event.commandId,
-          attackType: event.actionType,
-          attackerWon: event.attackerWon,
-          origin: { x: event.originX, y: event.originY },
-          target: { x: event.targetX, y: event.targetY },
-          ...(typeof event.manpowerDelta === "number" ? { manpowerDelta: event.manpowerDelta } : {}),
-          ...(typeof event.pillagedGold === "number" ? { pillagedGold: event.pillagedGold } : {}),
-          ...(event.pillagedStrategic ? { pillagedStrategic: event.pillagedStrategic } : {}),
-          changes: event.attackerWon
-            ? [{ x: event.targetX, y: event.targetY, ownerId: event.playerId, ownershipState: "FRONTIER" }]
-            : []
-        });
       }
     },
     {

@@ -501,7 +501,7 @@ describe("client gateway sync regression", () => {
     );
   });
 
-  it("stores the full locked combat result from COMBAT_START before the reveal timer ends", () => {
+  it("stores the full locked combat result from COMBAT_START.result before the reveal timer ends", () => {
     const state = createState();
     state.me = "player-1";
     state.tiles.set("10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" });
@@ -574,7 +574,7 @@ describe("client gateway sync regression", () => {
         origin: { x: 10, y: 10 },
         target: { x: 10, y: 11 },
         resolvesAt: 2_250,
-        predictedResult: {
+        result: {
           attackType: "ATTACK",
           attackerWon: true,
           winnerId: "player-1",

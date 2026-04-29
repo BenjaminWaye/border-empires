@@ -148,7 +148,7 @@ describe("server-frontier-action-runtime", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.predictedResult).toEqual(
+    expect(result.result).toEqual(
       expect.objectContaining({
         attackerWon: false,
         defenderOwnerId: "missing-defender",
@@ -163,16 +163,7 @@ describe("server-frontier-action-runtime", () => {
     vi.advanceTimersByTime(3_000);
 
     expect(updateOwnership).toHaveBeenCalledWith(4, 4, "missing-defender", "FRONTIER");
-    expect(sendToPlayer).toHaveBeenCalledWith(
-      "attacker",
-      expect.objectContaining({
-        type: "COMBAT_RESULT",
-        attackerWon: false,
-        winnerId: "missing-defender",
-        defenderOwnerId: "missing-defender",
-        changes: [{ x: 4, y: 4, ownerId: "missing-defender", ownershipState: "FRONTIER" }]
-      })
-    );
+    expect(sendToPlayer).not.toHaveBeenCalled();
   });
 
   it("treats an attack request against authoritative neutral land as a manpower-free expand", () => {

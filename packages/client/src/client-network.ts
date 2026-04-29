@@ -1553,14 +1553,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         actionAcceptedAck: state.actionAcceptedAck,
         hadCombatStartAck: state.combatStartAck
       });
-      applyCombatOutcomeMessage(msg as Record<string, unknown>);
+      const commitOnlyResult =
+        !("manpowerDelta" in msg) &&
+        !("pillagedGold" in msg) &&
+        !("pillagedStrategic" in msg) &&
+        !("atkEff" in msg) &&
+        !("defEff" in msg) &&
+        !("winChance" in msg) &&
+        !("pointsDelta" in msg);
+      const lockedResult = state.pendingCombatReveal?.result;
+      if (commitOnlyResult && lockedResult) applyCombatOutcomeMessage(lockedResult);
+      else applyCombatOutcomeMessage(msg as Record<string, unknown>);
       return;
     }
 
       if (msg.type === "COMBAT_START") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
-          attackType: (msg.predictedResult as { attackType?: string } | undefined)?.attackType,
+          attackType: (msg.result as { attackType?: string } | undefined)?.attackType,
           commandId: msg.commandId,
           clientSeq: msg.clientSeq,
           currentCommandId: state.actionCurrent?.commandId,
@@ -1581,17 +1591,18 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         target,
         origin: msg.origin,
         resolvesAt,
-        predictedResult: Boolean(msg.predictedResult),
+        result: Boolean(msg.result),
         startedAgoMs: state.actionStartedAt ? Date.now() - state.actionStartedAt : undefined,
         currentAction: state.actionCurrent
       });
+      const lockedResult = msg.result as { attackType?: string } | undefined;
       rebindLateFrontierAck(
         target,
         "COMBAT_START",
-        ((msg.predictedResult as { attackType?: string } | undefined)?.attackType as "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | undefined) ??
+        (lockedResult?.attackType as "EXPAND" | "ATTACK" | "BREAKTHROUGH_ATTACK" | undefined) ??
           state.actionCurrent?.actionType
       );
-      if ((msg.predictedResult as { attackType?: string } | undefined)?.attackType === "EXPAND") applyAcceptedExpandOptimisticState(target);
+      if (lockedResult?.attackType === "EXPAND") applyAcceptedExpandOptimisticState(target);
       state.actionAcceptedAck = true;
       state.combatStartAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
@@ -1600,12 +1611,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const startAt = existingCapture?.startAt ?? Date.now();
       const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
       state.capture = { startAt, resolvesAt: resolvesAtForCapture, target };
-      const predictedResult = msg.predictedResult as Record<string, unknown> | undefined;
-      if (predictedResult) {
-        const predictedAlert = combatResolutionAlert(predictedResult, {
+      const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
+      if (lockedCombatResult) {
+        const predictedAlert = combatResolutionAlert(lockedCombatResult, {
           targetTileBefore: state.tiles.get(keyFor(target.x, target.y)),
           originTileBefore: (() => {
-            const origin = predictedResult.origin as { x: number; y: number } | undefined;
+            const origin = lockedCombatResult.origin as { x: number; y: number } | undefined;
             return origin ? state.tiles.get(keyFor(origin.x, origin.y)) : undefined;
           })()
         });
@@ -1615,7 +1626,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           detail: predictedAlert.detail,
           tone: predictedAlert.tone,
           ...(typeof predictedAlert.manpowerLoss === "number" ? { manpowerLoss: predictedAlert.manpowerLoss } : {}),
-          result: predictedResult,
+          result: lockedCombatResult,
           revealed: false
         };
       } else if (state.pendingCombatReveal?.targetKey === keyFor(target.x, target.y)) {

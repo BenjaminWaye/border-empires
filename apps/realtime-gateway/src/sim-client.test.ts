@@ -51,6 +51,22 @@ describe("simulation event stream supervisor", () => {
         code: "",
         message: "",
         attacker_won: false,
+        combat_result_json: JSON.stringify({
+          attackType: "ATTACK",
+          attackerWon: true,
+          origin: { x: 10, y: 10 },
+          target: { x: 10, y: 11 },
+          changes: [{ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER" }],
+          pointsDelta: 0,
+          manpowerDelta: -24,
+          pillagedGold: 0,
+          pillagedShare: 0,
+          pillagedStrategic: {},
+          atkEff: 10,
+          defEff: 0,
+          winChance: 1,
+          levelDelta: 0
+        }),
         tile_delta_json: "",
         tile_deltas: []
       });
@@ -71,6 +87,22 @@ describe("simulation event stream supervisor", () => {
         message: "",
         attacker_won: true,
         manpower_delta: -32,
+        combat_result_json: JSON.stringify({
+          attackType: "EXPAND",
+          attackerWon: true,
+          origin: { x: 10, y: 10 },
+          target: { x: 10, y: 11 },
+          changes: [{ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER" }],
+          pointsDelta: 0,
+          manpowerDelta: -32,
+          pillagedGold: 0,
+          pillagedShare: 0,
+          pillagedStrategic: {},
+          atkEff: 10,
+          defEff: 0,
+          winChance: 1,
+          levelDelta: 0
+        }),
         tile_delta_json: "",
         tile_deltas: []
       });
@@ -102,7 +134,12 @@ describe("simulation event stream supervisor", () => {
           originY: 10,
           targetX: 10,
           targetY: 11,
-          resolvesAt: 1234
+          resolvesAt: 1234,
+          combatResult: expect.objectContaining({
+            attackType: "ATTACK",
+            attackerWon: true,
+            manpowerDelta: -24
+          })
         },
         {
           eventType: "COMBAT_RESOLVED",
@@ -114,7 +151,12 @@ describe("simulation event stream supervisor", () => {
           targetX: 10,
           targetY: 11,
           attackerWon: true,
-          manpowerDelta: -32
+          manpowerDelta: -32,
+          combatResult: expect.objectContaining({
+            attackType: "EXPAND",
+            attackerWon: true,
+            manpowerDelta: -32
+          })
         },
         {
           eventType: "TILE_DELTA_BATCH",

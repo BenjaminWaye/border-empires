@@ -90,6 +90,7 @@ type ProtoSimulationEvent = {
   manpower_delta?: number;
   pillaged_gold?: number;
   pillaged_strategic_json?: string;
+  combat_result_json?: string;
   collect_mode?: string;
   gold?: number;
   strategic_json?: string;
@@ -270,6 +271,7 @@ const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   ...("manpowerDelta" in value && typeof value.manpowerDelta === "number" ? { manpower_delta: value.manpowerDelta } : {}),
   ...("pillagedGold" in value && typeof value.pillagedGold === "number" ? { pillaged_gold: value.pillagedGold } : {}),
   ...("pillagedStrategic" in value && value.pillagedStrategic ? { pillaged_strategic_json: JSON.stringify(value.pillagedStrategic) } : {}),
+  ...("combatResult" in value && value.combatResult ? { combat_result_json: JSON.stringify(value.combatResult) } : {}),
   ...(value.eventType === "COLLECT_RESULT"
     ? {
         collect_mode: value.mode,
