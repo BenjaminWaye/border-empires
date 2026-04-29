@@ -1,4 +1,4 @@
-export type QueuedCornerBadgeKind = "FRONTIER" | "SETTLEMENT" | "BUILD";
+export type QueuedCornerBadgeKind = "SETTLEMENT" | "BUILD";
 
 export type QueuedCornerBadgeLayout = {
   border:
@@ -39,11 +39,6 @@ const QUEUED_CORNER_BADGE_STYLE: Record<
   QueuedCornerBadgeKind,
   { border: string; background: string; foreground: string }
 > = {
-  FRONTIER: {
-    border: "rgba(168, 139, 250, 0.95)",
-    background: "rgba(20, 16, 35, 0.85)",
-    foreground: "#c4b5fd"
-  },
   SETTLEMENT: {
     border: "rgba(251, 191, 36, 0.95)",
     background: "rgba(49, 31, 4, 0.92)",
@@ -67,33 +62,27 @@ export const queuedCornerBadgeLayout = ({
 }: QueuedCornerBadgeLayoutArgs): QueuedCornerBadgeLayout | undefined => {
   if (ordinal === undefined || blocked) return undefined;
   const style = QUEUED_CORNER_BADGE_STYLE[kind];
-  const borderInset = kind === "FRONTIER" ? 1 : 2;
-  const borderSize = kind === "FRONTIER" ? size - 3 : size - 5;
-  const badgeWidth =
-    kind === "FRONTIER"
-      ? Math.min(size - 6, 14)
-      : Math.min(size - 6, ordinal >= 10 ? 18 : 14);
   return {
     border: isTrue3D
       ? undefined
       : {
           strokeStyle: style.border,
-          x: px + borderInset,
-          y: py + borderInset,
-          width: borderSize,
-          height: borderSize
+          x: px + 2,
+          y: py + 2,
+          width: size - 5,
+          height: size - 5
         },
     badge:
-      size >= (kind === "FRONTIER" ? 16 : 14)
+      size >= 14
         ? {
             background: style.background,
             foreground: style.foreground,
             text: String(ordinal),
-            x: kind === "FRONTIER" ? px + 3 : px + size - badgeWidth - 3,
+            x: px + size - Math.min(size - 6, ordinal >= 10 ? 18 : 14) - 3,
             y: py + 3,
-            width: badgeWidth,
+            width: Math.min(size - 6, ordinal >= 10 ? 18 : 14),
             height: 12,
-            textX: kind === "FRONTIER" ? px + 5 : px + size - badgeWidth - 1,
+            textX: px + size - Math.min(size - 6, ordinal >= 10 ? 18 : 14) - 1,
             textY: py + 4
           }
         : undefined
