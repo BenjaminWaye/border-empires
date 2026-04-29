@@ -19,10 +19,20 @@ export type ClientChangelogRelease = {
 
 // Update this object for every user-facing client release.
 export const LATEST_CLIENT_CHANGELOG: ClientChangelogRelease = {
-  version: "2026.04.29.4",
+  version: "2026.04.29.5",
   title: "What's New",
-  summary: "Recent updates include a gateway health fix that stops rewrite/staging frontier commands from silently hanging when the simulation event stream drops, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
+  summary: "Recent updates include locked combat reveals that arrive before the frontier timer ends, a stale-socket fix that stops resolved fights from hanging behind missed result messages, a tile-details owner-name fix so visible AI territory no longer falls back to raw ids when style metadata lags behind, a rollback of the chunked rewrite 3D terrain experiment after staging rendered the map black, the steampunk tech-tree restructure with monument projects and Retort Transmutation, a rewrite startup-recovery fix so persisted bootstrap settlements survive simulation restarts, and the broader rewrite bootstrap, lifecycle, and sync hardening already landed on main.",
   entries: [
+    {
+      introducedIn: "2026.04.29.5",
+      title: "Frontier combat results now arrive before the reveal timer ends",
+      why: "Real attacks could still sit in a stuck combat state when the delayed result message went to a stale control socket, and even healthy fights still waited until the lock expired before the client received the full result payload needed for an instant reveal.",
+      changes: [
+        "Live frontier attacks now precompute and freeze the full combat result before COMBAT_START so the client already has manpower loss, plunder, and outcome details when the local reveal timer finishes.",
+        "Delayed frontier COMBAT_RESULT sends now resolve the player’s current control socket at send time instead of reusing the attack-start socket captured several seconds earlier.",
+        "Origin towns/titles now clear immediately when a failed attack demotes the source tile out of SETTLED ownership, with regression coverage around the locked-result and beaten-back paths."
+      ]
+    },
     {
       introducedIn: "2026.04.29.3",
       title: "Rewrite gateway now blocks frontier actions when its simulation event stream is down",

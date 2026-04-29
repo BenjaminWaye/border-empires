@@ -405,6 +405,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
   };
 
+  const stripLocalTownWhenUnsettled = (tile: { ownershipState?: string; town?: unknown }): void => {
+    if (tile.ownershipState === "SETTLED") return;
+    delete tile.town;
+  };
+
   const reconcileActionQueueSafely = (): void => {
     if (typeof reconcileActionQueue !== "function") return;
     reconcileActionQueue();
@@ -599,9 +604,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else delete incoming.ownerId;
       if (change.ownershipState) incoming.ownershipState = change.ownershipState;
       else if (!change.ownerId) delete incoming.ownershipState;
+      stripLocalTownWhenUnsettled(incoming);
       if (typeof change.breachShockUntil === "number") incoming.breachShockUntil = change.breachShockUntil;
       else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
       const merged = mergeServerTileWithOptimisticState(incoming);
+      stripLocalTownWhenUnsettled(merged);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
       if (merged.ownerId === state.me && (merged.ownershipState === "FRONTIER" || merged.ownershipState === "SETTLED")) {
@@ -704,7 +711,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
               ownershipState: undefined,
               capital: undefined
             };
+      stripLocalTownWhenUnsettled(normalizedTile as { ownershipState?: string; town?: unknown });
       const mergedTile = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, normalizedTile));
+      stripLocalTownWhenUnsettled(mergedTile);
       state.tiles.set(keyFor(mergedTile.x, mergedTile.y), mergedTile);
       logFrontierTimeline("frontier-chunk-apply", mergedTile.x, mergedTile.y, {
         before: existing,
@@ -1517,12 +1526,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const resultReceivedAt = Date.now();
       const timing = msg.timing as { acceptedAt?: number; resolvesAt?: number; resultSentAt?: number } | undefined;
       if (
-        msg.attackType === "EXPAND" &&
         typeof timing?.acceptedAt === "number" &&
         typeof timing?.resolvesAt === "number" &&
         typeof timing?.resultSentAt === "number"
       ) {
-        console.info("[neutral-expand-timing]", {
+        console.info("[frontier-result-timing]", {
+          attackType: msg.attackType,
           target: msg.target,
           acceptedAt: timing.acceptedAt,
           resolvesAt: timing.resolvesAt,
@@ -1548,7 +1557,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "COMBAT_START") {
+      if (msg.type === "COMBAT_START") {
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
           attackType: (msg.predictedResult as { attackType?: string } | undefined)?.attackType,
@@ -1708,6 +1717,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         for (const update of tileUpdates) {
           const updateKey = keyFor(update.x, update.y);
           const resolved = state.tiles.get(updateKey);
+          if (resolved) {
+            stripLocalTownWhenUnsettled(resolved);
+            state.tiles.set(updateKey, resolved);
+          }
           if (resolved?.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
             state.frontierSyncWaitUntilByTarget.delete(updateKey);
             clearLateFrontierAck(updateKey);
@@ -1802,6 +1815,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           if (normalizedUpdate.ownershipState) merged.ownershipState = normalizedUpdate.ownershipState;
           else delete merged.ownershipState;
         }
+        stripLocalTownWhenUnsettled(merged);
         if ("capital" in normalizedUpdate) {
           if (normalizedUpdate.capital) merged.capital = normalizedUpdate.capital;
           else delete merged.capital;
@@ -1891,6 +1905,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           });
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
+        stripLocalTownWhenUnsettled(resolved);
         state.tiles.set(updateKey, resolved);
         logFrontierTimeline("frontier-delta-apply", resolved.x, resolved.y, {
           before: existing,
